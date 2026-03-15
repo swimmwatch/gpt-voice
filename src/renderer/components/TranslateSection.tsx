@@ -33,6 +33,20 @@ const TranslateSection: React.FC<Props> = ({ translate, targetLang, onToggle, on
           >
             🇷🇺
           </button>
+          <button
+            className={`lang-btn ${targetLang === 'uk' ? 'active' : ''}`}
+            onClick={() => onLangChange('uk')}
+            title={t('translate.ukrainian')}
+          >
+            🇺🇦
+          </button>
+          <button
+            className={`lang-btn ${targetLang === 'be' ? 'active' : ''}`}
+            onClick={() => onLangChange('be')}
+            title={t('translate.belarusian')}
+          >
+            🇧🇾
+          </button>
         </div>
       )}
     </div>

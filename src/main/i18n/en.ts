@@ -50,6 +50,8 @@ export default {
   'translate.label': 'Translate',
   'translate.english': 'English',
   'translate.russian': 'Русский',
+  'translate.ukrainian': 'Українська',
+  'translate.belarusian': 'Беларуская',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',

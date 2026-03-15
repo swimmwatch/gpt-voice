@@ -50,6 +50,8 @@ export default {
   'translate.label': 'Перевод',
   'translate.english': 'English',
   'translate.russian': 'Русский',
+  'translate.ukrainian': 'Українська',
+  'translate.belarusian': 'Беларуская',
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',

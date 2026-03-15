@@ -1,10 +1,12 @@
 import en from './en';
 import ru from './ru';
+import uk from './uk';
+import be from './be';
 
 export type TranslationKey = keyof typeof en;
 type Translations = Record<TranslationKey, string>;
 
-const locales: Record<string, Translations> = { en, ru };
+const locales: Record<string, Translations> = { en, ru, uk, be };
 
 let currentLocale = 'en';
 
