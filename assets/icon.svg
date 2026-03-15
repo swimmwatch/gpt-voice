@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="white" fill-rule="evenodd">
+    <!-- Microphone body -->
+    <rect x="192" y="64" width="128" height="256" rx="64"/>
+    <!-- Arc stand -->
+    <path d="M144 272 a112 112 0 0 0 224 0" fill="none" stroke="white" stroke-width="32" stroke-linecap="round"/>
+    <!-- Vertical stand -->
+    <rect x="240" y="384" width="32" height="64" rx="4"/>
+    <!-- Base -->
+    <rect x="176" y="432" width="160" height="32" rx="16"/>
+  </g>
+</svg>
