@@ -1,166 +1,181 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import LoadingScreen from './components/LoadingScreen';
+import LoginButton from './components/LoginButton';
+import StatusIndicator from './components/StatusIndicator';
+import HotkeyRow from './components/HotkeyRow';
+import HotkeyModal from './components/HotkeyModal';
+import TranslateSection from './components/TranslateSection';
+import { useRecording } from './hooks/useRecording';
+import { useI18n } from './hooks/useI18n';
+
+type HotkeyTarget = 'record' | 'cancel' | 'stop';
 
 const App: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
-  const [status, setStatus] = useState('Press F8 to start recording');
+  const [isPaused, setIsPaused] = useState(false);
+  const [status, setStatus] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [translate, setTranslate] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [hotkey, setHotkey] = useState('F8');
+  const [cancelHotkey, setCancelHotkey] = useState('Escape');
+  const [stopHotkey, setStopHotkey] = useState('F10');
+  const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+  const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
+  const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
+  const [activeProviderId, setActiveProviderId] = useState('chatgpt');
+
+  const { t } = useI18n();
+
   const translateRef = useRef(translate);
   const targetLangRef = useRef(targetLang);
-  translateRef.current = translate;
-  targetLangRef.current = targetLang;
 
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+  useEffect(() => {
+    translateRef.current = translate;
+  }, [translate]);
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
+  useEffect(() => {
+    targetLangRef.current = targetLang;
+  }, [targetLang]);
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const arrayBuffer = await blob.arrayBuffer();
-
-        // Transcribe via ChatGPT
-        setStatus('Transcribing...');
-        try {
-          const result = await window.electronAPI.transcribeAudio(arrayBuffer);
-          console.log('Transcription result:', result);
-          if (result.success && result.text) {
-            let finalText = result.text;
-
-            if (translateRef.current) {
-              setStatus('Translating...');
-              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
-              console.log('Translation result:', tr);
-              if (tr.success && tr.text) {
-                finalText = tr.text;
-              } else {
-                console.error('[translate] Translation failed:', tr.error);
-                setStatus('Translation failed');
-                window.electronAPI.showNotification('Текст скопирован (без перевода)', result.text);
-                return;
-              }
-            }
-
-            console.info('[transcribe] Copied to clipboard:', finalText);
-            setStatus('Copied to clipboard');
-            window.electronAPI.showNotification('Текст скопирован', finalText);
-          } else {
-            console.error('[transcribe] Transcription failed:', result.error, (result as any).raw);
-            setStatus('Transcription failed');
-          }
-        } catch (err) {
-          setStatus('Transcription error');
-          console.error('Transcribe error:', err);
-        }
-
-        // Stop all tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
-      };
-
-      mediaRecorder.start(100); // collect data every 100ms
-      setStatus('Recording...');
-    } catch (err) {
-      setStatus('Error: Could not access microphone');
-      console.error('Microphone error:', err);
-    }
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      setStatus('Stopping...');
-    }
-  }, []);
+  const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = useRecording({
+    setStatus,
+    setIsRecording,
+    setIsPaused,
+    translateRef,
+    targetLangRef,
+    t,
+  });
 
   useEffect(() => {
     window.electronAPI.onToggleRecording((recording: boolean) => {
       setIsRecording(recording);
-      if (recording) {
-        startRecording();
-      } else {
-        stopRecording();
-      }
+      setIsPaused(false);
+      if (recording) startRecording();
     });
-    // Check existing session on mount
-    window.electronAPI.checkSession().then(setIsLoggedIn);
-  }, [startRecording, stopRecording]);
+    window.electronAPI.onStopRecording(() => {
+      setIsRecording(false);
+      setIsPaused(false);
+      stopRecording();
+    });
+    window.electronAPI.onPauseRecording(() => pauseRecording());
+    window.electronAPI.onResumeRecording(() => resumeRecording());
+    window.electronAPI.onCancelRecording(() => cancelRecording());
+
+    window.electronAPI.checkSession().then((hasSession) => {
+      setIsLoggedIn(hasSession);
+      if (!hasSession) setIsLoading(false);
+    });
+
+    window.electronAPI.isBgReady().then((ready) => {
+      if (ready) setIsLoading(false);
+    });
+    window.electronAPI.onBgBrowserReady(() => setIsLoading(false));
+
+    window.electronAPI.getHotkey().then(({ hotkey: hk, cancelHotkey: chk, stopHotkey: shk }) => {
+      setHotkey(hk);
+      setCancelHotkey(chk);
+      setStopHotkey(shk);
+      setStatus(t('status.pressToRecord', { hotkey: hk }));
+    });
+
+    window.electronAPI.getTranslateSettings().then(({ translate: tr, targetLang: tl }) => {
+      setTranslate(tr);
+      setTargetLang(tl);
+    });
+
+    window.electronAPI.getProviders().then(setProviders);
+    window.electronAPI.getActiveProvider().then(setActiveProviderId);
+  }, [startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
+
+  const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
-    setStatus('Logging in to ChatGPT...');
-    const result = await window.electronAPI.chatgptLogin();
+    setStatus(t('status.loggingIn', { provider: activeProviderName }));
+    const result = await window.electronAPI.providerLogin();
     setIsLoggingIn(false);
     if (result.success) {
       setIsLoggedIn(true);
-      setStatus('Logged in to ChatGPT');
+      setStatus(t('status.loggedIn', { provider: activeProviderName }));
     } else {
-      setStatus(`Login failed: ${result.error}`);
+      setStatus(t('status.loginFailed', { error: result.error || '' }));
     }
   };
 
+  const handleProviderChange = async (providerId: string) => {
+    setActiveProviderId(providerId);
+    setIsLoading(true);
+    await window.electronAPI.setActiveProvider(providerId);
+    const hasSession = await window.electronAPI.checkSession();
+    setIsLoggedIn(hasSession);
+    setIsLoading(false);
+  };
+
+  const openHotkeyModal = (target: HotkeyTarget) => {
+    setHotkeyTarget(target);
+    setShowHotkeyModal(true);
+  };
+
+  const handleHotkeyApply = async (newHotkey: string) => {
+    const result = await window.electronAPI.setHotkey(hotkeyTarget, newHotkey);
+    if (result.success) {
+      setHotkey(result.hotkey);
+      setCancelHotkey(result.cancelHotkey);
+      setStopHotkey(result.stopHotkey);
+    }
+    setShowHotkeyModal(false);
+  };
+
+  if (isLoading) return <LoadingScreen />;
+
   return (
     <div className="container">
-      <h1>Voice Transcriber</h1>
-      <div className="login-section">
-        <button
-          className={`login-btn ${isLoggedIn ? 'logged-in' : ''}`}
-          onClick={handleLogin}
-          disabled={isLoggingIn}
-        >
-          {isLoggingIn ? 'Logging in...' : isLoggedIn ? 'ChatGPT: Connected' : 'Login to ChatGPT'}
-        </button>
+      {providers.length > 1 && (
+        <div className="provider-section">
+          <label className="provider-label">{t('provider.label')}</label>
+          <select
+            className="provider-select"
+            value={activeProviderId}
+            onChange={(e) => handleProviderChange(e.target.value)}
+          >
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <LoginButton
+        isLoggedIn={isLoggedIn}
+        isLoggingIn={isLoggingIn}
+        providerName={activeProviderName}
+        onLogin={handleLogin}
+      />
+      <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
+      <div className="hotkeys-section">
+        <HotkeyRow label={t('hotkey.record')} value={hotkey} onChangeClick={() => openHotkeyModal('record')} />
+        <HotkeyRow label={t('hotkey.stop')} value={stopHotkey} onChangeClick={() => openHotkeyModal('stop')} />
+        <HotkeyRow label={t('hotkey.cancel')} value={cancelHotkey} onChangeClick={() => openHotkeyModal('cancel')} />
       </div>
-      <div className={`status-indicator ${isRecording ? 'recording' : 'idle'}`}>
-        <div className="dot" />
-        <span>{isRecording ? 'Recording' : 'Idle'}</span>
-      </div>
-      <p className="status-text">{status}</p>
-      <p className="hint">Press <kbd>F8</kbd> to toggle recording</p>
-      <div className="translate-section">
-        <label className="translate-toggle">
-          <input type="checkbox" checked={translate} onChange={(e) => setTranslate(e.target.checked)} />
-          Translate
-        </label>
-        {translate && (
-          <div className="lang-selector">
-            <button
-              className={`lang-btn ${targetLang === 'en' ? 'active' : ''}`}
-              onClick={() => setTargetLang('en')}
-              title="English"
-            >
-              🇺🇸
-            </button>
-            <button
-              className={`lang-btn ${targetLang === 'ru' ? 'active' : ''}`}
-              onClick={() => setTargetLang('ru')}
-              title="Русский"
-            >
-              🇷🇺
-            </button>
-          </div>
-        )}
-      </div>
-
+      <TranslateSection
+        translate={translate}
+        targetLang={targetLang}
+        onToggle={(val) => {
+          setTranslate(val);
+          window.electronAPI.setTranslateSettings(val, targetLang);
+        }}
+        onLangChange={(lang) => {
+          setTargetLang(lang);
+          window.electronAPI.setTranslateSettings(translate, lang);
+        }}
+      />
+      {showHotkeyModal && (
+        <HotkeyModal target={hotkeyTarget} onApply={handleHotkeyApply} onClose={() => setShowHotkeyModal(false)} />
+      )}
     </div>
   );
 };

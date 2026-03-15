@@ -10,7 +10,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "build:prod": "NODE_ENV=production webpack --config webpack.config.js",
+    "build:prod": "cross-env NODE_ENV=production webpack --config webpack.config.js",
     "start": "npm run build && electron .",
     "start:prod": "npm run build:prod && electron .",
     "dev": "webpack --config webpack.config.js --watch",
@@ -18,7 +18,11 @@
     "dist": "npm run build:prod && electron-builder",
     "dist:linux": "npm run build:prod && electron-builder --linux",
     "dist:win": "npm run build:prod && electron-builder --win",
-    "dist:mac": "npm run build:prod && electron-builder --mac"
+    "dist:mac": "npm run build:prod && electron-builder --mac",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\""
   },
   "keywords": [],
   "license": "ISC",
@@ -37,7 +41,8 @@
       "node_modules/playwright-extra/**/*",
       "node_modules/puppeteer-extra-plugin-stealth/**/*",
       "node_modules/puppeteer-extra/**/*",
-      "node_modules/puppeteer-extra-plugin/**/*"
+      "node_modules/puppeteer-extra-plugin/**/*",
+      "node_modules/electron-log/**/*"
     ],
     "extraResources": [
       {
@@ -46,21 +51,36 @@
       }
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility",
       "icon": "assets/icon.png",
       "maintainer": "Dmitry Vasiliev <contact.vasiliev.dmitry@gmail.com>"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "assets/icon.png"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "mac": {
-      "target": ["dmg"],
-      "icon": "assets/icon.png"
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.utilities"
     }
   },
   "dependencies": {
+    "electron-log": "^5.4.3",
+    "http-status-codes": "^2.3.0",
     "playwright": "^1.58.2",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -68,17 +88,25 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "cross-env": "^10.1.0",
     "css-loader": "^7.1.4",
     "electron": "^41.0.2",
     "electron-builder": "^26.8.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "html-webpack-plugin": "^5.6.6",
+    "prettier": "^3.8.1",
     "sass": "^1.98.0",
     "sass-loader": "^16.0.7",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
     "webpack": "^5.105.4",
     "webpack-cli": "^7.0.0"
   }
