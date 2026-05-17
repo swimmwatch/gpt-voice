@@ -22,15 +22,30 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [supportedLocales, setSupportedLocales] = useState<string[]>(['en']);
 
   useEffect(() => {
-    Promise.all([
-      window.electronAPI.getTranslations(),
-      window.electronAPI.getLocale(),
-      window.electronAPI.getSupportedLocales(),
-    ]).then(([tr, loc, supported]) => {
-      setTranslations(tr);
-      setLocaleState(loc);
-      setSupportedLocales(supported);
-    });
+    let disposed = false;
+
+    const initI18n = async () => {
+      try {
+        const [tr, loc, supported] = await Promise.all([
+          window.electronAPI.getTranslations(),
+          window.electronAPI.getLocale(),
+          window.electronAPI.getSupportedLocales(),
+        ]);
+
+        if (disposed) return;
+        setTranslations(tr);
+        setLocaleState(loc);
+        setSupportedLocales(supported);
+      } catch {
+        // Keep the default English fallback context if preload IPC is not ready yet.
+      }
+    };
+
+    void initI18n();
+
+    return () => {
+      disposed = true;
+    };
   }, []);
 
   const t = useCallback(

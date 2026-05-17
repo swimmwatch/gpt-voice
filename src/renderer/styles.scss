@@ -224,7 +224,15 @@ h1 {
   gap: 8px;
 
   input {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    opacity: 0;
+    white-space: nowrap;
   }
 
   .toggle-track {
@@ -255,6 +263,10 @@ h1 {
       left: 18px;
       background: #2563eb;
     }
+  }
+
+  input:focus-visible + .toggle-track {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.28);
   }
 }
 

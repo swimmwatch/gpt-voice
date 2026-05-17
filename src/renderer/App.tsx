@@ -36,6 +36,7 @@ const App: React.FC = () => {
 
   const translateRef = useRef(translate);
   const targetLangRef = useRef(targetLang);
+  const preserveStatusRef = useRef(false);
 
   useEffect(() => {
     translateRef.current = translate;
@@ -80,11 +81,13 @@ const App: React.FC = () => {
       }),
       window.electronAPI.onBgBrowserReady(() => {
         if (disposed) return;
+        preserveStatusRef.current = false;
         setIsLoggedIn(true);
         setIsLoading(false);
       }),
       window.electronAPI.onBgBrowserError((error, authExpired) => {
         if (disposed) return;
+        preserveStatusRef.current = true;
         setIsLoading(false);
         if (authExpired) {
           setIsLoggedIn(false);
@@ -117,7 +120,9 @@ const App: React.FC = () => {
       setHotkey(hk);
       setCancelHotkey(chk);
       setStopHotkey(shk);
-      setStatus(t('status.pressToRecord', { hotkey: hk }));
+      if (!preserveStatusRef.current) {
+        setStatus(t('status.pressToRecord', { hotkey: hk }));
+      }
     });
 
     window.electronAPI.getTranslateSettings().then(({ translate: tr, targetLang: tl }) => {
@@ -167,6 +172,7 @@ const App: React.FC = () => {
     }
 
     setIsLoggingIn(true);
+    preserveStatusRef.current = false;
     setStatus(t('status.loggingIn', { provider: activeProviderName }));
     const result = await window.electronAPI.providerLogin();
     setIsLoggingIn(false);
@@ -174,6 +180,7 @@ const App: React.FC = () => {
       setIsLoggedIn(true);
       setStatus(t('status.loggedIn', { provider: activeProviderName }));
     } else {
+      preserveStatusRef.current = true;
       setStatus(t('status.loginFailed', { error: result.error || '' }));
     }
   };
@@ -183,8 +190,10 @@ const App: React.FC = () => {
     const configured = settings.authType === 'apiKey' ? settings.hasApiKey : settings.hasSession;
     setIsLoggedIn(configured);
     if (configured) {
+      preserveStatusRef.current = false;
       setStatus(t('status.providerConfigured', { provider: activeProviderName }));
     } else {
+      preserveStatusRef.current = true;
       setStatus(t('status.providerNotConfigured', { provider: activeProviderName }));
     }
   };
@@ -195,6 +204,7 @@ const App: React.FC = () => {
     const result = await window.electronAPI.setActiveProvider(providerId);
     await refreshProviderState();
     if (!result.success && result.error) {
+      preserveStatusRef.current = true;
       setStatus(t('status.browserInitFailed', { error: result.error }));
     }
     setIsLoading(false);

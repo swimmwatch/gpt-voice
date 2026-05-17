@@ -243,30 +243,30 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private async transcribeViaPage(audioBase64: string, accessToken: string, mimeType: string) {
     return this.page!.evaluate(
       async ({
-        audioBase64,
-        accessToken,
-        mimeType,
-        fileExtension,
+        audioBase64: b64,
+        accessToken: token,
+        mimeType: uploadMimeType,
+        fileExtension: uploadExtension,
       }: {
         audioBase64: string;
         accessToken: string;
         mimeType: string;
         fileExtension: string;
       }) => {
-        const binaryStr = atob(audioBase64);
+        const binaryStr = atob(b64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        const blob = new Blob([bytes], { type: mimeType || 'audio/webm' });
+        const blob = new Blob([bytes], { type: uploadMimeType || 'audio/webm' });
         const formData = new FormData();
-        formData.append('file', blob, `recording.${fileExtension}`);
+        formData.append('file', blob, `recording.${uploadExtension}`);
         formData.append('model', 'whisper-1');
 
         const res = await fetch('/backend-api/transcribe', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
             Accept: '*/*',
             'OAI-Language': navigator.language || 'en-US',
           },

@@ -1,4 +1,4 @@
-import { app, Tray, Menu, nativeImage } from 'electron';
+import { app, Tray, Menu, nativeImage, type NativeImage } from 'electron';
 import { getMainWindow, createWindow, setQuitting } from './window';
 import { t } from './i18n';
 import { getAssetPath } from './assets';
@@ -10,14 +10,21 @@ function getTrayIconPath(recording: boolean): string {
   return getAssetPath(filename);
 }
 
+function createTrayIcon(recording: boolean): NativeImage {
+  const icon = nativeImage.createFromPath(getTrayIconPath(recording));
+  if (process.platform === 'darwin') {
+    icon.setTemplateImage(true);
+  }
+  return icon;
+}
+
 export function updateTrayIcon(recording: boolean): void {
   if (!tray) return;
-  const icon = nativeImage.createFromPath(getTrayIconPath(recording));
-  tray.setImage(icon);
+  tray.setImage(createTrayIcon(recording));
 }
 
 export function createTray(): void {
-  const icon = nativeImage.createFromPath(getTrayIconPath(false));
+  const icon = createTrayIcon(false);
   tray = new Tray(icon);
   tray.setToolTip(t('tray.tooltip'));
 

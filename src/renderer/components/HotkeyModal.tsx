@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 
 interface Props {
@@ -11,8 +11,13 @@ interface Props {
 const HotkeyModal: React.FC<Props> = ({ target, platform, onApply, onClose }) => {
   const { t } = useI18n();
   const [pendingHotkey, setPendingHotkey] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const targetLabel = t(`hotkey.${target}`);
+
+  useEffect(() => {
+    modalRef.current?.focus();
+  }, []);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -35,7 +40,7 @@ const HotkeyModal: React.FC<Props> = ({ target, platform, onApply, onClose }) =>
           }
         }}
         tabIndex={0}
-        ref={(el) => el?.focus()}
+        ref={modalRef}
       >
         <h2>{t('hotkey.setHotkey', { target: targetLabel })}</h2>
         <p className="modal-instruction">{t('hotkey.pressKeyCombination')}</p>

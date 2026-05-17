@@ -62,7 +62,7 @@ export function useRecording({
 
             if (translateRef.current) {
               setStatus(t('status.translating'));
-              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current!);
+              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
               log.info('Translation result:', tr);
               if (tr.success && tr.text) {
                 finalText = tr.text;
