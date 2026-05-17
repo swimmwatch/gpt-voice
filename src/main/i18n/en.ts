@@ -53,6 +53,7 @@ export default {
   'translate.russian': 'Русский',
   'translate.ukrainian': 'Українська',
   'translate.belarusian': 'Беларуская',
+  'translate.targetLanguage': 'Target language',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',

@@ -8,6 +8,13 @@ interface Props {
   onLangChange: (lang: string) => void;
 }
 
+const LANGUAGE_OPTIONS = [
+  { value: 'en', flag: '🇺🇸', labelKey: 'translate.english' },
+  { value: 'ru', flag: '🇷🇺', labelKey: 'translate.russian' },
+  { value: 'uk', flag: '🇺🇦', labelKey: 'translate.ukrainian' },
+  { value: 'be', flag: '🇧🇾', labelKey: 'translate.belarusian' },
+];
+
 const TranslateSection: React.FC<Props> = ({ translate, targetLang, onToggle, onLangChange }) => {
   const { t } = useI18n();
   return (
@@ -19,34 +26,18 @@ const TranslateSection: React.FC<Props> = ({ translate, targetLang, onToggle, on
       </label>
       {translate && (
         <div className="lang-selector">
-          <button
-            className={`lang-btn ${targetLang === 'en' ? 'active' : ''}`}
-            onClick={() => onLangChange('en')}
-            title={t('translate.english')}
+          <select
+            className="lang-select"
+            value={targetLang}
+            onChange={(e) => onLangChange(e.target.value)}
+            aria-label={t('translate.targetLanguage')}
           >
-            🇺🇸
-          </button>
-          <button
-            className={`lang-btn ${targetLang === 'ru' ? 'active' : ''}`}
-            onClick={() => onLangChange('ru')}
-            title={t('translate.russian')}
-          >
-            🇷🇺
-          </button>
-          <button
-            className={`lang-btn ${targetLang === 'uk' ? 'active' : ''}`}
-            onClick={() => onLangChange('uk')}
-            title={t('translate.ukrainian')}
-          >
-            🇺🇦
-          </button>
-          <button
-            className={`lang-btn ${targetLang === 'be' ? 'active' : ''}`}
-            onClick={() => onLangChange('be')}
-            title={t('translate.belarusian')}
-          >
-            🇧🇾
-          </button>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.flag} {t(option.labelKey)}
+              </option>
+            ))}
+          </select>
         </div>
       )}
     </div>

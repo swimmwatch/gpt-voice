@@ -15,6 +15,7 @@ let bgError = '';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 const VIEWPORT = { width: 1366, height: 768 };
+const GOOGLE_TRANSLATE_URL = 'https://translate.google.ru/?sl=auto&tl=en&op=translate';
 
 export function isBgReady(): boolean {
   return bgReady;
@@ -55,8 +56,9 @@ export function launchLoginContext(): Promise<BrowserContext> {
 async function initTranslatePage(context: BrowserContext): Promise<void> {
   translatePage = await context.newPage();
   log.info('Navigating to Google Translate...');
-  await translatePage.goto('https://translate.google.ru/?sl=auto&tl=en&op=translate', {
-    waitUntil: 'networkidle',
+  await translatePage.goto(GOOGLE_TRANSLATE_URL, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
   });
 
   // Handle Google cookie consent if redirected
@@ -68,11 +70,12 @@ async function initTranslatePage(context: BrowserContext): Promise<void> {
     try {
       await acceptBtn.first().click({ timeout: 5000 });
       await translatePage.waitForURL('**/translate.google.*', { timeout: 10000 });
-      await translatePage.waitForLoadState('networkidle');
+      await translatePage.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     } catch {
       log.warn('Could not auto-accept consent, retrying navigation...');
-      await translatePage.goto('https://translate.google.ru/?sl=auto&tl=en&op=translate', {
-        waitUntil: 'networkidle',
+      await translatePage.goto(GOOGLE_TRANSLATE_URL, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000,
       });
     }
   }

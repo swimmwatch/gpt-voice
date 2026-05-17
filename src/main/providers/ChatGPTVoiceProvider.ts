@@ -12,6 +12,9 @@ const log = createLogger('chatgpt-provider');
 
 const SESSION_FILE = path.join(APP_DIR, 'chatgpt-session.json');
 const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
+const CHATGPT_URL = 'https://chatgpt.com';
+const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
+const AUTH_SESSION_TIMEOUT_MS = 15000;
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -58,9 +61,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       return route.continue();
     });
 
-    log.info('Navigating to chatgpt.com...');
-    await this.page.goto('https://chatgpt.com', { waitUntil: 'networkidle' });
-    log.info('Page loaded, URL:', this.page.url());
+    await this.navigateToChatGPT();
 
     // Load token: try cache first, then fetch from page
     this.accessToken = this.loadCachedToken();
@@ -99,11 +100,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   async fetchAccessToken(): Promise<string> {
     if (!this.page) return '';
     log.info('Fetching access token from page...');
-    const token = await this.page.evaluate(async () => {
-      const res = await fetch('/api/auth/session');
-      const json = await res.json();
-      return json.accessToken || '';
-    });
+    const token = await this.fetchAccessTokenFromPage();
     if (token) {
       this.accessToken = token;
       this.saveCachedToken(token);
@@ -113,11 +110,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
 
   async refreshAccessToken(): Promise<string> {
     if (!this.page) return '';
-    this.accessToken = await this.page.evaluate(async () => {
-      const res = await fetch('/api/auth/session');
-      const json = await res.json();
-      return json.accessToken || '';
-    });
+    this.accessToken = await this.fetchAccessTokenFromPage();
     log.info('Access token refreshed, length:', this.accessToken.length);
     if (this.accessToken) {
       this.saveCachedToken(this.accessToken);
@@ -182,6 +175,45 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   // --- Private helpers ---
+
+  private async navigateToChatGPT(): Promise<void> {
+    if (!this.page) return;
+
+    log.info('Navigating to chatgpt.com...');
+    const response = await this.page.goto(CHATGPT_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
+    });
+    log.info('Page loaded, URL:', this.page.url(), 'status:', response?.status() ?? 'n/a');
+
+    try {
+      await this.page.waitForLoadState('load', { timeout: 10000 });
+    } catch {
+      log.warn('ChatGPT load event did not settle quickly; continuing after DOMContentLoaded');
+    }
+  }
+
+  private async fetchAccessTokenFromPage(): Promise<string> {
+    if (!this.page) return '';
+
+    return this.page.evaluate(async (timeoutMs: number) => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch('/api/auth/session', {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!res.ok) return '';
+        const json = await res.json();
+        return typeof json.accessToken === 'string' ? json.accessToken : '';
+      } catch {
+        return '';
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }, AUTH_SESSION_TIMEOUT_MS);
+  }
 
   private async transcribeViaPage(audioBase64: string, accessToken: string) {
     return this.page!.evaluate(

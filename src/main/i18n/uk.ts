@@ -53,6 +53,7 @@ export default {
   'translate.russian': 'Русский',
   'translate.ukrainian': 'Українська',
   'translate.belarusian': 'Беларуская',
+  'translate.targetLanguage': 'Мова перекладу',
 
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
