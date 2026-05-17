@@ -43,6 +43,9 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Validate Dependabot configuration
+        run: npm run validate:dependabot
+
       - name: Lint
         run: npm run lint
 

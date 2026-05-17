@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+
+version: 2
+
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '07:00'
+      timezone: 'Etc/UTC'
+    open-pull-requests-limit: 8
+    rebase-strategy: 'auto'
+    versioning-strategy: 'increase-if-necessary'
+    labels:
+      - 'dependencies'
+      - 'npm'
+      - 'desktop-app'
+    commit-message:
+      prefix: 'deps'
+      prefix-development: 'deps-dev'
+      include: 'scope'
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 3
+      semver-patch-days: 1
+      exclude:
+        - 'electron'
+        - 'electron-builder'
+        - '@electron/*'
+        - 'cloakbrowser'
+        - 'playwright-core'
+    groups:
+      npm-security:
+        applies-to: 'security-updates'
+        patterns:
+          - '*'
+      electron-platform:
+        patterns:
+          - 'electron'
+          - 'electron-builder'
+          - '@electron/*'
+        update-types:
+          - 'patch'
+          - 'minor'
+      cloakbrowser-runtime:
+        patterns:
+          - 'cloakbrowser'
+          - 'playwright-core'
+        update-types:
+          - 'patch'
+          - 'minor'
+      react-ui:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+        update-types:
+          - 'patch'
+          - 'minor'
+      lint-format-tooling:
+        dependency-type: 'development'
+        patterns:
+          - '@eslint/*'
+          - 'eslint'
+          - 'eslint-*'
+          - 'prettier'
+          - 'typescript-eslint'
+        update-types:
+          - 'patch'
+          - 'minor'
+      build-tooling:
+        dependency-type: 'development'
+        patterns:
+          - 'cross-env'
+          - 'css-loader'
+          - 'html-webpack-plugin'
+          - 'sass'
+          - 'sass-loader'
+          - 'style-loader'
+          - 'ts-loader'
+          - 'typescript'
+          - 'webpack'
+          - 'webpack-*'
+        update-types:
+          - 'patch'
+          - 'minor'
+      runtime-dependencies:
+        dependency-type: 'production'
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'cloakbrowser'
+          - 'electron'
+          - 'electron-builder'
+          - 'playwright-core'
+          - 'react'
+          - 'react-dom'
+        update-types:
+          - 'patch'
+          - 'minor'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '07:00'
+      timezone: 'Etc/UTC'
+    open-pull-requests-limit: 3
+    rebase-strategy: 'auto'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+      - 'ci'
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+    groups:
+      github-actions-security:
+        applies-to: 'security-updates'
+        patterns:
+          - '*'
+      github-actions-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - 'patch'
+          - 'minor'

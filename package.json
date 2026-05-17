@@ -25,6 +25,7 @@
     "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc --noEmit",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\""
@@ -102,6 +103,7 @@
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "ajv": "^8.20.0",
     "cross-env": "^10.1.0",
     "css-loader": "^7.1.4",
     "electron": "^41.0.2",
@@ -119,6 +121,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
     "webpack": "^5.105.4",
-    "webpack-cli": "^7.0.0"
+    "webpack-cli": "^7.0.0",
+    "yaml": "^2.9.0"
   }
 }
