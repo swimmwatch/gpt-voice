@@ -159,7 +159,7 @@ npm run prepare:cloakbrowser -- --target=linux
 npm run smoke:cloakbrowser
 ```
 
-The PR pipeline also runs package smoke builds for Linux, Windows, and macOS.
+The PR pipeline also runs package smoke builds for Linux, Windows, and macOS. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
 
 ## Project Layout
 

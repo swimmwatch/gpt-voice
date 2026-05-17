@@ -1,0 +1,35 @@
+name: Lint GitHub Actions Workflows
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actionlint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: Actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download actionlint
+        id: get-actionlint
+        shell: bash
+        run: bash <(curl --fail --show-error --silent --location https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+
+      - name: Check workflow files
+        shell: bash
+        run: ${{ steps.get-actionlint.outputs.executable }} -color
