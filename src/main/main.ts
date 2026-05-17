@@ -2,7 +2,7 @@ import { app, globalShortcut, session } from 'electron';
 import log from './logger';
 import { loadConfig, getCurrentLocale } from './config';
 import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
-import { createWindow, getMainWindow, setQuitting } from './window';
+import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
 import { registerIpcHandlers } from './ipc';
@@ -14,11 +14,22 @@ import {
   removeLinuxAppImageDesktopIntegration,
 } from './linuxDesktopIntegration';
 import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
+import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
 
-app.setName('GPT-Voice');
-app.setAppUserModelId('com.gptvoice.app');
+configureAppIdentity();
 app.disableHardwareAcceleration();
 registerAppProtocolScheme();
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+
+app.on('second-instance', () => {
+  if (app.isReady()) {
+    showMainWindow();
+  }
+});
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('class', 'gpt-voice');
@@ -42,6 +53,7 @@ app.on('ready', () => {
   }
 
   configureCloakBrowserRuntime();
+  configureNativeAppMetadata();
   registerLinuxAppImageDesktopIntegration();
   registerAppProtocol();
 
@@ -90,12 +102,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  const win = getMainWindow();
-  if (win === null) {
-    createWindow();
-  } else {
-    win.show();
-  }
+  showMainWindow();
 });
 
 app.on('will-quit', async () => {

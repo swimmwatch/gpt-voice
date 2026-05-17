@@ -25,6 +25,9 @@ jobs:
     name: Quality Gates
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
     steps:
       - name: Checkout
@@ -37,16 +40,18 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Cache installed dependencies
-        id: node-modules-cache
+      - name: Cache Electron binaries
         uses: actions/cache@v5
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          path: |
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
 
       - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: npm run ci:install
 
       - name: Check formatting
         run: npm run format:check
@@ -60,6 +65,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck tests
+        run: npm run test:types
+
+      - name: Unit tests
+        run: npm test
+
       - name: Audit production dependencies
         run: npm run audit:prod
 
@@ -71,6 +82,9 @@ jobs:
     needs: quality
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     strategy:
       fail-fast: false
       matrix:
@@ -99,27 +113,19 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Cache installed dependencies
-        id: node-modules-cache
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-
       - name: Cache Electron and CloakBrowser binaries
         uses: actions/cache@v5
         with:
           path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
             ~/.cloakbrowser
           key: ${{ runner.os }}-electron-cloak-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs') }}
           restore-keys: |
             ${{ runner.os }}-electron-cloak-
 
       - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: npm run ci:install
 
       - name: Prepare bundled CloakBrowser
         run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}

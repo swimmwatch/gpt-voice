@@ -1,27 +1,31 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+
+type Unsubscribe = () => void;
+
+function onMainEvent<Args extends unknown[]>(channel: string, callback: (...args: Args) => void): Unsubscribe {
+  const listener = (_event: IpcRendererEvent, ...args: Args): void => {
+    callback(...args);
+  };
+
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   onToggleRecording: (callback: (isRecording: boolean) => void) => {
-    ipcRenderer.removeAllListeners('toggle-recording');
-    ipcRenderer.on('toggle-recording', (_event, isRecording: boolean) => {
-      callback(isRecording);
-    });
+    return onMainEvent<[boolean]>('toggle-recording', (isRecording) => callback(Boolean(isRecording)));
   },
   onCancelRecording: (callback: () => void) => {
-    ipcRenderer.removeAllListeners('cancel-recording');
-    ipcRenderer.on('cancel-recording', () => callback());
+    return onMainEvent('cancel-recording', callback);
   },
   onPauseRecording: (callback: () => void) => {
-    ipcRenderer.removeAllListeners('pause-recording');
-    ipcRenderer.on('pause-recording', () => callback());
+    return onMainEvent('pause-recording', callback);
   },
   onResumeRecording: (callback: () => void) => {
-    ipcRenderer.removeAllListeners('resume-recording');
-    ipcRenderer.on('resume-recording', () => callback());
+    return onMainEvent('resume-recording', callback);
   },
   onStopRecording: (callback: () => void) => {
-    ipcRenderer.removeAllListeners('stop-recording');
-    ipcRenderer.on('stop-recording', () => callback());
+    return onMainEvent('stop-recording', callback);
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');
@@ -63,13 +67,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-bg-browser-status');
   },
   onBgBrowserReady: (callback: () => void) => {
-    ipcRenderer.removeAllListeners('bg-browser-ready');
-    ipcRenderer.on('bg-browser-ready', () => callback());
+    return onMainEvent('bg-browser-ready', callback);
   },
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => {
-    ipcRenderer.removeAllListeners('bg-browser-error');
-    ipcRenderer.on('bg-browser-error', (_event, error: string, authExpired: boolean) =>
-      callback(error, Boolean(authExpired)),
+    return onMainEvent<[string, boolean]>('bg-browser-error', (error, authExpired) =>
+      callback(String(error), Boolean(authExpired)),
     );
   },
   getHotkey: (): Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }> => {

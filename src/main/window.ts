@@ -16,6 +16,20 @@ export function setQuitting(value: boolean): void {
   isQuitting = value;
 }
 
+export function showMainWindow(): void {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 export function createWindow(): void {
   const appIcon = getAppIcon();
   const appIconPath = getAppIconPath();

@@ -5,9 +5,9 @@
 <h1 align="center">GPT-Voice</h1>
 
 <p align="center">
-  <strong>Desktop voice transcription powered by ChatGPT's web experience.</strong>
+  <strong>Desktop voice transcription powered by GPT web sessions.</strong>
   <br />
-  Record a thought, send it through your logged-in ChatGPT web session, and get clean text back on your clipboard.
+  Record a thought, send it through your logged-in GPT web session, and get clean text back on your clipboard.
 </p>
 
 <p align="center">
@@ -44,7 +44,7 @@ The current provider is ChatGPT, but the architecture is provider-based. The sam
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
 - **Optional translation**: send the transcript through the bundled Google Translate browser page.
 - **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb, plus Windows and macOS build targets.
-- **CI protected**: linting, formatting, type checking, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
+- **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
 ## How It Works
 
@@ -239,7 +239,7 @@ On first launch, click **Login to ChatGPT**, complete login in the browser windo
 
 | Action | Default  |
 | ------ | -------- |
-| Record | `F8`     |
+| Record | `F9`     |
 | Stop   | `F10`    |
 | Cancel | `Escape` |
 
@@ -282,6 +282,8 @@ The `Build Release Artifacts` workflow can be started manually from GitHub Actio
 npm run format:check
 npm run lint
 npm run typecheck
+npm run test:types
+npm test
 npm run validate:dependabot
 npm run audit:prod
 npm run build:prod
@@ -297,6 +299,7 @@ The PR pipeline also runs package smoke builds for Linux, Windows, and macOS. Gi
 src/main/        Electron main process, IPC, hotkeys, browser orchestration
 src/renderer/    React UI and recording UX
 scripts/         CloakBrowser preparation, smoke tests, config validation
+tests/           Unit tests based on Node.js test runner
 assets/          App icons and README screenshots
 .github/         PR checks, release builds, Dependabot, and templates
 ```

@@ -1,19 +1,33 @@
 {
   "name": "gpt-voice",
   "version": "1.0.0",
-  "description": "Desktop voice transcriber with ChatGPT",
+  "private": true,
+  "description": "Desktop voice transcription app powered by GPT web sessions.",
   "homepage": "https://github.com/swimmwatch/gpt-voice",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swimmwatch/gpt-voice.git"
+  },
+  "bugs": {
+    "url": "https://github.com/swimmwatch/gpt-voice/issues"
+  },
   "author": {
     "name": "Dmitry Vasiliev",
     "email": "contact.vasiliev.dmitry@gmail.com"
   },
   "main": "dist/main.js",
+  "packageManager": "npm@11.9.0",
+  "engines": {
+    "node": ">=24",
+    "npm": ">=11"
+  },
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "build:prod": "cross-env NODE_ENV=production webpack --config webpack.config.js",
     "start": "npm run build && electron .",
     "start:prod": "npm run build:prod && electron .",
     "dev": "webpack --config webpack.config.js --watch",
+    "ci:install": "node scripts/ci-install.mjs",
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
     "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
     "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
@@ -22,22 +36,37 @@
     "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && electron-builder --linux",
     "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && electron-builder --win",
     "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && electron-builder --mac",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
     "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit",
+    "test:unit": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:watch": "node --import tsx --test --watch \"tests/**/*.test.ts\"",
+    "test:types": "tsc --noEmit -p tsconfig.test.json",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "verify:installers": "node scripts/verify-installers.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\""
   },
-  "keywords": [],
+  "keywords": [
+    "electron",
+    "chatgpt",
+    "whisper",
+    "transcription",
+    "speech-to-text",
+    "desktop",
+    "cloakbrowser"
+  ],
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "commonjs",
   "build": {
-    "appId": "com.gptvoice.app",
+    "appId": "com.swimmwatch.gptvoice",
     "productName": "GPT-Voice",
+    "copyright": "Copyright (c) 2026 Dmitry Vasiliev",
+    "asar": true,
+    "compression": "normal",
     "directories": {
       "output": "release"
     },
@@ -80,20 +109,36 @@
         "AppImage",
         "deb"
       ],
+      "executableName": "gpt-voice",
       "category": "Utility",
       "icon": "assets/icons",
+      "synopsis": "Voice transcription through GPT web sessions",
+      "description": "GPT-Voice records speech on your desktop and sends it through an authenticated GPT web session for fast transcription without a local model or GPU.",
+      "vendor": "Dmitry Vasiliev",
       "maintainer": "Dmitry Vasiliev <contact.vasiliev.dmitry@gmail.com>",
       "desktop": {
         "entry": {
+          "Name": "GPT-Voice",
+          "GenericName": "Voice Transcriber",
+          "Comment": "Transcribe speech through GPT web sessions",
+          "Keywords": "voice;transcription;speech;chatgpt;whisper;",
           "StartupWMClass": "gpt-voice"
         }
       }
+    },
+    "deb": {
+      "packageCategory": "utils",
+      "priority": "optional"
     },
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.png"
+      "executableName": "GPT-Voice",
+      "icon": "assets/icon.png",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": true,
+      "legalTrademarks": "GPT-Voice is an independent project and is not affiliated with OpenAI."
     },
     "nsis": {
       "oneClick": false,
@@ -101,17 +146,29 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "menuCategory": "GPT-Voice",
       "shortcutName": "GPT-Voice",
+      "uninstallDisplayName": "GPT-Voice",
       "deleteAppDataOnUninstall": false
     },
     "mac": {
       "target": [
         "dmg"
       ],
+      "executableName": "GPT-Voice",
       "icon": "assets/icon.png",
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "extendInfo": {
+        "CFBundleDisplayName": "GPT-Voice",
+        "NSHumanReadableCopyright": "Copyright (c) 2026 Dmitry Vasiliev",
+        "NSMicrophoneUsageDescription": "GPT-Voice uses the microphone to record speech for transcription."
+      }
     },
     "dmg": {
+      "title": "GPT-Voice ${version}",
       "contents": [
         {
           "x": 130,

@@ -22,6 +22,9 @@ jobs:
     name: Build ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     strategy:
       fail-fast: false
       matrix:
@@ -53,27 +56,19 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Cache installed dependencies
-        id: node-modules-cache
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-
       - name: Cache Electron and CloakBrowser binaries
         uses: actions/cache@v5
         with:
           path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
             ~/.cloakbrowser
           key: ${{ runner.os }}-release-electron-cloak-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs') }}
           restore-keys: |
             ${{ runner.os }}-release-electron-cloak-
 
       - name: Install dependencies
-        if: steps.node-modules-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: npm run ci:install
 
       - name: Prepare bundled CloakBrowser
         run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}

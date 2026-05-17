@@ -78,7 +78,7 @@ if (!fs.existsSync(APP_DIR)) {
 export const BROWSER_CACHE_DIR = path.join(APP_DIR, 'browser-cache');
 export const CONFIG_FILE = path.join(APP_DIR, 'config.json');
 
-export let currentHotkey = 'F8';
+export let currentHotkey = 'F9';
 export let currentCancelHotkey = 'Escape';
 export let currentStopHotkey = 'F10';
 export let currentTranslate = false;

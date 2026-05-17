@@ -3,6 +3,13 @@ import * as path from 'path';
 import { clipboard } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import { BaseVoiceProvider, type VoiceProviderInfo, type TranscriptionResult } from './BaseVoiceProvider';
+import {
+  getAudioFileExtension,
+  getUnexpiredCookies,
+  hasUsableSessionState,
+  parseTranscribeResponseBody,
+  type SessionState,
+} from './chatgptUtils';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { APP_DIR } from '../config';
@@ -15,17 +22,6 @@ const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
-
-const AUTH_COOKIE_NAMES = new Set([
-  'session',
-  'oai-client-auth-session',
-  'auth-session-minimized',
-  '__Secure-next-auth.session-token',
-  'next-auth.session-token',
-]);
-
-const AUTH_COOKIE_NAME_PREFIXES = ['__Secure-next-auth.session-token', 'next-auth.session-token'];
-const AUTH_COOKIE_DOMAINS = ['chatgpt.com', 'openai.com', 'auth.openai.com'];
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -46,12 +42,6 @@ const BLOCKED_DOMAINS = [
 ];
 
 const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet'];
-
-type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
-
-interface SessionState {
-  cookies?: StorageCookie[];
-}
 
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
@@ -95,7 +85,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   hasSession(): boolean {
     const sessionData = this.readSessionState();
     if (!sessionData) return false;
-    if (this.hasUsableSessionState(sessionData)) return true;
+    if (hasUsableSessionState(sessionData)) return true;
 
     log.warn('Stored ChatGPT session is missing valid auth cookies; clearing it');
     this.clearSession();
@@ -120,13 +110,13 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   async loadSession(context: BrowserContext): Promise<boolean> {
     const sessionData = this.readSessionState();
     if (!sessionData) return false;
-    if (!this.hasUsableSessionState(sessionData)) {
+    if (!hasUsableSessionState(sessionData)) {
       log.warn('Stored ChatGPT session expired before it could be loaded');
       this.clearSession();
       return false;
     }
 
-    const cookies = this.getUnexpiredCookies(sessionData.cookies || []);
+    const cookies = getUnexpiredCookies(sessionData.cookies || []);
     await context.addCookies(cookies);
     return true;
   }
@@ -255,27 +245,21 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         audioBase64,
         accessToken,
         mimeType,
+        fileExtension,
       }: {
         audioBase64: string;
         accessToken: string;
         mimeType: string;
+        fileExtension: string;
       }) => {
         const binaryStr = atob(audioBase64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        const normalizedMimeType = mimeType || 'audio/webm';
-        const extension = normalizedMimeType.includes('mp4')
-          ? 'm4a'
-          : normalizedMimeType.includes('ogg')
-            ? 'ogg'
-            : normalizedMimeType.includes('wav')
-              ? 'wav'
-              : 'webm';
-        const blob = new Blob([bytes], { type: normalizedMimeType });
+        const blob = new Blob([bytes], { type: mimeType || 'audio/webm' });
         const formData = new FormData();
-        formData.append('file', blob, `recording.${extension}`);
+        formData.append('file', blob, `recording.${fileExtension}`);
         formData.append('model', 'whisper-1');
 
         const res = await fetch('/backend-api/transcribe', {
@@ -290,28 +274,17 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         const text = await res.text();
         return { status: res.status, body: text };
       },
-      { audioBase64, accessToken, mimeType },
+      { audioBase64, accessToken, mimeType, fileExtension: getAudioFileExtension(mimeType) },
     );
   }
 
   private parseTranscribeResponse(resp: { status: number; body: string }): TranscriptionResult {
-    let result: Record<string, unknown>;
-    try {
-      result = JSON.parse(resp.body);
-    } catch {
-      return {
-        success: false,
-        error: t('error.nonJsonResponse', { status: String(resp.status), body: resp.body.substring(0, 300) }),
-      };
+    const parsed = parseTranscribeResponseBody(resp);
+    if (parsed.success && parsed.text) {
+      log.info('Transcription success:', parsed.text);
+      clipboard.writeText(parsed.text);
     }
-
-    const text = String(result.text || result.transcript || '');
-    if (text) {
-      log.info('Transcription success:', text);
-      clipboard.writeText(text);
-      return { success: true, text };
-    }
-    return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
+    return parsed;
   }
 
   private loadCachedToken(): string {
@@ -337,30 +310,6 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       log.error('Failed to load session');
       return null;
     }
-  }
-
-  private hasUsableSessionState(sessionData: SessionState): boolean {
-    return this.getUnexpiredCookies(sessionData.cookies || []).some((cookie) => this.isAuthCookie(cookie));
-  }
-
-  private getUnexpiredCookies(cookies: StorageCookie[]): StorageCookie[] {
-    const nowSeconds = Date.now() / 1000;
-    return cookies.filter((cookie) => {
-      const expires = typeof cookie.expires === 'number' ? cookie.expires : undefined;
-      return expires === undefined || expires <= 0 || expires > nowSeconds;
-    });
-  }
-
-  private isAuthCookie(cookie: StorageCookie): boolean {
-    const name = typeof cookie.name === 'string' ? cookie.name : '';
-    const domain = typeof cookie.domain === 'string' ? cookie.domain : '';
-    const normalizedDomain = domain.replace(/^\./, '');
-    const hasAuthName =
-      AUTH_COOKIE_NAMES.has(name) || AUTH_COOKIE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
-    const hasAuthDomain = AUTH_COOKIE_DOMAINS.some(
-      (authDomain) => normalizedDomain === authDomain || normalizedDomain.endsWith(`.${authDomain}`),
-    );
-    return hasAuthName && hasAuthDomain;
   }
 
   private saveCachedToken(accessToken: string): void {

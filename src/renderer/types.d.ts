@@ -1,9 +1,9 @@
 export interface ElectronAPI {
-  onToggleRecording: (callback: (isRecording: boolean) => void) => void;
-  onCancelRecording: (callback: () => void) => void;
-  onPauseRecording: (callback: () => void) => void;
-  onResumeRecording: (callback: () => void) => void;
-  onStopRecording: (callback: () => void) => void;
+  onToggleRecording: (callback: (isRecording: boolean) => void) => () => void;
+  onCancelRecording: (callback: () => void) => () => void;
+  onPauseRecording: (callback: () => void) => () => void;
+  onResumeRecording: (callback: () => void) => () => void;
+  onStopRecording: (callback: () => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
@@ -19,8 +19,8 @@ export interface ElectronAPI {
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string; authExpired?: boolean }>;
-  onBgBrowserReady: (callback: () => void) => void;
-  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => void;
+  onBgBrowserReady: (callback: () => void) => () => void;
+  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
   getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;
   setHotkey: (
     key: string,
