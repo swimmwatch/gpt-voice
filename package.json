@@ -1,8 +1,8 @@
 {
-  "name": "chatgpt-web-voice",
+  "name": "gpt-voice",
   "version": "1.0.0",
   "description": "Desktop voice transcriber with ChatGPT",
-  "homepage": "https://github.com/swimmwatch/gpt-web-voice",
+  "homepage": "https://github.com/swimmwatch/gpt-voice",
   "author": {
     "name": "Dmitry Vasiliev",
     "email": "contact.vasiliev.dmitry@gmail.com"
@@ -16,6 +16,7 @@
     "dev": "webpack --config webpack.config.js --watch",
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
     "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
+    "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
     "pack": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder --dir",
     "dist": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder",
     "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && electron-builder --linux",
@@ -31,11 +32,11 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\""
   },
   "keywords": [],
-  "license": "ISC",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "commonjs",
   "build": {
-    "appId": "com.webvoice.app",
-    "productName": "WebVoice",
+    "appId": "com.gptvoice.app",
+    "productName": "GPT-Voice",
     "directories": {
       "output": "release"
     },

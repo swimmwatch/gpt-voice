@@ -9,6 +9,8 @@ import { registerIpcHandlers } from './ipc';
 import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 
+app.setName('GPT-Voice');
+
 if (app.isPackaged) {
   process.env.ELECTRON_DISABLE_SANDBOX = '1';
   app.commandLine.appendSwitch('no-sandbox');

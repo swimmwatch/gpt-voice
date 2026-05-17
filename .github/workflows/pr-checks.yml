@@ -37,7 +37,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Cache installed dependencies
+        id: node-modules-cache
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Check formatting
@@ -91,6 +99,13 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Cache installed dependencies
+        id: node-modules-cache
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
       - name: Cache Electron and CloakBrowser binaries
         uses: actions/cache@v5
         with:
@@ -103,6 +118,7 @@ jobs:
             ${{ runner.os }}-electron-cloak-
 
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Prepare bundled CloakBrowser

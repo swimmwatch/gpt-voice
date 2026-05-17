@@ -5,7 +5,16 @@ import { createLogger } from './logger';
 
 const log = createLogger('config');
 
-export const APP_DIR = path.join(os.homedir(), '.webvoice');
+const LEGACY_APP_DIR = path.join(os.homedir(), '.webvoice');
+
+export const APP_DIR = path.join(os.homedir(), '.gpt-voice');
+if (!fs.existsSync(APP_DIR) && fs.existsSync(LEGACY_APP_DIR)) {
+  try {
+    fs.renameSync(LEGACY_APP_DIR, APP_DIR);
+  } catch {
+    /* fall back to creating a fresh app directory */
+  }
+}
 if (!fs.existsSync(APP_DIR)) {
   fs.mkdirSync(APP_DIR, { recursive: true });
 }

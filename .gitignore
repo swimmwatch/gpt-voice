@@ -7,6 +7,7 @@ dist/
 
 # Electron-builder output
 release/
+release-artifacts/
 
 # Session data
 chatgpt-session.json

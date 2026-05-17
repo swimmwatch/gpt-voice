@@ -63,7 +63,7 @@ export default {
   'error.noTranscription': 'Нет текста в ответе',
 
   // Tray
-  'tray.tooltip': 'GPT Voice',
+  'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показать',
   'tray.quit': 'Выход',
 } as const;

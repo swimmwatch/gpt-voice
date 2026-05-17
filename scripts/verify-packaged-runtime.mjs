@@ -27,35 +27,35 @@ async function firstExisting(candidates, description) {
 
 const layouts = {
   linux: {
-    app: [path.join(rootDir, 'release', 'linux-unpacked', 'chatgpt-web-voice')],
+    app: [path.join(rootDir, 'release', 'linux-unpacked', 'gpt-voice')],
     asar: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'app.asar')],
     cloak: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'cloakbrowser', 'chrome')],
   },
   win32: {
     app: [
-      path.join(rootDir, 'release', 'win-unpacked', 'chatgpt-web-voice.exe'),
-      path.join(rootDir, 'release', 'win-unpacked', 'WebVoice.exe'),
+      path.join(rootDir, 'release', 'win-unpacked', 'gpt-voice.exe'),
+      path.join(rootDir, 'release', 'win-unpacked', 'GPT-Voice.exe'),
     ],
     asar: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'app.asar')],
     cloak: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'cloakbrowser', 'chrome.exe')],
   },
   darwin: {
     app: [
-      path.join(rootDir, 'release', 'mac', 'WebVoice.app'),
-      path.join(rootDir, 'release', 'mac-arm64', 'WebVoice.app'),
-      path.join(rootDir, 'release', 'mac-universal', 'WebVoice.app'),
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app'),
     ],
     asar: [
-      path.join(rootDir, 'release', 'mac', 'WebVoice.app', 'Contents', 'Resources', 'app.asar'),
-      path.join(rootDir, 'release', 'mac-arm64', 'WebVoice.app', 'Contents', 'Resources', 'app.asar'),
-      path.join(rootDir, 'release', 'mac-universal', 'WebVoice.app', 'Contents', 'Resources', 'app.asar'),
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
     ],
     cloak: [
       path.join(
         rootDir,
         'release',
         'mac',
-        'WebVoice.app',
+        'GPT-Voice.app',
         'Contents',
         'Resources',
         'cloakbrowser',
@@ -68,7 +68,7 @@ const layouts = {
         rootDir,
         'release',
         'mac-arm64',
-        'WebVoice.app',
+        'GPT-Voice.app',
         'Contents',
         'Resources',
         'cloakbrowser',
@@ -81,7 +81,7 @@ const layouts = {
         rootDir,
         'release',
         'mac-universal',
-        'WebVoice.app',
+        'GPT-Voice.app',
         'Contents',
         'Resources',
         'cloakbrowser',

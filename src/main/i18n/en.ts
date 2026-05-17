@@ -63,7 +63,7 @@ export default {
   'error.noTranscription': 'No transcription in response',
 
   // Tray
-  'tray.tooltip': 'GPT Voice',
+  'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
   'tray.quit': 'Quit',
 } as const;
