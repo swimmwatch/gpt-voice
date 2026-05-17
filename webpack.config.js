@@ -31,9 +31,7 @@ module.exports = [
       filename: 'main.js',
     },
     externals: {
-      'playwright': 'commonjs playwright',
-      'playwright-extra': 'commonjs playwright-extra',
-      'puppeteer-extra-plugin-stealth': 'commonjs puppeteer-extra-plugin-stealth',
+      'playwright-core': 'commonjs playwright-core',
     },
   },
   // Preload script

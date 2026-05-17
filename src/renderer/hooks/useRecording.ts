@@ -51,6 +51,7 @@ export function useRecording({
           log.info('Transcription result:', result);
           if (result.success && result.text) {
             let finalText = result.text;
+            let translationFailed = false;
 
             if (translateRef.current) {
               setStatus(t('status.translating'));
@@ -62,9 +63,11 @@ export function useRecording({
                 log.error('Translation failed:', tr.error);
                 setStatus(t('status.translationFailed'));
                 window.electronAPI.showNotification(t('notification.textCopiedNoTranslation'), result.text);
-                return;
+                translationFailed = true;
               }
             }
+
+            if (translationFailed) return;
 
             log.info('Copied to clipboard:', finalText);
             setStatus(t('status.copiedToClipboard'));
@@ -76,21 +79,30 @@ export function useRecording({
         } catch (err) {
           setStatus(t('status.transcriptionError'));
           log.error('Transcribe error:', err);
-        }
-
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
+        } finally {
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+          mediaRecorderRef.current = null;
         }
       };
 
       mediaRecorder.start(100);
       setStatus(t('status.recording'));
     } catch (err) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
+      void window.electronAPI.recordingStartFailed();
       setStatus(t('status.microphoneError'));
       log.error('Microphone error:', err);
     }
-  }, [setStatus, translateRef, targetLangRef, t]);
+  }, [setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
 
   const stopRecording = useCallback(() => {
     if (

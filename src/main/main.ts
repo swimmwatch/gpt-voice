@@ -7,6 +7,7 @@ import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
 import { registerIpcHandlers } from './ipc';
 import { setLocale, getSupportedLocales } from './i18n';
+import { configureCloakBrowserRuntime } from './cloakbrowser';
 
 if (app.isPackaged) {
   process.env.ELECTRON_DISABLE_SANDBOX = '1';
@@ -16,6 +17,8 @@ if (app.isPackaged) {
 app.on('ready', () => {
   log.initialize();
   log.errorHandler.startCatching();
+  configureCloakBrowserRuntime();
+
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === 'media');
   });
@@ -43,8 +46,12 @@ app.on('ready', () => {
   registerShortcuts();
   registerIpcHandlers();
 
-  initBackgroundBrowser().then(() => {
-    getMainWindow()?.webContents.send('bg-browser-ready');
+  initBackgroundBrowser().then((status) => {
+    if (status.ready) {
+      getMainWindow()?.webContents.send('bg-browser-ready');
+    } else if (status.error) {
+      getMainWindow()?.webContents.send('bg-browser-error', status.error);
+    }
   });
 });
 

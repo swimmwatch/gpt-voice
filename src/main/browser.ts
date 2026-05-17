@@ -1,22 +1,32 @@
-import * as fs from 'fs';
-import { chromium } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import type { BrowserContext, Page } from 'playwright';
-import { BROWSER_CACHE_DIR, currentProvider, setProvider } from './config';
+import type { BrowserContext, Page } from 'playwright-core';
+import { BROWSER_CACHE_DIR, currentProvider, getFingerprintSeed, setProvider } from './config';
 import { createProvider, type BaseVoiceProvider } from './providers';
+import { launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
 import { createLogger } from './logger';
 
 const log = createLogger('browser');
-
-chromium.use(StealthPlugin());
 
 let bgContext: BrowserContext | null = null;
 let translatePage: Page | null = null;
 let activeProvider: BaseVoiceProvider | null = null;
 let bgReady = false;
+let bgError = '';
+
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
+const VIEWPORT = { width: 1366, height: 768 };
 
 export function isBgReady(): boolean {
   return bgReady;
+}
+
+export interface BackgroundBrowserStatus {
+  ready: boolean;
+  error?: string;
+}
+
+export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
+  return { ready: bgReady, error: bgError || undefined };
 }
 
 export function getTranslatePage(): Page | null {
@@ -27,54 +37,19 @@ export function getActiveProvider(): BaseVoiceProvider | null {
   return activeProvider;
 }
 
-export function findChrome(): string {
-  const candidates = [
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return '';
+function getCloakContextOptions(headless: boolean) {
+  return {
+    headless,
+    userAgent: USER_AGENT,
+    viewport: VIEWPORT,
+    locale: 'en-US',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    args: [`--fingerprint=${getFingerprintSeed()}`],
+  };
 }
 
-export function getLaunchOptions() {
-  const executablePath = findChrome();
-  const opts: Record<string, unknown> = {
-    headless: true,
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-infobars',
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--disable-dev-shm-usage',
-      '--disable-background-networking',
-      '--disable-default-apps',
-      '--disable-extensions',
-      '--disable-sync',
-      '--disable-translate',
-      '--metrics-recording-only',
-      '--no-sandbox',
-      '--disable-hang-monitor',
-      '--disable-client-side-phishing-detection',
-      '--disable-component-update',
-      '--disable-domain-reliability',
-      '--disable-features=TranslateUI,AudioServiceOutOfProcess',
-    ],
-  };
-  if (executablePath) {
-    opts.executablePath = executablePath;
-  } else {
-    opts.channel = 'chrome';
-  }
-  return opts;
+export function launchLoginContext(): Promise<BrowserContext> {
+  return launchCloakContext(getCloakContextOptions(false));
 }
 
 async function initTranslatePage(context: BrowserContext): Promise<void> {
@@ -104,44 +79,51 @@ async function initTranslatePage(context: BrowserContext): Promise<void> {
   log.info('Google Translate page loaded');
 }
 
-export async function initBackgroundBrowser(): Promise<void> {
+export async function initBackgroundBrowser(): Promise<BackgroundBrowserStatus> {
+  bgReady = false;
+  bgError = '';
+
   // Create provider from config
   activeProvider = createProvider(currentProvider);
 
   if (!activeProvider.hasSession()) {
     log.info('No session file, skipping background browser init');
-    return;
+    return getBackgroundBrowserStatus();
   }
 
   try {
     log.info('Launching persistent background browser...');
-    const launchOpts = getLaunchOptions();
-    bgContext = await chromium.launchPersistentContext(BROWSER_CACHE_DIR, {
-      ...launchOpts,
-      userAgent:
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      viewport: { width: 1366, height: 768 },
-      locale: 'en-US',
-      timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    bgContext = await launchCloakPersistentContext({
+      userDataDir: BROWSER_CACHE_DIR,
+      ...getCloakContextOptions(true),
     });
 
     // Load session cookies and initialize provider page
     await activeProvider.loadSession(bgContext);
     await activeProvider.initPage(bgContext);
+    if (!activeProvider.isReady()) {
+      throw new Error('Provider session did not produce an access token');
+    }
 
     // Google Translate page
     await initTranslatePage(bgContext);
 
     bgReady = true;
     log.info('Background browser ready');
+    return getBackgroundBrowserStatus();
   } catch (err: unknown) {
-    log.error('Init error:', err instanceof Error ? err.message : err);
-    await shutdownBackgroundBrowser();
+    bgError = err instanceof Error ? err.message : String(err);
+    log.error('Init error:', bgError);
+    await shutdownBackgroundBrowser(true);
+    return getBackgroundBrowserStatus();
   }
 }
 
-export async function shutdownBackgroundBrowser(): Promise<void> {
+export async function shutdownBackgroundBrowser(preserveError = false): Promise<void> {
   bgReady = false;
+  if (!preserveError) {
+    bgError = '';
+  }
   if (activeProvider) {
     await activeProvider.shutdown();
   }
@@ -163,10 +145,8 @@ export async function ensureBackgroundBrowser(): Promise<void> {
   await initBackgroundBrowser();
 }
 
-export async function switchProvider(providerId: string): Promise<void> {
+export async function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
   setProvider(providerId);
   await shutdownBackgroundBrowser();
-  await initBackgroundBrowser();
+  return initBackgroundBrowser();
 }
-
-export { chromium };

@@ -15,6 +15,7 @@ export default {
   'status.loggingIn': 'Вхід до {provider}...',
   'status.loggedIn': 'Увійшли до {provider}',
   'status.loginFailed': 'Помилка входу: {error}',
+  'status.browserInitFailed': 'Помилка ініціалізації браузера: {error}',
 
   // Notifications
   'notification.textCopied': 'Текст скопійовано',

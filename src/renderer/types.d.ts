@@ -4,17 +4,20 @@ export interface ElectronAPI {
   onPauseRecording: (callback: () => void) => void;
   onResumeRecording: (callback: () => void) => void;
   onStopRecording: (callback: () => void) => void;
+  recordingStartFailed: () => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
   getProviders: () => Promise<{ id: string; name: string }[]>;
   getActiveProvider: () => Promise<string>;
-  setActiveProvider: (providerId: string) => Promise<{ success: boolean }>;
+  setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
   checkSession: () => Promise<boolean>;
   transcribeAudio: (buffer: ArrayBuffer) => Promise<{ success: boolean; text?: string; error?: string }>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
+  getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string }>;
   onBgBrowserReady: (callback: () => void) => void;
+  onBgBrowserError: (callback: (error: string) => void) => void;
   getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;
   setHotkey: (
     key: string,

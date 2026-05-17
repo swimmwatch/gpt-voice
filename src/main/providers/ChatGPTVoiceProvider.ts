@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { clipboard } from 'electron';
-import type { BrowserContext } from 'playwright';
+import type { BrowserContext } from 'playwright-core';
 import { BaseVoiceProvider, type VoiceProviderInfo, type TranscriptionResult } from './BaseVoiceProvider';
 import { t } from '../i18n';
 import { createLogger } from '../logger';

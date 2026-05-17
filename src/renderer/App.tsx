@@ -73,6 +73,10 @@ const App: React.FC = () => {
       if (ready) setIsLoading(false);
     });
     window.electronAPI.onBgBrowserReady(() => setIsLoading(false));
+    window.electronAPI.onBgBrowserError((error) => {
+      setIsLoading(false);
+      setStatus(t('status.browserInitFailed', { error }));
+    });
 
     window.electronAPI.getHotkey().then(({ hotkey: hk, cancelHotkey: chk, stopHotkey: shk }) => {
       setHotkey(hk);
@@ -108,9 +112,12 @@ const App: React.FC = () => {
   const handleProviderChange = async (providerId: string) => {
     setActiveProviderId(providerId);
     setIsLoading(true);
-    await window.electronAPI.setActiveProvider(providerId);
+    const result = await window.electronAPI.setActiveProvider(providerId);
     const hasSession = await window.electronAPI.checkSession();
     setIsLoggedIn(hasSession);
+    if (!result.success && result.error) {
+      setStatus(t('status.browserInitFailed', { error: result.error }));
+    }
     setIsLoading(false);
   };
 

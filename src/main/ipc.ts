@@ -1,5 +1,5 @@
 import { ipcMain, Notification } from 'electron';
-import type { BrowserContext } from 'playwright';
+import type { BrowserContext } from 'playwright-core';
 import {
   currentHotkey,
   currentCancelHotkey,
@@ -13,17 +13,17 @@ import {
   saveConfig,
 } from './config';
 import {
-  chromium,
-  getLaunchOptions,
   initBackgroundBrowser,
   shutdownBackgroundBrowser,
   isBgReady,
+  getBackgroundBrowserStatus,
   getActiveProvider,
+  launchLoginContext,
   switchProvider,
 } from './browser';
 import { getAvailableProviders } from './providers';
 import { getMainWindow } from './window';
-import { registerShortcuts, getRecordingState } from './shortcuts';
+import { registerShortcuts, getRecordingState, resetRecordingState } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
@@ -44,6 +44,11 @@ export function registerIpcHandlers(): void {
     return getRecordingState().isRecording;
   });
 
+  ipcMain.handle('recording-start-failed', () => {
+    resetRecordingState();
+    return { success: true };
+  });
+
   ipcMain.handle('provider-login', async () => {
     const provider = getActiveProvider();
     if (!provider) {
@@ -51,48 +56,56 @@ export function registerIpcHandlers(): void {
     }
 
     let context: BrowserContext | null = null;
+    let sessionSaved = false;
     try {
-      const browser = await chromium.launch({ ...getLaunchOptions(), headless: false });
-      context = await browser.newContext({
-        userAgent:
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        viewport: { width: 1366, height: 768 },
-        locale: 'en-US',
-        timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
+      context = await launchLoginContext();
       const page = await context.newPage();
       await page.goto(provider.getLoginUrl());
 
       await new Promise<void>((resolve) => {
-        browser.on('disconnected', () => resolve());
+        let done = false;
+        const finish = async (saveSession: boolean) => {
+          if (done) return;
+          done = true;
+          try {
+            if (saveSession) {
+              await provider.saveSession(context!);
+              sessionSaved = true;
+            }
+          } finally {
+            await context?.close().catch(() => {});
+            resolve();
+          }
+        };
+
+        context!.on('close', () => {
+          void finish(false);
+        });
         page.on('close', () => {
-          provider
-            .saveSession(context!)
-            .then(() => {
-              browser
-                .close()
-                .catch(() => {})
-                .finally(() => resolve());
-            })
-            .catch(() => {
-              browser
-                .close()
-                .catch(() => {})
-                .finally(() => resolve());
-            });
+          void finish(true);
         });
       });
 
+      if (!sessionSaved) {
+        return { success: false, error: 'Login window closed before session was saved' };
+      }
+
       await shutdownBackgroundBrowser();
-      initBackgroundBrowser().then(() => {
+      const status = await initBackgroundBrowser();
+      if (status.ready) {
         getMainWindow()?.webContents.send('bg-browser-ready');
-      });
+      } else if (status.error) {
+        getMainWindow()?.webContents.send('bg-browser-error', status.error);
+        return { success: false, error: status.error };
+      } else {
+        return { success: false, error: 'Login did not produce a valid provider session' };
+      }
 
       return { success: true };
     } catch (err: unknown) {
       if (context) {
         try {
-          await context.browser()?.close();
+          await context.close();
         } catch {
           /* ignore */
         }
@@ -110,6 +123,10 @@ export function registerIpcHandlers(): void {
     return isBgReady();
   });
 
+  ipcMain.handle('get-bg-browser-status', () => {
+    return getBackgroundBrowserStatus();
+  });
+
   ipcMain.handle('get-providers', () => {
     return getAvailableProviders();
   });
@@ -119,10 +136,14 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('set-active-provider', async (_event, providerId: string) => {
-    await switchProvider(providerId);
+    const status = await switchProvider(providerId);
     saveConfig();
-    getMainWindow()?.webContents.send('bg-browser-ready');
-    return { success: true };
+    if (status.ready) {
+      getMainWindow()?.webContents.send('bg-browser-ready');
+    } else if (status.error) {
+      getMainWindow()?.webContents.send('bg-browser-error', status.error);
+    }
+    return { success: !status.error, error: status.error };
   });
 
   ipcMain.handle('get-hotkey', () => {

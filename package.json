@@ -14,11 +14,13 @@
     "start": "npm run build && electron .",
     "start:prod": "npm run build:prod && electron .",
     "dev": "webpack --config webpack.config.js --watch",
-    "pack": "npm run build:prod && electron-builder --dir",
-    "dist": "npm run build:prod && electron-builder",
-    "dist:linux": "npm run build:prod && electron-builder --linux",
-    "dist:win": "npm run build:prod && electron-builder --win",
-    "dist:mac": "npm run build:prod && electron-builder --mac",
+    "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
+    "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
+    "pack": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder --dir",
+    "dist": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder",
+    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && electron-builder --linux",
+    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && electron-builder --win",
+    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && electron-builder --mac",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\"",
@@ -36,18 +38,25 @@
     "files": [
       "dist/**/*",
       "assets/**/*",
-      "node_modules/playwright/**/*",
       "node_modules/playwright-core/**/*",
-      "node_modules/playwright-extra/**/*",
-      "node_modules/puppeteer-extra-plugin-stealth/**/*",
-      "node_modules/puppeteer-extra/**/*",
-      "node_modules/puppeteer-extra-plugin/**/*",
+      "node_modules/cloakbrowser/**/*",
+      "node_modules/tar/**/*",
+      "node_modules/@isaacs/fs-minipass/**/*",
+      "node_modules/chownr/**/*",
+      "node_modules/minipass/**/*",
+      "node_modules/minizlib/**/*",
+      "node_modules/mkdirp/**/*",
+      "node_modules/yallist/**/*",
       "node_modules/electron-log/**/*"
     ],
     "extraResources": [
       {
         "from": "assets",
         "to": "assets"
+      },
+      {
+        "from": ".cache/cloakbrowser",
+        "to": "cloakbrowser"
       }
     ],
     "linux": {
@@ -79,11 +88,10 @@
     }
   },
   "dependencies": {
+    "cloakbrowser": "0.3.28",
     "electron-log": "^5.4.3",
     "http-status-codes": "^2.3.0",
-    "playwright": "^1.58.2",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "playwright-core": "1.58.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

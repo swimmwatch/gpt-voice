@@ -20,6 +20,11 @@ export let currentTranslate = false;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale = '';
+export let currentFingerprintSeed = '';
+
+function generateFingerprintSeed(): string {
+  return String(Math.floor(Math.random() * 90000) + 10000);
+}
 
 export function setHotkeys(hotkey?: string, cancelHotkey?: string, stopHotkey?: string): void {
   if (hotkey !== undefined) currentHotkey = hotkey;
@@ -40,6 +45,13 @@ export function setCurrentLocale(locale: string): void {
   currentLocale = locale;
 }
 
+export function getFingerprintSeed(): string {
+  if (!currentFingerprintSeed) {
+    currentFingerprintSeed = generateFingerprintSeed();
+  }
+  return currentFingerprintSeed;
+}
+
 export function getCurrentLocale(): string {
   return currentLocale;
 }
@@ -55,6 +67,11 @@ export function loadConfig(): void {
       if (config.targetLang) currentTargetLang = config.targetLang;
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
+      if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
+    }
+    if (!currentFingerprintSeed) {
+      currentFingerprintSeed = generateFingerprintSeed();
+      saveConfig();
     }
   } catch {
     log.error('Failed to load config');
@@ -73,6 +90,7 @@ export function saveConfig(): void {
         targetLang: currentTargetLang,
         provider: currentProvider,
         locale: currentLocale,
+        fingerprintSeed: currentFingerprintSeed,
       },
       null,
       2,

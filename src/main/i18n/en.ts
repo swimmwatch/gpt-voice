@@ -15,6 +15,7 @@ export default {
   'status.loggingIn': 'Logging in to {provider}...',
   'status.loggedIn': 'Logged in to {provider}',
   'status.loginFailed': 'Login failed: {error}',
+  'status.browserInitFailed': 'Browser initialization failed: {error}',
 
   // Notifications
   'notification.textCopied': 'Text copied',

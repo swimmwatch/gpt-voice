@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('stop-recording');
     ipcRenderer.on('stop-recording', () => callback());
   },
+  recordingStartFailed: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('recording-start-failed');
+  },
   getRecordingStatus: (): Promise<boolean> => {
     return ipcRenderer.invoke('get-recording-status');
   },
@@ -53,9 +56,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isBgReady: (): Promise<boolean> => {
     return ipcRenderer.invoke('is-bg-ready');
   },
+  getBgBrowserStatus: (): Promise<{ ready: boolean; error?: string }> => {
+    return ipcRenderer.invoke('get-bg-browser-status');
+  },
   onBgBrowserReady: (callback: () => void) => {
     ipcRenderer.removeAllListeners('bg-browser-ready');
     ipcRenderer.on('bg-browser-ready', () => callback());
+  },
+  onBgBrowserError: (callback: (error: string) => void) => {
+    ipcRenderer.removeAllListeners('bg-browser-error');
+    ipcRenderer.on('bg-browser-error', (_event, error: string) => callback(error));
   },
   getHotkey: (): Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }> => {
     return ipcRenderer.invoke('get-hotkey');

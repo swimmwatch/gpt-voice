@@ -16,6 +16,7 @@ export function getRecordingState() {
 export function resetRecordingState(): void {
   isRecording = false;
   isPaused = false;
+  updateTrayIcon(false);
 }
 
 export function registerShortcuts(): void {
