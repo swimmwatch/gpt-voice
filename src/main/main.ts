@@ -11,7 +11,7 @@ import { configureCloakBrowserRuntime } from './cloakbrowser';
 
 app.setName('GPT-Voice');
 
-if (app.isPackaged) {
+if (app.isPackaged && process.platform === 'linux') {
   process.env.ELECTRON_DISABLE_SANDBOX = '1';
   app.commandLine.appendSwitch('no-sandbox');
 }

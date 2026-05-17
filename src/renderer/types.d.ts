@@ -11,7 +11,10 @@ export interface ElectronAPI {
   getActiveProvider: () => Promise<string>;
   setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
   checkSession: () => Promise<boolean>;
-  transcribeAudio: (buffer: ArrayBuffer) => Promise<{ success: boolean; text?: string; error?: string }>;
+  transcribeAudio: (
+    buffer: ArrayBuffer,
+    mimeType: string,
+  ) => Promise<{ success: boolean; text?: string; error?: string }>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
@@ -29,6 +32,7 @@ export interface ElectronAPI {
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;
   setLocale: (locale: string) => Promise<{ success: boolean }>;
+  getPlatform: () => Promise<NodeJS.Platform>;
 }
 
 declare global {

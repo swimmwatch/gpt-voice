@@ -24,7 +24,7 @@ Please include:
 
 GPT-Voice is a desktop app that controls a browser session and handles voice input. The following areas are especially sensitive:
 
-- ChatGPT session cookies and profile data stored locally under `~/.gpt-voice`
+- ChatGPT session cookies and profile data stored in the native per-user app data directory
 - CloakBrowser executable and cache bundled into packaged releases
 - IPC messages between Electron main, preload, and renderer processes
 - Audio recording, temporary audio files, and transcription content

@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
+  const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
 
   const { t } = useI18n();
 
@@ -98,6 +99,7 @@ const App: React.FC = () => {
 
     window.electronAPI.getProviders().then(setProviders);
     window.electronAPI.getActiveProvider().then(setActiveProviderId);
+    window.electronAPI.getPlatform().then(setPlatform);
   }, [startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
 
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
@@ -187,7 +189,12 @@ const App: React.FC = () => {
         }}
       />
       {showHotkeyModal && (
-        <HotkeyModal target={hotkeyTarget} onApply={handleHotkeyApply} onClose={() => setShowHotkeyModal(false)} />
+        <HotkeyModal
+          target={hotkeyTarget}
+          platform={platform}
+          onApply={handleHotkeyApply}
+          onClose={() => setShowHotkeyModal(false)}
+        />
       )}
     </div>
   );

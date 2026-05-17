@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
 
 const log = rendererLog.scope('recording');
+const RECORDING_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
 
 interface UseRecordingOptions {
   setStatus: (status: string) => void;
@@ -24,14 +25,19 @@ export function useRecording({
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const getSupportedRecordingMimeType = useCallback(() => {
+    return RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+  }, []);
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      const selectedMimeType = getSupportedRecordingMimeType();
+      const mediaRecorder = selectedMimeType
+        ? new MediaRecorder(stream, { mimeType: selectedMimeType })
+        : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -42,12 +48,13 @@ export function useRecording({
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         const arrayBuffer = await blob.arrayBuffer();
 
         setStatus(t('status.transcribing'));
         try {
-          const result = await window.electronAPI.transcribeAudio(arrayBuffer);
+          const result = await window.electronAPI.transcribeAudio(arrayBuffer, mimeType);
           log.info('Transcription result:', result);
           if (result.success && result.text) {
             let finalText = result.text;
@@ -102,7 +109,7 @@ export function useRecording({
       setStatus(t('status.microphoneError'));
       log.error('Microphone error:', err);
     }
-  }, [setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
+  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
 
   const stopRecording = useCallback(() => {
     if (

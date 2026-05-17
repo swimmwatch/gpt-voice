@@ -19,48 +19,59 @@ export function resetRecordingState(): void {
   updateTrayIcon(false);
 }
 
+function normalizeHotkeyForPlatform(hotkey: string): string {
+  if (process.platform === 'darwin') {
+    return hotkey.replace(/\bSuper\b/g, 'Command');
+  }
+  return hotkey.replace(/\bCommand\b/g, 'Super');
+}
+
 export function registerShortcuts(): void {
   globalShortcut.unregisterAll();
 
-  const registered = globalShortcut.register(currentHotkey, () => {
+  const recordHotkey = normalizeHotkeyForPlatform(currentHotkey);
+  const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
+  const cancelHotkey = normalizeHotkeyForPlatform(currentCancelHotkey);
+
+  const registered = globalShortcut.register(recordHotkey, () => {
     const win = getMainWindow();
     if (!isRecording) {
-      log.info(`${currentHotkey} pressed, starting recording`);
+      log.info(`${recordHotkey} pressed, starting recording`);
       isRecording = true;
       isPaused = false;
       updateTrayIcon(true);
       win?.webContents.send('toggle-recording', true);
     } else if (!isPaused) {
-      log.info(`${currentHotkey} pressed, pausing recording`);
+      log.info(`${recordHotkey} pressed, pausing recording`);
       isPaused = true;
       win?.webContents.send('pause-recording');
     } else {
-      log.info(`${currentHotkey} pressed, resuming recording`);
+      log.info(`${recordHotkey} pressed, resuming recording`);
       isPaused = false;
       win?.webContents.send('resume-recording');
     }
   });
-  log.info(`${currentHotkey} shortcut registered:`, registered);
+  log.info(`${recordHotkey} shortcut registered:`, registered);
 
-  const stopRegistered = globalShortcut.register(currentStopHotkey, () => {
+  const stopRegistered = globalShortcut.register(stopHotkey, () => {
     if (isRecording) {
-      log.info(`${currentStopHotkey} pressed, stopping recording`);
+      log.info(`${stopHotkey} pressed, stopping recording`);
       isRecording = false;
       isPaused = false;
       updateTrayIcon(false);
       getMainWindow()?.webContents.send('stop-recording');
     }
   });
-  log.info(`${currentStopHotkey} stop shortcut registered:`, stopRegistered);
+  log.info(`${stopHotkey} stop shortcut registered:`, stopRegistered);
 
-  const cancelRegistered = globalShortcut.register(currentCancelHotkey, () => {
+  const cancelRegistered = globalShortcut.register(cancelHotkey, () => {
     if (isRecording) {
-      log.info(`${currentCancelHotkey} pressed, cancelling recording`);
+      log.info(`${cancelHotkey} pressed, cancelling recording`);
       isRecording = false;
       isPaused = false;
       updateTrayIcon(false);
       getMainWindow()?.webContents.send('cancel-recording');
     }
   });
-  log.info(`${currentCancelHotkey} cancel shortcut registered:`, cancelRegistered);
+  log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 }

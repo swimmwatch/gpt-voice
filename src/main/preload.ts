@@ -44,8 +44,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkSession: (): Promise<boolean> => {
     return ipcRenderer.invoke('check-session');
   },
-  transcribeAudio: (buffer: ArrayBuffer): Promise<{ success: boolean; text?: string; error?: string }> => {
-    return ipcRenderer.invoke('transcribe-audio', buffer);
+  transcribeAudio: (
+    buffer: ArrayBuffer,
+    mimeType: string,
+  ): Promise<{ success: boolean; text?: string; error?: string }> => {
+    return ipcRenderer.invoke('transcribe-audio', buffer, mimeType);
   },
   translateText: (text: string, targetLang: string): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('translate-text', text, targetLang);
@@ -95,5 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setLocale: (locale: string): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('set-locale', locale);
+  },
+  getPlatform: (): Promise<NodeJS.Platform> => {
+    return ipcRenderer.invoke('get-platform');
   },
 });

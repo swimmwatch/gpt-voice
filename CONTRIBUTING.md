@@ -91,7 +91,7 @@ Never commit:
 - Audio samples containing private content
 - Logs that include account identifiers or sensitive prompts
 
-GPT-Voice stores local app/session data under `~/.gpt-voice`. Treat this directory as sensitive.
+GPT-Voice stores local app/session data in the native per-user app data directory for the current platform. Treat this directory as sensitive.
 
 Report vulnerabilities privately by following [SECURITY.md](SECURITY.md).
 

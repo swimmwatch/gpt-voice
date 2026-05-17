@@ -32,8 +32,8 @@ import { createLogger } from './logger';
 const log = createLogger('ipc');
 
 export function registerIpcHandlers(): void {
-  ipcMain.handle('transcribe-audio', async (_event, buffer: ArrayBuffer) => {
-    return transcribeAudio(buffer);
+  ipcMain.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+    return transcribeAudio(buffer, mimeType);
   });
 
   ipcMain.handle('translate-text', async (_event, text: string, targetLang: string) => {
@@ -198,5 +198,9 @@ export function registerIpcHandlers(): void {
     setCurrentLocale(locale);
     saveConfig();
     return { success: true };
+  });
+
+  ipcMain.handle('get-platform', () => {
+    return process.platform;
   });
 }

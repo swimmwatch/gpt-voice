@@ -3,11 +3,12 @@ import { useI18n } from '../hooks/useI18n';
 
 interface Props {
   target: 'record' | 'cancel' | 'stop';
+  platform: NodeJS.Platform;
   onApply: (hotkey: string) => void;
   onClose: () => void;
 }
 
-const HotkeyModal: React.FC<Props> = ({ target, onApply, onClose }) => {
+const HotkeyModal: React.FC<Props> = ({ target, platform, onApply, onClose }) => {
   const { t } = useI18n();
   const [pendingHotkey, setPendingHotkey] = useState('');
 
@@ -24,7 +25,7 @@ const HotkeyModal: React.FC<Props> = ({ target, onApply, onClose }) => {
           if (e.ctrlKey) parts.push('Ctrl');
           if (e.altKey) parts.push('Alt');
           if (e.shiftKey) parts.push('Shift');
-          if (e.metaKey) parts.push('Super');
+          if (e.metaKey) parts.push(platform === 'darwin' ? 'Command' : 'Super');
           const key = e.key;
           if (!['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
             parts.push(key.length === 1 ? key.toUpperCase() : key);

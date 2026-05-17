@@ -5,16 +5,44 @@ import { createLogger } from './logger';
 
 const log = createLogger('config');
 
-const LEGACY_APP_DIR = path.join(os.homedir(), '.webvoice');
+const LEGACY_APP_DIRS = [path.join(os.homedir(), '.gpt-voice'), path.join(os.homedir(), '.webvoice')];
 
-export const APP_DIR = path.join(os.homedir(), '.gpt-voice');
-if (!fs.existsSync(APP_DIR) && fs.existsSync(LEGACY_APP_DIR)) {
+function getAppDataDir(): string {
+  if (process.platform === 'win32') {
+    return process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support');
+  }
+  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+}
+
+export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
+
+function migrateLegacyAppDir(): void {
+  if (fs.existsSync(APP_DIR)) return;
+
+  const legacyDir = LEGACY_APP_DIRS.find((candidate) => candidate !== APP_DIR && fs.existsSync(candidate));
+  if (!legacyDir) return;
+
+  fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
+
   try {
-    fs.renameSync(LEGACY_APP_DIR, APP_DIR);
-  } catch {
-    /* fall back to creating a fresh app directory */
+    fs.renameSync(legacyDir, APP_DIR);
+    log.info('Migrated app data directory:', legacyDir, '->', APP_DIR);
+  } catch (renameError) {
+    try {
+      fs.cpSync(legacyDir, APP_DIR, { recursive: true });
+      fs.rmSync(legacyDir, { recursive: true, force: true });
+      log.info('Copied app data directory:', legacyDir, '->', APP_DIR);
+    } catch (copyError) {
+      log.warn('Failed to migrate app data directory:', renameError, copyError);
+    }
   }
 }
+
+migrateLegacyAppDir();
+
 if (!fs.existsSync(APP_DIR)) {
   fs.mkdirSync(APP_DIR, { recursive: true });
 }

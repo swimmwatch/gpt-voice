@@ -94,11 +94,11 @@
   },
   "dependencies": {
     "cloakbrowser": "0.3.28",
-    "electron-log": "^5.4.3",
+    "electron-log": "^5.4.4",
     "http-status-codes": "^2.3.0",
-    "playwright-core": "1.58.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "playwright-core": "1.60.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -107,22 +107,22 @@
     "ajv": "^8.20.0",
     "cross-env": "^10.1.0",
     "css-loader": "^7.1.4",
-    "electron": "^41.0.2",
+    "electron": "^41.6.1",
     "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "html-webpack-plugin": "^5.6.6",
-    "prettier": "^3.8.1",
-    "sass": "^1.98.0",
-    "sass-loader": "^16.0.7",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "html-webpack-plugin": "^5.6.7",
+    "prettier": "^3.8.3",
+    "sass": "^1.99.0",
+    "sass-loader": "^16.0.8",
     "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.4",
+    "ts-loader": "^9.5.7",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0",
-    "webpack": "^5.105.4",
-    "webpack-cli": "^7.0.0",
+    "typescript-eslint": "^8.59.3",
+    "webpack": "^5.106.2",
+    "webpack-cli": "^7.0.2",
     "yaml": "^2.9.0"
   }
 }

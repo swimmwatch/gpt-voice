@@ -15,7 +15,9 @@ try {
   await access(executablePath);
   process.env.CLOAKBROWSER_BINARY_PATH = executablePath;
 } catch {
-  throw new Error(`Bundled CloakBrowser executable not found. Run npm run prepare:cloakbrowser first: ${executablePath}`);
+  throw new Error(
+    `Bundled CloakBrowser executable not found. Run npm run prepare:cloakbrowser first: ${executablePath}`,
+  );
 }
 
 process.env.CLOAKBROWSER_AUTO_UPDATE = 'false';

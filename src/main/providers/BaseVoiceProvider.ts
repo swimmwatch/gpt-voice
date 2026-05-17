@@ -33,7 +33,7 @@ export abstract class BaseVoiceProvider {
   abstract refreshAccessToken(): Promise<string>;
 
   /** Transcribe audio buffer → text */
-  abstract transcribe(buffer: ArrayBuffer): Promise<TranscriptionResult>;
+  abstract transcribe(buffer: ArrayBuffer, mimeType?: string): Promise<TranscriptionResult>;
 
   /** Check if this provider has a valid session file */
   abstract hasSession(): boolean;

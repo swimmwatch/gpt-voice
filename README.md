@@ -173,7 +173,7 @@ assets/          App icons and README screenshots
 
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the ChatGPT web service through your authenticated web session. Session data is stored locally in `~/.gpt-voice` and should be treated as sensitive. Do not commit session files or browser cache data.
+GPT-Voice sends recorded audio to the ChatGPT web service through your authenticated web session. Session data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows, `~/Library/Application Support/GPT-Voice` on macOS, and `~/.config/GPT-Voice` on Linux. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

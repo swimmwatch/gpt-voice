@@ -154,9 +154,9 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     return this.accessToken;
   }
 
-  async transcribe(buffer: ArrayBuffer): Promise<TranscriptionResult> {
+  async transcribe(buffer: ArrayBuffer, mimeType = 'audio/webm;codecs=opus'): Promise<TranscriptionResult> {
     try {
-      log.info('Transcribing, audio size:', buffer.byteLength, 'bytes');
+      log.info('Transcribing, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType);
 
       if (!this.page) {
         return { success: false, error: t('error.notLoggedIn') };
@@ -171,7 +171,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       }
 
       const audioBase64 = Buffer.from(buffer).toString('base64');
-      const resp = await this.transcribeViaPage(audioBase64, token);
+      const resp = await this.transcribeViaPage(audioBase64, token, mimeType);
 
       log.info('Transcribe response status:', resp.status);
       if (resp.status !== StatusCodes.OK) {
@@ -187,7 +187,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         log.info('Token may have expired (status', resp.status, '), refreshing...');
         token = await this.refreshAccessToken();
         if (token) {
-          const retryResp = await this.transcribeViaPage(audioBase64, token);
+          const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
           log.info('Retry response status:', retryResp.status);
           if (retryResp.status !== StatusCodes.OK) {
             log.error('Retry response body:', retryResp.body.substring(0, 500));
@@ -249,17 +249,33 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     }, AUTH_SESSION_TIMEOUT_MS);
   }
 
-  private async transcribeViaPage(audioBase64: string, accessToken: string) {
+  private async transcribeViaPage(audioBase64: string, accessToken: string, mimeType: string) {
     return this.page!.evaluate(
-      async ({ audioBase64, accessToken }: { audioBase64: string; accessToken: string }) => {
+      async ({
+        audioBase64,
+        accessToken,
+        mimeType,
+      }: {
+        audioBase64: string;
+        accessToken: string;
+        mimeType: string;
+      }) => {
         const binaryStr = atob(audioBase64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        const blob = new Blob([bytes], { type: 'audio/webm;codecs=opus' });
+        const normalizedMimeType = mimeType || 'audio/webm';
+        const extension = normalizedMimeType.includes('mp4')
+          ? 'm4a'
+          : normalizedMimeType.includes('ogg')
+            ? 'ogg'
+            : normalizedMimeType.includes('wav')
+              ? 'wav'
+              : 'webm';
+        const blob = new Blob([bytes], { type: normalizedMimeType });
         const formData = new FormData();
-        formData.append('file', blob, 'recording.webm');
+        formData.append('file', blob, `recording.${extension}`);
         formData.append('model', 'whisper-1');
 
         const res = await fetch('/backend-api/transcribe', {
@@ -274,7 +290,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         const text = await res.text();
         return { status: res.status, body: text };
       },
-      { audioBase64, accessToken },
+      { audioBase64, accessToken, mimeType },
     );
   }
 

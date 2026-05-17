@@ -6,9 +6,10 @@ const log = createLogger('transcribe');
 
 export async function transcribeAudio(
   buffer: ArrayBuffer,
+  mimeType: string,
 ): Promise<{ success: boolean; text?: string; error?: string; raw?: string }> {
   try {
-    log.info('Starting transcription, audio size:', buffer.byteLength, 'bytes');
+    log.info('Starting transcription, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType || 'unknown');
 
     await ensureBackgroundBrowser();
     const provider = getActiveProvider();
@@ -16,7 +17,7 @@ export async function transcribeAudio(
       return { success: false, error: t('error.notLoggedIn') };
     }
 
-    return provider.transcribe(buffer);
+    return provider.transcribe(buffer, mimeType);
   } catch (err: unknown) {
     log.error('Error:', err instanceof Error ? err.message : err);
     return { success: false, error: err instanceof Error ? err.message : String(err) };
