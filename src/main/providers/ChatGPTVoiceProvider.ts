@@ -16,6 +16,17 @@ const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
 
+const AUTH_COOKIE_NAMES = new Set([
+  'session',
+  'oai-client-auth-session',
+  'auth-session-minimized',
+  '__Secure-next-auth.session-token',
+  'next-auth.session-token',
+]);
+
+const AUTH_COOKIE_NAME_PREFIXES = ['__Secure-next-auth.session-token', 'next-auth.session-token'];
+const AUTH_COOKIE_DOMAINS = ['chatgpt.com', 'openai.com', 'auth.openai.com'];
+
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
   'google-analytics.com',
@@ -35,6 +46,12 @@ const BLOCKED_DOMAINS = [
 ];
 
 const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet'];
+
+type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
+
+interface SessionState {
+  cookies?: StorageCookie[];
+}
 
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
@@ -76,7 +93,22 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   hasSession(): boolean {
-    return fs.existsSync(SESSION_FILE);
+    const sessionData = this.readSessionState();
+    if (!sessionData) return false;
+    if (this.hasUsableSessionState(sessionData)) return true;
+
+    log.warn('Stored ChatGPT session is missing valid auth cookies; clearing it');
+    this.clearSession();
+    return false;
+  }
+
+  clearSession(): void {
+    try {
+      if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+    } catch {
+      /* ignore */
+    }
+    this.clearCachedToken();
   }
 
   async saveSession(context: BrowserContext): Promise<void> {
@@ -86,15 +118,17 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   async loadSession(context: BrowserContext): Promise<boolean> {
-    if (!fs.existsSync(SESSION_FILE)) return false;
-    try {
-      const sessionData = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
-      await context.addCookies(sessionData.cookies || []);
-      return true;
-    } catch {
-      log.error('Failed to load session');
+    const sessionData = this.readSessionState();
+    if (!sessionData) return false;
+    if (!this.hasUsableSessionState(sessionData)) {
+      log.warn('Stored ChatGPT session expired before it could be loaded');
+      this.clearSession();
       return false;
     }
+
+    const cookies = this.getUnexpiredCookies(sessionData.cookies || []);
+    await context.addCookies(cookies);
+    return true;
   }
 
   async fetchAccessToken(): Promise<string> {
@@ -277,6 +311,40 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       log.error('Failed to load cached token');
     }
     return '';
+  }
+
+  private readSessionState(): SessionState | null {
+    try {
+      if (!fs.existsSync(SESSION_FILE)) return null;
+      return JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+    } catch {
+      log.error('Failed to load session');
+      return null;
+    }
+  }
+
+  private hasUsableSessionState(sessionData: SessionState): boolean {
+    return this.getUnexpiredCookies(sessionData.cookies || []).some((cookie) => this.isAuthCookie(cookie));
+  }
+
+  private getUnexpiredCookies(cookies: StorageCookie[]): StorageCookie[] {
+    const nowSeconds = Date.now() / 1000;
+    return cookies.filter((cookie) => {
+      const expires = typeof cookie.expires === 'number' ? cookie.expires : undefined;
+      return expires === undefined || expires <= 0 || expires > nowSeconds;
+    });
+  }
+
+  private isAuthCookie(cookie: StorageCookie): boolean {
+    const name = typeof cookie.name === 'string' ? cookie.name : '';
+    const domain = typeof cookie.domain === 'string' ? cookie.domain : '';
+    const normalizedDomain = domain.replace(/^\./, '');
+    const hasAuthName =
+      AUTH_COOKIE_NAMES.has(name) || AUTH_COOKIE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
+    const hasAuthDomain = AUTH_COOKIE_DOMAINS.some(
+      (authDomain) => normalizedDomain === authDomain || normalizedDomain.endsWith(`.${authDomain}`),
+    );
+    return hasAuthName && hasAuthDomain;
   }
 
   private saveCachedToken(accessToken: string): void {

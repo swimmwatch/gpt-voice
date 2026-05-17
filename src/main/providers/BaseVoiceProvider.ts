@@ -38,6 +38,9 @@ export abstract class BaseVoiceProvider {
   /** Check if this provider has a valid session file */
   abstract hasSession(): boolean;
 
+  /** Remove persisted session data when it is invalid or expired */
+  abstract clearSession(): void;
+
   /** Save session state from a login browser context */
   abstract saveSession(context: BrowserContext): Promise<void>;
 

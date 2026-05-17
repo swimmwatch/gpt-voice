@@ -50,7 +50,7 @@ app.on('ready', () => {
     if (status.ready) {
       getMainWindow()?.webContents.send('bg-browser-ready');
     } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', status.error);
+      getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
     }
   });
 });

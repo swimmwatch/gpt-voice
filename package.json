@@ -23,6 +23,9 @@
     "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && electron-builder --mac",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\""
   },

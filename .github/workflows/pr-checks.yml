@@ -1,0 +1,118 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  CLOAKBROWSER_AUTO_UPDATE: 'false'
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+      - name: Build production bundles
+        run: npm run build:prod
+
+  package-smoke:
+    name: Package Smoke (${{ matrix.platform }})
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            os: ubuntu-latest
+            cloak-target: linux
+            builder-target: linux
+          - platform: Windows
+            os: windows-latest
+            cloak-target: win32
+            builder-target: win
+          - platform: macOS
+            os: macos-latest
+            cloak-target: darwin
+            builder-target: mac
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Cache Electron and CloakBrowser binaries
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/.cloakbrowser
+          key: ${{ runner.os }}-electron-cloak-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-cloak-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare bundled CloakBrowser
+        run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}
+
+      - name: Smoke test CloakBrowser
+        run: npm run smoke:cloakbrowser
+
+      - name: Build production bundles
+        run: npm run build:prod
+
+      - name: Package unpacked app
+        run: npx electron-builder --${{ matrix.builder-target }} dir
+
+      - name: Verify packaged runtime
+        run: npm run verify:packaged

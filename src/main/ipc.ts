@@ -95,7 +95,7 @@ export function registerIpcHandlers(): void {
       if (status.ready) {
         getMainWindow()?.webContents.send('bg-browser-ready');
       } else if (status.error) {
-        getMainWindow()?.webContents.send('bg-browser-error', status.error);
+        getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
         return { success: false, error: status.error };
       } else {
         return { success: false, error: 'Login did not produce a valid provider session' };
@@ -141,7 +141,7 @@ export function registerIpcHandlers(): void {
     if (status.ready) {
       getMainWindow()?.webContents.send('bg-browser-ready');
     } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', status.error);
+      getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
     }
     return { success: !status.error, error: status.error };
   });

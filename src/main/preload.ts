@@ -63,9 +63,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('bg-browser-ready');
     ipcRenderer.on('bg-browser-ready', () => callback());
   },
-  onBgBrowserError: (callback: (error: string) => void) => {
+  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => {
     ipcRenderer.removeAllListeners('bg-browser-error');
-    ipcRenderer.on('bg-browser-error', (_event, error: string) => callback(error));
+    ipcRenderer.on('bg-browser-error', (_event, error: string, authExpired: boolean) =>
+      callback(error, Boolean(authExpired)),
+    );
   },
   getHotkey: (): Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }> => {
     return ipcRenderer.invoke('get-hotkey');

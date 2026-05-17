@@ -73,9 +73,15 @@ const App: React.FC = () => {
       if (ready) setIsLoading(false);
     });
     window.electronAPI.onBgBrowserReady(() => setIsLoading(false));
-    window.electronAPI.onBgBrowserError((error) => {
+    window.electronAPI.onBgBrowserError((error, authExpired) => {
       setIsLoading(false);
+      if (authExpired) {
+        setIsLoggedIn(false);
+        setStatus(t('status.sessionExpired'));
+        return;
+      }
       setStatus(t('status.browserInitFailed', { error }));
+      window.electronAPI.checkSession().then(setIsLoggedIn);
     });
 
     window.electronAPI.getHotkey().then(({ hotkey: hk, cancelHotkey: chk, stopHotkey: shk }) => {

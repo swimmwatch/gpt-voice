@@ -15,9 +15,9 @@ export interface ElectronAPI {
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
-  getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string }>;
+  getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string; authExpired?: boolean }>;
   onBgBrowserReady: (callback: () => void) => void;
-  onBgBrowserError: (callback: (error: string) => void) => void;
+  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => void;
   getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;
   setHotkey: (
     key: string,

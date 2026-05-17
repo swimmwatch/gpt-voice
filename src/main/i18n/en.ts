@@ -16,6 +16,7 @@ export default {
   'status.loggedIn': 'Logged in to {provider}',
   'status.loginFailed': 'Login failed: {error}',
   'status.browserInitFailed': 'Browser initialization failed: {error}',
+  'status.sessionExpired': 'ChatGPT session expired. Please login again.',
 
   // Notifications
   'notification.textCopied': 'Text copied',

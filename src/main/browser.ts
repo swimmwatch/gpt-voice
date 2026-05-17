@@ -3,6 +3,7 @@ import { BROWSER_CACHE_DIR, currentProvider, getFingerprintSeed, setProvider } f
 import { createProvider, type BaseVoiceProvider } from './providers';
 import { launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
 import { createLogger } from './logger';
+import { t } from './i18n';
 
 const log = createLogger('browser');
 
@@ -11,6 +12,7 @@ let translatePage: Page | null = null;
 let activeProvider: BaseVoiceProvider | null = null;
 let bgReady = false;
 let bgError = '';
+let bgAuthExpired = false;
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
@@ -24,10 +26,11 @@ export function isBgReady(): boolean {
 export interface BackgroundBrowserStatus {
   ready: boolean;
   error?: string;
+  authExpired?: boolean;
 }
 
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
-  return { ready: bgReady, error: bgError || undefined };
+  return { ready: bgReady, error: bgError || undefined, authExpired: bgAuthExpired || undefined };
 }
 
 export function getTranslatePage(): Page | null {
@@ -85,6 +88,7 @@ async function initTranslatePage(context: BrowserContext): Promise<void> {
 export async function initBackgroundBrowser(): Promise<BackgroundBrowserStatus> {
   bgReady = false;
   bgError = '';
+  bgAuthExpired = false;
 
   // Create provider from config
   activeProvider = createProvider(currentProvider);
@@ -102,10 +106,20 @@ export async function initBackgroundBrowser(): Promise<BackgroundBrowserStatus> 
     });
 
     // Load session cookies and initialize provider page
-    await activeProvider.loadSession(bgContext);
+    const sessionLoaded = await activeProvider.loadSession(bgContext);
+    if (!sessionLoaded) {
+      bgAuthExpired = true;
+      bgError = t('error.noAccessToken');
+      activeProvider.clearSession();
+      await shutdownBackgroundBrowser(true);
+      return getBackgroundBrowserStatus();
+    }
+
     await activeProvider.initPage(bgContext);
     if (!activeProvider.isReady()) {
-      throw new Error('Provider session did not produce an access token');
+      bgAuthExpired = true;
+      activeProvider.clearSession();
+      throw new Error(t('error.noAccessToken'));
     }
 
     // Google Translate page
@@ -126,6 +140,7 @@ export async function shutdownBackgroundBrowser(preserveError = false): Promise<
   bgReady = false;
   if (!preserveError) {
     bgError = '';
+    bgAuthExpired = false;
   }
   if (activeProvider) {
     await activeProvider.shutdown();

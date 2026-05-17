@@ -16,6 +16,7 @@ export default {
   'status.loggedIn': 'Увайшлі ў {provider}',
   'status.loginFailed': 'Памылка ўваходу: {error}',
   'status.browserInitFailed': 'Памылка ініцыялізацыі браўзера: {error}',
+  'status.sessionExpired': 'Сесія ChatGPT скончылася. Увайдзіце зноў.',
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
