@@ -66,22 +66,152 @@ Availability, quotas, and behavior are determined by the web service account you
 
 ## Install
 
-Most users do not need Node.js, npm, Whisper, CUDA, or a local model. Download the latest ready-to-run build from the **Releases** page:
+Most users do not need Node.js, npm, Whisper, CUDA, or a local model. Download a ready-to-run build from the **Releases** page:
 
 <p>
   <a href="https://github.com/swimmwatch/gpt-voice/releases"><strong>Download GPT-Voice from GitHub Releases</strong></a>
 </p>
 
-Choose the package for your operating system:
+Choose the asset for your operating system:
 
-| Platform | Download                | How to install                                  |
-| -------- | ----------------------- | ----------------------------------------------- |
-| Linux    | `GPT-Voice-*.AppImage`  | Make it executable and run it                   |
-| Linux    | `gpt-voice_*_amd64.deb` | Install with your package manager               |
-| Windows  | `GPT-Voice Setup *.exe` | Run the installer                               |
-| macOS    | `GPT-Voice-*.dmg`       | Open the DMG and drag the app into Applications |
+| Platform | Recommended asset       | Best for                                     |
+| -------- | ----------------------- | -------------------------------------------- |
+| Windows  | `GPT-Voice Setup *.exe` | Normal Windows installation                  |
+| macOS    | `GPT-Voice-*.dmg`       | Normal macOS drag-and-drop installation      |
+| Linux    | `gpt-voice_*_amd64.deb` | Ubuntu, Debian, Linux Mint, Pop!\_OS, etc.   |
+| Linux    | `GPT-Voice-*.AppImage`  | Portable Linux usage without package install |
 
-Each release also includes platform-specific `SHA256SUMS-*.txt` files so you can verify downloaded installers.
+Each release also includes platform-specific `SHA256SUMS-*.txt` files. Use them if you want to verify that the downloaded installer was not corrupted or replaced.
+
+### Windows
+
+Download `GPT-Voice Setup *.exe` from the latest release.
+
+1. Double-click the installer.
+2. Choose the install location if the installer asks for it.
+3. Keep the desktop and Start Menu shortcuts enabled unless you prefer launching the app manually.
+4. Finish the installer and start **GPT-Voice** from the Start Menu, desktop shortcut, or the final installer screen.
+
+The Windows installer is an NSIS installer. It installs the app, bundled CloakBrowser runtime, icons, shortcuts, and an uninstaller entry in Windows settings.
+
+To update, download the newer `GPT-Voice Setup *.exe` and run it over the existing installation.
+
+To uninstall:
+
+1. Open **Settings** -> **Apps** -> **Installed apps**.
+2. Find **GPT-Voice**.
+3. Click **Uninstall**.
+
+Uninstalling removes the installed application files and shortcuts. Your local GPT-Voice session data is intentionally left in `%APPDATA%\GPT-Voice` so reinstalling does not force you to log in again. Delete that folder manually only if you want to remove saved sessions and settings.
+
+### macOS
+
+Download `GPT-Voice-*.dmg` from the latest release.
+
+1. Open the downloaded DMG file.
+2. Drag **GPT-Voice.app** into **Applications**.
+3. Eject the DMG.
+4. Open **GPT-Voice** from **Applications** or Spotlight.
+
+To update, replace the existing app in **Applications** with the newer `GPT-Voice.app` from the latest DMG.
+
+To uninstall:
+
+1. Quit GPT-Voice from the menu bar or Activity Monitor if it is still running.
+2. Delete **GPT-Voice.app** from **Applications**.
+
+Your saved session and settings are stored separately in `~/Library/Application Support/GPT-Voice`. Delete that directory manually only if you want a completely clean uninstall.
+
+If macOS blocks an unsigned or newly released build, verify the release checksum first. If you trust the build, Control-click **GPT-Voice.app**, choose **Open**, and confirm the prompt.
+
+### Linux: deb Package
+
+For Ubuntu, Debian, Linux Mint, Pop!\_OS, and similar distributions, prefer the deb package:
+
+```bash
+sudo apt install ./gpt-voice_*_amd64.deb
+```
+
+This installs GPT-Voice into `/opt/GPT-Voice`, registers the desktop launcher, installs icons, and creates the `gpt-voice` command.
+
+If your system does not support installing a local deb with `apt install`, use:
+
+```bash
+sudo dpkg -i ./gpt-voice_*_amd64.deb
+sudo apt-get install -f
+```
+
+Launch GPT-Voice from your application menu or from a terminal:
+
+```bash
+gpt-voice
+```
+
+To update, install the newer deb package over the existing one:
+
+```bash
+sudo apt install ./gpt-voice_*_amd64.deb
+```
+
+To uninstall the application package:
+
+```bash
+sudo apt remove gpt-voice
+```
+
+To remove package files and package configuration:
+
+```bash
+sudo apt purge gpt-voice
+```
+
+Your saved session and settings are user data and are not removed by `apt remove` or `apt purge`. Delete `~/.config/GPT-Voice` manually only if you want to remove saved login/session data.
+
+### Linux: AppImage
+
+Use the AppImage if you want a portable build or do not want to install a system package.
+
+1. Download `GPT-Voice-*.AppImage`.
+2. Make it executable:
+
+```bash
+chmod +x GPT-Voice-*.AppImage
+```
+
+3. Run it:
+
+```bash
+./GPT-Voice-*.AppImage
+```
+
+On first launch, GPT-Voice registers a local desktop launcher and icon for the current user when possible. This makes the app show up correctly in Ubuntu/GNOME launchers.
+
+To update, download the newer AppImage, make it executable, and use it instead of the old file.
+
+To remove the AppImage version:
+
+1. Quit GPT-Voice.
+2. Remove the desktop integration:
+
+```bash
+./GPT-Voice-*.AppImage --remove-linux-appimage-desktop-integration
+```
+
+3. Delete the AppImage file.
+
+Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that directory manually only if you want a clean reset.
+
+### First Launch
+
+After installation, the first run is the same on every platform:
+
+1. Start **GPT-Voice**.
+2. Click **Login to ChatGPT**.
+3. Sign in with your ChatGPT account in the browser window.
+4. Close the login window after ChatGPT is ready.
+5. Wait until the app shows **ChatGPT: Connected**.
+
+After that, GPT-Voice reuses the saved browser session and starts the background browser automatically.
 
 ## Run From Source
 

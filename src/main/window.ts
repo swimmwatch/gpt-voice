@@ -1,6 +1,8 @@
 import { BrowserWindow, shell } from 'electron';
 import * as path from 'path';
 import { createLogger } from './logger';
+import { getAppIcon, getAppIconPath } from './assets';
+import { getAppUrl } from './appProtocol';
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -15,6 +17,15 @@ export function setQuitting(value: boolean): void {
 }
 
 export function createWindow(): void {
+  const appIcon = getAppIcon();
+  const appIconPath = getAppIconPath();
+
+  if (appIcon.isEmpty()) {
+    log.warn('App icon could not be loaded:', appIconPath);
+  } else {
+    log.debug('App icon loaded:', appIconPath, appIcon.getSize());
+  }
+
   mainWindow = new BrowserWindow({
     width: 400,
     height: 300,
@@ -27,16 +38,39 @@ export function createWindow(): void {
       webviewTag: false,
       navigateOnDragDrop: false,
     },
-    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+    icon: appIconPath,
   });
 
+  const applyWindowIcon = (): void => {
+    if (!mainWindow || process.platform === 'darwin') {
+      return;
+    }
+
+    mainWindow.setIcon(appIconPath);
+
+    if (!appIcon.isEmpty()) {
+      mainWindow.setIcon(appIcon);
+    }
+  };
+
+  applyWindowIcon();
+  mainWindow.once('ready-to-show', applyWindowIcon);
+  mainWindow.webContents.once('did-finish-load', applyWindowIcon);
+
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadURL(getAppUrl());
 
   // Prevent navigation away from the app
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'file:') {
+    let allowed = false;
+    try {
+      const parsed = new URL(url);
+      allowed = parsed.protocol === 'app:' && parsed.host === 'gpt-voice';
+    } catch {
+      allowed = false;
+    }
+
+    if (!allowed) {
       log.warn('Blocked navigation to:', url);
       event.preventDefault();
     }
@@ -44,8 +78,13 @@ export function createWindow(): void {
 
   // Prevent new window creation; open external links in system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith('http://')) {
-      shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:') {
+        void shell.openExternal(parsed.toString());
+      }
+    } catch {
+      log.warn('Blocked malformed external URL:', url);
     }
     return { action: 'deny' };
   });

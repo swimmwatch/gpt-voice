@@ -19,12 +19,9 @@ function getAppDataDir(): string {
 
 export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
 
-function migrateLegacyAppDir(): void {
-  if (fs.existsSync(APP_DIR)) return;
+const MIGRATED_LEGACY_ENTRIES = ['config.json', 'chatgpt-session.json', 'access-token.json', 'browser-cache'];
 
-  const legacyDir = LEGACY_APP_DIRS.find((candidate) => candidate !== APP_DIR && fs.existsSync(candidate));
-  if (!legacyDir) return;
-
+function migrateWholeLegacyAppDir(legacyDir: string): boolean {
   fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
 
   try {
@@ -38,6 +35,37 @@ function migrateLegacyAppDir(): void {
     } catch (copyError) {
       log.warn('Failed to migrate app data directory:', renameError, copyError);
     }
+  }
+
+  return fs.existsSync(APP_DIR);
+}
+
+function copyMissingLegacyEntries(legacyDir: string): void {
+  for (const entry of MIGRATED_LEGACY_ENTRIES) {
+    const source = path.join(legacyDir, entry);
+    const target = path.join(APP_DIR, entry);
+    if (!fs.existsSync(source) || fs.existsSync(target)) continue;
+
+    try {
+      fs.cpSync(source, target, { recursive: true });
+      log.info('Copied missing app data entry:', source, '->', target);
+    } catch (error) {
+      log.warn('Failed to copy missing app data entry:', source, error);
+    }
+  }
+}
+
+function migrateLegacyAppDir(): void {
+  const legacyDirs = LEGACY_APP_DIRS.filter((candidate) => candidate !== APP_DIR && fs.existsSync(candidate));
+  if (legacyDirs.length === 0) return;
+
+  if (!fs.existsSync(APP_DIR) && migrateWholeLegacyAppDir(legacyDirs[0])) {
+    return;
+  }
+
+  fs.mkdirSync(APP_DIR, { recursive: true });
+  for (const legacyDir of legacyDirs) {
+    copyMissingLegacyEntries(legacyDir);
   }
 }
 

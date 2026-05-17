@@ -8,10 +8,25 @@ import { registerShortcuts } from './shortcuts';
 import { registerIpcHandlers } from './ipc';
 import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
+import { getAppIconPath } from './assets';
+import {
+  registerLinuxAppImageDesktopIntegration,
+  removeLinuxAppImageDesktopIntegration,
+} from './linuxDesktopIntegration';
+import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 
 app.setName('GPT-Voice');
+app.setAppUserModelId('com.gptvoice.app');
+app.disableHardwareAcceleration();
+registerAppProtocolScheme();
 
-if (app.isPackaged && process.platform === 'linux') {
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('class', 'gpt-voice');
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-dev-shm-usage');
+}
+
+if (app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE) {
   process.env.ELECTRON_DISABLE_SANDBOX = '1';
   app.commandLine.appendSwitch('no-sandbox');
 }
@@ -19,7 +34,20 @@ if (app.isPackaged && process.platform === 'linux') {
 app.on('ready', () => {
   log.initialize();
   log.errorHandler.startCatching();
+
+  if (process.argv.includes('--remove-linux-appimage-desktop-integration')) {
+    removeLinuxAppImageDesktopIntegration();
+    app.quit();
+    return;
+  }
+
   configureCloakBrowserRuntime();
+  registerLinuxAppImageDesktopIntegration();
+  registerAppProtocol();
+
+  if (process.platform === 'darwin') {
+    app.dock?.setIcon(getAppIconPath());
+  }
 
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === 'media');

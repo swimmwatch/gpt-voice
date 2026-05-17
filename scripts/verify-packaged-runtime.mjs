@@ -1,6 +1,7 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -28,7 +29,9 @@ async function firstExisting(candidates, description) {
 const layouts = {
   linux: {
     app: [path.join(rootDir, 'release', 'linux-unpacked', 'gpt-voice')],
+    fuseTarget: [path.join(rootDir, 'release', 'linux-unpacked', 'gpt-voice')],
     asar: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'app.asar')],
+    icon: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'assets', 'icon.png')],
     cloak: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'cloakbrowser', 'chrome')],
   },
   win32: {
@@ -36,7 +39,12 @@ const layouts = {
       path.join(rootDir, 'release', 'win-unpacked', 'gpt-voice.exe'),
       path.join(rootDir, 'release', 'win-unpacked', 'GPT-Voice.exe'),
     ],
+    fuseTarget: [
+      path.join(rootDir, 'release', 'win-unpacked', 'gpt-voice.exe'),
+      path.join(rootDir, 'release', 'win-unpacked', 'GPT-Voice.exe'),
+    ],
     asar: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'app.asar')],
+    icon: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'assets', 'icon.png')],
     cloak: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'cloakbrowser', 'chrome.exe')],
   },
   darwin: {
@@ -45,10 +53,20 @@ const layouts = {
       path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app'),
       path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app'),
     ],
+    fuseTarget: [
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
+    ],
     asar: [
       path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
       path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
       path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'app.asar'),
+    ],
+    icon: [
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
     ],
     cloak: [
       path.join(
@@ -94,16 +112,52 @@ const layouts = {
   },
 };
 
+const expectedFuses = [
+  [FuseV1Options.RunAsNode, false, 'RunAsNode'],
+  [FuseV1Options.EnableCookieEncryption, true, 'EnableCookieEncryption'],
+  [FuseV1Options.EnableNodeOptionsEnvironmentVariable, false, 'EnableNodeOptionsEnvironmentVariable'],
+  [FuseV1Options.EnableNodeCliInspectArguments, false, 'EnableNodeCliInspectArguments'],
+  [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, true, 'EnableEmbeddedAsarIntegrityValidation'],
+  [FuseV1Options.OnlyLoadAppFromAsar, true, 'OnlyLoadAppFromAsar'],
+  [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot, false, 'LoadBrowserProcessSpecificV8Snapshot'],
+  [FuseV1Options.GrantFileProtocolExtraPrivileges, false, 'GrantFileProtocolExtraPrivileges'],
+];
+
+function isFuseEnabled(fuseWire, fuse) {
+  const value = fuseWire[String(fuse)];
+  return value === '1'.charCodeAt(0) || value === '1' || value === true;
+}
+
+async function verifyElectronFuses(fuseTarget) {
+  const fuseWire = await getCurrentFuseWire(fuseTarget);
+  const mismatches = expectedFuses
+    .map(([fuse, expected, name]) => ({ name, expected, actual: isFuseEnabled(fuseWire, fuse) }))
+    .filter(({ expected, actual }) => expected !== actual);
+
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Electron fuse verification failed for ${fuseTarget}:\n${mismatches
+        .map(({ name, expected, actual }) => `  - ${name}: expected ${expected}, got ${actual}`)
+        .join('\n')}`,
+    );
+  }
+}
+
 const layout = layouts[process.platform];
 if (!layout) {
   throw new Error(`Unsupported platform for packaged runtime verification: ${process.platform}`);
 }
 
 const app = await firstExisting(layout.app, 'Packaged app');
+const fuseTarget = await firstExisting(layout.fuseTarget, 'Packaged Electron executable for fuse verification');
 const asar = await firstExisting(layout.asar, 'Packaged app.asar');
+const icon = await firstExisting(layout.icon, 'Packaged app icon');
 const cloak = await firstExisting(layout.cloak, 'Bundled CloakBrowser executable');
+await verifyElectronFuses(fuseTarget);
 
 console.log('Packaged runtime verification passed');
 console.log(`App: ${app}`);
+console.log(`Electron fuse target: ${fuseTarget}`);
 console.log(`App asar: ${asar}`);
+console.log(`App icon: ${icon}`);
 console.log(`CloakBrowser executable: ${cloak}`);

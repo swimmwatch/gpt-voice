@@ -1,4 +1,4 @@
-import { ipcMain, Notification } from 'electron';
+import { ipcMain, Notification, type IpcMainInvokeEvent } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import {
   currentHotkey,
@@ -28,28 +28,49 @@ import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
 import { createLogger } from './logger';
+import { createProvider } from './providers';
 
 const log = createLogger('ipc');
 
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  const win = getMainWindow();
+  const senderUrl = event.senderFrame?.url || event.sender.getURL();
+
+  if (!win || event.sender.id !== win.webContents.id || senderUrl !== win.webContents.getURL()) {
+    log.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
+    throw new Error('Rejected IPC from untrusted sender');
+  }
+}
+
+function handle<Args extends unknown[]>(
+  channel: string,
+  listener: (event: IpcMainInvokeEvent, ...args: Args) => unknown,
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    assertTrustedSender(event);
+    return listener(event, ...(args as Args));
+  });
+}
+
 export function registerIpcHandlers(): void {
-  ipcMain.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+  handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return transcribeAudio(buffer, mimeType);
   });
 
-  ipcMain.handle('translate-text', async (_event, text: string, targetLang: string) => {
+  handle('translate-text', async (_event, text: string, targetLang: string) => {
     return translateText(text, targetLang);
   });
 
-  ipcMain.handle('get-recording-status', () => {
+  handle('get-recording-status', () => {
     return getRecordingState().isRecording;
   });
 
-  ipcMain.handle('recording-start-failed', () => {
+  handle('recording-start-failed', () => {
     resetRecordingState();
     return { success: true };
   });
 
-  ipcMain.handle('provider-login', async () => {
+  handle('provider-login', async () => {
     const provider = getActiveProvider();
     if (!provider) {
       return { success: false, error: 'No active provider' };
@@ -114,28 +135,28 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle('check-session', () => {
-    const provider = getActiveProvider();
-    return provider ? provider.hasSession() : false;
+  handle('check-session', () => {
+    const provider = getActiveProvider() ?? createProvider(currentProvider);
+    return provider.hasSession();
   });
 
-  ipcMain.handle('is-bg-ready', () => {
+  handle('is-bg-ready', () => {
     return isBgReady();
   });
 
-  ipcMain.handle('get-bg-browser-status', () => {
+  handle('get-bg-browser-status', () => {
     return getBackgroundBrowserStatus();
   });
 
-  ipcMain.handle('get-providers', () => {
+  handle('get-providers', () => {
     return getAvailableProviders();
   });
 
-  ipcMain.handle('get-active-provider', () => {
+  handle('get-active-provider', () => {
     return currentProvider;
   });
 
-  ipcMain.handle('set-active-provider', async (_event, providerId: string) => {
+  handle('set-active-provider', async (_event, providerId: string) => {
     const status = await switchProvider(providerId);
     saveConfig();
     if (status.ready) {
@@ -146,11 +167,11 @@ export function registerIpcHandlers(): void {
     return { success: !status.error, error: status.error };
   });
 
-  ipcMain.handle('get-hotkey', () => {
+  handle('get-hotkey', () => {
     return { hotkey: currentHotkey, cancelHotkey: currentCancelHotkey, stopHotkey: currentStopHotkey };
   });
 
-  ipcMain.handle('set-hotkey', (_event, key: string, hotkey: string) => {
+  handle('set-hotkey', (_event, key: string, hotkey: string) => {
     if (key === 'cancel') {
       log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', hotkey);
       setHotkeys(undefined, hotkey, undefined);
@@ -166,41 +187,41 @@ export function registerIpcHandlers(): void {
     return { success: true, hotkey: currentHotkey, cancelHotkey: currentCancelHotkey, stopHotkey: currentStopHotkey };
   });
 
-  ipcMain.handle('get-translate-settings', () => {
+  handle('get-translate-settings', () => {
     return { translate: currentTranslate, targetLang: currentTargetLang };
   });
 
-  ipcMain.handle('set-translate-settings', (_event, translate: boolean, targetLang: string) => {
+  handle('set-translate-settings', (_event, translate: boolean, targetLang: string) => {
     setTranslateSettings(translate, targetLang);
     saveConfig();
     return { success: true };
   });
 
-  ipcMain.handle('show-notification', (_event, title: string, body: string) => {
+  handle('show-notification', (_event, title: string, body: string) => {
     const notification = new Notification({ title, body });
     notification.show();
   });
 
-  ipcMain.handle('get-translations', () => {
+  handle('get-translations', () => {
     return getAllTranslations();
   });
 
-  ipcMain.handle('get-locale', () => {
+  handle('get-locale', () => {
     return getLocale();
   });
 
-  ipcMain.handle('get-supported-locales', () => {
+  handle('get-supported-locales', () => {
     return getSupportedLocales();
   });
 
-  ipcMain.handle('set-locale', (_event, locale: string) => {
+  handle('set-locale', (_event, locale: string) => {
     setLocale(locale);
     setCurrentLocale(locale);
     saveConfig();
     return { success: true };
   });
 
-  ipcMain.handle('get-platform', () => {
+  handle('get-platform', () => {
     return process.platform;
   });
 }

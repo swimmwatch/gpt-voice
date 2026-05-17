@@ -1,15 +1,13 @@
 import { app, Tray, Menu, nativeImage } from 'electron';
-import * as path from 'path';
 import { getMainWindow, createWindow, setQuitting } from './window';
 import { t } from './i18n';
+import { getAssetPath } from './assets';
 
 let tray: Tray | null = null;
 
 function getTrayIconPath(recording: boolean): string {
   const filename = recording ? 'tray-icon-recording-solid-even-larger-dot.png' : 'tray-icon-white-transparent.png';
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'assets', filename)
-    : path.join(__dirname, '..', 'assets', filename);
+  return getAssetPath(filename);
 }
 
 export function updateTrayIcon(recording: boolean): void {

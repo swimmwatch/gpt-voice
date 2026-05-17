@@ -71,9 +71,15 @@ const App: React.FC = () => {
     });
 
     window.electronAPI.isBgReady().then((ready) => {
-      if (ready) setIsLoading(false);
+      if (ready) {
+        setIsLoggedIn(true);
+        setIsLoading(false);
+      }
     });
-    window.electronAPI.onBgBrowserReady(() => setIsLoading(false));
+    window.electronAPI.onBgBrowserReady(() => {
+      setIsLoggedIn(true);
+      setIsLoading(false);
+    });
     window.electronAPI.onBgBrowserError((error, authExpired) => {
       setIsLoading(false);
       if (authExpired) {
