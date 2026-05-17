@@ -11,6 +11,7 @@ class TestVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
     id: 'test',
     name: 'Test Provider',
+    authType: 'browserSession',
     loginUrl: 'https://example.com/login',
   };
 
@@ -19,7 +20,7 @@ class TestVoiceProvider extends BaseVoiceProvider {
   }
 
   getLoginUrl(): string {
-    return this.info.loginUrl;
+    return this.info.loginUrl || '';
   }
 
   async fetchAccessToken(): Promise<string> {

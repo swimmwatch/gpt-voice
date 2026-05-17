@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../renderer/types';
 
 type Unsubscribe = () => void;
 
@@ -36,13 +37,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   providerLogin: (): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('provider-login');
   },
-  getProviders: (): Promise<{ id: string; name: string }[]> => {
+  getProviders: (): Promise<ProviderInfo[]> => {
     return ipcRenderer.invoke('get-providers');
+  },
+  getProviderSettings: (providerId: string): Promise<ProviderSettings> => {
+    return ipcRenderer.invoke('get-provider-settings', providerId);
+  },
+  saveProviderSettings: (
+    providerId: string,
+    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+  ): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
+    return ipcRenderer.invoke('save-provider-settings', providerId, settings);
+  },
+  clearProviderAuth: (
+    providerId: string,
+  ): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
+    return ipcRenderer.invoke('clear-provider-auth', providerId);
   },
   getActiveProvider: (): Promise<string> => {
     return ipcRenderer.invoke('get-active-provider');
   },
-  setActiveProvider: (providerId: string): Promise<{ success: boolean }> => {
+  setActiveProvider: (providerId: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('set-active-provider', providerId);
   },
   checkSession: (): Promise<boolean> => {
@@ -63,7 +78,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isBgReady: (): Promise<boolean> => {
     return ipcRenderer.invoke('is-bg-ready');
   },
-  getBgBrowserStatus: (): Promise<{ ready: boolean; error?: string }> => {
+  getBgBrowserStatus: (): Promise<{ ready: boolean; error?: string; authExpired?: boolean }> => {
     return ipcRenderer.invoke('get-bg-browser-status');
   },
   onBgBrowserReady: (callback: () => void) => {

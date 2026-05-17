@@ -2,7 +2,7 @@
   "name": "gpt-voice",
   "version": "1.0.0",
   "private": true,
-  "description": "Desktop voice transcription app powered by GPT web sessions.",
+  "description": "Desktop voice transcription app powered by GPT web sessions and OpenAI API.",
   "homepage": "https://github.com/swimmwatch/gpt-voice",
   "repository": {
     "type": "git",
@@ -53,6 +53,8 @@
   "keywords": [
     "electron",
     "chatgpt",
+    "openai",
+    "openai-api",
     "whisper",
     "transcription",
     "speech-to-text",
@@ -112,16 +114,16 @@
       "executableName": "gpt-voice",
       "category": "Utility",
       "icon": "assets/icons",
-      "synopsis": "Voice transcription through GPT web sessions",
-      "description": "GPT-Voice records speech on your desktop and sends it through an authenticated GPT web session for fast transcription without a local model or GPU.",
+      "synopsis": "Voice transcription through GPT web sessions and OpenAI API",
+      "description": "GPT-Voice records speech on your desktop and sends it through an authenticated GPT web session or OpenAI API for fast transcription without a local model or GPU.",
       "vendor": "Dmitry Vasiliev",
       "maintainer": "Dmitry Vasiliev <contact.vasiliev.dmitry@gmail.com>",
       "desktop": {
         "entry": {
           "Name": "GPT-Voice",
           "GenericName": "Voice Transcriber",
-          "Comment": "Transcribe speech through GPT web sessions",
-          "Keywords": "voice;transcription;speech;chatgpt;whisper;",
+          "Comment": "Transcribe speech through GPT web sessions or OpenAI API",
+          "Keywords": "voice;transcription;speech;chatgpt;openai;whisper;",
           "StartupWMClass": "gpt-voice"
         }
       }

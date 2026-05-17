@@ -41,8 +41,10 @@ export function createWindow(): void {
   }
 
   mainWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
+    width: 460,
+    height: 420,
+    minWidth: 400,
+    minHeight: 360,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

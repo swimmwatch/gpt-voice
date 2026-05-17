@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from 'playwright-core';
-import { BROWSER_CACHE_DIR, currentProvider, getFingerprintSeed, setProvider } from './config';
+import { BROWSER_CACHE_DIR, currentProvider, currentTranslate, getFingerprintSeed, setProvider } from './config';
 import { createProvider, type BaseVoiceProvider } from './providers';
 import { launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
 import { createLogger } from './logger';
@@ -29,6 +29,10 @@ export interface BackgroundBrowserStatus {
   authExpired?: boolean;
 }
 
+interface EnsureBackgroundBrowserOptions {
+  includeTranslate?: boolean;
+}
+
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
   return { ready: bgReady, error: bgError || undefined, authExpired: bgAuthExpired || undefined };
 }
@@ -54,6 +58,17 @@ function getCloakContextOptions(headless: boolean) {
 
 export function launchLoginContext(): Promise<BrowserContext> {
   return launchCloakContext(getCloakContextOptions(false));
+}
+
+async function ensureTranslateContext(): Promise<BrowserContext> {
+  if (bgContext) return bgContext;
+
+  log.info('Launching persistent browser for translation...');
+  bgContext = await launchCloakPersistentContext({
+    userDataDir: BROWSER_CACHE_DIR,
+    ...getCloakContextOptions(true),
+  });
+  return bgContext;
 }
 
 async function initTranslatePage(context: BrowserContext): Promise<void> {
@@ -85,45 +100,59 @@ async function initTranslatePage(context: BrowserContext): Promise<void> {
   log.info('Google Translate page loaded');
 }
 
-export async function initBackgroundBrowser(): Promise<BackgroundBrowserStatus> {
+export async function initBackgroundBrowser(
+  options: EnsureBackgroundBrowserOptions = {},
+): Promise<BackgroundBrowserStatus> {
+  const includeTranslate = options.includeTranslate ?? currentTranslate;
+
   bgReady = false;
   bgError = '';
   bgAuthExpired = false;
 
-  // Create provider from config
-  activeProvider = createProvider(currentProvider);
+  try {
+    activeProvider = createProvider(currentProvider);
+  } catch (err: unknown) {
+    bgError = err instanceof Error ? err.message : String(err);
+    log.error('Provider init error:', bgError);
+    return getBackgroundBrowserStatus();
+  }
 
   if (!activeProvider.hasSession()) {
-    log.info('No session file, skipping background browser init');
+    log.info('No provider session/settings, skipping background browser init');
     return getBackgroundBrowserStatus();
   }
 
   try {
-    log.info('Launching persistent background browser...');
-    bgContext = await launchCloakPersistentContext({
-      userDataDir: BROWSER_CACHE_DIR,
-      ...getCloakContextOptions(true),
-    });
+    if (activeProvider.requiresBrowserSession()) {
+      log.info('Launching persistent background browser...');
+      bgContext = await launchCloakPersistentContext({
+        userDataDir: BROWSER_CACHE_DIR,
+        ...getCloakContextOptions(true),
+      });
 
-    // Load session cookies and initialize provider page
-    const sessionLoaded = await activeProvider.loadSession(bgContext);
-    if (!sessionLoaded) {
-      bgAuthExpired = true;
-      bgError = t('error.noAccessToken');
-      activeProvider.clearSession();
-      await shutdownBackgroundBrowser(true);
-      return getBackgroundBrowserStatus();
-    }
+      // Load session cookies and initialize provider page
+      const sessionLoaded = await activeProvider.loadSession(bgContext);
+      if (!sessionLoaded) {
+        bgAuthExpired = true;
+        bgError = t('error.noAccessToken');
+        activeProvider.clearSession();
+        await shutdownBackgroundBrowser(true);
+        return getBackgroundBrowserStatus();
+      }
 
-    await activeProvider.initPage(bgContext);
-    if (!activeProvider.isReady()) {
-      bgAuthExpired = true;
-      activeProvider.clearSession();
+      await activeProvider.initPage(bgContext);
+      if (!activeProvider.isReady()) {
+        bgAuthExpired = true;
+        activeProvider.clearSession();
+        throw new Error(t('error.noAccessToken'));
+      }
+    } else if (!activeProvider.isReady()) {
       throw new Error(t('error.noAccessToken'));
     }
 
-    // Google Translate page
-    await initTranslatePage(bgContext);
+    if (includeTranslate && currentTranslate) {
+      await initTranslatePage(await ensureTranslateContext());
+    }
 
     bgReady = true;
     log.info('Background browser ready');
@@ -158,12 +187,19 @@ export async function shutdownBackgroundBrowser(preserveError = false): Promise<
   }
 }
 
-export async function ensureBackgroundBrowser(): Promise<void> {
-  if (bgReady && bgContext && activeProvider?.getPage()) return;
-  await initBackgroundBrowser();
+export async function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
+  const includeTranslate = options.includeTranslate ?? currentTranslate;
+
+  if (bgReady && activeProvider?.isReady()) {
+    if (!includeTranslate || !currentTranslate || translatePage) return;
+    await initTranslatePage(await ensureTranslateContext());
+    return;
+  }
+  await initBackgroundBrowser({ includeTranslate });
 }
 
 export async function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
+  createProvider(providerId);
   setProvider(providerId);
   await shutdownBackgroundBrowser();
   return initBackgroundBrowser();

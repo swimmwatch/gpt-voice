@@ -46,7 +46,8 @@ const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet'];
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
     id: 'chatgpt',
-    name: 'ChatGPT',
+    name: 'ChatGPT Web',
+    authType: 'browserSession',
     loginUrl: 'https://chatgpt.com',
   };
 
@@ -79,7 +80,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   getLoginUrl(): string {
-    return this.info.loginUrl;
+    return this.info.loginUrl || CHATGPT_URL;
   }
 
   hasSession(): boolean {

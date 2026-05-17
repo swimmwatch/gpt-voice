@@ -3,7 +3,10 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 const attempts = Number.parseInt(process.env.CI_INSTALL_ATTEMPTS || '3', 10);
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// Running npm's JS entrypoint through Node avoids Windows .cmd spawn quirks on GitHub runners.
+const npmExecPath = process.env.npm_execpath;
+const npmCommand = npmExecPath ? process.execPath : 'npm';
+const npmArgsPrefix = npmExecPath ? [npmExecPath] : [];
 const nodeModulesPath = path.resolve('node_modules');
 
 function delay(ms) {
@@ -16,8 +19,10 @@ function runNpmCi(attempt) {
   return new Promise((resolve) => {
     console.log(`Running npm ci (attempt ${attempt}/${attempts})`);
 
-    const child = spawn(npmCommand, ['ci'], {
+    const child = spawn(npmCommand, [...npmArgsPrefix, 'ci'], {
       stdio: 'inherit',
+      shell: !npmExecPath && process.platform === 'win32',
+      windowsHide: true,
       env: {
         ...process.env,
         NPM_CONFIG_FETCH_RETRIES: process.env.NPM_CONFIG_FETCH_RETRIES || '5',

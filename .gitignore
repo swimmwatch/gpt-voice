@@ -42,6 +42,7 @@ test-results/
 browser-cache/
 chatgpt-session.json
 access-token.json
+openai-api-settings.json
 config.json
 
 # Logs

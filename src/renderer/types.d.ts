@@ -1,3 +1,29 @@
+export type ProviderAuthType = 'browserSession' | 'apiKey';
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  authType: ProviderAuthType;
+}
+
+export interface OpenAIApiProviderSettings {
+  providerId: 'openai-api';
+  authType: 'apiKey';
+  hasApiKey: boolean;
+  model: 'whisper-1';
+  language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
+  prompt: string;
+  temperature: number;
+}
+
+export interface BrowserSessionProviderSettings {
+  providerId: string;
+  authType: 'browserSession';
+  hasSession: boolean;
+}
+
+export type ProviderSettings = OpenAIApiProviderSettings | BrowserSessionProviderSettings;
+
 export interface ElectronAPI {
   onToggleRecording: (callback: (isRecording: boolean) => void) => () => void;
   onCancelRecording: (callback: () => void) => () => void;
@@ -7,7 +33,13 @@ export interface ElectronAPI {
   recordingStartFailed: () => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
-  getProviders: () => Promise<{ id: string; name: string }[]>;
+  getProviders: () => Promise<ProviderInfo[]>;
+  getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
+  saveProviderSettings: (
+    providerId: string,
+    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+  ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
+  clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getActiveProvider: () => Promise<string>;
   setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
   checkSession: () => Promise<boolean>;

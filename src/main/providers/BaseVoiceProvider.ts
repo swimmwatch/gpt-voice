@@ -1,9 +1,12 @@
 import type { BrowserContext, Page } from 'playwright-core';
 
+export type VoiceProviderAuthType = 'browserSession' | 'apiKey';
+
 export interface VoiceProviderInfo {
   id: string;
   name: string;
-  loginUrl: string;
+  authType: VoiceProviderAuthType;
+  loginUrl?: string;
 }
 
 export interface TranscriptionResult {
@@ -20,17 +23,30 @@ export abstract class BaseVoiceProvider {
   protected page: Page | null = null;
   protected accessToken = '';
 
+  /** Whether this provider needs a persistent browser context for transcription */
+  requiresBrowserSession(): boolean {
+    return this.info.authType === 'browserSession';
+  }
+
   /** Initialize provider page within an existing browser context */
-  abstract initPage(context: BrowserContext): Promise<void>;
+  async initPage(_context: BrowserContext): Promise<void> {
+    return undefined;
+  }
 
   /** Perform login flow in a visible browser — return the page to navigate */
-  abstract getLoginUrl(): string;
+  getLoginUrl(): string {
+    return this.info.loginUrl || '';
+  }
 
   /** Extract and cache the access token from the provider page */
-  abstract fetchAccessToken(): Promise<string>;
+  async fetchAccessToken(): Promise<string> {
+    return '';
+  }
 
   /** Refresh an expired access token */
-  abstract refreshAccessToken(): Promise<string>;
+  async refreshAccessToken(): Promise<string> {
+    return '';
+  }
 
   /** Transcribe audio buffer → text */
   abstract transcribe(buffer: ArrayBuffer, mimeType?: string): Promise<TranscriptionResult>;
@@ -42,10 +58,14 @@ export abstract class BaseVoiceProvider {
   abstract clearSession(): void;
 
   /** Save session state from a login browser context */
-  abstract saveSession(context: BrowserContext): Promise<void>;
+  async saveSession(_context: BrowserContext): Promise<void> {
+    return undefined;
+  }
 
   /** Load persisted session cookies into the given context */
-  abstract loadSession(context: BrowserContext): Promise<boolean>;
+  async loadSession(_context: BrowserContext): Promise<boolean> {
+    return this.hasSession();
+  }
 
   /** Cleanup provider-specific resources */
   async shutdown(): Promise<void> {

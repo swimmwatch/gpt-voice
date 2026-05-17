@@ -17,6 +17,8 @@ export default {
   'status.loginFailed': 'Помилка входу: {error}',
   'status.browserInitFailed': 'Помилка ініціалізації браузера: {error}',
   'status.sessionExpired': 'Сесія ChatGPT закінчилася. Увійдіть знову.',
+  'status.providerConfigured': '{provider} налаштовано',
+  'status.providerNotConfigured': '{provider} не налаштовано',
 
   // Notifications
   'notification.textCopied': 'Текст скопійовано',
@@ -25,10 +27,34 @@ export default {
   // Login button
   'login.loggingIn': 'Вхід...',
   'login.connected': '{provider}: Підключено',
+  'login.configured': '{provider}: Налаштовано',
   'login.loginTo': 'Увійти до {provider}',
+  'login.configureProvider': 'Налаштувати {provider}',
 
   // Provider
   'provider.label': 'Провайдер:',
+  'provider.settings': 'Налаштування',
+
+  // Provider settings
+  'providerSettings.title': 'Налаштування {provider}',
+  'providerSettings.sessionStatus': 'Статус сесії',
+  'providerSettings.sessionSaved': 'Збережено',
+  'providerSettings.sessionMissing': 'Не збережено',
+  'providerSettings.login': 'Увійти',
+  'providerSettings.relogin': 'Увійти знову',
+  'providerSettings.clearSession': 'Очистити сесію',
+  'providerSettings.apiKey': 'API key',
+  'providerSettings.apiKeyStored': 'Ключ уже збережено. Залиште поле порожнім, щоб не змінювати його.',
+  'providerSettings.apiKeyPlaceholder': 'Вставте OpenAI API key',
+  'providerSettings.model': 'Модель',
+  'providerSettings.language': 'Мова',
+  'providerSettings.prompt': 'Prompt',
+  'providerSettings.temperature': 'Temperature: {value}',
+  'providerSettings.save': 'Зберегти',
+  'providerSettings.clearKey': 'Очистити ключ',
+  'providerSettings.saveFailed': 'Не вдалося зберегти налаштування',
+  'providerSettings.clearFailed': 'Не вдалося очистити дані провайдера',
+  'providerSettings.language.auto': 'Авто',
 
   // Status indicator
   'indicator.idle': 'Очікування',
@@ -58,7 +84,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
-  'error.noAccessToken': 'Немає токена доступу. Сесія могла закінчитися — увійдіть знову.',
+  'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.nonJsonResponse': 'Відповідь сервера не у форматі JSON (статус {status}): {body}',
   'error.noTranscription': 'Немає тексту у відповіді',
 

@@ -5,8 +5,10 @@ import StatusIndicator from './components/StatusIndicator';
 import HotkeyRow from './components/HotkeyRow';
 import HotkeyModal from './components/HotkeyModal';
 import TranslateSection from './components/TranslateSection';
+import ProviderSettingsModal from './components/ProviderSettingsModal';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
+import type { ProviderInfo, ProviderSettings } from './types';
 
 type HotkeyTarget = 'record' | 'cancel' | 'stop';
 
@@ -23,8 +25,10 @@ const App: React.FC = () => {
   const [cancelHotkey, setCancelHotkey] = useState('Escape');
   const [stopHotkey, setStopHotkey] = useState('F10');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+  const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
-  const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
 
@@ -141,8 +145,27 @@ const App: React.FC = () => {
   }, [startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
 
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
+  const activeProvider = providers.find((p) => p.id === activeProviderId);
+  const activeProviderAuthType = activeProvider?.authType || 'browserSession';
+
+  const refreshProviderState = async () => {
+    const hasSession = await window.electronAPI.checkSession();
+    setIsLoggedIn(hasSession);
+    return hasSession;
+  };
+
+  const openProviderSettings = async () => {
+    const settings = await window.electronAPI.getProviderSettings(activeProviderId);
+    setProviderSettings(settings);
+    setShowProviderSettings(true);
+  };
 
   const handleLogin = async () => {
+    if (activeProviderAuthType === 'apiKey') {
+      await openProviderSettings();
+      return;
+    }
+
     setIsLoggingIn(true);
     setStatus(t('status.loggingIn', { provider: activeProviderName }));
     const result = await window.electronAPI.providerLogin();
@@ -155,12 +178,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleProviderSettingsSaved = (settings: ProviderSettings) => {
+    setProviderSettings(settings);
+    const configured = settings.authType === 'apiKey' ? settings.hasApiKey : settings.hasSession;
+    setIsLoggedIn(configured);
+    if (configured) {
+      setStatus(t('status.providerConfigured', { provider: activeProviderName }));
+    } else {
+      setStatus(t('status.providerNotConfigured', { provider: activeProviderName }));
+    }
+  };
+
   const handleProviderChange = async (providerId: string) => {
     setActiveProviderId(providerId);
     setIsLoading(true);
     const result = await window.electronAPI.setActiveProvider(providerId);
-    const hasSession = await window.electronAPI.checkSession();
-    setIsLoggedIn(hasSession);
+    await refreshProviderState();
     if (!result.success && result.error) {
       setStatus(t('status.browserInitFailed', { error: result.error }));
     }
@@ -186,26 +219,28 @@ const App: React.FC = () => {
 
   return (
     <div className="container">
-      {providers.length > 1 && (
-        <div className="provider-section">
-          <label className="provider-label">{t('provider.label')}</label>
-          <select
-            className="provider-select"
-            value={activeProviderId}
-            onChange={(e) => handleProviderChange(e.target.value)}
-          >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="provider-section">
+        <label className="provider-label">{t('provider.label')}</label>
+        <select
+          className="provider-select"
+          value={activeProviderId}
+          onChange={(e) => handleProviderChange(e.target.value)}
+        >
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button className="provider-settings-btn" onClick={openProviderSettings} aria-label={t('provider.settings')}>
+          {t('provider.settings')}
+        </button>
+      </div>
       <LoginButton
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
         providerName={activeProviderName}
+        actionType={activeProviderAuthType === 'apiKey' ? 'configure' : 'login'}
         onLogin={handleLogin}
       />
       <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
@@ -232,6 +267,15 @@ const App: React.FC = () => {
           platform={platform}
           onApply={handleHotkeyApply}
           onClose={() => setShowHotkeyModal(false)}
+        />
+      )}
+      {showProviderSettings && activeProvider && providerSettings && (
+        <ProviderSettingsModal
+          provider={activeProvider}
+          settings={providerSettings}
+          onClose={() => setShowProviderSettings(false)}
+          onSaved={handleProviderSettingsSaved}
+          onLogin={handleLogin}
         />
       )}
     </div>

@@ -17,6 +17,8 @@ export default {
   'status.loginFailed': 'Login failed: {error}',
   'status.browserInitFailed': 'Browser initialization failed: {error}',
   'status.sessionExpired': 'ChatGPT session expired. Please login again.',
+  'status.providerConfigured': '{provider} configured',
+  'status.providerNotConfigured': '{provider} is not configured',
 
   // Notifications
   'notification.textCopied': 'Text copied',
@@ -25,10 +27,34 @@ export default {
   // Login button
   'login.loggingIn': 'Logging in...',
   'login.connected': '{provider}: Connected',
+  'login.configured': '{provider}: Configured',
   'login.loginTo': 'Login to {provider}',
+  'login.configureProvider': 'Configure {provider}',
 
   // Provider
   'provider.label': 'Provider:',
+  'provider.settings': 'Settings',
+
+  // Provider settings
+  'providerSettings.title': '{provider} settings',
+  'providerSettings.sessionStatus': 'Session status',
+  'providerSettings.sessionSaved': 'Saved',
+  'providerSettings.sessionMissing': 'Not saved',
+  'providerSettings.login': 'Login',
+  'providerSettings.relogin': 'Re-login',
+  'providerSettings.clearSession': 'Clear session',
+  'providerSettings.apiKey': 'API key',
+  'providerSettings.apiKeyStored': 'A key is already saved. Leave this field empty to keep it.',
+  'providerSettings.apiKeyPlaceholder': 'Paste OpenAI API key',
+  'providerSettings.model': 'Model',
+  'providerSettings.language': 'Language',
+  'providerSettings.prompt': 'Prompt',
+  'providerSettings.temperature': 'Temperature: {value}',
+  'providerSettings.save': 'Save',
+  'providerSettings.clearKey': 'Clear key',
+  'providerSettings.saveFailed': 'Could not save settings',
+  'providerSettings.clearFailed': 'Could not clear provider data',
+  'providerSettings.language.auto': 'Auto',
 
   // Status indicator
   'indicator.idle': 'Idle',
@@ -58,7 +84,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
-  'error.noAccessToken': 'No access token. Session may have expired — please login again.',
+  'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
   'error.nonJsonResponse': 'Transcribe endpoint returned non-JSON (status {status}): {body}',
   'error.noTranscription': 'No transcription in response',
 

@@ -5,9 +5,9 @@
 <h1 align="center">GPT-Voice</h1>
 
 <p align="center">
-  <strong>Desktop voice transcription powered by GPT web sessions.</strong>
+  <strong>Desktop voice transcription powered by GPT providers.</strong>
   <br />
-  Record a thought, send it through your logged-in GPT web session, and get clean text back on your clipboard.
+  Record a thought, send it through a GPT web session or OpenAI API, and get clean text back on your clipboard.
 </p>
 
 <p align="center">
@@ -27,18 +27,18 @@
 
 ## Why GPT-Voice?
 
-GPT-Voice is a small Electron app for people who want fast voice-to-text without running a local Whisper model, downloading large checkpoints, or needing a GPU. It uses your own ChatGPT web account as the transcription backend, so the heavy speech recognition work happens remotely through the ChatGPT web app.
+GPT-Voice is a small Electron app for people who want fast voice-to-text without running a local Whisper model, downloading large checkpoints, or needing a GPU. It sends audio to a provider you control: either a logged-in GPT web session or the official OpenAI API transcription endpoint.
 
 The result is a quiet desktop utility: press a hotkey, speak, stop, and the transcript is copied to your clipboard.
 
-The current provider is ChatGPT, but the architecture is provider-based. The same idea can be extended to other web services that expose strong voice or language features through a browser session.
+The provider architecture is intentionally simple so more GPT-capable web apps and speech services can be added later.
 
 ## Highlights
 
 - **No local Whisper runtime**: no model files, no CUDA setup, no GPU requirement.
-- **Uses your ChatGPT account**: sign in once through a real browser window and reuse that web session.
-- **Fast remote recognition**: get high-quality transcription from the web service instead of spending local CPU/GPU resources.
-- **No separate API key**: the app works through the ChatGPT web session you already use.
+- **Provider choice**: use ChatGPT Web through a saved browser session, or OpenAI API through your own API key.
+- **Fast remote recognition**: get high-quality transcription from remote GPT/Whisper infrastructure instead of spending local CPU/GPU resources.
+- **Separate provider settings**: web-session auth and API-key auth are stored independently.
 - **Bundled Cloak Chromium**: packaged builds include the browser runtime needed by CloakBrowser.
 - **Global hotkeys**: record, stop, and cancel without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
@@ -51,18 +51,47 @@ The current provider is ChatGPT, but the architecture is provider-based. The sam
 ```mermaid
 flowchart LR
   Mic[Microphone] --> Recorder[Electron recorder]
-  Recorder --> Provider[ChatGPT provider]
-  Provider --> Browser[CloakBrowser persistent session]
-  Browser --> ChatGPT[ChatGPT web transcription]
+  Recorder --> Provider{Selected provider}
+  Provider --> Web[ChatGPT Web provider]
+  Web --> Browser[CloakBrowser persistent session]
+  Browser --> ChatGPT[GPT web transcription]
+  Provider --> API[OpenAI API provider]
+  API --> Whisper[Whisper transcription endpoint]
   ChatGPT --> Clipboard[Clipboard text]
+  Whisper --> Clipboard
   Clipboard --> Translate{Translate?}
   Translate -->|optional| Google[Google Translate web page]
   Google --> Clipboard
 ```
 
-GPT-Voice records audio locally, uses a background CloakBrowser context with your saved ChatGPT cookies, requests ChatGPT's web transcription endpoint, parses the result, and copies the text. It does not ship a speech model and does not require a separate OpenAI API key.
+GPT-Voice records audio locally and sends it to the selected provider. The ChatGPT Web provider uses a background CloakBrowser context with your saved ChatGPT cookies. The OpenAI API provider sends multipart audio to OpenAI's transcription endpoint with your API key. In both cases, GPT-Voice parses the final text and copies it to the clipboard.
 
 Availability, quotas, and behavior are determined by the web service account you use. GPT-Voice does not bypass provider-side limits; it gives you a desktop workflow around the web features available to your account.
+
+## Providers
+
+### ChatGPT Web
+
+ChatGPT Web uses a real browser session through CloakBrowser.
+
+- Requires login in a visible browser window.
+- Does not require an OpenAI API key.
+- Reuses the saved `chatgpt-session.json` file from your per-user GPT-Voice data directory.
+- Starts a persistent background CloakBrowser context for transcription.
+
+Use this provider when you want the app to work through the GPT web account you already use.
+
+### OpenAI API
+
+OpenAI API uses the official audio transcription endpoint and the `whisper-1` model.
+
+- Requires your own OpenAI API key with available billing/quota.
+- Does not require browser login for transcription.
+- Stores API settings separately from ChatGPT Web settings.
+- Encrypts the API key with Electron `safeStorage`; if secure storage is unavailable, the key is not saved as plaintext.
+- Supports Whisper-specific settings only: model `whisper-1`, language auto/en/ru/uk/be, optional prompt, and temperature from `0` to `1`.
+
+Use this provider when you want the official API path and predictable API-account billing instead of web-session automation.
 
 ## Install
 
@@ -206,12 +235,13 @@ Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that dir
 After installation, the first run is the same on every platform:
 
 1. Start **GPT-Voice**.
-2. Click **Login to ChatGPT**.
-3. Sign in with your ChatGPT account in the browser window.
-4. Close the login window after ChatGPT is ready.
-5. Wait until the app shows **ChatGPT: Connected**.
+2. Choose a provider in the **Provider** select.
+3. Open **Settings** next to the provider selector.
+4. For **ChatGPT Web**, sign in through the browser login flow and close the login window after ChatGPT is ready.
+5. For **OpenAI API**, paste your OpenAI API key and adjust the Whisper settings you need.
+6. Wait until the main button shows the provider as connected or configured.
 
-After that, GPT-Voice reuses the saved browser session and starts the background browser automatically.
+After that, GPT-Voice reuses the saved provider settings. ChatGPT Web starts its background browser automatically; OpenAI API does not need a browser unless Translate is enabled.
 
 ## Run From Source
 
@@ -223,17 +253,18 @@ npm run prepare:cloakbrowser
 npm run start
 ```
 
-On first launch, click **Login to ChatGPT**, complete login in the browser window, then close that window. GPT-Voice saves the browser session under your user profile and starts the background browser automatically next time.
+On first launch, choose a provider from the app window. ChatGPT Web opens a login browser and saves the browser session under your user profile. OpenAI API opens the provider settings modal and saves encrypted API settings locally.
 
 ## How To Use
 
-1. **Start the app** and click **Login to ChatGPT**.
-2. **Sign in with your ChatGPT account** in the browser window that opens.
-3. **Close the login window** after the account is ready. GPT-Voice stores the session locally.
-4. **Press the Record hotkey** and speak normally.
-5. **Press Stop**. The audio is sent through your ChatGPT web session for transcription.
-6. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
-7. Optional: enable **Translate** and choose a target language to copy translated text instead.
+1. **Start the app** and choose **ChatGPT Web** or **OpenAI API** in the Provider select.
+2. **Open Settings** and configure the selected provider.
+3. **Use ChatGPT Web** by signing in once through the login browser. GPT-Voice stores the browser session locally.
+4. **Use OpenAI API** by saving your API key and Whisper settings. The key is encrypted with Electron safe storage and is never shown back in the UI.
+5. **Press the Record hotkey** and speak normally.
+6. **Press Stop**. The audio is sent to the selected provider for transcription.
+7. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
+8. Optional: enable **Translate** and choose a target language to copy translated text instead.
 
 ## Default Controls
 
@@ -306,7 +337,9 @@ assets/          App icons and README screenshots
 
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the ChatGPT web service through your authenticated web session. Session data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows, `~/Library/Application Support/GPT-Voice` on macOS, and `~/.config/GPT-Voice` on Linux. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files or browser cache data.
+GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key.
+
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows, `~/Library/Application Support/GPT-Voice` on macOS, and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

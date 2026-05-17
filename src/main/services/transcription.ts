@@ -11,9 +11,9 @@ export async function transcribeAudio(
   try {
     log.info('Starting transcription, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType || 'unknown');
 
-    await ensureBackgroundBrowser();
+    await ensureBackgroundBrowser({ includeTranslate: false });
     const provider = getActiveProvider();
-    if (!isBgReady() || !provider?.getPage()) {
+    if (!isBgReady() || !provider?.isReady()) {
       return { success: false, error: t('error.notLoggedIn') };
     }
 

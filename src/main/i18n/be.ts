@@ -17,6 +17,8 @@ export default {
   'status.loginFailed': 'Памылка ўваходу: {error}',
   'status.browserInitFailed': 'Памылка ініцыялізацыі браўзера: {error}',
   'status.sessionExpired': 'Сесія ChatGPT скончылася. Увайдзіце зноў.',
+  'status.providerConfigured': '{provider} наладжаны',
+  'status.providerNotConfigured': '{provider} не наладжаны',
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
@@ -25,10 +27,34 @@ export default {
   // Login button
   'login.loggingIn': 'Уваход...',
   'login.connected': '{provider}: Падключана',
+  'login.configured': '{provider}: Наладжаны',
   'login.loginTo': 'Увайсці ў {provider}',
+  'login.configureProvider': 'Наладзіць {provider}',
 
   // Provider
   'provider.label': 'Правайдар:',
+  'provider.settings': 'Налады',
+
+  // Provider settings
+  'providerSettings.title': 'Налады {provider}',
+  'providerSettings.sessionStatus': 'Статус сесіі',
+  'providerSettings.sessionSaved': 'Захавана',
+  'providerSettings.sessionMissing': 'Не захавана',
+  'providerSettings.login': 'Увайсці',
+  'providerSettings.relogin': 'Увайсці зноў',
+  'providerSettings.clearSession': 'Ачысціць сесію',
+  'providerSettings.apiKey': 'API key',
+  'providerSettings.apiKeyStored': 'Ключ ужо захаваны. Пакіньце поле пустым, каб не змяняць яго.',
+  'providerSettings.apiKeyPlaceholder': 'Устаўце OpenAI API key',
+  'providerSettings.model': 'Мадэль',
+  'providerSettings.language': 'Мова',
+  'providerSettings.prompt': 'Prompt',
+  'providerSettings.temperature': 'Temperature: {value}',
+  'providerSettings.save': 'Захаваць',
+  'providerSettings.clearKey': 'Ачысціць ключ',
+  'providerSettings.saveFailed': 'Не ўдалося захаваць налады',
+  'providerSettings.clearFailed': 'Не ўдалося ачысціць даныя правайдара',
+  'providerSettings.language.auto': 'Аўта',
 
   // Status indicator
   'indicator.idle': 'Чаканне',
@@ -58,7 +84,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
-  'error.noAccessToken': 'Няма токена доступу. Сесія магла скончыцца — увайдзіце зноў.',
+  'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
 
