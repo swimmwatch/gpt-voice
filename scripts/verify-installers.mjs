@@ -131,6 +131,37 @@ async function verifyLinuxIconTheme(root) {
   }
 }
 
+async function verifyLinuxAppStreamMetadata(root) {
+  const metainfoPath = path.join(root, 'usr', 'share', 'metainfo', `${packageJson.build.appId}.metainfo.xml`);
+  const copyrightPath = path.join(root, 'usr', 'share', 'doc', packageName, 'copyright');
+
+  await assertExists(metainfoPath, 'Linux AppStream metainfo');
+  await assertExists(copyrightPath, 'Debian copyright metadata');
+
+  const metainfo = await readFile(metainfoPath, 'utf-8');
+  assert(metainfo.includes(`<id>${packageJson.build.appId}</id>`), 'AppStream metainfo has unexpected component id');
+  assert(metainfo.includes(`<name>${productName}</name>`), 'AppStream metainfo has unexpected app name');
+  assert(
+    metainfo.includes(`<release version="${packageJson.version}"`),
+    'AppStream metainfo has unexpected release version',
+  );
+
+  const copyright = await readFile(copyrightPath, 'utf-8');
+  assert(copyright.includes(`Upstream-Name: ${productName}`), 'Debian copyright has unexpected upstream name');
+  assert(copyright.includes(`Source: ${packageJson.homepage}`), 'Debian copyright has unexpected source URL');
+  assert(copyright.includes(`License: ${packageJson.license}`), 'Debian copyright has unexpected license');
+
+  await run('appstreamcli', ['validate', '--no-net', metainfoPath], { optional: true });
+}
+
+async function verifyPackagedLicense(filePath, description) {
+  await assertExists(filePath, description);
+  const license = await readFile(filePath, 'utf-8');
+  assert(license.includes(productName), `${description} has unexpected product name`);
+  assert(license.includes(`Version: ${packageJson.version}`), `${description} has unexpected version`);
+  assert(license.includes(`License: ${packageJson.license}`), `${description} has unexpected license`);
+}
+
 async function verifyLinuxInstallers() {
   const appImage = await releaseFile(
     (fileName) => fileName.startsWith(`${productName}-`) && fileName.endsWith('.AppImage'),
@@ -149,6 +180,8 @@ async function verifyLinuxInstallers() {
     const appImageRoot = path.join(appImageExtractDir, 'squashfs-root');
     await assertExecutable(path.join(appImageRoot, packageName), 'AppImage executable');
     await assertExecutable(path.join(appImageRoot, 'resources', 'cloakbrowser', 'chrome'), 'AppImage CloakBrowser');
+    await verifyPackagedLicense(path.join(appImageRoot, 'license.txt'), 'AppImage root license metadata');
+    await verifyPackagedLicense(path.join(appImageRoot, 'resources', 'LICENSE.txt'), 'AppImage license metadata');
     const desktopFile = await findFirst(
       appImageRoot,
       (filePath) => filePath.endsWith('.desktop'),
@@ -189,8 +222,11 @@ async function verifyLinuxInstallers() {
     `./opt/${productName}/${packageName}`,
     `./opt/${productName}/resources/app.asar`,
     `./opt/${productName}/resources/cloakbrowser/chrome`,
+    `./opt/${productName}/resources/LICENSE.txt`,
     `./usr/share/applications/${packageName}.desktop`,
     `./usr/share/icons/hicolor/512x512/apps/${packageName}.png`,
+    `./usr/share/metainfo/${packageJson.build.appId}.metainfo.xml`,
+    `./usr/share/doc/${packageName}/copyright`,
   ]) {
     assert(debContents.includes(expectedPath), `deb package does not own expected path: ${expectedPath}`);
   }
@@ -203,10 +239,15 @@ async function verifyLinuxInstallers() {
       path.join(debExtractDir, 'opt', productName, 'resources', 'cloakbrowser', 'chrome'),
       'deb CloakBrowser',
     );
+    await verifyPackagedLicense(
+      path.join(debExtractDir, 'opt', productName, 'resources', 'LICENSE.txt'),
+      'deb packaged license metadata',
+    );
     await verifyDesktopFile(path.join(debExtractDir, 'usr', 'share', 'applications', `${packageName}.desktop`), {
       appImage: false,
     });
     await verifyLinuxIconTheme(debExtractDir);
+    await verifyLinuxAppStreamMetadata(debExtractDir);
   } finally {
     await rm(debExtractDir, { recursive: true, force: true });
   }
@@ -271,6 +312,7 @@ async function verifyWindowsInstaller() {
     await assertExists(path.join(installDir, 'resources', 'app.asar'), 'Windows app.asar');
     await assertExists(path.join(installDir, 'resources', 'assets', 'icon.png'), 'Windows app icon');
     await assertExists(path.join(installDir, 'resources', 'cloakbrowser', 'chrome.exe'), 'Windows CloakBrowser');
+    await verifyPackagedLicense(path.join(installDir, 'resources', 'LICENSE.txt'), 'Windows license metadata');
 
     const uninstaller = await findFirst(
       installDir,
@@ -334,6 +376,18 @@ async function verifyMacAppBundle(appBundle) {
   await assertExecutable(path.join(appBundle, 'Contents', 'MacOS', productName), 'macOS executable');
   await assertExists(path.join(appBundle, 'Contents', 'Resources', 'app.asar'), 'macOS app.asar');
   await assertExists(path.join(appBundle, 'Contents', 'Resources', 'assets', 'icon.png'), 'macOS app icon');
+  await verifyPackagedLicense(path.join(appBundle, 'Contents', 'Resources', 'LICENSE.txt'), 'macOS license metadata');
+  const privacyManifestPath = path.join(appBundle, 'Contents', 'Resources', 'PrivacyInfo.xcprivacy');
+  await assertExists(privacyManifestPath, 'macOS privacy manifest');
+  const privacyManifest = await readFile(privacyManifestPath, 'utf-8');
+  assert(
+    privacyManifest.includes('<key>NSPrivacyCollectedDataTypes</key>'),
+    'macOS privacy manifest is missing collected data declaration',
+  );
+  assert(
+    privacyManifest.includes('<key>NSPrivacyTracking</key>'),
+    'macOS privacy manifest is missing tracking declaration',
+  );
   await assertExecutable(
     path.join(appBundle, 'Contents', 'Resources', 'cloakbrowser', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
     'macOS CloakBrowser',

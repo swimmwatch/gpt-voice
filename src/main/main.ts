@@ -20,7 +20,10 @@ configureAppIdentity();
 app.disableHardwareAcceleration();
 registerAppProtocolScheme();
 
-if (!app.requestSingleInstanceLock()) {
+const isRemovingLinuxAppImageDesktopIntegration =
+  process.platform === 'linux' && process.argv.includes('--remove-linux-appimage-desktop-integration');
+
+if (!isRemovingLinuxAppImageDesktopIntegration && !app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
@@ -46,7 +49,7 @@ app.on('ready', () => {
   log.initialize();
   log.errorHandler.startCatching();
 
-  if (process.argv.includes('--remove-linux-appimage-desktop-integration')) {
+  if (isRemovingLinuxAppImageDesktopIntegration) {
     removeLinuxAppImageDesktopIntegration();
     app.quit();
     return;

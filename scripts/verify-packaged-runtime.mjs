@@ -32,6 +32,7 @@ const layouts = {
     fuseTarget: [path.join(rootDir, 'release', 'linux-unpacked', 'gpt-voice')],
     asar: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'app.asar')],
     icon: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'assets', 'icon.png')],
+    license: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'LICENSE.txt')],
     cloak: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'cloakbrowser', 'chrome')],
   },
   win32: {
@@ -45,6 +46,7 @@ const layouts = {
     ],
     asar: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'app.asar')],
     icon: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'assets', 'icon.png')],
+    license: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'LICENSE.txt')],
     cloak: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'cloakbrowser', 'chrome.exe')],
   },
   darwin: {
@@ -67,6 +69,16 @@ const layouts = {
       path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
       path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
       path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'assets', 'icon.png'),
+    ],
+    license: [
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'LICENSE.txt'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'LICENSE.txt'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'LICENSE.txt'),
+    ],
+    privacyManifest: [
+      path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
+      path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
+      path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
     ],
     cloak: [
       path.join(
@@ -152,6 +164,10 @@ const app = await firstExisting(layout.app, 'Packaged app');
 const fuseTarget = await firstExisting(layout.fuseTarget, 'Packaged Electron executable for fuse verification');
 const asar = await firstExisting(layout.asar, 'Packaged app.asar');
 const icon = await firstExisting(layout.icon, 'Packaged app icon');
+const license = await firstExisting(layout.license, 'Packaged license metadata');
+const privacyManifest = layout.privacyManifest
+  ? await firstExisting(layout.privacyManifest, 'Packaged macOS privacy manifest')
+  : null;
 const cloak = await firstExisting(layout.cloak, 'Bundled CloakBrowser executable');
 await verifyElectronFuses(fuseTarget);
 
@@ -160,4 +176,8 @@ console.log(`App: ${app}`);
 console.log(`Electron fuse target: ${fuseTarget}`);
 console.log(`App asar: ${asar}`);
 console.log(`App icon: ${icon}`);
+console.log(`License metadata: ${license}`);
+if (privacyManifest) {
+  console.log(`macOS privacy manifest: ${privacyManifest}`);
+}
 console.log(`CloakBrowser executable: ${cloak}`);

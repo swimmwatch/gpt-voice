@@ -16,6 +16,7 @@ pnpm-debug.log*
 # Build output
 dist/
 out/
+build/generated/
 release/
 release-artifacts/
 *.asar

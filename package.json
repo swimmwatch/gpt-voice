@@ -29,13 +29,14 @@
     "dev": "webpack --config webpack.config.js --watch",
     "ci:install": "node scripts/ci-install.mjs",
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
+    "generate:package-metadata": "node scripts/generate-package-metadata.mjs",
     "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
     "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
-    "pack": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder --dir",
-    "dist": "npm run build:prod && npm run prepare:cloakbrowser && electron-builder",
-    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && electron-builder --linux",
-    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && electron-builder --win",
-    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && electron-builder --mac",
+    "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder --dir",
+    "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder",
+    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && electron-builder --linux",
+    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && electron-builder --win",
+    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && electron-builder --mac",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "typecheck": "tsc --noEmit",
@@ -92,6 +93,10 @@
         "to": "assets"
       },
       {
+        "from": "build/generated/common/license.txt",
+        "to": "LICENSE.txt"
+      },
+      {
         "from": ".cache/cloakbrowser",
         "to": "cloakbrowser"
       }
@@ -130,7 +135,14 @@
     },
     "deb": {
       "packageCategory": "utils",
-      "priority": "optional"
+      "priority": "optional",
+      "fpm": [
+        "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
+        "build/generated/linux/debian-copyright=/usr/share/doc/gpt-voice/copyright"
+      ]
+    },
+    "appImage": {
+      "license": "build/generated/common/license.txt"
     },
     "win": {
       "target": [
@@ -151,7 +163,8 @@
       "menuCategory": "GPT-Voice",
       "shortcutName": "GPT-Voice",
       "uninstallDisplayName": "GPT-Voice",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "license": "build/generated/windows/license.txt"
     },
     "mac": {
       "target": [
@@ -160,6 +173,12 @@
       "executableName": "GPT-Voice",
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities",
+      "extraResources": [
+        {
+          "from": "build/generated/macos/PrivacyInfo.xcprivacy",
+          "to": "PrivacyInfo.xcprivacy"
+        }
+      ],
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",

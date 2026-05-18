@@ -44,7 +44,7 @@ export function registerLinuxAppImageDesktopIntegration(): void {
         'StartupWMClass=gpt-voice',
         'StartupNotify=true',
         `X-AppImage-Version=${app.getVersion()}`,
-        'Comment=Desktop voice transcriber with ChatGPT',
+        'Comment=Transcribe speech through GPT web sessions or OpenAI API',
         'Categories=Utility;',
         'Actions=RemoveIntegration;',
         '',
