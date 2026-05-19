@@ -1,0 +1,140 @@
+name: Build Release Artifacts
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-builds-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: true
+  CLOAKBROWSER_AUTO_UPDATE: 'false'
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Linux x64
+            os: ubuntu-latest
+            platform: linux
+            cloak-target: linux
+            builder-target: linux
+          - label: Windows x64
+            os: windows-latest
+            platform: win32
+            cloak-target: win32
+            builder-target: win
+          - label: macOS
+            os: macos-latest
+            platform: darwin
+            cloak-target: darwin
+            builder-target: mac
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Cache Electron and CloakBrowser binaries
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+            ~/.cloakbrowser
+          key: ${{ runner.os }}-release-electron-cloak-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs') }}
+          restore-keys: |
+            ${{ runner.os }}-release-electron-cloak-
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Prepare bundled CloakBrowser
+        run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}
+
+      - name: Smoke test CloakBrowser
+        run: npm run smoke:cloakbrowser
+
+      - name: Build production bundles
+        run: npm run build:prod
+
+      - name: Generate package metadata
+        env:
+          PACKAGE_RELEASE_DATE: ${{ github.event.release.published_at }}
+        run: npm run generate:package-metadata
+
+      - name: Package app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --${{ matrix.builder-target }} --publish never
+
+      - name: Verify packaged runtime
+        run: npm run verify:packaged
+
+      - name: Verify installer behavior
+        run: npm run verify:installers -- --platform=${{ matrix.platform }}
+
+      - name: Collect installer artifacts
+        run: npm run collect:release-artifacts -- --platform=${{ matrix.platform }}
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-${{ matrix.platform }}
+          path: release-artifacts/${{ matrix.platform }}/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release files found"
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${files[@]}" \
+              --title "GPT-Voice ${RELEASE_TAG}" \
+              --notes "Install GPT-Voice by downloading the package for your operating system below."
+          fi

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/swimmwatch/gpt-voice/security/advisories/new
+    about: Please report security issues privately instead of opening a public issue.
+  - name: Questions and setup help
+    url: https://github.com/swimmwatch/gpt-voice/issues
+    about: Use an issue with clear environment details if you need help reproducing a problem.

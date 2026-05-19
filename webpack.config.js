@@ -1,6 +1,5 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
 
 const isProd = process.env.NODE_ENV === 'production';
 const mode = isProd ? 'production' : 'development';
@@ -32,15 +31,8 @@ module.exports = [
       filename: 'main.js',
     },
     externals: {
-      'playwright': 'commonjs playwright',
-      'playwright-extra': 'commonjs playwright-extra',
-      'puppeteer-extra-plugin-stealth': 'commonjs puppeteer-extra-plugin-stealth',
+      'playwright-core': 'commonjs playwright-core',
     },
-    plugins: [
-      new webpack.DefinePlugin({
-        'process.env.NODE_ENV': JSON.stringify(mode),
-      }),
-    ],
   },
   // Preload script
   {

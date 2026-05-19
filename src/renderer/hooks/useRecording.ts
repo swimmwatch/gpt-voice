@@ -1,0 +1,161 @@
+import { useRef, useCallback } from 'react';
+import rendererLog from 'electron-log/renderer';
+
+const log = rendererLog.scope('recording');
+const RECORDING_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+
+interface UseRecordingOptions {
+  setStatus: (status: string) => void;
+  setIsRecording: (recording: boolean) => void;
+  setIsPaused: (paused: boolean) => void;
+  translateRef: React.RefObject<boolean>;
+  targetLangRef: React.RefObject<string>;
+  t: (key: string, params?: Record<string, string>) => string;
+}
+
+export function useRecording({
+  setStatus,
+  setIsRecording,
+  setIsPaused,
+  translateRef,
+  targetLangRef,
+  t,
+}: UseRecordingOptions) {
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const getSupportedRecordingMimeType = useCallback(() => {
+    return RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const selectedMimeType = getSupportedRecordingMimeType();
+      const mediaRecorder = selectedMimeType
+        ? new MediaRecorder(stream, { mimeType: selectedMimeType })
+        : new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const arrayBuffer = await blob.arrayBuffer();
+
+        setStatus(t('status.transcribing'));
+        try {
+          const result = await window.electronAPI.transcribeAudio(arrayBuffer, mimeType);
+          log.info('Transcription result:', result);
+          if (result.success && result.text) {
+            let finalText = result.text;
+            let translationFailed = false;
+
+            if (translateRef.current) {
+              setStatus(t('status.translating'));
+              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
+              log.info('Translation result:', tr);
+              if (tr.success && tr.text) {
+                finalText = tr.text;
+              } else {
+                log.error('Translation failed:', tr.error);
+                setStatus(t('status.translationFailed'));
+                window.electronAPI.showNotification(t('notification.textCopiedNoTranslation'), result.text);
+                translationFailed = true;
+              }
+            }
+
+            if (translationFailed) return;
+
+            log.info('Copied to clipboard:', finalText);
+            setStatus(t('status.copiedToClipboard'));
+            window.electronAPI.showNotification(t('notification.textCopied'), finalText);
+          } else {
+            log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
+            setStatus(t('status.transcriptionFailed'));
+          }
+        } catch (err) {
+          setStatus(t('status.transcriptionError'));
+          log.error('Transcribe error:', err);
+        } finally {
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+          mediaRecorderRef.current = null;
+        }
+      };
+
+      mediaRecorder.start(100);
+      setStatus(t('status.recording'));
+    } catch (err) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
+      void window.electronAPI.recordingStartFailed();
+      setStatus(t('status.microphoneError'));
+      log.error('Microphone error:', err);
+    }
+  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
+
+  const stopRecording = useCallback(() => {
+    if (
+      mediaRecorderRef.current &&
+      (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')
+    ) {
+      mediaRecorderRef.current.stop();
+      setStatus(t('status.stopping'));
+    }
+  }, [setStatus, t]);
+
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      setStatus(t('status.paused'));
+      log.info('Paused');
+    }
+  }, [setIsPaused, setStatus, t]);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      setStatus(t('status.recording'));
+      log.info('Resumed');
+    }
+  }, [setIsPaused, setStatus, t]);
+
+  const cancelRecording = useCallback(() => {
+    if (
+      mediaRecorderRef.current &&
+      (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')
+    ) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsRecording(false);
+    setIsPaused(false);
+    setStatus(t('status.recordingCancelled'));
+    log.info('Cancelled by user');
+  }, [setIsRecording, setIsPaused, setStatus, t]);
+
+  return { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording };
+}
