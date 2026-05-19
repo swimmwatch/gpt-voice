@@ -173,6 +173,7 @@
       "executableName": "GPT-Voice",
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities",
+      "identity": null,
       "extraResources": [
         {
           "from": "build/generated/macos/PrivacyInfo.xcprivacy",
