@@ -123,6 +123,7 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
@@ -131,10 +132,11 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GH_REPO" --clobber
           else
             gh release create "$RELEASE_TAG" "${files[@]}" \
+              --repo "$GH_REPO" \
               --title "GPT-Voice ${RELEASE_TAG}" \
               --notes "Install GPT-Voice by downloading the package for your operating system below."
           fi
