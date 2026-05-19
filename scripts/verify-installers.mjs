@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile as execFileCallback } from 'node:child_process';
@@ -53,6 +53,57 @@ async function run(command, args, options = {}) {
     }
     throw error;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatExitCode(code) {
+  if (typeof code !== 'number') {
+    return String(code);
+  }
+
+  const hex = `0x${(code >>> 0).toString(16).toUpperCase().padStart(8, '0')}`;
+  return `${code} (${hex})`;
+}
+
+function describeExecError(error) {
+  const details = [
+    error.code !== undefined ? `code=${formatExitCode(error.code)}` : null,
+    error.signal ? `signal=${error.signal}` : null,
+    error.cmd ? `cmd=${error.cmd}` : null,
+    error.stdout ? `stdout=${String(error.stdout).trim()}` : null,
+    error.stderr ? `stderr=${String(error.stderr).trim()}` : null,
+  ].filter(Boolean);
+
+  return details.length > 0 ? details.join('\n') : error instanceof Error ? error.message : String(error);
+}
+
+async function runWithRetries(command, args, options = {}) {
+  const { attempts = 1, beforeAttempt, retryDelayMs = 1000, description = command, ...runOptions } = options;
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      if (beforeAttempt) {
+        await beforeAttempt(attempt);
+      }
+      return await run(command, args, runOptions);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts) {
+        break;
+      }
+
+      console.warn(
+        `${description} failed on attempt ${attempt}/${attempts}; retrying in ${retryDelayMs}ms\n${describeExecError(error)}`,
+      );
+      await sleep(retryDelayMs);
+    }
+  }
+
+  throw new Error(`${description} failed after ${attempts} attempt(s)\n${describeExecError(lastError)}`);
 }
 
 async function releaseFile(predicate, description) {
@@ -303,10 +354,21 @@ async function verifyWindowsInstaller() {
     'Windows NSIS installer',
   );
   const installDir = path.join(process.env.RUNNER_TEMP || os.tmpdir(), `${packageName}-install-smoke`);
+  const installerTempDir = await mkdtemp(
+    path.join(process.env.RUNNER_TEMP || os.tmpdir(), `${packageName}-installer-`),
+  );
+  const installerCopy = path.join(installerTempDir, 'installer.exe');
   await rm(installDir, { recursive: true, force: true });
 
   try {
-    await run(installer, ['/S', `/D=${installDir}`], { timeout: 300000 });
+    await copyFile(installer, installerCopy);
+    await runWithRetries(installerCopy, ['/S', '/currentuser', `/D=${installDir}`], {
+      attempts: 3,
+      beforeAttempt: () => rm(installDir, { recursive: true, force: true }),
+      description: 'Windows NSIS silent install',
+      retryDelayMs: 5000,
+      timeout: 300000,
+    });
     const appExe = path.join(installDir, `${productName}.exe`);
     await waitFor(() => exists(appExe), 'Windows app executable after install');
     await assertExists(path.join(installDir, 'resources', 'app.asar'), 'Windows app.asar');
@@ -319,10 +381,16 @@ async function verifyWindowsInstaller() {
       (filePath) => /^Uninstall.*\.exe$/i.test(path.basename(filePath)),
       'Windows NSIS uninstaller',
     );
-    await run(uninstaller, ['/S'], { timeout: 300000 });
+    await runWithRetries(uninstaller, ['/S'], {
+      attempts: 3,
+      description: 'Windows NSIS silent uninstall',
+      retryDelayMs: 5000,
+      timeout: 300000,
+    });
     await waitFor(async () => !(await exists(appExe)), 'Windows app executable removal');
   } finally {
     await rm(installDir, { recursive: true, force: true });
+    await rm(installerTempDir, { recursive: true, force: true });
   }
 
   console.log('Windows installer/uninstaller verification passed');
