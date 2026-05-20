@@ -2,6 +2,11 @@ name: Build Release Artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to use for generated app/package versions, for example v1.0.6. Required when dispatching from a branch.
+        required: false
+        type: string
   release:
     types:
       - published
@@ -69,6 +74,12 @@ jobs:
 
       - name: Install dependencies
         run: npm run ci:install
+
+      - name: Apply release version from tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: npm run apply:release-version
 
       - name: Prepare bundled CloakBrowser
         run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}

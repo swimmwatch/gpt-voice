@@ -1,6 +1,6 @@
 {
   "name": "gpt-voice",
-  "version": "1.0.1",
+  "version": "1.0.6",
   "private": true,
   "description": "Desktop voice transcription app powered by GPT web sessions and OpenAI API.",
   "homepage": "https://github.com/swimmwatch/gpt-voice",
@@ -28,6 +28,7 @@
     "start:prod": "npm run build:prod && electron .",
     "dev": "webpack --config webpack.config.js --watch",
     "ci:install": "node scripts/ci-install.mjs",
+    "apply:release-version": "node scripts/apply-release-version.mjs",
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
     "generate:package-metadata": "node scripts/generate-package-metadata.mjs",
     "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
