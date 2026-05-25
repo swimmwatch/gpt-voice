@@ -45,11 +45,6 @@ jobs:
             platform: win32
             cloak-target: win32
             builder-target: win
-          - label: macOS
-            os: macos-latest
-            platform: darwin
-            cloak-target: darwin
-            builder-target: mac
 
     steps:
       - name: Checkout
@@ -74,6 +69,10 @@ jobs:
 
       - name: Install dependencies
         run: npm run ci:install
+
+      - name: Install Linux package inspection tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm cpio
 
       - name: Apply release version from tag
         env:

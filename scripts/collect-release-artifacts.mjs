@@ -12,11 +12,13 @@ const outputDir = path.join(rootDir, 'release-artifacts', platform);
 
 const productName = packageJson.build?.productName || packageJson.name;
 const packageName = packageJson.name;
+const packageVersion = packageJson.version;
 
 const platformMatchers = {
   linux: (fileName) =>
-    (fileName.startsWith(`${productName}-`) && fileName.endsWith('.AppImage')) ||
-    (fileName.startsWith(`${packageName}_`) && fileName.endsWith('.deb')),
+    fileName === `${productName}-${packageVersion}.AppImage` ||
+    fileName === `${packageName}_${packageVersion}_amd64.deb` ||
+    fileName === `${packageName}-${packageVersion}.x86_64.rpm`,
   win32: (fileName) => fileName.startsWith(productName) && fileName.endsWith('.exe'),
   darwin: (fileName) => fileName.startsWith(productName) && fileName.endsWith('.dmg'),
 };
@@ -26,6 +28,14 @@ if (!matchesPlatform) {
   throw new Error(`Unsupported release artifact platform: ${platform}`);
 }
 
+const requiredPlatformArtifacts = {
+  linux: [
+    `${productName}-${packageVersion}.AppImage`,
+    `${packageName}_${packageVersion}_amd64.deb`,
+    `${packageName}-${packageVersion}.x86_64.rpm`,
+  ],
+};
+
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
@@ -34,10 +44,18 @@ await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
 const releaseEntries = await readdir(releaseDir, { withFileTypes: true });
-const artifactFiles = releaseEntries
-  .filter((entry) => entry.isFile() && matchesPlatform(entry.name))
-  .map((entry) => entry.name)
-  .sort();
+const releaseFileNames = releaseEntries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+const requiredArtifacts = requiredPlatformArtifacts[platform];
+const artifactFiles = requiredArtifacts
+  ? requiredArtifacts
+  : releaseFileNames.filter((fileName) => matchesPlatform(fileName)).sort();
+
+if (requiredArtifacts) {
+  const missingArtifacts = requiredArtifacts.filter((fileName) => !releaseFileNames.includes(fileName));
+  if (missingArtifacts.length > 0) {
+    throw new Error(`Missing ${platform} release artifact(s) in ${releaseDir}: ${missingArtifacts.join(', ')}`);
+  }
+}
 
 if (artifactFiles.length === 0) {
   throw new Error(`No ${platform} release artifacts found in ${releaseDir}`);

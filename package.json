@@ -115,7 +115,8 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ],
       "executableName": "gpt-voice",
       "category": "Utility",
@@ -140,6 +141,13 @@
       "fpm": [
         "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
         "build/generated/linux/debian-copyright=/usr/share/doc/gpt-voice/copyright"
+      ]
+    },
+    "rpm": {
+      "packageCategory": "Utility",
+      "fpm": [
+        "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
+        "build/generated/common/license.txt=/usr/share/licenses/gpt-voice/LICENSE.txt"
       ]
     },
     "appImage": {

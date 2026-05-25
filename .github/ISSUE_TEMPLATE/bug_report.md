@@ -27,7 +27,7 @@ assignees: swimmwatch
 
 - GPT-Voice version:
 - Operating system and version:
-- Install method: <!-- AppImage, deb, exe, dmg, source -->
+- Install method: <!-- AppImage, deb, rpm, exe, source -->
 - Node.js version, if running from source:
 - ChatGPT account type, if relevant:
 - Network/proxy/VPN details, if relevant:

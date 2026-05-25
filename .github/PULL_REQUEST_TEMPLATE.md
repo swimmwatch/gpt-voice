@@ -56,5 +56,5 @@
 - [ ] The PR targets `main`.
 - [ ] I updated documentation when behavior, setup, or release flow changed.
 - [ ] I did not commit secrets, session data, browser cache, audio samples, or local build artifacts.
-- [ ] I considered Linux, Windows, and macOS impact where relevant.
+- [ ] I considered Linux and Windows impact where relevant.
 - [ ] My contribution follows the project license and contribution guidelines.

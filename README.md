@@ -17,7 +17,7 @@
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" />
   <img alt="CloakBrowser" src="https://img.shields.io/badge/CloakBrowser-0.3.28-111827" />
-  <img alt="Platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-2563eb" />
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-2563eb" />
   <img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" />
 </p>
 
@@ -43,7 +43,7 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 - **Global hotkeys**: record, stop, and cancel without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
 - **Optional translation**: send the transcript through the bundled Google Translate browser page.
-- **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb, plus Windows and macOS build targets.
+- **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb/rpm, plus a Windows installer.
 - **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
 ## How It Works
@@ -103,14 +103,16 @@ Most users do not need Node.js, npm, Whisper, CUDA, or a local model. Download a
 
 Choose the asset for your operating system:
 
-| Platform | Recommended asset       | Best for                                     |
-| -------- | ----------------------- | -------------------------------------------- |
-| Windows  | `GPT-Voice Setup *.exe` | Normal Windows installation                  |
-| macOS    | `GPT-Voice-*.dmg`       | Normal macOS drag-and-drop installation      |
-| Linux    | `gpt-voice_*_amd64.deb` | Ubuntu, Debian, Linux Mint, Pop!\_OS, etc.   |
-| Linux    | `GPT-Voice-*.AppImage`  | Portable Linux usage without package install |
+| Platform | Recommended asset        | Best for                                     |
+| -------- | ------------------------ | -------------------------------------------- |
+| Windows  | `GPT-Voice Setup *.exe`  | Normal Windows installation                  |
+| Linux    | `gpt-voice_*_amd64.deb`  | Ubuntu, Debian, Linux Mint, Pop!\_OS, etc.   |
+| Linux    | `gpt-voice-*.x86_64.rpm` | Fedora, RHEL, CentOS, openSUSE, etc.         |
+| Linux    | `GPT-Voice-*.AppImage`   | Portable Linux usage without package install |
 
 Each release also includes platform-specific `SHA256SUMS-*.txt` files. Use them if you want to verify that the downloaded installer was not corrupted or replaced.
+
+macOS release builds are paused until Developer ID signing and notarization are configured. Current releases do not include a supported DMG.
 
 ### Windows
 
@@ -132,26 +134,6 @@ To uninstall:
 3. Click **Uninstall**.
 
 Uninstalling removes the installed application files and shortcuts. Your local GPT-Voice session data is intentionally left in `%APPDATA%\GPT-Voice` so reinstalling does not force you to log in again. Delete that folder manually only if you want to remove saved sessions and settings.
-
-### macOS
-
-Download `GPT-Voice-*.dmg` from the latest release.
-
-1. Open the downloaded DMG file.
-2. Drag **GPT-Voice.app** into **Applications**.
-3. Eject the DMG.
-4. Open **GPT-Voice** from **Applications** or Spotlight.
-
-To update, replace the existing app in **Applications** with the newer `GPT-Voice.app` from the latest DMG.
-
-To uninstall:
-
-1. Quit GPT-Voice from the menu bar or Activity Monitor if it is still running.
-2. Delete **GPT-Voice.app** from **Applications**.
-
-Your saved session and settings are stored separately in `~/Library/Application Support/GPT-Voice`. Delete that directory manually only if you want a completely clean uninstall.
-
-If macOS blocks an unsigned or newly released build, verify the release checksum first. If you trust the build, Control-click **GPT-Voice.app**, choose **Open**, and confirm the prompt.
 
 ### Linux: deb Package
 
@@ -196,6 +178,46 @@ sudo apt purge gpt-voice
 
 Your saved session and settings are user data and are not removed by `apt remove` or `apt purge`. Delete `~/.config/GPT-Voice` manually only if you want to remove saved login/session data.
 
+### Linux: rpm Package
+
+For Fedora, RHEL, CentOS, openSUSE, and similar distributions, use the rpm package.
+
+On Fedora, RHEL, CentOS, and compatible distributions:
+
+```bash
+sudo dnf install ./gpt-voice-*.x86_64.rpm
+```
+
+On older CentOS/RHEL systems that use `yum`:
+
+```bash
+sudo yum install ./gpt-voice-*.x86_64.rpm
+```
+
+On openSUSE:
+
+```bash
+sudo zypper install ./gpt-voice-*.x86_64.rpm
+```
+
+This installs GPT-Voice into `/opt/GPT-Voice`, registers the desktop launcher, installs icons, and creates the `gpt-voice` command.
+
+To update, install the newer rpm package with the same package manager command.
+
+To uninstall on Fedora/RHEL/CentOS:
+
+```bash
+sudo dnf remove gpt-voice
+```
+
+To uninstall on openSUSE:
+
+```bash
+sudo zypper remove gpt-voice
+```
+
+Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that directory manually only if you want a clean reset.
+
 ### Linux: AppImage
 
 Use the AppImage if you want a portable build or do not want to install a system package.
@@ -232,7 +254,7 @@ Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that dir
 
 ### First Launch
 
-After installation, the first run is the same on every platform:
+After installation, the first run is the same on every supported packaged platform:
 
 1. Start **GPT-Voice**.
 2. Choose a provider in the **Provider** select.
@@ -288,24 +310,31 @@ Platform packages:
 ```bash
 npm run dist:linux
 npm run dist:win
-npm run dist:mac
 ```
 
 Linux builds produce:
 
 - `release/GPT-Voice-1.0.0.AppImage`
 - `release/gpt-voice_1.0.0_amd64.deb`
+- `release/gpt-voice-1.0.0.x86_64.rpm`
 - `release/linux-unpacked/gpt-voice`
+
+Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
+
+```bash
+sudo apt install rpm cpio
+```
 
 ## Release Automation
 
 GitHub Actions can build installable artifacts for all supported platforms:
 
-- Linux: AppImage and deb
+- Linux: AppImage, deb, and rpm
 - Windows: NSIS setup executable
-- macOS: DMG
 
-The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every platform, uploads workflow artifacts, and attaches the installers to that release.
+The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every supported packaging target, uploads workflow artifacts, and attaches the installers to that release.
+
+macOS release artifacts are paused until Developer ID signing and notarization are configured.
 
 ## Quality Checks
 
@@ -322,7 +351,7 @@ npm run prepare:cloakbrowser -- --target=linux
 npm run smoke:cloakbrowser
 ```
 
-The PR pipeline also runs package smoke builds for Linux, Windows, and macOS. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
+The PR pipeline also runs package smoke builds for Linux and Windows. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
 
 ## Project Layout
 
@@ -339,7 +368,7 @@ assets/          App icons and README screenshots
 
 GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows, `~/Library/Application Support/GPT-Voice` on macOS, and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 
