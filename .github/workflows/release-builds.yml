@@ -168,6 +168,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           path: release-assets
+          pattern: gpt-voice-*
           merge-multiple: true
 
       - name: Publish release assets
