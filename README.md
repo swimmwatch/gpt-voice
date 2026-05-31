@@ -182,6 +182,8 @@ Your saved session and settings are user data and are not removed by `apt remove
 
 For Fedora, RHEL, CentOS, openSUSE, and similar distributions, use the rpm package.
 
+Use your distribution package manager rather than `rpm -i` for normal installs. Package managers resolve the runtime dependencies declared by the package; plain `rpm -i` only reports missing dependencies.
+
 On Fedora, RHEL, CentOS, and compatible distributions:
 
 ```bash
@@ -201,6 +203,8 @@ sudo zypper install ./gpt-voice-*.x86_64.rpm
 ```
 
 This installs GPT-Voice into `/opt/GPT-Voice`, registers the desktop launcher, installs icons, and creates the `gpt-voice` command.
+
+The rpm package is built for `x86_64` desktop systems. It declares the Electron and CloakBrowser runtime dependencies needed by GPT-Voice, including GTK, NSS, notification, audio, GPU buffer, X11 screen-saver/input, UUID, accessibility, and XDG utility packages. On minimal installations, make sure the standard desktop/runtime repositories for your distribution are enabled before installing the package.
 
 To update, install the newer rpm package with the same package manager command.
 
@@ -326,6 +330,33 @@ Linux builds produce:
 
 ```bash
 sudo apt install rpm cpio
+```
+
+### RPM Package Maintenance
+
+RPM package metadata and runtime dependencies are maintained in `package.json`:
+
+- `build.linux` owns the Linux product metadata, desktop entry fields, vendor, maintainer, summary, and description.
+- `build.rpm.packageCategory` maps to the RPM group/category metadata.
+- `build.rpm.depends` lists the runtime package dependencies expected by Fedora-style RPM package managers.
+- `build.rpm.fpm` adds the generated AppStream metadata and package license file to the final rpm.
+
+Generated metadata comes from `npm run generate:package-metadata`; do not edit `build/generated/` files by hand.
+
+For RPM packaging changes, use the Fedora container path:
+
+```bash
+npm run dist:fedora
+```
+
+This rebuilds the Linux AppImage, deb, and rpm, then runs installer verification. The Linux installer verifier checks that the rpm has the expected metadata, dependency declarations, lifecycle script shell dependency, `app.asar`, bundled CloakBrowser runtime, license files, desktop entry, hicolor icons, and AppStream metadata.
+
+To inspect the generated rpm manually:
+
+```bash
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qip release/gpt-voice-*.x86_64.rpm
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qRp release/gpt-voice-*.x86_64.rpm
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qlp release/gpt-voice-*.x86_64.rpm
 ```
 
 ## Release Automation

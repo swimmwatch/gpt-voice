@@ -77,6 +77,18 @@ npm run smoke:fedora
 npm run dist:fedora
 ```
 
+For RPM package changes, check that `package.json` keeps Linux metadata and `build.rpm.depends` in sync with the runtime. `npm run dist:fedora` runs the Linux installer verifier, which asserts rpm metadata, runtime dependencies, lifecycle script shell dependency, packaged app files, bundled CloakBrowser, license files, desktop entry, icons, and AppStream metadata.
+
+When you need to inspect the generated rpm directly, use the Fedora container or an RPM-capable Linux host:
+
+```bash
+rpm -qip release/gpt-voice-*.x86_64.rpm
+rpm -qRp release/gpt-voice-*.x86_64.rpm
+rpm -qlp release/gpt-voice-*.x86_64.rpm
+```
+
+Update README install and maintenance notes whenever RPM dependencies, supported RPM-family distributions, package metadata, or release artifacts change.
+
 Use the matching platform command where appropriate: `npm run dist:win`. macOS release packaging is currently paused until signing and notarization are configured.
 
 ## Pull Request Expectations
