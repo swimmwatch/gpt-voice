@@ -1,5 +1,5 @@
-import { clipboard } from 'electron';
 import { ensureBackgroundBrowser, getTranslatePage, isBgReady } from '../browser';
+import { writeClipboardText } from '../electronRuntime';
 import { createLogger } from '../logger';
 
 const log = createLogger('translate');
@@ -43,10 +43,10 @@ export async function translateText(
         .join('');
     }, resultSelector);
 
-    log.info('Result:', translated);
+    log.info('Translation result length:', translated.length);
 
     if (translated) {
-      clipboard.writeText(translated);
+      writeClipboardText(translated);
       return { success: true, text: translated };
     }
     return { success: false, error: 'No translation result found on page' };

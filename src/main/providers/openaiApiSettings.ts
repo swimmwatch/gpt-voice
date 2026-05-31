@@ -1,7 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { safeStorage } from 'electron';
 import { APP_DIR } from '../config';
+import {
+  decryptSafeStorageString,
+  encryptSafeStorageString,
+  isSafeStorageEncryptionAvailable,
+} from '../electronRuntime';
 import { createLogger } from '../logger';
 import {
   normalizeOpenAIApiSettings,
@@ -34,18 +38,18 @@ function writeStoredSettings(settings: StoredOpenAIApiSettings): void {
 }
 
 function encryptApiKey(apiKey: string): string {
-  if (!safeStorage.isEncryptionAvailable()) {
+  if (!isSafeStorageEncryptionAvailable()) {
     throw new Error('Secure storage is not available on this system');
   }
-  return safeStorage.encryptString(apiKey).toString('base64');
+  return encryptSafeStorageString(apiKey).toString('base64');
 }
 
 function decryptApiKey(encryptedApiKey?: string): string {
   if (!encryptedApiKey) return '';
-  if (!safeStorage.isEncryptionAvailable()) return '';
+  if (!isSafeStorageEncryptionAvailable()) return '';
 
   try {
-    return safeStorage.decryptString(Buffer.from(encryptedApiKey, 'base64'));
+    return decryptSafeStorageString(Buffer.from(encryptedApiKey, 'base64'));
   } catch (error) {
     log.warn('Failed to decrypt OpenAI API key:', error);
     return '';

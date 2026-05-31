@@ -1,4 +1,3 @@
-import { clipboard } from 'electron';
 import { StatusCodes } from 'http-status-codes';
 import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
 import { getAudioFileExtension } from './chatgptUtils';
@@ -6,6 +5,7 @@ import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
+import { writeClipboardText } from '../electronRuntime';
 
 const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -86,7 +86,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
       return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
     }
 
-    clipboard.writeText(text);
+    writeClipboardText(text);
     return { success: true, text };
   }
 
