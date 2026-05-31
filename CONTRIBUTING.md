@@ -70,7 +70,14 @@ npm run dist:linux
 npm run verify:packaged
 ```
 
-Use the matching platform command where appropriate: `npm run dist:win` or `npm run dist:mac`.
+For Linux release packaging, prefer the reproducible Fedora Docker path:
+
+```bash
+npm run smoke:fedora
+npm run dist:fedora
+```
+
+Use the matching platform command where appropriate: `npm run dist:win`. macOS release packaging is currently paused until signing and notarization are configured.
 
 ## Pull Request Expectations
 

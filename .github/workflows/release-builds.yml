@@ -23,28 +23,70 @@ env:
   CLOAKBROWSER_AUTO_UPDATE: 'false'
 
 jobs:
-  build:
-    name: Build ${{ matrix.label }}
-    runs-on: ${{ matrix.os }}
+  build-linux:
+    name: Build Fedora Linux x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Fedora release workspace
+        uses: actions/cache@v5
+        with:
+          path: |
+            .cache/npm
+            .cache/electron
+            .cache/electron-builder
+            .cache/fedora-home
+          key: ${{ runner.os }}-fedora-release-workspace-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs', 'build/fedora-release/**') }}
+          restore-keys: |
+            ${{ runner.os }}-fedora-release-workspace-
+
+      - name: Build Fedora release image
+        uses: docker/build-push-action@v6
+        with:
+          context: build/fedora-release
+          file: build/fedora-release/Dockerfile
+          load: true
+          tags: ${{ env.FEDORA_RELEASE_IMAGE }}
+          cache-from: type=gha,scope=fedora-release-image
+          cache-to: type=gha,mode=max,scope=fedora-release-image
+
+      - name: Build Linux release artifacts in Fedora
+        env:
+          PACKAGE_RELEASE_DATE: ${{ github.event.release.published_at }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=release
+
+      - name: Upload Linux installer artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-linux
+          path: release-artifacts/linux/*
+          if-no-files-found: error
+          retention-days: 30
+
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
     timeout-minutes: 60
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: Linux x64
-            os: ubuntu-latest
-            platform: linux
-            cloak-target: linux
-            builder-target: linux
-          - label: Windows x64
-            os: windows-latest
-            platform: win32
-            cloak-target: win32
-            builder-target: win
 
     steps:
       - name: Checkout
@@ -70,10 +112,6 @@ jobs:
       - name: Install dependencies
         run: npm run ci:install
 
-      - name: Install Linux package inspection tools
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm cpio
-
       - name: Apply release version from tag
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -81,7 +119,7 @@ jobs:
         run: npm run apply:release-version
 
       - name: Prepare bundled CloakBrowser
-        run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}
+        run: npm run prepare:cloakbrowser -- --target=win32
 
       - name: Smoke test CloakBrowser
         run: npm run smoke:cloakbrowser
@@ -97,28 +135,30 @@ jobs:
       - name: Package app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --${{ matrix.builder-target }} --publish never
+        run: npx electron-builder --win --publish never
 
       - name: Verify packaged runtime
         run: npm run verify:packaged
 
       - name: Verify installer behavior
-        run: npm run verify:installers -- --platform=${{ matrix.platform }}
+        run: npm run verify:installers -- --platform=win32
 
       - name: Collect installer artifacts
-        run: npm run collect:release-artifacts -- --platform=${{ matrix.platform }}
+        run: npm run collect:release-artifacts -- --platform=win32
 
-      - name: Upload installer artifacts
+      - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: gpt-voice-${{ matrix.platform }}
-          path: release-artifacts/${{ matrix.platform }}/*
+          name: gpt-voice-win32
+          path: release-artifacts/win32/*
           if-no-files-found: error
           retention-days: 30
 
   publish:
     name: Publish GitHub Release
-    needs: build
+    needs:
+      - build-linux
+      - build-windows
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 15

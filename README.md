@@ -308,9 +308,12 @@ npm run pack
 Platform packages:
 
 ```bash
+npm run dist:fedora
 npm run dist:linux
 npm run dist:win
 ```
+
+`npm run dist:fedora` is the preferred Linux release path. It builds and runs a Fedora Docker utility image with Node.js 24, npm 11, Electron packaging tools, RPM tooling, AppStream validation, and CloakBrowser runtime dependencies installed. The container writes final Linux release files to `release-artifacts/linux/`.
 
 Linux builds produce:
 
@@ -319,7 +322,7 @@ Linux builds produce:
 - `release/gpt-voice-1.0.0.x86_64.rpm`
 - `release/linux-unpacked/gpt-voice`
 
-Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
+`npm run dist:linux` still works as a native-host fallback. Native Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
 
 ```bash
 sudo apt install rpm cpio
@@ -329,10 +332,10 @@ sudo apt install rpm cpio
 
 GitHub Actions can build installable artifacts for all supported platforms:
 
-- Linux: AppImage, deb, and rpm
+- Fedora Linux container: AppImage, deb, and rpm
 - Windows: NSIS setup executable
 
-The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every supported packaging target, uploads workflow artifacts, and attaches the installers to that release.
+The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every supported packaging target, uploads workflow artifacts, and attaches the installers to that release. Linux release artifacts are built through `build/fedora-release/Dockerfile`; the workflow uses Docker Buildx cache plus workspace caches for npm, Electron, and CloakBrowser downloads so repeated Fedora builds stay fast.
 
 macOS release artifacts are paused until Developer ID signing and notarization are configured.
 
@@ -349,9 +352,10 @@ npm run audit:prod
 npm run build:prod
 npm run prepare:cloakbrowser -- --target=linux
 npm run smoke:cloakbrowser
+npm run smoke:fedora
 ```
 
-The PR pipeline also runs package smoke builds for Linux and Windows. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
+The PR pipeline also runs a Fedora Linux container package smoke build and a Windows package smoke build. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
 
 ## Project Layout
 
@@ -361,6 +365,7 @@ src/renderer/    React UI and recording UX
 scripts/         CloakBrowser preparation, smoke tests, config validation
 tests/           Unit tests based on Node.js test runner
 assets/          App icons and README screenshots
+build/           Packaging metadata, macOS entitlements, and Fedora release image files
 .github/         PR checks, release builds, Dependabot, and templates
 ```
 
