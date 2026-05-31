@@ -35,7 +35,6 @@ assignees: swimmwatch
 
 - [ ] Linux
 - [ ] Windows
-- [ ] macOS
 - [ ] All platforms
 - [ ] Not platform-specific
 

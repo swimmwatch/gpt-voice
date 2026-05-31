@@ -1,6 +1,6 @@
 {
   "name": "gpt-voice",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "private": true,
   "description": "Desktop voice transcription app powered by GPT web sessions and OpenAI API.",
   "homepage": "https://github.com/swimmwatch/gpt-voice",
@@ -32,10 +32,12 @@
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
     "generate:package-metadata": "node scripts/generate-package-metadata.mjs",
     "smoke:cloakbrowser": "node scripts/smoke-cloakbrowser.mjs",
+    "smoke:fedora": "node scripts/build-fedora-release.mjs --mode=smoke",
     "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
     "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder --dir",
     "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder",
     "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && electron-builder --linux",
+    "dist:fedora": "node scripts/build-fedora-release.mjs --mode=release",
     "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && electron-builder --win",
     "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && electron-builder --mac",
     "lint": "eslint src/ tests/",
@@ -115,7 +117,8 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ],
       "executableName": "gpt-voice",
       "category": "Utility",
@@ -140,6 +143,25 @@
       "fpm": [
         "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
         "build/generated/linux/debian-copyright=/usr/share/doc/gpt-voice/copyright"
+      ]
+    },
+    "rpm": {
+      "packageCategory": "Utility",
+      "depends": [
+        "(libXtst or libXtst6)",
+        "(libuuid or libuuid1)",
+        "alsa-lib",
+        "at-spi2-core",
+        "gtk3",
+        "libXScrnSaver",
+        "libnotify",
+        "mesa-libgbm",
+        "nss",
+        "xdg-utils"
+      ],
+      "fpm": [
+        "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
+        "build/generated/common/license.txt=/usr/share/licenses/gpt-voice/LICENSE.txt"
       ]
     },
     "appImage": {

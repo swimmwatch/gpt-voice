@@ -17,7 +17,7 @@
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" />
   <img alt="CloakBrowser" src="https://img.shields.io/badge/CloakBrowser-0.3.28-111827" />
-  <img alt="Platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-2563eb" />
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-2563eb" />
   <img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" />
 </p>
 
@@ -43,7 +43,7 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 - **Global hotkeys**: record, stop, and cancel without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
 - **Optional translation**: send the transcript through the bundled Google Translate browser page.
-- **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb, plus Windows and macOS build targets.
+- **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb/rpm, plus a Windows installer.
 - **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
 ## How It Works
@@ -103,14 +103,16 @@ Most users do not need Node.js, npm, Whisper, CUDA, or a local model. Download a
 
 Choose the asset for your operating system:
 
-| Platform | Recommended asset       | Best for                                     |
-| -------- | ----------------------- | -------------------------------------------- |
-| Windows  | `GPT-Voice Setup *.exe` | Normal Windows installation                  |
-| macOS    | `GPT-Voice-*.dmg`       | Normal macOS drag-and-drop installation      |
-| Linux    | `gpt-voice_*_amd64.deb` | Ubuntu, Debian, Linux Mint, Pop!\_OS, etc.   |
-| Linux    | `GPT-Voice-*.AppImage`  | Portable Linux usage without package install |
+| Platform | Recommended asset        | Best for                                     |
+| -------- | ------------------------ | -------------------------------------------- |
+| Windows  | `GPT-Voice Setup *.exe`  | Normal Windows installation                  |
+| Linux    | `gpt-voice_*_amd64.deb`  | Ubuntu, Debian, Linux Mint, Pop!\_OS, etc.   |
+| Linux    | `gpt-voice-*.x86_64.rpm` | Fedora, RHEL, CentOS, openSUSE, etc.         |
+| Linux    | `GPT-Voice-*.AppImage`   | Portable Linux usage without package install |
 
 Each release also includes platform-specific `SHA256SUMS-*.txt` files. Use them if you want to verify that the downloaded installer was not corrupted or replaced.
+
+macOS release builds are paused until Developer ID signing and notarization are configured. Current releases do not include a supported DMG.
 
 ### Windows
 
@@ -132,26 +134,6 @@ To uninstall:
 3. Click **Uninstall**.
 
 Uninstalling removes the installed application files and shortcuts. Your local GPT-Voice session data is intentionally left in `%APPDATA%\GPT-Voice` so reinstalling does not force you to log in again. Delete that folder manually only if you want to remove saved sessions and settings.
-
-### macOS
-
-Download `GPT-Voice-*.dmg` from the latest release.
-
-1. Open the downloaded DMG file.
-2. Drag **GPT-Voice.app** into **Applications**.
-3. Eject the DMG.
-4. Open **GPT-Voice** from **Applications** or Spotlight.
-
-To update, replace the existing app in **Applications** with the newer `GPT-Voice.app` from the latest DMG.
-
-To uninstall:
-
-1. Quit GPT-Voice from the menu bar or Activity Monitor if it is still running.
-2. Delete **GPT-Voice.app** from **Applications**.
-
-Your saved session and settings are stored separately in `~/Library/Application Support/GPT-Voice`. Delete that directory manually only if you want a completely clean uninstall.
-
-If macOS blocks an unsigned or newly released build, verify the release checksum first. If you trust the build, Control-click **GPT-Voice.app**, choose **Open**, and confirm the prompt.
 
 ### Linux: deb Package
 
@@ -196,6 +178,50 @@ sudo apt purge gpt-voice
 
 Your saved session and settings are user data and are not removed by `apt remove` or `apt purge`. Delete `~/.config/GPT-Voice` manually only if you want to remove saved login/session data.
 
+### Linux: rpm Package
+
+For Fedora, RHEL, CentOS, openSUSE, and similar distributions, use the rpm package.
+
+Use your distribution package manager rather than `rpm -i` for normal installs. Package managers resolve the runtime dependencies declared by the package; plain `rpm -i` only reports missing dependencies.
+
+On Fedora, RHEL, CentOS, and compatible distributions:
+
+```bash
+sudo dnf install ./gpt-voice-*.x86_64.rpm
+```
+
+On older CentOS/RHEL systems that use `yum`:
+
+```bash
+sudo yum install ./gpt-voice-*.x86_64.rpm
+```
+
+On openSUSE:
+
+```bash
+sudo zypper install ./gpt-voice-*.x86_64.rpm
+```
+
+This installs GPT-Voice into `/opt/GPT-Voice`, registers the desktop launcher, installs icons, and creates the `gpt-voice` command.
+
+The rpm package is built for `x86_64` desktop systems. It declares the Electron and CloakBrowser runtime dependencies needed by GPT-Voice, including GTK, NSS, notification, audio, GPU buffer, X11 screen-saver/input, UUID, accessibility, and XDG utility packages. On minimal installations, make sure the standard desktop/runtime repositories for your distribution are enabled before installing the package.
+
+To update, install the newer rpm package with the same package manager command.
+
+To uninstall on Fedora/RHEL/CentOS:
+
+```bash
+sudo dnf remove gpt-voice
+```
+
+To uninstall on openSUSE:
+
+```bash
+sudo zypper remove gpt-voice
+```
+
+Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that directory manually only if you want a clean reset.
+
 ### Linux: AppImage
 
 Use the AppImage if you want a portable build or do not want to install a system package.
@@ -232,7 +258,7 @@ Your saved session and settings remain in `~/.config/GPT-Voice`. Delete that dir
 
 ### First Launch
 
-After installation, the first run is the same on every platform:
+After installation, the first run is the same on every supported packaged platform:
 
 1. Start **GPT-Voice**.
 2. Choose a provider in the **Provider** select.
@@ -286,26 +312,63 @@ npm run pack
 Platform packages:
 
 ```bash
+npm run dist:fedora
 npm run dist:linux
 npm run dist:win
-npm run dist:mac
 ```
+
+`npm run dist:fedora` is the preferred Linux release path. It builds and runs a Fedora Docker utility image with Node.js 24, npm 11, Electron packaging tools, RPM tooling, AppStream validation, and CloakBrowser runtime dependencies installed. The container writes final Linux release files to `release-artifacts/linux/`.
 
 Linux builds produce:
 
 - `release/GPT-Voice-1.0.0.AppImage`
 - `release/gpt-voice_1.0.0_amd64.deb`
+- `release/gpt-voice-1.0.0.x86_64.rpm`
 - `release/linux-unpacked/gpt-voice`
+
+`npm run dist:linux` still works as a native-host fallback. Native Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
+
+```bash
+sudo apt install rpm cpio
+```
+
+### RPM Package Maintenance
+
+RPM package metadata and runtime dependencies are maintained in `package.json`:
+
+- `build.linux` owns the Linux product metadata, desktop entry fields, vendor, maintainer, summary, and description.
+- `build.rpm.packageCategory` maps to the RPM group/category metadata.
+- `build.rpm.depends` lists the runtime package dependencies expected by Fedora-style RPM package managers.
+- `build.rpm.fpm` adds the generated AppStream metadata and package license file to the final rpm.
+
+Generated metadata comes from `npm run generate:package-metadata`; do not edit `build/generated/` files by hand.
+
+For RPM packaging changes, use the Fedora container path:
+
+```bash
+npm run dist:fedora
+```
+
+This rebuilds the Linux AppImage, deb, and rpm, then runs installer verification. The Linux installer verifier checks that the rpm has the expected metadata, dependency declarations, lifecycle script shell dependency, `app.asar`, bundled CloakBrowser runtime, license files, desktop entry, hicolor icons, and AppStream metadata.
+
+To inspect the generated rpm manually:
+
+```bash
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qip release/gpt-voice-*.x86_64.rpm
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qRp release/gpt-voice-*.x86_64.rpm
+docker run --rm --entrypoint rpm --volume "$PWD:/workspace" --workdir /workspace gpt-voice-fedora-release:local -qlp release/gpt-voice-*.x86_64.rpm
+```
 
 ## Release Automation
 
 GitHub Actions can build installable artifacts for all supported platforms:
 
-- Linux: AppImage and deb
+- Fedora Linux container: AppImage, deb, and rpm
 - Windows: NSIS setup executable
-- macOS: DMG
 
-The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every platform, uploads workflow artifacts, and attaches the installers to that release.
+The `Build Release Artifacts` workflow can be started manually from GitHub Actions. It also runs automatically when a GitHub Release is published, builds every supported packaging target, uploads workflow artifacts, and attaches the installers to that release. Linux release artifacts are built through `build/fedora-release/Dockerfile`; the workflow uses Docker Buildx cache plus workspace caches for npm, Electron, and CloakBrowser downloads so repeated Fedora builds stay fast.
+
+macOS release artifacts are paused until Developer ID signing and notarization are configured.
 
 ## Quality Checks
 
@@ -320,9 +383,10 @@ npm run audit:prod
 npm run build:prod
 npm run prepare:cloakbrowser -- --target=linux
 npm run smoke:cloakbrowser
+npm run smoke:fedora
 ```
 
-The PR pipeline also runs package smoke builds for Linux, Windows, and macOS. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
+The PR pipeline also runs a Fedora Linux container package smoke build and a Windows package smoke build. GitHub Actions workflow files are checked by a dedicated Actionlint workflow.
 
 ## Project Layout
 
@@ -332,6 +396,7 @@ src/renderer/    React UI and recording UX
 scripts/         CloakBrowser preparation, smoke tests, config validation
 tests/           Unit tests based on Node.js test runner
 assets/          App icons and README screenshots
+build/           Packaging metadata, macOS entitlements, and Fedora release image files
 .github/         PR checks, release builds, Dependabot, and templates
 ```
 
@@ -339,7 +404,7 @@ assets/          App icons and README screenshots
 
 GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows, `~/Library/Application Support/GPT-Voice` on macOS, and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { clipboard } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import { BaseVoiceProvider, type VoiceProviderInfo, type TranscriptionResult } from './BaseVoiceProvider';
 import {
@@ -13,6 +12,7 @@ import {
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { APP_DIR } from '../config';
+import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
 
 const log = createLogger('chatgpt-provider');
@@ -282,8 +282,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private parseTranscribeResponse(resp: { status: number; body: string }): TranscriptionResult {
     const parsed = parseTranscribeResponseBody(resp);
     if (parsed.success && parsed.text) {
-      log.info('Transcription success:', parsed.text);
-      clipboard.writeText(parsed.text);
+      log.info('Transcription success, text length:', parsed.text.length);
+      writeClipboardText(parsed.text);
     }
     return parsed;
   }

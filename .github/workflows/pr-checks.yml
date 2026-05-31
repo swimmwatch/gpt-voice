@@ -80,31 +80,60 @@ jobs:
       - name: Build production bundles
         run: npm run build:prod
 
-  package-smoke:
-    name: Package Smoke (${{ matrix.platform }})
+  package-smoke-fedora:
+    name: Package Smoke (Fedora Linux)
     needs: quality
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Fedora release workspace
+        uses: actions/cache@v5
+        with:
+          path: |
+            .cache/npm
+            .cache/electron
+            .cache/electron-builder
+            .cache/fedora-home
+          key: ${{ runner.os }}-fedora-smoke-workspace-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs', 'build/fedora-release/**') }}
+          restore-keys: |
+            ${{ runner.os }}-fedora-smoke-workspace-
+
+      - name: Build Fedora release image
+        uses: docker/build-push-action@v6
+        with:
+          context: build/fedora-release
+          file: build/fedora-release/Dockerfile
+          load: true
+          tags: ${{ env.FEDORA_RELEASE_IMAGE }}
+          cache-from: type=gha,scope=fedora-release-image
+          cache-to: type=gha,mode=max,scope=fedora-release-image
+
+      - name: Smoke package app in Fedora
+        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18
+
+  package-smoke-windows:
+    name: Package Smoke (Windows)
+    needs: quality
+    runs-on: windows-latest
     timeout-minutes: 45
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: Linux
-            os: ubuntu-latest
-            cloak-target: linux
-            builder-target: linux
-          - platform: Windows
-            os: windows-latest
-            cloak-target: win32
-            builder-target: win
-          - platform: macOS
-            os: macos-latest
-            cloak-target: darwin
-            builder-target: mac
 
     steps:
       - name: Checkout
@@ -131,7 +160,7 @@ jobs:
         run: npm run ci:install
 
       - name: Prepare bundled CloakBrowser
-        run: npm run prepare:cloakbrowser -- --target=${{ matrix.cloak-target }}
+        run: npm run prepare:cloakbrowser -- --target=win32
 
       - name: Smoke test CloakBrowser
         run: npm run smoke:cloakbrowser
@@ -143,7 +172,7 @@ jobs:
         run: npm run generate:package-metadata -- --release-date=2026-05-18
 
       - name: Package unpacked app
-        run: npx electron-builder --${{ matrix.builder-target }} dir
+        run: npx electron-builder --win dir
 
       - name: Verify packaged runtime
         run: npm run verify:packaged

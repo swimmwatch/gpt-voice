@@ -39,6 +39,21 @@ async function assertExecutable(filePath, description) {
   await access(filePath, constants.X_OK);
 }
 
+async function requireCommand(command, packageHint) {
+  const pathEntries = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const pathEntry of pathEntries) {
+    const candidate = path.join(pathEntry, command);
+    try {
+      await access(candidate, constants.X_OK);
+      return;
+    } catch {
+      /* keep searching */
+    }
+  }
+
+  throw new Error(`Required command "${command}" is not available. Install ${packageHint} before verifying RPMs.`);
+}
+
 async function run(command, args, options = {}) {
   try {
     const result = await execFile(command, args, {
@@ -173,6 +188,13 @@ async function verifyDesktopFile(filePath, { appImage }) {
   await run('desktop-file-validate', [filePath], { optional: true });
 }
 
+async function extractRpm(rpm, outputDir) {
+  await run('sh', ['-c', 'rpm2cpio "$1" | cpio -idm --quiet', 'sh', rpm], {
+    cwd: outputDir,
+    timeout: 180000,
+  });
+}
+
 async function verifyLinuxIconTheme(root) {
   for (const size of ['16x16', '24x24', '32x32', '48x48', '64x64', '128x128', '256x256', '512x512']) {
     await assertExists(
@@ -184,10 +206,8 @@ async function verifyLinuxIconTheme(root) {
 
 async function verifyLinuxAppStreamMetadata(root) {
   const metainfoPath = path.join(root, 'usr', 'share', 'metainfo', `${packageJson.build.appId}.metainfo.xml`);
-  const copyrightPath = path.join(root, 'usr', 'share', 'doc', packageName, 'copyright');
 
   await assertExists(metainfoPath, 'Linux AppStream metainfo');
-  await assertExists(copyrightPath, 'Debian copyright metadata');
 
   const metainfo = await readFile(metainfoPath, 'utf-8');
   assert(metainfo.includes(`<id>${packageJson.build.appId}</id>`), 'AppStream metainfo has unexpected component id');
@@ -197,12 +217,17 @@ async function verifyLinuxAppStreamMetadata(root) {
     'AppStream metainfo has unexpected release version',
   );
 
+  await run('appstreamcli', ['validate', '--no-net', metainfoPath], { optional: true });
+}
+
+async function verifyDebianCopyrightMetadata(root) {
+  const copyrightPath = path.join(root, 'usr', 'share', 'doc', packageName, 'copyright');
+  await assertExists(copyrightPath, 'Debian copyright metadata');
+
   const copyright = await readFile(copyrightPath, 'utf-8');
   assert(copyright.includes(`Upstream-Name: ${productName}`), 'Debian copyright has unexpected upstream name');
   assert(copyright.includes(`Source: ${packageJson.homepage}`), 'Debian copyright has unexpected source URL');
   assert(copyright.includes(`License: ${packageJson.license}`), 'Debian copyright has unexpected license');
-
-  await run('appstreamcli', ['validate', '--no-net', metainfoPath], { optional: true });
 }
 
 async function verifyPackagedLicense(filePath, description) {
@@ -214,13 +239,21 @@ async function verifyPackagedLicense(filePath, description) {
 }
 
 async function verifyLinuxInstallers() {
+  await requireCommand('rpm', 'the rpm package');
+  await requireCommand('rpm2cpio', 'the rpm package');
+  await requireCommand('cpio', 'the cpio package');
+
   const appImage = await releaseFile(
-    (fileName) => fileName.startsWith(`${productName}-`) && fileName.endsWith('.AppImage'),
+    (fileName) => fileName === `${productName}-${packageJson.version}.AppImage`,
     'Linux AppImage',
   );
   const deb = await releaseFile(
-    (fileName) => fileName.startsWith(`${packageName}_`) && fileName.endsWith('.deb'),
+    (fileName) => fileName === `${packageName}_${packageJson.version}_amd64.deb`,
     'Linux deb package',
+  );
+  const rpm = await releaseFile(
+    (fileName) => fileName === `${packageName}-${packageJson.version}.x86_64.rpm`,
+    'Linux RPM package',
   );
 
   await assertExecutable(appImage, 'Linux AppImage');
@@ -299,8 +332,97 @@ async function verifyLinuxInstallers() {
     });
     await verifyLinuxIconTheme(debExtractDir);
     await verifyLinuxAppStreamMetadata(debExtractDir);
+    await verifyDebianCopyrightMetadata(debExtractDir);
   } finally {
     await rm(debExtractDir, { recursive: true, force: true });
+  }
+
+  const rpmInfo = await run('rpm', [
+    '--query',
+    '--package',
+    '--queryformat',
+    [
+      'Name: %{NAME}',
+      'Version: %{VERSION}',
+      'Release: %{RELEASE}',
+      'Architecture: %{ARCH}',
+      'License: %{LICENSE}',
+      'Group: %{GROUP}',
+      'Packager: %{PACKAGER}',
+      'Vendor: %{VENDOR}',
+      'URL: %{URL}',
+      'Summary: %{SUMMARY}',
+      'Description: %{DESCRIPTION}',
+    ].join('\n'),
+    rpm,
+  ]);
+  assert(rpmInfo.includes(`Name: ${packageName}`), 'RPM metadata has unexpected Name field');
+  assert(rpmInfo.includes(`Version: ${packageJson.version}`), 'RPM metadata has unexpected Version field');
+  assert(rpmInfo.includes('Release: 1'), 'RPM metadata has unexpected Release field');
+  assert(rpmInfo.includes('Architecture: x86_64'), 'RPM metadata has unexpected Architecture field');
+  assert(rpmInfo.includes(`License: ${packageJson.license}`), 'RPM metadata has unexpected License field');
+  assert(
+    rpmInfo.includes(`Group: ${packageJson.build.rpm.packageCategory}`),
+    'RPM metadata has unexpected Group field',
+  );
+  assert(
+    rpmInfo.includes(`Packager: ${packageJson.build.linux.maintainer}`),
+    'RPM metadata has unexpected Packager field',
+  );
+  assert(rpmInfo.includes(`Vendor: ${packageJson.build.linux.vendor}`), 'RPM metadata has unexpected Vendor field');
+  assert(rpmInfo.includes(`URL: ${packageJson.homepage}`), 'RPM metadata has unexpected URL field');
+  assert(
+    rpmInfo.includes(`Summary: ${packageJson.build.linux.synopsis}`),
+    'RPM metadata has unexpected Summary field',
+  );
+  assert(
+    rpmInfo.includes(`Description: ${packageJson.build.linux.description}`),
+    'RPM metadata has unexpected Description field',
+  );
+
+  const rpmRequires = await run('rpm', ['-qRp', rpm]);
+  for (const expectedDependency of packageJson.build.rpm.depends) {
+    assert(rpmRequires.includes(expectedDependency), `RPM package is missing dependency: ${expectedDependency}`);
+  }
+  assert(rpmRequires.includes('/bin/sh'), 'RPM package is missing shell dependency for lifecycle scripts');
+
+  const rpmContents = await run('rpm', ['-qlp', rpm]);
+  for (const expectedPath of [
+    `/opt/${productName}/${packageName}`,
+    `/opt/${productName}/resources/app.asar`,
+    `/opt/${productName}/resources/cloakbrowser/chrome`,
+    `/opt/${productName}/resources/LICENSE.txt`,
+    `/usr/share/applications/${packageName}.desktop`,
+    `/usr/share/icons/hicolor/512x512/apps/${packageName}.png`,
+    `/usr/share/metainfo/${packageJson.build.appId}.metainfo.xml`,
+    `/usr/share/licenses/${packageName}/LICENSE.txt`,
+  ]) {
+    assert(rpmContents.includes(expectedPath), `RPM package does not own expected path: ${expectedPath}`);
+  }
+
+  const rpmExtractDir = await mkdtemp(path.join(os.tmpdir(), `${packageName}-rpm-`));
+  try {
+    await extractRpm(rpm, rpmExtractDir);
+    await assertExecutable(path.join(rpmExtractDir, 'opt', productName, packageName), 'RPM executable');
+    await assertExecutable(
+      path.join(rpmExtractDir, 'opt', productName, 'resources', 'cloakbrowser', 'chrome'),
+      'RPM CloakBrowser',
+    );
+    await verifyPackagedLicense(
+      path.join(rpmExtractDir, 'opt', productName, 'resources', 'LICENSE.txt'),
+      'RPM packaged license metadata',
+    );
+    await verifyPackagedLicense(
+      path.join(rpmExtractDir, 'usr', 'share', 'licenses', packageName, 'LICENSE.txt'),
+      'RPM package license metadata',
+    );
+    await verifyDesktopFile(path.join(rpmExtractDir, 'usr', 'share', 'applications', `${packageName}.desktop`), {
+      appImage: false,
+    });
+    await verifyLinuxIconTheme(rpmExtractDir);
+    await verifyLinuxAppStreamMetadata(rpmExtractDir);
+  } finally {
+    await rm(rpmExtractDir, { recursive: true, force: true });
   }
 
   if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY) {

@@ -68,5 +68,35 @@ export function parseTranscribeResponseBody(resp: { status: number; body: string
     return { success: true, text };
   }
 
+  const error = getTranscribeErrorMessage(result);
+  if (error) {
+    return { success: false, error, raw: JSON.stringify(result) };
+  }
+
   return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
+}
+
+function getTranscribeErrorMessage(result: Record<string, unknown>): string {
+  const detail = getNestedErrorMessage(result.detail);
+  if (detail) return detail;
+
+  const error = getNestedErrorMessage(result.error);
+  if (error) return error;
+
+  const message = getNestedErrorMessage(result.message);
+  return message || '';
+}
+
+function getNestedErrorMessage(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    getNestedErrorMessage(record.detail) || getNestedErrorMessage(record.message) || getNestedErrorMessage(record.error)
+  );
 }
