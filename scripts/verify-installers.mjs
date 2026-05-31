@@ -341,13 +341,50 @@ async function verifyLinuxInstallers() {
     '--query',
     '--package',
     '--queryformat',
-    'Name: %{NAME}\nVersion: %{VERSION}\nArchitecture: %{ARCH}\nLicense: %{LICENSE}\n',
+    [
+      'Name: %{NAME}',
+      'Version: %{VERSION}',
+      'Release: %{RELEASE}',
+      'Architecture: %{ARCH}',
+      'License: %{LICENSE}',
+      'Group: %{GROUP}',
+      'Packager: %{PACKAGER}',
+      'Vendor: %{VENDOR}',
+      'URL: %{URL}',
+      'Summary: %{SUMMARY}',
+      'Description: %{DESCRIPTION}',
+    ].join('\n'),
     rpm,
   ]);
   assert(rpmInfo.includes(`Name: ${packageName}`), 'RPM metadata has unexpected Name field');
   assert(rpmInfo.includes(`Version: ${packageJson.version}`), 'RPM metadata has unexpected Version field');
+  assert(rpmInfo.includes('Release: 1'), 'RPM metadata has unexpected Release field');
   assert(rpmInfo.includes('Architecture: x86_64'), 'RPM metadata has unexpected Architecture field');
   assert(rpmInfo.includes(`License: ${packageJson.license}`), 'RPM metadata has unexpected License field');
+  assert(
+    rpmInfo.includes(`Group: ${packageJson.build.rpm.packageCategory}`),
+    'RPM metadata has unexpected Group field',
+  );
+  assert(
+    rpmInfo.includes(`Packager: ${packageJson.build.linux.maintainer}`),
+    'RPM metadata has unexpected Packager field',
+  );
+  assert(rpmInfo.includes(`Vendor: ${packageJson.build.linux.vendor}`), 'RPM metadata has unexpected Vendor field');
+  assert(rpmInfo.includes(`URL: ${packageJson.homepage}`), 'RPM metadata has unexpected URL field');
+  assert(
+    rpmInfo.includes(`Summary: ${packageJson.build.linux.synopsis}`),
+    'RPM metadata has unexpected Summary field',
+  );
+  assert(
+    rpmInfo.includes(`Description: ${packageJson.build.linux.description}`),
+    'RPM metadata has unexpected Description field',
+  );
+
+  const rpmRequires = await run('rpm', ['-qRp', rpm]);
+  for (const expectedDependency of packageJson.build.rpm.depends) {
+    assert(rpmRequires.includes(expectedDependency), `RPM package is missing dependency: ${expectedDependency}`);
+  }
+  assert(rpmRequires.includes('/bin/sh'), 'RPM package is missing shell dependency for lifecycle scripts');
 
   const rpmContents = await run('rpm', ['-qlp', rpm]);
   for (const expectedPath of [

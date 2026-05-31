@@ -147,6 +147,18 @@
     },
     "rpm": {
       "packageCategory": "Utility",
+      "depends": [
+        "(libXtst or libXtst6)",
+        "(libuuid or libuuid1)",
+        "alsa-lib",
+        "at-spi2-core",
+        "gtk3",
+        "libXScrnSaver",
+        "libnotify",
+        "mesa-libgbm",
+        "nss",
+        "xdg-utils"
+      ],
       "fpm": [
         "build/generated/linux/com.swimmwatch.gptvoice.metainfo.xml=/usr/share/metainfo/com.swimmwatch.gptvoice.metainfo.xml",
         "build/generated/common/license.txt=/usr/share/licenses/gpt-voice/LICENSE.txt"
