@@ -1,5 +1,6 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
+import { prepareTranscriptionAudio } from '../audioEncoding';
 
 const log = rendererLog.scope('recording');
 const RECORDING_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
@@ -50,12 +51,23 @@ export function useRecording({
       mediaRecorder.onstop = async () => {
         const mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        const arrayBuffer = await blob.arrayBuffer();
 
         setStatus(t('status.transcribing'));
         try {
-          const result = await window.electronAPI.transcribeAudio(arrayBuffer, mimeType);
-          log.info('Transcription result:', result);
+          const audio = await prepareTranscriptionAudio(blob);
+          log.info('Prepared transcription audio:', {
+            sourceMimeType: mimeType,
+            sourceBytes: blob.size,
+            uploadMimeType: audio.mimeType,
+            uploadBytes: audio.buffer.byteLength,
+          });
+
+          const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
+          log.info('Transcription result:', {
+            success: result.success,
+            textLength: result.text?.length ?? 0,
+            error: result.error,
+          });
           if (result.success && result.text) {
             let finalText = result.text;
             let translationFailed = false;
@@ -63,7 +75,11 @@ export function useRecording({
             if (translateRef.current) {
               setStatus(t('status.translating'));
               const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
-              log.info('Translation result:', tr);
+              log.info('Translation result:', {
+                success: tr.success,
+                textLength: tr.text?.length ?? 0,
+                error: tr.error,
+              });
               if (tr.success && tr.text) {
                 finalText = tr.text;
               } else {
@@ -76,7 +92,7 @@ export function useRecording({
 
             if (translationFailed) return;
 
-            log.info('Copied to clipboard:', finalText);
+            log.info('Copied transcription to clipboard, text length:', finalText.length);
             setStatus(t('status.copiedToClipboard'));
             window.electronAPI.showNotification(t('notification.textCopied'), finalText);
           } else {

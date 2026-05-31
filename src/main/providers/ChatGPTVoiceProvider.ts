@@ -282,7 +282,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private parseTranscribeResponse(resp: { status: number; body: string }): TranscriptionResult {
     const parsed = parseTranscribeResponseBody(resp);
     if (parsed.success && parsed.text) {
-      log.info('Transcription success:', parsed.text);
+      log.info('Transcription success, text length:', parsed.text.length);
       clipboard.writeText(parsed.text);
     }
     return parsed;

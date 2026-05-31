@@ -141,5 +141,38 @@ describe('chatgptUtils', () => {
         raw: '{"ok":true}',
       });
     });
+
+    it('returns provider detail errors from failed JSON responses', () => {
+      assert.deepEqual(
+        parseTranscribeResponseBody({
+          status: 500,
+          body: JSON.stringify({ detail: 'Error in ASR API' }),
+        }),
+        {
+          success: false,
+          error: 'Error in ASR API',
+          raw: '{"detail":"Error in ASR API"}',
+        },
+      );
+    });
+
+    it('returns nested provider detail errors from failed JSON responses', () => {
+      assert.deepEqual(
+        parseTranscribeResponseBody({
+          status: 429,
+          body: JSON.stringify({
+            detail: {
+              detail: 'Transcription is temporarily unavailable. Please try again shortly.',
+              retry_after_seconds: 30,
+            },
+          }),
+        }),
+        {
+          success: false,
+          error: 'Transcription is temporarily unavailable. Please try again shortly.',
+          raw: '{"detail":{"detail":"Transcription is temporarily unavailable. Please try again shortly.","retry_after_seconds":30}}',
+        },
+      );
+    });
   });
 });
