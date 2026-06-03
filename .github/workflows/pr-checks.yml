@@ -113,7 +113,7 @@ jobs:
             ${{ runner.os }}-fedora-smoke-workspace-
 
       - name: Build Fedora release image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: build/fedora-release
           file: build/fedora-release/Dockerfile
