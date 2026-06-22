@@ -229,10 +229,10 @@
     }
   },
   "dependencies": {
-    "cloakbrowser": "0.3.28",
+    "cloakbrowser": "0.4.0",
     "electron-log": "^5.4.4",
     "http-status-codes": "^2.3.0",
-    "playwright-core": "1.60.0",
+    "playwright-core": "1.61.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
