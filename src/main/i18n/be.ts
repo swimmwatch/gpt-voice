@@ -23,6 +23,7 @@ export default {
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
   'notification.textCopiedNoTranslation': 'Тэкст скапіяваны (без перакладу)',
+  'notification.transcriptionFailed': 'Не ўдалося распазнаць тэкст',
 
   // Login button
   'login.loggingIn': 'Уваход...',
@@ -86,6 +87,8 @@ export default {
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
+  'error.rateLimited': 'Зашмат запытаў. Паспрабуйце пазней.',
+  'error.rateLimitedRetryAfter': 'Зашмат запытаў. Паспрабуйце праз {seconds} с.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
 

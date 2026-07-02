@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
 import { t } from '../i18n';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 
 export type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
 
@@ -64,6 +65,11 @@ export function parseChatGptTranscribeResponse(
   resp: { status: number; body: string },
   mimeType: string,
 ): TranscriptionResult {
+  const rateLimited = parseRateLimitedTranscribeResponse(resp);
+  if (rateLimited) {
+    return rateLimited;
+  }
+
   const parsed = parseTranscribeResponseBody(resp);
   if (
     !parsed.success &&

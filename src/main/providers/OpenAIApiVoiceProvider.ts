@@ -3,6 +3,7 @@ import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } f
 import { getAudioFileExtension } from './chatgptUtils';
 import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
+import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { writeClipboardText } from '../electronRuntime';
@@ -100,6 +101,11 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   }
 
   private parseErrorResponse(status: number, body: string): TranscriptionResult {
+    const rateLimited = parseRateLimitedTranscribeResponse({ status, body });
+    if (rateLimited) {
+      return rateLimited;
+    }
+
     try {
       const result = JSON.parse(body) as { error?: { message?: string } };
       return {

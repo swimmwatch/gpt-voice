@@ -23,6 +23,7 @@ export default {
   // Notifications
   'notification.textCopied': 'Текст скопійовано',
   'notification.textCopiedNoTranslation': 'Текст скопійовано (без перекладу)',
+  'notification.transcriptionFailed': 'Не вдалося розпізнати текст',
 
   // Login button
   'login.loggingIn': 'Вхід...',
@@ -86,6 +87,8 @@ export default {
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не зміг обробити записаний звук ({mimeType}). Спробуйте записати ще раз.',
+  'error.rateLimited': 'Забагато запитів. Спробуйте пізніше.',
+  'error.rateLimitedRetryAfter': 'Забагато запитів. Спробуйте через {seconds} с.',
   'error.nonJsonResponse': 'Відповідь сервера не у форматі JSON (статус {status}): {body}',
   'error.noTranscription': 'Немає тексту у відповіді',
 

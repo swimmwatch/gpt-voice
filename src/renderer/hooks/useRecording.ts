@@ -4,6 +4,7 @@ import { prepareTranscriptionAudio } from '../audioEncoding';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
 
 const log = rendererLog.scope('recording');
+const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 interface UseRecordingOptions {
   setStatus: (status: string) => void;
@@ -29,6 +30,16 @@ export function useRecording({
   const getSupportedRecordingMimeType = useCallback(() => {
     return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
   }, []);
+
+  const showRecognitionErrorNotification = useCallback(
+    (error: unknown, fallback: string) => {
+      void window.electronAPI.showNotification(
+        t('notification.transcriptionFailed'),
+        formatNotificationBody(error, fallback),
+      );
+    },
+    [t],
+  );
 
   const startRecording = useCallback(async () => {
     try {
@@ -100,10 +111,12 @@ export function useRecording({
           } else {
             log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
             setStatus(t('status.transcriptionFailed'));
+            showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'));
           }
         } catch (err) {
           setStatus(t('status.transcriptionError'));
           log.error('Transcribe error:', err);
+          showRecognitionErrorNotification(err, t('status.transcriptionError'));
         } finally {
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((track) => track.stop());
@@ -126,8 +139,18 @@ export function useRecording({
       void window.electronAPI.recordingStartFailed();
       setStatus(t('status.microphoneError'));
       log.error('Microphone error:', err);
+      showRecognitionErrorNotification(err, t('status.microphoneError'));
     }
-  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
+  }, [
+    getSupportedRecordingMimeType,
+    setIsPaused,
+    setIsRecording,
+    setStatus,
+    showRecognitionErrorNotification,
+    translateRef,
+    targetLangRef,
+    t,
+  ]);
 
   const stopRecording = useCallback(() => {
     if (
@@ -176,4 +199,23 @@ export function useRecording({
   }, [setIsRecording, setIsPaused, setStatus, t]);
 
   return { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording };
+}
+
+function formatNotificationBody(error: unknown, fallback: string): string {
+  const message = getErrorMessage(error) || fallback;
+  const singleLine = message.replace(/\s+/g, ' ').trim();
+  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error.trim();
+  }
+  if (error instanceof Error) {
+    return error.message.trim();
+  }
+  return '';
 }

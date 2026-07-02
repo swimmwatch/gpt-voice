@@ -157,6 +157,30 @@ describe('chatgptUtils', () => {
         },
       );
     });
+
+    it('returns a concise retry-after message for rate limits', () => {
+      const body = JSON.stringify({
+        detail: {
+          detail: 'Transcription is temporarily unavailable. Please try again shortly.',
+          retry_after_seconds: 30,
+        },
+      });
+
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.TOO_MANY_REQUESTS,
+            body,
+          },
+          WAV_TRANSCRIPTION_MIME_TYPE,
+        ),
+        {
+          success: false,
+          error: 'Too many requests. Try again in 30s.',
+          raw: body,
+        },
+      );
+    });
   });
 
   describe('parseTranscribeResponseBody', () => {
@@ -217,7 +241,7 @@ describe('chatgptUtils', () => {
     it('returns nested provider detail errors from failed JSON responses', () => {
       assert.deepEqual(
         parseTranscribeResponseBody({
-          status: 429,
+          status: 503,
           body: JSON.stringify({
             detail: {
               detail: 'Transcription is temporarily unavailable. Please try again shortly.',
