@@ -88,6 +88,7 @@ export default {
   'appSettings.proxyPasswordSaved': 'Пароль збережено',
   'appSettings.clearProxyPassword': 'Очистити',
   'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxySocks5AuthWarning': 'Імʼя користувача та пароль для SOCKS5-проксі не підтримуються браузером.',
   'appSettings.save': 'Зберегти',
   'appSettings.saveFailed': 'Не вдалося зберегти налаштування',
 
@@ -132,6 +133,5 @@ export default {
   // Tray
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
-  'tray.settings': 'Налаштування',
   'tray.quit': 'Вихід',
 } as const;

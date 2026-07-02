@@ -2,6 +2,7 @@ import type { LaunchContextOptions, LaunchPersistentContextOptions } from 'cloak
 import { BROWSER_CACHE_DIR } from '@main/config';
 import { getCloakBrowserSettingsWithSecret, type CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import { DEFAULT_CLOAK_BROWSER_LOCALE, getSystemTimezone } from '@main/cloakBrowserSettingsUtils';
+import { isSocks5ProxyServer } from '@shared/cloakBrowserSettings';
 
 type CloakBrowserContextKind = 'login' | 'background';
 
@@ -15,8 +16,10 @@ function buildProxyOption(settings: CloakBrowserSettingsWithSecret): LaunchConte
   };
 
   if (settings.proxy.bypass) proxy.bypass = settings.proxy.bypass;
-  if (settings.proxy.username) proxy.username = settings.proxy.username;
-  if (settings.proxy.password) proxy.password = settings.proxy.password;
+  if (!isSocks5ProxyServer(settings.proxy.server)) {
+    if (settings.proxy.username) proxy.username = settings.proxy.username;
+    if (settings.proxy.password) proxy.password = settings.proxy.password;
+  }
 
   return proxy;
 }

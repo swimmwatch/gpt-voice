@@ -5,6 +5,7 @@ import {
   getSystemTimezone,
   normalizeCloakBrowserSettingsInput,
 } from '@main/cloakBrowserSettingsUtils';
+import { shouldWarnSocks5ProxyAuth } from '@shared/cloakBrowserSettings';
 
 describe('cloakBrowserSettingsUtils', () => {
   it('normalizes default CloakBrowser settings', () => {
@@ -110,5 +111,20 @@ describe('cloakBrowserSettingsUtils', () => {
 
     assert.equal(view.proxy.hasPassword, true);
     assert.equal('password' in view.proxy, false);
+  });
+
+  it('warns when SOCKS5 proxy auth is configured', () => {
+    assert.equal(shouldWarnSocks5ProxyAuth({ enabled: true, server: 'socks5://proxy:1080', username: 'user' }), true);
+    assert.equal(shouldWarnSocks5ProxyAuth({ enabled: true, server: 'socks5://proxy:1080', hasPassword: true }), true);
+    assert.equal(
+      shouldWarnSocks5ProxyAuth({
+        enabled: true,
+        server: 'socks5://proxy:1080',
+        hasPassword: true,
+        clearPassword: true,
+      }),
+      false,
+    );
+    assert.equal(shouldWarnSocks5ProxyAuth({ enabled: true, server: 'http://proxy:8080', username: 'user' }), false);
   });
 });

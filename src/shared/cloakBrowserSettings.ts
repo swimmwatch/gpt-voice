@@ -42,3 +42,26 @@ export interface CloakBrowserSettingsInput {
   timezone?: string;
   proxy?: CloakBrowserProxySettingsInput;
 }
+
+interface ProxyAuthWarningInput {
+  enabled?: boolean;
+  server?: string;
+  username?: string;
+  password?: string;
+  hasPassword?: boolean;
+  clearPassword?: boolean;
+}
+
+export function isSocks5ProxyServer(server?: string): boolean {
+  try {
+    return new URL((server || '').trim()).protocol === 'socks5:';
+  } catch {
+    return false;
+  }
+}
+
+export function shouldWarnSocks5ProxyAuth(proxy: ProxyAuthWarningInput): boolean {
+  if (!proxy.enabled || !isSocks5ProxyServer(proxy.server)) return false;
+
+  return Boolean(proxy.username?.trim() || proxy.password?.trim() || (proxy.hasPassword && !proxy.clearPassword));
+}

@@ -227,6 +227,7 @@ export function registerIpcHandlers(): void {
           error: backgroundStatus.error,
         };
       }
+      // Persist only after restart succeeds so a rejected save cannot poison the next launch.
       const savedSettings = preparedSettings.persist();
       return { success: true, settings: savedSettings, backgroundStatus };
     } catch (error: unknown) {

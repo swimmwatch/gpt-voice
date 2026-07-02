@@ -42,7 +42,7 @@ export function createTray(): void {
       },
     },
     {
-      label: t('tray.settings'),
+      label: t('appSettings.open'),
       click: () => {
         showSettingsWindow();
       },

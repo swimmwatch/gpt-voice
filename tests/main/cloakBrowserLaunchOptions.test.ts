@@ -51,7 +51,7 @@ describe('cloakBrowserLaunchOptions', () => {
         ...baseSettings,
         proxy: {
           enabled: true,
-          server: 'socks5://proxy.example.com:1080',
+          server: 'http://proxy.example.com:8080',
           bypass: '.example.com',
           username: 'user',
           password: 'secret',
@@ -62,7 +62,7 @@ describe('cloakBrowserLaunchOptions', () => {
     );
 
     assert.deepEqual(options.proxy, {
-      server: 'socks5://proxy.example.com:1080',
+      server: 'http://proxy.example.com:8080',
       bypass: '.example.com',
       username: 'user',
       password: 'secret',
@@ -70,5 +70,26 @@ describe('cloakBrowserLaunchOptions', () => {
     assert.equal(options.geoip, true);
     assert.equal('locale' in options, false);
     assert.equal('timezone' in options, false);
+  });
+
+  it('omits ignored SOCKS5 proxy credentials', () => {
+    const options = buildCloakBrowserContextOptions(
+      {
+        ...baseSettings,
+        proxy: {
+          enabled: true,
+          server: 'socks5://proxy.example.com:1080',
+          bypass: '',
+          username: 'user',
+          password: 'secret',
+          geoip: false,
+        },
+      },
+      'background',
+    );
+
+    assert.deepEqual(options.proxy, {
+      server: 'socks5://proxy.example.com:1080',
+    });
   });
 });

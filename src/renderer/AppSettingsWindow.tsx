@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
-import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import {
+  shouldWarnSocks5ProxyAuth,
+  type CloakBrowserSettingsInput,
+  type CloakBrowserSettingsView,
+} from '@shared/cloakBrowserSettings';
 
 interface EditableCloakBrowserSettings extends Omit<CloakBrowserSettingsView, 'proxy'> {
   proxy: CloakBrowserSettingsView['proxy'] & {
@@ -131,6 +135,7 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
+  const showSocks5ProxyAuthWarning = Boolean(settings && shouldWarnSocks5ProxyAuth(settings.proxy));
 
   return (
     <main className="settings-window-shell">
@@ -289,6 +294,9 @@ const AppSettingsWindow: React.FC = () => {
                   />
                   <span>{t('appSettings.proxyGeoip')}</span>
                 </label>
+                {showSocks5ProxyAuthWarning && (
+                  <p className="settings-warning">{t('appSettings.proxySocks5AuthWarning')}</p>
+                )}
               </div>
             </section>
           </div>
