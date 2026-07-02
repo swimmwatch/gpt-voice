@@ -325,9 +325,9 @@ npm run dist:win
 
 Linux builds produce:
 
-- `release/GPT-Voice-1.0.0.AppImage`
-- `release/gpt-voice_1.0.0_amd64.deb`
-- `release/gpt-voice-1.0.0.x86_64.rpm`
+- `release/GPT-Voice-1.2.0.AppImage`
+- `release/gpt-voice_1.2.0_amd64.deb`
+- `release/gpt-voice-1.2.0.x86_64.rpm`
 - `release/linux-unpacked/gpt-voice`
 
 `npm run dist:linux` still works as a native-host fallback. Native Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
