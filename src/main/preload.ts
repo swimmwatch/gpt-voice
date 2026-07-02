@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 
 type Unsubscribe = () => void;
 
@@ -28,6 +29,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onStopRecording: (callback: () => void) => {
     return onMainEvent('stop-recording', callback);
+  },
+  onTranslationStatus: (callback: (status: string) => void) => {
+    return onMainEvent<[string]>('translation-status', (status) => callback(String(status)));
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');
@@ -106,20 +110,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(String(error), Boolean(authExpired)),
     );
   },
-  getHotkey: (): Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }> => {
+  getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
   },
   setHotkey: (
-    key: string,
+    key: HotkeyTarget,
     hotkey: string,
-  ): Promise<{ success: boolean; hotkey: string; cancelHotkey: string; stopHotkey: string }> => {
+  ): Promise<
+    {
+      success: boolean;
+    } & HotkeySettings
+  > => {
     return ipcRenderer.invoke('set-hotkey', key, hotkey);
   },
-  getTranslateSettings: (): Promise<{ translate: boolean; targetLang: string }> => {
+  getTranslateSettings: (): Promise<{ targetLang: string }> => {
     return ipcRenderer.invoke('get-translate-settings');
   },
-  setTranslateSettings: (translate: boolean, targetLang: string): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('set-translate-settings', translate, targetLang);
+  setTranslateSettings: (targetLang: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-translate-settings', targetLang);
   },
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');

@@ -220,6 +220,11 @@ h1 {
   min-height: 34px;
 }
 
+.translate-label {
+  color: $text-muted;
+  font-size: 0.8rem;
+}
+
 .translate-toggle {
   font-size: 0.8rem;
   color: $text-primary;
@@ -381,7 +386,7 @@ h1 {
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 240px;
+  max-width: 280px;
 }
 
 .hotkey-row {
@@ -392,7 +397,7 @@ h1 {
 
   .hotkey-label {
     color: $text-hint;
-    width: 50px;
+    width: 76px;
     text-align: right;
   }
 

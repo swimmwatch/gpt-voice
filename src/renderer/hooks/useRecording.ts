@@ -10,19 +10,10 @@ interface UseRecordingOptions {
   setStatus: (status: string) => void;
   setIsRecording: (recording: boolean) => void;
   setIsPaused: (paused: boolean) => void;
-  translateRef: React.RefObject<boolean>;
-  targetLangRef: React.RefObject<string>;
   t: (key: string, params?: Record<string, string>) => string;
 }
 
-export function useRecording({
-  setStatus,
-  setIsRecording,
-  setIsPaused,
-  translateRef,
-  targetLangRef,
-  t,
-}: UseRecordingOptions) {
+export function useRecording({ setStatus, setIsRecording, setIsPaused, t }: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -82,32 +73,9 @@ export function useRecording({
             error: result.error,
           });
           if (result.success && result.text) {
-            let finalText = result.text;
-            let translationFailed = false;
-
-            if (translateRef.current) {
-              setStatus(t('status.translating'));
-              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
-              log.info('Translation result:', {
-                success: tr.success,
-                textLength: tr.text?.length ?? 0,
-                error: tr.error,
-              });
-              if (tr.success && tr.text) {
-                finalText = tr.text;
-              } else {
-                log.error('Translation failed:', tr.error);
-                setStatus(t('status.translationFailed'));
-                window.electronAPI.showNotification(t('notification.textCopiedNoTranslation'), result.text);
-                translationFailed = true;
-              }
-            }
-
-            if (translationFailed) return;
-
-            log.info('Copied transcription to clipboard, text length:', finalText.length);
+            log.info('Copied transcription to clipboard, text length:', result.text.length);
             setStatus(t('status.copiedToClipboard'));
-            window.electronAPI.showNotification(t('notification.textCopied'), finalText);
+            window.electronAPI.showNotification(t('notification.textCopied'), result.text);
           } else {
             log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
             setStatus(t('status.transcriptionFailed'));
@@ -141,16 +109,7 @@ export function useRecording({
       log.error('Microphone error:', err);
       showRecognitionErrorNotification(err, t('status.microphoneError'));
     }
-  }, [
-    getSupportedRecordingMimeType,
-    setIsPaused,
-    setIsRecording,
-    setStatus,
-    showRecognitionErrorNotification,
-    translateRef,
-    targetLangRef,
-    t,
-  ]);
+  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, showRecognitionErrorNotification, t]);
 
   const stopRecording = useCallback(() => {
     if (

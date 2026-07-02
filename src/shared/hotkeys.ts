@@ -1,0 +1,19 @@
+export const HOTKEY_TARGETS = ['record', 'stop', 'cancel', 'translate'] as const;
+
+export type HotkeyTarget = (typeof HOTKEY_TARGETS)[number];
+
+export const DEFAULT_RECORD_HOTKEY = 'F9';
+export const DEFAULT_STOP_HOTKEY = 'F10';
+export const DEFAULT_CANCEL_HOTKEY = 'Escape';
+export const DEFAULT_TRANSLATE_HOTKEY = 'F11';
+
+export interface HotkeySettings {
+  hotkey: string;
+  cancelHotkey: string;
+  stopHotkey: string;
+  translateHotkey: string;
+}
+
+export function isHotkeyTarget(value: string): value is HotkeyTarget {
+  return HOTKEY_TARGETS.includes(value as HotkeyTarget);
+}

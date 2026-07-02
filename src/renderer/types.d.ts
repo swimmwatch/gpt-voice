@@ -1,5 +1,6 @@
 import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
@@ -39,6 +40,7 @@ export interface ElectronAPI {
   onPauseRecording: (callback: () => void) => () => void;
   onResumeRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
+  onTranslationStatus: (callback: (status: string) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
@@ -70,13 +72,10 @@ export interface ElectronAPI {
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: () => void) => () => void;
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
-  getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;
-  setHotkey: (
-    key: string,
-    hotkey: string,
-  ) => Promise<{ success: boolean; hotkey: string; cancelHotkey: string; stopHotkey: string }>;
-  getTranslateSettings: () => Promise<{ translate: boolean; targetLang: string }>;
-  setTranslateSettings: (translate: boolean, targetLang: string) => Promise<{ success: boolean }>;
+  getHotkey: () => Promise<HotkeySettings>;
+  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
+  getTranslateSettings: () => Promise<{ targetLang: string }>;
+  setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;

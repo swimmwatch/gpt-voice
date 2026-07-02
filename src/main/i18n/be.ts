@@ -6,6 +6,8 @@ export default {
   'status.stopping': 'Спыненне...',
   'status.transcribing': 'Транскрыбаванне...',
   'status.translating': 'Пераклад...',
+  'status.translatingSelection': 'Пераклад вылучанага тэксту...',
+  'status.translationCopied': 'Пераклад скапіяваны',
   'status.copiedToClipboard': 'Скапіявана ў буфер абмену',
   'status.transcriptionFailed': 'Памылка транскрыбавання',
   'status.translationFailed': 'Памылка перакладу',
@@ -25,6 +27,8 @@ export default {
   'notification.textCopied': 'Тэкст скапіяваны',
   'notification.textCopiedNoTranslation': 'Тэкст скапіяваны (без перакладу)',
   'notification.transcriptionFailed': 'Не ўдалося распазнаць тэкст',
+  'notification.translationFailed': 'Не ўдалося перакласці',
+  'notification.translationCopied': 'Пераклад скапіяваны',
 
   // Login button
   'login.loggingIn': 'Уваход...',
@@ -99,6 +103,7 @@ export default {
   'hotkey.record': 'Запіс',
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Скасаваць',
+  'hotkey.translate': 'Пераклад',
   'hotkey.change': 'Змяніць',
   'hotkey.setHotkey': 'Прызначыць клавішу: {target}',
   'hotkey.pressKeyCombination': 'Націсніце камбінацыю клавіш',
@@ -121,6 +126,8 @@ export default {
   'error.rateLimitedRetryAfter': 'Зашмат запытаў. Паспрабуйце праз {seconds} с.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
+  'error.noSelectedText': 'Няма вылучанага тэксту',
+  'error.translationInProgress': 'Пераклад ужо выконваецца',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

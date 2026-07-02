@@ -6,6 +6,8 @@ export default {
   'status.stopping': 'Остановка...',
   'status.transcribing': 'Транскрипция...',
   'status.translating': 'Перевод...',
+  'status.translatingSelection': 'Перевод выделенного текста...',
+  'status.translationCopied': 'Перевод скопирован',
   'status.copiedToClipboard': 'Скопировано в буфер обмена',
   'status.transcriptionFailed': 'Ошибка транскрипции',
   'status.translationFailed': 'Ошибка перевода',
@@ -25,6 +27,8 @@ export default {
   'notification.textCopied': 'Текст скопирован',
   'notification.textCopiedNoTranslation': 'Текст скопирован (без перевода)',
   'notification.transcriptionFailed': 'Распознавание не удалось',
+  'notification.translationFailed': 'Перевод не удался',
+  'notification.translationCopied': 'Перевод скопирован',
 
   // Login button
   'login.loggingIn': 'Вход...',
@@ -99,6 +103,7 @@ export default {
   'hotkey.record': 'Запись',
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Отмена',
+  'hotkey.translate': 'Перевод',
   'hotkey.change': 'Изменить',
   'hotkey.setHotkey': 'Назначить клавишу: {target}',
   'hotkey.pressKeyCombination': 'Нажмите сочетание клавиш',
@@ -121,6 +126,8 @@ export default {
   'error.rateLimitedRetryAfter': 'Слишком много запросов. Попробуйте через {seconds} с.',
   'error.nonJsonResponse': 'Ответ сервера не в формате JSON (статус {status}): {body}',
   'error.noTranscription': 'Нет текста в ответе',
+  'error.noSelectedText': 'Нет выделенного текста',
+  'error.translationInProgress': 'Перевод уже выполняется',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

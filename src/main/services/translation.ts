@@ -1,12 +1,10 @@
 import type { Locator, Page } from 'playwright-core';
 import {
-  ensureBackgroundBrowser,
+  ensureTranslateBrowser,
   getTranslatePage,
   getTranslatePageTargetLang,
-  isBgReady,
   setTranslatePageTargetLang,
 } from '@main/browser';
-import { writeClipboardText } from '@main/electronRuntime';
 import { createLogger } from '@main/logger';
 import {
   buildGoogleTranslateUrl,
@@ -110,12 +108,10 @@ export async function translateText(
   try {
     log.info('Starting translation:', metadata);
 
-    await measureTranslationStep('backgroundReady', metadata, () =>
-      ensureBackgroundBrowser({ includeTranslate: true, translateTargetLang: metadata.targetLang }),
-    );
+    await measureTranslationStep('backgroundReady', metadata, () => ensureTranslateBrowser(metadata.targetLang));
     const translatePage = getTranslatePage();
-    if (!isBgReady() || !translatePage || translatePage.isClosed()) {
-      return { success: false, error: 'Background browser not available' };
+    if (!translatePage || translatePage.isClosed()) {
+      return { success: false, error: 'Translation browser not available' };
     }
 
     if (shouldNavigateGoogleTranslate(getTranslatePageTargetLang(), metadata.targetLang)) {
@@ -146,7 +142,6 @@ export async function translateText(
     log.info('Translation result length:', translated.length);
 
     if (translated) {
-      writeClipboardText(translated);
       return { success: true, text: translated };
     }
     return { success: false, error: 'No translation result found on page' };
