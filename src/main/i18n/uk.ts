@@ -19,6 +19,7 @@ export default {
   'status.sessionExpired': 'Сесія ChatGPT закінчилася. Увійдіть знову.',
   'status.providerConfigured': '{provider} налаштовано',
   'status.providerNotConfigured': '{provider} не налаштовано',
+  'status.settingsSaved': 'Налаштування збережено',
 
   // Notifications
   'notification.textCopied': 'Текст скопійовано',
@@ -56,6 +57,35 @@ export default {
   'providerSettings.saveFailed': 'Не вдалося зберегти налаштування',
   'providerSettings.clearFailed': 'Не вдалося очистити дані провайдера',
   'providerSettings.language.auto': 'Авто',
+
+  // App settings
+  'appSettings.open': 'Налаштування застосунку',
+  'appSettings.title': 'Налаштування',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Поведінка',
+  'appSettings.identity': 'Ідентичність',
+  'appSettings.proxy': 'Проксі',
+  'appSettings.humanize': 'Людський ввід',
+  'appSettings.humanPreset': 'Профіль вводу',
+  'appSettings.humanPreset.careful': 'Обережний',
+  'appSettings.humanPreset.default': 'Звичайний',
+  'appSettings.backgroundMode': 'Фоновий браузер',
+  'appSettings.backgroundMode.hidden': 'Прихований',
+  'appSettings.backgroundMode.visible': 'Видимий',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Скинути',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Використовувати проксі',
+  'appSettings.proxyServer': 'Сервер',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Пароль збережено',
+  'appSettings.clearProxyPassword': 'Очистити',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.save': 'Зберегти',
+  'appSettings.saveFailed': 'Не вдалося зберегти налаштування',
 
   // Status indicator
   'indicator.idle': 'Очікування',
@@ -95,5 +125,6 @@ export default {
   // Tray
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
+  'tray.settings': 'Налаштування',
   'tray.quit': 'Вихід',
 } as const;

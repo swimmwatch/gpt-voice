@@ -1,4 +1,5 @@
 import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
+import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
@@ -43,6 +44,14 @@ export interface ElectronAPI {
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
+  closeAppSettings: () => Promise<{ success: boolean }>;
+  getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
+  saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
+    success: boolean;
+    settings?: CloakBrowserSettingsView;
+    backgroundStatus?: BackgroundBrowserStatus;
+    error?: string;
+  }>;
   saveProviderSettings: (
     providerId: string,
     settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },

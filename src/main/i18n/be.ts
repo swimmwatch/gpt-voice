@@ -19,6 +19,7 @@ export default {
   'status.sessionExpired': 'Сесія ChatGPT скончылася. Увайдзіце зноў.',
   'status.providerConfigured': '{provider} наладжаны',
   'status.providerNotConfigured': '{provider} не наладжаны',
+  'status.settingsSaved': 'Налады захаваны',
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
@@ -56,6 +57,35 @@ export default {
   'providerSettings.saveFailed': 'Не ўдалося захаваць налады',
   'providerSettings.clearFailed': 'Не ўдалося ачысціць даныя правайдара',
   'providerSettings.language.auto': 'Аўта',
+
+  // App settings
+  'appSettings.open': 'Налады праграмы',
+  'appSettings.title': 'Налады',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Паводзіны',
+  'appSettings.identity': 'Ідэнтычнасць',
+  'appSettings.proxy': 'Проксі',
+  'appSettings.humanize': 'Чалавечы ўвод',
+  'appSettings.humanPreset': 'Профіль уводу',
+  'appSettings.humanPreset.careful': 'Асцярожны',
+  'appSettings.humanPreset.default': 'Звычайны',
+  'appSettings.backgroundMode': 'Фонавы браўзер',
+  'appSettings.backgroundMode.hidden': 'Схаваны',
+  'appSettings.backgroundMode.visible': 'Бачны',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Скінуць',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Выкарыстоўваць проксі',
+  'appSettings.proxyServer': 'Сервер',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Пароль захаваны',
+  'appSettings.clearProxyPassword': 'Ачысціць',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.save': 'Захаваць',
+  'appSettings.saveFailed': 'Не ўдалося захаваць налады',
 
   // Status indicator
   'indicator.idle': 'Чаканне',
@@ -95,5 +125,6 @@ export default {
   // Tray
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',
+  'tray.settings': 'Налады',
   'tray.quit': 'Выхад',
 } as const;

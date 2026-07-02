@@ -22,7 +22,7 @@ import {
   switchProvider,
 } from './browser';
 import { getAvailableProviders } from './providers';
-import { getMainWindow } from './window';
+import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
 import { registerShortcuts, getRecordingState, resetRecordingState } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
@@ -31,14 +31,15 @@ import { createLogger } from './logger';
 import { createProvider } from './providers';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
+import { getCloakBrowserSettingsView, saveCloakBrowserSettings } from './cloakBrowserSettings';
+import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 
 const log = createLogger('ipc');
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  const win = getMainWindow();
   const senderUrl = event.senderFrame?.url || event.sender.getURL();
 
-  if (!win || event.sender.id !== win.webContents.id || senderUrl !== win.webContents.getURL()) {
+  if (!isTrustedAppWindow(event.sender, senderUrl)) {
     log.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
     throw new Error('Rejected IPC from untrusted sender');
   }
@@ -197,6 +198,30 @@ export function registerIpcHandlers(): void {
 
   handle('get-provider-settings', (_event, providerId: string) => {
     return getProviderSettingsSnapshot(providerId);
+  });
+
+  handle('close-app-settings', () => {
+    closeSettingsWindow();
+    return { success: true };
+  });
+
+  handle('get-cloakbrowser-settings', () => {
+    return getCloakBrowserSettingsView();
+  });
+
+  handle('save-cloakbrowser-settings', async (_event, settings: CloakBrowserSettingsInput) => {
+    try {
+      const savedSettings = saveCloakBrowserSettings(settings || {});
+      await shutdownBackgroundBrowser();
+      const backgroundStatus = await initBackgroundBrowser();
+      sendBackgroundStatus(backgroundStatus);
+      if (backgroundStatus.error) {
+        return { success: false, settings: savedSettings, backgroundStatus, error: backgroundStatus.error };
+      }
+      return { success: true, settings: savedSettings, backgroundStatus };
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   });
 
   handle('save-provider-settings', async (_event, providerId: string, settings: OpenAIApiSettingsInput) => {

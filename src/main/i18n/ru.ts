@@ -19,6 +19,7 @@ export default {
   'status.sessionExpired': 'Сессия ChatGPT истекла. Войдите снова.',
   'status.providerConfigured': '{provider} настроен',
   'status.providerNotConfigured': '{provider} не настроен',
+  'status.settingsSaved': 'Настройки сохранены',
 
   // Notifications
   'notification.textCopied': 'Текст скопирован',
@@ -56,6 +57,35 @@ export default {
   'providerSettings.saveFailed': 'Не удалось сохранить настройки',
   'providerSettings.clearFailed': 'Не удалось очистить данные провайдера',
   'providerSettings.language.auto': 'Авто',
+
+  // App settings
+  'appSettings.open': 'Настройки приложения',
+  'appSettings.title': 'Настройки',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Поведение',
+  'appSettings.identity': 'Идентичность',
+  'appSettings.proxy': 'Прокси',
+  'appSettings.humanize': 'Человеческий ввод',
+  'appSettings.humanPreset': 'Профиль ввода',
+  'appSettings.humanPreset.careful': 'Осторожный',
+  'appSettings.humanPreset.default': 'Обычный',
+  'appSettings.backgroundMode': 'Фоновый браузер',
+  'appSettings.backgroundMode.hidden': 'Скрытый',
+  'appSettings.backgroundMode.visible': 'Видимый',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Сбросить',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Использовать прокси',
+  'appSettings.proxyServer': 'Сервер',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Пароль сохранён',
+  'appSettings.clearProxyPassword': 'Очистить',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.save': 'Сохранить',
+  'appSettings.saveFailed': 'Не удалось сохранить настройки',
 
   // Status indicator
   'indicator.idle': 'Ожидание',
@@ -95,5 +125,6 @@ export default {
   // Tray
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показать',
+  'tray.settings': 'Настройки',
   'tray.quit': 'Выход',
 } as const;

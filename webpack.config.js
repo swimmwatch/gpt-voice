@@ -97,6 +97,13 @@ module.exports = [
     plugins: [
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
+        filename: 'index.html',
+        title: 'GPT-Voice',
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'settings.html',
+        title: 'Settings',
       }),
     ],
   },

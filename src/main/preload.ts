@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../renderer/types';
+import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 
 type Unsubscribe = () => void;
 
@@ -42,6 +43,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getProviderSettings: (providerId: string): Promise<ProviderSettings> => {
     return ipcRenderer.invoke('get-provider-settings', providerId);
+  },
+  closeAppSettings: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('close-app-settings');
+  },
+  getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
+    return ipcRenderer.invoke('get-cloakbrowser-settings');
+  },
+  saveCloakBrowserSettings: (
+    settings: CloakBrowserSettingsInput,
+  ): Promise<{
+    success: boolean;
+    settings?: CloakBrowserSettingsView;
+    backgroundStatus?: { ready: boolean; error?: string; authExpired?: boolean };
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('save-cloakbrowser-settings', settings);
   },
   saveProviderSettings: (
     providerId: string,

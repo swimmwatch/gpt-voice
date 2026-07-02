@@ -19,6 +19,7 @@ export default {
   'status.sessionExpired': 'ChatGPT session expired. Please login again.',
   'status.providerConfigured': '{provider} configured',
   'status.providerNotConfigured': '{provider} is not configured',
+  'status.settingsSaved': 'Settings saved',
 
   // Notifications
   'notification.textCopied': 'Text copied',
@@ -56,6 +57,35 @@ export default {
   'providerSettings.saveFailed': 'Could not save settings',
   'providerSettings.clearFailed': 'Could not clear provider data',
   'providerSettings.language.auto': 'Auto',
+
+  // App settings
+  'appSettings.open': 'App settings',
+  'appSettings.title': 'Settings',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Behavior',
+  'appSettings.identity': 'Identity',
+  'appSettings.proxy': 'Proxy',
+  'appSettings.humanize': 'Humanize input',
+  'appSettings.humanPreset': 'Human preset',
+  'appSettings.humanPreset.careful': 'Careful',
+  'appSettings.humanPreset.default': 'Default',
+  'appSettings.backgroundMode': 'Background browser',
+  'appSettings.backgroundMode.hidden': 'Hidden',
+  'appSettings.backgroundMode.visible': 'Visible',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Reset',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Use proxy',
+  'appSettings.proxyServer': 'Server',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Saved password',
+  'appSettings.clearProxyPassword': 'Clear',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.save': 'Save',
+  'appSettings.saveFailed': 'Could not save settings',
 
   // Status indicator
   'indicator.idle': 'Idle',
@@ -95,5 +125,6 @@ export default {
   // Tray
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
+  'tray.settings': 'Settings',
   'tray.quit': 'Quit',
 } as const;
