@@ -1,3 +1,5 @@
+import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '../shared/transcriptionConstants';
+
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
 export interface ProviderInfo {
@@ -10,7 +12,7 @@ export interface OpenAIApiProviderSettings {
   providerId: 'openai-api';
   authType: 'apiKey';
   hasApiKey: boolean;
-  model: 'whisper-1';
+  model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
   language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
   prompt: string;
   temperature: number;

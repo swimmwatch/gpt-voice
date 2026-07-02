@@ -15,6 +15,12 @@ import { createLogger } from '../logger';
 import { APP_DIR } from '../config';
 import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
+import {
+  DEFAULT_TRANSCRIPTION_MIME_TYPE,
+  TRANSCRIPTION_MODEL_WHISPER_1,
+  TRANSCRIPTION_UPLOAD_FILE_BASENAME,
+  WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+} from '../../shared/transcriptionConstants';
 
 const log = createLogger('chatgpt-provider');
 
@@ -23,6 +29,7 @@ const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
+const TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS = 500;
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -146,7 +153,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     return this.accessToken;
   }
 
-  async transcribe(buffer: ArrayBuffer, mimeType = 'audio/webm;codecs=opus'): Promise<TranscriptionResult> {
+  async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
     try {
       log.info('Transcribing, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType);
 
@@ -167,7 +174,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
 
       log.info('Transcribe response status:', resp.status);
       if (resp.status !== StatusCodes.OK) {
-        log.error('Transcribe response body:', resp.body.substring(0, 500));
+        log.error('Transcribe response body:', resp.body.substring(0, TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS));
       }
 
       if (shouldRefreshTranscribeToken(resp.status)) {
@@ -177,7 +184,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
           const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
           log.info('Retry response status:', retryResp.status);
           if (retryResp.status !== StatusCodes.OK) {
-            log.error('Retry response body:', retryResp.body.substring(0, 500));
+            log.error('Retry response body:', retryResp.body.substring(0, TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS));
           }
           return this.parseTranscribeResponse(retryResp, mimeType);
         }
@@ -243,21 +250,27 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         accessToken: token,
         mimeType: uploadMimeType,
         fileExtension: uploadExtension,
+        defaultMimeType,
+        uploadFileBasename,
+        transcriptionModel,
       }: {
         audioBase64: string;
         accessToken: string;
         mimeType: string;
         fileExtension: string;
+        defaultMimeType: string;
+        uploadFileBasename: string;
+        transcriptionModel: string;
       }) => {
         const binaryStr = atob(b64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        const blob = new Blob([bytes], { type: uploadMimeType || 'audio/webm' });
+        const blob = new Blob([bytes], { type: uploadMimeType || defaultMimeType });
         const formData = new FormData();
-        formData.append('file', blob, `recording.${uploadExtension}`);
-        formData.append('model', 'whisper-1');
+        formData.append('file', blob, `${uploadFileBasename}.${uploadExtension}`);
+        formData.append('model', transcriptionModel);
 
         const res = await fetch('/backend-api/transcribe', {
           method: 'POST',
@@ -271,7 +284,15 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         const text = await res.text();
         return { status: res.status, body: text };
       },
-      { audioBase64, accessToken, mimeType, fileExtension: getAudioFileExtension(mimeType) },
+      {
+        audioBase64,
+        accessToken,
+        mimeType,
+        fileExtension: getAudioFileExtension(mimeType),
+        defaultMimeType: DEFAULT_TRANSCRIPTION_MIME_TYPE,
+        uploadFileBasename: TRANSCRIPTION_UPLOAD_FILE_BASENAME,
+        transcriptionModel: TRANSCRIPTION_MODEL_WHISPER_1,
+      },
     );
   }
 

@@ -1,5 +1,7 @@
+import { TRANSCRIPTION_MODEL_WHISPER_1 } from '../../shared/transcriptionConstants';
+
 export const OPENAI_API_PROVIDER_ID = 'openai-api';
-export const OPENAI_API_SETTINGS_MODEL = 'whisper-1';
+export const OPENAI_API_SETTINGS_MODEL = TRANSCRIPTION_MODEL_WHISPER_1;
 export const OPENAI_API_SETTINGS_LANGUAGES = ['auto', 'en', 'ru', 'uk', 'be'] as const;
 
 export type OpenAIApiModel = typeof OPENAI_API_SETTINGS_MODEL;

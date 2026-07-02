@@ -2,6 +2,7 @@ import type { BrowserContext } from 'playwright-core';
 import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
 import { t } from '../i18n';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '../../shared/transcriptionConstants';
 
 export type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
 
@@ -20,9 +21,10 @@ const AUTH_COOKIE_NAMES = new Set([
 const AUTH_COOKIE_NAME_PREFIXES = ['__Secure-next-auth.session-token', 'next-auth.session-token'];
 const AUTH_COOKIE_DOMAINS = ['chatgpt.com', 'openai.com', 'auth.openai.com'];
 const CHATGPT_ASR_ERROR_DETAIL = 'Error in ASR API';
+const ERROR_RESPONSE_BODY_PREVIEW_CHARS = 300;
 
 export function getAudioFileExtension(mimeType: string): string {
-  const normalizedMimeType = mimeType || 'audio/webm';
+  const normalizedMimeType = mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
   if (normalizedMimeType.includes('mp4')) return 'm4a';
   if (normalizedMimeType.includes('ogg')) return 'ogg';
   if (normalizedMimeType.includes('wav')) return 'wav';
@@ -84,7 +86,10 @@ export function parseTranscribeResponseBody(resp: { status: number; body: string
   } catch {
     return {
       success: false,
-      error: t('error.nonJsonResponse', { status: String(resp.status), body: resp.body.substring(0, 300) }),
+      error: t('error.nonJsonResponse', {
+        status: String(resp.status),
+        body: resp.body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
+      }),
     };
   }
 

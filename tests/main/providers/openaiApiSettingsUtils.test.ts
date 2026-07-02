@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_OPENAI_API_SETTINGS,
+  OPENAI_API_SETTINGS_MODEL,
   normalizeOpenAIApiSettings,
   normalizeTemperature,
   sanitizeOpenAIApiSettings,
@@ -29,7 +30,7 @@ describe('openaiApiSettingsUtils', () => {
         temperature: 1.2,
       }),
       {
-        model: 'whisper-1',
+        model: OPENAI_API_SETTINGS_MODEL,
         language: 'ru',
         prompt: 'domain vocabulary',
         temperature: 1,
@@ -54,7 +55,7 @@ describe('openaiApiSettingsUtils', () => {
     assert.equal('apiKey' in sanitized, false);
     assert.deepEqual(sanitized, {
       hasApiKey: true,
-      model: 'whisper-1',
+      model: OPENAI_API_SETTINGS_MODEL,
       language: 'en',
       prompt: 'names',
       temperature: 0.1,

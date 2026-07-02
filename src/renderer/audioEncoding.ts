@@ -1,3 +1,5 @@
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, WAV_TRANSCRIPTION_MIME_TYPE } from '../shared/transcriptionConstants';
+
 const TARGET_TRANSCRIPTION_SAMPLE_RATE = 16000;
 const WAV_HEADER_BYTES = 44;
 const PCM_BYTES_PER_SAMPLE = 2;
@@ -76,7 +78,7 @@ export async function prepareTranscriptionAudio(blob: Blob): Promise<Transcripti
     const monoBuffer = await renderMonoAudio(decoded, TARGET_TRANSCRIPTION_SAMPLE_RATE);
     return {
       buffer: encodePcm16Wav([monoBuffer.getChannelData(0)], monoBuffer.sampleRate),
-      mimeType: 'audio/wav',
+      mimeType: WAV_TRANSCRIPTION_MIME_TYPE,
       transcoded: true,
     };
   } catch (error: unknown) {
@@ -91,7 +93,7 @@ function fallbackToOriginalAudio(
 ): TranscriptionAudioPayload {
   return {
     buffer,
-    mimeType: mimeType || 'audio/webm',
+    mimeType: mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE,
     transcoded: false,
     fallbackReason,
   };

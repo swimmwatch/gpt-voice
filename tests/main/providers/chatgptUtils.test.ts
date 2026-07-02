@@ -13,6 +13,15 @@ import {
   shouldRefreshTranscribeToken,
   type StorageCookie,
 } from '../../../src/main/providers/chatgptUtils';
+import {
+  DEFAULT_TRANSCRIPTION_MIME_TYPE,
+  MP4_TRANSCRIPTION_MIME_TYPE,
+  OGG_OPUS_TRANSCRIPTION_MIME_TYPE,
+  WAV_TRANSCRIPTION_MIME_TYPE,
+  WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+} from '../../../src/shared/transcriptionConstants';
+
+const CHATGPT_ASR_ERROR_RESPONSE = JSON.stringify({ detail: 'Error in ASR API' });
 
 function cookie(overrides: Partial<StorageCookie>): StorageCookie {
   return {
@@ -32,13 +41,14 @@ describe('chatgptUtils', () => {
 
   describe('getAudioFileExtension', () => {
     it('maps known recording mime types to upload extensions', () => {
-      assert.equal(getAudioFileExtension('audio/webm;codecs=opus'), 'webm');
-      assert.equal(getAudioFileExtension('audio/mp4'), 'm4a');
-      assert.equal(getAudioFileExtension('audio/ogg;codecs=opus'), 'ogg');
-      assert.equal(getAudioFileExtension('audio/wav'), 'wav');
+      assert.equal(getAudioFileExtension(WEBM_OPUS_TRANSCRIPTION_MIME_TYPE), 'webm');
+      assert.equal(getAudioFileExtension(MP4_TRANSCRIPTION_MIME_TYPE), 'm4a');
+      assert.equal(getAudioFileExtension(OGG_OPUS_TRANSCRIPTION_MIME_TYPE), 'ogg');
+      assert.equal(getAudioFileExtension(WAV_TRANSCRIPTION_MIME_TYPE), 'wav');
     });
 
     it('defaults unknown or empty mime types to webm', () => {
+      assert.equal(getAudioFileExtension(DEFAULT_TRANSCRIPTION_MIME_TYPE), 'webm');
       assert.equal(getAudioFileExtension(''), 'webm');
       assert.equal(getAudioFileExtension('application/octet-stream'), 'webm');
     });
@@ -119,14 +129,14 @@ describe('chatgptUtils', () => {
         parseChatGptTranscribeResponse(
           {
             status: StatusCodes.INTERNAL_SERVER_ERROR,
-            body: JSON.stringify({ detail: 'Error in ASR API' }),
+            body: CHATGPT_ASR_ERROR_RESPONSE,
           },
-          'audio/webm;codecs=opus',
+          WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
         ),
         {
           success: false,
           error: 'ChatGPT could not process the recorded audio (audio/webm;codecs=opus). Try recording again.',
-          raw: '{"detail":"Error in ASR API"}',
+          raw: CHATGPT_ASR_ERROR_RESPONSE,
         },
       );
     });
@@ -138,7 +148,7 @@ describe('chatgptUtils', () => {
             status: StatusCodes.INTERNAL_SERVER_ERROR,
             body: JSON.stringify({ detail: 'Temporary provider failure' }),
           },
-          'audio/wav',
+          WAV_TRANSCRIPTION_MIME_TYPE,
         ),
         {
           success: false,
@@ -194,12 +204,12 @@ describe('chatgptUtils', () => {
       assert.deepEqual(
         parseTranscribeResponseBody({
           status: 500,
-          body: JSON.stringify({ detail: 'Error in ASR API' }),
+          body: CHATGPT_ASR_ERROR_RESPONSE,
         }),
         {
           success: false,
           error: 'Error in ASR API',
-          raw: '{"detail":"Error in ASR API"}',
+          raw: CHATGPT_ASR_ERROR_RESPONSE,
         },
       );
     });

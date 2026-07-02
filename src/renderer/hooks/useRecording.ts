@@ -1,9 +1,9 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
 import { prepareTranscriptionAudio } from '../audioEncoding';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '../../shared/transcriptionConstants';
 
 const log = rendererLog.scope('recording');
-const RECORDING_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
 
 interface UseRecordingOptions {
   setStatus: (status: string) => void;
@@ -27,7 +27,7 @@ export function useRecording({
   const streamRef = useRef<MediaStream | null>(null);
 
   const getSupportedRecordingMimeType = useCallback(() => {
-    return RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+    return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -49,7 +49,7 @@ export function useRecording({
       };
 
       mediaRecorder.onstop = async () => {
-        const mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
+        const mimeType = mediaRecorder.mimeType || selectedMimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
         const blob = new Blob(chunksRef.current, { type: mimeType });
 
         setStatus(t('status.transcribing'));
