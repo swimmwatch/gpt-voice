@@ -11,6 +11,7 @@ import { useI18n } from './hooks/useI18n';
 import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
 import {
+  canRunTranslateHotkey,
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -175,6 +176,7 @@ const App: React.FC = () => {
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
+  const canTranslateSelection = canRunTranslateHotkey(isRecording);
 
   const openProviderSettings = async () => {
     const settings = await window.electronAPI.getProviderSettings(activeProviderId);
@@ -279,6 +281,7 @@ const App: React.FC = () => {
         <HotkeyRow
           label={t('hotkey.translate')}
           value={translateHotkey}
+          disabled={!canTranslateSelection}
           onChangeClick={() => openHotkeyModal('translate')}
         />
       </div>

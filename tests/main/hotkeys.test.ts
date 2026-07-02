@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  canRunTranslateHotkey,
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -24,5 +25,10 @@ describe('hotkeys', () => {
     assert.equal(isHotkeyTarget('cancel'), true);
     assert.equal(isHotkeyTarget('translate'), true);
     assert.equal(isHotkeyTarget('missing'), false);
+  });
+
+  it('allows translate hotkey only when recording is idle', () => {
+    assert.equal(canRunTranslateHotkey(false), true);
+    assert.equal(canRunTranslateHotkey(true), false);
   });
 });

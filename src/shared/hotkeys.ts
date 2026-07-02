@@ -17,3 +17,7 @@ export interface HotkeySettings {
 export function isHotkeyTarget(value: string): value is HotkeyTarget {
   return HOTKEY_TARGETS.includes(value as HotkeyTarget);
 }
+
+export function canRunTranslateHotkey(isRecording: boolean): boolean {
+  return !isRecording;
+}

@@ -141,7 +141,7 @@ describe('selectedTextTranslation', () => {
     assert.equal(result.status, 'Translation copied');
     assert.equal(clipboard.clipboard, 'translated text');
     assert.deepEqual(actions, ['copy']);
-    assert.deepEqual(notifications, [{ title: 'Translation copied', body: 'Translation copied' }]);
+    assert.deepEqual(notifications, [{ title: 'Translation copied', body: 'translated text' }]);
   });
 
   it('returns an in-progress error for concurrent hotkey presses', async () => {

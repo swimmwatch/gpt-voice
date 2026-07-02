@@ -143,7 +143,7 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
       }
 
       deps.clipboard.writeText(translated.text);
-      notifyTranslationCopied(deps, t('status.translationCopied'));
+      notifyTranslationCopied(deps, translated.text);
       log.info('Translated selected text copied:', {
         sourceLength: selectedText.length,
         translatedLength: translated.text.length,

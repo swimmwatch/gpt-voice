@@ -5,6 +5,7 @@ import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
+import { canRunTranslateHotkey } from '@shared/hotkeys';
 
 const log = createLogger('shortcuts');
 
@@ -79,7 +80,7 @@ export function registerShortcuts(): void {
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
   const translateRegistered = globalShortcut.register(translateHotkey, () => {
-    if (isRecording) {
+    if (!canRunTranslateHotkey(isRecording)) {
       log.info(`${translateHotkey} pressed while recording, ignoring translation`);
       return;
     }
