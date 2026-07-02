@@ -37,6 +37,8 @@ describe('audioEncoding', () => {
     const payload = await prepareTranscriptionAudio(new Blob([source], { type: 'audio/webm;codecs=opus' }));
 
     assert.equal(payload.mimeType, 'audio/webm;codecs=opus');
+    assert.equal(payload.transcoded, false);
+    assert.equal(payload.fallbackReason, 'Web Audio APIs are unavailable');
     assert.deepEqual(new Uint8Array(payload.buffer), source);
   });
 });

@@ -6,7 +6,8 @@ import {
   getAudioFileExtension,
   getUnexpiredCookies,
   hasUsableSessionState,
-  parseTranscribeResponseBody,
+  parseChatGptTranscribeResponse,
+  shouldRefreshTranscribeToken,
   type SessionState,
 } from './chatgptUtils';
 import { t } from '../i18n';
@@ -169,13 +170,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         log.error('Transcribe response body:', resp.body.substring(0, 500));
       }
 
-      // If auth error or server error, try refreshing the token once and retry
-      if (
-        resp.status === StatusCodes.UNAUTHORIZED ||
-        resp.status === StatusCodes.FORBIDDEN ||
-        resp.status === StatusCodes.INTERNAL_SERVER_ERROR
-      ) {
-        log.info('Token may have expired (status', resp.status, '), refreshing...');
+      if (shouldRefreshTranscribeToken(resp.status)) {
+        log.info('Access token may have expired (status', resp.status, '), refreshing...');
         token = await this.refreshAccessToken();
         if (token) {
           const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
@@ -183,11 +179,11 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
           if (retryResp.status !== StatusCodes.OK) {
             log.error('Retry response body:', retryResp.body.substring(0, 500));
           }
-          return this.parseTranscribeResponse(retryResp);
+          return this.parseTranscribeResponse(retryResp, mimeType);
         }
       }
 
-      return this.parseTranscribeResponse(resp);
+      return this.parseTranscribeResponse(resp, mimeType);
     } catch (err: unknown) {
       log.error('Transcribe error:', err instanceof Error ? err.message : err);
       return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -279,8 +275,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     );
   }
 
-  private parseTranscribeResponse(resp: { status: number; body: string }): TranscriptionResult {
-    const parsed = parseTranscribeResponseBody(resp);
+  private parseTranscribeResponse(resp: { status: number; body: string }, mimeType: string): TranscriptionResult {
+    const parsed = parseChatGptTranscribeResponse(resp, mimeType);
     if (parsed.success && parsed.text) {
       log.info('Transcription success, text length:', parsed.text.length);
       writeClipboardText(parsed.text);

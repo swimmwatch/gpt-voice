@@ -85,6 +85,7 @@ export default {
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
+  'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
   'error.nonJsonResponse': 'Transcribe endpoint returned non-JSON (status {status}): {body}',
   'error.noTranscription': 'No transcription in response',
 

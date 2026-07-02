@@ -1,5 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { StatusCodes } from 'http-status-codes';
 import { setLocale } from '../../../src/main/i18n';
 import {
   getAudioFileExtension,
@@ -7,7 +8,9 @@ import {
   hasUsableSessionState,
   isChatGptAuthCookie,
   isUnexpiredCookie,
+  parseChatGptTranscribeResponse,
   parseTranscribeResponseBody,
+  shouldRefreshTranscribeToken,
   type StorageCookie,
 } from '../../../src/main/providers/chatgptUtils';
 
@@ -97,6 +100,51 @@ describe('chatgptUtils', () => {
           1000,
         ),
         true,
+      );
+    });
+  });
+
+  describe('shouldRefreshTranscribeToken', () => {
+    it('refreshes only for authentication failures', () => {
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.UNAUTHORIZED), true);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.FORBIDDEN), true);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.INTERNAL_SERVER_ERROR), false);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.TOO_MANY_REQUESTS), false);
+    });
+  });
+
+  describe('parseChatGptTranscribeResponse', () => {
+    it('returns a localized ChatGPT ASR failure for known ASR 500 responses', () => {
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.INTERNAL_SERVER_ERROR,
+            body: JSON.stringify({ detail: 'Error in ASR API' }),
+          },
+          'audio/webm;codecs=opus',
+        ),
+        {
+          success: false,
+          error: 'ChatGPT could not process the recorded audio (audio/webm;codecs=opus). Try recording again.',
+          raw: '{"detail":"Error in ASR API"}',
+        },
+      );
+    });
+
+    it('keeps non-ASR provider errors unchanged', () => {
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.INTERNAL_SERVER_ERROR,
+            body: JSON.stringify({ detail: 'Temporary provider failure' }),
+          },
+          'audio/wav',
+        ),
+        {
+          success: false,
+          error: 'Temporary provider failure',
+          raw: '{"detail":"Temporary provider failure"}',
+        },
       );
     });
   });

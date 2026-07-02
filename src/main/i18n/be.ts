@@ -85,6 +85,7 @@ export default {
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
+  'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
 

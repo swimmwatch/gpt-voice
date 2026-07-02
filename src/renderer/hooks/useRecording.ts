@@ -60,6 +60,8 @@ export function useRecording({
             sourceBytes: blob.size,
             uploadMimeType: audio.mimeType,
             uploadBytes: audio.buffer.byteLength,
+            transcoded: audio.transcoded,
+            fallbackReason: audio.fallbackReason,
           });
 
           const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
@@ -111,7 +113,7 @@ export function useRecording({
         }
       };
 
-      mediaRecorder.start(100);
+      mediaRecorder.start();
       setStatus(t('status.recording'));
     } catch (err) {
       if (streamRef.current) {
