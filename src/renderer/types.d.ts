@@ -1,4 +1,14 @@
+import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
+import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+
 export type ProviderAuthType = 'browserSession' | 'apiKey';
+
+export interface BackgroundBrowserStatus {
+  ready: boolean;
+  error?: string;
+  authExpired?: boolean;
+}
 
 export interface ProviderInfo {
   id: string;
@@ -10,7 +20,7 @@ export interface OpenAIApiProviderSettings {
   providerId: 'openai-api';
   authType: 'apiKey';
   hasApiKey: boolean;
-  model: 'whisper-1';
+  model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
   language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
   prompt: string;
   temperature: number;
@@ -30,11 +40,20 @@ export interface ElectronAPI {
   onPauseRecording: (callback: () => void) => () => void;
   onResumeRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
+  onTranslationStatus: (callback: (status: string) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
+  closeAppSettings: () => Promise<{ success: boolean }>;
+  getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
+  saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
+    success: boolean;
+    settings?: CloakBrowserSettingsView;
+    backgroundStatus?: BackgroundBrowserStatus;
+    error?: string;
+  }>;
   saveProviderSettings: (
     providerId: string,
     settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
@@ -50,16 +69,13 @@ export interface ElectronAPI {
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
-  getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string; authExpired?: boolean }>;
+  getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: () => void) => () => void;
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
-  getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;
-  setHotkey: (
-    key: string,
-    hotkey: string,
-  ) => Promise<{ success: boolean; hotkey: string; cancelHotkey: string; stopHotkey: string }>;
-  getTranslateSettings: () => Promise<{ translate: boolean; targetLang: string }>;
-  setTranslateSettings: (translate: boolean, targetLang: string) => Promise<{ success: boolean }>;
+  getHotkey: () => Promise<HotkeySettings>;
+  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
+  getTranslateSettings: () => Promise<{ targetLang: string }>;
+  setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;

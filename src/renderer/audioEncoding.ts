@@ -1,3 +1,5 @@
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+
 const TARGET_TRANSCRIPTION_SAMPLE_RATE = 16000;
 const WAV_HEADER_BYTES = 44;
 const PCM_BYTES_PER_SAMPLE = 2;
@@ -7,6 +9,8 @@ const WAV_BITS_PER_SAMPLE = 16;
 export interface TranscriptionAudioPayload {
   buffer: ArrayBuffer;
   mimeType: string;
+  transcoded: boolean;
+  fallbackReason?: string;
 }
 
 export function encodePcm16Wav(channelData: Float32Array[], sampleRate: number): ArrayBuffer {
@@ -62,8 +66,11 @@ export function encodePcm16Wav(channelData: Float32Array[], sampleRate: number):
 
 export async function prepareTranscriptionAudio(blob: Blob): Promise<TranscriptionAudioPayload> {
   const originalBuffer = await blob.arrayBuffer();
-  if (originalBuffer.byteLength === 0 || !canTranscodeWithWebAudio()) {
-    return { buffer: originalBuffer, mimeType: blob.type || 'audio/webm' };
+  if (originalBuffer.byteLength === 0) {
+    return fallbackToOriginalAudio(originalBuffer, blob.type, 'Recorded audio is empty');
+  }
+  if (!canTranscodeWithWebAudio()) {
+    return fallbackToOriginalAudio(originalBuffer, blob.type, 'Web Audio APIs are unavailable');
   }
 
   try {
@@ -71,11 +78,35 @@ export async function prepareTranscriptionAudio(blob: Blob): Promise<Transcripti
     const monoBuffer = await renderMonoAudio(decoded, TARGET_TRANSCRIPTION_SAMPLE_RATE);
     return {
       buffer: encodePcm16Wav([monoBuffer.getChannelData(0)], monoBuffer.sampleRate),
-      mimeType: 'audio/wav',
+      mimeType: WAV_TRANSCRIPTION_MIME_TYPE,
+      transcoded: true,
     };
-  } catch {
-    return { buffer: originalBuffer, mimeType: blob.type || 'audio/webm' };
+  } catch (error: unknown) {
+    return fallbackToOriginalAudio(originalBuffer, blob.type, getTranscodeFailureReason(error));
   }
+}
+
+function fallbackToOriginalAudio(
+  buffer: ArrayBuffer,
+  mimeType: string,
+  fallbackReason: string,
+): TranscriptionAudioPayload {
+  return {
+    buffer,
+    mimeType: mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE,
+    transcoded: false,
+    fallbackReason,
+  };
+}
+
+function getTranscodeFailureReason(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return `Web Audio transcoding failed: ${error.message}`;
+  }
+  if (typeof error === 'string' && error) {
+    return `Web Audio transcoding failed: ${error}`;
+  }
+  return 'Web Audio transcoding failed';
 }
 
 function canTranscodeWithWebAudio(): boolean {

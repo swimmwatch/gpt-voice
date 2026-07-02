@@ -1,8 +1,11 @@
 import { globalShortcut } from 'electron';
-import { currentHotkey, currentCancelHotkey, currentStopHotkey } from './config';
+import { currentHotkey, currentCancelHotkey, currentStopHotkey, currentTranslateHotkey } from './config';
 import { updateTrayIcon } from './tray';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
+import { t } from './i18n';
+import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
+import { canRunTranslateHotkey } from '@shared/hotkeys';
 
 const log = createLogger('shortcuts');
 
@@ -32,6 +35,7 @@ export function registerShortcuts(): void {
   const recordHotkey = normalizeHotkeyForPlatform(currentHotkey);
   const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
   const cancelHotkey = normalizeHotkeyForPlatform(currentCancelHotkey);
+  const translateHotkey = normalizeHotkeyForPlatform(currentTranslateHotkey);
 
   const registered = globalShortcut.register(recordHotkey, () => {
     const win = getMainWindow();
@@ -74,4 +78,18 @@ export function registerShortcuts(): void {
     }
   });
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
+
+  const translateRegistered = globalShortcut.register(translateHotkey, () => {
+    if (!canRunTranslateHotkey(isRecording)) {
+      log.info(`${translateHotkey} pressed while recording, ignoring translation`);
+      return;
+    }
+
+    log.info(`${translateHotkey} pressed, translating selected text`);
+    getMainWindow()?.webContents.send('translation-status', t('status.translatingSelection'));
+    void translateSelectedTextToClipboard().then((result) => {
+      getMainWindow()?.webContents.send('translation-status', result.status);
+    });
+  });
+  log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 }

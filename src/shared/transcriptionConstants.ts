@@ -1,0 +1,15 @@
+export const DEFAULT_TRANSCRIPTION_MIME_TYPE = 'audio/webm';
+export const WEBM_OPUS_TRANSCRIPTION_MIME_TYPE = 'audio/webm;codecs=opus';
+export const MP4_TRANSCRIPTION_MIME_TYPE = 'audio/mp4';
+export const OGG_OPUS_TRANSCRIPTION_MIME_TYPE = 'audio/ogg;codecs=opus';
+export const WAV_TRANSCRIPTION_MIME_TYPE = 'audio/wav';
+
+export const PREFERRED_RECORDING_MIME_TYPES = [
+  WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+  DEFAULT_TRANSCRIPTION_MIME_TYPE,
+  MP4_TRANSCRIPTION_MIME_TYPE,
+  OGG_OPUS_TRANSCRIPTION_MIME_TYPE,
+] as const;
+
+export const TRANSCRIPTION_UPLOAD_FILE_BASENAME = 'recording';
+export const TRANSCRIPTION_MODEL_WHISPER_1 = 'whisper-1';

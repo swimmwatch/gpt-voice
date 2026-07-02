@@ -1,34 +1,36 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
 import { prepareTranscriptionAudio } from '../audioEncoding';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
 
 const log = rendererLog.scope('recording');
-const RECORDING_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 interface UseRecordingOptions {
   setStatus: (status: string) => void;
   setIsRecording: (recording: boolean) => void;
   setIsPaused: (paused: boolean) => void;
-  translateRef: React.RefObject<boolean>;
-  targetLangRef: React.RefObject<string>;
   t: (key: string, params?: Record<string, string>) => string;
 }
 
-export function useRecording({
-  setStatus,
-  setIsRecording,
-  setIsPaused,
-  translateRef,
-  targetLangRef,
-  t,
-}: UseRecordingOptions) {
+export function useRecording({ setStatus, setIsRecording, setIsPaused, t }: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
 
   const getSupportedRecordingMimeType = useCallback(() => {
-    return RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+    return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
   }, []);
+
+  const showRecognitionErrorNotification = useCallback(
+    (error: unknown, fallback: string) => {
+      void window.electronAPI.showNotification(
+        t('notification.transcriptionFailed'),
+        formatNotificationBody(error, fallback),
+      );
+    },
+    [t],
+  );
 
   const startRecording = useCallback(async () => {
     try {
@@ -49,7 +51,7 @@ export function useRecording({
       };
 
       mediaRecorder.onstop = async () => {
-        const mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
+        const mimeType = mediaRecorder.mimeType || selectedMimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
         const blob = new Blob(chunksRef.current, { type: mimeType });
 
         setStatus(t('status.transcribing'));
@@ -60,6 +62,8 @@ export function useRecording({
             sourceBytes: blob.size,
             uploadMimeType: audio.mimeType,
             uploadBytes: audio.buffer.byteLength,
+            transcoded: audio.transcoded,
+            fallbackReason: audio.fallbackReason,
           });
 
           const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
@@ -69,39 +73,18 @@ export function useRecording({
             error: result.error,
           });
           if (result.success && result.text) {
-            let finalText = result.text;
-            let translationFailed = false;
-
-            if (translateRef.current) {
-              setStatus(t('status.translating'));
-              const tr = await window.electronAPI.translateText(result.text, targetLangRef.current);
-              log.info('Translation result:', {
-                success: tr.success,
-                textLength: tr.text?.length ?? 0,
-                error: tr.error,
-              });
-              if (tr.success && tr.text) {
-                finalText = tr.text;
-              } else {
-                log.error('Translation failed:', tr.error);
-                setStatus(t('status.translationFailed'));
-                window.electronAPI.showNotification(t('notification.textCopiedNoTranslation'), result.text);
-                translationFailed = true;
-              }
-            }
-
-            if (translationFailed) return;
-
-            log.info('Copied transcription to clipboard, text length:', finalText.length);
+            log.info('Copied transcription to clipboard, text length:', result.text.length);
             setStatus(t('status.copiedToClipboard'));
-            window.electronAPI.showNotification(t('notification.textCopied'), finalText);
+            window.electronAPI.showNotification(t('notification.textCopied'), result.text);
           } else {
             log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
             setStatus(t('status.transcriptionFailed'));
+            showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'));
           }
         } catch (err) {
           setStatus(t('status.transcriptionError'));
           log.error('Transcribe error:', err);
+          showRecognitionErrorNotification(err, t('status.transcriptionError'));
         } finally {
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((track) => track.stop());
@@ -111,7 +94,7 @@ export function useRecording({
         }
       };
 
-      mediaRecorder.start(100);
+      mediaRecorder.start();
       setStatus(t('status.recording'));
     } catch (err) {
       if (streamRef.current) {
@@ -124,8 +107,9 @@ export function useRecording({
       void window.electronAPI.recordingStartFailed();
       setStatus(t('status.microphoneError'));
       log.error('Microphone error:', err);
+      showRecognitionErrorNotification(err, t('status.microphoneError'));
     }
-  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, translateRef, targetLangRef, t]);
+  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, showRecognitionErrorNotification, t]);
 
   const stopRecording = useCallback(() => {
     if (
@@ -174,4 +158,23 @@ export function useRecording({
   }, [setIsRecording, setIsPaused, setStatus, t]);
 
   return { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording };
+}
+
+function formatNotificationBody(error: unknown, fallback: string): string {
+  const message = getErrorMessage(error) || fallback;
+  const singleLine = message.replace(/\s+/g, ' ').trim();
+  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error.trim();
+  }
+  if (error instanceof Error) {
+    return error.message.trim();
+  }
+  return '';
 }

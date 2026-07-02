@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
+import type { HotkeyTarget } from '@shared/hotkeys';
 
 interface Props {
-  target: 'record' | 'cancel' | 'stop';
+  target: HotkeyTarget;
   platform: NodeJS.Platform;
   onApply: (hotkey: string) => void;
   onClose: () => void;

@@ -1,10 +1,10 @@
-import { ipcMain, Notification, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import {
   currentHotkey,
   currentCancelHotkey,
   currentStopHotkey,
-  currentTranslate,
+  currentTranslateHotkey,
   currentTargetLang,
   currentProvider,
   setHotkeys,
@@ -22,7 +22,7 @@ import {
   switchProvider,
 } from './browser';
 import { getAvailableProviders } from './providers';
-import { getMainWindow } from './window';
+import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
 import { registerShortcuts, getRecordingState, resetRecordingState } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
@@ -31,14 +31,17 @@ import { createLogger } from './logger';
 import { createProvider } from './providers';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
+import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
+import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
+import { showSystemNotification } from './electronRuntime';
+import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 
 const log = createLogger('ipc');
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  const win = getMainWindow();
   const senderUrl = event.senderFrame?.url || event.sender.getURL();
 
-  if (!win || event.sender.id !== win.webContents.id || senderUrl !== win.webContents.getURL()) {
+  if (!isTrustedAppWindow(event.sender, senderUrl)) {
     log.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
     throw new Error('Rejected IPC from untrusted sender');
   }
@@ -199,6 +202,39 @@ export function registerIpcHandlers(): void {
     return getProviderSettingsSnapshot(providerId);
   });
 
+  handle('close-app-settings', () => {
+    closeSettingsWindow();
+    return { success: true };
+  });
+
+  handle('get-cloakbrowser-settings', () => {
+    return getCloakBrowserSettingsView();
+  });
+
+  handle('save-cloakbrowser-settings', async (_event, settings: CloakBrowserSettingsInput) => {
+    try {
+      const preparedSettings = prepareCloakBrowserSettings(settings || {});
+      await shutdownBackgroundBrowser();
+      const backgroundStatus = await initBackgroundBrowser({
+        cloakBrowserSettings: preparedSettings.settingsWithSecret,
+      });
+      sendBackgroundStatus(backgroundStatus);
+      if (backgroundStatus.error) {
+        return {
+          success: false,
+          settings: preparedSettings.settings,
+          backgroundStatus,
+          error: backgroundStatus.error,
+        };
+      }
+      // Persist only after restart succeeds so a rejected save cannot poison the next launch.
+      const savedSettings = preparedSettings.persist();
+      return { success: true, settings: savedSettings, backgroundStatus };
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
   handle('save-provider-settings', async (_event, providerId: string, settings: OpenAIApiSettingsInput) => {
     try {
       if (providerId !== OPENAI_API_PROVIDER_ID) {
@@ -249,39 +285,62 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('get-hotkey', () => {
-    return { hotkey: currentHotkey, cancelHotkey: currentCancelHotkey, stopHotkey: currentStopHotkey };
+  handle('get-hotkey', (): HotkeySettings => {
+    return {
+      hotkey: currentHotkey,
+      cancelHotkey: currentCancelHotkey,
+      stopHotkey: currentStopHotkey,
+      translateHotkey: currentTranslateHotkey,
+    };
   });
 
   handle('set-hotkey', (_event, key: string, hotkey: string) => {
+    if (!isHotkeyTarget(key)) {
+      return {
+        success: false,
+        hotkey: currentHotkey,
+        cancelHotkey: currentCancelHotkey,
+        stopHotkey: currentStopHotkey,
+        translateHotkey: currentTranslateHotkey,
+      };
+    }
+    const target: HotkeyTarget = key;
     if (key === 'cancel') {
       log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', hotkey);
-      setHotkeys(undefined, hotkey, undefined);
+      setHotkeys(undefined, hotkey, undefined, undefined);
     } else if (key === 'stop') {
       log.info('Changing stop hotkey from', currentStopHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, hotkey);
+      setHotkeys(undefined, undefined, hotkey, undefined);
+    } else if (target === 'translate') {
+      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', hotkey);
+      setHotkeys(undefined, undefined, undefined, hotkey);
     } else {
       log.info('Changing hotkey from', currentHotkey, 'to', hotkey);
-      setHotkeys(hotkey, undefined, undefined);
+      setHotkeys(hotkey, undefined, undefined, undefined);
     }
     saveConfig();
     registerShortcuts();
-    return { success: true, hotkey: currentHotkey, cancelHotkey: currentCancelHotkey, stopHotkey: currentStopHotkey };
+    return {
+      success: true,
+      hotkey: currentHotkey,
+      cancelHotkey: currentCancelHotkey,
+      stopHotkey: currentStopHotkey,
+      translateHotkey: currentTranslateHotkey,
+    };
   });
 
   handle('get-translate-settings', () => {
-    return { translate: currentTranslate, targetLang: currentTargetLang };
+    return { targetLang: currentTargetLang };
   });
 
-  handle('set-translate-settings', (_event, translate: boolean, targetLang: string) => {
-    setTranslateSettings(translate, targetLang);
+  handle('set-translate-settings', (_event, targetLang: string) => {
+    setTranslateSettings(targetLang);
     saveConfig();
     return { success: true };
   });
 
   handle('show-notification', (_event, title: string, body: string) => {
-    const notification = new Notification({ title, body });
-    notification.show();
+    showSystemNotification(title, body);
   });
 
   handle('get-translations', () => {

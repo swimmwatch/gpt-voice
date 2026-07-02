@@ -1,7 +1,16 @@
 import { createRequire } from 'node:module';
 
+export type ClipboardType = 'clipboard' | 'selection';
+
 interface ClipboardRuntime {
-  writeText(text: string): void;
+  readText(type?: ClipboardType): string;
+  writeText(text: string, type?: ClipboardType): void;
+}
+
+interface NotificationRuntime {
+  new (options: { title: string; body: string }): {
+    show(): void;
+  };
 }
 
 interface SafeStorageRuntime {
@@ -12,6 +21,7 @@ interface SafeStorageRuntime {
 
 interface ElectronRuntimeModule {
   clipboard?: ClipboardRuntime;
+  Notification?: NotificationRuntime;
   safeStorage?: SafeStorageRuntime;
 }
 
@@ -43,6 +53,22 @@ function getSafeStorage(): SafeStorageRuntime {
 
 export function writeClipboardText(text: string): void {
   getClipboard().writeText(text);
+}
+
+export function readClipboardText(type?: ClipboardType): string {
+  return getClipboard().readText(type);
+}
+
+export function writeTypedClipboardText(text: string, type?: ClipboardType): void {
+  getClipboard().writeText(text, type);
+}
+
+export function showSystemNotification(title: string, body: string): void {
+  const { Notification } = loadElectronRuntime();
+  if (!Notification) {
+    throw new Error('Electron notification API is unavailable');
+  }
+  new Notification({ title, body }).show();
 }
 
 export function isSafeStorageEncryptionAvailable(): boolean {

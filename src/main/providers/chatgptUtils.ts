@@ -1,6 +1,9 @@
 import type { BrowserContext } from 'playwright-core';
+import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
 import { t } from '../i18n';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 
 export type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
 
@@ -18,9 +21,11 @@ const AUTH_COOKIE_NAMES = new Set([
 
 const AUTH_COOKIE_NAME_PREFIXES = ['__Secure-next-auth.session-token', 'next-auth.session-token'];
 const AUTH_COOKIE_DOMAINS = ['chatgpt.com', 'openai.com', 'auth.openai.com'];
+const CHATGPT_ASR_ERROR_DETAIL = 'Error in ASR API';
+const ERROR_RESPONSE_BODY_PREVIEW_CHARS = 300;
 
 export function getAudioFileExtension(mimeType: string): string {
-  const normalizedMimeType = mimeType || 'audio/webm';
+  const normalizedMimeType = mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
   if (normalizedMimeType.includes('mp4')) return 'm4a';
   if (normalizedMimeType.includes('ogg')) return 'ogg';
   if (normalizedMimeType.includes('wav')) return 'wav';
@@ -52,6 +57,35 @@ export function hasUsableSessionState(sessionData: SessionState, nowSeconds = Da
   return getUnexpiredCookies(sessionData.cookies || [], nowSeconds).some((cookie) => isChatGptAuthCookie(cookie));
 }
 
+export function shouldRefreshTranscribeToken(status: number): boolean {
+  // Non-auth 5xx responses are provider/audio failures, not expired-token signals.
+  return status === StatusCodes.UNAUTHORIZED || status === StatusCodes.FORBIDDEN;
+}
+
+export function parseChatGptTranscribeResponse(
+  resp: { status: number; body: string },
+  mimeType: string,
+): TranscriptionResult {
+  const rateLimited = parseRateLimitedTranscribeResponse(resp);
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  const parsed = parseTranscribeResponseBody(resp);
+  if (
+    !parsed.success &&
+    resp.status === StatusCodes.INTERNAL_SERVER_ERROR &&
+    parsed.error === CHATGPT_ASR_ERROR_DETAIL
+  ) {
+    return {
+      success: false,
+      error: t('error.chatGptAsrFailure', { mimeType: mimeType || 'unknown' }),
+      raw: parsed.raw ?? resp.body,
+    };
+  }
+  return parsed;
+}
+
 export function parseTranscribeResponseBody(resp: { status: number; body: string }): TranscriptionResult {
   let result: Record<string, unknown>;
   try {
@@ -59,7 +93,10 @@ export function parseTranscribeResponseBody(resp: { status: number; body: string
   } catch {
     return {
       success: false,
-      error: t('error.nonJsonResponse', { status: String(resp.status), body: resp.body.substring(0, 300) }),
+      error: t('error.nonJsonResponse', {
+        status: String(resp.status),
+        body: resp.body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
+      }),
     };
   }
 

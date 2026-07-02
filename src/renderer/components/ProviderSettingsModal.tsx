@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../types';
+import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 
 interface Props {
   provider: ProviderInfo;
@@ -32,7 +33,7 @@ const ProviderSettingsModal: React.FC<Props> = ({ provider, settings, onClose, o
     setError('');
     const result = await window.electronAPI.saveProviderSettings(provider.id, {
       apiKey,
-      model: 'whisper-1',
+      model: TRANSCRIPTION_MODEL_WHISPER_1,
       language,
       prompt,
       temperature,
@@ -109,8 +110,8 @@ const ProviderSettingsModal: React.FC<Props> = ({ provider, settings, onClose, o
             </label>
             <label className="settings-field">
               <span>{t('providerSettings.model')}</span>
-              <select value="whisper-1" disabled>
-                <option value="whisper-1">whisper-1</option>
+              <select value={TRANSCRIPTION_MODEL_WHISPER_1} disabled>
+                <option value={TRANSCRIPTION_MODEL_WHISPER_1}>{TRANSCRIPTION_MODEL_WHISPER_1}</option>
               </select>
             </label>
             <label className="settings-field">

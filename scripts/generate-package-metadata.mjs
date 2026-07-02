@@ -125,7 +125,7 @@ const metainfo = `<?xml version="1.0" encoding="UTF-8"?>
 
   <description>
     <p>${xmlEscape(description)}</p>
-    <p>It is built as a compact desktop utility with global hotkeys, clipboard-first output, provider-specific settings, and optional translation.</p>
+    <p>It is built as a compact desktop utility with global hotkeys, clipboard-first output, provider-specific settings, and selected-text translation.</p>
   </description>
 
   <launchable type="desktop-id">${xmlEscape(executableName)}.desktop</launchable>

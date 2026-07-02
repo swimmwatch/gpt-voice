@@ -3,6 +3,11 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const isProd = process.env.NODE_ENV === 'production';
 const mode = isProd ? 'production' : 'development';
+const aliases = {
+  '@main': path.resolve(__dirname, 'src/main'),
+  '@renderer': path.resolve(__dirname, 'src/renderer'),
+  '@shared': path.resolve(__dirname, 'src/shared'),
+};
 
 module.exports = [
   // Main process
@@ -25,6 +30,7 @@ module.exports = [
     },
     resolve: {
       extensions: ['.ts', '.js'],
+      alias: aliases,
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
@@ -54,6 +60,7 @@ module.exports = [
     },
     resolve: {
       extensions: ['.ts', '.js'],
+      alias: aliases,
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
@@ -81,6 +88,7 @@ module.exports = [
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js'],
+      alias: aliases,
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
@@ -89,6 +97,13 @@ module.exports = [
     plugins: [
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
+        filename: 'index.html',
+        title: 'GPT-Voice',
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'settings.html',
+        title: 'Settings',
       }),
     ],
   },

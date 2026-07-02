@@ -6,6 +6,8 @@ export default {
   'status.stopping': 'Спыненне...',
   'status.transcribing': 'Транскрыбаванне...',
   'status.translating': 'Пераклад...',
+  'status.translatingSelection': 'Пераклад вылучанага тэксту...',
+  'status.translationCopied': 'Пераклад скапіяваны',
   'status.copiedToClipboard': 'Скапіявана ў буфер абмену',
   'status.transcriptionFailed': 'Памылка транскрыбавання',
   'status.translationFailed': 'Памылка перакладу',
@@ -19,10 +21,14 @@ export default {
   'status.sessionExpired': 'Сесія ChatGPT скончылася. Увайдзіце зноў.',
   'status.providerConfigured': '{provider} наладжаны',
   'status.providerNotConfigured': '{provider} не наладжаны',
+  'status.settingsSaved': 'Налады захаваны',
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
   'notification.textCopiedNoTranslation': 'Тэкст скапіяваны (без перакладу)',
+  'notification.transcriptionFailed': 'Не ўдалося распазнаць тэкст',
+  'notification.translationFailed': 'Не ўдалося перакласці',
+  'notification.translationCopied': 'Пераклад скапіяваны',
 
   // Login button
   'login.loggingIn': 'Уваход...',
@@ -56,6 +62,36 @@ export default {
   'providerSettings.clearFailed': 'Не ўдалося ачысціць даныя правайдара',
   'providerSettings.language.auto': 'Аўта',
 
+  // App settings
+  'appSettings.open': 'Налады праграмы',
+  'appSettings.title': 'Налады',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Паводзіны',
+  'appSettings.identity': 'Ідэнтычнасць',
+  'appSettings.proxy': 'Проксі',
+  'appSettings.humanize': 'Чалавечы ўвод',
+  'appSettings.humanPreset': 'Профіль уводу',
+  'appSettings.humanPreset.careful': 'Асцярожны',
+  'appSettings.humanPreset.default': 'Звычайны',
+  'appSettings.backgroundMode': 'Фонавы браўзер',
+  'appSettings.backgroundMode.hidden': 'Схаваны',
+  'appSettings.backgroundMode.visible': 'Бачны',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Скінуць',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Выкарыстоўваць проксі',
+  'appSettings.proxyServer': 'Сервер',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Пароль захаваны',
+  'appSettings.clearProxyPassword': 'Ачысціць',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxySocks5AuthWarning': 'Імя карыстальніка і пароль для SOCKS5-проксі не падтрымліваюцца браўзерам.',
+  'appSettings.save': 'Захаваць',
+  'appSettings.saveFailed': 'Не ўдалося захаваць налады',
+
   // Status indicator
   'indicator.idle': 'Чаканне',
   'indicator.recording': 'Запіс',
@@ -68,6 +104,7 @@ export default {
   'hotkey.record': 'Запіс',
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Скасаваць',
+  'hotkey.translate': 'Пераклад',
   'hotkey.change': 'Змяніць',
   'hotkey.setHotkey': 'Прызначыць клавішу: {target}',
   'hotkey.pressKeyCombination': 'Націсніце камбінацыю клавіш',
@@ -85,8 +122,13 @@ export default {
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
+  'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
+  'error.rateLimited': 'Зашмат запытаў. Паспрабуйце пазней.',
+  'error.rateLimitedRetryAfter': 'Зашмат запытаў. Паспрабуйце праз {seconds} с.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
+  'error.noSelectedText': 'Няма вылучанага тэксту',
+  'error.translationInProgress': 'Пераклад ужо выконваецца',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

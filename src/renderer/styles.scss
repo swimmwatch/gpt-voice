@@ -172,6 +172,11 @@ h1 {
     color: $text-white;
     border-color: $text-muted;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }
 
 .login-section {
@@ -213,6 +218,11 @@ h1 {
   align-items: center;
   gap: 12px;
   min-height: 34px;
+}
+
+.translate-label {
+  color: $text-muted;
+  font-size: 0.8rem;
 }
 
 .translate-toggle {
@@ -376,7 +386,7 @@ h1 {
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 240px;
+  max-width: 280px;
 }
 
 .hotkey-row {
@@ -387,7 +397,7 @@ h1 {
 
   .hotkey-label {
     color: $text-hint;
-    width: 50px;
+    width: 76px;
     text-align: right;
   }
 
@@ -420,9 +430,14 @@ h1 {
   cursor: pointer;
   transition: all 0.2s ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: $text-white;
     border-color: $text-muted;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 }
 
@@ -466,6 +481,64 @@ h1 {
 
   h2 {
     text-align: center;
+  }
+}
+
+.settings-window-shell {
+  -webkit-app-region: no-drag;
+  align-items: flex-start;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  overflow-y: auto;
+  padding: 24px 16px;
+}
+
+.settings-window-panel {
+  background: #1e1e3a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  max-width: 440px;
+  padding: 20px;
+  width: 100%;
+
+  h1 {
+    font-size: 1.1rem;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+}
+
+.app-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  h2 {
+    color: $text-white;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+}
+
+.settings-group {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+
+  h3 {
+    color: $text-muted;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
   }
 }
 
@@ -535,11 +608,50 @@ h1 {
   }
 }
 
+.settings-checkbox {
+  -webkit-app-region: no-drag;
+  align-items: center;
+  color: $text-primary;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.8rem;
+  gap: 8px;
+
+  input {
+    cursor: pointer;
+  }
+
+  input:disabled,
+  input:disabled + span {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
+.settings-input-action {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  .hotkey-btn {
+    margin-left: 0;
+    min-height: 34px;
+    white-space: nowrap;
+  }
+}
+
 .settings-error {
   color: #ff7777;
   font-size: 0.78rem;
   margin-top: 12px;
   text-align: center;
+  word-break: break-word;
+}
+
+.settings-warning {
+  color: #facc15;
+  font-size: 0.78rem;
+  line-height: 1.35;
   word-break: break-word;
 }
 

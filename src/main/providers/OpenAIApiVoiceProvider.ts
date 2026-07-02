@@ -3,12 +3,19 @@ import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } f
 import { getAudioFileExtension } from './chatgptUtils';
 import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
+import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { writeClipboardText } from '../electronRuntime';
+import {
+  DEFAULT_TRANSCRIPTION_MIME_TYPE,
+  TRANSCRIPTION_UPLOAD_FILE_BASENAME,
+  WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+} from '@shared/transcriptionConstants';
 
 const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
+const ERROR_RESPONSE_BODY_PREVIEW_CHARS = 300;
 
 export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
@@ -29,7 +36,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     return this.hasSession();
   }
 
-  async transcribe(buffer: ArrayBuffer, mimeType = 'audio/webm;codecs=opus'): Promise<TranscriptionResult> {
+  async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
     try {
       const settings = getOpenAIApiSettingsWithSecret();
       if (!settings.apiKey) {
@@ -37,8 +44,8 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
       }
 
       const formData = new FormData();
-      const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || 'audio/webm' });
-      formData.append('file', blob, `recording.${getAudioFileExtension(mimeType)}`);
+      const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE });
+      formData.append('file', blob, `${TRANSCRIPTION_UPLOAD_FILE_BASENAME}.${getAudioFileExtension(mimeType)}`);
       formData.append('model', settings.model);
       formData.append('response_format', 'json');
       formData.append('temperature', String(settings.temperature));
@@ -77,7 +84,10 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', { status: String(StatusCodes.OK), body: body.substring(0, 300) }),
+        error: t('error.nonJsonResponse', {
+          status: String(StatusCodes.OK),
+          body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
+        }),
       };
     }
 
@@ -91,6 +101,11 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   }
 
   private parseErrorResponse(status: number, body: string): TranscriptionResult {
+    const rateLimited = parseRateLimitedTranscribeResponse({ status, body });
+    if (rateLimited) {
+      return rateLimited;
+    }
+
     try {
       const result = JSON.parse(body) as { error?: { message?: string } };
       return {
@@ -101,7 +116,10 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', { status: String(status), body: body.substring(0, 300) }),
+        error: t('error.nonJsonResponse', {
+          status: String(status),
+          body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
+        }),
       };
     }
   }

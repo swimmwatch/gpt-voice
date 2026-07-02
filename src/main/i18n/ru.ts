@@ -6,6 +6,8 @@ export default {
   'status.stopping': 'Остановка...',
   'status.transcribing': 'Транскрипция...',
   'status.translating': 'Перевод...',
+  'status.translatingSelection': 'Перевод выделенного текста...',
+  'status.translationCopied': 'Перевод скопирован',
   'status.copiedToClipboard': 'Скопировано в буфер обмена',
   'status.transcriptionFailed': 'Ошибка транскрипции',
   'status.translationFailed': 'Ошибка перевода',
@@ -19,10 +21,14 @@ export default {
   'status.sessionExpired': 'Сессия ChatGPT истекла. Войдите снова.',
   'status.providerConfigured': '{provider} настроен',
   'status.providerNotConfigured': '{provider} не настроен',
+  'status.settingsSaved': 'Настройки сохранены',
 
   // Notifications
   'notification.textCopied': 'Текст скопирован',
   'notification.textCopiedNoTranslation': 'Текст скопирован (без перевода)',
+  'notification.transcriptionFailed': 'Распознавание не удалось',
+  'notification.translationFailed': 'Перевод не удался',
+  'notification.translationCopied': 'Перевод скопирован',
 
   // Login button
   'login.loggingIn': 'Вход...',
@@ -56,6 +62,36 @@ export default {
   'providerSettings.clearFailed': 'Не удалось очистить данные провайдера',
   'providerSettings.language.auto': 'Авто',
 
+  // App settings
+  'appSettings.open': 'Настройки приложения',
+  'appSettings.title': 'Настройки',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Поведение',
+  'appSettings.identity': 'Идентичность',
+  'appSettings.proxy': 'Прокси',
+  'appSettings.humanize': 'Человеческий ввод',
+  'appSettings.humanPreset': 'Профиль ввода',
+  'appSettings.humanPreset.careful': 'Осторожный',
+  'appSettings.humanPreset.default': 'Обычный',
+  'appSettings.backgroundMode': 'Фоновый браузер',
+  'appSettings.backgroundMode.hidden': 'Скрытый',
+  'appSettings.backgroundMode.visible': 'Видимый',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Сбросить',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Использовать прокси',
+  'appSettings.proxyServer': 'Сервер',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Пароль сохранён',
+  'appSettings.clearProxyPassword': 'Очистить',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxySocks5AuthWarning': 'Имя пользователя и пароль для SOCKS5-прокси не поддерживаются браузером.',
+  'appSettings.save': 'Сохранить',
+  'appSettings.saveFailed': 'Не удалось сохранить настройки',
+
   // Status indicator
   'indicator.idle': 'Ожидание',
   'indicator.recording': 'Запись',
@@ -68,6 +104,7 @@ export default {
   'hotkey.record': 'Запись',
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Отмена',
+  'hotkey.translate': 'Перевод',
   'hotkey.change': 'Изменить',
   'hotkey.setHotkey': 'Назначить клавишу: {target}',
   'hotkey.pressKeyCombination': 'Нажмите сочетание клавиш',
@@ -85,8 +122,13 @@ export default {
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
   'error.noAccessToken': 'Нет токена доступа или API key. Настройте провайдера и повторите попытку.',
+  'error.chatGptAsrFailure': 'ChatGPT не смог обработать записанный звук ({mimeType}). Попробуйте записать снова.',
+  'error.rateLimited': 'Слишком много запросов. Попробуйте позже.',
+  'error.rateLimitedRetryAfter': 'Слишком много запросов. Попробуйте через {seconds} с.',
   'error.nonJsonResponse': 'Ответ сервера не в формате JSON (статус {status}): {body}',
   'error.noTranscription': 'Нет текста в ответе',
+  'error.noSelectedText': 'Нет выделенного текста',
+  'error.translationInProgress': 'Перевод уже выполняется',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

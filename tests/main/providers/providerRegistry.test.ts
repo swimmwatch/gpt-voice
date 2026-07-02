@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createProvider, getAvailableProviders } from '../../../src/main/providers';
+import { createProvider, getAvailableProviders } from '@main/providers';
 
 describe('provider registry', () => {
   it('exposes ChatGPT Web and OpenAI API provider metadata', () => {

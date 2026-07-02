@@ -1,15 +1,27 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { setLocale } from '../../../src/main/i18n';
+import { StatusCodes } from 'http-status-codes';
+import { setLocale } from '@main/i18n';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
   hasUsableSessionState,
   isChatGptAuthCookie,
   isUnexpiredCookie,
+  parseChatGptTranscribeResponse,
   parseTranscribeResponseBody,
+  shouldRefreshTranscribeToken,
   type StorageCookie,
-} from '../../../src/main/providers/chatgptUtils';
+} from '@main/providers/chatgptUtils';
+import {
+  DEFAULT_TRANSCRIPTION_MIME_TYPE,
+  MP4_TRANSCRIPTION_MIME_TYPE,
+  OGG_OPUS_TRANSCRIPTION_MIME_TYPE,
+  WAV_TRANSCRIPTION_MIME_TYPE,
+  WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+} from '@shared/transcriptionConstants';
+
+const CHATGPT_ASR_ERROR_RESPONSE = JSON.stringify({ detail: 'Error in ASR API' });
 
 function cookie(overrides: Partial<StorageCookie>): StorageCookie {
   return {
@@ -29,13 +41,14 @@ describe('chatgptUtils', () => {
 
   describe('getAudioFileExtension', () => {
     it('maps known recording mime types to upload extensions', () => {
-      assert.equal(getAudioFileExtension('audio/webm;codecs=opus'), 'webm');
-      assert.equal(getAudioFileExtension('audio/mp4'), 'm4a');
-      assert.equal(getAudioFileExtension('audio/ogg;codecs=opus'), 'ogg');
-      assert.equal(getAudioFileExtension('audio/wav'), 'wav');
+      assert.equal(getAudioFileExtension(WEBM_OPUS_TRANSCRIPTION_MIME_TYPE), 'webm');
+      assert.equal(getAudioFileExtension(MP4_TRANSCRIPTION_MIME_TYPE), 'm4a');
+      assert.equal(getAudioFileExtension(OGG_OPUS_TRANSCRIPTION_MIME_TYPE), 'ogg');
+      assert.equal(getAudioFileExtension(WAV_TRANSCRIPTION_MIME_TYPE), 'wav');
     });
 
     it('defaults unknown or empty mime types to webm', () => {
+      assert.equal(getAudioFileExtension(DEFAULT_TRANSCRIPTION_MIME_TYPE), 'webm');
       assert.equal(getAudioFileExtension(''), 'webm');
       assert.equal(getAudioFileExtension('application/octet-stream'), 'webm');
     });
@@ -101,6 +114,75 @@ describe('chatgptUtils', () => {
     });
   });
 
+  describe('shouldRefreshTranscribeToken', () => {
+    it('refreshes only for authentication failures and leaves 500s as provider errors', () => {
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.UNAUTHORIZED), true);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.FORBIDDEN), true);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.INTERNAL_SERVER_ERROR), false);
+      assert.equal(shouldRefreshTranscribeToken(StatusCodes.TOO_MANY_REQUESTS), false);
+    });
+  });
+
+  describe('parseChatGptTranscribeResponse', () => {
+    it('returns a localized ChatGPT ASR failure for known ASR 500 responses', () => {
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.INTERNAL_SERVER_ERROR,
+            body: CHATGPT_ASR_ERROR_RESPONSE,
+          },
+          WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+        ),
+        {
+          success: false,
+          error: 'ChatGPT could not process the recorded audio (audio/webm;codecs=opus). Try recording again.',
+          raw: CHATGPT_ASR_ERROR_RESPONSE,
+        },
+      );
+    });
+
+    it('keeps non-ASR provider errors unchanged', () => {
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.INTERNAL_SERVER_ERROR,
+            body: JSON.stringify({ detail: 'Temporary provider failure' }),
+          },
+          WAV_TRANSCRIPTION_MIME_TYPE,
+        ),
+        {
+          success: false,
+          error: 'Temporary provider failure',
+          raw: '{"detail":"Temporary provider failure"}',
+        },
+      );
+    });
+
+    it('returns a concise retry-after message for rate limits', () => {
+      const body = JSON.stringify({
+        detail: {
+          detail: 'Transcription is temporarily unavailable. Please try again shortly.',
+          retry_after_seconds: 30,
+        },
+      });
+
+      assert.deepEqual(
+        parseChatGptTranscribeResponse(
+          {
+            status: StatusCodes.TOO_MANY_REQUESTS,
+            body,
+          },
+          WAV_TRANSCRIPTION_MIME_TYPE,
+        ),
+        {
+          success: false,
+          error: 'Too many requests. Try again in 30s.',
+          raw: body,
+        },
+      );
+    });
+  });
+
   describe('parseTranscribeResponseBody', () => {
     it('returns text from a successful text response', () => {
       assert.deepEqual(parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ text: 'hello' }) }), {
@@ -146,12 +228,12 @@ describe('chatgptUtils', () => {
       assert.deepEqual(
         parseTranscribeResponseBody({
           status: 500,
-          body: JSON.stringify({ detail: 'Error in ASR API' }),
+          body: CHATGPT_ASR_ERROR_RESPONSE,
         }),
         {
           success: false,
           error: 'Error in ASR API',
-          raw: '{"detail":"Error in ASR API"}',
+          raw: CHATGPT_ASR_ERROR_RESPONSE,
         },
       );
     });
@@ -159,7 +241,7 @@ describe('chatgptUtils', () => {
     it('returns nested provider detail errors from failed JSON responses', () => {
       assert.deepEqual(
         parseTranscribeResponseBody({
-          status: 429,
+          status: 503,
           body: JSON.stringify({
             detail: {
               detail: 'Transcription is temporarily unavailable. Please try again shortly.',

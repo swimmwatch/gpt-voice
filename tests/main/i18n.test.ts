@@ -1,10 +1,10 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import en from '../../src/main/i18n/en';
-import ru from '../../src/main/i18n/ru';
-import uk from '../../src/main/i18n/uk';
-import be from '../../src/main/i18n/be';
-import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from '../../src/main/i18n';
+import en from '@main/i18n/en';
+import ru from '@main/i18n/ru';
+import uk from '@main/i18n/uk';
+import be from '@main/i18n/be';
+import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from '@main/i18n';
 
 describe('i18n', () => {
   afterEach(() => {

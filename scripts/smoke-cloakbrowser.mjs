@@ -28,6 +28,9 @@ const browser = await launch({
   headless: true,
   locale: 'en-US',
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  humanize: true,
+  humanPreset: 'careful',
+  args: ['--fingerprint=12345'],
 });
 
 try {

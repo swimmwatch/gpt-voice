@@ -1,5 +1,5 @@
 import { app, Tray, Menu, nativeImage, type NativeImage } from 'electron';
-import { getMainWindow, createWindow, setQuitting } from './window';
+import { getMainWindow, createWindow, setQuitting, showSettingsWindow } from './window';
 import { t } from './i18n';
 import { getAssetPath } from './assets';
 
@@ -39,6 +39,12 @@ export function createTray(): void {
         } else {
           createWindow();
         }
+      },
+    },
+    {
+      label: t('appSettings.open'),
+      click: () => {
+        showSettingsWindow();
       },
     },
     { type: 'separator' },

@@ -2,6 +2,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { createLogger } from './logger';
+import {
+  DEFAULT_CANCEL_HOTKEY,
+  DEFAULT_RECORD_HOTKEY,
+  DEFAULT_STOP_HOTKEY,
+  DEFAULT_TRANSLATE_HOTKEY,
+} from '@shared/hotkeys';
 
 const log = createLogger('config');
 
@@ -78,27 +84,38 @@ if (!fs.existsSync(APP_DIR)) {
 export const BROWSER_CACHE_DIR = path.join(APP_DIR, 'browser-cache');
 export const CONFIG_FILE = path.join(APP_DIR, 'config.json');
 
-export let currentHotkey = 'F9';
-export let currentCancelHotkey = 'Escape';
-export let currentStopHotkey = 'F10';
-export let currentTranslate = false;
+export let currentHotkey = DEFAULT_RECORD_HOTKEY;
+export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
+export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
+export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale = '';
 export let currentFingerprintSeed = '';
 
+const FINGERPRINT_SEED_PATTERN = /^\d+$/;
+
 function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
-export function setHotkeys(hotkey?: string, cancelHotkey?: string, stopHotkey?: string): void {
+function isValidFingerprintSeed(value: string): boolean {
+  return FINGERPRINT_SEED_PATTERN.test(value);
+}
+
+export function setHotkeys(
+  hotkey?: string,
+  cancelHotkey?: string,
+  stopHotkey?: string,
+  translateHotkey?: string,
+): void {
   if (hotkey !== undefined) currentHotkey = hotkey;
   if (cancelHotkey !== undefined) currentCancelHotkey = cancelHotkey;
   if (stopHotkey !== undefined) currentStopHotkey = stopHotkey;
+  if (translateHotkey !== undefined) currentTranslateHotkey = translateHotkey;
 }
 
-export function setTranslateSettings(translate?: boolean, targetLang?: string): void {
-  if (translate !== undefined) currentTranslate = translate;
+export function setTranslateSettings(targetLang?: string): void {
   if (targetLang !== undefined) currentTargetLang = targetLang;
 }
 
@@ -111,8 +128,9 @@ export function setCurrentLocale(locale: string): void {
 }
 
 export function getFingerprintSeed(): string {
-  if (!currentFingerprintSeed) {
+  if (!isValidFingerprintSeed(currentFingerprintSeed)) {
     currentFingerprintSeed = generateFingerprintSeed();
+    saveConfig();
   }
   return currentFingerprintSeed;
 }
@@ -128,13 +146,13 @@ export function loadConfig(): void {
       if (config.hotkey) currentHotkey = config.hotkey;
       if (config.cancelHotkey) currentCancelHotkey = config.cancelHotkey;
       if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
-      if (config.translate !== undefined) currentTranslate = config.translate;
+      if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
       if (config.targetLang) currentTargetLang = config.targetLang;
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
       if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
     }
-    if (!currentFingerprintSeed) {
+    if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();
       saveConfig();
     }
@@ -151,7 +169,7 @@ export function saveConfig(): void {
         hotkey: currentHotkey,
         cancelHotkey: currentCancelHotkey,
         stopHotkey: currentStopHotkey,
-        translate: currentTranslate,
+        translateHotkey: currentTranslateHotkey,
         targetLang: currentTargetLang,
         provider: currentProvider,
         locale: currentLocale,

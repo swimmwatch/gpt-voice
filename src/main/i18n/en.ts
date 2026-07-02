@@ -6,6 +6,8 @@ export default {
   'status.stopping': 'Stopping...',
   'status.transcribing': 'Transcribing...',
   'status.translating': 'Translating...',
+  'status.translatingSelection': 'Translating selection...',
+  'status.translationCopied': 'Translation copied',
   'status.copiedToClipboard': 'Copied to clipboard',
   'status.transcriptionFailed': 'Transcription failed',
   'status.translationFailed': 'Translation failed',
@@ -19,10 +21,14 @@ export default {
   'status.sessionExpired': 'ChatGPT session expired. Please login again.',
   'status.providerConfigured': '{provider} configured',
   'status.providerNotConfigured': '{provider} is not configured',
+  'status.settingsSaved': 'Settings saved',
 
   // Notifications
   'notification.textCopied': 'Text copied',
   'notification.textCopiedNoTranslation': 'Text copied (no translation)',
+  'notification.transcriptionFailed': 'Recognition failed',
+  'notification.translationFailed': 'Translation failed',
+  'notification.translationCopied': 'Translation copied',
 
   // Login button
   'login.loggingIn': 'Logging in...',
@@ -56,6 +62,36 @@ export default {
   'providerSettings.clearFailed': 'Could not clear provider data',
   'providerSettings.language.auto': 'Auto',
 
+  // App settings
+  'appSettings.open': 'App settings',
+  'appSettings.title': 'Settings',
+  'appSettings.cloakBrowser': 'CloakBrowser',
+  'appSettings.behavior': 'Behavior',
+  'appSettings.identity': 'Identity',
+  'appSettings.proxy': 'Proxy',
+  'appSettings.humanize': 'Humanize input',
+  'appSettings.humanPreset': 'Human preset',
+  'appSettings.humanPreset.careful': 'Careful',
+  'appSettings.humanPreset.default': 'Default',
+  'appSettings.backgroundMode': 'Background browser',
+  'appSettings.backgroundMode.hidden': 'Hidden',
+  'appSettings.backgroundMode.visible': 'Visible',
+  'appSettings.fingerprintSeed': 'Fingerprint seed',
+  'appSettings.resetFingerprint': 'Reset',
+  'appSettings.locale': 'Locale',
+  'appSettings.timezone': 'Timezone',
+  'appSettings.proxyEnabled': 'Use proxy',
+  'appSettings.proxyServer': 'Server',
+  'appSettings.proxyBypass': 'Bypass',
+  'appSettings.proxyUsername': 'Username',
+  'appSettings.proxyPassword': 'Password',
+  'appSettings.proxyPasswordSaved': 'Saved password',
+  'appSettings.clearProxyPassword': 'Clear',
+  'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxySocks5AuthWarning': 'SOCKS5 proxy username/password is not supported by the browser.',
+  'appSettings.save': 'Save',
+  'appSettings.saveFailed': 'Could not save settings',
+
   // Status indicator
   'indicator.idle': 'Idle',
   'indicator.recording': 'Recording',
@@ -68,6 +104,7 @@ export default {
   'hotkey.record': 'Record',
   'hotkey.stop': 'Stop',
   'hotkey.cancel': 'Cancel',
+  'hotkey.translate': 'Translate',
   'hotkey.change': 'Change',
   'hotkey.setHotkey': 'Set {target} Hotkey',
   'hotkey.pressKeyCombination': 'Press a key combination',
@@ -85,8 +122,13 @@ export default {
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
+  'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
+  'error.rateLimited': 'Too many requests. Try again later.',
+  'error.rateLimitedRetryAfter': 'Too many requests. Try again in {seconds}s.',
   'error.nonJsonResponse': 'Transcribe endpoint returned non-JSON (status {status}): {body}',
   'error.noTranscription': 'No transcription in response',
+  'error.noSelectedText': 'No selected text',
+  'error.translationInProgress': 'Translation already in progress',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

@@ -40,9 +40,9 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 - **Fast remote recognition**: get high-quality transcription from remote GPT/Whisper infrastructure instead of spending local CPU/GPU resources.
 - **Separate provider settings**: web-session auth and API-key auth are stored independently.
 - **Bundled Cloak Chromium**: packaged builds include the browser runtime needed by CloakBrowser.
-- **Global hotkeys**: record, stop, and cancel without leaving the app you are typing in.
+- **Global hotkeys**: record, stop, cancel, and translate selected text without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
-- **Optional translation**: send the transcript through the bundled Google Translate browser page.
+- **Selected-text translation**: edit recognized text where you need it, select it, and copy a Google Translate result.
 - **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb/rpm, plus a Windows installer.
 - **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
@@ -59,8 +59,9 @@ flowchart LR
   API --> Whisper[Whisper transcription endpoint]
   ChatGPT --> Clipboard[Clipboard text]
   Whisper --> Clipboard
-  Clipboard --> Translate{Translate?}
-  Translate -->|optional| Google[Google Translate web page]
+  Clipboard --> Editor[Your target app]
+  Editor --> Selection[Selected edited text]
+  Selection --> Google[Google Translate web page]
   Google --> Clipboard
 ```
 
@@ -267,7 +268,7 @@ After installation, the first run is the same on every supported packaged platfo
 5. For **OpenAI API**, paste your OpenAI API key and adjust the Whisper settings you need.
 6. Wait until the main button shows the provider as connected or configured.
 
-After that, GPT-Voice reuses the saved provider settings. ChatGPT Web starts its background browser automatically; OpenAI API does not need a browser unless Translate is enabled.
+After that, GPT-Voice reuses the saved provider settings. ChatGPT Web starts its background browser automatically; OpenAI API does not need a browser for transcription.
 
 ## Run From Source
 
@@ -290,17 +291,20 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 5. **Press the Record hotkey** and speak normally.
 6. **Press Stop**. The audio is sent to the selected provider for transcription.
 7. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
-8. Optional: enable **Translate** and choose a target language to copy translated text instead.
+8. Optional: edit the text, select it, choose a target language in GPT-Voice, and press the Translate hotkey to copy the translated text.
 
 ## Default Controls
 
-| Action | Default  |
-| ------ | -------- |
-| Record | `F9`     |
-| Stop   | `F10`    |
-| Cancel | `Escape` |
+| Action              | Default  |
+| ------------------- | -------- |
+| Record              | `F9`     |
+| Stop                | `F10`    |
+| Cancel              | `Escape` |
+| Translate selection | `F11`    |
 
 Shortcuts are configurable from the app window.
+
+Selected-text translation copies the translated result to the clipboard. GPT-Voice uses OS automation only to copy the current selection when needed; on Linux it can also read the primary selection directly. If selection copy is blocked by the OS, copy the text manually and run translation again.
 
 ## Build Locally
 
@@ -321,9 +325,9 @@ npm run dist:win
 
 Linux builds produce:
 
-- `release/GPT-Voice-1.0.0.AppImage`
-- `release/gpt-voice_1.0.0_amd64.deb`
-- `release/gpt-voice-1.0.0.x86_64.rpm`
+- `release/GPT-Voice-1.2.0.AppImage`
+- `release/gpt-voice_1.2.0_amd64.deb`
+- `release/gpt-voice-1.2.0.x86_64.rpm`
 - `release/linux-unpacked/gpt-voice`
 
 `npm run dist:linux` still works as a native-host fallback. Native Linux rpm packaging requires `rpmbuild`, `rpm2cpio`, and `cpio`. On Ubuntu/Debian build hosts, install them before `npm run dist:linux`:
