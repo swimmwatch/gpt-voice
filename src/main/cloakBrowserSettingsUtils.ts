@@ -26,12 +26,17 @@ export interface NormalizedCloakBrowserSettings {
   proxy: NormalizedCloakBrowserProxySettings;
 }
 
+export interface NormalizeCloakBrowserSettingsOptions {
+  sanitizeInvalidFingerprintSeed?: boolean;
+}
+
 export const DEFAULT_CLOAK_BROWSER_HUMANIZE = true;
 export const DEFAULT_CLOAK_BROWSER_HUMAN_PRESET: CloakBrowserHumanPreset = 'careful';
 export const DEFAULT_CLOAK_BROWSER_BACKGROUND_MODE: CloakBrowserBackgroundMode = 'hidden';
 export const DEFAULT_CLOAK_BROWSER_LOCALE = 'en-US';
 
 const SUPPORTED_PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:']);
+const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 
 export function getSystemTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -53,10 +58,30 @@ function getString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isValidFingerprintSeed(value: string): boolean {
+  return FINGERPRINT_SEED_PATTERN.test(value);
+}
+
 function validateFingerprintSeed(value: string): void {
-  if (!/^\d+$/.test(value)) {
+  if (!isValidFingerprintSeed(value)) {
     throw new Error('Fingerprint seed must contain digits only');
   }
+}
+
+function normalizeFingerprintSeed(
+  value: unknown,
+  fallbackFingerprintSeed: string,
+  sanitizeInvalidValue: boolean,
+): string {
+  const candidate = getString(value);
+  if (candidate) {
+    if (isValidFingerprintSeed(candidate)) return candidate;
+    if (!sanitizeInvalidValue) validateFingerprintSeed(candidate);
+  }
+
+  const fallback = getString(fallbackFingerprintSeed);
+  if (fallback && isValidFingerprintSeed(fallback)) return fallback;
+  return generateCloakBrowserFingerprintSeed();
 }
 
 function validateLocale(value: string): void {
@@ -105,6 +130,7 @@ function validateProxyServer(value: string, enabled: boolean): void {
 export function normalizeCloakBrowserSettingsInput(
   input: CloakBrowserSettingsInput = {},
   fallbackFingerprintSeed: string,
+  options: NormalizeCloakBrowserSettingsOptions = {},
 ): NormalizedCloakBrowserSettings {
   const proxyInput = input.proxy ?? {};
   const humanPreset =
@@ -115,7 +141,11 @@ export function normalizeCloakBrowserSettingsInput(
     typeof input.backgroundMode === 'string' && isCloakBrowserBackgroundMode(input.backgroundMode)
       ? input.backgroundMode
       : DEFAULT_CLOAK_BROWSER_BACKGROUND_MODE;
-  const fingerprintSeed = getString(input.fingerprintSeed) || fallbackFingerprintSeed;
+  const fingerprintSeed = normalizeFingerprintSeed(
+    input.fingerprintSeed,
+    fallbackFingerprintSeed,
+    Boolean(options.sanitizeInvalidFingerprintSeed),
+  );
   const locale = getString(input.locale) || DEFAULT_CLOAK_BROWSER_LOCALE;
   const timezone = getString(input.timezone) || getSystemTimezone();
   const proxy = {

@@ -115,7 +115,7 @@ describe('chatgptUtils', () => {
   });
 
   describe('shouldRefreshTranscribeToken', () => {
-    it('refreshes only for authentication failures', () => {
+    it('refreshes only for authentication failures and leaves 500s as provider errors', () => {
       assert.equal(shouldRefreshTranscribeToken(StatusCodes.UNAUTHORIZED), true);
       assert.equal(shouldRefreshTranscribeToken(StatusCodes.FORBIDDEN), true);
       assert.equal(shouldRefreshTranscribeToken(StatusCodes.INTERNAL_SERVER_ERROR), false);

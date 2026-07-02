@@ -31,7 +31,7 @@ import { createLogger } from './logger';
 import { createProvider } from './providers';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
-import { getCloakBrowserSettingsView, saveCloakBrowserSettings } from './cloakBrowserSettings';
+import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 
 const log = createLogger('ipc');
@@ -211,13 +211,21 @@ export function registerIpcHandlers(): void {
 
   handle('save-cloakbrowser-settings', async (_event, settings: CloakBrowserSettingsInput) => {
     try {
-      const savedSettings = saveCloakBrowserSettings(settings || {});
+      const preparedSettings = prepareCloakBrowserSettings(settings || {});
       await shutdownBackgroundBrowser();
-      const backgroundStatus = await initBackgroundBrowser();
+      const backgroundStatus = await initBackgroundBrowser({
+        cloakBrowserSettings: preparedSettings.settingsWithSecret,
+      });
       sendBackgroundStatus(backgroundStatus);
       if (backgroundStatus.error) {
-        return { success: false, settings: savedSettings, backgroundStatus, error: backgroundStatus.error };
+        return {
+          success: false,
+          settings: preparedSettings.settings,
+          backgroundStatus,
+          error: backgroundStatus.error,
+        };
       }
+      const savedSettings = preparedSettings.persist();
       return { success: true, settings: savedSettings, backgroundStatus };
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };

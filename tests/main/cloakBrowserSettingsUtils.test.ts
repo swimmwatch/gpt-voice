@@ -52,6 +52,20 @@ describe('cloakBrowserSettingsUtils', () => {
     assert.throws(() => normalizeCloakBrowserSettingsInput({ fingerprintSeed: 'abc123' }, '12345'), /digits only/);
   });
 
+  it('sanitizes invalid persisted fingerprint seeds when requested', () => {
+    const settings = normalizeCloakBrowserSettingsInput({ fingerprintSeed: 'legacy-value' }, '12345', {
+      sanitizeInvalidFingerprintSeed: true,
+    });
+
+    assert.equal(settings.fingerprintSeed, '12345');
+  });
+
+  it('regenerates invalid fallback fingerprint seeds', () => {
+    const settings = normalizeCloakBrowserSettingsInput({}, 'legacy-value');
+
+    assert.match(settings.fingerprintSeed, /^\d+$/);
+  });
+
   it('rejects invalid locale and timezone values', () => {
     assert.throws(() => normalizeCloakBrowserSettingsInput({ locale: 'not a locale' }, '12345'), /BCP 47/);
     assert.throws(() => normalizeCloakBrowserSettingsInput({ timezone: 'Mars/Olympus' }, '12345'), /IANA/);

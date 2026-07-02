@@ -48,13 +48,17 @@ export function buildCloakBrowserContextOptions(
   return options;
 }
 
-export function createCloakBrowserLoginContextOptions(): LaunchContextOptions {
-  return buildCloakBrowserContextOptions(getCloakBrowserSettingsWithSecret(), 'login');
+export function createCloakBrowserLoginContextOptions(
+  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
+): LaunchContextOptions {
+  return buildCloakBrowserContextOptions(settings, 'login');
 }
 
-export function createCloakBrowserPersistentContextOptions(): LaunchPersistentContextOptions {
+export function createCloakBrowserPersistentContextOptions(
+  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
+): LaunchPersistentContextOptions {
   return {
     userDataDir: BROWSER_CACHE_DIR,
-    ...buildCloakBrowserContextOptions(getCloakBrowserSettingsWithSecret(), 'background'),
+    ...buildCloakBrowserContextOptions(settings, 'background'),
   };
 }

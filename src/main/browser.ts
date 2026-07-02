@@ -3,6 +3,7 @@ import {
   createCloakBrowserLoginContextOptions,
   createCloakBrowserPersistentContextOptions,
 } from '@main/cloakBrowserLaunchOptions';
+import type { CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import { launchCloakContext, launchCloakPersistentContext } from '@main/cloakbrowser';
 import { currentProvider, currentTargetLang, currentTranslate, setProvider } from '@main/config';
 import { t } from '@main/i18n';
@@ -37,6 +38,7 @@ export interface BackgroundBrowserStatus {
 interface EnsureBackgroundBrowserOptions {
   includeTranslate?: boolean;
   translateTargetLang?: string;
+  cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
 }
 
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
@@ -64,11 +66,11 @@ export function launchLoginContext(): Promise<BrowserContext> {
   return launchCloakContext(createCloakBrowserLoginContextOptions());
 }
 
-async function ensureTranslateContext(): Promise<BrowserContext> {
+async function ensureTranslateContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
   if (bgContext) return bgContext;
 
   log.info('Launching persistent browser for translation...');
-  bgContext = await launchCloakPersistentContext(createCloakBrowserPersistentContextOptions());
+  bgContext = await launchCloakPersistentContext(createCloakBrowserPersistentContextOptions(settings));
   return bgContext;
 }
 
@@ -110,6 +112,7 @@ export async function initBackgroundBrowser(
 ): Promise<BackgroundBrowserStatus> {
   const includeTranslate = options.includeTranslate ?? currentTranslate;
   const translateTargetLang = options.translateTargetLang ?? currentTargetLang;
+  const { cloakBrowserSettings } = options;
 
   bgReady = false;
   bgError = '';
@@ -131,7 +134,7 @@ export async function initBackgroundBrowser(
   try {
     if (activeProvider.requiresBrowserSession()) {
       log.info('Launching persistent background browser...');
-      bgContext = await launchCloakPersistentContext(createCloakBrowserPersistentContextOptions());
+      bgContext = await launchCloakPersistentContext(createCloakBrowserPersistentContextOptions(cloakBrowserSettings));
 
       // Load session cookies and initialize provider page
       const sessionLoaded = await activeProvider.loadSession(bgContext);
@@ -154,7 +157,7 @@ export async function initBackgroundBrowser(
     }
 
     if (includeTranslate) {
-      await initTranslatePage(await ensureTranslateContext(), translateTargetLang);
+      await initTranslatePage(await ensureTranslateContext(cloakBrowserSettings), translateTargetLang);
     }
 
     bgReady = true;
@@ -194,16 +197,17 @@ export async function shutdownBackgroundBrowser(preserveError = false): Promise<
 export async function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
   const includeTranslate = options.includeTranslate ?? currentTranslate;
   const translateTargetLang = options.translateTargetLang ?? currentTargetLang;
+  const { cloakBrowserSettings } = options;
 
   if (bgReady && activeProvider?.isReady()) {
     if (!includeTranslate) return;
     if (translatePage && !translatePage.isClosed()) return;
     translatePage = null;
     translatePageTargetLang = '';
-    await initTranslatePage(await ensureTranslateContext(), translateTargetLang);
+    await initTranslatePage(await ensureTranslateContext(cloakBrowserSettings), translateTargetLang);
     return;
   }
-  await initBackgroundBrowser({ includeTranslate, translateTargetLang });
+  await initBackgroundBrowser({ includeTranslate, translateTargetLang, cloakBrowserSettings });
 }
 
 export async function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {

@@ -87,8 +87,14 @@ export let currentProvider = 'chatgpt';
 export let currentLocale = '';
 export let currentFingerprintSeed = '';
 
+const FINGERPRINT_SEED_PATTERN = /^\d+$/;
+
 function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
+}
+
+function isValidFingerprintSeed(value: string): boolean {
+  return FINGERPRINT_SEED_PATTERN.test(value);
 }
 
 export function setHotkeys(hotkey?: string, cancelHotkey?: string, stopHotkey?: string): void {
@@ -111,8 +117,9 @@ export function setCurrentLocale(locale: string): void {
 }
 
 export function getFingerprintSeed(): string {
-  if (!currentFingerprintSeed) {
+  if (!isValidFingerprintSeed(currentFingerprintSeed)) {
     currentFingerprintSeed = generateFingerprintSeed();
+    saveConfig();
   }
   return currentFingerprintSeed;
 }
@@ -134,7 +141,7 @@ export function loadConfig(): void {
       if (config.locale) currentLocale = config.locale;
       if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
     }
-    if (!currentFingerprintSeed) {
+    if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();
       saveConfig();
     }

@@ -58,6 +58,7 @@ export function hasUsableSessionState(sessionData: SessionState, nowSeconds = Da
 }
 
 export function shouldRefreshTranscribeToken(status: number): boolean {
+  // Non-auth 5xx responses are provider/audio failures, not expired-token signals.
   return status === StatusCodes.UNAUTHORIZED || status === StatusCodes.FORBIDDEN;
 }
 
