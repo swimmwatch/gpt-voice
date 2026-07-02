@@ -69,35 +69,34 @@ export function launchLoginContext(): Promise<BrowserContext> {
 async function ensureTranslateContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
   if (bgContext) return bgContext;
 
-  log.info('Launching persistent browser for translation...');
+  log.info('Launching persistent background browser...');
   bgContext = await launchCloakPersistentContext(createCloakBrowserPersistentContextOptions(settings));
   return bgContext;
 }
 
-async function initTranslatePage(context: BrowserContext, targetLang = currentTargetLang): Promise<void> {
+async function navigateTranslatePage(page: Page, targetLang: string): Promise<void> {
   const normalizedTargetLang = normalizeGoogleTranslateTargetLang(targetLang);
   const url = buildGoogleTranslateUrl(normalizedTargetLang);
 
-  translatePage = await context.newPage();
   log.info('Navigating to Google Translate:', { targetLang: normalizedTargetLang });
-  await translatePage.goto(url, {
+  await page.goto(url, {
     waitUntil: 'domcontentloaded',
     timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
   });
 
   // Handle Google cookie consent if redirected
-  if (translatePage.url().includes('consent.google')) {
+  if (page.url().includes('consent.google')) {
     log.info('Cookie consent detected, accepting...');
-    const acceptBtn = translatePage.locator(
+    const acceptBtn = page.locator(
       'button:has-text("Accept all"), button:has-text("Принять все"), button:has-text("Alle akzeptieren")',
     );
     try {
       await acceptBtn.first().click({ timeout: 5000 });
-      await translatePage.waitForURL('**/translate.google.*', { timeout: 10000 });
-      await translatePage.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+      await page.waitForURL('**/translate.google.*', { timeout: 10000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     } catch {
       log.warn('Could not auto-accept consent, retrying navigation...');
-      await translatePage.goto(url, {
+      await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
       });
@@ -105,6 +104,11 @@ async function initTranslatePage(context: BrowserContext, targetLang = currentTa
   }
   translatePageTargetLang = normalizedTargetLang;
   log.info('Google Translate page loaded');
+}
+
+async function initTranslatePage(context: BrowserContext, targetLang = currentTargetLang): Promise<void> {
+  translatePage = await context.newPage();
+  await navigateTranslatePage(translatePage, targetLang);
 }
 
 export async function initBackgroundBrowser(
@@ -199,9 +203,6 @@ export async function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOp
 
   if (bgReady && activeProvider?.isReady()) {
     if (!includeTranslate) return;
-    if (translatePage && !translatePage.isClosed()) return;
-    translatePage = null;
-    translatePageTargetLang = '';
     await ensureTranslateBrowser(translateTargetLang, cloakBrowserSettings);
     return;
   }
@@ -220,7 +221,11 @@ export async function ensureTranslateBrowser(
     return;
   }
 
-  if (translatePageTargetLang !== normalizedTargetLang) return;
+  if (translatePageTargetLang !== normalizedTargetLang) {
+    await navigateTranslatePage(translatePage, normalizedTargetLang);
+    return;
+  }
+
   await translatePage
     .waitForLoadState('domcontentloaded', { timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS })
     .catch(() => {});

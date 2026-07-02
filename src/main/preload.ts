@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../renderer/types';
+import type {
+  BackgroundBrowserStatus,
+  OpenAIApiProviderSettings,
+  ProviderInfo,
+  ProviderSettings,
+} from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 
@@ -59,7 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<{
     success: boolean;
     settings?: CloakBrowserSettingsView;
-    backgroundStatus?: { ready: boolean; error?: string; authExpired?: boolean };
+    backgroundStatus?: BackgroundBrowserStatus;
     error?: string;
   }> => {
     return ipcRenderer.invoke('save-cloakbrowser-settings', settings);
@@ -99,7 +104,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isBgReady: (): Promise<boolean> => {
     return ipcRenderer.invoke('is-bg-ready');
   },
-  getBgBrowserStatus: (): Promise<{ ready: boolean; error?: string; authExpired?: boolean }> => {
+  getBgBrowserStatus: (): Promise<BackgroundBrowserStatus> => {
     return ipcRenderer.invoke('get-bg-browser-status');
   },
   onBgBrowserReady: (callback: () => void) => {
