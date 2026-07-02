@@ -1,7 +1,7 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
 import { prepareTranscriptionAudio } from '../audioEncoding';
-import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '../../shared/transcriptionConstants';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
 
 const log = rendererLog.scope('recording');
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { StatusCodes } from 'http-status-codes';
-import { setLocale } from '../../../src/main/i18n';
+import { setLocale } from '@main/i18n';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -12,14 +12,14 @@ import {
   parseTranscribeResponseBody,
   shouldRefreshTranscribeToken,
   type StorageCookie,
-} from '../../../src/main/providers/chatgptUtils';
+} from '@main/providers/chatgptUtils';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   MP4_TRANSCRIPTION_MIME_TYPE,
   OGG_OPUS_TRANSCRIPTION_MIME_TYPE,
   WAV_TRANSCRIPTION_MIME_TYPE,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
-} from '../../../src/shared/transcriptionConstants';
+} from '@shared/transcriptionConstants';
 
 const CHATGPT_ASR_ERROR_RESPONSE = JSON.stringify({ detail: 'Error in ASR API' });
 

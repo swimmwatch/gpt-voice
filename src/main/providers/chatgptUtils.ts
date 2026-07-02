@@ -2,7 +2,7 @@ import type { BrowserContext } from 'playwright-core';
 import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
 import { t } from '../i18n';
-import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '../../shared/transcriptionConstants';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 
 export type StorageCookie = Parameters<BrowserContext['addCookies']>[0][number];
 

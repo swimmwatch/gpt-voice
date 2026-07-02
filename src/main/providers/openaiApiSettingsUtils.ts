@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_MODEL_WHISPER_1 } from '../../shared/transcriptionConstants';
+import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 
 export const OPENAI_API_PROVIDER_ID = 'openai-api';
 export const OPENAI_API_SETTINGS_MODEL = TRANSCRIPTION_MODEL_WHISPER_1;

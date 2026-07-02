@@ -10,7 +10,7 @@ import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
-} from '../../shared/transcriptionConstants';
+} from '@shared/transcriptionConstants';
 
 const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';

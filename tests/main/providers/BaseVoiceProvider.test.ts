@@ -1,11 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { BrowserContext } from 'playwright-core';
-import {
-  BaseVoiceProvider,
-  type TranscriptionResult,
-  type VoiceProviderInfo,
-} from '../../../src/main/providers/BaseVoiceProvider';
+import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 
 class TestVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {

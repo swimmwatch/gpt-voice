@@ -95,6 +95,7 @@ For browser runtime, release, or installer changes, also run the matching CloakB
 - Prefer explicit types, small pure functions, and narrow interfaces.
 - Do not add `any`, `// @ts-ignore`, or non-null assertions to silence the checker.
 - Internal formatting is Prettier: single quotes, semicolons, trailing commas, LF, `printWidth` 120.
+- Prefer aliases for cross-directory imports: `@main/*`, `@renderer/*`, and `@shared/*`. Avoid deep relative imports like `../../...` whenever possible; keep relative imports only for same-folder or nearby local modules where they are clearer.
 - Use scoped `electron-log` loggers in runtime code. Avoid `console.*` in `src/` unless there is a clear CLI/script-only reason.
 - Do not log API keys, access tokens, cookies, prompts, transcripts, raw audio, account identifiers, or full provider responses that may contain private data.
 

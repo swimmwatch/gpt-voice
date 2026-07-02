@@ -1,4 +1,4 @@
-import { DEFAULT_TRANSCRIPTION_MIME_TYPE, WAV_TRANSCRIPTION_MIME_TYPE } from '../shared/transcriptionConstants';
+import { DEFAULT_TRANSCRIPTION_MIME_TYPE, WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 
 const TARGET_TRANSCRIPTION_SAMPLE_RATE = 16000;
 const WAV_HEADER_BYTES = 44;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../types';
-import { TRANSCRIPTION_MODEL_WHISPER_1 } from '../../shared/transcriptionConstants';
+import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 
 interface Props {
   provider: ProviderInfo;

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodePcm16Wav, prepareTranscriptionAudio } from '../../src/renderer/audioEncoding';
-import { WEBM_OPUS_TRANSCRIPTION_MIME_TYPE } from '../../src/shared/transcriptionConstants';
+import { encodePcm16Wav, prepareTranscriptionAudio } from '@renderer/audioEncoding';
+import { WEBM_OPUS_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 
 const TEST_SAMPLE_RATE = 16000;
 

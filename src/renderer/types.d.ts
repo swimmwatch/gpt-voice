@@ -1,4 +1,4 @@
-import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '../shared/transcriptionConstants';
+import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 

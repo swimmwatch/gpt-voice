@@ -10,17 +10,17 @@ import {
   shouldRefreshTranscribeToken,
   type SessionState,
 } from './chatgptUtils';
-import { t } from '../i18n';
-import { createLogger } from '../logger';
-import { APP_DIR } from '../config';
-import { writeClipboardText } from '../electronRuntime';
-import { StatusCodes } from 'http-status-codes';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_MODEL_WHISPER_1,
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
-} from '../../shared/transcriptionConstants';
+} from '@shared/transcriptionConstants';
+import { t } from '../i18n';
+import { createLogger } from '../logger';
+import { APP_DIR } from '../config';
+import { writeClipboardText } from '../electronRuntime';
+import { StatusCodes } from 'http-status-codes';
 
 const log = createLogger('chatgpt-provider');
 

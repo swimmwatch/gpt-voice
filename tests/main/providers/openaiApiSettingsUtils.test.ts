@@ -7,7 +7,7 @@ import {
   normalizeTemperature,
   sanitizeOpenAIApiSettings,
   shouldUpdateApiKey,
-} from '../../../src/main/providers/openaiApiSettingsUtils';
+} from '@main/providers/openaiApiSettingsUtils';
 
 describe('openaiApiSettingsUtils', () => {
   it('normalizes unknown values to safe Whisper defaults', () => {
