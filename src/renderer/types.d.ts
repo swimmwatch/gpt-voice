@@ -2,6 +2,12 @@ import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstan
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
+export interface BackgroundBrowserStatus {
+  ready: boolean;
+  error?: string;
+  authExpired?: boolean;
+}
+
 export interface ProviderInfo {
   id: string;
   name: string;
@@ -52,7 +58,7 @@ export interface ElectronAPI {
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   showNotification: (title: string, body: string) => Promise<void>;
   isBgReady: () => Promise<boolean>;
-  getBgBrowserStatus: () => Promise<{ ready: boolean; error?: string; authExpired?: boolean }>;
+  getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: () => void) => () => void;
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
   getHotkey: () => Promise<{ hotkey: string; cancelHotkey: string; stopHotkey: string }>;

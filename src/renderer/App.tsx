@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoadingScreen from './components/LoadingScreen';
 import LoginButton from './components/LoginButton';
 import StatusIndicator from './components/StatusIndicator';
@@ -8,7 +8,8 @@ import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
-import type { ProviderInfo, ProviderSettings } from './types';
+import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
+import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
 
 type HotkeyTarget = 'record' | 'cancel' | 'stop';
 
@@ -55,6 +56,36 @@ const App: React.FC = () => {
     t,
   });
 
+  const applyProviderLoginState = useCallback(
+    (hasSession: boolean, backgroundStatus?: BackgroundBrowserStatus): ProviderLoginState => {
+      const loginState = getProviderLoginState(hasSession, backgroundStatus);
+      setIsLoggedIn(loginState.isLoggedIn);
+      setIsLoading(loginState.isLoading);
+
+      if (loginState.sessionExpired) {
+        preserveStatusRef.current = true;
+        setStatus(t('status.sessionExpired'));
+        setProviderSettings((settings) => expireBrowserSessionSettings(settings));
+      } else if (backgroundStatus?.error) {
+        preserveStatusRef.current = true;
+        setStatus(t('status.browserInitFailed', { error: backgroundStatus.error }));
+      } else if (backgroundStatus?.ready) {
+        preserveStatusRef.current = false;
+      }
+
+      return loginState;
+    },
+    [t],
+  );
+
+  const refreshProviderState = useCallback(async (): Promise<ProviderLoginState> => {
+    const [hasSession, backgroundStatus] = await Promise.all([
+      window.electronAPI.checkSession(),
+      window.electronAPI.getBgBrowserStatus(),
+    ]);
+    return applyProviderLoginState(hasSession, backgroundStatus);
+  }, [applyProviderLoginState]);
+
   useEffect(() => {
     let disposed = false;
     const subscriptions = [
@@ -87,25 +118,21 @@ const App: React.FC = () => {
       }),
       window.electronAPI.onBgBrowserError((error, authExpired) => {
         if (disposed) return;
-        preserveStatusRef.current = true;
-        setIsLoading(false);
         if (authExpired) {
-          setIsLoggedIn(false);
-          setStatus(t('status.sessionExpired'));
+          applyProviderLoginState(false, { ready: false, error, authExpired: true });
           return;
         }
-        setStatus(t('status.browserInitFailed', { error }));
         window.electronAPI.checkSession().then((hasSession) => {
-          if (!disposed) setIsLoggedIn(hasSession);
+          if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
         });
       }),
     ];
 
-    window.electronAPI.checkSession().then((hasSession) => {
-      if (disposed) return;
-      setIsLoggedIn(hasSession);
-      if (!hasSession) setIsLoading(false);
-    });
+    Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
+      ([hasSession, backgroundStatus]) => {
+        if (!disposed) applyProviderLoginState(hasSession, backgroundStatus);
+      },
+    );
 
     window.electronAPI.isBgReady().then((ready) => {
       if (disposed) return;
@@ -147,17 +174,11 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
+  }, [applyProviderLoginState, startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
 
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
-
-  const refreshProviderState = async () => {
-    const hasSession = await window.electronAPI.checkSession();
-    setIsLoggedIn(hasSession);
-    return hasSession;
-  };
 
   const openProviderSettings = async () => {
     const settings = await window.electronAPI.getProviderSettings(activeProviderId);
@@ -202,8 +223,8 @@ const App: React.FC = () => {
     setActiveProviderId(providerId);
     setIsLoading(true);
     const result = await window.electronAPI.setActiveProvider(providerId);
-    await refreshProviderState();
-    if (!result.success && result.error) {
+    const loginState = await refreshProviderState();
+    if (!loginState.sessionExpired && !result.success && result.error) {
       preserveStatusRef.current = true;
       setStatus(t('status.browserInitFailed', { error: result.error }));
     }
