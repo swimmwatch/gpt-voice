@@ -63,6 +63,7 @@ updates:
       lint-format-tooling:
         dependency-type: 'development'
         patterns:
+          - '@eslint-react/*'
           - '@eslint/*'
           - 'eslint'
           - 'eslint-*'

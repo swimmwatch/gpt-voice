@@ -78,7 +78,7 @@ export function createWindow(): void {
 
   // Prevent navigation away from the app
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    let allowed = false;
+    let allowed: boolean;
     try {
       const parsed = new URL(url);
       allowed = parsed.protocol === 'app:' && parsed.host === 'gpt-voice';
