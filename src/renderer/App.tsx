@@ -2,22 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoadingScreen from './components/LoadingScreen';
 import LoginButton from './components/LoginButton';
 import StatusIndicator from './components/StatusIndicator';
-import HotkeyRow from './components/HotkeyRow';
-import HotkeyModal from './components/HotkeyModal';
 import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
-import {
-  canRunTranslateHotkey,
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_STOP_HOTKEY,
-  DEFAULT_TRANSLATE_HOTKEY,
-  type HotkeyTarget,
-} from '@shared/hotkeys';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -27,26 +17,36 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
-  const [hotkey, setHotkey] = useState(DEFAULT_RECORD_HOTKEY);
-  const [cancelHotkey, setCancelHotkey] = useState(DEFAULT_CANCEL_HOTKEY);
-  const [stopHotkey, setStopHotkey] = useState(DEFAULT_STOP_HOTKEY);
-  const [translateHotkey, setTranslateHotkey] = useState(DEFAULT_TRANSLATE_HOTKEY);
-  const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [showProviderSettings, setShowProviderSettings] = useState(false);
   const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
-  const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
-  const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
 
-  const { t } = useI18n();
+  const { t, isReady: isI18nReady } = useI18n();
 
   const preserveStatusRef = useRef(false);
+
+  const showStatusNotification = useCallback((nextStatus: string) => {
+    const notificationBody = nextStatus.trim();
+    if (!notificationBody) {
+      return;
+    }
+    void window.electronAPI.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
+  }, []);
+
+  const setStatusAndNotify = useCallback(
+    (nextStatus: string) => {
+      setStatus(nextStatus);
+      showStatusNotification(nextStatus);
+    },
+    [showStatusNotification],
+  );
 
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = useRecording({
     setStatus,
     setIsRecording,
     setIsPaused,
+    notifyStatus: showStatusNotification,
     t,
   });
 
@@ -58,18 +58,18 @@ const App: React.FC = () => {
 
       if (loginState.sessionExpired) {
         preserveStatusRef.current = true;
-        setStatus(t('status.sessionExpired'));
+        setStatusAndNotify(t('status.sessionExpired'));
         setProviderSettings((settings) => expireBrowserSessionSettings(settings));
       } else if (backgroundStatus?.error) {
         preserveStatusRef.current = true;
-        setStatus(t('status.browserInitFailed', { error: backgroundStatus.error }));
+        setStatusAndNotify(t('status.browserInitFailed', { error: backgroundStatus.error }));
       } else if (backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
       return loginState;
     },
-    [t],
+    [setStatusAndNotify, t],
   );
 
   const refreshProviderState = useCallback(async (): Promise<ProviderLoginState> => {
@@ -81,6 +81,10 @@ const App: React.FC = () => {
   }, [applyProviderLoginState]);
 
   useEffect(() => {
+    if (!isI18nReady) {
+      return undefined;
+    }
+
     let disposed = false;
     const subscriptions = [
       window.electronAPI.onToggleRecording((recording: boolean) => {
@@ -123,6 +127,10 @@ const App: React.FC = () => {
           if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
         });
       }),
+      window.electronAPI.onHotkeySettingsChanged((settings) => {
+        if (disposed || preserveStatusRef.current) return;
+        setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+      }),
     ];
 
     Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
@@ -139,12 +147,8 @@ const App: React.FC = () => {
       }
     });
 
-    window.electronAPI.getHotkey().then(({ hotkey: hk, cancelHotkey: chk, stopHotkey: shk, translateHotkey: thk }) => {
+    window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
-      setHotkey(hk);
-      setCancelHotkey(chk);
-      setStopHotkey(shk);
-      setTranslateHotkey(thk);
       if (!preserveStatusRef.current) {
         setStatus(t('status.pressToRecord', { hotkey: hk }));
       }
@@ -161,9 +165,6 @@ const App: React.FC = () => {
     window.electronAPI.getActiveProvider().then((value) => {
       if (!disposed) setActiveProviderId(value);
     });
-    window.electronAPI.getPlatform().then((value) => {
-      if (!disposed) setPlatform(value);
-    });
 
     return () => {
       disposed = true;
@@ -171,12 +172,20 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [applyProviderLoginState, startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
+  }, [
+    applyProviderLoginState,
+    isI18nReady,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    t,
+  ]);
 
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
-  const canTranslateSelection = canRunTranslateHotkey(isRecording);
 
   const openProviderSettings = async () => {
     const settings = await window.electronAPI.getProviderSettings(activeProviderId);
@@ -197,10 +206,10 @@ const App: React.FC = () => {
     setIsLoggingIn(false);
     if (result.success) {
       setIsLoggedIn(true);
-      setStatus(t('status.loggedIn', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.loggedIn', { provider: activeProviderName }));
     } else {
       preserveStatusRef.current = true;
-      setStatus(t('status.loginFailed', { error: result.error || '' }));
+      setStatusAndNotify(t('status.loginFailed', { error: result.error || '' }));
     }
   };
 
@@ -210,10 +219,10 @@ const App: React.FC = () => {
     setIsLoggedIn(configured);
     if (configured) {
       preserveStatusRef.current = false;
-      setStatus(t('status.providerConfigured', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.providerConfigured', { provider: activeProviderName }));
     } else {
       preserveStatusRef.current = true;
-      setStatus(t('status.providerNotConfigured', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.providerNotConfigured', { provider: activeProviderName }));
     }
   };
 
@@ -224,28 +233,12 @@ const App: React.FC = () => {
     const loginState = await refreshProviderState();
     if (!loginState.sessionExpired && !result.success && result.error) {
       preserveStatusRef.current = true;
-      setStatus(t('status.browserInitFailed', { error: result.error }));
+      setStatusAndNotify(t('status.browserInitFailed', { error: result.error }));
     }
     setIsLoading(false);
   };
 
-  const openHotkeyModal = (target: HotkeyTarget) => {
-    setHotkeyTarget(target);
-    setShowHotkeyModal(true);
-  };
-
-  const handleHotkeyApply = async (newHotkey: string) => {
-    const result = await window.electronAPI.setHotkey(hotkeyTarget, newHotkey);
-    if (result.success) {
-      setHotkey(result.hotkey);
-      setCancelHotkey(result.cancelHotkey);
-      setStopHotkey(result.stopHotkey);
-      setTranslateHotkey(result.translateHotkey);
-    }
-    setShowHotkeyModal(false);
-  };
-
-  if (isLoading) return <LoadingScreen />;
+  if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
     <div className="container">
@@ -274,17 +267,6 @@ const App: React.FC = () => {
         onLogin={handleLogin}
       />
       <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
-      <div className="hotkeys-section">
-        <HotkeyRow label={t('hotkey.record')} value={hotkey} onChangeClick={() => openHotkeyModal('record')} />
-        <HotkeyRow label={t('hotkey.stop')} value={stopHotkey} onChangeClick={() => openHotkeyModal('stop')} />
-        <HotkeyRow label={t('hotkey.cancel')} value={cancelHotkey} onChangeClick={() => openHotkeyModal('cancel')} />
-        <HotkeyRow
-          label={t('hotkey.translate')}
-          value={translateHotkey}
-          disabled={!canTranslateSelection}
-          onChangeClick={() => openHotkeyModal('translate')}
-        />
-      </div>
       <TranslateSection
         targetLang={targetLang}
         onLangChange={(lang) => {
@@ -292,14 +274,6 @@ const App: React.FC = () => {
           window.electronAPI.setTranslateSettings(lang);
         }}
       />
-      {showHotkeyModal && (
-        <HotkeyModal
-          target={hotkeyTarget}
-          platform={platform}
-          onApply={handleHotkeyApply}
-          onClose={() => setShowHotkeyModal(false)}
-        />
-      )}
       {showProviderSettings && activeProvider && providerSettings && (
         <ProviderSettingsModal
           provider={activeProvider}

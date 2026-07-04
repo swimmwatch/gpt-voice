@@ -1,7 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BrowserContext } from 'playwright-core';
-import { BaseVoiceProvider, type VoiceProviderInfo, type TranscriptionResult } from './BaseVoiceProvider';
+import type { BrowserContext, Page, Response } from 'playwright-core';
+import {
+  BaseVoiceProvider,
+  type PrettifyTextOptions,
+  type TextProcessingResult,
+  type TranscriptionResult,
+  type VoiceProviderInfo,
+} from './BaseVoiceProvider';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -10,6 +16,12 @@ import {
   shouldRefreshTranscribeToken,
   type SessionState,
 } from './chatgptUtils';
+import {
+  buildChatGptConversationUrl,
+  extractChatGptConversationId,
+  normalizeChatGptConversationId,
+  parseChatGptTextChatState,
+} from './chatgptTextChatState';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_MODEL_WHISPER_1,
@@ -26,10 +38,65 @@ const log = createLogger('chatgpt-provider');
 
 const SESSION_FILE = path.join(APP_DIR, 'chatgpt-session.json');
 const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
+const TEXT_CHAT_STATE_FILE = path.join(APP_DIR, 'chatgpt-text-chat.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
 const TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS = 500;
+const CHATGPT_PRETTIFY_RESPONSE_TIMEOUT_MS = 90000;
+const CHATGPT_PRETTIFY_RESPONSE_STABLE_MS = 2000;
+const CHATGPT_PRETTIFY_POLL_MS = 300;
+const CHATGPT_CONVERSATION_HISTORY_TIMEOUT_MS = 20000;
+const CHATGPT_SEND_BUTTON_READY_TIMEOUT_MS = 10000;
+const CHATGPT_SUBMISSION_SETTLE_MS = 700;
+const CHATGPT_SUBMISSION_MAX_ATTEMPTS = 2;
+const CHATGPT_COMPOSER_SELECTOR = '#prompt-textarea, [contenteditable="true"][role="textbox"]';
+const CHATGPT_MESSAGE_SELECTOR = '[data-message-author-role]';
+const CHATGPT_USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
+const CHATGPT_ASSISTANT_MESSAGE_SELECTORS = [
+  '[data-message-author-role="assistant"]',
+  '[data-testid^="conversation-turn-"] [data-message-author-role="assistant"]',
+  '[data-testid^="conversation-turn-"] .markdown',
+  '[data-testid^="conversation-turn-"] [class*="markdown"]',
+  'article .markdown',
+];
+const CHATGPT_SEND_BUTTON_SELECTORS = [
+  '[data-testid="send-button"]',
+  'button[data-testid="send-button"]',
+  'button[aria-label="Send prompt"]',
+  'button[aria-label="Send message"]',
+  'button[aria-label="Send"]',
+];
+const CHATGPT_STOP_GENERATING_SELECTORS = [
+  '[data-testid="stop-button"]',
+  'button[aria-label="Stop generating"]',
+  'button[aria-label="Stop streaming"]',
+  'button[aria-label="Stop"]',
+];
+const CHATGPT_TEXT_REQUEST_PATHS = new Set([
+  '/backend-api/f/conversation',
+  '/backend-api/f/conversation/prepare',
+  '/backend-api/sentinel/chat-requirements/prepare',
+  '/backend-api/sentinel/chat-requirements/finalize',
+]);
+const CHATGPT_BLOCKING_ERROR_PATTERNS = [
+  { label: 'unusual activity', pattern: 'unusual activity' },
+  { label: 'verification challenge', pattern: 'verify|captcha|blocked' },
+  { label: 'reply OK challenge', pattern: 'reply\\s*ok' },
+  { label: 'try again later', pattern: 'try again later' },
+  { label: 'ChatGPT error', pattern: 'something went wrong|unable to load|could not send|failed to send' },
+];
+const CHATGPT_BLOCKING_ERROR_SURFACE_SELECTOR = [
+  '[role="alert"]',
+  '[role="dialog"]',
+  'dialog',
+  '[data-testid*="toast"]',
+  '[class*="toast"]',
+  '[data-testid*="error"]',
+  '[class*="error"]',
+  '[data-testid*="notice"]',
+  '[class*="notice"]',
+].join(',');
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -43,7 +110,6 @@ const BLOCKED_DOMAINS = [
   'cdn.sentry.io',
   'featuregates.org',
   'statsigapi.net',
-  'oaistatic.com',
   'intercom.io',
   'intercomcdn.com',
   'browser-intake-datadoghq.com',
@@ -51,7 +117,33 @@ const BLOCKED_DOMAINS = [
 
 const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet'];
 
+interface ChatGptAssistantMessageState {
+  count: number;
+  latestText: string;
+}
+
+interface ChatGptPromptSubmissionState {
+  composerTextLength: number;
+  conversationId: string;
+  userMessageCount: number;
+}
+
+interface ChatGptTextResponseFailure {
+  path: string;
+  status: number;
+}
+
+interface ChatGptTextResponseMonitor {
+  conversationStarted: boolean;
+  conversationStatus: number | null;
+  failedResponse: ChatGptTextResponseFailure | null;
+  dispose(): void;
+}
+
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
+  private textChatConversationId = '';
+  private textPage: Page | null = null;
+
   readonly info: VoiceProviderInfo = {
     id: 'chatgpt',
     name: 'ChatGPT Web',
@@ -63,19 +155,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     this.context = context;
     this.page = await context.newPage();
 
-    // Block heavy resources for performance
-    await this.page.route('**/*', (route) => {
-      const url = route.request().url();
-      const resourceType = route.request().resourceType();
-
-      if (BLOCKED_RESOURCE_TYPES.includes(resourceType)) {
-        return route.abort();
-      }
-      if (BLOCKED_DOMAINS.some((d) => url.includes(d))) {
-        return route.abort();
-      }
-      return route.continue();
-    });
+    await this.configureChatGptPage(this.page);
 
     await this.navigateToChatGPT();
 
@@ -108,6 +188,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       /* ignore */
     }
     this.clearCachedToken();
+    this.clearTextChatState();
   }
 
   async saveSession(context: BrowserContext): Promise<void> {
@@ -197,12 +278,75 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     }
   }
 
+  async prettifyText(text: string, options: PrettifyTextOptions): Promise<TextProcessingResult> {
+    const removeAbortListener = this.watchChatGptPrettifyAbort(options.signal);
+
+    try {
+      log.info('Prettifying selected text:', { textLength: text.length, reasoning: options.reasoning });
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+
+      if (!this.page) {
+        return { success: false, error: t('error.notLoggedIn') };
+      }
+
+      let token = this.accessToken;
+      if (!token) {
+        token = await this.refreshAccessToken();
+      }
+      if (!token) {
+        return { success: false, error: t('error.noAccessToken') };
+      }
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+
+      const prettified = await this.prettifyViaChatGptPage(text, options);
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+      if (!prettified.trim()) {
+        return { success: false, error: t('error.noPrettifyResult') };
+      }
+
+      log.info('Prettify success, text length:', prettified.length);
+      return { success: true, text: prettified };
+    } catch (err: unknown) {
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+
+      log.error('Prettify error:', err instanceof Error ? err.message : err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    } finally {
+      removeAbortListener();
+    }
+  }
+
   async shutdown(): Promise<void> {
     this.clearCachedToken();
+    await this.closeChatGptTextPage();
     await super.shutdown();
   }
 
   // --- Private helpers ---
+
+  private async configureChatGptPage(page: Page): Promise<void> {
+    // Block heavy resources for performance.
+    await page.route('**/*', (route) => {
+      const url = route.request().url();
+      const resourceType = route.request().resourceType();
+
+      if (BLOCKED_RESOURCE_TYPES.includes(resourceType)) {
+        return route.abort();
+      }
+      if (BLOCKED_DOMAINS.some((d) => url.includes(d))) {
+        return route.abort();
+      }
+      return route.continue();
+    });
+  }
 
   private async navigateToChatGPT(): Promise<void> {
     if (!this.page) return;
@@ -296,6 +440,587 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     );
   }
 
+  private async prettifyViaChatGptPage(text: string, options: PrettifyTextOptions): Promise<string> {
+    return this.sendChatGptTextPrompt(`${options.prompt.trim()}\n\nText to improve:\n${text}`, options.signal);
+  }
+
+  private async sendChatGptTextPrompt(prompt: string, signal?: AbortSignal): Promise<string> {
+    this.throwIfPrettifyCancelled(signal);
+    const page = await this.getChatGptTextPage();
+    const responseMonitor = this.createChatGptTextResponseMonitor(page);
+
+    try {
+      await this.openReusableChatGptComposer(page);
+      this.throwIfPrettifyCancelled(signal);
+      await this.ensureChatGptTextPageAuthenticated(page);
+      this.throwIfPrettifyCancelled(signal);
+      await this.throwIfChatGptBlockingErrorVisible(page);
+      const previousAssistantState = await this.getAssistantMessageState(page);
+      const previousSubmissionState = await this.getPromptSubmissionState(page);
+      this.throwIfPrettifyCancelled(signal);
+      await this.submitChatGptPrompt(page, prompt, previousSubmissionState, responseMonitor, signal);
+      this.throwIfPrettifyCancelled(signal);
+      return await this.waitForStableAssistantText(page, previousAssistantState, responseMonitor, signal);
+    } finally {
+      responseMonitor.dispose();
+      this.saveCurrentTextChatConversationId(page);
+    }
+  }
+
+  private async getChatGptTextPage(): Promise<Page> {
+    if (this.textPage && !this.textPage.isClosed()) {
+      return this.textPage;
+    }
+    if (!this.context) {
+      throw new Error(t('error.notLoggedIn'));
+    }
+
+    this.textPage = await this.context.newPage();
+    await this.configureChatGptPage(this.textPage);
+    return this.textPage;
+  }
+
+  private async closeChatGptTextPage(): Promise<void> {
+    const page = this.textPage;
+    this.textPage = null;
+    if (page && !page.isClosed()) {
+      await page.close().catch(() => {});
+    }
+  }
+
+  private watchChatGptPrettifyAbort(signal?: AbortSignal): () => void {
+    if (!signal) {
+      return () => undefined;
+    }
+
+    const onAbort = (): void => {
+      void this.closeChatGptTextPage();
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    return () => signal.removeEventListener('abort', onAbort);
+  }
+
+  private throwIfPrettifyCancelled(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw new Error(t('status.prettifyCancelled'));
+    }
+  }
+
+  private async openReusableChatGptComposer(page: Page): Promise<void> {
+    const savedConversationId = this.loadTextChatConversationId();
+    if (savedConversationId) {
+      try {
+        await this.openChatGptComposer(page, buildChatGptConversationUrl(CHATGPT_URL, savedConversationId));
+
+        if (extractChatGptConversationId(page.url()) !== savedConversationId) {
+          log.warn('Saved ChatGPT text conversation was not reopened; creating a new text conversation');
+          this.clearTextChatState();
+        } else if (await this.waitForConversationHistoryHydration(page)) {
+          return;
+        } else {
+          log.warn('Saved ChatGPT text conversation did not hydrate; creating a new text conversation');
+          this.clearTextChatState();
+        }
+      } catch (error: unknown) {
+        log.warn(
+          'Could not reopen saved ChatGPT text conversation:',
+          error instanceof Error ? error.message : String(error),
+        );
+        this.clearTextChatState();
+      }
+    }
+
+    await this.openChatGptComposer(page, CHATGPT_URL);
+  }
+
+  private async openChatGptComposer(page: Page, url: string): Promise<void> {
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
+    });
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await page.waitForSelector(CHATGPT_COMPOSER_SELECTOR, {
+      timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
+    });
+  }
+
+  private async waitForConversationHistoryHydration(page: Page): Promise<boolean> {
+    try {
+      await page.waitForFunction(
+        (messageSelector: string) => document.querySelectorAll(messageSelector).length > 0,
+        CHATGPT_MESSAGE_SELECTOR,
+        { timeout: CHATGPT_CONVERSATION_HISTORY_TIMEOUT_MS },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private createChatGptTextResponseMonitor(page: Page): ChatGptTextResponseMonitor {
+    const monitor: ChatGptTextResponseMonitor = {
+      conversationStarted: false,
+      conversationStatus: null,
+      failedResponse: null,
+      dispose: () => {
+        page.off('response', onResponse);
+      },
+    };
+
+    const onResponse = (response: Response): void => {
+      const path = getResponsePath(response.url());
+      if (!CHATGPT_TEXT_REQUEST_PATHS.has(path)) return;
+
+      const status = response.status();
+      if (path === '/backend-api/f/conversation') {
+        monitor.conversationStarted = true;
+        monitor.conversationStatus = status;
+      }
+      if (status < StatusCodes.OK || status >= StatusCodes.BAD_REQUEST) {
+        monitor.failedResponse = { path, status };
+      }
+    };
+
+    page.on('response', onResponse);
+    return monitor;
+  }
+
+  private async ensureChatGptTextPageAuthenticated(page: Page): Promise<void> {
+    const sessionState = await page.evaluate(async (timeoutMs: number) => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          return { hasAccessToken: false, hasUser: false, status: response.status };
+        }
+        const json = (await response.json()) as { accessToken?: unknown; user?: unknown };
+        return {
+          hasAccessToken: typeof json.accessToken === 'string' && json.accessToken.length > 0,
+          hasUser: Boolean(json.user),
+          status: response.status,
+        };
+      } catch {
+        return { hasAccessToken: false, hasUser: false, status: 0 };
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }, AUTH_SESSION_TIMEOUT_MS);
+
+    if (!sessionState.hasUser || !sessionState.hasAccessToken) {
+      throw new Error(t('error.noAccessToken'));
+    }
+  }
+
+  private async submitChatGptPrompt(
+    page: Page,
+    prompt: string,
+    previousSubmissionState: ChatGptPromptSubmissionState,
+    responseMonitor: ChatGptTextResponseMonitor,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    this.throwIfPrettifyCancelled(signal);
+    const composer = page.locator(CHATGPT_COMPOSER_SELECTOR).last();
+    await composer.click({ timeout: CHATGPT_NAVIGATION_TIMEOUT_MS });
+    await this.clearChatGptComposer(page);
+    this.throwIfPrettifyCancelled(signal);
+    await page.keyboard.insertText(prompt);
+
+    let canClickSendButton = await this.waitForEnabledChatGptSendButton(page);
+    for (let attempt = 1; attempt <= CHATGPT_SUBMISSION_MAX_ATTEMPTS; attempt += 1) {
+      this.throwIfPrettifyCancelled(signal);
+      if (canClickSendButton && (await this.clickChatGptSendButton(page))) {
+        // Clicked the visible send button.
+      } else {
+        await page.keyboard.press('Enter');
+      }
+
+      await page.waitForTimeout(CHATGPT_SUBMISSION_SETTLE_MS);
+      this.throwIfPrettifyCancelled(signal);
+      this.throwIfChatGptTextRequestFailed(responseMonitor);
+      await this.throwIfChatGptBlockingErrorVisible(page);
+      if (await this.hasChatGptPromptSubmissionStarted(page, previousSubmissionState, responseMonitor)) {
+        return;
+      }
+
+      if (attempt < CHATGPT_SUBMISSION_MAX_ATTEMPTS) {
+        log.warn('ChatGPT prompt did not submit after send action; retrying once');
+        canClickSendButton = await this.waitForEnabledChatGptSendButton(page);
+      }
+    }
+
+    throw new Error(
+      `ChatGPT did not submit the prompt (${await this.getChatGptTextDiagnostics(page, responseMonitor)})`,
+    );
+  }
+
+  private async clearChatGptComposer(page: Page): Promise<void> {
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.press('Backspace');
+  }
+
+  private async waitForEnabledChatGptSendButton(page: Page): Promise<boolean> {
+    try {
+      await page.waitForFunction(
+        (selectors: string[]) => {
+          for (const selector of selectors) {
+            for (const button of Array.from(document.querySelectorAll(selector))) {
+              const element = button as HTMLElement;
+              const rect = element.getBoundingClientRect();
+              const disabled =
+                element.getAttribute('aria-disabled') === 'true' ||
+                ('disabled' in element && Boolean((element as HTMLButtonElement).disabled));
+              if (!disabled && rect.width > 0 && rect.height > 0) {
+                return true;
+              }
+            }
+          }
+          return false;
+        },
+        CHATGPT_SEND_BUTTON_SELECTORS,
+        { timeout: CHATGPT_SEND_BUTTON_READY_TIMEOUT_MS },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async clickChatGptSendButton(page: Page): Promise<boolean> {
+    try {
+      return await page.evaluate((selectors: string[]) => {
+        for (const selector of selectors) {
+          const buttons = Array.from(document.querySelectorAll(selector)).reverse();
+          for (const button of buttons) {
+            const element = button as HTMLElement;
+            const rect = element.getBoundingClientRect();
+            const disabled =
+              element.getAttribute('aria-disabled') === 'true' ||
+              ('disabled' in element && Boolean((element as HTMLButtonElement).disabled));
+            if (!disabled && rect.width > 0 && rect.height > 0) {
+              element.click();
+              return true;
+            }
+          }
+        }
+        return false;
+      }, CHATGPT_SEND_BUTTON_SELECTORS);
+    } catch (error: unknown) {
+      log.warn('Could not click ChatGPT send button:', error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  private async getPromptSubmissionState(page: Page): Promise<ChatGptPromptSubmissionState> {
+    const state = await page.evaluate(
+      ({ composerSelector, userMessageSelector }: { composerSelector: string; userMessageSelector: string }) => {
+        return {
+          composerTextLength: (document.querySelector(composerSelector)?.textContent?.trim() || '').length,
+          userMessageCount: document.querySelectorAll(userMessageSelector).length,
+        };
+      },
+      {
+        composerSelector: CHATGPT_COMPOSER_SELECTOR,
+        userMessageSelector: CHATGPT_USER_MESSAGE_SELECTOR,
+      },
+    );
+
+    return {
+      ...state,
+      conversationId: extractChatGptConversationId(page.url()),
+    };
+  }
+
+  private async hasChatGptPromptSubmissionStarted(
+    page: Page,
+    previousSubmissionState: ChatGptPromptSubmissionState,
+    responseMonitor: ChatGptTextResponseMonitor,
+  ): Promise<boolean> {
+    if (responseMonitor.conversationStarted) return true;
+
+    const nextSubmissionState = await this.getPromptSubmissionState(page);
+    return (
+      nextSubmissionState.composerTextLength === 0 ||
+      nextSubmissionState.userMessageCount > previousSubmissionState.userMessageCount ||
+      Boolean(
+        nextSubmissionState.conversationId &&
+        nextSubmissionState.conversationId !== previousSubmissionState.conversationId,
+      )
+    );
+  }
+
+  private async getChatGptBlockingError(page: Page): Promise<string> {
+    return page.evaluate(
+      ({
+        patterns,
+        surfaceSelector,
+      }: {
+        patterns: typeof CHATGPT_BLOCKING_ERROR_PATTERNS;
+        surfaceSelector: string;
+      }) => {
+        const surfaceText = Array.from(document.querySelectorAll(surfaceSelector))
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map((element) => element.textContent || '')
+          .join(' ')
+          .replace(/\s+/g, ' ');
+
+        if (!surfaceText) {
+          return '';
+        }
+
+        for (const { label, pattern } of patterns) {
+          if (new RegExp(pattern, 'i').test(surfaceText)) {
+            return label;
+          }
+        }
+        return '';
+      },
+      { patterns: CHATGPT_BLOCKING_ERROR_PATTERNS, surfaceSelector: CHATGPT_BLOCKING_ERROR_SURFACE_SELECTOR },
+    );
+  }
+
+  private async throwIfChatGptBlockingErrorVisible(page: Page): Promise<void> {
+    const blockingError = await this.getChatGptBlockingError(page);
+    if (blockingError) {
+      throw new Error(`ChatGPT could not process the request because the page shows ${blockingError}`);
+    }
+  }
+
+  private throwIfChatGptTextRequestFailed(responseMonitor: ChatGptTextResponseMonitor): void {
+    if (responseMonitor.failedResponse) {
+      throw new Error(
+        `ChatGPT request failed (${responseMonitor.failedResponse.path} ${responseMonitor.failedResponse.status})`,
+      );
+    }
+  }
+
+  private async getAssistantMessageState(page: Page): Promise<ChatGptAssistantMessageState> {
+    return page.evaluate((selectors: string[]) => {
+      const assistantMessages: Element[] = [];
+      for (const selector of selectors) {
+        for (const element of Array.from(document.querySelectorAll(selector))) {
+          const text = element.textContent?.trim() || '';
+          if (!text) continue;
+          if (assistantMessages.some((existing) => existing === element || existing.contains(element))) continue;
+          const containedIndex = assistantMessages.findIndex((existing) => element.contains(existing));
+          if (containedIndex >= 0) {
+            assistantMessages.splice(containedIndex, 1);
+          }
+          assistantMessages.push(element);
+        }
+      }
+
+      return {
+        count: assistantMessages.length,
+        latestText: assistantMessages[assistantMessages.length - 1]?.textContent?.trim() || '',
+      };
+    }, CHATGPT_ASSISTANT_MESSAGE_SELECTORS);
+  }
+
+  private async readLatestAssistantText(
+    page: Page,
+    previousAssistantState: ChatGptAssistantMessageState,
+  ): Promise<string> {
+    return page.evaluate(
+      ({
+        messageSelectors,
+        previousState,
+      }: {
+        messageSelectors: string[];
+        previousState: ChatGptAssistantMessageState;
+      }) => {
+        const assistantMessages: Element[] = [];
+        for (const selector of messageSelectors) {
+          for (const element of Array.from(document.querySelectorAll(selector))) {
+            const text = element.textContent?.trim() || '';
+            if (!text) continue;
+            if (assistantMessages.some((existing) => existing === element || existing.contains(element))) continue;
+            const containedIndex = assistantMessages.findIndex((existing) => element.contains(existing));
+            if (containedIndex >= 0) {
+              assistantMessages.splice(containedIndex, 1);
+            }
+            assistantMessages.push(element);
+          }
+        }
+
+        for (let index = assistantMessages.length - 1; index >= previousState.count; index -= 1) {
+          const text = assistantMessages[index]?.textContent?.trim() || '';
+          if (text) return text;
+        }
+
+        const latestText = assistantMessages[assistantMessages.length - 1]?.textContent?.trim() || '';
+        if (latestText && latestText !== previousState.latestText) return latestText;
+
+        return '';
+      },
+      { messageSelectors: CHATGPT_ASSISTANT_MESSAGE_SELECTORS, previousState: previousAssistantState },
+    );
+  }
+
+  private async hasActiveGenerationControl(page: Page): Promise<boolean> {
+    return page.evaluate(
+      ({ selectors }: { selectors: string[] }) => {
+        return selectors.some((selector) => {
+          const element = document.querySelector(selector) as HTMLElement | null;
+          if (!element) return false;
+          if (element.getAttribute('aria-disabled') === 'true') return false;
+          if ('disabled' in element && Boolean((element as HTMLButtonElement).disabled)) return false;
+
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+      },
+      { selectors: CHATGPT_STOP_GENERATING_SELECTORS },
+    );
+  }
+
+  private async waitForStableAssistantText(
+    page: Page,
+    previousAssistantState: ChatGptAssistantMessageState,
+    responseMonitor: ChatGptTextResponseMonitor,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    let latestText = '';
+    let stableSince = Date.now();
+    const deadline = Date.now() + CHATGPT_PRETTIFY_RESPONSE_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      this.throwIfPrettifyCancelled(signal);
+      this.throwIfChatGptTextRequestFailed(responseMonitor);
+      await this.throwIfChatGptBlockingErrorVisible(page);
+
+      const nextText = await this.readLatestAssistantText(page, previousAssistantState);
+      if (nextText && nextText !== latestText) {
+        latestText = nextText;
+        stableSince = Date.now();
+      }
+
+      const isGenerating = await this.hasActiveGenerationControl(page);
+      if (latestText && !isGenerating && Date.now() - stableSince >= CHATGPT_PRETTIFY_RESPONSE_STABLE_MS) {
+        return latestText;
+      }
+
+      await page.waitForTimeout(CHATGPT_PRETTIFY_POLL_MS);
+    }
+
+    throw new Error(
+      `Timed out waiting for ChatGPT response (${await this.getChatGptTextDiagnostics(page, responseMonitor)})`,
+    );
+  }
+
+  private async getChatGptTextDiagnostics(page: Page, responseMonitor: ChatGptTextResponseMonitor): Promise<string> {
+    const diagnostics = await page.evaluate(
+      ({
+        composerSelector,
+        userMessageSelector,
+        assistantMessageSelectors,
+        blockingErrorPatterns,
+        blockingErrorSurfaceSelector,
+      }: {
+        composerSelector: string;
+        userMessageSelector: string;
+        assistantMessageSelectors: string[];
+        blockingErrorPatterns: typeof CHATGPT_BLOCKING_ERROR_PATTERNS;
+        blockingErrorSurfaceSelector: string;
+      }) => {
+        const assistantMessages = new Set<Element>();
+        for (const selector of assistantMessageSelectors) {
+          for (const element of Array.from(document.querySelectorAll(selector))) {
+            if (element.textContent?.trim()) {
+              assistantMessages.add(element);
+            }
+          }
+        }
+
+        const surfaceText = Array.from(document.querySelectorAll(blockingErrorSurfaceSelector))
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map((element) => element.textContent || '')
+          .join(' ')
+          .replace(/\s+/g, ' ');
+        const blockingError =
+          blockingErrorPatterns.find(({ pattern }) => new RegExp(pattern, 'i').test(surfaceText))?.label || 'none';
+
+        return {
+          assistantMessageCount: assistantMessages.size,
+          blockingError,
+          composerTextLength: (document.querySelector(composerSelector)?.textContent?.trim() || '').length,
+          userMessageCount: document.querySelectorAll(userMessageSelector).length,
+        };
+      },
+      {
+        assistantMessageSelectors: CHATGPT_ASSISTANT_MESSAGE_SELECTORS,
+        blockingErrorPatterns: CHATGPT_BLOCKING_ERROR_PATTERNS,
+        blockingErrorSurfaceSelector: CHATGPT_BLOCKING_ERROR_SURFACE_SELECTOR,
+        composerSelector: CHATGPT_COMPOSER_SELECTOR,
+        userMessageSelector: CHATGPT_USER_MESSAGE_SELECTOR,
+      },
+    );
+
+    return [
+      `urlSection=${getUrlSection(page.url())}`,
+      `composerEmpty=${diagnostics.composerTextLength === 0}`,
+      `userMessages=${diagnostics.userMessageCount}`,
+      `assistantMessages=${diagnostics.assistantMessageCount}`,
+      `conversationStarted=${responseMonitor.conversationStarted}`,
+      `conversationStatus=${responseMonitor.conversationStatus ?? 'none'}`,
+      `blockingError=${diagnostics.blockingError}`,
+    ].join(', ');
+  }
+
+  private loadTextChatConversationId(): string {
+    if (this.textChatConversationId) return this.textChatConversationId;
+
+    try {
+      if (!fs.existsSync(TEXT_CHAT_STATE_FILE)) return '';
+
+      const state = parseChatGptTextChatState(JSON.parse(fs.readFileSync(TEXT_CHAT_STATE_FILE, 'utf-8')));
+      this.textChatConversationId = state?.conversationId || '';
+    } catch {
+      log.warn('Failed to load saved ChatGPT text conversation');
+    }
+
+    return this.textChatConversationId;
+  }
+
+  private saveCurrentTextChatConversationId(page: Page): void {
+    const conversationId = extractChatGptConversationId(page.url());
+    if (!conversationId) return;
+
+    this.saveTextChatConversationId(conversationId);
+  }
+
+  private saveTextChatConversationId(conversationId: string): void {
+    const normalizedConversationId = normalizeChatGptConversationId(conversationId);
+    if (!normalizedConversationId || normalizedConversationId === this.textChatConversationId) return;
+
+    this.textChatConversationId = normalizedConversationId;
+    try {
+      fs.writeFileSync(
+        TEXT_CHAT_STATE_FILE,
+        JSON.stringify(
+          {
+            conversationId: normalizedConversationId,
+            savedAt: Date.now(),
+          },
+          null,
+          2,
+        ),
+      );
+      log.info('Saved ChatGPT text conversation id');
+    } catch {
+      log.warn('Failed to save ChatGPT text conversation id');
+    }
+  }
+
   private parseTranscribeResponse(resp: { status: number; body: string }, mimeType: string): TranscriptionResult {
     const parsed = parseChatGptTranscribeResponse(resp, mimeType);
     if (parsed.success && parsed.text) {
@@ -344,5 +1069,31 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     } catch {
       /* ignore */
     }
+  }
+
+  private clearTextChatState(): void {
+    this.textChatConversationId = '';
+    try {
+      if (fs.existsSync(TEXT_CHAT_STATE_FILE)) fs.unlinkSync(TEXT_CHAT_STATE_FILE);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function getResponsePath(urlString: string): string {
+  try {
+    return new URL(urlString).pathname;
+  } catch {
+    return '';
+  }
+}
+
+function getUrlSection(urlString: string): string {
+  try {
+    const url = new URL(urlString);
+    return url.pathname.split('/').slice(0, 2).join('/') || '/';
+  } catch {
+    return 'unknown';
   }
 }

@@ -27,7 +27,7 @@ describe('cloakBrowserLaunchOptions', () => {
     assert.equal(options.headless, true);
     assert.equal(options.humanize, true);
     assert.equal(options.humanPreset, 'careful');
-    assert.deepEqual(options.args, ['--fingerprint=12345']);
+    assert.deepEqual(options.args, ['--fingerprint=12345', '--log-level=3']);
     assert.equal(options.locale, 'en-US');
     assert.equal(options.timezone, 'Europe/Moscow');
     assert.equal('userAgent' in options, false);

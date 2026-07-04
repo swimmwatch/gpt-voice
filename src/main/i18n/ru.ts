@@ -7,10 +7,14 @@ export default {
   'status.transcribing': 'Транскрипция...',
   'status.translating': 'Перевод...',
   'status.translatingSelection': 'Перевод выделенного текста...',
+  'status.prettifyingSelection': 'Улучшение выделенного текста...',
   'status.translationCopied': 'Перевод скопирован',
+  'status.prettifiedSelection': 'Выделенный текст улучшен',
   'status.copiedToClipboard': 'Скопировано в буфер обмена',
   'status.transcriptionFailed': 'Ошибка транскрипции',
   'status.translationFailed': 'Ошибка перевода',
+  'status.prettifyFailed': 'Ошибка улучшения текста',
+  'status.prettifyCancelled': 'Улучшение текста отменено',
   'status.transcriptionError': 'Ошибка транскрипции',
   'status.recordingCancelled': 'Запись отменена',
   'status.microphoneError': 'Ошибка: нет доступа к микрофону',
@@ -29,6 +33,8 @@ export default {
   'notification.transcriptionFailed': 'Распознавание не удалось',
   'notification.translationFailed': 'Перевод не удался',
   'notification.translationCopied': 'Перевод скопирован',
+  'notification.prettifyFailed': 'Не удалось улучшить текст',
+  'notification.textPrettified': 'Текст улучшен',
 
   // Login button
   'login.loggingIn': 'Вход...',
@@ -53,6 +59,7 @@ export default {
   'providerSettings.apiKeyStored': 'Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.',
   'providerSettings.apiKeyPlaceholder': 'Вставьте OpenAI API key',
   'providerSettings.model': 'Модель',
+  'providerSettings.prettifyModel': 'Модель улучшения текста',
   'providerSettings.language': 'Язык',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -65,6 +72,8 @@ export default {
   // App settings
   'appSettings.open': 'Настройки приложения',
   'appSettings.title': 'Настройки',
+  'appSettings.hotkeys': 'Горячие клавиши',
+  'appSettings.prettify': 'Улучшение текста',
   'appSettings.cloakBrowser': 'CloakBrowser',
   'appSettings.behavior': 'Поведение',
   'appSettings.identity': 'Идентичность',
@@ -105,6 +114,7 @@ export default {
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Отмена',
   'hotkey.translate': 'Перевод',
+  'hotkey.prettify': 'Улучшение',
   'hotkey.change': 'Изменить',
   'hotkey.setHotkey': 'Назначить клавишу: {target}',
   'hotkey.pressKeyCombination': 'Нажмите сочетание клавиш',
@@ -119,6 +129,13 @@ export default {
   'translate.belarusian': 'Беларуская',
   'translate.targetLanguage': 'Язык перевода',
 
+  // Prettify
+  'prettify.prompt': 'Prompt улучшения текста',
+  'prettify.reasoning': 'Reasoning',
+  'prettify.reasoning.instant': 'Instant',
+  'prettify.reasoning.standard': 'Standard',
+  'prettify.reasoning.extended': 'Extended',
+
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
   'error.noAccessToken': 'Нет токена доступа или API key. Настройте провайдера и повторите попытку.',
@@ -129,6 +146,8 @@ export default {
   'error.noTranscription': 'Нет текста в ответе',
   'error.noSelectedText': 'Нет выделенного текста',
   'error.translationInProgress': 'Перевод уже выполняется',
+  'error.noPrettifyResult': 'В ответе нет улучшенного текста',
+  'error.prettifyInProgress': 'Улучшение текста уже выполняется',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

@@ -1,16 +1,31 @@
 import { globalShortcut } from 'electron';
-import { currentHotkey, currentCancelHotkey, currentStopHotkey, currentTranslateHotkey } from './config';
+import {
+  currentCancelHotkey,
+  currentHotkey,
+  currentPrettifyEnabled,
+  currentPrettifyHotkey,
+  currentStopHotkey,
+  currentTranslateEnabled,
+  currentTranslateHotkey,
+} from './config';
 import { updateTrayIcon } from './tray';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
+import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
-import { canRunTranslateHotkey } from '@shared/hotkeys';
+import { canRunTextActionHotkey } from '@shared/hotkeys';
 
 const log = createLogger('shortcuts');
 
 let isRecording = false;
 let isPaused = false;
+
+interface CancelShortcutActions {
+  cancelPrettify: () => { status: string } | null;
+  cancelRecording: () => void;
+  sendTextStatus: (status: string) => void;
+}
 
 export function getRecordingState() {
   return { isRecording, isPaused };
@@ -29,6 +44,29 @@ function normalizeHotkeyForPlatform(hotkey: string): string {
   return hotkey.replace(/\bCommand\b/g, 'Super');
 }
 
+export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: CancelShortcutActions): boolean {
+  if (isCurrentlyRecording) {
+    actions.cancelRecording();
+    return true;
+  }
+
+  const prettifyCancelResult = actions.cancelPrettify();
+  if (!prettifyCancelResult) {
+    return false;
+  }
+
+  actions.sendTextStatus(prettifyCancelResult.status);
+  return true;
+}
+
+export function canRunTranslateShortcut(isCurrentlyRecording: boolean, translateEnabled: boolean): boolean {
+  return translateEnabled && canRunTextActionHotkey(isCurrentlyRecording);
+}
+
+export function canRunPrettifyShortcut(isCurrentlyRecording: boolean, prettifyEnabled: boolean): boolean {
+  return prettifyEnabled && canRunTextActionHotkey(isCurrentlyRecording);
+}
+
 export function registerShortcuts(): void {
   globalShortcut.unregisterAll();
 
@@ -36,6 +74,7 @@ export function registerShortcuts(): void {
   const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
   const cancelHotkey = normalizeHotkeyForPlatform(currentCancelHotkey);
   const translateHotkey = normalizeHotkeyForPlatform(currentTranslateHotkey);
+  const prettifyHotkey = normalizeHotkeyForPlatform(currentPrettifyHotkey);
 
   const registered = globalShortcut.register(recordHotkey, () => {
     const win = getMainWindow();
@@ -69,19 +108,34 @@ export function registerShortcuts(): void {
   log.info(`${stopHotkey} stop shortcut registered:`, stopRegistered);
 
   const cancelRegistered = globalShortcut.register(cancelHotkey, () => {
-    if (isRecording) {
-      log.info(`${cancelHotkey} pressed, cancelling recording`);
-      isRecording = false;
-      isPaused = false;
-      updateTrayIcon(false);
-      getMainWindow()?.webContents.send('cancel-recording');
-    }
+    const win = getMainWindow();
+    handleCancelShortcut(isRecording, {
+      cancelPrettify: () => {
+        const result = cancelSelectedTextPrettify();
+        if (result) {
+          log.info(`${cancelHotkey} pressed, cancelling prettify`);
+        }
+        return result;
+      },
+      cancelRecording: () => {
+        log.info(`${cancelHotkey} pressed, cancelling recording`);
+        isRecording = false;
+        isPaused = false;
+        updateTrayIcon(false);
+        win?.webContents.send('cancel-recording');
+      },
+      sendTextStatus: (status) => win?.webContents.send('translation-status', status),
+    });
   });
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
   const translateRegistered = globalShortcut.register(translateHotkey, () => {
-    if (!canRunTranslateHotkey(isRecording)) {
-      log.info(`${translateHotkey} pressed while recording, ignoring translation`);
+    if (!canRunTranslateShortcut(isRecording, currentTranslateEnabled)) {
+      if (currentTranslateEnabled) {
+        log.info(`${translateHotkey} pressed while recording, ignoring translation`);
+        return;
+      }
+      log.info(`${translateHotkey} pressed while translation is disabled`);
       return;
     }
 
@@ -92,4 +146,22 @@ export function registerShortcuts(): void {
     });
   });
   log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
+
+  const prettifyRegistered = globalShortcut.register(prettifyHotkey, () => {
+    if (!canRunPrettifyShortcut(isRecording, currentPrettifyEnabled)) {
+      if (currentPrettifyEnabled) {
+        log.info(`${prettifyHotkey} pressed while recording, ignoring prettify`);
+        return;
+      }
+      log.info(`${prettifyHotkey} pressed while prettify is disabled`);
+      return;
+    }
+
+    log.info(`${prettifyHotkey} pressed, prettifying selected text`);
+    getMainWindow()?.webContents.send('translation-status', t('status.prettifyingSelection'));
+    void prettifySelectedText().then((result) => {
+      getMainWindow()?.webContents.send('translation-status', result.status);
+    });
+  });
+  log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
 }

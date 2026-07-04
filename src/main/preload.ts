@@ -7,6 +7,8 @@ import type {
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 type Unsubscribe = () => void;
 
@@ -115,6 +117,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(String(error), Boolean(authExpired)),
     );
   },
+  onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
+    return onMainEvent<[HotkeySettings]>('hotkey-settings-changed', callback);
+  },
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
   },
@@ -131,8 +136,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTranslateSettings: (): Promise<{ targetLang: string }> => {
     return ipcRenderer.invoke('get-translate-settings');
   },
+  getTextActionSettings: (): Promise<TextActionSettings> => {
+    return ipcRenderer.invoke('get-text-action-settings');
+  },
+  setTextActionSettings: (
+    settings: TextActionSettingsInput,
+  ): Promise<{ success: boolean; settings: TextActionSettings }> => {
+    return ipcRenderer.invoke('set-text-action-settings', settings);
+  },
   setTranslateSettings: (targetLang: string): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('set-translate-settings', targetLang);
+  },
+  getPrettifySettings: (): Promise<PrettifySettings> => {
+    return ipcRenderer.invoke('get-prettify-settings');
+  },
+  setPrettifySettings: (settings: PrettifySettingsInput): Promise<{ success: boolean; settings: PrettifySettings }> => {
+    return ipcRenderer.invoke('set-prettify-settings', settings);
   },
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');

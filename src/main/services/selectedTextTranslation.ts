@@ -11,7 +11,7 @@ import { translateText } from '@main/services/translation';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
 
 const log = createLogger('selection-translate');
-const COPY_SETTLE_DELAY_MS = 120;
+export const COPY_SETTLE_DELAY_MS = 120;
 const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 export interface SelectedTextTranslationResult {
@@ -35,6 +35,12 @@ export interface SelectedTextTranslationDependencies {
   wait: (delayMs: number) => Promise<void>;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  return '';
+}
+
 function formatNotificationBody(error: unknown, fallback: string): string {
   const message = getErrorMessage(error) || fallback;
   const singleLine = message.replace(/\s+/g, ' ').trim();
@@ -42,36 +48,6 @@ function formatNotificationBody(error: unknown, fallback: string): string {
     return singleLine;
   }
   return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  return '';
-}
-
-function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, body: string): void {
-  try {
-    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')));
-  } catch (error: unknown) {
-    log.warn('Could not show translation failure notification:', getErrorMessage(error) || error);
-  }
-}
-
-function notifyTranslationCopied(deps: SelectedTextTranslationDependencies, body: string): void {
-  try {
-    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')));
-  } catch (error: unknown) {
-    log.warn('Could not show translation copied notification:', getErrorMessage(error) || error);
-  }
-}
-
-function createFailureResult(error: string): SelectedTextTranslationResult {
-  return {
-    success: false,
-    status: error,
-    error,
-  };
 }
 
 function restoreClipboard(deps: SelectedTextTranslationDependencies, previousClipboardText: string | null): void {
@@ -102,6 +78,30 @@ async function readSelectedText(
   }
 
   return { selectedText, copyError };
+}
+
+function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, body: string): void {
+  try {
+    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')));
+  } catch (error: unknown) {
+    log.warn('Could not show translation failure notification:', getErrorMessage(error) || error);
+  }
+}
+
+function notifyTranslationCopied(deps: SelectedTextTranslationDependencies, body: string): void {
+  try {
+    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')));
+  } catch (error: unknown) {
+    log.warn('Could not show translation copied notification:', getErrorMessage(error) || error);
+  }
+}
+
+function createFailureResult(error: string): SelectedTextTranslationResult {
+  return {
+    success: false,
+    status: error,
+    error,
+  };
 }
 
 export function createSelectedTextTranslationService(deps: SelectedTextTranslationDependencies) {

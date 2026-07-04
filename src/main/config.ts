@@ -4,10 +4,18 @@ import * as os from 'os';
 import { createLogger } from './logger';
 import {
   DEFAULT_CANCEL_HOTKEY,
+  DEFAULT_PRETTIFY_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_STOP_HOTKEY,
   DEFAULT_TRANSLATE_HOTKEY,
 } from '@shared/hotkeys';
+import {
+  DEFAULT_PRETTIFY_PROMPT,
+  DEFAULT_PRETTIFY_REASONING,
+  isPrettifyReasoning,
+  type PrettifyReasoning,
+} from '@shared/prettifySettings';
+import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
 const log = createLogger('config');
 
@@ -25,7 +33,13 @@ function getAppDataDir(): string {
 
 export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
 
-const MIGRATED_LEGACY_ENTRIES = ['config.json', 'chatgpt-session.json', 'access-token.json', 'browser-cache'];
+const MIGRATED_LEGACY_ENTRIES = [
+  'config.json',
+  'chatgpt-session.json',
+  'access-token.json',
+  'chatgpt-text-chat.json',
+  'browser-cache',
+];
 
 function migrateWholeLegacyAppDir(legacyDir: string): boolean {
   fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
@@ -88,10 +102,15 @@ export let currentHotkey = DEFAULT_RECORD_HOTKEY;
 export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
 export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
 export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
+export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
+export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale = '';
 export let currentFingerprintSeed = '';
+export let currentPrettifyPrompt = DEFAULT_PRETTIFY_PROMPT;
+export let currentPrettifyReasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
 
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 
@@ -103,20 +122,38 @@ function isValidFingerprintSeed(value: string): boolean {
   return FINGERPRINT_SEED_PATTERN.test(value);
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function setHotkeys(
   hotkey?: string,
   cancelHotkey?: string,
   stopHotkey?: string,
   translateHotkey?: string,
+  prettifyHotkey?: string,
 ): void {
   if (hotkey !== undefined) currentHotkey = hotkey;
   if (cancelHotkey !== undefined) currentCancelHotkey = cancelHotkey;
   if (stopHotkey !== undefined) currentStopHotkey = stopHotkey;
   if (translateHotkey !== undefined) currentTranslateHotkey = translateHotkey;
+  if (prettifyHotkey !== undefined) currentPrettifyHotkey = prettifyHotkey;
 }
 
 export function setTranslateSettings(targetLang?: string): void {
   if (targetLang !== undefined) currentTargetLang = targetLang;
+}
+
+export function setTextActionSettings(translateEnabled?: boolean, prettifyEnabled?: boolean): void {
+  if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
+  if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
+}
+
+export function setPrettifySettings(prompt?: string, reasoning?: string): void {
+  if (prompt !== undefined) currentPrettifyPrompt = prompt.trim() || DEFAULT_PRETTIFY_PROMPT;
+  if (reasoning !== undefined) {
+    currentPrettifyReasoning = isPrettifyReasoning(reasoning) ? reasoning : DEFAULT_PRETTIFY_REASONING;
+  }
 }
 
 export function setProvider(providerId: string): void {
@@ -147,36 +184,55 @@ export function loadConfig(): void {
       if (config.cancelHotkey) currentCancelHotkey = config.cancelHotkey;
       if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
       if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
+      if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
+      if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
+      if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
       if (config.targetLang) currentTargetLang = config.targetLang;
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
       if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
+      if (typeof config.prettifyPrompt === 'string' && config.prettifyPrompt.trim()) {
+        currentPrettifyPrompt = config.prettifyPrompt.trim();
+      }
+      if (isPrettifyReasoning(config.prettifyReasoning)) {
+        currentPrettifyReasoning = config.prettifyReasoning;
+      }
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();
       saveConfig();
     }
-  } catch {
-    log.error('Failed to load config');
+  } catch (error) {
+    log.error('Failed to load config:', getErrorMessage(error));
   }
 }
 
 export function saveConfig(): void {
-  fs.writeFileSync(
-    CONFIG_FILE,
-    JSON.stringify(
-      {
-        hotkey: currentHotkey,
-        cancelHotkey: currentCancelHotkey,
-        stopHotkey: currentStopHotkey,
-        translateHotkey: currentTranslateHotkey,
-        targetLang: currentTargetLang,
-        provider: currentProvider,
-        locale: currentLocale,
-        fingerprintSeed: currentFingerprintSeed,
-      },
-      null,
-      2,
-    ),
-  );
+  try {
+    fs.writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify(
+        {
+          hotkey: currentHotkey,
+          cancelHotkey: currentCancelHotkey,
+          stopHotkey: currentStopHotkey,
+          translateHotkey: currentTranslateHotkey,
+          prettifyHotkey: currentPrettifyHotkey,
+          translateEnabled: currentTranslateEnabled,
+          prettifyEnabled: currentPrettifyEnabled,
+          targetLang: currentTargetLang,
+          provider: currentProvider,
+          locale: currentLocale,
+          fingerprintSeed: currentFingerprintSeed,
+          prettifyPrompt: currentPrettifyPrompt,
+          prettifyReasoning: currentPrettifyReasoning,
+        },
+        null,
+        2,
+      ),
+    );
+  } catch (error) {
+    log.error('Failed to save config:', getErrorMessage(error));
+    throw error;
+  }
 }

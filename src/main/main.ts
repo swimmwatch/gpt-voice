@@ -16,6 +16,8 @@ import {
 import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
 
+const CHROMIUM_FATAL_LOG_LEVEL = '3';
+
 configureAppIdentity();
 app.disableHardwareAcceleration();
 registerAppProtocolScheme();
@@ -38,6 +40,9 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('class', 'gpt-voice');
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-dev-shm-usage');
+  // Chromium can print non-actionable X11 clipboard atom cache messages as ERROR.
+  // Keep native Chromium stderr quiet while preserving app logs and fatal Chromium logs.
+  app.commandLine.appendSwitch('log-level', CHROMIUM_FATAL_LOG_LEVEL);
 }
 
 if (app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE) {

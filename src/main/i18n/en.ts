@@ -7,10 +7,14 @@ export default {
   'status.transcribing': 'Transcribing...',
   'status.translating': 'Translating...',
   'status.translatingSelection': 'Translating selection...',
+  'status.prettifyingSelection': 'Prettifying selection...',
   'status.translationCopied': 'Translation copied',
+  'status.prettifiedSelection': 'Selection prettified',
   'status.copiedToClipboard': 'Copied to clipboard',
   'status.transcriptionFailed': 'Transcription failed',
   'status.translationFailed': 'Translation failed',
+  'status.prettifyFailed': 'Prettify failed',
+  'status.prettifyCancelled': 'Prettify cancelled',
   'status.transcriptionError': 'Transcription error',
   'status.recordingCancelled': 'Recording cancelled',
   'status.microphoneError': 'Error: Could not access microphone',
@@ -29,6 +33,8 @@ export default {
   'notification.transcriptionFailed': 'Recognition failed',
   'notification.translationFailed': 'Translation failed',
   'notification.translationCopied': 'Translation copied',
+  'notification.prettifyFailed': 'Prettify failed',
+  'notification.textPrettified': 'Text prettified',
 
   // Login button
   'login.loggingIn': 'Logging in...',
@@ -53,6 +59,7 @@ export default {
   'providerSettings.apiKeyStored': 'A key is already saved. Leave this field empty to keep it.',
   'providerSettings.apiKeyPlaceholder': 'Paste OpenAI API key',
   'providerSettings.model': 'Model',
+  'providerSettings.prettifyModel': 'Prettify model',
   'providerSettings.language': 'Language',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -65,6 +72,8 @@ export default {
   // App settings
   'appSettings.open': 'App settings',
   'appSettings.title': 'Settings',
+  'appSettings.hotkeys': 'Hotkeys',
+  'appSettings.prettify': 'Prettify Text',
   'appSettings.cloakBrowser': 'CloakBrowser',
   'appSettings.behavior': 'Behavior',
   'appSettings.identity': 'Identity',
@@ -105,6 +114,7 @@ export default {
   'hotkey.stop': 'Stop',
   'hotkey.cancel': 'Cancel',
   'hotkey.translate': 'Translate',
+  'hotkey.prettify': 'Prettify',
   'hotkey.change': 'Change',
   'hotkey.setHotkey': 'Set {target} Hotkey',
   'hotkey.pressKeyCombination': 'Press a key combination',
@@ -119,6 +129,13 @@ export default {
   'translate.belarusian': 'Беларуская',
   'translate.targetLanguage': 'Target language',
 
+  // Prettify
+  'prettify.prompt': 'Prettify prompt',
+  'prettify.reasoning': 'Reasoning',
+  'prettify.reasoning.instant': 'Instant',
+  'prettify.reasoning.standard': 'Standard',
+  'prettify.reasoning.extended': 'Extended',
+
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
@@ -129,6 +146,8 @@ export default {
   'error.noTranscription': 'No transcription in response',
   'error.noSelectedText': 'No selected text',
   'error.translationInProgress': 'Translation already in progress',
+  'error.noPrettifyResult': 'No prettified text in response',
+  'error.prettifyInProgress': 'Prettify already in progress',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',
