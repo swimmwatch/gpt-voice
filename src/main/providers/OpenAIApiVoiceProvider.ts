@@ -145,6 +145,10 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
 
   async prettifyText(text: string, options: PrettifyTextOptions): Promise<TextProcessingResult> {
     try {
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+
       const settings = this.deps.getSettings();
       if (!settings.apiKey) {
         return { success: false, error: t('error.noAccessToken') };
@@ -162,16 +166,20 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
         input: text,
         reasoning: options.reasoning,
       });
-      let response = await this.fetchPrettifyResponse(settings.apiKey, requestBody);
+      let response = await this.fetchPrettifyResponse(settings.apiKey, requestBody, options.signal);
       let body = await response.text();
 
       if (requestBody.reasoning && isUnsupportedOpenAIReasoningResponse(response.status, body)) {
         log.info('Retrying OpenAI API prettify without reasoning after unsupported reasoning response');
-        response = await this.fetchPrettifyResponse(settings.apiKey, {
-          model: settings.prettifyModel,
-          instructions: options.prompt,
-          input: text,
-        });
+        response = await this.fetchPrettifyResponse(
+          settings.apiKey,
+          {
+            model: settings.prettifyModel,
+            instructions: options.prompt,
+            input: text,
+          },
+          options.signal,
+        );
         body = await response.text();
       }
 
@@ -181,18 +189,27 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
 
       return this.parsePrettifySuccessResponse(body);
     } catch (error: unknown) {
+      if (options.signal?.aborted) {
+        return { success: false, error: t('status.prettifyCancelled') };
+      }
+
       log.error('Prettify error:', error instanceof Error ? error.message : error);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
-  private fetchPrettifyResponse(apiKey: string, body: OpenAIResponsesPrettifyRequestBody): Promise<FetchResponseLike> {
+  private fetchPrettifyResponse(
+    apiKey: string,
+    body: OpenAIResponsesPrettifyRequestBody,
+    signal?: AbortSignal,
+  ): Promise<FetchResponseLike> {
     return this.deps.fetch(RESPONSES_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
+      signal,
       body: JSON.stringify(body),
     });
   }

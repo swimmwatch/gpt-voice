@@ -69,7 +69,9 @@ describe('openaiResponsesUtils', () => {
   });
 
   it('retries OpenAI API prettify once without reasoning when reasoning is unsupported', async () => {
+    const abortController = new AbortController();
     const requests: Array<Record<string, unknown>> = [];
+    const signals: Array<AbortSignal | null> = [];
     const provider = new OpenAIApiVoiceProvider({
       getSettings: () => ({
         ...DEFAULT_OPENAI_API_SETTINGS,
@@ -78,6 +80,7 @@ describe('openaiResponsesUtils', () => {
       }),
       fetch: async (_url, init) => {
         requests.push(JSON.parse(String(init.body)));
+        signals.push(init.signal instanceof AbortSignal ? init.signal : null);
         if (requests.length === 1) {
           return response(400, {
             error: {
@@ -92,10 +95,12 @@ describe('openaiResponsesUtils', () => {
     const result = await provider.prettifyText('bad text', {
       prompt: 'Improve text',
       reasoning: 'instant',
+      signal: abortController.signal,
     });
 
     assert.deepEqual(result, { success: true, text: 'Improved text' });
     assert.equal(requests.length, 2);
+    assert.deepEqual(signals, [abortController.signal, abortController.signal]);
     assert.deepEqual(requests[0]?.reasoning, { effort: 'none' });
     const retryRequest = requests[1];
     assert.ok(retryRequest);
@@ -124,5 +129,31 @@ describe('openaiResponsesUtils', () => {
     assert.equal(result.success, false);
     assert.equal(result.error, 'Prompt is too long');
     assert.equal(requests.length, 1);
+  });
+
+  it('returns a cancelled result without calling OpenAI when the prettify signal is already aborted', async () => {
+    let fetchCalled = false;
+    const abortController = new AbortController();
+    abortController.abort();
+    const provider = new OpenAIApiVoiceProvider({
+      getSettings: () => ({
+        ...DEFAULT_OPENAI_API_SETTINGS,
+        apiKey: 'test-key',
+        prettifyModel: 'gpt-5.4-mini',
+      }),
+      fetch: async () => {
+        fetchCalled = true;
+        return response(200, { output_text: 'Improved text' });
+      },
+    });
+
+    const result = await provider.prettifyText('bad text', {
+      prompt: 'Improve text',
+      reasoning: 'instant',
+      signal: abortController.signal,
+    });
+
+    assert.deepEqual(result, { success: false, error: 'Prettify cancelled' });
+    assert.equal(fetchCalled, false);
   });
 });

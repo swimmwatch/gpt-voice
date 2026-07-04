@@ -10,10 +10,11 @@ interface UseRecordingOptions {
   setStatus: (status: string) => void;
   setIsRecording: (recording: boolean) => void;
   setIsPaused: (paused: boolean) => void;
+  notifyStatus?: (status: string) => void;
   t: (key: string, params?: Record<string, string>) => string;
 }
 
-export function useRecording({ setStatus, setIsRecording, setIsPaused, t }: UseRecordingOptions) {
+export function useRecording({ setStatus, setIsRecording, setIsPaused, notifyStatus, t }: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -153,9 +154,11 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, t }: UseR
     }
     setIsRecording(false);
     setIsPaused(false);
-    setStatus(t('status.recordingCancelled'));
+    const status = t('status.recordingCancelled');
+    setStatus(status);
+    notifyStatus?.(status);
     log.info('Cancelled by user');
-  }, [setIsRecording, setIsPaused, setStatus, t]);
+  }, [notifyStatus, setIsRecording, setIsPaused, setStatus, t]);
 
   return { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording };
 }

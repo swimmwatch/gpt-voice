@@ -10,7 +10,7 @@ import { updateTrayIcon } from './tray';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
-import { prettifySelectedText } from './services/selectedTextPrettify';
+import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
 import { canRunTextActionHotkey } from '@shared/hotkeys';
 
@@ -18,6 +18,12 @@ const log = createLogger('shortcuts');
 
 let isRecording = false;
 let isPaused = false;
+
+interface CancelShortcutActions {
+  cancelPrettify: () => { status: string } | null;
+  cancelRecording: () => void;
+  sendTextStatus: (status: string) => void;
+}
 
 export function getRecordingState() {
   return { isRecording, isPaused };
@@ -34,6 +40,21 @@ function normalizeHotkeyForPlatform(hotkey: string): string {
     return hotkey.replace(/\bSuper\b/g, 'Command');
   }
   return hotkey.replace(/\bCommand\b/g, 'Super');
+}
+
+export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: CancelShortcutActions): boolean {
+  if (isCurrentlyRecording) {
+    actions.cancelRecording();
+    return true;
+  }
+
+  const prettifyCancelResult = actions.cancelPrettify();
+  if (!prettifyCancelResult) {
+    return false;
+  }
+
+  actions.sendTextStatus(prettifyCancelResult.status);
+  return true;
 }
 
 export function registerShortcuts(): void {
@@ -77,13 +98,24 @@ export function registerShortcuts(): void {
   log.info(`${stopHotkey} stop shortcut registered:`, stopRegistered);
 
   const cancelRegistered = globalShortcut.register(cancelHotkey, () => {
-    if (isRecording) {
-      log.info(`${cancelHotkey} pressed, cancelling recording`);
-      isRecording = false;
-      isPaused = false;
-      updateTrayIcon(false);
-      getMainWindow()?.webContents.send('cancel-recording');
-    }
+    const win = getMainWindow();
+    handleCancelShortcut(isRecording, {
+      cancelPrettify: () => {
+        const result = cancelSelectedTextPrettify();
+        if (result) {
+          log.info(`${cancelHotkey} pressed, cancelling prettify`);
+        }
+        return result;
+      },
+      cancelRecording: () => {
+        log.info(`${cancelHotkey} pressed, cancelling recording`);
+        isRecording = false;
+        isPaused = false;
+        updateTrayIcon(false);
+        win?.webContents.send('cancel-recording');
+      },
+      sendTextStatus: (status) => win?.webContents.send('translation-status', status),
+    });
   });
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 

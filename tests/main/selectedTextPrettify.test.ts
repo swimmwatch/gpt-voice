@@ -19,7 +19,7 @@ function createTestService(options: TestServiceOptions = {}) {
     selection: options.selectionText || '',
   };
   const notifications: Array<{ title: string; body: string }> = [];
-  const prettifyCalls: Array<{ text: string; prompt: string; reasoning: string }> = [];
+  const prettifyCalls: Array<{ text: string; prompt: string; reasoning: string; signal?: AbortSignal }> = [];
 
   const deps: SelectedTextPrettifyDependencies = {
     clipboard: {
@@ -34,7 +34,7 @@ function createTestService(options: TestServiceOptions = {}) {
     },
     platform: 'linux',
     prettify: async (text, settings) => {
-      prettifyCalls.push({ text, prompt: settings.prompt, reasoning: settings.reasoning });
+      prettifyCalls.push({ text, prompt: settings.prompt, reasoning: settings.reasoning, signal: settings.signal });
       await options.prettifyWait;
       return options.prettifyResult || { success: true, text: 'prettified text' };
     },
@@ -73,7 +73,12 @@ describe('selectedTextPrettify', () => {
 
     assert.equal(result.success, true);
     assert.equal(clipboard.clipboard, 'prettified text');
-    assert.deepEqual(prettifyCalls, [{ text: 'primary selection', prompt: 'prompt', reasoning: 'instant' }]);
+    assert.equal(prettifyCalls.length, 1);
+    assert.equal(prettifyCalls[0]?.text, 'primary selection');
+    assert.equal(prettifyCalls[0]?.prompt, 'prompt');
+    assert.equal(prettifyCalls[0]?.reasoning, 'instant');
+    assert.equal(prettifyCalls[0]?.signal instanceof AbortSignal, true);
+    assert.equal(prettifyCalls[0]?.signal?.aborted, false);
   });
 
   it('keeps the previous clipboard when prettify fails', async () => {
@@ -116,5 +121,65 @@ describe('selectedTextPrettify', () => {
     assert.equal(second.success, false);
     assert.equal(second.error, 'Prettify already in progress');
     assert.equal(firstResult.success, true);
+  });
+
+  it('cancels an active prettify request, restores the clipboard, and suppresses late results', async () => {
+    let finishPrettify!: () => void;
+    const prettifyWait = new Promise<void>((resolve) => {
+      finishPrettify = resolve;
+    });
+    const { clipboard, notifications, prettifyCalls, service } = createTestService({
+      selectionText: 'selected text',
+      prettifyWait,
+    });
+
+    const first = service();
+    await Promise.resolve();
+    const cancelResult = service.cancel();
+
+    assert.deepEqual(cancelResult, {
+      success: false,
+      status: 'Prettify cancelled',
+      error: 'Prettify cancelled',
+    });
+    assert.equal(prettifyCalls[0]?.signal?.aborted, true);
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, []);
+
+    finishPrettify();
+    const firstResult = await first;
+
+    assert.deepEqual(firstResult, {
+      success: false,
+      status: 'Prettify cancelled',
+      error: 'Prettify cancelled',
+    });
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, []);
+  });
+
+  it('returns null when cancelling with no active prettify request', () => {
+    const { service } = createTestService({ selectionText: 'selected text' });
+
+    assert.equal(service.cancel(), null);
+  });
+
+  it('allows a new prettify request after a cancelled run settles', async () => {
+    let finishPrettify!: () => void;
+    const prettifyWait = new Promise<void>((resolve) => {
+      finishPrettify = resolve;
+    });
+    const { clipboard, service } = createTestService({ selectionText: 'selected text', prettifyWait });
+
+    const first = service();
+    await Promise.resolve();
+    assert.equal(service.cancel()?.status, 'Prettify cancelled');
+    finishPrettify();
+    await first;
+
+    const second = await service();
+
+    assert.equal(second.success, true);
+    assert.equal(clipboard.clipboard, 'prettified text');
   });
 });

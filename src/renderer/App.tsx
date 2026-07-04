@@ -22,14 +22,31 @@ const App: React.FC = () => {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
 
-  const { t } = useI18n();
+  const { t, isReady: isI18nReady } = useI18n();
 
   const preserveStatusRef = useRef(false);
+
+  const showStatusNotification = useCallback((nextStatus: string) => {
+    const notificationBody = nextStatus.trim();
+    if (!notificationBody) {
+      return;
+    }
+    void window.electronAPI.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
+  }, []);
+
+  const setStatusAndNotify = useCallback(
+    (nextStatus: string) => {
+      setStatus(nextStatus);
+      showStatusNotification(nextStatus);
+    },
+    [showStatusNotification],
+  );
 
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = useRecording({
     setStatus,
     setIsRecording,
     setIsPaused,
+    notifyStatus: showStatusNotification,
     t,
   });
 
@@ -41,18 +58,18 @@ const App: React.FC = () => {
 
       if (loginState.sessionExpired) {
         preserveStatusRef.current = true;
-        setStatus(t('status.sessionExpired'));
+        setStatusAndNotify(t('status.sessionExpired'));
         setProviderSettings((settings) => expireBrowserSessionSettings(settings));
       } else if (backgroundStatus?.error) {
         preserveStatusRef.current = true;
-        setStatus(t('status.browserInitFailed', { error: backgroundStatus.error }));
+        setStatusAndNotify(t('status.browserInitFailed', { error: backgroundStatus.error }));
       } else if (backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
       return loginState;
     },
-    [t],
+    [setStatusAndNotify, t],
   );
 
   const refreshProviderState = useCallback(async (): Promise<ProviderLoginState> => {
@@ -64,6 +81,10 @@ const App: React.FC = () => {
   }, [applyProviderLoginState]);
 
   useEffect(() => {
+    if (!isI18nReady) {
+      return undefined;
+    }
+
     let disposed = false;
     const subscriptions = [
       window.electronAPI.onToggleRecording((recording: boolean) => {
@@ -151,7 +172,16 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [applyProviderLoginState, startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, t]);
+  }, [
+    applyProviderLoginState,
+    isI18nReady,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    t,
+  ]);
 
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
   const activeProvider = providers.find((p) => p.id === activeProviderId);
@@ -176,10 +206,10 @@ const App: React.FC = () => {
     setIsLoggingIn(false);
     if (result.success) {
       setIsLoggedIn(true);
-      setStatus(t('status.loggedIn', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.loggedIn', { provider: activeProviderName }));
     } else {
       preserveStatusRef.current = true;
-      setStatus(t('status.loginFailed', { error: result.error || '' }));
+      setStatusAndNotify(t('status.loginFailed', { error: result.error || '' }));
     }
   };
 
@@ -189,10 +219,10 @@ const App: React.FC = () => {
     setIsLoggedIn(configured);
     if (configured) {
       preserveStatusRef.current = false;
-      setStatus(t('status.providerConfigured', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.providerConfigured', { provider: activeProviderName }));
     } else {
       preserveStatusRef.current = true;
-      setStatus(t('status.providerNotConfigured', { provider: activeProviderName }));
+      setStatusAndNotify(t('status.providerNotConfigured', { provider: activeProviderName }));
     }
   };
 
@@ -203,12 +233,12 @@ const App: React.FC = () => {
     const loginState = await refreshProviderState();
     if (!loginState.sessionExpired && !result.success && result.error) {
       preserveStatusRef.current = true;
-      setStatus(t('status.browserInitFailed', { error: result.error }));
+      setStatusAndNotify(t('status.browserInitFailed', { error: result.error }));
     }
     setIsLoading(false);
   };
 
-  if (isLoading) return <LoadingScreen />;
+  if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
     <div className="container">

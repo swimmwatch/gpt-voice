@@ -27,6 +27,7 @@ export interface TextProcessingResult {
 export interface PrettifyTextOptions {
   prompt: string;
   reasoning: PrettifyReasoning;
+  signal?: AbortSignal;
 }
 
 export abstract class BaseVoiceProvider {

@@ -7,9 +7,13 @@ import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('prettify');
 
+export type PrettifyTextSettings = PrettifySettings & {
+  signal?: AbortSignal;
+};
+
 export async function prettifyText(
   text: string,
-  settings: PrettifySettings = {
+  settings: PrettifyTextSettings = {
     prompt: currentPrettifyPrompt,
     reasoning: currentPrettifyReasoning,
   },

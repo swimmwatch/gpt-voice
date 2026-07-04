@@ -7,7 +7,7 @@ import {
 } from '@main/electronRuntime';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { prettifyText } from '@main/services/prettify';
+import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
@@ -29,7 +29,21 @@ export interface SelectedTextPrettifyDependencies {
   getPrettifySettings: () => PrettifySettings;
   notify: (title: string, body: string) => void;
   platform: NodeJS.Platform;
-  prettify: (text: string, settings: PrettifySettings) => Promise<{ success: boolean; text?: string; error?: string }>;
+  prettify: (
+    text: string,
+    settings: PrettifyTextSettings,
+  ) => Promise<{ success: boolean; text?: string; error?: string }>;
+}
+
+export interface SelectedTextPrettifyService {
+  (): Promise<SelectedTextPrettifyResult>;
+  cancel(): SelectedTextPrettifyResult | null;
+}
+
+interface SelectedTextPrettifyRun {
+  abortController: AbortController;
+  cancelled: boolean;
+  previousClipboardText: string | null;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -88,21 +102,34 @@ function createFailureResult(error: string): SelectedTextPrettifyResult {
   };
 }
 
-export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies) {
-  let inProgress = false;
+function createCancelledResult(): SelectedTextPrettifyResult {
+  const status = t('status.prettifyCancelled');
+  return {
+    success: false,
+    status,
+    error: status,
+  };
+}
 
-  return async function prettifySelectedText(): Promise<SelectedTextPrettifyResult> {
-    if (inProgress) {
+export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {
+  let activeRun: SelectedTextPrettifyRun | null = null;
+
+  const service = async function prettifySelectedText(): Promise<SelectedTextPrettifyResult> {
+    if (activeRun) {
       const error = t('error.prettifyInProgress');
       notifyPrettifyFailure(deps, error);
       return createFailureResult(error);
     }
 
-    inProgress = true;
-    let previousClipboardText: string | null = null;
+    const run: SelectedTextPrettifyRun = {
+      abortController: new AbortController(),
+      cancelled: false,
+      previousClipboardText: null,
+    };
+    activeRun = run;
 
     try {
-      previousClipboardText = deps.clipboard.readText();
+      run.previousClipboardText = deps.clipboard.readText();
       const selectedText = readSelectedText(deps);
 
       if (!selectedText.trim()) {
@@ -113,10 +140,18 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 
       const settings = deps.getPrettifySettings();
       log.info('Prettifying selected text:', { textLength: selectedText.length, reasoning: settings.reasoning });
-      const prettified = await deps.prettify(selectedText, settings);
+      const prettified = await deps.prettify(selectedText, {
+        ...settings,
+        signal: run.abortController.signal,
+      });
+      if (run.cancelled || run.abortController.signal.aborted) {
+        restoreClipboard(deps, run.previousClipboardText);
+        return createCancelledResult();
+      }
+
       if (!prettified.success || !prettified.text?.trim()) {
         const error = prettified.error || t('error.noPrettifyResult');
-        restoreClipboard(deps, previousClipboardText);
+        restoreClipboard(deps, run.previousClipboardText);
         notifyPrettifyFailure(deps, error);
         return createFailureResult(error);
       }
@@ -132,18 +167,39 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         status: t('status.prettifiedSelection'),
       };
     } catch (error: unknown) {
+      if (run.cancelled || run.abortController.signal.aborted) {
+        restoreClipboard(deps, run.previousClipboardText);
+        return createCancelledResult();
+      }
+
       const message = getErrorMessage(error) || t('status.prettifyFailed');
-      restoreClipboard(deps, previousClipboardText);
+      restoreClipboard(deps, run.previousClipboardText);
       log.warn('Selected-text prettify failed:', message);
       notifyPrettifyFailure(deps, message);
       return createFailureResult(message);
     } finally {
-      inProgress = false;
+      if (activeRun === run) {
+        activeRun = null;
+      }
     }
+  } as SelectedTextPrettifyService;
+
+  service.cancel = (): SelectedTextPrettifyResult | null => {
+    if (!activeRun || activeRun.abortController.signal.aborted) {
+      return null;
+    }
+
+    activeRun.cancelled = true;
+    activeRun.abortController.abort();
+    restoreClipboard(deps, activeRun.previousClipboardText);
+    log.info('Selected-text prettify cancelled');
+    return createCancelledResult();
   };
+
+  return service;
 }
 
-export const prettifySelectedText = createSelectedTextPrettifyService({
+const selectedTextPrettifyService = createSelectedTextPrettifyService({
   clipboard: {
     readText: (type) => readClipboardText(type),
     writeText: (text, type) => writeTypedClipboardText(text, type),
@@ -156,3 +212,6 @@ export const prettifySelectedText = createSelectedTextPrettifyService({
   platform: process.platform,
   prettify: prettifyText,
 });
+
+export const prettifySelectedText = selectedTextPrettifyService;
+export const cancelSelectedTextPrettify = (): SelectedTextPrettifyResult | null => selectedTextPrettifyService.cancel();

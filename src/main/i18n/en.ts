@@ -14,6 +14,7 @@ export default {
   'status.transcriptionFailed': 'Transcription failed',
   'status.translationFailed': 'Translation failed',
   'status.prettifyFailed': 'Prettify failed',
+  'status.prettifyCancelled': 'Prettify cancelled',
   'status.transcriptionError': 'Transcription error',
   'status.recordingCancelled': 'Recording cancelled',
   'status.microphoneError': 'Error: Could not access microphone',
