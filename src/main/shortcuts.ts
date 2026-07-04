@@ -1,11 +1,18 @@
 import { globalShortcut } from 'electron';
-import { currentHotkey, currentCancelHotkey, currentStopHotkey, currentTranslateHotkey } from './config';
+import {
+  currentCancelHotkey,
+  currentHotkey,
+  currentPrettifyHotkey,
+  currentStopHotkey,
+  currentTranslateHotkey,
+} from './config';
 import { updateTrayIcon } from './tray';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
+import { prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
-import { canRunTranslateHotkey } from '@shared/hotkeys';
+import { canRunTextActionHotkey } from '@shared/hotkeys';
 
 const log = createLogger('shortcuts');
 
@@ -36,6 +43,7 @@ export function registerShortcuts(): void {
   const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
   const cancelHotkey = normalizeHotkeyForPlatform(currentCancelHotkey);
   const translateHotkey = normalizeHotkeyForPlatform(currentTranslateHotkey);
+  const prettifyHotkey = normalizeHotkeyForPlatform(currentPrettifyHotkey);
 
   const registered = globalShortcut.register(recordHotkey, () => {
     const win = getMainWindow();
@@ -80,7 +88,7 @@ export function registerShortcuts(): void {
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
   const translateRegistered = globalShortcut.register(translateHotkey, () => {
-    if (!canRunTranslateHotkey(isRecording)) {
+    if (!canRunTextActionHotkey(isRecording)) {
       log.info(`${translateHotkey} pressed while recording, ignoring translation`);
       return;
     }
@@ -92,4 +100,18 @@ export function registerShortcuts(): void {
     });
   });
   log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
+
+  const prettifyRegistered = globalShortcut.register(prettifyHotkey, () => {
+    if (!canRunTextActionHotkey(isRecording)) {
+      log.info(`${prettifyHotkey} pressed while recording, ignoring prettify`);
+      return;
+    }
+
+    log.info(`${prettifyHotkey} pressed, prettifying selected text`);
+    getMainWindow()?.webContents.send('translation-status', t('status.prettifyingSelection'));
+    void prettifySelectedText().then((result) => {
+      getMainWindow()?.webContents.send('translation-status', result.status);
+    });
+  });
+  log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
 }

@@ -1,6 +1,7 @@
 import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
@@ -21,6 +22,7 @@ export interface OpenAIApiProviderSettings {
   authType: 'apiKey';
   hasApiKey: boolean;
   model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
+  prettifyModel: string;
   language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
   prompt: string;
   temperature: number;
@@ -72,10 +74,13 @@ export interface ElectronAPI {
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: () => void) => () => void;
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
+  onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
   getHotkey: () => Promise<HotkeySettings>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
   getTranslateSettings: () => Promise<{ targetLang: string }>;
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
+  getPrettifySettings: () => Promise<PrettifySettings>;
+  setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;

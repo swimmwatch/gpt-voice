@@ -7,6 +7,7 @@ import { isSocks5ProxyServer } from '@shared/cloakBrowserSettings';
 type CloakBrowserContextKind = 'login' | 'background';
 
 const VIEWPORT = { width: 1366, height: 768 };
+const CHROMIUM_FATAL_LOG_LEVEL_ARG = '--log-level=3';
 
 function buildProxyOption(settings: CloakBrowserSettingsWithSecret): LaunchContextOptions['proxy'] {
   if (!settings.proxy.enabled || !settings.proxy.server) return undefined;
@@ -35,7 +36,7 @@ export function buildCloakBrowserContextOptions(
     viewport: VIEWPORT,
     humanize: settings.humanize,
     humanPreset: settings.humanPreset,
-    args: [`--fingerprint=${settings.fingerprintSeed}`],
+    args: [`--fingerprint=${settings.fingerprintSeed}`, CHROMIUM_FATAL_LOG_LEVEL_ARG],
   };
 
   if (proxy) {

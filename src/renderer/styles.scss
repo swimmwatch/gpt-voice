@@ -441,6 +441,34 @@ h1 {
   }
 }
 
+.app-settings-hotkeys {
+  align-self: center;
+  max-width: 300px;
+  width: min(100%, 300px);
+
+  .hotkey-row {
+    display: grid;
+    grid-template-columns: 92px 112px max-content;
+    gap: 8px;
+    width: 100%;
+
+    .hotkey-label {
+      justify-self: end;
+      width: auto;
+    }
+
+    kbd {
+      justify-self: stretch;
+      min-width: 72px;
+    }
+
+    .hotkey-btn {
+      justify-self: start;
+      margin-left: 0;
+    }
+  }
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -606,6 +634,10 @@ h1 {
   input[type='range'] {
     padding: 0;
   }
+}
+
+.app-settings-prettify-prompt {
+  min-height: 104px;
 }
 
 .settings-checkbox {

@@ -5,10 +5,14 @@ import {
   currentCancelHotkey,
   currentStopHotkey,
   currentTranslateHotkey,
+  currentPrettifyHotkey,
   currentTargetLang,
   currentProvider,
+  currentPrettifyPrompt,
+  currentPrettifyReasoning,
   setHotkeys,
   setTranslateSettings,
+  setPrettifySettings,
   setCurrentLocale,
   saveConfig,
 } from './config';
@@ -35,6 +39,7 @@ import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloa
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { showSystemNotification } from './electronRuntime';
 import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import { normalizePrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
 
 const log = createLogger('ipc');
 
@@ -63,6 +68,16 @@ function sendBackgroundStatus(status: { ready: boolean; error?: string; authExpi
   } else if (status.error) {
     getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
   }
+}
+
+function getHotkeySettingsSnapshot(): HotkeySettings {
+  return {
+    hotkey: currentHotkey,
+    cancelHotkey: currentCancelHotkey,
+    stopHotkey: currentStopHotkey,
+    translateHotkey: currentTranslateHotkey,
+    prettifyHotkey: currentPrettifyHotkey,
+  };
 }
 
 function getProviderSettingsSnapshot(providerId: string) {
@@ -286,47 +301,38 @@ export function registerIpcHandlers(): void {
   });
 
   handle('get-hotkey', (): HotkeySettings => {
-    return {
-      hotkey: currentHotkey,
-      cancelHotkey: currentCancelHotkey,
-      stopHotkey: currentStopHotkey,
-      translateHotkey: currentTranslateHotkey,
-    };
+    return getHotkeySettingsSnapshot();
   });
 
   handle('set-hotkey', (_event, key: string, hotkey: string) => {
     if (!isHotkeyTarget(key)) {
       return {
         success: false,
-        hotkey: currentHotkey,
-        cancelHotkey: currentCancelHotkey,
-        stopHotkey: currentStopHotkey,
-        translateHotkey: currentTranslateHotkey,
+        ...getHotkeySettingsSnapshot(),
       };
     }
     const target: HotkeyTarget = key;
     if (key === 'cancel') {
       log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', hotkey);
-      setHotkeys(undefined, hotkey, undefined, undefined);
+      setHotkeys(undefined, hotkey, undefined, undefined, undefined);
     } else if (key === 'stop') {
       log.info('Changing stop hotkey from', currentStopHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, hotkey, undefined);
+      setHotkeys(undefined, undefined, hotkey, undefined, undefined);
     } else if (target === 'translate') {
       log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, hotkey);
+      setHotkeys(undefined, undefined, undefined, hotkey, undefined);
+    } else if (target === 'prettify') {
+      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, hotkey);
     } else {
       log.info('Changing hotkey from', currentHotkey, 'to', hotkey);
-      setHotkeys(hotkey, undefined, undefined, undefined);
+      setHotkeys(hotkey, undefined, undefined, undefined, undefined);
     }
     saveConfig();
     registerShortcuts();
-    return {
-      success: true,
-      hotkey: currentHotkey,
-      cancelHotkey: currentCancelHotkey,
-      stopHotkey: currentStopHotkey,
-      translateHotkey: currentTranslateHotkey,
-    };
+    const hotkeySettings = getHotkeySettingsSnapshot();
+    getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
+    return { success: true, ...hotkeySettings };
   });
 
   handle('get-translate-settings', () => {
@@ -337,6 +343,20 @@ export function registerIpcHandlers(): void {
     setTranslateSettings(targetLang);
     saveConfig();
     return { success: true };
+  });
+
+  handle('get-prettify-settings', () => {
+    return {
+      prompt: currentPrettifyPrompt,
+      reasoning: currentPrettifyReasoning,
+    };
+  });
+
+  handle('set-prettify-settings', (_event, settings: PrettifySettingsInput) => {
+    const normalized = normalizePrettifySettings(settings || {});
+    setPrettifySettings(normalized.prompt, normalized.reasoning);
+    saveConfig();
+    return { success: true, settings: normalized };
   });
 
   handle('show-notification', (_event, title: string, body: string) => {

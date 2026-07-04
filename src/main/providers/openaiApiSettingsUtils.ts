@@ -1,4 +1,5 @@
 import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
+import { DEFAULT_OPENAI_API_PRETTIFY_MODEL } from '@shared/prettifySettings';
 
 export const OPENAI_API_PROVIDER_ID = 'openai-api';
 export const OPENAI_API_SETTINGS_MODEL = TRANSCRIPTION_MODEL_WHISPER_1;
@@ -9,6 +10,7 @@ export type OpenAIApiLanguage = (typeof OPENAI_API_SETTINGS_LANGUAGES)[number];
 
 export interface OpenAIApiSettings {
   model: OpenAIApiModel;
+  prettifyModel: string;
   language: OpenAIApiLanguage;
   prompt: string;
   temperature: number;
@@ -17,6 +19,7 @@ export interface OpenAIApiSettings {
 export interface OpenAIApiSettingsInput {
   apiKey?: string;
   model?: string;
+  prettifyModel?: string;
   language?: string;
   prompt?: string;
   temperature?: number;
@@ -32,6 +35,7 @@ export interface OpenAIApiSettingsWithSecret extends OpenAIApiSettings {
 
 export const DEFAULT_OPENAI_API_SETTINGS: OpenAIApiSettings = {
   model: OPENAI_API_SETTINGS_MODEL,
+  prettifyModel: DEFAULT_OPENAI_API_PRETTIFY_MODEL,
   language: 'auto',
   prompt: '',
   temperature: 0,
@@ -51,6 +55,10 @@ export function normalizeOpenAIApiSettings(input: OpenAIApiSettingsInput = {}): 
 
   return {
     model: OPENAI_API_SETTINGS_MODEL,
+    prettifyModel:
+      typeof input.prettifyModel === 'string' && input.prettifyModel.trim()
+        ? input.prettifyModel.trim()
+        : DEFAULT_OPENAI_API_SETTINGS.prettifyModel,
     language,
     prompt: typeof input.prompt === 'string' ? input.prompt.trim() : '',
     temperature: normalizeTemperature(input.temperature),

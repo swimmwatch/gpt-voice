@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-export type TextAutomationAction = 'copy';
+export type TextAutomationAction = 'copy' | 'paste';
 export type TextAutomationStrategy = 'linux-x11' | 'linux-wayland' | 'macos' | 'windows';
 
 export interface TextAutomationCommand {
@@ -24,24 +24,26 @@ export function getLinuxTextAutomationStrategy(env: NodeJS.ProcessEnv = process.
 }
 
 export function buildTextAutomationCommand(
-  _action: TextAutomationAction,
+  action: TextAutomationAction,
   platform: NodeJS.Platform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
 ): TextAutomationCommand | null {
+  const key = action === 'copy' ? 'c' : 'v';
+
   if (platform === 'linux') {
     const strategy = getLinuxTextAutomationStrategy(env);
     if (strategy === 'linux-wayland') {
       return {
         strategy,
         command: 'wtype',
-        args: ['-M', 'ctrl', 'c', '-m', 'ctrl'],
+        args: ['-M', 'ctrl', key, '-m', 'ctrl'],
         requiredExecutable: 'wtype',
       };
     }
     return {
       strategy,
       command: 'xdotool',
-      args: ['key', '--clearmodifiers', 'ctrl+c'],
+      args: ['key', '--clearmodifiers', `ctrl+${key}`],
       requiredExecutable: 'xdotool',
     };
   }
@@ -50,7 +52,7 @@ export function buildTextAutomationCommand(
     return {
       strategy: 'macos',
       command: 'osascript',
-      args: ['-e', 'tell application "System Events" to keystroke "c" using command down'],
+      args: ['-e', `tell application "System Events" to keystroke "${key}" using command down`],
       requiredExecutable: 'osascript',
     };
   }
@@ -65,7 +67,7 @@ export function buildTextAutomationCommand(
         '-ExecutionPolicy',
         'Bypass',
         '-Command',
-        'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^c")',
+        `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^${key}")`,
       ],
       requiredExecutable: 'powershell.exe',
     };
@@ -108,11 +110,11 @@ export async function runTextAutomationAction(
   const command = buildTextAutomationCommand(action, platform, options.env ?? process.env);
 
   if (!command) {
-    throw new Error(`Selection copy automation is not supported on ${platform}`);
+    throw new Error(`Selected-text ${action} automation is not supported on ${platform}`);
   }
 
   if (!(await commandExists(command.requiredExecutable, platform, runner))) {
-    throw new Error(`${command.requiredExecutable} is required for selected-text translation`);
+    throw new Error(`${command.requiredExecutable} is required for selected-text automation`);
   }
 
   await runner(command.command, command.args);

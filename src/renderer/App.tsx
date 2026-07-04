@@ -2,22 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoadingScreen from './components/LoadingScreen';
 import LoginButton from './components/LoginButton';
 import StatusIndicator from './components/StatusIndicator';
-import HotkeyRow from './components/HotkeyRow';
-import HotkeyModal from './components/HotkeyModal';
 import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
-import {
-  canRunTranslateHotkey,
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_STOP_HOTKEY,
-  DEFAULT_TRANSLATE_HOTKEY,
-  type HotkeyTarget,
-} from '@shared/hotkeys';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -27,17 +17,10 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
-  const [hotkey, setHotkey] = useState(DEFAULT_RECORD_HOTKEY);
-  const [cancelHotkey, setCancelHotkey] = useState(DEFAULT_CANCEL_HOTKEY);
-  const [stopHotkey, setStopHotkey] = useState(DEFAULT_STOP_HOTKEY);
-  const [translateHotkey, setTranslateHotkey] = useState(DEFAULT_TRANSLATE_HOTKEY);
-  const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [showProviderSettings, setShowProviderSettings] = useState(false);
   const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
-  const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
-  const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
 
   const { t } = useI18n();
 
@@ -123,6 +106,10 @@ const App: React.FC = () => {
           if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
         });
       }),
+      window.electronAPI.onHotkeySettingsChanged((settings) => {
+        if (disposed || preserveStatusRef.current) return;
+        setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+      }),
     ];
 
     Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
@@ -139,12 +126,8 @@ const App: React.FC = () => {
       }
     });
 
-    window.electronAPI.getHotkey().then(({ hotkey: hk, cancelHotkey: chk, stopHotkey: shk, translateHotkey: thk }) => {
+    window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
-      setHotkey(hk);
-      setCancelHotkey(chk);
-      setStopHotkey(shk);
-      setTranslateHotkey(thk);
       if (!preserveStatusRef.current) {
         setStatus(t('status.pressToRecord', { hotkey: hk }));
       }
@@ -161,9 +144,6 @@ const App: React.FC = () => {
     window.electronAPI.getActiveProvider().then((value) => {
       if (!disposed) setActiveProviderId(value);
     });
-    window.electronAPI.getPlatform().then((value) => {
-      if (!disposed) setPlatform(value);
-    });
 
     return () => {
       disposed = true;
@@ -176,7 +156,6 @@ const App: React.FC = () => {
   const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
-  const canTranslateSelection = canRunTranslateHotkey(isRecording);
 
   const openProviderSettings = async () => {
     const settings = await window.electronAPI.getProviderSettings(activeProviderId);
@@ -229,22 +208,6 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  const openHotkeyModal = (target: HotkeyTarget) => {
-    setHotkeyTarget(target);
-    setShowHotkeyModal(true);
-  };
-
-  const handleHotkeyApply = async (newHotkey: string) => {
-    const result = await window.electronAPI.setHotkey(hotkeyTarget, newHotkey);
-    if (result.success) {
-      setHotkey(result.hotkey);
-      setCancelHotkey(result.cancelHotkey);
-      setStopHotkey(result.stopHotkey);
-      setTranslateHotkey(result.translateHotkey);
-    }
-    setShowHotkeyModal(false);
-  };
-
   if (isLoading) return <LoadingScreen />;
 
   return (
@@ -274,17 +237,6 @@ const App: React.FC = () => {
         onLogin={handleLogin}
       />
       <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
-      <div className="hotkeys-section">
-        <HotkeyRow label={t('hotkey.record')} value={hotkey} onChangeClick={() => openHotkeyModal('record')} />
-        <HotkeyRow label={t('hotkey.stop')} value={stopHotkey} onChangeClick={() => openHotkeyModal('stop')} />
-        <HotkeyRow label={t('hotkey.cancel')} value={cancelHotkey} onChangeClick={() => openHotkeyModal('cancel')} />
-        <HotkeyRow
-          label={t('hotkey.translate')}
-          value={translateHotkey}
-          disabled={!canTranslateSelection}
-          onChangeClick={() => openHotkeyModal('translate')}
-        />
-      </div>
       <TranslateSection
         targetLang={targetLang}
         onLangChange={(lang) => {
@@ -292,14 +244,6 @@ const App: React.FC = () => {
           window.electronAPI.setTranslateSettings(lang);
         }}
       />
-      {showHotkeyModal && (
-        <HotkeyModal
-          target={hotkeyTarget}
-          platform={platform}
-          onApply={handleHotkeyApply}
-          onClose={() => setShowHotkeyModal(false)}
-        />
-      )}
       {showProviderSettings && activeProvider && providerSettings && (
         <ProviderSettingsModal
           provider={activeProvider}

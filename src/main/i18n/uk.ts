@@ -7,10 +7,13 @@ export default {
   'status.transcribing': 'Транскрибування...',
   'status.translating': 'Переклад...',
   'status.translatingSelection': 'Переклад виділеного тексту...',
+  'status.prettifyingSelection': 'Покращення виділеного тексту...',
   'status.translationCopied': 'Переклад скопійовано',
+  'status.prettifiedSelection': 'Виділений текст покращено',
   'status.copiedToClipboard': 'Скопійовано до буфера обміну',
   'status.transcriptionFailed': 'Помилка транскрибування',
   'status.translationFailed': 'Помилка перекладу',
+  'status.prettifyFailed': 'Помилка покращення тексту',
   'status.transcriptionError': 'Помилка транскрибування',
   'status.recordingCancelled': 'Запис скасовано',
   'status.microphoneError': 'Помилка: немає доступу до мікрофона',
@@ -29,6 +32,8 @@ export default {
   'notification.transcriptionFailed': 'Не вдалося розпізнати текст',
   'notification.translationFailed': 'Не вдалося перекласти',
   'notification.translationCopied': 'Переклад скопійовано',
+  'notification.prettifyFailed': 'Не вдалося покращити текст',
+  'notification.textPrettified': 'Текст покращено',
 
   // Login button
   'login.loggingIn': 'Вхід...',
@@ -53,6 +58,7 @@ export default {
   'providerSettings.apiKeyStored': 'Ключ уже збережено. Залиште поле порожнім, щоб не змінювати його.',
   'providerSettings.apiKeyPlaceholder': 'Вставте OpenAI API key',
   'providerSettings.model': 'Модель',
+  'providerSettings.prettifyModel': 'Модель покращення тексту',
   'providerSettings.language': 'Мова',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -65,6 +71,8 @@ export default {
   // App settings
   'appSettings.open': 'Налаштування застосунку',
   'appSettings.title': 'Налаштування',
+  'appSettings.hotkeys': 'Гарячі клавіші',
+  'appSettings.prettify': 'Покращення тексту',
   'appSettings.cloakBrowser': 'CloakBrowser',
   'appSettings.behavior': 'Поведінка',
   'appSettings.identity': 'Ідентичність',
@@ -105,6 +113,7 @@ export default {
   'hotkey.stop': 'Стоп',
   'hotkey.cancel': 'Скасувати',
   'hotkey.translate': 'Переклад',
+  'hotkey.prettify': 'Покращення',
   'hotkey.change': 'Змінити',
   'hotkey.setHotkey': 'Призначити клавішу: {target}',
   'hotkey.pressKeyCombination': 'Натисніть комбінацію клавіш',
@@ -119,6 +128,13 @@ export default {
   'translate.belarusian': 'Беларуская',
   'translate.targetLanguage': 'Мова перекладу',
 
+  // Prettify
+  'prettify.prompt': 'Prompt покращення тексту',
+  'prettify.reasoning': 'Reasoning',
+  'prettify.reasoning.instant': 'Instant',
+  'prettify.reasoning.standard': 'Standard',
+  'prettify.reasoning.extended': 'Extended',
+
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
@@ -129,6 +145,8 @@ export default {
   'error.noTranscription': 'Немає тексту у відповіді',
   'error.noSelectedText': 'Немає виділеного тексту',
   'error.translationInProgress': 'Переклад уже виконується',
+  'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
+  'error.prettifyInProgress': 'Покращення тексту вже виконується',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',
