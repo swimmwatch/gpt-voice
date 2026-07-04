@@ -9,10 +9,10 @@ import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
 import { translateText } from '@main/services/translation';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
 
 const log = createLogger('selection-translate');
 export const COPY_SETTLE_DELAY_MS = 120;
-const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 export interface SelectedTextTranslationResult {
   success: boolean;
@@ -29,7 +29,7 @@ export interface SelectedTextTranslationDependencies {
   automateTextAction: (action: TextAutomationAction) => Promise<void>;
   clipboard: SelectedTextTranslationClipboard;
   getTargetLang: () => string;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
   translate: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   wait: (delayMs: number) => Promise<void>;
@@ -39,15 +39,6 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   return '';
-}
-
-function formatNotificationBody(error: unknown, fallback: string): string {
-  const message = getErrorMessage(error) || fallback;
-  const singleLine = message.replace(/\s+/g, ' ').trim();
-  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
 }
 
 function restoreClipboard(deps: SelectedTextTranslationDependencies, previousClipboardText: string | null): void {
@@ -82,7 +73,9 @@ async function readSelectedText(
 
 function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, body: string): void {
   try {
-    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')));
+    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')), {
+      sound: 'error',
+    });
   } catch (error: unknown) {
     log.warn('Could not show translation failure notification:', getErrorMessage(error) || error);
   }
@@ -90,7 +83,9 @@ function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, bod
 
 function notifyTranslationCopied(deps: SelectedTextTranslationDependencies, body: string): void {
   try {
-    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')));
+    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')), {
+      sound: 'success',
+    });
   } catch (error: unknown) {
     log.warn('Could not show translation copied notification:', getErrorMessage(error) || error);
   }

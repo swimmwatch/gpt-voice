@@ -9,11 +9,11 @@ import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
 import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
 export const COPY_SETTLE_DELAY_MS = 120;
-const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 export interface SelectedTextPrettifyResult {
   success: boolean;
@@ -30,7 +30,7 @@ export interface SelectedTextPrettifyDependencies {
   automateTextAction: (action: TextAutomationAction) => Promise<void>;
   clipboard: SelectedTextPrettifyClipboard;
   getPrettifySettings: () => PrettifySettings;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
   prettify: (
     text: string,
@@ -54,15 +54,6 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   return '';
-}
-
-function formatNotificationBody(error: unknown, fallback: string): string {
-  const message = getErrorMessage(error) || fallback;
-  const singleLine = message.replace(/\s+/g, ' ').trim();
-  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
 }
 
 function restoreClipboard(deps: SelectedTextPrettifyDependencies, previousClipboardText: string | null): void {
@@ -97,7 +88,9 @@ async function readSelectedText(
 
 function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: string): void {
   try {
-    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(body, t('status.prettifyFailed')));
+    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(body, t('status.prettifyFailed')), {
+      sound: 'error',
+    });
   } catch (error: unknown) {
     log.warn('Could not show prettify failure notification:', getErrorMessage(error) || error);
   }
@@ -105,7 +98,7 @@ function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: str
 
 function notifyPrettifySuccess(deps: SelectedTextPrettifyDependencies): void {
   try {
-    deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'));
+    deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), { sound: 'success' });
   } catch (error: unknown) {
     log.warn('Could not show prettify success notification:', getErrorMessage(error) || error);
   }

@@ -6,6 +6,7 @@ import {
   type SelectedTextPrettifyDependencies,
 } from '@main/services/selectedTextPrettify';
 import type { ClipboardType } from '@main/electronRuntime';
+import type { SystemNotificationOptions } from '@shared/notifications';
 
 interface TestServiceOptions {
   copiedText?: string;
@@ -21,7 +22,7 @@ function createTestService(options: TestServiceOptions = {}) {
     clipboard: 'previous clipboard',
     selection: options.selectionText || '',
   };
-  const notifications: Array<{ title: string; body: string }> = [];
+  const notifications: Array<{ title: string; body: string; options?: SystemNotificationOptions }> = [];
   const automationCalls: string[] = [];
   const waitCalls: number[] = [];
   const prettifyCalls: Array<{ text: string; prompt: string; reasoning: string; signal?: AbortSignal }> = [];
@@ -43,8 +44,8 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     getPrettifySettings: () => ({ prompt: 'prompt', reasoning: 'instant' }),
-    notify: (title, body) => {
-      notifications.push({ title, body });
+    notify: (title, body, options) => {
+      notifications.push({ title, body, options });
     },
     platform: options.platform || 'linux',
     prettify: async (text, settings) => {
@@ -80,7 +81,9 @@ describe('selectedTextPrettify', () => {
     assert.equal(result.success, false);
     assert.equal(result.error, 'No selected text');
     assert.equal(clipboard.clipboard, 'previous clipboard');
-    assert.deepEqual(notifications, [{ title: 'Prettify failed', body: 'No selected text' }]);
+    assert.deepEqual(notifications, [
+      { title: 'Prettify failed', body: 'No selected text', options: { sound: 'error' } },
+    ]);
   });
 
   it('uses the Linux selection clipboard', async () => {
@@ -129,7 +132,9 @@ describe('selectedTextPrettify', () => {
     assert.equal(result.success, false);
     assert.equal(result.error, 'provider unavailable');
     assert.equal(clipboard.clipboard, 'previous clipboard');
-    assert.deepEqual(notifications, [{ title: 'Prettify failed', body: 'provider unavailable' }]);
+    assert.deepEqual(notifications, [
+      { title: 'Prettify failed', body: 'provider unavailable', options: { sound: 'error' } },
+    ]);
   });
 
   it('copies prettified text to the clipboard on success', async () => {
@@ -140,7 +145,9 @@ describe('selectedTextPrettify', () => {
     assert.equal(result.success, true);
     assert.equal(result.status, 'Selection prettified');
     assert.equal(clipboard.clipboard, 'prettified text');
-    assert.deepEqual(notifications, [{ title: 'Text prettified', body: 'Selection prettified' }]);
+    assert.deepEqual(notifications, [
+      { title: 'Text prettified', body: 'Selection prettified', options: { sound: 'success' } },
+    ]);
   });
 
   it('returns an in-progress error for concurrent hotkey presses', async () => {

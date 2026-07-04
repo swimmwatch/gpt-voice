@@ -1,6 +1,7 @@
 import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type { SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
@@ -43,8 +44,10 @@ export interface ElectronAPI {
   onPauseRecording: (callback: () => void) => () => void;
   onResumeRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
+  onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: string) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
+  setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
@@ -70,7 +73,7 @@ export interface ElectronAPI {
     mimeType: string,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
-  showNotification: (title: string, body: string) => Promise<void>;
+  showNotification: (title: string, body: string, options?: SystemNotificationOptions) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: () => void) => () => void;

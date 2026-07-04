@@ -42,7 +42,14 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
-  const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = useRecording({
+  const {
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    retryLastFailedTranscription,
+  } = useRecording({
     setStatus,
     setIsRecording,
     setIsPaused,
@@ -107,6 +114,9 @@ const App: React.FC = () => {
       }),
       window.electronAPI.onCancelRecording(() => {
         if (!disposed) cancelRecording();
+      }),
+      window.electronAPI.onRetryTranscription(() => {
+        if (!disposed) void retryLastFailedTranscription();
       }),
       window.electronAPI.onTranslationStatus((nextStatus) => {
         if (!disposed) setStatus(nextStatus);
@@ -180,6 +190,7 @@ const App: React.FC = () => {
     pauseRecording,
     resumeRecording,
     cancelRecording,
+    retryLastFailedTranscription,
     t,
   ]);
 

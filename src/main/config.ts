@@ -6,6 +6,7 @@ import {
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
+  DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
   DEFAULT_TRANSLATE_HOTKEY,
 } from '@shared/hotkeys';
@@ -103,6 +104,7 @@ export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
 export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
 export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
 export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+export let currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
 export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
 export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
 export let currentTargetLang = 'en';
@@ -132,12 +134,14 @@ export function setHotkeys(
   stopHotkey?: string,
   translateHotkey?: string,
   prettifyHotkey?: string,
+  retryTranscriptionHotkey?: string,
 ): void {
   if (hotkey !== undefined) currentHotkey = hotkey;
   if (cancelHotkey !== undefined) currentCancelHotkey = cancelHotkey;
   if (stopHotkey !== undefined) currentStopHotkey = stopHotkey;
   if (translateHotkey !== undefined) currentTranslateHotkey = translateHotkey;
   if (prettifyHotkey !== undefined) currentPrettifyHotkey = prettifyHotkey;
+  if (retryTranscriptionHotkey !== undefined) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
 }
 
 export function setTranslateSettings(targetLang?: string): void {
@@ -185,6 +189,7 @@ export function loadConfig(): void {
       if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
       if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
       if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
+      if (config.retryTranscriptionHotkey) currentRetryTranscriptionHotkey = config.retryTranscriptionHotkey;
       if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
       if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
       if (config.targetLang) currentTargetLang = config.targetLang;
@@ -218,6 +223,7 @@ export function saveConfig(): void {
           stopHotkey: currentStopHotkey,
           translateHotkey: currentTranslateHotkey,
           prettifyHotkey: currentPrettifyHotkey,
+          retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
           translateEnabled: currentTranslateEnabled,
           prettifyEnabled: currentPrettifyEnabled,
           targetLang: currentTargetLang,

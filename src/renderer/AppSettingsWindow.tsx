@@ -15,7 +15,7 @@ import {
   type EditableCloakBrowserSettings,
 } from '@renderer/appSettingsUtils';
 import { useI18n } from '@renderer/hooks/useI18n';
-import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import { HOTKEY_TARGETS, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import { PRETTIFY_REASONING_VALUES, type PrettifyReasoning, type PrettifySettings } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
@@ -150,6 +150,7 @@ const AppSettingsWindow: React.FC = () => {
     if (target === 'stop') return hotkeySettings.stopHotkey;
     if (target === 'cancel') return hotkeySettings.cancelHotkey;
     if (target === 'translate') return hotkeySettings.translateHotkey;
+    if (target === 'retryTranscription') return hotkeySettings.retryTranscriptionHotkey;
     return hotkeySettings.prettifyHotkey;
   };
 
@@ -321,7 +322,7 @@ const AppSettingsWindow: React.FC = () => {
                 <h2>{t('appSettings.hotkeys')}</h2>
 
                 <div className="settings-group hotkeys-section app-settings-hotkeys">
-                  {(['record', 'stop', 'cancel', 'translate', 'prettify'] as const).map((target) => (
+                  {HOTKEY_TARGETS.map((target) => (
                     <HotkeyRow
                       key={target}
                       label={t(`hotkey.${target}`)}

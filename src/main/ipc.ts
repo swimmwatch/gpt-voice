@@ -6,6 +6,7 @@ import {
   currentStopHotkey,
   currentTranslateHotkey,
   currentPrettifyHotkey,
+  currentRetryTranscriptionHotkey,
   currentTranslateEnabled,
   currentPrettifyEnabled,
   currentTargetLang,
@@ -30,7 +31,7 @@ import {
 } from './browser';
 import { getAvailableProviders } from './providers';
 import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
-import { registerShortcuts, getRecordingState, resetRecordingState } from './shortcuts';
+import { registerShortcuts, getRecordingState, resetRecordingState, setRetryTranscriptionAvailable } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
@@ -42,6 +43,7 @@ import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloa
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { showSystemNotification } from './electronRuntime';
 import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import type { SystemNotificationOptions } from '@shared/notifications';
 import { normalizePrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
 import { normalizeTextActionSettings, type TextActionSettingsInput } from '@shared/textActionSettings';
 
@@ -139,6 +141,7 @@ function getHotkeySettingsSnapshot(): HotkeySettings {
     stopHotkey: currentStopHotkey,
     translateHotkey: currentTranslateHotkey,
     prettifyHotkey: currentPrettifyHotkey,
+    retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
   };
 }
 
@@ -181,6 +184,11 @@ export function registerIpcHandlers(): void {
 
   handle('recording-start-failed', () => {
     resetRecordingState();
+    return { success: true };
+  });
+
+  handle('set-retry-transcription-available', (_event, available: boolean) => {
+    setRetryTranscriptionAvailable(Boolean(available));
     return { success: true };
   });
 
@@ -424,10 +432,13 @@ export function registerIpcHandlers(): void {
       setHotkeys(undefined, undefined, undefined, hotkey, undefined);
     } else if (target === 'prettify') {
       log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, hotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, hotkey, undefined);
+    } else if (target === 'retryTranscription') {
+      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', hotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, undefined, hotkey);
     } else {
       log.info('Changing hotkey from', currentHotkey, 'to', hotkey);
-      setHotkeys(hotkey, undefined, undefined, undefined, undefined);
+      setHotkeys(hotkey, undefined, undefined, undefined, undefined, undefined);
     }
     saveConfig();
     registerShortcuts();
@@ -504,8 +515,8 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('show-notification', (_event, title: string, body: string) => {
-    showSystemNotification(title, body);
+  handle('show-notification', (_event, title: string, body: string, options?: SystemNotificationOptions) => {
+    showSystemNotification(title, body, options);
   });
 
   handle('get-translations', () => {

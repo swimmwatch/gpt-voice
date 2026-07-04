@@ -1,10 +1,11 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
-import { prepareTranscriptionAudio } from '../audioEncoding';
+import { prepareTranscriptionAudio, type TranscriptionAudioPayload } from '../audioEncoding';
+import { showTranscriptionFailureNotification, showTranscriptionSuccessNotification } from '../recordingNotifications';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
+import { getNotificationErrorMessage, type SystemNotificationOptions } from '@shared/notifications';
 
 const log = rendererLog.scope('recording');
-const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 interface UseRecordingOptions {
   setStatus: (status: string) => void;
@@ -18,23 +19,83 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const failedTranscriptionAudioRef = useRef<TranscriptionAudioPayload | null>(null);
+  const retryTranscriptionInFlightRef = useRef(false);
 
   const getSupportedRecordingMimeType = useCallback(() => {
     return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
   }, []);
 
   const showRecognitionErrorNotification = useCallback(
-    (error: unknown, fallback: string) => {
-      void window.electronAPI.showNotification(
-        t('notification.transcriptionFailed'),
-        formatNotificationBody(error, fallback),
-      );
+    (error: unknown, fallback: string, options?: SystemNotificationOptions) => {
+      showTranscriptionFailureNotification(window.electronAPI, t, error, fallback, options);
     },
     [t],
   );
 
+  const reportRetryTranscriptionAvailability = useCallback((available: boolean) => {
+    void window.electronAPI.setRetryTranscriptionAvailable(available).catch((error: unknown) => {
+      log.warn('Failed to update retry transcription availability:', getNotificationErrorMessage(error));
+    });
+  }, []);
+
+  const clearFailedTranscriptionAudio = useCallback(() => {
+    failedTranscriptionAudioRef.current = null;
+    reportRetryTranscriptionAvailability(false);
+  }, [reportRetryTranscriptionAvailability]);
+
+  const rememberFailedTranscriptionAudio = useCallback(
+    (audio: TranscriptionAudioPayload) => {
+      if (audio.buffer.byteLength === 0) {
+        failedTranscriptionAudioRef.current = null;
+        reportRetryTranscriptionAvailability(false);
+        return;
+      }
+
+      failedTranscriptionAudioRef.current = audio;
+      if (!retryTranscriptionInFlightRef.current) {
+        reportRetryTranscriptionAvailability(true);
+      }
+    },
+    [reportRetryTranscriptionAvailability],
+  );
+
+  const submitTranscriptionAudio = useCallback(
+    async (audio: TranscriptionAudioPayload, retry: boolean) => {
+      setStatus(t(retry ? 'status.resendingTranscription' : 'status.transcribing'));
+
+      try {
+        const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
+        log.info('Transcription result:', {
+          success: result.success,
+          textLength: result.text?.length ?? 0,
+          error: result.error,
+        });
+        if (result.success && result.text) {
+          clearFailedTranscriptionAudio();
+          log.info('Copied transcription to clipboard, text length:', result.text.length);
+          setStatus(t('status.copiedToClipboard'));
+          showTranscriptionSuccessNotification(window.electronAPI, t, result.text);
+          return;
+        }
+
+        rememberFailedTranscriptionAudio(audio);
+        log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
+        setStatus(t('status.transcriptionFailed'));
+        showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'), { sound: 'error' });
+      } catch (err) {
+        rememberFailedTranscriptionAudio(audio);
+        setStatus(t('status.transcriptionError'));
+        log.error('Transcribe error:', err);
+        showRecognitionErrorNotification(err, t('status.transcriptionError'), { sound: 'error' });
+      }
+    },
+    [clearFailedTranscriptionAudio, rememberFailedTranscriptionAudio, setStatus, showRecognitionErrorNotification, t],
+  );
+
   const startRecording = useCallback(async () => {
     try {
+      clearFailedTranscriptionAudio();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -67,21 +128,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
             fallbackReason: audio.fallbackReason,
           });
 
-          const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
-          log.info('Transcription result:', {
-            success: result.success,
-            textLength: result.text?.length ?? 0,
-            error: result.error,
-          });
-          if (result.success && result.text) {
-            log.info('Copied transcription to clipboard, text length:', result.text.length);
-            setStatus(t('status.copiedToClipboard'));
-            window.electronAPI.showNotification(t('notification.textCopied'), result.text);
-          } else {
-            log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
-            setStatus(t('status.transcriptionFailed'));
-            showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'));
-          }
+          await submitTranscriptionAudio(audio, false);
         } catch (err) {
           setStatus(t('status.transcriptionError'));
           log.error('Transcribe error:', err);
@@ -110,7 +157,34 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
       log.error('Microphone error:', err);
       showRecognitionErrorNotification(err, t('status.microphoneError'));
     }
-  }, [getSupportedRecordingMimeType, setIsPaused, setIsRecording, setStatus, showRecognitionErrorNotification, t]);
+  }, [
+    clearFailedTranscriptionAudio,
+    getSupportedRecordingMimeType,
+    setIsPaused,
+    setIsRecording,
+    setStatus,
+    showRecognitionErrorNotification,
+    submitTranscriptionAudio,
+    t,
+  ]);
+
+  const retryLastFailedTranscription = useCallback(async () => {
+    const audio = failedTranscriptionAudioRef.current;
+    if (!audio || retryTranscriptionInFlightRef.current) {
+      return;
+    }
+
+    retryTranscriptionInFlightRef.current = true;
+    reportRetryTranscriptionAvailability(false);
+    try {
+      await submitTranscriptionAudio(audio, true);
+    } finally {
+      retryTranscriptionInFlightRef.current = false;
+      if (failedTranscriptionAudioRef.current) {
+        reportRetryTranscriptionAvailability(true);
+      }
+    }
+  }, [reportRetryTranscriptionAvailability, submitTranscriptionAudio]);
 
   const stopRecording = useCallback(() => {
     if (
@@ -160,24 +234,12 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
     log.info('Cancelled by user');
   }, [notifyStatus, setIsRecording, setIsPaused, setStatus, t]);
 
-  return { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording };
-}
-
-function formatNotificationBody(error: unknown, fallback: string): string {
-  const message = getErrorMessage(error) || fallback;
-  const singleLine = message.replace(/\s+/g, ' ').trim();
-  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') {
-    return error.trim();
-  }
-  if (error instanceof Error) {
-    return error.message.trim();
-  }
-  return '';
+  return {
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    retryLastFailedTranscription,
+  };
 }

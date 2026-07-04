@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRunPrettifyShortcut, canRunTranslateShortcut, handleCancelShortcut } from '@main/shortcuts';
+import {
+  canRunPrettifyShortcut,
+  canRunRetryTranscriptionShortcut,
+  canRunTranslateShortcut,
+  handleCancelShortcut,
+} from '@main/shortcuts';
 
 describe('shortcuts', () => {
   it('uses Escape to cancel recording before prettify', () => {
@@ -70,5 +75,11 @@ describe('shortcuts', () => {
     assert.equal(canRunPrettifyShortcut(false, true), true);
     assert.equal(canRunPrettifyShortcut(false, false), false);
     assert.equal(canRunPrettifyShortcut(true, true), false);
+  });
+
+  it('runs retry transcription only when failed audio is available and not recording', () => {
+    assert.equal(canRunRetryTranscriptionShortcut(false, true), true);
+    assert.equal(canRunRetryTranscriptionShortcut(false, false), false);
+    assert.equal(canRunRetryTranscriptionShortcut(true, true), false);
   });
 });

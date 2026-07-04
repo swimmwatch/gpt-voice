@@ -4,6 +4,7 @@ import {
   currentHotkey,
   currentPrettifyEnabled,
   currentPrettifyHotkey,
+  currentRetryTranscriptionHotkey,
   currentStopHotkey,
   currentTranslateEnabled,
   currentTranslateHotkey,
@@ -14,12 +15,14 @@ import { createLogger } from './logger';
 import { t } from './i18n';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
-import { canRunTextActionHotkey } from '@shared/hotkeys';
+import { canRunRetryTranscriptionHotkey, canRunTextActionHotkey } from '@shared/hotkeys';
 
 const log = createLogger('shortcuts');
 
 let isRecording = false;
 let isPaused = false;
+let retryTranscriptionAvailable = false;
+let registeredRetryTranscriptionHotkey: string | null = null;
 
 interface CancelShortcutActions {
   cancelPrettify: () => { status: string } | null;
@@ -35,6 +38,7 @@ export function resetRecordingState(): void {
   isRecording = false;
   isPaused = false;
   updateTrayIcon(false);
+  syncRetryTranscriptionShortcut();
 }
 
 function normalizeHotkeyForPlatform(hotkey: string): string {
@@ -67,8 +71,55 @@ export function canRunPrettifyShortcut(isCurrentlyRecording: boolean, prettifyEn
   return prettifyEnabled && canRunTextActionHotkey(isCurrentlyRecording);
 }
 
+export function canRunRetryTranscriptionShortcut(isCurrentlyRecording: boolean, retryAvailable: boolean): boolean {
+  return canRunRetryTranscriptionHotkey(isCurrentlyRecording, retryAvailable);
+}
+
+export function setRetryTranscriptionAvailable(available: boolean): void {
+  retryTranscriptionAvailable = available;
+  syncRetryTranscriptionShortcut();
+}
+
+function unregisterRetryTranscriptionShortcut(): void {
+  if (!registeredRetryTranscriptionHotkey) {
+    return;
+  }
+
+  globalShortcut.unregister(registeredRetryTranscriptionHotkey);
+  log.info(`${registeredRetryTranscriptionHotkey} retry transcription shortcut unregistered`);
+  registeredRetryTranscriptionHotkey = null;
+}
+
+function syncRetryTranscriptionShortcut(): void {
+  const retryTranscriptionHotkey = normalizeHotkeyForPlatform(currentRetryTranscriptionHotkey);
+  if (!canRunRetryTranscriptionShortcut(isRecording, retryTranscriptionAvailable)) {
+    unregisterRetryTranscriptionShortcut();
+    return;
+  }
+
+  if (registeredRetryTranscriptionHotkey === retryTranscriptionHotkey) {
+    return;
+  }
+
+  unregisterRetryTranscriptionShortcut();
+  const retryRegistered = globalShortcut.register(retryTranscriptionHotkey, () => {
+    if (!canRunRetryTranscriptionShortcut(isRecording, retryTranscriptionAvailable)) {
+      log.info(`${retryTranscriptionHotkey} pressed while retry transcription is unavailable`);
+      return;
+    }
+
+    log.info(`${retryTranscriptionHotkey} pressed, retrying failed transcription`);
+    retryTranscriptionAvailable = false;
+    unregisterRetryTranscriptionShortcut();
+    getMainWindow()?.webContents.send('retry-transcription');
+  });
+  registeredRetryTranscriptionHotkey = retryRegistered ? retryTranscriptionHotkey : null;
+  log.info(`${retryTranscriptionHotkey} retry transcription shortcut registered:`, retryRegistered);
+}
+
 export function registerShortcuts(): void {
   globalShortcut.unregisterAll();
+  registeredRetryTranscriptionHotkey = null;
 
   const recordHotkey = normalizeHotkeyForPlatform(currentHotkey);
   const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
@@ -83,6 +134,7 @@ export function registerShortcuts(): void {
       isRecording = true;
       isPaused = false;
       updateTrayIcon(true);
+      syncRetryTranscriptionShortcut();
       win?.webContents.send('toggle-recording', true);
     } else if (!isPaused) {
       log.info(`${recordHotkey} pressed, pausing recording`);
@@ -102,6 +154,7 @@ export function registerShortcuts(): void {
       isRecording = false;
       isPaused = false;
       updateTrayIcon(false);
+      syncRetryTranscriptionShortcut();
       getMainWindow()?.webContents.send('stop-recording');
     }
   });
@@ -122,6 +175,7 @@ export function registerShortcuts(): void {
         isRecording = false;
         isPaused = false;
         updateTrayIcon(false);
+        syncRetryTranscriptionShortcut();
         win?.webContents.send('cancel-recording');
       },
       sendTextStatus: (status) => win?.webContents.send('translation-status', status),
@@ -164,4 +218,6 @@ export function registerShortcuts(): void {
     });
   });
   log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
+
+  syncRetryTranscriptionShortcut();
 }
