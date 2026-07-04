@@ -426,6 +426,7 @@ export async function saveAppSettingsState(
       result.prettifySettingsSaved = true;
     } else {
       result.success = false;
+      result.error = prettifyResult.error;
     }
   }
 

@@ -307,6 +307,40 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(result.prettifySettings, { prompt: 'new prompt', reasoning: 'instant' });
   });
 
+  it('propagates prettify settings save errors', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const calls: string[] = [];
+
+    const result = await saveAppSettingsState(
+      {
+        settings: initialSettings,
+        initialSettings,
+        prettifySettings: { prompt: 'new prompt', reasoning: 'instant' },
+        initialPrettifySettings: { prompt: 'old prompt', reasoning: 'instant' },
+        textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+        initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      },
+      {
+        saveCloakBrowserSettings: async () => {
+          calls.push('cloakbrowser');
+          return { success: true, settings: cloakBrowserSettings() };
+        },
+        setPrettifySettings: async () => {
+          calls.push('prettify');
+          return { success: false, error: 'config save failed' };
+        },
+        setTextActionSettings: async (settings) => {
+          calls.push('text-actions');
+          return { success: true, settings };
+        },
+      },
+    );
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'config save failed');
+    assert.deepEqual(calls, ['prettify']);
+  });
+
   it('saves text-action-only changes without saving CloakBrowser settings', async () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const calls: string[] = [];

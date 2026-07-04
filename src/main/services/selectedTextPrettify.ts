@@ -8,9 +8,11 @@ import {
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
 import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
+import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
+export const COPY_SETTLE_DELAY_MS = 120;
 const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 export interface SelectedTextPrettifyResult {
@@ -25,6 +27,7 @@ export interface SelectedTextPrettifyClipboard {
 }
 
 export interface SelectedTextPrettifyDependencies {
+  automateTextAction: (action: TextAutomationAction) => Promise<void>;
   clipboard: SelectedTextPrettifyClipboard;
   getPrettifySettings: () => PrettifySettings;
   notify: (title: string, body: string) => void;
@@ -33,6 +36,7 @@ export interface SelectedTextPrettifyDependencies {
     text: string,
     settings: PrettifyTextSettings,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
+  wait: (delayMs: number) => Promise<void>;
 }
 
 export interface SelectedTextPrettifyService {
@@ -67,15 +71,28 @@ function restoreClipboard(deps: SelectedTextPrettifyDependencies, previousClipbo
   }
 }
 
-function readSelectedText(deps: SelectedTextPrettifyDependencies): string {
-  if (deps.platform === 'linux') {
-    const selectedText = deps.clipboard.readText('selection');
-    if (selectedText.trim()) {
-      return selectedText;
+async function readSelectedText(
+  deps: SelectedTextPrettifyDependencies,
+): Promise<{ selectedText: string; copyError?: unknown }> {
+  let copyError: unknown;
+
+  try {
+    await deps.automateTextAction('copy');
+    await deps.wait(COPY_SETTLE_DELAY_MS);
+  } catch (error: unknown) {
+    copyError = error;
+    log.warn('Could not copy selected text with OS automation:', getErrorMessage(error) || error);
+  }
+
+  let selectedText = deps.clipboard.readText();
+  if (!selectedText.trim() && deps.platform === 'linux') {
+    selectedText = deps.clipboard.readText('selection');
+    if (selectedText.trim() && copyError) {
+      log.info('Using Linux selection clipboard after copy automation failed:', { textLength: selectedText.length });
     }
   }
 
-  return '';
+  return { selectedText, copyError };
 }
 
 function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: string): void {
@@ -130,10 +147,19 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 
     try {
       run.previousClipboardText = deps.clipboard.readText();
-      const selectedText = readSelectedText(deps);
+      deps.clipboard.writeText('');
+      const { selectedText, copyError } = await readSelectedText(deps);
+      if (run.cancelled || run.abortController.signal.aborted) {
+        restoreClipboard(deps, run.previousClipboardText);
+        return createCancelledResult();
+      }
 
       if (!selectedText.trim()) {
+        if (copyError) {
+          log.warn('No selected text found after copy automation failure:', getErrorMessage(copyError) || copyError);
+        }
         const error = t('error.noSelectedText');
+        restoreClipboard(deps, run.previousClipboardText);
         notifyPrettifyFailure(deps, error);
         return createFailureResult(error);
       }
@@ -200,6 +226,9 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 }
 
 const selectedTextPrettifyService = createSelectedTextPrettifyService({
+  automateTextAction: async (action) => {
+    await runTextAutomationAction(action);
+  },
   clipboard: {
     readText: (type) => readClipboardText(type),
     writeText: (text, type) => writeTypedClipboardText(text, type),
@@ -211,6 +240,7 @@ const selectedTextPrettifyService = createSelectedTextPrettifyService({
   notify: showSystemNotification,
   platform: process.platform,
   prettify: prettifyText,
+  wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
 });
 
 export const prettifySelectedText = selectedTextPrettifyService;

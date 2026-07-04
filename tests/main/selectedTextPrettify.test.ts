@@ -8,6 +8,9 @@ import {
 import type { ClipboardType } from '@main/electronRuntime';
 
 interface TestServiceOptions {
+  copiedText?: string;
+  copyError?: Error;
+  platform?: NodeJS.Platform;
   selectionText?: string;
   prettifyResult?: { success: boolean; text?: string; error?: string };
   prettifyWait?: Promise<void>;
@@ -19,9 +22,20 @@ function createTestService(options: TestServiceOptions = {}) {
     selection: options.selectionText || '',
   };
   const notifications: Array<{ title: string; body: string }> = [];
+  const automationCalls: string[] = [];
+  const waitCalls: number[] = [];
   const prettifyCalls: Array<{ text: string; prompt: string; reasoning: string; signal?: AbortSignal }> = [];
 
   const deps: SelectedTextPrettifyDependencies = {
+    automateTextAction: async (action) => {
+      automationCalls.push(action);
+      if (options.copyError) {
+        throw options.copyError;
+      }
+      if (options.copiedText !== undefined) {
+        clipboard.clipboard = options.copiedText;
+      }
+    },
     clipboard: {
       readText: (type?: ClipboardType) => clipboard[type || 'clipboard'],
       writeText: (text: string, type?: ClipboardType) => {
@@ -32,19 +46,24 @@ function createTestService(options: TestServiceOptions = {}) {
     notify: (title, body) => {
       notifications.push({ title, body });
     },
-    platform: 'linux',
+    platform: options.platform || 'linux',
     prettify: async (text, settings) => {
       prettifyCalls.push({ text, prompt: settings.prompt, reasoning: settings.reasoning, signal: settings.signal });
       await options.prettifyWait;
       return options.prettifyResult || { success: true, text: 'prettified text' };
     },
+    wait: async (delayMs) => {
+      waitCalls.push(delayMs);
+    },
   };
 
   return {
+    automationCalls,
     clipboard,
     notifications,
     prettifyCalls,
     service: createSelectedTextPrettifyService(deps),
+    waitCalls,
   };
 }
 
@@ -65,7 +84,8 @@ describe('selectedTextPrettify', () => {
   });
 
   it('uses the Linux selection clipboard', async () => {
-    const { clipboard, prettifyCalls, service } = createTestService({
+    const { automationCalls, clipboard, prettifyCalls, service, waitCalls } = createTestService({
+      copyError: new Error('copy unavailable'),
       selectionText: 'primary selection',
     });
 
@@ -73,12 +93,29 @@ describe('selectedTextPrettify', () => {
 
     assert.equal(result.success, true);
     assert.equal(clipboard.clipboard, 'prettified text');
+    assert.deepEqual(automationCalls, ['copy']);
+    assert.deepEqual(waitCalls, []);
     assert.equal(prettifyCalls.length, 1);
     assert.equal(prettifyCalls[0]?.text, 'primary selection');
     assert.equal(prettifyCalls[0]?.prompt, 'prompt');
     assert.equal(prettifyCalls[0]?.reasoning, 'instant');
     assert.equal(prettifyCalls[0]?.signal instanceof AbortSignal, true);
     assert.equal(prettifyCalls[0]?.signal?.aborted, false);
+  });
+
+  it('uses copy automation on non-Linux platforms', async () => {
+    const { automationCalls, clipboard, prettifyCalls, service, waitCalls } = createTestService({
+      copiedText: 'copied selection',
+      platform: 'darwin',
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, true);
+    assert.equal(clipboard.clipboard, 'prettified text');
+    assert.deepEqual(automationCalls, ['copy']);
+    assert.deepEqual(waitCalls, [120]);
+    assert.equal(prettifyCalls[0]?.text, 'copied selection');
   });
 
   it('keeps the previous clipboard when prettify fails', async () => {
@@ -134,9 +171,12 @@ describe('selectedTextPrettify', () => {
     });
 
     const first = service();
-    await Promise.resolve();
+    for (let attempts = 0; attempts < 5 && prettifyCalls.length === 0; attempts += 1) {
+      await Promise.resolve();
+    }
     const cancelResult = service.cancel();
 
+    assert.equal(prettifyCalls.length, 1);
     assert.deepEqual(cancelResult, {
       success: false,
       status: 'Prettify cancelled',

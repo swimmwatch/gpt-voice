@@ -91,6 +91,20 @@ function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) 
   };
 }
 
+function getTextActionSettingsSnapshot() {
+  return {
+    translateEnabled: currentTranslateEnabled,
+    prettifyEnabled: currentPrettifyEnabled,
+  };
+}
+
+function getPrettifySettingsSnapshot() {
+  return {
+    prompt: currentPrettifyPrompt,
+    reasoning: currentPrettifyReasoning,
+  };
+}
+
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
   const senderUrl = event.senderFrame?.url || event.sender.getURL();
 
@@ -278,7 +292,6 @@ export function registerIpcHandlers(): void {
     try {
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings || {}));
       const preparedSettings = prepareCloakBrowserSettings(settings || {});
-      log.debug('Prepared CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings || {}));
       await shutdownBackgroundBrowser();
       const backgroundStatus = await initBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
@@ -428,10 +441,7 @@ export function registerIpcHandlers(): void {
   });
 
   handle('get-text-action-settings', () => {
-    return {
-      translateEnabled: currentTranslateEnabled,
-      prettifyEnabled: currentPrettifyEnabled,
-    };
+    return getTextActionSettingsSnapshot();
   });
 
   handle('set-text-action-settings', (_event, settings: TextActionSettingsInput) => {
@@ -450,7 +460,7 @@ export function registerIpcHandlers(): void {
       return { success: true, settings: normalized };
     } catch (error: unknown) {
       log.error('Text action settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, settings: getTextActionSettingsSnapshot(), error: getErrorMessage(error) };
     }
   });
 
@@ -468,10 +478,7 @@ export function registerIpcHandlers(): void {
   });
 
   handle('get-prettify-settings', () => {
-    return {
-      prompt: currentPrettifyPrompt,
-      reasoning: currentPrettifyReasoning,
-    };
+    return getPrettifySettingsSnapshot();
   });
 
   handle('set-prettify-settings', (_event, settings: PrettifySettingsInput) => {
@@ -493,7 +500,7 @@ export function registerIpcHandlers(): void {
       return { success: true, settings: normalized };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, settings: getPrettifySettingsSnapshot(), error: getErrorMessage(error) };
     }
   });
 
