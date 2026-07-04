@@ -2,8 +2,10 @@ import { globalShortcut } from 'electron';
 import {
   currentCancelHotkey,
   currentHotkey,
+  currentPrettifyEnabled,
   currentPrettifyHotkey,
   currentStopHotkey,
+  currentTranslateEnabled,
   currentTranslateHotkey,
 } from './config';
 import { updateTrayIcon } from './tray';
@@ -55,6 +57,14 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
 
   actions.sendTextStatus(prettifyCancelResult.status);
   return true;
+}
+
+export function canRunTranslateShortcut(isCurrentlyRecording: boolean, translateEnabled: boolean): boolean {
+  return translateEnabled && canRunTextActionHotkey(isCurrentlyRecording);
+}
+
+export function canRunPrettifyShortcut(isCurrentlyRecording: boolean, prettifyEnabled: boolean): boolean {
+  return prettifyEnabled && canRunTextActionHotkey(isCurrentlyRecording);
 }
 
 export function registerShortcuts(): void {
@@ -120,8 +130,12 @@ export function registerShortcuts(): void {
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
   const translateRegistered = globalShortcut.register(translateHotkey, () => {
-    if (!canRunTextActionHotkey(isRecording)) {
-      log.info(`${translateHotkey} pressed while recording, ignoring translation`);
+    if (!canRunTranslateShortcut(isRecording, currentTranslateEnabled)) {
+      if (currentTranslateEnabled) {
+        log.info(`${translateHotkey} pressed while recording, ignoring translation`);
+        return;
+      }
+      log.info(`${translateHotkey} pressed while translation is disabled`);
       return;
     }
 
@@ -134,8 +148,12 @@ export function registerShortcuts(): void {
   log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 
   const prettifyRegistered = globalShortcut.register(prettifyHotkey, () => {
-    if (!canRunTextActionHotkey(isRecording)) {
-      log.info(`${prettifyHotkey} pressed while recording, ignoring prettify`);
+    if (!canRunPrettifyShortcut(isRecording, currentPrettifyEnabled)) {
+      if (currentPrettifyEnabled) {
+        log.info(`${prettifyHotkey} pressed while recording, ignoring prettify`);
+        return;
+      }
+      log.info(`${prettifyHotkey} pressed while prettify is disabled`);
       return;
     }
 

@@ -1,8 +1,27 @@
 export const CLOAK_BROWSER_HUMAN_PRESETS = ['default', 'careful'] as const;
 export const CLOAK_BROWSER_BACKGROUND_MODES = ['hidden', 'visible'] as const;
+export const CLOAK_BROWSER_LOCALE_VALUES = [
+  'en-US',
+  'en-GB',
+  'ru-RU',
+  'uk-UA',
+  'be-BY',
+  'de-DE',
+  'fr-FR',
+  'es-ES',
+  'it-IT',
+  'pt-BR',
+  'pl-PL',
+  'tr-TR',
+  'ja-JP',
+  'ko-KR',
+  'zh-CN',
+  'zh-TW',
+] as const;
 
 export type CloakBrowserHumanPreset = (typeof CLOAK_BROWSER_HUMAN_PRESETS)[number];
 export type CloakBrowserBackgroundMode = (typeof CLOAK_BROWSER_BACKGROUND_MODES)[number];
+export type CloakBrowserLocale = (typeof CLOAK_BROWSER_LOCALE_VALUES)[number];
 
 export interface CloakBrowserProxySettingsView {
   enabled: boolean;

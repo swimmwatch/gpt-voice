@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { handleCancelShortcut } from '@main/shortcuts';
+import { canRunPrettifyShortcut, canRunTranslateShortcut, handleCancelShortcut } from '@main/shortcuts';
 
 describe('shortcuts', () => {
   it('uses Escape to cancel recording before prettify', () => {
@@ -58,5 +58,17 @@ describe('shortcuts', () => {
 
     assert.equal(handled, false);
     assert.deepEqual(events, []);
+  });
+
+  it('runs Translate only when enabled and not recording', () => {
+    assert.equal(canRunTranslateShortcut(false, true), true);
+    assert.equal(canRunTranslateShortcut(false, false), false);
+    assert.equal(canRunTranslateShortcut(true, true), false);
+  });
+
+  it('runs Prettify only when enabled and not recording', () => {
+    assert.equal(canRunPrettifyShortcut(false, true), true);
+    assert.equal(canRunPrettifyShortcut(false, false), false);
+    assert.equal(canRunPrettifyShortcut(true, true), false);
   });
 });

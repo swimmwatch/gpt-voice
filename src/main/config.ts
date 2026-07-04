@@ -15,6 +15,7 @@ import {
   isPrettifyReasoning,
   type PrettifyReasoning,
 } from '@shared/prettifySettings';
+import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
 const log = createLogger('config');
 
@@ -102,6 +103,8 @@ export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
 export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
 export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
 export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
+export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale = '';
@@ -117,6 +120,10 @@ function generateFingerprintSeed(): string {
 
 function isValidFingerprintSeed(value: string): boolean {
   return FINGERPRINT_SEED_PATTERN.test(value);
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function setHotkeys(
@@ -135,6 +142,11 @@ export function setHotkeys(
 
 export function setTranslateSettings(targetLang?: string): void {
   if (targetLang !== undefined) currentTargetLang = targetLang;
+}
+
+export function setTextActionSettings(translateEnabled?: boolean, prettifyEnabled?: boolean): void {
+  if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
+  if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
 }
 
 export function setPrettifySettings(prompt?: string, reasoning?: string): void {
@@ -173,6 +185,8 @@ export function loadConfig(): void {
       if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
       if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
       if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
+      if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
+      if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
       if (config.targetLang) currentTargetLang = config.targetLang;
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
@@ -188,30 +202,37 @@ export function loadConfig(): void {
       currentFingerprintSeed = generateFingerprintSeed();
       saveConfig();
     }
-  } catch {
-    log.error('Failed to load config');
+  } catch (error) {
+    log.error('Failed to load config:', getErrorMessage(error));
   }
 }
 
 export function saveConfig(): void {
-  fs.writeFileSync(
-    CONFIG_FILE,
-    JSON.stringify(
-      {
-        hotkey: currentHotkey,
-        cancelHotkey: currentCancelHotkey,
-        stopHotkey: currentStopHotkey,
-        translateHotkey: currentTranslateHotkey,
-        prettifyHotkey: currentPrettifyHotkey,
-        targetLang: currentTargetLang,
-        provider: currentProvider,
-        locale: currentLocale,
-        fingerprintSeed: currentFingerprintSeed,
-        prettifyPrompt: currentPrettifyPrompt,
-        prettifyReasoning: currentPrettifyReasoning,
-      },
-      null,
-      2,
-    ),
-  );
+  try {
+    fs.writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify(
+        {
+          hotkey: currentHotkey,
+          cancelHotkey: currentCancelHotkey,
+          stopHotkey: currentStopHotkey,
+          translateHotkey: currentTranslateHotkey,
+          prettifyHotkey: currentPrettifyHotkey,
+          translateEnabled: currentTranslateEnabled,
+          prettifyEnabled: currentPrettifyEnabled,
+          targetLang: currentTargetLang,
+          provider: currentProvider,
+          locale: currentLocale,
+          fingerprintSeed: currentFingerprintSeed,
+          prettifyPrompt: currentPrettifyPrompt,
+          prettifyReasoning: currentPrettifyReasoning,
+        },
+        null,
+        2,
+      ),
+    );
+  } catch (error) {
+    log.error('Failed to save config:', getErrorMessage(error));
+    throw error;
+  }
 }

@@ -8,6 +8,7 @@ import type {
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 type Unsubscribe = () => void;
 
@@ -134,6 +135,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getTranslateSettings: (): Promise<{ targetLang: string }> => {
     return ipcRenderer.invoke('get-translate-settings');
+  },
+  getTextActionSettings: (): Promise<TextActionSettings> => {
+    return ipcRenderer.invoke('get-text-action-settings');
+  },
+  setTextActionSettings: (
+    settings: TextActionSettingsInput,
+  ): Promise<{ success: boolean; settings: TextActionSettings }> => {
+    return ipcRenderer.invoke('set-text-action-settings', settings);
   },
   setTranslateSettings: (targetLang: string): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('set-translate-settings', targetLang);

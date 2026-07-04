@@ -2,6 +2,7 @@ import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstan
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
 
@@ -78,6 +79,10 @@ export interface ElectronAPI {
   getHotkey: () => Promise<HotkeySettings>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
   getTranslateSettings: () => Promise<{ targetLang: string }>;
+  getTextActionSettings: () => Promise<TextActionSettings>;
+  setTextActionSettings: (
+    settings: TextActionSettingsInput,
+  ) => Promise<{ success: boolean; settings: TextActionSettings }>;
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getPrettifySettings: () => Promise<PrettifySettings>;
   setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
