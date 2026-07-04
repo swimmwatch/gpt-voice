@@ -9,6 +9,7 @@ import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@share
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 type Unsubscribe = () => void;
@@ -46,6 +47,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');
+  },
+  setRecordingLifecycleState: (state: RecordingLifecycleState): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-recording-lifecycle-state', state);
   },
   setRetryTranscriptionAvailable: (available: boolean): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('set-retry-transcription-available', available);

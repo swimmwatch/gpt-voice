@@ -5,14 +5,19 @@ import {
   createSelectedTextTranslationService,
   type SelectedTextTranslationDependencies,
 } from '@main/services/selectedTextTranslation';
+import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
 import type { ClipboardType } from '@main/electronRuntime';
 import type { TextAutomationAction } from '@main/services/textAutomation';
 import type { SystemNotificationOptions } from '@shared/notifications';
 
 interface TestServiceOptions {
+  actionGate?: SelectedTextActionGate;
+  cache?: TextActionResultCache;
   copyFails?: boolean;
   copyText?: string;
   selectionText?: string;
+  targetLang?: string;
   translateResult?: { success: boolean; text?: string; error?: string };
   translateWait?: Promise<void>;
 }
@@ -27,6 +32,7 @@ function createTestService(options: TestServiceOptions = {}) {
   const translations: Array<{ text: string; targetLang: string }> = [];
 
   const deps: SelectedTextTranslationDependencies = {
+    actionGate: options.actionGate || createSelectedTextActionGate(),
     automateTextAction: async (action) => {
       actions.push(action);
       if (action === 'copy' && options.copyFails) {
@@ -42,7 +48,8 @@ function createTestService(options: TestServiceOptions = {}) {
         clipboard[type || 'clipboard'] = text;
       },
     },
-    getTargetLang: () => 'uk',
+    cache: options.cache || createTextActionResultCache(20),
+    getTargetLang: () => options.targetLang || 'uk',
     notify: (title, body, options) => {
       notifications.push({ title, body, options });
     },
@@ -75,11 +82,11 @@ describe('selectedTextTranslation', () => {
     const result = await service();
 
     assert.equal(result.success, false);
-    assert.equal(result.error, 'No selected text');
+    assert.equal(result.error, 'No text selected to translate');
     assert.equal(clipboard.clipboard, 'previous clipboard');
     assert.deepEqual(actions, ['copy']);
     assert.deepEqual(notifications, [
-      { title: 'Translation failed', body: 'No selected text', options: { sound: 'error' } },
+      { title: 'Translation failed', body: 'No text selected to translate', options: { sound: 'error' } },
     ]);
   });
 
@@ -115,11 +122,11 @@ describe('selectedTextTranslation', () => {
     const result = await service();
 
     assert.equal(result.success, false);
-    assert.equal(result.error, 'No selected text');
+    assert.equal(result.error, 'No text selected to translate');
     assert.equal(clipboard.clipboard, 'previous clipboard');
     assert.deepEqual(actions, ['copy']);
     assert.deepEqual(notifications, [
-      { title: 'Translation failed', body: 'No selected text', options: { sound: 'error' } },
+      { title: 'Translation failed', body: 'No text selected to translate', options: { sound: 'error' } },
     ]);
   });
 
@@ -153,12 +160,76 @@ describe('selectedTextTranslation', () => {
     ]);
   });
 
-  it('returns an in-progress error for concurrent hotkey presses', async () => {
+  it('copies cached translated text for repeated selected text and language', async () => {
+    const { clipboard, notifications, service, translations } = createTestService({
+      copyText: 'selected text',
+      translateResult: { success: true, text: 'cached translation' },
+    });
+
+    const first = await service();
+    const second = await service();
+
+    assert.equal(first.success, true);
+    assert.equal(second.success, true);
+    assert.equal(clipboard.clipboard, 'cached translation');
+    assert.deepEqual(translations, [{ text: 'selected text', targetLang: 'uk' }]);
+    assert.deepEqual(notifications, [
+      { title: 'Translation copied', body: 'cached translation', options: { sound: 'success' } },
+      { title: 'Translation copied', body: 'cached translation', options: { sound: 'success' } },
+    ]);
+  });
+
+  it('misses the translation cache when target language changes', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      copyText: 'selected text',
+      targetLang: 'uk',
+      translateResult: { success: true, text: 'uk translation' },
+    });
+    const second = createTestService({
+      cache,
+      copyText: 'selected text',
+      targetLang: 'ru',
+      translateResult: { success: true, text: 'ru translation' },
+    });
+
+    await first.service();
+    await second.service();
+
+    assert.deepEqual(first.translations, [{ text: 'selected text', targetLang: 'uk' }]);
+    assert.deepEqual(second.translations, [{ text: 'selected text', targetLang: 'ru' }]);
+    assert.equal(second.clipboard.clipboard, 'ru translation');
+  });
+
+  it('does not cache failed translations', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      copyText: 'selected text',
+      translateResult: { success: false, error: 'provider unavailable' },
+    });
+    const second = createTestService({
+      cache,
+      copyText: 'selected text',
+      translateResult: { success: true, text: 'translated after failure' },
+    });
+
+    await first.service();
+    const secondResult = await second.service();
+
+    assert.equal(secondResult.success, true);
+    assert.deepEqual(first.translations, [{ text: 'selected text', targetLang: 'uk' }]);
+    assert.deepEqual(second.translations, [{ text: 'selected text', targetLang: 'uk' }]);
+    assert.equal(second.clipboard.clipboard, 'translated after failure');
+  });
+
+  it('silently skips duplicate concurrent hotkey presses', async () => {
     let finishTranslation!: () => void;
     const translateWait = new Promise<void>((resolve) => {
       finishTranslation = resolve;
     });
-    const { service } = createTestService({ copyText: 'selected text', translateWait });
+    const { notifications, service, translations } = createTestService({ copyText: 'selected text', translateWait });
 
     const first = service();
     const second = await service();
@@ -166,7 +237,29 @@ describe('selectedTextTranslation', () => {
     const firstResult = await first;
 
     assert.equal(second.success, false);
-    assert.equal(second.error, 'Translation already in progress');
+    assert.equal(second.skipped, true);
+    assert.equal(second.status, '');
     assert.equal(firstResult.success, true);
+    assert.deepEqual(translations, [{ text: 'selected text', targetLang: 'uk' }]);
+    assert.deepEqual(notifications, [
+      { title: 'Translation copied', body: 'translated text', options: { sound: 'success' } },
+    ]);
+  });
+
+  it('silently skips translation while prettify is active', async () => {
+    const actionGate = createSelectedTextActionGate();
+    assert.equal(actionGate.tryBegin('prettify'), true);
+    const { actions, notifications, service, translations } = createTestService({
+      actionGate,
+      copyText: 'selected text',
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(result.skipped, true);
+    assert.deepEqual(actions, []);
+    assert.deepEqual(translations, []);
+    assert.deepEqual(notifications, []);
   });
 });

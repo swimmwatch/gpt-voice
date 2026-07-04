@@ -96,14 +96,10 @@ const App: React.FC = () => {
     const subscriptions = [
       window.electronAPI.onToggleRecording((recording: boolean) => {
         if (disposed) return;
-        setIsRecording(recording);
-        setIsPaused(false);
         if (recording) startRecording();
       }),
       window.electronAPI.onStopRecording(() => {
         if (disposed) return;
-        setIsRecording(false);
-        setIsPaused(false);
         stopRecording();
       }),
       window.electronAPI.onPauseRecording(() => {

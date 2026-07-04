@@ -147,6 +147,8 @@ export default {
   'error.nonJsonResponse': 'Transcribe endpoint returned non-JSON (status {status}): {body}',
   'error.noTranscription': 'No transcription in response',
   'error.noSelectedText': 'No selected text',
+  'error.noTextSelectedToTranslate': 'No text selected to translate',
+  'error.noTextSelectedToPrettify': 'No text selected to prettify',
   'error.translationInProgress': 'Translation already in progress',
   'error.noPrettifyResult': 'No prettified text in response',
   'error.prettifyInProgress': 'Prettify already in progress',

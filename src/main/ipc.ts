@@ -31,7 +31,13 @@ import {
 } from './browser';
 import { getAvailableProviders } from './providers';
 import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
-import { registerShortcuts, getRecordingState, resetRecordingState, setRetryTranscriptionAvailable } from './shortcuts';
+import {
+  registerShortcuts,
+  getRecordingState,
+  resetRecordingState,
+  setRecordingLifecycleState,
+  setRetryTranscriptionAvailable,
+} from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
@@ -45,6 +51,7 @@ import { showSystemNotification } from './electronRuntime';
 import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import { normalizePrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
+import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import { normalizeTextActionSettings, type TextActionSettingsInput } from '@shared/textActionSettings';
 
 const log = createLogger('ipc');
@@ -184,6 +191,14 @@ export function registerIpcHandlers(): void {
 
   handle('recording-start-failed', () => {
     resetRecordingState();
+    return { success: true };
+  });
+
+  handle('set-recording-lifecycle-state', (_event, state: unknown) => {
+    if (!isRecordingLifecycleState(state)) {
+      return { success: false };
+    }
+    setRecordingLifecycleState(state);
     return { success: true };
   });
 

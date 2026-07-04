@@ -147,6 +147,8 @@ export default {
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
   'error.noSelectedText': 'Няма вылучанага тэксту',
+  'error.noTextSelectedToTranslate': 'Няма тэксту для перакладу',
+  'error.noTextSelectedToPrettify': 'Няма тэксту для паляпшэння',
   'error.translationInProgress': 'Пераклад ужо выконваецца',
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.prettifyInProgress': 'Паляпшэнне тэксту ўжо выконваецца',

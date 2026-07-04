@@ -3,6 +3,7 @@ import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@share
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
@@ -47,6 +48,7 @@ export interface ElectronAPI {
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: string) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
+  setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   providerLogin: () => Promise<{ success: boolean; error?: string }>;
