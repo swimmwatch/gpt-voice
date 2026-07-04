@@ -55,4 +55,19 @@ describe('recordingNotifications', () => {
 
     assert.deepEqual(notifications, [{ title: 'Recognition failed', body: 'Microphone error', options: undefined }]);
   });
+
+  it('swallows rejected notification promises', async () => {
+    const api = {
+      showNotification: async () => {
+        throw new Error('notification unavailable');
+      },
+    };
+
+    showTranscriptionSuccessNotification(api, t, 'recognized text');
+    showTranscriptionFailureNotification(api, t, new Error('provider failed'), 'Transcription failed', {
+      sound: 'error',
+    });
+
+    await Promise.resolve();
+  });
 });

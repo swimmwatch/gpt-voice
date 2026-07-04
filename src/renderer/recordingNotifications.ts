@@ -6,12 +6,21 @@ interface TranscriptionNotificationApi {
 
 type Translate = (key: string, params?: Record<string, string>) => string;
 
+function showNotificationSafely(
+  api: TranscriptionNotificationApi,
+  title: string,
+  body: string,
+  options?: SystemNotificationOptions,
+): void {
+  void api.showNotification(title, body, options).catch(() => undefined);
+}
+
 export function showTranscriptionSuccessNotification(
   api: TranscriptionNotificationApi,
   t: Translate,
   text: string,
 ): void {
-  void api.showNotification(t('notification.textCopied'), text, { sound: 'success' });
+  showNotificationSafely(api, t('notification.textCopied'), text, { sound: 'success' });
 }
 
 export function showTranscriptionFailureNotification(
@@ -21,5 +30,5 @@ export function showTranscriptionFailureNotification(
   fallback: string,
   options?: SystemNotificationOptions,
 ): void {
-  void api.showNotification(t('notification.transcriptionFailed'), formatNotificationBody(error, fallback), options);
+  showNotificationSafely(api, t('notification.transcriptionFailed'), formatNotificationBody(error, fallback), options);
 }
