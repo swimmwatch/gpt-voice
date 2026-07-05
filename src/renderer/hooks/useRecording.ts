@@ -123,6 +123,11 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
     try {
       clearFailedTranscriptionAudio();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (recordingLifecycleStateRef.current !== 'starting') {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
 
       const selectedMimeType = getSupportedRecordingMimeType();
@@ -179,6 +184,10 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
         streamRef.current = null;
       }
       mediaRecorderRef.current = null;
+      if (recordingLifecycleStateRef.current !== 'starting') {
+        return;
+      }
+
       setRecordingLifecycle('idle');
       void window.electronAPI.recordingStartFailed();
       setStatus(t('status.microphoneError'));

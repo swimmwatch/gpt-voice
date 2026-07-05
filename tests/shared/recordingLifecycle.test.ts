@@ -27,6 +27,7 @@ describe('recordingLifecycle', () => {
     assert.equal(canPauseRecording('transcribing'), false);
     assert.equal(canResumeRecording('paused'), true);
     assert.equal(canResumeRecording('recording'), false);
+    assert.equal(canCancelRecording('starting'), true);
     assert.equal(canCancelRecording('recording'), true);
     assert.equal(canCancelRecording('transcribing'), false);
   });
