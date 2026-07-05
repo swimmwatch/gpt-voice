@@ -1,4 +1,4 @@
-import { currentPrettifyPrompt, currentPrettifyReasoning } from '@main/config';
+import { currentPrettifyPrompt, currentPrettifyReasoning, currentProvider } from '@main/config';
 import {
   readClipboardText,
   showSystemNotification,
@@ -7,18 +7,28 @@ import {
 } from '@main/electronRuntime';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
+import { getOpenAIApiSettings } from '@main/providers/openaiApiSettings';
+import { OPENAI_API_PROVIDER_ID } from '@main/providers/openaiApiSettingsUtils';
 import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
+import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import {
+  createTextActionCacheKey,
+  createTextActionResultCache,
+  type TextActionResultCache,
+} from '@main/services/textActionCache';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
 export const COPY_SETTLE_DELAY_MS = 120;
-const NOTIFICATION_BODY_MAX_CHARS = 120;
+export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES = 20;
 
 export interface SelectedTextPrettifyResult {
   success: boolean;
   status: string;
   error?: string;
+  skipped?: true;
 }
 
 export interface SelectedTextPrettifyClipboard {
@@ -27,10 +37,13 @@ export interface SelectedTextPrettifyClipboard {
 }
 
 export interface SelectedTextPrettifyDependencies {
+  actionGate: SelectedTextActionGate;
   automateTextAction: (action: TextAutomationAction) => Promise<void>;
+  cache: TextActionResultCache;
   clipboard: SelectedTextPrettifyClipboard;
+  getCacheContext: () => readonly string[];
   getPrettifySettings: () => PrettifySettings;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
   prettify: (
     text: string,
@@ -54,15 +67,6 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   return '';
-}
-
-function formatNotificationBody(error: unknown, fallback: string): string {
-  const message = getErrorMessage(error) || fallback;
-  const singleLine = message.replace(/\s+/g, ' ').trim();
-  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
 }
 
 function restoreClipboard(deps: SelectedTextPrettifyDependencies, previousClipboardText: string | null): void {
@@ -97,7 +101,9 @@ async function readSelectedText(
 
 function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: string): void {
   try {
-    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(body, t('status.prettifyFailed')));
+    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(body, t('status.prettifyFailed')), {
+      sound: 'error',
+    });
   } catch (error: unknown) {
     log.warn('Could not show prettify failure notification:', getErrorMessage(error) || error);
   }
@@ -105,7 +111,7 @@ function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: str
 
 function notifyPrettifySuccess(deps: SelectedTextPrettifyDependencies): void {
   try {
-    deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'));
+    deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), { sound: 'success' });
   } catch (error: unknown) {
     log.warn('Could not show prettify success notification:', getErrorMessage(error) || error);
   }
@@ -128,14 +134,40 @@ function createCancelledResult(): SelectedTextPrettifyResult {
   };
 }
 
+function createSkippedResult(): SelectedTextPrettifyResult {
+  return {
+    success: false,
+    status: '',
+    skipped: true,
+  };
+}
+
+function createSuccessResult(): SelectedTextPrettifyResult {
+  return {
+    success: true,
+    status: t('status.prettifiedSelection'),
+  };
+}
+
+function getPrettifyCacheContext(): readonly string[] {
+  if (currentProvider !== OPENAI_API_PROVIDER_ID) {
+    return [currentProvider];
+  }
+  return [currentProvider, getOpenAIApiSettings().prettifyModel];
+}
+
 export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {
   let activeRun: SelectedTextPrettifyRun | null = null;
 
   const service = async function prettifySelectedText(): Promise<SelectedTextPrettifyResult> {
+    if (!deps.actionGate.tryBegin('prettify')) {
+      log.info('Selected-text prettify skipped because another selected-text action is active');
+      return createSkippedResult();
+    }
     if (activeRun) {
-      const error = t('error.prettifyInProgress');
-      notifyPrettifyFailure(deps, error);
-      return createFailureResult(error);
+      deps.actionGate.finish('prettify');
+      log.info('Selected-text prettify skipped because a prettify run is already active');
+      return createSkippedResult();
     }
 
     const run: SelectedTextPrettifyRun = {
@@ -158,13 +190,31 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         if (copyError) {
           log.warn('No selected text found after copy automation failure:', getErrorMessage(copyError) || copyError);
         }
-        const error = t('error.noSelectedText');
+        const error = t('error.noTextSelectedToPrettify');
         restoreClipboard(deps, run.previousClipboardText);
         notifyPrettifyFailure(deps, error);
         return createFailureResult(error);
       }
 
       const settings = deps.getPrettifySettings();
+      const cacheKey = createTextActionCacheKey([
+        'prettify',
+        selectedText,
+        settings.prompt,
+        settings.reasoning,
+        ...deps.getCacheContext(),
+      ]);
+      const cachedPrettified = deps.cache.get(cacheKey);
+      if (cachedPrettified) {
+        deps.clipboard.writeText(cachedPrettified);
+        notifyPrettifySuccess(deps);
+        log.info('Prettified selected text copied from cache:', {
+          sourceLength: selectedText.length,
+          prettifiedLength: cachedPrettified.length,
+        });
+        return createSuccessResult();
+      }
+
       log.info('Prettifying selected text:', { textLength: selectedText.length, reasoning: settings.reasoning });
       const prettified = await deps.prettify(selectedText, {
         ...settings,
@@ -182,16 +232,14 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         return createFailureResult(error);
       }
 
+      deps.cache.set(cacheKey, prettified.text);
       deps.clipboard.writeText(prettified.text);
       notifyPrettifySuccess(deps);
       log.info('Prettified selected text copied:', {
         sourceLength: selectedText.length,
         prettifiedLength: prettified.text.length,
       });
-      return {
-        success: true,
-        status: t('status.prettifiedSelection'),
-      };
+      return createSuccessResult();
     } catch (error: unknown) {
       if (run.cancelled || run.abortController.signal.aborted) {
         restoreClipboard(deps, run.previousClipboardText);
@@ -207,6 +255,7 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       if (activeRun === run) {
         activeRun = null;
       }
+      deps.actionGate.finish('prettify');
     }
   } as SelectedTextPrettifyService;
 
@@ -226,13 +275,16 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 }
 
 const selectedTextPrettifyService = createSelectedTextPrettifyService({
+  actionGate: selectedTextActionGate,
   automateTextAction: async (action) => {
     await runTextAutomationAction(action);
   },
+  cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES),
   clipboard: {
     readText: (type) => readClipboardText(type),
     writeText: (text, type) => writeTypedClipboardText(text, type),
   },
+  getCacheContext: getPrettifyCacheContext,
   getPrettifySettings: () => ({
     prompt: currentPrettifyPrompt,
     reasoning: currentPrettifyReasoning,

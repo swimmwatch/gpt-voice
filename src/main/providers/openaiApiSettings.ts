@@ -11,6 +11,7 @@ import {
   normalizeOpenAIApiSettings,
   sanitizeOpenAIApiSettings,
   shouldUpdateApiKey,
+  type OpenAIApiSettings,
   type OpenAIApiSettingsInput,
   type OpenAIApiSettingsView,
   type OpenAIApiSettingsWithSecret,
@@ -59,6 +60,10 @@ function decryptApiKey(encryptedApiKey?: string): string {
 export function getOpenAIApiSettingsView(): OpenAIApiSettingsView {
   const stored = readStoredSettings();
   return sanitizeOpenAIApiSettings(stored, Boolean(decryptApiKey(stored.encryptedApiKey)));
+}
+
+export function getOpenAIApiSettings(): OpenAIApiSettings {
+  return normalizeOpenAIApiSettings(readStoredSettings());
 }
 
 export function getOpenAIApiSettingsWithSecret(): OpenAIApiSettingsWithSecret {

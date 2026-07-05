@@ -8,16 +8,25 @@ import {
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
 import { translateText } from '@main/services/translation';
+import { normalizeGoogleTranslateTargetLang } from '@main/services/translationUtils';
+import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import {
+  createTextActionCacheKey,
+  createTextActionResultCache,
+  type TextActionResultCache,
+} from '@main/services/textActionCache';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
 
 const log = createLogger('selection-translate');
 export const COPY_SETTLE_DELAY_MS = 120;
-const NOTIFICATION_BODY_MAX_CHARS = 120;
+export const SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES = 20;
 
 export interface SelectedTextTranslationResult {
   success: boolean;
   status: string;
   error?: string;
+  skipped?: true;
 }
 
 export interface SelectedTextTranslationClipboard {
@@ -26,10 +35,12 @@ export interface SelectedTextTranslationClipboard {
 }
 
 export interface SelectedTextTranslationDependencies {
+  actionGate: SelectedTextActionGate;
   automateTextAction: (action: TextAutomationAction) => Promise<void>;
+  cache: TextActionResultCache;
   clipboard: SelectedTextTranslationClipboard;
   getTargetLang: () => string;
-  notify: (title: string, body: string) => void;
+  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
   translate: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   wait: (delayMs: number) => Promise<void>;
@@ -39,15 +50,6 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   return '';
-}
-
-function formatNotificationBody(error: unknown, fallback: string): string {
-  const message = getErrorMessage(error) || fallback;
-  const singleLine = message.replace(/\s+/g, ' ').trim();
-  if (singleLine.length <= NOTIFICATION_BODY_MAX_CHARS) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, NOTIFICATION_BODY_MAX_CHARS - 3)}...`;
 }
 
 function restoreClipboard(deps: SelectedTextTranslationDependencies, previousClipboardText: string | null): void {
@@ -82,7 +84,9 @@ async function readSelectedText(
 
 function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, body: string): void {
   try {
-    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')));
+    deps.notify(t('notification.translationFailed'), formatNotificationBody(body, t('status.translationFailed')), {
+      sound: 'error',
+    });
   } catch (error: unknown) {
     log.warn('Could not show translation failure notification:', getErrorMessage(error) || error);
   }
@@ -90,7 +94,9 @@ function notifyTranslationFailure(deps: SelectedTextTranslationDependencies, bod
 
 function notifyTranslationCopied(deps: SelectedTextTranslationDependencies, body: string): void {
   try {
-    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')));
+    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')), {
+      sound: 'success',
+    });
   } catch (error: unknown) {
     log.warn('Could not show translation copied notification:', getErrorMessage(error) || error);
   }
@@ -104,17 +110,28 @@ function createFailureResult(error: string): SelectedTextTranslationResult {
   };
 }
 
-export function createSelectedTextTranslationService(deps: SelectedTextTranslationDependencies) {
-  let inProgress = false;
+function createSkippedResult(): SelectedTextTranslationResult {
+  return {
+    success: false,
+    status: '',
+    skipped: true,
+  };
+}
 
+function createSuccessResult(): SelectedTextTranslationResult {
+  return {
+    success: true,
+    status: t('status.translationCopied'),
+  };
+}
+
+export function createSelectedTextTranslationService(deps: SelectedTextTranslationDependencies) {
   return async function translateSelectedTextToClipboard(): Promise<SelectedTextTranslationResult> {
-    if (inProgress) {
-      const error = t('error.translationInProgress');
-      notifyTranslationFailure(deps, error);
-      return createFailureResult(error);
+    if (!deps.actionGate.tryBegin('translate')) {
+      log.info('Selected-text translation skipped because another selected-text action is active');
+      return createSkippedResult();
     }
 
-    inProgress = true;
     let previousClipboardText: string | null = null;
 
     try {
@@ -126,22 +143,36 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
         if (copyError) {
           log.warn('No selected text found after copy automation failure:', getErrorMessage(copyError) || copyError);
         }
-        const error = t('error.noSelectedText');
+        const error = t('error.noTextSelectedToTranslate');
         restoreClipboard(deps, previousClipboardText);
         notifyTranslationFailure(deps, error);
         return createFailureResult(error);
       }
 
-      const targetLang = deps.getTargetLang();
+      const targetLang = normalizeGoogleTranslateTargetLang(deps.getTargetLang());
+      const cacheKey = createTextActionCacheKey(['translate', selectedText, targetLang]);
+      const cachedTranslation = deps.cache.get(cacheKey);
+      if (cachedTranslation) {
+        deps.clipboard.writeText(cachedTranslation);
+        notifyTranslationCopied(deps, cachedTranslation);
+        log.info('Translated selected text copied from cache:', {
+          sourceLength: selectedText.length,
+          translatedLength: cachedTranslation.length,
+          targetLang,
+        });
+        return createSuccessResult();
+      }
+
       log.info('Translating selected text:', { textLength: selectedText.length, targetLang });
       const translated = await deps.translate(selectedText, targetLang);
-      if (!translated.success || !translated.text) {
+      if (!translated.success || !translated.text?.trim()) {
         const error = translated.error || t('status.translationFailed');
         restoreClipboard(deps, previousClipboardText);
         notifyTranslationFailure(deps, error);
         return createFailureResult(error);
       }
 
+      deps.cache.set(cacheKey, translated.text);
       deps.clipboard.writeText(translated.text);
       notifyTranslationCopied(deps, translated.text);
       log.info('Translated selected text copied:', {
@@ -149,10 +180,7 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
         translatedLength: translated.text.length,
         targetLang,
       });
-      return {
-        success: true,
-        status: t('status.translationCopied'),
-      };
+      return createSuccessResult();
     } catch (error: unknown) {
       const message = getErrorMessage(error) || t('status.translationFailed');
       restoreClipboard(deps, previousClipboardText);
@@ -160,15 +188,17 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
       notifyTranslationFailure(deps, message);
       return createFailureResult(message);
     } finally {
-      inProgress = false;
+      deps.actionGate.finish('translate');
     }
   };
 }
 
 export const translateSelectedTextToClipboard = createSelectedTextTranslationService({
+  actionGate: selectedTextActionGate,
   automateTextAction: async (action) => {
     await runTextAutomationAction(action);
   },
+  cache: createTextActionResultCache(SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES),
   clipboard: {
     readText: (type) => readClipboardText(type),
     writeText: (text, type) => writeTypedClipboardText(text, type),

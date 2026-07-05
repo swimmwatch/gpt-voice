@@ -7,7 +7,9 @@ import type {
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type { SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 type Unsubscribe = () => void;
@@ -37,11 +39,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStopRecording: (callback: () => void) => {
     return onMainEvent('stop-recording', callback);
   },
+  onRetryTranscription: (callback: () => void) => {
+    return onMainEvent('retry-transcription', callback);
+  },
   onTranslationStatus: (callback: (status: string) => void) => {
     return onMainEvent<[string]>('translation-status', (status) => callback(String(status)));
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');
+  },
+  setRecordingLifecycleState: (state: RecordingLifecycleState): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-recording-lifecycle-state', state);
+  },
+  setRetryTranscriptionAvailable: (available: boolean): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-retry-transcription-available', available);
   },
   getRecordingStatus: (): Promise<boolean> => {
     return ipcRenderer.invoke('get-recording-status');
@@ -100,8 +111,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   translateText: (text: string, targetLang: string): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('translate-text', text, targetLang);
   },
-  showNotification: (title: string, body: string): Promise<void> => {
-    return ipcRenderer.invoke('show-notification', title, body);
+  showNotification: (title: string, body: string, options?: SystemNotificationOptions): Promise<void> => {
+    return ipcRenderer.invoke('show-notification', title, body, options);
   },
   isBgReady: (): Promise<boolean> => {
     return ipcRenderer.invoke('is-bg-ready');
