@@ -31,6 +31,16 @@ describe('prettifySettings', () => {
     assert.deepEqual(normalizePrettifySettings({ prompt: '   ', reasoning: 'slow' }), DEFAULT_PRETTIFY_SETTINGS);
   });
 
+  it('updates the previous built-in prompt to the current default', () => {
+    assert.equal(
+      normalizePrettifySettings({
+        prompt:
+          'Improve the selected text. Correct grammar errors, remove repetitions and unnecessary words, make the text clearer and neater, and preserve the original meaning. Do not add new facts. Do not significantly change the style unless necessary. Return only the improved text, without explanations or markdown.',
+      }).prompt,
+      DEFAULT_PRETTIFY_SETTINGS.prompt,
+    );
+  });
+
   it('trims custom prompt/provider settings and ignores old reasoning', () => {
     assert.deepEqual(
       normalizePrettifySettings({

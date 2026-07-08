@@ -60,8 +60,10 @@ export interface PrettifyModelLoadResult {
   error?: string;
 }
 
-export const DEFAULT_PRETTIFY_PROMPT =
+const LEGACY_DEFAULT_PRETTIFY_PROMPT =
   'Improve the selected text. Correct grammar errors, remove repetitions and unnecessary words, make the text clearer and neater, and preserve the original meaning. Do not add new facts. Do not significantly change the style unless necessary. Return only the improved text, without explanations or markdown.';
+export const DEFAULT_PRETTIFY_PROMPT =
+  'Improve the selected text: fix grammar, remove repetition, clarify wording, and preserve meaning. Prefer concise wording and shorten it when possible to reduce token count, while keeping important details. Do not add facts or significantly change style. Return only the improved text, without explanations or markdown.';
 export const DEFAULT_PRETTIFY_REASONING: PrettifyReasoning = 'instant';
 export const DEFAULT_PRETTIFY_PROVIDER_ID: PrettifyProviderId = 'ollama';
 export const DEFAULT_OLLAMA_PRETTIFY_BASE_URL = 'http://127.0.0.1:11434';
@@ -107,8 +109,8 @@ function normalizeModel(value: unknown): string {
 }
 
 export function normalizePrettifySettings(input: PrettifySettingsInput = {}): PrettifySettings {
-  const prompt =
-    typeof input.prompt === 'string' && input.prompt.trim() ? input.prompt.trim() : DEFAULT_PRETTIFY_PROMPT;
+  const inputPrompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
+  const prompt = inputPrompt && inputPrompt !== LEGACY_DEFAULT_PRETTIFY_PROMPT ? inputPrompt : DEFAULT_PRETTIFY_PROMPT;
   const providerId = isPrettifyProviderId(input.providerId) ? input.providerId : DEFAULT_PRETTIFY_PROVIDER_ID;
   const ollamaInput = input.ollama || {};
   const vllmInput = input.vllm || {};
