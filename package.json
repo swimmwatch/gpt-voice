@@ -231,6 +231,7 @@
   "dependencies": {
     "cloakbrowser": "0.4.8",
     "electron-log": "^5.4.4",
+    "filesize": "^11.0.19",
     "http-status-codes": "^2.3.0",
     "mmdb-lib": "^3.0.2",
     "playwright-core": "1.61.1",

@@ -14,6 +14,7 @@ import {
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
 } from '@renderer/appSettingsUtils';
+import { formatByteSize } from '@renderer/byteFormatting';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { HOTKEY_TARGETS, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import {
@@ -32,20 +33,6 @@ function getErrorMessage(error: unknown): string {
 
 function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
-}
-
-function formatByteSize(bytes?: number): string {
-  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
 function getActivePrettifyProviderSettings(settings: PrettifySettings) {
