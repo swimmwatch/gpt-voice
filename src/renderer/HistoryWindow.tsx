@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TRANSCRIPTION_HISTORY_DEFAULT_LIMIT, type TranscriptionHistoryEntry } from '@shared/transcriptionHistory';
 import { useI18n } from './hooks/useI18n';
 
+const HISTORY_PAGE_LIMIT = Math.min(25, TRANSCRIPTION_HISTORY_DEFAULT_LIMIT);
 const HISTORY_SCROLL_THRESHOLD_PX = 96;
+type HistoryPageLoadMode = 'append' | 'replace';
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -19,7 +21,11 @@ const HistoryWindow: React.FC = () => {
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copyError, setCopyError] = useState('');
+  const [nextOffset, setNextOffset] = useState(0);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const dateFormatter = useMemo(
     () =>
@@ -30,25 +36,53 @@ const HistoryWindow: React.FC = () => {
     [locale],
   );
 
-  const loadMorePage = useCallback(async (offset: number) => {
+  const loadHistoryPage = useCallback(async (offset: number, mode: HistoryPageLoadMode) => {
+    if (loadingMoreRef.current) return;
+
+    const isReplacing = mode === 'replace';
     loadingMoreRef.current = true;
-    setIsLoadingMore(true);
+    if (isReplacing) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
     setError('');
 
     try {
       const page = await window.electronAPI.getTranscriptionHistory({
-        limit: TRANSCRIPTION_HISTORY_DEFAULT_LIMIT,
+        limit: HISTORY_PAGE_LIMIT,
         offset,
       });
-      setItems((current) => [...current, ...page.items]);
+      if (!isMountedRef.current) return;
+
+      setItems((current) => {
+        if (isReplacing) return page.items;
+
+        const existingIds = new Set(current.map((item) => item.id));
+        return [...current, ...page.items.filter((item) => !existingIds.has(item.id))];
+      });
       setTotal(page.total);
       setHasMore(page.hasMore);
+      setNextOffset(page.offset + page.items.length);
     } catch (loadError: unknown) {
+      if (!isMountedRef.current) return;
       setError(getErrorMessage(loadError));
     } finally {
       loadingMoreRef.current = false;
-      setIsLoadingMore(false);
+      if (isMountedRef.current) {
+        if (isReplacing) {
+          setIsLoading(false);
+        } else {
+          setIsLoadingMore(false);
+        }
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -56,40 +90,44 @@ const HistoryWindow: React.FC = () => {
       return undefined;
     }
 
-    let disposed = false;
-    window.electronAPI
-      .getTranscriptionHistory({
-        limit: TRANSCRIPTION_HISTORY_DEFAULT_LIMIT,
-        offset: 0,
-      })
-      .then(
-        (page) => {
-          if (disposed) return;
-          setItems(page.items);
-          setTotal(page.total);
-          setHasMore(page.hasMore);
-        },
-        (loadError: unknown) => {
-          if (disposed) return;
-          setError(getErrorMessage(loadError));
-        },
-      )
-      .finally(() => {
-        if (!disposed) {
-          setIsLoading(false);
+    const timer = window.setTimeout(() => {
+      void loadHistoryPage(0, 'replace');
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isReady, loadHistoryPage]);
+
+  useEffect(() => {
+    const root = scrollRootRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel || !hasMore || isLoading || isLoadingMore || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          void loadHistoryPage(nextOffset, 'append');
         }
-      });
+      },
+      {
+        root,
+        rootMargin: `${HISTORY_SCROLL_THRESHOLD_PX}px 0px ${HISTORY_SCROLL_THRESHOLD_PX}px 0px`,
+      },
+    );
+    observer.observe(sentinel);
 
     return () => {
-      disposed = true;
+      observer.disconnect();
     };
-  }, [isReady]);
+  }, [hasMore, isLoading, isLoadingMore, loadHistoryPage, nextOffset]);
 
   const loadMoreIfNeeded = (event: React.UIEvent<HTMLElement>): void => {
     const target = event.currentTarget;
     const remaining = target.scrollHeight - target.scrollTop - target.clientHeight;
     if (remaining <= HISTORY_SCROLL_THRESHOLD_PX && hasMore && !loadingMoreRef.current && !isLoading) {
-      void loadMorePage(items.length);
+      void loadHistoryPage(nextOffset, 'append');
     }
   };
 
@@ -125,6 +163,7 @@ const HistoryWindow: React.FC = () => {
       setItems([]);
       setTotal(0);
       setHasMore(false);
+      setNextOffset(0);
       setCopiedId(null);
     } catch (clearError: unknown) {
       setError(getErrorMessage(clearError));
@@ -142,7 +181,7 @@ const HistoryWindow: React.FC = () => {
   };
 
   return (
-    <main className="history-window-shell" onScroll={loadMoreIfNeeded}>
+    <main className="history-window-shell" ref={scrollRootRef} onScroll={loadMoreIfNeeded}>
       <section className="history-window-panel">
         <header className="history-header">
           <div>
@@ -194,6 +233,7 @@ const HistoryWindow: React.FC = () => {
           ))}
         </div>
 
+        {hasMore && <div className="history-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />}
         {isLoadingMore && <p className="modal-instruction history-footer-state">{t('history.loadingMore')}</p>}
         {!isLoading && items.length > 0 && !hasMore && (
           <p className="modal-instruction history-footer-state">{t('history.end')}</p>

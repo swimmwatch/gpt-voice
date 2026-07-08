@@ -608,6 +608,10 @@ h1 {
   gap: 10px;
 }
 
+.history-load-sentinel {
+  height: 1px;
+}
+
 .history-entry {
   background: rgba(42, 42, 74, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.08);
