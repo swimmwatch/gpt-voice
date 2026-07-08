@@ -11,10 +11,13 @@ import {
   DEFAULT_TRANSLATE_HOTKEY,
 } from '@shared/hotkeys';
 import {
+  DEFAULT_PRETTIFY_SETTINGS,
   DEFAULT_PRETTIFY_PROMPT,
   DEFAULT_PRETTIFY_REASONING,
-  isPrettifyReasoning,
+  normalizePrettifySettings,
   type PrettifyReasoning,
+  type PrettifySettings,
+  type PrettifySettingsInput,
 } from '@shared/prettifySettings';
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
@@ -34,13 +37,7 @@ function getAppDataDir(): string {
 
 export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
 
-const MIGRATED_LEGACY_ENTRIES = [
-  'config.json',
-  'chatgpt-session.json',
-  'access-token.json',
-  'chatgpt-text-chat.json',
-  'browser-cache',
-];
+const MIGRATED_LEGACY_ENTRIES = ['config.json', 'chatgpt-session.json', 'access-token.json', 'browser-cache'];
 
 function migrateWholeLegacyAppDir(legacyDir: string): boolean {
   fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
@@ -113,6 +110,7 @@ export let currentLocale = '';
 export let currentFingerprintSeed = '';
 export let currentPrettifyPrompt = DEFAULT_PRETTIFY_PROMPT;
 export let currentPrettifyReasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
+export let currentPrettifySettings: PrettifySettings = DEFAULT_PRETTIFY_SETTINGS;
 
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 
@@ -153,11 +151,25 @@ export function setTextActionSettings(translateEnabled?: boolean, prettifyEnable
   if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
 }
 
-export function setPrettifySettings(prompt?: string, reasoning?: string): void {
-  if (prompt !== undefined) currentPrettifyPrompt = prompt.trim() || DEFAULT_PRETTIFY_PROMPT;
-  if (reasoning !== undefined) {
-    currentPrettifyReasoning = isPrettifyReasoning(reasoning) ? reasoning : DEFAULT_PRETTIFY_REASONING;
-  }
+function updateLegacyPrettifyMirrors(): void {
+  currentPrettifyPrompt = currentPrettifySettings.prompt;
+  currentPrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
+}
+
+export function setPrettifySettings(settings: PrettifySettingsInput = {}): void {
+  currentPrettifySettings = normalizePrettifySettings({
+    ...currentPrettifySettings,
+    ...settings,
+    ollama: {
+      ...currentPrettifySettings.ollama,
+      ...settings.ollama,
+    },
+    vllm: {
+      ...currentPrettifySettings.vllm,
+      ...settings.vllm,
+    },
+  });
+  updateLegacyPrettifyMirrors();
 }
 
 export function setProvider(providerId: string): void {
@@ -196,12 +208,12 @@ export function loadConfig(): void {
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
       if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
-      if (typeof config.prettifyPrompt === 'string' && config.prettifyPrompt.trim()) {
-        currentPrettifyPrompt = config.prettifyPrompt.trim();
-      }
-      if (isPrettifyReasoning(config.prettifyReasoning)) {
-        currentPrettifyReasoning = config.prettifyReasoning;
-      }
+      currentPrettifySettings = normalizePrettifySettings(
+        typeof config.prettifySettings === 'object' && config.prettifySettings
+          ? config.prettifySettings
+          : { prompt: config.prettifyPrompt },
+      );
+      updateLegacyPrettifyMirrors();
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();
@@ -230,8 +242,7 @@ export function saveConfig(): void {
           provider: currentProvider,
           locale: currentLocale,
           fingerprintSeed: currentFingerprintSeed,
-          prettifyPrompt: currentPrettifyPrompt,
-          prettifyReasoning: currentPrettifyReasoning,
+          prettifySettings: currentPrettifySettings,
         },
         null,
         2,

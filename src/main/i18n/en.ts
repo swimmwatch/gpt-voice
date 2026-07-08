@@ -60,7 +60,6 @@ export default {
   'providerSettings.apiKeyStored': 'A key is already saved. Leave this field empty to keep it.',
   'providerSettings.apiKeyPlaceholder': 'Paste OpenAI API key',
   'providerSettings.model': 'Model',
-  'providerSettings.prettifyModel': 'Prettify model',
   'providerSettings.language': 'Language',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -154,6 +153,20 @@ export default {
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',
   'prettify.reasoning.extended': 'Extended',
+  'prettify.provider': 'Prettify provider',
+  'prettify.provider.ollama': 'Ollama',
+  'prettify.provider.vllm': 'vLLM',
+  'prettify.baseUrl': 'Base URL',
+  'prettify.model': 'Model',
+  'prettify.refreshModels': 'Refresh',
+  'prettify.loadingModels': 'Loading...',
+  'prettify.noModels': 'Select a model',
+  'prettify.modelsRefreshFailed': 'Could not load models',
+  'prettify.temperature': 'Temperature: {value}',
+  'prettify.vllmApiKey': 'vLLM API key',
+  'prettify.vllmApiKeyStored': 'A key is already saved. Leave empty to keep it.',
+  'prettify.vllmApiKeyPlaceholder': 'Optional API key',
+  'prettify.clearVllmApiKey': 'Clear',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
@@ -169,6 +182,7 @@ export default {
   'error.noTextSelectedToPrettify': 'No text selected to prettify',
   'error.translationInProgress': 'Translation already in progress',
   'error.noPrettifyResult': 'No prettified text in response',
+  'error.noPrettifyModel': 'Select a prettify model in App Settings',
   'error.prettifyInProgress': 'Prettify already in progress',
 
   // Tray

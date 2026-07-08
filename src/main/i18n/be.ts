@@ -60,7 +60,6 @@ export default {
   'providerSettings.apiKeyStored': 'Ключ ужо захаваны. Пакіньце поле пустым, каб не змяняць яго.',
   'providerSettings.apiKeyPlaceholder': 'Устаўце OpenAI API key',
   'providerSettings.model': 'Мадэль',
-  'providerSettings.prettifyModel': 'Мадэль паляпшэння тэксту',
   'providerSettings.language': 'Мова',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -154,6 +153,20 @@ export default {
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',
   'prettify.reasoning.extended': 'Extended',
+  'prettify.provider': 'Правайдар паляпшэння',
+  'prettify.provider.ollama': 'Ollama',
+  'prettify.provider.vllm': 'vLLM',
+  'prettify.baseUrl': 'Base URL',
+  'prettify.model': 'Мадэль',
+  'prettify.refreshModels': 'Абнавіць',
+  'prettify.loadingModels': 'Загрузка...',
+  'prettify.noModels': 'Выберыце мадэль',
+  'prettify.modelsRefreshFailed': 'Не ўдалося загрузіць мадэлі',
+  'prettify.temperature': 'Temperature: {value}',
+  'prettify.vllmApiKey': 'vLLM API key',
+  'prettify.vllmApiKeyStored': 'Ключ ужо захаваны. Пакіньце поле пустым, каб не змяняць яго.',
+  'prettify.vllmApiKeyPlaceholder': 'Неабавязковы API key',
+  'prettify.clearVllmApiKey': 'Ачысціць',
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
@@ -169,6 +182,7 @@ export default {
   'error.noTextSelectedToPrettify': 'Няма тэксту для паляпшэння',
   'error.translationInProgress': 'Пераклад ужо выконваецца',
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
+  'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',
   'error.prettifyInProgress': 'Паляпшэнне тэксту ўжо выконваецца',
 
   // Tray

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '../types';
 import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
-import { DEFAULT_OPENAI_API_PRETTIFY_MODEL } from '@shared/prettifySettings';
 
 interface Props {
   provider: ProviderInfo;
@@ -26,9 +25,6 @@ const ProviderSettingsModal: React.FC<Props> = ({ provider, settings, onClose, o
   const [language, setLanguage] = useState(settings.authType === 'apiKey' ? settings.language : 'auto');
   const [prompt, setPrompt] = useState(settings.authType === 'apiKey' ? settings.prompt : '');
   const [temperature, setTemperature] = useState(settings.authType === 'apiKey' ? settings.temperature : 0);
-  const [prettifyModel, setPrettifyModel] = useState(
-    settings.authType === 'apiKey' ? settings.prettifyModel : DEFAULT_OPENAI_API_PRETTIFY_MODEL,
-  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -38,7 +34,6 @@ const ProviderSettingsModal: React.FC<Props> = ({ provider, settings, onClose, o
     const result = await window.electronAPI.saveProviderSettings(provider.id, {
       apiKey,
       model: TRANSCRIPTION_MODEL_WHISPER_1,
-      prettifyModel,
       language,
       prompt,
       temperature,
@@ -118,10 +113,6 @@ const ProviderSettingsModal: React.FC<Props> = ({ provider, settings, onClose, o
               <select value={TRANSCRIPTION_MODEL_WHISPER_1} disabled>
                 <option value={TRANSCRIPTION_MODEL_WHISPER_1}>{TRANSCRIPTION_MODEL_WHISPER_1}</option>
               </select>
-            </label>
-            <label className="settings-field">
-              <span>{t('providerSettings.prettifyModel')}</span>
-              <input value={prettifyModel} onChange={(event) => setPrettifyModel(event.target.value)} />
             </label>
             <label className="settings-field">
               <span>{t('providerSettings.language')}</span>

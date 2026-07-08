@@ -43,7 +43,7 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 - **Global hotkeys**: record, stop, cancel, translate selected text, and prettify selected text without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
 - **Transcription history**: successful recognitions are stored locally so you can reopen and copy previous text.
-- **Selected-text actions**: translate selected text through Google Translate or prettify selected text through the selected LLM provider.
+- **Selected-text actions**: translate selected text through Google Translate or prettify selected text through a configured local LLM provider.
 - **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb/rpm, plus a Windows installer.
 - **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
@@ -63,14 +63,14 @@ flowchart LR
   Clipboard --> Editor[Your target app]
   Editor --> Selection[Selected edited text]
   Selection --> Google[Google Translate web page]
-  Selection --> LLM[Selected LLM provider]
+  Selection --> LLM[Ollama or vLLM prettify provider]
   Google --> Clipboard
   LLM --> Clipboard
 ```
 
 GPT-Voice records audio locally and sends it to the selected provider. The ChatGPT Web provider uses a background CloakBrowser context with your saved ChatGPT cookies. The OpenAI API provider sends multipart audio to OpenAI's transcription endpoint with your API key. In both cases, GPT-Voice parses the final text and copies it to the clipboard.
 
-Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the active LLM provider and copies the improved result to the clipboard.
+Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the configured Ollama or vLLM provider and copies the improved result to the clipboard.
 
 Availability, quotas, and behavior are determined by the web service account you use. GPT-Voice does not bypass provider-side limits; it gives you a desktop workflow around the web features available to your account.
 
@@ -84,7 +84,6 @@ ChatGPT Web uses a real browser session through CloakBrowser.
 - Does not require an OpenAI API key.
 - Reuses the saved `chatgpt-session.json` file from your per-user GPT-Voice data directory.
 - Starts a persistent background CloakBrowser context for transcription.
-- Reuses a saved ChatGPT text conversation for Prettify Text requests so browser-based checks and text actions do not create a new chat every time.
 
 Use this provider when you want the app to work through the GPT web account you already use.
 
@@ -99,6 +98,16 @@ OpenAI API uses the official audio transcription endpoint and the `whisper-1` mo
 - Supports Whisper-specific settings only: model `whisper-1`, language auto/en/ru/uk/be, optional prompt, and temperature from `0` to `1`.
 
 Use this provider when you want the official API path and predictable API-account billing instead of web-session automation.
+
+### Prettify Providers
+
+Prettify Text is configured independently from transcription providers in **App settings**.
+
+- **Ollama** is the default prettify provider and uses `http://127.0.0.1:11434`.
+- **vLLM** uses an OpenAI-compatible API base URL, defaulting to `http://127.0.0.1:8000/v1`.
+- Model choices are loaded from the selected provider with the **Refresh** button and must be selected from the dropdown.
+- vLLM API keys are optional and saved encrypted with Electron `safeStorage` when secure storage is available.
+- GPT-Voice does not start Ollama or vLLM for you; the chosen provider must already be running.
 
 ## Install
 
@@ -299,7 +308,7 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 7. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
 8. Optional: open **History** from the tray menu to view successful transcriptions. Click any transcript text to copy it again.
 9. Optional: edit the text, select it, choose a target language in GPT-Voice, and press the Translate hotkey to copy the translated text.
-10. Optional: select text and press the Prettify hotkey to copy a clearer version from the active LLM provider.
+10. Optional: configure Ollama or vLLM in **App settings**, select text, and press the Prettify hotkey to copy a clearer version.
 
 ## Default Controls
 
@@ -315,7 +324,7 @@ Shortcuts are configurable from **App settings**.
 
 Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Translation uses OS automation to copy selected text when needed; Prettify reads the Linux primary selection directly and does not automate paste.
 
-The Prettify Text prompt and reasoning settings are configurable from **App settings**.
+The Prettify Text provider, base URL, model, prompt, and temperature are configurable from **App settings**.
 
 ## Build Locally
 
@@ -417,9 +426,9 @@ build/           Packaging metadata, macOS entitlements, and Fedora release imag
 
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to the selected LLM provider.
+GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to your configured Ollama or vLLM endpoint.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json` and a non-secret `chatgpt-text-chat.json` conversation id for reusable text requests. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings are stored in `config.json`, and an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

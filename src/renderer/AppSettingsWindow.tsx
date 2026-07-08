@@ -16,7 +16,12 @@ import {
 } from '@renderer/appSettingsUtils';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { HOTKEY_TARGETS, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
-import { PRETTIFY_REASONING_VALUES, type PrettifyReasoning, type PrettifySettings } from '@shared/prettifySettings';
+import {
+  PRETTIFY_PROVIDER_IDS,
+  type PrettifyModelOption,
+  type PrettifyProviderId,
+  type PrettifySettings,
+} from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const log = rendererLog.scope('app-settings');
@@ -29,6 +34,10 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
+function getActivePrettifyProviderSettings(settings: PrettifySettings) {
+  return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
+}
+
 const AppSettingsWindow: React.FC = () => {
   const { t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
@@ -38,6 +47,12 @@ const AppSettingsWindow: React.FC = () => {
   const [textActionSettings, setTextActionSettings] = useState<TextActionSettings | null>(null);
   const [initialTextActionSettings, setInitialTextActionSettings] = useState<TextActionSettings | null>(null);
   const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [prettifyModelOptions, setPrettifyModelOptions] = useState<Record<PrettifyProviderId, PrettifyModelOption[]>>({
+    ollama: [],
+    vllm: [],
+  });
+  const [prettifyModelError, setPrettifyModelError] = useState('');
+  const [isLoadingPrettifyModels, setIsLoadingPrettifyModels] = useState(false);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
@@ -118,7 +133,94 @@ const AppSettingsWindow: React.FC = () => {
     fieldKey: AppSettingsFieldKey,
   ): void => {
     clearFieldErrors(fieldKey);
+    if (key === 'providerId') {
+      setPrettifyModelError('');
+      clearFieldErrors('prettifyBaseUrl', 'prettifyModel', 'prettifyApiKey');
+    }
     setPrettifySettings((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const updatePrettifyProviderSetting = <Key extends keyof PrettifySettings['ollama'] & keyof PrettifySettings['vllm']>(
+    key: Key,
+    value: PrettifySettings['ollama'][Key] | PrettifySettings['vllm'][Key],
+    fieldKey: AppSettingsFieldKey,
+  ): void => {
+    clearFieldErrors(fieldKey);
+    setPrettifyModelError('');
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            [current.providerId]: {
+              ...current[current.providerId],
+              [key]: value,
+            },
+          }
+        : current,
+    );
+  };
+
+  const updateVllmApiKey = (value: string): void => {
+    clearFieldErrors('prettifyApiKey');
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            vllm: {
+              ...current.vllm,
+              apiKey: value,
+              clearApiKey: false,
+            },
+          }
+        : current,
+    );
+  };
+
+  const clearVllmApiKey = (): void => {
+    clearFieldErrors('prettifyApiKey');
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            vllm: {
+              ...current.vllm,
+              apiKey: '',
+              hasApiKey: false,
+              clearApiKey: true,
+            },
+          }
+        : current,
+    );
+  };
+
+  const refreshPrettifyModels = async (): Promise<void> => {
+    if (!prettifySettings) return;
+
+    setIsLoadingPrettifyModels(true);
+    setPrettifyModelError('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const providerId = prettifySettings.providerId;
+      const result = await window.electronAPI.listPrettifyModels(providerId, prettifySettings);
+      if (!result.success) {
+        setPrettifyModelError(result.error || t('prettify.modelsRefreshFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        [providerId]: result.models,
+      }));
+
+      const activeProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
+      if (!activeProviderSettings.model && result.models[0]) {
+        updatePrettifyProviderSetting('model', result.models[0].id, 'prettifyModel');
+      }
+    } catch (modelError: unknown) {
+      setPrettifyModelError(getErrorMessage(modelError));
+    } finally {
+      setIsLoadingPrettifyModels(false);
+    }
   };
 
   const updateTextActionSetting = <Key extends keyof TextActionSettings>(
@@ -296,6 +398,24 @@ const AppSettingsWindow: React.FC = () => {
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
   const localeOptions = getCloakBrowserLocaleOptions(settings?.locale);
   const timezoneOptions = getCloakBrowserTimezoneOptions(settings?.timezone);
+  const activePrettifyProviderSettings = prettifySettings ? getActivePrettifyProviderSettings(prettifySettings) : null;
+  const activePrettifyModelOptions =
+    prettifySettings && activePrettifyProviderSettings
+      ? [
+          ...(!activePrettifyProviderSettings.model ||
+          prettifyModelOptions[prettifySettings.providerId].some(
+            (option) => option.id === activePrettifyProviderSettings.model,
+          )
+            ? []
+            : [
+                {
+                  id: activePrettifyProviderSettings.model,
+                  name: activePrettifyProviderSettings.model,
+                },
+              ]),
+          ...prettifyModelOptions[prettifySettings.providerId],
+        ]
+      : [];
 
   return (
     <main className="settings-window-shell">
@@ -352,6 +472,105 @@ const AppSettingsWindow: React.FC = () => {
 
                 <div className="settings-group">
                   <label className="settings-field">
+                    <span>{t('prettify.provider')}</span>
+                    {renderFieldError('prettifyProvider')}
+                    <select
+                      value={prettifySettings.providerId}
+                      onChange={(event) =>
+                        updatePrettifySetting(
+                          'providerId',
+                          event.target.value as PrettifyProviderId,
+                          'prettifyProvider',
+                        )
+                      }
+                    >
+                      {PRETTIFY_PROVIDER_IDS.map((providerId) => (
+                        <option key={providerId} value={providerId}>
+                          {t(`prettify.provider.${providerId}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="settings-field">
+                    <span>{t('prettify.baseUrl')}</span>
+                    {renderFieldError('prettifyBaseUrl')}
+                    <input
+                      type="url"
+                      value={activePrettifyProviderSettings?.baseUrl || ''}
+                      onChange={(event) =>
+                        updatePrettifyProviderSetting('baseUrl', event.target.value, 'prettifyBaseUrl')
+                      }
+                    />
+                  </label>
+                  {prettifySettings.providerId === 'vllm' && (
+                    <label className="settings-field">
+                      <span>{t('prettify.vllmApiKey')}</span>
+                      {renderFieldError('prettifyApiKey')}
+                      <div className="settings-input-action">
+                        <input
+                          type="password"
+                          value={prettifySettings.vllm.apiKey || ''}
+                          placeholder={
+                            prettifySettings.vllm.hasApiKey
+                              ? t('prettify.vllmApiKeyStored')
+                              : t('prettify.vllmApiKeyPlaceholder')
+                          }
+                          onChange={(event) => updateVllmApiKey(event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="hotkey-btn"
+                          disabled={!prettifySettings.vllm.hasApiKey && !prettifySettings.vllm.apiKey}
+                          onClick={clearVllmApiKey}
+                        >
+                          {t('prettify.clearVllmApiKey')}
+                        </button>
+                      </div>
+                    </label>
+                  )}
+                  <label className="settings-field">
+                    <span>{t('prettify.model')}</span>
+                    {renderFieldError('prettifyModel')}
+                    <div className="settings-input-action">
+                      <select
+                        value={activePrettifyProviderSettings?.model || ''}
+                        onChange={(event) =>
+                          updatePrettifyProviderSetting('model', event.target.value, 'prettifyModel')
+                        }
+                      >
+                        <option value="">{t('prettify.noModels')}</option>
+                        {activePrettifyModelOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.name || option.id}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="hotkey-btn"
+                        disabled={isLoadingPrettifyModels}
+                        onClick={() => void refreshPrettifyModels()}
+                      >
+                        {isLoadingPrettifyModels ? t('prettify.loadingModels') : t('prettify.refreshModels')}
+                      </button>
+                    </div>
+                    {prettifyModelError && <span className="settings-field-error">{prettifyModelError}</span>}
+                  </label>
+                  <label className="settings-field">
+                    <span>{t('prettify.temperature', { value: prettifySettings.temperature.toFixed(2) })}</span>
+                    {renderFieldError('prettifyTemperature')}
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={prettifySettings.temperature}
+                      onChange={(event) =>
+                        updatePrettifySetting('temperature', Number(event.target.value), 'prettifyTemperature')
+                      }
+                    />
+                  </label>
+                  <label className="settings-field">
                     <span>{t('prettify.prompt')}</span>
                     {renderFieldError('prettifyPrompt')}
                     <textarea
@@ -359,22 +578,6 @@ const AppSettingsWindow: React.FC = () => {
                       value={prettifySettings.prompt}
                       onChange={(event) => updatePrettifySetting('prompt', event.target.value, 'prettifyPrompt')}
                     />
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('prettify.reasoning')}</span>
-                    {renderFieldError('prettifyReasoning')}
-                    <select
-                      value={prettifySettings.reasoning}
-                      onChange={(event) =>
-                        updatePrettifySetting('reasoning', event.target.value as PrettifyReasoning, 'prettifyReasoning')
-                      }
-                    >
-                      {PRETTIFY_REASONING_VALUES.map((value) => (
-                        <option key={value} value={value}>
-                          {t(`prettify.reasoning.${value}`)}
-                        </option>
-                      ))}
-                    </select>
                   </label>
                 </div>
               </section>

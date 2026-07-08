@@ -8,7 +8,6 @@ import {
   sanitizeOpenAIApiSettings,
   shouldUpdateApiKey,
 } from '@main/providers/openaiApiSettingsUtils';
-import { DEFAULT_OPENAI_API_PRETTIFY_MODEL } from '@shared/prettifySettings';
 
 describe('openaiApiSettingsUtils', () => {
   it('normalizes unknown values to safe Whisper defaults', () => {
@@ -24,7 +23,7 @@ describe('openaiApiSettingsUtils', () => {
     );
   });
 
-  it('keeps supported language, trims prompt, and clamps temperature', () => {
+  it('keeps supported language, trims prompt, clamps temperature, and ignores legacy prettify model', () => {
     assert.deepEqual(
       normalizeOpenAIApiSettings({
         language: 'ru',
@@ -34,7 +33,6 @@ describe('openaiApiSettingsUtils', () => {
       }),
       {
         model: OPENAI_API_SETTINGS_MODEL,
-        prettifyModel: 'gpt-5.5',
         language: 'ru',
         prompt: 'domain vocabulary',
         temperature: 1,
@@ -60,7 +58,6 @@ describe('openaiApiSettingsUtils', () => {
     assert.deepEqual(sanitized, {
       hasApiKey: true,
       model: OPENAI_API_SETTINGS_MODEL,
-      prettifyModel: DEFAULT_OPENAI_API_PRETTIFY_MODEL,
       language: 'en',
       prompt: 'names',
       temperature: 0.1,

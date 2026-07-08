@@ -8,7 +8,12 @@ import type {
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
-import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type {
+  PrettifyModelListResult,
+  PrettifyProviderId,
+  PrettifySettings,
+  PrettifySettingsInput,
+} from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type {
   TranscriptionHistoryClearResult,
@@ -178,6 +183,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setPrettifySettings: (settings: PrettifySettingsInput): Promise<{ success: boolean; settings: PrettifySettings }> => {
     return ipcRenderer.invoke('set-prettify-settings', settings);
+  },
+  listPrettifyModels: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ): Promise<PrettifyModelListResult> => {
+    return ipcRenderer.invoke('list-prettify-models', providerId, settings);
   },
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');

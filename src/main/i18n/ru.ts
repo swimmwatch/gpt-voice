@@ -60,7 +60,6 @@ export default {
   'providerSettings.apiKeyStored': 'Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.',
   'providerSettings.apiKeyPlaceholder': 'Вставьте OpenAI API key',
   'providerSettings.model': 'Модель',
-  'providerSettings.prettifyModel': 'Модель улучшения текста',
   'providerSettings.language': 'Язык',
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
@@ -154,6 +153,20 @@ export default {
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',
   'prettify.reasoning.extended': 'Extended',
+  'prettify.provider': 'Провайдер улучшения',
+  'prettify.provider.ollama': 'Ollama',
+  'prettify.provider.vllm': 'vLLM',
+  'prettify.baseUrl': 'Base URL',
+  'prettify.model': 'Модель',
+  'prettify.refreshModels': 'Обновить',
+  'prettify.loadingModels': 'Загрузка...',
+  'prettify.noModels': 'Выберите модель',
+  'prettify.modelsRefreshFailed': 'Не удалось загрузить модели',
+  'prettify.temperature': 'Temperature: {value}',
+  'prettify.vllmApiKey': 'vLLM API key',
+  'prettify.vllmApiKeyStored': 'Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.',
+  'prettify.vllmApiKeyPlaceholder': 'Необязательный API key',
+  'prettify.clearVllmApiKey': 'Очистить',
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
@@ -169,6 +182,7 @@ export default {
   'error.noTextSelectedToPrettify': 'Нет текста для улучшения',
   'error.translationInProgress': 'Перевод уже выполняется',
   'error.noPrettifyResult': 'В ответе нет улучшенного текста',
+  'error.noPrettifyModel': 'Выберите модель улучшения текста в настройках приложения',
   'error.prettifyInProgress': 'Улучшение текста уже выполняется',
 
   // Tray

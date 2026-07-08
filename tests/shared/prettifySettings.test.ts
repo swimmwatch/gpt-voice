@@ -1,8 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_PRETTIFY_PROMPT,
+  DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
   DEFAULT_PRETTIFY_REASONING,
+  DEFAULT_PRETTIFY_SETTINGS,
+  DEFAULT_VLLM_PRETTIFY_BASE_URL,
+  isPrettifyProviderId,
   isPrettifyReasoning,
   normalizePrettifySettings,
 } from '@shared/prettifySettings';
@@ -16,21 +19,59 @@ describe('prettifySettings', () => {
     assert.equal(isPrettifyReasoning(null), false);
   });
 
-  it('normalizes missing or invalid settings to defaults', () => {
-    assert.deepEqual(normalizePrettifySettings(), {
-      prompt: DEFAULT_PRETTIFY_PROMPT,
-      reasoning: DEFAULT_PRETTIFY_REASONING,
-    });
-    assert.deepEqual(normalizePrettifySettings({ prompt: '   ', reasoning: 'slow' }), {
-      prompt: DEFAULT_PRETTIFY_PROMPT,
-      reasoning: DEFAULT_PRETTIFY_REASONING,
-    });
+  it('recognizes supported provider values', () => {
+    assert.equal(isPrettifyProviderId('ollama'), true);
+    assert.equal(isPrettifyProviderId('vllm'), true);
+    assert.equal(isPrettifyProviderId('chatgpt'), false);
+    assert.equal(isPrettifyProviderId(null), false);
   });
 
-  it('trims custom prompts and keeps supported reasoning values', () => {
-    assert.deepEqual(normalizePrettifySettings({ prompt: '  Improve this  ', reasoning: 'extended' }), {
-      prompt: 'Improve this',
-      reasoning: 'extended',
+  it('normalizes missing or invalid settings to defaults', () => {
+    assert.deepEqual(normalizePrettifySettings(), DEFAULT_PRETTIFY_SETTINGS);
+    assert.deepEqual(normalizePrettifySettings({ prompt: '   ', reasoning: 'slow' }), DEFAULT_PRETTIFY_SETTINGS);
+  });
+
+  it('trims custom prompt/provider settings and ignores old reasoning', () => {
+    assert.deepEqual(
+      normalizePrettifySettings({
+        prompt: '  Improve this  ',
+        reasoning: 'extended',
+        providerId: 'vllm',
+        temperature: 0.336,
+        ollama: { baseUrl: ' http://localhost:11434/ ', model: ' llama3.2 ' },
+        vllm: { baseUrl: ' http://localhost:8000/v1/ ', model: ' Qwen ', hasApiKey: true },
+      }),
+      {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        providerId: 'vllm',
+        prompt: 'Improve this',
+        temperature: 0.34,
+        ollama: {
+          baseUrl: 'http://localhost:11434',
+          model: 'llama3.2',
+        },
+        vllm: {
+          baseUrl: 'http://localhost:8000/v1',
+          model: 'Qwen',
+          hasApiKey: true,
+        },
+      },
+    );
+  });
+
+  it('keeps legacy reasoning helpers available without affecting normalized settings', () => {
+    assert.equal(DEFAULT_PRETTIFY_REASONING, 'instant');
+    assert.deepEqual(normalizePrettifySettings({ reasoning: 'extended' }), {
+      ...DEFAULT_PRETTIFY_SETTINGS,
+      ollama: {
+        baseUrl: DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
+        model: '',
+      },
+      vllm: {
+        baseUrl: DEFAULT_VLLM_PRETTIFY_BASE_URL,
+        model: '',
+        hasApiKey: false,
+      },
     });
   });
 });

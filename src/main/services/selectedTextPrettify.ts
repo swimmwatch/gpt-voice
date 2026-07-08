@@ -1,4 +1,3 @@
-import { currentPrettifyPrompt, currentPrettifyReasoning, currentProvider } from '@main/config';
 import {
   readClipboardText,
   showSystemNotification,
@@ -7,9 +6,8 @@ import {
 } from '@main/electronRuntime';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { getOpenAIApiSettings } from '@main/providers/openaiApiSettings';
-import { OPENAI_API_PROVIDER_ID } from '@main/providers/openaiApiSettingsUtils';
 import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
+import { getPrettifySettingsView } from '@main/services/prettifySettingsStorage';
 import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import {
   createTextActionCacheKey,
@@ -150,10 +148,12 @@ function createSuccessResult(): SelectedTextPrettifyResult {
 }
 
 function getPrettifyCacheContext(): readonly string[] {
-  if (currentProvider !== OPENAI_API_PROVIDER_ID) {
-    return [currentProvider];
-  }
-  return [currentProvider, getOpenAIApiSettings().prettifyModel];
+  return [];
+}
+
+function getPrettifyProviderCacheContext(settings: PrettifySettings): readonly string[] {
+  const providerSettings = settings.providerId === 'ollama' ? settings.ollama : settings.vllm;
+  return [settings.providerId, providerSettings.baseUrl, providerSettings.model, String(settings.temperature)];
 }
 
 export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {
@@ -201,7 +201,7 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         'prettify',
         selectedText,
         settings.prompt,
-        settings.reasoning,
+        ...getPrettifyProviderCacheContext(settings),
         ...deps.getCacheContext(),
       ]);
       const cachedPrettified = deps.cache.get(cacheKey);
@@ -215,7 +215,7 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         return createSuccessResult();
       }
 
-      log.info('Prettifying selected text:', { textLength: selectedText.length, reasoning: settings.reasoning });
+      log.info('Prettifying selected text:', { textLength: selectedText.length, providerId: settings.providerId });
       const prettified = await deps.prettify(selectedText, {
         ...settings,
         signal: run.abortController.signal,
@@ -286,8 +286,7 @@ const selectedTextPrettifyService = createSelectedTextPrettifyService({
   },
   getCacheContext: getPrettifyCacheContext,
   getPrettifySettings: () => ({
-    prompt: currentPrettifyPrompt,
-    reasoning: currentPrettifyReasoning,
+    ...getPrettifySettingsView(),
   }),
   notify: showSystemNotification,
   platform: process.platform,

@@ -11,12 +11,9 @@ import {
   currentPrettifyEnabled,
   currentTargetLang,
   currentProvider,
-  currentPrettifyPrompt,
-  currentPrettifyReasoning,
   setHotkeys,
   setTranslateSettings,
   setTextActionSettings,
-  setPrettifySettings,
   setCurrentLocale,
   saveConfig,
 } from './config';
@@ -50,7 +47,12 @@ import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
-import { normalizePrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
+import {
+  isPrettifyProviderId,
+  type PrettifyModelListResult,
+  type PrettifyProviderId,
+  type PrettifySettingsInput,
+} from '@shared/prettifySettings';
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { normalizeTextActionSettings, type TextActionSettingsInput } from '@shared/textActionSettings';
@@ -59,6 +61,8 @@ import {
   getTranscriptionHistoryPage,
   getTranscriptionHistoryText,
 } from './services/transcriptionHistoryStorage';
+import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
+import { listPrettifyModels } from './services/prettifyProviders';
 
 const log = createLogger('ipc');
 
@@ -99,10 +103,27 @@ function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) 
   return {
     apiKeyUpdated: typeof settings.apiKey === 'string' && settings.apiKey.trim().length > 0,
     model: settings.model,
-    prettifyModel: settings.prettifyModel,
     language: settings.language,
     promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : 0,
     temperature: settings.temperature,
+  };
+}
+
+function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
+  return {
+    providerId: settings.providerId,
+    promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : undefined,
+    temperature: settings.temperature,
+    ollama: {
+      baseUrlLength: typeof settings.ollama?.baseUrl === 'string' ? settings.ollama.baseUrl.length : undefined,
+      model: settings.ollama?.model,
+    },
+    vllm: {
+      baseUrlLength: typeof settings.vllm?.baseUrl === 'string' ? settings.vllm.baseUrl.length : undefined,
+      model: settings.vllm?.model,
+      apiKeyUpdated: typeof settings.vllm?.apiKey === 'string' && settings.vllm.apiKey.trim().length > 0,
+      clearApiKey: Boolean(settings.vllm?.clearApiKey),
+    },
   };
 }
 
@@ -114,10 +135,7 @@ function getTextActionSettingsSnapshot() {
 }
 
 function getPrettifySettingsSnapshot() {
-  return {
-    prompt: currentPrettifyPrompt,
-    reasoning: currentPrettifyReasoning,
-  };
+  return getPrettifySettingsView();
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
@@ -382,7 +400,6 @@ export function registerIpcHandlers(): void {
         providerId,
         hasApiKey: savedSettings.hasApiKey,
         model: savedSettings.model,
-        prettifyModel: savedSettings.prettifyModel,
         language: savedSettings.language,
         promptLength: savedSettings.prompt.length,
         temperature: savedSettings.temperature,
@@ -532,28 +549,55 @@ export function registerIpcHandlers(): void {
     return getPrettifySettingsSnapshot();
   });
 
-  handle('set-prettify-settings', (_event, settings: PrettifySettingsInput) => {
+  handle('set-prettify-settings', (_event, settings: PrettifySettingsInput = {}) => {
     try {
-      const normalized = normalizePrettifySettings(settings || {});
-      log.info('Saving Prettify settings:', {
-        promptChanged: normalized.prompt !== currentPrettifyPrompt,
-        fromPromptLength: currentPrettifyPrompt.length,
-        toPromptLength: normalized.prompt.length,
-        fromReasoning: currentPrettifyReasoning,
-        toReasoning: normalized.reasoning,
-      });
-      setPrettifySettings(normalized.prompt, normalized.reasoning);
-      saveConfig();
+      const previous = getPrettifySettingsSnapshot();
+      log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings || {}));
+      const savedSettings = savePrettifySettings(settings || {});
       log.info('Prettify settings saved:', {
-        promptLength: currentPrettifyPrompt.length,
-        reasoning: currentPrettifyReasoning,
+        providerId: savedSettings.providerId,
+        providerChanged: savedSettings.providerId !== previous.providerId,
+        promptLength: savedSettings.prompt.length,
+        temperature: savedSettings.temperature,
+        ollamaModel: savedSettings.ollama.model,
+        vllmModel: savedSettings.vllm.model,
+        vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
-      return { success: true, settings: normalized };
+      return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
       return { success: false, settings: getPrettifySettingsSnapshot(), error: getErrorMessage(error) };
     }
   });
+
+  handle(
+    'list-prettify-models',
+    async (
+      _event,
+      providerId: PrettifyProviderId,
+      draftSettings: PrettifySettingsInput = {},
+    ): Promise<PrettifyModelListResult> => {
+      if (!isPrettifyProviderId(providerId)) {
+        return { success: false, providerId: 'ollama', models: [], error: 'Unsupported prettify provider' };
+      }
+
+      try {
+        log.info('Listing Prettify models:', {
+          providerId,
+          draft: summarizePrettifySettingsInput(draftSettings || {}),
+        });
+        const models = await listPrettifyModels(providerId, draftSettings || {});
+        log.info('Prettify models listed:', { providerId, modelCount: models.length });
+        return { success: true, providerId, models };
+      } catch (error: unknown) {
+        log.warn('Prettify model listing failed:', {
+          providerId,
+          error: getErrorMessage(error),
+        });
+        return { success: false, providerId, models: [], error: getErrorMessage(error) };
+      }
+    },
+  );
 
   handle('show-notification', (_event, title: string, body: string, options?: SystemNotificationOptions) => {
     showSystemNotification(title, body, options);

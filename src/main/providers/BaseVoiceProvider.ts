@@ -1,5 +1,4 @@
 import type { BrowserContext, Page } from 'playwright-core';
-import type { PrettifyReasoning } from '@shared/prettifySettings';
 
 export type VoiceProviderAuthType = 'browserSession' | 'apiKey';
 
@@ -15,19 +14,6 @@ export interface TranscriptionResult {
   text?: string;
   error?: string;
   raw?: string;
-}
-
-export interface TextProcessingResult {
-  success: boolean;
-  text?: string;
-  error?: string;
-  raw?: string;
-}
-
-export interface PrettifyTextOptions {
-  prompt: string;
-  reasoning: PrettifyReasoning;
-  signal?: AbortSignal;
 }
 
 export abstract class BaseVoiceProvider {
@@ -64,9 +50,6 @@ export abstract class BaseVoiceProvider {
 
   /** Transcribe audio buffer → text */
   abstract transcribe(buffer: ArrayBuffer, mimeType?: string): Promise<TranscriptionResult>;
-
-  /** Improve selected text using the provider's text model */
-  abstract prettifyText(text: string, options: PrettifyTextOptions): Promise<TextProcessingResult>;
 
   /** Check if this provider has a valid session file */
   abstract hasSession(): boolean;
