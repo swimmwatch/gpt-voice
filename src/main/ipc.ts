@@ -6,11 +6,9 @@ import {
   currentStopHotkey,
   currentTranslateHotkey,
   currentPrettifyHotkey,
-  currentPromptCompressionHotkey,
   currentRetryTranscriptionHotkey,
   currentTranslateEnabled,
   currentPrettifyEnabled,
-  currentPromptCompressionEnabled,
   currentTargetLang,
   currentProvider,
   currentPrettifyPrompt,
@@ -112,7 +110,6 @@ function getTextActionSettingsSnapshot() {
   return {
     translateEnabled: currentTranslateEnabled,
     prettifyEnabled: currentPrettifyEnabled,
-    promptCompressionEnabled: currentPromptCompressionEnabled,
   };
 }
 
@@ -157,7 +154,6 @@ function getHotkeySettingsSnapshot(): HotkeySettings {
     stopHotkey: currentStopHotkey,
     translateHotkey: currentTranslateHotkey,
     prettifyHotkey: currentPrettifyHotkey,
-    promptCompressionHotkey: currentPromptCompressionHotkey,
     retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
   };
 }
@@ -477,9 +473,6 @@ export function registerIpcHandlers(): void {
     } else if (target === 'prettify') {
       log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
       setHotkeys(undefined, undefined, undefined, undefined, hotkey, undefined);
-    } else if (target === 'promptCompression') {
-      log.info('Changing prompt compression hotkey from', currentPromptCompressionHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, undefined, undefined, hotkey);
     } else if (target === 'retryTranscription') {
       log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', hotkey);
       setHotkeys(undefined, undefined, undefined, undefined, undefined, hotkey);
@@ -509,15 +502,10 @@ export function registerIpcHandlers(): void {
         from: {
           translateEnabled: currentTranslateEnabled,
           prettifyEnabled: currentPrettifyEnabled,
-          promptCompressionEnabled: currentPromptCompressionEnabled,
         },
         to: normalized,
       });
-      setTextActionSettings(
-        normalized.translateEnabled,
-        normalized.prettifyEnabled,
-        normalized.promptCompressionEnabled,
-      );
+      setTextActionSettings(normalized.translateEnabled, normalized.prettifyEnabled);
       saveConfig();
       log.info('Text action settings saved:', normalized);
       return { success: true, settings: normalized };

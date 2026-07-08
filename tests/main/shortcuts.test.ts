@@ -2,7 +2,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canRunPrettifyShortcut,
-  canRunPromptCompressionShortcut,
   canRunRetryTranscriptionShortcut,
   canRunTranslateShortcut,
   handleCancelShortcut,
@@ -49,27 +48,6 @@ describe('shortcuts', () => {
     assert.deepEqual(events, ['cancel-prettify', 'status:Prettify cancelled']);
   });
 
-  it('uses Escape to cancel active prompt compression when not recording', () => {
-    const events: string[] = [];
-
-    const handled = handleCancelShortcut(false, {
-      cancelPrettify: () => null,
-      cancelPromptCompression: () => {
-        events.push('cancel-prompt-compression');
-        return { status: 'Prompt compression cancelled' };
-      },
-      cancelRecording: () => {
-        events.push('cancel-recording');
-      },
-      sendTextStatus: (status) => {
-        events.push(`status:${status}`);
-      },
-    });
-
-    assert.equal(handled, true);
-    assert.deepEqual(events, ['cancel-prompt-compression', 'status:Prompt compression cancelled']);
-  });
-
   it('does nothing for Escape when recording and prettify are idle', () => {
     const events: string[] = [];
 
@@ -103,15 +81,6 @@ describe('shortcuts', () => {
     assert.equal(canRunPrettifyShortcut('idle', true), true);
     assert.equal(canRunPrettifyShortcut('retrying', true), false);
     assert.equal(canRunPrettifyShortcut('idle', true, true), false);
-  });
-
-  it('runs prompt compression only when enabled and not recording', () => {
-    assert.equal(canRunPromptCompressionShortcut(false, true), true);
-    assert.equal(canRunPromptCompressionShortcut(false, false), false);
-    assert.equal(canRunPromptCompressionShortcut(true, true), false);
-    assert.equal(canRunPromptCompressionShortcut('idle', true), true);
-    assert.equal(canRunPromptCompressionShortcut('retrying', true), false);
-    assert.equal(canRunPromptCompressionShortcut('idle', true, true), false);
   });
 
   it('runs retry transcription only when failed audio is available and not recording', () => {

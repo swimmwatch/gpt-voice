@@ -1,4 +1,4 @@
-export type SelectedTextAction = 'translate' | 'prettify' | 'promptCompression';
+export type SelectedTextAction = 'translate' | 'prettify';
 
 export interface SelectedTextActionGate {
   tryBegin(action: SelectedTextAction): boolean;

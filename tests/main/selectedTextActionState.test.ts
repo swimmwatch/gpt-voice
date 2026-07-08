@@ -10,12 +10,11 @@ describe('selectedTextActionState', () => {
     assert.equal(gate.getActive(), 'translate');
     assert.equal(gate.tryBegin('translate'), false);
     assert.equal(gate.tryBegin('prettify'), false);
-    assert.equal(gate.tryBegin('promptCompression'), false);
 
     gate.finish('translate');
 
     assert.equal(gate.getActive(), null);
-    assert.equal(gate.tryBegin('promptCompression'), true);
+    assert.equal(gate.tryBegin('prettify'), true);
   });
 
   it('ignores finish calls for inactive actions', () => {

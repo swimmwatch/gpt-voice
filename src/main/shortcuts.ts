@@ -4,8 +4,6 @@ import {
   currentHotkey,
   currentPrettifyEnabled,
   currentPrettifyHotkey,
-  currentPromptCompressionEnabled,
-  currentPromptCompressionHotkey,
   currentRetryTranscriptionHotkey,
   currentStopHotkey,
   currentTranslateEnabled,
@@ -17,7 +15,6 @@ import { createLogger } from './logger';
 import { t } from './i18n';
 import { getActiveSelectedTextAction } from './services/selectedTextActionState';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
-import { cancelSelectedTextPromptCompression, compressSelectedPrompt } from './services/selectedTextPromptCompression';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
 import { canRunRetryTranscriptionHotkey, canRunTextActionHotkey } from '@shared/hotkeys';
 import {
@@ -40,7 +37,6 @@ let registeredRetryTranscriptionHotkey: string | null = null;
 
 interface CancelShortcutActions {
   cancelPrettify: () => { status: string } | null;
-  cancelPromptCompression?: () => { status: string } | null;
   cancelRecording: () => void;
   sendTextStatus: (status: string) => void;
 }
@@ -84,12 +80,6 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
     return true;
   }
 
-  const promptCompressionCancelResult = actions.cancelPromptCompression?.();
-  if (promptCompressionCancelResult) {
-    actions.sendTextStatus(promptCompressionCancelResult.status);
-    return true;
-  }
-
   return false;
 }
 
@@ -111,14 +101,6 @@ export function canRunPrettifyShortcut(
   selectedTextBusy = false,
 ): boolean {
   return prettifyEnabled && canRunTextActionHotkey(isRecordingBusy(recordingState)) && !selectedTextBusy;
-}
-
-export function canRunPromptCompressionShortcut(
-  recordingState: RecordingLifecycleState | boolean,
-  promptCompressionEnabled: boolean,
-  selectedTextBusy = false,
-): boolean {
-  return promptCompressionEnabled && canRunTextActionHotkey(isRecordingBusy(recordingState)) && !selectedTextBusy;
 }
 
 export function canRunRetryTranscriptionShortcut(
@@ -186,7 +168,6 @@ export function registerShortcuts(): void {
   const cancelHotkey = normalizeHotkeyForPlatform(currentCancelHotkey);
   const translateHotkey = normalizeHotkeyForPlatform(currentTranslateHotkey);
   const prettifyHotkey = normalizeHotkeyForPlatform(currentPrettifyHotkey);
-  const promptCompressionHotkey = normalizeHotkeyForPlatform(currentPromptCompressionHotkey);
 
   const registered = globalShortcut.register(recordHotkey, () => {
     const win = getMainWindow();
@@ -226,13 +207,6 @@ export function registerShortcuts(): void {
         const result = cancelSelectedTextPrettify();
         if (result) {
           log.info(`${cancelHotkey} pressed, cancelling prettify`);
-        }
-        return result;
-      },
-      cancelPromptCompression: () => {
-        const result = cancelSelectedTextPromptCompression();
-        if (result) {
-          log.info(`${cancelHotkey} pressed, cancelling prompt compression`);
         }
         return result;
       },
@@ -297,32 +271,6 @@ export function registerShortcuts(): void {
     });
   });
   log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
-
-  const promptCompressionRegistered = globalShortcut.register(promptCompressionHotkey, () => {
-    const selectedTextBusy = Boolean(getActiveSelectedTextAction());
-    if (!canRunPromptCompressionShortcut(recordingLifecycleState, currentPromptCompressionEnabled, selectedTextBusy)) {
-      if (currentPromptCompressionEnabled) {
-        log.info(`${promptCompressionHotkey} pressed while prompt compression cannot run`, {
-          recordingLifecycleState,
-          selectedTextBusy,
-        });
-        return;
-      }
-      log.info(`${promptCompressionHotkey} pressed while prompt compression is disabled`);
-      return;
-    }
-
-    log.info(`${promptCompressionHotkey} pressed, compressing selected prompt`);
-    const resultPromise = compressSelectedPrompt();
-    const win = getMainWindow();
-    win?.webContents.send('translation-status', t('status.compressingPromptSelection'));
-    void resultPromise.then((result) => {
-      if (!result.skipped) {
-        getMainWindow()?.webContents.send('translation-status', result.status);
-      }
-    });
-  });
-  log.info(`${promptCompressionHotkey} prompt compression shortcut registered:`, promptCompressionRegistered);
 
   syncRetryTranscriptionShortcut();
 }

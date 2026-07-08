@@ -5,7 +5,6 @@ import { createLogger } from './logger';
 import {
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
-  DEFAULT_PROMPT_COMPRESSION_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -105,11 +104,9 @@ export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
 export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
 export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
 export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
-export let currentPromptCompressionHotkey = DEFAULT_PROMPT_COMPRESSION_HOTKEY;
 export let currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
 export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
 export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
-export let currentPromptCompressionEnabled = DEFAULT_TEXT_ACTION_SETTINGS.promptCompressionEnabled;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale = '';
@@ -138,7 +135,6 @@ export function setHotkeys(
   translateHotkey?: string,
   prettifyHotkey?: string,
   retryTranscriptionHotkey?: string,
-  promptCompressionHotkey?: string,
 ): void {
   if (hotkey !== undefined) currentHotkey = hotkey;
   if (cancelHotkey !== undefined) currentCancelHotkey = cancelHotkey;
@@ -146,21 +142,15 @@ export function setHotkeys(
   if (translateHotkey !== undefined) currentTranslateHotkey = translateHotkey;
   if (prettifyHotkey !== undefined) currentPrettifyHotkey = prettifyHotkey;
   if (retryTranscriptionHotkey !== undefined) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
-  if (promptCompressionHotkey !== undefined) currentPromptCompressionHotkey = promptCompressionHotkey;
 }
 
 export function setTranslateSettings(targetLang?: string): void {
   if (targetLang !== undefined) currentTargetLang = targetLang;
 }
 
-export function setTextActionSettings(
-  translateEnabled?: boolean,
-  prettifyEnabled?: boolean,
-  promptCompressionEnabled?: boolean,
-): void {
+export function setTextActionSettings(translateEnabled?: boolean, prettifyEnabled?: boolean): void {
   if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
   if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
-  if (promptCompressionEnabled !== undefined) currentPromptCompressionEnabled = promptCompressionEnabled;
 }
 
 export function setPrettifySettings(prompt?: string, reasoning?: string): void {
@@ -199,13 +189,9 @@ export function loadConfig(): void {
       if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
       if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
       if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
-      if (config.promptCompressionHotkey) currentPromptCompressionHotkey = config.promptCompressionHotkey;
       if (config.retryTranscriptionHotkey) currentRetryTranscriptionHotkey = config.retryTranscriptionHotkey;
       if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
       if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
-      if (typeof config.promptCompressionEnabled === 'boolean') {
-        currentPromptCompressionEnabled = config.promptCompressionEnabled;
-      }
       if (config.targetLang) currentTargetLang = config.targetLang;
       if (config.provider) currentProvider = config.provider;
       if (config.locale) currentLocale = config.locale;
@@ -237,11 +223,9 @@ export function saveConfig(): void {
           stopHotkey: currentStopHotkey,
           translateHotkey: currentTranslateHotkey,
           prettifyHotkey: currentPrettifyHotkey,
-          promptCompressionHotkey: currentPromptCompressionHotkey,
           retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
           translateEnabled: currentTranslateEnabled,
           prettifyEnabled: currentPrettifyEnabled,
-          promptCompressionEnabled: currentPromptCompressionEnabled,
           targetLang: currentTargetLang,
           provider: currentProvider,
           locale: currentLocale,

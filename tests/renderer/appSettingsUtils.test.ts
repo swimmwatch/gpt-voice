@@ -17,7 +17,7 @@ import {
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 
 const VALID_PRETTIFY_SETTINGS = { prompt: 'prompt', reasoning: 'instant' as const };
-const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true, promptCompressionEnabled: true };
+const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true };
 
 function cloakBrowserSettings(overrides: Partial<CloakBrowserSettingsView> = {}): CloakBrowserSettingsView {
   return {
@@ -104,7 +104,7 @@ describe('appSettingsUtils', () => {
       initialSettings,
       prettifySettings: { prompt: 'secret prompt text', reasoning: 'standard' },
       initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-      textActionSettings: { translateEnabled: false, prettifyEnabled: true, promptCompressionEnabled: true },
+      textActionSettings: { translateEnabled: false, prettifyEnabled: true },
       initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
     });
     const serialized = JSON.stringify(summary);
@@ -265,8 +265,8 @@ describe('appSettingsUtils', () => {
     assert.equal(areTextActionSettingsEqual(VALID_TEXT_ACTION_SETTINGS, VALID_TEXT_ACTION_SETTINGS), true);
     assert.equal(
       areTextActionSettingsEqual(
-        { translateEnabled: false, prettifyEnabled: true, promptCompressionEnabled: true },
-        { translateEnabled: true, prettifyEnabled: true, promptCompressionEnabled: true },
+        { translateEnabled: false, prettifyEnabled: true },
+        { translateEnabled: true, prettifyEnabled: true },
       ),
       false,
     );
@@ -351,7 +351,7 @@ describe('appSettingsUtils', () => {
         initialSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
         initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-        textActionSettings: { translateEnabled: false, prettifyEnabled: true, promptCompressionEnabled: true },
+        textActionSettings: { translateEnabled: false, prettifyEnabled: true },
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
       {
@@ -376,7 +376,6 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(result.textActionSettings, {
       translateEnabled: false,
       prettifyEnabled: true,
-      promptCompressionEnabled: true,
     });
   });
 
