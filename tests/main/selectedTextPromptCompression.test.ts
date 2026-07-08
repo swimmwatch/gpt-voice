@@ -18,7 +18,7 @@ interface TestServiceOptions {
   copyError?: Error;
   platform?: NodeJS.Platform;
   selectionText?: string;
-  processResult?: { success: boolean; text?: string; error?: string };
+  processResult?: { success: boolean; text?: string; fallback?: boolean; error?: string };
   processWait?: Promise<void>;
 }
 
@@ -120,6 +120,34 @@ describe('selectedTextPromptCompression', () => {
     assert.equal(clipboard.clipboard, 'compressed prompt');
     assert.deepEqual(notifications, [
       { title: 'Compressed prompt copied', body: 'Compressed prompt copied', options: { sound: 'success' } },
+    ]);
+  });
+
+  it('copies fallback prompt output without caching it', async () => {
+    const { clipboard, notifications, processCalls, service } = createTestService({
+      selectionText: 'selected prompt',
+      processResult: { success: true, text: 'selected prompt', fallback: true },
+    });
+
+    const first = await service();
+    const second = await service();
+
+    assert.equal(first.success, true);
+    assert.equal(first.status, 'Original prompt copied without compression');
+    assert.equal(second.success, true);
+    assert.equal(clipboard.clipboard, 'selected prompt');
+    assert.equal(processCalls.length, 2);
+    assert.deepEqual(notifications, [
+      {
+        title: 'Original prompt copied',
+        body: 'Original prompt copied without compression',
+        options: { sound: 'success' },
+      },
+      {
+        title: 'Original prompt copied',
+        body: 'Original prompt copied without compression',
+        options: { sound: 'success' },
+      },
     ]);
   });
 

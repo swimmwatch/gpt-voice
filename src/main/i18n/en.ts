@@ -13,6 +13,7 @@ export default {
   'status.translationCopied': 'Translation copied',
   'status.prettifiedSelection': 'Selection prettified',
   'status.promptCompressionCopied': 'Compressed prompt copied',
+  'status.promptCompressionOriginalCopied': 'Original prompt copied without compression',
   'status.copiedToClipboard': 'Copied to clipboard',
   'status.transcriptionFailed': 'Transcription failed',
   'status.translationFailed': 'Translation failed',
@@ -42,6 +43,7 @@ export default {
   'notification.textPrettified': 'Text prettified',
   'notification.promptCompressionFailed': 'Prompt compression failed',
   'notification.promptCompressionCopied': 'Compressed prompt copied',
+  'notification.promptCompressionOriginalCopied': 'Original prompt copied',
 
   // Login button
   'login.loggingIn': 'Logging in...',

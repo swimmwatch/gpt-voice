@@ -317,7 +317,7 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 
 Shortcuts are configurable from **App settings**.
 
-Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Prompt compression sends the selected prompt to Headroom and copies the text Headroom returns. Headroom uses the `headroom-ai` client defaults and environment variables such as `HEADROOM_BASE_URL` and `HEADROOM_API_KEY`; if Headroom is unavailable or returns no text, GPT-Voice shows an error and restores the previous clipboard text. Translation uses OS automation to copy selected text when needed; Prettify and Prompt compression read the Linux primary selection directly and do not automate paste.
+Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Prompt compression sends the selected prompt to Headroom and copies the text Headroom returns. Headroom uses the `headroom-ai` client defaults and environment variables such as `HEADROOM_BASE_URL` and `HEADROOM_API_KEY`; if Headroom is unavailable and the client returns a fallback result, GPT-Voice copies the original prompt without compression and tells you that happened. Translation uses OS automation to copy selected text when needed; Prettify and Prompt compression read the Linux primary selection directly and do not automate paste.
 
 The Prettify Text prompt and reasoning settings are configurable from **App settings**.
 

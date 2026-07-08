@@ -13,6 +13,7 @@ type OpenAIPromptMessage = {
 export interface PromptCompressionResult {
   success: boolean;
   text?: string;
+  fallback?: boolean;
   error?: string;
 }
 
@@ -32,6 +33,11 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+interface CompressedPrompt {
+  text: string;
+  fallback: boolean;
+}
+
 function extractCompressedPromptText(result: CompressResult): string {
   const firstMessage = result.messages[0] as { content?: unknown } | undefined;
   const content = firstMessage?.content;
@@ -45,9 +51,9 @@ async function compressPromptInput(
   text: string,
   deps: PromptCompressionDependencies,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<CompressedPrompt> {
   if (signal?.aborted) {
-    return text;
+    return { text, fallback: true };
   }
 
   try {
@@ -60,12 +66,13 @@ async function compressPromptInput(
       ],
       {
         timeout: HEADROOM_COMPRESSION_TIMEOUT_MS,
-        fallback: false,
+        fallback: true,
         retries: 1,
         stack: 'gpt-voice',
       },
     );
     const compressedText = extractCompressedPromptText(result);
+    const fallback = !result.compressed;
     log.info('Headroom prompt compression completed:', {
       sourceLength: text.length,
       compressedLength: compressedText.length,
@@ -73,8 +80,9 @@ async function compressPromptInput(
       tokensAfter: result.tokensAfter,
       tokensSaved: result.tokensSaved,
       compressed: result.compressed,
+      fallback,
     });
-    return compressedText;
+    return { text: compressedText, fallback };
   } catch (error: unknown) {
     log.warn('Headroom prompt compression failed:', {
       sourceLength: text.length,
@@ -102,11 +110,11 @@ export async function processCompressedPrompt(
     if (signal?.aborted) {
       return { success: false, error: t('status.promptCompressionCancelled') };
     }
-    if (!compressedPrompt.trim()) {
+    if (!compressedPrompt.text.trim()) {
       return { success: false, error: t('error.noPromptCompressionResult') };
     }
 
-    return { success: true, text: compressedPrompt };
+    return { success: true, text: compressedPrompt.text, fallback: compressedPrompt.fallback };
   } catch (err: unknown) {
     if (signal?.aborted) {
       return { success: false, error: t('status.promptCompressionCancelled') };

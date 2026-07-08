@@ -13,6 +13,7 @@ export default {
   'status.translationCopied': 'Пераклад скапіяваны',
   'status.prettifiedSelection': 'Вылучаны тэкст палепшаны',
   'status.promptCompressionCopied': 'Сціснуты prompt скапіяваны',
+  'status.promptCompressionOriginalCopied': 'Зыходны prompt скапіяваны без сціскання',
   'status.copiedToClipboard': 'Скапіявана ў буфер абмену',
   'status.transcriptionFailed': 'Памылка транскрыбавання',
   'status.translationFailed': 'Памылка перакладу',
@@ -42,6 +43,7 @@ export default {
   'notification.textPrettified': 'Тэкст палепшаны',
   'notification.promptCompressionFailed': 'Не ўдалося сціснуць prompt',
   'notification.promptCompressionCopied': 'Сціснуты prompt скапіяваны',
+  'notification.promptCompressionOriginalCopied': 'Зыходны prompt скапіяваны',
 
   // Login button
   'login.loggingIn': 'Уваход...',

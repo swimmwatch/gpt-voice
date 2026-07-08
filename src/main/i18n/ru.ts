@@ -13,6 +13,7 @@ export default {
   'status.translationCopied': 'Перевод скопирован',
   'status.prettifiedSelection': 'Выделенный текст улучшен',
   'status.promptCompressionCopied': 'Сжатый prompt скопирован',
+  'status.promptCompressionOriginalCopied': 'Исходный prompt скопирован без сжатия',
   'status.copiedToClipboard': 'Скопировано в буфер обмена',
   'status.transcriptionFailed': 'Ошибка транскрипции',
   'status.translationFailed': 'Ошибка перевода',
@@ -42,6 +43,7 @@ export default {
   'notification.textPrettified': 'Текст улучшен',
   'notification.promptCompressionFailed': 'Не удалось сжать prompt',
   'notification.promptCompressionCopied': 'Сжатый prompt скопирован',
+  'notification.promptCompressionOriginalCopied': 'Исходный prompt скопирован',
 
   // Login button
   'login.loggingIn': 'Вход...',

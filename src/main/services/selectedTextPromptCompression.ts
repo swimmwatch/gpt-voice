@@ -40,7 +40,10 @@ export interface SelectedTextPromptCompressionDependencies {
   getCacheContext: () => readonly string[];
   notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
-  processPrompt: (text: string, signal?: AbortSignal) => Promise<{ success: boolean; text?: string; error?: string }>;
+  processPrompt: (
+    text: string,
+    signal?: AbortSignal,
+  ) => Promise<{ success: boolean; text?: string; fallback?: boolean; error?: string }>;
   wait: (delayMs: number) => Promise<void>;
 }
 
@@ -105,9 +108,13 @@ function notifyPromptCompressionFailure(deps: SelectedTextPromptCompressionDepen
   }
 }
 
-function notifyPromptCompressionSuccess(deps: SelectedTextPromptCompressionDependencies): void {
+function notifyPromptCompressionSuccess(deps: SelectedTextPromptCompressionDependencies, fallback: boolean): void {
   try {
-    deps.notify(t('notification.promptCompressionCopied'), t('status.promptCompressionCopied'), { sound: 'success' });
+    deps.notify(
+      fallback ? t('notification.promptCompressionOriginalCopied') : t('notification.promptCompressionCopied'),
+      fallback ? t('status.promptCompressionOriginalCopied') : t('status.promptCompressionCopied'),
+      { sound: 'success' },
+    );
   } catch (error: unknown) {
     log.warn('Could not show prompt compression success notification:', getErrorMessage(error) || error);
   }
@@ -138,10 +145,10 @@ function createSkippedResult(): SelectedTextPromptCompressionResult {
   };
 }
 
-function createSuccessResult(): SelectedTextPromptCompressionResult {
+function createSuccessResult(fallback: boolean): SelectedTextPromptCompressionResult {
   return {
     success: true,
-    status: t('status.promptCompressionCopied'),
+    status: fallback ? t('status.promptCompressionOriginalCopied') : t('status.promptCompressionCopied'),
   };
 }
 
@@ -191,12 +198,12 @@ export function createSelectedTextPromptCompressionService(
       const cachedResult = deps.cache.get(cacheKey);
       if (cachedResult) {
         deps.clipboard.writeText(cachedResult);
-        notifyPromptCompressionSuccess(deps);
+        notifyPromptCompressionSuccess(deps, false);
         log.info('Compressed prompt copied from cache:', {
           sourceLength: selectedText.length,
           compressedLength: cachedResult.length,
         });
-        return createSuccessResult();
+        return createSuccessResult(false);
       }
 
       log.info('Compressing selected prompt:', { textLength: selectedText.length });
@@ -213,14 +220,16 @@ export function createSelectedTextPromptCompressionService(
         return createFailureResult(error);
       }
 
-      deps.cache.set(cacheKey, processed.text);
+      if (!processed.fallback) {
+        deps.cache.set(cacheKey, processed.text);
+      }
       deps.clipboard.writeText(processed.text);
-      notifyPromptCompressionSuccess(deps);
-      log.info('Compressed prompt copied:', {
+      notifyPromptCompressionSuccess(deps, Boolean(processed.fallback));
+      log.info(processed.fallback ? 'Original prompt copied without compression:' : 'Compressed prompt copied:', {
         sourceLength: selectedText.length,
-        compressedLength: processed.text.length,
+        outputLength: processed.text.length,
       });
-      return createSuccessResult();
+      return createSuccessResult(Boolean(processed.fallback));
     } catch (error: unknown) {
       if (run.cancelled || run.abortController.signal.aborted) {
         restoreClipboard(deps, run.previousClipboardText);

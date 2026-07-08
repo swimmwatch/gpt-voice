@@ -44,13 +44,13 @@ describe('promptCompression', () => {
 
     const result = await processCompressedPrompt('original prompt', undefined, deps);
 
-    assert.deepEqual(result, { success: true, text: 'compressed prompt' });
+    assert.deepEqual(result, { success: true, text: 'compressed prompt', fallback: false });
     assert.deepEqual(compressCalls, [
       {
         messages: [{ role: 'user', content: 'original prompt' }],
         options: {
           timeout: 30000,
-          fallback: false,
+          fallback: true,
           retries: 1,
           stack: 'gpt-voice',
         },
@@ -64,6 +64,16 @@ describe('promptCompression', () => {
     const result = await processCompressedPrompt('original prompt', undefined, deps);
 
     assert.deepEqual(result, { success: false, error: 'proxy unavailable' });
+  });
+
+  it('returns fallback output when Headroom falls back to the original prompt', async () => {
+    const { deps } = createDeps({ compressedText: 'original prompt' });
+
+    deps.compressMessages = async () => compressResult('original prompt', false);
+
+    const result = await processCompressedPrompt('original prompt', undefined, deps);
+
+    assert.deepEqual(result, { success: true, text: 'original prompt', fallback: true });
   });
 
   it('returns an error when Headroom does not produce text', async () => {

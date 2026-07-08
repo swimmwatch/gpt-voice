@@ -13,6 +13,7 @@ export default {
   'status.translationCopied': 'Переклад скопійовано',
   'status.prettifiedSelection': 'Виділений текст покращено',
   'status.promptCompressionCopied': 'Стиснений prompt скопійовано',
+  'status.promptCompressionOriginalCopied': 'Початковий prompt скопійовано без стиснення',
   'status.copiedToClipboard': 'Скопійовано до буфера обміну',
   'status.transcriptionFailed': 'Помилка транскрибування',
   'status.translationFailed': 'Помилка перекладу',
@@ -42,6 +43,7 @@ export default {
   'notification.textPrettified': 'Текст покращено',
   'notification.promptCompressionFailed': 'Не вдалося стиснути prompt',
   'notification.promptCompressionCopied': 'Стиснений prompt скопійовано',
+  'notification.promptCompressionOriginalCopied': 'Початковий prompt скопійовано',
 
   // Login button
   'login.loggingIn': 'Вхід...',
