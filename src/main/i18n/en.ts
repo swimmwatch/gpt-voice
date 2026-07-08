@@ -161,6 +161,7 @@ export default {
   'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
   'error.rateLimited': 'Too many requests. Try again later.',
   'error.rateLimitedRetryAfter': 'Too many requests. Try again in {seconds}s.',
+  'error.prettifyRateLimited': 'ChatGPT prettify is temporarily rate-limited. Try again in {seconds}s.',
   'error.nonJsonResponse': 'Transcribe endpoint returned non-JSON (status {status}): {body}',
   'error.noTranscription': 'No transcription in response',
   'error.noSelectedText': 'No selected text',

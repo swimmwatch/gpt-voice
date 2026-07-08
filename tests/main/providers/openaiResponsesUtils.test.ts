@@ -131,6 +131,24 @@ describe('openaiResponsesUtils', () => {
     assert.equal(requests.length, 1);
   });
 
+  it('does not apply ChatGPT Web cooldown handling to OpenAI API prettify failures', async () => {
+    const provider = new OpenAIApiVoiceProvider({
+      getSettings: () => ({
+        ...DEFAULT_OPENAI_API_SETTINGS,
+        apiKey: 'test-key',
+        prettifyModel: 'gpt-5.4-mini',
+      }),
+      fetch: async () => response(429, { error: { message: 'OpenAI API rate limit' } }),
+    });
+
+    const result = await provider.prettifyText('bad text', {
+      prompt: 'Improve text',
+      reasoning: 'instant',
+    });
+
+    assert.deepEqual(result, { success: false, error: 'OpenAI API rate limit' });
+  });
+
   it('returns a cancelled result without calling OpenAI when the prettify signal is already aborted', async () => {
     let fetchCalled = false;
     const abortController = new AbortController();

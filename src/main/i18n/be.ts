@@ -161,6 +161,7 @@ export default {
   'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
   'error.rateLimited': 'Зашмат запытаў. Паспрабуйце пазней.',
   'error.rateLimitedRetryAfter': 'Зашмат запытаў. Паспрабуйце праз {seconds} с.',
+  'error.prettifyRateLimited': 'Паляпшэнне тэксту праз ChatGPT часова абмежавана. Паўтарыце праз {seconds} с.',
   'error.nonJsonResponse': 'Адказ сервера не ў фармаце JSON (статус {status}): {body}',
   'error.noTranscription': 'Няма тэксту ў адказе',
   'error.noSelectedText': 'Няма вылучанага тэксту',

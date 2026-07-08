@@ -53,6 +53,10 @@ const CHATGPT_SUBMISSION_SETTLE_MS = 700;
 const CHATGPT_SUBMISSION_MAX_ATTEMPTS = 2;
 const CHATGPT_MODE_MENU_OPEN_SETTLE_MS = 250;
 const CHATGPT_MODE_SELECTION_SETTLE_MS = 350;
+const CHATGPT_PRETTIFY_RATE_LIMIT_MIN_COOLDOWN_MS = 60_000;
+const CHATGPT_PRETTIFY_RATE_LIMIT_MAX_COOLDOWN_MS = 10 * 60_000;
+const CHATGPT_PRETTIFY_RATE_LIMIT_EMPIRICAL_FALLBACK_MS = 3 * 60_000;
+const CHATGPT_RATE_LIMIT_BLOCKING_ERROR_LABEL = 'rate limit';
 const CHATGPT_COMPOSER_SELECTOR = '#prompt-textarea, [contenteditable="true"][role="textbox"]';
 const CHATGPT_MESSAGE_SELECTOR = '[data-message-author-role]';
 const CHATGPT_USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
@@ -99,6 +103,10 @@ const CHATGPT_TEXT_REQUEST_PATHS = new Set([
   '/backend-api/sentinel/chat-requirements/finalize',
 ]);
 const CHATGPT_BLOCKING_ERROR_PATTERNS = [
+  {
+    label: CHATGPT_RATE_LIMIT_BLOCKING_ERROR_LABEL,
+    pattern: 'too many requests|requests too quickly|temporarily limited access',
+  },
   { label: 'unusual activity', pattern: 'unusual activity' },
   { label: 'verification challenge', pattern: 'verify|captcha|blocked' },
   { label: 'reply OK challenge', pattern: 'reply\\s*ok' },
@@ -150,6 +158,8 @@ interface ChatGptPromptSubmissionState {
 interface ChatGptTextResponseFailure {
   path: string;
   status: number;
+  rateLimitCooldownMs?: number;
+  rateLimitSource?: string;
 }
 
 interface ChatGptTextResponseMonitor {
@@ -167,15 +177,127 @@ interface ChatGptReasoningModeSelection {
   error?: string;
 }
 
+interface ChatGptRateLimitCooldown {
+  cooldownMs: number;
+  source: string;
+}
+
+const CHATGPT_RATE_LIMIT_RETRY_AFTER_HEADER = 'retry-after';
+const CHATGPT_RATE_LIMIT_RESET_HEADERS = [
+  'x-ratelimit-reset',
+  'x-rate-limit-reset',
+  'ratelimit-reset',
+  'x-openai-ratelimit-reset',
+  'x-openai-ratelimit-reset-requests',
+  'x-openai-ratelimit-reset-tokens',
+];
+
 function getChatGptReasoningModePreferences(reasoning: PrettifyReasoning): PrettifyReasoning[] {
   if (reasoning === 'extended') return ['extended', 'standard', 'instant'];
   if (reasoning === 'standard') return ['standard', 'instant'];
   return ['instant'];
 }
 
+function clampPrettifyCooldownMs(cooldownMs: number): number {
+  return Math.min(
+    CHATGPT_PRETTIFY_RATE_LIMIT_MAX_COOLDOWN_MS,
+    Math.max(CHATGPT_PRETTIFY_RATE_LIMIT_MIN_COOLDOWN_MS, Math.ceil(cooldownMs)),
+  );
+}
+
+function parseRetryAfterHeader(value: string, nowMs: number): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    return clampPrettifyCooldownMs(Number(trimmed) * 1000);
+  }
+
+  const dateMs = Date.parse(trimmed);
+  if (!Number.isNaN(dateMs)) {
+    return clampPrettifyCooldownMs(dateMs - nowMs);
+  }
+
+  return null;
+}
+
+function parseDurationHeader(value: string): number | null {
+  const durationMatch = value.trim().match(/^(\d+(?:\.\d+)?)(ms|s|m)$/i);
+  if (!durationMatch) return null;
+
+  const amount = Number(durationMatch[1]);
+  const unit = durationMatch[2]?.toLowerCase();
+  if (!Number.isFinite(amount)) return null;
+  if (unit === 'ms') return amount;
+  if (unit === 's') return amount * 1000;
+  if (unit === 'm') return amount * 60_000;
+  return null;
+}
+
+function parseResetStyleHeader(value: string, nowMs: number): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const durationMs = parseDurationHeader(trimmed);
+  if (durationMs !== null) {
+    return clampPrettifyCooldownMs(durationMs);
+  }
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+    if (!Number.isFinite(numericValue)) return null;
+    if (numericValue > 1_000_000_000_000) {
+      return clampPrettifyCooldownMs(numericValue - nowMs);
+    }
+    if (numericValue > 1_000_000_000) {
+      return clampPrettifyCooldownMs(numericValue * 1000 - nowMs);
+    }
+    return clampPrettifyCooldownMs(numericValue * 1000);
+  }
+
+  const dateMs = Date.parse(trimmed);
+  if (!Number.isNaN(dateMs)) {
+    return clampPrettifyCooldownMs(dateMs - nowMs);
+  }
+
+  return null;
+}
+
+function getHeaderValue(headers: Record<string, string>, name: string): string {
+  return headers[name] || headers[name.toLowerCase()] || '';
+}
+
+function getChatGptRateLimitCooldown(
+  headers: Record<string, string>,
+  nowMs = Date.now(),
+): ChatGptRateLimitCooldown | null {
+  const retryAfter = getHeaderValue(headers, CHATGPT_RATE_LIMIT_RETRY_AFTER_HEADER);
+  if (retryAfter) {
+    const cooldownMs = parseRetryAfterHeader(retryAfter, nowMs);
+    if (cooldownMs !== null) {
+      return { cooldownMs, source: CHATGPT_RATE_LIMIT_RETRY_AFTER_HEADER };
+    }
+  }
+
+  for (const headerName of CHATGPT_RATE_LIMIT_RESET_HEADERS) {
+    const value = getHeaderValue(headers, headerName);
+    if (!value) continue;
+
+    const cooldownMs = parseResetStyleHeader(value, nowMs);
+    if (cooldownMs !== null) {
+      return { cooldownMs, source: headerName };
+    }
+  }
+
+  return null;
+}
+
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private textChatConversationId = '';
   private textPage: Page | null = null;
+  private prettifyCooldownUntil = 0;
+  private lastPrettifyRateLimitSource = '';
+  private readonly empiricalPrettifyRateLimitFallbackMs = CHATGPT_PRETTIFY_RATE_LIMIT_EMPIRICAL_FALLBACK_MS;
 
   readonly info: VoiceProviderInfo = {
     id: 'chatgpt',
@@ -510,6 +632,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     cancellationError = t('status.prettifyCancelled'),
   ): Promise<string> {
     this.throwIfTextPromptCancelled(signal, cancellationError);
+    this.throwIfChatGptPrettifyCooldownActive();
     const page = await this.getChatGptTextPage();
     const responseMonitor = this.createChatGptTextResponseMonitor(page);
 
@@ -519,6 +642,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       await this.ensureChatGptTextPageAuthenticated(page);
       this.throwIfTextPromptCancelled(signal, cancellationError);
       await this.throwIfChatGptBlockingErrorVisible(page);
+      this.throwIfChatGptPrettifyCooldownActive();
       await this.ensureChatGptReasoningMode(page, reasoning);
       this.throwIfTextPromptCancelled(signal, cancellationError);
       const previousAssistantState = await this.getAssistantMessageState(page);
@@ -576,6 +700,41 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     if (signal?.aborted) {
       throw new Error(cancellationError);
     }
+  }
+
+  private getChatGptPrettifyCooldownSeconds(nowMs = Date.now()): number {
+    if (this.prettifyCooldownUntil <= nowMs) return 0;
+    return Math.ceil((this.prettifyCooldownUntil - nowMs) / 1000);
+  }
+
+  private getChatGptPrettifyRateLimitError(nowMs = Date.now()): string {
+    return t('error.prettifyRateLimited', {
+      seconds: String(this.getChatGptPrettifyCooldownSeconds(nowMs)),
+    });
+  }
+
+  private throwIfChatGptPrettifyCooldownActive(nowMs = Date.now()): void {
+    const remainingSeconds = this.getChatGptPrettifyCooldownSeconds(nowMs);
+    if (remainingSeconds > 0) {
+      log.info('ChatGPT Web prettify skipped during rate-limit cooldown:', {
+        remainingSeconds,
+        source: this.lastPrettifyRateLimitSource,
+      });
+      throw new Error(this.getChatGptPrettifyRateLimitError(nowMs));
+    }
+  }
+
+  private applyChatGptPrettifyCooldown(cooldownMs: number, source: string): void {
+    const clampedCooldownMs = clampPrettifyCooldownMs(cooldownMs);
+    const cooldownUntil = Date.now() + clampedCooldownMs;
+    if (cooldownUntil <= this.prettifyCooldownUntil) return;
+
+    this.prettifyCooldownUntil = cooldownUntil;
+    this.lastPrettifyRateLimitSource = source;
+    log.warn('ChatGPT Web prettify rate limited:', {
+      cooldownSeconds: Math.ceil(clampedCooldownMs / 1000),
+      source,
+    });
   }
 
   private async openReusableChatGptComposer(page: Page): Promise<void> {
@@ -671,7 +830,14 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         monitor.conversationStatus = status;
       }
       if (status < StatusCodes.OK || status >= StatusCodes.BAD_REQUEST) {
-        monitor.failedResponse = { path, status };
+        const rateLimitCooldown =
+          status === StatusCodes.TOO_MANY_REQUESTS ? getChatGptRateLimitCooldown(response.headers()) : null;
+        monitor.failedResponse = {
+          path,
+          status,
+          rateLimitCooldownMs: rateLimitCooldown?.cooldownMs,
+          rateLimitSource: rateLimitCooldown?.source,
+        };
       }
     };
 
@@ -1155,12 +1321,24 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private async throwIfChatGptBlockingErrorVisible(page: Page): Promise<void> {
     const blockingError = await this.getChatGptBlockingError(page);
     if (blockingError) {
+      if (blockingError === CHATGPT_RATE_LIMIT_BLOCKING_ERROR_LABEL) {
+        this.applyChatGptPrettifyCooldown(this.empiricalPrettifyRateLimitFallbackMs, 'visible limiter dialog');
+        throw new Error(this.getChatGptPrettifyRateLimitError());
+      }
       throw new Error(`ChatGPT could not process the request because the page shows ${blockingError}`);
     }
   }
 
   private throwIfChatGptTextRequestFailed(responseMonitor: ChatGptTextResponseMonitor): void {
     if (responseMonitor.failedResponse) {
+      if (responseMonitor.failedResponse.status === StatusCodes.TOO_MANY_REQUESTS) {
+        this.applyChatGptPrettifyCooldown(
+          responseMonitor.failedResponse.rateLimitCooldownMs ?? this.empiricalPrettifyRateLimitFallbackMs,
+          responseMonitor.failedResponse.rateLimitSource || 'http 429 fallback',
+        );
+        throw new Error(this.getChatGptPrettifyRateLimitError());
+      }
+
       throw new Error(
         `ChatGPT request failed (${responseMonitor.failedResponse.path} ${responseMonitor.failedResponse.status})`,
       );

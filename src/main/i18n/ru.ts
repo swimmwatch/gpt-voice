@@ -161,6 +161,7 @@ export default {
   'error.chatGptAsrFailure': 'ChatGPT не смог обработать записанный звук ({mimeType}). Попробуйте записать снова.',
   'error.rateLimited': 'Слишком много запросов. Попробуйте позже.',
   'error.rateLimitedRetryAfter': 'Слишком много запросов. Попробуйте через {seconds} с.',
+  'error.prettifyRateLimited': 'Улучшение текста через ChatGPT временно ограничено. Повторите через {seconds} с.',
   'error.nonJsonResponse': 'Ответ сервера не в формате JSON (статус {status}): {body}',
   'error.noTranscription': 'Нет текста в ответе',
   'error.noSelectedText': 'Нет выделенного текста',

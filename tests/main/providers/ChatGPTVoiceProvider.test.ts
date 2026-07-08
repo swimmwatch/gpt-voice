@@ -36,6 +36,7 @@ class FakeChatGptPage {
   blockingErrorAfterSubmit = '';
   closed = false;
   composerText = '';
+  conversationResponseHeaders: Record<string, string> = {};
   conversationResponseStatus = 200;
   currentModeLabel = 'Fast';
   events: string[] = [];
@@ -328,6 +329,7 @@ class FakeChatGptPage {
 
   private emitConversationResponse(status: number): void {
     const response = {
+      headers: () => this.conversationResponseHeaders,
       status: () => status,
       url: () => `${CHATGPT_URL}/backend-api/f/conversation`,
     } as Response;
@@ -352,10 +354,14 @@ class FakeBrowserContext {
   }
 }
 
-async function withAdvancingResponseClock<T>(page: FakeChatGptPage, action: () => Promise<T>): Promise<T> {
+async function withAdvancingResponseClock<T>(
+  page: FakeChatGptPage,
+  action: () => Promise<T>,
+  startMs = 1000,
+): Promise<T> {
   const originalNow = Date.now;
   const originalWaitForTimeout = page.waitForTimeout.bind(page);
-  let now = 1000;
+  let now = startMs;
   Date.now = () => now;
   page.waitForTimeout = async (delayMs: number) => {
     page.events.push(`timeout:${delayMs}`);
@@ -658,12 +664,98 @@ describe('ChatGPTVoiceProvider text prompt flow', () => {
   it('fails quickly when the ChatGPT conversation request returns a non-OK response', async () => {
     const provider = new ChatGPTVoiceProvider();
     const textPage = new FakeChatGptPage();
-    textPage.conversationResponseStatus = 429;
+    textPage.conversationResponseStatus = 500;
     const context = new FakeBrowserContext(textPage.asPage());
     const providerInternals = internals(provider);
     providerInternals.context = context.asContext();
 
-    await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /f\/conversation 429/);
+    await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /f\/conversation 500/);
+  });
+
+  it('uses Retry-After seconds to cool down ChatGPT prettify and fails fast during the cooldown', async () => {
+    const provider = new ChatGPTVoiceProvider();
+    const textPage = new FakeChatGptPage();
+    textPage.conversationResponseStatus = 429;
+    textPage.conversationResponseHeaders = { 'retry-after': '120' };
+    const context = new FakeBrowserContext(textPage.asPage());
+    const providerInternals = internals(provider);
+    providerInternals.context = context.asContext();
+
+    await withAdvancingResponseClock(textPage, async () => {
+      await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /Try again in 120s/);
+
+      textPage.events = [];
+      textPage.conversationResponseStatus = 200;
+      textPage.conversationResponseHeaders = {};
+
+      await assert.rejects(providerInternals.sendChatGptTextPrompt('second prompt'), /Try again in 120s/);
+      assert.deepEqual(textPage.events, []);
+    });
+  });
+
+  it('uses HTTP-date Retry-After values for ChatGPT prettify cooldown', async () => {
+    const provider = new ChatGPTVoiceProvider();
+    const textPage = new FakeChatGptPage();
+    textPage.conversationResponseStatus = 429;
+    textPage.conversationResponseHeaders = { 'retry-after': new Date(121_000).toUTCString() };
+    const context = new FakeBrowserContext(textPage.asPage());
+    const providerInternals = internals(provider);
+    providerInternals.context = context.asContext();
+
+    await withAdvancingResponseClock(textPage, async () => {
+      await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /Try again in 120s/);
+    });
+  });
+
+  it('uses reset-style headers for ChatGPT prettify cooldown', async () => {
+    const startMs = 1_700_000_000_000;
+    const provider = new ChatGPTVoiceProvider();
+    const textPage = new FakeChatGptPage();
+    textPage.conversationResponseStatus = 429;
+    textPage.conversationResponseHeaders = {
+      'x-ratelimit-reset': String(Math.floor((startMs + 120_000) / 1000)),
+    };
+    const context = new FakeBrowserContext(textPage.asPage());
+    const providerInternals = internals(provider);
+    providerInternals.context = context.asContext();
+
+    await withAdvancingResponseClock(
+      textPage,
+      async () => {
+        await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /Try again in 120s/);
+      },
+      startMs,
+    );
+  });
+
+  it('uses the empirical fallback when a 429 response has no usable cooldown headers', async () => {
+    const provider = new ChatGPTVoiceProvider();
+    const textPage = new FakeChatGptPage();
+    textPage.conversationResponseStatus = 429;
+    textPage.conversationResponseHeaders = { 'retry-after': 'not a date' };
+    const context = new FakeBrowserContext(textPage.asPage());
+    const providerInternals = internals(provider);
+    providerInternals.context = context.asContext();
+
+    await withAdvancingResponseClock(textPage, async () => {
+      await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /Try again in 180s/);
+    });
+  });
+
+  it('uses the empirical fallback when ChatGPT shows a visible rate-limit dialog', async () => {
+    const provider = new ChatGPTVoiceProvider();
+    const textPage = new FakeChatGptPage();
+    textPage.blockingError = 'rate limit';
+    const context = new FakeBrowserContext(textPage.asPage());
+    const providerInternals = internals(provider);
+    providerInternals.context = context.asContext();
+
+    await withAdvancingResponseClock(textPage, async () => {
+      await assert.rejects(providerInternals.sendChatGptTextPrompt('prompt'), /Try again in 180s/);
+    });
+
+    assert.equal(textPage.events.includes('insert:prompt'), false);
+    assert.equal(textPage.events.includes('send-click'), false);
   });
 
   it('falls back to Enter when the ChatGPT send button is unavailable', async () => {

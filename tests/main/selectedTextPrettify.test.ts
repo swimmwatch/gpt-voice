@@ -161,6 +161,21 @@ describe('selectedTextPrettify', () => {
     ]);
   });
 
+  it('restores the clipboard and shows wait seconds when ChatGPT prettify is cooling down', async () => {
+    const cooldownError = 'ChatGPT prettify is temporarily rate-limited. Try again in 120s.';
+    const { clipboard, notifications, service } = createTestService({
+      selectionText: 'selected text',
+      prettifyResult: { success: false, error: cooldownError },
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, cooldownError);
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, [{ title: 'Prettify failed', body: cooldownError, options: { sound: 'error' } }]);
+  });
+
   it('copies prettified text to the clipboard on success', async () => {
     const { clipboard, notifications, service } = createTestService({ selectionText: 'selected text' });
 
