@@ -126,6 +126,20 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getConfigString(config: Record<string, unknown>, key: string): string | undefined {
+  const value = config[key];
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+function getConfigBoolean(config: Record<string, unknown>, key: string): boolean | undefined {
+  const value = config[key];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 export function setHotkeys(
   hotkey?: string,
   cancelHotkey?: string,
@@ -195,23 +209,37 @@ export function getCurrentLocale(): string {
 export function loadConfig(): void {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      if (config.hotkey) currentHotkey = config.hotkey;
-      if (config.cancelHotkey) currentCancelHotkey = config.cancelHotkey;
-      if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
-      if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
-      if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
-      if (config.retryTranscriptionHotkey) currentRetryTranscriptionHotkey = config.retryTranscriptionHotkey;
-      if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
-      if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
-      if (config.targetLang) currentTargetLang = config.targetLang;
-      if (config.provider) currentProvider = config.provider;
-      if (config.locale) currentLocale = config.locale;
-      if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
+      const parsedConfig: unknown = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      const config = isRecord(parsedConfig) ? parsedConfig : {};
+      const hotkey = getConfigString(config, 'hotkey');
+      const cancelHotkey = getConfigString(config, 'cancelHotkey');
+      const stopHotkey = getConfigString(config, 'stopHotkey');
+      const translateHotkey = getConfigString(config, 'translateHotkey');
+      const prettifyHotkey = getConfigString(config, 'prettifyHotkey');
+      const retryTranscriptionHotkey = getConfigString(config, 'retryTranscriptionHotkey');
+      const translateEnabled = getConfigBoolean(config, 'translateEnabled');
+      const prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled');
+      const targetLang = getConfigString(config, 'targetLang');
+      const provider = getConfigString(config, 'provider');
+      const locale = getConfigString(config, 'locale');
+      const fingerprintSeed = getConfigString(config, 'fingerprintSeed');
+      const prettifySettings = config.prettifySettings;
+      const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
+
+      if (hotkey) currentHotkey = hotkey;
+      if (cancelHotkey) currentCancelHotkey = cancelHotkey;
+      if (stopHotkey) currentStopHotkey = stopHotkey;
+      if (translateHotkey) currentTranslateHotkey = translateHotkey;
+      if (prettifyHotkey) currentPrettifyHotkey = prettifyHotkey;
+      if (retryTranscriptionHotkey) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
+      if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
+      if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
+      if (targetLang) currentTargetLang = targetLang;
+      if (provider) currentProvider = provider;
+      if (locale) currentLocale = locale;
+      if (fingerprintSeed) currentFingerprintSeed = fingerprintSeed;
       currentPrettifySettings = normalizePrettifySettings(
-        typeof config.prettifySettings === 'object' && config.prettifySettings
-          ? config.prettifySettings
-          : { prompt: config.prettifyPrompt },
+        isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
       );
       updateLegacyPrettifyMirrors();
     }

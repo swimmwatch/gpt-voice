@@ -37,7 +37,7 @@ try {
   const page = await browser.newPage();
   await page.goto('data:text/html,<title>CloakBrowser smoke</title><h1>ok</h1>');
   const title = await page.title();
-  const webdriver = await page.evaluate(() => navigator.webdriver);
+  const webdriver = await page.evaluate(() => globalThis.navigator.webdriver);
 
   if (title !== 'CloakBrowser smoke') {
     throw new Error(`Unexpected smoke page title: ${title}`);

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseTag = resolveReleaseTag();
 const releaseVersion = releaseTag.replace(/^v/i, '');
-const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const semverPattern = /^\d+\.\d+\.\d+(?:-[\d.a-z-]+)?(?:\+[\d.a-z-]+)?$/i;
 
 if (!semverPattern.test(releaseVersion)) {
   throw new Error(`Release tag must be a valid semver tag such as v1.2.3. Received: ${releaseTag || '<empty>'}`);
@@ -13,7 +13,11 @@ if (!semverPattern.test(releaseVersion)) {
 
 function resolveReleaseTag() {
   const explicitTag =
-    process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || process.env.INPUT_RELEASE_TAG || process.argv[2] || '';
+    process.env.RELEASE_TAG ||
+    process.env.WORKFLOW_DISPATCH_RELEASE_TAG ||
+    process.env.INPUT_RELEASE_TAG ||
+    process.argv[2] ||
+    '';
 
   if (explicitTag) {
     return explicitTag;

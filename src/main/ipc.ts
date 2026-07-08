@@ -26,7 +26,7 @@ import {
   launchLoginContext,
   switchProvider,
 } from './browser';
-import { getAvailableProviders } from './providers';
+import { createProvider, getAvailableProviders } from './providers';
 import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
 import {
   registerShortcuts,
@@ -39,7 +39,6 @@ import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
 import { createLogger } from './logger';
-import { createProvider } from './providers';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
