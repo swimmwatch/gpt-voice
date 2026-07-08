@@ -40,9 +40,10 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 - **Fast remote recognition**: get high-quality transcription from remote GPT/Whisper infrastructure instead of spending local CPU/GPU resources.
 - **Separate provider settings**: web-session auth and API-key auth are stored independently.
 - **Bundled Cloak Chromium**: packaged builds include the browser runtime needed by CloakBrowser.
-- **Global hotkeys**: record, stop, cancel, translate selected text, and prettify selected text without leaving the app you are typing in.
+- **Global hotkeys**: record, stop, cancel, translate selected text, prettify selected text, and compress selected prompts without leaving the app you are typing in.
 - **Clipboard-first flow**: transcripts are copied immediately so you can paste anywhere.
-- **Selected-text actions**: translate selected text through Google Translate, or prettify selected text through the selected LLM provider.
+- **Transcription history**: successful recognitions are stored locally so you can reopen and copy previous text.
+- **Selected-text actions**: translate selected text through Google Translate, prettify selected text through the selected LLM provider, or copy a Headroom-compressed version of a selected prompt.
 - **Desktop-native shell**: Electron tray app, notifications, packaged Linux AppImage/deb/rpm, plus a Windows installer.
 - **CI protected**: linting, formatting, type checking, unit tests, Dependabot validation, CloakBrowser smoke tests, and package smoke builds.
 
@@ -63,13 +64,15 @@ flowchart LR
   Editor --> Selection[Selected edited text]
   Selection --> Google[Google Translate web page]
   Selection --> LLM[Selected LLM provider]
+  Selection --> Headroom[Headroom prompt compression]
   Google --> Clipboard
   LLM --> Clipboard
+  Headroom --> Clipboard
 ```
 
 GPT-Voice records audio locally and sends it to the selected provider. The ChatGPT Web provider uses a background CloakBrowser context with your saved ChatGPT cookies. The OpenAI API provider sends multipart audio to OpenAI's transcription endpoint with your API key. In both cases, GPT-Voice parses the final text and copies it to the clipboard.
 
-Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the active LLM provider and copies the improved result to the clipboard.
+Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the active LLM provider and copies the improved result to the clipboard. Prompt compression sends selected text to Headroom and copies Headroom's returned text to the clipboard.
 
 Availability, quotas, and behavior are determined by the web service account you use. GPT-Voice does not bypass provider-side limits; it gives you a desktop workflow around the web features available to your account.
 
@@ -296,24 +299,27 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 5. **Press the Record hotkey** and speak normally.
 6. **Press Stop**. The audio is sent to the selected provider for transcription.
 7. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
-8. Optional: edit the text, select it, choose a target language in GPT-Voice, and press the Translate hotkey to copy the translated text.
-9. Optional: select text and press the Prettify hotkey to copy a clearer version from the active LLM provider.
+8. Optional: open **History** from the tray menu to view successful transcriptions. Click any transcript text to copy it again.
+9. Optional: edit the text, select it, choose a target language in GPT-Voice, and press the Translate hotkey to copy the translated text.
+10. Optional: select text and press the Prettify hotkey to copy a clearer version from the active LLM provider.
+11. Optional: select a prompt and press the Prompt compression hotkey to copy the Headroom-compressed prompt.
 
 ## Default Controls
 
-| Action              | Default  |
-| ------------------- | -------- |
-| Record              | `F9`     |
-| Stop                | `F10`    |
-| Cancel              | `Escape` |
-| Translate selection | `F11`    |
-| Prettify selection  | `F12`    |
+| Action              | Default    |
+| ------------------- | ---------- |
+| Record              | `F9`       |
+| Stop                | `F10`      |
+| Cancel              | `Escape`   |
+| Translate selection | `F11`      |
+| Prettify selection  | `F12`      |
+| Prompt compression  | `Ctrl+F12` |
 
 Shortcuts are configurable from **App settings**.
 
-Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Translation uses OS automation to copy selected text when needed; Prettify reads the Linux primary selection directly and does not automate paste.
+Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Prompt compression sends the selected prompt to Headroom and copies the text Headroom returns. Headroom uses the `headroom-ai` client defaults and environment variables such as `HEADROOM_BASE_URL` and `HEADROOM_API_KEY`; if Headroom is unavailable or returns no text, GPT-Voice shows an error and restores the previous clipboard text. Translation uses OS automation to copy selected text when needed; Prettify and Prompt compression read the Linux primary selection directly and do not automate paste.
 
-The Prettify Text prompt and reasoning setting are configurable from **App settings**.
+The Prettify Text prompt and reasoning settings are configurable from **App settings**.
 
 ## Build Locally
 
@@ -415,9 +421,9 @@ build/           Packaging metadata, macOS entitlements, and Fedora release imag
 
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to the selected LLM provider.
+GPT-Voice sends recorded audio to the provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to the selected LLM provider. Prompt Compression sends selected text only to the configured Headroom proxy or cloud service and copies Headroom's returned text locally.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json` and a non-secret `chatgpt-text-chat.json` conversation id for reusable text requests. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json` and a non-secret `chatgpt-text-chat.json` conversation id for reusable text requests. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

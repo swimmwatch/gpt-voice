@@ -11,9 +11,9 @@ import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { OpenAIApiSettingsWithSecret } from './openaiApiSettingsUtils';
 import {
-  buildOpenAIResponsesPrettifyRequestBody,
+  buildOpenAIResponsesTextRequestBody,
   isUnsupportedOpenAIReasoningResponse,
-  type OpenAIResponsesPrettifyRequestBody,
+  type OpenAIResponsesTextRequestBody,
 } from './openaiResponsesUtils';
 import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 import { t } from '../i18n';
@@ -144,9 +144,29 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   }
 
   async prettifyText(text: string, options: PrettifyTextOptions): Promise<TextProcessingResult> {
+    return this.processOpenAIText(text, options, {
+      action: 'Prettify',
+      emptyResultError: t('error.noPrettifyResult'),
+      failureFallback: 'OpenAI API prettify failed',
+      logMessage: 'Prettifying selected text with OpenAI API',
+    });
+  }
+
+  private async processOpenAIText(
+    text: string,
+    options: PrettifyTextOptions,
+    context: {
+      action: string;
+      emptyResultError: string;
+      failureFallback: string;
+      logMessage: string;
+    },
+  ): Promise<TextProcessingResult> {
+    const cancellationError = t('status.prettifyCancelled');
+
     try {
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
 
       const settings = this.deps.getSettings();
@@ -154,13 +174,13 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
         return { success: false, error: t('error.noAccessToken') };
       }
 
-      log.info('Prettifying selected text with OpenAI API:', {
+      log.info(`${context.logMessage}:`, {
         textLength: text.length,
         model: settings.prettifyModel,
         reasoning: options.reasoning,
       });
 
-      const requestBody = buildOpenAIResponsesPrettifyRequestBody({
+      const requestBody = buildOpenAIResponsesTextRequestBody({
         model: settings.prettifyModel,
         prompt: options.prompt,
         input: text,
@@ -184,23 +204,23 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
       }
 
       if (response.status !== StatusCodes.OK) {
-        return this.parseOpenAIErrorResponse(response.status, body, 'OpenAI API prettify failed');
+        return this.parseOpenAIErrorResponse(response.status, body, context.failureFallback);
       }
 
-      return this.parsePrettifySuccessResponse(body);
+      return this.parseTextProcessingSuccessResponse(body, context.emptyResultError);
     } catch (error: unknown) {
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
 
-      log.error('Prettify error:', error instanceof Error ? error.message : error);
+      log.error(`${context.action} error:`, error instanceof Error ? error.message : error);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
   private fetchPrettifyResponse(
     apiKey: string,
-    body: OpenAIResponsesPrettifyRequestBody,
+    body: OpenAIResponsesTextRequestBody,
     signal?: AbortSignal,
   ): Promise<FetchResponseLike> {
     return this.deps.fetch(RESPONSES_URL, {
@@ -261,7 +281,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     }
   }
 
-  private parsePrettifySuccessResponse(body: string): TextProcessingResult {
+  private parseTextProcessingSuccessResponse(body: string, emptyResultError: string): TextProcessingResult {
     let result: unknown;
     try {
       result = JSON.parse(body);
@@ -277,7 +297,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
 
     const text = extractOpenAIResponseText(result);
     if (!text) {
-      return { success: false, error: t('error.noPrettifyResult') };
+      return { success: false, error: emptyResultError };
     }
 
     return { success: true, text };

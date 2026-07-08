@@ -6,6 +6,7 @@ import { getAppUrl } from './appProtocol';
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let historyWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const log = createLogger('window');
 
@@ -17,8 +18,14 @@ export function getSettingsWindow(): BrowserWindow | null {
   return settingsWindow;
 }
 
+export function getHistoryWindow(): BrowserWindow | null {
+  return historyWindow;
+}
+
 export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
-  const trustedWindows = [mainWindow, settingsWindow].filter((win): win is BrowserWindow => Boolean(win));
+  const trustedWindows = [mainWindow, settingsWindow, historyWindow].filter((win): win is BrowserWindow =>
+    Boolean(win),
+  );
   return trustedWindows.some((win) => webContents.id === win.webContents.id && senderUrl === win.webContents.getURL());
 }
 
@@ -110,6 +117,45 @@ export function showSettingsWindow(): void {
 
 export function closeSettingsWindow(): void {
   settingsWindow?.close();
+}
+
+export function showHistoryWindow(): void {
+  if (historyWindow) {
+    if (historyWindow.isMinimized()) {
+      historyWindow.restore();
+    }
+    historyWindow.show();
+    historyWindow.focus();
+    return;
+  }
+
+  const appIconPath = getAppIconPath();
+  const options: BrowserWindowConstructorOptions = {
+    width: 680,
+    height: 720,
+    minWidth: 520,
+    minHeight: 420,
+    autoHideMenuBar: true,
+    title: 'History',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
+      navigateOnDragDrop: false,
+    },
+    icon: appIconPath,
+  };
+
+  historyWindow = new BrowserWindow(options);
+  historyWindow.setMenuBarVisibility(false);
+  applyNavigationGuards(historyWindow);
+  historyWindow.loadURL(getAppUrl('history.html'));
+
+  historyWindow.on('closed', () => {
+    historyWindow = null;
+  });
 }
 
 export function createWindow(): void {

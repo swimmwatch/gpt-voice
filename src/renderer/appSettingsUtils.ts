@@ -161,6 +161,9 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
   if (input.textActionSettings.prettifyEnabled !== input.initialTextActionSettings.prettifyEnabled) {
     changedFields.push('prettifyEnabled');
   }
+  if (input.textActionSettings.promptCompressionEnabled !== input.initialTextActionSettings.promptCompressionEnabled) {
+    changedFields.push('promptCompressionEnabled');
+  }
   if (changedFields.length > textActionFieldStart) {
     changedGroups.push('textActions');
   }
@@ -370,7 +373,11 @@ export function arePrettifySettingsEqual(left: PrettifySettings, right: Prettify
 }
 
 export function areTextActionSettingsEqual(left: TextActionSettings, right: TextActionSettings): boolean {
-  return left.translateEnabled === right.translateEnabled && left.prettifyEnabled === right.prettifyEnabled;
+  return (
+    left.translateEnabled === right.translateEnabled &&
+    left.prettifyEnabled === right.prettifyEnabled &&
+    left.promptCompressionEnabled === right.promptCompressionEnabled
+  );
 }
 
 export function areCloakBrowserSettingsEqual(

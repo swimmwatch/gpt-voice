@@ -6,9 +6,11 @@ import {
   currentStopHotkey,
   currentTranslateHotkey,
   currentPrettifyHotkey,
+  currentPromptCompressionHotkey,
   currentRetryTranscriptionHotkey,
   currentTranslateEnabled,
   currentPrettifyEnabled,
+  currentPromptCompressionEnabled,
   currentTargetLang,
   currentProvider,
   currentPrettifyPrompt,
@@ -47,12 +49,18 @@ import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } fr
 import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
-import { showSystemNotification } from './electronRuntime';
+import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import { normalizePrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
+import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { normalizeTextActionSettings, type TextActionSettingsInput } from '@shared/textActionSettings';
+import {
+  clearTranscriptionHistory,
+  getTranscriptionHistoryPage,
+  getTranscriptionHistoryText,
+} from './services/transcriptionHistoryStorage';
 
 const log = createLogger('ipc');
 
@@ -104,6 +112,7 @@ function getTextActionSettingsSnapshot() {
   return {
     translateEnabled: currentTranslateEnabled,
     prettifyEnabled: currentPrettifyEnabled,
+    promptCompressionEnabled: currentPromptCompressionEnabled,
   };
 }
 
@@ -148,6 +157,7 @@ function getHotkeySettingsSnapshot(): HotkeySettings {
     stopHotkey: currentStopHotkey,
     translateHotkey: currentTranslateHotkey,
     prettifyHotkey: currentPrettifyHotkey,
+    promptCompressionHotkey: currentPromptCompressionHotkey,
     retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
   };
 }
@@ -183,6 +193,25 @@ export function registerIpcHandlers(): void {
 
   handle('translate-text', async (_event, text: string, targetLang: string) => {
     return translateText(text, targetLang);
+  });
+
+  handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
+    return getTranscriptionHistoryPage(query || {});
+  });
+
+  handle('copy-transcription-history-text', (_event, id: number) => {
+    const text = getTranscriptionHistoryText(Number(id));
+    if (!text) {
+      return { success: false, error: 'History entry not found' };
+    }
+
+    writeClipboardText(text);
+    return { success: true };
+  });
+
+  handle('clear-transcription-history', () => {
+    clearTranscriptionHistory();
+    return { success: true };
   });
 
   handle('get-recording-status', () => {
@@ -448,6 +477,9 @@ export function registerIpcHandlers(): void {
     } else if (target === 'prettify') {
       log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
       setHotkeys(undefined, undefined, undefined, undefined, hotkey, undefined);
+    } else if (target === 'promptCompression') {
+      log.info('Changing prompt compression hotkey from', currentPromptCompressionHotkey, 'to', hotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, undefined, undefined, hotkey);
     } else if (target === 'retryTranscription') {
       log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', hotkey);
       setHotkeys(undefined, undefined, undefined, undefined, undefined, hotkey);
@@ -477,10 +509,15 @@ export function registerIpcHandlers(): void {
         from: {
           translateEnabled: currentTranslateEnabled,
           prettifyEnabled: currentPrettifyEnabled,
+          promptCompressionEnabled: currentPromptCompressionEnabled,
         },
         to: normalized,
       });
-      setTextActionSettings(normalized.translateEnabled, normalized.prettifyEnabled);
+      setTextActionSettings(
+        normalized.translateEnabled,
+        normalized.prettifyEnabled,
+        normalized.promptCompressionEnabled,
+      );
       saveConfig();
       log.info('Text action settings saved:', normalized);
       return { success: true, settings: normalized };

@@ -15,6 +15,7 @@ import {
 } from './linuxDesktopIntegration';
 import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
+import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
 
@@ -115,6 +116,7 @@ app.on('activate', () => {
 
 app.on('will-quit', async () => {
   globalShortcut.unregisterAll();
+  closeTranscriptionHistoryStore();
   await shutdownBackgroundBrowser();
 });
 

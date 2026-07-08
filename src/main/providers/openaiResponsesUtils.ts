@@ -11,7 +11,9 @@ export interface OpenAIResponsesPrettifyRequestBody {
   };
 }
 
-interface BuildOpenAIResponsesPrettifyRequestBodyOptions {
+export type OpenAIResponsesTextRequestBody = OpenAIResponsesPrettifyRequestBody;
+
+interface BuildOpenAIResponsesTextRequestBodyOptions {
   input: string;
   model: string;
   prompt: string;
@@ -32,13 +34,13 @@ export function isKnownOpenAIReasoningModel(model: string): boolean {
   return KNOWN_REASONING_MODEL_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-export function buildOpenAIResponsesPrettifyRequestBody({
+export function buildOpenAIResponsesTextRequestBody({
   input,
   model,
   prompt,
   reasoning,
   includeReasoning = isKnownOpenAIReasoningModel(model),
-}: BuildOpenAIResponsesPrettifyRequestBodyOptions): OpenAIResponsesPrettifyRequestBody {
+}: BuildOpenAIResponsesTextRequestBodyOptions): OpenAIResponsesTextRequestBody {
   const body: OpenAIResponsesPrettifyRequestBody = {
     model,
     instructions: prompt,
@@ -53,6 +55,8 @@ export function buildOpenAIResponsesPrettifyRequestBody({
 
   return body;
 }
+
+export const buildOpenAIResponsesPrettifyRequestBody = buildOpenAIResponsesTextRequestBody;
 
 function extractOpenAIErrorMessage(body: string): string {
   try {

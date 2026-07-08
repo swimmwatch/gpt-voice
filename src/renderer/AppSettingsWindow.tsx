@@ -151,6 +151,7 @@ const AppSettingsWindow: React.FC = () => {
     if (target === 'cancel') return hotkeySettings.cancelHotkey;
     if (target === 'translate') return hotkeySettings.translateHotkey;
     if (target === 'retryTranscription') return hotkeySettings.retryTranscriptionHotkey;
+    if (target === 'promptCompression') return hotkeySettings.promptCompressionHotkey;
     return hotkeySettings.prettifyHotkey;
   };
 
@@ -333,14 +334,18 @@ const AppSettingsWindow: React.FC = () => {
                           ? textActionSettings.translateEnabled
                           : target === 'prettify'
                             ? textActionSettings.prettifyEnabled
-                            : undefined
+                            : target === 'promptCompression'
+                              ? textActionSettings.promptCompressionEnabled
+                              : undefined
                       }
                       onEnabledChange={
                         target === 'translate'
                           ? (enabled) => updateTextActionSetting('translateEnabled', enabled)
                           : target === 'prettify'
                             ? (enabled) => updateTextActionSetting('prettifyEnabled', enabled)
-                            : undefined
+                            : target === 'promptCompression'
+                              ? (enabled) => updateTextActionSetting('promptCompressionEnabled', enabled)
+                              : undefined
                       }
                     />
                   ))}

@@ -279,12 +279,29 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   async prettifyText(text: string, options: PrettifyTextOptions): Promise<TextProcessingResult> {
+    return this.processChatGptTextPrompt(`Text to improve:\n${text}`, options, {
+      action: 'Prettify',
+      emptyResultError: t('error.noPrettifyResult'),
+      logMessage: 'Prettifying selected text',
+    });
+  }
+
+  private async processChatGptTextPrompt(
+    text: string,
+    options: PrettifyTextOptions,
+    context: {
+      action: string;
+      emptyResultError: string;
+      logMessage: string;
+    },
+  ): Promise<TextProcessingResult> {
+    const cancellationError = t('status.prettifyCancelled');
     const removeAbortListener = this.watchChatGptPrettifyAbort(options.signal);
 
     try {
-      log.info('Prettifying selected text:', { textLength: text.length, reasoning: options.reasoning });
+      log.info(`${context.logMessage}:`, { textLength: text.length, reasoning: options.reasoning });
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
 
       if (!this.page) {
@@ -299,25 +316,25 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         return { success: false, error: t('error.noAccessToken') };
       }
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
 
-      const prettified = await this.prettifyViaChatGptPage(text, options);
+      const result = await this.processViaChatGptPage(text, options, cancellationError);
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
-      if (!prettified.trim()) {
-        return { success: false, error: t('error.noPrettifyResult') };
+      if (!result.trim()) {
+        return { success: false, error: context.emptyResultError };
       }
 
-      log.info('Prettify success, text length:', prettified.length);
-      return { success: true, text: prettified };
+      log.info(`${context.action} success, text length:`, result.length);
+      return { success: true, text: result };
     } catch (err: unknown) {
       if (options.signal?.aborted) {
-        return { success: false, error: t('status.prettifyCancelled') };
+        return { success: false, error: cancellationError };
       }
 
-      log.error('Prettify error:', err instanceof Error ? err.message : err);
+      log.error(`${context.action} error:`, err instanceof Error ? err.message : err);
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     } finally {
       removeAbortListener();
@@ -440,27 +457,41 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     );
   }
 
-  private async prettifyViaChatGptPage(text: string, options: PrettifyTextOptions): Promise<string> {
-    return this.sendChatGptTextPrompt(`${options.prompt.trim()}\n\nText to improve:\n${text}`, options.signal);
+  private async processViaChatGptPage(
+    text: string,
+    options: PrettifyTextOptions,
+    cancellationError: string,
+  ): Promise<string> {
+    return this.sendChatGptTextPrompt(`${options.prompt.trim()}\n\n${text}`, options.signal, cancellationError);
   }
 
-  private async sendChatGptTextPrompt(prompt: string, signal?: AbortSignal): Promise<string> {
-    this.throwIfPrettifyCancelled(signal);
+  private async sendChatGptTextPrompt(
+    prompt: string,
+    signal: AbortSignal | undefined,
+    cancellationError: string,
+  ): Promise<string> {
+    this.throwIfTextPromptCancelled(signal, cancellationError);
     const page = await this.getChatGptTextPage();
     const responseMonitor = this.createChatGptTextResponseMonitor(page);
 
     try {
       await this.openReusableChatGptComposer(page);
-      this.throwIfPrettifyCancelled(signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       await this.ensureChatGptTextPageAuthenticated(page);
-      this.throwIfPrettifyCancelled(signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       await this.throwIfChatGptBlockingErrorVisible(page);
       const previousAssistantState = await this.getAssistantMessageState(page);
       const previousSubmissionState = await this.getPromptSubmissionState(page);
-      this.throwIfPrettifyCancelled(signal);
-      await this.submitChatGptPrompt(page, prompt, previousSubmissionState, responseMonitor, signal);
-      this.throwIfPrettifyCancelled(signal);
-      return await this.waitForStableAssistantText(page, previousAssistantState, responseMonitor, signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
+      await this.submitChatGptPrompt(page, prompt, previousSubmissionState, responseMonitor, cancellationError, signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
+      return await this.waitForStableAssistantText(
+        page,
+        previousAssistantState,
+        responseMonitor,
+        cancellationError,
+        signal,
+      );
     } finally {
       responseMonitor.dispose();
       this.saveCurrentTextChatConversationId(page);
@@ -500,9 +531,9 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     return () => signal.removeEventListener('abort', onAbort);
   }
 
-  private throwIfPrettifyCancelled(signal?: AbortSignal): void {
+  private throwIfTextPromptCancelled(signal: AbortSignal | undefined, cancellationError: string): void {
     if (signal?.aborted) {
-      throw new Error(t('status.prettifyCancelled'));
+      throw new Error(cancellationError);
     }
   }
 
@@ -620,18 +651,19 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     prompt: string,
     previousSubmissionState: ChatGptPromptSubmissionState,
     responseMonitor: ChatGptTextResponseMonitor,
+    cancellationError: string,
     signal?: AbortSignal,
   ): Promise<void> {
-    this.throwIfPrettifyCancelled(signal);
+    this.throwIfTextPromptCancelled(signal, cancellationError);
     const composer = page.locator(CHATGPT_COMPOSER_SELECTOR).last();
     await composer.click({ timeout: CHATGPT_NAVIGATION_TIMEOUT_MS });
     await this.clearChatGptComposer(page);
-    this.throwIfPrettifyCancelled(signal);
+    this.throwIfTextPromptCancelled(signal, cancellationError);
     await page.keyboard.insertText(prompt);
 
     let canClickSendButton = await this.waitForEnabledChatGptSendButton(page);
     for (let attempt = 1; attempt <= CHATGPT_SUBMISSION_MAX_ATTEMPTS; attempt += 1) {
-      this.throwIfPrettifyCancelled(signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       if (canClickSendButton && (await this.clickChatGptSendButton(page))) {
         // Clicked the visible send button.
       } else {
@@ -639,7 +671,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       }
 
       await page.waitForTimeout(CHATGPT_SUBMISSION_SETTLE_MS);
-      this.throwIfPrettifyCancelled(signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       this.throwIfChatGptTextRequestFailed(responseMonitor);
       await this.throwIfChatGptBlockingErrorVisible(page);
       if (await this.hasChatGptPromptSubmissionStarted(page, previousSubmissionState, responseMonitor)) {
@@ -884,6 +916,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     page: Page,
     previousAssistantState: ChatGptAssistantMessageState,
     responseMonitor: ChatGptTextResponseMonitor,
+    cancellationError: string,
     signal?: AbortSignal,
   ): Promise<string> {
     let latestText = '';
@@ -891,7 +924,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     const deadline = Date.now() + CHATGPT_PRETTIFY_RESPONSE_TIMEOUT_MS;
 
     while (Date.now() < deadline) {
-      this.throwIfPrettifyCancelled(signal);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       this.throwIfChatGptTextRequestFailed(responseMonitor);
       await this.throwIfChatGptBlockingErrorVisible(page);
 

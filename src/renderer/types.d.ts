@@ -4,6 +4,12 @@ import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import type {
+  TranscriptionHistoryClearResult,
+  TranscriptionHistoryCopyResult,
+  TranscriptionHistoryPage,
+  TranscriptionHistoryQuery,
+} from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
@@ -75,6 +81,9 @@ export interface ElectronAPI {
     mimeType: string,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
+  getTranscriptionHistory: (query?: TranscriptionHistoryQuery) => Promise<TranscriptionHistoryPage>;
+  copyTranscriptionHistoryText: (id: number) => Promise<TranscriptionHistoryCopyResult>;
+  clearTranscriptionHistory: () => Promise<TranscriptionHistoryClearResult>;
   showNotification: (title: string, body: string, options?: SystemNotificationOptions) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
