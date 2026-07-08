@@ -4,6 +4,7 @@ import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
+  PrettifyModelLoadResult,
   PrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -108,6 +109,10 @@ export interface ElectronAPI {
     providerId: PrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelListResult>;
+  loadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ) => Promise<PrettifyModelLoadResult>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;

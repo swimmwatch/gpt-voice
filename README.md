@@ -105,7 +105,8 @@ Prettify Text is configured independently from transcription providers in **App 
 
 - **Ollama** is the default prettify provider and uses `http://127.0.0.1:11434`.
 - **vLLM** uses an OpenAI-compatible API base URL, defaulting to `http://127.0.0.1:8000/v1`.
-- Model choices are loaded from the selected provider with the **Refresh** button and must be selected from the dropdown.
+- Model choices are loaded from the selected provider with the **Refresh** button and must be selected from the dropdown. Ollama model entries show an approximate VRAM footprint when size metadata is available.
+- Ollama models can be explicitly loaded from **App settings** to reduce first-request latency. GPT-Voice unloads the Ollama model it loaded when the app fully quits.
 - vLLM API keys are optional and saved encrypted with Electron `safeStorage` when secure storage is available.
 - GPT-Voice does not start Ollama or vLLM for you; the chosen provider must already be running.
 

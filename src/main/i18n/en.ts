@@ -167,6 +167,13 @@ export default {
   'prettify.vllmApiKeyStored': 'A key is already saved. Leave empty to keep it.',
   'prettify.vllmApiKeyPlaceholder': 'Optional API key',
   'prettify.clearVllmApiKey': 'Clear',
+  'prettify.modelVramApprox': 'VRAM ~{size}',
+  'prettify.modelVramLoaded': 'VRAM {size}, loaded',
+  'prettify.loadModel': 'Load VRAM',
+  'prettify.loadingModel': 'Loading...',
+  'prettify.loadModelTitle': 'Load the selected Ollama model into video memory',
+  'prettify.modelLoaded': 'Loaded {model} into memory',
+  'prettify.modelLoadFailed': 'Could not load model',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',

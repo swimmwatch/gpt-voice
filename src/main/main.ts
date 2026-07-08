@@ -16,8 +16,11 @@ import {
 import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
 import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
+import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
+let quitCleanupComplete = false;
+let quitCleanupPromise: Promise<void> | null = null;
 
 configureAppIdentity();
 app.disableHardwareAcceleration();
@@ -114,10 +117,29 @@ app.on('activate', () => {
   showMainWindow();
 });
 
-app.on('will-quit', async () => {
+async function runQuitCleanup(): Promise<void> {
   globalShortcut.unregisterAll();
+  try {
+    await unloadLoadedOllamaPrettifyModel();
+  } catch (error: unknown) {
+    log.warn('Failed to unload Ollama prettify model during quit:', error instanceof Error ? error.message : error);
+  }
   closeTranscriptionHistoryStore();
   await shutdownBackgroundBrowser();
+}
+
+app.on('will-quit', (event) => {
+  if (quitCleanupComplete) return;
+
+  event.preventDefault();
+  void (quitCleanupPromise ??= runQuitCleanup()
+    .catch((error: unknown) => {
+      log.warn('Quit cleanup failed:', error instanceof Error ? error.message : error);
+    })
+    .finally(() => {
+      quitCleanupComplete = true;
+      app.quit();
+    }));
 });
 
 app.on('before-quit', () => {

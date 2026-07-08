@@ -49,6 +49,7 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   isPrettifyProviderId,
   type PrettifyModelListResult,
+  type PrettifyModelLoadResult,
   type PrettifyProviderId,
   type PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -61,7 +62,7 @@ import {
   getTranscriptionHistoryText,
 } from './services/transcriptionHistoryStorage';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import { listPrettifyModels } from './services/prettifyProviders';
+import { listPrettifyModels, loadPrettifyModel } from './services/prettifyProviders';
 
 const log = createLogger('ipc');
 
@@ -594,6 +595,47 @@ export function registerIpcHandlers(): void {
           error: getErrorMessage(error),
         });
         return { success: false, providerId, models: [], error: getErrorMessage(error) };
+      }
+    },
+  );
+
+  handle(
+    'load-prettify-model',
+    async (
+      _event,
+      providerId: PrettifyProviderId,
+      draftSettings: PrettifySettingsInput = {},
+    ): Promise<PrettifyModelLoadResult> => {
+      if (!isPrettifyProviderId(providerId)) {
+        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
+      }
+
+      try {
+        log.info('Loading Prettify model:', {
+          providerId,
+          draft: summarizePrettifySettingsInput(draftSettings || {}),
+        });
+        const result = await loadPrettifyModel(providerId, draftSettings || {});
+        if (!result.success) {
+          log.warn('Prettify model load failed:', {
+            providerId,
+            model: result.model,
+            error: result.error,
+          });
+        } else {
+          log.info('Prettify model loaded:', {
+            providerId,
+            model: result.model,
+            hasVramSize: typeof result.vramSizeBytes === 'number',
+          });
+        }
+        return result;
+      } catch (error: unknown) {
+        log.warn('Prettify model load error:', {
+          providerId,
+          error: getErrorMessage(error),
+        });
+        return { success: false, providerId, error: getErrorMessage(error) };
       }
     },
   );

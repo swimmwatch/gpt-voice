@@ -6,7 +6,10 @@ export type PrettifyProviderId = (typeof PRETTIFY_PROVIDER_IDS)[number];
 
 export interface PrettifyModelOption {
   id: string;
+  isLoaded?: boolean;
   name: string;
+  sizeBytes?: number;
+  vramSizeBytes?: number;
 }
 
 export interface OllamaPrettifySettings {
@@ -46,6 +49,14 @@ export interface PrettifyModelListResult {
   success: boolean;
   providerId: PrettifyProviderId;
   models: PrettifyModelOption[];
+  error?: string;
+}
+
+export interface PrettifyModelLoadResult {
+  success: boolean;
+  providerId: PrettifyProviderId;
+  model?: string;
+  vramSizeBytes?: number;
   error?: string;
 }
 

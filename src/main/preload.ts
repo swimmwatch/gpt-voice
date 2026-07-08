@@ -10,6 +10,7 @@ import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
+  PrettifyModelLoadResult,
   PrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -189,6 +190,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelListResult> => {
     return ipcRenderer.invoke('list-prettify-models', providerId, settings);
+  },
+  loadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ): Promise<PrettifyModelLoadResult> => {
+    return ipcRenderer.invoke('load-prettify-model', providerId, settings);
   },
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');

@@ -167,6 +167,13 @@ export default {
   'prettify.vllmApiKeyStored': 'Ключ уже сохранён. Оставьте поле пустым, чтобы не менять его.',
   'prettify.vllmApiKeyPlaceholder': 'Необязательный API key',
   'prettify.clearVllmApiKey': 'Очистить',
+  'prettify.modelVramApprox': 'VRAM ~{size}',
+  'prettify.modelVramLoaded': 'VRAM {size}, загружено',
+  'prettify.loadModel': 'Загрузить VRAM',
+  'prettify.loadingModel': 'Загрузка...',
+  'prettify.loadModelTitle': 'Загрузить выбранную модель Ollama в видеопамять',
+  'prettify.modelLoaded': 'Модель {model} загружена в память',
+  'prettify.modelLoadFailed': 'Не удалось загрузить модель',
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',

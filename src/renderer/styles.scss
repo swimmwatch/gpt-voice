@@ -896,6 +896,10 @@ h1 {
   }
 }
 
+.settings-model-action {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 .settings-error {
   color: #ff7777;
   font-size: 0.78rem;
@@ -906,6 +910,14 @@ h1 {
 
 .settings-field-error {
   color: #ff7777;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  text-align: left;
+  word-break: break-word;
+}
+
+.settings-field-hint {
+  color: $text-saved;
   font-size: 0.76rem;
   line-height: 1.3;
   text-align: left;

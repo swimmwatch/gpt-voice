@@ -34,6 +34,20 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
+function formatByteSize(bytes?: number): string {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 function getActivePrettifyProviderSettings(settings: PrettifySettings) {
   return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
 }
@@ -53,6 +67,9 @@ const AppSettingsWindow: React.FC = () => {
   });
   const [prettifyModelError, setPrettifyModelError] = useState('');
   const [isLoadingPrettifyModels, setIsLoadingPrettifyModels] = useState(false);
+  const [prettifyModelLoadError, setPrettifyModelLoadError] = useState('');
+  const [prettifyModelLoadStatus, setPrettifyModelLoadStatus] = useState('');
+  const [isLoadingPrettifyModel, setIsLoadingPrettifyModel] = useState(false);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
@@ -135,6 +152,8 @@ const AppSettingsWindow: React.FC = () => {
     clearFieldErrors(fieldKey);
     if (key === 'providerId') {
       setPrettifyModelError('');
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus('');
       clearFieldErrors('prettifyBaseUrl', 'prettifyModel', 'prettifyApiKey');
     }
     setPrettifySettings((current) => (current ? { ...current, [key]: value } : current));
@@ -147,6 +166,8 @@ const AppSettingsWindow: React.FC = () => {
   ): void => {
     clearFieldErrors(fieldKey);
     setPrettifyModelError('');
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
     setPrettifySettings((current) =>
       current
         ? {
@@ -220,6 +241,60 @@ const AppSettingsWindow: React.FC = () => {
       setPrettifyModelError(getErrorMessage(modelError));
     } finally {
       setIsLoadingPrettifyModels(false);
+    }
+  };
+
+  const loadSelectedOllamaModel = async (): Promise<void> => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama') return;
+    if (!prettifySettings.ollama.model) {
+      setFieldErrors((current) => ({ ...current, prettifyModel: t('prettify.noModels') }));
+      return;
+    }
+
+    setIsLoadingPrettifyModel(true);
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const selectedModel = prettifySettings.ollama.model;
+      const result = await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+      if (!result.success) {
+        setPrettifyModelLoadError(result.error || t('prettify.modelLoadFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        ollama: [
+          ...current.ollama.map((option) =>
+            option.id === selectedModel
+              ? {
+                  ...option,
+                  isLoaded: true,
+                  vramSizeBytes: result.vramSizeBytes ?? option.vramSizeBytes,
+                }
+              : {
+                  ...option,
+                  isLoaded: false,
+                },
+          ),
+          ...(current.ollama.some((option) => option.id === selectedModel)
+            ? []
+            : [
+                {
+                  id: selectedModel,
+                  isLoaded: true,
+                  name: selectedModel,
+                  vramSizeBytes: result.vramSizeBytes,
+                },
+              ]),
+        ],
+      }));
+      setPrettifyModelLoadStatus(t('prettify.modelLoaded', { model: result.model || selectedModel }));
+    } catch (loadError: unknown) {
+      setPrettifyModelLoadError(getErrorMessage(loadError));
+    } finally {
+      setIsLoadingPrettifyModel(false);
     }
   };
 
@@ -416,6 +491,18 @@ const AppSettingsWindow: React.FC = () => {
           ...prettifyModelOptions[prettifySettings.providerId],
         ]
       : [];
+  const getPrettifyModelOptionLabel = (option: PrettifyModelOption): string => {
+    const name = option.name || option.id;
+    if (prettifySettings?.providerId !== 'ollama') return name;
+
+    const loadedVramSize = formatByteSize(option.vramSizeBytes);
+    if (loadedVramSize) {
+      return `${name} (${t('prettify.modelVramLoaded', { size: loadedVramSize })})`;
+    }
+
+    const approximateVramSize = formatByteSize(option.sizeBytes);
+    return approximateVramSize ? `${name} (${t('prettify.modelVramApprox', { size: approximateVramSize })})` : name;
+  };
 
   return (
     <main className="settings-window-shell">
@@ -531,7 +618,11 @@ const AppSettingsWindow: React.FC = () => {
                   <label className="settings-field">
                     <span>{t('prettify.model')}</span>
                     {renderFieldError('prettifyModel')}
-                    <div className="settings-input-action">
+                    <div
+                      className={`settings-input-action${
+                        prettifySettings.providerId === 'ollama' ? ' settings-model-action' : ''
+                      }`}
+                    >
                       <select
                         value={activePrettifyProviderSettings?.model || ''}
                         onChange={(event) =>
@@ -541,7 +632,7 @@ const AppSettingsWindow: React.FC = () => {
                         <option value="">{t('prettify.noModels')}</option>
                         {activePrettifyModelOptions.map((option) => (
                           <option key={option.id} value={option.id}>
-                            {option.name || option.id}
+                            {getPrettifyModelOptionLabel(option)}
                           </option>
                         ))}
                       </select>
@@ -553,8 +644,21 @@ const AppSettingsWindow: React.FC = () => {
                       >
                         {isLoadingPrettifyModels ? t('prettify.loadingModels') : t('prettify.refreshModels')}
                       </button>
+                      {prettifySettings.providerId === 'ollama' && (
+                        <button
+                          type="button"
+                          className="hotkey-btn"
+                          disabled={isLoadingPrettifyModel || !activePrettifyProviderSettings?.model}
+                          title={t('prettify.loadModelTitle')}
+                          onClick={() => void loadSelectedOllamaModel()}
+                        >
+                          {isLoadingPrettifyModel ? t('prettify.loadingModel') : t('prettify.loadModel')}
+                        </button>
+                      )}
                     </div>
                     {prettifyModelError && <span className="settings-field-error">{prettifyModelError}</span>}
+                    {prettifyModelLoadError && <span className="settings-field-error">{prettifyModelLoadError}</span>}
+                    {prettifyModelLoadStatus && <span className="settings-field-hint">{prettifyModelLoadStatus}</span>}
                   </label>
                   <label className="settings-field">
                     <span>{t('prettify.temperature', { value: prettifySettings.temperature.toFixed(2) })}</span>

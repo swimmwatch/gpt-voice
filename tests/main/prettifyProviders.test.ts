@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { listPrettifyModels, runPrettify } from '@main/services/prettifyProviders';
+import {
+  listPrettifyModels,
+  loadPrettifyModel,
+  runPrettify,
+  unloadLoadedOllamaPrettifyModel,
+} from '@main/services/prettifyProviders';
 import { DEFAULT_PRETTIFY_PROMPT } from '@shared/prettifySettings';
 
 interface FetchCall {
@@ -24,16 +29,28 @@ describe('prettifyProviders', () => {
       {
         fetch: async (url, init) => {
           calls.push({ url, init });
-          return response(200, { models: [{ model: 'llama3.2' }, { name: 'mistral' }, { model: '' }] });
+          if (url.endsWith('/api/ps')) {
+            return response(200, {
+              models: [{ model: 'llama3.2', size: 3_000_000_000, size_vram: 2_500_000_000 }],
+            });
+          }
+          return response(200, {
+            models: [
+              { model: 'llama3.2', size: 3_500_000_000 },
+              { name: 'mistral', size: 4_000_000_000 },
+              { model: '' },
+            ],
+          });
         },
       },
     );
 
     assert.deepEqual(models, [
-      { id: 'llama3.2', name: 'llama3.2' },
-      { id: 'mistral', name: 'mistral' },
+      { id: 'llama3.2', name: 'llama3.2', sizeBytes: 3_500_000_000, vramSizeBytes: 2_500_000_000, isLoaded: true },
+      { id: 'mistral', name: 'mistral', sizeBytes: 4_000_000_000 },
     ]);
     assert.equal(calls[0]?.url, 'http://localhost:11434/api/tags');
+    assert.equal(calls[1]?.url, 'http://localhost:11434/api/ps');
   });
 
   it('prettifies through non-streaming Ollama /api/chat', async () => {
@@ -66,6 +83,52 @@ describe('prettifyProviders', () => {
       { role: 'user', content: 'selected text' },
     ]);
     assert.deepEqual(body.options, { temperature: 0.25 });
+  });
+
+  it('loads and unloads an Ollama model with keep_alive', async () => {
+    const calls: FetchCall[] = [];
+    const deps = {
+      fetch: async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        if (url.endsWith('/api/ps')) {
+          return response(200, {
+            models: [{ model: 'llama3.2', size_vram: 2_500_000_000 }],
+          });
+        }
+        return response(200, { message: { content: ' improved text ' } });
+      },
+    };
+
+    const loadResult = await loadPrettifyModel(
+      'ollama',
+      { providerId: 'ollama', ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' } },
+      deps,
+    );
+    assert.deepEqual(loadResult, {
+      success: true,
+      providerId: 'ollama',
+      model: 'llama3.2',
+      vramSizeBytes: 2_500_000_000,
+    });
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[0]?.init?.body)).keep_alive, -1);
+    assert.equal(calls[1]?.url, 'http://localhost:11434/api/ps');
+
+    await runPrettify(
+      'selected text',
+      {
+        providerId: 'ollama',
+        prompt: 'Improve',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+      },
+      undefined,
+      deps,
+    );
+    assert.equal(JSON.parse(String(calls[2]?.init?.body)).keep_alive, -1);
+
+    await unloadLoadedOllamaPrettifyModel(deps);
+    assert.equal(calls[3]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[3]?.init?.body)).keep_alive, 0);
   });
 
   it('lists vLLM models from OpenAI-compatible /models with draft auth', async () => {
