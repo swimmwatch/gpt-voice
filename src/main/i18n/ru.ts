@@ -169,11 +169,18 @@ export default {
   'prettify.clearVllmApiKey': 'Очистить',
   'prettify.modelVramApprox': 'VRAM ~{size}',
   'prettify.modelVramLoaded': 'VRAM {size}, загружено',
+  'prettify.modelActions': 'Действия с моделью',
   'prettify.loadModel': 'Загрузить VRAM',
   'prettify.loadingModel': 'Загрузка...',
   'prettify.loadModelTitle': 'Загрузить выбранную модель Ollama в видеопамять',
+  'prettify.freeModel': 'Освободить VRAM',
+  'prettify.freeModelTitle': 'Удалить выбранную модель Ollama из видеопамяти',
   'prettify.modelLoaded': 'Модель {model} загружена в память',
+  'prettify.modelFreed': 'Модель {model} выгружена из памяти',
+  'prettify.modelAlreadyLoaded': 'Модель {model} уже загружена в память',
+  'prettify.modelNotLoaded': 'Модель {model} не загружена в память',
   'prettify.modelLoadFailed': 'Не удалось загрузить модель',
+  'prettify.modelUnloadFailed': 'Не удалось выгрузить модель',
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',

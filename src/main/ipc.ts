@@ -50,6 +50,7 @@ import {
   isPrettifyProviderId,
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
+  type PrettifyModelUnloadResult,
   type PrettifyProviderId,
   type PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -62,7 +63,7 @@ import {
   getTranscriptionHistoryText,
 } from './services/transcriptionHistoryStorage';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import { listPrettifyModels, loadPrettifyModel } from './services/prettifyProviders';
+import { listPrettifyModels, loadPrettifyModel, unloadPrettifyModel } from './services/prettifyProviders';
 
 const log = createLogger('ipc');
 
@@ -632,6 +633,46 @@ export function registerIpcHandlers(): void {
         return result;
       } catch (error: unknown) {
         log.warn('Prettify model load error:', {
+          providerId,
+          error: getErrorMessage(error),
+        });
+        return { success: false, providerId, error: getErrorMessage(error) };
+      }
+    },
+  );
+
+  handle(
+    'unload-prettify-model',
+    async (
+      _event,
+      providerId: PrettifyProviderId,
+      draftSettings: PrettifySettingsInput = {},
+    ): Promise<PrettifyModelUnloadResult> => {
+      if (!isPrettifyProviderId(providerId)) {
+        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
+      }
+
+      try {
+        log.info('Unloading Prettify model:', {
+          providerId,
+          draft: summarizePrettifySettingsInput(draftSettings || {}),
+        });
+        const result = await unloadPrettifyModel(providerId, draftSettings || {});
+        if (!result.success) {
+          log.warn('Prettify model unload failed:', {
+            providerId,
+            model: result.model,
+            error: result.error,
+          });
+        } else {
+          log.info('Prettify model unloaded:', {
+            providerId,
+            model: result.model,
+          });
+        }
+        return result;
+      } catch (error: unknown) {
+        log.warn('Prettify model unload error:', {
           providerId,
           error: getErrorMessage(error),
         });

@@ -60,6 +60,13 @@ export interface PrettifyModelLoadResult {
   error?: string;
 }
 
+export interface PrettifyModelUnloadResult {
+  success: boolean;
+  providerId: PrettifyProviderId;
+  model?: string;
+  error?: string;
+}
+
 const LEGACY_DEFAULT_PRETTIFY_PROMPTS = [
   'Improve the selected text. Correct grammar errors, remove repetitions and unnecessary words, make the text clearer and neater, and preserve the original meaning. Do not add new facts. Do not significantly change the style unless necessary. Return only the improved text, without explanations or markdown.',
   'Improve the selected text: fix grammar, remove repetition, clarify wording, and preserve meaning. Prefer concise wording and shorten it when possible to reduce token count, while keeping important details. Do not add facts or significantly change style. Return only the improved text, without explanations or markdown.',

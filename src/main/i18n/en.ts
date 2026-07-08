@@ -169,11 +169,18 @@ export default {
   'prettify.clearVllmApiKey': 'Clear',
   'prettify.modelVramApprox': 'VRAM ~{size}',
   'prettify.modelVramLoaded': 'VRAM {size}, loaded',
+  'prettify.modelActions': 'Model actions',
   'prettify.loadModel': 'Load VRAM',
   'prettify.loadingModel': 'Loading...',
   'prettify.loadModelTitle': 'Load the selected Ollama model into video memory',
+  'prettify.freeModel': 'Free VRAM',
+  'prettify.freeModelTitle': 'Remove the selected Ollama model from video memory',
   'prettify.modelLoaded': 'Loaded {model} into memory',
+  'prettify.modelFreed': 'Freed {model} from memory',
+  'prettify.modelAlreadyLoaded': '{model} is already loaded in memory',
+  'prettify.modelNotLoaded': '{model} is not loaded in memory',
   'prettify.modelLoadFailed': 'Could not load model',
+  'prettify.modelUnloadFailed': 'Could not free model',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',

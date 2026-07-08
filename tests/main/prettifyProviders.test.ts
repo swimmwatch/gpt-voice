@@ -5,6 +5,7 @@ import {
   loadPrettifyModel,
   runPrettify,
   unloadLoadedOllamaPrettifyModel,
+  unloadPrettifyModel,
 } from '@main/services/prettifyProviders';
 import { DEFAULT_PRETTIFY_PROMPT } from '@shared/prettifySettings';
 
@@ -87,12 +88,14 @@ describe('prettifyProviders', () => {
 
   it('loads and unloads an Ollama model with keep_alive', async () => {
     const calls: FetchCall[] = [];
+    let psCalls = 0;
     const deps = {
       fetch: async (url: string, init?: RequestInit) => {
         calls.push({ url, init });
         if (url.endsWith('/api/ps')) {
+          psCalls += 1;
           return response(200, {
-            models: [{ model: 'llama3.2', size_vram: 2_500_000_000 }],
+            models: psCalls === 1 ? [] : [{ model: 'llama3.2', size_vram: 2_500_000_000 }],
           });
         }
         return response(200, { message: { content: ' improved text ' } });
@@ -110,9 +113,10 @@ describe('prettifyProviders', () => {
       model: 'llama3.2',
       vramSizeBytes: 2_500_000_000,
     });
-    assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
-    assert.equal(JSON.parse(String(calls[0]?.init?.body)).keep_alive, -1);
-    assert.equal(calls[1]?.url, 'http://localhost:11434/api/ps');
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/ps');
+    assert.equal(calls[1]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[1]?.init?.body)).keep_alive, -1);
+    assert.equal(calls[2]?.url, 'http://localhost:11434/api/ps');
 
     await runPrettify(
       'selected text',
@@ -124,11 +128,68 @@ describe('prettifyProviders', () => {
       undefined,
       deps,
     );
-    assert.equal(JSON.parse(String(calls[2]?.init?.body)).keep_alive, -1);
+    assert.equal(JSON.parse(String(calls[3]?.init?.body)).keep_alive, -1);
 
     await unloadLoadedOllamaPrettifyModel(deps);
-    assert.equal(calls[3]?.url, 'http://localhost:11434/api/chat');
-    assert.equal(JSON.parse(String(calls[3]?.init?.body)).keep_alive, 0);
+    assert.equal(calls[4]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[4]?.init?.body)).keep_alive, 0);
+  });
+
+  it('does not load a duplicate Ollama model already in memory', async () => {
+    const calls: FetchCall[] = [];
+    const deps = {
+      fetch: async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        if (url.endsWith('/api/ps')) {
+          return response(200, {
+            models: [{ model: 'already-loaded', size_vram: 1_250_000_000 }],
+          });
+        }
+        return response(200, { message: { content: '' } });
+      },
+    };
+
+    const settings = {
+      providerId: 'ollama' as const,
+      ollama: { baseUrl: 'http://localhost:11434', model: 'already-loaded' },
+    };
+    const firstResult = await loadPrettifyModel('ollama', settings, deps);
+    const secondResult = await loadPrettifyModel('ollama', settings, deps);
+
+    assert.equal(firstResult.success, true);
+    assert.equal(secondResult.success, true);
+    assert.equal(
+      calls.every((call) => call.url === 'http://localhost:11434/api/ps'),
+      true,
+    );
+    assert.equal(calls.length, 2);
+    await unloadLoadedOllamaPrettifyModel({
+      fetch: async () => response(200, { message: { content: '' } }),
+    });
+  });
+
+  it('unloads the selected Ollama model with keep_alive 0', async () => {
+    const calls: FetchCall[] = [];
+    const result = await unloadPrettifyModel(
+      'ollama',
+      { providerId: 'ollama', ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' } },
+      {
+        fetch: async (url, init) => {
+          calls.push({ url, init });
+          if (url.endsWith('/api/ps')) {
+            return response(200, {
+              models: [{ model: 'llama3.2', size_vram: 2_500_000_000 }],
+            });
+          }
+          return response(200, { message: { content: '' } });
+        },
+      },
+    );
+
+    assert.deepEqual(result, { success: true, providerId: 'ollama', model: 'llama3.2' });
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/ps');
+    assert.equal(calls[1]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[1]?.init?.body)).keep_alive, 0);
   });
 
   it('lists vLLM models from OpenAI-compatible /models with draft auth', async () => {

@@ -169,11 +169,18 @@ export default {
   'prettify.clearVllmApiKey': 'Ачысціць',
   'prettify.modelVramApprox': 'VRAM ~{size}',
   'prettify.modelVramLoaded': 'VRAM {size}, загружана',
+  'prettify.modelActions': 'Дзеянні з мадэллю',
   'prettify.loadModel': 'Загрузіць VRAM',
   'prettify.loadingModel': 'Загрузка...',
   'prettify.loadModelTitle': 'Загрузіць выбраную мадэль Ollama ў відэапамяць',
+  'prettify.freeModel': 'Вызваліць VRAM',
+  'prettify.freeModelTitle': 'Выдаліць выбраную мадэль Ollama з відэапамяці',
   'prettify.modelLoaded': 'Мадэль {model} загружана ў памяць',
+  'prettify.modelFreed': 'Мадэль {model} выгружана з памяці',
+  'prettify.modelAlreadyLoaded': 'Мадэль {model} ужо загружана ў памяць',
+  'prettify.modelNotLoaded': 'Мадэль {model} не загружана ў памяць',
   'prettify.modelLoadFailed': 'Не ўдалося загрузіць мадэль',
+  'prettify.modelUnloadFailed': 'Не ўдалося выгрузіць мадэль',
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',

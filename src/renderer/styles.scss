@@ -904,6 +904,54 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+.settings-model-actions-menu {
+  position: relative;
+}
+
+.settings-menu-trigger {
+  min-width: 44px;
+  padding-inline: 12px;
+}
+
+.settings-menu-dropdown {
+  background: rgba(31, 31, 56, 0.98);
+  border: 1px solid $kbd-border;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
+.settings-menu-item {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: $text-white;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+
+  &:focus-visible,
+  &:hover:not(:disabled) {
+    background: rgba(77, 126, 255, 0.2);
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
 .settings-error {
   color: #ff7777;
   font-size: 0.78rem;

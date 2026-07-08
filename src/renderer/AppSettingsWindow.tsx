@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import rendererLog from 'electron-log/renderer';
 import HotkeyModal from '@renderer/components/HotkeyModal';
 import HotkeyRow from '@renderer/components/HotkeyRow';
@@ -54,6 +54,7 @@ function getActivePrettifyProviderSettings(settings: PrettifySettings) {
 
 const AppSettingsWindow: React.FC = () => {
   const { t } = useI18n();
+  const prettifyModelActionMenuRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
@@ -70,6 +71,7 @@ const AppSettingsWindow: React.FC = () => {
   const [prettifyModelLoadError, setPrettifyModelLoadError] = useState('');
   const [prettifyModelLoadStatus, setPrettifyModelLoadStatus] = useState('');
   const [isLoadingPrettifyModel, setIsLoadingPrettifyModel] = useState(false);
+  const [isPrettifyModelActionMenuOpen, setIsPrettifyModelActionMenuOpen] = useState(false);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
@@ -109,6 +111,19 @@ const AppSettingsWindow: React.FC = () => {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isPrettifyModelActionMenuOpen) return undefined;
+
+    const handleDocumentMouseDown = (event: MouseEvent): void => {
+      if (!prettifyModelActionMenuRef.current?.contains(event.target as Node)) {
+        setIsPrettifyModelActionMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown);
+  }, [isPrettifyModelActionMenuOpen]);
 
   const updateSetting = <Key extends keyof EditableCloakBrowserSettings>(
     key: Key,
@@ -154,6 +169,7 @@ const AppSettingsWindow: React.FC = () => {
       setPrettifyModelError('');
       setPrettifyModelLoadError('');
       setPrettifyModelLoadStatus('');
+      setIsPrettifyModelActionMenuOpen(false);
       clearFieldErrors('prettifyBaseUrl', 'prettifyModel', 'prettifyApiKey');
     }
     setPrettifySettings((current) => (current ? { ...current, [key]: value } : current));
@@ -168,6 +184,9 @@ const AppSettingsWindow: React.FC = () => {
     setPrettifyModelError('');
     setPrettifyModelLoadError('');
     setPrettifyModelLoadStatus('');
+    if (key === 'baseUrl' || key === 'model') {
+      setIsPrettifyModelActionMenuOpen(false);
+    }
     setPrettifySettings((current) =>
       current
         ? {
@@ -244,10 +263,23 @@ const AppSettingsWindow: React.FC = () => {
     }
   };
 
+  const isSelectedOllamaModelLoaded = (): boolean => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama' || !prettifySettings.ollama.model) return false;
+    return prettifyModelOptions.ollama.some(
+      (option) => option.id === prettifySettings.ollama.model && Boolean(option.isLoaded),
+    );
+  };
+
   const loadSelectedOllamaModel = async (): Promise<void> => {
     if (!prettifySettings || prettifySettings.providerId !== 'ollama') return;
+    setIsPrettifyModelActionMenuOpen(false);
     if (!prettifySettings.ollama.model) {
       setFieldErrors((current) => ({ ...current, prettifyModel: t('prettify.noModels') }));
+      return;
+    }
+    if (isSelectedOllamaModelLoaded()) {
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus(t('prettify.modelAlreadyLoaded', { model: prettifySettings.ollama.model }));
       return;
     }
 
@@ -293,6 +325,50 @@ const AppSettingsWindow: React.FC = () => {
       setPrettifyModelLoadStatus(t('prettify.modelLoaded', { model: result.model || selectedModel }));
     } catch (loadError: unknown) {
       setPrettifyModelLoadError(getErrorMessage(loadError));
+    } finally {
+      setIsLoadingPrettifyModel(false);
+    }
+  };
+
+  const unloadSelectedOllamaModel = async (): Promise<void> => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama') return;
+    setIsPrettifyModelActionMenuOpen(false);
+    if (!prettifySettings.ollama.model) {
+      setFieldErrors((current) => ({ ...current, prettifyModel: t('prettify.noModels') }));
+      return;
+    }
+    if (!isSelectedOllamaModelLoaded()) {
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus(t('prettify.modelNotLoaded', { model: prettifySettings.ollama.model }));
+      return;
+    }
+
+    setIsLoadingPrettifyModel(true);
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const selectedModel = prettifySettings.ollama.model;
+      const result = await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings);
+      if (!result.success) {
+        setPrettifyModelLoadError(result.error || t('prettify.modelUnloadFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        ollama: current.ollama.map((option) =>
+          option.id === selectedModel
+            ? {
+                ...option,
+                isLoaded: false,
+              }
+            : option,
+        ),
+      }));
+      setPrettifyModelLoadStatus(t('prettify.modelFreed', { model: result.model || selectedModel }));
+    } catch (unloadError: unknown) {
+      setPrettifyModelLoadError(getErrorMessage(unloadError));
     } finally {
       setIsLoadingPrettifyModel(false);
     }
@@ -491,6 +567,9 @@ const AppSettingsWindow: React.FC = () => {
           ...prettifyModelOptions[prettifySettings.providerId],
         ]
       : [];
+  const selectedOllamaModelLoaded = isSelectedOllamaModelLoaded();
+  const canUsePrettifyModelActions =
+    prettifySettings?.providerId === 'ollama' && Boolean(activePrettifyProviderSettings?.model);
   const getPrettifyModelOptionLabel = (option: PrettifyModelOption): string => {
     const name = option.name || option.id;
     if (prettifySettings?.providerId !== 'ollama') return name;
@@ -645,15 +724,44 @@ const AppSettingsWindow: React.FC = () => {
                         {isLoadingPrettifyModels ? t('prettify.loadingModels') : t('prettify.refreshModels')}
                       </button>
                       {prettifySettings.providerId === 'ollama' && (
-                        <button
-                          type="button"
-                          className="hotkey-btn"
-                          disabled={isLoadingPrettifyModel || !activePrettifyProviderSettings?.model}
-                          title={t('prettify.loadModelTitle')}
-                          onClick={() => void loadSelectedOllamaModel()}
-                        >
-                          {isLoadingPrettifyModel ? t('prettify.loadingModel') : t('prettify.loadModel')}
-                        </button>
+                        <div className="settings-model-actions-menu" ref={prettifyModelActionMenuRef}>
+                          <button
+                            type="button"
+                            aria-expanded={isPrettifyModelActionMenuOpen}
+                            aria-haspopup="menu"
+                            aria-label={t('prettify.modelActions')}
+                            className="hotkey-btn settings-menu-trigger"
+                            disabled={isLoadingPrettifyModel || !canUsePrettifyModelActions}
+                            title={t('prettify.modelActions')}
+                            onClick={() => setIsPrettifyModelActionMenuOpen((current) => !current)}
+                          >
+                            ...
+                          </button>
+                          {isPrettifyModelActionMenuOpen && (
+                            <div className="settings-menu-dropdown" role="menu">
+                              <button
+                                type="button"
+                                className="settings-menu-item"
+                                disabled={isLoadingPrettifyModel || selectedOllamaModelLoaded}
+                                role="menuitem"
+                                title={t('prettify.loadModelTitle')}
+                                onClick={() => void loadSelectedOllamaModel()}
+                              >
+                                {t('prettify.loadModel')}
+                              </button>
+                              <button
+                                type="button"
+                                className="settings-menu-item"
+                                disabled={isLoadingPrettifyModel || !selectedOllamaModelLoaded}
+                                role="menuitem"
+                                title={t('prettify.freeModelTitle')}
+                                onClick={() => void unloadSelectedOllamaModel()}
+                              >
+                                {t('prettify.freeModel')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                     {prettifyModelError && <span className="settings-field-error">{prettifyModelError}</span>}

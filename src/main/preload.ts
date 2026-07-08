@@ -11,6 +11,7 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
+  PrettifyModelUnloadResult,
   PrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -196,6 +197,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelLoadResult> => {
     return ipcRenderer.invoke('load-prettify-model', providerId, settings);
+  },
+  unloadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ): Promise<PrettifyModelUnloadResult> => {
+    return ipcRenderer.invoke('unload-prettify-model', providerId, settings);
   },
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');

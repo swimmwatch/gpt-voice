@@ -5,6 +5,7 @@ import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '
 import type {
   PrettifyModelLoadResult,
   PrettifyModelOption,
+  PrettifyModelUnloadResult,
   PrettifyProviderId,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -223,6 +224,11 @@ function isPinnedOllamaModel(settings: PrettifySettingsWithSecret['ollama']): bo
   );
 }
 
+function isSameOllamaModel(left: LoadedOllamaPrettifyModel | null, right: LoadedOllamaPrettifyModel): boolean {
+  if (!left) return false;
+  return left.baseUrl === right.baseUrl && left.model === right.model;
+}
+
 async function setOllamaModelKeepAlive(
   model: LoadedOllamaPrettifyModel,
   keepAlive: number,
@@ -359,11 +365,40 @@ export async function loadPrettifyModel(
   };
 
   try {
+    let runningModels = new Map<string, RunningOllamaModelInfo>();
+    try {
+      runningModels = await getRunningOllamaModels(nextModel.baseUrl, deps);
+    } catch {
+      runningModels = new Map();
+    }
+    const runningSelectedModel = runningModels.get(nextModel.model);
+    if (isSameOllamaModel(loadedOllamaPrettifyModel, nextModel) && runningSelectedModel) {
+      log.info('Ollama prettify model is already loaded:', { model: nextModel.model });
+      return {
+        success: true,
+        providerId,
+        model: nextModel.model,
+        vramSizeBytes: runningSelectedModel.vramSizeBytes,
+      };
+    }
+
     if (
       loadedOllamaPrettifyModel &&
       (loadedOllamaPrettifyModel.baseUrl !== nextModel.baseUrl || loadedOllamaPrettifyModel.model !== nextModel.model)
     ) {
       await setOllamaModelKeepAlive(loadedOllamaPrettifyModel, 0, deps);
+      loadedOllamaPrettifyModel = null;
+    }
+
+    if (runningSelectedModel) {
+      loadedOllamaPrettifyModel = nextModel;
+      log.info('Using already running Ollama prettify model:', { model: nextModel.model });
+      return {
+        success: true,
+        providerId,
+        model: nextModel.model,
+        vramSizeBytes: runningSelectedModel.vramSizeBytes,
+      };
     }
 
     log.info('Loading Ollama prettify model:', { model: nextModel.model });
@@ -381,6 +416,53 @@ export async function loadPrettifyModel(
       providerId,
       model: nextModel.model,
       error: createConnectionError('Ollama', nextModel.baseUrl, error),
+    };
+  }
+}
+
+export async function unloadPrettifyModel(
+  providerId: PrettifyProviderId,
+  draftSettings: PrettifySettingsInput = {},
+  deps: PrettifyProviderDependencies = { fetch },
+): Promise<PrettifyModelUnloadResult> {
+  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId });
+  if (providerId !== 'ollama') {
+    return { success: false, providerId, error: 'Model unloading is available only for Ollama' };
+  }
+  if (!settings.ollama.model) {
+    return { success: false, providerId, error: t('error.noPrettifyModel') };
+  }
+
+  const model = {
+    baseUrl: settings.ollama.baseUrl,
+    model: settings.ollama.model,
+  };
+
+  try {
+    let shouldUnload = isSameOllamaModel(loadedOllamaPrettifyModel, model);
+    try {
+      shouldUnload = shouldUnload || (await getRunningOllamaModels(model.baseUrl, deps)).has(model.model);
+    } catch {
+      shouldUnload = true;
+    }
+
+    if (shouldUnload) {
+      log.info('Unloading Ollama prettify model:', { model: model.model });
+      await setOllamaModelKeepAlive(model, 0, deps);
+    } else {
+      log.info('Ollama prettify model is not loaded:', { model: model.model });
+    }
+    if (isSameOllamaModel(loadedOllamaPrettifyModel, model)) {
+      loadedOllamaPrettifyModel = null;
+    }
+
+    return { success: true, providerId, model: model.model };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      providerId,
+      model: model.model,
+      error: createConnectionError('Ollama', model.baseUrl, error),
     };
   }
 }

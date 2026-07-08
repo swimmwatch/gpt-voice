@@ -5,6 +5,7 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
+  PrettifyModelUnloadResult,
   PrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -113,6 +114,10 @@ export interface ElectronAPI {
     providerId: PrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelLoadResult>;
+  unloadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ) => Promise<PrettifyModelUnloadResult>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;
