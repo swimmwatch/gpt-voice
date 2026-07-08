@@ -132,6 +132,19 @@ describe('selectedTextPrettify', () => {
     assert.equal(prettifyCalls[0]?.text, 'copied selection');
   });
 
+  it('passes the configured prettify reasoning setting to the provider', async () => {
+    const { prettifyCalls, service } = createTestService({
+      reasoning: 'extended',
+      selectionText: 'selected text',
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, true);
+    assert.equal(prettifyCalls.length, 1);
+    assert.equal(prettifyCalls[0]?.reasoning, 'extended');
+  });
+
   it('keeps the previous clipboard when prettify fails', async () => {
     const { clipboard, notifications, service } = createTestService({
       selectionText: 'selected text',

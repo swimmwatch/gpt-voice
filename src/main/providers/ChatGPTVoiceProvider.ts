@@ -28,6 +28,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
+import { DEFAULT_PRETTIFY_REASONING, type PrettifyReasoning } from '@shared/prettifySettings';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { APP_DIR } from '../config';
@@ -50,6 +51,8 @@ const CHATGPT_CONVERSATION_HISTORY_TIMEOUT_MS = 20000;
 const CHATGPT_SEND_BUTTON_READY_TIMEOUT_MS = 10000;
 const CHATGPT_SUBMISSION_SETTLE_MS = 700;
 const CHATGPT_SUBMISSION_MAX_ATTEMPTS = 2;
+const CHATGPT_MODE_MENU_OPEN_SETTLE_MS = 250;
+const CHATGPT_MODE_SELECTION_SETTLE_MS = 350;
 const CHATGPT_COMPOSER_SELECTOR = '#prompt-textarea, [contenteditable="true"][role="textbox"]';
 const CHATGPT_MESSAGE_SELECTOR = '[data-message-author-role]';
 const CHATGPT_USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
@@ -60,12 +63,28 @@ const CHATGPT_ASSISTANT_MESSAGE_SELECTORS = [
   '[data-testid^="conversation-turn-"] [class*="markdown"]',
   'article .markdown',
 ];
+const CHATGPT_CONVERSATION_HISTORY_SELECTORS = [
+  CHATGPT_MESSAGE_SELECTOR,
+  CHATGPT_USER_MESSAGE_SELECTOR,
+  ...CHATGPT_ASSISTANT_MESSAGE_SELECTORS,
+  '[data-testid^="conversation-turn-"]',
+  'article',
+];
 const CHATGPT_SEND_BUTTON_SELECTORS = [
   '[data-testid="send-button"]',
   'button[data-testid="send-button"]',
   'button[aria-label="Send prompt"]',
   'button[aria-label="Send message"]',
   'button[aria-label="Send"]',
+];
+const CHATGPT_MODE_MENU_BUTTON_SELECTORS = [
+  '[data-testid="model-switcher-dropdown-button"]',
+  '[data-testid="model-switcher-button"]',
+  '[data-testid*="model-switcher"] button',
+  'button[aria-haspopup="menu"]',
+  'button[aria-haspopup="listbox"]',
+  'button[aria-label*="model" i]',
+  'button[aria-label*="mode" i]',
 ];
 const CHATGPT_STOP_GENERATING_SELECTORS = [
   '[data-testid="stop-button"]',
@@ -138,6 +157,20 @@ interface ChatGptTextResponseMonitor {
   conversationStatus: number | null;
   failedResponse: ChatGptTextResponseFailure | null;
   dispose(): void;
+}
+
+interface ChatGptReasoningModeSelection {
+  success: boolean;
+  applied?: PrettifyReasoning;
+  label?: string;
+  fallbackReason?: string;
+  error?: string;
+}
+
+function getChatGptReasoningModePreferences(reasoning: PrettifyReasoning): PrettifyReasoning[] {
+  if (reasoning === 'extended') return ['extended', 'standard', 'instant'];
+  if (reasoning === 'standard') return ['standard', 'instant'];
+  return ['instant'];
 }
 
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
@@ -462,13 +495,19 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     options: PrettifyTextOptions,
     cancellationError: string,
   ): Promise<string> {
-    return this.sendChatGptTextPrompt(`${options.prompt.trim()}\n\n${text}`, options.signal, cancellationError);
+    return this.sendChatGptTextPrompt(
+      `${options.prompt.trim()}\n\n${text}`,
+      options.reasoning,
+      options.signal,
+      cancellationError,
+    );
   }
 
   private async sendChatGptTextPrompt(
     prompt: string,
-    signal: AbortSignal | undefined,
-    cancellationError: string,
+    reasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING,
+    signal?: AbortSignal,
+    cancellationError = t('status.prettifyCancelled'),
   ): Promise<string> {
     this.throwIfTextPromptCancelled(signal, cancellationError);
     const page = await this.getChatGptTextPage();
@@ -480,6 +519,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       await this.ensureChatGptTextPageAuthenticated(page);
       this.throwIfTextPromptCancelled(signal, cancellationError);
       await this.throwIfChatGptBlockingErrorVisible(page);
+      await this.ensureChatGptReasoningMode(page, reasoning);
+      this.throwIfTextPromptCancelled(signal, cancellationError);
       const previousAssistantState = await this.getAssistantMessageState(page);
       const previousSubmissionState = await this.getPromptSubmissionState(page);
       this.throwIfTextPromptCancelled(signal, cancellationError);
@@ -538,6 +579,23 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   }
 
   private async openReusableChatGptComposer(page: Page): Promise<void> {
+    const currentConversationId = extractChatGptConversationId(page.url());
+    if (currentConversationId) {
+      try {
+        await this.waitForChatGptComposer(page);
+        if (!(await this.waitForConversationHistoryHydration(page))) {
+          log.warn('Open ChatGPT text conversation history did not hydrate quickly; continuing in the same chat');
+        }
+        this.saveTextChatConversationId(currentConversationId);
+        return;
+      } catch (error: unknown) {
+        log.warn(
+          'Open ChatGPT text conversation was not ready:',
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+
     const savedConversationId = this.loadTextChatConversationId();
     if (savedConversationId) {
       try {
@@ -546,11 +604,11 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         if (extractChatGptConversationId(page.url()) !== savedConversationId) {
           log.warn('Saved ChatGPT text conversation was not reopened; creating a new text conversation');
           this.clearTextChatState();
-        } else if (await this.waitForConversationHistoryHydration(page)) {
-          return;
         } else {
-          log.warn('Saved ChatGPT text conversation did not hydrate; creating a new text conversation');
-          this.clearTextChatState();
+          if (!(await this.waitForConversationHistoryHydration(page))) {
+            log.warn('Saved ChatGPT text conversation history did not hydrate quickly; continuing in the same chat');
+          }
+          return;
         }
       } catch (error: unknown) {
         log.warn(
@@ -570,6 +628,10 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
     });
     await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await this.waitForChatGptComposer(page);
+  }
+
+  private async waitForChatGptComposer(page: Page): Promise<void> {
     await page.waitForSelector(CHATGPT_COMPOSER_SELECTOR, {
       timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
     });
@@ -578,8 +640,9 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private async waitForConversationHistoryHydration(page: Page): Promise<boolean> {
     try {
       await page.waitForFunction(
-        (messageSelector: string) => document.querySelectorAll(messageSelector).length > 0,
-        CHATGPT_MESSAGE_SELECTOR,
+        ({ messageSelectors }: { messageSelectors: string[] }) =>
+          messageSelectors.some((selector) => document.querySelectorAll(selector).length > 0),
+        { messageSelectors: CHATGPT_CONVERSATION_HISTORY_SELECTORS },
         { timeout: CHATGPT_CONVERSATION_HISTORY_TIMEOUT_MS },
       );
       return true;
@@ -644,6 +707,278 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     if (!sessionState.hasUser || !sessionState.hasAccessToken) {
       throw new Error(t('error.noAccessToken'));
     }
+  }
+
+  private async ensureChatGptReasoningMode(page: Page, requestedReasoning: PrettifyReasoning): Promise<void> {
+    const preferredModes = getChatGptReasoningModePreferences(requestedReasoning);
+    const currentMode = await this.readCurrentChatGptReasoningMode(page, preferredModes);
+
+    if (currentMode.success && currentMode.applied === requestedReasoning) {
+      return;
+    }
+
+    const menuOpened = await this.openChatGptReasoningModeMenu(page);
+    if (!menuOpened) {
+      if (currentMode.success && currentMode.applied) {
+        log.info('Using current ChatGPT text mode after mode menu was unavailable:', {
+          requestedReasoning,
+          appliedReasoning: currentMode.applied,
+          fallback: currentMode.applied !== requestedReasoning,
+          fallbackReason: currentMode.fallbackReason || 'mode menu unavailable',
+        });
+        return;
+      }
+
+      throw new Error(currentMode.error || `Could not select a safe ChatGPT reasoning mode for ${requestedReasoning}`);
+    }
+
+    await page.waitForTimeout(CHATGPT_MODE_MENU_OPEN_SETTLE_MS);
+    const selectedMode = await this.selectChatGptReasoningModeFromMenu(page, preferredModes);
+    if (!selectedMode.success || !selectedMode.applied) {
+      throw new Error(selectedMode.error || `Could not select a safe ChatGPT reasoning mode for ${requestedReasoning}`);
+    }
+
+    await page.waitForTimeout(CHATGPT_MODE_SELECTION_SETTLE_MS);
+    log.info('Selected ChatGPT text mode:', {
+      requestedReasoning,
+      appliedReasoning: selectedMode.applied,
+      fallback: selectedMode.applied !== requestedReasoning,
+      fallbackReason: selectedMode.fallbackReason || '',
+    });
+  }
+
+  private async readCurrentChatGptReasoningMode(
+    page: Page,
+    preferredModes: PrettifyReasoning[],
+  ): Promise<ChatGptReasoningModeSelection> {
+    return page.evaluate(
+      ({
+        action,
+        menuButtonSelectors,
+        preferredModes,
+      }: {
+        action: string;
+        menuButtonSelectors: string[];
+        preferredModes: PrettifyReasoning[];
+      }): ChatGptReasoningModeSelection => {
+        void action;
+
+        const getLabel = (element: HTMLElement): string =>
+          [element.textContent || '', element.getAttribute('aria-label') || '', element.getAttribute('title') || '']
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const isVisible = (element: HTMLElement): boolean => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+        const classifyLabel = (label: string): PrettifyReasoning | 'unsafe' | '' => {
+          const normalized = label.toLowerCase();
+          if (/\b(pro|deep\s*research|research|agent|operator|codex)\b/.test(normalized)) return 'unsafe';
+          if (!/\b(auto|fast|default|quick|gpt|4o|o[1-9]|think|thinking|reason|model)\b/.test(normalized)) {
+            return '';
+          }
+          if (/\b(think|thinking|reason)\b/.test(normalized)) {
+            if (/\b(extended|longer|more|advanced|max)\b/.test(normalized)) return 'extended';
+            return 'standard';
+          }
+          return 'instant';
+        };
+
+        const elements: HTMLElement[] = [];
+        for (const selector of menuButtonSelectors) {
+          try {
+            elements.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
+          } catch {
+            // Ignore selector support differences between Chromium builds.
+          }
+        }
+        elements.push(...Array.from(document.querySelectorAll<HTMLElement>('button')));
+
+        let unsafeSeen = false;
+        for (const element of elements) {
+          if (!isVisible(element)) continue;
+          const label = getLabel(element);
+          const mode = classifyLabel(label);
+          if (mode === 'unsafe') {
+            unsafeSeen = true;
+            continue;
+          }
+          if (mode && preferredModes.includes(mode)) {
+            return {
+              success: true,
+              applied: mode,
+              label,
+              fallbackReason: mode === preferredModes[0] ? '' : 'current safe fallback mode',
+            };
+          }
+        }
+
+        return {
+          success: false,
+          error: unsafeSeen ? 'Current ChatGPT text mode appears unsafe for quick prettify' : undefined,
+        };
+      },
+      { action: 'read-current-mode', menuButtonSelectors: CHATGPT_MODE_MENU_BUTTON_SELECTORS, preferredModes },
+    );
+  }
+
+  private async openChatGptReasoningModeMenu(page: Page): Promise<boolean> {
+    return page.evaluate(
+      ({ action, menuButtonSelectors }: { action: string; menuButtonSelectors: string[] }): boolean => {
+        void action;
+
+        const getLabel = (element: HTMLElement): string =>
+          [
+            element.textContent || '',
+            element.getAttribute('aria-label') || '',
+            element.getAttribute('title') || '',
+            element.getAttribute('data-testid') || '',
+          ]
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const isVisible = (element: HTMLElement): boolean => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+        const isPotentialModeTrigger = (element: HTMLElement): boolean =>
+          /\b(model|mode|chatgpt|gpt|4o|o[1-9]|auto|fast|think|thinking|reason)\b/i.test(getLabel(element));
+
+        for (const selector of menuButtonSelectors) {
+          let elements: HTMLElement[];
+          try {
+            elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
+          } catch {
+            continue;
+          }
+          for (const element of elements) {
+            if (!isVisible(element)) continue;
+            if (!selector.includes('model-switcher') && !isPotentialModeTrigger(element)) continue;
+            element.click();
+            return true;
+          }
+        }
+
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>('button'))) {
+          if (!isVisible(element) || !isPotentialModeTrigger(element)) continue;
+          element.click();
+          return true;
+        }
+
+        return false;
+      },
+      { action: 'open-mode-menu', menuButtonSelectors: CHATGPT_MODE_MENU_BUTTON_SELECTORS },
+    );
+  }
+
+  private async selectChatGptReasoningModeFromMenu(
+    page: Page,
+    preferredModes: PrettifyReasoning[],
+  ): Promise<ChatGptReasoningModeSelection> {
+    return page.evaluate(
+      ({
+        action,
+        preferredModes,
+      }: {
+        action: string;
+        preferredModes: PrettifyReasoning[];
+      }): ChatGptReasoningModeSelection => {
+        void action;
+
+        interface ModeCandidate {
+          element: HTMLElement;
+          label: string;
+          mode: PrettifyReasoning;
+          score: number;
+        }
+
+        const getLabel = (element: HTMLElement): string =>
+          [element.textContent || '', element.getAttribute('aria-label') || '', element.getAttribute('title') || '']
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const isVisible = (element: HTMLElement): boolean => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+        const isDisabled = (element: HTMLElement): boolean =>
+          element.getAttribute('aria-disabled') === 'true' ||
+          ('disabled' in element && Boolean((element as HTMLButtonElement).disabled));
+        const classifyLabel = (label: string): PrettifyReasoning | 'unsafe' | '' => {
+          const normalized = label.toLowerCase();
+          if (/\b(pro|deep\s*research|research|agent|operator|codex)\b/.test(normalized)) return 'unsafe';
+          if (!/\b(auto|fast|default|quick|gpt|4o|o[1-9]|think|thinking|reason|model)\b/.test(normalized)) {
+            return '';
+          }
+          if (/\b(think|thinking|reason)\b/.test(normalized)) {
+            if (/\b(extended|longer|more|advanced|max)\b/.test(normalized)) return 'extended';
+            return 'standard';
+          }
+          return 'instant';
+        };
+        const scoreCandidate = (label: string, mode: PrettifyReasoning): number => {
+          const normalized = label.toLowerCase();
+          if (mode === 'instant') {
+            if (/\b(fast|quick|auto|default)\b/.test(normalized)) return 3;
+            return 1;
+          }
+          if (mode === 'extended') {
+            if (/\b(extended|longer|more|advanced|max)\b/.test(normalized)) return 4;
+            return 2;
+          }
+          return /\b(think|thinking|reason)\b/.test(normalized) ? 3 : 1;
+        };
+
+        const optionSelector = [
+          '[role="menuitem"]',
+          '[role="option"]',
+          '[role="radio"]',
+          '[data-testid*="model"]',
+          'button',
+        ].join(',');
+        const candidates: ModeCandidate[] = [];
+        let unsafeSeen = false;
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>(optionSelector))) {
+          if (!isVisible(element) || isDisabled(element)) continue;
+          const label = getLabel(element);
+          const mode = classifyLabel(label);
+          if (mode === 'unsafe') {
+            unsafeSeen = true;
+            continue;
+          }
+          if (!mode) continue;
+          candidates.push({
+            element,
+            label,
+            mode,
+            score: scoreCandidate(label, mode),
+          });
+        }
+
+        for (const mode of preferredModes) {
+          const candidate = candidates
+            .filter((item) => item.mode === mode)
+            .sort((left, right) => right.score - left.score)[0];
+          if (!candidate) continue;
+          candidate.element.click();
+          return {
+            success: true,
+            applied: candidate.mode,
+            label: candidate.label,
+            fallbackReason: candidate.mode === preferredModes[0] ? '' : 'requested mode unavailable',
+          };
+        }
+
+        return {
+          success: false,
+          error: unsafeSeen
+            ? 'Only unsafe ChatGPT text modes were available for prettify'
+            : 'No safe ChatGPT text mode option was available for prettify',
+        };
+      },
+      { action: 'select-mode', preferredModes },
+    );
   }
 
   private async submitChatGptPrompt(
