@@ -10,6 +10,7 @@ import {
   currentTranslateHotkey,
 } from './config';
 import { updateTrayIcon } from './tray';
+import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
@@ -45,15 +46,15 @@ export function getRecordingState() {
   return { isRecording, isPaused, lifecycleState: recordingLifecycleState };
 }
 
-function shouldShowRecordingTrayIcon(state: RecordingLifecycleState): boolean {
+function shouldShowRecordingStatusIndicator(state: RecordingLifecycleState): boolean {
   return state === 'starting' || state === 'recording' || state === 'paused' || state === 'stopping';
 }
 
 export function setRecordingLifecycleState(state: RecordingLifecycleState): void {
   recordingLifecycleState = state;
-  isRecording = shouldShowRecordingTrayIcon(state);
+  isRecording = shouldShowRecordingStatusIndicator(state);
   isPaused = state === 'paused';
-  updateTrayIcon(shouldShowRecordingTrayIcon(state));
+  updateTrayIcon(getTrayIconStateForRecordingLifecycle(state));
   syncRetryTranscriptionShortcut();
 }
 
