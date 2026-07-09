@@ -126,7 +126,7 @@ function unregisterRetryTranscriptionShortcut(): void {
   }
 
   globalShortcut.unregister(registeredRetryTranscriptionHotkey);
-  log.info(`${registeredRetryTranscriptionHotkey} retry transcription shortcut unregistered`);
+  log.info(`${registeredRetryTranscriptionHotkey} resend transcription shortcut unregistered`);
   registeredRetryTranscriptionHotkey = null;
 }
 
@@ -144,7 +144,7 @@ function syncRetryTranscriptionShortcut(): void {
   unregisterRetryTranscriptionShortcut();
   const retryRegistered = globalShortcut.register(retryTranscriptionHotkey, () => {
     if (!canRunRetryTranscriptionShortcut(recordingLifecycleState, retryTranscriptionAvailable)) {
-      log.info(`${retryTranscriptionHotkey} pressed while retry transcription is unavailable`);
+      log.info(`${retryTranscriptionHotkey} pressed while resend transcription is unavailable`);
       return;
     }
 
@@ -154,14 +154,14 @@ function syncRetryTranscriptionShortcut(): void {
       return;
     }
 
-    log.info(`${retryTranscriptionHotkey} pressed, retrying failed transcription`);
+    log.info(`${retryTranscriptionHotkey} pressed, resending transcription audio`);
     retryTranscriptionAvailable = false;
     setRecordingLifecycleState('retrying');
     unregisterRetryTranscriptionShortcut();
     win.webContents.send('retry-transcription');
   });
   registeredRetryTranscriptionHotkey = retryRegistered ? retryTranscriptionHotkey : null;
-  log.info(`${retryTranscriptionHotkey} retry transcription shortcut registered:`, retryRegistered);
+  log.info(`${retryTranscriptionHotkey} resend transcription shortcut registered:`, retryRegistered);
 }
 
 export function registerShortcuts(): void {

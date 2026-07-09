@@ -83,7 +83,7 @@ describe('shortcuts', () => {
     assert.equal(canRunPrettifyShortcut('idle', true, true), false);
   });
 
-  it('runs retry transcription only when failed audio is available and not recording', () => {
+  it('runs retry transcription only when retryable audio is available and not recording', () => {
     assert.equal(canRunRetryTranscriptionShortcut(false, true), true);
     assert.equal(canRunRetryTranscriptionShortcut(false, false), false);
     assert.equal(canRunRetryTranscriptionShortcut(true, true), false);

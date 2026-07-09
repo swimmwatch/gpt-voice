@@ -1,6 +1,14 @@
 import { useRef, useCallback } from 'react';
 import rendererLog from 'electron-log/renderer';
 import { prepareTranscriptionAudio, type TranscriptionAudioPayload } from '../audioEncoding';
+import {
+  beginRetryTranscription,
+  clearRetryableTranscriptionAudio,
+  createRecordingRetryState,
+  finishRetryTranscription,
+  isRetryTranscriptionAvailable,
+  storeRetryableTranscriptionAudio,
+} from '../recordingRetryState';
 import { showTranscriptionFailureNotification, showTranscriptionSuccessNotification } from '../recordingNotifications';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
 import { getNotificationErrorMessage, type SystemNotificationOptions } from '@shared/notifications';
@@ -27,8 +35,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const failedTranscriptionAudioRef = useRef<TranscriptionAudioPayload | null>(null);
-  const retryTranscriptionInFlightRef = useRef(false);
+  const retryStateRef = useRef(createRecordingRetryState());
   const recordingLifecycleStateRef = useRef<RecordingLifecycleState>('idle');
 
   const getSupportedRecordingMimeType = useCallback(() => {
@@ -60,25 +67,23 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
     [setIsPaused, setIsRecording],
   );
 
-  const clearFailedTranscriptionAudio = useCallback(() => {
-    failedTranscriptionAudioRef.current = null;
-    reportRetryTranscriptionAvailability(false);
+  const reportRetryableTranscriptionAudio = useCallback(() => {
+    reportRetryTranscriptionAvailability(
+      isRetryTranscriptionAvailable(retryStateRef.current, recordingLifecycleStateRef.current),
+    );
   }, [reportRetryTranscriptionAvailability]);
 
-  const rememberFailedTranscriptionAudio = useCallback(
-    (audio: TranscriptionAudioPayload) => {
-      if (audio.buffer.byteLength === 0) {
-        failedTranscriptionAudioRef.current = null;
-        reportRetryTranscriptionAvailability(false);
-        return;
-      }
+  const clearLastTranscriptionAudio = useCallback(() => {
+    retryStateRef.current = clearRetryableTranscriptionAudio(retryStateRef.current);
+    reportRetryableTranscriptionAudio();
+  }, [reportRetryableTranscriptionAudio]);
 
-      failedTranscriptionAudioRef.current = audio;
-      if (!retryTranscriptionInFlightRef.current) {
-        reportRetryTranscriptionAvailability(true);
-      }
+  const rememberLastTranscriptionAudio = useCallback(
+    (audio: TranscriptionAudioPayload) => {
+      retryStateRef.current = storeRetryableTranscriptionAudio(retryStateRef.current, audio);
+      reportRetryableTranscriptionAudio();
     },
-    [reportRetryTranscriptionAvailability],
+    [reportRetryableTranscriptionAudio],
   );
 
   const submitTranscriptionAudio = useCallback(
@@ -93,25 +98,22 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
           error: result.error,
         });
         if (result.success && result.text) {
-          clearFailedTranscriptionAudio();
           log.info('Copied transcription to clipboard, text length:', result.text.length);
           setStatus(t('status.copiedToClipboard'));
           showTranscriptionSuccessNotification(window.electronAPI, t, result.text);
           return;
         }
 
-        rememberFailedTranscriptionAudio(audio);
         log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
         setStatus(t('status.transcriptionFailed'));
         showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'), { sound: 'error' });
       } catch (err) {
-        rememberFailedTranscriptionAudio(audio);
         setStatus(t('status.transcriptionError'));
         log.error('Transcribe error:', err);
         showRecognitionErrorNotification(err, t('status.transcriptionError'), { sound: 'error' });
       }
     },
-    [clearFailedTranscriptionAudio, rememberFailedTranscriptionAudio, setStatus, showRecognitionErrorNotification, t],
+    [setStatus, showRecognitionErrorNotification, t],
   );
 
   const startRecording = useCallback(async () => {
@@ -121,7 +123,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
 
     setRecordingLifecycle('starting');
     try {
-      clearFailedTranscriptionAudio();
+      clearLastTranscriptionAudio();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (recordingLifecycleStateRef.current !== 'starting') {
         stream.getTracks().forEach((track) => track.stop());
@@ -160,6 +162,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
             fallbackReason: audio.fallbackReason,
           });
 
+          rememberLastTranscriptionAudio(audio);
           await submitTranscriptionAudio(audio, false);
         } catch (err) {
           setStatus(t('status.transcriptionError'));
@@ -172,6 +175,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
           }
           mediaRecorderRef.current = null;
           setRecordingLifecycle('idle');
+          reportRetryableTranscriptionAudio();
         }
       };
 
@@ -195,8 +199,10 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
       showRecognitionErrorNotification(err, t('status.microphoneError'));
     }
   }, [
-    clearFailedTranscriptionAudio,
+    clearLastTranscriptionAudio,
     getSupportedRecordingMimeType,
+    rememberLastTranscriptionAudio,
+    reportRetryableTranscriptionAudio,
     setRecordingLifecycle,
     setStatus,
     showRecognitionErrorNotification,
@@ -204,25 +210,23 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
     t,
   ]);
 
-  const retryLastFailedTranscription = useCallback(async () => {
-    const audio = failedTranscriptionAudioRef.current;
-    if (!audio || retryTranscriptionInFlightRef.current || !canStartRecording(recordingLifecycleStateRef.current)) {
+  const resendLastTranscription = useCallback(async () => {
+    const retry = beginRetryTranscription(retryStateRef.current, recordingLifecycleStateRef.current);
+    if (!retry) {
       return;
     }
 
-    retryTranscriptionInFlightRef.current = true;
+    retryStateRef.current = retry.state;
+    reportRetryableTranscriptionAudio();
     setRecordingLifecycle('retrying');
-    reportRetryTranscriptionAvailability(false);
     try {
-      await submitTranscriptionAudio(audio, true);
+      await submitTranscriptionAudio(retry.audio, true);
     } finally {
-      retryTranscriptionInFlightRef.current = false;
+      retryStateRef.current = finishRetryTranscription(retryStateRef.current);
       setRecordingLifecycle('idle');
-      if (failedTranscriptionAudioRef.current) {
-        reportRetryTranscriptionAvailability(true);
-      }
+      reportRetryableTranscriptionAudio();
     }
-  }, [reportRetryTranscriptionAvailability, setRecordingLifecycle, submitTranscriptionAudio]);
+  }, [reportRetryableTranscriptionAudio, setRecordingLifecycle, submitTranscriptionAudio]);
 
   const stopRecording = useCallback(() => {
     if (!canStopRecording(recordingLifecycleStateRef.current)) {
@@ -295,6 +299,6 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
     pauseRecording,
     resumeRecording,
     cancelRecording,
-    retryLastFailedTranscription,
+    resendLastTranscription,
   };
 }
