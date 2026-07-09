@@ -53,16 +53,28 @@ describe('prettifySettings', () => {
       normalizePrettifySettings({
         prompt: '  Improve this  ',
         reasoning: 'extended',
+        maxOutputTokens: 1024,
+        minP: 0.123,
         providerId: 'vllm',
+        repeatPenalty: 1.234,
+        seed: 42.9,
         temperature: 0.336,
+        topK: 64.9,
+        topP: 0.876,
         ollama: { baseUrl: ' http://localhost:11434/ ', model: ' llama3.2 ' },
         vllm: { baseUrl: ' http://localhost:8000/v1/ ', model: ' Qwen ', hasApiKey: true },
       }),
       {
         ...DEFAULT_PRETTIFY_SETTINGS,
+        maxOutputTokens: 1024,
+        minP: 0.12,
         providerId: 'vllm',
         prompt: 'Improve this',
+        repeatPenalty: 1.23,
+        seed: 42,
         temperature: 0.34,
+        topK: 64,
+        topP: 0.88,
         ollama: {
           baseUrl: 'http://localhost:11434',
           model: 'llama3.2',
@@ -73,6 +85,40 @@ describe('prettifySettings', () => {
           hasApiKey: true,
         },
       },
+    );
+  });
+
+  it('normalizes generation settings to conservative supported ranges', () => {
+    assert.deepEqual(
+      normalizePrettifySettings({
+        maxOutputTokens: 9000,
+        minP: -1,
+        repeatPenalty: 9,
+        seed: 3_000_000_000,
+        topK: 999,
+        topP: 0,
+      }),
+      {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        maxOutputTokens: 8192,
+        minP: 0,
+        repeatPenalty: 1.5,
+        seed: 2_147_483_647,
+        topK: 200,
+        topP: 0.05,
+      },
+    );
+
+    assert.deepEqual(
+      normalizePrettifySettings({
+        maxOutputTokens: Number.NaN,
+        minP: Number.NaN,
+        repeatPenalty: Number.NaN,
+        seed: '',
+        topK: Number.NaN,
+        topP: Number.NaN,
+      }),
+      DEFAULT_PRETTIFY_SETTINGS,
     );
   });
 

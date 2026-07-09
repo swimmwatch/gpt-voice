@@ -86,7 +86,51 @@ describe('prettifyProviders', () => {
       role: 'user',
       content: '<selected_text>\nselected text\n</selected_text>',
     });
-    assert.deepEqual(body.options, { temperature: 0.25 });
+    assert.deepEqual(body.options, {
+      min_p: 0,
+      repeat_penalty: 1,
+      temperature: 0.25,
+      top_k: 40,
+      top_p: 0.9,
+    });
+    assert.equal('num_predict' in body.options, false);
+    assert.equal('seed' in body.options, false);
+  });
+
+  it('maps advanced generation settings to Ollama options', async () => {
+    const calls: FetchCall[] = [];
+    await runPrettify(
+      'selected text',
+      {
+        maxOutputTokens: 1024,
+        minP: 0.05,
+        providerId: 'ollama',
+        repeatPenalty: 1.1,
+        seed: 123,
+        temperature: 0.15,
+        topK: 32,
+        topP: 0.8,
+        ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+      },
+      undefined,
+      {
+        fetch: async (url, init) => {
+          calls.push({ url, init });
+          return response(200, { message: { content: ' improved text ' } });
+        },
+      },
+    );
+
+    const body = JSON.parse(String(calls[0]?.init?.body));
+    assert.deepEqual(body.options, {
+      min_p: 0.05,
+      num_predict: 1024,
+      repeat_penalty: 1.1,
+      seed: 123,
+      temperature: 0.15,
+      top_k: 32,
+      top_p: 0.8,
+    });
   });
 
   it('loads and unloads an Ollama model with keep_alive', async () => {
@@ -253,9 +297,53 @@ describe('prettifyProviders', () => {
     const body = JSON.parse(String(calls[0]?.init?.body));
     assert.equal(body.model, 'qwen2.5');
     assert.equal(body.temperature, 0);
+    assert.equal(body.top_p, 0.9);
+    assert.equal(body.top_k, 40);
+    assert.equal(body.min_p, 0);
+    assert.equal(body.repetition_penalty, 1);
+    assert.equal('max_tokens' in body, false);
+    assert.equal('seed' in body, false);
     assert.equal(body.stream, false);
     assert.match(body.messages[0].content, /conservative copy editor/);
     assert.equal(body.messages[1].content, '<selected_text>\nselected text\n</selected_text>');
+  });
+
+  it('maps advanced generation settings to vLLM chat completions', async () => {
+    const calls: FetchCall[] = [];
+    await runPrettify(
+      'selected text',
+      {
+        maxOutputTokens: 2048,
+        minP: 0.1,
+        providerId: 'vllm',
+        repeatPenalty: 1.2,
+        seed: 321,
+        temperature: 0.2,
+        topK: 24,
+        topP: 0.75,
+        vllm: {
+          baseUrl: 'http://localhost:8000/v1',
+          model: 'qwen2.5',
+          hasApiKey: false,
+        },
+      },
+      undefined,
+      {
+        fetch: async (url, init) => {
+          calls.push({ url, init });
+          return response(200, { choices: [{ message: { content: ' improved vllm text ' } }] });
+        },
+      },
+    );
+
+    const body = JSON.parse(String(calls[0]?.init?.body));
+    assert.equal(body.max_tokens, 2048);
+    assert.equal(body.min_p, 0.1);
+    assert.equal(body.repetition_penalty, 1.2);
+    assert.equal(body.seed, 321);
+    assert.equal(body.temperature, 0.2);
+    assert.equal(body.top_k, 24);
+    assert.equal(body.top_p, 0.75);
   });
 
   it('returns safe errors for non-200, invalid JSON, empty output, aborts, and network failures', async () => {

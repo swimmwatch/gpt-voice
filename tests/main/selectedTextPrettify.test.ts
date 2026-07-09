@@ -21,8 +21,14 @@ interface TestServiceOptions {
   prompt?: string;
   providerId?: PrettifyProviderId;
   baseUrl?: string;
+  maxOutputTokens?: number;
+  minP?: number;
   model?: string;
+  repeatPenalty?: number;
+  seed?: number | null;
   temperature?: number;
+  topK?: number;
+  topP?: number;
   selectionText?: string;
   prettifyResult?: { success: boolean; text?: string; error?: string };
   prettifyWait?: Promise<void>;
@@ -43,9 +49,15 @@ function createPrettifySettings(options: TestServiceOptions = {}): PrettifySetti
 
   return {
     ...DEFAULT_PRETTIFY_SETTINGS,
+    maxOutputTokens: options.maxOutputTokens ?? DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens,
+    minP: options.minP ?? DEFAULT_PRETTIFY_SETTINGS.minP,
     prompt: options.prompt || 'prompt',
     providerId,
+    repeatPenalty: options.repeatPenalty ?? DEFAULT_PRETTIFY_SETTINGS.repeatPenalty,
+    seed: options.seed ?? DEFAULT_PRETTIFY_SETTINGS.seed,
     temperature: options.temperature ?? DEFAULT_PRETTIFY_SETTINGS.temperature,
+    topK: options.topK ?? DEFAULT_PRETTIFY_SETTINGS.topK,
+    topP: options.topP ?? DEFAULT_PRETTIFY_SETTINGS.topP,
     ollama,
     vllm,
   };
@@ -65,7 +77,13 @@ function createTestService(options: TestServiceOptions = {}) {
     prompt: string;
     model: string;
     baseUrl: string;
+    maxOutputTokens: number;
+    minP: number;
+    repeatPenalty: number;
+    seed: number | null;
     temperature: number;
+    topK: number;
+    topP: number;
     signal?: AbortSignal;
   }> = [];
   const prettifySettings = createPrettifySettings(options);
@@ -103,7 +121,13 @@ function createTestService(options: TestServiceOptions = {}) {
         prompt: typedSettings.prompt,
         model: providerSettings.model,
         baseUrl: providerSettings.baseUrl,
+        maxOutputTokens: typedSettings.maxOutputTokens,
+        minP: typedSettings.minP,
+        repeatPenalty: typedSettings.repeatPenalty,
+        seed: typedSettings.seed,
         temperature: typedSettings.temperature,
+        topK: typedSettings.topK,
+        topP: typedSettings.topP,
         signal: typedSettings.signal,
       });
       await options.prettifyWait;
@@ -183,7 +207,13 @@ describe('selectedTextPrettify', () => {
       providerId: 'vllm',
       baseUrl: 'http://127.0.0.1:9000/v1',
       model: 'qwen3',
+      maxOutputTokens: 512,
+      minP: 0.05,
+      repeatPenalty: 1.1,
+      seed: 7,
       temperature: 0.4,
+      topK: 32,
+      topP: 0.8,
       selectionText: 'selected text',
     });
 
@@ -194,7 +224,13 @@ describe('selectedTextPrettify', () => {
     assert.equal(prettifyCalls[0]?.providerId, 'vllm');
     assert.equal(prettifyCalls[0]?.baseUrl, 'http://127.0.0.1:9000/v1');
     assert.equal(prettifyCalls[0]?.model, 'qwen3');
+    assert.equal(prettifyCalls[0]?.maxOutputTokens, 512);
+    assert.equal(prettifyCalls[0]?.minP, 0.05);
+    assert.equal(prettifyCalls[0]?.repeatPenalty, 1.1);
+    assert.equal(prettifyCalls[0]?.seed, 7);
     assert.equal(prettifyCalls[0]?.temperature, 0.4);
+    assert.equal(prettifyCalls[0]?.topK, 32);
+    assert.equal(prettifyCalls[0]?.topP, 0.8);
   });
 
   it('keeps the previous clipboard when prettify fails', async () => {
@@ -323,6 +359,39 @@ describe('selectedTextPrettify', () => {
     assert.equal(second.prettifyCalls.length, 1);
     assert.equal(third.prettifyCalls.length, 1);
     assert.equal(third.clipboard.clipboard, 'new vllm result');
+  });
+
+  it('misses the prettify cache when generation settings change', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      selectionText: 'selected text',
+      maxOutputTokens: 0,
+      minP: 0,
+      repeatPenalty: 1,
+      seed: null,
+      topK: 40,
+      topP: 0.9,
+      prettifyResult: { success: true, text: 'default generation result' },
+    });
+    const second = createTestService({
+      cache,
+      selectionText: 'selected text',
+      maxOutputTokens: 512,
+      minP: 0.05,
+      repeatPenalty: 1.1,
+      seed: 7,
+      topK: 32,
+      topP: 0.8,
+      prettifyResult: { success: true, text: 'custom generation result' },
+    });
+
+    await first.service();
+    await second.service();
+
+    assert.equal(first.prettifyCalls.length, 1);
+    assert.equal(second.prettifyCalls.length, 1);
+    assert.equal(second.clipboard.clipboard, 'custom generation result');
   });
 
   it('does not cache failed prettify results', async () => {

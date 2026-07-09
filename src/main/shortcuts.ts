@@ -54,7 +54,7 @@ export function setRecordingLifecycleState(state: RecordingLifecycleState): void
   recordingLifecycleState = state;
   isRecording = shouldShowRecordingStatusIndicator(state);
   isPaused = state === 'paused';
-  updateTrayIcon(getTrayIconStateForRecordingLifecycle(state));
+  updateTrayIconForRecordingLifecycle();
   syncRetryTranscriptionShortcut();
 }
 
@@ -86,6 +86,10 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
 
 function isRecordingBusy(state: RecordingLifecycleState | boolean): boolean {
   return typeof state === 'boolean' ? state : isRecordingLifecycleBusy(state);
+}
+
+function updateTrayIconForRecordingLifecycle(): void {
+  updateTrayIcon(getTrayIconStateForRecordingLifecycle(recordingLifecycleState));
 }
 
 export function canRunTranslateShortcut(
@@ -208,6 +212,7 @@ export function registerShortcuts(): void {
         const result = cancelSelectedTextPrettify();
         if (result) {
           log.info(`${cancelHotkey} pressed, cancelling prettify`);
+          updateTrayIconForRecordingLifecycle();
         }
         return result;
       },
@@ -263,13 +268,19 @@ export function registerShortcuts(): void {
 
     log.info(`${prettifyHotkey} pressed, prettifying selected text`);
     const resultPromise = prettifySelectedText();
+    updateTrayIcon('prettifying');
     const win = getMainWindow();
     win?.webContents.send('translation-status', t('status.prettifyingSelection'));
-    void resultPromise.then((result) => {
-      if (!result.skipped) {
-        getMainWindow()?.webContents.send('translation-status', result.status);
-      }
-    });
+    void resultPromise
+      .then((result) => {
+        if (!result.skipped) {
+          getMainWindow()?.webContents.send('translation-status', result.status);
+        }
+      })
+      .catch((error: unknown) => {
+        log.warn(`${prettifyHotkey} prettify shortcut failed:`, error instanceof Error ? error.message : String(error));
+      })
+      .finally(updateTrayIconForRecordingLifecycle);
   });
   log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
 

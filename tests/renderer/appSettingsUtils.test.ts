@@ -122,8 +122,14 @@ describe('appSettingsUtils', () => {
       initialSettings,
       prettifySettings: prettifySettings({
         prompt: 'secret prompt text',
+        maxOutputTokens: 512,
+        minP: 0.05,
         providerId: 'vllm',
+        repeatPenalty: 1.1,
+        seed: 7,
         temperature: 0.4,
+        topK: 32,
+        topP: 0.8,
         vllm: {
           ...DEFAULT_PRETTIFY_SETTINGS.vllm,
           baseUrl: DEFAULT_PRETTIFY_SETTINGS.vllm.baseUrl,
@@ -143,6 +149,12 @@ describe('appSettingsUtils', () => {
       'prettifyPrompt',
       'prettifyProvider',
       'prettifyTemperature',
+      'prettifyTopP',
+      'prettifyTopK',
+      'prettifyMinP',
+      'prettifyRepeatPenalty',
+      'prettifyMaxOutputTokens',
+      'prettifySeed',
       'prettifyModel',
       'prettifyApiKey',
       'translateEnabled',
@@ -156,6 +168,13 @@ describe('appSettingsUtils', () => {
     assert.equal(summary.prettifyPromptLength, 'secret prompt text'.length);
     assert.equal(summary.prettifyProviderId, 'vllm');
     assert.equal(summary.prettifyModel, 'qwen3');
+    assert.equal(summary.prettifyTemperature, 0.4);
+    assert.equal(summary.prettifyTopP, 0.8);
+    assert.equal(summary.prettifyTopK, 32);
+    assert.equal(summary.prettifyMinP, 0.05);
+    assert.equal(summary.prettifyRepeatPenalty, 1.1);
+    assert.equal(summary.prettifyMaxOutputTokens, 512);
+    assert.equal(summary.prettifyHasSeed, true);
     assert.equal(summary.prettifyVllmApiKeyUpdated, true);
     assert.equal(summary.cloakBrowser.hasProxyServer, true);
     assert.equal(summary.cloakBrowser.hasProxyUsername, true);
@@ -237,6 +256,27 @@ describe('appSettingsUtils', () => {
     });
     assert.equal(missingModelErrors.prettifyModel, 'Select a model');
 
+    const invalidGenerationErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        maxOutputTokens: 8193,
+        minP: 1.1,
+        repeatPenalty: 0.7,
+        seed: 2_147_483_648,
+        topK: 0,
+        topP: 0,
+      }),
+    });
+    assert.equal(invalidGenerationErrors.prettifyTopP, 'Top P must be between 0.05 and 1');
+    assert.equal(invalidGenerationErrors.prettifyTopK, 'Top K must be an integer between 1 and 200');
+    assert.equal(invalidGenerationErrors.prettifyMinP, 'Min P must be between 0 and 1');
+    assert.equal(invalidGenerationErrors.prettifyRepeatPenalty, 'Repeat penalty must be between 0.8 and 1.5');
+    assert.equal(
+      invalidGenerationErrors.prettifyMaxOutputTokens,
+      'Max output tokens must be an integer between 0 and 8192',
+    );
+    assert.equal(invalidGenerationErrors.prettifySeed, 'Seed must be empty or an integer between 0 and 2147483647');
+
     const invalidSeedSettings = createEditableSettings(cloakBrowserSettings());
     invalidSeedSettings.fingerprintSeed = 'abc123';
     assert.equal(
@@ -313,6 +353,12 @@ describe('appSettingsUtils', () => {
     assert.equal(arePrettifySettingsEqual(prettifySettings(), prettifySettings()), true);
     assert.equal(arePrettifySettingsEqual(prettifySettings({ providerId: 'vllm' }), prettifySettings()), false);
     assert.equal(arePrettifySettingsEqual(prettifySettings({ temperature: 0.2 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ topP: 0.8 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ topK: 32 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ minP: 0.05 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ repeatPenalty: 1.1 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ maxOutputTokens: 512 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ seed: 1 }), prettifySettings()), false);
     assert.equal(
       arePrettifySettingsEqual(
         prettifySettings({

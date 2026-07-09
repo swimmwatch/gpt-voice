@@ -35,6 +35,16 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
+function parseIntegerInput(value: string, fallback: number): number {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : fallback;
+}
+
+function parseOptionalIntegerInput(value: string): number | null {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : null;
+}
+
 function getActivePrettifyProviderSettings(settings: PrettifySettings) {
   return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
 }
@@ -769,6 +779,103 @@ const AppSettingsWindow: React.FC = () => {
                       }
                     />
                   </label>
+                  <div className="settings-subgroup">
+                    <h3>{t('prettify.advancedGeneration')}</h3>
+                    <div className="settings-generation-grid">
+                      <label className="settings-field">
+                        <span>{t('prettify.topP', { value: prettifySettings.topP.toFixed(2) })}</span>
+                        {renderFieldError('prettifyTopP')}
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="1"
+                          step="0.05"
+                          value={prettifySettings.topP}
+                          onChange={(event) =>
+                            updatePrettifySetting('topP', Number(event.target.value), 'prettifyTopP')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.minP', { value: prettifySettings.minP.toFixed(2) })}</span>
+                        {renderFieldError('prettifyMinP')}
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={prettifySettings.minP}
+                          onChange={(event) =>
+                            updatePrettifySetting('minP', Number(event.target.value), 'prettifyMinP')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.repeatPenalty', { value: prettifySettings.repeatPenalty.toFixed(2) })}</span>
+                        {renderFieldError('prettifyRepeatPenalty')}
+                        <input
+                          type="range"
+                          min="0.8"
+                          max="1.5"
+                          step="0.05"
+                          value={prettifySettings.repeatPenalty}
+                          onChange={(event) =>
+                            updatePrettifySetting('repeatPenalty', Number(event.target.value), 'prettifyRepeatPenalty')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.topK')}</span>
+                        {renderFieldError('prettifyTopK')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          max="200"
+                          step="1"
+                          value={prettifySettings.topK}
+                          onChange={(event) =>
+                            updatePrettifySetting('topK', parseIntegerInput(event.target.value, 40), 'prettifyTopK')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.maxOutputTokens')}</span>
+                        {renderFieldError('prettifyMaxOutputTokens')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="8192"
+                          step="1"
+                          placeholder={t('prettify.providerDefault')}
+                          value={prettifySettings.maxOutputTokens === 0 ? '' : prettifySettings.maxOutputTokens}
+                          onChange={(event) =>
+                            updatePrettifySetting(
+                              'maxOutputTokens',
+                              parseIntegerInput(event.target.value, 0),
+                              'prettifyMaxOutputTokens',
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.seed')}</span>
+                        {renderFieldError('prettifySeed')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="2147483647"
+                          step="1"
+                          value={prettifySettings.seed === null ? '' : prettifySettings.seed}
+                          onChange={(event) =>
+                            updatePrettifySetting('seed', parseOptionalIntegerInput(event.target.value), 'prettifySeed')
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
                   <label className="settings-field">
                     <span>{t('prettify.prompt')}</span>
                     {renderFieldError('prettifyPrompt')}

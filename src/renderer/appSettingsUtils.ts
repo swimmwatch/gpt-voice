@@ -28,6 +28,12 @@ export type AppSettingsFieldKey =
   | 'prettifyBaseUrl'
   | 'prettifyModel'
   | 'prettifyTemperature'
+  | 'prettifyTopP'
+  | 'prettifyTopK'
+  | 'prettifyMinP'
+  | 'prettifyRepeatPenalty'
+  | 'prettifyMaxOutputTokens'
+  | 'prettifySeed'
   | 'prettifyApiKey'
   | 'humanPreset'
   | 'backgroundMode'
@@ -110,6 +116,12 @@ export interface AppSettingsLogSummary {
   prettifyProviderId: PrettifySettings['providerId'];
   prettifyModel: string;
   prettifyTemperature: number;
+  prettifyTopP: number;
+  prettifyTopK: number;
+  prettifyMinP: number;
+  prettifyRepeatPenalty: number;
+  prettifyMaxOutputTokens: number;
+  prettifyHasSeed: boolean;
   prettifyHasVllmApiKey: boolean;
   prettifyVllmApiKeyUpdated: boolean;
   prettifyVllmApiKeyCleared: boolean;
@@ -178,6 +190,24 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
   if (input.prettifySettings.temperature !== input.initialPrettifySettings.temperature) {
     changedFields.push('prettifyTemperature');
   }
+  if (input.prettifySettings.topP !== input.initialPrettifySettings.topP) {
+    changedFields.push('prettifyTopP');
+  }
+  if (input.prettifySettings.topK !== input.initialPrettifySettings.topK) {
+    changedFields.push('prettifyTopK');
+  }
+  if (input.prettifySettings.minP !== input.initialPrettifySettings.minP) {
+    changedFields.push('prettifyMinP');
+  }
+  if (input.prettifySettings.repeatPenalty !== input.initialPrettifySettings.repeatPenalty) {
+    changedFields.push('prettifyRepeatPenalty');
+  }
+  if (input.prettifySettings.maxOutputTokens !== input.initialPrettifySettings.maxOutputTokens) {
+    changedFields.push('prettifyMaxOutputTokens');
+  }
+  if (input.prettifySettings.seed !== input.initialPrettifySettings.seed) {
+    changedFields.push('prettifySeed');
+  }
   if (input.prettifySettings.ollama.baseUrl !== input.initialPrettifySettings.ollama.baseUrl) {
     changedFields.push('prettifyBaseUrl');
   }
@@ -239,6 +269,12 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
     prettifyProviderId: input.prettifySettings.providerId,
     prettifyModel: getActivePrettifyProviderSettings(input.prettifySettings).model,
     prettifyTemperature: input.prettifySettings.temperature,
+    prettifyTopP: input.prettifySettings.topP,
+    prettifyTopK: input.prettifySettings.topK,
+    prettifyMinP: input.prettifySettings.minP,
+    prettifyRepeatPenalty: input.prettifySettings.repeatPenalty,
+    prettifyMaxOutputTokens: input.prettifySettings.maxOutputTokens,
+    prettifyHasSeed: input.prettifySettings.seed !== null,
     prettifyHasVllmApiKey: input.prettifySettings.vllm.hasApiKey,
     prettifyVllmApiKeyUpdated: hasVllmApiKeyUpdate(input.prettifySettings),
     prettifyVllmApiKeyCleared: Boolean(input.prettifySettings.vllm.clearApiKey),
@@ -370,6 +406,35 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
   ) {
     fieldErrors.prettifyTemperature = 'Temperature must be between 0 and 1';
   }
+  if (!Number.isFinite(prettifySettings.topP) || prettifySettings.topP < 0.05 || prettifySettings.topP > 1) {
+    fieldErrors.prettifyTopP = 'Top P must be between 0.05 and 1';
+  }
+  if (!Number.isInteger(prettifySettings.topK) || prettifySettings.topK < 1 || prettifySettings.topK > 200) {
+    fieldErrors.prettifyTopK = 'Top K must be an integer between 1 and 200';
+  }
+  if (!Number.isFinite(prettifySettings.minP) || prettifySettings.minP < 0 || prettifySettings.minP > 1) {
+    fieldErrors.prettifyMinP = 'Min P must be between 0 and 1';
+  }
+  if (
+    !Number.isFinite(prettifySettings.repeatPenalty) ||
+    prettifySettings.repeatPenalty < 0.8 ||
+    prettifySettings.repeatPenalty > 1.5
+  ) {
+    fieldErrors.prettifyRepeatPenalty = 'Repeat penalty must be between 0.8 and 1.5';
+  }
+  if (
+    !Number.isInteger(prettifySettings.maxOutputTokens) ||
+    prettifySettings.maxOutputTokens < 0 ||
+    prettifySettings.maxOutputTokens > 8192
+  ) {
+    fieldErrors.prettifyMaxOutputTokens = 'Max output tokens must be an integer between 0 and 8192';
+  }
+  if (
+    prettifySettings.seed !== null &&
+    (!Number.isInteger(prettifySettings.seed) || prettifySettings.seed < 0 || prettifySettings.seed > 2_147_483_647)
+  ) {
+    fieldErrors.prettifySeed = 'Seed must be empty or an integer between 0 and 2147483647';
+  }
   const activePrettifyProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
   if (!activePrettifyProviderSettings.baseUrl.trim()) {
     fieldErrors.prettifyBaseUrl = 'Base URL is required';
@@ -443,6 +508,12 @@ export function arePrettifySettingsEqual(left: PrettifySettings, right: Prettify
     left.prompt === right.prompt &&
     left.providerId === right.providerId &&
     left.temperature === right.temperature &&
+    left.topP === right.topP &&
+    left.topK === right.topK &&
+    left.minP === right.minP &&
+    left.repeatPenalty === right.repeatPenalty &&
+    left.maxOutputTokens === right.maxOutputTokens &&
+    left.seed === right.seed &&
     left.ollama.baseUrl === right.ollama.baseUrl &&
     left.ollama.model === right.ollama.model &&
     left.vllm.baseUrl === right.vllm.baseUrl &&

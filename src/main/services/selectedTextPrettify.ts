@@ -153,7 +153,18 @@ function getPrettifyCacheContext(): readonly string[] {
 
 function getPrettifyProviderCacheContext(settings: PrettifySettings): readonly string[] {
   const providerSettings = settings.providerId === 'ollama' ? settings.ollama : settings.vllm;
-  return [settings.providerId, providerSettings.baseUrl, providerSettings.model, String(settings.temperature)];
+  return [
+    settings.providerId,
+    providerSettings.baseUrl,
+    providerSettings.model,
+    String(settings.temperature),
+    String(settings.topP),
+    String(settings.topK),
+    String(settings.minP),
+    String(settings.repeatPenalty),
+    String(settings.maxOutputTokens),
+    settings.seed === null ? '' : String(settings.seed),
+  ];
 }
 
 export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {

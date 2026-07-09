@@ -109,6 +109,43 @@ function createJsonHeaders(apiKey?: string): Record<string, string> {
   return headers;
 }
 
+function createOllamaGenerationOptions(settings: PrettifySettingsWithSecret): Record<string, number> {
+  const options: Record<string, number> = {
+    min_p: settings.minP,
+    repeat_penalty: settings.repeatPenalty,
+    temperature: settings.temperature,
+    top_k: settings.topK,
+    top_p: settings.topP,
+  };
+  if (settings.maxOutputTokens > 0) {
+    options.num_predict = settings.maxOutputTokens;
+  }
+  if (settings.seed !== null) {
+    options.seed = settings.seed;
+  }
+  return options;
+}
+
+function createVllmRequestBody(settings: PrettifySettingsWithSecret, text: string): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    min_p: settings.minP,
+    messages: createMessages(settings.prompt, text),
+    model: settings.vllm.model,
+    repetition_penalty: settings.repeatPenalty,
+    stream: false,
+    temperature: settings.temperature,
+    top_k: settings.topK,
+    top_p: settings.topP,
+  };
+  if (settings.maxOutputTokens > 0) {
+    body.max_tokens = settings.maxOutputTokens;
+  }
+  if (settings.seed !== null) {
+    body.seed = settings.seed;
+  }
+  return body;
+}
+
 function getFiniteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
@@ -279,9 +316,7 @@ const ollamaAdapter: PrettifyProviderAdapter = {
       body: JSON.stringify({
         model: settings.ollama.model,
         messages: createMessages(settings.prompt, text),
-        options: {
-          temperature: settings.temperature,
-        },
+        options: createOllamaGenerationOptions(settings),
         ...(isPinnedOllamaModel(settings.ollama) ? { keep_alive: -1 } : {}),
         stream: false,
       }),
@@ -313,12 +348,7 @@ const vllmAdapter: PrettifyProviderAdapter = {
       method: 'POST',
       headers: createJsonHeaders(settings.vllm.apiKey),
       signal,
-      body: JSON.stringify({
-        model: settings.vllm.model,
-        messages: createMessages(settings.prompt, text),
-        temperature: settings.temperature,
-        stream: false,
-      }),
+      body: JSON.stringify(createVllmRequestBody(settings, text)),
     });
     const body = await response.text();
     if (response.status !== StatusCodes.OK) {
@@ -503,7 +533,13 @@ export async function runPrettify(
       model,
       textLength: text.length,
       promptLength: settings.prompt.length,
+      maxOutputTokens: settings.maxOutputTokens,
+      minP: settings.minP,
+      repeatPenalty: settings.repeatPenalty,
+      hasSeed: settings.seed !== null,
       temperature: settings.temperature,
+      topK: settings.topK,
+      topP: settings.topP,
     });
     return await adapter.prettify({ text, signal, settings }, deps);
   } catch (error: unknown) {

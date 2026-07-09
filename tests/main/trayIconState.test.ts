@@ -27,12 +27,14 @@ describe('trayIconState', () => {
         recording: getTrayIconFilename('recording'),
         paused: getTrayIconFilename('paused'),
         processing: getTrayIconFilename('processing'),
+        prettifying: getTrayIconFilename('prettifying'),
       },
       {
         idle: 'tray-icon-idle.png',
         recording: 'tray-icon-recording.png',
         paused: 'tray-icon-paused.png',
         processing: 'tray-icon-processing.png',
+        prettifying: 'tray-icon-prettifying.png',
       },
     );
   });

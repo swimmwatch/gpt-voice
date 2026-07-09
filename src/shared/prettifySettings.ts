@@ -26,9 +26,15 @@ export interface VllmPrettifySettings {
 }
 
 export interface PrettifySettings {
+  maxOutputTokens: number;
+  minP: number;
   prompt: string;
   providerId: PrettifyProviderId;
+  repeatPenalty: number;
+  seed: number | null;
   temperature: number;
+  topK: number;
+  topP: number;
   ollama: OllamaPrettifySettings;
   vllm: VllmPrettifySettings;
 }
@@ -36,8 +42,14 @@ export interface PrettifySettings {
 export interface PrettifySettingsInput {
   prompt?: unknown;
   reasoning?: unknown;
+  maxOutputTokens?: unknown;
+  minP?: unknown;
   providerId?: unknown;
+  repeatPenalty?: unknown;
+  seed?: unknown;
   temperature?: unknown;
+  topK?: unknown;
+  topP?: unknown;
   ollama?: Partial<OllamaPrettifySettings>;
   vllm?: Partial<VllmPrettifySettings> & {
     apiKey?: unknown;
@@ -79,12 +91,24 @@ export const DEFAULT_PRETTIFY_REASONING: PrettifyReasoning = 'instant';
 export const DEFAULT_PRETTIFY_PROVIDER_ID: PrettifyProviderId = 'ollama';
 export const DEFAULT_OLLAMA_PRETTIFY_BASE_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_VLLM_PRETTIFY_BASE_URL = 'http://127.0.0.1:8000/v1';
+export const DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS = 0;
+export const DEFAULT_PRETTIFY_MIN_P = 0;
+export const DEFAULT_PRETTIFY_REPEAT_PENALTY = 1;
+export const DEFAULT_PRETTIFY_SEED = null;
 export const DEFAULT_PRETTIFY_TEMPERATURE = 0;
+export const DEFAULT_PRETTIFY_TOP_K = 40;
+export const DEFAULT_PRETTIFY_TOP_P = 0.9;
 
 export const DEFAULT_PRETTIFY_SETTINGS: PrettifySettings = {
+  maxOutputTokens: DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS,
+  minP: DEFAULT_PRETTIFY_MIN_P,
   prompt: DEFAULT_PRETTIFY_PROMPT,
   providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
+  repeatPenalty: DEFAULT_PRETTIFY_REPEAT_PENALTY,
+  seed: DEFAULT_PRETTIFY_SEED,
   temperature: DEFAULT_PRETTIFY_TEMPERATURE,
+  topK: DEFAULT_PRETTIFY_TOP_K,
+  topP: DEFAULT_PRETTIFY_TOP_P,
   ollama: {
     baseUrl: DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
     model: '',
@@ -109,6 +133,22 @@ export function normalizePrettifyTemperature(value: unknown): number {
   return Math.min(1, Math.max(0, Number(value.toFixed(2))));
 }
 
+function normalizeFloat(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Number(value.toFixed(2))));
+}
+
+function normalizeInteger(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+function normalizeSeed(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return DEFAULT_PRETTIFY_SEED;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_PRETTIFY_SEED;
+  return Math.min(2_147_483_647, Math.max(0, Math.trunc(value)));
+}
+
 function normalizeBaseUrl(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const trimmed = value.trim().replace(/\/+$/, '');
@@ -128,9 +168,15 @@ export function normalizePrettifySettings(input: PrettifySettingsInput = {}): Pr
   const vllmInput = input.vllm || {};
 
   return {
+    maxOutputTokens: normalizeInteger(input.maxOutputTokens, DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS, 0, 8192),
+    minP: normalizeFloat(input.minP, DEFAULT_PRETTIFY_MIN_P, 0, 1),
     prompt,
     providerId,
+    repeatPenalty: normalizeFloat(input.repeatPenalty, DEFAULT_PRETTIFY_REPEAT_PENALTY, 0.8, 1.5),
+    seed: normalizeSeed(input.seed),
     temperature: normalizePrettifyTemperature(input.temperature),
+    topK: normalizeInteger(input.topK, DEFAULT_PRETTIFY_TOP_K, 1, 200),
+    topP: normalizeFloat(input.topP, DEFAULT_PRETTIFY_TOP_P, 0.05, 1),
     ollama: {
       baseUrl: normalizeBaseUrl(ollamaInput.baseUrl, DEFAULT_OLLAMA_PRETTIFY_BASE_URL),
       model: normalizeModel(ollamaInput.model),
