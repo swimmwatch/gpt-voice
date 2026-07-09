@@ -725,7 +725,6 @@ const AppSettingsWindow: React.FC = () => {
                           <button
                             type="button"
                             aria-expanded={isPrettifyModelActionMenuOpen}
-                            aria-haspopup="menu"
                             aria-label={t('prettify.modelActions')}
                             className="hotkey-btn settings-menu-trigger"
                             disabled={isLoadingPrettifyModel || !canUsePrettifyModelActions}
@@ -735,12 +734,11 @@ const AppSettingsWindow: React.FC = () => {
                             ...
                           </button>
                           {isPrettifyModelActionMenuOpen && (
-                            <div className="settings-menu-dropdown" role="menu">
+                            <div className="settings-menu-dropdown">
                               <button
                                 type="button"
                                 className="settings-menu-item"
                                 disabled={isLoadingPrettifyModel || selectedOllamaModelLoaded}
-                                role="menuitem"
                                 title={t('prettify.loadModelTitle')}
                                 onClick={() => void loadSelectedOllamaModel()}
                               >
@@ -750,7 +748,6 @@ const AppSettingsWindow: React.FC = () => {
                                 type="button"
                                 className="settings-menu-item"
                                 disabled={isLoadingPrettifyModel || !selectedOllamaModelLoaded}
-                                role="menuitem"
                                 title={t('prettify.freeModelTitle')}
                                 onClick={() => void unloadSelectedOllamaModel()}
                               >

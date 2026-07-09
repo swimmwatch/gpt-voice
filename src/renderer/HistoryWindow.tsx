@@ -26,6 +26,7 @@ const HistoryWindow: React.FC = () => {
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreRef = useRef(false);
   const isMountedRef = useRef(true);
+  const copyFeedbackTimeoutRef = useRef<number | null>(null);
 
   const dateFormatter = useMemo(
     () =>
@@ -82,6 +83,9 @@ const HistoryWindow: React.FC = () => {
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -133,17 +137,29 @@ const HistoryWindow: React.FC = () => {
 
   const copyEntryText = async (entry: TranscriptionHistoryEntry): Promise<void> => {
     setCopyError('');
-    const result = await window.electronAPI.copyTranscriptionHistoryText(entry.id);
-    if (!result.success) {
-      setCopiedId(null);
-      setCopyError(result.error || t('history.copyFailed'));
-      return;
-    }
+    try {
+      const result = await window.electronAPI.copyTranscriptionHistoryText(entry.id);
+      if (!isMountedRef.current) return;
+      if (!result.success) {
+        setCopiedId(null);
+        setCopyError(result.error || t('history.copyFailed'));
+        return;
+      }
 
-    setCopiedId(entry.id);
-    window.setTimeout(() => {
-      setCopiedId((current) => (current === entry.id ? null : current));
-    }, 1600);
+      setCopiedId(entry.id);
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = window.setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setCopiedId((current) => (current === entry.id ? null : current));
+        copyFeedbackTimeoutRef.current = null;
+      }, 1600);
+    } catch (copyTextError: unknown) {
+      if (!isMountedRef.current) return;
+      setCopiedId(null);
+      setCopyError(getErrorMessage(copyTextError) || t('history.copyFailed'));
+    }
   };
 
   const clearHistory = async (): Promise<void> => {

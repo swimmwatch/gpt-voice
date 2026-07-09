@@ -215,13 +215,19 @@ export function registerIpcHandlers(): void {
   });
 
   handle('copy-transcription-history-text', (_event, id: number) => {
-    const text = getTranscriptionHistoryText(Number(id));
+    const numericId = Number(id);
+    const text = getTranscriptionHistoryText(numericId);
     if (!text) {
       return { success: false, error: 'History entry not found' };
     }
 
-    writeClipboardText(text);
-    return { success: true };
+    try {
+      writeClipboardText(text);
+      return { success: true };
+    } catch (error: unknown) {
+      log.warn('Failed to copy transcription history text:', { id: numericId, error: getErrorMessage(error) });
+      return { success: false, error: 'Failed to copy history text' };
+    }
   });
 
   handle('clear-transcription-history', () => {
