@@ -206,6 +206,15 @@ export default {
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',
   'error.prettifyInProgress': 'Паляпшэнне тэксту ўжо выконваецца',
+  'error.notificationConnectionFailed':
+    'Не ўдалося падключыцца да {service}. Пераканайцеся, што сэрвіс запушчаны і адрас указаны правільна.',
+  'error.notificationProviderRequestFailed':
+    '{service} вярнуў памылку ({status}). Паўтарыце спробу або праверце налады правайдара.',
+  'error.notificationUnexpectedProviderResponse': 'Сэрвіс вярнуў нечаканы адказ. Паўтарыце спробу.',
+  'error.notificationOperationTimedOut': 'Аперацыя заняла занадта шмат часу. Паўтарыце спробу.',
+  'error.notificationClipboardUnavailable': 'Не ўдалося прачытаць вылучаны тэкст. Праверце вылучэнне і паўтарыце.',
+  'error.notificationAudioPreparationFailed': 'Не ўдалося падрыхтаваць запіс. Паспрабуйце запісаць яшчэ раз.',
+  'error.notificationUnknown': 'Нешта пайшло не так. Паўтарыце спробу.',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

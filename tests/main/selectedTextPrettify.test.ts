@@ -259,9 +259,15 @@ describe('selectedTextPrettify', () => {
     const result = await service();
 
     assert.equal(result.success, false);
-    assert.equal(result.error, cooldownError);
+    assert.equal(result.error, 'Could not connect to Ollama. Make sure it is running and the URL is correct.');
     assert.equal(clipboard.clipboard, 'previous clipboard');
-    assert.deepEqual(notifications, [{ title: 'Prettify failed', body: cooldownError, options: { sound: 'error' } }]);
+    assert.deepEqual(notifications, [
+      {
+        title: 'Prettify failed',
+        body: 'Could not connect to Ollama. Make sure it is running and the URL is correct.',
+        options: { sound: 'error' },
+      },
+    ]);
   });
 
   it('copies prettified text to the clipboard on success', async () => {

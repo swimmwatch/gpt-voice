@@ -11,7 +11,11 @@ import {
 } from '../recordingRetryState';
 import { showTranscriptionFailureNotification, showTranscriptionSuccessNotification } from '../recordingNotifications';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
-import { getNotificationErrorMessage, type SystemNotificationOptions } from '@shared/notifications';
+import {
+  getNotificationErrorMessage,
+  type PresentedNotificationError,
+  type SystemNotificationOptions,
+} from '@shared/notifications';
 import {
   canCancelRecording,
   canPauseRecording,
@@ -43,8 +47,8 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
   }, []);
 
   const showRecognitionErrorNotification = useCallback(
-    (error: unknown, fallback: string, options?: SystemNotificationOptions) => {
-      showTranscriptionFailureNotification(window.electronAPI, t, error, fallback, options);
+    (error: unknown, fallback: string, options?: SystemNotificationOptions): PresentedNotificationError => {
+      return showTranscriptionFailureNotification(window.electronAPI, t, error, fallback, options);
     },
     [t],
   );
@@ -104,13 +108,18 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
           return;
         }
 
-        log.error('Transcription failed:', result.error, (result as Record<string, unknown>).raw);
-        setStatus(t('status.transcriptionFailed'));
-        showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'), { sound: 'error' });
-      } catch (err) {
-        setStatus(t('status.transcriptionError'));
-        log.error('Transcribe error:', err);
-        showRecognitionErrorNotification(err, t('status.transcriptionError'), { sound: 'error' });
+        const presented = showRecognitionErrorNotification(result.error, t('status.transcriptionFailed'), {
+          sound: 'error',
+        });
+        log.error('Transcription failed:', {
+          ...presented.safeLogMetadata,
+          hasRawResponse: Boolean((result as Record<string, unknown>).raw),
+        });
+        setStatus(presented.userMessage);
+      } catch (error) {
+        const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'), { sound: 'error' });
+        setStatus(presented.userMessage);
+        log.error('Transcribe error:', presented.safeLogMetadata);
       }
     },
     [setStatus, showRecognitionErrorNotification, t],
@@ -164,10 +173,10 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
 
           rememberLastTranscriptionAudio(audio);
           await submitTranscriptionAudio(audio, false);
-        } catch (err) {
-          setStatus(t('status.transcriptionError'));
-          log.error('Transcribe error:', err);
-          showRecognitionErrorNotification(err, t('status.transcriptionError'));
+        } catch (error) {
+          const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'));
+          setStatus(presented.userMessage);
+          log.error('Transcription audio preparation error:', presented.safeLogMetadata);
         } finally {
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((track) => track.stop());
@@ -182,7 +191,7 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
       mediaRecorder.start();
       setRecordingLifecycle('recording');
       setStatus(t('status.recording'));
-    } catch (err) {
+    } catch (error) {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -194,9 +203,9 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
 
       setRecordingLifecycle('idle');
       void window.electronAPI.recordingStartFailed();
-      setStatus(t('status.microphoneError'));
-      log.error('Microphone error:', err);
-      showRecognitionErrorNotification(err, t('status.microphoneError'));
+      const presented = showRecognitionErrorNotification(error, t('status.microphoneError'));
+      setStatus(presented.userMessage);
+      log.error('Microphone error:', presented.safeLogMetadata);
     }
   }, [
     clearLastTranscriptionAudio,

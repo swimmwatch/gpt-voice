@@ -15,7 +15,12 @@ import {
   type TextActionResultCache,
 } from '@main/services/textActionCache';
 import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
-import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
+import {
+  formatNotificationBody,
+  presentNotificationError,
+  type PresentedNotificationError,
+  type SystemNotificationOptions,
+} from '@shared/notifications';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
@@ -61,10 +66,8 @@ interface SelectedTextPrettifyRun {
   previousClipboardText: string | null;
 }
 
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  return '';
+function presentPrettifyError(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
+  return presentNotificationError(error, { context: 'prettify', fallback, t });
 }
 
 function restoreClipboard(deps: SelectedTextPrettifyDependencies, previousClipboardText: string | null): void {
@@ -83,7 +86,7 @@ async function readSelectedText(
     await deps.wait(COPY_SETTLE_DELAY_MS);
   } catch (error: unknown) {
     copyError = error;
-    log.warn('Could not copy selected text with OS automation:', getErrorMessage(error) || error);
+    log.warn('Could not copy selected text with OS automation:', presentPrettifyError(error).safeLogMetadata);
   }
 
   let selectedText = deps.clipboard.readText();
@@ -97,21 +100,27 @@ async function readSelectedText(
   return { selectedText, copyError };
 }
 
-function notifyPrettifyFailure(deps: SelectedTextPrettifyDependencies, body: string): void {
+function notifyPrettifyFailure(
+  deps: SelectedTextPrettifyDependencies,
+  error: unknown,
+  fallback = t('status.prettifyFailed'),
+): PresentedNotificationError {
+  const presented = presentPrettifyError(error, fallback);
   try {
-    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(body, t('status.prettifyFailed')), {
+    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(presented.userMessage, fallback), {
       sound: 'error',
     });
   } catch (error: unknown) {
-    log.warn('Could not show prettify failure notification:', getErrorMessage(error) || error);
+    log.warn('Could not show prettify failure notification:', presentPrettifyError(error).safeLogMetadata);
   }
+  return presented;
 }
 
 function notifyPrettifySuccess(deps: SelectedTextPrettifyDependencies): void {
   try {
     deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), { sound: 'success' });
   } catch (error: unknown) {
-    log.warn('Could not show prettify success notification:', getErrorMessage(error) || error);
+    log.warn('Could not show prettify success notification:', presentPrettifyError(error).safeLogMetadata);
   }
 }
 
@@ -199,12 +208,15 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 
       if (!selectedText.trim()) {
         if (copyError) {
-          log.warn('No selected text found after copy automation failure:', getErrorMessage(copyError) || copyError);
+          log.warn(
+            'No selected text found after copy automation failure:',
+            presentPrettifyError(copyError).safeLogMetadata,
+          );
         }
         const error = t('error.noTextSelectedToPrettify');
         restoreClipboard(deps, run.previousClipboardText);
-        notifyPrettifyFailure(deps, error);
-        return createFailureResult(error);
+        const presented = notifyPrettifyFailure(deps, error);
+        return createFailureResult(presented.userMessage);
       }
 
       const settings = deps.getPrettifySettings();
@@ -239,8 +251,9 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       if (!prettified.success || !prettified.text?.trim()) {
         const error = prettified.error || t('error.noPrettifyResult');
         restoreClipboard(deps, run.previousClipboardText);
-        notifyPrettifyFailure(deps, error);
-        return createFailureResult(error);
+        const presented = notifyPrettifyFailure(deps, error);
+        log.warn('Selected-text prettify failed:', presented.safeLogMetadata);
+        return createFailureResult(presented.userMessage);
       }
 
       deps.cache.set(cacheKey, prettified.text);
@@ -257,11 +270,10 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         return createCancelledResult();
       }
 
-      const message = getErrorMessage(error) || t('status.prettifyFailed');
       restoreClipboard(deps, run.previousClipboardText);
-      log.warn('Selected-text prettify failed:', message);
-      notifyPrettifyFailure(deps, message);
-      return createFailureResult(message);
+      const presented = notifyPrettifyFailure(deps, error);
+      log.warn('Selected-text prettify failed:', presented.safeLogMetadata);
+      return createFailureResult(presented.userMessage);
     } finally {
       if (activeRun === run) {
         activeRun = null;

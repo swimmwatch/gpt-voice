@@ -206,6 +206,15 @@ export default {
   'error.noPrettifyResult': 'No prettified text in response',
   'error.noPrettifyModel': 'Select a prettify model in App Settings',
   'error.prettifyInProgress': 'Prettify already in progress',
+  'error.notificationConnectionFailed':
+    'Could not connect to {service}. Make sure it is running and the URL is correct.',
+  'error.notificationProviderRequestFailed':
+    '{service} returned an error ({status}). Try again or check provider settings.',
+  'error.notificationUnexpectedProviderResponse': 'The service returned an unexpected response. Try again.',
+  'error.notificationOperationTimedOut': 'The operation timed out. Try again.',
+  'error.notificationClipboardUnavailable': 'Could not read the selected text. Check the selection and try again.',
+  'error.notificationAudioPreparationFailed': 'Could not prepare the recording. Try recording again.',
+  'error.notificationUnknown': 'Something went wrong. Try again.',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

@@ -146,6 +146,26 @@ describe('selectedTextTranslation', () => {
     ]);
   });
 
+  it('sanitizes translation timeout failures in notification and returned status', async () => {
+    const { clipboard, notifications, service } = createTestService({
+      copyText: 'selected text',
+      translateResult: {
+        success: false,
+        error: 'TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator',
+      },
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'The operation timed out. Try again.');
+    assert.equal(result.status, 'The operation timed out. Try again.');
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, [
+      { title: 'Translation failed', body: 'The operation timed out. Try again.', options: { sound: 'error' } },
+    ]);
+  });
+
   it('copies translated text to the clipboard on success', async () => {
     const { actions, clipboard, notifications, service } = createTestService({ copyText: 'selected text' });
 

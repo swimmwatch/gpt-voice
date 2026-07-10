@@ -206,6 +206,15 @@ export default {
   'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
   'error.noPrettifyModel': 'Виберіть модель покращення тексту в налаштуваннях застосунку',
   'error.prettifyInProgress': 'Покращення тексту вже виконується',
+  'error.notificationConnectionFailed':
+    'Не вдалося підключитися до {service}. Переконайтеся, що сервіс запущено й адресу вказано правильно.',
+  'error.notificationProviderRequestFailed':
+    '{service} повернув помилку ({status}). Повторіть спробу або перевірте налаштування провайдера.',
+  'error.notificationUnexpectedProviderResponse': 'Сервіс повернув неочікувану відповідь. Повторіть спробу.',
+  'error.notificationOperationTimedOut': 'Операція тривала занадто довго. Повторіть спробу.',
+  'error.notificationClipboardUnavailable': 'Не вдалося прочитати виділений текст. Перевірте виділення й повторіть.',
+  'error.notificationAudioPreparationFailed': 'Не вдалося підготувати запис. Спробуйте записати ще раз.',
+  'error.notificationUnknown': 'Щось пішло не так. Повторіть спробу.',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',
