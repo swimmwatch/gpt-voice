@@ -35,10 +35,27 @@ export interface BackgroundBrowserStatus {
   authExpired?: boolean;
 }
 
+export enum BrowserSessionStartupState {
+  Expired = 'expired',
+  Ready = 'ready',
+  TemporaryFailure = 'temporaryFailure',
+}
+
 interface EnsureBackgroundBrowserOptions {
   includeTranslate?: boolean;
   translateTargetLang?: string;
   cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
+}
+
+export function getBrowserSessionStartupState({
+  providerReady,
+  sessionLoaded,
+}: {
+  providerReady: boolean;
+  sessionLoaded: boolean;
+}): BrowserSessionStartupState {
+  if (!sessionLoaded) return BrowserSessionStartupState.Expired;
+  return providerReady ? BrowserSessionStartupState.Ready : BrowserSessionStartupState.TemporaryFailure;
 }
 
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
@@ -140,9 +157,17 @@ export async function initBackgroundBrowser(
       log.info('Ensuring persistent background browser...');
       bgContext = await ensureTranslateContext(cloakBrowserSettings);
 
-      // Load session cookies and initialize provider page
+      // Load session cookies and initialize the provider page.
       const sessionLoaded = await activeProvider.loadSession(bgContext);
-      if (!sessionLoaded) {
+      if (sessionLoaded) {
+        await activeProvider.initPage(bgContext);
+      }
+
+      const startupState = getBrowserSessionStartupState({
+        providerReady: activeProvider.isReady(),
+        sessionLoaded,
+      });
+      if (startupState === BrowserSessionStartupState.Expired) {
         bgAuthExpired = true;
         bgError = t('error.noAccessToken');
         activeProvider.clearSession();
@@ -150,10 +175,7 @@ export async function initBackgroundBrowser(
         return getBackgroundBrowserStatus();
       }
 
-      await activeProvider.initPage(bgContext);
-      if (!activeProvider.isReady()) {
-        bgAuthExpired = true;
-        activeProvider.clearSession();
+      if (startupState === BrowserSessionStartupState.TemporaryFailure) {
         throw new Error(t('error.noAccessToken'));
       }
     } else if (!activeProvider.isReady()) {
