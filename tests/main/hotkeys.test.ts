@@ -42,7 +42,7 @@ describe('hotkeys', () => {
     assert.equal(canRunTextActionHotkey(true), false);
   });
 
-  it('allows retry transcription only when failed audio is available and recording is idle', () => {
+  it('allows retry transcription only when retryable audio is available and recording is idle', () => {
     assert.equal(canRunRetryTranscriptionHotkey(false, true), true);
     assert.equal(canRunRetryTranscriptionHotkey(false, false), false);
     assert.equal(canRunRetryTranscriptionHotkey(true, true), false);

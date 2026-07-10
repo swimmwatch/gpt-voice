@@ -1,30 +1,36 @@
 import { app, Tray, Menu, nativeImage, type NativeImage } from 'electron';
-import { getMainWindow, createWindow, setQuitting, showSettingsWindow } from './window';
+import { getMainWindow, createWindow, setQuitting, showHistoryWindow, showSettingsWindow } from './window';
 import { t } from './i18n';
 import { getAssetPath } from './assets';
+import { getTrayIconFilename, type TrayIconState } from './trayIconState';
 
 let tray: Tray | null = null;
 
-function getTrayIconPath(recording: boolean): string {
-  const filename = recording ? 'tray-icon-recording-solid-even-larger-dot.png' : 'tray-icon-white-transparent.png';
-  return getAssetPath(filename);
+const TRAY_ICON_SIZE = 22;
+
+function getTrayIconPath(state: TrayIconState): string {
+  return getAssetPath(getTrayIconFilename(state));
 }
 
-function createTrayIcon(recording: boolean): NativeImage {
-  const icon = nativeImage.createFromPath(getTrayIconPath(recording));
-  if (process.platform === 'darwin') {
+function createTrayIcon(state: TrayIconState): NativeImage {
+  const icon = nativeImage.createFromPath(getTrayIconPath(state)).resize({
+    width: TRAY_ICON_SIZE,
+    height: TRAY_ICON_SIZE,
+    quality: 'best',
+  });
+  if (process.platform === 'darwin' && state === 'idle') {
     icon.setTemplateImage(true);
   }
   return icon;
 }
 
-export function updateTrayIcon(recording: boolean): void {
+export function updateTrayIcon(state: TrayIconState): void {
   if (!tray) return;
-  tray.setImage(createTrayIcon(recording));
+  tray.setImage(createTrayIcon(state));
 }
 
 export function createTray(): void {
-  const icon = createTrayIcon(false);
+  const icon = createTrayIcon('idle');
   tray = new Tray(icon);
   tray.setToolTip(t('tray.tooltip'));
 
@@ -45,6 +51,12 @@ export function createTray(): void {
       label: t('appSettings.open'),
       click: () => {
         showSettingsWindow();
+      },
+    },
+    {
+      label: t('history.open'),
+      click: () => {
+        showHistoryWindow();
       },
     },
     { type: 'separator' },

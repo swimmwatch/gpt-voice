@@ -11,10 +11,13 @@ import {
   DEFAULT_TRANSLATE_HOTKEY,
 } from '@shared/hotkeys';
 import {
+  DEFAULT_PRETTIFY_SETTINGS,
   DEFAULT_PRETTIFY_PROMPT,
   DEFAULT_PRETTIFY_REASONING,
-  isPrettifyReasoning,
+  normalizePrettifySettings,
   type PrettifyReasoning,
+  type PrettifySettings,
+  type PrettifySettingsInput,
 } from '@shared/prettifySettings';
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
@@ -34,13 +37,7 @@ function getAppDataDir(): string {
 
 export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
 
-const MIGRATED_LEGACY_ENTRIES = [
-  'config.json',
-  'chatgpt-session.json',
-  'access-token.json',
-  'chatgpt-text-chat.json',
-  'browser-cache',
-];
+const MIGRATED_LEGACY_ENTRIES = ['config.json', 'chatgpt-session.json', 'access-token.json', 'browser-cache'];
 
 function migrateWholeLegacyAppDir(legacyDir: string): boolean {
   fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
@@ -113,6 +110,7 @@ export let currentLocale = '';
 export let currentFingerprintSeed = '';
 export let currentPrettifyPrompt = DEFAULT_PRETTIFY_PROMPT;
 export let currentPrettifyReasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
+export let currentPrettifySettings: PrettifySettings = DEFAULT_PRETTIFY_SETTINGS;
 
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 
@@ -126,6 +124,20 @@ function isValidFingerprintSeed(value: string): boolean {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getConfigString(config: Record<string, unknown>, key: string): string | undefined {
+  const value = config[key];
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+function getConfigBoolean(config: Record<string, unknown>, key: string): boolean | undefined {
+  const value = config[key];
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 export function setHotkeys(
@@ -153,11 +165,25 @@ export function setTextActionSettings(translateEnabled?: boolean, prettifyEnable
   if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
 }
 
-export function setPrettifySettings(prompt?: string, reasoning?: string): void {
-  if (prompt !== undefined) currentPrettifyPrompt = prompt.trim() || DEFAULT_PRETTIFY_PROMPT;
-  if (reasoning !== undefined) {
-    currentPrettifyReasoning = isPrettifyReasoning(reasoning) ? reasoning : DEFAULT_PRETTIFY_REASONING;
-  }
+function updateLegacyPrettifyMirrors(): void {
+  currentPrettifyPrompt = currentPrettifySettings.prompt;
+  currentPrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
+}
+
+export function setPrettifySettings(settings: PrettifySettingsInput = {}): void {
+  currentPrettifySettings = normalizePrettifySettings({
+    ...currentPrettifySettings,
+    ...settings,
+    ollama: {
+      ...currentPrettifySettings.ollama,
+      ...settings.ollama,
+    },
+    vllm: {
+      ...currentPrettifySettings.vllm,
+      ...settings.vllm,
+    },
+  });
+  updateLegacyPrettifyMirrors();
 }
 
 export function setProvider(providerId: string): void {
@@ -183,25 +209,39 @@ export function getCurrentLocale(): string {
 export function loadConfig(): void {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      if (config.hotkey) currentHotkey = config.hotkey;
-      if (config.cancelHotkey) currentCancelHotkey = config.cancelHotkey;
-      if (config.stopHotkey) currentStopHotkey = config.stopHotkey;
-      if (config.translateHotkey) currentTranslateHotkey = config.translateHotkey;
-      if (config.prettifyHotkey) currentPrettifyHotkey = config.prettifyHotkey;
-      if (config.retryTranscriptionHotkey) currentRetryTranscriptionHotkey = config.retryTranscriptionHotkey;
-      if (typeof config.translateEnabled === 'boolean') currentTranslateEnabled = config.translateEnabled;
-      if (typeof config.prettifyEnabled === 'boolean') currentPrettifyEnabled = config.prettifyEnabled;
-      if (config.targetLang) currentTargetLang = config.targetLang;
-      if (config.provider) currentProvider = config.provider;
-      if (config.locale) currentLocale = config.locale;
-      if (config.fingerprintSeed) currentFingerprintSeed = String(config.fingerprintSeed);
-      if (typeof config.prettifyPrompt === 'string' && config.prettifyPrompt.trim()) {
-        currentPrettifyPrompt = config.prettifyPrompt.trim();
-      }
-      if (isPrettifyReasoning(config.prettifyReasoning)) {
-        currentPrettifyReasoning = config.prettifyReasoning;
-      }
+      const parsedConfig: unknown = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      const config = isRecord(parsedConfig) ? parsedConfig : {};
+      const hotkey = getConfigString(config, 'hotkey');
+      const cancelHotkey = getConfigString(config, 'cancelHotkey');
+      const stopHotkey = getConfigString(config, 'stopHotkey');
+      const translateHotkey = getConfigString(config, 'translateHotkey');
+      const prettifyHotkey = getConfigString(config, 'prettifyHotkey');
+      const retryTranscriptionHotkey = getConfigString(config, 'retryTranscriptionHotkey');
+      const translateEnabled = getConfigBoolean(config, 'translateEnabled');
+      const prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled');
+      const targetLang = getConfigString(config, 'targetLang');
+      const provider = getConfigString(config, 'provider');
+      const locale = getConfigString(config, 'locale');
+      const fingerprintSeed = getConfigString(config, 'fingerprintSeed');
+      const prettifySettings = config.prettifySettings;
+      const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
+
+      if (hotkey) currentHotkey = hotkey;
+      if (cancelHotkey) currentCancelHotkey = cancelHotkey;
+      if (stopHotkey) currentStopHotkey = stopHotkey;
+      if (translateHotkey) currentTranslateHotkey = translateHotkey;
+      if (prettifyHotkey) currentPrettifyHotkey = prettifyHotkey;
+      if (retryTranscriptionHotkey) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
+      if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
+      if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
+      if (targetLang) currentTargetLang = targetLang;
+      if (provider) currentProvider = provider;
+      if (locale) currentLocale = locale;
+      if (fingerprintSeed) currentFingerprintSeed = fingerprintSeed;
+      currentPrettifySettings = normalizePrettifySettings(
+        isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
+      );
+      updateLegacyPrettifyMirrors();
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();
@@ -230,8 +270,7 @@ export function saveConfig(): void {
           provider: currentProvider,
           locale: currentLocale,
           fingerprintSeed: currentFingerprintSeed,
-          prettifyPrompt: currentPrettifyPrompt,
-          prettifyReasoning: currentPrettifyReasoning,
+          prettifySettings: currentPrettifySettings,
         },
         null,
         2,

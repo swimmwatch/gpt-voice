@@ -1,4 +1,12 @@
-import { formatNotificationBody, type SystemNotificationOptions } from '@shared/notifications';
+import rendererLog from 'electron-log/renderer';
+import {
+  formatNotificationBody,
+  presentNotificationError,
+  type PresentedNotificationError,
+  type SystemNotificationOptions,
+} from '@shared/notifications';
+
+const log = rendererLog.scope('recording-notifications');
 
 interface TranscriptionNotificationApi {
   showNotification(title: string, body: string, options?: SystemNotificationOptions): Promise<void>;
@@ -12,7 +20,12 @@ function showNotificationSafely(
   body: string,
   options?: SystemNotificationOptions,
 ): void {
-  void api.showNotification(title, body, options).catch(() => undefined);
+  void api.showNotification(title, body, options).catch((error: unknown) => {
+    log.warn(
+      'Could not show transcription notification:',
+      presentNotificationError(error, { context: 'transcription', fallback: 'Notification failed' }).safeLogMetadata,
+    );
+  });
 }
 
 export function showTranscriptionSuccessNotification(
@@ -29,6 +42,13 @@ export function showTranscriptionFailureNotification(
   error: unknown,
   fallback: string,
   options?: SystemNotificationOptions,
-): void {
-  showNotificationSafely(api, t('notification.transcriptionFailed'), formatNotificationBody(error, fallback), options);
+): PresentedNotificationError {
+  const presented = presentNotificationError(error, { context: 'transcription', fallback, t });
+  showNotificationSafely(
+    api,
+    t('notification.transcriptionFailed'),
+    formatNotificationBody(presented.userMessage, fallback),
+    options,
+  );
+  return presented;
 }

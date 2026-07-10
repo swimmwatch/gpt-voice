@@ -15,8 +15,26 @@ import {
   validateAppSettings,
 } from '@renderer/appSettingsUtils';
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
 
-const VALID_PRETTIFY_SETTINGS = { prompt: 'prompt', reasoning: 'instant' as const };
+function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
+  return {
+    ...DEFAULT_PRETTIFY_SETTINGS,
+    prompt: 'prompt',
+    providerId: 'ollama',
+    ollama: {
+      ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+      model: 'llama3.2',
+    },
+    vllm: {
+      ...DEFAULT_PRETTIFY_SETTINGS.vllm,
+      model: 'qwen2.5',
+    },
+    ...overrides,
+  };
+}
+
+const VALID_PRETTIFY_SETTINGS = prettifySettings();
 const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true };
 
 function cloakBrowserSettings(overrides: Partial<CloakBrowserSettingsView> = {}): CloakBrowserSettingsView {
@@ -102,7 +120,24 @@ describe('appSettingsUtils', () => {
     const summary = createAppSettingsLogSummary({
       settings: changedSettings,
       initialSettings,
-      prettifySettings: { prompt: 'secret prompt text', reasoning: 'standard' },
+      prettifySettings: prettifySettings({
+        prompt: 'secret prompt text',
+        maxOutputTokens: 512,
+        minP: 0.05,
+        providerId: 'vllm',
+        repeatPenalty: 1.1,
+        seed: 7,
+        temperature: 0.4,
+        topK: 32,
+        topP: 0.8,
+        vllm: {
+          ...DEFAULT_PRETTIFY_SETTINGS.vllm,
+          baseUrl: DEFAULT_PRETTIFY_SETTINGS.vllm.baseUrl,
+          model: 'qwen3',
+          hasApiKey: true,
+          apiKey: 'secret-api-key',
+        },
+      }),
       initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
       textActionSettings: { translateEnabled: false, prettifyEnabled: true },
       initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
@@ -112,7 +147,16 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(summary.changedGroups, ['prettify', 'textActions', 'cloakBrowser']);
     assert.deepEqual(summary.changedFields, [
       'prettifyPrompt',
-      'prettifyReasoning',
+      'prettifyProvider',
+      'prettifyTemperature',
+      'prettifyTopP',
+      'prettifyTopK',
+      'prettifyMinP',
+      'prettifyRepeatPenalty',
+      'prettifyMaxOutputTokens',
+      'prettifySeed',
+      'prettifyModel',
+      'prettifyApiKey',
       'translateEnabled',
       'backgroundMode',
       'proxyEnabled',
@@ -122,6 +166,16 @@ describe('appSettingsUtils', () => {
     ]);
     assert.equal(summary.prettifyPromptChanged, true);
     assert.equal(summary.prettifyPromptLength, 'secret prompt text'.length);
+    assert.equal(summary.prettifyProviderId, 'vllm');
+    assert.equal(summary.prettifyModel, 'qwen3');
+    assert.equal(summary.prettifyTemperature, 0.4);
+    assert.equal(summary.prettifyTopP, 0.8);
+    assert.equal(summary.prettifyTopK, 32);
+    assert.equal(summary.prettifyMinP, 0.05);
+    assert.equal(summary.prettifyRepeatPenalty, 1.1);
+    assert.equal(summary.prettifyMaxOutputTokens, 512);
+    assert.equal(summary.prettifyHasSeed, true);
+    assert.equal(summary.prettifyVllmApiKeyUpdated, true);
     assert.equal(summary.cloakBrowser.hasProxyServer, true);
     assert.equal(summary.cloakBrowser.hasProxyUsername, true);
     assert.equal(summary.cloakBrowser.hasProxyPasswordUpdate, true);
@@ -129,6 +183,7 @@ describe('appSettingsUtils', () => {
     assert.equal(serialized.includes('secret-proxy.example.com'), false);
     assert.equal(serialized.includes('secret-user'), false);
     assert.equal(serialized.includes('secret-pass'), false);
+    assert.equal(serialized.includes('secret-api-key'), false);
   });
 
   it('summarizes CloakBrowser settings shape without proxy details', () => {
@@ -174,9 +229,53 @@ describe('appSettingsUtils', () => {
   it('validates required and structured App Settings fields', () => {
     const emptyPromptErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
-      prettifySettings: { prompt: '   ', reasoning: 'instant' },
+      prettifySettings: prettifySettings({ prompt: '   ' }),
     });
     assert.equal(emptyPromptErrors.prettifyPrompt, 'Prettify prompt is required');
+
+    const invalidBaseUrlErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          baseUrl: 'not a url',
+          model: 'llama3.2',
+        },
+      }),
+    });
+    assert.equal(invalidBaseUrlErrors.prettifyBaseUrl, 'Base URL must be a valid http or https URL');
+
+    const missingModelErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          model: '',
+        },
+      }),
+    });
+    assert.equal(missingModelErrors.prettifyModel, 'Select a model');
+
+    const invalidGenerationErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        maxOutputTokens: 8193,
+        minP: 1.1,
+        repeatPenalty: 0.7,
+        seed: 2_147_483_648,
+        topK: 0,
+        topP: 0,
+      }),
+    });
+    assert.equal(invalidGenerationErrors.prettifyTopP, 'Top P must be between 0.05 and 1');
+    assert.equal(invalidGenerationErrors.prettifyTopK, 'Top K must be an integer between 1 and 200');
+    assert.equal(invalidGenerationErrors.prettifyMinP, 'Min P must be between 0 and 1');
+    assert.equal(invalidGenerationErrors.prettifyRepeatPenalty, 'Repeat penalty must be between 0.8 and 1.5');
+    assert.equal(
+      invalidGenerationErrors.prettifyMaxOutputTokens,
+      'Max output tokens must be an integer between 0 and 8192',
+    );
+    assert.equal(invalidGenerationErrors.prettifySeed, 'Seed must be empty or an integer between 0 and 2147483647');
 
     const invalidSeedSettings = createEditableSettings(cloakBrowserSettings());
     invalidSeedSettings.fingerprintSeed = 'abc123';
@@ -251,12 +350,27 @@ describe('appSettingsUtils', () => {
   });
 
   it('detects changed prettify settings separately from CloakBrowser settings', () => {
+    assert.equal(arePrettifySettingsEqual(prettifySettings(), prettifySettings()), true);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ providerId: 'vllm' }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ temperature: 0.2 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ topP: 0.8 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ topK: 32 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ minP: 0.05 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ repeatPenalty: 1.1 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ maxOutputTokens: 512 }), prettifySettings()), false);
+    assert.equal(arePrettifySettingsEqual(prettifySettings({ seed: 1 }), prettifySettings()), false);
     assert.equal(
-      arePrettifySettingsEqual({ prompt: 'prompt', reasoning: 'instant' }, { prompt: 'prompt', reasoning: 'instant' }),
-      true,
-    );
-    assert.equal(
-      arePrettifySettingsEqual({ prompt: 'prompt', reasoning: 'standard' }, { prompt: 'prompt', reasoning: 'instant' }),
+      arePrettifySettingsEqual(
+        prettifySettings({
+          vllm: {
+            ...DEFAULT_PRETTIFY_SETTINGS.vllm,
+            model: 'qwen2.5',
+            hasApiKey: false,
+            apiKey: 'secret',
+          },
+        }),
+        prettifySettings(),
+      ),
       false,
     );
   });
@@ -280,8 +394,8 @@ describe('appSettingsUtils', () => {
       {
         settings: initialSettings,
         initialSettings,
-        prettifySettings: { prompt: 'new prompt', reasoning: 'instant' },
-        initialPrettifySettings: { prompt: 'old prompt', reasoning: 'instant' },
+        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -292,7 +406,7 @@ describe('appSettingsUtils', () => {
         },
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings };
+          return { success: true, settings: settings as PrettifySettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -304,7 +418,7 @@ describe('appSettingsUtils', () => {
     assert.equal(result.success, true);
     assert.equal(result.prettifySettingsSaved, true);
     assert.deepEqual(calls, ['prettify']);
-    assert.deepEqual(result.prettifySettings, { prompt: 'new prompt', reasoning: 'instant' });
+    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt' }));
   });
 
   it('propagates prettify settings save errors', async () => {
@@ -315,8 +429,8 @@ describe('appSettingsUtils', () => {
       {
         settings: initialSettings,
         initialSettings,
-        prettifySettings: { prompt: 'new prompt', reasoning: 'instant' },
-        initialPrettifySettings: { prompt: 'old prompt', reasoning: 'instant' },
+        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -361,7 +475,7 @@ describe('appSettingsUtils', () => {
         },
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings };
+          return { success: true, settings: settings as PrettifySettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -373,7 +487,10 @@ describe('appSettingsUtils', () => {
     assert.equal(result.success, true);
     assert.equal(result.textActionSettingsSaved, true);
     assert.deepEqual(calls, ['text-actions']);
-    assert.deepEqual(result.textActionSettings, { translateEnabled: false, prettifyEnabled: true });
+    assert.deepEqual(result.textActionSettings, {
+      translateEnabled: false,
+      prettifyEnabled: true,
+    });
   });
 
   it('does not call save dependencies when field validation fails', async () => {
@@ -384,8 +501,8 @@ describe('appSettingsUtils', () => {
       {
         settings: initialSettings,
         initialSettings,
-        prettifySettings: { prompt: '', reasoning: 'instant' },
-        initialPrettifySettings: { prompt: 'old prompt', reasoning: 'instant' },
+        prettifySettings: prettifySettings({ prompt: '' }),
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -396,7 +513,7 @@ describe('appSettingsUtils', () => {
         },
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings };
+          return { success: true, settings: settings as PrettifySettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -419,8 +536,8 @@ describe('appSettingsUtils', () => {
       {
         settings: changedSettings,
         initialSettings,
-        prettifySettings: { prompt: 'prompt', reasoning: 'instant' },
-        initialPrettifySettings: { prompt: 'prompt', reasoning: 'instant' },
+        prettifySettings: VALID_PRETTIFY_SETTINGS,
+        initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -431,7 +548,7 @@ describe('appSettingsUtils', () => {
         },
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings };
+          return { success: true, settings: settings as PrettifySettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -455,8 +572,8 @@ describe('appSettingsUtils', () => {
       {
         settings: changedSettings,
         initialSettings,
-        prettifySettings: { prompt: 'new prompt', reasoning: 'standard' },
-        initialPrettifySettings: { prompt: 'old prompt', reasoning: 'instant' },
+        prettifySettings: prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }),
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -471,7 +588,7 @@ describe('appSettingsUtils', () => {
         },
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings };
+          return { success: true, settings: settings as PrettifySettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -485,6 +602,6 @@ describe('appSettingsUtils', () => {
     assert.equal(result.prettifySettingsSaved, true);
     assert.equal(result.settingsSaved, undefined);
     assert.deepEqual(calls, ['prettify', 'cloakbrowser']);
-    assert.deepEqual(result.prettifySettings, { prompt: 'new prompt', reasoning: 'standard' });
+    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }));
   });
 });

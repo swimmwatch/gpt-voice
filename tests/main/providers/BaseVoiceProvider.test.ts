@@ -1,12 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { BrowserContext } from 'playwright-core';
-import {
-  BaseVoiceProvider,
-  type TextProcessingResult,
-  type TranscriptionResult,
-  type VoiceProviderInfo,
-} from '@main/providers/BaseVoiceProvider';
+import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 
 class TestVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
@@ -34,10 +29,6 @@ class TestVoiceProvider extends BaseVoiceProvider {
   }
 
   async transcribe(): Promise<TranscriptionResult> {
-    return { success: true, text: 'text' };
-  }
-
-  async prettifyText(): Promise<TextProcessingResult> {
     return { success: true, text: 'text' };
   }
 

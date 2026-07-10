@@ -2,8 +2,21 @@ import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstan
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
-import type { PrettifySettings, PrettifySettingsInput } from '@shared/prettifySettings';
+import type {
+  PrettifyModelListResult,
+  PrettifyModelLoadResult,
+  PrettifyModelUnloadResult,
+  PrettifyProviderId,
+  PrettifySettings,
+  PrettifySettingsInput,
+} from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import type {
+  TranscriptionHistoryClearResult,
+  TranscriptionHistoryCopyResult,
+  TranscriptionHistoryPage,
+  TranscriptionHistoryQuery,
+} from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
@@ -25,7 +38,6 @@ export interface OpenAIApiProviderSettings {
   authType: 'apiKey';
   hasApiKey: boolean;
   model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
-  prettifyModel: string;
   language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
   prompt: string;
   temperature: number;
@@ -75,6 +87,9 @@ export interface ElectronAPI {
     mimeType: string,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
+  getTranscriptionHistory: (query?: TranscriptionHistoryQuery) => Promise<TranscriptionHistoryPage>;
+  copyTranscriptionHistoryText: (id: number) => Promise<TranscriptionHistoryCopyResult>;
+  clearTranscriptionHistory: () => Promise<TranscriptionHistoryClearResult>;
   showNotification: (title: string, body: string, options?: SystemNotificationOptions) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
@@ -91,6 +106,18 @@ export interface ElectronAPI {
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getPrettifySettings: () => Promise<PrettifySettings>;
   setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
+  listPrettifyModels: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ) => Promise<PrettifyModelListResult>;
+  loadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ) => Promise<PrettifyModelLoadResult>;
+  unloadPrettifyModel: (
+    providerId: PrettifyProviderId,
+    settings: PrettifySettingsInput,
+  ) => Promise<PrettifyModelUnloadResult>;
   getTranslations: () => Promise<Record<string, string>>;
   getLocale: () => Promise<string>;
   getSupportedLocales: () => Promise<string[]>;

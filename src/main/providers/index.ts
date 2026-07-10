@@ -2,13 +2,7 @@ import { BaseVoiceProvider, type VoiceProviderAuthType } from './BaseVoiceProvid
 import { ChatGPTVoiceProvider } from './ChatGPTVoiceProvider';
 import { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';
 
-export type {
-  PrettifyTextOptions,
-  TextProcessingResult,
-  TranscriptionResult,
-  VoiceProviderInfo,
-  VoiceProviderAuthType,
-} from './BaseVoiceProvider';
+export type { TranscriptionResult, VoiceProviderInfo, VoiceProviderAuthType } from './BaseVoiceProvider';
 export { BaseVoiceProvider } from './BaseVoiceProvider';
 export { ChatGPTVoiceProvider } from './ChatGPTVoiceProvider';
 export { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';

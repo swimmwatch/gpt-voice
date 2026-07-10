@@ -10,6 +10,7 @@ import {
   currentTranslateHotkey,
 } from './config';
 import { updateTrayIcon } from './tray';
+import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
 import { t } from './i18n';
@@ -45,15 +46,15 @@ export function getRecordingState() {
   return { isRecording, isPaused, lifecycleState: recordingLifecycleState };
 }
 
-function shouldShowRecordingTrayIcon(state: RecordingLifecycleState): boolean {
+function shouldShowRecordingStatusIndicator(state: RecordingLifecycleState): boolean {
   return state === 'starting' || state === 'recording' || state === 'paused' || state === 'stopping';
 }
 
 export function setRecordingLifecycleState(state: RecordingLifecycleState): void {
   recordingLifecycleState = state;
-  isRecording = shouldShowRecordingTrayIcon(state);
+  isRecording = shouldShowRecordingStatusIndicator(state);
   isPaused = state === 'paused';
-  updateTrayIcon(shouldShowRecordingTrayIcon(state));
+  updateTrayIconForRecordingLifecycle();
   syncRetryTranscriptionShortcut();
 }
 
@@ -75,16 +76,20 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
   }
 
   const prettifyCancelResult = actions.cancelPrettify();
-  if (!prettifyCancelResult) {
-    return false;
+  if (prettifyCancelResult) {
+    actions.sendTextStatus(prettifyCancelResult.status);
+    return true;
   }
 
-  actions.sendTextStatus(prettifyCancelResult.status);
-  return true;
+  return false;
 }
 
 function isRecordingBusy(state: RecordingLifecycleState | boolean): boolean {
   return typeof state === 'boolean' ? state : isRecordingLifecycleBusy(state);
+}
+
+function updateTrayIconForRecordingLifecycle(): void {
+  updateTrayIcon(getTrayIconStateForRecordingLifecycle(recordingLifecycleState));
 }
 
 export function canRunTranslateShortcut(
@@ -121,7 +126,7 @@ function unregisterRetryTranscriptionShortcut(): void {
   }
 
   globalShortcut.unregister(registeredRetryTranscriptionHotkey);
-  log.info(`${registeredRetryTranscriptionHotkey} retry transcription shortcut unregistered`);
+  log.info(`${registeredRetryTranscriptionHotkey} resend transcription shortcut unregistered`);
   registeredRetryTranscriptionHotkey = null;
 }
 
@@ -139,7 +144,7 @@ function syncRetryTranscriptionShortcut(): void {
   unregisterRetryTranscriptionShortcut();
   const retryRegistered = globalShortcut.register(retryTranscriptionHotkey, () => {
     if (!canRunRetryTranscriptionShortcut(recordingLifecycleState, retryTranscriptionAvailable)) {
-      log.info(`${retryTranscriptionHotkey} pressed while retry transcription is unavailable`);
+      log.info(`${retryTranscriptionHotkey} pressed while resend transcription is unavailable`);
       return;
     }
 
@@ -149,14 +154,14 @@ function syncRetryTranscriptionShortcut(): void {
       return;
     }
 
-    log.info(`${retryTranscriptionHotkey} pressed, retrying failed transcription`);
+    log.info(`${retryTranscriptionHotkey} pressed, resending transcription audio`);
     retryTranscriptionAvailable = false;
     setRecordingLifecycleState('retrying');
     unregisterRetryTranscriptionShortcut();
     win.webContents.send('retry-transcription');
   });
   registeredRetryTranscriptionHotkey = retryRegistered ? retryTranscriptionHotkey : null;
-  log.info(`${retryTranscriptionHotkey} retry transcription shortcut registered:`, retryRegistered);
+  log.info(`${retryTranscriptionHotkey} resend transcription shortcut registered:`, retryRegistered);
 }
 
 export function registerShortcuts(): void {
@@ -207,6 +212,7 @@ export function registerShortcuts(): void {
         const result = cancelSelectedTextPrettify();
         if (result) {
           log.info(`${cancelHotkey} pressed, cancelling prettify`);
+          updateTrayIconForRecordingLifecycle();
         }
         return result;
       },
@@ -262,13 +268,19 @@ export function registerShortcuts(): void {
 
     log.info(`${prettifyHotkey} pressed, prettifying selected text`);
     const resultPromise = prettifySelectedText();
+    updateTrayIcon('prettifying');
     const win = getMainWindow();
     win?.webContents.send('translation-status', t('status.prettifyingSelection'));
-    void resultPromise.then((result) => {
-      if (!result.skipped) {
-        getMainWindow()?.webContents.send('translation-status', result.status);
-      }
-    });
+    void resultPromise
+      .then((result) => {
+        if (!result.skipped) {
+          getMainWindow()?.webContents.send('translation-status', result.status);
+        }
+      })
+      .catch((error: unknown) => {
+        log.warn(`${prettifyHotkey} prettify shortcut failed:`, error instanceof Error ? error.message : String(error));
+      })
+      .finally(updateTrayIconForRecordingLifecycle);
   });
   log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
 

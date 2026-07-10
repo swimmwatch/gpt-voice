@@ -105,6 +105,11 @@ module.exports = [
         filename: 'settings.html',
         title: 'Settings',
       }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'history.html',
+        title: 'History',
+      }),
     ],
   },
 ];

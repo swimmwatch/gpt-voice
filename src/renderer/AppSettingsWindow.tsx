@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import rendererLog from 'electron-log/renderer';
 import HotkeyModal from '@renderer/components/HotkeyModal';
 import HotkeyRow from '@renderer/components/HotkeyRow';
@@ -14,9 +14,15 @@ import {
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
 } from '@renderer/appSettingsUtils';
+import { formatByteSize } from '@renderer/byteFormatting';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { HOTKEY_TARGETS, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
-import { PRETTIFY_REASONING_VALUES, type PrettifyReasoning, type PrettifySettings } from '@shared/prettifySettings';
+import {
+  PRETTIFY_PROVIDER_IDS,
+  type PrettifyModelOption,
+  type PrettifyProviderId,
+  type PrettifySettings,
+} from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const log = rendererLog.scope('app-settings');
@@ -29,8 +35,23 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
+function parseIntegerInput(value: string, fallback: number): number {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : fallback;
+}
+
+function parseOptionalIntegerInput(value: string): number | null {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : null;
+}
+
+function getActivePrettifyProviderSettings(settings: PrettifySettings) {
+  return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
+}
+
 const AppSettingsWindow: React.FC = () => {
   const { t } = useI18n();
+  const prettifyModelActionMenuRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
@@ -38,6 +59,16 @@ const AppSettingsWindow: React.FC = () => {
   const [textActionSettings, setTextActionSettings] = useState<TextActionSettings | null>(null);
   const [initialTextActionSettings, setInitialTextActionSettings] = useState<TextActionSettings | null>(null);
   const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [prettifyModelOptions, setPrettifyModelOptions] = useState<Record<PrettifyProviderId, PrettifyModelOption[]>>({
+    ollama: [],
+    vllm: [],
+  });
+  const [prettifyModelError, setPrettifyModelError] = useState('');
+  const [isLoadingPrettifyModels, setIsLoadingPrettifyModels] = useState(false);
+  const [prettifyModelLoadError, setPrettifyModelLoadError] = useState('');
+  const [prettifyModelLoadStatus, setPrettifyModelLoadStatus] = useState('');
+  const [isLoadingPrettifyModel, setIsLoadingPrettifyModel] = useState(false);
+  const [isPrettifyModelActionMenuOpen, setIsPrettifyModelActionMenuOpen] = useState(false);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
@@ -77,6 +108,19 @@ const AppSettingsWindow: React.FC = () => {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isPrettifyModelActionMenuOpen) return undefined;
+
+    const handleDocumentMouseDown = (event: MouseEvent): void => {
+      if (!prettifyModelActionMenuRef.current?.contains(event.target as Node)) {
+        setIsPrettifyModelActionMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown);
+  }, [isPrettifyModelActionMenuOpen]);
 
   const updateSetting = <Key extends keyof EditableCloakBrowserSettings>(
     key: Key,
@@ -118,7 +162,213 @@ const AppSettingsWindow: React.FC = () => {
     fieldKey: AppSettingsFieldKey,
   ): void => {
     clearFieldErrors(fieldKey);
+    if (key === 'providerId') {
+      setPrettifyModelError('');
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus('');
+      setIsPrettifyModelActionMenuOpen(false);
+      clearFieldErrors('prettifyBaseUrl', 'prettifyModel', 'prettifyApiKey');
+    }
     setPrettifySettings((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const updatePrettifyProviderSetting = <Key extends keyof PrettifySettings['ollama'] & keyof PrettifySettings['vllm']>(
+    key: Key,
+    value: PrettifySettings['ollama'][Key] | PrettifySettings['vllm'][Key],
+    fieldKey: AppSettingsFieldKey,
+  ): void => {
+    clearFieldErrors(fieldKey);
+    setPrettifyModelError('');
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    if (key === 'baseUrl' || key === 'model') {
+      setIsPrettifyModelActionMenuOpen(false);
+    }
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            [current.providerId]: {
+              ...current[current.providerId],
+              [key]: value,
+            },
+          }
+        : current,
+    );
+  };
+
+  const updateVllmApiKey = (value: string): void => {
+    clearFieldErrors('prettifyApiKey');
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            vllm: {
+              ...current.vllm,
+              apiKey: value,
+              clearApiKey: false,
+            },
+          }
+        : current,
+    );
+  };
+
+  const clearVllmApiKey = (): void => {
+    clearFieldErrors('prettifyApiKey');
+    setPrettifySettings((current) =>
+      current
+        ? {
+            ...current,
+            vllm: {
+              ...current.vllm,
+              apiKey: '',
+              hasApiKey: false,
+              clearApiKey: true,
+            },
+          }
+        : current,
+    );
+  };
+
+  const refreshPrettifyModels = async (): Promise<void> => {
+    if (!prettifySettings) return;
+
+    setIsLoadingPrettifyModels(true);
+    setPrettifyModelError('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const providerId = prettifySettings.providerId;
+      const result = await window.electronAPI.listPrettifyModels(providerId, prettifySettings);
+      if (!result.success) {
+        setPrettifyModelError(result.error || t('prettify.modelsRefreshFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        [providerId]: result.models,
+      }));
+
+      const activeProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
+      if (!activeProviderSettings.model && result.models[0]) {
+        updatePrettifyProviderSetting('model', result.models[0].id, 'prettifyModel');
+      }
+    } catch (modelError: unknown) {
+      setPrettifyModelError(getErrorMessage(modelError));
+    } finally {
+      setIsLoadingPrettifyModels(false);
+    }
+  };
+
+  const isSelectedOllamaModelLoaded = (): boolean => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama' || !prettifySettings.ollama.model) return false;
+    return prettifyModelOptions.ollama.some(
+      (option) => option.id === prettifySettings.ollama.model && Boolean(option.isLoaded),
+    );
+  };
+
+  const loadSelectedOllamaModel = async (): Promise<void> => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama') return;
+    setIsPrettifyModelActionMenuOpen(false);
+    if (!prettifySettings.ollama.model) {
+      setFieldErrors((current) => ({ ...current, prettifyModel: t('prettify.noModels') }));
+      return;
+    }
+    if (isSelectedOllamaModelLoaded()) {
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus(t('prettify.modelAlreadyLoaded', { model: prettifySettings.ollama.model }));
+      return;
+    }
+
+    setIsLoadingPrettifyModel(true);
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const selectedModel = prettifySettings.ollama.model;
+      const result = await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+      if (!result.success) {
+        setPrettifyModelLoadError(result.error || t('prettify.modelLoadFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        ollama: [
+          ...current.ollama.map((option) =>
+            option.id === selectedModel
+              ? {
+                  ...option,
+                  isLoaded: true,
+                  vramSizeBytes: result.vramSizeBytes ?? option.vramSizeBytes,
+                }
+              : {
+                  ...option,
+                  isLoaded: false,
+                },
+          ),
+          ...(current.ollama.some((option) => option.id === selectedModel)
+            ? []
+            : [
+                {
+                  id: selectedModel,
+                  isLoaded: true,
+                  name: selectedModel,
+                  vramSizeBytes: result.vramSizeBytes,
+                },
+              ]),
+        ],
+      }));
+      setPrettifyModelLoadStatus(t('prettify.modelLoaded', { model: result.model || selectedModel }));
+    } catch (loadError: unknown) {
+      setPrettifyModelLoadError(getErrorMessage(loadError));
+    } finally {
+      setIsLoadingPrettifyModel(false);
+    }
+  };
+
+  const unloadSelectedOllamaModel = async (): Promise<void> => {
+    if (!prettifySettings || prettifySettings.providerId !== 'ollama') return;
+    setIsPrettifyModelActionMenuOpen(false);
+    if (!prettifySettings.ollama.model) {
+      setFieldErrors((current) => ({ ...current, prettifyModel: t('prettify.noModels') }));
+      return;
+    }
+    if (!isSelectedOllamaModelLoaded()) {
+      setPrettifyModelLoadError('');
+      setPrettifyModelLoadStatus(t('prettify.modelNotLoaded', { model: prettifySettings.ollama.model }));
+      return;
+    }
+
+    setIsLoadingPrettifyModel(true);
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    clearFieldErrors('prettifyModel');
+    try {
+      const selectedModel = prettifySettings.ollama.model;
+      const result = await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings);
+      if (!result.success) {
+        setPrettifyModelLoadError(result.error || t('prettify.modelUnloadFailed'));
+        return;
+      }
+
+      setPrettifyModelOptions((current) => ({
+        ...current,
+        ollama: current.ollama.map((option) =>
+          option.id === selectedModel
+            ? {
+                ...option,
+                isLoaded: false,
+              }
+            : option,
+        ),
+      }));
+      setPrettifyModelLoadStatus(t('prettify.modelFreed', { model: result.model || selectedModel }));
+    } catch (unloadError: unknown) {
+      setPrettifyModelLoadError(getErrorMessage(unloadError));
+    } finally {
+      setIsLoadingPrettifyModel(false);
+    }
   };
 
   const updateTextActionSetting = <Key extends keyof TextActionSettings>(
@@ -296,6 +546,39 @@ const AppSettingsWindow: React.FC = () => {
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
   const localeOptions = getCloakBrowserLocaleOptions(settings?.locale);
   const timezoneOptions = getCloakBrowserTimezoneOptions(settings?.timezone);
+  const activePrettifyProviderSettings = prettifySettings ? getActivePrettifyProviderSettings(prettifySettings) : null;
+  const activePrettifyModelOptions =
+    prettifySettings && activePrettifyProviderSettings
+      ? [
+          ...(!activePrettifyProviderSettings.model ||
+          prettifyModelOptions[prettifySettings.providerId].some(
+            (option) => option.id === activePrettifyProviderSettings.model,
+          )
+            ? []
+            : [
+                {
+                  id: activePrettifyProviderSettings.model,
+                  name: activePrettifyProviderSettings.model,
+                },
+              ]),
+          ...prettifyModelOptions[prettifySettings.providerId],
+        ]
+      : [];
+  const selectedOllamaModelLoaded = isSelectedOllamaModelLoaded();
+  const canUsePrettifyModelActions =
+    prettifySettings?.providerId === 'ollama' && Boolean(activePrettifyProviderSettings?.model);
+  const getPrettifyModelOptionLabel = (option: PrettifyModelOption): string => {
+    const name = option.name || option.id;
+    if (prettifySettings?.providerId !== 'ollama') return name;
+
+    const loadedVramSize = formatByteSize(option.vramSizeBytes);
+    if (loadedVramSize) {
+      return `${name} (${t('prettify.modelVramLoaded', { size: loadedVramSize })})`;
+    }
+
+    const approximateVramSize = formatByteSize(option.sizeBytes);
+    return approximateVramSize ? `${name} (${t('prettify.modelVramApprox', { size: approximateVramSize })})` : name;
+  };
 
   return (
     <main className="settings-window-shell">
@@ -352,6 +635,245 @@ const AppSettingsWindow: React.FC = () => {
 
                 <div className="settings-group">
                   <label className="settings-field">
+                    <span>{t('prettify.provider')}</span>
+                    {renderFieldError('prettifyProvider')}
+                    <select
+                      value={prettifySettings.providerId}
+                      onChange={(event) =>
+                        updatePrettifySetting(
+                          'providerId',
+                          event.target.value as PrettifyProviderId,
+                          'prettifyProvider',
+                        )
+                      }
+                    >
+                      {PRETTIFY_PROVIDER_IDS.map((providerId) => (
+                        <option key={providerId} value={providerId}>
+                          {t(`prettify.provider.${providerId}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="settings-field">
+                    <span>{t('prettify.baseUrl')}</span>
+                    {renderFieldError('prettifyBaseUrl')}
+                    <input
+                      type="url"
+                      value={activePrettifyProviderSettings?.baseUrl || ''}
+                      onChange={(event) =>
+                        updatePrettifyProviderSetting('baseUrl', event.target.value, 'prettifyBaseUrl')
+                      }
+                    />
+                  </label>
+                  {prettifySettings.providerId === 'vllm' && (
+                    <label className="settings-field">
+                      <span>{t('prettify.vllmApiKey')}</span>
+                      {renderFieldError('prettifyApiKey')}
+                      <div className="settings-input-action">
+                        <input
+                          type="password"
+                          value={prettifySettings.vllm.apiKey || ''}
+                          placeholder={
+                            prettifySettings.vllm.hasApiKey
+                              ? t('prettify.vllmApiKeyStored')
+                              : t('prettify.vllmApiKeyPlaceholder')
+                          }
+                          onChange={(event) => updateVllmApiKey(event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="hotkey-btn"
+                          disabled={!prettifySettings.vllm.hasApiKey && !prettifySettings.vllm.apiKey}
+                          onClick={clearVllmApiKey}
+                        >
+                          {t('prettify.clearVllmApiKey')}
+                        </button>
+                      </div>
+                    </label>
+                  )}
+                  <label className="settings-field">
+                    <span>{t('prettify.model')}</span>
+                    {renderFieldError('prettifyModel')}
+                    <div
+                      className={`settings-input-action${
+                        prettifySettings.providerId === 'ollama' ? ' settings-model-action' : ''
+                      }`}
+                    >
+                      <select
+                        value={activePrettifyProviderSettings?.model || ''}
+                        onChange={(event) =>
+                          updatePrettifyProviderSetting('model', event.target.value, 'prettifyModel')
+                        }
+                      >
+                        <option value="">{t('prettify.noModels')}</option>
+                        {activePrettifyModelOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {getPrettifyModelOptionLabel(option)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="hotkey-btn"
+                        disabled={isLoadingPrettifyModels}
+                        onClick={() => void refreshPrettifyModels()}
+                      >
+                        {isLoadingPrettifyModels ? t('prettify.loadingModels') : t('prettify.refreshModels')}
+                      </button>
+                      {prettifySettings.providerId === 'ollama' && (
+                        <div className="settings-model-actions-menu" ref={prettifyModelActionMenuRef}>
+                          <button
+                            type="button"
+                            aria-expanded={isPrettifyModelActionMenuOpen}
+                            aria-label={t('prettify.modelActions')}
+                            className="hotkey-btn settings-menu-trigger"
+                            disabled={isLoadingPrettifyModel || !canUsePrettifyModelActions}
+                            title={t('prettify.modelActions')}
+                            onClick={() => setIsPrettifyModelActionMenuOpen((current) => !current)}
+                          >
+                            ...
+                          </button>
+                          {isPrettifyModelActionMenuOpen && (
+                            <div className="settings-menu-dropdown">
+                              <button
+                                type="button"
+                                className="settings-menu-item"
+                                disabled={isLoadingPrettifyModel || selectedOllamaModelLoaded}
+                                title={t('prettify.loadModelTitle')}
+                                onClick={() => void loadSelectedOllamaModel()}
+                              >
+                                {t('prettify.loadModel')}
+                              </button>
+                              <button
+                                type="button"
+                                className="settings-menu-item"
+                                disabled={isLoadingPrettifyModel || !selectedOllamaModelLoaded}
+                                title={t('prettify.freeModelTitle')}
+                                onClick={() => void unloadSelectedOllamaModel()}
+                              >
+                                {t('prettify.freeModel')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {prettifyModelError && <span className="settings-field-error">{prettifyModelError}</span>}
+                    {prettifyModelLoadError && <span className="settings-field-error">{prettifyModelLoadError}</span>}
+                    {prettifyModelLoadStatus && <span className="settings-field-hint">{prettifyModelLoadStatus}</span>}
+                  </label>
+                  <label className="settings-field">
+                    <span>{t('prettify.temperature', { value: prettifySettings.temperature.toFixed(2) })}</span>
+                    {renderFieldError('prettifyTemperature')}
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={prettifySettings.temperature}
+                      onChange={(event) =>
+                        updatePrettifySetting('temperature', Number(event.target.value), 'prettifyTemperature')
+                      }
+                    />
+                  </label>
+                  <div className="settings-subgroup">
+                    <h3>{t('prettify.advancedGeneration')}</h3>
+                    <div className="settings-generation-grid">
+                      <label className="settings-field">
+                        <span>{t('prettify.topP', { value: prettifySettings.topP.toFixed(2) })}</span>
+                        {renderFieldError('prettifyTopP')}
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="1"
+                          step="0.05"
+                          value={prettifySettings.topP}
+                          onChange={(event) =>
+                            updatePrettifySetting('topP', Number(event.target.value), 'prettifyTopP')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.minP', { value: prettifySettings.minP.toFixed(2) })}</span>
+                        {renderFieldError('prettifyMinP')}
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={prettifySettings.minP}
+                          onChange={(event) =>
+                            updatePrettifySetting('minP', Number(event.target.value), 'prettifyMinP')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.repeatPenalty', { value: prettifySettings.repeatPenalty.toFixed(2) })}</span>
+                        {renderFieldError('prettifyRepeatPenalty')}
+                        <input
+                          type="range"
+                          min="0.8"
+                          max="1.5"
+                          step="0.05"
+                          value={prettifySettings.repeatPenalty}
+                          onChange={(event) =>
+                            updatePrettifySetting('repeatPenalty', Number(event.target.value), 'prettifyRepeatPenalty')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.topK')}</span>
+                        {renderFieldError('prettifyTopK')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          max="200"
+                          step="1"
+                          value={prettifySettings.topK}
+                          onChange={(event) =>
+                            updatePrettifySetting('topK', parseIntegerInput(event.target.value, 40), 'prettifyTopK')
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.maxOutputTokens')}</span>
+                        {renderFieldError('prettifyMaxOutputTokens')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="8192"
+                          step="1"
+                          placeholder={t('prettify.providerDefault')}
+                          value={prettifySettings.maxOutputTokens === 0 ? '' : prettifySettings.maxOutputTokens}
+                          onChange={(event) =>
+                            updatePrettifySetting(
+                              'maxOutputTokens',
+                              parseIntegerInput(event.target.value, 0),
+                              'prettifyMaxOutputTokens',
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="settings-field">
+                        <span>{t('prettify.seed')}</span>
+                        {renderFieldError('prettifySeed')}
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="2147483647"
+                          step="1"
+                          value={prettifySettings.seed === null ? '' : prettifySettings.seed}
+                          onChange={(event) =>
+                            updatePrettifySetting('seed', parseOptionalIntegerInput(event.target.value), 'prettifySeed')
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <label className="settings-field">
                     <span>{t('prettify.prompt')}</span>
                     {renderFieldError('prettifyPrompt')}
                     <textarea
@@ -359,22 +881,6 @@ const AppSettingsWindow: React.FC = () => {
                       value={prettifySettings.prompt}
                       onChange={(event) => updatePrettifySetting('prompt', event.target.value, 'prettifyPrompt')}
                     />
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('prettify.reasoning')}</span>
-                    {renderFieldError('prettifyReasoning')}
-                    <select
-                      value={prettifySettings.reasoning}
-                      onChange={(event) =>
-                        updatePrettifySetting('reasoning', event.target.value as PrettifyReasoning, 'prettifyReasoning')
-                      }
-                    >
-                      {PRETTIFY_REASONING_VALUES.map((value) => (
-                        <option key={value} value={value}>
-                          {t(`prettify.reasoning.${value}`)}
-                        </option>
-                      ))}
-                    </select>
                   </label>
                 </div>
               </section>

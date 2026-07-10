@@ -9,7 +9,7 @@ import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
 import type { ClipboardType } from '@main/electronRuntime';
 import type { SystemNotificationOptions } from '@shared/notifications';
-import type { PrettifyReasoning } from '@shared/prettifySettings';
+import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
 
 interface TestServiceOptions {
   actionGate?: SelectedTextActionGate;
@@ -19,10 +19,48 @@ interface TestServiceOptions {
   copyError?: Error;
   platform?: NodeJS.Platform;
   prompt?: string;
-  reasoning?: PrettifyReasoning;
+  providerId?: PrettifyProviderId;
+  baseUrl?: string;
+  maxOutputTokens?: number;
+  minP?: number;
+  model?: string;
+  repeatPenalty?: number;
+  seed?: number | null;
+  temperature?: number;
+  topK?: number;
+  topP?: number;
   selectionText?: string;
   prettifyResult?: { success: boolean; text?: string; error?: string };
   prettifyWait?: Promise<void>;
+}
+
+function createPrettifySettings(options: TestServiceOptions = {}): PrettifySettings {
+  const providerId = options.providerId || 'ollama';
+  const ollama = {
+    ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+    baseUrl: providerId === 'ollama' ? options.baseUrl || 'http://127.0.0.1:11434' : 'http://127.0.0.1:11434',
+    model: providerId === 'ollama' ? options.model || 'llama3.2' : 'llama3.2',
+  };
+  const vllm = {
+    ...DEFAULT_PRETTIFY_SETTINGS.vllm,
+    baseUrl: providerId === 'vllm' ? options.baseUrl || 'http://127.0.0.1:8000/v1' : 'http://127.0.0.1:8000/v1',
+    model: providerId === 'vllm' ? options.model || 'qwen2.5' : 'qwen2.5',
+  };
+
+  return {
+    ...DEFAULT_PRETTIFY_SETTINGS,
+    maxOutputTokens: options.maxOutputTokens ?? DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens,
+    minP: options.minP ?? DEFAULT_PRETTIFY_SETTINGS.minP,
+    prompt: options.prompt || 'prompt',
+    providerId,
+    repeatPenalty: options.repeatPenalty ?? DEFAULT_PRETTIFY_SETTINGS.repeatPenalty,
+    seed: options.seed ?? DEFAULT_PRETTIFY_SETTINGS.seed,
+    temperature: options.temperature ?? DEFAULT_PRETTIFY_SETTINGS.temperature,
+    topK: options.topK ?? DEFAULT_PRETTIFY_SETTINGS.topK,
+    topP: options.topP ?? DEFAULT_PRETTIFY_SETTINGS.topP,
+    ollama,
+    vllm,
+  };
 }
 
 function createTestService(options: TestServiceOptions = {}) {
@@ -33,7 +71,22 @@ function createTestService(options: TestServiceOptions = {}) {
   const notifications: Array<{ title: string; body: string; options?: SystemNotificationOptions }> = [];
   const automationCalls: string[] = [];
   const waitCalls: number[] = [];
-  const prettifyCalls: Array<{ text: string; prompt: string; reasoning: string; signal?: AbortSignal }> = [];
+  const prettifyCalls: Array<{
+    text: string;
+    providerId: PrettifyProviderId;
+    prompt: string;
+    model: string;
+    baseUrl: string;
+    maxOutputTokens: number;
+    minP: number;
+    repeatPenalty: number;
+    seed: number | null;
+    temperature: number;
+    topK: number;
+    topP: number;
+    signal?: AbortSignal;
+  }> = [];
+  const prettifySettings = createPrettifySettings(options);
 
   const deps: SelectedTextPrettifyDependencies = {
     actionGate: options.actionGate || createSelectedTextActionGate(),
@@ -53,14 +106,30 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     cache: options.cache || createTextActionResultCache(20),
-    getCacheContext: () => options.cacheContext || ['chatgpt'],
-    getPrettifySettings: () => ({ prompt: options.prompt || 'prompt', reasoning: options.reasoning || 'instant' }),
+    getCacheContext: () => options.cacheContext || [],
+    getPrettifySettings: () => prettifySettings,
     notify: (title, body, options) => {
       notifications.push({ title, body, options });
     },
     platform: options.platform || 'linux',
     prettify: async (text, settings) => {
-      prettifyCalls.push({ text, prompt: settings.prompt, reasoning: settings.reasoning, signal: settings.signal });
+      const typedSettings = settings as PrettifySettings & { signal?: AbortSignal };
+      const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
+      prettifyCalls.push({
+        text,
+        providerId: typedSettings.providerId,
+        prompt: typedSettings.prompt,
+        model: providerSettings.model,
+        baseUrl: providerSettings.baseUrl,
+        maxOutputTokens: typedSettings.maxOutputTokens,
+        minP: typedSettings.minP,
+        repeatPenalty: typedSettings.repeatPenalty,
+        seed: typedSettings.seed,
+        temperature: typedSettings.temperature,
+        topK: typedSettings.topK,
+        topP: typedSettings.topP,
+        signal: typedSettings.signal,
+      });
       await options.prettifyWait;
       return options.prettifyResult || { success: true, text: 'prettified text' };
     },
@@ -112,7 +181,8 @@ describe('selectedTextPrettify', () => {
     assert.equal(prettifyCalls.length, 1);
     assert.equal(prettifyCalls[0]?.text, 'primary selection');
     assert.equal(prettifyCalls[0]?.prompt, 'prompt');
-    assert.equal(prettifyCalls[0]?.reasoning, 'instant');
+    assert.equal(prettifyCalls[0]?.providerId, 'ollama');
+    assert.equal(prettifyCalls[0]?.model, 'llama3.2');
     assert.equal(prettifyCalls[0]?.signal instanceof AbortSignal, true);
     assert.equal(prettifyCalls[0]?.signal?.aborted, false);
   });
@@ -132,6 +202,37 @@ describe('selectedTextPrettify', () => {
     assert.equal(prettifyCalls[0]?.text, 'copied selection');
   });
 
+  it('passes the configured prettify provider settings to the prettify service', async () => {
+    const { prettifyCalls, service } = createTestService({
+      providerId: 'vllm',
+      baseUrl: 'http://127.0.0.1:9000/v1',
+      model: 'qwen3',
+      maxOutputTokens: 512,
+      minP: 0.05,
+      repeatPenalty: 1.1,
+      seed: 7,
+      temperature: 0.4,
+      topK: 32,
+      topP: 0.8,
+      selectionText: 'selected text',
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, true);
+    assert.equal(prettifyCalls.length, 1);
+    assert.equal(prettifyCalls[0]?.providerId, 'vllm');
+    assert.equal(prettifyCalls[0]?.baseUrl, 'http://127.0.0.1:9000/v1');
+    assert.equal(prettifyCalls[0]?.model, 'qwen3');
+    assert.equal(prettifyCalls[0]?.maxOutputTokens, 512);
+    assert.equal(prettifyCalls[0]?.minP, 0.05);
+    assert.equal(prettifyCalls[0]?.repeatPenalty, 1.1);
+    assert.equal(prettifyCalls[0]?.seed, 7);
+    assert.equal(prettifyCalls[0]?.temperature, 0.4);
+    assert.equal(prettifyCalls[0]?.topK, 32);
+    assert.equal(prettifyCalls[0]?.topP, 0.8);
+  });
+
   it('keeps the previous clipboard when prettify fails', async () => {
     const { clipboard, notifications, service } = createTestService({
       selectionText: 'selected text',
@@ -145,6 +246,27 @@ describe('selectedTextPrettify', () => {
     assert.equal(clipboard.clipboard, 'previous clipboard');
     assert.deepEqual(notifications, [
       { title: 'Prettify failed', body: 'provider unavailable', options: { sound: 'error' } },
+    ]);
+  });
+
+  it('restores the clipboard and shows provider errors', async () => {
+    const cooldownError = 'Failed to connect to Ollama at http://127.0.0.1:11434: fetch failed';
+    const { clipboard, notifications, service } = createTestService({
+      selectionText: 'selected text',
+      prettifyResult: { success: false, error: cooldownError },
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'Could not connect to Ollama. Make sure it is running and the URL is correct.');
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, [
+      {
+        title: 'Prettify failed',
+        body: 'Could not connect to Ollama. Make sure it is running and the URL is correct.',
+        options: { sound: 'error' },
+      },
     ]);
   });
 
@@ -186,14 +308,14 @@ describe('selectedTextPrettify', () => {
       cache,
       selectionText: 'selected text',
       prompt: 'same prompt',
-      reasoning: 'instant',
+      model: 'llama3.2',
       prettifyResult: { success: true, text: 'first result' },
     });
     const second = createTestService({
       cache,
       selectionText: 'selected text',
       prompt: 'same prompt',
-      reasoning: 'standard',
+      model: 'llama3.3',
       prettifyResult: { success: true, text: 'second result' },
     });
 
@@ -205,25 +327,34 @@ describe('selectedTextPrettify', () => {
     assert.equal(second.clipboard.clipboard, 'second result');
   });
 
-  it('misses the prettify cache when provider context changes', async () => {
+  it('misses the prettify cache when provider/base URL/model/temperature changes', async () => {
     const cache = createTextActionResultCache(20);
     const first = createTestService({
       cache,
-      cacheContext: ['chatgpt'],
       selectionText: 'selected text',
-      prettifyResult: { success: true, text: 'chatgpt result' },
+      providerId: 'ollama',
+      baseUrl: 'http://127.0.0.1:11434',
+      model: 'llama3.2',
+      temperature: 0,
+      prettifyResult: { success: true, text: 'ollama result' },
     });
     const second = createTestService({
       cache,
-      cacheContext: ['openai-api', 'gpt-5.4-mini'],
       selectionText: 'selected text',
-      prettifyResult: { success: true, text: 'openai result' },
+      providerId: 'vllm',
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      model: 'qwen2.5',
+      temperature: 0,
+      prettifyResult: { success: true, text: 'vllm result' },
     });
     const third = createTestService({
       cache,
-      cacheContext: ['openai-api', 'gpt-5.5'],
       selectionText: 'selected text',
-      prettifyResult: { success: true, text: 'new model result' },
+      providerId: 'vllm',
+      baseUrl: 'http://127.0.0.1:8001/v1',
+      model: 'qwen2.5',
+      temperature: 0.2,
+      prettifyResult: { success: true, text: 'new vllm result' },
     });
 
     await first.service();
@@ -233,7 +364,40 @@ describe('selectedTextPrettify', () => {
     assert.equal(first.prettifyCalls.length, 1);
     assert.equal(second.prettifyCalls.length, 1);
     assert.equal(third.prettifyCalls.length, 1);
-    assert.equal(third.clipboard.clipboard, 'new model result');
+    assert.equal(third.clipboard.clipboard, 'new vllm result');
+  });
+
+  it('misses the prettify cache when generation settings change', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      selectionText: 'selected text',
+      maxOutputTokens: 0,
+      minP: 0,
+      repeatPenalty: 1,
+      seed: null,
+      topK: 40,
+      topP: 0.9,
+      prettifyResult: { success: true, text: 'default generation result' },
+    });
+    const second = createTestService({
+      cache,
+      selectionText: 'selected text',
+      maxOutputTokens: 512,
+      minP: 0.05,
+      repeatPenalty: 1.1,
+      seed: 7,
+      topK: 32,
+      topP: 0.8,
+      prettifyResult: { success: true, text: 'custom generation result' },
+    });
+
+    await first.service();
+    await second.service();
+
+    assert.equal(first.prettifyCalls.length, 1);
+    assert.equal(second.prettifyCalls.length, 1);
+    assert.equal(second.clipboard.clipboard, 'custom generation result');
   });
 
   it('does not cache failed prettify results', async () => {

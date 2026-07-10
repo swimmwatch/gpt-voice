@@ -6,7 +6,7 @@ import {
   type CloakBrowserSettingsInput,
   type CloakBrowserSettingsView,
 } from '@shared/cloakBrowserSettings';
-import { PRETTIFY_REASONING_VALUES, type PrettifySettings } from '@shared/prettifySettings';
+import { isPrettifyProviderId, type PrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const SUPPORTED_PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:']);
@@ -24,7 +24,17 @@ export const CLOAK_BROWSER_FALLBACK_TIMEZONE_VALUES = [
 
 export type AppSettingsFieldKey =
   | 'prettifyPrompt'
-  | 'prettifyReasoning'
+  | 'prettifyProvider'
+  | 'prettifyBaseUrl'
+  | 'prettifyModel'
+  | 'prettifyTemperature'
+  | 'prettifyTopP'
+  | 'prettifyTopK'
+  | 'prettifyMinP'
+  | 'prettifyRepeatPenalty'
+  | 'prettifyMaxOutputTokens'
+  | 'prettifySeed'
+  | 'prettifyApiKey'
   | 'humanPreset'
   | 'backgroundMode'
   | 'fingerprintSeed'
@@ -49,7 +59,7 @@ export interface AppSettingsSaveDependencies {
     settings: CloakBrowserSettingsInput,
   ) => Promise<{ success: boolean; settings?: CloakBrowserSettingsView; error?: string }>;
   setPrettifySettings: (
-    settings: PrettifySettings,
+    settings: PrettifySettingsInput,
   ) => Promise<{ success: boolean; settings?: PrettifySettings; error?: string }>;
   setTextActionSettings: (
     settings: TextActionSettings,
@@ -103,7 +113,18 @@ export interface AppSettingsLogSummary {
   changedFields: string[];
   prettifyPromptChanged: boolean;
   prettifyPromptLength: number;
-  prettifyReasoning: PrettifySettings['reasoning'];
+  prettifyProviderId: PrettifySettings['providerId'];
+  prettifyModel: string;
+  prettifyTemperature: number;
+  prettifyTopP: number;
+  prettifyTopK: number;
+  prettifyMinP: number;
+  prettifyRepeatPenalty: number;
+  prettifyMaxOutputTokens: number;
+  prettifyHasSeed: boolean;
+  prettifyHasVllmApiKey: boolean;
+  prettifyVllmApiKeyUpdated: boolean;
+  prettifyVllmApiKeyCleared: boolean;
   textActions: TextActionSettings;
   cloakBrowser: SanitizedCloakBrowserSettingsSummary;
 }
@@ -140,6 +161,22 @@ export function createSanitizedCloakBrowserSettingsSummary(
   };
 }
 
+function getActivePrettifyProviderSettings(settings: PrettifySettings) {
+  return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
+}
+
+function hasVllmApiKeyUpdate(settings: PrettifySettings): boolean {
+  return Boolean(settings.vllm.apiKey?.trim());
+}
+
+function hasVllmApiKeyChange(settings: PrettifySettings, initialSettings: PrettifySettings): boolean {
+  return (
+    settings.vllm.hasApiKey !== initialSettings.vllm.hasApiKey ||
+    hasVllmApiKeyUpdate(settings) ||
+    Boolean(settings.vllm.clearApiKey)
+  );
+}
+
 export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSettingsLogSummary {
   const changedGroups: AppSettingsChangedGroup[] = [];
   const changedFields: string[] = [];
@@ -147,8 +184,44 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
   if (input.prettifySettings.prompt !== input.initialPrettifySettings.prompt) {
     changedFields.push('prettifyPrompt');
   }
-  if (input.prettifySettings.reasoning !== input.initialPrettifySettings.reasoning) {
-    changedFields.push('prettifyReasoning');
+  if (input.prettifySettings.providerId !== input.initialPrettifySettings.providerId) {
+    changedFields.push('prettifyProvider');
+  }
+  if (input.prettifySettings.temperature !== input.initialPrettifySettings.temperature) {
+    changedFields.push('prettifyTemperature');
+  }
+  if (input.prettifySettings.topP !== input.initialPrettifySettings.topP) {
+    changedFields.push('prettifyTopP');
+  }
+  if (input.prettifySettings.topK !== input.initialPrettifySettings.topK) {
+    changedFields.push('prettifyTopK');
+  }
+  if (input.prettifySettings.minP !== input.initialPrettifySettings.minP) {
+    changedFields.push('prettifyMinP');
+  }
+  if (input.prettifySettings.repeatPenalty !== input.initialPrettifySettings.repeatPenalty) {
+    changedFields.push('prettifyRepeatPenalty');
+  }
+  if (input.prettifySettings.maxOutputTokens !== input.initialPrettifySettings.maxOutputTokens) {
+    changedFields.push('prettifyMaxOutputTokens');
+  }
+  if (input.prettifySettings.seed !== input.initialPrettifySettings.seed) {
+    changedFields.push('prettifySeed');
+  }
+  if (input.prettifySettings.ollama.baseUrl !== input.initialPrettifySettings.ollama.baseUrl) {
+    changedFields.push('prettifyBaseUrl');
+  }
+  if (input.prettifySettings.ollama.model !== input.initialPrettifySettings.ollama.model) {
+    changedFields.push('prettifyModel');
+  }
+  if (input.prettifySettings.vllm.baseUrl !== input.initialPrettifySettings.vllm.baseUrl) {
+    changedFields.push('prettifyBaseUrl');
+  }
+  if (input.prettifySettings.vllm.model !== input.initialPrettifySettings.vllm.model) {
+    changedFields.push('prettifyModel');
+  }
+  if (hasVllmApiKeyChange(input.prettifySettings, input.initialPrettifySettings)) {
+    changedFields.push('prettifyApiKey');
   }
   if (changedFields.length > 0) {
     changedGroups.push('prettify');
@@ -193,7 +266,18 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
     changedFields,
     prettifyPromptChanged: input.prettifySettings.prompt !== input.initialPrettifySettings.prompt,
     prettifyPromptLength: input.prettifySettings.prompt.length,
-    prettifyReasoning: input.prettifySettings.reasoning,
+    prettifyProviderId: input.prettifySettings.providerId,
+    prettifyModel: getActivePrettifyProviderSettings(input.prettifySettings).model,
+    prettifyTemperature: input.prettifySettings.temperature,
+    prettifyTopP: input.prettifySettings.topP,
+    prettifyTopK: input.prettifySettings.topK,
+    prettifyMinP: input.prettifySettings.minP,
+    prettifyRepeatPenalty: input.prettifySettings.repeatPenalty,
+    prettifyMaxOutputTokens: input.prettifySettings.maxOutputTokens,
+    prettifyHasSeed: input.prettifySettings.seed !== null,
+    prettifyHasVllmApiKey: input.prettifySettings.vllm.hasApiKey,
+    prettifyVllmApiKeyUpdated: hasVllmApiKeyUpdate(input.prettifySettings),
+    prettifyVllmApiKeyCleared: Boolean(input.prettifySettings.vllm.clearApiKey),
     textActions: input.textActionSettings,
     cloakBrowser: createSanitizedCloakBrowserSettingsSummary(input.settings),
   };
@@ -232,6 +316,15 @@ function isValidTimezone(value: string): boolean {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value });
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
   } catch {
     return false;
   }
@@ -303,8 +396,53 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
   if (!prettifySettings.prompt.trim()) {
     fieldErrors.prettifyPrompt = 'Prettify prompt is required';
   }
-  if (!PRETTIFY_REASONING_VALUES.includes(prettifySettings.reasoning)) {
-    fieldErrors.prettifyReasoning = 'Select a supported reasoning value';
+  if (!isPrettifyProviderId(prettifySettings.providerId)) {
+    fieldErrors.prettifyProvider = 'Select a supported provider';
+  }
+  if (
+    !Number.isFinite(prettifySettings.temperature) ||
+    prettifySettings.temperature < 0 ||
+    prettifySettings.temperature > 1
+  ) {
+    fieldErrors.prettifyTemperature = 'Temperature must be between 0 and 1';
+  }
+  if (!Number.isFinite(prettifySettings.topP) || prettifySettings.topP < 0.05 || prettifySettings.topP > 1) {
+    fieldErrors.prettifyTopP = 'Top P must be between 0.05 and 1';
+  }
+  if (!Number.isInteger(prettifySettings.topK) || prettifySettings.topK < 1 || prettifySettings.topK > 200) {
+    fieldErrors.prettifyTopK = 'Top K must be an integer between 1 and 200';
+  }
+  if (!Number.isFinite(prettifySettings.minP) || prettifySettings.minP < 0 || prettifySettings.minP > 1) {
+    fieldErrors.prettifyMinP = 'Min P must be between 0 and 1';
+  }
+  if (
+    !Number.isFinite(prettifySettings.repeatPenalty) ||
+    prettifySettings.repeatPenalty < 0.8 ||
+    prettifySettings.repeatPenalty > 1.5
+  ) {
+    fieldErrors.prettifyRepeatPenalty = 'Repeat penalty must be between 0.8 and 1.5';
+  }
+  if (
+    !Number.isInteger(prettifySettings.maxOutputTokens) ||
+    prettifySettings.maxOutputTokens < 0 ||
+    prettifySettings.maxOutputTokens > 8192
+  ) {
+    fieldErrors.prettifyMaxOutputTokens = 'Max output tokens must be an integer between 0 and 8192';
+  }
+  if (
+    prettifySettings.seed !== null &&
+    (!Number.isInteger(prettifySettings.seed) || prettifySettings.seed < 0 || prettifySettings.seed > 2_147_483_647)
+  ) {
+    fieldErrors.prettifySeed = 'Seed must be empty or an integer between 0 and 2147483647';
+  }
+  const activePrettifyProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
+  if (!activePrettifyProviderSettings.baseUrl.trim()) {
+    fieldErrors.prettifyBaseUrl = 'Base URL is required';
+  } else if (!isValidHttpUrl(activePrettifyProviderSettings.baseUrl.trim())) {
+    fieldErrors.prettifyBaseUrl = 'Base URL must be a valid http or https URL';
+  }
+  if (!activePrettifyProviderSettings.model.trim()) {
+    fieldErrors.prettifyModel = 'Select a model';
   }
   if (!CLOAK_BROWSER_HUMAN_PRESETS.includes(settings.humanPreset)) {
     fieldErrors.humanPreset = 'Select a supported human preset';
@@ -366,7 +504,24 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
 }
 
 export function arePrettifySettingsEqual(left: PrettifySettings, right: PrettifySettings): boolean {
-  return left.prompt === right.prompt && left.reasoning === right.reasoning;
+  return (
+    left.prompt === right.prompt &&
+    left.providerId === right.providerId &&
+    left.temperature === right.temperature &&
+    left.topP === right.topP &&
+    left.topK === right.topK &&
+    left.minP === right.minP &&
+    left.repeatPenalty === right.repeatPenalty &&
+    left.maxOutputTokens === right.maxOutputTokens &&
+    left.seed === right.seed &&
+    left.ollama.baseUrl === right.ollama.baseUrl &&
+    left.ollama.model === right.ollama.model &&
+    left.vllm.baseUrl === right.vllm.baseUrl &&
+    left.vllm.model === right.vllm.model &&
+    left.vllm.hasApiKey === right.vllm.hasApiKey &&
+    !left.vllm.apiKey &&
+    !left.vllm.clearApiKey
+  );
 }
 
 export function areTextActionSettingsEqual(left: TextActionSettings, right: TextActionSettings): boolean {
