@@ -96,6 +96,7 @@ export interface ElectronAPI {
   onBgBrowserReady: (callback: () => void) => () => void;
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
+  onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
   getHotkey: () => Promise<HotkeySettings>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
   getTranslateSettings: () => Promise<{ targetLang: string }>;

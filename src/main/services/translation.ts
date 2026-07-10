@@ -6,6 +6,7 @@ import {
   setTranslatePageTargetLang,
 } from '@main/browser';
 import { createLogger } from '@main/logger';
+import { presentNotificationError } from '@shared/notifications';
 import {
   buildGoogleTranslateUrl,
   createTranslationLogMetadata,
@@ -145,8 +146,8 @@ export async function translateText(
       return { success: true, text: translated };
     }
     return { success: false, error: 'No translation result found on page' };
-  } catch (err: unknown) {
-    log.error('Error:', err instanceof Error ? err.message : err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  } catch (error: unknown) {
+    log.error('Translation error:', presentNotificationError(error, { context: 'translation' }).safeLogMetadata);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }

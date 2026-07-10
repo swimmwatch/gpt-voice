@@ -153,6 +153,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
     return onMainEvent<[HotkeySettings]>('hotkey-settings-changed', callback);
   },
+  onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
+    return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
+  },
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
   },

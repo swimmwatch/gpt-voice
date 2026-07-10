@@ -179,6 +179,74 @@ h1 {
   }
 }
 
+.prettify-model-control {
+  -webkit-app-region: no-drag;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: min(100%, 360px);
+  gap: 6px 10px;
+  border: 1px solid $kbd-border;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.prettify-model-control-details {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.prettify-model-control-label,
+.prettify-model-control-state {
+  color: $text-muted;
+  font-size: 0.72rem;
+}
+
+.prettify-model-control-name {
+  overflow: hidden;
+  color: $text-primary;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prettify-model-control-action {
+  align-self: center;
+  min-height: 28px;
+  border: 1px solid $kbd-border;
+  border-radius: 6px;
+  background: none;
+  color: $text-primary;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: #2563eb;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+}
+
+.prettify-model-control-status,
+.prettify-model-control-error {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.prettify-model-control-status {
+  color: $text-saved;
+}
+
+.prettify-model-control-error {
+  color: $dot-recording;
+}
+
 .login-section {
   -webkit-app-region: no-drag;
 }

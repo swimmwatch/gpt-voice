@@ -1,6 +1,7 @@
 import { createLogger } from '@main/logger';
 import { runPrettify, type TextProcessingResult } from '@main/services/prettifyProviders';
 import { getPrettifySettingsView } from '@main/services/prettifySettingsStorage';
+import { presentNotificationError } from '@shared/notifications';
 import type { PrettifySettingsInput } from '@shared/prettifySettings';
 
 const log = createLogger('prettify');
@@ -16,8 +17,8 @@ export async function prettifyText(
   try {
     log.info('Starting text prettify:', { textLength: text.length });
     return runPrettify(text, settings, settings.signal);
-  } catch (err: unknown) {
-    log.error('Error:', err instanceof Error ? err.message : err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  } catch (error: unknown) {
+    log.error('Prettify error:', presentNotificationError(error, { context: 'prettify' }).safeLogMetadata);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }

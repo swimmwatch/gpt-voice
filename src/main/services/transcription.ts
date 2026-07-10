@@ -2,6 +2,7 @@ import { ensureBackgroundBrowser, getActiveProvider, isBgReady } from '../browse
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { addTranscriptionHistoryEntry } from './transcriptionHistoryStorage';
+import { presentNotificationError } from '@shared/notifications';
 
 const log = createLogger('transcribe');
 
@@ -32,14 +33,14 @@ export async function transcribeAudio(
       } catch (historyError: unknown) {
         log.warn('Failed to save transcription history entry:', {
           textLength: result.text.length,
-          error: historyError instanceof Error ? historyError.message : String(historyError),
+          ...presentNotificationError(historyError, { context: 'transcription' }).safeLogMetadata,
         });
       }
     }
 
     return result;
-  } catch (err: unknown) {
-    log.error('Error:', err instanceof Error ? err.message : err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  } catch (error: unknown) {
+    log.error('Transcription error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }

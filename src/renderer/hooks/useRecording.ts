@@ -99,7 +99,6 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
         log.info('Transcription result:', {
           success: result.success,
           textLength: result.text?.length ?? 0,
-          error: result.error,
         });
         if (result.success && result.text) {
           log.info('Copied transcription to clipboard, text length:', result.text.length);

@@ -13,6 +13,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
+import { presentNotificationError } from '@shared/notifications';
 
 const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -93,7 +94,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
 
       return this.parseSuccessResponse(body);
     } catch (error: unknown) {
-      log.error('Transcribe error:', error instanceof Error ? error.message : error);
+      log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }

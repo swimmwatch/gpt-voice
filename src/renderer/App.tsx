@@ -4,10 +4,14 @@ import LoginButton from './components/LoginButton';
 import StatusIndicator from './components/StatusIndicator';
 import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
+import { formatByteSize } from './byteFormatting';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
+import { getOllamaModelControl } from './prettifyModelControl';
 import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
+import { presentNotificationError } from '@shared/notifications';
+import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -21,10 +25,16 @@ const App: React.FC = () => {
   const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
+  const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
+  const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
+  const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
+  const [prettifyModelActionStatus, setPrettifyModelActionStatus] = useState('');
+  const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
 
   const { t, isReady: isI18nReady } = useI18n();
 
   const preserveStatusRef = useRef(false);
+  const prettifyModelRefreshIdRef = useRef(0);
 
   const showStatusNotification = useCallback((nextStatus: string) => {
     const notificationBody = nextStatus.trim();
@@ -42,6 +52,30 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
+  const refreshOllamaModelState = useCallback(async (settings: PrettifySettings): Promise<void> => {
+    const refreshId = ++prettifyModelRefreshIdRef.current;
+    setPrettifySettings(settings);
+    setIsPrettifyModelActionRunning(false);
+    setPrettifyModelActionStatus('');
+    setPrettifyModelActionError('');
+
+    if (settings.providerId !== 'ollama' || !settings.ollama.model) {
+      setOllamaModelOptions([]);
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.listPrettifyModels('ollama', settings);
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setOllamaModelOptions(result.success ? result.models : []);
+      }
+    } catch {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setOllamaModelOptions([]);
+      }
+    }
+  }, []);
+
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, resendLastTranscription } =
     useRecording({
       setStatus,
@@ -50,6 +84,26 @@ const App: React.FC = () => {
       notifyStatus: showStatusNotification,
       t,
     });
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = (settings: PrettifySettings): void => {
+      if (!disposed) {
+        void refreshOllamaModelState(settings);
+      }
+    };
+
+    void window.electronAPI
+      .getPrettifySettings()
+      .then(refresh)
+      .catch(() => undefined);
+    const unsubscribe = window.electronAPI.onPrettifySettingsChanged(refresh);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [refreshOllamaModelState]);
 
   const applyProviderLoginState = useCallback(
     (hasSession: boolean, backgroundStatus?: BackgroundBrowserStatus): ProviderLoginState => {
@@ -239,6 +293,70 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
+  const ollamaModelControl = getOllamaModelControl(prettifySettings, ollamaModelOptions);
+
+  const handleOllamaModelAction = async (): Promise<void> => {
+    if (!prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
+      return;
+    }
+
+    const refreshId = prettifyModelRefreshIdRef.current;
+    const { model, isLoaded } = ollamaModelControl;
+    setIsPrettifyModelActionRunning(true);
+    setPrettifyModelActionStatus('');
+    setPrettifyModelActionError('');
+
+    try {
+      const result = isLoaded
+        ? await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings)
+        : await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+      if (refreshId !== prettifyModelRefreshIdRef.current) {
+        return;
+      }
+
+      if (!result.success) {
+        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
+        setPrettifyModelActionError(
+          presentNotificationError(result.error, { context: 'prettify', fallback, t }).userMessage,
+        );
+        return;
+      }
+
+      const resolvedModel = result.model || model;
+      const vramSizeBytes =
+        !isLoaded && 'vramSizeBytes' in result && typeof result.vramSizeBytes === 'number'
+          ? result.vramSizeBytes
+          : undefined;
+      setOllamaModelOptions((current) => {
+        const hasSelectedModel = current.some((option) => option.id === model);
+        if (isLoaded) {
+          return current.map((option) => (option.id === model ? { ...option, isLoaded: false } : option));
+        }
+
+        const nextOptions = current.map((option) => ({
+          ...option,
+          isLoaded: option.id === model,
+          ...(option.id === model && vramSizeBytes !== undefined ? { vramSizeBytes } : {}),
+        }));
+        return hasSelectedModel
+          ? nextOptions
+          : [...nextOptions, { id: model, isLoaded: true, name: model, vramSizeBytes }];
+      });
+      setPrettifyModelActionStatus(
+        t(isLoaded ? 'prettify.modelFreed' : 'prettify.modelLoaded', { model: resolvedModel }),
+      );
+    } catch (error: unknown) {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
+        setPrettifyModelActionError(presentNotificationError(error, { context: 'prettify', fallback, t }).userMessage);
+      }
+    } finally {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setIsPrettifyModelActionRunning(false);
+      }
+    }
+  };
+
   if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
@@ -260,6 +378,44 @@ const App: React.FC = () => {
           {t('provider.settings')}
         </button>
       </div>
+      {ollamaModelControl && (
+        <div className="prettify-model-control" aria-label={t('prettify.modelActions')}>
+          <div className="prettify-model-control-details">
+            <span className="prettify-model-control-label">{t('prettify.model')}</span>
+            <span className="prettify-model-control-name" title={ollamaModelControl.model}>
+              {ollamaModelControl.model}
+            </span>
+            <span className="prettify-model-control-state">
+              {ollamaModelControl.isLoaded && ollamaModelControl.vramSizeBytes !== undefined
+                ? t('prettify.modelVramLoaded', { size: formatByteSize(ollamaModelControl.vramSizeBytes) })
+                : t(ollamaModelControl.isLoaded ? 'prettify.modelLoaded' : 'prettify.modelNotLoaded', {
+                    model: ollamaModelControl.model,
+                  })}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="prettify-model-control-action"
+            onClick={() => void handleOllamaModelAction()}
+            disabled={isPrettifyModelActionRunning}
+            title={t(ollamaModelControl.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle')}
+          >
+            {isPrettifyModelActionRunning
+              ? t('prettify.loadingModel')
+              : t(ollamaModelControl.isLoaded ? 'prettify.freeModel' : 'prettify.loadModel')}
+          </button>
+          {prettifyModelActionStatus && (
+            <span className="prettify-model-control-status" role="status" aria-live="polite">
+              {prettifyModelActionStatus}
+            </span>
+          )}
+          {prettifyModelActionError && (
+            <span className="prettify-model-control-error" role="alert">
+              {prettifyModelActionError}
+            </span>
+          )}
+        </div>
+      )}
       <LoginButton
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}

@@ -570,6 +570,7 @@ export function registerIpcHandlers(): void {
         vllmModel: savedSettings.vllm.model,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
+      getMainWindow()?.webContents.send('prettify-settings-changed', savedSettings);
       return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));

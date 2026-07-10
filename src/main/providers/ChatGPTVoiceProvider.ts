@@ -16,6 +16,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
+import { presentNotificationError } from '@shared/notifications';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { APP_DIR } from '../config';
@@ -29,7 +30,6 @@ const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
-const TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS = 500;
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -161,7 +161,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
 
       log.info('Transcribe response status:', resp.status);
       if (resp.status !== StatusCodes.OK) {
-        log.error('Transcribe response body:', resp.body.substring(0, TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS));
+        log.error('Transcribe response failed:', { bodyLength: resp.body.length, status: resp.status });
       }
 
       if (shouldRefreshTranscribeToken(resp.status)) {
@@ -171,16 +171,16 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
           const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
           log.info('Retry response status:', retryResp.status);
           if (retryResp.status !== StatusCodes.OK) {
-            log.error('Retry response body:', retryResp.body.substring(0, TRANSCRIBE_RESPONSE_LOG_PREVIEW_CHARS));
+            log.error('Retry response failed:', { bodyLength: retryResp.body.length, status: retryResp.status });
           }
           return this.parseTranscribeResponse(retryResp, mimeType);
         }
       }
 
       return this.parseTranscribeResponse(resp, mimeType);
-    } catch (err: unknown) {
-      log.error('Transcribe error:', err instanceof Error ? err.message : err);
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    } catch (error: unknown) {
+      log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
