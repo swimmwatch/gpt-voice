@@ -47,6 +47,11 @@ export default {
   // Provider
   'provider.label': 'Провайдер:',
   'provider.settings': 'Настройки',
+  'provider.connect': 'Подключить',
+  'provider.configure': 'Настроить',
+  'provider.connected': 'Подключено',
+  'provider.connectionReady': 'Готово',
+  'provider.connectionSetupRequired': 'Требуется настройка',
 
   // Provider settings
   'providerSettings.title': 'Настройки {provider}',
@@ -64,10 +69,17 @@ export default {
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
   'providerSettings.save': 'Сохранить',
+  'providerSettings.saving': 'Сохранение...',
   'providerSettings.clearKey': 'Очистить ключ',
+  'providerSettings.clear': 'Очистить',
   'providerSettings.saveFailed': 'Не удалось сохранить настройки',
   'providerSettings.clearFailed': 'Не удалось очистить данные провайдера',
   'providerSettings.language.auto': 'Авто',
+  'providerSettings.description': 'Настройте доступ к распознаванию через {provider}.',
+  'providerSettings.clearSessionConfirmTitle': 'Очистить сохраненную сессию?',
+  'providerSettings.clearKeyConfirmTitle': 'Очистить сохраненный ключ API?',
+  'providerSettings.clearConfirmDescription':
+    'Чтобы снова использовать этого провайдера, потребуется войти или указать ключ.',
 
   // App settings
   'appSettings.open': 'Настройки приложения',
@@ -97,9 +109,62 @@ export default {
   'appSettings.proxyPasswordSaved': 'Пароль сохранён',
   'appSettings.clearProxyPassword': 'Очистить',
   'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxyDisabledHint': 'Включите прокси, чтобы настроить подключение.',
+  'appSettings.localeTimezoneManagedByProxy': 'GeoIP прокси управляет локалью и часовым поясом.',
   'appSettings.proxySocks5AuthWarning': 'Имя пользователя и пароль для SOCKS5-прокси не поддерживаются браузером.',
   'appSettings.save': 'Сохранить',
+  'appSettings.saving': 'Сохранение...',
   'appSettings.saveFailed': 'Не удалось сохранить настройки',
+  'appSettings.discardChangesDescription': 'Несохраненные изменения будут потеряны.',
+
+  // Redesign navigation and common commands
+  'mainDock.title': 'Панель команд',
+  'mainDock.subtitle': 'GPT-Voice',
+  'mainDock.providerLabel': 'Провайдер',
+  'navigation.openHistory': 'Открыть историю распознаваний',
+  'navigation.openAbout': 'Открыть информацию о GPT-Voice',
+  'navigation.openAppSettings': 'Открыть настройки приложения',
+  'navigation.openProviderSettings': 'Открыть настройки {provider}',
+  'navigation.moreActions': 'Дополнительные действия',
+  'common.close': 'Закрыть',
+  'common.retry': 'Повторить',
+  'common.saveChanges': 'Сохранить изменения',
+  'common.discardChanges': 'Не сохранять',
+  'common.keepEditing': 'Продолжить редактирование',
+  'common.unsavedChanges': 'Несохраненные изменения',
+  'common.discardChangesConfirm': 'Не сохранять изменения?',
+  'dialog.close': 'Закрыть диалог',
+
+  // Recording workspace
+  'recording.start': 'Начать запись',
+  'recording.startCommand': 'Начать запись',
+  'recording.starting': 'Начинаем запись...',
+  'recording.stop': 'Остановить запись',
+  'recording.pause': 'Приостановить запись',
+  'recording.resume': 'Продолжить запись',
+  'recording.cancel': 'Отменить запись',
+
+  // Model memory
+  'modelMemory.title': 'Память модели',
+  'modelMemory.ollamaGpu': 'Модель (Ollama GPU)',
+  'modelMemory.vram': 'VRAM',
+  'modelMemory.loaded': 'Загружена',
+  'modelMemory.notLoaded': 'Не загружена',
+  'modelMemory.unknown': 'Состояние неизвестно',
+
+  // Settings sections
+  'settingsSection.shortcuts': 'Клавиши и действия',
+  'settingsSection.prettify': 'Улучшение текста',
+  'settingsSection.browser': 'Браузер',
+  'settingsSection.network': 'Сеть',
+
+  // About
+  'about.open': 'О программе',
+  'about.version': 'Версия {version}',
+  'about.license': 'Лицензия',
+  'about.copyright': 'Авторские права',
+  'about.loading': 'Загрузка информации о программе...',
+  'about.loadFailed': 'Не удалось загрузить информацию о программе.',
 
   // History
   'history.open': 'История',
@@ -108,7 +173,10 @@ export default {
   'history.clear': 'Очистить историю',
   'history.clearing': 'Очистка...',
   'history.clearConfirm': 'Очистить всю историю транскрипций?',
+  'history.clearConfirmDescription':
+    'Все локально сохраненные транскрипции будут удалены без возможности восстановления.',
   'history.clearFailed': 'Не удалось очистить историю',
+  'history.cleared': 'История очищена',
   'history.emptyTitle': 'Транскрипций пока нет',
   'history.emptyBody': 'Распознанный текст появится здесь после успешной транскрипции.',
   'history.copyHint': 'Нажмите на текст, чтобы скопировать',
@@ -117,9 +185,15 @@ export default {
   'history.copyFailed': 'Не удалось скопировать текст',
   'history.loadingMore': 'Загрузка...',
   'history.end': 'Конец истории',
+  'history.loading': 'Загрузка истории...',
+  'history.loadFailed': 'Не удалось загрузить историю',
+  'history.retry': 'Повторить',
+  'history.clearAria': 'Очистить историю распознаваний',
+  'history.copy': 'Копировать расшифровку',
 
   // Status indicator
   'indicator.idle': 'Ожидание',
+  'indicator.ready': 'Готово',
   'indicator.recording': 'Запись',
   'indicator.paused': 'Пауза',
 
@@ -134,6 +208,7 @@ export default {
   'hotkey.prettify': 'Улучшение',
   'hotkey.retryTranscription': 'Отправить транскрипцию снова',
   'hotkey.change': 'Изменить',
+  'hotkey.enabled': '{target}: включено',
   'hotkey.setHotkey': 'Назначить клавишу: {target}',
   'hotkey.pressKeyCombination': 'Нажмите сочетание клавиш',
   'hotkey.waitingForInput': 'Ожидание ввода...',
@@ -164,6 +239,8 @@ export default {
   'prettify.modelsRefreshFailed': 'Не удалось загрузить модели',
   'prettify.temperature': 'Temperature: {value}',
   'prettify.advancedGeneration': 'Параметры генерации',
+  'prettify.advancedSummaryDefaults': 'Значения по умолчанию',
+  'prettify.advancedSummaryCustom': 'Изменено значений: {count}',
   'prettify.topP': 'Top P: {value}',
   'prettify.topK': 'Top K',
   'prettify.minP': 'Min P: {value}',

@@ -217,6 +217,17 @@ function isOperationTimeout(message: string): boolean {
   );
 }
 
+function isBrowserNetworkFailure(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes('err_network_changed') ||
+    lowerMessage.includes('err_internet_disconnected') ||
+    lowerMessage.includes('err_connection_') ||
+    lowerMessage.includes('err_name_not_resolved') ||
+    lowerMessage.includes('err_timed_out')
+  );
+}
+
 function isClipboardUnavailable(message: string): boolean {
   const lowerMessage = message.toLowerCase();
   return (
@@ -375,6 +386,8 @@ export function presentNotificationError(
     code = NotificationErrorCode.ProviderRequestFailed;
     service = providerFailure.service;
     status = providerFailure.status;
+  } else if (isBrowserNetworkFailure(message)) {
+    code = NotificationErrorCode.ConnectionFailed;
   } else if (isOperationTimeout(message)) {
     code = NotificationErrorCode.OperationTimedOut;
   } else if (isUnexpectedProviderResponse(message)) {

@@ -102,6 +102,20 @@ describe('notifications', () => {
     assert.equal(presented.safeLogMetadata.hasStackTrace, false);
   });
 
+  it('turns raw browser network-change call logs into a connection message', () => {
+    const presented = presentNotificationError(
+      new Error('page.goto: net::ERR_NETWORK_CHANGED at https://chatgpt.com/\nCall log:\n- navigating to ChatGPT'),
+      { context: 'generic', fallback: 'Browser initialization failed', t },
+    );
+
+    assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
+    assert.equal(
+      presented.userMessage,
+      'Could not connect to the service. Make sure it is running and the URL is correct.',
+    );
+    assert.equal(presented.safeLogMetadata.wasSanitized, true);
+  });
+
   it('preserves existing human-readable localized messages', () => {
     const presented = presentNotificationError('No text selected to prettify', {
       context: 'prettify',

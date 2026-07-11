@@ -1,0 +1,16 @@
+body {
+  // All windows use native title bars, so the renderer surface must remain interactive.
+  -webkit-app-region: no-drag;
+}
+
+button,
+input,
+select,
+textarea,
+label,
+a,
+[role='button'],
+[role='menuitem'],
+[data-electron-interactive='true'] {
+  -webkit-app-region: no-drag;
+}

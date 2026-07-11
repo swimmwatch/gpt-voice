@@ -21,10 +21,6 @@
   <img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" />
 </p>
 
-<p align="center">
-  <img src="assets/readme/app-connected.png" alt="GPT-Voice desktop app screenshot" width="360" />
-</p>
-
 ## Why GPT-Voice?
 
 GPT-Voice is a small Electron app for people who want fast voice-to-text without running a local Whisper model, downloading large checkpoints, or needing a GPU. It sends audio to a provider you control: either a logged-in GPT web session or the official OpenAI API transcription endpoint.
@@ -106,7 +102,7 @@ Prettify Text is configured independently from transcription providers in **App 
 - **Ollama** is the default prettify provider and uses `http://127.0.0.1:11434`.
 - **vLLM** uses an OpenAI-compatible API base URL, defaulting to `http://127.0.0.1:8000/v1`.
 - Model choices are loaded from the selected provider with the **Refresh** button and must be selected from the dropdown. Ollama model entries show an approximate VRAM footprint when size metadata is available.
-- Ollama models can be explicitly loaded from **App settings** to reduce first-request latency. GPT-Voice unloads the Ollama model it loaded when the app fully quits.
+- Ollama models can be explicitly loaded from **App settings** or the visible model-memory control in the main window to reduce first-request latency. GPT-Voice unloads the Ollama model it loaded when the app fully quits.
 - vLLM API keys are optional and saved encrypted with Electron `safeStorage` when secure storage is available.
 - GPT-Voice does not start Ollama or vLLM for you; the chosen provider must already be running.
 
@@ -300,26 +296,24 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 
 ## How To Use
 
-1. **Start the app** and choose **ChatGPT Web** or **OpenAI API** in the Provider select.
-2. **Open Settings** and configure the selected provider.
-3. **Use ChatGPT Web** by signing in once through the login browser. GPT-Voice stores the browser session locally.
-4. **Use OpenAI API** by saving your API key and Whisper settings. The key is encrypted with Electron safe storage and is never shown back in the UI.
-5. **Press the Record hotkey** and speak normally.
-6. **Press Stop**. The audio is sent to the selected provider for transcription.
-7. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
-8. Optional: open **History** from the tray menu to view successful transcriptions. Click any transcript text to copy it again.
-9. Optional: edit the text, select it, choose a target language in GPT-Voice, and press the Translate hotkey to copy the translated text.
-10. Optional: configure Ollama or vLLM in **App settings**, select text, and press the Prettify hotkey to copy a clearer version.
+1. **Start the app** and choose **ChatGPT Web** or **OpenAI API** in the Provider select in the main toolbar.
+2. **Configure the provider** with the adjacent provider-settings button. Use ChatGPT Web to sign in once through the login browser, or save an OpenAI API key and Whisper settings. The API key is encrypted with Electron safe storage and is never shown back in the UI.
+3. **Record** with the visible primary button or the configured hotkey, then use the visible Stop, Pause, Resume, or Cancel action as needed.
+4. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
+5. Optional: open **History** from the main toolbar or tray menu. Existing entries load progressively while you scroll; click transcript text to copy it again.
+6. Optional: open **App settings** from the main toolbar or tray menu. Shortcuts and actions, Prettify, Browser, and Network are organized as separate sections. Unsaved changes require confirmation before closing.
+7. Optional: configure Ollama or vLLM in the **Prettify** section, select text, and press the Prettify hotkey to copy a clearer version. For Ollama, the main window also provides a visible model-memory action when a model is selected.
+8. Optional: select a target language in GPT-Voice, select text in another app, and press the Translate hotkey to copy the translated text.
 
 ## Default Controls
 
-| Action              | Default    |
-| ------------------- | ---------- |
-| Record              | `F9`       |
-| Stop                | `F10`      |
-| Cancel              | `Escape`   |
-| Translate selection | `F11`      |
-| Prettify selection  | `F12`      |
+| Action              | Default  |
+| ------------------- | -------- |
+| Record              | `F9`     |
+| Stop                | `F10`    |
+| Cancel              | `Escape` |
+| Translate selection | `F11`    |
+| Prettify selection  | `F12`    |
 
 Shortcuts are configurable from **App settings**.
 

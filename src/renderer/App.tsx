@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoadingScreen from './components/LoadingScreen';
-import LoginButton from './components/LoginButton';
-import StatusIndicator from './components/StatusIndicator';
+import MainToolbar from './components/MainToolbar';
+import PrettifyModelMemoryRow from './components/PrettifyModelMemoryRow';
+import RecordingControls from './components/RecordingControls';
 import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
-import { formatByteSize } from './byteFormatting';
+import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
@@ -12,12 +13,13 @@ import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLogin
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
 import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
+import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState('');
+  const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
@@ -32,6 +34,8 @@ const App: React.FC = () => {
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
 
   const { t, isReady: isI18nReady } = useI18n();
+
+  useWindowStartupReady(isI18nReady && !isLoading);
 
   const preserveStatusRef = useRef(false);
   const prettifyModelRefreshIdRef = useRef(0);
@@ -79,8 +83,7 @@ const App: React.FC = () => {
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, resendLastTranscription } =
     useRecording({
       setStatus,
-      setIsRecording,
-      setIsPaused,
+      setRecordingState,
       notifyStatus: showStatusNotification,
       t,
     });
@@ -182,8 +185,11 @@ const App: React.FC = () => {
         });
       }),
       window.electronAPI.onHotkeySettingsChanged((settings) => {
-        if (disposed || preserveStatusRef.current) return;
-        setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+        if (disposed) return;
+        setRecordHotkey(settings.hotkey);
+        if (!preserveStatusRef.current) {
+          setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+        }
       }),
     ];
 
@@ -203,6 +209,7 @@ const App: React.FC = () => {
 
     window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
+      setRecordHotkey(hk);
       if (!preserveStatusRef.current) {
         setStatus(t('status.pressToRecord', { hotkey: hk }));
       }
@@ -243,9 +250,13 @@ const App: React.FC = () => {
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
 
   const openProviderSettings = async () => {
-    const settings = await window.electronAPI.getProviderSettings(activeProviderId);
-    setProviderSettings(settings);
-    setShowProviderSettings(true);
+    try {
+      const settings = await window.electronAPI.getProviderSettings(activeProviderId);
+      setProviderSettings(settings);
+      setShowProviderSettings(true);
+    } catch {
+      setStatus(t('error.notificationUnknown'));
+    }
   };
 
   const handleLogin = async () => {
@@ -357,78 +368,66 @@ const App: React.FC = () => {
     }
   };
 
+  const openAppSettingsWindow = useCallback((): void => {
+    void window.electronAPI.openAppSettings().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
+  const openHistoryWindow = useCallback((): void => {
+    void window.electronAPI.openTranscriptionHistory().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
+  const openAboutWindow = useCallback((): void => {
+    void window.electronAPI.openAbout().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
   if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
-    <div className="container">
-      <div className="provider-section">
-        <label className="provider-label">{t('provider.label')}</label>
-        <select
-          className="provider-select"
-          value={activeProviderId}
-          onChange={(e) => handleProviderChange(e.target.value)}
-        >
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <button className="provider-settings-btn" onClick={openProviderSettings} aria-label={t('provider.settings')}>
-          {t('provider.settings')}
-        </button>
-      </div>
-      {ollamaModelControl && (
-        <div className="prettify-model-control" aria-label={t('prettify.modelActions')}>
-          <div className="prettify-model-control-details">
-            <span className="prettify-model-control-label">{t('prettify.model')}</span>
-            <span className="prettify-model-control-name" title={ollamaModelControl.model}>
-              {ollamaModelControl.model}
-            </span>
-            <span className="prettify-model-control-state">
-              {ollamaModelControl.isLoaded && ollamaModelControl.vramSizeBytes !== undefined
-                ? t('prettify.modelVramLoaded', { size: formatByteSize(ollamaModelControl.vramSizeBytes) })
-                : t(ollamaModelControl.isLoaded ? 'prettify.modelLoaded' : 'prettify.modelNotLoaded', {
-                    model: ollamaModelControl.model,
-                  })}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="prettify-model-control-action"
-            onClick={() => void handleOllamaModelAction()}
-            disabled={isPrettifyModelActionRunning}
-            title={t(ollamaModelControl.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle')}
-          >
-            {isPrettifyModelActionRunning
-              ? t('prettify.loadingModel')
-              : t(ollamaModelControl.isLoaded ? 'prettify.freeModel' : 'prettify.loadModel')}
-          </button>
-          {prettifyModelActionStatus && (
-            <span className="prettify-model-control-status" role="status" aria-live="polite">
-              {prettifyModelActionStatus}
-            </span>
-          )}
-          {prettifyModelActionError && (
-            <span className="prettify-model-control-error" role="alert">
-              {prettifyModelActionError}
-            </span>
-          )}
-        </div>
-      )}
-      <LoginButton
+    <main className="command-dock" data-slot="main-window">
+      <MainToolbar
+        activeProviderAuthType={activeProviderAuthType}
+        activeProviderId={activeProviderId}
+        activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
-        providerName={activeProviderName}
-        actionType={activeProviderAuthType === 'apiKey' ? 'configure' : 'login'}
-        onLogin={handleLogin}
+        onOpenAbout={openAboutWindow}
+        onOpenAppSettings={openAppSettingsWindow}
+        onOpenHistory={openHistoryWindow}
+        onOpenProviderSettings={() => void openProviderSettings()}
+        onProviderChange={(providerId) => void handleProviderChange(providerId)}
+        onProviderLogin={() => void handleLogin()}
+        providers={providers}
       />
-      <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
+      {ollamaModelControl && (
+        <PrettifyModelMemoryRow
+          control={ollamaModelControl}
+          error={prettifyModelActionError}
+          isRunning={isPrettifyModelActionRunning}
+          onAction={() => void handleOllamaModelAction()}
+          status={prettifyModelActionStatus}
+        />
+      )}
+      <RecordingControls
+        onCancel={cancelRecording}
+        onPause={pauseRecording}
+        onResume={resumeRecording}
+        onStart={startRecording}
+        onStop={stopRecording}
+        recordHotkey={recordHotkey}
+        state={recordingState}
+        status={status}
+      />
       <TranslateSection
         targetLang={targetLang}
         onLangChange={(lang) => {
           setTargetLang(lang);
-          window.electronAPI.setTranslateSettings(lang);
+          void window.electronAPI.setTranslateSettings(lang);
         }}
       />
       {showProviderSettings && activeProvider && providerSettings && (
@@ -440,7 +439,7 @@ const App: React.FC = () => {
           onLogin={handleLogin}
         />
       )}
-    </div>
+    </main>
   );
 };
 

@@ -33,6 +33,7 @@ src/renderer/             React app, components, hooks, styles, and renderer typ
 scripts/                  CloakBrowser preparation, release metadata, packaging checks
 tests/                    Unit tests using Node's built-in test runner
 assets/                   App icons, tray icons, and README screenshots
+docs/specs/               Scoped specifications and implementation task artifacts
 .github/                  PR checks, release builds, Dependabot, templates, and workflow linting
 build/                    electron-builder entitlement templates and generated release metadata target
 ```
@@ -145,6 +146,25 @@ Likely files:
 - `SECURITY.md` for sensitive-data, vulnerability, or release-security changes.
 - `.github/PULL_REQUEST_TEMPLATE.md` and issue templates when PR or triage expectations change.
 - Workflow files under `.github/workflows/` when CI or release automation changes.
+
+## Specification And Planning Artifacts
+
+Organize every global task in its own scoped specification directory:
+
+```text
+docs/specs/<global-task-slug>/
+  spec.md
+  tasks/
+    plan.md
+    todo.md
+```
+
+- Use a unique lowercase kebab-case `<global-task-slug>` that describes the global task.
+- Start with `spec.md`; it is the source of truth for the task's requirements and acceptance criteria.
+- Store the implementation plan and checklist only in that spec directory's `tasks/` folder.
+- Before planning or implementation, identify and read the scoped `spec.md` and its task artifacts. When more than one spec directory could apply, ask which one to use rather than guessing.
+- Update the scoped spec and plan when approved scope or decisions change. Keep these documents in version control unless the user explicitly requests otherwise.
+- Do not create loose `docs/specs/<task>.md` files or a repository-root `tasks/plan.md` or `tasks/todo.md`.
 
 ## Changelog
 

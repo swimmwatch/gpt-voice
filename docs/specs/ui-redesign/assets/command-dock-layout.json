@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": 1,
+  "name": "GPT-Voice Command Dock",
+  "purpose": "Machine-readable source of truth for translating the approved generated image into the Electron main window without visual guesswork.",
+  "source": {
+    "providedImage": "/home/dmitry-vasiliev/Downloads/Generated image 1.png",
+    "width": 1312,
+    "height": 1199,
+    "coordinateUnit": "source image pixel"
+  },
+  "renderTarget": {
+    "width": 460,
+    "height": 420,
+    "scaleX": 0.3506097561,
+    "scaleY": 0.3502919099,
+    "uniformScaleForReasoning": 0.350450833,
+    "windowChrome": "The reference contains no native operating-system title bar. The full 460x420 area is application content."
+  },
+  "artifacts": {
+    "visual": "command-dock-reference.svg",
+    "blueprint": "command-dock-blueprint.svg"
+  },
+  "tokens": {
+    "colors": {
+      "background": "#181A1B",
+      "surface": "#202223",
+      "surfaceInput": "#1B1D1E",
+      "foreground": "#F4F4F5",
+      "mutedForeground": "#989A9D",
+      "iconForeground": "#C5C7C8",
+      "structuralBorder": "#303233",
+      "controlBorder": "#444748",
+      "strongDivider": "#4C4F50",
+      "primaryTop": "#2B60CB",
+      "primaryBottom": "#295BC5",
+      "primaryForeground": "#FFFFFF",
+      "success": "#5DA867",
+      "inactiveRing": "#5F6263",
+      "inactiveDot": "#C8C9CA"
+    },
+    "radiiSourcePx": {
+      "window": 0,
+      "iconAction": 10,
+      "primaryAction": 9,
+      "secondaryAction": 10,
+      "select": 10
+    },
+    "radiiCssPx": {
+      "window": 0,
+      "iconAction": 3.5,
+      "primaryAction": 3.15,
+      "secondaryAction": 3.5,
+      "select": 3.5
+    },
+    "fontStack": [
+      "Ubuntu Sans",
+      "Ubuntu",
+      "-apple-system",
+      "BlinkMacSystemFont",
+      "Segoe UI",
+      "Roboto",
+      "Arial",
+      "sans-serif"
+    ]
+  },
+  "typography": {
+    "commandDockTitle": { "sourcePx": 39, "cssPx": 13.67, "weight": 700, "lineHeight": 1.2 },
+    "productSubtitle": { "sourcePx": 34, "cssPx": 11.92, "weight": 400, "lineHeight": 1.2 },
+    "fieldLabel": { "sourcePx": 30, "cssPx": 10.51, "weight": 400, "lineHeight": 1.2 },
+    "providerValue": { "sourcePx": 41, "cssPx": 14.37, "weight": 650, "lineHeight": 1.2 },
+    "modelLabel": { "sourcePx": 31, "cssPx": 10.86, "weight": 400, "lineHeight": 1.2 },
+    "modelValue": { "sourcePx": 38, "cssPx": 13.32, "weight": 650, "lineHeight": 1.2 },
+    "semanticState": { "sourcePx": 30, "cssPx": 10.51, "weight": 500, "lineHeight": 1.2 },
+    "primaryAction": { "sourcePx": 44, "cssPx": 15.42, "weight": 700, "lineHeight": 1.2 },
+    "hotkey": { "sourcePx": 31, "cssPx": 10.86, "weight": 500, "lineHeight": 1.2 },
+    "readyState": { "sourcePx": 35, "cssPx": 12.27, "weight": 650, "lineHeight": 1.2 },
+    "languageValue": { "sourcePx": 34, "cssPx": 11.92, "weight": 600, "lineHeight": 1.2 }
+  },
+  "iconography": {
+    "library": "lucide-react",
+    "style": "rounded line icons",
+    "defaultStrokeWidth": 1.75,
+    "icons": {
+      "brand": "AudioLines",
+      "history": "History",
+      "settings": "Settings",
+      "provider": "Globe",
+      "model": "Box",
+      "vram": "Cpu",
+      "loaded": "CircleCheck",
+      "freeVram": "Gauge",
+      "record": "Mic",
+      "select": "ChevronDown"
+    }
+  },
+  "bands": [
+    {
+      "id": "header",
+      "sourcePx": { "x": 4, "y": 4, "width": 1304, "height": 169 },
+      "cssPx": { "x": 1.4, "y": 1.4, "width": 457.2, "height": 59.2 }
+    },
+    {
+      "id": "provider",
+      "sourcePx": { "x": 4, "y": 177, "width": 1304, "height": 158 },
+      "cssPx": { "x": 1.4, "y": 62, "width": 457.2, "height": 55.35 }
+    },
+    {
+      "id": "modelMemory",
+      "sourcePx": { "x": 4, "y": 338, "width": 1304, "height": 168 },
+      "cssPx": { "x": 1.4, "y": 118.4, "width": 457.2, "height": 58.85 }
+    },
+    {
+      "id": "recordingCommand",
+      "sourcePx": { "x": 4, "y": 509, "width": 1304, "height": 261 },
+      "cssPx": { "x": 1.4, "y": 178.3, "width": 457.2, "height": 91.43 }
+    },
+    {
+      "id": "operationState",
+      "sourcePx": { "x": 4, "y": 774, "width": 1304, "height": 135 },
+      "cssPx": { "x": 1.4, "y": 271.13, "width": 457.2, "height": 47.29 }
+    },
+    {
+      "id": "targetLanguage",
+      "sourcePx": { "x": 4, "y": 913, "width": 1304, "height": 282 },
+      "cssPx": { "x": 1.4, "y": 319.82, "width": 457.2, "height": 98.78 }
+    }
+  ],
+  "elements": [
+    {
+      "id": "brandIcon",
+      "sourcePx": { "x": 49, "y": 52, "width": 72, "height": 72 },
+      "cssPx": { "x": 17.18, "y": 18.22, "width": 25.24, "height": 25.22 }
+    },
+    {
+      "id": "historyAction",
+      "sourcePx": { "x": 1044, "y": 43, "width": 106, "height": 96 },
+      "cssPx": { "x": 366.04, "y": 15.06, "width": 37.16, "height": 33.63 }
+    },
+    {
+      "id": "settingsAction",
+      "sourcePx": { "x": 1172, "y": 43, "width": 103, "height": 96 },
+      "cssPx": { "x": 410.91, "y": 15.06, "width": 36.11, "height": 33.63 }
+    },
+    {
+      "id": "providerIcon",
+      "sourcePx": { "x": 50, "y": 225, "width": 62, "height": 62 },
+      "cssPx": { "x": 17.53, "y": 78.82, "width": 21.74, "height": 21.72 }
+    },
+    {
+      "id": "modelIcon",
+      "sourcePx": { "x": 49, "y": 389, "width": 64, "height": 64 },
+      "cssPx": { "x": 17.18, "y": 136.26, "width": 22.44, "height": 22.42 }
+    },
+    {
+      "id": "vramGroup",
+      "sourcePx": { "x": 568, "y": 383, "width": 188, "height": 80 },
+      "cssPx": { "x": 199.15, "y": 134.16, "width": 65.91, "height": 28.02 }
+    },
+    {
+      "id": "loadedState",
+      "sourcePx": { "x": 813, "y": 400, "width": 156, "height": 45 },
+      "cssPx": { "x": 285.05, "y": 140.12, "width": 54.7, "height": 15.76 }
+    },
+    {
+      "id": "freeVramAction",
+      "sourcePx": { "x": 1013, "y": 385, "width": 261, "height": 76 },
+      "cssPx": { "x": 355.17, "y": 134.86, "width": 91.51, "height": 26.62 }
+    },
+    {
+      "id": "recordAction",
+      "sourcePx": { "x": 50, "y": 560, "width": 1212, "height": 162 },
+      "cssPx": { "x": 17.53, "y": 196.16, "width": 424.94, "height": 56.75 }
+    },
+    {
+      "id": "recordIcon",
+      "sourcePx": { "x": 380, "y": 604, "width": 66, "height": 72 },
+      "cssPx": { "x": 133.23, "y": 211.58, "width": 23.14, "height": 25.22 }
+    },
+    {
+      "id": "languageIcon",
+      "sourcePx": { "x": 50, "y": 961, "width": 62, "height": 62 },
+      "cssPx": { "x": 17.53, "y": 336.63, "width": 21.74, "height": 21.72 }
+    },
+    {
+      "id": "languageSelect",
+      "sourcePx": { "x": 411, "y": 953, "width": 383, "height": 81 },
+      "cssPx": { "x": 144.1, "y": 333.83, "width": 134.28, "height": 28.37 }
+    },
+    {
+      "id": "languageFlag",
+      "sourcePx": { "x": 446, "y": 978, "width": 48, "height": 32 },
+      "cssPx": { "x": 156.37, "y": 342.59, "width": 16.83, "height": 11.21 }
+    }
+  ],
+  "structuralSeparatorsSourceY": [173, 335, 506, 770, 909],
+  "structuralSeparatorsCssY": [60.6, 117.34, 177.26, 269.72, 318.42],
+  "implementationRules": [
+    "Treat command-dock-reference.svg and this manifest as the visual source of truth; do not infer spacing from prose.",
+    "Use edge-to-edge horizontal bands separated by structural rules. Do not wrap bands in cards.",
+    "The primary recording action owns the visual emphasis. Provider and loaded states remain semantic status text.",
+    "History and Settings are the only global header actions in the reference state.",
+    "Preserve exact element bounds at 460x420 before adding responsive behavior for other sizes.",
+    "Use Lucide source vectors for icons and a real vector flag asset; do not use emoji or text glyph substitutes.",
+    "Use separate X and Y source-to-CSS scales when matching pixels; use the uniform scale only for reasoning.",
+    "Do not add native title-bar height inside the 460x420 content target."
+  ]
+}

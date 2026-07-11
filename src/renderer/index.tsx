@@ -1,10 +1,15 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import AboutWindow from '@renderer/AboutWindow';
 import AppSettingsWindow from '@renderer/AppSettingsWindow';
 import HistoryWindow from '@renderer/HistoryWindow';
+import WindowStartupGate from '@renderer/WindowStartupGate';
+import { Toaster } from '@renderer/components/ui/sonner';
+import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import { I18nProvider } from './hooks/useI18n';
-import './styles.scss';
+import './styles/globals.css';
+import './styles/electron.scss';
 
 const container = document.getElementById('root');
 if (container) {
@@ -14,11 +19,18 @@ if (container) {
     ? AppSettingsWindow
     : pathname.endsWith('/history.html')
       ? HistoryWindow
-      : App;
+      : pathname.endsWith('/about.html')
+        ? AboutWindow
+        : App;
 
   root.render(
     <I18nProvider>
-      <RootComponent />
+      <TooltipProvider>
+        <WindowStartupGate>
+          <RootComponent />
+          <Toaster />
+        </WindowStartupGate>
+      </TooltipProvider>
     </I18nProvider>,
   );
 }

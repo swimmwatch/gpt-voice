@@ -27,7 +27,16 @@ import {
   switchProvider,
 } from './browser';
 import { createProvider, getAvailableProviders } from './providers';
-import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
+import {
+  closeAboutWindow,
+  closeSettingsWindow,
+  getMainWindow,
+  isTrustedAppWindow,
+  showAboutWindow,
+  showHistoryWindow,
+  showSettingsWindow,
+} from './window';
+import { getAppInfo } from './appMetadata';
 import {
   registerShortcuts,
   getRecordingState,
@@ -355,6 +364,30 @@ export function registerIpcHandlers(): void {
   handle('close-app-settings', () => {
     closeSettingsWindow();
     return { success: true };
+  });
+
+  handle('open-app-settings', () => {
+    showSettingsWindow();
+    return { success: true };
+  });
+
+  handle('open-transcription-history', () => {
+    showHistoryWindow();
+    return { success: true };
+  });
+
+  handle('open-about', () => {
+    showAboutWindow();
+    return { success: true };
+  });
+
+  handle('close-about', () => {
+    closeAboutWindow();
+    return { success: true };
+  });
+
+  handle('get-app-info', () => {
+    return getAppInfo();
   });
 
   handle('get-cloakbrowser-settings', () => {

@@ -6,6 +6,7 @@ import type {
   ProviderSettings,
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import type { AppInfo } from '@shared/appInfo';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
@@ -81,6 +82,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   closeAppSettings: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('close-app-settings');
+  },
+  onAppSettingsCloseRequested: (callback: () => void): (() => void) => {
+    const listener = (): void => callback();
+    ipcRenderer.on('app-settings-close-requested', listener);
+    return () => ipcRenderer.removeListener('app-settings-close-requested', listener);
+  },
+  openAppSettings: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-app-settings');
+  },
+  openTranscriptionHistory: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-transcription-history');
+  },
+  openAbout: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-about');
+  },
+  closeAbout: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('close-about');
+  },
+  getAppInfo: (): Promise<AppInfo> => {
+    return ipcRenderer.invoke('get-app-info');
   },
   getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
     return ipcRenderer.invoke('get-cloakbrowser-settings');

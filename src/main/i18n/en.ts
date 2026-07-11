@@ -47,6 +47,11 @@ export default {
   // Provider
   'provider.label': 'Provider:',
   'provider.settings': 'Settings',
+  'provider.connect': 'Connect',
+  'provider.configure': 'Configure',
+  'provider.connected': 'Connected',
+  'provider.connectionReady': 'Ready',
+  'provider.connectionSetupRequired': 'Setup required',
 
   // Provider settings
   'providerSettings.title': '{provider} settings',
@@ -64,10 +69,16 @@ export default {
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
   'providerSettings.save': 'Save',
+  'providerSettings.saving': 'Saving...',
   'providerSettings.clearKey': 'Clear key',
+  'providerSettings.clear': 'Clear',
   'providerSettings.saveFailed': 'Could not save settings',
   'providerSettings.clearFailed': 'Could not clear provider data',
   'providerSettings.language.auto': 'Auto',
+  'providerSettings.description': 'Configure transcription access for {provider}.',
+  'providerSettings.clearSessionConfirmTitle': 'Clear saved session?',
+  'providerSettings.clearKeyConfirmTitle': 'Clear saved API key?',
+  'providerSettings.clearConfirmDescription': 'You will need to sign in or enter a key again to use this provider.',
 
   // App settings
   'appSettings.open': 'App settings',
@@ -97,9 +108,62 @@ export default {
   'appSettings.proxyPasswordSaved': 'Saved password',
   'appSettings.clearProxyPassword': 'Clear',
   'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxyDisabledHint': 'Enable the proxy to configure its connection.',
+  'appSettings.localeTimezoneManagedByProxy': 'Proxy GeoIP controls locale and timezone.',
   'appSettings.proxySocks5AuthWarning': 'SOCKS5 proxy username/password is not supported by the browser.',
   'appSettings.save': 'Save',
+  'appSettings.saving': 'Saving...',
   'appSettings.saveFailed': 'Could not save settings',
+  'appSettings.discardChangesDescription': 'Your unsaved changes will be lost.',
+
+  // Redesign navigation and common commands
+  'mainDock.title': 'Command Dock',
+  'mainDock.subtitle': 'GPT-Voice',
+  'mainDock.providerLabel': 'Provider',
+  'navigation.openHistory': 'Open transcription history',
+  'navigation.openAbout': 'Open about GPT-Voice',
+  'navigation.openAppSettings': 'Open app settings',
+  'navigation.openProviderSettings': 'Open {provider} settings',
+  'navigation.moreActions': 'More actions',
+  'common.close': 'Close',
+  'common.retry': 'Retry',
+  'common.saveChanges': 'Save changes',
+  'common.discardChanges': 'Discard changes',
+  'common.keepEditing': 'Keep editing',
+  'common.unsavedChanges': 'Unsaved changes',
+  'common.discardChangesConfirm': 'Discard unsaved changes?',
+  'dialog.close': 'Close dialog',
+
+  // Recording workspace
+  'recording.start': 'Record',
+  'recording.startCommand': 'Start recording',
+  'recording.starting': 'Starting recording...',
+  'recording.stop': 'Stop recording',
+  'recording.pause': 'Pause recording',
+  'recording.resume': 'Resume recording',
+  'recording.cancel': 'Cancel recording',
+
+  // Model memory
+  'modelMemory.title': 'Model memory',
+  'modelMemory.ollamaGpu': 'Model (Ollama GPU)',
+  'modelMemory.vram': 'VRAM',
+  'modelMemory.loaded': 'Loaded',
+  'modelMemory.notLoaded': 'Not loaded',
+  'modelMemory.unknown': 'State unknown',
+
+  // Settings sections
+  'settingsSection.shortcuts': 'Shortcuts & actions',
+  'settingsSection.prettify': 'Prettify',
+  'settingsSection.browser': 'Browser',
+  'settingsSection.network': 'Network',
+
+  // About
+  'about.open': 'About',
+  'about.version': 'Version {version}',
+  'about.license': 'License',
+  'about.copyright': 'Copyright',
+  'about.loading': 'Loading application information...',
+  'about.loadFailed': 'Could not load application information.',
 
   // History
   'history.open': 'History',
@@ -108,7 +172,9 @@ export default {
   'history.clear': 'Clear history',
   'history.clearing': 'Clearing...',
   'history.clearConfirm': 'Clear all transcription history?',
+  'history.clearConfirmDescription': 'This removes all locally stored transcriptions. This cannot be undone.',
   'history.clearFailed': 'Could not clear history',
+  'history.cleared': 'History cleared',
   'history.emptyTitle': 'No transcriptions yet',
   'history.emptyBody': 'Recognized text will appear here after successful transcription.',
   'history.copyHint': 'Click text to copy',
@@ -117,9 +183,15 @@ export default {
   'history.copyFailed': 'Could not copy text',
   'history.loadingMore': 'Loading more...',
   'history.end': 'End of history',
+  'history.loading': 'Loading history...',
+  'history.loadFailed': 'Could not load history',
+  'history.retry': 'Retry',
+  'history.clearAria': 'Clear transcription history',
+  'history.copy': 'Copy transcript',
 
   // Status indicator
   'indicator.idle': 'Idle',
+  'indicator.ready': 'Ready',
   'indicator.recording': 'Recording',
   'indicator.paused': 'Paused',
 
@@ -134,6 +206,7 @@ export default {
   'hotkey.prettify': 'Prettify',
   'hotkey.retryTranscription': 'Resend transcription',
   'hotkey.change': 'Change',
+  'hotkey.enabled': '{target} enabled',
   'hotkey.setHotkey': 'Set {target} Hotkey',
   'hotkey.pressKeyCombination': 'Press a key combination',
   'hotkey.waitingForInput': 'Waiting for input...',
@@ -164,6 +237,8 @@ export default {
   'prettify.modelsRefreshFailed': 'Could not load models',
   'prettify.temperature': 'Temperature: {value}',
   'prettify.advancedGeneration': 'Advanced generation',
+  'prettify.advancedSummaryDefaults': 'Provider defaults',
+  'prettify.advancedSummaryCustom': '{count} custom values',
   'prettify.topP': 'Top P: {value}',
   'prettify.topK': 'Top K',
   'prettify.minP': 'Min P: {value}',

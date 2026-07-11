@@ -81,8 +81,16 @@ module.exports = [
           exclude: /node_modules/,
         },
         {
-          test: /\.s?css$/,
-          use: ['style-loader', 'css-loader', 'sass-loader'],
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader', 'postcss-loader'],
+        },
+        {
+          test: /\.scss$/,
+          use: ['style-loader', 'css-loader', 'postcss-loader', 'sass-loader'],
+        },
+        {
+          test: /\.(png|svg)$/,
+          type: 'asset/resource',
         },
       ],
     },
@@ -93,6 +101,7 @@ module.exports = [
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: 'renderer.js',
+      assetModuleFilename: 'assets/[name].[contenthash][ext]',
     },
     plugins: [
       new HtmlWebpackPlugin({
@@ -109,6 +118,11 @@ module.exports = [
         template: './src/renderer/index.html',
         filename: 'history.html',
         title: 'History',
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'about.html',
+        title: 'About GPT-Voice',
       }),
     ],
   },

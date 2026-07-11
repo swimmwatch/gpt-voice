@@ -1,4 +1,5 @@
 import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
+import type { AppInfo } from '@shared/appInfo';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
@@ -67,6 +68,12 @@ export interface ElectronAPI {
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
   closeAppSettings: () => Promise<{ success: boolean }>;
+  onAppSettingsCloseRequested: (callback: () => void) => () => void;
+  openAppSettings: () => Promise<{ success: boolean }>;
+  openTranscriptionHistory: () => Promise<{ success: boolean }>;
+  openAbout: () => Promise<{ success: boolean }>;
+  closeAbout: () => Promise<{ success: boolean }>;
+  getAppInfo: () => Promise<AppInfo>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;

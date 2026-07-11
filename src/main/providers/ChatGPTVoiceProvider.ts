@@ -19,6 +19,7 @@ import {
 import { presentNotificationError } from '@shared/notifications';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
+import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
 import { APP_DIR } from '../config';
 import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
@@ -211,11 +212,22 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     if (!this.page) return;
 
     log.info('Navigating to chatgpt.com...');
-    const response = await this.page.goto(CHATGPT_URL, {
-      waitUntil: 'domcontentloaded',
-      timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
-    });
-    log.info('Page loaded, URL:', this.page.url(), 'status:', response?.status() ?? 'n/a');
+    let response: Awaited<ReturnType<Page['goto']>> | undefined;
+    await retryBrowserNavigation(
+      {
+        navigate: async () => {
+          response = await this.page!.goto(CHATGPT_URL, {
+            waitUntil: 'domcontentloaded',
+            timeout: CHATGPT_NAVIGATION_TIMEOUT_MS,
+          });
+        },
+        service: BrowserNavigationService.ChatGPT,
+      },
+      {
+        onRetry: (event) => log.warn('Retrying ChatGPT page navigation:', event),
+      },
+    );
+    log.info('ChatGPT page loaded:', { status: response?.status() ?? 'n/a' });
 
     try {
       await this.page.waitForLoadState('load', { timeout: 10000 });

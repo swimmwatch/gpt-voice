@@ -89,6 +89,12 @@ export interface AppSettingsSaveResult {
   settings?: EditableCloakBrowserSettings;
 }
 
+export interface AppSettingsFormState {
+  isDirty: boolean;
+  isValid: boolean;
+  validationErrors: AppSettingsFieldErrors;
+}
+
 export type AppSettingsChangedGroup = 'prettify' | 'textActions' | 'cloakBrowser';
 
 export interface SanitizedCloakBrowserSettingsSummary {
@@ -501,6 +507,21 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
   }
 
   return fieldErrors;
+}
+
+export function getAppSettingsFormState(input: AppSettingsSaveInput): AppSettingsFormState {
+  const validationErrors = validateAppSettings({
+    localeValues: input.localeValues,
+    prettifySettings: input.prettifySettings,
+    settings: input.settings,
+    timezoneValues: input.timezoneValues,
+  });
+
+  return {
+    isDirty: createAppSettingsLogSummary(input).changedGroups.length > 0,
+    isValid: !hasAppSettingsFieldErrors(validationErrors),
+    validationErrors,
+  };
 }
 
 export function arePrettifySettingsEqual(left: PrettifySettings, right: PrettifySettings): boolean {
