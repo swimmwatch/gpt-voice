@@ -1,5 +1,6 @@
 export const PRETTIFY_REASONING_VALUES = ['instant', 'standard', 'extended'] as const;
 export const PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm'] as const;
+export const MAX_PRETTIFY_PROMPT_LENGTH = 4_000;
 
 export type PrettifyReasoning = (typeof PRETTIFY_REASONING_VALUES)[number];
 export type PrettifyProviderId = (typeof PRETTIFY_PROVIDER_IDS)[number];
@@ -129,6 +130,62 @@ export function isPrettifyProviderId(value: unknown): value is PrettifyProviderI
   return typeof value === 'string' && PRETTIFY_PROVIDER_IDS.includes(value as PrettifyProviderId);
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '');
+  return normalized === 'localhost' || normalized === '::1' || /^127(?:\.\d{1,3}){3}$/.test(normalized);
+}
+
+function parsePrettifyProviderBaseUrl(value: unknown): URL | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+
+  try {
+    return new URL(value.trim());
+  } catch {
+    return null;
+  }
+}
+
+export function isPrettifyProviderBaseUrlLoopback(value: unknown): boolean {
+  const url = parsePrettifyProviderBaseUrl(value);
+  return Boolean(url && isLoopbackHost(url.hostname));
+}
+
+export function getPrettifyBaseUrlValidationError(value: unknown): string | null {
+  const url = parsePrettifyProviderBaseUrl(value);
+  if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:')) {
+    return 'Base URL must be a valid http or https URL';
+  }
+  if (url.username || url.password) {
+    return 'Base URL must not include credentials';
+  }
+  if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
+    return 'Non-local provider URLs must use HTTPS';
+  }
+  return null;
+}
+
+export function getPrettifySettingsInputError(input: PrettifySettingsInput = {}): string | null {
+  if (typeof input.prompt === 'string' && input.prompt.trim().length > MAX_PRETTIFY_PROMPT_LENGTH) {
+    return `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`;
+  }
+
+  for (const baseUrl of [input.ollama?.baseUrl, input.vllm?.baseUrl]) {
+    if (baseUrl === undefined) continue;
+    const error = getPrettifyBaseUrlValidationError(baseUrl);
+    if (error) return error;
+  }
+
+  return null;
+}
+
+export function assertValidPrettifySettingsInput(input: PrettifySettingsInput = {}): void {
+  const error = getPrettifySettingsInputError(input);
+  if (error) throw new Error(error);
+}
+
 export function normalizePrettifyTemperature(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_PRETTIFY_TEMPERATURE;
   return Math.min(1, Math.max(0, Number(value.toFixed(2))));
@@ -168,7 +225,11 @@ function normalizeModel(value: unknown): string {
 export function normalizePrettifySettings(input: PrettifySettingsInput = {}): PrettifySettings {
   const inputPrompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
   const prompt =
-    inputPrompt && !LEGACY_DEFAULT_PRETTIFY_PROMPTS.includes(inputPrompt) ? inputPrompt : DEFAULT_PRETTIFY_PROMPT;
+    inputPrompt &&
+    inputPrompt.length <= MAX_PRETTIFY_PROMPT_LENGTH &&
+    !LEGACY_DEFAULT_PRETTIFY_PROMPTS.includes(inputPrompt)
+      ? inputPrompt
+      : DEFAULT_PRETTIFY_PROMPT;
   const providerId = isPrettifyProviderId(input.providerId) ? input.providerId : DEFAULT_PRETTIFY_PROVIDER_ID;
   const ollamaInput = input.ollama || {};
   const vllmInput = input.vllm || {};

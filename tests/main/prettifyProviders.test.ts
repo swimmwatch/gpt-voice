@@ -264,6 +264,27 @@ describe('prettifyProviders', () => {
     assert.equal((calls[0]?.init?.headers as Record<string, string>).Authorization, 'Bearer secret');
   });
 
+  it('rejects an unsafe draft provider endpoint before making a network request', async () => {
+    let called = false;
+
+    await assert.rejects(
+      () =>
+        listPrettifyModels(
+          'vllm',
+          { providerId: 'vllm', vllm: { baseUrl: 'http://models.example.com/v1', model: 'qwen2.5' } },
+          {
+            fetch: async () => {
+              called = true;
+              return response(200, { data: [] });
+            },
+          },
+        ),
+      /Non-local provider URLs must use HTTPS/,
+    );
+
+    assert.equal(called, false);
+  });
+
   it('prettifies through vLLM /chat/completions and omits auth when no key is configured', async () => {
     const calls: FetchCall[] = [];
     const result = await runPrettify(

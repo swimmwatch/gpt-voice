@@ -246,6 +246,7 @@ export default {
   'prettify.maxOutputTokens': 'Max output tokens',
   'prettify.seed': 'Seed',
   'prettify.providerDefault': 'Provider default',
+  'prettify.remoteProviderPrivacy': 'Selected text and this prompt are sent to the configured provider endpoint.',
   'prettify.vllmApiKey': 'vLLM API key',
   'prettify.vllmApiKeyStored': 'A key is already saved. Leave empty to keep it.',
   'prettify.vllmApiKeyPlaceholder': 'Optional API key',

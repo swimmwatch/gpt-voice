@@ -5,7 +5,11 @@ import {
   DEFAULT_PRETTIFY_REASONING,
   DEFAULT_PRETTIFY_SETTINGS,
   DEFAULT_VLLM_PRETTIFY_BASE_URL,
+  MAX_PRETTIFY_PROMPT_LENGTH,
+  getPrettifyBaseUrlValidationError,
+  getPrettifySettingsInputError,
   isPrettifyProviderId,
+  isPrettifyProviderBaseUrlLoopback,
   isPrettifyReasoning,
   normalizePrettifySettings,
 } from '@shared/prettifySettings';
@@ -129,6 +133,25 @@ describe('prettifySettings', () => {
     assert.equal(
       normalizePrettifySettings({ maxOutputTokens: 0 }).maxOutputTokens,
       DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens,
+    );
+  });
+
+  it('validates provider URLs and prompt size before they reach the main process', () => {
+    assert.equal(getPrettifyBaseUrlValidationError('http://127.0.0.1:11434'), null);
+    assert.equal(getPrettifyBaseUrlValidationError('https://models.example.com/v1'), null);
+    assert.equal(
+      getPrettifyBaseUrlValidationError('http://models.example.com/v1'),
+      'Non-local provider URLs must use HTTPS',
+    );
+    assert.equal(
+      getPrettifyBaseUrlValidationError('https://user:pass@models.example.com/v1'),
+      'Base URL must not include credentials',
+    );
+    assert.equal(isPrettifyProviderBaseUrlLoopback('http://localhost:11434'), true);
+    assert.equal(isPrettifyProviderBaseUrlLoopback('https://models.example.com/v1'), false);
+    assert.equal(
+      getPrettifySettingsInputError({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
+      `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`,
     );
   });
 

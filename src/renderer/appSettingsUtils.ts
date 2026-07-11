@@ -6,7 +6,13 @@ import {
   type CloakBrowserSettingsInput,
   type CloakBrowserSettingsView,
 } from '@shared/cloakBrowserSettings';
-import { isPrettifyProviderId, type PrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
+import {
+  MAX_PRETTIFY_PROMPT_LENGTH,
+  getPrettifyBaseUrlValidationError,
+  isPrettifyProviderId,
+  type PrettifySettings,
+  type PrettifySettingsInput,
+} from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const SUPPORTED_PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:']);
@@ -327,15 +333,6 @@ function isValidTimezone(value: string): boolean {
   }
 }
 
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function uniqueValues(values: readonly string[]): string[] {
   return Array.from(new Set(values.filter((value) => value.trim()).map((value) => value.trim())));
 }
@@ -401,6 +398,8 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
 
   if (!prettifySettings.prompt.trim()) {
     fieldErrors.prettifyPrompt = 'Prettify prompt is required';
+  } else if (prettifySettings.prompt.trim().length > MAX_PRETTIFY_PROMPT_LENGTH) {
+    fieldErrors.prettifyPrompt = `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`;
   }
   if (!isPrettifyProviderId(prettifySettings.providerId)) {
     fieldErrors.prettifyProvider = 'Select a supported provider';
@@ -430,10 +429,10 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
   }
   if (
     !Number.isInteger(prettifySettings.maxOutputTokens) ||
-    prettifySettings.maxOutputTokens < 0 ||
+    prettifySettings.maxOutputTokens < 1 ||
     prettifySettings.maxOutputTokens > 8192
   ) {
-    fieldErrors.prettifyMaxOutputTokens = 'Max output tokens must be an integer between 0 and 8192';
+    fieldErrors.prettifyMaxOutputTokens = 'Max output tokens must be an integer between 1 and 8192';
   }
   if (
     prettifySettings.seed !== null &&
@@ -444,8 +443,11 @@ export function validateAppSettings(input: ValidateAppSettingsInput): AppSetting
   const activePrettifyProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
   if (!activePrettifyProviderSettings.baseUrl.trim()) {
     fieldErrors.prettifyBaseUrl = 'Base URL is required';
-  } else if (!isValidHttpUrl(activePrettifyProviderSettings.baseUrl.trim())) {
-    fieldErrors.prettifyBaseUrl = 'Base URL must be a valid http or https URL';
+  } else {
+    const baseUrlError = getPrettifyBaseUrlValidationError(activePrettifyProviderSettings.baseUrl);
+    if (baseUrlError) {
+      fieldErrors.prettifyBaseUrl = baseUrlError;
+    }
   }
   if (!activePrettifyProviderSettings.model.trim()) {
     fieldErrors.prettifyModel = 'Select a model';

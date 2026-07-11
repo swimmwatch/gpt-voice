@@ -63,7 +63,7 @@ export function createTextActionResultCache(
       });
 
       while (entries.size > normalizedMaxEntries) {
-        const oldestKey = entries.keys().next().value as string | undefined;
+        const oldestKey = entries.keys().next().value;
         if (oldestKey === undefined) {
           break;
         }

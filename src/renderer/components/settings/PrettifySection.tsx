@@ -29,7 +29,10 @@ import { Textarea } from '@renderer/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { getOllamaModelAction, getPrettifyAdvancedSettingsSummary } from '@renderer/prettifySettingsViewState';
 import {
+  DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS,
   PRETTIFY_PROVIDER_IDS,
+  getPrettifyBaseUrlValidationError,
+  isPrettifyProviderBaseUrlLoopback,
   type PrettifyModelOption,
   type PrettifyProviderId,
   type PrettifySettings,
@@ -166,6 +169,9 @@ function PrettifySection({
   const advancedSummaryLabel = advancedSummary.usesDefaults
     ? t('prettify.advancedSummaryDefaults')
     : t('prettify.advancedSummaryCustom', { count: String(advancedSummary.customValueCount) });
+  const showsRemotePrivacyNotice =
+    !getPrettifyBaseUrlValidationError(activeProviderSettings.baseUrl) &&
+    !isPrettifyProviderBaseUrlLoopback(activeProviderSettings.baseUrl);
 
   return (
     <section aria-labelledby="prettify-heading" className="grid gap-5 pb-4">
@@ -199,6 +205,12 @@ function PrettifySection({
             value={activeProviderSettings.baseUrl}
           />
         </Field>
+
+        {showsRemotePrivacyNotice && (
+          <Alert>
+            <AlertDescription>{t('prettify.remoteProviderPrivacy')}</AlertDescription>
+          </Alert>
+        )}
 
         {prettifySettings.providerId === 'vllm' && (
           <Field error={apiKeyError} id="prettify-vllm-api-key" label={t('prettify.vllmApiKey')}>
@@ -411,12 +423,15 @@ function PrettifySection({
                     <Input
                       inputMode="numeric"
                       max="8192"
-                      min="0"
-                      onChange={(event) => onMaxOutputTokensChange(parseIntegerInput(event.target.value, 0))}
-                      placeholder={t('prettify.providerDefault')}
+                      min="1"
+                      onChange={(event) =>
+                        onMaxOutputTokensChange(
+                          parseIntegerInput(event.target.value, DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS),
+                        )
+                      }
                       step="1"
                       type="number"
-                      value={prettifySettings.maxOutputTokens === 0 ? '' : prettifySettings.maxOutputTokens}
+                      value={prettifySettings.maxOutputTokens}
                     />
                   </Field>
                   <Field error={seedError} label={t('prettify.seed')}>

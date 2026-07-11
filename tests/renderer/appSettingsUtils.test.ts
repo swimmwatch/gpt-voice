@@ -16,7 +16,7 @@ import {
   validateAppSettings,
 } from '@renderer/appSettingsUtils';
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
-import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
+import { DEFAULT_PRETTIFY_SETTINGS, MAX_PRETTIFY_PROMPT_LENGTH, type PrettifySettings } from '@shared/prettifySettings';
 
 function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
   return {
@@ -286,6 +286,39 @@ describe('appSettingsUtils', () => {
     });
     assert.equal(invalidBaseUrlErrors.prettifyBaseUrl, 'Base URL must be a valid http or https URL');
 
+    const insecureRemoteUrlErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          baseUrl: 'http://models.example.com',
+          model: 'llama3.2',
+        },
+      }),
+    });
+    assert.equal(insecureRemoteUrlErrors.prettifyBaseUrl, 'Non-local provider URLs must use HTTPS');
+
+    const credentialUrlErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          baseUrl: 'https://user:pass@models.example.com',
+          model: 'llama3.2',
+        },
+      }),
+    });
+    assert.equal(credentialUrlErrors.prettifyBaseUrl, 'Base URL must not include credentials');
+
+    const longPromptErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
+    });
+    assert.equal(
+      longPromptErrors.prettifyPrompt,
+      `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`,
+    );
+
     const missingModelErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
       prettifySettings: prettifySettings({
@@ -314,7 +347,7 @@ describe('appSettingsUtils', () => {
     assert.equal(invalidGenerationErrors.prettifyRepeatPenalty, 'Repeat penalty must be between 0.8 and 1.5');
     assert.equal(
       invalidGenerationErrors.prettifyMaxOutputTokens,
-      'Max output tokens must be an integer between 0 and 8192',
+      'Max output tokens must be an integer between 1 and 8192',
     );
     assert.equal(invalidGenerationErrors.prettifySeed, 'Seed must be empty or an integer between 0 and 2147483647');
 

@@ -247,6 +247,7 @@ export default {
   'prettify.maxOutputTokens': 'Макс. токенів відповіді',
   'prettify.seed': 'Seed',
   'prettify.providerDefault': 'Типово для провайдера',
+  'prettify.remoteProviderPrivacy': 'Виділений текст і цей запит надсилаються на налаштовану адресу провайдера.',
   'prettify.vllmApiKey': 'vLLM API key',
   'prettify.vllmApiKeyStored': 'Ключ уже збережено. Залиште поле порожнім, щоб не змінювати його.',
   'prettify.vllmApiKeyPlaceholder': 'Необовʼязковий API key',
