@@ -32,15 +32,20 @@ Specification: [`../spec.md`](../spec.md)
 
 **Description:** Build the `measure:size` and `verify:size` commands around one shared CLI module. Inventory emitted assets, ASAR contents, Electron/CloakBrowser resources, unpacked output, and installer artifacts with platform-aware layouts and machine-readable missing values.
 
+**Increment progress:**
+
+- [x] `measure:size` writes a deterministic report and concise summary from packaged artifacts.
+- [ ] `verify:size`, the reviewed Linux baseline, and full-lockfile audit integration remain for the next increment.
+
 **Acceptance criteria:**
 
-- [ ] `measure:size` emits stable JSON plus a concise summary without absolute user paths or sensitive content.
+- [x] `measure:size` emits stable JSON plus a concise summary without absolute user paths or sensitive content.
 - [ ] `verify:size` compares matching report/baseline metrics and fails only under the specified regression rule.
 - [ ] `@electron/asar`, command scripts, the full audit command, and package metadata are declared explicitly.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/buildSizeCli.test.ts`
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/buildSizeCli.test.ts`
 - [ ] Linux report succeeds after `npm run pack`: `npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json`
 - [ ] Budget verification succeeds against a fixture baseline: `npm run verify:size -- --report=release-artifacts/size-linux-x64.json --baseline=build/size-baselines/v1.4.0-linux-x64.json`
 
