@@ -53,6 +53,12 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 const scriptPath = path.join(projectRoot, 'scripts', 'build-size-cli.mjs');
 let buildSizeCli: BuildSizeCliModule;
 
+function createCliEnvironment(): NodeJS.ProcessEnv {
+  const environment = { ...process.env };
+  delete environment.NODE_TEST_CONTEXT;
+  return environment;
+}
+
 function getMetric(report: SizeReport, id: string): number | null {
   const metric = report.metrics.find((candidate) => candidate.id === id);
   assert.ok(metric, `Expected report metric ${id}`);
@@ -247,7 +253,7 @@ describe('build size CLI', () => {
       const { stdout } = await execFile(
         process.execPath,
         [scriptPath, 'measure', '--platform=linux', '--arch=x64', `--output=${outputPath}`],
-        { cwd: temporaryDirectory },
+        { cwd: temporaryDirectory, env: createCliEnvironment() },
       );
       const report = JSON.parse(await readFile(outputPath, 'utf8')) as SizeReport;
 
@@ -290,6 +296,7 @@ describe('build size CLI', () => {
         [scriptPath, 'verify', `--report=${reportPath}`, `--baseline=${baselinePath}`],
         {
           cwd: temporaryDirectory,
+          env: createCliEnvironment(),
         },
       );
 
