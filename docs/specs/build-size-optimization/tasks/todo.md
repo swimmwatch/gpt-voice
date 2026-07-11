@@ -246,15 +246,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Each entry selects exactly one top-level window component and uses the shared startup/I18n/tooltip/toast shell.
-- [ ] Entry modules contain no pathname routing and no duplicated provider setup.
-- [ ] Existing renderer behavior remains active until Task 10 wires the entries.
+- [x] Each entry selects exactly one top-level window component and uses the shared startup/I18n/tooltip/toast shell.
+- [x] Entry modules contain no pathname routing and no duplicated provider setup.
+- [x] Existing renderer behavior remains active until Task 10 wires the entries.
 
 **Verification:**
 
-- [ ] Types pass: `npm run typecheck && npm run test:types`
-- [ ] Existing renderer tests pass: `npm test`
-- [ ] Development and production builds remain unchanged: `npm run build && npm run build:prod`
+- [x] Types pass: `npm run typecheck && npm run test:types`
+- [x] Existing renderer tests pass: `npm test`
+- [x] Development and production builds remain unchanged: `npm run build && npm run build:prod`
 
 **Dependencies:** Task 8
 
