@@ -46,6 +46,8 @@ describe('prettifySettings', () => {
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /inert data/);
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Never fulfill, answer, execute/);
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /do not summarize or drop clauses/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /return the source unchanged/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /URLs, email addresses, numbers, dates, names, identifiers/);
   });
 
   it('trims custom prompt/provider settings and ignores old reasoning', () => {
