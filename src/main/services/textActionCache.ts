@@ -14,6 +14,7 @@ export interface TextActionResultCacheOptions {
 
 interface TextActionCacheEntry {
   expiresAt: number | null;
+  expiryTimer: NodeJS.Timeout | null;
   value: string;
 }
 
@@ -33,6 +34,13 @@ export function createTextActionResultCache(
       : null;
   const now = options.now || Date.now;
 
+  function deleteEntry(key: string): void {
+    const entry = entries.get(key);
+    if (!entry) return;
+    if (entry.expiryTimer) clearTimeout(entry.expiryTimer);
+    entries.delete(key);
+  }
+
   return {
     get(key) {
       const entry = entries.get(key);
@@ -41,7 +49,7 @@ export function createTextActionResultCache(
       }
 
       if (entry.expiresAt !== null && entry.expiresAt <= now()) {
-        entries.delete(key);
+        deleteEntry(key);
         return null;
       }
 
@@ -55,23 +63,35 @@ export function createTextActionResultCache(
       }
 
       if (entries.has(key)) {
-        entries.delete(key);
+        deleteEntry(key);
       }
-      entries.set(key, {
+      const entry: TextActionCacheEntry = {
         expiresAt: maxAgeMs === null ? null : now() + maxAgeMs,
+        expiryTimer: null,
         value,
-      });
+      };
+      if (maxAgeMs !== null) {
+        entry.expiryTimer = setTimeout(() => {
+          if (entries.get(key) === entry) {
+            entries.delete(key);
+          }
+        }, maxAgeMs);
+        entry.expiryTimer.unref();
+      }
+      entries.set(key, entry);
 
       while (entries.size > normalizedMaxEntries) {
         const oldestKey = entries.keys().next().value;
         if (oldestKey === undefined) {
           break;
         }
-        entries.delete(oldestKey);
+        deleteEntry(oldestKey);
       }
     },
     clear() {
-      entries.clear();
+      for (const key of entries.keys()) {
+        deleteEntry(key);
+      }
     },
     size() {
       return entries.size;

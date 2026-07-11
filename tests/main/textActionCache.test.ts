@@ -70,4 +70,14 @@ describe('textActionCache', () => {
     assert.equal(cache.get(key), null);
     assert.equal(cache.size(), 0);
   });
+
+  it('removes expired entries without a later cache access', async () => {
+    const cache = createTextActionResultCache(2, { maxAgeMs: 1 });
+    const key = createTextActionCacheKey(['prettify', 'sensitive text']);
+
+    cache.set(key, 'prettified text');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(cache.size(), 0);
+  });
 });
