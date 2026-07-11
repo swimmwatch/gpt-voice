@@ -120,7 +120,7 @@ export default {
   // Redesign navigation and common commands
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
-  'mainDock.providerLabel': 'Провайдер',
+  'mainDock.providerLabel': 'Провайдер розпізнавання',
   'navigation.openHistory': 'Відкрити історію розпізнавання',
   'navigation.openAbout': 'Відкрити відомості про GPT-Voice',
   'navigation.openAppSettings': 'Відкрити налаштування застосунку',
@@ -146,7 +146,7 @@ export default {
 
   // Model memory
   'modelMemory.title': 'Памʼять моделі',
-  'modelMemory.ollamaGpu': 'Модель (Ollama GPU)',
+  'modelMemory.ollamaGpu': 'Модель покращення тексту',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Завантажено',
   'modelMemory.notLoaded': 'Не завантажено',

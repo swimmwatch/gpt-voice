@@ -119,7 +119,7 @@ export default {
   // Redesign navigation and common commands
   'mainDock.title': 'Command Dock',
   'mainDock.subtitle': 'GPT-Voice',
-  'mainDock.providerLabel': 'Provider',
+  'mainDock.providerLabel': 'Voice provider',
   'navigation.openHistory': 'Open transcription history',
   'navigation.openAbout': 'Open about GPT-Voice',
   'navigation.openAppSettings': 'Open app settings',
@@ -145,7 +145,7 @@ export default {
 
   // Model memory
   'modelMemory.title': 'Model memory',
-  'modelMemory.ollamaGpu': 'Model (Ollama GPU)',
+  'modelMemory.ollamaGpu': 'Prettify model',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Loaded',
   'modelMemory.notLoaded': 'Not loaded',
