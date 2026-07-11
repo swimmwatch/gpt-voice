@@ -606,6 +606,7 @@ Implementation plan: `docs/specs/ui-redesign/tasks/plan.md`
 - [x] Used an isolated Electron profile with synthetic model names and transcription history entries to verify the main window, provider modal, settings sections, history pagination/copy/clear states, dirty-close confirmation, recording controls, and validation feedback.
 - [x] Verified default and minimum window layouts, focus restoration, keyboard navigation, reduced-motion behavior, contrast, and English, Russian, Ukrainian, and Belarusian clipping behavior.
 - [x] Ran `npm run pack` and `npm run verify:packaged` on Linux. The Windows/macOS package commands, CI packaging jobs, native-title-bar setup, and Electron security configuration were reviewed as unchanged; their native package execution remains covered by those platform jobs.
+- [x] Verified Linux startup synchronizes all shipped app-icon sizes into the user `hicolor` theme and refreshes the local icon cache so development and installed desktop entries show the current logo.
 
 **Dependencies:** Task 21
 

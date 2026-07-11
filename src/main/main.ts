@@ -10,6 +10,7 @@ import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
 import {
+  refreshLinuxDesktopIcons,
   registerLinuxAppImageDesktopIntegration,
   removeLinuxAppImageDesktopIntegration,
 } from './linuxDesktopIntegration';
@@ -66,6 +67,7 @@ app.on('ready', () => {
 
   configureCloakBrowserRuntime();
   configureNativeAppMetadata();
+  refreshLinuxDesktopIcons();
   registerLinuxAppImageDesktopIntegration();
   registerAppProtocol();
 

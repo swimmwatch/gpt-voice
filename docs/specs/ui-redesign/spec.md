@@ -34,6 +34,7 @@ The main window has now been rebuilt against the text-based Command Dock contrac
 5. shadcn/ui is adopted as locally owned component source, with Tailwind CSS and Lucide icons, rather than visually imitated in the existing monolithic SCSS file.
 6. The visual direction is neutral graphite with a blue action color and distinct semantic colors. The current purple-blue monochrome appearance is not retained as the dominant palette.
 7. All current locales and supported desktop platforms remain first-class requirements.
+8. On Linux, the current application logo is synchronized into the per-user `hicolor` icon theme at every shipped size when the app starts. This keeps development and packaged windows aligned with the desktop launcher and task switcher.
 
 ## Design Inputs
 
@@ -498,6 +499,7 @@ Any shadcn generation command used during implementation must be version-pinned 
 - Capture History with populated, empty, loading, loading-more, error, copied, and end states.
 - Capture provider settings for ChatGPT Web and OpenAI API.
 - Verify Linux, Windows, and macOS title-bar/content spacing using native or CI-available platform checks.
+- On Linux, verify the launcher and task switcher resolve the current app logo rather than a stale installed icon.
 - Compare implementation screenshots with the approved visual direction at the same viewport before handoff.
 - Run an English and Russian clipping pass; spot-check Ukrainian and Belarusian longest labels.
 
@@ -551,7 +553,7 @@ The specification is implemented successfully when all of the following are true
 9. All controls are usable by keyboard with visible focus and correct dialog focus handling.
 10. All normal text and control boundaries meet the specified contrast targets.
 11. English, Russian, Ukrainian, and Belarusian translations fit without hiding commands or metadata.
-12. Linux, Windows, and macOS packaging and Electron security settings remain unchanged and functional.
+12. Linux, Windows, and macOS packaging and Electron security settings remain functional, and Linux desktop surfaces use the current app-logo assets.
 13. The full repository quality command set passes.
 14. Final implementation screenshots have been compared against the approved visual direction at matching viewports.
 
