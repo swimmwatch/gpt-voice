@@ -25,4 +25,17 @@ describe('renderer theme consistency', () => {
     assert.match(commandDock, /--dock-surface: var\(--surface\);/u);
     assert.doesNotMatch(commandDock, /--background:/u);
   });
+
+  it('makes the actionable model-memory command visibly interactive', () => {
+    const styles = readFileSync(GLOBAL_STYLES_PATH, 'utf8');
+    const memoryAction = getRuleBody(styles, '\\.command-dock \\.command-dock-memory-action');
+    const memoryActionHover = getRuleBody(
+      styles,
+      '\\.command-dock \\.command-dock-memory-action:not\\(:disabled\\):hover',
+    );
+
+    assert.match(memoryAction, /cursor: pointer;/u);
+    assert.match(memoryActionHover, /background: var\(--surface-raised\);/u);
+    assert.match(memoryActionHover, /border-color: var\(--dock-divider\);/u);
+  });
 });

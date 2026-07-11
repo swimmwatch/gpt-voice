@@ -494,8 +494,14 @@
   border-radius: 3.5px;
   background: var(--dock-surface);
   color: var(--dock-foreground);
+  cursor: pointer;
   font-size: 10.51px;
   font-weight: 500;
+}
+
+.command-dock .command-dock-memory-action:not(:disabled):hover {
+  border-color: var(--dock-divider);
+  background: var(--surface-raised);
 }
 
 .command-dock .command-dock-memory-action svg {
