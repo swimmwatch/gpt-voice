@@ -100,15 +100,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] A reused workspace and a clean workspace produce the same production file inventory.
-- [ ] Development builds still emit configured source maps; production packaging includes no source maps or stale hashes.
-- [ ] All production/package scripts invoke the single clean path consistently.
+- [x] A reused workspace and a clean workspace produce the same production file inventory.
+- [x] Development builds still emit configured source maps; production packaging includes no source maps or stale hashes.
+- [x] All production/package scripts invoke the single clean path consistently.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/cleanDist.test.ts`
-- [ ] Reproduction passes: `npm run build && npm run build:prod && npm run pack`
-- [ ] Size inventory reports no `dist/**/*.map` in ASAR.
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/cleanDist.test.ts`
+- [x] Reproduction passes: `npm run build && npm run build:prod && npm run pack`
+- [x] Size inventory reports no `dist/**/*.map` in ASAR.
 
 **Dependencies:** Task 2
 

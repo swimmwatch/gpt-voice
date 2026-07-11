@@ -23,7 +23,8 @@
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "build:prod": "cross-env NODE_ENV=production webpack --config webpack.config.js",
+    "clean:dist": "node scripts/clean-dist.mjs",
+    "build:prod": "npm run clean:dist && cross-env NODE_ENV=production webpack --config webpack.config.js",
     "start": "npm run build && electron .",
     "start:prod": "npm run build:prod && electron .",
     "dev": "webpack --config webpack.config.js --watch",
@@ -92,7 +93,8 @@
       "node_modules/minizlib/**/*",
       "node_modules/mkdirp/**/*",
       "node_modules/yallist/**/*",
-      "node_modules/electron-log/**/*"
+      "node_modules/electron-log/**/*",
+      "!**/*.map"
     ],
     "extraResources": [
       {

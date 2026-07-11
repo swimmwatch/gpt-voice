@@ -78,7 +78,7 @@ External upstream confirmation
 
 ## Phase 2: Deterministic Packaging
 
-- [ ] Task 4: Clean production output deterministically.
+- [x] Task 4: Clean production output deterministically.
 - [ ] Task 5: Enforce packaged inventory policy.
 
 ### Checkpoint: Deterministic Inventory
