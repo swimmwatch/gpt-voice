@@ -98,7 +98,7 @@ External upstream confirmation
 
 ## Phase 3: Renderer Optimization
 
-- [ ] Task 8: Preserve ESM in the renderer.
+- [x] Task 8: Preserve ESM in the renderer.
 - [ ] Task 9: Create per-window renderer bootstraps.
 - [ ] Task 10: Wire per-window chunks.
 

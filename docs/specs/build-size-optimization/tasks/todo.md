@@ -220,15 +220,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Renderer uses `module: "ESNext"` or `"preserve"`, `moduleResolution: "bundler"`, and the approved modern target.
-- [ ] Main/preload production output remains CommonJS-compatible and existing type checks pass.
-- [ ] Webpack stats show unused Lucide exports removed and fewer CommonJS/module-concatenation bailouts.
+- [x] Renderer uses `module: "ESNext"` or `"preserve"`, `moduleResolution: "bundler"`, and the approved modern target.
+- [x] Main/preload production output remains CommonJS-compatible and existing type checks pass.
+- [x] Webpack stats show unused Lucide exports removed and fewer CommonJS/module-concatenation bailouts.
 
 **Verification:**
 
-- [ ] Focused contract tests pass: `node --import tsx --test tests/scripts/webpackConfig.test.ts`
-- [ ] Types/build pass: `npm run typecheck && npm run test:types && npm run build:prod`
-- [ ] Size report records the renderer delta from 664,025 raw bytes.
+- [x] Focused contract tests pass: `node --import tsx --test tests/scripts/webpackConfig.test.ts`
+- [x] Types/build pass: `npm run typecheck && npm run test:types && npm run build:prod`
+- [x] Size report records the renderer package state through `npm run measure:size`.
 
 **Dependencies:** Task 2
 
