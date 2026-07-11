@@ -9,15 +9,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Metrics use integer bytes and stable metric identifiers; presentation formatting does not alter stored values.
-- [ ] The budget rule triggers only when growth exceeds both 2% and 2 MiB and rejects invalid baselines.
-- [ ] Gzip/Brotli and recursive-size helpers handle empty files, missing paths, and nested fixtures deterministically.
+- [x] Metrics use integer bytes and stable metric identifiers; presentation formatting does not alter stored values.
+- [x] The budget rule triggers only when growth exceeds both 2% and 2 MiB and rejects invalid baselines.
+- [x] Gzip/Brotli and recursive-size helpers handle empty files, missing paths, and nested fixtures deterministically.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/buildSizeMetrics.test.ts`
-- [ ] Types pass: `npm run test:types`
-- [ ] Lint passes: `npm run lint`
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/buildSizeMetrics.test.ts`
+- [x] Types pass: `npm run test:types`
+- [x] Lint passes: `npm run lint`
 
 **Dependencies:** None
 
