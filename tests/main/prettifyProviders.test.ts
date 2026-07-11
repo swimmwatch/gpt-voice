@@ -85,12 +85,12 @@ describe('prettifyProviders', () => {
     assert.deepEqual(body.messages[1], { role: 'user', content: 'selected text' });
     assert.deepEqual(body.options, {
       min_p: 0,
+      num_predict: 4096,
       repeat_penalty: 1,
       temperature: 0.25,
       top_k: 40,
       top_p: 0.9,
     });
-    assert.equal('num_predict' in body.options, false);
     assert.equal('seed' in body.options, false);
   });
 
@@ -298,7 +298,7 @@ describe('prettifyProviders', () => {
     assert.equal(body.top_k, 40);
     assert.equal(body.min_p, 0);
     assert.equal(body.repetition_penalty, 1);
-    assert.equal('max_tokens' in body, false);
+    assert.equal(body.max_tokens, 4096);
     assert.equal('seed' in body, false);
     assert.equal(body.stream, false);
     assert.match(body.messages[0].content, /conservative copy editor/);

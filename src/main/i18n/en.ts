@@ -277,6 +277,7 @@ export default {
   'error.noSelectedText': 'No selected text',
   'error.noTextSelectedToTranslate': 'No text selected to translate',
   'error.noTextSelectedToPrettify': 'No text selected to prettify',
+  'error.prettifyTextTooLong': 'Selected text is too long to prettify (maximum {max} characters)',
   'error.translationInProgress': 'Translation already in progress',
   'error.noPrettifyResult': 'No prettified text in response',
   'error.noPrettifyModel': 'Select a prettify model in App Settings',

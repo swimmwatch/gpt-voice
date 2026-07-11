@@ -124,6 +124,14 @@ describe('prettifySettings', () => {
     );
   });
 
+  it('uses a bounded output default when a legacy provider-default value is stored', () => {
+    assert.ok(DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens > 0);
+    assert.equal(
+      normalizePrettifySettings({ maxOutputTokens: 0 }).maxOutputTokens,
+      DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens,
+    );
+  });
+
   it('keeps legacy reasoning helpers available without affecting normalized settings', () => {
     assert.equal(DEFAULT_PRETTIFY_REASONING, 'instant');
     assert.deepEqual(normalizePrettifySettings({ reasoning: 'extended' }), {

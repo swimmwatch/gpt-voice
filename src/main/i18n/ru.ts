@@ -279,6 +279,7 @@ export default {
   'error.noSelectedText': 'Нет выделенного текста',
   'error.noTextSelectedToTranslate': 'Нет текста для перевода',
   'error.noTextSelectedToPrettify': 'Нет текста для улучшения',
+  'error.prettifyTextTooLong': 'Выделенный текст слишком длинный для улучшения (максимум {max} символов)',
   'error.translationInProgress': 'Перевод уже выполняется',
   'error.noPrettifyResult': 'В ответе нет улучшенного текста',
   'error.noPrettifyModel': 'Выберите модель улучшения текста в настройках приложения',

@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { setLocale } from '@main/i18n';
 import {
+  MAX_PRETTIFY_SELECTED_TEXT_LENGTH,
   createSelectedTextPrettifyService,
   type SelectedTextPrettifyDependencies,
 } from '@main/services/selectedTextPrettify';
@@ -163,6 +164,29 @@ describe('selectedTextPrettify', () => {
     assert.equal(clipboard.clipboard, 'previous clipboard');
     assert.deepEqual(notifications, [
       { title: 'Prettify failed', body: 'No text selected to prettify', options: { sound: 'error' } },
+    ]);
+  });
+
+  it('rejects selected text over the inference limit before calling the provider', async () => {
+    const { clipboard, notifications, prettifyCalls, service } = createTestService({
+      selectionText: 'x'.repeat(MAX_PRETTIFY_SELECTED_TEXT_LENGTH + 1),
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error,
+      `Selected text is too long to prettify (maximum ${MAX_PRETTIFY_SELECTED_TEXT_LENGTH} characters)`,
+    );
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(prettifyCalls, []);
+    assert.deepEqual(notifications, [
+      {
+        title: 'Prettify failed',
+        body: `Selected text is too long to prettify (maximum ${MAX_PRETTIFY_SELECTED_TEXT_LENGTH} characters)`,
+        options: { sound: 'error' },
+      },
     ]);
   });
 

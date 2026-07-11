@@ -278,6 +278,7 @@ export default {
   'error.noSelectedText': 'Няма вылучанага тэксту',
   'error.noTextSelectedToTranslate': 'Няма тэксту для перакладу',
   'error.noTextSelectedToPrettify': 'Няма тэксту для паляпшэння',
+  'error.prettifyTextTooLong': 'Вылучаны тэкст занадта доўгі для паляпшэння (максімум {max} сімвалаў)',
   'error.translationInProgress': 'Пераклад ужо выконваецца',
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',

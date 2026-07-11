@@ -26,6 +26,8 @@ import type { PrettifySettings } from '@shared/prettifySettings';
 const log = createLogger('selection-prettify');
 export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES = 20;
+export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS = 60_000;
+export const MAX_PRETTIFY_SELECTED_TEXT_LENGTH = 16_000;
 
 export interface SelectedTextPrettifyResult {
   success: boolean;
@@ -219,6 +221,13 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         return createFailureResult(presented.userMessage);
       }
 
+      if (selectedText.length > MAX_PRETTIFY_SELECTED_TEXT_LENGTH) {
+        const error = t('error.prettifyTextTooLong', { max: String(MAX_PRETTIFY_SELECTED_TEXT_LENGTH) });
+        restoreClipboard(deps, run.previousClipboardText);
+        const presented = notifyPrettifyFailure(deps, error);
+        return createFailureResult(presented.userMessage);
+      }
+
       const settings = deps.getPrettifySettings();
       const cacheKey = createTextActionCacheKey([
         'prettify',
@@ -302,7 +311,9 @@ const selectedTextPrettifyService = createSelectedTextPrettifyService({
   automateTextAction: async (action) => {
     await runTextAutomationAction(action);
   },
-  cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES),
+  cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
+    maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
+  }),
   clipboard: {
     readText: (type) => readClipboardText(type),
     writeText: (text, type) => writeTypedClipboardText(text, type),

@@ -92,7 +92,7 @@ export const DEFAULT_PRETTIFY_REASONING: PrettifyReasoning = 'instant';
 export const DEFAULT_PRETTIFY_PROVIDER_ID: PrettifyProviderId = 'ollama';
 export const DEFAULT_OLLAMA_PRETTIFY_BASE_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_VLLM_PRETTIFY_BASE_URL = 'http://127.0.0.1:8000/v1';
-export const DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS = 0;
+export const DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS = 4096;
 export const DEFAULT_PRETTIFY_MIN_P = 0;
 export const DEFAULT_PRETTIFY_REPEAT_PENALTY = 1;
 export const DEFAULT_PRETTIFY_SEED = null;
@@ -134,6 +134,11 @@ export function normalizePrettifyTemperature(value: unknown): number {
   return Math.min(1, Math.max(0, Number(value.toFixed(2))));
 }
 
+function normalizeMaxOutputTokens(value: unknown): number {
+  if (value === 0) return DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS;
+  return normalizeInteger(value, DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS, 1, 8192);
+}
+
 function normalizeFloat(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Number(value.toFixed(2))));
@@ -169,7 +174,7 @@ export function normalizePrettifySettings(input: PrettifySettingsInput = {}): Pr
   const vllmInput = input.vllm || {};
 
   return {
-    maxOutputTokens: normalizeInteger(input.maxOutputTokens, DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS, 0, 8192),
+    maxOutputTokens: normalizeMaxOutputTokens(input.maxOutputTokens),
     minP: normalizeFloat(input.minP, DEFAULT_PRETTIFY_MIN_P, 0, 1),
     prompt,
     providerId,

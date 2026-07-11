@@ -278,6 +278,7 @@ export default {
   'error.noSelectedText': 'Немає виділеного тексту',
   'error.noTextSelectedToTranslate': 'Немає тексту для перекладу',
   'error.noTextSelectedToPrettify': 'Немає тексту для покращення',
+  'error.prettifyTextTooLong': 'Виділений текст надто довгий для покращення (максимум {max} символів)',
   'error.translationInProgress': 'Переклад уже виконується',
   'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
   'error.noPrettifyModel': 'Виберіть модель покращення тексту в налаштуваннях застосунку',
