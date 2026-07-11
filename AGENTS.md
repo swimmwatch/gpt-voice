@@ -89,6 +89,17 @@ npm run build:prod
 
 For browser runtime, release, or installer changes, also run the matching CloakBrowser preparation, smoke, package, and verify commands for the affected platform.
 
+## Efficient Agent Execution
+
+Keep tool and context usage proportional to the task without weakening verification.
+
+- Read the applicable `spec.md`, `tasks/plan.md`, and `tasks/todo.md` once at the start of an increment. Re-read only files that changed or when the user changes the scope.
+- Use a narrow CodeGraph symbol query before broad repository searches. Read the smallest relevant source window; do not dump complete files, long specs, lockfiles, or generated reports when a symbol, `find`, or summary answers the question.
+- Cap routine command output to the actionable result. Prefer focused command output, pass/fail summaries, and the relevant failure tail. Redirect verbose temporary output outside the repository when necessary and never commit those logs.
+- Use focused tests, type checks, or builds after each increment. Run the full CI-equivalent quality set once after the final code change for a completed task, not again before a commit when no relevant file changed.
+- Run packaging, installer, browser, or cross-platform verification only when the task affects those surfaces or its acceptance criteria require it. Record the command result in the scoped task artifact instead of repeating the command for narration.
+- Keep progress updates short and state only the current step, result, or blocker. Do not restate the plan or paste command output into updates.
+
 ## TypeScript And Style
 
 - Keep `strict` mode on.
@@ -183,6 +194,7 @@ docs/specs/<global-task-slug>/
 - Start with `spec.md`; it is the source of truth for the task's requirements and acceptance criteria.
 - Store the implementation plan and checklist only in that spec directory's `tasks/` folder.
 - Before planning or implementation, identify and read the scoped `spec.md` and its task artifacts. When more than one spec directory could apply, ask which one to use rather than guessing.
+- Keep scoped specifications concise: requirements, decisions, acceptance criteria, and verification only. Link to existing research or source files instead of duplicating them.
 - Update the scoped spec and plan when approved scope or decisions change. Keep these documents in version control unless the user explicitly requests otherwise.
 - Do not create loose `docs/specs/<task>.md` files or a repository-root `tasks/plan.md` or `tasks/todo.md`.
 

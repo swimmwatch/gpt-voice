@@ -41,6 +41,17 @@ For each slice:
 4. **Commit** -- save your progress with a descriptive message (see `git-workflow-and-versioning` for atomic commit guidance)
 5. **Move to the next slice** — carry forward, don't restart
 
+## Efficient Execution
+
+Keep the feedback loop strong while avoiding unnecessary context and repeated work.
+
+- Read the task's scoped specification and checklist once, then reopen only changed or directly relevant sections.
+- Use targeted symbol lookup and small source windows before broad file reads.
+- After an increment, run the narrowest test that proves the changed behavior. Add typecheck, lint, build, package, or runtime checks only when the changed surface requires them.
+- Run the project-wide quality gate once after the final code change for a completed task. Do not re-run unchanged checks merely to repeat their output before committing.
+- Request concise command output. For verbose commands, inspect the exit status plus the final summary or relevant failure lines; never preserve generated logs in the repository.
+- Treat an earlier successful verification as valid until a relevant input changes. A documentation-only change does not require rebuilding the application.
+
 ## Slicing Strategies
 
 ### Vertical Slices (Preferred)
