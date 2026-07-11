@@ -83,7 +83,6 @@
     },
     "files": [
       "dist/**/*",
-      "assets/**/*",
       "node_modules/playwright-core/**/*",
       "node_modules/cloakbrowser/**/*",
       "node_modules/tar/**/*",
@@ -103,7 +102,16 @@
     "extraResources": [
       {
         "from": "assets",
-        "to": "assets"
+        "to": "assets",
+        "filter": [
+          "icon.png",
+          "icons/**/*.png",
+          "tray-icon-idle.png",
+          "tray-icon-paused.png",
+          "tray-icon-prettifying.png",
+          "tray-icon-processing.png",
+          "tray-icon-recording.png"
+        ]
       },
       {
         "from": "build/generated/common/license.txt",
@@ -124,6 +132,12 @@
       "loadBrowserProcessSpecificV8Snapshot": false,
       "grantFileProtocolExtraPrivileges": false
     },
+    "electronLanguages": [
+      "en-US",
+      "en-GB",
+      "ru",
+      "uk"
+    ],
     "linux": {
       "target": [
         "AppImage",

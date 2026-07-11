@@ -185,15 +185,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] ASAR no longer contains the duplicated root `assets` tree; external resources contain only runtime-required icons/assets.
-- [ ] Electron retains `en-US`, `en-GB`, `ru`, and `uk`; CloakBrowser `.pak` files are unchanged.
-- [ ] App/tray/Linux desktop icons and English/Russian/Ukrainian/Belarusian fallback behavior pass packaged checks.
+- [x] ASAR no longer contains the duplicated root `assets` tree; external resources contain only runtime-required icons/assets.
+- [x] Electron retains `en-US`, `en-GB`, `ru`, and `uk`; CloakBrowser `.pak` files are unchanged.
+- [x] App/tray/Linux desktop icons and English/Russian/Ukrainian/Belarusian fallback behavior pass packaged checks.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/packagedRuntimePolicy.test.ts tests/main/linuxDesktopIcons.test.ts`
-- [ ] Package checks pass: `npm run pack && npm run verify:packaged`
-- [ ] Linux Electron locale measurement is at or below 4 MiB.
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/packagedRuntimePolicy.test.ts tests/main/linuxDesktopIcons.test.ts`
+- [x] Package checks pass: `npm run pack && npm run verify:packaged`
+- [x] Linux Electron locale measurement is at or below 4 MiB (3,407,603 bytes).
 
 **Dependencies:** Task 6
 

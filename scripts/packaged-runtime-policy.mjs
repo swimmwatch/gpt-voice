@@ -9,6 +9,21 @@ const REQUIRED_PATHS = [
   'package.json',
 ];
 
+const LINUX_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
+
+export const RUNTIME_ASSET_PATHS = [
+  'icon.png',
+  ...LINUX_ICON_SIZES.map((size) => `icons/${size}x${size}.png`),
+  'tray-icon-idle.png',
+  'tray-icon-paused.png',
+  'tray-icon-prettifying.png',
+  'tray-icon-processing.png',
+  'tray-icon-recording.png',
+];
+
+export const ELECTRON_LOCALE_FILENAMES = ['en-GB.pak', 'en-US.pak', 'ru.pak', 'uk.pak'];
+const ELECTRON_LOCALE_FILE_NAME = /^[a-z]{2,3}(?:-[A-Z]{2,3})?\.pak$/u;
+
 const ALLOWED_RUNTIME_MODULES = new Set([
   '@floating-ui/core',
   '@floating-ui/dom',
@@ -136,6 +151,10 @@ export function getPackagedRuntimeViolations(filePaths) {
   }
 
   for (const filePath of normalizedPaths) {
+    if (filePath.startsWith('assets/')) {
+      violations.push(`duplicate ASAR asset: ${filePath}`);
+      continue;
+    }
     if (isDiagnosticOrTestPath(filePath)) {
       violations.push(`forbidden diagnostic or test path: ${filePath}`);
       continue;
@@ -148,6 +167,44 @@ export function getPackagedRuntimeViolations(filePaths) {
     const moduleName = getRuntimeModuleName(filePath);
     if (moduleName && !ALLOWED_RUNTIME_MODULES.has(moduleName)) {
       violations.push(`unexpected runtime module: ${moduleName}`);
+    }
+  }
+
+  return violations.toSorted((left, right) => left.localeCompare(right, 'en'));
+}
+
+export function getRuntimeAssetViolations(assetPaths) {
+  const normalizedPaths = assetPaths.map(normalizePath);
+  const violations = [];
+
+  for (const requiredPath of RUNTIME_ASSET_PATHS) {
+    if (!normalizedPaths.includes(requiredPath)) {
+      violations.push(`missing runtime asset: ${requiredPath}`);
+    }
+  }
+
+  for (const assetPath of normalizedPaths) {
+    if (!RUNTIME_ASSET_PATHS.includes(assetPath)) {
+      violations.push(`unexpected runtime asset: ${assetPath}`);
+    }
+  }
+
+  return violations.toSorted((left, right) => left.localeCompare(right, 'en'));
+}
+
+export function getElectronLocaleViolations(localePaths) {
+  const localeFiles = localePaths.filter((localePath) => ELECTRON_LOCALE_FILE_NAME.test(localePath));
+  const violations = [];
+
+  for (const requiredLocale of ELECTRON_LOCALE_FILENAMES) {
+    if (!localeFiles.includes(requiredLocale)) {
+      violations.push(`missing Electron locale: ${requiredLocale}`);
+    }
+  }
+
+  for (const localeFile of localeFiles) {
+    if (!ELECTRON_LOCALE_FILENAMES.includes(localeFile)) {
+      violations.push(`unexpected Electron locale: ${localeFile}`);
     }
   }
 

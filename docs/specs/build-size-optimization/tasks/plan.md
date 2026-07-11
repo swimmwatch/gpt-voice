@@ -88,12 +88,12 @@ External upstream confirmation
 - [ ] Human reviews the packaged inventory rules before dependency ownership changes.
 
 - [x] Task 6: Reclassify bundled dependencies.
-- [ ] Task 7: Filter runtime assets and Electron locales.
+- [x] Task 7: Filter runtime assets and Electron locales.
 
 ### Checkpoint: Lean Packaged Runtime
 
 - [ ] `app.asar` is at or below 25 MiB.
-- [ ] Electron locale and runtime asset allowlists pass packaged verification.
+- [x] Electron locale and runtime asset allowlists pass packaged verification.
 - [ ] ChatGPT Web, OpenAI API, Google Translate, Ollama/vLLM, tray, icon, and session smoke checks pass.
 
 ## Phase 3: Renderer Optimization
