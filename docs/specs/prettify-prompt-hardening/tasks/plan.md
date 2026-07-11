@@ -1,6 +1,6 @@
 # Implementation Plan: Prettify Prompt Hardening
 
-Status: In progress
+Status: Complete
 Specification: [`../spec.md`](../spec.md)
 
 1. Preserve provider output and strengthen the default prompt/request framing; add focused provider tests.

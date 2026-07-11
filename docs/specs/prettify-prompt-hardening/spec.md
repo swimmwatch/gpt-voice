@@ -1,6 +1,6 @@
 # Spec: Prettify Prompt Hardening
 
-Status: Approved for implementation
+Status: Complete
 Date: 2026-07-12
 Scope owner: Prettify selected-text flow
 
