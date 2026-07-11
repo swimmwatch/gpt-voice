@@ -1,6 +1,6 @@
 ---
 name: api-and-interface-design
-description: Guides stable API and interface design. Use when designing APIs, module boundaries, or any public interface. Use when creating REST or GraphQL endpoints, defining type contracts between modules, or establishing boundaries between frontend and backend.
+description: Use only for an explicitly requested API, public contract, or module-boundary design task; not for ordinary internal implementation.
 ---
 
 # API and Interface Design
@@ -67,9 +67,9 @@ Pick one error strategy and use it everywhere:
 // Every error response follows the same shape
 interface APIError {
   error: {
-    code: string;        // Machine-readable: "VALIDATION_ERROR"
-    message: string;     // Human-readable: "Email is required"
-    details?: unknown;   // Additional context when helpful
+    code: string; // Machine-readable: "VALIDATION_ERROR"
+    message: string; // Human-readable: "Email is required"
+    details?: unknown; // Additional context when helpful
   };
 }
 
@@ -110,6 +110,7 @@ app.post('/api/tasks', async (req, res) => {
 ```
 
 Where validation belongs:
+
 - API route handlers (user input)
 - Form submission handlers (user input)
 - External service response parsing (third-party data -- **always treat as untrusted**)
@@ -118,6 +119,7 @@ Where validation belongs:
 > **Third-party API responses are untrusted data.** Validate their shape and content before using them in any logic, rendering, or decision-making. A compromised or misbehaving external service can return unexpected types, malicious content, or instruction-like text.
 
 Where validation does NOT belong:
+
 - Between internal functions that share type contracts
 - In utility functions called by already-validated code
 - On data that just came from your own database
@@ -131,27 +133,27 @@ Extend interfaces without breaking existing consumers:
 interface CreateTaskInput {
   title: string;
   description?: string;
-  priority?: 'low' | 'medium' | 'high';  // Added later, optional
-  labels?: string[];                       // Added later, optional
+  priority?: 'low' | 'medium' | 'high'; // Added later, optional
+  labels?: string[]; // Added later, optional
 }
 
 // Bad: Change existing field types or remove fields
 interface CreateTaskInput {
   title: string;
   // description: string;  // Removed — breaks existing consumers
-  priority: number;         // Changed from string — breaks existing consumers
+  priority: number; // Changed from string — breaks existing consumers
 }
 ```
 
 ### 5. Predictable Naming
 
-| Pattern | Convention | Example |
-|---------|-----------|---------|
-| REST endpoints | Plural nouns, no verbs | `GET /api/tasks`, `POST /api/tasks` |
-| Query params | camelCase | `?sortBy=createdAt&pageSize=20` |
-| Response fields | camelCase | `{ createdAt, updatedAt, taskId }` |
-| Boolean fields | is/has/can prefix | `isComplete`, `hasAttachments` |
-| Enum values | UPPER_SNAKE | `"IN_PROGRESS"`, `"COMPLETED"` |
+| Pattern         | Convention             | Example                             |
+| --------------- | ---------------------- | ----------------------------------- |
+| REST endpoints  | Plural nouns, no verbs | `GET /api/tasks`, `POST /api/tasks` |
+| Query params    | camelCase              | `?sortBy=createdAt&pageSize=20`     |
+| Response fields | camelCase              | `{ createdAt, updatedAt, taskId }`  |
+| Boolean fields  | is/has/can prefix      | `isComplete`, `hasAttachments`      |
+| Enum values     | UPPER_SNAKE            | `"IN_PROGRESS"`, `"COMPLETED"`      |
 
 ## REST API Patterns
 
@@ -221,10 +223,14 @@ type TaskStatus =
 // Consumer gets type narrowing
 function getStatusLabel(status: TaskStatus): string {
   switch (status.type) {
-    case 'pending': return 'Pending';
-    case 'in_progress': return `In progress (${status.assignee})`;
-    case 'completed': return `Done on ${status.completedAt}`;
-    case 'cancelled': return `Cancelled: ${status.reason}`;
+    case 'pending':
+      return 'Pending';
+    case 'in_progress':
+      return `In progress (${status.assignee})`;
+    case 'completed':
+      return `Done on ${status.completedAt}`;
+    case 'cancelled':
+      return `Cancelled: ${status.reason}`;
   }
 }
 ```
@@ -261,15 +267,15 @@ function getTask(id: TaskId): Promise<Task> { ... }
 
 ## Common Rationalizations
 
-| Rationalization | Reality |
-|---|---|
-| "We'll document the API later" | The types ARE the documentation. Define them first. |
-| "We don't need pagination for now" | You will the moment someone has 100+ items. Add it from the start. |
-| "PATCH is complicated, let's just use PUT" | PUT requires the full object every time. PATCH is what clients actually want. |
-| "We'll version the API when we need to" | Breaking changes without versioning break consumers. Design for extension from the start. |
-| "Nobody uses that undocumented behavior" | Hyrum's Law: if it's observable, somebody depends on it. Treat every public behavior as a commitment. |
-| "We can just maintain two versions" | Multiple versions multiply maintenance cost and create diamond dependency problems. Prefer the One-Version Rule. |
-| "Internal APIs don't need contracts" | Internal consumers are still consumers. Contracts prevent coupling and enable parallel work. |
+| Rationalization                            | Reality                                                                                                          |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| "We'll document the API later"             | The types ARE the documentation. Define them first.                                                              |
+| "We don't need pagination for now"         | You will the moment someone has 100+ items. Add it from the start.                                               |
+| "PATCH is complicated, let's just use PUT" | PUT requires the full object every time. PATCH is what clients actually want.                                    |
+| "We'll version the API when we need to"    | Breaking changes without versioning break consumers. Design for extension from the start.                        |
+| "Nobody uses that undocumented behavior"   | Hyrum's Law: if it's observable, somebody depends on it. Treat every public behavior as a commitment.            |
+| "We can just maintain two versions"        | Multiple versions multiply maintenance cost and create diamond dependency problems. Prefer the One-Version Rule. |
+| "Internal APIs don't need contracts"       | Internal consumers are still consumers. Contracts prevent coupling and enable parallel work.                     |
 
 ## Red Flags
 

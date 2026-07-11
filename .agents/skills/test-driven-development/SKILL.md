@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Drives development with tests. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.
+description: Use only when the user explicitly requests TDD, test-first development, or a standalone test-design workflow; ordinary regression tests do not require this skill.
 ---
 
 # Test-Driven Development
@@ -113,14 +113,14 @@ it('sets completedAt when task is completed', async () => {
   const completed = await taskService.completeTask(task.id);
 
   expect(completed.status).toBe('completed');
-  expect(completed.completedAt).toBeInstanceOf(Date);  // This fails → bug confirmed
+  expect(completed.completedAt).toBeInstanceOf(Date); // This fails → bug confirmed
 });
 
 // Step 2: Fix the bug
 export async function completeTask(id: string): Promise<Task> {
   return db.tasks.update(id, {
     status: 'completed',
-    completedAt: new Date(),  // This was missing
+    completedAt: new Date(), // This was missing
   });
 }
 
@@ -150,11 +150,11 @@ Invest testing effort according to the pyramid — most tests should be small an
 
 Beyond the pyramid levels, classify tests by what resources they consume:
 
-| Size | Constraints | Speed | Example |
-|------|------------|-------|---------|
-| **Small** | Single process, no I/O, no network, no database | Milliseconds | Pure function tests, data transforms |
-| **Medium** | Multi-process OK, localhost only, no external services | Seconds | API tests with test DB, component tests |
-| **Large** | Multi-machine OK, external services allowed | Minutes | E2E tests, performance benchmarks, staging integration |
+| Size       | Constraints                                            | Speed        | Example                                                |
+| ---------- | ------------------------------------------------------ | ------------ | ------------------------------------------------------ |
+| **Small**  | Single process, no I/O, no network, no database        | Milliseconds | Pure function tests, data transforms                   |
+| **Medium** | Multi-process OK, localhost only, no external services | Seconds      | API tests with test DB, component tests                |
+| **Large**  | Multi-machine OK, external services allowed            | Minutes      | E2E tests, performance benchmarks, staging integration |
 
 Small tests should make up the vast majority of your suite. They're fast, reliable, and easy to debug when they fail.
 
@@ -175,22 +175,19 @@ Is it a critical user flow that must work end-to-end?
 
 ### Test State, Not Interactions
 
-Assert on the *outcome* of an operation, not on which methods were called internally. Tests that verify method call sequences break when you refactor, even if the behavior is unchanged.
+Assert on the _outcome_ of an operation, not on which methods were called internally. Tests that verify method call sequences break when you refactor, even if the behavior is unchanged.
 
 ```typescript
 // Good: Tests what the function does (state-based)
 it('returns tasks sorted by creation date, newest first', async () => {
   const tasks = await listTasks({ sortBy: 'createdAt', sortOrder: 'desc' });
-  expect(tasks[0].createdAt.getTime())
-    .toBeGreaterThan(tasks[1].createdAt.getTime());
+  expect(tasks[0].createdAt.getTime()).toBeGreaterThan(tasks[1].createdAt.getTime());
 });
 
 // Bad: Tests how the function works internally (interaction-based)
 it('calls db.query with ORDER BY created_at DESC', async () => {
   await listTasks({ sortBy: 'createdAt', sortOrder: 'desc' });
-  expect(db.query).toHaveBeenCalledWith(
-    expect.stringContaining('ORDER BY created_at DESC')
-  );
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('ORDER BY created_at DESC'));
 });
 ```
 
@@ -286,14 +283,14 @@ describe('TaskService', () => {
 
 ## Test Anti-Patterns to Avoid
 
-| Anti-Pattern | Problem | Fix |
-|---|---|---|
-| Testing implementation details | Tests break when refactoring even if behavior is unchanged | Test inputs and outputs, not internal structure |
-| Flaky tests (timing, order-dependent) | Erode trust in the test suite | Use deterministic assertions, isolate test state |
-| Testing framework code | Wastes time testing third-party behavior | Only test YOUR code |
-| Snapshot abuse | Large snapshots nobody reviews, break on any change | Use snapshots sparingly and review every change |
-| No test isolation | Tests pass individually but fail together | Each test sets up and tears down its own state |
-| Mocking everything | Tests pass but production breaks | Prefer real implementations > fakes > stubs > mocks. Mock only at boundaries where real deps are slow or non-deterministic |
+| Anti-Pattern                          | Problem                                                    | Fix                                                                                                                        |
+| ------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Testing implementation details        | Tests break when refactoring even if behavior is unchanged | Test inputs and outputs, not internal structure                                                                            |
+| Flaky tests (timing, order-dependent) | Erode trust in the test suite                              | Use deterministic assertions, isolate test state                                                                           |
+| Testing framework code                | Wastes time testing third-party behavior                   | Only test YOUR code                                                                                                        |
+| Snapshot abuse                        | Large snapshots nobody reviews, break on any change        | Use snapshots sparingly and review every change                                                                            |
+| No test isolation                     | Tests pass individually but fail together                  | Each test sets up and tears down its own state                                                                             |
+| Mocking everything                    | Tests pass but production breaks                           | Prefer real implementations > fakes > stubs > mocks. Mock only at boundaries where real deps are slow or non-deterministic |
 
 ## Browser Testing with DevTools
 
@@ -311,14 +308,14 @@ For anything that runs in a browser, unit tests alone aren't enough — you need
 
 ### What to Check
 
-| Tool | When | What to Look For |
-|------|------|-----------------|
-| **Console** | Always | Zero errors and warnings in production-quality code |
-| **Network** | API issues | Status codes, payload shape, timing, CORS errors |
-| **DOM** | UI bugs | Element structure, attributes, accessibility tree |
-| **Styles** | Layout issues | Computed styles vs expected, specificity conflicts |
-| **Performance** | Slow pages | LCP, CLS, INP, long tasks (>50ms) |
-| **Screenshots** | Visual changes | Before/after comparison for CSS and layout changes |
+| Tool            | When           | What to Look For                                    |
+| --------------- | -------------- | --------------------------------------------------- |
+| **Console**     | Always         | Zero errors and warnings in production-quality code |
+| **Network**     | API issues     | Status codes, payload shape, timing, CORS errors    |
+| **DOM**         | UI bugs        | Element structure, attributes, accessibility tree   |
+| **Styles**      | Layout issues  | Computed styles vs expected, specificity conflicts  |
+| **Performance** | Slow pages     | LCP, CLS, INP, long tasks (>50ms)                   |
+| **Screenshots** | Visual changes | Before/after comparison for CSS and layout changes  |
 
 ### Security Boundaries
 
@@ -348,14 +345,14 @@ For detailed testing patterns, examples, and anti-patterns across frameworks, se
 
 ## Common Rationalizations
 
-| Rationalization | Reality |
-|---|---|
-| "I'll write tests after the code works" | You won't. And tests written after the fact test implementation, not behavior. |
-| "This is too simple to test" | Simple code gets complicated. The test documents the expected behavior. |
-| "Tests slow me down" | Tests slow you down now. They speed you up every time you change the code later. |
-| "I tested it manually" | Manual testing doesn't persist. Tomorrow's change might break it with no way to know. |
-| "The code is self-explanatory" | Tests ARE the specification. They document what the code should do, not what it does. |
-| "It's just a prototype" | Prototypes become production code. Tests from day one prevent the "test debt" crisis. |
+| Rationalization                                    | Reality                                                                                                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I'll write tests after the code works"            | You won't. And tests written after the fact test implementation, not behavior.                                                                           |
+| "This is too simple to test"                       | Simple code gets complicated. The test documents the expected behavior.                                                                                  |
+| "Tests slow me down"                               | Tests slow you down now. They speed you up every time you change the code later.                                                                         |
+| "I tested it manually"                             | Manual testing doesn't persist. Tomorrow's change might break it with no way to know.                                                                    |
+| "The code is self-explanatory"                     | Tests ARE the specification. They document what the code should do, not what it does.                                                                    |
+| "It's just a prototype"                            | Prototypes become production code. Tests from day one prevent the "test debt" crisis.                                                                    |
 | "Let me run the tests again just to be extra sure" | After a clean test run, repeating the same command adds nothing unless the code has changed since. Run again after subsequent edits, not as reassurance. |
 
 ## Red Flags

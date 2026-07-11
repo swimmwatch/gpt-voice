@@ -1,6 +1,6 @@
 ---
 name: project-release
-description: Prepare, verify, or recover a GPT-Voice desktop release. Use when selecting a version, creating release metadata, packaging Linux, Windows, or macOS artifacts, or publishing a GitHub Release.
+description: Use only when the user explicitly requests GPT-Voice release preparation, recovery, packaging, or publishing.
 ---
 
 # GPT-Voice Release

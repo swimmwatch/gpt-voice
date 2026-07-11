@@ -1,6 +1,6 @@
 ---
 name: observability-and-instrumentation
-description: Instruments code so production behavior is visible and diagnosable. Use when adding logging, metrics, tracing, or alerting. Use when shipping any feature that runs in production and you need evidence it works. Use when production issues are reported but you can't tell what happened from the available data.
+description: Use only when the user explicitly requests logging, metrics, tracing, alerting, or production diagnosability work.
 ---
 
 # Observability and Instrumentation
@@ -18,6 +18,7 @@ Code you can't observe is code you can't operate. Observability is the ability t
 - Reviewing a PR that adds I/O, retries, queues, or cross-service calls
 
 **NOT for:**
+
 - Diagnosing a failure happening right now — use the `debugging-and-error-recovery` skill (observability is what makes that skill fast next time)
 - Profiling and optimizing measured slowness — use the `performance-optimization` skill
 - Launch-day monitoring checklists and rollback triggers — see the `shipping-and-launch` skill; this skill covers the instrumentation that feeds them
@@ -41,11 +42,11 @@ If you can't name the questions, you're not ready to instrument — you'll log e
 
 ### 2. Pick the right signal for each question
 
-| Signal | Answers | Cost profile | Example |
-|---|---|---|---|
-| **Structured log** | "What happened in this specific case?" | Per-event; grows with traffic | `payment_failed` with provider error code |
-| **Metric** | "How often / how fast, in aggregate?" | Fixed per series; cheap to query | p99 latency of provider calls |
-| **Trace** | "Where did time go across services?" | Per-request; usually sampled | One slow checkout, broken down by hop |
+| Signal             | Answers                                | Cost profile                     | Example                                   |
+| ------------------ | -------------------------------------- | -------------------------------- | ----------------------------------------- |
+| **Structured log** | "What happened in this specific case?" | Per-event; grows with traffic    | `payment_failed` with provider error code |
+| **Metric**         | "How often / how fast, in aggregate?"  | Fixed per series; cheap to query | p99 latency of provider calls             |
+| **Trace**          | "Where did time go across services?"   | Per-request; usually sampled     | One slow checkout, broken down by hop     |
 
 Rule of thumb: metrics tell you **that** something is wrong, traces tell you **where**, logs tell you **why**.
 
@@ -58,23 +59,26 @@ Log events, not prose. Every log line is a JSON object with a stable event name 
 logger.info(`Payment ${id} failed for user ${userId} after ${n} retries`);
 
 // GOOD: stable event name + structured fields
-logger.warn({
-  event: 'payment_failed',
-  paymentId: id,
-  provider: 'stripe',
-  errorCode: err.code,
-  attempt: n,
-}, 'payment failed');
+logger.warn(
+  {
+    event: 'payment_failed',
+    paymentId: id,
+    provider: 'stripe',
+    errorCode: err.code,
+    attempt: n,
+  },
+  'payment failed',
+);
 ```
 
 **Log levels — use them consistently:**
 
-| Level | Meaning | On-call action |
-|---|---|---|
-| `error` | Invariant broken; someone may need to act | Investigate |
-| `warn` | Degraded but handled (retry succeeded, fallback used) | Watch for trends |
-| `info` | Significant business event (order placed, job finished) | None |
-| `debug` | Diagnostic detail | Off in production by default |
+| Level   | Meaning                                                 | On-call action               |
+| ------- | ------------------------------------------------------- | ---------------------------- |
+| `error` | Invariant broken; someone may need to act               | Investigate                  |
+| `warn`  | Degraded but handled (retry succeeded, fallback used)   | Watch for trends             |
+| `info`  | Significant business event (order placed, job finished) | None                         |
+| `debug` | Diagnostic detail                                       | Off in production by default |
 
 **Correlation IDs are mandatory.** Generate (or accept) a request ID at the system boundary and attach it to every log line, span, and outbound call. Without it, you cannot reconstruct a single request from interleaved logs:
 
@@ -102,7 +106,7 @@ import { Histogram } from 'prom-client';
 const httpDuration = new Histogram({
   name: 'http_request_duration_seconds',
   help: 'HTTP request duration',
-  labelNames: ['method', 'route', 'status_class'],  // '2xx', not '200'
+  labelNames: ['method', 'route', 'status_class'], // '2xx', not '200'
   buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
 });
 ```
@@ -165,15 +169,15 @@ Instrumentation is code; it can be wrong. Before calling the work done, trigger 
 
 ## Common Rationalizations
 
-| Rationalization | Reality |
-|---|---|
-| "I'll add logging after it works" | "After" becomes "after the first incident", which is the most expensive moment to discover you're blind. Instrument as you build. |
-| "More logs = more observability" | Unstructured noise makes incidents slower, not faster. Three queryable events beat three hundred prose lines. |
-| "console.log is fine for now" | Unstructured output can't be filtered, correlated, or alerted on. The structured logger costs five extra minutes once. |
-| "We can just look at the dashboards when something breaks" | Dashboards built without defined questions show you everything except the answer. Start from on-call questions. |
-| "Alert on everything important, we'll tune later" | A noisy pager trains people to ignore it. The tuning never happens; the missed real page does. |
-| "User ID as a metric label makes debugging easier" | It also makes your metrics backend fall over. High-cardinality lookups belong in logs and traces. |
-| "Tracing is overkill for our two services" | Two services already means cross-service latency questions logs can't answer. Auto-instrumentation makes the cost trivial. |
+| Rationalization                                            | Reality                                                                                                                           |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| "I'll add logging after it works"                          | "After" becomes "after the first incident", which is the most expensive moment to discover you're blind. Instrument as you build. |
+| "More logs = more observability"                           | Unstructured noise makes incidents slower, not faster. Three queryable events beat three hundred prose lines.                     |
+| "console.log is fine for now"                              | Unstructured output can't be filtered, correlated, or alerted on. The structured logger costs five extra minutes once.            |
+| "We can just look at the dashboards when something breaks" | Dashboards built without defined questions show you everything except the answer. Start from on-call questions.                   |
+| "Alert on everything important, we'll tune later"          | A noisy pager trains people to ignore it. The tuning never happens; the missed real page does.                                    |
+| "User ID as a metric label makes debugging easier"         | It also makes your metrics backend fall over. High-cardinality lookups belong in logs and traces.                                 |
+| "Tracing is overkill for our two services"                 | Two services already means cross-service latency questions logs can't answer. Auto-instrumentation makes the cost trivial.        |
 
 ## Red Flags
 

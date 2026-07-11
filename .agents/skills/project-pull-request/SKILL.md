@@ -1,6 +1,6 @@
 ---
 name: project-pull-request
-description: Create, update, or review a GPT-Voice pull request with the required Electron, browser-automation, privacy, and verification evidence. Use when the user asks to open a PR or prepare changes for review.
+description: Use only when the user asks to create, update, or review a GPT-Voice pull request.
 ---
 
 # GPT-Voice Pull Request

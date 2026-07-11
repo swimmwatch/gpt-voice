@@ -1,6 +1,6 @@
 ---
 name: security-and-hardening
-description: Hardens code against vulnerabilities. Use when handling user input, authentication, data storage, or external integrations. Use when building any feature that accepts untrusted data, manages user sessions, or interacts with third-party services.
+description: Use only when the user explicitly requests a security audit or hardening change, or when a concrete security defect is identified.
 ---
 
 # Security and Hardening
@@ -26,14 +26,14 @@ Controls bolted on without a threat model are guesses. Before hardening, spend f
 2. **Name the assets.** What's worth stealing or breaking? Credentials, PII, payment data, admin actions, money movement.
 3. **Run STRIDE over each boundary** — a quick lens, not a ceremony:
 
-| Threat | Ask | Typical mitigation |
-|---|---|---|
-| **S**poofing | Can someone impersonate a user/service? | Authentication, signature verification |
-| **T**ampering | Can data be altered in transit or at rest? | Integrity checks, parameterized queries, HTTPS |
-| **R**epudiation | Can an action be denied later? | Audit logging of security events |
-| **I**nformation disclosure | Can data leak? | Encryption, field allowlists, generic errors |
-| **D**enial of service | Can it be overwhelmed? | Rate limiting, input size caps, timeouts |
-| **E**levation of privilege | Can a user gain rights they shouldn't? | Authorization checks, least privilege |
+| Threat                     | Ask                                        | Typical mitigation                             |
+| -------------------------- | ------------------------------------------ | ---------------------------------------------- |
+| **S**poofing               | Can someone impersonate a user/service?    | Authentication, signature verification         |
+| **T**ampering              | Can data be altered in transit or at rest? | Integrity checks, parameterized queries, HTTPS |
+| **R**epudiation            | Can an action be denied later?             | Audit logging of security events               |
+| **I**nformation disclosure | Can data leak?                             | Encryption, field allowlists, generic errors   |
+| **D**enial of service      | Can it be overwhelmed?                     | Rate limiting, input size caps, timeouts       |
+| **E**levation of privilege | Can a user gain rights they shouldn't?     | Authorization checks, least privilege          |
 
 4. **Write abuse cases next to use cases.** For each feature, ask "how would I misuse this?" — then make that your first test.
 
@@ -100,17 +100,19 @@ const hashedPassword = await hash(plaintext, SALT_ROUNDS);
 const isValid = await compare(plaintext, hashedPassword);
 
 // Session management
-app.use(session({
-  secret: process.env.SESSION_SECRET,  // From environment, not code
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,     // Not accessible via JavaScript
-    secure: true,       // HTTPS only
-    sameSite: 'lax',    // CSRF protection
-    maxAge: 24 * 60 * 60 * 1000,  // 24 hours
-  },
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET, // From environment, not code
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true, // Not accessible via JavaScript
+      secure: true, // HTTPS only
+      sameSite: 'lax', // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }),
+);
 ```
 
 ### Cross-Site Scripting (XSS)
@@ -137,7 +139,7 @@ app.patch('/api/tasks/:id', authenticate, async (req, res) => {
   // Check that the authenticated user owns this resource
   if (task.ownerId !== req.user.id) {
     return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'Not authorized to modify this task' }
+      error: { code: 'FORBIDDEN', message: 'Not authorized to modify this task' },
     });
   }
 
@@ -155,21 +157,25 @@ import helmet from 'helmet';
 app.use(helmet());
 
 // Content Security Policy
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],  // Tighten if possible
-    imgSrc: ["'self'", 'data:', 'https:'],
-    connectSrc: ["'self'"],
-  },
-}));
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Tighten if possible
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+    },
+  }),
+);
 
 // CORS — restrict to known origins
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
+    credentials: true,
+  }),
+);
 ```
 
 ### Sensitive Data Exposure
@@ -290,6 +296,7 @@ npm audit reports a vulnerability
 ```
 
 **Key questions:**
+
 - Is the vulnerable function actually called in your code path?
 - Is the dependency a runtime dependency or dev-only?
 - Is the vulnerability exploitable given your deployment context (e.g., a server-side vulnerability in a client-only app)?
@@ -311,18 +318,24 @@ When you defer a fix, document the reason and set a review date.
 import rateLimit from 'express-rate-limit';
 
 // General API rate limit
-app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,                   // 100 requests per window
-  standardHeaders: true,
-  legacyHeaders: false,
-}));
+app.use(
+  '/api/',
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
 
 // Stricter limit for auth endpoints
-app.use('/api/auth/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,  // 10 attempts per 15 minutes
-}));
+app.use(
+  '/api/auth/',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10, // 10 attempts per 15 minutes
+  }),
+);
 ```
 
 ## Secrets Management
@@ -342,6 +355,7 @@ app.use('/api/auth/', rateLimit({
 ```
 
 **Always check before committing:**
+
 ```bash
 # Check for accidentally staged secrets
 git diff --cached | grep -i "password\|secret\|api_key\|token"
@@ -363,8 +377,8 @@ If your app calls an LLM — chatbots, summarizers, agents, RAG — it inherits 
 ```typescript
 // BAD: trusting model output as a command or as markup
 const sql = await llm.generate(`Write SQL for: ${userQuestion}`);
-await db.query(sql);                                   // arbitrary query execution
-container.innerHTML = await llm.reply(userMessage);   // stored XSS, via the model
+await db.query(sql); // arbitrary query execution
+container.innerHTML = await llm.reply(userMessage); // stored XSS, via the model
 
 // GOOD: model output is data — parse defensively, then validate, then encode
 let intent;
@@ -381,57 +395,65 @@ container.textContent = await llm.reply(userMessage);
 
 ```markdown
 ### Authentication
+
 - [ ] Passwords hashed with bcrypt/scrypt/argon2 (salt rounds ≥ 12)
 - [ ] Session tokens are httpOnly, secure, sameSite
 - [ ] Login has rate limiting
 - [ ] Password reset tokens expire
 
 ### Authorization
+
 - [ ] Every endpoint checks user permissions
 - [ ] Users can only access their own resources
 - [ ] Admin actions require admin role verification
 
 ### Input
+
 - [ ] All user input validated at the boundary
 - [ ] SQL queries are parameterized
 - [ ] HTML output is encoded/escaped
 - [ ] Server-side URL fetches are allowlisted (no SSRF to internal services)
 
 ### Data
+
 - [ ] No secrets in code or version control
 - [ ] Sensitive fields excluded from API responses
 - [ ] PII encrypted at rest (if applicable)
 
 ### Infrastructure
+
 - [ ] Security headers configured (CSP, HSTS, etc.)
 - [ ] CORS restricted to known origins
 - [ ] Dependencies audited for vulnerabilities
 - [ ] Error messages don't expose internals
 
 ### Supply Chain
+
 - [ ] Lockfile committed; CI installs with `npm ci`
 - [ ] New dependencies reviewed (maintenance, downloads, postinstall scripts)
 
 ### AI / LLM (if used)
+
 - [ ] Model output treated as untrusted (no eval/SQL/innerHTML/shell)
 - [ ] Secrets and other users' data kept out of prompts
 - [ ] Tool/agent permissions scoped; destructive actions require confirmation
 ```
+
 ## See Also
 
 For detailed security checklists and pre-commit verification steps, see `.agents/references/security-checklist.md`.
 
 ## Common Rationalizations
 
-| Rationalization | Reality |
-|---|---|
-| "This is an internal tool, security doesn't matter" | Internal tools get compromised. Attackers target the weakest link. |
-| "We'll add security later" | Security retrofitting is 10x harder than building it in. Add it now. |
-| "No one would try to exploit this" | Automated scanners will find it. Security by obscurity is not security. |
-| "The framework handles security" | Frameworks provide tools, not guarantees. You still need to use them correctly. |
-| "It's just a prototype" | Prototypes become production. Security habits from day one. |
-| "Threat modeling is overkill here" | Five minutes of "how would I attack this?" prevents the design flaws no control can patch later. |
-| "It's just LLM output, it's only text" | That "text" can be a SQL statement, a script tag, or a shell command. Treat it like any untrusted input. |
+| Rationalization                                     | Reality                                                                                                  |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| "This is an internal tool, security doesn't matter" | Internal tools get compromised. Attackers target the weakest link.                                       |
+| "We'll add security later"                          | Security retrofitting is 10x harder than building it in. Add it now.                                     |
+| "No one would try to exploit this"                  | Automated scanners will find it. Security by obscurity is not security.                                  |
+| "The framework handles security"                    | Frameworks provide tools, not guarantees. You still need to use them correctly.                          |
+| "It's just a prototype"                             | Prototypes become production. Security habits from day one.                                              |
+| "Threat modeling is overkill here"                  | Five minutes of "how would I attack this?" prevents the design flaws no control can patch later.         |
+| "It's just LLM output, it's only text"              | That "text" can be a SQL statement, a script tag, or a shell command. Treat it like any untrusted input. |
 
 ## Red Flags
 

@@ -1,6 +1,6 @@
 ---
 name: web-performance-auditor
-description: Web performance engineer focused on Core Web Vitals, loading, rendering, and network optimization. Use for performance-focused audits, CWV analysis, and identifying structural performance anti-patterns in web applications.
+description: Use only when the user explicitly requests the web-performance-auditor persona or its report format; otherwise use performance-optimization alone.
 ---
 
 # Web Performance Auditor
@@ -28,13 +28,13 @@ Populate the scorecard only with values backed by these sources. Mark unmeasured
 
 ## Tooling
 
-| Capability | Tool / Source | Requires |
-|---|---|---|
-| Lab metrics, opportunities, diagnostics | Lighthouse JSON | None (parse a provided file) |
-| Field metrics (real users, p75) | CrUX API | `CRUX_API_KEY` or `GOOGLE_API_KEY` env var |
-| Combined lab + field | PageSpeed Insights JSON | None for parsing; the user provides the JSON |
-| Live trace, LCP attribution, INP attribution, layout shift attribution | Chrome DevTools MCP server (`performance_*`, `lighthouse_audit`) | `chrome-devtools` MCP server configured in the harness (see `.agents/skills/browser-testing-with-devtools`) |
-| Manual terminal capture (Lighthouse, trace, screenshot) | Chrome DevTools MCP CLI (e.g. `chrome-devtools lighthouse_audit --output-format=json`) | `npx -p chrome-devtools-mcp chrome-devtools <tool>` or `npm i -g chrome-devtools-mcp` (CLI is independent of the harness) |
+| Capability                                                             | Tool / Source                                                                          | Requires                                                                                                                  |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Lab metrics, opportunities, diagnostics                                | Lighthouse JSON                                                                        | None (parse a provided file)                                                                                              |
+| Field metrics (real users, p75)                                        | CrUX API                                                                               | `CRUX_API_KEY` or `GOOGLE_API_KEY` env var                                                                                |
+| Combined lab + field                                                   | PageSpeed Insights JSON                                                                | None for parsing; the user provides the JSON                                                                              |
+| Live trace, LCP attribution, INP attribution, layout shift attribution | Chrome DevTools MCP server (`performance_*`, `lighthouse_audit`)                       | `chrome-devtools` MCP server configured in the harness (see `.agents/skills/browser-testing-with-devtools`)               |
+| Manual terminal capture (Lighthouse, trace, screenshot)                | Chrome DevTools MCP CLI (e.g. `chrome-devtools lighthouse_audit --output-format=json`) | `npx -p chrome-devtools-mcp chrome-devtools <tool>` or `npm i -g chrome-devtools-mcp` (CLI is independent of the harness) |
 
 If a source is unavailable, do not fabricate. Skip the related section of the scorecard and continue with what you have.
 
@@ -113,13 +113,13 @@ Identify the framework and rendering model (React, Vue, Svelte, Angular, Next.js
 
 ## Severity Classification
 
-| Severity | Criteria | Action |
-|----------|----------|--------|
-| **Critical** | Directly causes a Core Web Vital to fail the "Good" threshold | Fix before release |
-| **High** | Likely degrades a CWV or causes significant loading/interaction slowdown | Fix before release |
-| **Medium** | Suboptimal pattern with measurable but contained impact | Fix in current sprint |
-| **Low** | Best practice gap with minor or speculative impact | Schedule for next sprint |
-| **Info** | Improvement opportunity with no current evidence of impact | Consider adopting |
+| Severity     | Criteria                                                                 | Action                   |
+| ------------ | ------------------------------------------------------------------------ | ------------------------ |
+| **Critical** | Directly causes a Core Web Vital to fail the "Good" threshold            | Fix before release       |
+| **High**     | Likely degrades a CWV or causes significant loading/interaction slowdown | Fix before release       |
+| **Medium**   | Suboptimal pattern with measurable but contained impact                  | Fix in current sprint    |
+| **Low**      | Best practice gap with minor or speculative impact                       | Schedule for next sprint |
+| **Info**     | Improvement opportunity with no current evidence of impact               | Consider adopting        |
 
 ## Output Format
 
@@ -128,17 +128,18 @@ Identify the framework and rendering model (React, Vue, Svelte, Angular, Next.js
 
 ### Scorecard
 
-| Metric | Value | Source | Target | Status |
-|--------|-------|--------|--------|--------|
-| LCP | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 2.5s | [Good / Needs Work / Poor / —] |
-| INP | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 200ms | [Good / Needs Work / Poor / —] |
-| CLS | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 0.1 | [Good / Needs Work / Poor / —] |
-| Lighthouse Performance | [score or "not measured"] | [Lab (Lighthouse) / —] | ≥ 90 | [Pass / Fail / —] |
+| Metric                 | Value                     | Source                                                   | Target  | Status                         |
+| ---------------------- | ------------------------- | -------------------------------------------------------- | ------- | ------------------------------ |
+| LCP                    | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 2.5s  | [Good / Needs Work / Poor / —] |
+| INP                    | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 200ms | [Good / Needs Work / Poor / —] |
+| CLS                    | [value or "not measured"] | [Field (CrUX) / Lab (Lighthouse) / Trace (DevTools) / —] | ≤ 0.1   | [Good / Needs Work / Poor / —] |
+| Lighthouse Performance | [score or "not measured"] | [Lab (Lighthouse) / —]                                   | ≥ 90    | [Pass / Fail / —]              |
 
 > Artifacts used: [list each: Lighthouse report `path/file.json`, CrUX API response, DevTools trace, live MCP capture, or **none — source analysis only**]
 > Framework / stack detected: [Next.js 14 App Router / React 18 + Vite / vanilla HTML / etc.]
 
 ### Summary
+
 - Critical: [count]
 - High: [count]
 - Medium: [count]
@@ -147,6 +148,7 @@ Identify the framework and rendering model (React, Vue, Svelte, Angular, Next.js
 ### Findings
 
 #### [CRITICAL] [Finding title]
+
 - **Area:** Core Web Vitals / Loading / Rendering / Network
 - **Location:** [file:line or component, or URL when from live capture]
 - **Description:** [What the issue is]
@@ -154,12 +156,15 @@ Identify the framework and rendering model (React, Vue, Svelte, Angular, Next.js
 - **Recommendation:** [Specific fix with a small code example when applicable]
 
 #### [HIGH] [Finding title]
+
 ...
 
 ### Positive Observations
+
 - [Performance practices done well]
 
 ### Recommendations
+
 - [Proactive improvements to consider]
 ```
 

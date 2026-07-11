@@ -1,6 +1,6 @@
 ---
 name: code-review-and-quality
-description: Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch.
+description: Use only when the user requests a code review or a dedicated pre-merge review; do not add it automatically after implementation.
 ---
 
 # Code Review and Quality
@@ -110,18 +110,18 @@ Small, focused changes are easier to review, faster to merge, and safer to deplo
 ~1000 lines changed  → Too large. Split it.
 ```
 
-**Watch file size, not just diff size.** A small diff can still push a file past a healthy boundary — around 1000 *total* lines in a single file (distinct from the ~1000 *changed*-lines threshold above) is a common inspection signal, not a hard cap. When a change materially grows an already-large file, ask whether to extract helpers, subcomponents, or modules *first*, before piling more on. Decompose, then add.
+**Watch file size, not just diff size.** A small diff can still push a file past a healthy boundary — around 1000 _total_ lines in a single file (distinct from the ~1000 _changed_-lines threshold above) is a common inspection signal, not a hard cap. When a change materially grows an already-large file, ask whether to extract helpers, subcomponents, or modules _first_, before piling more on. Decompose, then add.
 
 **What counts as "one change":** A single self-contained modification that addresses one thing, includes related tests, and keeps the system functional after submission. One part of a feature — not the whole feature.
 
 **Splitting strategies when a change is too large:**
 
-| Strategy | How | When |
-|----------|-----|------|
-| **Stack** | Submit a small change, start the next one based on it | Sequential dependencies |
-| **By file group** | Separate changes for groups needing different reviewers | Cross-cutting concerns |
-| **Horizontal** | Create shared code/stubs first, then consumers | Layered architecture |
-| **Vertical** | Break into smaller full-stack slices of the feature | Feature work |
+| Strategy          | How                                                     | When                    |
+| ----------------- | ------------------------------------------------------- | ----------------------- |
+| **Stack**         | Submit a small change, start the next one based on it   | Sequential dependencies |
+| **By file group** | Separate changes for groups needing different reviewers | Cross-cutting concerns  |
+| **Horizontal**    | Create shared code/stubs first, then consumers          | Layered architecture    |
+| **Vertical**      | Break into smaller full-stack slices of the feature     | Feature work            |
 
 **When large changes are acceptable:** Complete file deletions and automated refactoring where the reviewer only needs to verify intent, not every line.
 
@@ -178,17 +178,17 @@ For each file changed:
 
 Label every comment with its severity so the author knows what's required vs optional:
 
-| Prefix | Meaning | Author Action |
-|--------|---------|---------------|
-| *(no prefix)* | Required change | Must address before merge |
-| **Critical:** | Blocks merge | Security vulnerability, data loss, broken functionality |
-| **Nit:** | Minor, optional | Author may ignore — formatting, style preferences |
-| **Optional:** / **Consider:** | Suggestion | Worth considering but not required |
-| **FYI** | Informational only | No action needed — context for future reference |
+| Prefix                        | Meaning            | Author Action                                           |
+| ----------------------------- | ------------------ | ------------------------------------------------------- |
+| _(no prefix)_                 | Required change    | Must address before merge                               |
+| **Critical:**                 | Blocks merge       | Security vulnerability, data loss, broken functionality |
+| **Nit:**                      | Minor, optional    | Author may ignore — formatting, style preferences       |
+| **Optional:** / **Consider:** | Suggestion         | Worth considering but not required                      |
+| **FYI**                       | Informational only | No action needed — context for future reference         |
 
 This prevents authors from treating all feedback as mandatory and wasting time on optional suggestions.
 
-**Lead with what matters.** Order findings by leverage: correctness and security first, then structural regressions and missed simplifications, then everything else. Don't bury a real issue under cosmetic nits — a few high-conviction comments beat a long list. If you have one structural problem and ten nits, the structural problem *is* the review.
+**Lead with what matters.** Order findings by leverage: correctness and security first, then structural regressions and missed simplifications, then everything else. Don't bury a real issue under cosmetic nits — a few high-conviction comments beat a long list. If you have one structural problem and ten nits, the structural problem _is_ the review.
 
 ### Step 5: Verify the Verification
 
@@ -222,6 +222,7 @@ Human makes the final call
 This catches issues that a single model might miss — different models have different blind spots.
 
 **Example prompt for a review agent:**
+
 ```
 Review this code change for correctness, security, and adherence to
 our project conventions. The spec says [X]. The change should [Y].
@@ -281,6 +282,7 @@ When reviewing code — whether written by you, another agent, or a human:
 Part of code review is dependency review:
 
 **Before adding any dependency:**
+
 1. Does the existing stack solve this? (Often it does.)
 2. How large is the dependency? (Check bundle impact.)
 3. Is it actively maintained? (Check last commit, open issues.)
@@ -295,20 +297,24 @@ Part of code review is dependency review:
 ## Review: [PR/Change title]
 
 ### Context
+
 - [ ] I understand what this change does and why
 
 ### Correctness
+
 - [ ] Change matches spec/task requirements
 - [ ] Edge cases handled
 - [ ] Error paths handled
 - [ ] Tests cover the change adequately
 
 ### Readability
+
 - [ ] Names are clear and consistent
 - [ ] Logic is straightforward
 - [ ] No unnecessary complexity
 
 ### Architecture
+
 - [ ] Follows existing patterns
 - [ ] No unnecessary coupling or dependencies
 - [ ] Appropriate abstraction level
@@ -316,6 +322,7 @@ Part of code review is dependency review:
 - [ ] No feature logic in shared modules; file stays within a healthy size
 
 ### Security
+
 - [ ] No secrets in code
 - [ ] Input validated at boundaries
 - [ ] No injection vulnerabilities
@@ -323,19 +330,23 @@ Part of code review is dependency review:
 - [ ] External data sources treated as untrusted
 
 ### Performance
+
 - [ ] No N+1 patterns
 - [ ] No unbounded operations
 - [ ] Pagination on list endpoints
 
 ### Verification
+
 - [ ] Tests pass
 - [ ] Build succeeds
 - [ ] Manual verification done (if applicable)
 
 ### Verdict
+
 - [ ] **Approve** — Ready to merge
 - [ ] **Request changes** — Issues must be addressed
 ```
+
 ## See Also
 
 - For detailed security review guidance, see `.agents/references/security-checklist.md`
@@ -343,15 +354,15 @@ Part of code review is dependency review:
 
 ## Common Rationalizations
 
-| Rationalization | Reality |
-|---|---|
-| "It works, that's good enough" | Working code that's unreadable, insecure, or architecturally wrong creates debt that compounds. |
-| "I wrote it, so I know it's correct" | Authors are blind to their own assumptions. Every change benefits from another set of eyes. |
-| "We'll clean it up later" | Later never comes. The review is the quality gate — use it. Require cleanup before merge, not after. |
-| "AI-generated code is probably fine" | AI code needs more scrutiny, not less. It's confident and plausible, even when wrong. |
-| "The tests pass, so it's good" | Tests are necessary but not sufficient. They don't catch architecture problems, security issues, or readability concerns. |
-| "The refactor makes it cleaner" | Relocating complexity isn't reducing it. If the reader still holds the same number of concepts, the structure didn't improve — look for the version where branches disappear. |
-| "It's only a small addition to this file" | Small diffs still push files past a healthy size and bolt branches onto unrelated flows. Judge the resulting structure, not the diff size. |
+| Rationalization                           | Reality                                                                                                                                                                       |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It works, that's good enough"            | Working code that's unreadable, insecure, or architecturally wrong creates debt that compounds.                                                                               |
+| "I wrote it, so I know it's correct"      | Authors are blind to their own assumptions. Every change benefits from another set of eyes.                                                                                   |
+| "We'll clean it up later"                 | Later never comes. The review is the quality gate — use it. Require cleanup before merge, not after.                                                                          |
+| "AI-generated code is probably fine"      | AI code needs more scrutiny, not less. It's confident and plausible, even when wrong.                                                                                         |
+| "The tests pass, so it's good"            | Tests are necessary but not sufficient. They don't catch architecture problems, security issues, or readability concerns.                                                     |
+| "The refactor makes it cleaner"           | Relocating complexity isn't reducing it. If the reader still holds the same number of concepts, the structure didn't improve — look for the version where branches disappear. |
+| "It's only a small addition to this file" | Small diffs still push files past a healthy size and bolt branches onto unrelated flows. Judge the resulting structure, not the diff size.                                    |
 
 ## Red Flags
 
