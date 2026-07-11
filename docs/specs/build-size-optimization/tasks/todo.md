@@ -35,19 +35,19 @@ Specification: [`../spec.md`](../spec.md)
 **Increment progress:**
 
 - [x] `measure:size` writes a deterministic report and concise summary from packaged artifacts.
-- [ ] `verify:size`, the reviewed Linux baseline, and full-lockfile audit integration remain for the next increment.
+- [x] `verify:size`, the reviewed Linux baseline, and full-lockfile audit integration are complete.
 
 **Acceptance criteria:**
 
 - [x] `measure:size` emits stable JSON plus a concise summary without absolute user paths or sensitive content.
-- [ ] `verify:size` compares matching report/baseline metrics and fails only under the specified regression rule.
-- [ ] `@electron/asar`, command scripts, the full audit command, and package metadata are declared explicitly.
+- [x] `verify:size` compares matching report/baseline metrics and fails only under the specified regression rule.
+- [x] `@electron/asar`, command scripts, the full audit command, and package metadata are declared explicitly.
 
 **Verification:**
 
 - [x] Focused tests pass: `node --import tsx --test tests/scripts/buildSizeCli.test.ts`
-- [ ] Linux report succeeds after `npm run pack`: `npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json`
-- [ ] Budget verification succeeds against a fixture baseline: `npm run verify:size -- --report=release-artifacts/size-linux-x64.json --baseline=build/size-baselines/v1.4.0-linux-x64.json`
+- [x] Linux report succeeds after `npm run pack`: `npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json`
+- [x] Budget verification succeeds against a fixture baseline: `npm run verify:size -- --report=release-artifacts/size-linux-x64.json --baseline=build/size-baselines/v1.4.0-linux-x64.json`
 
 **Dependencies:** Task 1
 

@@ -65,7 +65,7 @@ External upstream confirmation
 ## Phase 1: Measurement Foundation
 
 - [x] Task 1: Define size metric primitives.
-- [ ] Task 2: Add build-size CLIs.
+- [x] Task 2: Add build-size CLIs.
 - [ ] Task 3: Add a cold-start benchmark harness.
 
 ### Checkpoint: Trusted Baseline

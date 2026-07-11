@@ -4,7 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { getRawHeader } from '@electron/asar';
-import { measureFileCompressionBytes, measurePathBytes } from './build-size-metrics.mjs';
+import {
+  exceedsSizeRegressionThreshold,
+  measureFileCompressionBytes,
+  measurePathBytes,
+} from './build-size-metrics.mjs';
 
 export const SIZE_REPORT_SCHEMA_VERSION = 1;
 
@@ -217,6 +221,10 @@ async function readProjectPackageJson(rootDir) {
   return JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf8'));
 }
 
+async function readJsonFile(filePath) {
+  return JSON.parse(await readFile(filePath, 'utf8'));
+}
+
 export async function collectToolVersions(rootDir, packageJson) {
   return {
     cloakbrowser: getPackageVersion(packageJson, 'cloakbrowser'),
@@ -287,6 +295,93 @@ export async function collectSizeReport({ arch, commit, packageJson, platform, r
   };
 }
 
+function isObject(value) {
+  return typeof value === 'object' && value !== null;
+}
+
+function assertString(value, description) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${description} must be a non-empty string`);
+  }
+}
+
+function assertMetric(metric, knownIds) {
+  if (!isObject(metric)) {
+    throw new TypeError('Size report metrics must be objects');
+  }
+
+  assertString(metric.id, 'Size metric id');
+  if (knownIds.has(metric.id)) {
+    throw new TypeError(`Size report contains duplicate metric id: ${metric.id}`);
+  }
+
+  if (metric.bytes !== null && (!Number.isSafeInteger(metric.bytes) || metric.bytes < 0)) {
+    throw new TypeError(`Size metric ${metric.id} must use non-negative integer bytes or null`);
+  }
+
+  knownIds.add(metric.id);
+}
+
+export function validateSizeReport(report) {
+  if (!isObject(report)) {
+    throw new TypeError('Size report must be an object');
+  }
+
+  if (report.schemaVersion !== SIZE_REPORT_SCHEMA_VERSION) {
+    throw new TypeError(`Unsupported size report schema version: ${report.schemaVersion}`);
+  }
+
+  if (!isObject(report.metadata)) {
+    throw new TypeError('Size report metadata must be an object');
+  }
+
+  assertString(report.metadata.platform, 'Size report platform');
+  assertString(report.metadata.arch, 'Size report architecture');
+  if (!Array.isArray(report.metrics)) {
+    throw new TypeError('Size report metrics must be an array');
+  }
+
+  const knownIds = new Set();
+  for (const metric of report.metrics) {
+    assertMetric(metric, knownIds);
+  }
+}
+
+export function compareSizeReports(report, baseline) {
+  validateSizeReport(report);
+  validateSizeReport(baseline);
+
+  if (report.metadata.platform !== baseline.metadata.platform) {
+    throw new TypeError('Size report platform must match the baseline platform');
+  }
+
+  if (report.metadata.arch !== baseline.metadata.arch) {
+    throw new TypeError('Size report architecture must match the baseline architecture');
+  }
+
+  const baselineById = new Map(baseline.metrics.map((metric) => [metric.id, metric.bytes]));
+  const regressions = [];
+  let comparedMetricCount = 0;
+
+  for (const metric of report.metrics) {
+    const baselineBytes = baselineById.get(metric.id);
+    if (metric.bytes === null || baselineBytes === null || baselineBytes === undefined) {
+      continue;
+    }
+
+    if (baselineBytes <= 0) {
+      throw new TypeError(`Baseline metric ${metric.id} must use positive integer bytes`);
+    }
+
+    comparedMetricCount += 1;
+    if (exceedsSizeRegressionThreshold(metric.bytes, baselineBytes)) {
+      regressions.push({ baselineBytes, currentBytes: metric.bytes, id: metric.id });
+    }
+  }
+
+  return { comparedMetricCount, regressions };
+}
+
 function formatBytes(bytes) {
   return bytes === null ? 'missing' : `${bytes.toLocaleString('en-US')} bytes`;
 }
@@ -305,6 +400,25 @@ export function formatSizeReportSummary(report) {
     ['Unpacked app', 'unpacked.app'],
   ]) {
     lines.push(`${label}: ${formatBytes(metricById.get(id) ?? null)}`);
+  }
+
+  return lines.join('\n');
+}
+
+function formatSizeVerificationSummary(report, comparison) {
+  const lines = [
+    `Size verification: ${report.metadata.platform}/${report.metadata.arch}`,
+    `Compared metrics: ${comparison.comparedMetricCount}`,
+  ];
+
+  if (comparison.regressions.length === 0) {
+    lines.push('No size regressions detected');
+    return lines.join('\n');
+  }
+
+  lines.push(`Size regressions: ${comparison.regressions.length}`);
+  for (const regression of comparison.regressions) {
+    lines.push(`${regression.id}: ${formatBytes(regression.baselineBytes)} -> ${formatBytes(regression.currentBytes)}`);
   }
 
   return lines.join('\n');
@@ -333,6 +447,27 @@ function parseMeasureArguments(args) {
   return options;
 }
 
+function parseVerifyArguments(args) {
+  const options = { baseline: null, report: null };
+
+  for (const argument of args) {
+    const [name, value] = argument.split('=', 2);
+    if (name === '--baseline' && value) {
+      options.baseline = value;
+    } else if (name === '--report' && value) {
+      options.report = value;
+    } else {
+      throw new Error(`Unsupported verify:size argument: ${argument}`);
+    }
+  }
+
+  if (!options.baseline || !options.report) {
+    throw new Error('Usage: node scripts/build-size-cli.mjs verify --report=<path> --baseline=<path>');
+  }
+
+  return options;
+}
+
 export async function runMeasureSizeCommand(args, rootDir = process.cwd()) {
   const options = parseMeasureArguments(args);
   const packageJson = await readProjectPackageJson(rootDir);
@@ -354,15 +489,30 @@ export async function runMeasureSizeCommand(args, rootDir = process.cwd()) {
   return report;
 }
 
+export async function runVerifySizeCommand(args, rootDir = process.cwd()) {
+  const options = parseVerifyArguments(args);
+  const report = await readJsonFile(path.resolve(rootDir, options.report));
+  const baseline = await readJsonFile(path.resolve(rootDir, options.baseline));
+  const comparison = compareSizeReports(report, baseline);
+
+  return { comparison, report };
+}
+
 const modulePath = fileURLToPath(import.meta.url);
 if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
   const [command, ...args] = process.argv.slice(2);
-  if (command !== 'measure') {
-    throw new Error(
-      'Usage: node scripts/build-size-cli.mjs measure [--platform=<platform>] [--arch=<arch>] [--output=<path>]',
-    );
-  }
+  if (command === 'measure') {
+    const report = await runMeasureSizeCommand(args);
+    console.log(formatSizeReportSummary(report));
+  } else if (command === 'verify') {
+    const { comparison, report } = await runVerifySizeCommand(args);
+    const summary = formatSizeVerificationSummary(report, comparison);
+    if (comparison.regressions.length > 0) {
+      throw new Error(summary);
+    }
 
-  const report = await runMeasureSizeCommand(args);
-  console.log(formatSizeReportSummary(report));
+    console.log(summary);
+  } else {
+    throw new Error('Usage: node scripts/build-size-cli.mjs <measure|verify> [options]');
+  }
 }

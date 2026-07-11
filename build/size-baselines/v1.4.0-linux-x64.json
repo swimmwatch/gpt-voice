@@ -1,0 +1,210 @@
+{
+  "metadata": {
+    "appVersion": "1.4.0",
+    "arch": "x64",
+    "commit": "3845bad421f32650cb57a44f32345bfe0f46a127",
+    "platform": "linux",
+    "toolVersions": {
+      "cloakbrowser": "0.4.10",
+      "electron": "43.0.0",
+      "electronBuilder": "26.15.3",
+      "node": "v24.14.0",
+      "webpack": "5.108.3"
+    }
+  },
+  "metrics": [
+    {
+      "bytes": 54377920,
+      "id": "app.asar"
+    },
+    {
+      "bytes": 611572,
+      "id": "app.asar.group.assets"
+    },
+    {
+      "bytes": 542746,
+      "id": "app.asar.group.cloakbrowser"
+    },
+    {
+      "bytes": 6404815,
+      "id": "app.asar.group.dist"
+    },
+    {
+      "bytes": 19541095,
+      "id": "app.asar.group.lucide-react"
+    },
+    {
+      "bytes": 300446,
+      "id": "app.asar.group.minipass"
+    },
+    {
+      "bytes": 10880617,
+      "id": "app.asar.group.playwright-core"
+    },
+    {
+      "bytes": 340819,
+      "id": "app.asar.group.radix-ui-react-select"
+    },
+    {
+      "bytes": 7318213,
+      "id": "app.asar.group.react-dom"
+    },
+    {
+      "bytes": 876408,
+      "id": "app.asar.group.tailwind-merge"
+    },
+    {
+      "bytes": 2131504,
+      "id": "app.asar.group.tar"
+    },
+    {
+      "bytes": 465371408,
+      "id": "cloakbrowser.group.chrome"
+    },
+    {
+      "bytes": 1217059,
+      "id": "cloakbrowser.group.chrome-200-percent.pak"
+    },
+    {
+      "bytes": 2186408,
+      "id": "cloakbrowser.group.chrome-crashpad-handler"
+    },
+    {
+      "bytes": 29125448,
+      "id": "cloakbrowser.group.chromedriver"
+    },
+    {
+      "bytes": 10822192,
+      "id": "cloakbrowser.group.icudtl.dat"
+    },
+    {
+      "bytes": 9269792,
+      "id": "cloakbrowser.group.libglesv2.so"
+    },
+    {
+      "bytes": 6210024,
+      "id": "cloakbrowser.group.libvk-swiftshader.so"
+    },
+    {
+      "bytes": 826720,
+      "id": "cloakbrowser.group.libvulkan.so.1"
+    },
+    {
+      "bytes": 183580135,
+      "id": "cloakbrowser.group.locales"
+    },
+    {
+      "bytes": 18557226,
+      "id": "cloakbrowser.group.resources.pak"
+    },
+    {
+      "bytes": 729336146,
+      "id": "cloakbrowser.runtime"
+    },
+    {
+      "bytes": 576,
+      "id": "dist.about.html.brotli"
+    },
+    {
+      "bytes": 789,
+      "id": "dist.about.html.gzip"
+    },
+    {
+      "bytes": 1885,
+      "id": "dist.about.html.raw"
+    },
+    {
+      "bytes": 570,
+      "id": "dist.history.html.brotli"
+    },
+    {
+      "bytes": 782,
+      "id": "dist.history.html.gzip"
+    },
+    {
+      "bytes": 1877,
+      "id": "dist.history.html.raw"
+    },
+    {
+      "bytes": 577,
+      "id": "dist.index.html.brotli"
+    },
+    {
+      "bytes": 784,
+      "id": "dist.index.html.gzip"
+    },
+    {
+      "bytes": 1879,
+      "id": "dist.index.html.raw"
+    },
+    {
+      "bytes": 38668,
+      "id": "dist.main.js.brotli"
+    },
+    {
+      "bytes": 47770,
+      "id": "dist.main.js.gzip"
+    },
+    {
+      "bytes": 189433,
+      "id": "dist.main.js.raw"
+    },
+    {
+      "bytes": 1020,
+      "id": "dist.preload.js.brotli"
+    },
+    {
+      "bytes": 1122,
+      "id": "dist.preload.js.gzip"
+    },
+    {
+      "bytes": 4132,
+      "id": "dist.preload.js.raw"
+    },
+    {
+      "bytes": 153619,
+      "id": "dist.renderer.js.brotli"
+    },
+    {
+      "bytes": 183561,
+      "id": "dist.renderer.js.gzip"
+    },
+    {
+      "bytes": 664025,
+      "id": "dist.renderer.js.raw"
+    },
+    {
+      "bytes": 568,
+      "id": "dist.settings.html.brotli"
+    },
+    {
+      "bytes": 782,
+      "id": "dist.settings.html.gzip"
+    },
+    {
+      "bytes": 1878,
+      "id": "dist.settings.html.raw"
+    },
+    {
+      "bytes": 48106060,
+      "id": "electron.locales"
+    },
+    {
+      "bytes": 344410035,
+      "id": "installer.appimage"
+    },
+    {
+      "bytes": 269426860,
+      "id": "installer.deb"
+    },
+    {
+      "bytes": null,
+      "id": "installer.rpm"
+    },
+    {
+      "bytes": 1112180096,
+      "id": "unpacked.app"
+    }
+  ],
+  "schemaVersion": 1
+}

@@ -25,7 +25,17 @@ interface SizeReport {
   schemaVersion: number;
 }
 
+interface SizeComparison {
+  comparedMetricCount: number;
+  regressions: Array<{
+    baselineBytes: number;
+    currentBytes: number;
+    id: string;
+  }>;
+}
+
 interface BuildSizeCliModule {
+  compareSizeReports: (report: SizeReport, baseline: SizeReport) => SizeComparison;
   collectSizeReport: (input: {
     arch: string;
     commit: string | null;
@@ -35,6 +45,7 @@ interface BuildSizeCliModule {
     toolVersions: Record<string, string | null>;
   }) => Promise<SizeReport>;
   formatSizeReportSummary: (report: SizeReport) => string;
+  validateSizeReport: (report: unknown) => asserts report is SizeReport;
 }
 
 const execFile = promisify(execFileCallback);
@@ -54,7 +65,12 @@ function isBuildSizeCliModule(value: unknown): value is BuildSizeCliModule {
   }
 
   const module = value as Record<string, unknown>;
-  return typeof module.collectSizeReport === 'function' && typeof module.formatSizeReportSummary === 'function';
+  return (
+    typeof module.collectSizeReport === 'function' &&
+    typeof module.compareSizeReports === 'function' &&
+    typeof module.formatSizeReportSummary === 'function' &&
+    typeof module.validateSizeReport === 'function'
+  );
 }
 
 async function writeFixturePackage(rootDir: string): Promise<void> {
@@ -96,6 +112,71 @@ async function writeFixturePackage(rootDir: string): Promise<void> {
 }
 
 describe('build size CLI', () => {
+  it('compares only matching measured metrics and flags dual-threshold regressions', async () => {
+    const importedModule: unknown = await import(pathToFileURL(scriptPath).href);
+    assert.ok(isBuildSizeCliModule(importedModule));
+    buildSizeCli = importedModule;
+    const baseline: SizeReport = {
+      metadata: {
+        appVersion: '1.4.0',
+        arch: 'x64',
+        commit: 'baseline',
+        platform: 'linux',
+        toolVersions: {},
+      },
+      metrics: [
+        { bytes: 100 * 1024 * 1024, id: 'app.asar' },
+        { bytes: 100 * 1024 * 1024, id: 'electron.locales' },
+        { bytes: null, id: 'installer.rpm' },
+        { bytes: 10, id: 'only.baseline' },
+      ],
+      schemaVersion: 1,
+    };
+    const report: SizeReport = {
+      metadata: {
+        appVersion: '1.4.0',
+        arch: 'x64',
+        commit: 'current',
+        platform: 'linux',
+        toolVersions: {},
+      },
+      metrics: [
+        { bytes: 100 * 1024 * 1024 + 2 * 1024 * 1024 + 1, id: 'app.asar' },
+        { bytes: 102 * 1024 * 1024, id: 'electron.locales' },
+        { bytes: 12, id: 'installer.rpm' },
+        { bytes: 10, id: 'only.report' },
+      ],
+      schemaVersion: 1,
+    };
+
+    assert.deepEqual(buildSizeCli.compareSizeReports(report, baseline), {
+      comparedMetricCount: 2,
+      regressions: [
+        {
+          baselineBytes: 100 * 1024 * 1024,
+          currentBytes: 100 * 1024 * 1024 + 2 * 1024 * 1024 + 1,
+          id: 'app.asar',
+        },
+      ],
+    });
+    assert.throws(
+      () =>
+        buildSizeCli.validateSizeReport({
+          ...baseline,
+          metrics: [{ bytes: -1, id: 'app.asar' }],
+        }),
+      /non-negative integer bytes/i,
+    );
+    assert.throws(
+      () =>
+        buildSizeCli.compareSizeReports(report, {
+          ...baseline,
+          metadata: { ...baseline.metadata, platform: 'win32' },
+        }),
+      /platform/i,
+    );
+  });
+
   it('collects a stable, relative-path-only report with explicit missing metrics', async () => {
     const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'gpt-voice-size-cli-'));
 
@@ -174,6 +255,46 @@ describe('build size CLI', () => {
       assert.equal(report.metadata.arch, 'x64');
       assert.equal(getMetric(report, 'installer.rpm'), null);
       assert.match(stdout, /Size report: linux\/x64/);
+      assert.equal(stdout.includes(temporaryDirectory), false);
+    } finally {
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('writes a no-regression summary through the verify command', async () => {
+    const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'gpt-voice-size-cli-'));
+
+    try {
+      const report: SizeReport = {
+        metadata: {
+          appVersion: '1.4.0',
+          arch: 'x64',
+          commit: 'current',
+          platform: 'linux',
+          toolVersions: {},
+        },
+        metrics: [{ bytes: 100 * 1024 * 1024, id: 'app.asar' }],
+        schemaVersion: 1,
+      };
+      const baseline: SizeReport = {
+        ...report,
+        metadata: { ...report.metadata, commit: 'baseline' },
+      };
+      const reportPath = path.join(temporaryDirectory, 'report.json');
+      const baselinePath = path.join(temporaryDirectory, 'baseline.json');
+      await writeFile(reportPath, JSON.stringify(report));
+      await writeFile(baselinePath, JSON.stringify(baseline));
+
+      const { stdout } = await execFile(
+        process.execPath,
+        [scriptPath, 'verify', `--report=${reportPath}`, `--baseline=${baselinePath}`],
+        {
+          cwd: temporaryDirectory,
+        },
+      );
+
+      assert.match(stdout, /Size verification: linux\/x64/);
+      assert.match(stdout, /No size regressions detected/);
       assert.equal(stdout.includes(temporaryDirectory), false);
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
