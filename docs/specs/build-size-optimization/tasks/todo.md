@@ -467,8 +467,8 @@ Specification: [`../spec.md`](../spec.md)
 
 ## External Gate: CloakBrowser Confirmation
 
-- [ ] Written upstream confirmation covers `.pak.info` and `chromedriver` for JavaScript Playwright distributions on Linux, Windows, and macOS.
-- [ ] Binary redistribution/download terms are documented and compatible with GPT-Voice releases.
+- [ ] Written upstream confirmation covers `.pak.info` and `chromedriver` for JavaScript Playwright distributions on Linux, Windows, and macOS. **Blocked:** the examined public JavaScript documentation contains no such statement; see [`docs/researches/cloakbrowser-pruning-gate-2026-07-11/main.md`](../../../researches/cloakbrowser-pruning-gate-2026-07-11/main.md).
+- [ ] Binary redistribution/download terms are documented and compatible with GPT-Voice releases. **Blocked:** the public Binary License prohibits redistribution and bundling without a separate license; see [`docs/researches/cloakbrowser-pruning-gate-2026-07-11/main.md`](../../../researches/cloakbrowser-pruning-gate-2026-07-11/main.md).
 - [ ] Human explicitly authorizes guarded implementation.
 
 ## Task 16: Define CloakBrowser Runtime Manifest Policy
