@@ -66,14 +66,14 @@ External upstream confirmation
 
 - [x] Task 1: Define size metric primitives.
 - [x] Task 2: Add build-size CLIs.
-- [ ] Task 3: Add a cold-start benchmark harness.
+- [x] Task 3: Add a cold-start benchmark harness.
 
 ### Checkpoint: Trusted Baseline
 
 - [ ] Pure metric and CLI tests pass.
 - [ ] A Linux report can be reproduced from the current package.
 - [ ] Missing Windows/macOS values are represented explicitly, not as zero.
-- [ ] Startup measurements run in an isolated temporary app profile.
+- [x] Startup measurements run in an isolated temporary app profile.
 - [ ] Human reviews report schema and regression semantics before package changes begin.
 
 ## Phase 2: Deterministic Packaging

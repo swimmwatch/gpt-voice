@@ -67,15 +67,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] The harness uses temporary app data and closes every Electron process after each run, including failure paths.
-- [ ] Output records platform, architecture, run count, individual durations, median, and tool versions in stable JSON.
-- [ ] Benchmark helpers validate run counts and median calculations with deterministic tests.
+- [x] The harness uses temporary app data and closes every Electron process after each run, including failure paths.
+- [x] Output records platform, architecture, run count, individual durations, median, and tool versions in stable JSON.
+- [x] Benchmark helpers validate run counts and median calculations with deterministic tests.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/startupBenchmark.test.ts`
-- [ ] Benchmark completes: `npm run measure:startup -- --runs=10 --output=release-artifacts/startup-linux-x64.json`
-- [ ] No GPT-Voice or CloakBrowser process remains after the command exits.
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/startupBenchmark.test.ts`
+- [x] Benchmark completes: `npm run measure:startup -- --runs=10 --output=release-artifacts/startup-linux-x64.json`
+- [x] No GPT-Voice or CloakBrowser process remains after the command exits.
 
 **Dependencies:** Task 2
 
