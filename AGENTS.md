@@ -8,7 +8,7 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Select at most one primary skill per task. Add one supporting skill only when it is essential to the requested outcome.
 - Read the full text of a selected skill only after selection. Do not read unrelated skills or their references.
 - Use an explicitly named skill. Otherwise, apply the narrow catalog descriptions; do not infer a full development lifecycle.
-- Do not select `using-agent-skills` at session start. Use it only when the user asks for skill-selection help or the compact catalog is unavailable.
+- Do not use a meta-skill at session start; use the compact runtime catalog only when selection help is necessary.
 - Do not activate personas for routine work. Use a persona only when the user explicitly requests that role or its report format; never combine it with its equivalent skill.
 - Do not add spec, planning, TDD, review, simplification, documentation, or shipping skills merely because code is changing. Use each only when explicitly requested or when its narrow trigger is indispensable.
 

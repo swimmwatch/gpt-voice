@@ -1,18 +1,37 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import * as path from 'node:path';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const AGENTS_PATH = path.join(PROJECT_ROOT, 'AGENTS.md');
 const SKILLS_DIRECTORY = path.join(PROJECT_ROOT, '.agents/skills');
-const USING_SKILLS_PATH = path.join(SKILLS_DIRECTORY, 'using-agent-skills/SKILL.md');
 const PLUGIN_PATH = path.join(PROJECT_ROOT, '.agents/plugin.json');
+const REMOVED_SKILLS = [
+  'api-and-interface-design',
+  'browser-testing-with-devtools',
+  'ci-cd-and-automation',
+  'debugging-and-error-recovery',
+  'deprecation-and-migration',
+  'frontend-ui-engineering',
+  'git-workflow-and-versioning',
+  'observability-and-instrumentation',
+  'shipping-and-launch',
+  'source-driven-development',
+  'test-driven-development',
+  'using-agent-skills',
+];
+const REMOVED_REFERENCES = ['observability-checklist.md', 'testing-patterns.md'];
 
-function skillDescriptions(): string[] {
+function skillNames(): string[] {
   return readdirSync(SKILLS_DIRECTORY, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => readFileSync(path.join(SKILLS_DIRECTORY, entry.name, 'SKILL.md'), 'utf8'))
+    .map((entry) => entry.name);
+}
+
+function skillDescriptions(): string[] {
+  return skillNames()
+    .map((skillName) => readFileSync(path.join(SKILLS_DIRECTORY, skillName, 'SKILL.md'), 'utf8'))
     .map((skill) => {
       const lines = skill.split('\n');
       const descriptionLine = lines.findIndex((line) => line.startsWith('description:'));
@@ -45,12 +64,20 @@ describe('agent context policy', () => {
     assert.doesNotMatch(router, /Common Rationalizations|Daily Commands|Typical skill sequence/u);
   });
 
-  it('keeps skill discovery on demand and every catalog trigger narrow', () => {
-    const usingSkills = readFileSync(USING_SKILLS_PATH, 'utf8');
-
-    assert.doesNotMatch(usingSkills, /Use when starting a session|Lifecycle Sequence/u);
-    assert.match(usingSkills, /Do not read any `SKILL\.md` while deciding/u);
+  it('keeps every remaining catalog trigger narrow', () => {
     assert.ok(skillDescriptions().every((description) => /^Use only /u.test(description)));
+  });
+
+  it('keeps the user-selected skills and their dedicated references removed', () => {
+    const availableSkillNames = skillNames();
+
+    for (const skillName of REMOVED_SKILLS) {
+      assert.equal(availableSkillNames.includes(skillName), false, `${skillName} must remain removed`);
+    }
+
+    for (const referenceName of REMOVED_REFERENCES) {
+      assert.equal(existsSync(path.join(PROJECT_ROOT, '.agents/references', referenceName)), false);
+    }
   });
 
   it('keeps personas explicit and does not advertise lifecycle activation', () => {

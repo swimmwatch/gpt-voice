@@ -5,18 +5,20 @@ Scope: project-local `.agents`, project/global `AGENTS.md`, and user Codex metad
 
 ## Findings
 
-| Surface              |                                                  Before | Result                                                                                                       |
-| -------------------- | ------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------ |
-| Project `AGENTS.md`  |                                230 lines / 14,047 bytes | Replaced with a 40-line / 3,013-byte router. Detailed project rules moved to an on-demand guide.             |
-| `using-agent-skills` |               191 lines and a startup/lifecycle trigger | Replaced with a 33-line manual selection helper. It no longer triggers at session start or chains workflows. |
-| Local skill bodies   | 26 skills / 7,051 lines before the meta-skill reduction | They remain available on demand. Their catalog descriptions now use explicit narrow triggers.                |
-| Persona definitions  |                                4 registered definitions | Retained for explicit persona/report requests; descriptions direct routine work to the equivalent skill.     |
+| Surface              |                                                  Before | Result                                                                                                         |
+| -------------------- | ------------------------------------------------------: | -------------------------------------------------------------------------------------------------------------- |
+| Project `AGENTS.md`  |                                230 lines / 14,047 bytes | Replaced with a 40-line / 3,013-byte router. Detailed project rules moved to an on-demand guide.               |
+| `using-agent-skills` |               191 lines and a startup/lifecycle trigger | Removed after routing was reduced to the runtime catalog.                                                      |
+| Local skill bodies   | 26 skills / 7,051 lines before the meta-skill reduction | 14 remain on demand after the user-selected removals; their catalog descriptions use explicit narrow triggers. |
+| Persona definitions  |                                4 registered definitions | Retained for explicit persona/report requests; descriptions direct routine work to the equivalent skill.       |
+
+After the user-selected removals, 14 local skills and five general references remain.
 
 ## Loading Model
 
 - Always-on project text is the global 10-line CodeGraph instruction plus the project router. The user-level `default.rules` file has 46 tool-approval rules; it is not a skill catalog and was not changed because it affects unrelated projects.
-- The runtime exposes a compact skill index (name, description, location). There is no evidence that the 26 local `SKILL.md` bodies are injected into every request.
-- Full skill text is now intended to load only after a selected skill. `using-agent-skills` is not a startup dependency.
+- The runtime exposes a compact skill index (name, description, location). There is no evidence that the 14 remaining local `SKILL.md` bodies are injected into every request.
+- Full skill text is intended to load only after a selected skill. No project-local meta-skill is a startup dependency.
 - The system-provided prompt and plugin catalogs are platform-controlled and outside this repository's configuration scope.
 
 ## Broad-Trigger Risks Removed
@@ -33,4 +35,4 @@ The router now allows one primary skill and at most one essential supporting ski
 
 ## Remaining Decision
 
-No skills were removed. Removal candidates require the user's choice because deletion changes manual availability. The compact router and regression test continue to permit removal without reintroducing broad activation.
+The user selected 12 skills for removal: `using-agent-skills`, `api-and-interface-design`, `browser-testing-with-devtools`, `ci-cd-and-automation`, `debugging-and-error-recovery`, `deprecation-and-migration`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `observability-and-instrumentation`, `shipping-and-launch`, `source-driven-development`, and `test-driven-development`. Their dedicated `observability-checklist.md` and `testing-patterns.md` references were removed with them. The policy test prevents accidental restoration.
