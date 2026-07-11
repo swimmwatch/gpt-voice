@@ -7,17 +7,12 @@ on:
         description: Optional release tag to use for generated app/package versions, for example v1.0.6.
         required: false
         type: string
-      baseline_ref:
-        description: v1.4.0 reference commit for a native Windows size-baseline rebuild.
-        required: false
-        default: 3845bad421f32650cb57a44f32345bfe0f46a127
-        type: string
   release:
     types:
       - published
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-builds-${{ github.workflow }}-${{ github.ref }}
@@ -116,11 +111,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-release-electron-cloak-
 
-      - name: Build Windows v1.4 reference when requested
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.baseline_ref != ''
+      - name: Build Windows v1.4 reference
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
-          BASELINE_REF: ${{ github.event.inputs.baseline_ref }}
+          # This reviewed commit defines the v1.4.0 baseline; do not accept it as a dispatch input.
+          BASELINE_REF: 3845bad421f32650cb57a44f32345bfe0f46a127
         run: |
           git worktree add --detach .size-baseline $env:BASELINE_REF
           Push-Location .size-baseline
@@ -137,7 +133,7 @@ jobs:
           Pop-Location
 
       - name: Upload Windows v1.4 reference size report
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.baseline_ref != ''
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: gpt-voice-win32-v1.4.0-baseline
@@ -203,6 +199,8 @@ jobs:
 
   publish:
     name: Publish GitHub Release
+    permissions:
+      contents: write
     needs:
       - build-linux
       - build-windows

@@ -22,9 +22,13 @@ test('Windows package jobs measure and retain current and reference size reports
   assert.match(releaseWorkflow, /Measure Windows package size/u);
   assert.match(releaseWorkflow, /Measure Windows cold startup/u);
   assert.match(releaseWorkflow, /Verify Windows size budget when a reviewed baseline exists/u);
-  assert.match(releaseWorkflow, /build-windows:[\s\S]*Build Windows v1\.4 reference when requested/u);
+  assert.doesNotMatch(releaseWorkflow, /^permissions:\n {2}contents: write$/mu);
+  assert.match(releaseWorkflow, /^permissions:\n {2}contents: read$/mu);
+  assert.match(releaseWorkflow, /publish:[\s\S]*permissions:\n {6}contents: write/u);
+  assert.match(releaseWorkflow, /build-windows:[\s\S]*Build Windows v1\.4 reference/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*fetch-depth: 0/u);
-  assert.match(releaseWorkflow, /3845bad421f32650cb57a44f32345bfe0f46a127/u);
+  assert.doesNotMatch(releaseWorkflow, /baseline_ref/u);
+  assert.match(releaseWorkflow, /BASELINE_REF: 3845bad421f32650cb57a44f32345bfe0f46a127/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*git worktree add --detach \.size-baseline/u);
   assert.match(releaseWorkflow, /size-win32-x64\.json/u);
   assert.match(releaseWorkflow, /Upload Windows v1\.4 reference size report/u);

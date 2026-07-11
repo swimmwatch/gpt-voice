@@ -367,7 +367,7 @@ Specification: [`../spec.md`](../spec.md)
 
 ## Task 13: Integrate Windows Size Reporting
 
-**Status:** Current-report collection is wired. The reviewed baseline remains pending a native Windows workflow dispatch with reference commit `3845bad421f32650cb57a44f32345bfe0f46a127`; size-budget enforcement activates after that report is reviewed and committed.
+**Status:** Current-report collection is wired. A workflow dispatch rebuilds the fixed reviewed reference commit `3845bad421f32650cb57a44f32345bfe0f46a127`; the baseline remains pending native evidence, independent review, and commit before size-budget enforcement activates.
 
 **Description:** Rebuild the v1.4.0 reference and add Windows x64 unpacked/NSIS measurements to package smoke and release jobs. Preserve generated reports during artifact collection and enforce independent Windows budgets.
 
