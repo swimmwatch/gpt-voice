@@ -158,15 +158,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Packaged production dependencies contain only approved external runtime roots and required transitive packages.
-- [ ] React/UI and bundled main/preload libraries remain build inputs, receive Dependabot updates, and are covered by `audit:all`.
-- [ ] Packaged ChatGPT Web, OpenAI API, translation, Ollama/vLLM, renderer logging, and startup flows resolve without missing modules.
+- [x] Packaged production dependencies contain only approved external runtime roots and required transitive packages.
+- [x] React/UI and bundled main/preload libraries remain build inputs, receive Dependabot updates, and are covered by `audit:all`.
+- [x] Packaged ChatGPT Web, OpenAI API, translation, Ollama/vLLM, renderer logging, and startup flows resolve without missing modules.
 
 **Verification:**
 
-- [ ] Dependency installation and audits pass: `npm ci && npm run audit:prod && npm run audit:all`
-- [ ] Package checks pass: `npm run pack && npm run verify:packaged`
-- [ ] `app.asar` measurement is at or below 25 MiB.
+- [x] Dependency installation and audits pass: `npm ci && npm run audit:prod && npm run audit:all`
+- [x] Package checks pass: `npm run pack && npm run verify:packaged`
+- [x] `app.asar` measurement is at or below 25 MiB.
 
 **Dependencies:** Task 5
 

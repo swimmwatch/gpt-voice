@@ -87,7 +87,7 @@ External upstream confirmation
 - [ ] Production ASAR contains no source maps, stale assets, tests, declarations, or unexpected top-level modules.
 - [ ] Human reviews the packaged inventory rules before dependency ownership changes.
 
-- [ ] Task 6: Reclassify bundled dependencies.
+- [x] Task 6: Reclassify bundled dependencies.
 - [ ] Task 7: Filter runtime assets and Electron locales.
 
 ### Checkpoint: Lean Packaged Runtime
