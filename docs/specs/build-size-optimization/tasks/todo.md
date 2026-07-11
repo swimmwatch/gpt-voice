@@ -394,6 +394,8 @@ Specification: [`../spec.md`](../spec.md)
 
 ## Task 14: Establish macOS Measurements
 
+**Status:** Deferred by scope-owner direction on 2026-07-11. It is not a current safe-scope completion item; existing macOS runtime and packaging support remain unchanged.
+
 **Description:** Add native macOS x64 and arm64 measurement jobs that build separate v1.4.0 reference and optimized DMGs, verify packaged runtime contents, and establish platform baselines without publishing unsigned artifacts.
 
 **Acceptance criteria:**
@@ -419,10 +421,10 @@ Specification: [`../spec.md`](../spec.md)
 
 **Estimated scope:** Medium (4 files)
 
-## Checkpoint 4A: Platform Measurements
+## Checkpoint 4A: Current-Scope Platform Measurements
 
-- [ ] Tasks 12-14 meet their acceptance criteria.
-- [ ] Linux, Windows, macOS x64, and macOS arm64 reports are complete and independently reviewed.
+- [ ] Tasks 12-13 meet their acceptance criteria.
+- [ ] Linux and Windows reports are complete and independently reviewed; macOS measurement is explicitly deferred with no macOS size claim.
 - [ ] No missing metric is represented as zero.
 - [ ] Human approves the platform evidence before the safe-scope audit.
 
@@ -439,10 +441,10 @@ Specification: [`../spec.md`](../spec.md)
 **Verification:**
 
 - [ ] Full CI-equivalent quality, audit, browser, build, package, and installer commands pass.
-- [ ] All supported platform reports pass `verify:size` independently.
+- [ ] Linux and Windows reports pass `verify:size` independently; macOS measurement is deferred.
 - [ ] Human reviews the safe-scope report before Phase 5 is considered.
 
-**Dependencies:** Tasks 12-14
+**Dependencies:** Tasks 12-13
 
 **Files likely touched:**
 

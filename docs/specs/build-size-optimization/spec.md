@@ -13,6 +13,7 @@ Research source: [`docs/researches/optimization-build-07-11.26/main.md`](../../r
 4. Linux, Windows, and macOS remain supported packaging targets even though the current release workflow publishes only Linux x64 and Windows x64.
 5. Size improvements must preserve existing features, security boundaries, browser sessions, signing, installer behavior, and startup appearance.
 6. The research measurements are the initial baseline. A new reproducible measurement may correct them only when the environment and reason for the difference are recorded.
+7. By scope-owner direction on 2026-07-11, macOS x64 and arm64 measurement and baseline work are deferred. This does not remove macOS runtime or packaging support, and no macOS size claim may be made from this work.
 
 ## Objective
 
@@ -244,6 +245,7 @@ Platform installers must be built and verified on their native supported CI oper
 ```bash
 npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json
 npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+# Deferred from the current scope; retained for the future native macOS measurement task.
 npm run measure:size -- --platform=darwin --arch=x64 --output=release-artifacts/size-darwin-x64.json
 npm run measure:size -- --platform=darwin --arch=arm64 --output=release-artifacts/size-darwin-arm64.json
 npm run verify:size -- --report=release-artifacts/size-linux-x64.json --baseline=build/size-baselines/v1.4.0-linux-x64.json
@@ -396,7 +398,7 @@ When FR10 is enabled, test headed and headless browser modes, persistent profile
 8. Median cold startup does not regress by more than 5% on any supported platform.
 9. Every produced installer is smaller than its recorded same-platform baseline or has an explicitly approved documented exception.
 10. All current product workflows, authentication persistence, privacy guarantees, and Electron security controls remain intact.
-11. macOS has a native build measurement before any macOS size claim is considered complete.
+11. macOS size claims remain deferred until separate native x64 and arm64 measurements are completed; this work makes no such claim.
 12. CloakBrowser runtime size does not grow. If guarded pruning is approved, the Linux target is approximately 567 MiB and actual installer savings are recorded separately.
 13. All commands in the quality, browser-runtime, packaging, and verification sections pass on their applicable platform jobs.
 
@@ -404,5 +406,5 @@ When FR10 is enabled, test headed and headless browser modes, persistent profile
 
 1. Keep the `app.asar <= 25 MiB`, renderer `>= 15%` reduction, and startup `<= 5%` regression budgets.
 2. Keep guarded CloakBrowser metadata pruning in this specification as a final gated phase after written upstream confirmation.
-3. Plan macOS measurement and packaging as separate x64 and arm64 artifacts rather than a universal DMG.
+3. Defer macOS x64 and arm64 measurement/baseline work by scope-owner direction on 2026-07-11; retain the future separate-artifact approach rather than a universal DMG.
 4. Complete and measure all safe P0/P1 work before evaluating an on-demand CloakBrowser runtime in a separate specification.

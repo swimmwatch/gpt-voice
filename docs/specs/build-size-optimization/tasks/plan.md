@@ -18,7 +18,7 @@ Implement build-size optimization as a sequence of independently measurable chan
 - Use four thin renderer entry modules backed by one shared bootstrap function; assign exact chunks to each HTML page.
 - Use `mini-css-extract-plugin` and `css-minimizer-webpack-plugin` only in production; retain the inline startup shell and development `style-loader`.
 - Keep electron-builder `compression: normal`; size gains must come from removing bytes, not slower compression.
-- Measure macOS x64 and arm64 separately. Measurement jobs may build unsigned artifacts, but publication remains subject to existing signing/notarization policy.
+- Defer macOS x64 and arm64 measurement/baseline work from the current safe scope. Existing macOS packaging, signing, and notarization policies remain unchanged; any future measurements must use separate unsigned artifacts.
 - Do not prune CloakBrowser files until written upstream confirmation is recorded. Never prune actual locale `.pak` files.
 
 ## Dependency Graph
@@ -48,10 +48,12 @@ Task 1: metric primitives
 Tasks 7 + 11
     |
     +--> Task 12: Linux measurement integration
+    |
     +--> Task 13: Windows measurement integration
-    +--> Task 14: macOS x64/arm64 measurement
-             |
-             +--> Task 15: safe-scope audit and documentation
+    |
+    +--> Task 15: safe-scope audit and documentation (after Tasks 12 and 13)
+
+Task 14: macOS x64/arm64 measurement (deferred by scope-owner direction on 2026-07-11)
 
 External upstream confirmation
     |
@@ -121,13 +123,13 @@ External upstream confirmation
 
 - [ ] Task 12: Integrate Linux size reporting.
 - [ ] Task 13: Integrate Windows size reporting.
-- [ ] Task 14: Establish macOS x64/arm64 measurement.
+- [ ] Task 14: Establish macOS x64/arm64 measurement (deferred; not a current safe-scope acceptance item).
 
 ### Checkpoint: Platform Measurements
 
 - [ ] Linux AppImage, Debian, and RPM reports are captured and independently budgeted.
 - [ ] Windows x64 unpacked and NSIS reports are captured and independently budgeted.
-- [ ] macOS x64 and arm64 app/DMG reports are captured separately.
+- [ ] macOS x64 and arm64 app/DMG reports are explicitly deferred; no macOS size claim is made.
 - [ ] Human reviews platform baselines before the safe-scope audit.
 
 - [ ] Task 15: Complete the safe-scope audit.
@@ -186,31 +188,31 @@ npm run verify:packaged
 npm run verify:installers
 ```
 
-Linux release verification uses the Fedora build path. Windows and macOS verification runs on native CI hosts.
+Linux release verification uses the Fedora build path. Windows verification runs on native CI hosts. macOS native measurement remains deferred without changing its existing packaging support.
 
 ## Parallelization
 
 - Upstream CloakBrowser confirmation research may proceed while safe phases are implemented, but Tasks 16-18 remain blocked until the gate is approved.
 - After Task 2, startup benchmark work and deterministic clean work are logically independent, but both touch `package.json`; parallel branches require explicit ownership and lockfile coordination.
-- Linux, Windows, and macOS measurement execution can run in parallel after Task 11. Workflow edits and shared collection scripts must be assigned to one owner or integrated sequentially.
+- Linux and Windows measurement execution can run in parallel after Task 11. macOS measurement is deferred; future workflow edits and shared collection scripts must be assigned to one owner or integrated sequentially.
 - Renderer ESM and packaging policy work are conceptually independent after measurement exists, but both affect production baselines; merge and rebaseline one change at a time.
 - Tasks sharing `webpack.config.js`, `package.json`, `package-lock.json`, or release workflows should not be implemented concurrently without a pre-agreed merge order.
 
 ## Risks and Mitigations
 
-| Risk                                                                    | Impact | Mitigation                                                                                                            |
-| ----------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| Size reports differ by filesystem or archive metadata                   | High   | Use integer byte counts, stable sorting, explicit platform metadata, and tolerance only for documented nondeterminism |
-| Full-lockfile audit exposes existing development findings               | Medium | Triage explicitly; do not suppress high-severity shipped-code findings or weaken the audit threshold                  |
-| Dependency reclassification removes a dynamic runtime import            | High   | Maintain positive runtime roots, inspect ASAR, and smoke every provider/browser flow from packaged output             |
-| Electron locale filtering breaks Belarusian fallback or native surfaces | Medium | Test all four app locales and retain English fallback packs on each OS                                                |
-| ESM changes main/preload behavior accidentally                          | High   | Use a renderer-only tsconfig and assert main/preload CommonJS output remains unchanged                                |
-| Split chunks fail through `app://`                                      | High   | Test nested hashed assets, MIME types, CSP, and each HTML entry from Electron before continuing                       |
-| Extracted CSS restores white flashes or layout shifts                   | High   | Keep inline startup styling and run screenshot/startup checks at every window size                                    |
-| Startup benchmark is noisy                                              | Medium | Use isolated profiles, ten cold runs, median statistics, and the same host class for comparisons                      |
-| macOS measurement lacks signing credentials                             | Medium | Measure unsigned CI artifacts separately; do not publish or weaken signing policy                                     |
-| CloakBrowser upstream layout changes                                    | High   | Version the expected manifest and fail closed before copying/pruning files                                            |
-| Installer compression hides raw savings                                 | Medium | Report raw runtime, ASAR, unpacked app, and final artifacts independently                                             |
+| Risk                                                                    | Impact | Mitigation                                                                                                               |
+| ----------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Size reports differ by filesystem or archive metadata                   | High   | Use integer byte counts, stable sorting, explicit platform metadata, and tolerance only for documented nondeterminism    |
+| Full-lockfile audit exposes existing development findings               | Medium | Triage explicitly; do not suppress high-severity shipped-code findings or weaken the audit threshold                     |
+| Dependency reclassification removes a dynamic runtime import            | High   | Maintain positive runtime roots, inspect ASAR, and smoke every provider/browser flow from packaged output                |
+| Electron locale filtering breaks Belarusian fallback or native surfaces | Medium | Test all four app locales and retain English fallback packs on each OS                                                   |
+| ESM changes main/preload behavior accidentally                          | High   | Use a renderer-only tsconfig and assert main/preload CommonJS output remains unchanged                                   |
+| Split chunks fail through `app://`                                      | High   | Test nested hashed assets, MIME types, CSP, and each HTML entry from Electron before continuing                          |
+| Extracted CSS restores white flashes or layout shifts                   | High   | Keep inline startup styling and run screenshot/startup checks at every window size                                       |
+| Startup benchmark is noisy                                              | Medium | Use isolated profiles, ten cold runs, median statistics, and the same host class for comparisons                         |
+| Deferred macOS measurement lacks signing credentials                    | Medium | Keep macOS size claims deferred; future work must measure unsigned CI artifacts separately and not weaken signing policy |
+| CloakBrowser upstream layout changes                                    | High   | Version the expected manifest and fail closed before copying/pruning files                                               |
+| Installer compression hides raw savings                                 | Medium | Report raw runtime, ASAR, unpacked app, and final artifacts independently                                                |
 
 ## Rollback Strategy
 
