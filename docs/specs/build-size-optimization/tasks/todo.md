@@ -308,15 +308,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Production HTML loads minified CSS assets; development continues to use `style-loader`.
-- [ ] Inline startup background/loader remains visible until existing readiness signals complete, with reduced-motion behavior unchanged.
-- [ ] Main-window initial JavaScript, including required initial shared chunks, is at or below 564,421 bytes and no window loses styles.
+- [x] Production HTML loads minified CSS assets; development continues to use `style-loader`.
+- [x] Inline startup background/loader remains visible until existing readiness signals complete, with reduced-motion behavior unchanged.
+- [x] Main-window initial JavaScript, including required initial shared chunks, is at or below 564,421 bytes and no window loses styles.
 
 **Verification:**
 
-- [ ] Dependency and focused tests pass: `npm ci && node --import tsx --test tests/scripts/rendererBundle.test.ts tests/main/windowAppearance.test.ts tests/renderer/windowStartupState.test.ts`
-- [ ] Production build/size pass: `npm run build:prod && npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json`
-- [ ] Ten-run startup benchmark remains within 5% and all four windows show no white flash or layout shift.
+- [x] Dependency and focused tests pass: `npm ci && node --import tsx --test tests/scripts/rendererBundle.test.ts tests/main/windowAppearance.test.ts tests/renderer/windowStartupState.test.ts`
+- [x] Production build/size pass: `npm run build:prod && npm run measure:size -- --platform=linux --arch=x64 --output=release-artifacts/size-linux-x64.json`
+- [x] Ten-run startup benchmark remains within 5% and all four windows show no white flash or layout shift.
 
 **Dependencies:** Task 10
 

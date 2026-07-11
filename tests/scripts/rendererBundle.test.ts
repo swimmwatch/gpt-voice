@@ -9,11 +9,27 @@ import webpack, { type Configuration } from 'webpack';
 const rootDirectory = path.resolve(__dirname, '..', '..');
 const require = createRequire(__filename);
 
+interface RendererRule {
+  test: RegExp;
+  use: string[];
+}
+
+interface RendererPlugin {
+  constructor: { name: string };
+  options?: { chunkFilename?: string; filename?: string };
+  userOptions?: { chunks?: string[]; filename?: string };
+}
+
 interface RendererConfig {
   entry: Record<string, string>;
-  optimization: { runtimeChunk: string; splitChunks: { chunks: string } };
+  module: { rules: RendererRule[] };
+  optimization: {
+    minimizer?: Array<string | { constructor: { name: string } }>;
+    runtimeChunk: string;
+    splitChunks: { chunks: string };
+  };
   output: { assetModuleFilename: string; chunkFilename: string; filename: string; path: string };
-  plugins: Array<{ userOptions?: { chunks?: string[]; filename?: string } }>;
+  plugins: RendererPlugin[];
 }
 
 function loadRendererConfig(nodeEnvironment: 'development' | 'production'): RendererConfig {
@@ -74,6 +90,13 @@ function emitRendererBundle(config: RendererConfig, outputPath: string): Promise
   });
 }
 
+function getStyleRule(rendererConfig: RendererConfig, extension: 'css' | 'scss'): RendererRule {
+  const rule = rendererConfig.module.rules.find((candidate) => candidate.test.test(`styles.${extension}`));
+
+  assert.ok(rule, `Expected a ${extension} loader rule.`);
+  return rule;
+}
+
 test('assigns a dedicated renderer entry to every application window', () => {
   const rendererConfig = loadRendererConfig('development');
 
@@ -117,6 +140,13 @@ test('emits renderer bundles under a separate nested path from Electron main', a
       const html = await readFile(path.join(outputPath, htmlFile), 'utf8');
 
       assert.ok(html.includes(`src="renderer/${entry}.js"`));
+      const cssHrefs = [...html.matchAll(/<link[^>]+href="(renderer\/[^"]+\.css)"/gu)].map((match) => match[1] ?? '');
+      assert.equal(cssHrefs.length, 1);
+      for (const cssHref of cssHrefs) {
+        const css = await readFile(path.join(outputPath, cssHref), 'utf8');
+
+        assert.doesNotMatch(css, /\n/u);
+      }
       for (const [, otherEntry] of windows) {
         if (otherEntry !== entry) {
           assert.ok(!html.includes(`src="renderer/${otherEntry}.js"`));
@@ -126,4 +156,28 @@ test('emits renderer bundles under a separate nested path from Electron main', a
   } finally {
     await rm(outputPath, { force: true, recursive: true });
   }
+});
+
+test('extracts and minifies production CSS without changing development style injection', () => {
+  const developmentConfig = loadRendererConfig('development');
+  const productionConfig = loadRendererConfig('production');
+
+  assert.equal(getStyleRule(developmentConfig, 'css').use[0], 'style-loader');
+  assert.equal(getStyleRule(developmentConfig, 'scss').use[0], 'style-loader');
+  assert.match(getStyleRule(productionConfig, 'css').use[0], /mini-css-extract-plugin/u);
+  assert.match(getStyleRule(productionConfig, 'scss').use[0], /mini-css-extract-plugin/u);
+
+  const cssExtractionPlugin = productionConfig.plugins.find(
+    (plugin) => plugin.constructor.name === 'MiniCssExtractPlugin',
+  );
+  assert.ok(cssExtractionPlugin);
+  assert.equal(cssExtractionPlugin.options?.filename, 'renderer/[name].[contenthash].css');
+  assert.equal(cssExtractionPlugin.options?.chunkFilename, 'renderer/[id].[contenthash].css');
+
+  assert.ok(productionConfig.optimization.minimizer?.includes('...'));
+  assert.ok(
+    productionConfig.optimization.minimizer?.some(
+      (minimizer) => typeof minimizer !== 'string' && minimizer.constructor.name === 'CssMinimizerPlugin',
+    ),
+  );
 });

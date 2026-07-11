@@ -1,8 +1,11 @@
 const path = require('path');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 const isProd = process.env.NODE_ENV === 'production';
 const mode = isProd ? 'production' : 'development';
+const styleLoader = isProd ? MiniCssExtractPlugin.loader : 'style-loader';
 const aliases = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
@@ -92,11 +95,11 @@ module.exports = [
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader'],
+          use: [styleLoader, 'css-loader', 'postcss-loader'],
         },
         {
           test: /\.scss$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader', 'sass-loader'],
+          use: [styleLoader, 'css-loader', 'postcss-loader', 'sass-loader'],
         },
         {
           test: /\.(png|svg)$/,
@@ -115,12 +118,25 @@ module.exports = [
       assetModuleFilename: 'renderer/assets/[name].[contenthash][ext]',
     },
     optimization: {
+      ...(isProd
+        ? {
+            minimizer: ['...', new CssMinimizerPlugin()],
+          }
+        : {}),
       runtimeChunk: 'single',
       splitChunks: {
         chunks: 'all',
       },
     },
     plugins: [
+      ...(isProd
+        ? [
+            new MiniCssExtractPlugin({
+              filename: 'renderer/[name].[contenthash].css',
+              chunkFilename: 'renderer/[id].[contenthash].css',
+            }),
+          ]
+        : []),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'index.html',
