@@ -1,4 +1,4 @@
-import { Save, X } from 'lucide-react';
+import { Save } from 'lucide-react';
 import type { JSX } from 'react';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { Badge } from '@renderer/components/ui/badge';
@@ -11,21 +11,12 @@ interface SettingsFooterProps {
   error: string;
   isDirty: boolean;
   isSaving: boolean;
-  onClose: () => void;
   onSave: () => void;
   saveDisabled: boolean;
   t: TranslationFunction;
 }
 
-function SettingsFooter({
-  error,
-  isDirty,
-  isSaving,
-  onClose,
-  onSave,
-  saveDisabled,
-  t,
-}: SettingsFooterProps): JSX.Element {
+function SettingsFooter({ error, isDirty, isSaving, onSave, saveDisabled, t }: SettingsFooterProps): JSX.Element {
   return (
     <footer className="grid shrink-0 gap-3" data-slot="settings-footer">
       {error && (
@@ -37,10 +28,6 @@ function SettingsFooter({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-h-5">{isDirty && <Badge variant="warning">{t('common.unsavedChanges')}</Badge>}</div>
         <div className="flex flex-wrap justify-end gap-2">
-          <Button disabled={isSaving} onClick={onClose} variant="outline">
-            <X aria-hidden="true" />
-            {t('common.close')}
-          </Button>
           <Button disabled={saveDisabled} onClick={onSave} variant="primary">
             {isSaving ? <Spinner label={t('appSettings.saving')} size="sm" /> : <Save aria-hidden="true" />}
             {isSaving ? t('appSettings.saving') : t('common.saveChanges')}

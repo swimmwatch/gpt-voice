@@ -1,4 +1,4 @@
-import { Box, CircleCheck, CircleHelp, Cpu, Gauge, LoaderCircle } from 'lucide-react';
+import { BrainCircuit, CircleCheck, CircleHelp, Cpu, Gauge, LoaderCircle } from 'lucide-react';
 import { formatByteSize } from '@renderer/byteFormatting';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { Button } from '@renderer/components/ui/button';
@@ -31,7 +31,7 @@ function PrettifyModelMemoryRow({
       data-slot="prettify-model-memory"
     >
       <div className="command-dock-model-layout">
-        <Box aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
+        <BrainCircuit aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
 
         <div className="command-dock-model-summary">
           <span className="command-dock-model-label">{t('modelMemory.ollamaGpu')}</span>

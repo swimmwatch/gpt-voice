@@ -607,6 +607,7 @@ Implementation plan: `docs/specs/ui-redesign/tasks/plan.md`
 - [x] Verified default and minimum window layouts, focus restoration, keyboard navigation, reduced-motion behavior, contrast, and English, Russian, Ukrainian, and Belarusian clipping behavior.
 - [x] Ran `npm run pack` and `npm run verify:packaged` on Linux. The Windows/macOS package commands, CI packaging jobs, native-title-bar setup, and Electron security configuration were reviewed as unchanged; their native package execution remains covered by those platform jobs.
 - [x] Verified Linux startup synchronizes all shipped app-icon sizes into the user `hicolor` theme and refreshes the local icon cache so development and installed desktop entries show the current logo.
+- [x] Simplified the App Settings footer to its save action and clarified Command Dock voice-provider and local-model iconography.
 
 **Dependencies:** Task 21
 

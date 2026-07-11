@@ -725,7 +725,6 @@ const AppSettingsWindow: React.FC = () => {
                 error={error}
                 isDirty={isDirty}
                 isSaving={isSaving}
-                onClose={requestCloseWindow}
                 onSave={() => void saveSettings()}
                 saveDisabled={saveDisabled}
                 t={t}

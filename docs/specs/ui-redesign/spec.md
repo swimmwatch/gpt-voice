@@ -69,8 +69,8 @@ The supplied 1312x1199 generated image maps to the 460x420 renderer target with 
 The main window remains a compact 460x420 desktop workspace with this fixed information hierarchy:
 
 1. A compact identity row with direct History and App Settings icon actions.
-2. A provider row with a concise semantic connection state, not a large status action.
-3. A structured model-memory row showing model name, VRAM estimate, loaded state, and the one applicable model-memory command.
+2. A provider row with a microphone icon and concise semantic connection state, not a large status action.
+3. A structured model-memory row with a BrainCircuit icon, showing model name, VRAM estimate, loaded state, and the one applicable model-memory command.
 4. A full-width primary recording command with the microphone icon and `F9` shortcut hint.
 5. A stable operation-state row that can represent idle, recording, processing, or Prettify work without layout shift.
 6. A bottom target-language selector.
@@ -546,7 +546,7 @@ The specification is implemented successfully when all of the following are true
 2. The main window provides visible Record/Stop/Pause/Resume/Cancel controls that invoke the existing recording lifecycle.
 3. History and App Settings are directly reachable from the main window and still available from the tray.
 4. Provider connectivity and model-memory state are compact, unambiguous, and not presented as oversized actions.
-5. App Settings has four navigable sections and a sticky save footer with dirty, validation, saving, success, and error states.
+5. App Settings has four navigable sections and a sticky save footer with dirty, validation, saving, success, and error states; native window controls provide closing.
 6. History displays entries immediately when data exists, loads subsequent limit/offset pages on scroll, and exposes copy affordance without hover-only discovery.
 7. Provider and destructive actions use correct modal, confirmation, loading, and error behavior.
 8. No screen has horizontal scrolling, clipped text, overlapping controls, or layout shifts at the current minimum and default window sizes.

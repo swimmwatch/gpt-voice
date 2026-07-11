@@ -1,4 +1,4 @@
-import { AudioLines, Circle, CircleHelp, Globe, History, LogIn, Settings, Wrench } from 'lucide-react';
+import { AudioLines, Circle, CircleHelp, History, LogIn, Mic, Settings, Wrench } from 'lucide-react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { Button } from '@renderer/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
@@ -97,7 +97,7 @@ function MainToolbar({
       </div>
 
       <div className="command-dock-provider-band">
-        <Globe aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
+        <Mic aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
         <div className="command-dock-provider-field">
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
           <Select onValueChange={onProviderChange} value={activeProviderId}>
