@@ -147,6 +147,26 @@ Likely files:
 - `.github/PULL_REQUEST_TEMPLATE.md` and issue templates when PR or triage expectations change.
 - Workflow files under `.github/workflows/` when CI or release automation changes.
 
+## Research Artifacts
+
+Store scoped engineering research in a dedicated directory:
+
+```text
+docs/researches/<research-slug>/
+  main.md
+```
+
+- Use a unique lowercase slug that describes the subject. Add a date suffix only when it helps distinguish a time-sensitive study or the user requests one.
+- Treat `main.md` as the required source of truth. Do not create loose research files directly under `docs/researches/`.
+- Record the research date, repository commit, relevant dependency/tool versions, scope, and status at the top of the document.
+- Measure the current repository before recommending changes. Preserve the commands, environment, and important limitations needed to reproduce the baseline.
+- Label evidence clearly as measured, derived, estimated, or externally sourced. Do not present estimates as benchmark results.
+- Prefer primary official documentation and upstream repositories. Link sources near the claims they support and record when version-sensitive documentation was checked.
+- Include an executive summary, baseline, findings, alternatives and tradeoffs, prioritized recommendations, validation plan, and open questions or limitations.
+- Evaluate supported platforms separately for Electron runtime, browser runtime, installers, signing, and release behavior. Do not generalize a single-platform result without an explicit caveat.
+- Never store generated installers, caches, browser profiles, credentials, sessions, logs containing private data, transcripts, or other sensitive evidence in `docs/researches/`.
+- Research documents inform decisions but do not authorize implementation. Once implementation is approved, create or update the corresponding scoped artifact under `docs/specs/`.
+
 ## Specification And Planning Artifacts
 
 Organize every global task in its own scoped specification directory:
