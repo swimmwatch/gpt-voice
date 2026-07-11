@@ -31,7 +31,11 @@ const requiredPaths = [
   'dist/index.html',
   'dist/main.js',
   'dist/preload.js',
-  'dist/renderer.js',
+  'dist/renderer/about.js',
+  'dist/renderer/history.js',
+  'dist/renderer/main.js',
+  'dist/renderer/runtime.js',
+  'dist/renderer/settings.js',
   'dist/settings.html',
   'package.json',
 ];
@@ -48,7 +52,11 @@ describe('packaged runtime policy', () => {
         'dist\\index.html',
         'dist\\main.js',
         'dist\\preload.js',
-        'dist\\renderer.js',
+        'dist\\renderer/about.js',
+        'dist\\renderer/history.js',
+        'dist\\renderer/main.js',
+        'dist\\renderer/runtime.js',
+        'dist\\renderer/settings.js',
         'dist\\settings.html',
         'package.json',
         'node_modules/cloakbrowser/dist/index.js',
@@ -64,6 +72,7 @@ describe('packaged runtime policy', () => {
 
     const violations = importedModule.getPackagedRuntimeViolations([
       ...requiredPaths.filter((filePath) => filePath !== 'dist/preload.js'),
+      'dist/renderer.js',
       'dist/renderer.old.js',
       'node_modules/cloakbrowser/dist/index.js.map',
       'node_modules/playwright-core/tests/example.test.js',
@@ -74,6 +83,7 @@ describe('packaged runtime policy', () => {
       'forbidden diagnostic or test path: node_modules/cloakbrowser/dist/index.js.map',
       'forbidden diagnostic or test path: node_modules/playwright-core/tests/example.test.js',
       'missing required path: dist/preload.js',
+      'stale renderer asset: dist/renderer.js',
       'stale renderer asset: dist/renderer.old.js',
       'unexpected runtime module: unapproved-package',
     ]);

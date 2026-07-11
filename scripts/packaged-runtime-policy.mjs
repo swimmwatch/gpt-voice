@@ -4,7 +4,11 @@ const REQUIRED_PATHS = [
   'dist/index.html',
   'dist/main.js',
   'dist/preload.js',
-  'dist/renderer.js',
+  'dist/renderer/about.js',
+  'dist/renderer/history.js',
+  'dist/renderer/main.js',
+  'dist/renderer/runtime.js',
+  'dist/renderer/settings.js',
   'dist/settings.html',
   'package.json',
 ];
@@ -125,9 +129,7 @@ function getRuntimeModuleName(filePath) {
 }
 
 function isStaleRendererAsset(filePath) {
-  return (
-    filePath.startsWith('dist/renderer.') && !['dist/renderer.js', 'dist/renderer.js.LICENSE.txt'].includes(filePath)
-  );
+  return filePath.startsWith('dist/renderer.');
 }
 
 function isDiagnosticOrTestPath(filePath) {
