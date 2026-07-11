@@ -27,11 +27,12 @@ describe('appProtocol', () => {
     );
   });
 
-  it('recognizes nested renderer JavaScript chunks', () => {
+  it('recognizes nested renderer JavaScript and CSS chunks', () => {
     assert.equal(
-      getAppProtocolFilePath('assets/main.123456.js', '/app/dist', '/app/resources/assets/icon.png'),
-      '/app/dist/assets/main.123456.js',
+      getAppProtocolFilePath('renderer/main.123456.js', '/app/dist', '/app/resources/assets/icon.png'),
+      '/app/dist/renderer/main.123456.js',
     );
-    assert.equal(getAppProtocolContentType('/app/dist/assets/main.123456.js'), 'text/javascript; charset=utf-8');
+    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.js'), 'text/javascript; charset=utf-8');
+    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.css'), 'text/css; charset=utf-8');
   });
 });

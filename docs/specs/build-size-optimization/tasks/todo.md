@@ -282,7 +282,7 @@ Specification: [`../spec.md`](../spec.md)
 
 - [x] Focused tests pass: `node --import tsx --test tests/scripts/rendererBundle.test.ts tests/main/appProtocol.test.ts`
 - [x] Production build passes: `npm run build:prod`
-- [ ] Manual Electron check opens all four windows without blank/error states.
+- [x] Manual Electron check opens all four windows without blank/error states.
 
 **Dependencies:** Task 9
 

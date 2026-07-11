@@ -110,8 +110,9 @@ module.exports = [
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: '[name].js',
-      assetModuleFilename: 'assets/[name].[contenthash][ext]',
+      filename: 'renderer/[name].js',
+      chunkFilename: 'renderer/[id].js',
+      assetModuleFilename: 'renderer/assets/[name].[contenthash][ext]',
     },
     optimization: {
       runtimeChunk: 'single',
