@@ -236,6 +236,28 @@ describe('prettifyProviders', () => {
     assert.equal(JSON.parse(String(calls[1]?.init?.body)).keep_alive, 0);
   });
 
+  it('unloads the saved Ollama model after the in-memory load state is lost', async () => {
+    const calls: FetchCall[] = [];
+
+    await unloadLoadedOllamaPrettifyModel(
+      {
+        fetch: async (url, init) => {
+          calls.push({ url, init });
+          return response(200, { message: { content: '' } });
+        },
+      },
+      { providerId: 'ollama', ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' } },
+    );
+
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
+    assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+      model: 'llama3.2',
+      messages: [],
+      keep_alive: 0,
+      stream: false,
+    });
+  });
+
   it('lists vLLM models from OpenAI-compatible /models with draft auth', async () => {
     const calls: FetchCall[] = [];
     const models = await listPrettifyModels(

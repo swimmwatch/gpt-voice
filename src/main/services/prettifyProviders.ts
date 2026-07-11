@@ -503,13 +503,26 @@ export async function unloadPrettifyModel(
   }
 }
 
-export async function unloadLoadedOllamaPrettifyModel(deps: PrettifyProviderDependencies = { fetch }): Promise<void> {
-  const model = loadedOllamaPrettifyModel;
+export async function unloadLoadedOllamaPrettifyModel(
+  deps: PrettifyProviderDependencies = { fetch },
+  fallbackSettings: PrettifySettingsInput = {},
+): Promise<void> {
+  const savedSettings = getPrettifySettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
+  const model =
+    loadedOllamaPrettifyModel ??
+    (savedSettings.ollama.model
+      ? {
+          baseUrl: savedSettings.ollama.baseUrl,
+          model: savedSettings.ollama.model,
+        }
+      : null);
   if (!model) return;
 
-  loadedOllamaPrettifyModel = null;
   log.info('Unloading Ollama prettify model:', { model: model.model });
   await setOllamaModelKeepAlive(model, 0, deps);
+  if (isSameOllamaModel(loadedOllamaPrettifyModel, model)) {
+    loadedOllamaPrettifyModel = null;
+  }
 }
 
 export async function runPrettify(
