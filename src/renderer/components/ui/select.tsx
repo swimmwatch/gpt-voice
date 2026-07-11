@@ -11,7 +11,7 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        'flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-foreground outline-none data-[placeholder]:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-foreground outline-none data-[placeholder]:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       data-slot="select-trigger"
@@ -31,7 +31,7 @@ function SelectScrollUpButton({
 }: ComponentProps<typeof SelectPrimitive.ScrollUpButton>): React.JSX.Element {
   return (
     <SelectPrimitive.ScrollUpButton
-      className={cn('flex cursor-default items-center justify-center py-1 text-muted-foreground', className)}
+      className={cn('flex cursor-pointer items-center justify-center py-1 text-muted-foreground', className)}
       data-slot="select-scroll-up-button"
       {...props}
     >
@@ -46,7 +46,7 @@ function SelectScrollDownButton({
 }: ComponentProps<typeof SelectPrimitive.ScrollDownButton>): React.JSX.Element {
   return (
     <SelectPrimitive.ScrollDownButton
-      className={cn('flex cursor-default items-center justify-center py-1 text-muted-foreground', className)}
+      className={cn('flex cursor-pointer items-center justify-center py-1 text-muted-foreground', className)}
       data-slot="select-scroll-down-button"
       {...props}
     >
@@ -97,7 +97,7 @@ function SelectItem({ className, children, ...props }: ComponentProps<typeof Sel
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none focus:bg-surface-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none focus:bg-surface-muted focus:text-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,
       )}
       data-slot="select-item"

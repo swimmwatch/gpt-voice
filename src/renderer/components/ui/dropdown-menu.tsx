@@ -29,7 +29,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-muted data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,
       )}
       data-slot="dropdown-menu-item"
@@ -64,9 +64,21 @@ function DropdownMenuSeparator({
   );
 }
 
+function DropdownMenuTrigger({
+  className,
+  ...props
+}: ComponentProps<typeof DropdownMenuPrimitive.Trigger>): React.JSX.Element {
+  return (
+    <DropdownMenuPrimitive.Trigger
+      className={cn('cursor-pointer disabled:cursor-not-allowed', className)}
+      data-slot="dropdown-menu-trigger"
+      {...props}
+    />
+  );
+}
+
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
-const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
 export {
   DropdownMenu,

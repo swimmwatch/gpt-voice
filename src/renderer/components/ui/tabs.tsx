@@ -23,7 +23,7 @@ function TabsTrigger({ className, iconOnly = false, ...props }: TabsTriggerProps
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        'inline-flex h-8 items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium text-muted-foreground outline-none transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary aria-selected:bg-surface-raised aria-selected:text-foreground aria-selected:ring-1 aria-selected:ring-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[icon-only=true]:size-8 data-[icon-only=true]:px-0 data-[orientation=vertical]:justify-start',
+        'inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium text-muted-foreground outline-none transition-colors duration-[var(--duration-fast)] hover:bg-surface-raised hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary aria-selected:bg-surface-raised aria-selected:text-foreground aria-selected:ring-1 aria-selected:ring-primary data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[icon-only=true]:size-8 data-[icon-only=true]:px-0 data-[orientation=vertical]:justify-start',
         className,
       )}
       data-icon-only={iconOnly || undefined}

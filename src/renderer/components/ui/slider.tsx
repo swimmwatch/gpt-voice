@@ -10,7 +10,7 @@ function Slider({ 'aria-label': ariaLabel, className, ...props }: SliderProps): 
   return (
     <SliderPrimitive.Root
       className={cn(
-        'relative flex w-full touch-none select-none items-center py-2 [-webkit-app-region:no-drag] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        'relative flex w-full cursor-grab touch-none select-none items-center py-2 active:cursor-grabbing [-webkit-app-region:no-drag] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,
       )}
       data-slot="slider"
@@ -25,7 +25,7 @@ function Slider({ 'aria-label': ariaLabel, className, ...props }: SliderProps): 
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         aria-label={ariaLabel}
-        className="block size-4 shrink-0 rounded-full border-2 border-primary bg-surface shadow-sm outline-none transition-[box-shadow,background-color] duration-[var(--duration-fast)] hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none"
+        className="block size-4 shrink-0 cursor-grab rounded-full border-2 border-primary bg-surface shadow-sm outline-none transition-[box-shadow,background-color] duration-[var(--duration-fast)] hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:cursor-grabbing disabled:cursor-not-allowed"
         data-slot="slider-thumb"
       />
     </SliderPrimitive.Root>

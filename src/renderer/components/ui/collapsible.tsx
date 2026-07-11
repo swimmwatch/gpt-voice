@@ -8,7 +8,7 @@ function CollapsibleTrigger({
 }: ComponentProps<typeof CollapsiblePrimitive.Trigger>): React.JSX.Element {
   return (
     <CollapsiblePrimitive.Trigger
-      className={cn('[-webkit-app-region:no-drag]', className)}
+      className={cn('cursor-pointer [-webkit-app-region:no-drag]', className)}
       data-slot="collapsible-trigger"
       {...props}
     />
