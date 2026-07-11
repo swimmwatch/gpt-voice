@@ -30,4 +30,11 @@ describe('main window iconography', () => {
     assert.doesNotMatch(footer, /\bonClose\b/u);
     assert.doesNotMatch(footer, /common\.close/u);
   });
+
+  it('loads the About logo from the app asset protocol instead of a renderer import', () => {
+    const aboutWindow = readRendererSource('AboutWindow.tsx');
+
+    assert.match(aboutWindow, /APP_ICON_ASSET_PATH/u);
+    assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
+  });
 });

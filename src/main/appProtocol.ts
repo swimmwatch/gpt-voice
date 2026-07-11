@@ -1,7 +1,9 @@
 import { protocol } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { getAppIconPath } from './assets';
 import { createLogger } from './logger';
+import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 
 const APP_PROTOCOL = 'app';
 const APP_HOST = 'gpt-voice';
@@ -34,6 +36,10 @@ export function getAppUrl(pathname = 'index.html'): string {
   return `${APP_PROTOCOL}://${APP_HOST}/${pathname.replace(/^\/+/, '')}`;
 }
 
+export function getAppProtocolFilePath(relativePath: string, appRoot: string, appIconPath: string): string {
+  return relativePath === APP_ICON_ASSET_PATH ? appIconPath : path.resolve(appRoot, relativePath);
+}
+
 export function registerAppProtocol(): void {
   protocol.handle(APP_PROTOCOL, async (request) => {
     try {
@@ -44,13 +50,14 @@ export function registerAppProtocol(): void {
 
       const appRoot = path.resolve(__dirname);
       const relativePath = path.normalize(decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html');
-      const filePath = path.resolve(appRoot, relativePath);
-      const isInsideAppRoot = filePath === appRoot || filePath.startsWith(`${appRoot}${path.sep}`);
+      const bundledFilePath = path.resolve(appRoot, relativePath);
+      const isInsideAppRoot = bundledFilePath === appRoot || bundledFilePath.startsWith(`${appRoot}${path.sep}`);
 
       if (!isInsideAppRoot) {
         return new Response('Forbidden', { status: 403 });
       }
 
+      const filePath = getAppProtocolFilePath(relativePath, appRoot, getAppIconPath());
       const body = await fs.readFile(filePath);
       const contentType = mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream';
       return new Response(body, { headers: { 'content-type': contentType } });

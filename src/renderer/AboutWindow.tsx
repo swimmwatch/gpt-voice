@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import appLogo from '../../assets/icon.png';
 import { Button } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 import { getAboutWindowInfoState } from '@renderer/aboutWindowViewState';
+import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 import type { AppInfo } from '@shared/appInfo';
 
 function AboutWindow(): JSX.Element {
@@ -68,7 +68,7 @@ function AboutWindow(): JSX.Element {
       className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-4 p-5 text-center [-webkit-app-region:no-drag]"
       data-slot="about-window"
     >
-      <img alt="" className="size-20 shrink-0" src={appLogo} />
+      <img alt="" className="size-20 shrink-0" src={APP_ICON_ASSET_PATH} />
       <div className="grid gap-1">
         <h1 className="text-2xl font-semibold text-foreground">{appInfo?.name || t('mainDock.subtitle')}</h1>
         {infoState !== 'failed' && (
