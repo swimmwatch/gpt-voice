@@ -14,6 +14,7 @@ interface StartupBenchmarkReport {
 
 interface StartupBenchmarkModule {
   calculateMedian: (durationsMs: readonly number[]) => number;
+  getPackagedStartupExecutableCandidates: (rootDir: string, platform: string, arch: string) => string[];
   normalizeRunCount: (value: string | undefined) => number;
   runStartupBenchmark: (input: {
     arch: string;
@@ -35,6 +36,7 @@ function isStartupBenchmarkModule(value: unknown): value is StartupBenchmarkModu
   const module = value as Record<string, unknown>;
   return (
     typeof module.calculateMedian === 'function' &&
+    typeof module.getPackagedStartupExecutableCandidates === 'function' &&
     typeof module.normalizeRunCount === 'function' &&
     typeof module.runStartupBenchmark === 'function'
   );
@@ -79,5 +81,26 @@ describe('startup benchmark helpers', () => {
     assert.equal(importedModule.normalizeRunCount(undefined), 10);
     assert.throws(() => importedModule.normalizeRunCount('0'), /between 1 and 50/i);
     assert.throws(() => importedModule.normalizeRunCount('invalid'), /between 1 and 50/i);
+  });
+
+  it('resolves packaged executable candidates for the active platform layouts', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+
+    assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'linux', 'x64'), [
+      '/project/release/linux-unpacked/gpt-voice',
+    ]);
+    assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'win32', 'x64'), [
+      '/project/release/win-unpacked/gpt-voice.exe',
+      '/project/release/win-unpacked/GPT-Voice.exe',
+    ]);
+    assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'darwin', 'arm64'), [
+      '/project/release/mac-arm64/GPT-Voice.app/Contents/MacOS/GPT-Voice',
+      '/project/release/mac-universal/GPT-Voice.app/Contents/MacOS/GPT-Voice',
+    ]);
+    assert.throws(
+      () => importedModule.getPackagedStartupExecutableCandidates('/project', 'freebsd', 'x64'),
+      /unsupported startup benchmark platform/i,
+    );
   });
 });

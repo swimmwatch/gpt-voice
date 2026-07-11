@@ -1,16 +1,17 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { normalizeRunCount, runStartupBenchmark } from './startup-benchmark.mjs';
+import {
+  getPackagedStartupExecutableCandidates,
+  normalizeRunCount,
+  runStartupBenchmark,
+} from './startup-benchmark.mjs';
 
 const STARTUP_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_TIMEOUT_MS = 60_000;
-const require = createRequire(import.meta.url);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const electronExecutable = require('electron');
 
 function parseArguments(args) {
   const options = { output: null, runs: undefined };
@@ -35,6 +36,20 @@ async function getToolVersions() {
     electron: typeof packageJson.devDependencies?.electron === 'string' ? packageJson.devDependencies.electron : null,
     node: process.version,
   };
+}
+
+async function getPackagedStartupExecutable() {
+  const candidates = getPackagedStartupExecutableCandidates(rootDir, process.platform, process.arch);
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Try the next layout before reporting every checked path.
+    }
+  }
+
+  throw new Error(`Packaged startup executable not found. Checked:\n${candidates.map((candidate) => `  - ${candidate}`).join('\n')}`);
 }
 
 function waitForExit(child) {
@@ -72,7 +87,7 @@ function waitForStartupReady(child) {
   });
 }
 
-async function measureStartupRun() {
+async function measureStartupRun(executablePath) {
   const userDataPath = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-startup-'));
   const environment = Object.fromEntries(
     Object.entries(process.env).filter(([name]) => name !== 'ELECTRON_RUN_AS_NODE'),
@@ -81,7 +96,7 @@ async function measureStartupRun() {
 
   try {
     const startedAt = process.hrtime.bigint();
-    child = spawn(electronExecutable, [`--user-data-dir=${userDataPath}`, '.', '--startup-benchmark'], {
+    child = spawn(executablePath, [`--user-data-dir=${userDataPath}`, '--startup-benchmark'], {
       cwd: rootDir,
       env: {
         ...environment,
@@ -105,9 +120,10 @@ async function measureStartupRun() {
 }
 
 const { output, runCount } = parseArguments(process.argv.slice(2));
+const packagedStartupExecutable = await getPackagedStartupExecutable();
 const report = await runStartupBenchmark({
   arch: process.arch,
-  measureRun: measureStartupRun,
+  measureRun: () => measureStartupRun(packagedStartupExecutable),
   platform: process.platform,
   runCount,
   toolVersions: await getToolVersions(),

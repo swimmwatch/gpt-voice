@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export const DEFAULT_STARTUP_BENCHMARK_RUNS = 10;
 export const MAX_STARTUP_BENCHMARK_RUNS = 50;
 
@@ -34,6 +36,33 @@ export function normalizeRunCount(value) {
   }
 
   return runCount;
+}
+
+export function getPackagedStartupExecutableCandidates(rootDir, platform, arch) {
+  const releaseDir = path.join(rootDir, 'release');
+
+  if (platform === 'linux') {
+    return [path.join(releaseDir, 'linux-unpacked', 'gpt-voice')];
+  }
+
+  if (platform === 'win32') {
+    return [
+      path.join(releaseDir, 'win-unpacked', 'gpt-voice.exe'),
+      path.join(releaseDir, 'win-unpacked', 'GPT-Voice.exe'),
+    ];
+  }
+
+  if (platform === 'darwin') {
+    const appDirectories =
+      arch === 'arm64'
+        ? ['mac-arm64', 'mac-universal']
+        : ['mac', 'mac-universal'];
+    return appDirectories.map((directory) =>
+      path.join(releaseDir, directory, 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
+    );
+  }
+
+  throw new Error(`Unsupported startup benchmark platform: ${platform}`);
 }
 
 export async function runStartupBenchmark({ arch, measureRun, platform, runCount, toolVersions }) {
