@@ -2,6 +2,8 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
+import { listPackage } from '@electron/asar';
+import { getPackagedRuntimeViolations } from './packaged-runtime-policy.mjs';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -155,6 +157,13 @@ async function verifyElectronFuses(fuseTarget) {
   }
 }
 
+function verifyPackagedRuntimePolicy(asarPath) {
+  const violations = getPackagedRuntimeViolations(listPackage(asarPath));
+  if (violations.length > 0) {
+    throw new Error(`Packaged runtime policy failed:\n${violations.map((violation) => `  - ${violation}`).join('\n')}`);
+  }
+}
+
 const layout = layouts[process.platform];
 if (!layout) {
   throw new Error(`Unsupported platform for packaged runtime verification: ${process.platform}`);
@@ -170,6 +179,7 @@ const privacyManifest = layout.privacyManifest
   : null;
 const cloak = await firstExisting(layout.cloak, 'Bundled CloakBrowser executable');
 await verifyElectronFuses(fuseTarget);
+verifyPackagedRuntimePolicy(asar);
 
 console.log('Packaged runtime verification passed');
 console.log(`App: ${app}`);

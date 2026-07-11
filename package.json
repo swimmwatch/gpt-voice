@@ -94,7 +94,11 @@
       "node_modules/mkdirp/**/*",
       "node_modules/yallist/**/*",
       "node_modules/electron-log/**/*",
-      "!**/*.map"
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!**/*.d.mts",
+      "!**/*.d.cts",
+      "!**/{__test__,__tests__,fixture,fixtures,test,tests}/**"
     ],
     "extraResources": [
       {

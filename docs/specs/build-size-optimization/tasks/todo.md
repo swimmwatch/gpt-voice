@@ -126,15 +126,15 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Inventory policy has explicit required, allowed, and rejected path categories with cross-platform separators normalized.
-- [ ] `verify:packaged` inspects ASAR contents and reports concise relative-path violations.
-- [ ] Synthetic policy tests cover missing required files, unexpected modules, stale assets, and diagnostic files.
+- [x] Inventory policy has explicit required, allowed, and rejected path categories with cross-platform separators normalized.
+- [x] `verify:packaged` inspects ASAR contents and reports concise relative-path violations.
+- [x] Synthetic policy tests cover missing required files, unexpected modules, stale assets, and diagnostic files.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/packagedRuntimePolicy.test.ts`
-- [ ] Packaged verification passes: `npm run pack && npm run verify:packaged`
-- [ ] A synthetic forbidden map/module fixture fails with a readable error.
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/packagedRuntimePolicy.test.ts`
+- [x] Packaged verification passes: `npm run pack && npm run verify:packaged`
+- [x] A synthetic forbidden map/module fixture fails with a readable error.
 
 **Dependencies:** Tasks 2 and 4
 
