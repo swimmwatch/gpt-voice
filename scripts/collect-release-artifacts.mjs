@@ -37,6 +37,7 @@ const requiredPlatformArtifacts = {
 };
 const measurementReports = {
   linux: ['size-linux-x64.json', 'startup-linux-x64.json'],
+  win32: ['size-win32-x64.json', 'startup-win32-x64.json'],
 };
 
 function sha256(buffer) {
