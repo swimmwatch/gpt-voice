@@ -35,6 +35,9 @@ const requiredPlatformArtifacts = {
     `${packageName}-${packageVersion}.x86_64.rpm`,
   ],
 };
+const measurementReports = {
+  linux: ['size-linux-x64.json', 'startup-linux-x64.json'],
+};
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -68,6 +71,10 @@ for (const fileName of artifactFiles) {
   const contents = await readFile(sourcePath);
   await copyFile(sourcePath, targetPath);
   checksumLines.push(`${sha256(contents)}  ${fileName}`);
+}
+
+for (const fileName of measurementReports[platform] || []) {
+  await copyFile(path.join(rootDir, 'release-artifacts', fileName), path.join(outputDir, fileName));
 }
 
 await writeFile(path.join(outputDir, `SHA256SUMS-${platform}.txt`), `${checksumLines.join('\n')}\n`);

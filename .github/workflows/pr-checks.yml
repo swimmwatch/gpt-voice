@@ -125,6 +125,16 @@ jobs:
       - name: Smoke package app in Fedora
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18
 
+      - name: Upload Linux measurement reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-linux-measurements
+          path: |
+            release-artifacts/size-linux-x64.json
+            release-artifacts/startup-linux-x64.json
+          if-no-files-found: error
+          retention-days: 14
+
   package-smoke-windows:
     name: Package Smoke (Windows)
     needs: quality

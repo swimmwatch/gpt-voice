@@ -61,6 +61,7 @@ await run('npm', metadataArgs);
 if (mode === 'smoke') {
   await run('npx', ['electron-builder', '--linux', 'dir']);
   await run('npm', ['run', 'verify:packaged']);
+  await measureLinuxBuild();
 } else {
   await run('npx', ['electron-builder', '--linux', '--publish', 'never'], {
     env: {
@@ -70,10 +71,38 @@ if (mode === 'smoke') {
   });
   await run('npm', ['run', 'verify:packaged']);
   await run('npm', ['run', 'verify:installers', '--', '--platform=linux']);
+  await measureLinuxBuild();
+  await run('npm', [
+    'run',
+    'verify:size',
+    '--',
+    '--report=release-artifacts/size-linux-x64.json',
+    '--baseline=build/size-baselines/v1.4.0-linux-x64.json',
+  ]);
   await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
 }
 
 console.log(`Fedora ${mode} build completed`);
+
+async function measureLinuxBuild() {
+  await run('npm', [
+    'run',
+    'measure:size',
+    '--',
+    '--platform=linux',
+    '--arch=x64',
+    '--output=release-artifacts/size-linux-x64.json',
+  ]);
+  await run('xvfb-run', [
+    '--auto-servernum',
+    'npm',
+    'run',
+    'measure:startup',
+    '--',
+    '--runs=10',
+    '--output=release-artifacts/startup-linux-x64.json',
+  ]);
+}
 
 function optionValue(name) {
   const prefix = `--${name}=`;
