@@ -33,9 +33,9 @@ test('uses a shared renderer bootstrap for every window entry', async () => {
   }
 });
 
-test('keeps the pathname router active until per-window Webpack entries are wired', async () => {
+test('keeps a main-window compatibility entry without window pathname routing', async () => {
   const indexSource = await readFile(path.join(rendererDirectory, 'index.tsx'), 'utf8');
 
-  assert.match(indexSource, /window\.location\.pathname/);
-  assert.match(indexSource, /bootstrapWindow\(RootComponent\)/);
+  assert.match(indexSource, /import '\.\/entries\/main';/);
+  assert.doesNotMatch(indexSource, /pathname|window\.location/);
 });

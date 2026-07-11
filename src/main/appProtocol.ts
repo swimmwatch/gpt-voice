@@ -40,6 +40,10 @@ export function getAppProtocolFilePath(relativePath: string, appRoot: string, ap
   return relativePath === APP_ICON_ASSET_PATH ? appIconPath : path.resolve(appRoot, relativePath);
 }
 
+export function getAppProtocolContentType(filePath: string): string {
+  return mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream';
+}
+
 export function registerAppProtocol(): void {
   protocol.handle(APP_PROTOCOL, async (request) => {
     try {
@@ -59,8 +63,7 @@ export function registerAppProtocol(): void {
 
       const filePath = getAppProtocolFilePath(relativePath, appRoot, getAppIconPath());
       const body = await fs.readFile(filePath);
-      const contentType = mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream';
-      return new Response(body, { headers: { 'content-type': contentType } });
+      return new Response(body, { headers: { 'content-type': getAppProtocolContentType(filePath) } });
     } catch (error) {
       log.warn('Failed to serve app protocol request:', request.url, error);
       return new Response('Not found', { status: 404 });

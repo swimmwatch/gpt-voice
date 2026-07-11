@@ -274,14 +274,14 @@ Specification: [`../spec.md`](../spec.md)
 
 **Acceptance criteria:**
 
-- [ ] Each HTML file references only its own entry plus required shared/runtime chunks.
-- [ ] Main does not include Settings/History/About-only modules; supporting windows exclude unrelated window modules.
-- [ ] `app://` safely serves nested hashed JS/CSS assets with correct MIME types and no traversal regression.
+- [x] Each HTML file references only its own entry plus required shared/runtime chunks.
+- [x] Main does not include Settings/History/About-only modules; supporting windows exclude unrelated window modules.
+- [x] `app://` safely serves nested hashed JS/CSS assets with correct MIME types and no traversal regression.
 
 **Verification:**
 
-- [ ] Focused tests pass: `node --import tsx --test tests/scripts/rendererBundle.test.ts tests/main/appProtocol.test.ts`
-- [ ] Production build passes: `npm run build:prod`
+- [x] Focused tests pass: `node --import tsx --test tests/scripts/rendererBundle.test.ts tests/main/appProtocol.test.ts`
+- [x] Production build passes: `npm run build:prod`
 - [ ] Manual Electron check opens all four windows without blank/error states.
 
 **Dependencies:** Task 9

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAppProtocolFilePath, getAppUrl } from '@main/appProtocol';
+import { getAppProtocolContentType, getAppProtocolFilePath, getAppUrl } from '@main/appProtocol';
 import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 
 describe('appProtocol', () => {
@@ -25,5 +25,13 @@ describe('appProtocol', () => {
       getAppProtocolFilePath('renderer.js', '/app/dist', '/app/resources/assets/icon.png'),
       '/app/dist/renderer.js',
     );
+  });
+
+  it('recognizes nested renderer JavaScript chunks', () => {
+    assert.equal(
+      getAppProtocolFilePath('assets/main.123456.js', '/app/dist', '/app/resources/assets/icon.png'),
+      '/app/dist/assets/main.123456.js',
+    );
+    assert.equal(getAppProtocolContentType('/app/dist/assets/main.123456.js'), 'text/javascript; charset=utf-8');
   });
 });

@@ -71,7 +71,12 @@ module.exports = [
   {
     mode,
     devtool: isProd ? false : 'source-map',
-    entry: './src/renderer/index.tsx',
+    entry: {
+      about: './src/renderer/entries/about.tsx',
+      history: './src/renderer/entries/history.tsx',
+      main: './src/renderer/entries/main.tsx',
+      settings: './src/renderer/entries/settings.tsx',
+    },
     target: 'web',
     module: {
       rules: [
@@ -105,29 +110,39 @@ module.exports = [
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: 'renderer.js',
+      filename: '[name].js',
       assetModuleFilename: 'assets/[name].[contenthash][ext]',
+    },
+    optimization: {
+      runtimeChunk: 'single',
+      splitChunks: {
+        chunks: 'all',
+      },
     },
     plugins: [
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'index.html',
         title: 'GPT-Voice',
+        chunks: ['main'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'settings.html',
         title: 'Settings',
+        chunks: ['settings'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'history.html',
         title: 'History',
+        chunks: ['history'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'about.html',
         title: 'About GPT-Voice',
+        chunks: ['about'],
       }),
     ],
   },
