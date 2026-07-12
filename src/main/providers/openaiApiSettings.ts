@@ -8,6 +8,7 @@ import {
 } from '../electronRuntime';
 import { createLogger } from '../logger';
 import {
+  assertValidOpenAIApiSettingsInput,
   normalizeOpenAIApiSettings,
   sanitizeOpenAIApiSettings,
   shouldUpdateApiKey,
@@ -75,6 +76,7 @@ export function getOpenAIApiSettingsWithSecret(): OpenAIApiSettingsWithSecret {
 }
 
 export function saveOpenAIApiSettings(input: OpenAIApiSettingsInput): OpenAIApiSettingsView {
+  assertValidOpenAIApiSettingsInput(input);
   const stored = readStoredSettings();
   const normalized = normalizeOpenAIApiSettings({ ...stored, ...input });
   const next: StoredOpenAIApiSettings = {

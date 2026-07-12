@@ -8,6 +8,7 @@ import {
 } from '@main/electronRuntime';
 import { createLogger } from '@main/logger';
 import {
+  assertValidCloakBrowserSettingsInput,
   createCloakBrowserSettingsView,
   normalizeCloakBrowserSettingsInput,
   type NormalizedCloakBrowserSettings,
@@ -17,6 +18,7 @@ import type {
   CloakBrowserSettingsInput,
   CloakBrowserSettingsView,
 } from '@shared/cloakBrowserSettings';
+import { isSocks5ProxyServer } from '@shared/cloakBrowserSettings';
 
 interface StoredCloakBrowserProxySettings extends Omit<CloakBrowserProxySettingsInput, 'password' | 'clearPassword'> {
   encryptedPassword?: string;
@@ -152,6 +154,7 @@ export function getCloakBrowserSettingsWithSecret(): CloakBrowserSettingsWithSec
 }
 
 export function prepareCloakBrowserSettings(input: CloakBrowserSettingsInput = {}): PreparedCloakBrowserSettings {
+  assertValidCloakBrowserSettingsInput(input);
   const stored = readStoredSettings();
   const normalized = normalizeCloakBrowserSettingsInput(mergeStoredSettings(stored, input), getFingerprintSeed(), {
     sanitizeInvalidFingerprintSeed: shouldSanitizeFingerprintSeed(input),
@@ -168,6 +171,13 @@ export function prepareCloakBrowserSettings(input: CloakBrowserSettingsInput = {
   if (password) {
     encryptedPassword = encryptProxyPassword(password);
     proxyPassword = password;
+  }
+  if (
+    normalized.proxy.enabled &&
+    isSocks5ProxyServer(normalized.proxy.server) &&
+    (normalized.proxy.username || proxyPassword)
+  ) {
+    throw new Error('SOCKS5 proxy username/password is not supported');
   }
 
   const storedSettings = toStoredSettings(normalized, encryptedPassword);

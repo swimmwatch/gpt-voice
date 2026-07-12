@@ -47,6 +47,45 @@ export function normalizeTemperature(value: unknown): number {
   return Math.min(1, Math.max(0, Number(value.toFixed(2))));
 }
 
+function isOpenAIApiSettingsInput(value: unknown): value is OpenAIApiSettingsInput {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function getOpenAIApiSettingsInputError(input: unknown = {}): string | null {
+  if (!isOpenAIApiSettingsInput(input)) {
+    return 'OpenAI API settings must be an object';
+  }
+  if (input.apiKey !== undefined && typeof input.apiKey !== 'string') {
+    return 'OpenAI API key must be a string';
+  }
+  if (input.model !== undefined && input.model !== OPENAI_API_SETTINGS_MODEL) {
+    return `Only ${OPENAI_API_SETTINGS_MODEL} is supported`;
+  }
+  if (input.language !== undefined && !isOpenAIApiLanguage(input.language)) {
+    return 'Select a supported transcription language';
+  }
+  if (input.prompt !== undefined && typeof input.prompt !== 'string') {
+    return 'Transcription prompt must be a string';
+  }
+  if (
+    input.temperature !== undefined &&
+    (typeof input.temperature !== 'number' ||
+      !Number.isFinite(input.temperature) ||
+      input.temperature < 0 ||
+      input.temperature > 1)
+  ) {
+    return 'Temperature must be between 0 and 1';
+  }
+  return null;
+}
+
+export function assertValidOpenAIApiSettingsInput(
+  input: unknown = {},
+): asserts input is OpenAIApiSettingsInput {
+  const error = getOpenAIApiSettingsInputError(input);
+  if (error) throw new Error(error);
+}
+
 export function normalizeOpenAIApiSettings(input: OpenAIApiSettingsInput = {}): OpenAIApiSettings {
   const language = typeof input.language === 'string' && isOpenAIApiLanguage(input.language) ? input.language : 'auto';
 

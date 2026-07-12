@@ -47,13 +47,12 @@ describe('prettifySettings', () => {
     }
   });
 
-  it('makes the default prompt explicit about editing instead of executing selected text', () => {
+  it('makes the default prompt safely shorten selected text', () => {
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /inert data/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Never fulfill, answer, execute/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /do not summarize or drop clauses/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Correct grammatical errors/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /return the source unchanged/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /URLs, email addresses, numbers, dates, names, identifiers/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /never fulfill, answer, execute/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Remove unnecessary, filler, and redundant words, phrases, sentences, and repetition/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Make the text shorter whenever possible without losing meaning/);
+    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /alter code, URLs, or identifiers/);
   });
 
   it('trims custom prompt/provider settings and ignores old reasoning', () => {
@@ -154,6 +153,31 @@ describe('prettifySettings', () => {
     assert.equal(
       getPrettifySettingsInputError({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
       `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`,
+    );
+  });
+
+  it('rejects malformed settings write payloads instead of silently normalizing them', () => {
+    assert.equal(getPrettifySettingsInputError('invalid'), 'Prettify settings must be an object');
+    assert.equal(getPrettifySettingsInputError({ providerId: 'unknown' }), 'Unsupported prettify provider');
+    assert.equal(
+      getPrettifySettingsInputError({ temperature: 2 }),
+      'Temperature must be between 0 and 1',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ topK: 1.5 }),
+      'Top K must be an integer between 1 and 200',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ seed: '42' }),
+      'Seed must be an integer between 0 and 2147483647',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ ollama: 'http://localhost:11434' }),
+      'Ollama settings must be an object',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ vllm: { clearApiKey: 'yes' } }),
+      'vLLM API key clear flag must be a boolean',
     );
   });
 

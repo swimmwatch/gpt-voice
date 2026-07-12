@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createCloakBrowserSettingsView,
+  getCloakBrowserSettingsInputError,
   getSystemTimezone,
   normalizeCloakBrowserSettingsInput,
 } from '@main/cloakBrowserSettingsUtils';
@@ -126,5 +127,20 @@ describe('cloakBrowserSettingsUtils', () => {
       false,
     );
     assert.equal(shouldWarnSocks5ProxyAuth({ enabled: true, server: 'http://proxy:8080', username: 'user' }), false);
+  });
+
+  it('rejects malformed write payloads while keeping read normalization available for legacy data', () => {
+    assert.equal(getCloakBrowserSettingsInputError('invalid'), 'CloakBrowser settings must be an object');
+    assert.equal(getCloakBrowserSettingsInputError({ humanize: 'yes' }), 'Humanize must be a boolean');
+    assert.equal(getCloakBrowserSettingsInputError({ humanPreset: 'fast' }), 'Select a supported human preset');
+    assert.equal(
+      getCloakBrowserSettingsInputError({ fingerprintSeed: 'not-a-seed' }),
+      'Fingerprint seed must contain digits only',
+    );
+    assert.equal(getCloakBrowserSettingsInputError({ proxy: [] }), 'Proxy settings must be an object');
+    assert.equal(
+      getCloakBrowserSettingsInputError({ proxy: { clearPassword: 'yes' } }),
+      'Proxy password clear flag must be a boolean',
+    );
   });
 });

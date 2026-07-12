@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildGoogleTranslateUrl,
   createTranslationLogMetadata,
+  isGoogleTranslateTargetLanguage,
   normalizeGoogleTranslateTargetLang,
   shouldNavigateGoogleTranslate,
 } from '@main/services/translationUtils';
@@ -20,6 +21,14 @@ describe('translationUtils', () => {
   it('falls back to English when the target language is blank', () => {
     assert.equal(normalizeGoogleTranslateTargetLang('  '), 'en');
     assert.equal(new URL(buildGoogleTranslateUrl('')).searchParams.get('tl'), 'en');
+  });
+
+  it('accepts only target languages exposed by the settings control', () => {
+    assert.equal(isGoogleTranslateTargetLanguage('en'), true);
+    assert.equal(isGoogleTranslateTargetLanguage('be'), true);
+    assert.equal(isGoogleTranslateTargetLanguage('de'), false);
+    assert.equal(isGoogleTranslateTargetLanguage(' en '), false);
+    assert.equal(isGoogleTranslateTargetLanguage(null), false);
   });
 
   it('detects whether Google Translate needs target-language navigation', () => {

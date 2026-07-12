@@ -98,3 +98,4 @@ tmp/
 temp/
 
 .artifacts
+.tokensave

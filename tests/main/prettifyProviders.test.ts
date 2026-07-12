@@ -344,7 +344,9 @@ describe('prettifyProviders', () => {
     assert.equal(body.max_tokens, 4096);
     assert.equal('seed' in body, false);
     assert.equal(body.stream, false);
-    assert.match(body.messages[0].content, /conservative copy editor/);
+    assert.match(body.messages[0].content, /concise copy editor/);
+    assert.match(body.messages[0].content, /Remove unnecessary, filler, and redundant words, phrases, sentences, and repetition/);
+    assert.match(body.messages[0].content, /Make the text shorter whenever possible without losing meaning/);
     assert.equal(body.messages[1].content, 'selected text');
   });
 

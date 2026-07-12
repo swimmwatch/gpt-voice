@@ -127,6 +127,109 @@ function validateProxyServer(value: string, enabled: boolean): void {
   }
 }
 
+function isSettingsObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isCloakBrowserSettingsInput(value: unknown): value is CloakBrowserSettingsInput {
+  return isSettingsObject(value);
+}
+
+function getBooleanInputError(value: unknown, label: string): string | null {
+  return value !== undefined && typeof value !== 'boolean' ? `${label} must be a boolean` : null;
+}
+
+function getStringInputError(value: unknown, label: string): string | null {
+  return value !== undefined && typeof value !== 'string' ? `${label} must be a string` : null;
+}
+
+function getFingerprintSeedInputError(value: unknown): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || !value.trim()) return 'Fingerprint seed is required';
+  return isValidFingerprintSeed(value.trim()) ? null : 'Fingerprint seed must contain digits only';
+}
+
+function getLocaleInputError(value: unknown): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || !value.trim()) return 'Locale is required';
+  try {
+    validateLocale(value.trim());
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function getTimezoneInputError(value: unknown): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || !value.trim()) return 'Timezone is required';
+  try {
+    validateTimezone(value.trim());
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function getProxySettingsInputError(input: unknown): string | null {
+  if (!isSettingsObject(input)) {
+    return 'Proxy settings must be an object';
+  }
+
+  for (const [value, label] of [
+    [input.enabled, 'Proxy enabled'],
+    [input.geoip, 'Proxy GeoIP'],
+    [input.clearPassword, 'Proxy password clear flag'],
+  ] as const) {
+    const error = getBooleanInputError(value, label);
+    if (error) return error;
+  }
+  for (const [value, label] of [
+    [input.server, 'Proxy server'],
+    [input.bypass, 'Proxy bypass'],
+    [input.username, 'Proxy username'],
+    [input.password, 'Proxy password'],
+  ] as const) {
+    const error = getStringInputError(value, label);
+    if (error) return error;
+  }
+
+  return null;
+}
+
+function getCloakBrowserGeneralInputError(input: CloakBrowserSettingsInput): string | null {
+  const humanizeError = getBooleanInputError(input.humanize, 'Humanize');
+  if (humanizeError) return humanizeError;
+  if (input.humanPreset !== undefined && !isCloakBrowserHumanPreset(input.humanPreset)) {
+    return 'Select a supported human preset';
+  }
+  if (input.backgroundMode !== undefined && !isCloakBrowserBackgroundMode(input.backgroundMode)) {
+    return 'Select a supported background mode';
+  }
+
+  return (
+    getFingerprintSeedInputError(input.fingerprintSeed) ??
+    getLocaleInputError(input.locale) ??
+    getTimezoneInputError(input.timezone)
+  );
+}
+
+export function getCloakBrowserSettingsInputError(input: unknown = {}): string | null {
+  if (!isCloakBrowserSettingsInput(input)) {
+    return 'CloakBrowser settings must be an object';
+  }
+
+  return (
+    getCloakBrowserGeneralInputError(input) ??
+    (input.proxy === undefined ? null : getProxySettingsInputError(input.proxy))
+  );
+}
+
+export function assertValidCloakBrowserSettingsInput(input: unknown = {}): asserts input is CloakBrowserSettingsInput {
+  const error = getCloakBrowserSettingsInputError(input);
+  if (error) throw new Error(error);
+}
+
 export function normalizeCloakBrowserSettingsInput(
   input: CloakBrowserSettingsInput = {},
   fallbackFingerprintSeed: string,
