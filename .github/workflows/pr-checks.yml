@@ -125,6 +125,16 @@ jobs:
       - name: Smoke package app in Fedora
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18
 
+      - name: Upload Linux measurement reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-linux-measurements
+          path: |
+            release-artifacts/size-linux-x64.json
+            release-artifacts/startup-linux-x64.json
+          if-no-files-found: error
+          retention-days: 14
+
   package-smoke-windows:
     name: Package Smoke (Windows)
     needs: quality
@@ -176,3 +186,23 @@ jobs:
 
       - name: Verify packaged runtime
         run: npm run verify:packaged
+
+      - name: Measure Windows package size
+        run: npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+
+      - name: Verify Windows size budget when a reviewed baseline exists
+        if: hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
+        run: npm run verify:size -- --report=release-artifacts/size-win32-x64.json --baseline=build/size-baselines/v1.4.0-win32-x64.json
+
+      - name: Measure Windows cold startup
+        run: npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
+
+      - name: Upload Windows measurement reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-windows-measurements
+          path: |
+            release-artifacts/size-win32-x64.json
+            release-artifacts/startup-win32-x64.json
+          if-no-files-found: error
+          retention-days: 14

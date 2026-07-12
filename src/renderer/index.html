@@ -7,9 +7,73 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none';"
     />
+    <style>
+      html {
+        background: #181a1b;
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        background: #181a1b;
+        cursor: progress;
+      }
+
+      body[data-window-startup='ready'] {
+        cursor: auto;
+      }
+
+      #window-startup-loader {
+        position: fixed;
+        z-index: 2147483647;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #181a1b;
+        cursor: progress;
+        opacity: 1;
+        transition:
+          opacity 120ms ease-out,
+          visibility 0s linear 120ms;
+      }
+
+      #window-startup-loader[data-state='ready'] {
+        visibility: hidden;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      #window-startup-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #737679;
+        border-top-color: #f4f4f5;
+        border-radius: 50%;
+        animation: window-startup-spin 700ms linear infinite;
+      }
+
+      @keyframes window-startup-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #window-startup-loader {
+          transition: none;
+        }
+
+        #window-startup-spinner {
+          animation: none;
+        }
+      }
+    </style>
     <title><%= htmlWebpackPlugin.options.title || 'GPT-Voice' %></title>
   </head>
   <body>
+    <div aria-label="Loading" id="window-startup-loader" role="status">
+      <div id="window-startup-spinner"></div>
+    </div>
     <div id="root"></div>
   </body>
 </html>

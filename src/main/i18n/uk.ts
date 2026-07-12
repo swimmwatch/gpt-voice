@@ -47,6 +47,11 @@ export default {
   // Provider
   'provider.label': 'Провайдер:',
   'provider.settings': 'Налаштування',
+  'provider.connect': 'Підключити',
+  'provider.configure': 'Налаштувати',
+  'provider.connected': 'Підключено',
+  'provider.connectionReady': 'Готово',
+  'provider.connectionSetupRequired': 'Потрібне налаштування',
 
   // Provider settings
   'providerSettings.title': 'Налаштування {provider}',
@@ -64,10 +69,17 @@ export default {
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
   'providerSettings.save': 'Зберегти',
+  'providerSettings.saving': 'Збереження...',
   'providerSettings.clearKey': 'Очистити ключ',
+  'providerSettings.clear': 'Очистити',
   'providerSettings.saveFailed': 'Не вдалося зберегти налаштування',
   'providerSettings.clearFailed': 'Не вдалося очистити дані провайдера',
   'providerSettings.language.auto': 'Авто',
+  'providerSettings.description': 'Налаштуйте доступ до розпізнавання через {provider}.',
+  'providerSettings.clearSessionConfirmTitle': 'Очистити збережену сесію?',
+  'providerSettings.clearKeyConfirmTitle': 'Очистити збережений ключ API?',
+  'providerSettings.clearConfirmDescription':
+    'Щоб знову використовувати цього провайдера, потрібно буде ввійти або вказати ключ.',
 
   // App settings
   'appSettings.open': 'Налаштування застосунку',
@@ -97,9 +109,62 @@ export default {
   'appSettings.proxyPasswordSaved': 'Пароль збережено',
   'appSettings.clearProxyPassword': 'Очистити',
   'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxyDisabledHint': 'Увімкніть проксі, щоб налаштувати підключення.',
+  'appSettings.localeTimezoneManagedByProxy': 'GeoIP проксі керує локаллю та часовим поясом.',
   'appSettings.proxySocks5AuthWarning': 'Імʼя користувача та пароль для SOCKS5-проксі не підтримуються браузером.',
   'appSettings.save': 'Зберегти',
+  'appSettings.saving': 'Збереження...',
   'appSettings.saveFailed': 'Не вдалося зберегти налаштування',
+  'appSettings.discardChangesDescription': 'Незбережені зміни буде втрачено.',
+
+  // Redesign navigation and common commands
+  'mainDock.title': 'Панель команд',
+  'mainDock.subtitle': 'GPT-Voice',
+  'mainDock.providerLabel': 'Провайдер розпізнавання',
+  'navigation.openHistory': 'Відкрити історію розпізнавання',
+  'navigation.openAbout': 'Відкрити відомості про GPT-Voice',
+  'navigation.openAppSettings': 'Відкрити налаштування застосунку',
+  'navigation.openProviderSettings': 'Відкрити налаштування {provider}',
+  'navigation.moreActions': 'Додаткові дії',
+  'common.close': 'Закрити',
+  'common.retry': 'Повторити',
+  'common.saveChanges': 'Зберегти зміни',
+  'common.discardChanges': 'Відхилити зміни',
+  'common.keepEditing': 'Продовжити редагування',
+  'common.unsavedChanges': 'Незбережені зміни',
+  'common.discardChangesConfirm': 'Відхилити незбережені зміни?',
+  'dialog.close': 'Закрити діалог',
+
+  // Recording workspace
+  'recording.start': 'Почати запис',
+  'recording.startCommand': 'Почати запис',
+  'recording.starting': 'Починаємо запис...',
+  'recording.stop': 'Зупинити запис',
+  'recording.pause': 'Призупинити запис',
+  'recording.resume': 'Продовжити запис',
+  'recording.cancel': 'Скасувати запис',
+
+  // Model memory
+  'modelMemory.title': 'Памʼять моделі',
+  'modelMemory.ollamaGpu': 'Модель покращення тексту',
+  'modelMemory.vram': 'VRAM',
+  'modelMemory.loaded': 'Завантажено',
+  'modelMemory.notLoaded': 'Не завантажено',
+  'modelMemory.unknown': 'Стан невідомий',
+
+  // Settings sections
+  'settingsSection.shortcuts': 'Клавіші та дії',
+  'settingsSection.prettify': 'Покращення тексту',
+  'settingsSection.browser': 'Браузер',
+  'settingsSection.network': 'Мережа',
+
+  // About
+  'about.open': 'Про програму',
+  'about.version': 'Версія {version}',
+  'about.license': 'Ліцензія',
+  'about.copyright': 'Авторські права',
+  'about.loading': 'Завантаження відомостей про програму...',
+  'about.loadFailed': 'Не вдалося завантажити відомості про програму.',
 
   // History
   'history.open': 'Історія',
@@ -108,7 +173,9 @@ export default {
   'history.clear': 'Очистити історію',
   'history.clearing': 'Очищення...',
   'history.clearConfirm': 'Очистити всю історію транскрибувань?',
+  'history.clearConfirmDescription': 'Усі локально збережені транскрипції буде видалено без можливості відновлення.',
   'history.clearFailed': 'Не вдалося очистити історію',
+  'history.cleared': 'Історію очищено',
   'history.emptyTitle': 'Транскрибувань ще немає',
   'history.emptyBody': 'Розпізнаний текст зʼявиться тут після успішного транскрибування.',
   'history.copyHint': 'Натисніть на текст, щоб скопіювати',
@@ -117,9 +184,15 @@ export default {
   'history.copyFailed': 'Не вдалося скопіювати текст',
   'history.loadingMore': 'Завантаження...',
   'history.end': 'Кінець історії',
+  'history.loading': 'Завантаження історії...',
+  'history.loadFailed': 'Не вдалося завантажити історію',
+  'history.retry': 'Повторити',
+  'history.clearAria': 'Очистити історію розпізнавань',
+  'history.copy': 'Скопіювати транскрипцію',
 
   // Status indicator
   'indicator.idle': 'Очікування',
+  'indicator.ready': 'Готово',
   'indicator.recording': 'Запис',
   'indicator.paused': 'Пауза',
 
@@ -134,6 +207,7 @@ export default {
   'hotkey.prettify': 'Покращення',
   'hotkey.retryTranscription': 'Надіслати транскрипцію знову',
   'hotkey.change': 'Змінити',
+  'hotkey.enabled': '{target}: увімкнено',
   'hotkey.setHotkey': 'Призначити клавішу: {target}',
   'hotkey.pressKeyCombination': 'Натисніть комбінацію клавіш',
   'hotkey.waitingForInput': 'Очікування введення...',
@@ -164,6 +238,8 @@ export default {
   'prettify.modelsRefreshFailed': 'Не вдалося завантажити моделі',
   'prettify.temperature': 'Temperature: {value}',
   'prettify.advancedGeneration': 'Параметри генерації',
+  'prettify.advancedSummaryDefaults': 'Значення за замовчуванням',
+  'prettify.advancedSummaryCustom': 'Змінено значень: {count}',
   'prettify.topP': 'Top P: {value}',
   'prettify.topK': 'Top K',
   'prettify.minP': 'Min P: {value}',
@@ -171,6 +247,7 @@ export default {
   'prettify.maxOutputTokens': 'Макс. токенів відповіді',
   'prettify.seed': 'Seed',
   'prettify.providerDefault': 'Типово для провайдера',
+  'prettify.remoteProviderPrivacy': 'Виділений текст і цей запит надсилаються на налаштовану адресу провайдера.',
   'prettify.vllmApiKey': 'vLLM API key',
   'prettify.vllmApiKeyStored': 'Ключ уже збережено. Залиште поле порожнім, щоб не змінювати його.',
   'prettify.vllmApiKeyPlaceholder': 'Необовʼязковий API key',
@@ -202,6 +279,7 @@ export default {
   'error.noSelectedText': 'Немає виділеного тексту',
   'error.noTextSelectedToTranslate': 'Немає тексту для перекладу',
   'error.noTextSelectedToPrettify': 'Немає тексту для покращення',
+  'error.prettifyTextTooLong': 'Виділений текст надто довгий для покращення (максимум {max} символів)',
   'error.translationInProgress': 'Переклад уже виконується',
   'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
   'error.noPrettifyModel': 'Виберіть модель покращення тексту в налаштуваннях застосунку',

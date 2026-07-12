@@ -10,6 +10,7 @@ import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
 import {
+  refreshLinuxDesktopIcons,
   registerLinuxAppImageDesktopIntegration,
   removeLinuxAppImageDesktopIntegration,
 } from './linuxDesktopIntegration';
@@ -19,12 +20,16 @@ import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryS
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
+const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
+const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
 let quitCleanupComplete = false;
 let quitCleanupPromise: Promise<void> | null = null;
 
 configureAppIdentity();
 app.disableHardwareAcceleration();
 registerAppProtocolScheme();
+
+const isStartupBenchmark = process.argv.includes('--startup-benchmark');
 
 const isRemovingLinuxAppImageDesktopIntegration =
   process.platform === 'linux' && process.argv.includes('--remove-linux-appimage-desktop-integration');
@@ -39,6 +44,39 @@ app.on('second-instance', () => {
     showMainWindow();
   }
 });
+
+function waitForStartupBenchmarkReady(): void {
+  const mainWindow = getMainWindow();
+  if (!mainWindow) {
+    return;
+  }
+
+  const checkWindowStartupState = async (): Promise<void> => {
+    if (mainWindow.isDestroyed()) {
+      return;
+    }
+
+    try {
+      const isReady: unknown = await mainWindow.webContents.executeJavaScript(
+        "document.body?.dataset.windowStartup === 'ready'",
+        true,
+      );
+      if (isReady === true) {
+        process.stdout.write(`${STARTUP_BENCHMARK_READY_MARKER}\n`);
+        app.quit();
+        return;
+      }
+    } catch {
+      // The renderer can briefly be unavailable while its document is being replaced.
+    }
+
+    setTimeout(() => {
+      void checkWindowStartupState();
+    }, STARTUP_BENCHMARK_POLL_INTERVAL_MS);
+  };
+
+  void checkWindowStartupState();
+}
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('class', 'gpt-voice');
@@ -64,9 +102,12 @@ app.on('ready', () => {
     return;
   }
 
-  configureCloakBrowserRuntime();
-  configureNativeAppMetadata();
-  registerLinuxAppImageDesktopIntegration();
+  if (!isStartupBenchmark) {
+    configureCloakBrowserRuntime();
+    configureNativeAppMetadata();
+    refreshLinuxDesktopIcons();
+    registerLinuxAppImageDesktopIntegration();
+  }
   registerAppProtocol();
 
   if (process.platform === 'darwin') {
@@ -95,12 +136,18 @@ app.on('ready', () => {
     setLocale(savedLocale);
   }
 
+  registerIpcHandlers();
   createWindow();
+
+  if (isStartupBenchmark) {
+    waitForStartupBenchmarkReady();
+    return;
+  }
+
   createTray();
   registerShortcuts();
-  registerIpcHandlers();
 
-  initBackgroundBrowser().then((status) => {
+  void initBackgroundBrowser().then((status) => {
     if (status.ready) {
       getMainWindow()?.webContents.send('bg-browser-ready');
     } else if (status.error) {

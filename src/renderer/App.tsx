@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoadingScreen from './components/LoadingScreen';
-import LoginButton from './components/LoginButton';
-import StatusIndicator from './components/StatusIndicator';
+import MainToolbar from './components/MainToolbar';
+import PrettifyModelMemoryRow from './components/PrettifyModelMemoryRow';
+import RecordingControls from './components/RecordingControls';
 import TranslateSection from './components/TranslateSection';
 import ProviderSettingsModal from './components/ProviderSettingsModal';
+import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
+import { getOllamaModelControl } from './prettifyModelControl';
 import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
 import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
+import { presentNotificationError } from '@shared/notifications';
+import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
+import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
+/** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState('');
+  const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
@@ -21,10 +28,17 @@ const App: React.FC = () => {
   const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
+  const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
+  const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
+  const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
+  const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
 
   const { t, isReady: isI18nReady } = useI18n();
 
+  useWindowStartupReady(isI18nReady && !isLoading);
+
   const preserveStatusRef = useRef(false);
+  const prettifyModelRefreshIdRef = useRef(0);
 
   const showStatusNotification = useCallback((nextStatus: string) => {
     const notificationBody = nextStatus.trim();
@@ -42,14 +56,56 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
+  const refreshOllamaModelState = useCallback(async (settings: PrettifySettings): Promise<void> => {
+    const refreshId = ++prettifyModelRefreshIdRef.current;
+    setPrettifySettings(settings);
+    setIsPrettifyModelActionRunning(false);
+    setPrettifyModelActionError('');
+
+    if (settings.providerId !== 'ollama' || !settings.ollama.model) {
+      setOllamaModelOptions([]);
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.listPrettifyModels('ollama', settings);
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setOllamaModelOptions(result.success ? result.models : []);
+      }
+    } catch {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setOllamaModelOptions([]);
+      }
+    }
+  }, []);
+
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, resendLastTranscription } =
     useRecording({
       setStatus,
-      setIsRecording,
-      setIsPaused,
+      setRecordingState,
       notifyStatus: showStatusNotification,
       t,
     });
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = (settings: PrettifySettings): void => {
+      if (!disposed) {
+        void refreshOllamaModelState(settings);
+      }
+    };
+
+    void window.electronAPI
+      .getPrettifySettings()
+      .then(refresh)
+      .catch(() => undefined);
+    const unsubscribe = window.electronAPI.onPrettifySettingsChanged(refresh);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [refreshOllamaModelState]);
 
   const applyProviderLoginState = useCallback(
     (hasSession: boolean, backgroundStatus?: BackgroundBrowserStatus): ProviderLoginState => {
@@ -90,7 +146,7 @@ const App: React.FC = () => {
     const subscriptions = [
       window.electronAPI.onToggleRecording((recording: boolean) => {
         if (disposed) return;
-        if (recording) startRecording();
+        if (recording) void startRecording();
       }),
       window.electronAPI.onStopRecording(() => {
         if (disposed) return;
@@ -123,23 +179,28 @@ const App: React.FC = () => {
           applyProviderLoginState(false, { ready: false, error, authExpired: true });
           return;
         }
-        window.electronAPI.checkSession().then((hasSession) => {
+        // The background-browser event is synchronous; refresh its session state without delaying the event callback.
+        // eslint-disable-next-line promise/no-promise-in-callback -- The asynchronous refresh intentionally outlives this event.
+        void window.electronAPI.checkSession().then((hasSession) => {
           if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
         });
       }),
       window.electronAPI.onHotkeySettingsChanged((settings) => {
-        if (disposed || preserveStatusRef.current) return;
-        setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+        if (disposed) return;
+        setRecordHotkey(settings.hotkey);
+        if (!preserveStatusRef.current) {
+          setStatus(t('status.pressToRecord', { hotkey: settings.hotkey }));
+        }
       }),
     ];
 
-    Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
+    void Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
       ([hasSession, backgroundStatus]) => {
         if (!disposed) applyProviderLoginState(hasSession, backgroundStatus);
       },
     );
 
-    window.electronAPI.isBgReady().then((ready) => {
+    void window.electronAPI.isBgReady().then((ready) => {
       if (disposed) return;
       if (ready) {
         setIsLoggedIn(true);
@@ -147,22 +208,23 @@ const App: React.FC = () => {
       }
     });
 
-    window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
+    void window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
+      setRecordHotkey(hk);
       if (!preserveStatusRef.current) {
         setStatus(t('status.pressToRecord', { hotkey: hk }));
       }
     });
 
-    window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
+    void window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
       if (disposed) return;
       setTargetLang(tl);
     });
 
-    window.electronAPI.getProviders().then((value) => {
+    void window.electronAPI.getProviders().then((value) => {
       if (!disposed) setProviders(value);
     });
-    window.electronAPI.getActiveProvider().then((value) => {
+    void window.electronAPI.getActiveProvider().then((value) => {
       if (!disposed) setActiveProviderId(value);
     });
 
@@ -189,9 +251,13 @@ const App: React.FC = () => {
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
 
   const openProviderSettings = async () => {
-    const settings = await window.electronAPI.getProviderSettings(activeProviderId);
-    setProviderSettings(settings);
-    setShowProviderSettings(true);
+    try {
+      const settings = await window.electronAPI.getProviderSettings(activeProviderId);
+      setProviderSettings(settings);
+      setShowProviderSettings(true);
+    } catch {
+      setStatus(t('error.notificationUnknown'));
+    }
   };
 
   const handleLogin = async () => {
@@ -239,40 +305,124 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
+  const ollamaModelControl = getOllamaModelControl(prettifySettings, ollamaModelOptions);
+
+  const handleOllamaModelAction = async (): Promise<void> => {
+    if (!prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
+      return;
+    }
+
+    const refreshId = prettifyModelRefreshIdRef.current;
+    const { model, isLoaded } = ollamaModelControl;
+    setIsPrettifyModelActionRunning(true);
+    setPrettifyModelActionError('');
+
+    try {
+      const result = isLoaded
+        ? await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings)
+        : await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+      if (refreshId !== prettifyModelRefreshIdRef.current) {
+        return;
+      }
+
+      if (!result.success) {
+        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
+        setPrettifyModelActionError(
+          presentNotificationError(result.error, { context: 'prettify', fallback, t }).userMessage,
+        );
+        return;
+      }
+
+      const vramSizeBytes =
+        !isLoaded && 'vramSizeBytes' in result && typeof result.vramSizeBytes === 'number'
+          ? result.vramSizeBytes
+          : undefined;
+      setOllamaModelOptions((current) => {
+        const hasSelectedModel = current.some((option) => option.id === model);
+        if (isLoaded) {
+          return current.map((option) => (option.id === model ? { ...option, isLoaded: false } : option));
+        }
+
+        const nextOptions = current.map((option) => ({
+          ...option,
+          isLoaded: option.id === model,
+          ...(option.id === model && vramSizeBytes !== undefined ? { vramSizeBytes } : {}),
+        }));
+        return hasSelectedModel
+          ? nextOptions
+          : [...nextOptions, { id: model, isLoaded: true, name: model, vramSizeBytes }];
+      });
+    } catch (error: unknown) {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
+        setPrettifyModelActionError(presentNotificationError(error, { context: 'prettify', fallback, t }).userMessage);
+      }
+    } finally {
+      if (refreshId === prettifyModelRefreshIdRef.current) {
+        setIsPrettifyModelActionRunning(false);
+      }
+    }
+  };
+
+  const openAppSettingsWindow = useCallback((): void => {
+    void window.electronAPI.openAppSettings().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
+  const openHistoryWindow = useCallback((): void => {
+    void window.electronAPI.openTranscriptionHistory().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
+  const openAboutWindow = useCallback((): void => {
+    void window.electronAPI.openAbout().catch(() => {
+      setStatus(t('error.notificationUnknown'));
+    });
+  }, [t]);
+
   if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
-    <div className="container">
-      <div className="provider-section">
-        <label className="provider-label">{t('provider.label')}</label>
-        <select
-          className="provider-select"
-          value={activeProviderId}
-          onChange={(e) => handleProviderChange(e.target.value)}
-        >
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <button className="provider-settings-btn" onClick={openProviderSettings} aria-label={t('provider.settings')}>
-          {t('provider.settings')}
-        </button>
-      </div>
-      <LoginButton
+    <main className="command-dock" data-slot="main-window">
+      <MainToolbar
+        activeProviderAuthType={activeProviderAuthType}
+        activeProviderId={activeProviderId}
+        activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
-        providerName={activeProviderName}
-        actionType={activeProviderAuthType === 'apiKey' ? 'configure' : 'login'}
-        onLogin={handleLogin}
+        onOpenAbout={openAboutWindow}
+        onOpenAppSettings={openAppSettingsWindow}
+        onOpenHistory={openHistoryWindow}
+        onOpenProviderSettings={() => void openProviderSettings()}
+        onProviderChange={(providerId) => void handleProviderChange(providerId)}
+        onProviderLogin={() => void handleLogin()}
+        providers={providers}
       />
-      <StatusIndicator isRecording={isRecording} isPaused={isPaused} status={status} />
+      {ollamaModelControl && (
+        <PrettifyModelMemoryRow
+          control={ollamaModelControl}
+          error={prettifyModelActionError}
+          isRunning={isPrettifyModelActionRunning}
+          onAction={() => void handleOllamaModelAction()}
+        />
+      )}
+      <RecordingControls
+        onCancel={cancelRecording}
+        onPause={pauseRecording}
+        onResume={resumeRecording}
+        onStart={startRecording}
+        onStop={stopRecording}
+        recordHotkey={recordHotkey}
+        state={recordingState}
+        status={status}
+      />
       <TranslateSection
         targetLang={targetLang}
         onLangChange={(lang) => {
           setTargetLang(lang);
-          window.electronAPI.setTranslateSettings(lang);
+          void window.electronAPI.setTranslateSettings(lang);
         }}
       />
       {showProviderSettings && activeProvider && providerSettings && (
@@ -284,7 +434,7 @@ const App: React.FC = () => {
           onLogin={handleLogin}
         />
       )}
-    </div>
+    </main>
   );
 };
 

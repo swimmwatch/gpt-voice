@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1820"
+  height="1199"
+  viewBox="0 0 1820 1199"
+  role="img"
+  aria-labelledby="title description"
+>
+  <title id="title">Command Dock implementation blueprint</title>
+  <desc id="description">
+    Annotated geometry overlay for the Command Dock reference, including source-image and 460 by 420 CSS coordinates.
+  </desc>
+  <style>
+    .label {
+      font-family: "Ubuntu Sans", Ubuntu, sans-serif;
+      fill: #f4f4f5;
+    }
+    .mono {
+      font-family: "Ubuntu Mono", "Roboto Mono", monospace;
+      fill: #b9c0c5;
+    }
+    .band {
+      fill: none;
+      stroke: #55c2ff;
+      stroke-width: 2;
+      stroke-dasharray: 10 8;
+    }
+    .control {
+      fill: none;
+      stroke: #ff78bf;
+      stroke-width: 2;
+    }
+    .guide {
+      stroke: #ffd166;
+      stroke-width: 2;
+    }
+  </style>
+
+  <rect width="1820" height="1199" fill="#101213" />
+  <image href="command-dock-reference.svg" x="0" y="0" width="1312" height="1199" />
+  <rect x="0" y="0" width="1312" height="1199" fill="#000000" opacity="0.16" />
+
+  <g id="band-overlay">
+    <rect class="band" x="4" y="4" width="1304" height="169" />
+    <rect class="band" x="4" y="177" width="1304" height="158" />
+    <rect class="band" x="4" y="338" width="1304" height="168" />
+    <rect class="band" x="4" y="509" width="1304" height="261" />
+    <rect class="band" x="4" y="774" width="1304" height="135" />
+    <rect class="band" x="4" y="913" width="1304" height="282" />
+
+    <text x="16" y="28" class="mono" font-size="18">header [4,4 1304x169]</text>
+    <text x="16" y="201" class="mono" font-size="18">provider [4,177 1304x158]</text>
+    <text x="16" y="362" class="mono" font-size="18">modelMemory [4,338 1304x168]</text>
+    <text x="16" y="533" class="mono" font-size="18">recordingCommand [4,509 1304x261]</text>
+    <text x="16" y="798" class="mono" font-size="18">operationState [4,774 1304x135]</text>
+    <text x="16" y="937" class="mono" font-size="18">targetLanguage [4,913 1304x282]</text>
+  </g>
+
+  <g id="control-overlay">
+    <rect class="control" x="1044" y="43" width="106" height="96" />
+    <rect class="control" x="1172" y="43" width="103" height="96" />
+    <rect class="control" x="1013" y="385" width="261" height="76" />
+    <rect class="control" x="50" y="560" width="1212" height="162" />
+    <rect class="control" x="411" y="953" width="383" height="81" />
+  </g>
+
+  <g id="alignment-guides">
+    <line class="guide" x1="50" y1="0" x2="50" y2="1199" opacity="0.55" />
+    <line class="guide" x1="160" y1="177" x2="160" y2="506" opacity="0.55" />
+    <line class="guide" x1="1262" y1="509" x2="1262" y2="770" opacity="0.55" />
+  </g>
+
+  <g id="metric-panel">
+    <rect x="1336" y="0" width="484" height="1199" fill="#181a1b" />
+    <line x1="1336" y1="0" x2="1336" y2="1199" stroke="#303233" stroke-width="3" />
+
+    <text x="1372" y="58" class="label" font-size="30" font-weight="700">Command Dock Blueprint</text>
+    <text x="1372" y="94" class="mono" font-size="19">source: 1312 x 1199 px</text>
+    <text x="1372" y="122" class="mono" font-size="19">target: 460 x 420 CSS px</text>
+    <text x="1372" y="150" class="mono" font-size="19">scaleX: 0.3506097561</text>
+    <text x="1372" y="178" class="mono" font-size="19">scaleY: 0.3502919099</text>
+
+    <text x="1372" y="236" class="label" font-size="23" font-weight="650">Band geometry</text>
+    <text x="1372" y="274" class="mono" font-size="18">header        y 1.40  h 59.20</text>
+    <text x="1372" y="306" class="mono" font-size="18">provider      y 62.00 h 55.35</text>
+    <text x="1372" y="338" class="mono" font-size="18">model         y 118.40 h 58.85</text>
+    <text x="1372" y="370" class="mono" font-size="18">record        y 178.30 h 91.43</text>
+    <text x="1372" y="402" class="mono" font-size="18">status        y 271.13 h 47.29</text>
+    <text x="1372" y="434" class="mono" font-size="18">language      y 319.82 h 98.78</text>
+
+    <text x="1372" y="496" class="label" font-size="23" font-weight="650">Key controls at 460 x 420</text>
+    <text x="1372" y="534" class="mono" font-size="18">history    366.04,15.06 37.16x33.63</text>
+    <text x="1372" y="566" class="mono" font-size="18">settings   410.91,15.06 36.11x33.63</text>
+    <text x="1372" y="598" class="mono" font-size="18">free VRAM  355.17,134.86 91.51x26.62</text>
+    <text x="1372" y="630" class="mono" font-size="18">record     17.53,196.16 424.94x56.75</text>
+    <text x="1372" y="662" class="mono" font-size="18">language   144.10,333.83 134.28x28.37</text>
+
+    <text x="1372" y="724" class="label" font-size="23" font-weight="650">Non-negotiable structure</text>
+    <text x="1372" y="764" class="mono" font-size="18">- edge-to-edge horizontal bands</text>
+    <text x="1372" y="796" class="mono" font-size="18">- no nested cards</text>
+    <text x="1372" y="828" class="mono" font-size="18">- recording is the primary action</text>
+    <text x="1372" y="860" class="mono" font-size="18">- History + Settings only in header</text>
+    <text x="1372" y="892" class="mono" font-size="18">- no native title bar in target area</text>
+    <text x="1372" y="924" class="mono" font-size="18">- exact 460 x 420 match before resize</text>
+
+    <rect x="1372" y="982" width="26" height="4" fill="#55c2ff" />
+    <text x="1412" y="992" class="mono" font-size="17">section boundary</text>
+    <rect x="1372" y="1022" width="26" height="4" fill="#ff78bf" />
+    <text x="1412" y="1032" class="mono" font-size="17">interactive control bounds</text>
+    <rect x="1372" y="1062" width="26" height="4" fill="#ffd166" />
+    <text x="1412" y="1072" class="mono" font-size="17">alignment guide</text>
+
+    <text x="1372" y="1146" class="mono" font-size="16">Detailed tokens and element bounds:</text>
+    <text x="1372" y="1174" class="mono" font-size="16">command-dock-layout.json</text>
+  </g>
+</svg>

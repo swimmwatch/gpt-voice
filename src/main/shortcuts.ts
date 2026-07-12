@@ -17,7 +17,13 @@ import { t } from './i18n';
 import { getActiveSelectedTextAction } from './services/selectedTextActionState';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
-import { canRunRetryTranscriptionHotkey, canRunTextActionHotkey } from '@shared/hotkeys';
+import {
+  canRunRetryTranscriptionHotkey,
+  canRunTextActionHotkey,
+  getConflictingHotkeyTargets,
+  type HotkeySettings,
+  type HotkeyTarget,
+} from '@shared/hotkeys';
 import {
   canCancelRecording,
   canPauseRecording,
@@ -35,6 +41,8 @@ let isPaused = false;
 let recordingLifecycleState: RecordingLifecycleState = 'idle';
 let retryTranscriptionAvailable = false;
 let registeredRetryTranscriptionHotkey: string | null = null;
+let shortcutsSuspended = false;
+let conflictingHotkeyTargets = new Set<HotkeyTarget>();
 
 interface CancelShortcutActions {
   cancelPrettify: () => { status: string } | null;
@@ -67,6 +75,40 @@ function normalizeHotkeyForPlatform(hotkey: string): string {
     return hotkey.replace(/\bSuper\b/g, 'Command');
   }
   return hotkey.replace(/\bCommand\b/g, 'Super');
+}
+
+function getCurrentHotkeySettings(): HotkeySettings {
+  return {
+    cancelHotkey: currentCancelHotkey,
+    hotkey: currentHotkey,
+    prettifyHotkey: currentPrettifyHotkey,
+    retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
+    stopHotkey: currentStopHotkey,
+    translateHotkey: currentTranslateHotkey,
+  };
+}
+
+function registerConfiguredShortcut(target: HotkeyTarget, hotkey: string, callback: () => void): boolean {
+  if (conflictingHotkeyTargets.has(target)) {
+    log.warn(`Skipped ${target} shortcut because its key conflicts with another configured shortcut:`, hotkey);
+    return false;
+  }
+  return globalShortcut.register(hotkey, callback);
+}
+
+export function setShortcutsSuspended(suspended: boolean): void {
+  if (shortcutsSuspended === suspended) return;
+
+  shortcutsSuspended = suspended;
+  if (suspended) {
+    globalShortcut.unregisterAll();
+    registeredRetryTranscriptionHotkey = null;
+    log.info('Global shortcuts suspended for hotkey capture');
+    return;
+  }
+
+  log.info('Global shortcuts resumed after hotkey capture');
+  registerShortcuts();
 }
 
 export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: CancelShortcutActions): boolean {
@@ -131,6 +173,11 @@ function unregisterRetryTranscriptionShortcut(): void {
 }
 
 function syncRetryTranscriptionShortcut(): void {
+  if (shortcutsSuspended || conflictingHotkeyTargets.has('retryTranscription')) {
+    unregisterRetryTranscriptionShortcut();
+    return;
+  }
+
   const retryTranscriptionHotkey = normalizeHotkeyForPlatform(currentRetryTranscriptionHotkey);
   if (!canRunRetryTranscriptionShortcut(recordingLifecycleState, retryTranscriptionAvailable)) {
     unregisterRetryTranscriptionShortcut();
@@ -142,7 +189,7 @@ function syncRetryTranscriptionShortcut(): void {
   }
 
   unregisterRetryTranscriptionShortcut();
-  const retryRegistered = globalShortcut.register(retryTranscriptionHotkey, () => {
+  const retryRegistered = registerConfiguredShortcut('retryTranscription', retryTranscriptionHotkey, () => {
     if (!canRunRetryTranscriptionShortcut(recordingLifecycleState, retryTranscriptionAvailable)) {
       log.info(`${retryTranscriptionHotkey} pressed while resend transcription is unavailable`);
       return;
@@ -164,9 +211,16 @@ function syncRetryTranscriptionShortcut(): void {
   log.info(`${retryTranscriptionHotkey} resend transcription shortcut registered:`, retryRegistered);
 }
 
+/** Registers global shortcuts while preserving recording-state and conflict safeguards. */
 export function registerShortcuts(): void {
   globalShortcut.unregisterAll();
   registeredRetryTranscriptionHotkey = null;
+  conflictingHotkeyTargets = new Set(getConflictingHotkeyTargets(getCurrentHotkeySettings()));
+
+  if (shortcutsSuspended) {
+    log.info('Skipped global shortcut registration while hotkey capture is active');
+    return;
+  }
 
   const recordHotkey = normalizeHotkeyForPlatform(currentHotkey);
   const stopHotkey = normalizeHotkeyForPlatform(currentStopHotkey);
@@ -174,7 +228,7 @@ export function registerShortcuts(): void {
   const translateHotkey = normalizeHotkeyForPlatform(currentTranslateHotkey);
   const prettifyHotkey = normalizeHotkeyForPlatform(currentPrettifyHotkey);
 
-  const registered = globalShortcut.register(recordHotkey, () => {
+  const registered = registerConfiguredShortcut('record', recordHotkey, () => {
     const win = getMainWindow();
     if (canStartRecording(recordingLifecycleState)) {
       log.info(`${recordHotkey} pressed, starting recording`);
@@ -194,7 +248,7 @@ export function registerShortcuts(): void {
   });
   log.info(`${recordHotkey} shortcut registered:`, registered);
 
-  const stopRegistered = globalShortcut.register(stopHotkey, () => {
+  const stopRegistered = registerConfiguredShortcut('stop', stopHotkey, () => {
     if (canStopRecording(recordingLifecycleState)) {
       log.info(`${stopHotkey} pressed, stopping recording`);
       setRecordingLifecycleState('stopping');
@@ -205,7 +259,7 @@ export function registerShortcuts(): void {
   });
   log.info(`${stopHotkey} stop shortcut registered:`, stopRegistered);
 
-  const cancelRegistered = globalShortcut.register(cancelHotkey, () => {
+  const cancelRegistered = registerConfiguredShortcut('cancel', cancelHotkey, () => {
     const win = getMainWindow();
     handleCancelShortcut(canCancelRecording(recordingLifecycleState), {
       cancelPrettify: () => {
@@ -226,7 +280,7 @@ export function registerShortcuts(): void {
   });
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
-  const translateRegistered = globalShortcut.register(translateHotkey, () => {
+  const translateRegistered = registerConfiguredShortcut('translate', translateHotkey, () => {
     const selectedTextBusy = Boolean(getActiveSelectedTextAction());
     if (!canRunTranslateShortcut(recordingLifecycleState, currentTranslateEnabled, selectedTextBusy)) {
       if (currentTranslateEnabled) {
@@ -252,7 +306,7 @@ export function registerShortcuts(): void {
   });
   log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 
-  const prettifyRegistered = globalShortcut.register(prettifyHotkey, () => {
+  const prettifyRegistered = registerConfiguredShortcut('prettify', prettifyHotkey, () => {
     const selectedTextBusy = Boolean(getActiveSelectedTextAction());
     if (!canRunPrettifyShortcut(recordingLifecycleState, currentPrettifyEnabled, selectedTextBusy)) {
       if (currentPrettifyEnabled) {

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag to use for generated app/package versions, for example v1.0.6. Required when dispatching from a branch.
+        description: Optional release tag to use for generated app/package versions, for example v1.0.6.
         required: false
         type: string
   release:
@@ -12,7 +12,7 @@ on:
       - published
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-builds-${{ github.workflow }}-${{ github.ref }}
@@ -91,6 +91,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -109,10 +111,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-release-electron-cloak-
 
+      - name: Build Windows v1.4 reference
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          # This reviewed commit defines the v1.4.0 baseline; do not accept it as a dispatch input.
+          BASELINE_REF: 3845bad421f32650cb57a44f32345bfe0f46a127
+        run: |
+          git worktree add --detach .size-baseline $env:BASELINE_REF
+          Push-Location .size-baseline
+          npm run ci:install
+          npm run prepare:cloakbrowser -- --target=win32
+          npm run smoke:cloakbrowser
+          npm run build:prod
+          npm run generate:package-metadata -- --release-date=2026-07-11
+          $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+          npx electron-builder --win --publish never
+          npm run verify:packaged
+          npm run verify:installers -- --platform=win32
+          npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+          Pop-Location
+
+      - name: Upload Windows v1.4 reference size report
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-voice-win32-v1.4.0-baseline
+          path: .size-baseline/release-artifacts/size-win32-x64.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Install dependencies
         run: npm run ci:install
 
       - name: Apply release version from tag
+        if: github.event_name == 'release' || github.event.inputs.release_tag != ''
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
@@ -143,6 +176,16 @@ jobs:
       - name: Verify installer behavior
         run: npm run verify:installers -- --platform=win32
 
+      - name: Measure Windows package size
+        run: npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+
+      - name: Verify Windows size budget when a reviewed baseline exists
+        if: hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
+        run: npm run verify:size -- --report=release-artifacts/size-win32-x64.json --baseline=build/size-baselines/v1.4.0-win32-x64.json
+
+      - name: Measure Windows cold startup
+        run: npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
+
       - name: Collect installer artifacts
         run: npm run collect:release-artifacts -- --platform=win32
 
@@ -156,6 +199,8 @@ jobs:
 
   publish:
     name: Publish GitHub Release
+    permissions:
+      contents: write
     needs:
       - build-linux
       - build-windows

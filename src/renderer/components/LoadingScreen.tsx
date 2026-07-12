@@ -1,16 +1,16 @@
-import React from 'react';
-import { useI18n } from '../hooks/useI18n';
+import type { JSX } from 'react';
+import { Spinner } from '@renderer/components/ui/spinner';
+import { useI18n } from '@renderer/hooks/useI18n';
 
-const LoadingScreen: React.FC = () => {
+function LoadingScreen(): JSX.Element {
   const { t } = useI18n();
+
   return (
-    <div className="container">
-      <div className="loader">
-        <div className="spinner" />
-        <p className="loader-text">{t('loading.initializing')}</p>
-      </div>
-    </div>
+    <main className="flex h-full w-full items-center justify-center gap-2 text-sm text-muted-foreground [-webkit-app-region:no-drag]">
+      <Spinner label={t('loading.initializing')} />
+      <span>{t('loading.initializing')}</span>
+    </main>
   );
-};
+}
 
 export default LoadingScreen;

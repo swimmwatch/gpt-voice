@@ -20,6 +20,14 @@ describe('providerState', () => {
     });
   });
 
+  it('keeps a saved session logged in when browser startup temporarily fails', () => {
+    assert.deepEqual(getProviderLoginState(true, { ready: false, error: 'Browser startup failed' }), {
+      isLoggedIn: true,
+      isLoading: false,
+      sessionExpired: false,
+    });
+  });
+
   it('falls back to saved session state when background status is not resolved', () => {
     assert.deepEqual(getProviderLoginState(true), {
       isLoggedIn: true,

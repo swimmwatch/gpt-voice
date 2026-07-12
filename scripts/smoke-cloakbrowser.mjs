@@ -37,6 +37,7 @@ try {
   const page = await browser.newPage();
   await page.goto('data:text/html,<title>CloakBrowser smoke</title><h1>ok</h1>');
   const title = await page.title();
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Node 24 exposes navigator in the supported runtime.
   const webdriver = await page.evaluate(() => globalThis.navigator.webdriver);
 
   if (title !== 'CloakBrowser smoke') {

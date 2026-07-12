@@ -4,6 +4,7 @@ import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescrip
 import prettier from 'eslint-config-prettier';
 import eslintComments from 'eslint-plugin-eslint-comments';
 import importX from 'eslint-plugin-import-x';
+import jsdoc from 'eslint-plugin-jsdoc';
 import n from 'eslint-plugin-n';
 import noUnsanitized from 'eslint-plugin-no-unsanitized';
 import perfectionist from 'eslint-plugin-perfectionist';
@@ -68,6 +69,7 @@ export default tseslint.config(
     plugins: {
       'eslint-comments': eslintComments,
       'import-x': importX,
+      jsdoc,
       perfectionist,
       promise,
       regexp,
@@ -94,11 +96,19 @@ export default tseslint.config(
       'import-x/no-cycle': 'warn',
       'import-x/no-duplicates': 'error',
       'import-x/no-unresolved': ['error', { commonjs: true }],
+      complexity: ['warn', 35],
+      'jsdoc/require-description': 'warn',
+      'jsdoc/require-jsdoc': ['warn', { contexts: ['ClassDeclaration'], require: { FunctionDeclaration: false } }],
+      'max-classes-per-file': ['warn', 1],
+      'max-depth': ['warn', 5],
+      'max-lines-per-function': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
+      'max-params': ['warn', 6],
+      'max-statements': ['warn', 80],
       'perfectionist/sort-exports': ['warn', { type: 'natural' }],
       'perfectionist/sort-imports': 'off',
       'promise/always-return': 'off',
       'promise/catch-or-return': 'off',
-      'sonarjs/cognitive-complexity': ['warn', 25],
+      'sonarjs/cognitive-complexity': ['warn', 35],
       'sonarjs/no-all-duplicated-branches': 'warn',
       'sonarjs/no-duplicated-branches': 'warn',
       'sonarjs/no-identical-conditions': 'warn',
@@ -174,9 +184,33 @@ export default tseslint.config(
   {
     files: ['tests/**/*.ts'],
     rules: {
+      '@typescript-eslint/no-base-to-string': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/require-await': 'off',
+      'jsdoc/require-jsdoc': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'jsdoc/require-jsdoc': [
+        'warn',
+        {
+          contexts: [
+            'ClassDeclaration',
+            { context: 'FunctionDeclaration', minLineCount: 80 },
+            { context: 'FunctionExpression', minLineCount: 80 },
+            { context: 'ArrowFunctionExpression', minLineCount: 80 },
+            { context: 'MethodDefinition', minLineCount: 80 },
+          ],
+          require: { FunctionDeclaration: false },
+        },
+      ],
     },
   },
   {

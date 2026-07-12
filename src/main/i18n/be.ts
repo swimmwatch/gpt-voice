@@ -47,6 +47,11 @@ export default {
   // Provider
   'provider.label': 'Правайдар:',
   'provider.settings': 'Налады',
+  'provider.connect': 'Падключыць',
+  'provider.configure': 'Наладзіць',
+  'provider.connected': 'Падключана',
+  'provider.connectionReady': 'Гатова',
+  'provider.connectionSetupRequired': 'Патрэбная наладка',
 
   // Provider settings
   'providerSettings.title': 'Налады {provider}',
@@ -64,10 +69,17 @@ export default {
   'providerSettings.prompt': 'Prompt',
   'providerSettings.temperature': 'Temperature: {value}',
   'providerSettings.save': 'Захаваць',
+  'providerSettings.saving': 'Захаванне...',
   'providerSettings.clearKey': 'Ачысціць ключ',
+  'providerSettings.clear': 'Ачысціць',
   'providerSettings.saveFailed': 'Не ўдалося захаваць налады',
   'providerSettings.clearFailed': 'Не ўдалося ачысціць даныя правайдара',
   'providerSettings.language.auto': 'Аўта',
+  'providerSettings.description': 'Наладзьце доступ да транскрыбавання праз {provider}.',
+  'providerSettings.clearSessionConfirmTitle': 'Ачысціць захаваную сесію?',
+  'providerSettings.clearKeyConfirmTitle': 'Ачысціць захаваны ключ API?',
+  'providerSettings.clearConfirmDescription':
+    'Каб зноў карыстацца гэтым правайдарам, трэба будзе ўвайсці або ўказаць ключ.',
 
   // App settings
   'appSettings.open': 'Налады праграмы',
@@ -97,9 +109,62 @@ export default {
   'appSettings.proxyPasswordSaved': 'Пароль захаваны',
   'appSettings.clearProxyPassword': 'Ачысціць',
   'appSettings.proxyGeoip': 'GeoIP',
+  'appSettings.proxyDisabledHint': 'Уключыце проксі, каб наладзіць падключэнне.',
+  'appSettings.localeTimezoneManagedByProxy': 'GeoIP проксі кіруе лакаллю і гадзінным поясам.',
   'appSettings.proxySocks5AuthWarning': 'Імя карыстальніка і пароль для SOCKS5-проксі не падтрымліваюцца браўзерам.',
   'appSettings.save': 'Захаваць',
+  'appSettings.saving': 'Захаванне...',
   'appSettings.saveFailed': 'Не ўдалося захаваць налады',
+  'appSettings.discardChangesDescription': 'Незахаваныя змены будуць страчаны.',
+
+  // Redesign navigation and common commands
+  'mainDock.title': 'Панэль каманд',
+  'mainDock.subtitle': 'GPT-Voice',
+  'mainDock.providerLabel': 'Правайдар распазнавання',
+  'navigation.openHistory': 'Адкрыць гісторыю транскрыбаванняў',
+  'navigation.openAbout': 'Адкрыць звесткі пра GPT-Voice',
+  'navigation.openAppSettings': 'Адкрыць налады праграмы',
+  'navigation.openProviderSettings': 'Адкрыць налады {provider}',
+  'navigation.moreActions': 'Дадатковыя дзеянні',
+  'common.close': 'Закрыць',
+  'common.retry': 'Паўтарыць',
+  'common.saveChanges': 'Захаваць змены',
+  'common.discardChanges': 'Адкінуць змены',
+  'common.keepEditing': 'Працягнуць рэдагаванне',
+  'common.unsavedChanges': 'Незахаваныя змены',
+  'common.discardChangesConfirm': 'Адкінуць незахаваныя змены?',
+  'dialog.close': 'Закрыць дыялог',
+
+  // Recording workspace
+  'recording.start': 'Пачаць запіс',
+  'recording.startCommand': 'Пачаць запіс',
+  'recording.starting': 'Пачынаем запіс...',
+  'recording.stop': 'Спыніць запіс',
+  'recording.pause': 'Прыпыніць запіс',
+  'recording.resume': 'Працягнуць запіс',
+  'recording.cancel': 'Скасаваць запіс',
+
+  // Model memory
+  'modelMemory.title': 'Памяць мадэлі',
+  'modelMemory.ollamaGpu': 'Мадэль паляпшэння тэксту',
+  'modelMemory.vram': 'VRAM',
+  'modelMemory.loaded': 'Загружана',
+  'modelMemory.notLoaded': 'Не загружана',
+  'modelMemory.unknown': 'Стан невядомы',
+
+  // Settings sections
+  'settingsSection.shortcuts': 'Клавішы і дзеянні',
+  'settingsSection.prettify': 'Паляпшэнне тэксту',
+  'settingsSection.browser': 'Браўзер',
+  'settingsSection.network': 'Сетка',
+
+  // About
+  'about.open': 'Пра праграму',
+  'about.version': 'Версія {version}',
+  'about.license': 'Ліцэнзія',
+  'about.copyright': 'Аўтарскія правы',
+  'about.loading': 'Загрузка звестак пра праграму...',
+  'about.loadFailed': 'Не ўдалося загрузіць звесткі пра праграму.',
 
   // History
   'history.open': 'Гісторыя',
@@ -108,7 +173,9 @@ export default {
   'history.clear': 'Ачысціць гісторыю',
   'history.clearing': 'Ачыстка...',
   'history.clearConfirm': 'Ачысціць усю гісторыю транскрыбаванняў?',
+  'history.clearConfirmDescription': 'Усе лакальна захаваныя транскрыпцыі будуць выдалены без магчымасці аднаўлення.',
   'history.clearFailed': 'Не ўдалося ачысціць гісторыю',
+  'history.cleared': 'Гісторыя ачышчана',
   'history.emptyTitle': 'Транскрыбаванняў пакуль няма',
   'history.emptyBody': 'Распазнаны тэкст зʼявіцца тут пасля паспяховага транскрыбавання.',
   'history.copyHint': 'Націсніце на тэкст, каб скапіраваць',
@@ -117,9 +184,15 @@ export default {
   'history.copyFailed': 'Не ўдалося скапіраваць тэкст',
   'history.loadingMore': 'Загрузка...',
   'history.end': 'Канец гісторыі',
+  'history.loading': 'Загрузка гісторыі...',
+  'history.loadFailed': 'Не ўдалося загрузіць гісторыю',
+  'history.retry': 'Паўтарыць',
+  'history.clearAria': 'Ачысціць гісторыю транскрыбаванняў',
+  'history.copy': 'Скапіраваць транскрыпцыю',
 
   // Status indicator
   'indicator.idle': 'Чаканне',
+  'indicator.ready': 'Гатова',
   'indicator.recording': 'Запіс',
   'indicator.paused': 'Паўза',
 
@@ -134,6 +207,7 @@ export default {
   'hotkey.prettify': 'Паляпшэнне',
   'hotkey.retryTranscription': 'Адправіць транскрыпцыю зноў',
   'hotkey.change': 'Змяніць',
+  'hotkey.enabled': '{target}: уключана',
   'hotkey.setHotkey': 'Прызначыць клавішу: {target}',
   'hotkey.pressKeyCombination': 'Націсніце камбінацыю клавіш',
   'hotkey.waitingForInput': 'Чаканне ўводу...',
@@ -164,6 +238,8 @@ export default {
   'prettify.modelsRefreshFailed': 'Не ўдалося загрузіць мадэлі',
   'prettify.temperature': 'Temperature: {value}',
   'prettify.advancedGeneration': 'Параметры генерацыі',
+  'prettify.advancedSummaryDefaults': 'Значэнні па змаўчанні',
+  'prettify.advancedSummaryCustom': 'Зменена значэнняў: {count}',
   'prettify.topP': 'Top P: {value}',
   'prettify.topK': 'Top K',
   'prettify.minP': 'Min P: {value}',
@@ -171,6 +247,7 @@ export default {
   'prettify.maxOutputTokens': 'Макс. токенаў адказу',
   'prettify.seed': 'Seed',
   'prettify.providerDefault': 'Прадвызначана правайдарам',
+  'prettify.remoteProviderPrivacy': 'Вылучаны тэкст і гэты запыт адпраўляюцца на наладжаны адрас пастаўшчыка.',
   'prettify.vllmApiKey': 'vLLM API key',
   'prettify.vllmApiKeyStored': 'Ключ ужо захаваны. Пакіньце поле пустым, каб не змяняць яго.',
   'prettify.vllmApiKeyPlaceholder': 'Неабавязковы API key',
@@ -202,6 +279,7 @@ export default {
   'error.noSelectedText': 'Няма вылучанага тэксту',
   'error.noTextSelectedToTranslate': 'Няма тэксту для перакладу',
   'error.noTextSelectedToPrettify': 'Няма тэксту для паляпшэння',
+  'error.prettifyTextTooLong': 'Вылучаны тэкст занадта доўгі для паляпшэння (максімум {max} сімвалаў)',
   'error.translationInProgress': 'Пераклад ужо выконваецца',
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',

@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { createTextActionCacheKey, createTextActionResultCache } from '@main/services/textActionCache';
 
 describe('textActionCache', () => {
+  it('hashes cache keys instead of retaining source text', () => {
+    const key = createTextActionCacheKey(['prettify', 'sensitive selected text']);
+
+    assert.match(key, /^[a-f0-9]{64}$/);
+    assert.equal(key.includes('sensitive selected text'), false);
+    assert.equal(key, createTextActionCacheKey(['prettify', 'sensitive selected text']));
+  });
+
   it('returns null for cache misses and stores non-empty results', () => {
     const cache = createTextActionResultCache(2);
     const key = createTextActionCacheKey(['translate', 'text', 'uk']);
@@ -49,5 +57,27 @@ describe('textActionCache', () => {
     assert.equal(cache.get(second), null);
     assert.equal(cache.get(first), 'one');
     assert.equal(cache.get(third), 'three');
+  });
+
+  it('expires entries when a maximum age is configured', () => {
+    let now = 1_000;
+    const cache = createTextActionResultCache(2, { maxAgeMs: 100, now: () => now });
+    const key = createTextActionCacheKey(['prettify', 'text']);
+
+    cache.set(key, 'prettified text');
+    now += 100;
+
+    assert.equal(cache.get(key), null);
+    assert.equal(cache.size(), 0);
+  });
+
+  it('removes expired entries without a later cache access', async () => {
+    const cache = createTextActionResultCache(2, { maxAgeMs: 1 });
+    const key = createTextActionCacheKey(['prettify', 'sensitive text']);
+
+    cache.set(key, 'prettified text');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(cache.size(), 0);
   });
 });

@@ -238,6 +238,8 @@ async function verifyPackagedLicense(filePath, description) {
   assert(license.includes(`License: ${packageJson.license}`), `${description} has unexpected license`);
 }
 
+// Package formats expose distinct inspection commands; keeping these checks together makes their release contract auditable.
+// eslint-disable-next-line max-statements -- Linux package verification is one cohesive release check.
 async function verifyLinuxInstallers() {
   await requireCommand('rpm', 'the rpm package');
   await requireCommand('rpm2cpio', 'the rpm package');
@@ -371,10 +373,7 @@ async function verifyLinuxInstallers() {
   );
   assert(rpmInfo.includes(`Vendor: ${packageJson.build.linux.vendor}`), 'RPM metadata has unexpected Vendor field');
   assert(rpmInfo.includes(`URL: ${packageJson.homepage}`), 'RPM metadata has unexpected URL field');
-  assert(
-    rpmInfo.includes(`Summary: ${packageJson.build.linux.synopsis}`),
-    'RPM metadata has unexpected Summary field',
-  );
+  assert(rpmInfo.includes(`Summary: ${packageJson.build.linux.synopsis}`), 'RPM metadata has unexpected Summary field');
   assert(
     rpmInfo.includes(`Description: ${packageJson.build.linux.description}`),
     'RPM metadata has unexpected Description field',

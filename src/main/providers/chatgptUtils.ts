@@ -59,7 +59,7 @@ export function hasUsableSessionState(sessionData: SessionState, nowSeconds = Da
 
 export function shouldRefreshTranscribeToken(status: number): boolean {
   // Non-auth 5xx responses are provider/audio failures, not expired-token signals.
-  return status === StatusCodes.UNAUTHORIZED || status === StatusCodes.FORBIDDEN;
+  return status === Number(StatusCodes.UNAUTHORIZED) || status === Number(StatusCodes.FORBIDDEN);
 }
 
 export function parseChatGptTranscribeResponse(
@@ -74,7 +74,7 @@ export function parseChatGptTranscribeResponse(
   const parsed = parseTranscribeResponseBody(resp);
   if (
     !parsed.success &&
-    resp.status === StatusCodes.INTERNAL_SERVER_ERROR &&
+    resp.status === Number(StatusCodes.INTERNAL_SERVER_ERROR) &&
     parsed.error === CHATGPT_ASR_ERROR_DETAIL
   ) {
     return {
@@ -89,7 +89,7 @@ export function parseChatGptTranscribeResponse(
 export function parseTranscribeResponseBody(resp: { status: number; body: string }): TranscriptionResult {
   let result: Record<string, unknown>;
   try {
-    result = JSON.parse(resp.body);
+    result = JSON.parse(resp.body) as Record<string, unknown>;
   } catch {
     return {
       success: false,
@@ -100,7 +100,7 @@ export function parseTranscribeResponseBody(resp: { status: number; body: string
     };
   }
 
-  const text = String(result.text || result.transcript || '');
+  const text = [result.text, result.transcript].find((value): value is string => typeof value === 'string') || '';
   if (text) {
     return { success: true, text };
   }

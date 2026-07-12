@@ -1,16 +1,32 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { getAppIconPath } from './assets';
+import type { AppInfo } from '@shared/appInfo';
 
 export const APP_ID = 'com.swimmwatch.gptvoice';
 export const APP_NAME = 'GPT-Voice';
 export const APP_WEBSITE = 'https://github.com/swimmwatch/gpt-voice';
 export const APP_COPYRIGHT = 'Copyright (c) 2026 Dmitry Vasiliev';
+export const APP_LICENSE = 'PolyForm-Noncommercial-1.0.0';
+
+export function createAppInfo(version: string): AppInfo {
+  return {
+    copyright: APP_COPYRIGHT,
+    license: APP_LICENSE,
+    name: APP_NAME,
+    version,
+  };
+}
+
+export function getAppInfo(): AppInfo {
+  return createAppInfo(app.getVersion());
+}
 
 export function configureAppIdentity(): void {
   app.setName(APP_NAME);
   app.setAppUserModelId(APP_ID);
 }
 
+/** Configures the OS-native About panel and the application Help menu. */
 export function configureNativeAppMetadata(): void {
   app.setAboutPanelOptions({
     applicationName: APP_NAME,

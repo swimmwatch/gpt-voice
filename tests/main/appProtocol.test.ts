@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAppUrl } from '@main/appProtocol';
+import { getAppProtocolContentType, getAppProtocolFilePath, getAppUrl } from '@main/appProtocol';
+import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 
 describe('appProtocol', () => {
   it('builds the default app URL', () => {
@@ -12,6 +13,26 @@ describe('appProtocol', () => {
   });
 
   it('preserves nested app URL paths', () => {
-    assert.equal(getAppUrl('assets/icon.png'), 'app://gpt-voice/assets/icon.png');
+    assert.equal(getAppUrl(APP_ICON_ASSET_PATH), 'app://gpt-voice/assets/icon.png');
+  });
+
+  it('serves the app icon from the current app assets instead of a renderer-bundled copy', () => {
+    assert.equal(
+      getAppProtocolFilePath(APP_ICON_ASSET_PATH, '/app/dist', '/app/resources/assets/icon.png'),
+      '/app/resources/assets/icon.png',
+    );
+    assert.equal(
+      getAppProtocolFilePath('renderer.js', '/app/dist', '/app/resources/assets/icon.png'),
+      '/app/dist/renderer.js',
+    );
+  });
+
+  it('recognizes nested renderer JavaScript and CSS chunks', () => {
+    assert.equal(
+      getAppProtocolFilePath('renderer/main.123456.js', '/app/dist', '/app/resources/assets/icon.png'),
+      '/app/dist/renderer/main.123456.js',
+    );
+    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.js'), 'text/javascript; charset=utf-8');
+    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.css'), 'text/css; charset=utf-8');
   });
 });

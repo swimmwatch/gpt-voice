@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { APP_DIR, currentPrettifySettings, saveConfig, setPrettifySettings } from '@main/config';
 import {
   decryptSafeStorageString,
@@ -7,7 +7,13 @@ import {
   isSafeStorageEncryptionAvailable,
 } from '@main/electronRuntime';
 import { createLogger } from '@main/logger';
-import { normalizePrettifySettings, type PrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
+import {
+  assertValidPrettifySettingsInput,
+  getPrettifyBaseUrlValidationError,
+  normalizePrettifySettings,
+  type PrettifySettings,
+  type PrettifySettingsInput,
+} from '@shared/prettifySettings';
 
 const log = createLogger('prettify-settings');
 const SETTINGS_FILE = path.join(APP_DIR, 'prettify-provider-settings.json');
@@ -71,17 +77,26 @@ function mergePrettifySettings(input: PrettifySettingsInput = {}, hasApiKey = fa
   });
 }
 
+function assertValidPrettifyProviderUrls(settings: PrettifySettings): void {
+  for (const baseUrl of [settings.ollama.baseUrl, settings.vllm.baseUrl]) {
+    const error = getPrettifyBaseUrlValidationError(baseUrl);
+    if (error) throw new Error(error);
+  }
+}
+
 export function getPrettifySettingsView(): PrettifySettings {
   const stored = readStoredSettings();
   return mergePrettifySettings({}, Boolean(decryptApiKey(stored.encryptedVllmApiKey)));
 }
 
 export function getPrettifySettingsWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+  assertValidPrettifySettingsInput(input);
   const stored = readStoredSettings();
   const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
   const savedApiKey = input.vllm?.clearApiKey ? '' : decryptApiKey(stored.encryptedVllmApiKey);
   const apiKey = draftApiKey || savedApiKey;
   const settings = mergePrettifySettings(input, Boolean(apiKey));
+  assertValidPrettifyProviderUrls(settings);
 
   return {
     ...settings,
@@ -93,6 +108,7 @@ export function getPrettifySettingsWithSecret(input: PrettifySettingsInput = {})
 }
 
 export function savePrettifySettings(input: PrettifySettingsInput = {}): PrettifySettings {
+  assertValidPrettifySettingsInput(input);
   const stored = readStoredSettings();
   const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
   const nextStored: StoredPrettifyProviderSettings = { ...stored };
@@ -104,9 +120,10 @@ export function savePrettifySettings(input: PrettifySettingsInput = {}): Prettif
     nextStored.encryptedVllmApiKey = encryptApiKey(draftApiKey);
   }
 
-  writeStoredSettings(nextStored);
   const hasApiKey = Boolean(decryptApiKey(nextStored.encryptedVllmApiKey));
   const settings = mergePrettifySettings(input, hasApiKey);
+  assertValidPrettifyProviderUrls(settings);
+  writeStoredSettings(nextStored);
   setPrettifySettings(settings);
   saveConfig();
   return getPrettifySettingsView();

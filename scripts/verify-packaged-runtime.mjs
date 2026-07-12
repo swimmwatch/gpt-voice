@@ -1,7 +1,13 @@
-import { access } from 'node:fs/promises';
+import { access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
+import { listPackage } from '@electron/asar';
+import {
+  getElectronLocaleViolations,
+  getPackagedRuntimeViolations,
+  getRuntimeAssetViolations,
+} from './packaged-runtime-policy.mjs';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -33,6 +39,7 @@ const layouts = {
     asar: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'app.asar')],
     icon: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'assets', 'icon.png')],
     license: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'LICENSE.txt')],
+    locales: [path.join(rootDir, 'release', 'linux-unpacked', 'locales')],
     cloak: [path.join(rootDir, 'release', 'linux-unpacked', 'resources', 'cloakbrowser', 'chrome')],
   },
   win32: {
@@ -47,6 +54,7 @@ const layouts = {
     asar: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'app.asar')],
     icon: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'assets', 'icon.png')],
     license: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'LICENSE.txt')],
+    locales: [path.join(rootDir, 'release', 'win-unpacked', 'locales')],
     cloak: [path.join(rootDir, 'release', 'win-unpacked', 'resources', 'cloakbrowser', 'chrome.exe')],
   },
   darwin: {
@@ -79,6 +87,41 @@ const layouts = {
       path.join(rootDir, 'release', 'mac', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
       path.join(rootDir, 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
       path.join(rootDir, 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'Resources', 'PrivacyInfo.xcprivacy'),
+    ],
+    locales: [
+      path.join(
+        rootDir,
+        'release',
+        'mac',
+        'GPT-Voice.app',
+        'Contents',
+        'Frameworks',
+        'Electron Framework.framework',
+        'Resources',
+        'locales',
+      ),
+      path.join(
+        rootDir,
+        'release',
+        'mac-arm64',
+        'GPT-Voice.app',
+        'Contents',
+        'Frameworks',
+        'Electron Framework.framework',
+        'Resources',
+        'locales',
+      ),
+      path.join(
+        rootDir,
+        'release',
+        'mac-universal',
+        'GPT-Voice.app',
+        'Contents',
+        'Frameworks',
+        'Electron Framework.framework',
+        'Resources',
+        'locales',
+      ),
     ],
     cloak: [
       path.join(
@@ -155,6 +198,42 @@ async function verifyElectronFuses(fuseTarget) {
   }
 }
 
+function verifyPackagedRuntimePolicy(asarPath) {
+  const violations = getPackagedRuntimeViolations(listPackage(asarPath));
+  if (violations.length > 0) {
+    throw new Error(`Packaged runtime policy failed:\n${violations.map((violation) => `  - ${violation}`).join('\n')}`);
+  }
+}
+
+async function listRelativeFiles(directory, prefix = '') {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const paths = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = path.posix.join(prefix, entry.name);
+      if (entry.isDirectory()) {
+        return listRelativeFiles(path.join(directory, entry.name), relativePath);
+      }
+      return [relativePath];
+    }),
+  );
+  return paths.flat();
+}
+
+function assertNoPolicyViolations(description, violations) {
+  if (violations.length > 0) {
+    throw new Error(`${description} failed:\n${violations.map((violation) => `  - ${violation}`).join('\n')}`);
+  }
+}
+
+async function verifyExternalRuntimeResources(resourcesPath, localesPath) {
+  const [assetPaths, localePaths] = await Promise.all([
+    listRelativeFiles(path.join(resourcesPath, 'assets')),
+    readdir(localesPath),
+  ]);
+  assertNoPolicyViolations('Packaged runtime asset policy', getRuntimeAssetViolations(assetPaths));
+  assertNoPolicyViolations('Electron locale policy', getElectronLocaleViolations(localePaths));
+}
+
 const layout = layouts[process.platform];
 if (!layout) {
   throw new Error(`Unsupported platform for packaged runtime verification: ${process.platform}`);
@@ -165,11 +244,14 @@ const fuseTarget = await firstExisting(layout.fuseTarget, 'Packaged Electron exe
 const asar = await firstExisting(layout.asar, 'Packaged app.asar');
 const icon = await firstExisting(layout.icon, 'Packaged app icon');
 const license = await firstExisting(layout.license, 'Packaged license metadata');
+const locales = await firstExisting(layout.locales, 'Electron locale directory');
 const privacyManifest = layout.privacyManifest
   ? await firstExisting(layout.privacyManifest, 'Packaged macOS privacy manifest')
   : null;
 const cloak = await firstExisting(layout.cloak, 'Bundled CloakBrowser executable');
 await verifyElectronFuses(fuseTarget);
+verifyPackagedRuntimePolicy(asar);
+await verifyExternalRuntimeResources(path.dirname(asar), locales);
 
 console.log('Packaged runtime verification passed');
 console.log(`App: ${app}`);

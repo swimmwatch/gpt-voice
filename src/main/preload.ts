@@ -6,6 +6,7 @@ import type {
   ProviderSettings,
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import type { AppInfo } from '@shared/appInfo';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
@@ -82,6 +83,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeAppSettings: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('close-app-settings');
   },
+  onAppSettingsCloseRequested: (callback: () => void): (() => void) => {
+    const listener = (): void => callback();
+    ipcRenderer.on('app-settings-close-requested', listener);
+    return () => ipcRenderer.removeListener('app-settings-close-requested', listener);
+  },
+  openAppSettings: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-app-settings');
+  },
+  openTranscriptionHistory: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-transcription-history');
+  },
+  openAbout: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('open-about');
+  },
+  closeAbout: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('close-about');
+  },
+  getAppInfo: (): Promise<AppInfo> => {
+    return ipcRenderer.invoke('get-app-info');
+  },
   getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
     return ipcRenderer.invoke('get-cloakbrowser-settings');
   },
@@ -153,8 +174,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
     return onMainEvent<[HotkeySettings]>('hotkey-settings-changed', callback);
   },
+  onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
+    return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
+  },
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
+  },
+  setHotkeyCaptureActive: (active: boolean): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-hotkey-capture-active', active);
   },
   setHotkey: (
     key: HotkeyTarget,
@@ -162,6 +189,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<
     {
       success: boolean;
+      error?: string;
     } & HotkeySettings
   > => {
     return ipcRenderer.invoke('set-hotkey', key, hotkey);

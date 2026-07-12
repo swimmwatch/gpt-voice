@@ -35,6 +35,11 @@ describe('i18n', () => {
     assert.equal(t('status.pressToRecord', { hotkey: 'F9' }), 'Press F9 to start recording');
   });
 
+  it('uses distinct Command Dock labels for transcription and prettification', () => {
+    assert.equal(en['mainDock.providerLabel'], 'Voice provider');
+    assert.equal(en['modelMemory.ollamaGpu'], 'Prettify model');
+  });
+
   it('keeps unresolved placeholders when a parameter is not provided', () => {
     setLocale('en');
 

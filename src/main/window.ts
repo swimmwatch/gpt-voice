@@ -1,5 +1,6 @@
 import { BrowserWindow, shell, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
-import * as path from 'path';
+import * as path from 'node:path';
+import { createAboutWindowController, isTrustedWindow } from './aboutWindowController';
 import { createLogger } from './logger';
 import { getAppIcon, getAppIconPath } from './assets';
 import { getAppUrl } from './appProtocol';
@@ -8,7 +9,11 @@ let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let historyWindow: BrowserWindow | null = null;
 let isQuitting = false;
+let isSettingsWindowCloseConfirmed = false;
 const log = createLogger('window');
+const MAIN_WINDOW_CONTENT_WIDTH = 460;
+const MAIN_WINDOW_CONTENT_HEIGHT = 420;
+const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
@@ -23,10 +28,11 @@ export function getHistoryWindow(): BrowserWindow | null {
 }
 
 export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
-  const trustedWindows = [mainWindow, settingsWindow, historyWindow].filter((win): win is BrowserWindow =>
-    Boolean(win),
+  return isTrustedWindow(
+    [mainWindow, settingsWindow, historyWindow, aboutWindowController.getWindow()],
+    webContents,
+    senderUrl,
   );
-  return trustedWindows.some((win) => webContents.id === win.webContents.id && senderUrl === win.webContents.getURL());
 }
 
 export function setQuitting(value: boolean): void {
@@ -88,11 +94,13 @@ export function showSettingsWindow(): void {
 
   const appIconPath = getAppIconPath();
   const options: BrowserWindowConstructorOptions = {
-    width: 520,
+    width: 760,
     height: 720,
     minWidth: 440,
     minHeight: 520,
     autoHideMenuBar: true,
+    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+    show: true,
     title: 'Settings',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -108,15 +116,68 @@ export function showSettingsWindow(): void {
   settingsWindow = new BrowserWindow(options);
   settingsWindow.setMenuBarVisibility(false);
   applyNavigationGuards(settingsWindow);
-  settingsWindow.loadURL(getAppUrl('settings.html'));
+  void settingsWindow.loadURL(getAppUrl('settings.html'));
+
+  settingsWindow.on('close', (event) => {
+    if (isQuitting || isSettingsWindowCloseConfirmed) {
+      return;
+    }
+
+    // The renderer owns dirty-state confirmation for both native and in-app close requests.
+    event.preventDefault();
+    settingsWindow?.webContents.send('app-settings-close-requested');
+  });
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
+    isSettingsWindowCloseConfirmed = false;
   });
 }
 
 export function closeSettingsWindow(): void {
-  settingsWindow?.close();
+  if (!settingsWindow) {
+    return;
+  }
+
+  isSettingsWindowCloseConfirmed = true;
+  settingsWindow.close();
+}
+
+const aboutWindowController = createAboutWindowController(() => {
+  const aboutWindow = new BrowserWindow({
+    width: 420,
+    height: 420,
+    minWidth: 360,
+    minHeight: 380,
+    useContentSize: true,
+    autoHideMenuBar: true,
+    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+    show: true,
+    maximizable: false,
+    resizable: false,
+    title: 'About GPT-Voice',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
+      navigateOnDragDrop: false,
+    },
+    icon: getAppIconPath(),
+  });
+  aboutWindow.setMenuBarVisibility(false);
+  applyNavigationGuards(aboutWindow);
+  void aboutWindow.loadURL(getAppUrl('about.html'));
+  return aboutWindow;
+});
+
+export function showAboutWindow(): void {
+  aboutWindowController.show();
+}
+
+export function closeAboutWindow(): void {
+  aboutWindowController.close();
 }
 
 export function showHistoryWindow(): void {
@@ -131,11 +192,13 @@ export function showHistoryWindow(): void {
 
   const appIconPath = getAppIconPath();
   const options: BrowserWindowConstructorOptions = {
-    width: 680,
+    width: 760,
     height: 720,
     minWidth: 520,
     minHeight: 420,
     autoHideMenuBar: true,
+    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+    show: true,
     title: 'History',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -151,7 +214,7 @@ export function showHistoryWindow(): void {
   historyWindow = new BrowserWindow(options);
   historyWindow.setMenuBarVisibility(false);
   applyNavigationGuards(historyWindow);
-  historyWindow.loadURL(getAppUrl('history.html'));
+  void historyWindow.loadURL(getAppUrl('history.html'));
 
   historyWindow.on('closed', () => {
     historyWindow = null;
@@ -169,11 +232,15 @@ export function createWindow(): void {
   }
 
   mainWindow = new BrowserWindow({
-    width: 460,
-    height: 420,
-    minWidth: 400,
-    minHeight: 360,
+    width: MAIN_WINDOW_CONTENT_WIDTH,
+    height: MAIN_WINDOW_CONTENT_HEIGHT,
+    useContentSize: true,
     autoHideMenuBar: true,
+    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+    fullscreenable: false,
+    maximizable: false,
+    resizable: false,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -202,7 +269,7 @@ export function createWindow(): void {
   mainWindow.webContents.once('did-finish-load', applyWindowIcon);
 
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.loadURL(getAppUrl());
+  void mainWindow.loadURL(getAppUrl());
   applyNavigationGuards(mainWindow);
 
   mainWindow.on('closed', () => {

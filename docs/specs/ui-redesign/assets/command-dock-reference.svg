@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="1312"
+  height="1199"
+  viewBox="0 0 1312 1199"
+  role="img"
+  aria-labelledby="title description"
+  data-target-width="460"
+  data-target-height="420"
+>
+  <title id="title">GPT-Voice Command Dock reference reconstruction</title>
+  <desc id="description">
+    Editable vector reconstruction of the approved 460 by 420 Command Dock main window, authored at the
+    1312 by 1199 source-image coordinate system.
+  </desc>
+
+  <defs>
+    <linearGradient id="primary-action" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b60cb" />
+      <stop offset="1" stop-color="#295bc5" />
+    </linearGradient>
+
+    <!-- Icon geometry is sourced from the installed lucide-react package. -->
+    <symbol id="icon-audio-lines" viewBox="0 0 24 24">
+      <path d="M2 10v3" />
+      <path d="M6 6v11" />
+      <path d="M10 3v18" />
+      <path d="M14 8v7" />
+      <path d="M18 5v13" />
+      <path d="M22 10v3" />
+    </symbol>
+    <symbol id="icon-history" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l4 2" />
+    </symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24">
+      <path
+        d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"
+      />
+      <circle cx="12" cy="12" r="3" />
+    </symbol>
+    <symbol id="icon-globe" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </symbol>
+    <symbol id="icon-box" viewBox="0 0 24 24">
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </symbol>
+    <symbol id="icon-cpu" viewBox="0 0 24 24">
+      <path d="M12 20v2M12 2v2M17 20v2M17 2v2M2 12h2M2 17h2M2 7h2M20 12h2M20 17h2M20 7h2M7 20v2M7 2v2" />
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="8" y="8" width="8" height="8" rx="1" />
+    </symbol>
+    <symbol id="icon-circle-check" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </symbol>
+    <symbol id="icon-gauge" viewBox="0 0 24 24">
+      <path d="m12 14 4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </symbol>
+    <symbol id="icon-mic" viewBox="0 0 24 24">
+      <path d="M12 19v3" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <rect x="9" y="2" width="6" height="13" rx="3" />
+    </symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24">
+      <path d="m6 9 6 6 6-6" />
+    </symbol>
+    <symbol id="flag-us" viewBox="0 0 48 32">
+      <rect width="48" height="32" fill="#ffffff" />
+      <g fill="#b22234">
+        <rect width="48" height="2.462" y="0" />
+        <rect width="48" height="2.462" y="4.923" />
+        <rect width="48" height="2.462" y="9.846" />
+        <rect width="48" height="2.462" y="14.769" />
+        <rect width="48" height="2.462" y="19.692" />
+        <rect width="48" height="2.462" y="24.615" />
+        <rect width="48" height="2.462" y="29.538" />
+      </g>
+      <rect width="19.2" height="17.231" fill="#3c3b6e" />
+      <g fill="#ffffff">
+        <g id="star-row-six">
+          <circle cx="1.45" cy="1.65" r="0.34" />
+          <circle cx="4.65" cy="1.65" r="0.34" />
+          <circle cx="7.85" cy="1.65" r="0.34" />
+          <circle cx="11.05" cy="1.65" r="0.34" />
+          <circle cx="14.25" cy="1.65" r="0.34" />
+          <circle cx="17.45" cy="1.65" r="0.34" />
+        </g>
+        <g id="star-row-five">
+          <circle cx="3.05" cy="3.58" r="0.34" />
+          <circle cx="6.25" cy="3.58" r="0.34" />
+          <circle cx="9.45" cy="3.58" r="0.34" />
+          <circle cx="12.65" cy="3.58" r="0.34" />
+          <circle cx="15.85" cy="3.58" r="0.34" />
+        </g>
+        <use xlink:href="#star-row-six" y="3.86" />
+        <use xlink:href="#star-row-five" y="3.86" />
+        <use xlink:href="#star-row-six" y="7.72" />
+        <use xlink:href="#star-row-five" y="7.72" />
+        <use xlink:href="#star-row-six" y="11.58" />
+      </g>
+    </symbol>
+
+    <style>
+      .ui-text {
+        font-family: "Ubuntu Sans", Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        letter-spacing: 0;
+      }
+      .icon {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .muted {
+        fill: #989a9d;
+      }
+      .foreground {
+        fill: #f4f4f5;
+      }
+    </style>
+  </defs>
+
+  <g id="command-dock">
+    <rect id="window-background" width="1312" height="1199" fill="#181a1b" />
+    <rect id="window-border" x="3" y="3" width="1306" height="1193" fill="none" stroke="#26292a" stroke-width="3" />
+
+    <g id="section-header">
+      <use
+        id="brand-waveform"
+        xlink:href="#icon-audio-lines"
+        x="49"
+        y="52"
+        width="72"
+        height="72"
+        class="icon"
+        color="#eeeeef"
+        stroke-width="2.05"
+      />
+      <text x="152" y="80" class="ui-text foreground" font-size="39" font-weight="700">Command Dock</text>
+      <text x="153" y="128" class="ui-text muted" font-size="34" font-weight="400">GPT-Voice</text>
+
+      <g id="history-action">
+        <rect x="1044" y="43" width="106" height="96" rx="10" fill="#202223" stroke="#444748" stroke-width="2" />
+        <use
+          xlink:href="#icon-history"
+          x="1068"
+          y="64"
+          width="58"
+          height="58"
+          class="icon"
+          color="#dedfe0"
+          stroke-width="1.75"
+        />
+      </g>
+      <g id="settings-action">
+        <rect x="1172" y="43" width="103" height="96" rx="10" fill="#202223" stroke="#444748" stroke-width="2" />
+        <use
+          xlink:href="#icon-settings"
+          x="1196"
+          y="65"
+          width="56"
+          height="56"
+          class="icon"
+          color="#dedfe0"
+          stroke-width="1.75"
+        />
+      </g>
+    </g>
+
+    <rect x="4" y="173" width="1304" height="4" fill="#303233" />
+
+    <g id="section-provider">
+      <use
+        xlink:href="#icon-globe"
+        x="50"
+        y="225"
+        width="62"
+        height="62"
+        class="icon"
+        color="#d3d4d5"
+        stroke-width="1.65"
+      />
+      <text x="160" y="239" class="ui-text muted" font-size="30" font-weight="400">Provider</text>
+      <text x="160" y="296" class="ui-text foreground" font-size="41" font-weight="650">ChatGPT Web</text>
+      <use
+        xlink:href="#icon-chevron-down"
+        x="524"
+        y="239"
+        width="29"
+        height="29"
+        class="icon"
+        color="#e2e2e3"
+        stroke-width="2"
+      />
+      <circle cx="1063" cy="257" r="11" fill="#5da867" />
+      <text x="1093" y="269" class="ui-text" fill="#5da867" font-size="34" font-weight="500">Connected</text>
+    </g>
+
+    <rect x="4" y="335" width="1304" height="3" fill="#303233" />
+
+    <g id="section-model-memory">
+      <use
+        xlink:href="#icon-box"
+        x="49"
+        y="389"
+        width="64"
+        height="64"
+        class="icon"
+        color="#c4c6c7"
+        stroke-width="1.65"
+      />
+      <text x="159" y="409" class="ui-text muted" font-size="31" font-weight="400">Model (Ollama GPU)</text>
+      <text x="159" y="461" class="ui-text foreground" font-size="38" font-weight="650">gemma4:e2b-it-qat</text>
+
+      <rect x="536" y="383" width="2" height="80" fill="#4c4f50" />
+      <use
+        xlink:href="#icon-cpu"
+        x="568"
+        y="397"
+        width="53"
+        height="53"
+        class="icon"
+        color="#c4c6c7"
+        stroke-width="1.55"
+      />
+      <text x="640" y="410" class="ui-text muted" font-size="30" font-weight="400">VRAM</text>
+      <text x="640" y="461" class="ui-text foreground" font-size="38" font-weight="500">1.4 GB</text>
+
+      <rect x="783" y="383" width="2" height="80" fill="#4c4f50" />
+      <use
+        xlink:href="#icon-circle-check"
+        x="813"
+        y="400"
+        width="45"
+        height="45"
+        class="icon"
+        color="#56a963"
+        stroke-width="1.8"
+      />
+      <text x="869" y="434" class="ui-text" fill="#56a963" font-size="30" font-weight="500">Loaded</text>
+
+      <g id="free-vram-action">
+        <rect x="1013" y="385" width="261" height="76" rx="10" fill="#202223" stroke="#4a4d4e" stroke-width="2" />
+        <use
+          xlink:href="#icon-gauge"
+          x="1043"
+          y="404"
+          width="39"
+          height="39"
+          class="icon"
+          color="#e0e1e1"
+          stroke-width="1.75"
+        />
+        <text x="1102" y="435" class="ui-text foreground" font-size="30" font-weight="500">Free VRAM</text>
+      </g>
+    </g>
+
+    <rect x="4" y="506" width="1304" height="3" fill="#303233" />
+
+    <g id="section-recording-command">
+      <rect id="record-action" x="50" y="560" width="1212" height="162" rx="9" fill="url(#primary-action)" />
+      <use
+        xlink:href="#icon-mic"
+        x="380"
+        y="604"
+        width="66"
+        height="72"
+        class="icon"
+        color="#ffffff"
+        stroke-width="1.9"
+      />
+      <text x="497" y="660" class="ui-text" fill="#ffffff" font-size="44" font-weight="700">Start recording</text>
+      <rect x="1124" y="587" width="2" height="109" fill="#ffffff" opacity="0.17" />
+      <text x="1167" y="654" class="ui-text" fill="#ffffff" font-size="31" font-weight="500">F9</text>
+    </g>
+
+    <rect x="4" y="770" width="1304" height="4" fill="#303233" />
+
+    <g id="section-operation-state">
+      <circle cx="80" cy="843" r="28" fill="none" stroke="#5f6263" stroke-width="4" />
+      <circle cx="80" cy="843" r="13" fill="#c8c9ca" />
+      <text x="156" y="856" class="ui-text foreground" font-size="35" font-weight="650">Ready</text>
+    </g>
+
+    <rect x="4" y="909" width="1304" height="4" fill="#303233" />
+
+    <g id="section-target-language">
+      <use
+        xlink:href="#icon-globe"
+        x="50"
+        y="961"
+        width="62"
+        height="62"
+        class="icon"
+        color="#c5c7c8"
+        stroke-width="1.65"
+      />
+      <text x="160" y="1002" class="ui-text muted" font-size="31" font-weight="400">Target language</text>
+      <g id="language-select">
+        <rect x="411" y="953" width="383" height="81" rx="10" fill="#1b1d1e" stroke="#3f4243" stroke-width="2" />
+        <use xlink:href="#flag-us" x="446" y="978" width="48" height="32" />
+        <text x="526" y="1008" class="ui-text foreground" font-size="34" font-weight="600">English</text>
+        <use
+          xlink:href="#icon-chevron-down"
+          x="740"
+          y="979"
+          width="28"
+          height="28"
+          class="icon"
+          color="#999b9d"
+          stroke-width="2"
+        />
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,5 +1,12 @@
 import { app, Tray, Menu, nativeImage, type NativeImage } from 'electron';
-import { getMainWindow, createWindow, setQuitting, showHistoryWindow, showSettingsWindow } from './window';
+import {
+  getMainWindow,
+  createWindow,
+  setQuitting,
+  showAboutWindow,
+  showHistoryWindow,
+  showSettingsWindow,
+} from './window';
 import { t } from './i18n';
 import { getAssetPath } from './assets';
 import { getTrayIconFilename, type TrayIconState } from './trayIconState';
@@ -57,6 +64,12 @@ export function createTray(): void {
       label: t('history.open'),
       click: () => {
         showHistoryWindow();
+      },
+    },
+    {
+      label: t('about.open'),
+      click: () => {
+        showAboutWindow();
       },
     },
     { type: 'separator' },

@@ -96,3 +96,6 @@ ehthumbs.db
 *.pid.lock
 tmp/
 temp/
+
+.artifacts
+.tokensave

@@ -28,14 +28,14 @@ import {
 const log = rendererLog.scope('recording');
 
 interface UseRecordingOptions {
-  setStatus: (status: string) => void;
-  setIsRecording: (recording: boolean) => void;
-  setIsPaused: (paused: boolean) => void;
   notifyStatus?: (status: string) => void;
+  setRecordingState: (state: RecordingLifecycleState) => void;
+  setStatus: (status: string) => void;
   t: (key: string, params?: Record<string, string>) => string;
 }
 
-export function useRecording({ setStatus, setIsRecording, setIsPaused, notifyStatus, t }: UseRecordingOptions) {
+/** Coordinates audio capture, shortcut state, retry behavior, and recording notifications. */
+export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,13 +62,12 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
   const setRecordingLifecycle = useCallback(
     (state: RecordingLifecycleState) => {
       recordingLifecycleStateRef.current = state;
-      setIsRecording(state === 'starting' || state === 'recording' || state === 'paused' || state === 'stopping');
-      setIsPaused(state === 'paused');
+      setRecordingState(state);
       void window.electronAPI.setRecordingLifecycleState(state).catch((error: unknown) => {
         log.warn('Failed to update recording lifecycle state:', getNotificationErrorMessage(error));
       });
     },
-    [setIsPaused, setIsRecording],
+    [setRecordingState],
   );
 
   const reportRetryableTranscriptionAudio = useCallback(() => {
@@ -99,7 +98,6 @@ export function useRecording({ setStatus, setIsRecording, setIsPaused, notifySta
         log.info('Transcription result:', {
           success: result.success,
           textLength: result.text?.length ?? 0,
-          error: result.error,
         });
         if (result.success && result.text) {
           log.info('Copied transcription to clipboard, text length:', result.text.length);

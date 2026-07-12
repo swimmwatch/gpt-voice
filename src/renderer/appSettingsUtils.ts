@@ -6,7 +6,13 @@ import {
   type CloakBrowserSettingsInput,
   type CloakBrowserSettingsView,
 } from '@shared/cloakBrowserSettings';
-import { isPrettifyProviderId, type PrettifySettings, type PrettifySettingsInput } from '@shared/prettifySettings';
+import {
+  MAX_PRETTIFY_PROMPT_LENGTH,
+  getPrettifyBaseUrlValidationError,
+  isPrettifyProviderId,
+  type PrettifySettings,
+  type PrettifySettingsInput,
+} from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const SUPPORTED_PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:']);
@@ -87,6 +93,12 @@ export interface AppSettingsSaveResult {
   textActionSettings?: TextActionSettings;
   settingsSaved?: boolean;
   settings?: EditableCloakBrowserSettings;
+}
+
+export interface AppSettingsFormState {
+  isDirty: boolean;
+  isValid: boolean;
+  validationErrors: AppSettingsFieldErrors;
 }
 
 export type AppSettingsChangedGroup = 'prettify' | 'textActions' | 'cloakBrowser';
@@ -177,89 +189,81 @@ function hasVllmApiKeyChange(settings: PrettifySettings, initialSettings: Pretti
   );
 }
 
+function collectChangedFields(changes: ReadonlyArray<readonly [boolean, string]>): string[] {
+  return changes.filter(([changed]) => changed).map(([, field]) => field);
+}
+
+function collectPrettifyChangedFields(input: AppSettingsSaveInput): string[] {
+  const { initialPrettifySettings: initial, prettifySettings: current } = input;
+  return collectChangedFields([
+    [current.prompt !== initial.prompt, 'prettifyPrompt'],
+    [current.providerId !== initial.providerId, 'prettifyProvider'],
+    [current.temperature !== initial.temperature, 'prettifyTemperature'],
+    [current.topP !== initial.topP, 'prettifyTopP'],
+    [current.topK !== initial.topK, 'prettifyTopK'],
+    [current.minP !== initial.minP, 'prettifyMinP'],
+    [current.repeatPenalty !== initial.repeatPenalty, 'prettifyRepeatPenalty'],
+    [current.maxOutputTokens !== initial.maxOutputTokens, 'prettifyMaxOutputTokens'],
+    [current.seed !== initial.seed, 'prettifySeed'],
+    [current.ollama.baseUrl !== initial.ollama.baseUrl, 'prettifyBaseUrl'],
+    [current.ollama.model !== initial.ollama.model, 'prettifyModel'],
+    [current.vllm.baseUrl !== initial.vllm.baseUrl, 'prettifyBaseUrl'],
+    [current.vllm.model !== initial.vllm.model, 'prettifyModel'],
+    [hasVllmApiKeyChange(current, initial), 'prettifyApiKey'],
+  ]);
+}
+
+function collectTextActionChangedFields(input: AppSettingsSaveInput): string[] {
+  return collectChangedFields([
+    [
+      input.textActionSettings.translateEnabled !== input.initialTextActionSettings.translateEnabled,
+      'translateEnabled',
+    ],
+    [input.textActionSettings.prettifyEnabled !== input.initialTextActionSettings.prettifyEnabled, 'prettifyEnabled'],
+  ]);
+}
+
+function collectCloakBrowserChangedFields(input: AppSettingsSaveInput): string[] {
+  const { initialSettings: initial, settings: current } = input;
+  return collectChangedFields([
+    [current.humanize !== initial.humanize, 'humanize'],
+    [current.humanPreset !== initial.humanPreset, 'humanPreset'],
+    [current.backgroundMode !== initial.backgroundMode, 'backgroundMode'],
+    [current.fingerprintSeed !== initial.fingerprintSeed, 'fingerprintSeed'],
+    [current.locale !== initial.locale, 'locale'],
+    [current.timezone !== initial.timezone, 'timezone'],
+    [current.proxy.enabled !== initial.proxy.enabled, 'proxyEnabled'],
+    [current.proxy.server !== initial.proxy.server, 'proxyServer'],
+    [current.proxy.bypass !== initial.proxy.bypass, 'proxyBypass'],
+    [current.proxy.username !== initial.proxy.username, 'proxyUsername'],
+    [current.proxy.geoip !== initial.proxy.geoip, 'proxyGeoip'],
+    [
+      current.proxy.hasPassword !== initial.proxy.hasPassword ||
+        Boolean(current.proxy.password.trim()) ||
+        current.proxy.clearPassword,
+      'proxyPassword',
+    ],
+  ]);
+}
+
+function appendChangedGroup(
+  changedGroups: AppSettingsChangedGroup[],
+  changedFields: string[],
+  group: AppSettingsChangedGroup,
+  fields: string[],
+): void {
+  if (!fields.length) return;
+  changedGroups.push(group);
+  changedFields.push(...fields);
+}
+
+// Logging each setting explicitly keeps secrets excluded while preserving an auditable list of user-visible changes.
 export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSettingsLogSummary {
   const changedGroups: AppSettingsChangedGroup[] = [];
   const changedFields: string[] = [];
-
-  if (input.prettifySettings.prompt !== input.initialPrettifySettings.prompt) {
-    changedFields.push('prettifyPrompt');
-  }
-  if (input.prettifySettings.providerId !== input.initialPrettifySettings.providerId) {
-    changedFields.push('prettifyProvider');
-  }
-  if (input.prettifySettings.temperature !== input.initialPrettifySettings.temperature) {
-    changedFields.push('prettifyTemperature');
-  }
-  if (input.prettifySettings.topP !== input.initialPrettifySettings.topP) {
-    changedFields.push('prettifyTopP');
-  }
-  if (input.prettifySettings.topK !== input.initialPrettifySettings.topK) {
-    changedFields.push('prettifyTopK');
-  }
-  if (input.prettifySettings.minP !== input.initialPrettifySettings.minP) {
-    changedFields.push('prettifyMinP');
-  }
-  if (input.prettifySettings.repeatPenalty !== input.initialPrettifySettings.repeatPenalty) {
-    changedFields.push('prettifyRepeatPenalty');
-  }
-  if (input.prettifySettings.maxOutputTokens !== input.initialPrettifySettings.maxOutputTokens) {
-    changedFields.push('prettifyMaxOutputTokens');
-  }
-  if (input.prettifySettings.seed !== input.initialPrettifySettings.seed) {
-    changedFields.push('prettifySeed');
-  }
-  if (input.prettifySettings.ollama.baseUrl !== input.initialPrettifySettings.ollama.baseUrl) {
-    changedFields.push('prettifyBaseUrl');
-  }
-  if (input.prettifySettings.ollama.model !== input.initialPrettifySettings.ollama.model) {
-    changedFields.push('prettifyModel');
-  }
-  if (input.prettifySettings.vllm.baseUrl !== input.initialPrettifySettings.vllm.baseUrl) {
-    changedFields.push('prettifyBaseUrl');
-  }
-  if (input.prettifySettings.vllm.model !== input.initialPrettifySettings.vllm.model) {
-    changedFields.push('prettifyModel');
-  }
-  if (hasVllmApiKeyChange(input.prettifySettings, input.initialPrettifySettings)) {
-    changedFields.push('prettifyApiKey');
-  }
-  if (changedFields.length > 0) {
-    changedGroups.push('prettify');
-  }
-
-  const textActionFieldStart = changedFields.length;
-  if (input.textActionSettings.translateEnabled !== input.initialTextActionSettings.translateEnabled) {
-    changedFields.push('translateEnabled');
-  }
-  if (input.textActionSettings.prettifyEnabled !== input.initialTextActionSettings.prettifyEnabled) {
-    changedFields.push('prettifyEnabled');
-  }
-  if (changedFields.length > textActionFieldStart) {
-    changedGroups.push('textActions');
-  }
-
-  const cloakBrowserFieldStart = changedFields.length;
-  if (input.settings.humanize !== input.initialSettings.humanize) changedFields.push('humanize');
-  if (input.settings.humanPreset !== input.initialSettings.humanPreset) changedFields.push('humanPreset');
-  if (input.settings.backgroundMode !== input.initialSettings.backgroundMode) changedFields.push('backgroundMode');
-  if (input.settings.fingerprintSeed !== input.initialSettings.fingerprintSeed) changedFields.push('fingerprintSeed');
-  if (input.settings.locale !== input.initialSettings.locale) changedFields.push('locale');
-  if (input.settings.timezone !== input.initialSettings.timezone) changedFields.push('timezone');
-  if (input.settings.proxy.enabled !== input.initialSettings.proxy.enabled) changedFields.push('proxyEnabled');
-  if (input.settings.proxy.server !== input.initialSettings.proxy.server) changedFields.push('proxyServer');
-  if (input.settings.proxy.bypass !== input.initialSettings.proxy.bypass) changedFields.push('proxyBypass');
-  if (input.settings.proxy.username !== input.initialSettings.proxy.username) changedFields.push('proxyUsername');
-  if (input.settings.proxy.geoip !== input.initialSettings.proxy.geoip) changedFields.push('proxyGeoip');
-  if (
-    input.settings.proxy.hasPassword !== input.initialSettings.proxy.hasPassword ||
-    Boolean(input.settings.proxy.password.trim()) ||
-    input.settings.proxy.clearPassword
-  ) {
-    changedFields.push('proxyPassword');
-  }
-  if (changedFields.length > cloakBrowserFieldStart) {
-    changedGroups.push('cloakBrowser');
-  }
+  appendChangedGroup(changedGroups, changedFields, 'prettify', collectPrettifyChangedFields(input));
+  appendChangedGroup(changedGroups, changedFields, 'textActions', collectTextActionChangedFields(input));
+  appendChangedGroup(changedGroups, changedFields, 'cloakBrowser', collectCloakBrowserChangedFields(input));
 
   return {
     changedGroups,
@@ -321,15 +325,6 @@ function isValidTimezone(value: string): boolean {
   }
 }
 
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function uniqueValues(values: readonly string[]): string[] {
   return Array.from(new Set(values.filter((value) => value.trim()).map((value) => value.trim())));
 }
@@ -384,123 +379,153 @@ export interface ValidateAppSettingsInput {
   timezoneValues?: readonly string[];
 }
 
-export function validateAppSettings(input: ValidateAppSettingsInput): AppSettingsFieldErrors {
-  const fieldErrors: AppSettingsFieldErrors = {};
-  const { prettifySettings, settings } = input;
-  const localeValues = input.localeValues ?? getCloakBrowserLocaleOptions(settings.locale);
-  const timezoneValues = input.timezoneValues ?? getCloakBrowserTimezoneOptions(settings.timezone);
-  const proxyServer = settings.proxy.server.trim();
-  const proxyUsername = settings.proxy.username.trim();
-  const proxyPassword = settings.proxy.password.trim();
+function addNumericPrettifyErrors(settings: PrettifySettings, errors: AppSettingsFieldErrors): void {
+  const numericRules: Array<[AppSettingsFieldKey, boolean, string]> = [
+    [
+      'prettifyTemperature',
+      Number.isFinite(settings.temperature) && settings.temperature >= 0 && settings.temperature <= 1,
+      'Temperature must be between 0 and 1',
+    ],
+    [
+      'prettifyTopP',
+      Number.isFinite(settings.topP) && settings.topP >= 0.05 && settings.topP <= 1,
+      'Top P must be between 0.05 and 1',
+    ],
+    [
+      'prettifyTopK',
+      Number.isInteger(settings.topK) && settings.topK >= 1 && settings.topK <= 200,
+      'Top K must be an integer between 1 and 200',
+    ],
+    [
+      'prettifyMinP',
+      Number.isFinite(settings.minP) && settings.minP >= 0 && settings.minP <= 1,
+      'Min P must be between 0 and 1',
+    ],
+    [
+      'prettifyRepeatPenalty',
+      Number.isFinite(settings.repeatPenalty) && settings.repeatPenalty >= 0.8 && settings.repeatPenalty <= 1.5,
+      'Repeat penalty must be between 0.8 and 1.5',
+    ],
+    [
+      'prettifyMaxOutputTokens',
+      Number.isInteger(settings.maxOutputTokens) && settings.maxOutputTokens >= 1 && settings.maxOutputTokens <= 8192,
+      'Max output tokens must be an integer between 1 and 8192',
+    ],
+    [
+      'prettifySeed',
+      settings.seed === null ||
+        (Number.isInteger(settings.seed) && settings.seed >= 0 && settings.seed <= 2_147_483_647),
+      'Seed must be empty or an integer between 0 and 2147483647',
+    ],
+  ];
+  for (const [field, valid, message] of numericRules) {
+    if (!valid) errors[field] = message;
+  }
+}
 
-  if (!prettifySettings.prompt.trim()) {
-    fieldErrors.prettifyPrompt = 'Prettify prompt is required';
+function validatePrettifySettings(settings: PrettifySettings, errors: AppSettingsFieldErrors): void {
+  const prompt = settings.prompt.trim();
+  if (!prompt) errors.prettifyPrompt = 'Prettify prompt is required';
+  else if (prompt.length > MAX_PRETTIFY_PROMPT_LENGTH) {
+    errors.prettifyPrompt = `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`;
   }
-  if (!isPrettifyProviderId(prettifySettings.providerId)) {
-    fieldErrors.prettifyProvider = 'Select a supported provider';
+  if (!isPrettifyProviderId(settings.providerId)) errors.prettifyProvider = 'Select a supported provider';
+  addNumericPrettifyErrors(settings, errors);
+
+  const provider = getActivePrettifyProviderSettings(settings);
+  if (!provider.baseUrl.trim()) errors.prettifyBaseUrl = 'Base URL is required';
+  else {
+    const baseUrlError = getPrettifyBaseUrlValidationError(provider.baseUrl);
+    if (baseUrlError) errors.prettifyBaseUrl = baseUrlError;
   }
-  if (
-    !Number.isFinite(prettifySettings.temperature) ||
-    prettifySettings.temperature < 0 ||
-    prettifySettings.temperature > 1
-  ) {
-    fieldErrors.prettifyTemperature = 'Temperature must be between 0 and 1';
+  if (!provider.model.trim()) errors.prettifyModel = 'Select a model';
+}
+
+function validateLocaleAndTimezone(
+  settings: EditableCloakBrowserSettings,
+  localeValues: readonly string[],
+  timezoneValues: readonly string[],
+  errors: AppSettingsFieldErrors,
+): void {
+  if (settings.proxy.enabled && settings.proxy.geoip) return;
+  const locale = settings.locale.trim();
+  const timezone = settings.timezone.trim();
+  if (!locale) errors.locale = 'Locale is required';
+  else if (!localeValues.includes(locale)) errors.locale = 'Select a supported locale';
+  if (!timezone) errors.timezone = 'Timezone is required';
+  else if (!timezoneValues.includes(timezone)) errors.timezone = 'Select a supported timezone';
+}
+
+function validateProxy(settings: EditableCloakBrowserSettings, errors: AppSettingsFieldErrors): void {
+  if (!settings.proxy.enabled) return;
+  const server = settings.proxy.server.trim();
+  if (!server) {
+    errors.proxyServer = 'Proxy server is required when proxy is enabled';
+    return;
   }
-  if (!Number.isFinite(prettifySettings.topP) || prettifySettings.topP < 0.05 || prettifySettings.topP > 1) {
-    fieldErrors.prettifyTopP = 'Top P must be between 0.05 and 1';
+
+  try {
+    const proxyUrl = new URL(server);
+    if (!SUPPORTED_PROXY_PROTOCOLS.has(proxyUrl.protocol)) {
+      errors.proxyServer = 'Proxy server must use http, https, or socks5';
+    } else if (proxyUrl.username || proxyUrl.password) {
+      errors.proxyServer = 'Proxy credentials must be stored in username and password fields';
+    }
+  } catch {
+    errors.proxyServer = 'Proxy server must be a valid URL';
   }
-  if (!Number.isInteger(prettifySettings.topK) || prettifySettings.topK < 1 || prettifySettings.topK > 200) {
-    fieldErrors.prettifyTopK = 'Top K must be an integer between 1 and 200';
+
+  if (!isSocks5ProxyServer(server)) return;
+  const socks5Error = 'SOCKS5 proxy username/password is not supported';
+  if (settings.proxy.username.trim()) errors.proxyUsername = socks5Error;
+  if (settings.proxy.password.trim() || (settings.proxy.hasPassword && !settings.proxy.clearPassword)) {
+    errors.proxyPassword = socks5Error;
   }
-  if (!Number.isFinite(prettifySettings.minP) || prettifySettings.minP < 0 || prettifySettings.minP > 1) {
-    fieldErrors.prettifyMinP = 'Min P must be between 0 and 1';
-  }
-  if (
-    !Number.isFinite(prettifySettings.repeatPenalty) ||
-    prettifySettings.repeatPenalty < 0.8 ||
-    prettifySettings.repeatPenalty > 1.5
-  ) {
-    fieldErrors.prettifyRepeatPenalty = 'Repeat penalty must be between 0.8 and 1.5';
-  }
-  if (
-    !Number.isInteger(prettifySettings.maxOutputTokens) ||
-    prettifySettings.maxOutputTokens < 0 ||
-    prettifySettings.maxOutputTokens > 8192
-  ) {
-    fieldErrors.prettifyMaxOutputTokens = 'Max output tokens must be an integer between 0 and 8192';
-  }
-  if (
-    prettifySettings.seed !== null &&
-    (!Number.isInteger(prettifySettings.seed) || prettifySettings.seed < 0 || prettifySettings.seed > 2_147_483_647)
-  ) {
-    fieldErrors.prettifySeed = 'Seed must be empty or an integer between 0 and 2147483647';
-  }
-  const activePrettifyProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
-  if (!activePrettifyProviderSettings.baseUrl.trim()) {
-    fieldErrors.prettifyBaseUrl = 'Base URL is required';
-  } else if (!isValidHttpUrl(activePrettifyProviderSettings.baseUrl.trim())) {
-    fieldErrors.prettifyBaseUrl = 'Base URL must be a valid http or https URL';
-  }
-  if (!activePrettifyProviderSettings.model.trim()) {
-    fieldErrors.prettifyModel = 'Select a model';
-  }
+}
+
+function validateCloakBrowserSettings(
+  settings: EditableCloakBrowserSettings,
+  localeValues: readonly string[],
+  timezoneValues: readonly string[],
+  errors: AppSettingsFieldErrors,
+): void {
   if (!CLOAK_BROWSER_HUMAN_PRESETS.includes(settings.humanPreset)) {
-    fieldErrors.humanPreset = 'Select a supported human preset';
+    errors.humanPreset = 'Select a supported human preset';
   }
   if (!CLOAK_BROWSER_BACKGROUND_MODES.includes(settings.backgroundMode)) {
-    fieldErrors.backgroundMode = 'Select a supported background mode';
+    errors.backgroundMode = 'Select a supported background mode';
   }
-  if (!settings.fingerprintSeed.trim()) {
-    fieldErrors.fingerprintSeed = 'Fingerprint seed is required';
-  } else if (!FINGERPRINT_SEED_PATTERN.test(settings.fingerprintSeed.trim())) {
-    fieldErrors.fingerprintSeed = 'Fingerprint seed must contain digits only';
-  }
+  const fingerprintSeed = settings.fingerprintSeed.trim();
+  if (!fingerprintSeed) errors.fingerprintSeed = 'Fingerprint seed is required';
+  else if (!FINGERPRINT_SEED_PATTERN.test(fingerprintSeed))
+    errors.fingerprintSeed = 'Fingerprint seed must contain digits only';
+  validateLocaleAndTimezone(settings, localeValues, timezoneValues, errors);
+  validateProxy(settings, errors);
+}
 
-  if (!(settings.proxy.enabled && settings.proxy.geoip)) {
-    if (!settings.locale.trim()) {
-      fieldErrors.locale = 'Locale is required';
-    } else if (!localeValues.includes(settings.locale.trim())) {
-      fieldErrors.locale = 'Select a supported locale';
-    }
-    if (!settings.timezone.trim()) {
-      fieldErrors.timezone = 'Timezone is required';
-    } else if (!timezoneValues.includes(settings.timezone.trim())) {
-      fieldErrors.timezone = 'Select a supported timezone';
-    }
-  }
+// Field errors are intentionally accumulated in one pass so Save can show every correction at once.
+export function validateAppSettings(input: ValidateAppSettingsInput): AppSettingsFieldErrors {
+  const errors: AppSettingsFieldErrors = {};
+  const localeValues = input.localeValues ?? getCloakBrowserLocaleOptions(input.settings.locale);
+  const timezoneValues = input.timezoneValues ?? getCloakBrowserTimezoneOptions(input.settings.timezone);
+  validatePrettifySettings(input.prettifySettings, errors);
+  validateCloakBrowserSettings(input.settings, localeValues, timezoneValues, errors);
+  return errors;
+}
 
-  if (settings.proxy.enabled) {
-    if (!proxyServer) {
-      fieldErrors.proxyServer = 'Proxy server is required when proxy is enabled';
-    } else {
-      let proxyUrl: URL | null = null;
-      try {
-        proxyUrl = new URL(proxyServer);
-      } catch {
-        fieldErrors.proxyServer = 'Proxy server must be a valid URL';
-      }
+export function getAppSettingsFormState(input: AppSettingsSaveInput): AppSettingsFormState {
+  const validationErrors = validateAppSettings({
+    localeValues: input.localeValues,
+    prettifySettings: input.prettifySettings,
+    settings: input.settings,
+    timezoneValues: input.timezoneValues,
+  });
 
-      if (proxyUrl) {
-        if (!SUPPORTED_PROXY_PROTOCOLS.has(proxyUrl.protocol)) {
-          fieldErrors.proxyServer = 'Proxy server must use http, https, or socks5';
-        } else if (proxyUrl.username || proxyUrl.password) {
-          fieldErrors.proxyServer = 'Proxy credentials must be stored in username and password fields';
-        }
-      }
-    }
-
-    if (isSocks5ProxyServer(proxyServer)) {
-      const socks5Error = 'SOCKS5 proxy username/password is not supported';
-      if (proxyUsername) {
-        fieldErrors.proxyUsername = socks5Error;
-      }
-      if (proxyPassword || (settings.proxy.hasPassword && !settings.proxy.clearPassword)) {
-        fieldErrors.proxyPassword = socks5Error;
-      }
-    }
-  }
-
-  return fieldErrors;
+  return {
+    isDirty: createAppSettingsLogSummary(input).changedGroups.length > 0,
+    isValid: !hasAppSettingsFieldErrors(validationErrors),
+    validationErrors,
+  };
 }
 
 export function arePrettifySettingsEqual(left: PrettifySettings, right: PrettifySettings): boolean {

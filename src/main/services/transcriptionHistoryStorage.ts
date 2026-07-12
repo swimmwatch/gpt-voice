@@ -1,4 +1,5 @@
-import * as path from 'path';
+import * as path from 'node:path';
+// eslint-disable-next-line n/no-unsupported-features/node-builtins -- SQLite is required by the project's Node 24 runtime.
 import { DatabaseSync } from 'node:sqlite';
 import { APP_DIR } from '../config';
 import { createLogger } from '../logger';
@@ -68,6 +69,7 @@ function mapHistoryRow(row: TranscriptionHistoryRow): TranscriptionHistoryEntry 
   };
 }
 
+/** Owns the local SQLite transcription history and its schema lifecycle. */
 export class TranscriptionHistoryStore {
   private database: DatabaseSync | null = null;
 

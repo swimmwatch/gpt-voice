@@ -2,17 +2,18 @@ const NOTIFICATION_BODY_MAX_CHARS = 120;
 
 export type SystemNotificationSound = 'success' | 'error';
 
-export type NotificationErrorCode =
-  | 'audioPreparationFailed'
-  | 'clipboardUnavailable'
-  | 'connectionFailed'
-  | 'humanReadable'
-  | 'notConfigured'
-  | 'operationTimedOut'
-  | 'providerRequestFailed'
-  | 'rateLimited'
-  | 'unexpectedProviderResponse'
-  | 'unknown';
+export enum NotificationErrorCode {
+  AudioPreparationFailed = 'audioPreparationFailed',
+  ClipboardUnavailable = 'clipboardUnavailable',
+  ConnectionFailed = 'connectionFailed',
+  HumanReadable = 'humanReadable',
+  NotConfigured = 'notConfigured',
+  OperationTimedOut = 'operationTimedOut',
+  ProviderRequestFailed = 'providerRequestFailed',
+  RateLimited = 'rateLimited',
+  UnexpectedProviderResponse = 'unexpectedProviderResponse',
+  Unknown = 'unknown',
+}
 
 export type NotificationErrorContext = 'generic' | 'prettify' | 'transcription' | 'translation';
 
@@ -216,6 +217,17 @@ function isOperationTimeout(message: string): boolean {
   );
 }
 
+function isBrowserNetworkFailure(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes('err_network_changed') ||
+    lowerMessage.includes('err_internet_disconnected') ||
+    lowerMessage.includes('err_connection_') ||
+    lowerMessage.includes('err_name_not_resolved') ||
+    lowerMessage.includes('err_timed_out')
+  );
+}
+
 function isClipboardUnavailable(message: string): boolean {
   const lowerMessage = message.toLowerCase();
   return (
@@ -296,49 +308,50 @@ function getPresentedMessage(
   status?: number,
 ): string {
   switch (code) {
-    case 'connectionFailed':
+    case NotificationErrorCode.ConnectionFailed:
       return translateErrorMessage(
         t,
         'error.notificationConnectionFailed',
         `Could not connect to ${service || 'the service'}. Make sure it is running and the URL is correct.`,
         { service: service || 'the service' },
       );
-    case 'providerRequestFailed':
+    case NotificationErrorCode.ProviderRequestFailed:
       return translateErrorMessage(
         t,
         'error.notificationProviderRequestFailed',
         `${service || 'The service'} returned an error (${status || 'unknown'}). Try again or check provider settings.`,
         { service: service || 'The service', status: String(status || 'unknown') },
       );
-    case 'unexpectedProviderResponse':
+    case NotificationErrorCode.UnexpectedProviderResponse:
       return translateErrorMessage(
         t,
         'error.notificationUnexpectedProviderResponse',
         'The service returned an unexpected response. Try again.',
       );
-    case 'operationTimedOut':
+    case NotificationErrorCode.OperationTimedOut:
       return translateErrorMessage(t, 'error.notificationOperationTimedOut', 'The operation timed out. Try again.');
-    case 'clipboardUnavailable':
+    case NotificationErrorCode.ClipboardUnavailable:
       return translateErrorMessage(
         t,
         'error.notificationClipboardUnavailable',
         'Could not read the selected text. Check the selection and try again.',
       );
-    case 'audioPreparationFailed':
+    case NotificationErrorCode.AudioPreparationFailed:
       return translateErrorMessage(
         t,
         'error.notificationAudioPreparationFailed',
         'Could not prepare the recording. Try recording again.',
       );
-    case 'unknown':
+    case NotificationErrorCode.Unknown:
       return translateErrorMessage(t, 'error.notificationUnknown', 'Something went wrong. Try again.');
-    case 'humanReadable':
-    case 'notConfigured':
-    case 'rateLimited':
+    case NotificationErrorCode.HumanReadable:
+    case NotificationErrorCode.NotConfigured:
+    case NotificationErrorCode.RateLimited:
       return normalizedMessage || fallback;
   }
 }
 
+// Error classification is exhaustive so untrusted provider failures never leak raw implementation details to users.
 export function presentNotificationError(
   error: unknown,
   options: NotificationErrorPresentationOptions = {},
@@ -359,38 +372,43 @@ export function presentNotificationError(
     ...(errorName ? { errorName } : {}),
   };
 
-  let code: NotificationErrorCode = 'humanReadable';
+  let code = NotificationErrorCode.HumanReadable;
   let service: string | undefined;
   let status: number | undefined;
 
   const connectionService = parseConnectionFailure(message);
   const providerFailure = parseProviderRequestFailure(message);
   if (!message) {
-    code = fallback ? 'humanReadable' : 'unknown';
+    code = fallback ? NotificationErrorCode.HumanReadable : NotificationErrorCode.Unknown;
   } else if (connectionService) {
-    code = 'connectionFailed';
+    code = NotificationErrorCode.ConnectionFailed;
     service = connectionService;
   } else if (providerFailure) {
-    code = 'providerRequestFailed';
+    code = NotificationErrorCode.ProviderRequestFailed;
     service = providerFailure.service;
     status = providerFailure.status;
+  } else if (isBrowserNetworkFailure(message)) {
+    code = NotificationErrorCode.ConnectionFailed;
   } else if (isOperationTimeout(message)) {
-    code = 'operationTimedOut';
+    code = NotificationErrorCode.OperationTimedOut;
   } else if (isUnexpectedProviderResponse(message)) {
-    code = 'unexpectedProviderResponse';
+    code = NotificationErrorCode.UnexpectedProviderResponse;
   } else if (isAudioPreparationFailure(message)) {
-    code = 'audioPreparationFailed';
+    code = NotificationErrorCode.AudioPreparationFailed;
   } else if (isClipboardUnavailable(message)) {
-    code = 'clipboardUnavailable';
-  } else if (isRateLimited(message)) {
-    code = 'rateLimited';
+    code = NotificationErrorCode.ClipboardUnavailable;
   } else if (isTechnicalMessage(rawMessage, message)) {
-    code = 'unknown';
+    code = NotificationErrorCode.Unknown;
+  } else if (isRateLimited(message)) {
+    code = NotificationErrorCode.RateLimited;
   } else if (isNotConfigured(message)) {
-    code = 'notConfigured';
+    code = NotificationErrorCode.NotConfigured;
   }
 
-  const wasSanitized = code !== 'humanReadable' && code !== 'notConfigured' && code !== 'rateLimited';
+  const wasSanitized =
+    code !== NotificationErrorCode.HumanReadable &&
+    code !== NotificationErrorCode.NotConfigured &&
+    code !== NotificationErrorCode.RateLimited;
   const userMessage = getPresentedMessage(code, message, fallback, options.t, service, status);
   return {
     code,

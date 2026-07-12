@@ -8,12 +8,14 @@ import { launchCloakContext, launchCloakPersistentContext } from '@main/cloakbro
 import { currentProvider, currentTargetLang, setProvider } from '@main/config';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
+import { BrowserNavigationService, retryBrowserNavigation } from '@main/browserNavigationRetry';
 import { createProvider, type BaseVoiceProvider } from '@main/providers';
 import {
   buildGoogleTranslateUrl,
   GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
   normalizeGoogleTranslateTargetLang,
 } from '@main/services/translationUtils';
+import { presentNotificationError } from '@shared/notifications';
 
 const log = createLogger('browser');
 
@@ -35,10 +37,27 @@ export interface BackgroundBrowserStatus {
   authExpired?: boolean;
 }
 
+export enum BrowserSessionStartupState {
+  Expired = 'expired',
+  Ready = 'ready',
+  TemporaryFailure = 'temporaryFailure',
+}
+
 interface EnsureBackgroundBrowserOptions {
   includeTranslate?: boolean;
   translateTargetLang?: string;
   cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
+}
+
+export function getBrowserSessionStartupState({
+  providerReady,
+  sessionLoaded,
+}: {
+  providerReady: boolean;
+  sessionLoaded: boolean;
+}): BrowserSessionStartupState {
+  if (!sessionLoaded) return BrowserSessionStartupState.Expired;
+  return providerReady ? BrowserSessionStartupState.Ready : BrowserSessionStartupState.TemporaryFailure;
 }
 
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
@@ -79,10 +98,19 @@ async function navigateTranslatePage(page: Page, targetLang: string): Promise<vo
   const url = buildGoogleTranslateUrl(normalizedTargetLang);
 
   log.info('Navigating to Google Translate:', { targetLang: normalizedTargetLang });
-  await page.goto(url, {
-    waitUntil: 'domcontentloaded',
-    timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-  });
+  await retryBrowserNavigation(
+    {
+      navigate: () =>
+        page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
+        }),
+      service: BrowserNavigationService.GoogleTranslate,
+    },
+    {
+      onRetry: (event) => log.warn('Retrying Google Translate page navigation:', event),
+    },
+  );
 
   // Handle Google cookie consent if redirected
   if (page.url().includes('consent.google')) {
@@ -96,10 +124,19 @@ async function navigateTranslatePage(page: Page, targetLang: string): Promise<vo
       await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     } catch {
       log.warn('Could not auto-accept consent, retrying navigation...');
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-      });
+      await retryBrowserNavigation(
+        {
+          navigate: () =>
+            page.goto(url, {
+              waitUntil: 'domcontentloaded',
+              timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
+            }),
+          service: BrowserNavigationService.GoogleTranslate,
+        },
+        {
+          onRetry: (event) => log.warn('Retrying Google Translate page navigation:', event),
+        },
+      );
     }
   }
   translatePageTargetLang = normalizedTargetLang;
@@ -124,9 +161,10 @@ export async function initBackgroundBrowser(
 
   try {
     activeProvider = createProvider(currentProvider);
-  } catch (err: unknown) {
-    bgError = err instanceof Error ? err.message : String(err);
-    log.error('Provider init error:', bgError);
+  } catch (error: unknown) {
+    const presented = presentNotificationError(error, { context: 'generic', t });
+    bgError = presented.userMessage;
+    log.error('Provider init error:', presented.safeLogMetadata);
     return getBackgroundBrowserStatus();
   }
 
@@ -140,9 +178,17 @@ export async function initBackgroundBrowser(
       log.info('Ensuring persistent background browser...');
       bgContext = await ensureTranslateContext(cloakBrowserSettings);
 
-      // Load session cookies and initialize provider page
+      // Load session cookies and initialize the provider page.
       const sessionLoaded = await activeProvider.loadSession(bgContext);
-      if (!sessionLoaded) {
+      if (sessionLoaded) {
+        await activeProvider.initPage(bgContext);
+      }
+
+      const startupState = getBrowserSessionStartupState({
+        providerReady: activeProvider.isReady(),
+        sessionLoaded,
+      });
+      if (startupState === BrowserSessionStartupState.Expired) {
         bgAuthExpired = true;
         bgError = t('error.noAccessToken');
         activeProvider.clearSession();
@@ -150,10 +196,7 @@ export async function initBackgroundBrowser(
         return getBackgroundBrowserStatus();
       }
 
-      await activeProvider.initPage(bgContext);
-      if (!activeProvider.isReady()) {
-        bgAuthExpired = true;
-        activeProvider.clearSession();
+      if (startupState === BrowserSessionStartupState.TemporaryFailure) {
         throw new Error(t('error.noAccessToken'));
       }
     } else if (!activeProvider.isReady()) {
@@ -165,9 +208,10 @@ export async function initBackgroundBrowser(
     bgReady = true;
     log.info('Background browser ready');
     return getBackgroundBrowserStatus();
-  } catch (err: unknown) {
-    bgError = err instanceof Error ? err.message : String(err);
-    log.error('Init error:', bgError);
+  } catch (error: unknown) {
+    const presented = presentNotificationError(error, { context: 'generic', t });
+    bgError = presented.userMessage;
+    log.error('Init error:', presented.safeLogMetadata);
     await shutdownBackgroundBrowser(true);
     return getBackgroundBrowserStatus();
   }

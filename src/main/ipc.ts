@@ -27,24 +27,46 @@ import {
   switchProvider,
 } from './browser';
 import { createProvider, getAvailableProviders } from './providers';
-import { closeSettingsWindow, getMainWindow, isTrustedAppWindow } from './window';
+import {
+  closeAboutWindow,
+  closeSettingsWindow,
+  getMainWindow,
+  isTrustedAppWindow,
+  showAboutWindow,
+  showHistoryWindow,
+  showSettingsWindow,
+} from './window';
+import { getAppInfo } from './appMetadata';
 import {
   registerShortcuts,
   getRecordingState,
   resetRecordingState,
   setRecordingLifecycleState,
   setRetryTranscriptionAvailable,
+  setShortcutsSuspended,
 } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
+import { isGoogleTranslateTargetLanguage } from './services/translationUtils';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
 import { createLogger } from './logger';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
-import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers/openaiApiSettingsUtils';
+import {
+  assertValidOpenAIApiSettingsInput,
+  OPENAI_API_PROVIDER_ID,
+  type OpenAIApiSettingsInput,
+} from './providers/openaiApiSettingsUtils';
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
+import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
-import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import {
+  getHotkeyConflict,
+  isHotkeyTarget,
+  normalizeHotkey,
+  type HotkeySettings,
+  type HotkeyTarget,
+} from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   isPrettifyProviderId,
@@ -53,10 +75,11 @@ import {
   type PrettifyModelUnloadResult,
   type PrettifyProviderId,
   type PrettifySettingsInput,
+  assertValidPrettifySettingsInput,
 } from '@shared/prettifySettings';
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
-import { normalizeTextActionSettings, type TextActionSettingsInput } from '@shared/textActionSettings';
+import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
 import {
   clearTranscriptionHistory,
   getTranscriptionHistoryPage,
@@ -201,6 +224,7 @@ async function refreshActiveProvider(providerId: string): Promise<void> {
   sendBackgroundStatus(status);
 }
 
+/** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(): void {
   handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return transcribeAudio(buffer, mimeType);
@@ -314,7 +338,7 @@ export function registerIpcHandlers(): void {
       }
 
       return { success: true };
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       if (context) {
         try {
           await context.close();
@@ -322,7 +346,7 @@ export function registerIpcHandlers(): void {
           /* ignore */
         }
       }
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -357,14 +381,39 @@ export function registerIpcHandlers(): void {
     return { success: true };
   });
 
+  handle('open-app-settings', () => {
+    showSettingsWindow();
+    return { success: true };
+  });
+
+  handle('open-transcription-history', () => {
+    showHistoryWindow();
+    return { success: true };
+  });
+
+  handle('open-about', () => {
+    showAboutWindow();
+    return { success: true };
+  });
+
+  handle('close-about', () => {
+    closeAboutWindow();
+    return { success: true };
+  });
+
+  handle('get-app-info', () => {
+    return getAppInfo();
+  });
+
   handle('get-cloakbrowser-settings', () => {
     return getCloakBrowserSettingsView();
   });
 
-  handle('save-cloakbrowser-settings', async (_event, settings: CloakBrowserSettingsInput) => {
+  handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
     try {
-      log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings || {}));
-      const preparedSettings = prepareCloakBrowserSettings(settings || {});
+      assertValidCloakBrowserSettingsInput(settings);
+      log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
+      const preparedSettings = prepareCloakBrowserSettings(settings);
       await shutdownBackgroundBrowser();
       const backgroundStatus = await initBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
@@ -390,18 +439,20 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('save-provider-settings', async (_event, providerId: string, settings: OpenAIApiSettingsInput) => {
+  handle('save-provider-settings', async (_event, providerId: unknown, settings: unknown) => {
     try {
-      log.info('Saving provider settings:', {
-        providerId,
-        ...(providerId === OPENAI_API_PROVIDER_ID ? summarizeOpenAIApiSettingsInput(settings || {}) : {}),
-      });
+      if (typeof providerId !== 'string') {
+        return { success: false, error: 'Unsupported provider' };
+      }
       if (providerId !== OPENAI_API_PROVIDER_ID) {
+        log.info('Saving provider settings:', { providerId });
         log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
         return { success: true, settings: getProviderSettingsSnapshot(providerId) };
       }
 
-      const savedSettings = saveOpenAIApiSettings(settings || {});
+      assertValidOpenAIApiSettingsInput(settings);
+      log.info('Saving provider settings:', { providerId, ...summarizeOpenAIApiSettingsInput(settings) });
+      const savedSettings = saveOpenAIApiSettings(settings);
       await refreshActiveProvider(providerId);
       log.info('Provider settings saved:', {
         providerId,
@@ -477,32 +528,67 @@ export function registerIpcHandlers(): void {
     return getHotkeySettingsSnapshot();
   });
 
-  handle('set-hotkey', (_event, key: string, hotkey: string) => {
-    if (!isHotkeyTarget(key)) {
+  handle('set-hotkey-capture-active', (_event, active: unknown) => {
+    if (typeof active !== 'boolean') {
+      return { success: false };
+    }
+
+    setShortcutsSuspended(active);
+    return { success: true };
+  });
+
+  handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
+    if (typeof key !== 'string' || !isHotkeyTarget(key)) {
       return {
         success: false,
+        error: 'Unsupported hotkey target',
         ...getHotkeySettingsSnapshot(),
       };
     }
     const target: HotkeyTarget = key;
+    if (typeof hotkey !== 'string') {
+      return {
+        success: false,
+        error: 'Hotkey must be a string',
+        ...getHotkeySettingsSnapshot(),
+      };
+    }
+    const normalizedHotkey = normalizeHotkey(hotkey);
+    if (!normalizedHotkey) {
+      return {
+        success: false,
+        error: 'Choose a key or key combination',
+        ...getHotkeySettingsSnapshot(),
+      };
+    }
+
+    const conflict = getHotkeyConflict(target, normalizedHotkey, getHotkeySettingsSnapshot());
+    if (conflict) {
+      return {
+        success: false,
+        error: `This hotkey conflicts with the ${conflict} shortcut`,
+        ...getHotkeySettingsSnapshot(),
+      };
+    }
+
     if (key === 'cancel') {
-      log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', hotkey);
-      setHotkeys(undefined, hotkey, undefined, undefined, undefined);
+      log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, normalizedHotkey, undefined, undefined, undefined);
     } else if (key === 'stop') {
-      log.info('Changing stop hotkey from', currentStopHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, hotkey, undefined, undefined);
+      log.info('Changing stop hotkey from', currentStopHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, normalizedHotkey, undefined, undefined);
     } else if (target === 'translate') {
-      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, hotkey, undefined);
+      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, normalizedHotkey, undefined);
     } else if (target === 'prettify') {
-      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, hotkey, undefined);
+      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, normalizedHotkey, undefined);
     } else if (target === 'retryTranscription') {
-      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, undefined, hotkey);
+      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, undefined, normalizedHotkey);
     } else {
-      log.info('Changing hotkey from', currentHotkey, 'to', hotkey);
-      setHotkeys(hotkey, undefined, undefined, undefined, undefined, undefined);
+      log.info('Changing hotkey from', currentHotkey, 'to', normalizedHotkey);
+      setHotkeys(normalizedHotkey, undefined, undefined, undefined, undefined, undefined);
     }
     saveConfig();
     registerShortcuts();
@@ -519,9 +605,10 @@ export function registerIpcHandlers(): void {
     return getTextActionSettingsSnapshot();
   });
 
-  handle('set-text-action-settings', (_event, settings: TextActionSettingsInput) => {
+  handle('set-text-action-settings', (_event, settings: unknown) => {
     try {
-      const normalized = normalizeTextActionSettings(settings || {});
+      assertValidTextActionSettingsInput(settings);
+      const normalized = normalizeTextActionSettings(settings);
       log.info('Saving text action settings:', {
         from: {
           translateEnabled: currentTranslateEnabled,
@@ -539,8 +626,11 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('set-translate-settings', (_event, targetLang: string) => {
+  handle('set-translate-settings', (_event, targetLang: unknown) => {
     try {
+      if (!isGoogleTranslateTargetLanguage(targetLang)) {
+        return { success: false, error: 'Select a supported translation language' };
+      }
       log.info('Saving translate settings:', { from: currentTargetLang, to: targetLang });
       setTranslateSettings(targetLang);
       saveConfig();
@@ -556,11 +646,12 @@ export function registerIpcHandlers(): void {
     return getPrettifySettingsSnapshot();
   });
 
-  handle('set-prettify-settings', (_event, settings: PrettifySettingsInput = {}) => {
+  handle('set-prettify-settings', (_event, settings: unknown = {}) => {
     try {
+      assertValidPrettifySettingsInput(settings);
       const previous = getPrettifySettingsSnapshot();
-      log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings || {}));
-      const savedSettings = savePrettifySettings(settings || {});
+      log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
+      const savedSettings = savePrettifySettings(settings);
       log.info('Prettify settings saved:', {
         providerId: savedSettings.providerId,
         providerChanged: savedSettings.providerId !== previous.providerId,
@@ -570,6 +661,7 @@ export function registerIpcHandlers(): void {
         vllmModel: savedSettings.vllm.model,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
+      getMainWindow()?.webContents.send('prettify-settings-changed', savedSettings);
       return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
@@ -579,21 +671,18 @@ export function registerIpcHandlers(): void {
 
   handle(
     'list-prettify-models',
-    async (
-      _event,
-      providerId: PrettifyProviderId,
-      draftSettings: PrettifySettingsInput = {},
-    ): Promise<PrettifyModelListResult> => {
+    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelListResult> => {
       if (!isPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', models: [], error: 'Unsupported prettify provider' };
       }
 
       try {
+        assertValidPrettifySettingsInput(draftSettings);
         log.info('Listing Prettify models:', {
           providerId,
-          draft: summarizePrettifySettingsInput(draftSettings || {}),
+          draft: summarizePrettifySettingsInput(draftSettings),
         });
-        const models = await listPrettifyModels(providerId, draftSettings || {});
+        const models = await listPrettifyModels(providerId, draftSettings);
         log.info('Prettify models listed:', { providerId, modelCount: models.length });
         return { success: true, providerId, models };
       } catch (error: unknown) {
@@ -608,21 +697,18 @@ export function registerIpcHandlers(): void {
 
   handle(
     'load-prettify-model',
-    async (
-      _event,
-      providerId: PrettifyProviderId,
-      draftSettings: PrettifySettingsInput = {},
-    ): Promise<PrettifyModelLoadResult> => {
+    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelLoadResult> => {
       if (!isPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
+        assertValidPrettifySettingsInput(draftSettings);
         log.info('Loading Prettify model:', {
           providerId,
-          draft: summarizePrettifySettingsInput(draftSettings || {}),
+          draft: summarizePrettifySettingsInput(draftSettings),
         });
-        const result = await loadPrettifyModel(providerId, draftSettings || {});
+        const result = await loadPrettifyModel(providerId, draftSettings);
         if (!result.success) {
           log.warn('Prettify model load failed:', {
             providerId,
@@ -649,21 +735,18 @@ export function registerIpcHandlers(): void {
 
   handle(
     'unload-prettify-model',
-    async (
-      _event,
-      providerId: PrettifyProviderId,
-      draftSettings: PrettifySettingsInput = {},
-    ): Promise<PrettifyModelUnloadResult> => {
+    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelUnloadResult> => {
       if (!isPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
+        assertValidPrettifySettingsInput(draftSettings);
         log.info('Unloading Prettify model:', {
           providerId,
-          draft: summarizePrettifySettingsInput(draftSettings || {}),
+          draft: summarizePrettifySettingsInput(draftSettings),
         });
-        const result = await unloadPrettifyModel(providerId, draftSettings || {});
+        const result = await unloadPrettifyModel(providerId, draftSettings);
         if (!result.success) {
           log.warn('Prettify model unload failed:', {
             providerId,
@@ -703,8 +786,11 @@ export function registerIpcHandlers(): void {
     return getSupportedLocales();
   });
 
-  handle('set-locale', (_event, locale: string) => {
+  handle('set-locale', (_event, locale: unknown) => {
     try {
+      if (typeof locale !== 'string' || !getSupportedLocales().includes(locale)) {
+        return { success: false, error: 'Select a supported locale' };
+      }
       log.info('Saving locale:', { from: getLocale(), to: locale });
       setLocale(locale);
       setCurrentLocale(locale);

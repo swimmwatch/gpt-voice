@@ -1,5 +1,5 @@
 import { app, nativeImage } from 'electron';
-import * as path from 'path';
+import * as path from 'node:path';
 
 export function getAssetPath(filename: string): string {
   return app.isPackaged

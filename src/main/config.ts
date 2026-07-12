@@ -1,6 +1,6 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { createLogger } from './logger';
 import {
   DEFAULT_CANCEL_HOTKEY,
@@ -22,6 +22,7 @@ import {
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
 const log = createLogger('config');
+const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
 
 const LEGACY_APP_DIRS = [path.join(os.homedir(), '.gpt-voice'), path.join(os.homedir(), '.webvoice')];
 
@@ -206,6 +207,7 @@ export function getCurrentLocale(): string {
   return currentLocale;
 }
 
+// Configuration loading validates each persisted field independently to isolate corrupt legacy values.
 export function loadConfig(): void {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
@@ -242,6 +244,15 @@ export function loadConfig(): void {
         isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
       );
       updateLegacyPrettifyMirrors();
+
+      if (
+        currentHotkey === DEFAULT_RECORD_HOTKEY &&
+        currentRetryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY
+      ) {
+        currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
+        log.info('Migrated conflicting retry transcription hotkey to:', DEFAULT_RETRY_TRANSCRIPTION_HOTKEY);
+        saveConfig();
+      }
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();

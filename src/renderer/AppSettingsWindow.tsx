@@ -1,12 +1,32 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import rendererLog from 'electron-log/renderer';
 import HotkeyModal from '@renderer/components/HotkeyModal';
-import HotkeyRow from '@renderer/components/HotkeyRow';
+import BrowserSection from '@renderer/components/settings/BrowserSection';
+import NetworkSection from '@renderer/components/settings/NetworkSection';
+import PrettifySection from '@renderer/components/settings/PrettifySection';
+import SettingsFooter from '@renderer/components/settings/SettingsFooter';
+import SettingsNavigation, { type SettingsSectionId } from '@renderer/components/settings/SettingsNavigation';
+import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
+import { useWindowStartupReady } from '@renderer/WindowStartupGate';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@renderer/components/ui/alert-dialog';
+import { Button } from '@renderer/components/ui/button';
+import { Spinner } from '@renderer/components/ui/spinner';
+import { Tabs, TabsContent } from '@renderer/components/ui/tabs';
 import {
   createAppSettingsLogSummary,
   createEditableSettings,
   getCloakBrowserLocaleOptions,
   getCloakBrowserTimezoneOptions,
+  getAppSettingsFormState,
   hasAppSettingsFieldErrors,
   saveAppSettingsState,
   type AppSettingsSaveResult,
@@ -14,15 +34,10 @@ import {
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
 } from '@renderer/appSettingsUtils';
-import { formatByteSize } from '@renderer/byteFormatting';
 import { useI18n } from '@renderer/hooks/useI18n';
-import { HOTKEY_TARGETS, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
-import {
-  PRETTIFY_PROVIDER_IDS,
-  type PrettifyModelOption,
-  type PrettifyProviderId,
-  type PrettifySettings,
-} from '@shared/prettifySettings';
+import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
+import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import { type PrettifyModelOption, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 const log = rendererLog.scope('app-settings');
@@ -35,23 +50,13 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
-function parseIntegerInput(value: string, fallback: number): number {
-  const trimmed = value.trim();
-  return trimmed ? Number(trimmed) : fallback;
-}
-
-function parseOptionalIntegerInput(value: string): number | null {
-  const trimmed = value.trim();
-  return trimmed ? Number(trimmed) : null;
-}
-
 function getActivePrettifyProviderSettings(settings: PrettifySettings) {
   return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
 }
 
+/** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
-  const { t } = useI18n();
-  const prettifyModelActionMenuRef = useRef<HTMLDivElement>(null);
+  const { isReady: isI18nReady, t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
@@ -69,40 +74,73 @@ const AppSettingsWindow: React.FC = () => {
   const [prettifyModelLoadStatus, setPrettifyModelLoadStatus] = useState('');
   const [isLoadingPrettifyModel, setIsLoadingPrettifyModel] = useState(false);
   const [isPrettifyModelActionMenuOpen, setIsPrettifyModelActionMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('shortcuts');
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<AppSettingsFieldErrors>({});
+  const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
+  const closeRequestFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let disposed = false;
-    Promise.all([
-      window.electronAPI.getCloakBrowserSettings(),
-      window.electronAPI.getPrettifySettings(),
-      window.electronAPI.getTextActionSettings(),
-      window.electronAPI.getHotkey(),
-      window.electronAPI.getPlatform(),
-    ])
-      .then(([nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform]) => {
-        if (!disposed) {
-          const editableSettings = createEditableSettings(nextSettings);
-          setSettings(editableSettings);
-          setInitialSettings(editableSettings);
-          setPrettifySettings(nextPrettifySettings);
-          setInitialPrettifySettings(nextPrettifySettings);
-          setTextActionSettings(nextTextActionSettings);
-          setInitialTextActionSettings(nextTextActionSettings);
-          setHotkeySettings(nextHotkeySettings);
-          setPlatform(nextPlatform);
+    const loadSettings = async (): Promise<void> => {
+      try {
+        const [nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform] =
+          await Promise.all([
+            window.electronAPI.getCloakBrowserSettings(),
+            window.electronAPI.getPrettifySettings(),
+            window.electronAPI.getTextActionSettings(),
+            window.electronAPI.getHotkey(),
+            window.electronAPI.getPlatform(),
+          ]);
+        if (disposed) return;
+
+        const editableSettings = createEditableSettings(nextSettings);
+        setSettings(editableSettings);
+        setInitialSettings(editableSettings);
+        setPrettifySettings(nextPrettifySettings);
+        setInitialPrettifySettings(nextPrettifySettings);
+        setTextActionSettings(nextTextActionSettings);
+        setInitialTextActionSettings(nextTextActionSettings);
+        setHotkeySettings(nextHotkeySettings);
+        setPlatform(nextPlatform);
+        setIsLoadingPrettifyModels(true);
+
+        try {
+          const result = await window.electronAPI.listPrettifyModels(
+            nextPrettifySettings.providerId,
+            nextPrettifySettings,
+          );
+          if (disposed) return;
+          if (!result.success) {
+            setPrettifyModelError(result.error || '');
+            return;
+          }
+
+          setPrettifyModelOptions((current) => ({
+            ...current,
+            [result.providerId]: result.models,
+          }));
+        } catch (modelError: unknown) {
+          if (!disposed) {
+            setPrettifyModelError(getErrorMessage(modelError));
+          }
+        } finally {
+          if (!disposed) {
+            setIsLoadingPrettifyModels(false);
+          }
         }
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError: unknown) {
         if (!disposed) {
-          setError(loadError instanceof Error ? loadError.message : String(loadError));
+          setError(getErrorMessage(loadError));
         }
-      });
+      }
+    };
+
+    void loadSettings();
 
     return () => {
       disposed = true;
@@ -110,17 +148,10 @@ const AppSettingsWindow: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!isPrettifyModelActionMenuOpen) return undefined;
-
-    const handleDocumentMouseDown = (event: MouseEvent): void => {
-      if (!prettifyModelActionMenuRef.current?.contains(event.target as Node)) {
-        setIsPrettifyModelActionMenuOpen(false);
-      }
+    return () => {
+      void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
     };
-
-    document.addEventListener('mousedown', handleDocumentMouseDown);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown);
-  }, [isPrettifyModelActionMenuOpen]);
+  }, []);
 
   const updateSetting = <Key extends keyof EditableCloakBrowserSettings>(
     key: Key,
@@ -389,11 +420,6 @@ const AppSettingsWindow: React.FC = () => {
     });
   }
 
-  const renderFieldError = (fieldKey: AppSettingsFieldKey): React.ReactNode => {
-    const message = fieldErrors[fieldKey];
-    return message ? <span className="settings-field-error">{message}</span> : null;
-  };
-
   const getHotkeyValue = (target: HotkeyTarget): string => {
     if (!hotkeySettings) return '';
     if (target === 'record') return hotkeySettings.hotkey;
@@ -404,9 +430,24 @@ const AppSettingsWindow: React.FC = () => {
     return hotkeySettings.prettifyHotkey;
   };
 
-  const openHotkeyModal = (target: HotkeyTarget): void => {
-    setHotkeyTarget(target);
-    setShowHotkeyModal(true);
+  const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
+    setError('');
+    try {
+      const result = await window.electronAPI.setHotkeyCaptureActive(true);
+      if (!result.success) {
+        setError(t('appSettings.saveFailed'));
+        return;
+      }
+      setHotkeyTarget(target);
+      setShowHotkeyModal(true);
+    } catch (hotkeyError: unknown) {
+      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
+    }
+  };
+
+  const closeHotkeyModal = (): void => {
+    setShowHotkeyModal(false);
+    void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
   };
 
   const applyHotkey = async (newHotkey: string): Promise<void> => {
@@ -416,12 +457,12 @@ const AppSettingsWindow: React.FC = () => {
       if (result.success) {
         setHotkeySettings(result);
       } else {
-        setError(t('appSettings.saveFailed'));
+        setError(result.error || t('appSettings.saveFailed'));
       }
     } catch (hotkeyError: unknown) {
       setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
     } finally {
-      setShowHotkeyModal(false);
+      closeHotkeyModal();
     }
   };
 
@@ -442,10 +483,11 @@ const AppSettingsWindow: React.FC = () => {
     );
   };
 
-  const closeWindow = (): void => {
+  const forceCloseWindow = useCallback((): void => {
     void window.electronAPI.closeAppSettings();
-  };
+  }, []);
 
+  /** Saves all dirty settings groups in their dependency-safe order. */
   const saveSettings = async (): Promise<void> => {
     if (
       !settings ||
@@ -540,58 +582,95 @@ const AppSettingsWindow: React.FC = () => {
       cloakBrowserSettingsSaved: Boolean(saveResult.settingsSaved),
     });
     log.info('App Settings save succeeded; closing settings window');
-    closeWindow();
+    forceCloseWindow();
   };
 
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
   const localeOptions = getCloakBrowserLocaleOptions(settings?.locale);
   const timezoneOptions = getCloakBrowserTimezoneOptions(settings?.timezone);
-  const activePrettifyProviderSettings = prettifySettings ? getActivePrettifyProviderSettings(prettifySettings) : null;
-  const activePrettifyModelOptions =
-    prettifySettings && activePrettifyProviderSettings
-      ? [
-          ...(!activePrettifyProviderSettings.model ||
-          prettifyModelOptions[prettifySettings.providerId].some(
-            (option) => option.id === activePrettifyProviderSettings.model,
-          )
-            ? []
-            : [
-                {
-                  id: activePrettifyProviderSettings.model,
-                  name: activePrettifyProviderSettings.model,
-                },
-              ]),
-          ...prettifyModelOptions[prettifySettings.providerId],
-        ]
-      : [];
   const selectedOllamaModelLoaded = isSelectedOllamaModelLoaded();
-  const canUsePrettifyModelActions =
-    prettifySettings?.providerId === 'ollama' && Boolean(activePrettifyProviderSettings?.model);
-  const getPrettifyModelOptionLabel = (option: PrettifyModelOption): string => {
-    const name = option.name || option.id;
-    if (prettifySettings?.providerId !== 'ollama') return name;
-
-    const loadedVramSize = formatByteSize(option.vramSizeBytes);
-    if (loadedVramSize) {
-      return `${name} (${t('prettify.modelVramLoaded', { size: loadedVramSize })})`;
-    }
-
-    const approximateVramSize = formatByteSize(option.sizeBytes);
-    return approximateVramSize ? `${name} (${t('prettify.modelVramApprox', { size: approximateVramSize })})` : name;
+  const formState =
+    settings &&
+    initialSettings &&
+    prettifySettings &&
+    initialPrettifySettings &&
+    textActionSettings &&
+    initialTextActionSettings
+      ? getAppSettingsFormState({
+          initialPrettifySettings,
+          initialSettings,
+          initialTextActionSettings,
+          localeValues: localeOptions,
+          prettifySettings,
+          settings,
+          textActionSettings,
+          timezoneValues: timezoneOptions,
+        })
+      : null;
+  const visibleFieldErrors = formState?.isDirty ? { ...formState.validationErrors, ...fieldErrors } : fieldErrors;
+  const isSettingsReady = Boolean(formState && hotkeySettings);
+  useWindowStartupReady(isI18nReady && (isSettingsReady || Boolean(error)));
+  const renderFieldError = (fieldKey: AppSettingsFieldKey): React.ReactNode => {
+    const message = visibleFieldErrors[fieldKey];
+    return message || null;
   };
+  const saveDisabled = isSaving || !formState || !formState.isDirty || !formState.isValid;
+  const isDirty = formState?.isDirty ?? false;
+  const restoreCloseRequestFocus = useCallback((): void => {
+    window.requestAnimationFrame(() => closeRequestFocusRef.current?.focus());
+  }, []);
+  const handleDiscardConfirmationOpenChange = useCallback(
+    (open: boolean): void => {
+      setIsDiscardConfirmationOpen(open);
+      if (!open) {
+        restoreCloseRequestFocus();
+      }
+    },
+    [restoreCloseRequestFocus],
+  );
+  const requestCloseWindow = useCallback((): void => {
+    const disposition = getSettingsCloseDisposition({ isDirty, isSaving });
+    if (disposition === 'block') {
+      return;
+    }
+    if (disposition === 'confirm') {
+      if (isDiscardConfirmationOpen) {
+        return;
+      }
+      closeRequestFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setIsDiscardConfirmationOpen(true);
+      return;
+    }
+    forceCloseWindow();
+  }, [forceCloseWindow, isDirty, isDiscardConfirmationOpen, isSaving]);
+  const discardChanges = useCallback((): void => {
+    setIsDiscardConfirmationOpen(false);
+    forceCloseWindow();
+  }, [forceCloseWindow]);
+  const handleDiscardConfirmationKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleDiscardConfirmationOpenChange(false);
+      }
+    },
+    [handleDiscardConfirmationOpenChange],
+  );
+
+  useEffect(() => window.electronAPI.onAppSettingsCloseRequested(requestCloseWindow), [requestCloseWindow]);
 
   return (
-    <main className="settings-window-shell">
-      <section className="settings-window-panel">
-        <h1>{t('appSettings.title')}</h1>
-        {(!settings ||
-          !initialSettings ||
-          !prettifySettings ||
-          !initialPrettifySettings ||
-          !textActionSettings ||
-          !initialTextActionSettings ||
-          !hotkeySettings) &&
-          !error && <p className="modal-instruction">{t('loading.initializing')}</p>}
+    <>
+      <main className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden p-4 [-webkit-app-region:no-drag]">
+        <header className="shrink-0">
+          <h1 className="text-lg font-semibold text-foreground">{t('appSettings.title')}</h1>
+        </header>
+        {!isSettingsReady && !error && (
+          <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Spinner label={t('loading.initializing')} />
+            {t('loading.initializing')}
+          </div>
+        )}
 
         {settings &&
           initialSettings &&
@@ -600,499 +679,145 @@ const AppSettingsWindow: React.FC = () => {
           textActionSettings &&
           initialTextActionSettings &&
           hotkeySettings && (
-            <div className="app-settings-body">
-              <section className="settings-section">
-                <h2>{t('appSettings.hotkeys')}</h2>
-
-                <div className="settings-group hotkeys-section app-settings-hotkeys">
-                  {HOTKEY_TARGETS.map((target) => (
-                    <HotkeyRow
-                      key={target}
-                      label={t(`hotkey.${target}`)}
-                      value={getHotkeyValue(target)}
-                      onChangeClick={() => openHotkeyModal(target)}
-                      enabled={
-                        target === 'translate'
-                          ? textActionSettings.translateEnabled
-                          : target === 'prettify'
-                            ? textActionSettings.prettifyEnabled
-                            : undefined
-                      }
-                      onEnabledChange={
-                        target === 'translate'
-                          ? (enabled) => updateTextActionSetting('translateEnabled', enabled)
-                          : target === 'prettify'
-                            ? (enabled) => updateTextActionSetting('prettifyEnabled', enabled)
-                            : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section className="settings-section">
-                <h2>{t('appSettings.prettify')}</h2>
-
-                <div className="settings-group">
-                  <label className="settings-field">
-                    <span>{t('prettify.provider')}</span>
-                    {renderFieldError('prettifyProvider')}
-                    <select
-                      value={prettifySettings.providerId}
-                      onChange={(event) =>
-                        updatePrettifySetting(
-                          'providerId',
-                          event.target.value as PrettifyProviderId,
-                          'prettifyProvider',
-                        )
-                      }
-                    >
-                      {PRETTIFY_PROVIDER_IDS.map((providerId) => (
-                        <option key={providerId} value={providerId}>
-                          {t(`prettify.provider.${providerId}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('prettify.baseUrl')}</span>
-                    {renderFieldError('prettifyBaseUrl')}
-                    <input
-                      type="url"
-                      value={activePrettifyProviderSettings?.baseUrl || ''}
-                      onChange={(event) =>
-                        updatePrettifyProviderSetting('baseUrl', event.target.value, 'prettifyBaseUrl')
-                      }
-                    />
-                  </label>
-                  {prettifySettings.providerId === 'vllm' && (
-                    <label className="settings-field">
-                      <span>{t('prettify.vllmApiKey')}</span>
-                      {renderFieldError('prettifyApiKey')}
-                      <div className="settings-input-action">
-                        <input
-                          type="password"
-                          value={prettifySettings.vllm.apiKey || ''}
-                          placeholder={
-                            prettifySettings.vllm.hasApiKey
-                              ? t('prettify.vllmApiKeyStored')
-                              : t('prettify.vllmApiKeyPlaceholder')
-                          }
-                          onChange={(event) => updateVllmApiKey(event.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="hotkey-btn"
-                          disabled={!prettifySettings.vllm.hasApiKey && !prettifySettings.vllm.apiKey}
-                          onClick={clearVllmApiKey}
-                        >
-                          {t('prettify.clearVllmApiKey')}
-                        </button>
-                      </div>
-                    </label>
-                  )}
-                  <label className="settings-field">
-                    <span>{t('prettify.model')}</span>
-                    {renderFieldError('prettifyModel')}
-                    <div
-                      className={`settings-input-action${
-                        prettifySettings.providerId === 'ollama' ? ' settings-model-action' : ''
-                      }`}
-                    >
-                      <select
-                        value={activePrettifyProviderSettings?.model || ''}
-                        onChange={(event) =>
-                          updatePrettifyProviderSetting('model', event.target.value, 'prettifyModel')
+            <>
+              <Tabs
+                className="flex min-h-0 flex-1 flex-col"
+                onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
+                orientation="vertical"
+                value={activeSection}
+              >
+                <div className="flex min-h-0 flex-1 gap-4">
+                  <SettingsNavigation t={t} />
+                  <div
+                    className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]"
+                    data-slot="settings-content"
+                  >
+                    <TabsContent className="mt-0" value="shortcuts">
+                      <ShortcutsSection
+                        getHotkeyValue={getHotkeyValue}
+                        onHotkeyChange={(target) => void openHotkeyModal(target)}
+                        onTextActionEnabledChange={updateTextActionSetting}
+                        t={t}
+                        textActionSettings={textActionSettings}
+                      />
+                    </TabsContent>
+                    <TabsContent className="mt-0" value="prettify">
+                      <PrettifySection
+                        fieldError={renderFieldError}
+                        isLoadingModel={isLoadingPrettifyModel}
+                        isLoadingModels={isLoadingPrettifyModels}
+                        isModelActionMenuOpen={isPrettifyModelActionMenuOpen}
+                        modelLoadError={prettifyModelLoadError}
+                        modelLoadStatus={prettifyModelLoadStatus}
+                        modelOptions={prettifyModelOptions}
+                        modelRefreshError={prettifyModelError}
+                        onBaseUrlChange={(value) => updatePrettifyProviderSetting('baseUrl', value, 'prettifyBaseUrl')}
+                        onClearVllmApiKey={clearVllmApiKey}
+                        onLoadModel={() => void loadSelectedOllamaModel()}
+                        onMaxOutputTokensChange={(value) =>
+                          updatePrettifySetting('maxOutputTokens', value, 'prettifyMaxOutputTokens')
                         }
-                      >
-                        <option value="">{t('prettify.noModels')}</option>
-                        {activePrettifyModelOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {getPrettifyModelOptionLabel(option)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="hotkey-btn"
-                        disabled={isLoadingPrettifyModels}
-                        onClick={() => void refreshPrettifyModels()}
-                      >
-                        {isLoadingPrettifyModels ? t('prettify.loadingModels') : t('prettify.refreshModels')}
-                      </button>
-                      {prettifySettings.providerId === 'ollama' && (
-                        <div className="settings-model-actions-menu" ref={prettifyModelActionMenuRef}>
-                          <button
-                            type="button"
-                            aria-expanded={isPrettifyModelActionMenuOpen}
-                            aria-label={t('prettify.modelActions')}
-                            className="hotkey-btn settings-menu-trigger"
-                            disabled={isLoadingPrettifyModel || !canUsePrettifyModelActions}
-                            title={t('prettify.modelActions')}
-                            onClick={() => setIsPrettifyModelActionMenuOpen((current) => !current)}
-                          >
-                            ...
-                          </button>
-                          {isPrettifyModelActionMenuOpen && (
-                            <div className="settings-menu-dropdown">
-                              <button
-                                type="button"
-                                className="settings-menu-item"
-                                disabled={isLoadingPrettifyModel || selectedOllamaModelLoaded}
-                                title={t('prettify.loadModelTitle')}
-                                onClick={() => void loadSelectedOllamaModel()}
-                              >
-                                {t('prettify.loadModel')}
-                              </button>
-                              <button
-                                type="button"
-                                className="settings-menu-item"
-                                disabled={isLoadingPrettifyModel || !selectedOllamaModelLoaded}
-                                title={t('prettify.freeModelTitle')}
-                                onClick={() => void unloadSelectedOllamaModel()}
-                              >
-                                {t('prettify.freeModel')}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {prettifyModelError && <span className="settings-field-error">{prettifyModelError}</span>}
-                    {prettifyModelLoadError && <span className="settings-field-error">{prettifyModelLoadError}</span>}
-                    {prettifyModelLoadStatus && <span className="settings-field-hint">{prettifyModelLoadStatus}</span>}
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('prettify.temperature', { value: prettifySettings.temperature.toFixed(2) })}</span>
-                    {renderFieldError('prettifyTemperature')}
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={prettifySettings.temperature}
-                      onChange={(event) =>
-                        updatePrettifySetting('temperature', Number(event.target.value), 'prettifyTemperature')
-                      }
-                    />
-                  </label>
-                  <div className="settings-subgroup">
-                    <h3>{t('prettify.advancedGeneration')}</h3>
-                    <div className="settings-generation-grid">
-                      <label className="settings-field">
-                        <span>{t('prettify.topP', { value: prettifySettings.topP.toFixed(2) })}</span>
-                        {renderFieldError('prettifyTopP')}
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="1"
-                          step="0.05"
-                          value={prettifySettings.topP}
-                          onChange={(event) =>
-                            updatePrettifySetting('topP', Number(event.target.value), 'prettifyTopP')
-                          }
-                        />
-                      </label>
-                      <label className="settings-field">
-                        <span>{t('prettify.minP', { value: prettifySettings.minP.toFixed(2) })}</span>
-                        {renderFieldError('prettifyMinP')}
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={prettifySettings.minP}
-                          onChange={(event) =>
-                            updatePrettifySetting('minP', Number(event.target.value), 'prettifyMinP')
-                          }
-                        />
-                      </label>
-                      <label className="settings-field">
-                        <span>{t('prettify.repeatPenalty', { value: prettifySettings.repeatPenalty.toFixed(2) })}</span>
-                        {renderFieldError('prettifyRepeatPenalty')}
-                        <input
-                          type="range"
-                          min="0.8"
-                          max="1.5"
-                          step="0.05"
-                          value={prettifySettings.repeatPenalty}
-                          onChange={(event) =>
-                            updatePrettifySetting('repeatPenalty', Number(event.target.value), 'prettifyRepeatPenalty')
-                          }
-                        />
-                      </label>
-                      <label className="settings-field">
-                        <span>{t('prettify.topK')}</span>
-                        {renderFieldError('prettifyTopK')}
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
-                          max="200"
-                          step="1"
-                          value={prettifySettings.topK}
-                          onChange={(event) =>
-                            updatePrettifySetting('topK', parseIntegerInput(event.target.value, 40), 'prettifyTopK')
-                          }
-                        />
-                      </label>
-                      <label className="settings-field">
-                        <span>{t('prettify.maxOutputTokens')}</span>
-                        {renderFieldError('prettifyMaxOutputTokens')}
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="0"
-                          max="8192"
-                          step="1"
-                          placeholder={t('prettify.providerDefault')}
-                          value={prettifySettings.maxOutputTokens === 0 ? '' : prettifySettings.maxOutputTokens}
-                          onChange={(event) =>
-                            updatePrettifySetting(
-                              'maxOutputTokens',
-                              parseIntegerInput(event.target.value, 0),
-                              'prettifyMaxOutputTokens',
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="settings-field">
-                        <span>{t('prettify.seed')}</span>
-                        {renderFieldError('prettifySeed')}
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="0"
-                          max="2147483647"
-                          step="1"
-                          value={prettifySettings.seed === null ? '' : prettifySettings.seed}
-                          onChange={(event) =>
-                            updatePrettifySetting('seed', parseOptionalIntegerInput(event.target.value), 'prettifySeed')
-                          }
-                        />
-                      </label>
-                    </div>
+                        onMinPChange={(value) => updatePrettifySetting('minP', value, 'prettifyMinP')}
+                        onModelActionMenuOpenChange={setIsPrettifyModelActionMenuOpen}
+                        onModelChange={(value) => updatePrettifyProviderSetting('model', value, 'prettifyModel')}
+                        onPromptChange={(value) => updatePrettifySetting('prompt', value, 'prettifyPrompt')}
+                        onProviderChange={(providerId) =>
+                          updatePrettifySetting('providerId', providerId, 'prettifyProvider')
+                        }
+                        onRefreshModels={() => void refreshPrettifyModels()}
+                        onRepeatPenaltyChange={(value) =>
+                          updatePrettifySetting('repeatPenalty', value, 'prettifyRepeatPenalty')
+                        }
+                        onSeedChange={(value) => updatePrettifySetting('seed', value, 'prettifySeed')}
+                        onTemperatureChange={(value) =>
+                          updatePrettifySetting('temperature', value, 'prettifyTemperature')
+                        }
+                        onTopKChange={(value) => updatePrettifySetting('topK', value, 'prettifyTopK')}
+                        onTopPChange={(value) => updatePrettifySetting('topP', value, 'prettifyTopP')}
+                        onUnloadModel={() => void unloadSelectedOllamaModel()}
+                        onVllmApiKeyChange={updateVllmApiKey}
+                        prettifySettings={prettifySettings}
+                        selectedOllamaModelLoaded={selectedOllamaModelLoaded}
+                        t={t}
+                      />
+                    </TabsContent>
+                    <TabsContent className="mt-0" value="browser">
+                      <BrowserSection
+                        fieldError={renderFieldError}
+                        localeOptions={localeOptions}
+                        onBackgroundModeChange={(value) => updateSetting('backgroundMode', value, 'backgroundMode')}
+                        onFingerprintSeedChange={(value) => updateSetting('fingerprintSeed', value, 'fingerprintSeed')}
+                        onHumanizeChange={(value) => updateSetting('humanize', value)}
+                        onHumanPresetChange={(value) => updateSetting('humanPreset', value, 'humanPreset')}
+                        onLocaleChange={(value) => updateSetting('locale', value, 'locale')}
+                        onResetFingerprint={() =>
+                          updateSetting('fingerprintSeed', generateFingerprintSeed(), 'fingerprintSeed')
+                        }
+                        onTimezoneChange={(value) => updateSetting('timezone', value, 'timezone')}
+                        proxyGeoipActive={proxyGeoipActive}
+                        settings={settings}
+                        t={t}
+                        timezoneOptions={timezoneOptions}
+                      />
+                    </TabsContent>
+                    <TabsContent className="mt-0" value="network">
+                      <NetworkSection
+                        fieldError={renderFieldError}
+                        onBypassChange={(value) => updateProxySetting('bypass', value, 'proxyBypass')}
+                        onClearPassword={clearProxyPassword}
+                        onEnabledChange={(value) => updateProxySetting('enabled', value)}
+                        onGeoipChange={(value) => updateProxySetting('geoip', value)}
+                        onPasswordChange={(value) => updateProxySetting('password', value, 'proxyPassword')}
+                        onServerChange={(value) => updateProxySetting('server', value, 'proxyServer')}
+                        onUsernameChange={(value) => updateProxySetting('username', value, 'proxyUsername')}
+                        settings={settings}
+                        t={t}
+                      />
+                    </TabsContent>
                   </div>
-                  <label className="settings-field">
-                    <span>{t('prettify.prompt')}</span>
-                    {renderFieldError('prettifyPrompt')}
-                    <textarea
-                      className="app-settings-prettify-prompt"
-                      value={prettifySettings.prompt}
-                      onChange={(event) => updatePrettifySetting('prompt', event.target.value, 'prettifyPrompt')}
-                    />
-                  </label>
                 </div>
-              </section>
-
-              <section className="settings-section">
-                <h2>{t('appSettings.cloakBrowser')}</h2>
-
-                <div className="settings-group">
-                  <h3>{t('appSettings.behavior')}</h3>
-                  <label className="settings-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={settings.humanize}
-                      onChange={(event) => updateSetting('humanize', event.target.checked)}
-                    />
-                    <span>{t('appSettings.humanize')}</span>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.humanPreset')}</span>
-                    {renderFieldError('humanPreset')}
-                    <select
-                      value={settings.humanPreset}
-                      onChange={(event) =>
-                        updateSetting('humanPreset', event.target.value as typeof settings.humanPreset, 'humanPreset')
-                      }
-                    >
-                      <option value="careful">{t('appSettings.humanPreset.careful')}</option>
-                      <option value="default">{t('appSettings.humanPreset.default')}</option>
-                    </select>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.backgroundMode')}</span>
-                    {renderFieldError('backgroundMode')}
-                    <select
-                      value={settings.backgroundMode}
-                      onChange={(event) =>
-                        updateSetting(
-                          'backgroundMode',
-                          event.target.value as typeof settings.backgroundMode,
-                          'backgroundMode',
-                        )
-                      }
-                    >
-                      <option value="hidden">{t('appSettings.backgroundMode.hidden')}</option>
-                      <option value="visible">{t('appSettings.backgroundMode.visible')}</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="settings-group">
-                  <h3>{t('appSettings.identity')}</h3>
-                  <label className="settings-field">
-                    <span>{t('appSettings.fingerprintSeed')}</span>
-                    {renderFieldError('fingerprintSeed')}
-                    <div className="settings-input-action">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={settings.fingerprintSeed}
-                        onChange={(event) => updateSetting('fingerprintSeed', event.target.value, 'fingerprintSeed')}
-                      />
-                      <button
-                        type="button"
-                        className="hotkey-btn"
-                        onClick={() => updateSetting('fingerprintSeed', generateFingerprintSeed(), 'fingerprintSeed')}
-                      >
-                        {t('appSettings.resetFingerprint')}
-                      </button>
-                    </div>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.locale')}</span>
-                    {renderFieldError('locale')}
-                    <select
-                      value={settings.locale}
-                      disabled={proxyGeoipActive}
-                      onChange={(event) => updateSetting('locale', event.target.value, 'locale')}
-                    >
-                      {localeOptions.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.timezone')}</span>
-                    {renderFieldError('timezone')}
-                    <select
-                      value={settings.timezone}
-                      disabled={proxyGeoipActive}
-                      onChange={(event) => updateSetting('timezone', event.target.value, 'timezone')}
-                    >
-                      {timezoneOptions.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="settings-group">
-                  <h3>{t('appSettings.proxy')}</h3>
-                  <label className="settings-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={settings.proxy.enabled}
-                      onChange={(event) => updateProxySetting('enabled', event.target.checked)}
-                    />
-                    <span>{t('appSettings.proxyEnabled')}</span>
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.proxyServer')}</span>
-                    {renderFieldError('proxyServer')}
-                    <input
-                      type="text"
-                      value={settings.proxy.server}
-                      disabled={!settings.proxy.enabled}
-                      onChange={(event) => updateProxySetting('server', event.target.value, 'proxyServer')}
-                    />
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.proxyBypass')}</span>
-                    {renderFieldError('proxyBypass')}
-                    <input
-                      type="text"
-                      value={settings.proxy.bypass}
-                      disabled={!settings.proxy.enabled}
-                      onChange={(event) => updateProxySetting('bypass', event.target.value, 'proxyBypass')}
-                    />
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.proxyUsername')}</span>
-                    {renderFieldError('proxyUsername')}
-                    <input
-                      type="text"
-                      value={settings.proxy.username}
-                      disabled={!settings.proxy.enabled}
-                      onChange={(event) => updateProxySetting('username', event.target.value, 'proxyUsername')}
-                    />
-                  </label>
-                  <label className="settings-field">
-                    <span>{t('appSettings.proxyPassword')}</span>
-                    {renderFieldError('proxyPassword')}
-                    <div className="settings-input-action">
-                      <input
-                        type="password"
-                        value={settings.proxy.password}
-                        disabled={!settings.proxy.enabled}
-                        placeholder={
-                          settings.proxy.hasPassword
-                            ? t('appSettings.proxyPasswordSaved')
-                            : t('appSettings.proxyPassword')
-                        }
-                        onChange={(event) => updateProxySetting('password', event.target.value, 'proxyPassword')}
-                      />
-                      <button
-                        type="button"
-                        className="hotkey-btn"
-                        disabled={!settings.proxy.hasPassword && !settings.proxy.password}
-                        onClick={clearProxyPassword}
-                      >
-                        {t('appSettings.clearProxyPassword')}
-                      </button>
-                    </div>
-                  </label>
-                  <label className="settings-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={settings.proxy.geoip}
-                      disabled={!settings.proxy.enabled}
-                      onChange={(event) => updateProxySetting('geoip', event.target.checked)}
-                    />
-                    <span>{t('appSettings.proxyGeoip')}</span>
-                  </label>
-                </div>
-              </section>
-            </div>
+              </Tabs>
+              <SettingsFooter
+                error={error}
+                isDirty={isDirty}
+                isSaving={isSaving}
+                onSave={() => void saveSettings()}
+                saveDisabled={saveDisabled}
+                t={t}
+              />
+            </>
           )}
 
-        {error && <p className="settings-error">{error}</p>}
-        <div className="modal-buttons settings-close-row">
-          <button
-            className="modal-btn confirm"
-            disabled={
-              isSaving ||
-              !settings ||
-              !initialSettings ||
-              !prettifySettings ||
-              !initialPrettifySettings ||
-              !textActionSettings ||
-              !initialTextActionSettings
-            }
-            onClick={saveSettings}
-          >
-            {t('appSettings.save')}
-          </button>
-          <button className="modal-btn cancel" disabled={isSaving} onClick={closeWindow}>
-            {t('hotkey.cancel')}
-          </button>
-        </div>
-      </section>
-      {showHotkeyModal && (
-        <HotkeyModal
-          target={hotkeyTarget}
-          platform={platform}
-          onApply={applyHotkey}
-          onClose={() => setShowHotkeyModal(false)}
-        />
-      )}
-    </main>
+        {!isSettingsReady && error && <p className="text-sm text-destructive">{error}</p>}
+        {showHotkeyModal && (
+          <HotkeyModal
+            target={hotkeyTarget}
+            platform={platform}
+            onApply={(newHotkey) => void applyHotkey(newHotkey)}
+            onClose={closeHotkeyModal}
+          />
+        )}
+      </main>
+
+      <AlertDialog open={isDiscardConfirmationOpen} onOpenChange={handleDiscardConfirmationOpenChange}>
+        <AlertDialogContent onKeyDown={handleDiscardConfirmationKeyDown}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('common.discardChangesConfirm')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('appSettings.discardChangesDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">{t('common.keepEditing')}</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button onClick={discardChanges} variant="destructive">
+                {t('common.discardChanges')}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

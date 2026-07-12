@@ -42,6 +42,7 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       unzip \
       which \
       xz \
+      xorg-x11-server-Xvfb \
     && dnf -y clean packages
 
 COPY fedora-release-entrypoint.mjs /usr/local/bin/gpt-voice-fedora-release-build

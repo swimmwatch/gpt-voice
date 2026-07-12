@@ -4,6 +4,7 @@ import {
   formatNotificationBody,
   getNotificationErrorMessage,
   getNotificationSoundKind,
+  NotificationErrorCode,
   presentNotificationError,
 } from '@shared/notifications';
 
@@ -50,10 +51,21 @@ describe('notifications', () => {
       { context: 'prettify', fallback: 'Prettify failed', t },
     );
 
-    assert.equal(presented.code, 'unknown');
+    assert.equal(presented.code, NotificationErrorCode.Unknown);
     assert.equal(presented.userMessage, 'Something went wrong. Try again.');
     assert.equal(presented.safeLogMetadata.hasStackTrace, true);
     assert.equal('rawMessage' in presented.safeLogMetadata, false);
+  });
+
+  it('does not preserve rate-limit-looking messages when they contain a stack trace', () => {
+    const presented = presentNotificationError(
+      new Error('Error: Too many requests\n    at /home/user/project/src/main/provider.ts:10:1'),
+      { context: 'prettify', fallback: 'Prettify failed', t },
+    );
+
+    assert.equal(presented.code, NotificationErrorCode.Unknown);
+    assert.equal(presented.userMessage, 'Something went wrong. Try again.');
+    assert.equal(presented.safeLogMetadata.wasSanitized, true);
   });
 
   it('turns provider connection failures into service-specific guidance', () => {
@@ -62,7 +74,7 @@ describe('notifications', () => {
       { context: 'prettify', fallback: 'Prettify failed', t },
     );
 
-    assert.equal(presented.code, 'connectionFailed');
+    assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
     assert.equal(presented.userMessage, 'Could not connect to Ollama. Make sure it is running and the URL is correct.');
     assert.deepEqual(presented.safeLogMetadata.service, 'Ollama');
   });
@@ -74,7 +86,7 @@ describe('notifications', () => {
       t,
     });
 
-    assert.equal(presented.code, 'providerRequestFailed');
+    assert.equal(presented.code, NotificationErrorCode.ProviderRequestFailed);
     assert.equal(presented.userMessage, 'Ollama returned an error (500). Try again or check provider settings.');
     assert.equal(presented.safeLogMetadata.status, 500);
   });
@@ -85,9 +97,23 @@ describe('notifications', () => {
       { context: 'translation', fallback: 'Translation failed', t },
     );
 
-    assert.equal(presented.code, 'operationTimedOut');
+    assert.equal(presented.code, NotificationErrorCode.OperationTimedOut);
     assert.equal(presented.userMessage, 'The operation timed out. Try again.');
     assert.equal(presented.safeLogMetadata.hasStackTrace, false);
+  });
+
+  it('turns raw browser network-change call logs into a connection message', () => {
+    const presented = presentNotificationError(
+      new Error('page.goto: net::ERR_NETWORK_CHANGED at https://chatgpt.com/\nCall log:\n- navigating to ChatGPT'),
+      { context: 'generic', fallback: 'Browser initialization failed', t },
+    );
+
+    assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
+    assert.equal(
+      presented.userMessage,
+      'Could not connect to the service. Make sure it is running and the URL is correct.',
+    );
+    assert.equal(presented.safeLogMetadata.wasSanitized, true);
   });
 
   it('preserves existing human-readable localized messages', () => {
@@ -97,7 +123,7 @@ describe('notifications', () => {
       t,
     });
 
-    assert.equal(presented.code, 'humanReadable');
+    assert.equal(presented.code, NotificationErrorCode.HumanReadable);
     assert.equal(presented.userMessage, 'No text selected to prettify');
   });
 
@@ -107,7 +133,7 @@ describe('notifications', () => {
       { context: 'transcription', fallback: 'Transcription failed', t },
     );
 
-    assert.equal(presented.code, 'unknown');
+    assert.equal(presented.code, NotificationErrorCode.Unknown);
     assert.equal(presented.userMessage, 'Something went wrong. Try again.');
     assert.equal(presented.safeLogMetadata.hasFilePath, true);
   });

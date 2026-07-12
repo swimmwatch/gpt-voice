@@ -8,6 +8,7 @@ import {
   createCloakBrowserSettingsInput,
   createEditableSettings,
   createSanitizedCloakBrowserSettingsSummary,
+  getAppSettingsFormState,
   getCloakBrowserLocaleOptions,
   getCloakBrowserTimezoneOptions,
   hasAppSettingsFieldErrors,
@@ -15,7 +16,7 @@ import {
   validateAppSettings,
 } from '@renderer/appSettingsUtils';
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
-import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
+import { DEFAULT_PRETTIFY_SETTINGS, MAX_PRETTIFY_PROMPT_LENGTH, type PrettifySettings } from '@shared/prettifySettings';
 
 function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
   return {
@@ -58,6 +59,46 @@ function cloakBrowserSettings(overrides: Partial<CloakBrowserSettingsView> = {})
 }
 
 describe('appSettingsUtils', () => {
+  it('derives clean-valid and dirty-invalid form states for the settings footer', () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialPrettifySettings = VALID_PRETTIFY_SETTINGS;
+    const initialTextActionSettings = VALID_TEXT_ACTION_SETTINGS;
+
+    assert.deepEqual(
+      getAppSettingsFormState({
+        initialPrettifySettings,
+        initialSettings,
+        initialTextActionSettings,
+        prettifySettings: initialPrettifySettings,
+        settings: initialSettings,
+        textActionSettings: initialTextActionSettings,
+      }),
+      {
+        isDirty: false,
+        isValid: true,
+        validationErrors: {},
+      },
+    );
+
+    assert.deepEqual(
+      getAppSettingsFormState({
+        initialPrettifySettings,
+        initialSettings,
+        initialTextActionSettings,
+        prettifySettings: prettifySettings({ prompt: '' }),
+        settings: initialSettings,
+        textActionSettings: initialTextActionSettings,
+      }),
+      {
+        isDirty: true,
+        isValid: false,
+        validationErrors: {
+          prettifyPrompt: 'Prettify prompt is required',
+        },
+      },
+    );
+  });
+
   it('detects unchanged CloakBrowser settings', () => {
     const initial = createEditableSettings(cloakBrowserSettings());
     const current = createEditableSettings(cloakBrowserSettings());
@@ -245,6 +286,39 @@ describe('appSettingsUtils', () => {
     });
     assert.equal(invalidBaseUrlErrors.prettifyBaseUrl, 'Base URL must be a valid http or https URL');
 
+    const insecureRemoteUrlErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          baseUrl: 'http://models.example.com',
+          model: 'llama3.2',
+        },
+      }),
+    });
+    assert.equal(insecureRemoteUrlErrors.prettifyBaseUrl, 'Non-local provider URLs must use HTTPS');
+
+    const credentialUrlErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({
+        ollama: {
+          ...DEFAULT_PRETTIFY_SETTINGS.ollama,
+          baseUrl: 'https://user:pass@models.example.com',
+          model: 'llama3.2',
+        },
+      }),
+    });
+    assert.equal(credentialUrlErrors.prettifyBaseUrl, 'Base URL must not include credentials');
+
+    const longPromptErrors = validateAppSettings({
+      settings: createEditableSettings(cloakBrowserSettings()),
+      prettifySettings: prettifySettings({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
+    });
+    assert.equal(
+      longPromptErrors.prettifyPrompt,
+      `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`,
+    );
+
     const missingModelErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
       prettifySettings: prettifySettings({
@@ -273,7 +347,7 @@ describe('appSettingsUtils', () => {
     assert.equal(invalidGenerationErrors.prettifyRepeatPenalty, 'Repeat penalty must be between 0.8 and 1.5');
     assert.equal(
       invalidGenerationErrors.prettifyMaxOutputTokens,
-      'Max output tokens must be an integer between 0 and 8192',
+      'Max output tokens must be an integer between 1 and 8192',
     );
     assert.equal(invalidGenerationErrors.prettifySeed, 'Seed must be empty or an integer between 0 and 2147483647');
 
@@ -342,6 +416,40 @@ describe('appSettingsUtils', () => {
 
     assert.equal(fieldErrors.locale, undefined);
     assert.equal(fieldErrors.timezone, undefined);
+  });
+
+  it('keeps a GeoIP-managed browser identity valid while proxy changes are pending', () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const settings = createEditableSettings(
+      cloakBrowserSettings({
+        locale: '',
+        timezone: '',
+        proxy: {
+          enabled: true,
+          geoip: true,
+          hasPassword: false,
+          server: 'http://proxy.example.com:8080',
+          bypass: '',
+          username: '',
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      getAppSettingsFormState({
+        initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
+        initialSettings,
+        initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+        prettifySettings: VALID_PRETTIFY_SETTINGS,
+        settings,
+        textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      }),
+      {
+        isDirty: true,
+        isValid: true,
+        validationErrors: {},
+      },
+    );
   });
 
   it('appends existing valid locale and timezone values to dropdown options', () => {

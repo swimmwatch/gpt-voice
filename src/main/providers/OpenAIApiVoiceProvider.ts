@@ -13,6 +13,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
+import { presentNotificationError } from '@shared/notifications';
 
 const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -28,6 +29,7 @@ interface OpenAIApiVoiceProviderDependencies {
   getSettings: () => OpenAIApiSettingsWithSecret;
 }
 
+/** API-key provider for OpenAI's hosted audio transcription endpoint. */
 export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   private readonly deps: OpenAIApiVoiceProviderDependencies;
 
@@ -55,6 +57,21 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
 
   isReady(): boolean {
     return this.hasSession();
+  }
+
+  getTranscriptionCacheContext(): readonly string[] {
+    const settings = this.deps.getSettings();
+
+    return [
+      'model',
+      settings.model,
+      'language',
+      settings.language,
+      'prompt',
+      settings.prompt,
+      'temperature',
+      String(settings.temperature),
+    ];
   }
 
   async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
@@ -87,13 +104,13 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
       });
       const body = await response.text();
 
-      if (response.status !== StatusCodes.OK) {
+      if (response.status !== Number(StatusCodes.OK)) {
         return this.parseErrorResponse(response.status, body);
       }
 
       return this.parseSuccessResponse(body);
     } catch (error: unknown) {
-      log.error('Transcribe error:', error instanceof Error ? error.message : error);
+      log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
@@ -101,7 +118,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   private parseSuccessResponse(body: string): TranscriptionResult {
     let result: Record<string, unknown>;
     try {
-      result = JSON.parse(body);
+      result = JSON.parse(body) as Record<string, unknown>;
     } catch {
       return {
         success: false,
