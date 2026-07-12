@@ -59,14 +59,14 @@ Task 5: complete integration verification and handoff
 
 ### Phase 2: Core Feature
 
-- [ ] Task 3: Integrate completed-result reuse into the transcription service.
+- [x] Task 3: Integrate completed-result reuse into the transcription service.
 
 ### Checkpoint: Core Feature
 
-- [ ] Two sequential identical requests produce one provider call.
-- [ ] Failures and empty results remain uncached.
-- [ ] Cache hits preserve clipboard and history behavior.
-- [ ] Existing retry UI and IPC contracts remain unchanged.
+- [x] Two sequential identical requests produce one provider call.
+- [x] Failures and empty results remain uncached.
+- [x] Cache hits preserve clipboard and history behavior.
+- [x] Existing retry UI and IPC contracts remain unchanged.
 
 ### Phase 3: Documentation and Completion
 

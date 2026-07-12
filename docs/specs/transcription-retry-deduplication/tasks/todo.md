@@ -58,15 +58,15 @@
 
 **Acceptance criteria:**
 
-- [ ] First success calls the provider once and caches non-empty text; a sequential identical request returns the text without another provider call.
-- [ ] Cache hits preserve clipboard and history side effects, while failures, thrown errors, and empty results never populate the cache.
-- [ ] Cache/key errors fall back to the provider path, and logs contain no transcript, prompt, credential, digest, key, raw audio, or full response.
+- [x] First success calls the provider once and caches non-empty text; a sequential identical request returns the text without another provider call.
+- [x] Cache hits preserve clipboard and history side effects, while failures, thrown errors, and empty results never populate the cache.
+- [x] Cache/key errors fall back to the provider path, and logs contain no transcript, prompt, credential, digest, key, raw audio, or full response.
 
 **Verification:**
 
-- [ ] Tests pass: `node --import tsx --test tests/main/transcriptionResultCache.test.ts tests/main/transcription.test.ts`
-- [ ] Existing retry-state tests pass: `node --import tsx --test tests/renderer/recordingRetryState.test.ts`
-- [ ] Types and lint pass: `npm run typecheck && npm run lint`
+- [x] Tests pass: `node --import tsx --test tests/main/transcriptionResultCache.test.ts tests/main/transcription.test.ts`
+- [x] Existing retry-state tests pass: `node --import tsx --test tests/renderer/recordingRetryState.test.ts`
+- [x] Types and lint pass: `npm run typecheck && npm run lint`
 
 **Dependencies:** Tasks 1 and 2.
 
@@ -79,10 +79,10 @@
 
 ## Checkpoint: After Tasks 1-3
 
-- [ ] Focused cache, provider, transcription, and retry tests pass.
-- [ ] Exactly one provider call is observed for two sequential identical successful requests.
-- [ ] IPC request/result types and renderer retry behavior are unchanged.
-- [ ] Review the core behavior before documentation and final verification.
+- [x] Focused cache, provider, transcription, and retry tests pass.
+- [x] Exactly one provider call is observed for two sequential identical successful requests.
+- [x] IPC request/result types and renderer retry behavior are unchanged.
+- [x] Review the core behavior before documentation and final verification.
 
 ## Task 4: Document privacy and cache policy
 
