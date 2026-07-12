@@ -7,6 +7,7 @@ import {
   getPackagedStartupExecutableCandidates,
   normalizeRunCount,
   runStartupBenchmark,
+  waitForChildExit,
 } from './startup-benchmark.mjs';
 
 const STARTUP_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
@@ -50,12 +51,6 @@ async function getPackagedStartupExecutable() {
   }
 
   throw new Error(`Packaged startup executable not found. Checked:\n${candidates.map((candidate) => `  - ${candidate}`).join('\n')}`);
-}
-
-function waitForExit(child) {
-  return new Promise((resolve) => {
-    child.once('exit', resolve);
-  });
 }
 
 function waitForStartupReady(child) {
@@ -110,9 +105,12 @@ async function measureStartupRun(executablePath) {
     await waitForStartupReady(child);
     return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
   } finally {
-    if (child && child.exitCode === null && !child.killed) {
-      child.kill();
-      await waitForExit(child);
+    if (child && child.exitCode === null) {
+      const exitPromise = waitForChildExit(child);
+      if (!child.killed) {
+        child.kill();
+      }
+      await exitPromise;
     }
 
     await rm(userDataPath, { force: true, recursive: true });

@@ -65,6 +65,17 @@ export function getPackagedStartupExecutableCandidates(rootDir, platform, arch) 
   throw new Error(`Unsupported startup benchmark platform: ${platform}`);
 }
 
+/** Waits for a child only when it has not already exited. */
+export function waitForChildExit(child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    child.once('exit', resolve);
+  });
+}
+
 export async function runStartupBenchmark({ arch, measureRun, platform, runCount, toolVersions }) {
   const durationsMs = [];
 

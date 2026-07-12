@@ -23,6 +23,11 @@ interface StartupBenchmarkModule {
     runCount: number;
     toolVersions: Record<string, string | null>;
   }) => Promise<StartupBenchmarkReport>;
+  waitForChildExit: (child: {
+    exitCode: number | null;
+    signalCode: string | null;
+    once: (event: 'exit', listener: () => void) => void;
+  }) => Promise<void>;
 }
 
 const projectRoot = path.resolve(__dirname, '..', '..');
@@ -38,7 +43,8 @@ function isStartupBenchmarkModule(value: unknown): value is StartupBenchmarkModu
     typeof module.calculateMedian === 'function' &&
     typeof module.getPackagedStartupExecutableCandidates === 'function' &&
     typeof module.normalizeRunCount === 'function' &&
-    typeof module.runStartupBenchmark === 'function'
+    typeof module.runStartupBenchmark === 'function' &&
+    typeof module.waitForChildExit === 'function'
   );
 }
 
@@ -102,5 +108,34 @@ describe('startup benchmark helpers', () => {
       () => importedModule.getPackagedStartupExecutableCandidates('/project', 'freebsd', 'x64'),
       /unsupported startup benchmark platform/i,
     );
+  });
+
+  it('does not wait for an exit event that has already occurred', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    const exitedChild = {
+      exitCode: 0,
+      signalCode: null,
+      once: () => {
+        throw new Error('already-exited children must not register an exit listener');
+      },
+    };
+
+    await importedModule.waitForChildExit(exitedChild);
+
+    let exitListener: (() => void) | undefined;
+    const runningChild = {
+      exitCode: null,
+      signalCode: null,
+      once: (event: 'exit', listener: () => void) => {
+        assert.equal(event, 'exit');
+        exitListener = listener;
+      },
+    };
+    const waitForExit = importedModule.waitForChildExit(runningChild);
+    assert.ok(exitListener);
+    exitListener();
+
+    await waitForExit;
   });
 });
