@@ -2,27 +2,28 @@
 
 ## Status
 
-Planning complete; implementation not started.
+Task 1 complete; Task 2 not started.
 
 ## Completed
 
 - Specification written and reviewed for architecture, privacy, testing, and boundaries.
 - Dependency-ordered implementation plan created.
 - Five independently verifiable tasks created, each scoped to four or fewer files.
+- Task 1 added the memory-only transcription result cache with an opaque binary-aware key, fixed 5-minute TTL, and capacity of 10 results.
 
 ## Checks
 
 - Planning artifacts only; no runtime verification required yet.
 - `npx prettier --check "docs/specs/transcription-retry-deduplication/**/*.md"` passed.
 - `git diff --check -- docs/specs/transcription-retry-deduplication` passed.
+- `node --import tsx --test tests/main/transcriptionResultCache.test.ts` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
 
 ## Next Step
 
-Human approval of the plan and four policy defaults, then Task 1.
+Task 2: add provider-specific transcription cache context.
 
 ## Blockers
 
-- Confirm TTL 5 minutes and capacity 10.
-- Confirm no in-flight request coalescing in version one.
-- Confirm cache-hit retries add history entries.
-- Confirm cache hits may be served while the matching provider is temporarily not ready.
+None.

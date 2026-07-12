@@ -6,15 +6,15 @@
 
 **Acceptance criteria:**
 
-- [ ] Separate `ArrayBuffer` objects with identical bytes and context produce the same opaque key; byte, MIME, provider, or context changes produce different keys.
-- [ ] Only non-empty successful text can be stored, with capacity 10 and TTL 5 minutes using deterministic clock fixtures.
-- [ ] Raw audio, transcript text, prompt text, digest, and cache keys are neither persisted nor logged.
+- [x] Separate `ArrayBuffer` objects with identical bytes and context produce the same opaque key; byte, MIME, provider, or context changes produce different keys.
+- [x] Only non-empty successful text can be stored, with capacity 10 and TTL 5 minutes using deterministic clock fixtures.
+- [x] Raw audio, transcript text, prompt text, digest, and cache keys are neither persisted nor logged.
 
 **Verification:**
 
-- [ ] Tests pass: `node --import tsx --test tests/main/transcriptionResultCache.test.ts`
-- [ ] Types pass: `npm run typecheck`
-- [ ] Lint passes: `npm run lint`
+- [x] Tests pass: `node --import tsx --test tests/main/transcriptionResultCache.test.ts`
+- [x] Types pass: `npm run typecheck`
+- [x] Lint passes: `npm run lint`
 
 **Dependencies:** Approved cache-policy defaults.
 

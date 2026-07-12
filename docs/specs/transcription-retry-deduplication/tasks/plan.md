@@ -48,7 +48,7 @@ Task 5: complete integration verification and handoff
 
 ### Phase 1: Foundation
 
-- [ ] Task 1: Build the binary-aware successful-result cache.
+- [x] Task 1: Build the binary-aware successful-result cache.
 - [ ] Task 2: Add provider-specific transcription cache context.
 
 ### Checkpoint: Foundation
