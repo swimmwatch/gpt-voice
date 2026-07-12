@@ -425,6 +425,8 @@ GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT
 
 Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings are stored in `config.json`, and an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
 
+To avoid duplicate provider requests when the same audio is retried, GPT-Voice keeps up to 10 successful transcription results in process memory for up to 5 minutes. It hashes the exact audio bytes with the selected provider's transcription settings to derive an opaque lookup key, but the cache never retains the audio itself. Failed and empty results are not cached, and all cached entries disappear when GPT-Voice restarts.
+
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 
 ## Contributing And Security

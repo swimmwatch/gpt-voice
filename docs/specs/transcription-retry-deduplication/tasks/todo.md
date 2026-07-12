@@ -90,14 +90,14 @@
 
 **Acceptance criteria:**
 
-- [ ] README states that successful retry results may be retained only in process memory for the approved TTL/capacity.
-- [ ] Documentation states that audio is hashed for lookup but never retained by the cache, and entries disappear on restart.
-- [ ] The spec reflects the final history, readiness, and in-flight decisions with no unresolved implementation ambiguity.
+- [x] README states that successful retry results may be retained only in process memory for the approved TTL/capacity.
+- [x] Documentation states that audio is hashed for lookup but never retained by the cache, and entries disappear on restart.
+- [x] The spec reflects the final history, readiness, and in-flight decisions with no unresolved implementation ambiguity.
 
 **Verification:**
 
-- [ ] Documentation review confirms no promises beyond implemented behavior.
-- [ ] Formatting passes: `npx prettier --check README.md docs/specs/transcription-retry-deduplication/**/*.md`
+- [x] Documentation review confirms no promises beyond implemented behavior.
+- [x] Formatting passes: `npx prettier --check README.md docs/specs/transcription-retry-deduplication/**/*.md`
 
 **Dependencies:** Task 3 and approved policy decisions.
 

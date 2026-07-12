@@ -70,7 +70,7 @@ Task 5: complete integration verification and handoff
 
 ### Phase 3: Documentation and Completion
 
-- [ ] Task 4: Document memory-only retention and approved cache policy.
+- [x] Task 4: Document memory-only retention and approved cache policy.
 - [ ] Task 5: Run the complete Definition of Done and record the handoff.
 
 ### Checkpoint: Complete
