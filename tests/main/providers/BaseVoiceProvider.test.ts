@@ -56,6 +56,7 @@ describe('BaseVoiceProvider', () => {
     assert.equal(provider.getPage(), null);
     assert.equal(provider.getAccessToken(), '');
     assert.equal(provider.isReady(), false);
+    assert.deepEqual(provider.getTranscriptionCacheContext(), []);
   });
 
   it('exposes access token state through the base getter', async () => {

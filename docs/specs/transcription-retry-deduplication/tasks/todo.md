@@ -31,15 +31,15 @@
 
 **Acceptance criteria:**
 
-- [ ] `BaseVoiceProvider` exposes a stable default transcription cache context suitable for fixed providers.
-- [ ] OpenAI context changes with model, language, prompt, or temperature and never contains the API key.
-- [ ] Existing provider lifecycle and transcription behavior remain unchanged.
+- [x] `BaseVoiceProvider` exposes a stable default transcription cache context suitable for fixed providers.
+- [x] OpenAI context changes with model, language, prompt, or temperature and never contains the API key.
+- [x] Existing provider lifecycle and transcription behavior remain unchanged.
 
 **Verification:**
 
-- [ ] Tests pass: `node --import tsx --test tests/main/providers/BaseVoiceProvider.test.ts tests/main/providers/OpenAIApiVoiceProvider.test.ts`
-- [ ] Types pass: `npm run typecheck`
-- [ ] Lint passes: `npm run lint`
+- [x] Tests pass: `node --import tsx --test tests/main/providers/BaseVoiceProvider.test.ts tests/main/providers/OpenAIApiVoiceProvider.test.ts`
+- [x] Types pass: `npm run typecheck`
+- [x] Lint passes: `npm run lint`
 
 **Dependencies:** Task 1.
 

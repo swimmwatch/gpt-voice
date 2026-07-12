@@ -52,6 +52,11 @@ export abstract class BaseVoiceProvider {
   /** Transcribe audio buffer → text */
   abstract transcribe(buffer: ArrayBuffer, mimeType?: string): Promise<TranscriptionResult>;
 
+  /** Returns the non-secret settings that can change a transcription result. */
+  getTranscriptionCacheContext(): readonly string[] {
+    return [];
+  }
+
   /** Check if this provider has a valid session file */
   abstract hasSession(): boolean;
 

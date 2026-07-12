@@ -59,6 +59,21 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     return this.hasSession();
   }
 
+  getTranscriptionCacheContext(): readonly string[] {
+    const settings = this.deps.getSettings();
+
+    return [
+      'model',
+      settings.model,
+      'language',
+      settings.language,
+      'prompt',
+      settings.prompt,
+      'temperature',
+      String(settings.temperature),
+    ];
+  }
+
   async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
     try {
       const settings = this.deps.getSettings();
