@@ -116,13 +116,13 @@
 
 - [ ] All specification success criteria and Definition of Done correctness, quality, integration, documentation, security, and observability checks are satisfied.
 - [ ] Manual retry smoke test confirms that the second identical request succeeds without a provider transcription call.
-- [ ] Handoff records completed tasks, changed files, checks, manual verification, and remaining blockers only.
+- [x] Handoff records completed tasks, changed files, checks, manual verification, and remaining blockers only.
 
 **Verification:**
 
-- [ ] Full gate passes: `npm run format:check && npm run lint && npm run typecheck && npm run test:types && npm test`
-- [ ] Supply chain/build gate passes: `npm run audit:prod && npm run build:prod`
-- [ ] Diff check passes: `git diff --check`
+- [x] Full gate passes: `npm run format:check && npm run lint && npm run typecheck && npm run test:types && npm test`
+- [x] Supply chain/build gate passes: `npm run audit:prod && npm run build:prod`
+- [x] Diff check passes: `git diff --check`
 
 **Dependencies:** Task 4.
 
@@ -135,6 +135,6 @@
 ## Checkpoint: Complete
 
 - [ ] All five tasks are complete.
-- [ ] No secrets, sessions, audio, transcripts, prompts, cache keys, or digests appear in logs or repository artifacts.
-- [ ] No dependency, IPC, packaging, or release change was introduced outside approved scope.
+- [x] No secrets, sessions, audio, transcripts, prompts, cache keys, or digests appear in logs or repository artifacts.
+- [x] No dependency, IPC, packaging, or release change was introduced outside approved scope.
 - [ ] Human review completed before merge or deployment.
