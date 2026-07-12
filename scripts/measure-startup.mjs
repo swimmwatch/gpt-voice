@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   getPackagedStartupExecutableCandidates,
+  getStartupBenchmarkLaunchArguments,
   normalizeRunCount,
   runStartupBenchmark,
   waitForChildExit,
@@ -91,7 +92,7 @@ async function measureStartupRun(executablePath) {
 
   try {
     const startedAt = process.hrtime.bigint();
-    child = spawn(executablePath, [`--user-data-dir=${userDataPath}`, '--startup-benchmark'], {
+    child = spawn(executablePath, getStartupBenchmarkLaunchArguments(userDataPath, process.platform), {
       cwd: rootDir,
       env: {
         ...environment,

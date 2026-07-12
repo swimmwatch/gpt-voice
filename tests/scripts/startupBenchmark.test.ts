@@ -15,6 +15,7 @@ interface StartupBenchmarkReport {
 interface StartupBenchmarkModule {
   calculateMedian: (durationsMs: readonly number[]) => number;
   getPackagedStartupExecutableCandidates: (rootDir: string, platform: string, arch: string) => string[];
+  getStartupBenchmarkLaunchArguments: (userDataPath: string, platform: string) => string[];
   normalizeRunCount: (value: string | undefined) => number;
   runStartupBenchmark: (input: {
     arch: string;
@@ -42,6 +43,7 @@ function isStartupBenchmarkModule(value: unknown): value is StartupBenchmarkModu
   return (
     typeof module.calculateMedian === 'function' &&
     typeof module.getPackagedStartupExecutableCandidates === 'function' &&
+    typeof module.getStartupBenchmarkLaunchArguments === 'function' &&
     typeof module.normalizeRunCount === 'function' &&
     typeof module.runStartupBenchmark === 'function' &&
     typeof module.waitForChildExit === 'function'
@@ -108,6 +110,25 @@ describe('startup benchmark helpers', () => {
       () => importedModule.getPackagedStartupExecutableCandidates('/project', 'freebsd', 'x64'),
       /unsupported startup benchmark platform/i,
     );
+  });
+
+  it('disables the sandbox only for Linux startup benchmarks', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+
+    assert.deepEqual(importedModule.getStartupBenchmarkLaunchArguments('/tmp/gpt-voice', 'linux'), [
+      '--user-data-dir=/tmp/gpt-voice',
+      '--startup-benchmark',
+      '--no-sandbox',
+    ]);
+    assert.deepEqual(importedModule.getStartupBenchmarkLaunchArguments('C:\\temp\\gpt-voice', 'win32'), [
+      '--user-data-dir=C:\\temp\\gpt-voice',
+      '--startup-benchmark',
+    ]);
+    assert.deepEqual(importedModule.getStartupBenchmarkLaunchArguments('/tmp/gpt-voice', 'darwin'), [
+      '--user-data-dir=/tmp/gpt-voice',
+      '--startup-benchmark',
+    ]);
   });
 
   it('does not wait for an exit event that has already occurred', async () => {

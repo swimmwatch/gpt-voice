@@ -65,6 +65,15 @@ export function getPackagedStartupExecutableCandidates(rootDir, platform, arch) 
   throw new Error(`Unsupported startup benchmark platform: ${platform}`);
 }
 
+export function getStartupBenchmarkLaunchArguments(userDataPath, platform) {
+  const argumentsList = [`--user-data-dir=${userDataPath}`, '--startup-benchmark'];
+  if (platform === 'linux') {
+    argumentsList.push('--no-sandbox');
+  }
+
+  return argumentsList;
+}
+
 /** Waits for a child only when it has not already exited. */
 export function waitForChildExit(child) {
   if (child.exitCode !== null || child.signalCode !== null) {
