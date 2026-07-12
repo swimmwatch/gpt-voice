@@ -85,34 +85,70 @@ const AppSettingsWindow: React.FC = () => {
 
   useEffect(() => {
     let disposed = false;
-    Promise.all([
-      window.electronAPI.getCloakBrowserSettings(),
-      window.electronAPI.getPrettifySettings(),
-      window.electronAPI.getTextActionSettings(),
-      window.electronAPI.getHotkey(),
-      window.electronAPI.getPlatform(),
-    ])
-      .then(([nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform]) => {
-        if (!disposed) {
-          const editableSettings = createEditableSettings(nextSettings);
-          setSettings(editableSettings);
-          setInitialSettings(editableSettings);
-          setPrettifySettings(nextPrettifySettings);
-          setInitialPrettifySettings(nextPrettifySettings);
-          setTextActionSettings(nextTextActionSettings);
-          setInitialTextActionSettings(nextTextActionSettings);
-          setHotkeySettings(nextHotkeySettings);
-          setPlatform(nextPlatform);
+    const loadSettings = async (): Promise<void> => {
+      try {
+        const [nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform] =
+          await Promise.all([
+            window.electronAPI.getCloakBrowserSettings(),
+            window.electronAPI.getPrettifySettings(),
+            window.electronAPI.getTextActionSettings(),
+            window.electronAPI.getHotkey(),
+            window.electronAPI.getPlatform(),
+          ]);
+        if (disposed) return;
+
+        const editableSettings = createEditableSettings(nextSettings);
+        setSettings(editableSettings);
+        setInitialSettings(editableSettings);
+        setPrettifySettings(nextPrettifySettings);
+        setInitialPrettifySettings(nextPrettifySettings);
+        setTextActionSettings(nextTextActionSettings);
+        setInitialTextActionSettings(nextTextActionSettings);
+        setHotkeySettings(nextHotkeySettings);
+        setPlatform(nextPlatform);
+        setIsLoadingPrettifyModels(true);
+
+        try {
+          const result = await window.electronAPI.listPrettifyModels(
+            nextPrettifySettings.providerId,
+            nextPrettifySettings,
+          );
+          if (disposed) return;
+          if (!result.success) {
+            setPrettifyModelError(result.error || '');
+            return;
+          }
+
+          setPrettifyModelOptions((current) => ({
+            ...current,
+            [result.providerId]: result.models,
+          }));
+        } catch (modelError: unknown) {
+          if (!disposed) {
+            setPrettifyModelError(getErrorMessage(modelError));
+          }
+        } finally {
+          if (!disposed) {
+            setIsLoadingPrettifyModels(false);
+          }
         }
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError: unknown) {
         if (!disposed) {
-          setError(loadError instanceof Error ? loadError.message : String(loadError));
+          setError(getErrorMessage(loadError));
         }
-      });
+      }
+    };
+
+    void loadSettings();
 
     return () => {
       disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
     };
   }, []);
 
@@ -393,9 +429,24 @@ const AppSettingsWindow: React.FC = () => {
     return hotkeySettings.prettifyHotkey;
   };
 
-  const openHotkeyModal = (target: HotkeyTarget): void => {
-    setHotkeyTarget(target);
-    setShowHotkeyModal(true);
+  const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
+    setError('');
+    try {
+      const result = await window.electronAPI.setHotkeyCaptureActive(true);
+      if (!result.success) {
+        setError(t('appSettings.saveFailed'));
+        return;
+      }
+      setHotkeyTarget(target);
+      setShowHotkeyModal(true);
+    } catch (hotkeyError: unknown) {
+      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
+    }
+  };
+
+  const closeHotkeyModal = (): void => {
+    setShowHotkeyModal(false);
+    void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
   };
 
   const applyHotkey = async (newHotkey: string): Promise<void> => {
@@ -405,12 +456,12 @@ const AppSettingsWindow: React.FC = () => {
       if (result.success) {
         setHotkeySettings(result);
       } else {
-        setError(t('appSettings.saveFailed'));
+        setError(result.error || t('appSettings.saveFailed'));
       }
     } catch (hotkeyError: unknown) {
       setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
     } finally {
-      setShowHotkeyModal(false);
+      closeHotkeyModal();
     }
   };
 
@@ -635,11 +686,14 @@ const AppSettingsWindow: React.FC = () => {
               >
                 <div className="flex min-h-0 flex-1 gap-4">
                   <SettingsNavigation t={t} />
-                  <div className="min-w-0 flex-1 overflow-y-auto pr-1" data-slot="settings-content">
+                  <div
+                    className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]"
+                    data-slot="settings-content"
+                  >
                     <TabsContent className="mt-0" value="shortcuts">
                       <ShortcutsSection
                         getHotkeyValue={getHotkeyValue}
-                        onHotkeyChange={openHotkeyModal}
+                        onHotkeyChange={(target) => void openHotkeyModal(target)}
                         onTextActionEnabledChange={updateTextActionSetting}
                         t={t}
                         textActionSettings={textActionSettings}
@@ -738,7 +792,7 @@ const AppSettingsWindow: React.FC = () => {
             target={hotkeyTarget}
             platform={platform}
             onApply={(newHotkey) => void applyHotkey(newHotkey)}
-            onClose={() => setShowHotkeyModal(false)}
+            onClose={closeHotkeyModal}
           />
         )}
       </main>

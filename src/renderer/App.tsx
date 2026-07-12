@@ -30,7 +30,6 @@ const App: React.FC = () => {
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
-  const [prettifyModelActionStatus, setPrettifyModelActionStatus] = useState('');
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
 
   const { t, isReady: isI18nReady } = useI18n();
@@ -60,7 +59,6 @@ const App: React.FC = () => {
     const refreshId = ++prettifyModelRefreshIdRef.current;
     setPrettifySettings(settings);
     setIsPrettifyModelActionRunning(false);
-    setPrettifyModelActionStatus('');
     setPrettifyModelActionError('');
 
     if (settings.providerId !== 'ollama' || !settings.ollama.model) {
@@ -314,7 +312,6 @@ const App: React.FC = () => {
     const refreshId = prettifyModelRefreshIdRef.current;
     const { model, isLoaded } = ollamaModelControl;
     setIsPrettifyModelActionRunning(true);
-    setPrettifyModelActionStatus('');
     setPrettifyModelActionError('');
 
     try {
@@ -333,7 +330,6 @@ const App: React.FC = () => {
         return;
       }
 
-      const resolvedModel = result.model || model;
       const vramSizeBytes =
         !isLoaded && 'vramSizeBytes' in result && typeof result.vramSizeBytes === 'number'
           ? result.vramSizeBytes
@@ -353,9 +349,6 @@ const App: React.FC = () => {
           ? nextOptions
           : [...nextOptions, { id: model, isLoaded: true, name: model, vramSizeBytes }];
       });
-      setPrettifyModelActionStatus(
-        t(isLoaded ? 'prettify.modelFreed' : 'prettify.modelLoaded', { model: resolvedModel }),
-      );
     } catch (error: unknown) {
       if (refreshId === prettifyModelRefreshIdRef.current) {
         const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
@@ -410,7 +403,6 @@ const App: React.FC = () => {
           error={prettifyModelActionError}
           isRunning={isPrettifyModelActionRunning}
           onAction={() => void handleOllamaModelAction()}
-          status={prettifyModelActionStatus}
         />
       )}
       <RecordingControls

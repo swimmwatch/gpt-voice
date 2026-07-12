@@ -167,7 +167,7 @@
   min-height: 0;
   flex-direction: column;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   border: 1px solid var(--dock-border);
   background: var(--dock-background);
   color: var(--dock-foreground);
@@ -394,6 +394,10 @@
   grid-template-columns: 23px 148px 1px 86px 1px 79px 92px;
 }
 
+.command-dock-model-layout[data-model-loaded='false'] {
+  grid-template-columns: 23px 148px 1px minmax(0, 1fr) 92px;
+}
+
 .command-dock-model-summary {
   display: grid;
   min-width: 0;
@@ -516,8 +520,12 @@
 }
 
 .command-dock-model-band[data-has-feedback='true'] {
-  min-height: 76px;
-  flex-basis: 76px;
+  min-height: 60px;
+  flex-basis: 60px;
+}
+
+.command-dock-model-band[data-has-feedback='true'] .command-dock-model-layout {
+  height: 42px;
 }
 
 .command-dock-model-feedback {
@@ -570,6 +578,7 @@
 
 .command-dock .command-dock-record-button:disabled {
   background-image: linear-gradient(180deg, var(--dock-primary-top), var(--dock-primary-bottom));
+  opacity: 1;
 }
 
 .command-dock .command-dock-record-button.bg-destructive {
@@ -695,8 +704,8 @@
   flex: 1 0 99px;
   align-items: start;
   padding: 14px 16px;
-  column-gap: 17px;
-  grid-template-columns: 22px 71px 134px;
+  column-gap: 0;
+  grid-template-columns: 22px 105px 134px;
 }
 
 .command-dock-language-band > .command-dock-section-icon {
@@ -704,8 +713,12 @@
 }
 
 .command-dock-language-label {
-  margin-top: 5px;
-  font-size: 10.86px;
+  display: flex;
+  height: 29px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  font-size: 11.92px;
   white-space: nowrap;
 }
 
@@ -799,8 +812,12 @@
   }
 
   .command-dock-model-band[data-has-feedback='true'] {
-    min-height: 92px;
-    flex-basis: 92px;
+    min-height: 78px;
+    flex-basis: 78px;
+  }
+
+  .command-dock-model-band[data-has-feedback='true'] .command-dock-model-layout {
+    height: 58px;
   }
 
   .command-dock-record-button-main {

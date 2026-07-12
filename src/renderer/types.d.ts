@@ -105,7 +105,8 @@ export interface ElectronAPI {
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
   getHotkey: () => Promise<HotkeySettings>;
-  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean } & HotkeySettings>;
+  setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
+  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
   getTranslateSettings: () => Promise<{ targetLang: string }>;
   getTextActionSettings: () => Promise<TextActionSettings>;
   setTextActionSettings: (

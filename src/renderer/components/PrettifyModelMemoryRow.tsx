@@ -9,7 +9,6 @@ interface PrettifyModelMemoryRowProps {
   error: string;
   isRunning: boolean;
   onAction: () => void;
-  status: string;
 }
 
 function PrettifyModelMemoryRow({
@@ -17,7 +16,6 @@ function PrettifyModelMemoryRow({
   error,
   isRunning,
   onAction,
-  status,
 }: PrettifyModelMemoryRowProps): React.JSX.Element {
   const { t } = useI18n();
   const vramSize = formatByteSize(control.vramSizeBytes);
@@ -27,10 +25,10 @@ function PrettifyModelMemoryRow({
   return (
     <section
       className="command-dock-model-band"
-      data-has-feedback={Boolean(status || error) || undefined}
+      data-has-feedback={Boolean(error) || undefined}
       data-slot="prettify-model-memory"
     >
-      <div className="command-dock-model-layout">
+      <div className="command-dock-model-layout" data-model-loaded={control.isLoaded}>
         <BrainCircuit aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
 
         <div className="command-dock-model-summary">
@@ -38,15 +36,19 @@ function PrettifyModelMemoryRow({
           <strong title={control.model}>{control.model}</strong>
         </div>
 
-        <span aria-hidden="true" className="command-dock-strong-divider" />
+        {control.isLoaded && (
+          <>
+            <span aria-hidden="true" className="command-dock-strong-divider" />
 
-        <div className="command-dock-vram-summary">
-          <Cpu aria-hidden="true" strokeWidth={1.75} />
-          <span>
-            <small>{t('modelMemory.vram')}</small>
-            <strong>{vramSize || t('modelMemory.unknown')}</strong>
-          </span>
-        </div>
+            <div className="command-dock-vram-summary">
+              <Cpu aria-hidden="true" strokeWidth={1.75} />
+              <span>
+                <small>{t('modelMemory.vram')}</small>
+                <strong>{vramSize || t('modelMemory.unknown')}</strong>
+              </span>
+            </div>
+          </>
+        )}
 
         <span aria-hidden="true" className="command-dock-strong-divider" />
 
@@ -78,13 +80,9 @@ function PrettifyModelMemoryRow({
         </Button>
       </div>
 
-      {(status || error) && (
-        <p
-          className={error ? 'command-dock-model-feedback is-error' : 'command-dock-model-feedback'}
-          role={error ? 'alert' : 'status'}
-          title={error || status}
-        >
-          {error || status}
+      {error && (
+        <p className="command-dock-model-feedback is-error" role="alert" title={error}>
+          {error}
         </p>
       )}
     </section>

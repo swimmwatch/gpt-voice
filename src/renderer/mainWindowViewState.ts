@@ -51,9 +51,9 @@ const IDLE_VIEW_STATE: RecordingWorkspaceViewState = {
 
 const STARTING_VIEW_STATE: RecordingWorkspaceViewState = {
   primary: {
-    action: RecordingWorkspacePrimaryAction.Busy,
+    action: RecordingWorkspacePrimaryAction.Stop,
     disabled: true,
-    labelKey: 'recording.starting',
+    labelKey: 'recording.stop',
   },
   secondaryActions: [RecordingWorkspaceSecondaryAction.Cancel],
   status: {

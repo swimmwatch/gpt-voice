@@ -22,6 +22,7 @@ import {
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 
 const log = createLogger('config');
+const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
 
 const LEGACY_APP_DIRS = [path.join(os.homedir(), '.gpt-voice'), path.join(os.homedir(), '.webvoice')];
 
@@ -242,6 +243,15 @@ export function loadConfig(): void {
         isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
       );
       updateLegacyPrettifyMirrors();
+
+      if (
+        currentHotkey === DEFAULT_RECORD_HOTKEY &&
+        currentRetryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY
+      ) {
+        currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
+        log.info('Migrated conflicting retry transcription hotkey to:', DEFAULT_RETRY_TRANSCRIPTION_HOTKEY);
+        saveConfig();
+      }
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {
       currentFingerprintSeed = generateFingerprintSeed();

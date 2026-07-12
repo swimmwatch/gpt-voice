@@ -11,7 +11,7 @@ import {
 } from '@renderer/components/ui/dialog';
 import { Kbd } from '@renderer/components/ui/kbd';
 import { useI18n } from '@renderer/hooks/useI18n';
-import type { HotkeyTarget } from '@shared/hotkeys';
+import { getHotkeyFromKeyboardEvent, type HotkeyTarget } from '@shared/hotkeys';
 
 interface HotkeyModalProps {
   onApply: (hotkey: string) => void;
@@ -51,17 +51,9 @@ function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): 
 
   const handleHotkeyCapture = (event: KeyboardEvent<HTMLDivElement>): void => {
     event.preventDefault();
-    const parts: string[] = [];
-    if (event.ctrlKey) parts.push('Ctrl');
-    if (event.altKey) parts.push('Alt');
-    if (event.shiftKey) parts.push('Shift');
-    if (event.metaKey) parts.push(platform === 'darwin' ? 'Command' : 'Super');
-
-    if (!['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) {
-      parts.push(event.key.length === 1 ? event.key.toUpperCase() : event.key);
-    }
-    if (parts.length > 0) {
-      setPendingHotkey(parts.join('+'));
+    const hotkey = getHotkeyFromKeyboardEvent(event, platform);
+    if (hotkey) {
+      setPendingHotkey(hotkey);
     }
   };
 

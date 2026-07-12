@@ -34,13 +34,7 @@ function TabsTrigger({ className, iconOnly = false, ...props }: TabsTriggerProps
 }
 
 function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>): React.JSX.Element {
-  return (
-    <TabsPrimitive.Content
-      className={cn('mt-3 outline-none focus-visible:ring-2 focus-visible:ring-primary', className)}
-      data-slot="tabs-content"
-      {...props}
-    />
-  );
+  return <TabsPrimitive.Content className={cn('mt-3 outline-none', className)} data-slot="tabs-content" {...props} />;
 }
 
 const Tabs = TabsPrimitive.Root;

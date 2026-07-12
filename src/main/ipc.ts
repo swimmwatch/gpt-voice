@@ -43,6 +43,7 @@ import {
   resetRecordingState,
   setRecordingLifecycleState,
   setRetryTranscriptionAvailable,
+  setShortcutsSuspended,
 } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
@@ -53,7 +54,13 @@ import { OPENAI_API_PROVIDER_ID, type OpenAIApiSettingsInput } from './providers
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
-import { isHotkeyTarget, type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import {
+  getHotkeyConflict,
+  isHotkeyTarget,
+  normalizeHotkey,
+  type HotkeySettings,
+  type HotkeyTarget,
+} from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   isPrettifyProviderId,
@@ -510,32 +517,60 @@ export function registerIpcHandlers(): void {
     return getHotkeySettingsSnapshot();
   });
 
+  handle('set-hotkey-capture-active', (_event, active: unknown) => {
+    if (typeof active !== 'boolean') {
+      return { success: false };
+    }
+
+    setShortcutsSuspended(active);
+    return { success: true };
+  });
+
   handle('set-hotkey', (_event, key: string, hotkey: string) => {
     if (!isHotkeyTarget(key)) {
       return {
         success: false,
+        error: 'Unsupported hotkey target',
         ...getHotkeySettingsSnapshot(),
       };
     }
     const target: HotkeyTarget = key;
+    const normalizedHotkey = normalizeHotkey(hotkey);
+    if (!normalizedHotkey) {
+      return {
+        success: false,
+        error: 'Choose a key or key combination',
+        ...getHotkeySettingsSnapshot(),
+      };
+    }
+
+    const conflict = getHotkeyConflict(target, normalizedHotkey, getHotkeySettingsSnapshot());
+    if (conflict) {
+      return {
+        success: false,
+        error: `This hotkey conflicts with the ${conflict} shortcut`,
+        ...getHotkeySettingsSnapshot(),
+      };
+    }
+
     if (key === 'cancel') {
-      log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', hotkey);
-      setHotkeys(undefined, hotkey, undefined, undefined, undefined);
+      log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, normalizedHotkey, undefined, undefined, undefined);
     } else if (key === 'stop') {
-      log.info('Changing stop hotkey from', currentStopHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, hotkey, undefined, undefined);
+      log.info('Changing stop hotkey from', currentStopHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, normalizedHotkey, undefined, undefined);
     } else if (target === 'translate') {
-      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, hotkey, undefined);
+      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, normalizedHotkey, undefined);
     } else if (target === 'prettify') {
-      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, hotkey, undefined);
+      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, normalizedHotkey, undefined);
     } else if (target === 'retryTranscription') {
-      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', hotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, undefined, hotkey);
+      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', normalizedHotkey);
+      setHotkeys(undefined, undefined, undefined, undefined, undefined, normalizedHotkey);
     } else {
-      log.info('Changing hotkey from', currentHotkey, 'to', hotkey);
-      setHotkeys(hotkey, undefined, undefined, undefined, undefined, undefined);
+      log.info('Changing hotkey from', currentHotkey, 'to', normalizedHotkey);
+      setHotkeys(normalizedHotkey, undefined, undefined, undefined, undefined, undefined);
     }
     saveConfig();
     registerShortcuts();

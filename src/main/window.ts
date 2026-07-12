@@ -13,8 +13,6 @@ let isSettingsWindowCloseConfirmed = false;
 const log = createLogger('window');
 const MAIN_WINDOW_CONTENT_WIDTH = 460;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
-const MAIN_WINDOW_MIN_WIDTH = 400;
-const MAIN_WINDOW_MIN_HEIGHT = 360;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 
 export function getMainWindow(): BrowserWindow | null {
@@ -236,11 +234,12 @@ export function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: MAIN_WINDOW_CONTENT_WIDTH,
     height: MAIN_WINDOW_CONTENT_HEIGHT,
-    minWidth: MAIN_WINDOW_MIN_WIDTH,
-    minHeight: MAIN_WINDOW_MIN_HEIGHT,
     useContentSize: true,
     autoHideMenuBar: true,
     backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+    fullscreenable: false,
+    maximizable: false,
+    resizable: false,
     show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -180,12 +180,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
   },
+  setHotkeyCaptureActive: (active: boolean): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('set-hotkey-capture-active', active);
+  },
   setHotkey: (
     key: HotkeyTarget,
     hotkey: string,
   ): Promise<
     {
       success: boolean;
+      error?: string;
     } & HotkeySettings
   > => {
     return ipcRenderer.invoke('set-hotkey', key, hotkey);

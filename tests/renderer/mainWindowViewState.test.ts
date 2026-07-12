@@ -54,12 +54,23 @@ describe('mainWindowViewState', () => {
     });
   });
 
-  it('prevents duplicate recording commands while starting, stopping, transcribing, or retrying', () => {
-    const expected = [
-      {
-        primaryLabelKey: 'recording.starting',
-        secondaryActions: [RecordingWorkspaceSecondaryAction.Cancel],
+  it('shows a disabled Stop command while recording starts', () => {
+    assert.deepEqual(getRecordingWorkspaceViewState('starting'), {
+      primary: {
+        action: RecordingWorkspacePrimaryAction.Stop,
+        disabled: true,
+        labelKey: 'recording.stop',
       },
+      secondaryActions: [RecordingWorkspaceSecondaryAction.Cancel],
+      status: {
+        kind: RecordingWorkspaceStatus.Processing,
+        labelKey: 'recording.starting',
+      },
+    });
+  });
+
+  it('prevents duplicate recording commands while stopping, transcribing, or retrying', () => {
+    const expected = [
       {
         primaryLabelKey: 'status.stopping',
         secondaryActions: [],
@@ -74,7 +85,7 @@ describe('mainWindowViewState', () => {
       },
     ] as const;
 
-    const busyLifecycleStates: RecordingLifecycleState[] = ['starting', 'stopping', 'transcribing', 'retrying'];
+    const busyLifecycleStates: RecordingLifecycleState[] = ['stopping', 'transcribing', 'retrying'];
 
     for (const [index, lifecycleState] of busyLifecycleStates.entries()) {
       const state = getRecordingWorkspaceViewState(lifecycleState);
