@@ -26,10 +26,7 @@ interface SettingsNavigationProps {
 
 function SettingsNavigation({ t }: SettingsNavigationProps): JSX.Element {
   return (
-    <TabsList
-      aria-label={t('appSettings.title')}
-      className="w-52 shrink-0 max-[639px]:w-12 max-[639px]:!items-center"
-    >
+    <TabsList aria-label={t('appSettings.title')} className="w-52 shrink-0 max-[639px]:w-12 max-[639px]:!items-center">
       {SETTINGS_NAVIGATION_ITEMS.map(({ icon: Icon, id, labelKey }) => {
         const label = t(labelKey);
 

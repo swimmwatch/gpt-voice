@@ -12,7 +12,9 @@ export interface TranslationLogMetadata {
   targetLang: string;
 }
 
-export function isGoogleTranslateTargetLanguage(value: unknown): value is (typeof GOOGLE_TRANSLATE_TARGET_LANGUAGES)[number] {
+export function isGoogleTranslateTargetLanguage(
+  value: unknown,
+): value is (typeof GOOGLE_TRANSLATE_TARGET_LANGUAGES)[number] {
   return typeof value === 'string' && GOOGLE_TRANSLATE_TARGET_LANGUAGES.includes(value as never);
 }
 

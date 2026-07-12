@@ -1,5 +1,5 @@
 import { BrowserWindow, shell, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
-import * as path from 'path';
+import * as path from 'node:path';
 import { createAboutWindowController, isTrustedWindow } from './aboutWindowController';
 import { createLogger } from './logger';
 import { getAppIcon, getAppIconPath } from './assets';

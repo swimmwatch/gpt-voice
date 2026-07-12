@@ -42,11 +42,12 @@ async function measureTranslationStep<T>(
 async function setGoogleTranslateSourceText(sourceArea: Locator, text: string): Promise<void> {
   await sourceArea.evaluate((element, value) => {
     const textarea = element as HTMLTextAreaElement;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Reflect.apply supplies the textarea receiver below.
     const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
 
     textarea.focus();
     if (valueSetter) {
-      valueSetter.call(textarea, value);
+      Reflect.apply(valueSetter, textarea, [value]);
     } else {
       textarea.value = value;
     }

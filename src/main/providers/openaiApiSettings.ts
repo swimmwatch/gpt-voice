@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { APP_DIR } from '../config';
 import {
   decryptSafeStorageString,
@@ -28,7 +28,7 @@ interface StoredOpenAIApiSettings extends OpenAIApiSettingsInput {
 function readStoredSettings(): StoredOpenAIApiSettings {
   try {
     if (!fs.existsSync(SETTINGS_FILE)) return {};
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) as StoredOpenAIApiSettings;
   } catch (error) {
     log.warn('Failed to read OpenAI API settings:', error);
     return {};

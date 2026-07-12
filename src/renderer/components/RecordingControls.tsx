@@ -72,6 +72,7 @@ function getStatusClassName(status: RecordingWorkspaceStatus): string {
   }
 }
 
+/** Presents recording lifecycle controls and routes user actions to the active recording state. */
 function RecordingControls({
   onCancel,
   onPause,

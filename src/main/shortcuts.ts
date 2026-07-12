@@ -211,6 +211,7 @@ function syncRetryTranscriptionShortcut(): void {
   log.info(`${retryTranscriptionHotkey} resend transcription shortcut registered:`, retryRegistered);
 }
 
+/** Registers global shortcuts while preserving recording-state and conflict safeguards. */
 export function registerShortcuts(): void {
   globalShortcut.unregisterAll();
   registeredRetryTranscriptionHotkey = null;

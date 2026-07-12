@@ -20,6 +20,7 @@ interface HotkeyModalProps {
   target: HotkeyTarget;
 }
 
+/** Captures, validates, and applies a global shortcut without losing keyboard focus. */
 function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): JSX.Element {
   const { t } = useI18n();
   const [pendingHotkey, setPendingHotkey] = useState('');

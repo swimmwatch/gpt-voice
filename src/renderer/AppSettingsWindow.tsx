@@ -54,6 +54,7 @@ function getActivePrettifyProviderSettings(settings: PrettifySettings) {
   return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
 }
 
+/** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
   const { isReady: isI18nReady, t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
@@ -486,6 +487,7 @@ const AppSettingsWindow: React.FC = () => {
     void window.electronAPI.closeAppSettings();
   }, []);
 
+  /** Saves all dirty settings groups in their dependency-safe order. */
   const saveSettings = async (): Promise<void> => {
     if (
       !settings ||

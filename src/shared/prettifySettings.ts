@@ -172,13 +172,7 @@ function isSettingsInput(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getNumberRangeError(
-  value: unknown,
-  label: string,
-  min: number,
-  max: number,
-  integer = false,
-): string | null {
+function getNumberRangeError(value: unknown, label: string, min: number, max: number, integer = false): string | null {
   if (
     typeof value !== 'number' ||
     !Number.isFinite(value) ||

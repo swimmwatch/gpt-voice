@@ -64,6 +64,7 @@ function HistoryLoadingState({ label }: HistoryLoadingStateProps): JSX.Element {
   );
 }
 
+/** Coordinates history pagination, selection, deletion, and associated window state. */
 function HistoryWindow(): JSX.Element {
   const { t, locale, isReady } = useI18n();
   const [items, setItems] = useState<TranscriptionHistoryEntry[]>([]);

@@ -29,6 +29,7 @@ interface OpenAIApiVoiceProviderDependencies {
   getSettings: () => OpenAIApiSettingsWithSecret;
 }
 
+/** API-key provider for OpenAI's hosted audio transcription endpoint. */
 export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   private readonly deps: OpenAIApiVoiceProviderDependencies;
 
@@ -88,7 +89,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
       });
       const body = await response.text();
 
-      if (response.status !== StatusCodes.OK) {
+      if (response.status !== Number(StatusCodes.OK)) {
         return this.parseErrorResponse(response.status, body);
       }
 
@@ -102,7 +103,7 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
   private parseSuccessResponse(body: string): TranscriptionResult {
     let result: Record<string, unknown>;
     try {
-      result = JSON.parse(body);
+      result = JSON.parse(body) as Record<string, unknown>;
     } catch {
       return {
         success: false,

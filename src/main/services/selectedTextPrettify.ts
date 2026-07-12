@@ -178,6 +178,7 @@ function getPrettifyProviderCacheContext(settings: PrettifySettings): readonly s
   ];
 }
 
+/** Creates the single-flight selected-text prettify action and its cancellation lifecycle. */
 export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {
   let activeRun: SelectedTextPrettifyRun | null = null;
 

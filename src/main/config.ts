@@ -1,6 +1,6 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { createLogger } from './logger';
 import {
   DEFAULT_CANCEL_HOTKEY,
@@ -207,6 +207,7 @@ export function getCurrentLocale(): string {
   return currentLocale;
 }
 
+// Configuration loading validates each persisted field independently to isolate corrupt legacy values.
 export function loadConfig(): void {
   try {
     if (fs.existsSync(CONFIG_FILE)) {

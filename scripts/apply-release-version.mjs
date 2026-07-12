@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseTag = resolveReleaseTag();
 const releaseVersion = releaseTag.replace(/^v/i, '');
+// Release tags are short CI inputs, so this semver pattern cannot receive unbounded attacker-controlled input.
+// eslint-disable-next-line security/detect-unsafe-regex -- Anchored validation for the release tag format.
 const semverPattern = /^\d+\.\d+\.\d+(?:-[\d.a-z-]+)?(?:\+[\d.a-z-]+)?$/i;
 
 if (!semverPattern.test(releaseVersion)) {

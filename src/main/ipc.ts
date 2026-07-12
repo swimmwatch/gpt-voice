@@ -224,6 +224,7 @@ async function refreshActiveProvider(providerId: string): Promise<void> {
   sendBackgroundStatus(status);
 }
 
+/** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(): void {
   handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return transcribeAudio(buffer, mimeType);
@@ -337,7 +338,7 @@ export function registerIpcHandlers(): void {
       }
 
       return { success: true };
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       if (context) {
         try {
           await context.close();
@@ -345,7 +346,7 @@ export function registerIpcHandlers(): void {
           /* ignore */
         }
       }
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 

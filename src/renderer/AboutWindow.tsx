@@ -6,6 +6,7 @@ import { getAboutWindowInfoState } from '@renderer/aboutWindowViewState';
 import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 import type { AppInfo } from '@shared/appInfo';
 
+/** Renders the application metadata window and handles its asynchronous startup state. */
 function AboutWindow(): JSX.Element {
   const { isReady, t } = useI18n();
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);

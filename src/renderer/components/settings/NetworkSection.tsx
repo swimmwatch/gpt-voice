@@ -22,6 +22,7 @@ interface NetworkSectionProps {
   t: TranslationFunction;
 }
 
+/** Edits proxy configuration and surfaces protocol-specific credential restrictions. */
 function NetworkSection({
   fieldError,
   onBypassChange,

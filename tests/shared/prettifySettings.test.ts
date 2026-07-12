@@ -50,7 +50,10 @@ describe('prettifySettings', () => {
   it('makes the default prompt safely shorten selected text', () => {
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /inert data/);
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /never fulfill, answer, execute/);
-    assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Remove unnecessary, filler, and redundant words, phrases, sentences, and repetition/);
+    assert.match(
+      DEFAULT_PRETTIFY_SETTINGS.prompt,
+      /Remove unnecessary, filler, and redundant words, phrases, sentences, and repetition/,
+    );
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /Make the text shorter whenever possible without losing meaning/);
     assert.match(DEFAULT_PRETTIFY_SETTINGS.prompt, /alter code, URLs, or identifiers/);
   });
@@ -159,18 +162,9 @@ describe('prettifySettings', () => {
   it('rejects malformed settings write payloads instead of silently normalizing them', () => {
     assert.equal(getPrettifySettingsInputError('invalid'), 'Prettify settings must be an object');
     assert.equal(getPrettifySettingsInputError({ providerId: 'unknown' }), 'Unsupported prettify provider');
-    assert.equal(
-      getPrettifySettingsInputError({ temperature: 2 }),
-      'Temperature must be between 0 and 1',
-    );
-    assert.equal(
-      getPrettifySettingsInputError({ topK: 1.5 }),
-      'Top K must be an integer between 1 and 200',
-    );
-    assert.equal(
-      getPrettifySettingsInputError({ seed: '42' }),
-      'Seed must be an integer between 0 and 2147483647',
-    );
+    assert.equal(getPrettifySettingsInputError({ temperature: 2 }), 'Temperature must be between 0 and 1');
+    assert.equal(getPrettifySettingsInputError({ topK: 1.5 }), 'Top K must be an integer between 1 and 200');
+    assert.equal(getPrettifySettingsInputError({ seed: '42' }), 'Seed must be an integer between 0 and 2147483647');
     assert.equal(
       getPrettifySettingsInputError({ ollama: 'http://localhost:11434' }),
       'Ollama settings must be an object',

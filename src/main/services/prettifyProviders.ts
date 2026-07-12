@@ -212,7 +212,7 @@ function extractOllamaText(body: string): string {
 function extractVllmText(body: string): string {
   const parsed = safeJsonParse(body);
   if (!isRecord(parsed) || !Array.isArray(parsed.choices)) return '';
-  const firstChoice = parsed.choices[0];
+  const firstChoice: unknown = parsed.choices[0];
   if (!isRecord(firstChoice) || !isRecord(firstChoice.message) || typeof firstChoice.message.content !== 'string') {
     return '';
   }
@@ -225,7 +225,7 @@ async function getRunningOllamaModels(
 ): Promise<Map<string, RunningOllamaModelInfo>> {
   const response = await deps.fetch(joinUrl(baseUrl, '/api/ps'));
   const body = await response.text();
-  if (response.status !== StatusCodes.OK) return new Map();
+  if (response.status !== Number(StatusCodes.OK)) return new Map();
   return parseOllamaRunningModels(body);
 }
 
@@ -288,7 +288,7 @@ async function setOllamaModelKeepAlive(
     }),
   });
   await response.text();
-  if (response.status !== StatusCodes.OK) {
+  if (response.status !== Number(StatusCodes.OK)) {
     throw new Error(createHttpError('Ollama', response.status));
   }
 }
@@ -297,7 +297,7 @@ const ollamaAdapter: PrettifyProviderAdapter = {
   async listModels(settings, deps) {
     const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'));
     const body = await response.text();
-    if (response.status !== StatusCodes.OK) {
+    if (response.status !== Number(StatusCodes.OK)) {
       throw new Error(createHttpError('Ollama', response.status));
     }
     const models = parseOllamaModels(body);
@@ -322,7 +322,7 @@ const ollamaAdapter: PrettifyProviderAdapter = {
       }),
     });
     const body = await response.text();
-    if (response.status !== StatusCodes.OK) {
+    if (response.status !== Number(StatusCodes.OK)) {
       return { success: false, error: createHttpError('Ollama', response.status) };
     }
 
@@ -337,7 +337,7 @@ const vllmAdapter: PrettifyProviderAdapter = {
       headers: createJsonHeaders(settings.vllm.apiKey),
     });
     const body = await response.text();
-    if (response.status !== StatusCodes.OK) {
+    if (response.status !== Number(StatusCodes.OK)) {
       throw new Error(createHttpError('vLLM', response.status));
     }
     return parseVllmModels(body);
@@ -351,7 +351,7 @@ const vllmAdapter: PrettifyProviderAdapter = {
       body: JSON.stringify(createVllmRequestBody(settings, text)),
     });
     const body = await response.text();
-    if (response.status !== StatusCodes.OK) {
+    if (response.status !== Number(StatusCodes.OK)) {
       return { success: false, error: createHttpError('vLLM', response.status) };
     }
 

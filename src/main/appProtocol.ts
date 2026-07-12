@@ -1,6 +1,6 @@
 import { protocol } from 'electron';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { getAppIconPath } from './assets';
 import { createLogger } from './logger';
 import { APP_ICON_ASSET_PATH } from '@shared/appAssets';

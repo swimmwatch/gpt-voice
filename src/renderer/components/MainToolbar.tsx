@@ -21,6 +21,7 @@ interface MainToolbarProps {
   providers: ProviderInfo[];
 }
 
+/** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
   activeProviderAuthType,
   activeProviderId,

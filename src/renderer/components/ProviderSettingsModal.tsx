@@ -50,6 +50,7 @@ const LANGUAGE_OPTIONS: Array<{ labelKey: string; value: OpenAIApiProviderSettin
   { labelKey: 'translate.belarusian', value: 'be' },
 ];
 
+/** Presents provider authentication settings and keeps each authentication mode's state isolated. */
 function ProviderSettingsModal({
   onClose,
   onLogin,

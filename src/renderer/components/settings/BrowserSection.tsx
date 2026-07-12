@@ -29,6 +29,7 @@ interface BrowserSectionProps {
   timezoneOptions: string[];
 }
 
+/** Edits browser-humanization and locale settings while keeping dependent fields synchronized. */
 function BrowserSection({
   fieldError,
   localeOptions,

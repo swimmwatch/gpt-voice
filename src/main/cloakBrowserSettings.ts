@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { APP_DIR, getFingerprintSeed } from '@main/config';
 import {
   decryptSafeStorageString,
@@ -86,6 +86,7 @@ function shouldSanitizeFingerprintSeed(input: CloakBrowserSettingsInput): boolea
   return typeof input.fingerprintSeed !== 'string' || input.fingerprintSeed.trim() === '';
 }
 
+// Keep every persisted setting explicit so partial updates cannot accidentally discard encrypted proxy state.
 function mergeStoredSettings(
   stored: StoredCloakBrowserSettings,
   input: CloakBrowserSettingsInput,

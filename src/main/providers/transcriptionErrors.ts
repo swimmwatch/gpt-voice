@@ -8,7 +8,7 @@ interface TranscribeHttpResponse {
 }
 
 export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse): TranscriptionResult | null {
-  if (resp.status !== StatusCodes.TOO_MANY_REQUESTS) {
+  if (resp.status !== Number(StatusCodes.TOO_MANY_REQUESTS)) {
     return null;
   }
 

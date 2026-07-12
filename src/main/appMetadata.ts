@@ -26,6 +26,7 @@ export function configureAppIdentity(): void {
   app.setAppUserModelId(APP_ID);
 }
 
+/** Configures the OS-native About panel and the application Help menu. */
 export function configureNativeAppMetadata(): void {
   app.setAboutPanelOptions({
     applicationName: APP_NAME,

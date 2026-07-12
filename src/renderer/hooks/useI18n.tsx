@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, use, useState, useEffect, useCallback, useMemo } from 'react';
 import defaultTranslations from '@main/i18n/en';
 
 const DEFAULT_TRANSLATIONS: Readonly<Record<string, string>> = defaultTranslations;
@@ -19,11 +19,11 @@ const I18nContext = createContext<I18nContextValue>({
   isReady: false,
 });
 
-export const useI18n = () => useContext(I18nContext);
+export const useI18n = () => use(I18nContext);
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [translations, setTranslations] = useState<Readonly<Record<string, string>>>(DEFAULT_TRANSLATIONS);
-  const [locale, setLocaleState] = useState('en');
+  const [currentLocale, setCurrentLocale] = useState('en');
   const [supportedLocales, setSupportedLocales] = useState<string[]>(['en']);
   const [isReady, setIsReady] = useState(false);
 
@@ -40,7 +40,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (disposed) return;
         setTranslations(tr);
-        setLocaleState(loc);
+        setCurrentLocale(loc);
         setSupportedLocales(supported);
       } catch {
         // Keep the default English fallback context if preload IPC is not ready yet.
@@ -75,11 +75,14 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await window.electronAPI.setLocale(newLocale);
     const tr = await window.electronAPI.getTranslations();
     setTranslations(tr);
-    setLocaleState(newLocale);
+    setCurrentLocale(newLocale);
     setIsReady(true);
   }, []);
 
-  return (
-    <I18nContext.Provider value={{ t, locale, setLocale, supportedLocales, isReady }}>{children}</I18nContext.Provider>
+  const contextValue = useMemo(
+    () => ({ t, locale: currentLocale, setLocale, supportedLocales, isReady }),
+    [currentLocale, isReady, setLocale, supportedLocales, t],
   );
+
+  return <I18nContext value={contextValue}>{children}</I18nContext>;
 };

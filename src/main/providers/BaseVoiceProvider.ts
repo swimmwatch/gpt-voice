@@ -16,6 +16,7 @@ export interface TranscriptionResult {
   raw?: string;
 }
 
+/** Shared lifecycle and transcription contract for every supported voice provider. */
 export abstract class BaseVoiceProvider {
   abstract readonly info: VoiceProviderInfo;
 
@@ -29,8 +30,8 @@ export abstract class BaseVoiceProvider {
   }
 
   /** Initialize provider page within an existing browser context */
-  async initPage(_context: BrowserContext): Promise<void> {
-    return undefined;
+  initPage(_context: BrowserContext): Promise<void> {
+    return Promise.resolve();
   }
 
   /** Perform login flow in a visible browser — return the page to navigate */
@@ -39,13 +40,13 @@ export abstract class BaseVoiceProvider {
   }
 
   /** Extract and cache the access token from the provider page */
-  async fetchAccessToken(): Promise<string> {
-    return '';
+  fetchAccessToken(): Promise<string> {
+    return Promise.resolve('');
   }
 
   /** Refresh an expired access token */
-  async refreshAccessToken(): Promise<string> {
-    return '';
+  refreshAccessToken(): Promise<string> {
+    return Promise.resolve('');
   }
 
   /** Transcribe audio buffer → text */
@@ -58,20 +59,21 @@ export abstract class BaseVoiceProvider {
   abstract clearSession(): void;
 
   /** Save session state from a login browser context */
-  async saveSession(_context: BrowserContext): Promise<void> {
-    return undefined;
+  saveSession(_context: BrowserContext): Promise<void> {
+    return Promise.resolve();
   }
 
   /** Load persisted session cookies into the given context */
-  async loadSession(_context: BrowserContext): Promise<boolean> {
-    return this.hasSession();
+  loadSession(_context: BrowserContext): Promise<boolean> {
+    return Promise.resolve(this.hasSession());
   }
 
   /** Cleanup provider-specific resources */
-  async shutdown(): Promise<void> {
+  shutdown(): Promise<void> {
     this.page = null;
     this.context = null;
     this.accessToken = '';
+    return Promise.resolve();
   }
 
   getPage(): Page | null {

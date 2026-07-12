@@ -6,6 +6,8 @@ import * as path from 'node:path';
 const GLOBAL_STYLES_PATH = path.resolve(__dirname, '../../src/renderer/styles/globals.css');
 
 function getRuleBody(styles: string, selector: string): string {
+  // Selectors are fixed test constants, never user input.
+  // eslint-disable-next-line security/detect-non-literal-regexp -- Build the CSS rule matcher from that fixed selector.
   const match = new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'u').exec(styles);
   assert.ok(match?.[1], `Missing ${selector} rule`);
   return match[1];

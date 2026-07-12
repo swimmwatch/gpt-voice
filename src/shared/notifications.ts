@@ -351,6 +351,7 @@ function getPresentedMessage(
   }
 }
 
+// Error classification is exhaustive so untrusted provider failures never leak raw implementation details to users.
 export function presentNotificationError(
   error: unknown,
   options: NotificationErrorPresentationOptions = {},

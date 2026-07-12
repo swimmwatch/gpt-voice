@@ -73,18 +73,12 @@ describe('openaiApiSettingsUtils', () => {
 
   it('rejects malformed write payloads instead of silently replacing them with defaults', () => {
     assert.equal(getOpenAIApiSettingsInputError([]), 'OpenAI API settings must be an object');
-    assert.equal(
-      getOpenAIApiSettingsInputError({ apiKey: 42 }),
-      'OpenAI API key must be a string',
-    );
+    assert.equal(getOpenAIApiSettingsInputError({ apiKey: 42 }), 'OpenAI API key must be a string');
     assert.equal(
       getOpenAIApiSettingsInputError({ model: 'gpt-4o-transcribe' }),
       `Only ${OPENAI_API_SETTINGS_MODEL} is supported`,
     );
-    assert.equal(
-      getOpenAIApiSettingsInputError({ language: 'de' }),
-      'Select a supported transcription language',
-    );
+    assert.equal(getOpenAIApiSettingsInputError({ language: 'de' }), 'Select a supported transcription language');
     assert.equal(getOpenAIApiSettingsInputError({ temperature: 1.01 }), 'Temperature must be between 0 and 1');
   });
 });

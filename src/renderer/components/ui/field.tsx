@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, type ComponentProps, type ReactNode } from 'react';
+import { createContext, use, useId, useMemo, type ComponentProps, type ReactNode } from 'react';
 import { Label } from '@renderer/components/ui/label';
 import { cn } from '@renderer/lib/cn';
 
@@ -34,7 +34,7 @@ function joinAriaDescribedBy(...ids: Array<string | undefined>): string | undefi
 }
 
 function useFieldContext(): FieldContextValue | null {
-  return useContext(FieldContext);
+  return use(FieldContext);
 }
 
 function Field({
@@ -53,17 +53,20 @@ function Field({
   const hasDescription = Boolean(description);
   const hasError = Boolean(error);
   const hasLabel = Boolean(label);
-  const contextValue: FieldContextValue = {
-    descriptionId: hasDescription ? `${inputId}-description` : undefined,
-    disabled,
-    errorId: hasError ? `${inputId}-error` : undefined,
-    inputId,
-    invalid: hasError,
-    required,
-  };
+  const contextValue = useMemo<FieldContextValue>(
+    () => ({
+      descriptionId: hasDescription ? `${inputId}-description` : undefined,
+      disabled,
+      errorId: hasError ? `${inputId}-error` : undefined,
+      inputId,
+      invalid: hasError,
+      required,
+    }),
+    [disabled, hasDescription, hasError, inputId, required],
+  );
 
   return (
-    <FieldContext.Provider value={contextValue}>
+    <FieldContext value={contextValue}>
       <div
         className={cn('grid gap-1.5', className)}
         data-disabled={disabled || undefined}
@@ -89,7 +92,7 @@ function Field({
           </p>
         )}
       </div>
-    </FieldContext.Provider>
+    </FieldContext>
   );
 }
 

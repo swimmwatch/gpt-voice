@@ -104,6 +104,7 @@ function getModelOptionLabel(
   return approximateVramSize ? `${name} (${t('prettify.modelVramApprox', { size: approximateVramSize })})` : name;
 }
 
+/** Edits provider-specific prettify settings while synchronizing model-loading and validation state. */
 function PrettifySection({
   fieldError,
   isLoadingModel,

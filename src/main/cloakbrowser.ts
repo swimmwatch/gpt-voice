@@ -1,6 +1,6 @@
 import { app } from 'electron';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { BrowserContext } from 'playwright-core';
 import type { LaunchContextOptions, LaunchPersistentContextOptions } from 'cloakbrowser';
 import { createLogger } from './logger';
@@ -11,6 +11,8 @@ type CloakBrowserApi = {
 };
 
 const log = createLogger('cloakbrowser');
+// CloakBrowser ships as ESM while this Electron main bundle is CommonJS.
+// eslint-disable-next-line @typescript-eslint/no-implied-eval -- defer the ESM import until runtime.
 const importEsm = new Function('specifier', 'return import(specifier)') as (
   specifier: string,
 ) => Promise<CloakBrowserApi>;

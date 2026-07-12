@@ -34,6 +34,7 @@ interface UseRecordingOptions {
   t: (key: string, params?: Record<string, string>) => string;
 }
 
+/** Coordinates audio capture, shortcut state, retry behavior, and recording notifications. */
 export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);

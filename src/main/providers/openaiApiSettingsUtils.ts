@@ -79,9 +79,7 @@ export function getOpenAIApiSettingsInputError(input: unknown = {}): string | nu
   return null;
 }
 
-export function assertValidOpenAIApiSettingsInput(
-  input: unknown = {},
-): asserts input is OpenAIApiSettingsInput {
+export function assertValidOpenAIApiSettingsInput(input: unknown = {}): asserts input is OpenAIApiSettingsInput {
   const error = getOpenAIApiSettingsInputError(input);
   if (error) throw new Error(error);
 }

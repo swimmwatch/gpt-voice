@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
 import {
@@ -51,6 +51,11 @@ const BLOCKED_DOMAINS = [
 
 const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet'];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Browser-session provider for ChatGPT's transcription endpoint. */
 export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   readonly info: VoiceProviderInfo = {
     id: 'chatgpt',
@@ -161,7 +166,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
       const resp = await this.transcribeViaPage(audioBase64, token, mimeType);
 
       log.info('Transcribe response status:', resp.status);
-      if (resp.status !== StatusCodes.OK) {
+      if (resp.status !== Number(StatusCodes.OK)) {
         log.error('Transcribe response failed:', { bodyLength: resp.body.length, status: resp.status });
       }
 
@@ -171,7 +176,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         if (token) {
           const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
           log.info('Retry response status:', retryResp.status);
-          if (retryResp.status !== StatusCodes.OK) {
+          if (retryResp.status !== Number(StatusCodes.OK)) {
             log.error('Retry response failed:', { bodyLength: retryResp.body.length, status: retryResp.status });
           }
           return this.parseTranscribeResponse(retryResp, mimeType);
@@ -239,7 +244,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private async fetchAccessTokenFromPage(): Promise<string> {
     if (!this.page) return '';
 
-    return this.page.evaluate(async (timeoutMs: number) => {
+    const token: unknown = await this.page.evaluate(async (timeoutMs: number) => {
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -248,7 +253,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
           signal: controller.signal,
         });
         if (!res.ok) return '';
-        const json = await res.json();
+        const json: unknown = await res.json();
+        if (typeof json !== 'object' || json === null || !('accessToken' in json)) return '';
         return typeof json.accessToken === 'string' ? json.accessToken : '';
       } catch {
         return '';
@@ -256,6 +262,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         window.clearTimeout(timer);
       }
     }, AUTH_SESSION_TIMEOUT_MS);
+    return typeof token === 'string' ? token : '';
   }
 
   private async transcribeViaPage(audioBase64: string, accessToken: string, mimeType: string) {
@@ -323,8 +330,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private loadCachedToken(): string {
     try {
       if (fs.existsSync(TOKEN_FILE)) {
-        const data = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
-        if (data.accessToken) {
+        const data: unknown = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
+        if (isRecord(data) && typeof data.accessToken === 'string' && data.accessToken) {
           log.info('Loaded cached token, length:', data.accessToken.length);
           return data.accessToken;
         }
@@ -338,7 +345,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
   private readSessionState(): SessionState | null {
     try {
       if (!fs.existsSync(SESSION_FILE)) return null;
-      return JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+      const sessionState: unknown = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+      return isRecord(sessionState) ? sessionState : null;
     } catch {
       log.error('Failed to load session');
       return null;

@@ -15,6 +15,7 @@ import { presentNotificationError } from '@shared/notifications';
 import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
+/** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
@@ -145,7 +146,7 @@ const App: React.FC = () => {
     const subscriptions = [
       window.electronAPI.onToggleRecording((recording: boolean) => {
         if (disposed) return;
-        if (recording) startRecording();
+        if (recording) void startRecording();
       }),
       window.electronAPI.onStopRecording(() => {
         if (disposed) return;
@@ -178,7 +179,9 @@ const App: React.FC = () => {
           applyProviderLoginState(false, { ready: false, error, authExpired: true });
           return;
         }
-        window.electronAPI.checkSession().then((hasSession) => {
+        // The background-browser event is synchronous; refresh its session state without delaying the event callback.
+        // eslint-disable-next-line promise/no-promise-in-callback -- The asynchronous refresh intentionally outlives this event.
+        void window.electronAPI.checkSession().then((hasSession) => {
           if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
         });
       }),
@@ -191,13 +194,13 @@ const App: React.FC = () => {
       }),
     ];
 
-    Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
+    void Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
       ([hasSession, backgroundStatus]) => {
         if (!disposed) applyProviderLoginState(hasSession, backgroundStatus);
       },
     );
 
-    window.electronAPI.isBgReady().then((ready) => {
+    void window.electronAPI.isBgReady().then((ready) => {
       if (disposed) return;
       if (ready) {
         setIsLoggedIn(true);
@@ -205,7 +208,7 @@ const App: React.FC = () => {
       }
     });
 
-    window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
+    void window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
       setRecordHotkey(hk);
       if (!preserveStatusRef.current) {
@@ -213,15 +216,15 @@ const App: React.FC = () => {
       }
     });
 
-    window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
+    void window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
       if (disposed) return;
       setTargetLang(tl);
     });
 
-    window.electronAPI.getProviders().then((value) => {
+    void window.electronAPI.getProviders().then((value) => {
       if (!disposed) setProviders(value);
     });
-    window.electronAPI.getActiveProvider().then((value) => {
+    void window.electronAPI.getActiveProvider().then((value) => {
       if (!disposed) setActiveProviderId(value);
     });
 

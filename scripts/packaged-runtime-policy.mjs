@@ -26,6 +26,8 @@ export const RUNTIME_ASSET_PATHS = [
 ];
 
 export const ELECTRON_LOCALE_FILENAMES = ['en-GB.pak', 'en-US.pak', 'ru.pak', 'uk.pak'];
+// File names originate from Electron's packaged resources and are bounded by the filesystem entry length.
+// eslint-disable-next-line security/detect-unsafe-regex -- Anchored locale-resource file-name validation.
 const ELECTRON_LOCALE_FILE_NAME = /^[a-z]{2,3}(?:-[A-Z]{2,3})?\.pak$/u;
 
 const ALLOWED_RUNTIME_MODULES = new Set([

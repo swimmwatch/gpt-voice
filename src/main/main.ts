@@ -147,7 +147,7 @@ app.on('ready', () => {
   createTray();
   registerShortcuts();
 
-  initBackgroundBrowser().then((status) => {
+  void initBackgroundBrowser().then((status) => {
     if (status.ready) {
       getMainWindow()?.webContents.send('bg-browser-ready');
     } else if (status.error) {
