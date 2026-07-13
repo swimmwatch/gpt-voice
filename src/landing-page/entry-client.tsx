@@ -1,5 +1,7 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { TooltipProvider } from '@landing/components/ui/tooltip';
+import { LandingPage } from '@landing/components/LandingPage';
+import { englishContent, getLocaleDefinition } from '@landing/content';
 import './styles/globals.css';
 
 const rootElement = document.querySelector('#root');
@@ -8,10 +10,14 @@ if (!rootElement) {
   throw new Error('Landing page root element is missing.');
 }
 
-createRoot(rootElement).render(
+const application = (
   <TooltipProvider>
-    <main id="main-content" tabIndex={-1}>
-      <h1>GPT-Voice landing page</h1>
-    </main>
-  </TooltipProvider>,
+    <LandingPage content={englishContent} locale={getLocaleDefinition('en')} />
+  </TooltipProvider>
 );
+
+if (rootElement.hasChildNodes()) {
+  hydrateRoot(rootElement, application);
+} else {
+  createRoot(rootElement).render(application);
+}
