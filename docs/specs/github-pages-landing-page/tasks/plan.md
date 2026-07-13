@@ -156,13 +156,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] Semantics, focus, disabled/hover states, and token usage remain accessible and do not imply false card actions.
-- [ ] Variants cover `component-map.json` roles without duplicate bespoke controls.
+- [x] Semantics, focus, disabled/hover states, and token usage remain accessible and do not imply false card actions.
+- [x] Variants cover `component-map.json` roles without duplicate bespoke controls.
 
 **Verification:**
 
-- [ ] Run landing typecheck/lint and focused accessible-role/variant tests.
-- [ ] Keyboard-check focus in normal and forced-colors modes.
+- [x] Run landing typecheck/lint and focused accessible-role/variant tests.
+- [x] Keyboard-check focus in normal and forced-colors modes.
 
 **Dependencies:** Task 5.  
 **Likely files:** `components/ui/button.tsx`, `badge.tsx`, `card.tsx`.  

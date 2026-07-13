@@ -2,12 +2,13 @@
 
 ## Completed
 
-- Tasks 1–5: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, and added landing-owned visual foundations.
+- Tasks 1–6: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, and installed the first shadcn primitives.
 
 ## Changed Files
 
 - Landing root, Vite/browser configs, and Electron TypeScript/Webpack exclusions.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
+- CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
 
 ## Checks
 
@@ -23,7 +24,7 @@
 
 ## Next Step
 
-- Task 6: add the Button, Badge, and Card primitives defined by the approved component map.
+- Task 7: add NavigationMenu, DropdownMenu, Sheet, Tooltip, and Separator primitives.
 
 ## Blockers
 

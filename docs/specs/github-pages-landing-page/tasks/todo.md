@@ -26,7 +26,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ## Phase 2: Component and Asset Foundations
 
-- [ ] Task 6 (M): Add shadcn action and surface primitives. Dependencies: Task 5.
+- [x] Task 6 (M): Add shadcn action and surface primitives. Dependencies: Task 5.
 - [ ] Task 7 (M): Add shadcn navigation primitives. Dependencies: Task 5.
 - [ ] Task 8 (M): Add shadcn disclosure and media primitives. Dependencies: Task 5.
 
