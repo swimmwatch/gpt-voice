@@ -17,13 +17,14 @@ describe('LandingPage', () => {
     expect(markup).toContain('How GPT-Voice works.');
   });
 
-  it('keeps static video, captions, transcripts, and qualified provider facts in the initial HTML', () => {
+  it('renders an accessible video placeholder until the approved demo media is available', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
-    expect(markup).toContain('preload="none"');
-    expect(markup).toContain('/gpt-voice/generated/media/demo.mp4');
-    expect(markup).toContain('/gpt-voice/generated/captions/en.vtt');
-    expect(markup).toContain('Writing prompts for AI agents and assistants is work.');
+    expect(markup).toContain('data-demo-placeholder="true"');
+    expect(markup).toContain('Full product demo coming soon.');
+    expect(markup).not.toContain('<video');
+    expect(markup).not.toContain('/gpt-voice/generated/media/demo.mp4');
+    expect(markup).not.toContain('/gpt-voice/generated/captions/en.vtt');
     expect(markup).toContain('GPT-Voice does not bypass quotas.');
     expect(markup).toContain('No compatibility or timing is promised.');
   });
@@ -31,7 +32,7 @@ describe('LandingPage', () => {
   it('keeps reveal targets visible by default in the static shell', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
-    expect(markup.match(/data-landing-reveal="true"/g)).toHaveLength(4);
-    expect(markup.match(/data-revealed="false"/g)).toHaveLength(4);
+    expect(markup.match(/data-landing-reveal="true"/g)).toHaveLength(5);
+    expect(markup.match(/data-revealed="false"/g)).toHaveLength(5);
   });
 });

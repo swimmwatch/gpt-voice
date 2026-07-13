@@ -72,6 +72,11 @@ export interface LandingContent {
     captionTrackLabel: string;
     eyebrow: string;
     lead: string;
+    placeholder: {
+      description: string;
+      status: string;
+      title: string;
+    };
     posterAlt: string;
     supportingNote: string;
     summary: string;

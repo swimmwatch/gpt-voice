@@ -38,6 +38,11 @@ export const englishContent = {
     eyebrow: 'ONE-MINUTE DEMO',
     title: 'See the complete workflow.',
     lead: 'Transcription, retry, translation, prettification, and provider choice—shown in the real app.',
+    placeholder: {
+      status: 'VIDEO IN PRODUCTION',
+      title: 'Full product demo coming soon.',
+      description: 'A 60 fps walkthrough of transcription, retry, translation, and Prettify will appear here.',
+    },
     videoLabel: 'Play the one-minute GPT-Voice product demonstration',
     posterAlt: 'Open the GPT-Voice demonstration video',
     summary: 'Speak · Retry · Translate · Refine',

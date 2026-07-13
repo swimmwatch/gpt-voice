@@ -2,11 +2,13 @@
 
 ## Completed
 
+- Temporary demo placeholder: replaced the unavailable media player with an accessible, responsive 16:9 placeholder. It states that the 60-fps product demo is in production and uses a static voice waveform with decorative transcription, translation, and Prettify symbols. It makes no media, caption, or transcript request and does not satisfy the final-video acceptance criteria.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
 
 - Landing root, Vite/browser configs, and Electron TypeScript/Webpack exclusions.
+- `LandingPage`, its content contract, and landing styles now contain the temporary demo placeholder and its dedicated static-rendering test.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 - CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
 - Direct-Radix navigation primitives, keyboard/focus-return tests, and an Electron Tailwind source boundary that excludes landing classes.
@@ -35,10 +37,12 @@
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
 - `npm run landing:test -- --run src/landing-page/components/HowItWorksSection.test.tsx src/landing-page/components/LandingPage.test.tsx`
 - `npm run landing:test -- --run src/landing-page/components/FaqSection.test.tsx src/landing-page/components/PageCompletionSections.test.tsx src/landing-page/components/LandingPage.test.tsx`
+- `npm run landing:test -- --run src/landing-page/components/LandingPage.test.tsx`
+- `npm run landing:build`
 
 ## Next Step
 
-- Task 9 remains blocked by the absent approved demo MP4/poster. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 17/18 interaction and responsive accessibility work that does not require media.
+- Task 9 remains blocked by the absent approved demo MP4/poster. The visible page now has a non-media placeholder while that blocker remains. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 17/18 interaction and responsive accessibility work that does not require media.
 
 ## Blockers
 

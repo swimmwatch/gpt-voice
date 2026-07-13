@@ -1,4 +1,4 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { Clapperboard, Languages, Mic, WandSparkles } from 'lucide-react';
 import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { HowItWorksSection } from './HowItWorksSection';
@@ -17,6 +17,11 @@ type LandingPageProps = {
   content: LandingContent;
   locale: LandingLocaleDefinition;
 };
+
+const demoWaveformHeights = [
+  18, 26, 16, 34, 28, 42, 36, 54, 68, 50, 76, 62, 90, 72, 100, 66, 86, 58, 78, 52, 64, 46, 60, 38, 48, 32, 44, 24, 40,
+  20, 30,
+] as const;
 
 function Shortcut({ action, keys }: { action: string; keys: readonly string[] }): React.JSX.Element {
   return (
@@ -57,48 +62,48 @@ function Hero({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
   );
 }
 
-function Demo({ content, locale }: LandingPageProps): React.JSX.Element {
+function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
   return (
-    <section aria-labelledby="demo-title" id="demo">
-      <p>{content.demo.eyebrow}</p>
-      <h2 id="demo-title">{content.demo.title}</h2>
-      <p>{content.demo.lead}</p>
+    <section
+      aria-labelledby="demo-title"
+      className="landing-section demo-section"
+      data-landing-reveal
+      data-revealed="false"
+      id="demo"
+    >
+      <div className="demo-heading">
+        <p className="landing-eyebrow">{content.demo.eyebrow}</p>
+        <h2 id="demo-title">{content.demo.title}</h2>
+        <p className="landing-lead">{content.demo.lead}</p>
+      </div>
       <AspectRatio ratio={16 / 9}>
-        <video
-          aria-label={content.demo.videoLabel}
-          controls
-          playsInline
-          poster="/gpt-voice/generated/media/demo-poster.webp"
-          preload="none"
-        >
-          <source src="/gpt-voice/generated/media/demo.mp4" type="video/mp4" />
-          <track
-            default={locale.tag === 'en'}
-            kind="captions"
-            label={content.demo.captionTrackLabel}
-            src={`/gpt-voice/generated/captions/${locale.tag}.vtt`}
-            srcLang={locale.tag}
-          />
-        </video>
-      </AspectRatio>
-      <p>{content.demo.summary}</p>
-      <p>{content.demo.supportingNote}</p>
-      <Accordion collapsible type="single">
-        <AccordionItem value="transcript">
-          <AccordionTrigger>{content.demo.transcriptControl}</AccordionTrigger>
-          <AccordionContent>
-            <ol>
-              {content.demo.transcriptCues.map((cue) => (
-                <li key={cue.id}>
-                  <p>{cue.narration}</p>
-                  <p>{cue.visualDescription}</p>
-                  <p>{cue.soundCues.join(' · ')}</p>
-                </li>
+        <div className="demo-placeholder" data-demo-placeholder="true">
+          <div aria-hidden="true" className="demo-placeholder-visual">
+            <div className="demo-placeholder-waveform">
+              {demoWaveformHeights.map((height) => (
+                <span key={height} style={{ '--wave-height': `${height}%` } as React.CSSProperties} />
               ))}
-            </ol>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+            </div>
+            <div className="demo-placeholder-actions">
+              <span>
+                <Mic />
+              </span>
+              <span>
+                <Languages />
+              </span>
+              <span>
+                <WandSparkles />
+              </span>
+            </div>
+          </div>
+          <div className="demo-placeholder-copy">
+            <Clapperboard aria-hidden="true" />
+            <p>{content.demo.placeholder.status}</p>
+            <h3>{content.demo.placeholder.title}</h3>
+            <span>{content.demo.placeholder.description}</span>
+          </div>
+        </div>
+      </AspectRatio>
     </section>
   );
 }
@@ -155,7 +160,7 @@ export function LandingPage({ content, locale }: LandingPageProps): React.JSX.El
       <SiteHeader content={content.navigation} locale={locale} />
       <main id="main-content" tabIndex={-1}>
         <Hero content={content} />
-        <Demo content={content} locale={locale} />
+        <Demo content={content} />
         <HowItWorksSection content={content.workflow} />
         <Providers content={content} />
         <FaqSection content={content.faq} />
