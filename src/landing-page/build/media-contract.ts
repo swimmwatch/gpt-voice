@@ -4,9 +4,9 @@ import path from 'node:path';
 
 import { localeRegistry } from '../content/locale-registry.js';
 
-export const LANDING_PUBLIC_MEDIA_DIRECTORY = path.join('generated', 'media');
-export const LANDING_PUBLIC_CAPTIONS_DIRECTORY = path.join('generated', 'captions');
-export const LANDING_PUBLIC_ICONS_DIRECTORY = path.join('generated', 'icons');
+export const LANDING_PUBLIC_MEDIA_DIRECTORY = 'media';
+export const LANDING_PUBLIC_CAPTIONS_DIRECTORY = 'captions';
+export const LANDING_PUBLIC_ICONS_DIRECTORY = 'icons';
 
 const STREAMING_EXTENSIONS = new Set(['.m3u8', '.m4s', '.mpd', '.ts']);
 const STREAMING_PATH_SEGMENTS = new Set(['dash', 'hls', 'segments']);
