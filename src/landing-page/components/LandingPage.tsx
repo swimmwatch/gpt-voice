@@ -1,5 +1,8 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { FaqSection } from './FaqSection';
+import { FinalCtaSection } from './FinalCtaSection';
 import { HowItWorksSection } from './HowItWorksSection';
+import { SiteFooter } from './SiteFooter';
 import * as React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AspectRatio } from './ui/aspect-ratio';
@@ -7,7 +10,6 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Kbd, KbdGroup } from './ui/kbd';
-import { Separator } from './ui/separator';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
 
 type LandingPageProps = {
@@ -159,52 +161,6 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
   );
 }
 
-function Faq({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
-  return (
-    <section aria-labelledby="faq-title" id="faq">
-      <p>{content.faq.eyebrow}</p>
-      <h2 id="faq-title">{content.faq.title}</h2>
-      <Accordion collapsible type="single">
-        {content.faq.items.map((item) => (
-          <AccordionItem key={item.id} value={item.id}>
-            <AccordionTrigger>{item.question}</AccordionTrigger>
-            <AccordionContent>{item.answer}</AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
-    </section>
-  );
-}
-
-function Footer({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
-  return (
-    <footer>
-      <Separator />
-      <h2>{content.finalCta.title}</h2>
-      <p>{content.finalCta.lead}</p>
-      <p>
-        <Button asChild>
-          <a href={content.links.latestRelease}>{content.finalCta.primaryCta}</a>
-        </Button>{' '}
-        <Button asChild variant="outline">
-          <a href={content.links.repository}>{content.finalCta.secondaryCta}</a>
-        </Button>
-      </p>
-      <p>{content.finalCta.licenseNote}</p>
-      <p>{content.footer.description}</p>
-      <nav aria-label={content.footer.brand}>
-        {content.footer.links.map((link) => (
-          <a href={content.links[link.href]} key={link.href}>
-            {link.label}
-          </a>
-        ))}
-      </nav>
-      <p>{content.footer.disclaimer}</p>
-      <p>{content.footer.copyright}</p>
-    </footer>
-  );
-}
-
 export function LandingPage({ content, locale }: LandingPageProps): React.JSX.Element {
   return (
     <>
@@ -214,9 +170,10 @@ export function LandingPage({ content, locale }: LandingPageProps): React.JSX.El
         <Demo content={content} locale={locale} />
         <HowItWorksSection content={content.workflow} />
         <Providers content={content} />
-        <Faq content={content} />
+        <FaqSection content={content.faq} />
+        <FinalCtaSection content={content.finalCta} links={content.links} />
       </main>
-      <Footer content={content} />
+      <SiteFooter content={content.footer} links={content.links} />
     </>
   );
 }

@@ -67,7 +67,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ## Phase 5: Completion and Interaction Enhancement
 
-- [ ] Task 16 (M): Deliver FAQ, final CTA, and footer. Dependencies: Tasks 6, 8, 10, 11.
+- [x] Task 16 (M): Deliver FAQ, final CTA, and footer. Dependencies: Tasks 6, 8, 10, 11.
 - [ ] Task 17 (M): Hydrate the approved interactions. Dependencies: Tasks 7, 8, 11, 13, 16.
 - [ ] Task 18 (M): Implement reveal and responsive accessibility behavior. Dependencies: Tasks 12-17.
 

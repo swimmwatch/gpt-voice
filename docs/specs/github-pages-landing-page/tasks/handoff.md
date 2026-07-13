@@ -2,7 +2,7 @@
 
 ## Completed
 
-- Tasks 1–8, 10, and 14: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the responsive semantic How it works flow.
+- Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
 
@@ -14,6 +14,7 @@
 - Landing content schema, canonical English copy, the complete eleven-locale route registry, and transcript-cue contracts. Tests compare the registry, all twelve FAQ answers, prompt-first/provider qualifications, and TXT-output requirements to the approved artifacts.
 - English static generation writes a no-JavaScript HTML route with localized metadata; it intentionally does not publish unreviewed English fallbacks for the ten non-English routes.
 - How it works is a connected, non-interactive three-step workflow with pinned Lucide geometry, keyboard proof, and an explicitly optional Retry provider-error branch. It has desktop and mobile layout checks at 1440 and 390 pixels.
+- FAQ has all twelve answers in initial HTML. Hydration adds the collapsed Accordion presentation; without JavaScript, the pre-rendered answers remain readable. The final CTA and factual footer have complete static links.
 
 ## Checks
 
@@ -30,10 +31,11 @@
 - `npm test`
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
 - `npm run landing:test -- --run src/landing-page/components/HowItWorksSection.test.tsx src/landing-page/components/LandingPage.test.tsx`
+- `npm run landing:test -- --run src/landing-page/components/FaqSection.test.tsx src/landing-page/components/PageCompletionSections.test.tsx src/landing-page/components/LandingPage.test.tsx`
 
 ## Next Step
 
-- Task 9 remains blocked by the absent approved demo MP4/poster. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 16 (FAQ, final CTA, and footer).
+- Task 9 remains blocked by the absent approved demo MP4/poster. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 17/18 interaction and responsive accessibility work that does not require media.
 
 ## Blockers
 

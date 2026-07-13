@@ -10,6 +10,8 @@ if (!rootElement) {
   throw new Error('Landing page root element is missing.');
 }
 
+document.documentElement.dataset.landingEnhanced = 'true';
+
 const application = (
   <TooltipProvider>
     <LandingPage content={englishContent} locale={getLocaleDefinition('en')} />

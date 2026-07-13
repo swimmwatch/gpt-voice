@@ -9,7 +9,7 @@ describe('LandingPage', () => {
 
     expect(markup).toContain('<header>');
     expect(markup).toContain('<main id="main-content" tabindex="-1">');
-    expect(markup).toContain('<footer>');
+    expect(markup).toContain('<footer class="site-footer">');
     expect(markup).toContain('<h1 id="hero-title">Write better AI prompts faster.</h1>');
     expect(markup).toContain('See the complete workflow.');
     expect(markup).toContain('Three steps to better prompts, faster.');
