@@ -17,6 +17,20 @@ describe('LandingPage', () => {
     expect(markup).toContain('How GPT-Voice works.');
   });
 
+  it('renders the approved hero capture as a responsive, non-interactive image', () => {
+    const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
+
+    expect(markup).toContain('class="landing-section hero-section"');
+    expect(markup).toContain('class="hero-screenshot-frame"');
+    expect(markup).toContain('type="image/avif"');
+    expect(markup).toContain('/gpt-voice/generated/media/app-main.avif');
+    expect(markup).toContain('type="image/webp"');
+    expect(markup).toContain('/gpt-voice/generated/media/app-main.webp');
+    expect(markup).toContain('/gpt-voice/generated/media/app-main.png');
+    expect(markup).toContain('height="840"');
+    expect(markup).toContain('width="920"');
+  });
+
   it('renders an accessible video placeholder until the approved demo media is available', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
@@ -32,7 +46,7 @@ describe('LandingPage', () => {
   it('keeps reveal targets visible by default in the static shell', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
-    expect(markup.match(/data-landing-reveal="true"/g)).toHaveLength(5);
-    expect(markup.match(/data-revealed="false"/g)).toHaveLength(5);
+    expect(markup.match(/data-landing-reveal="true"/g)).toHaveLength(6);
+    expect(markup.match(/data-revealed="false"/g)).toHaveLength(6);
   });
 });

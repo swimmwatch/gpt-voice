@@ -25,7 +25,7 @@ const demoWaveformHeights = [
 
 function Shortcut({ action, keys }: { action: string; keys: readonly string[] }): React.JSX.Element {
   return (
-    <span className="inline-flex items-center gap-2 text-sm">
+    <span className="hero-shortcut">
       <KbdGroup aria-label={`${action} shortcut`}>
         {keys.map((key) => (
           <Kbd key={key}>{key}</Kbd>
@@ -38,26 +38,46 @@ function Shortcut({ action, keys }: { action: string; keys: readonly string[] })
 
 function Hero({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
   return (
-    <section aria-labelledby="hero-title">
-      <Badge>{content.hero.badge}</Badge>
-      <h1 id="hero-title">{content.hero.title}</h1>
-      <p>{content.hero.lead}</p>
-      <p>
-        <Button asChild>
-          <a href={content.links.latestRelease}>{content.hero.primaryCta}</a>
-        </Button>{' '}
-        <Button asChild variant="outline">
-          <a href={content.links.repository}>{content.hero.secondaryCta}</a>
-        </Button>
-      </p>
-      <div aria-label="Keyboard shortcuts">
-        {content.hero.shortcuts.map((shortcut) => (
-          <Shortcut key={shortcut.action} {...shortcut} />
-        ))}
+    <section
+      aria-labelledby="hero-title"
+      className="landing-section hero-section"
+      data-landing-reveal
+      data-revealed="false"
+    >
+      <div className="hero-copy">
+        <Badge>{content.hero.badge}</Badge>
+        <h1 id="hero-title">{content.hero.title}</h1>
+        <p className="hero-lead">{content.hero.lead}</p>
+        <div className="hero-actions">
+          <Button asChild>
+            <a href={content.links.latestRelease}>{content.hero.primaryCta}</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={content.links.repository}>{content.hero.secondaryCta}</a>
+          </Button>
+        </div>
+        <div aria-label="Keyboard shortcuts" className="hero-shortcuts">
+          {content.hero.shortcuts.map((shortcut) => (
+            <Shortcut key={shortcut.action} {...shortcut} />
+          ))}
+        </div>
       </div>
-      <AspectRatio ratio={19 / 18}>
-        <img alt={content.hero.screenshotAlt} height="840" src="/gpt-voice/generated/media/app-main.webp" width="920" />
-      </AspectRatio>
+      <div className="hero-screenshot-frame">
+        <AspectRatio ratio={19 / 18}>
+          <picture>
+            <source srcSet="/gpt-voice/generated/media/app-main.avif" type="image/avif" />
+            <source srcSet="/gpt-voice/generated/media/app-main.webp" type="image/webp" />
+            <img
+              alt={content.hero.screenshotAlt}
+              decoding="async"
+              fetchPriority="high"
+              height="840"
+              src="/gpt-voice/generated/media/app-main.png"
+              width="920"
+            />
+          </picture>
+        </AspectRatio>
+      </div>
     </section>
   );
 }
