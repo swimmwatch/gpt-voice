@@ -2,9 +2,14 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": true,
+    "paths": {
+      "@landing/*": ["./src/landing-page/*"]
+    },
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
