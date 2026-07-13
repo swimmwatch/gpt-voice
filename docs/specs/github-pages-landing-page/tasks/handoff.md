@@ -5,6 +5,7 @@
 - Temporary demo placeholder: replaced the unavailable media player with an accessible, responsive 16:9 placeholder. It states that the 60-fps product demo is in production and uses a static voice waveform with decorative transcription, translation, and Prettify symbols. It makes no media, caption, or transcript request and does not satisfy the final-video acceptance criteria.
 - Hero asset availability: `landing:sync-shell-assets` now hash-validates the approved fresh `app-main.png` capture and generates PNG, WebP, and AVIF derivatives before landing development or build. The full `landing:sync-media` command remains blocked by, and strict about, the deferred video package.
 - Hero layout: the semantic prompt-first hero now has the specified mobile-first copy, CTA, shortcut, and approved screenshot order, then changes to a two-column desktop composition. The screenshot is a non-interactive modern source set with an explicit PNG fallback.
+- Provider signal map: the transcription section now has a static microphone and waveform input, solid current-route treatment, a separate dashed future horizon, compact fact chips, and the qualified ChatGPT Web claim. It deliberately uses no provider-brand icons and does not animate or expose cards as controls.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -13,6 +14,7 @@
 - `LandingPage`, its content contract, and landing styles now contain the temporary demo placeholder and its dedicated static-rendering test.
 - The asset sync script, landing command boundary, and media-contract test now support screenshot-only shell builds during video production.
 - `LandingPage` and its focused test now assert responsive hero media sources, image dimensions, and static reveal markup.
+- `LandingPage` now asserts the complete static provider signal-map structure, including 31 waveform bars and the absence of provider-brand assets.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 - CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
 - Direct-Radix navigation primitives, keyboard/focus-return tests, and an Electron Tailwind source boundary that excludes landing classes.
@@ -45,6 +47,7 @@
 - `npm run landing:test -- --run src/landing-page/components/LandingPage.test.tsx`
 - `npm run landing:build`
 - Local CloakBrowser smoke against `landing:dev` at 1440px and 390px; temporary captures confirmed the hero’s desktop two-column and mobile stacked compositions.
+- Local CloakBrowser smoke confirmed the provider map at 1440px and 390px; temporary captures were not retained in the repository.
 
 ## Next Step
 

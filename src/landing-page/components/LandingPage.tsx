@@ -9,9 +9,10 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AspectRatio } from './ui/aspect-ratio';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader } from './ui/card';
 import { Kbd, KbdGroup } from './ui/kbd';
-import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
+import { Separator } from './ui/separator';
+import type { LandingContent, LandingLocaleDefinition, ProviderRoute } from '../content/schema';
 
 type LandingPageProps = {
   content: LandingContent;
@@ -21,6 +22,40 @@ type LandingPageProps = {
 const demoWaveformHeights = [
   18, 26, 16, 34, 28, 42, 36, 54, 68, 50, 76, 62, 90, 72, 100, 66, 86, 58, 78, 52, 64, 46, 60, 38, 48, 32, 44, 24, 40,
   20, 30,
+] as const;
+
+const providerWaveformBars = [
+  { amplitude: 6, id: '01' },
+  { amplitude: 8, id: '02' },
+  { amplitude: 7, id: '03' },
+  { amplitude: 10, id: '04' },
+  { amplitude: 12, id: '05' },
+  { amplitude: 9, id: '06' },
+  { amplitude: 14, id: '07' },
+  { amplitude: 18, id: '08' },
+  { amplitude: 13, id: '09' },
+  { amplitude: 20, id: '10' },
+  { amplitude: 16, id: '11' },
+  { amplitude: 22, id: '12' },
+  { amplitude: 18, id: '13' },
+  { amplitude: 24, id: '14' },
+  { amplitude: 21, id: '15' },
+  { amplitude: 28, id: '16' },
+  { amplitude: 24, id: '17' },
+  { amplitude: 19, id: '18' },
+  { amplitude: 23, id: '19' },
+  { amplitude: 17, id: '20' },
+  { amplitude: 21, id: '21' },
+  { amplitude: 15, id: '22' },
+  { amplitude: 18, id: '23' },
+  { amplitude: 13, id: '24' },
+  { amplitude: 15, id: '25' },
+  { amplitude: 10, id: '26' },
+  { amplitude: 12, id: '27' },
+  { amplitude: 9, id: '28' },
+  { amplitude: 10, id: '29' },
+  { amplitude: 7, id: '30' },
+  { amplitude: 6, id: '31' },
 ] as const;
 
 function Shortcut({ action, keys }: { action: string; keys: readonly string[] }): React.JSX.Element {
@@ -128,48 +163,102 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
   );
 }
 
+function ProviderAudioInput({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
+  return (
+    <div className="provider-audio-input">
+      <div aria-hidden="true" className="provider-microphone">
+        <Mic strokeWidth={1.75} />
+      </div>
+      <div aria-hidden="true" className="provider-waveform">
+        {providerWaveformBars.map(({ amplitude, id }) => (
+          <span
+            data-provider-waveform-bar="true"
+            key={id}
+            style={{ '--provider-wave-height': `${amplitude}px` } as React.CSSProperties}
+          />
+        ))}
+      </div>
+      <div className="provider-audio-labels">
+        <strong>{content.providers.inputNode}</strong>
+        <span>{content.providers.inputDetail}</span>
+      </div>
+    </div>
+  );
+}
+
+function ProviderCard({ provider }: { provider: ProviderRoute }): React.JSX.Element {
+  return (
+    <Card className="provider-card">
+      <CardHeader className="provider-card-header">
+        <Badge>{provider.status}</Badge>
+        <h3>{provider.provider}</h3>
+      </CardHeader>
+      <CardContent className="provider-card-content">
+        <ul aria-label={`${provider.provider} requirements`} className="provider-facts">
+          {provider.facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+        {provider.claim ? <p className="provider-claim">{provider.claim}</p> : null}
+        {provider.qualification ? (
+          <>
+            <Separator />
+            <Alert className="provider-qualification" variant="warning">
+              <AlertTitle>{provider.provider}</AlertTitle>
+              <AlertDescription>{provider.qualification}</AlertDescription>
+            </Alert>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
   return (
-    <section aria-labelledby="providers-title" id="providers">
-      <p>{content.providers.eyebrow}</p>
-      <h2 id="providers-title">{content.providers.title}</h2>
-      <p>{content.providers.lead}</p>
-      <Card>
-        <CardHeader>
-          <CardTitle>{content.providers.inputNode}</CardTitle>
-        </CardHeader>
-        <CardContent>{content.providers.inputDetail}</CardContent>
-      </Card>
-      <p>{content.providers.groupDescription}</p>
-      {[content.providers.chatGptWeb, content.providers.openAiApi].map((provider) => (
-        <Card key={provider.provider}>
-          <CardHeader>
-            <CardTitle>{provider.provider}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge>{provider.status}</Badge>
-            <p>{provider.facts.join(' · ')}</p>
-            {provider.claim ? <p>{provider.claim}</p> : null}
-            {provider.qualification ? (
-              <Alert variant="warning">
-                <AlertTitle>{provider.provider}</AlertTitle>
-                <AlertDescription>{provider.qualification}</AlertDescription>
-              </Alert>
-            ) : null}
-          </CardContent>
-        </Card>
-      ))}
-      <aside aria-label={content.providers.future.blockLabel}>
-        <p>{content.providers.future.blockLabel}</p>
-        {content.providers.future.providers.map((provider) => (
-          <p key={provider.provider}>
-            {provider.provider} · {provider.status}
-          </p>
-        ))}
-        <p>{content.providers.future.longerTermCopy}</p>
-        <p>{content.providers.future.qualification}</p>
-        <p>{content.providers.future.independenceNote}</p>
-      </aside>
+    <section
+      aria-labelledby="providers-title"
+      className="landing-section provider-section"
+      data-landing-reveal
+      data-revealed="false"
+      id="providers"
+    >
+      <div className="provider-heading">
+        <p className="landing-eyebrow">{content.providers.eyebrow}</p>
+        <h2 id="providers-title">{content.providers.title}</h2>
+        <p className="landing-lead">{content.providers.lead}</p>
+        <div aria-label={content.providers.groupDescription} className="provider-legend">
+          <span>
+            <i className="provider-route-key provider-route-key-current" />
+            {content.providers.availableNow}
+          </span>
+          <span>
+            <i className="provider-route-key provider-route-key-future" />
+            {content.providers.futureRouteLegend}
+          </span>
+        </div>
+      </div>
+      <div aria-label={content.providers.groupDescription} className="provider-signal-map">
+        <ProviderAudioInput content={content} />
+        <div className="provider-routes">
+          <ProviderCard provider={content.providers.chatGptWeb} />
+          <ProviderCard provider={content.providers.openAiApi} />
+          <aside aria-label={content.providers.future.blockLabel} className="provider-future-horizon">
+            <p>{content.providers.future.blockLabel}</p>
+            <ul>
+              {content.providers.future.providers.map((provider) => (
+                <li key={provider.provider}>
+                  <strong>{provider.provider}</strong>
+                  <span>{provider.status}</span>
+                </li>
+              ))}
+            </ul>
+            <p>{content.providers.future.longerTermCopy}</p>
+            <p>{content.providers.future.qualification}</p>
+            <p>{content.providers.future.independenceNote}</p>
+          </aside>
+        </div>
+      </div>
     </section>
   );
 }
