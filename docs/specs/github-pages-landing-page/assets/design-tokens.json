@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "gpt-voice-github-pages-landing-page",
+  "version": 3,
+  "mode": "dark",
+  "source": {
+    "applicationStyles": "src/renderer/styles/globals.css",
+    "fontFamily": "Locale-specific: Ubuntu Sans, Noto Sans SC, Noto Sans JP, or Noto Sans Devanagari",
+    "notes": "Landing tokens extend the current graphite/blue desktop UI while preserving its success, warning, and destructive semantics."
+  },
+  "color": {
+    "background": "#080B0E",
+    "backgroundElevated": "#0C1014",
+    "card": "#12171C",
+    "cardForeground": "#F6F7F8",
+    "surfaceMuted": "#0F1419",
+    "surfaceRaised": "#181E24",
+    "foreground": "#F6F7F8",
+    "mutedForeground": "#A4ADB7",
+    "subtleForeground": "#737D88",
+    "border": "#2A333D",
+    "borderStrong": "#3C4854",
+    "input": "#2A333D",
+    "primary": "#2B60CB",
+    "primaryHover": "#3674E5",
+    "primaryForeground": "#FFFFFF",
+    "primarySubtle": "#172A53",
+    "secondary": "#181E24",
+    "secondaryForeground": "#F6F7F8",
+    "accent": "#182432",
+    "accentForeground": "#F6F7F8",
+    "cyan": "#43D7FF",
+    "waveformEdge": "#244E7A",
+    "waveformInner": "#2E679C",
+    "waveformCenter": "#4A91C3",
+    "magenta": "#B66BFF",
+    "success": "#5DA867",
+    "warning": "#D0A247",
+    "destructive": "#C85D5D",
+    "ring": "#4A8BFF",
+    "overlay": "rgba(0, 0, 0, 0.72)",
+    "navigation": "rgba(8, 11, 14, 0.86)"
+  },
+  "shadcnCssVariables": {
+    "--background": "#080B0E",
+    "--foreground": "#F6F7F8",
+    "--card": "#12171C",
+    "--card-foreground": "#F6F7F8",
+    "--popover": "#181E24",
+    "--popover-foreground": "#F6F7F8",
+    "--primary": "#2B60CB",
+    "--primary-foreground": "#FFFFFF",
+    "--secondary": "#181E24",
+    "--secondary-foreground": "#F6F7F8",
+    "--muted": "#0F1419",
+    "--muted-foreground": "#A4ADB7",
+    "--accent": "#182432",
+    "--accent-foreground": "#F6F7F8",
+    "--destructive": "#C85D5D",
+    "--border": "#2A333D",
+    "--input": "#2A333D",
+    "--ring": "#4A8BFF",
+    "--radius": "0.625rem"
+  },
+  "gradient": {
+    "heroBlue": "radial-gradient(circle at 78% 28%, rgba(43, 96, 203, 0.14), transparent 34%)",
+    "heroCyan": "radial-gradient(circle at 20% 22%, rgba(67, 215, 255, 0.07), transparent 30%)",
+    "heroMagenta": "radial-gradient(circle at 88% 12%, rgba(182, 107, 255, 0.07), transparent 22%)",
+    "retryAccent": "linear-gradient(90deg, #2B60CB 0%, #43D7FF 100%)",
+    "ctaSurface": "linear-gradient(145deg, rgba(43, 96, 203, 0.18), rgba(67, 215, 255, 0.06) 58%, rgba(18, 23, 28, 0.96))",
+    "voiceWaveform": "linear-gradient(90deg, rgba(36, 78, 122, 0.72) 0%, rgba(46, 103, 156, 0.82) 20%, rgba(74, 145, 195, 0.92) 50%, rgba(46, 103, 156, 0.82) 80%, rgba(36, 78, 122, 0.72) 100%)"
+  },
+  "typography": {
+    "sans": {
+      "family": "Ubuntu Sans Variable",
+      "fallback": "Ubuntu, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+      "source": "@fontsource-variable/ubuntu-sans@5.2.10",
+      "locales": ["en", "ru", "be", "uk", "es", "pt-BR", "de", "fr"]
+    },
+    "sansSimplifiedChinese": {
+      "family": "Noto Sans SC Variable",
+      "fallback": "PingFang SC, Microsoft YaHei, system-ui, sans-serif",
+      "source": "@fontsource-variable/noto-sans-sc@5.2.10",
+      "locales": ["zh-CN"]
+    },
+    "sansJapanese": {
+      "family": "Noto Sans JP Variable",
+      "fallback": "Hiragino Sans, Yu Gothic, system-ui, sans-serif",
+      "source": "@fontsource-variable/noto-sans-jp@5.2.10",
+      "locales": ["ja"]
+    },
+    "sansDevanagari": {
+      "family": "Noto Sans Devanagari Variable",
+      "fallback": "Nirmala UI, Mangal, system-ui, sans-serif",
+      "source": "@fontsource-variable/noto-sans-devanagari@5.2.8",
+      "locales": ["hi"]
+    },
+    "mono": {
+      "family": "JetBrains Mono Variable",
+      "fallback": "SFMono-Regular, Consolas, Liberation Mono, monospace",
+      "source": "@fontsource-variable/jetbrains-mono@5.2.8"
+    },
+    "scale": {
+      "displayDesktop": { "fontSizePx": 72, "lineHeightPx": 76, "fontWeight": 760, "letterSpacingEm": -0.035 },
+      "displayMobile": { "fontSizePx": 44, "lineHeightPx": 48, "fontWeight": 760, "letterSpacingEm": -0.035 },
+      "headingDesktop": { "fontSizePx": 48, "lineHeightPx": 56, "fontWeight": 720, "letterSpacingEm": -0.025 },
+      "headingMobile": { "fontSizePx": 34, "lineHeightPx": 40, "fontWeight": 720, "letterSpacingEm": -0.025 },
+      "cardTitle": { "fontSizePx": 24, "lineHeightPx": 30, "fontWeight": 680, "letterSpacingEm": -0.01 },
+      "leadDesktop": { "fontSizePx": 20, "lineHeightPx": 31, "fontWeight": 430, "letterSpacingEm": 0 },
+      "leadMobile": { "fontSizePx": 18, "lineHeightPx": 28, "fontWeight": 430, "letterSpacingEm": 0 },
+      "body": { "fontSizePx": 16, "lineHeightPx": 26, "fontWeight": 430, "letterSpacingEm": 0 },
+      "small": { "fontSizePx": 14, "lineHeightPx": 21, "fontWeight": 500, "letterSpacingEm": 0 },
+      "eyebrow": { "fontSizePx": 12, "lineHeightPx": 16, "fontWeight": 720, "letterSpacingEm": 0.12 }
+    }
+  },
+  "spacingPx": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "8": 32,
+    "10": 40,
+    "12": 48,
+    "16": 64,
+    "18": 72,
+    "20": 80,
+    "24": 96,
+    "30": 120
+  },
+  "radiusPx": {
+    "control": 10,
+    "card": 18,
+    "media": 24,
+    "pill": 999
+  },
+  "borderPx": {
+    "default": 1,
+    "focus": 2,
+    "featureAccent": 2
+  },
+  "shadow": {
+    "card": "0 20px 80px rgba(0, 0, 0, 0.22)",
+    "media": "0 40px 120px rgba(0, 0, 0, 0.38)",
+    "focus": "0 0 0 2px #080B0E, 0 0 0 4px #4A8BFF",
+    "voiceWaveformGlow": "0 0 3.2px rgba(74, 145, 195, 0.24)"
+  },
+  "motion": {
+    "fastMs": 120,
+    "standardMs": 180,
+    "revealMs": 480,
+    "staggerMs": 70,
+    "revealOffsetPx": 12,
+    "easing": "cubic-bezier(.22, 1, .36, 1)",
+    "reducedMotion": "No reveal transforms, no smooth scrolling, no stagger, and zero-duration non-essential transitions."
+  },
+  "media": {
+    "videoAspectRatio": "16 / 9",
+    "screenshotFrameBorderPx": 1,
+    "screenshotFramePaddingPx": 10,
+    "desktopScreenshotRadiusPx": 18,
+    "mobileScreenshotRadiusPx": 14
+  },
+  "icons": {
+    "providerBrandSource": "@lobehub/icons-static-svg@1.91.0",
+    "providerCurrentDesktopPx": 36,
+    "providerCurrentMobilePx": 28,
+    "providerFutureDesktopPx": 28,
+    "providerFutureMobilePx": 20,
+    "providerColor": "#F6F7F8",
+    "providerCssFilter": "brightness(0) invert(1)",
+    "providerRendering": "External same-origin SVG image with empty alt because the adjacent visible provider name supplies identity; monochrome geometry is recolored to foreground without changing paths.",
+    "interfaceSource": "lucide-react@1.24.0",
+    "interfaceAccentColor": "#43D7FF"
+  },
+  "accessibility": {
+    "minimumTouchTargetPx": 44,
+    "focusOutlinePx": 2,
+    "focusOffsetPx": 2,
+    "normalTextContrast": 4.5,
+    "largeTextContrast": 3,
+    "componentBoundaryContrast": 3
+  }
+}

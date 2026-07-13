@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "source": {
+    "package": "@lobehub/icons-static-svg",
+    "version": "1.91.0",
+    "repository": "https://github.com/lobehub/lobe-icons",
+    "license": "MIT"
+  },
+  "usage": "Monochrome provider marks for the provider signal-flow infographic. Labels and status text remain visible beside every icon.",
+  "files": [
+    {
+      "path": "openai.svg",
+      "export": "openai.svg",
+      "sha256": "802335af1ddb4e135468f689aabe7ac7798a3177c1b71bbd4549fc602e9264ed"
+    },
+    {
+      "path": "claude.svg",
+      "export": "claude.svg",
+      "sha256": "b8539c535a7804d0403bcecb6e6281fcbe4b56dd97b2e2d51a9ef53827f33c04"
+    },
+    {
+      "path": "gemini.svg",
+      "export": "gemini.svg",
+      "sha256": "52a86e42683eea66c3cfeae733306220764bded0f229b51b889b98a8c8eaf911"
+    }
+  ]
+}

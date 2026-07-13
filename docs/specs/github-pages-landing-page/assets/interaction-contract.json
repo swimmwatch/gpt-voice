@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 6,
+  "motion": {
+    "standardReveal": {
+      "from": { "opacity": 0, "translateY": 12 },
+      "to": { "opacity": 1, "translateY": 0 },
+      "durationMs": 480,
+      "easing": "cubic-bezier(.22,1,.36,1)",
+      "intersectionRatio": 0.15,
+      "rootMargin": "0px 0px -10% 0px",
+      "once": true
+    },
+    "stagger": { "stepMs": 70, "maximumItems": 4, "maximumDelayMs": 210 },
+    "colorTransitionMs": 180,
+    "panelTransitionMs": 200,
+    "menuTransitionMs": 120,
+    "reducedMotion": {
+      "mediaQuery": "(prefers-reduced-motion: reduce)",
+      "durationMs": 0,
+      "disableTransforms": true,
+      "disableStagger": true,
+      "disableSmoothScroll": true,
+      "contentVisibleImmediately": true
+    }
+  },
+  "pointerRules": {
+    "hoverMediaQuery": "(hover: hover) and (pointer: fine)",
+    "minimumTargetCssPixels": 44,
+    "staticElementsUsePointerCursor": false,
+    "focusVisibleIndependentOfHover": true
+  },
+  "elements": [
+    {
+      "id": "skip-link",
+      "semantic": "anchor",
+      "clickable": true,
+      "action": "focus-main-and-update-fragment",
+      "hover": "none",
+      "focus": "appears above sticky header without motion",
+      "scrollMotion": "none"
+    },
+    {
+      "id": "brand-link",
+      "semantic": "anchor",
+      "clickable": true,
+      "action": "navigate-to-active-locale-root",
+      "hover": "foreground to primaryHover over 180ms; no movement",
+      "focus": "immediate 2px focus-visible ring",
+      "scrollMotion": "none"
+    },
+    {
+      "id": "desktop-navigation-links",
+      "semantic": "anchors",
+      "clickable": true,
+      "action": "navigate-to-section-fragment",
+      "hover": "text color plus underline scale 0 to 1 over 180ms; no movement",
+      "focus": "immediate focus-visible ring",
+      "scrollMotion": "native smooth scroll unless reduced motion"
+    },
+    {
+      "id": "mobile-menu-trigger",
+      "semantic": "button",
+      "clickable": true,
+      "action": "toggle-right-sheet",
+      "hover": "background and border color over 180ms",
+      "focus": "immediate focus-visible ring",
+      "openMotion": "overlay opacity 0 to 1 over 180ms; sheet translateX 100% to 0 over 220ms cubic-bezier(.2,0,0,1)"
+    },
+    {
+      "id": "language-selector",
+      "semantic": "DropdownMenu trigger plus locale anchors",
+      "clickable": true,
+      "action": "open-menu-or-navigate-to-localized-route",
+      "hover": "trigger color over 180ms; option background over 120ms",
+      "focus": "Radix roving focus; Escape restores trigger focus",
+      "openMotion": "opacity 0 to 1 and scale .98 to 1 over 120ms from trigger-side origin",
+      "activeState": "visible checkmark, selected background, aria-current=page"
+    },
+    {
+      "id": "cta-links",
+      "semantic": "anchors styled with Button",
+      "clickable": true,
+      "action": "navigate-to-GitHub-release-or-repository",
+      "hover": "color, border, shadow, and translateY 0 to -2px over 180ms",
+      "active": "translateY returns to 0",
+      "focus": "immediate ring with no movement",
+      "scrollMotion": "parent group standard reveal once"
+    },
+    {
+      "id": "hero-screenshot",
+      "semantic": "image",
+      "clickable": false,
+      "action": "none",
+      "hover": "none; no zoom, tilt, lightbox, tooltip, or pointer cursor",
+      "focus": "not focusable",
+      "scrollMotion": "frame standard reveal once"
+    },
+    {
+      "id": "hotkey-chips-and-badges",
+      "semantic": "static text",
+      "clickable": false,
+      "action": "none",
+      "hover": "none except Tooltip where visible text is insufficient",
+      "focus": "only a real tooltip trigger may receive focus",
+      "scrollMotion": "included with parent; no individual stagger"
+    },
+    {
+      "id": "video-player",
+      "semantic": "native video enhanced by Plyr",
+      "clickable": true,
+      "action": "standard play, pause, seek, volume, captions, speed, PiP, and fullscreen controls",
+      "hover": "large play color and scale 1 to 1.04 over 160ms; standard timeline tooltip",
+      "focus": "immediate visible rings on every control",
+      "scrollMotion": "frame standard reveal once; Plyr loads within 600px of viewport",
+      "fallback": "native controls remain when JavaScript or Plyr fails"
+    },
+    {
+      "id": "transcript-accordion",
+      "semantic": "Accordion trigger and panel",
+      "clickable": true,
+      "action": "toggle-transcript",
+      "hover": "trigger color over 180ms; chevron rotation 0 to 180deg over 180ms",
+      "focus": "immediate focus-visible ring",
+      "openMotion": "grid-row/height plus opacity over 200ms cubic-bezier(.2,0,0,1); no spring"
+    },
+    {
+      "id": "workflow-path",
+      "semantic": "static ordered three-step process with a decorative solid connector and a dashed optional Retry branch used only after a voice provider error",
+      "clickable": false,
+      "action": "none",
+      "hover": "none; no pointer cursor, lift, tooltip, or independent icon glow",
+      "focus": "not focusable",
+      "scrollMotion": "heading and complete path reveal as two major groups; primary steps and the optional branch do not stagger"
+    },
+    {
+      "id": "provider-signal-map",
+      "semantic": "static figure containing voice input, two available-provider articles, and a separate future-horizon group",
+      "clickable": false,
+      "action": "none",
+      "hover": "none; no pointer cursor, lift, glow, tooltip, or route animation; every status and qualification remains visible",
+      "focus": "not focusable",
+      "scrollMotion": "the complete map reveals once as one major group; provider nodes, icons, chips, connectors, and future horizon never stagger or animate independently",
+      "reducedMotion": "renders immediately with the same solid-current and dashed-future line styles"
+    },
+    {
+      "id": "faq-accordion",
+      "semantic": "twelve Accordion triggers and panels",
+      "clickable": true,
+      "action": "toggle-one-answer",
+      "hover": "trigger color over 180ms; chevron rotation 0 to 180deg over 180ms",
+      "focus": "immediate focus-visible ring",
+      "openMotion": "grid-row/height plus opacity over 200ms cubic-bezier(.2,0,0,1); normal document reflow"
+    },
+    {
+      "id": "footer-links",
+      "semantic": "anchors",
+      "clickable": true,
+      "action": "navigate-to-GitHub-destinations",
+      "hover": "text color and underline over 180ms; no movement",
+      "focus": "immediate focus-visible ring",
+      "scrollMotion": "footer standard reveal as one group"
+    }
+  ],
+  "prohibited": [
+    "parallax",
+    "scroll-jacking",
+    "scroll-snap",
+    "cursor-follow effects",
+    "continuous glow animation",
+    "infinite marquee",
+    "autoplay",
+    "hover-only information",
+    "motion on static cards that implies clickability",
+    "content hidden when enhancement fails"
+  ]
+}
