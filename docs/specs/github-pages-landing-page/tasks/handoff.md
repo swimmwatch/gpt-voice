@@ -42,4 +42,7 @@
 
 ## Blockers
 
-- Final demo MP4/poster are still absent; media-dependent Tasks 9, 13, 23, and 27 remain blocked.
+- `docs/specs/github-pages-landing-page/assets/demo/` is absent. `npm run landing:sync-media` therefore fails on the first required input: `assets/demo/demo.mp4`. The approved 60-fps MP4, poster, eleven WebVTT files, and eleven transcript TXT files are required before Tasks 9, 12, 13, 15, 23, and 27 can complete.
+- Only `src/landing-page/content/locales/en.ts` exists. The ten non-English complete dictionaries and their recorded proficient-speaker approvals are required before Tasks 11 and 19–24 can complete. English must not be copied as a production fallback.
+- Tasks 17, 18, and 25 have committed foundations but remain incomplete until the media, all locale outputs, and the remaining page sections are available for the full interaction, accessibility, browser, and size gates.
+- No push, GitHub Pages deployment, or production verification is authorized. Task 32 remains authorization-gated after all local acceptance gates are satisfied.
