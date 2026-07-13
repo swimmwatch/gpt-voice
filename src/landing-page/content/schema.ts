@@ -78,6 +78,7 @@ export interface LandingContent {
     title: string;
     transcriptControl: string;
     transcriptCues: readonly VideoTranscriptCue[];
+    transcriptRequirement: string;
     videoLabel: string;
   };
   workflow: {
@@ -94,6 +95,8 @@ export interface LandingContent {
     chatGptWeb: ProviderRoute;
     eyebrow: string;
     future: FutureProviders;
+    futureRouteLegend: string;
+    groupDescription: string;
     inputDetail: string;
     inputNode: string;
     lead: string;
@@ -110,6 +113,7 @@ export interface LandingContent {
     primaryCta: string;
     secondaryCta: string;
     title: string;
+    licenseNote: string;
   };
   footer: {
     brand: string;
@@ -117,7 +121,6 @@ export interface LandingContent {
     description: string;
     disclaimer: string;
     links: readonly FooterLink[];
-    licenseNote: string;
   };
   links: LandingLinks;
 }

@@ -39,7 +39,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ## Phase 3: Typed Content and Static Shell
 
-- [ ] Task 10 (M): Define the English content and locale contracts. Dependencies: Tasks 1, 5.
+- [x] Task 10 (M): Define the English content and locale contracts. Dependencies: Tasks 1, 5.
 
 ### Checkpoint D1
 

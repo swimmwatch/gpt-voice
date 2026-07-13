@@ -234,13 +234,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] Schema covers visible copy, controls, metadata, twelve FAQs, provider status, and cue IDs; English preserves all qualifications without version text.
-- [ ] Registry exactly matches eleven tags, slugs, native names, canonicals, and font groups.
+- [x] Schema covers visible copy, controls, metadata, twelve FAQs, provider status, and cue IDs; English preserves all qualifications without version text.
+- [x] Registry exactly matches eleven tags, slugs, native names, canonicals, and font groups.
 
 **Verification:**
 
-- [ ] Run focused content tests and landing typecheck.
-- [ ] Compare ordered IDs/copy with the outline, localization matrix, and TXT contract.
+- [x] Run focused content tests and landing typecheck.
+- [x] Compare ordered IDs/copy with the outline, localization matrix, and TXT contract.
 
 **Dependencies:** Tasks 1, 5.  
 **Likely files:** content schema, registry, shared content, video transcripts, `locales/en.ts`.  
