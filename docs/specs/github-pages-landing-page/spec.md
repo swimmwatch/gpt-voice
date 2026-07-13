@@ -616,7 +616,7 @@ Versions below are the researched specification baseline. The repository lockfil
 | npm                                   | 11.x     | package manager and exact lockfile installation                                       |
 | React / React DOM                     | 19.2.7   | typed components, server rendering, and interaction hydration                         |
 | Vite                                  | 8.1.4    | development server, asset graph, code splitting, and static production build          |
-| TypeScript                            | 7.0.2    | strict content, locale, component, and JSON-LD contracts                              |
+| TypeScript                            | 6.0.3    | strict content, locale, component, and JSON-LD contracts                              |
 | Tailwind CSS / `@tailwindcss/vite`    | 4.3.2    | semantic tokens, responsive layout, and utility styling                               |
 | shadcn CLI                            | 4.13.0   | repository-owned accessible component source                                          |
 | Lucide React                          | 1.24.0   | tree-shaken interface icons aligned with the desktop app                              |
@@ -643,6 +643,8 @@ Versions below are the researched specification baseline. The repository lockfil
 | schema-dts                            | 2.0.0    | type-safe localized JSON-LD graphs                                                    |
 
 No runtime i18n framework is used: eleven compile-time dictionaries are smaller and more deterministic for one localized page architecture. No animation library, router, state manager, analytics SDK, HLS/DASH library, service worker, or remote font/player CDN is permitted.
+
+TypeScript compatibility decision (2026-07-13): the initially researched `7.0.2` baseline cannot be used with the repository's `typescript-eslint@8.62.1`; its current published `8.64.0` peer range is still `>=4.8.4 <6.1.0`. The landing page therefore pins the repository-compatible `6.0.3` release. Upgrade only after the root lint stack supports TypeScript 7 and a dependency review verifies Electron and landing checks.
 
 CloakBrowser MCP is a required development and handoff verification tool, not a production dependency, browser runtime, analytics service, or replacement for automated tests. It is used against the local production preview and deployed Pages URL as described in the Testing Strategy.
 
@@ -802,7 +804,7 @@ Create the landing-page source boundary inside the existing package during imple
 
 ```bash
 npm install --save-exact react@19.2.7 react-dom@19.2.7 lucide-react@1.24.0 plyr@3.8.4 core-js@3.49.0 @fontsource-variable/ubuntu-sans@5.2.10 @fontsource-variable/noto-sans-sc@5.2.10 @fontsource-variable/noto-sans-jp@5.2.10 @fontsource-variable/noto-sans-devanagari@5.2.8 @fontsource-variable/jetbrains-mono@5.2.8
-npm install --save-dev --save-exact vite@8.1.4 @vitejs/plugin-react@6.0.3 typescript@7.0.2 tailwindcss@4.3.2 @tailwindcss/vite@4.3.2 @vitejs/plugin-legacy@8.2.0 terser@5.49.0 lightningcss@1.32.0 html-minifier-terser@7.2.0 sharp@0.35.3 subset-font@2.5.0 vitest@4.1.10 @testing-library/react@16.3.2 @testing-library/user-event@14.6.1 jsdom@29.1.1 axe-core@4.12.1 @playwright/test@1.61.1 lighthouse@13.4.0 html-validate@11.5.6 schema-dts@2.0.0
+npm install --save-dev --save-exact vite@8.1.4 @vitejs/plugin-react@6.0.3 typescript@6.0.3 tailwindcss@4.3.2 @tailwindcss/vite@4.3.2 @vitejs/plugin-legacy@8.2.0 terser@5.49.0 lightningcss@1.32.0 html-minifier-terser@7.2.0 sharp@0.35.3 subset-font@2.5.0 vitest@4.1.10 @testing-library/react@16.3.2 @testing-library/user-event@14.6.1 jsdom@29.1.1 axe-core@4.12.1 @playwright/test@1.61.1 lighthouse@13.4.0 html-validate@11.5.6 schema-dts@2.0.0
 ```
 
 Initialize and add the complete selected shadcn set:

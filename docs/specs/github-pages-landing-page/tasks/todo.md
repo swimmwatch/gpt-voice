@@ -15,7 +15,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ## Phase 1: Isolated Frontend Foundation
 
-- [ ] Task 3 (M): Add the landing dependency and command boundary. Dependencies: Task 2.
+- [x] Task 3 (M): Add the landing dependency and command boundary. Dependencies: Task 2.
 - [ ] Task 4 (M): Configure Vite and strict TypeScript isolation. Dependencies: Task 3.
 - [ ] Task 5 (M): Establish landing tokens and shadcn ownership. Dependencies: Task 4.
 

@@ -17,6 +17,7 @@ pnpm-debug.log*
 dist/
 out/
 build/generated/
+build/github-pages/
 release/
 release-artifacts/
 *.asar
@@ -98,4 +99,5 @@ tmp/
 temp/
 
 .artifacts
+src/landing-page/public/generated/
 .tokensave
