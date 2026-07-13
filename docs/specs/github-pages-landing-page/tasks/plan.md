@@ -66,27 +66,27 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 **Likely files:** `spec.md`, `assets/content-outline.md`, `assets/capture-manifest.json`, both landing SVGs.  
 **Estimate:** M.
 
-### Task 2: Resolve media accessibility and delivery gates
+### Task 2: Resolve the landing media accessibility boundary
 
-**Description:** Reconcile the landing WebVTT requirement with the video specification’s no-caption-file rule and require final approved media inputs.
+**Description:** Keep video production out of scope, authorize external WebVTT only as landing-page accessibility resources, and record final MP4/poster delivery as a hard gate for media-dependent landing tasks.
 
 **Acceptance criteria:**
 
-- [ ] Both specifications clearly distinguish prohibited burned-in/embedded subtitles from any approved external accessibility track, or record an approved alternative.
-- [ ] Final MP4/poster exist before Task 9 and preserve 60 fps, `faststart`, H.264/AAC, no subtitle stream, no autoplay, and no HLS/DASH.
+- [ ] The landing specification clearly distinguishes Pages-only WebVTT sidecars from prohibited burned-in/embedded subtitles and leaves the Remotion/README/LinkedIn deliverables untouched.
+- [ ] Missing final MP4/poster are recorded as blockers for Tasks 9, 13, 23, and 27; when supplied, they must preserve 60 fps, `faststart`, H.264/AAC, no subtitle stream, no autoplay, and no HLS/DASH.
 
 **Verification:**
 
-- [ ] Run the specification’s two `ffprobe` commands and inspect the narration/action cue source.
-- [ ] Record the human media/caption decision in both specifications.
+- [ ] Confirm the landing-only exception and unchanged source-video boundary in `spec.md`.
+- [ ] Confirm `assets/demo/` is absent or, when later supplied, run the specification’s two `ffprobe` commands before Task 9.
 
 **Dependencies:** Task 1.  
-**Likely files:** landing `spec.md`, video `spec.md`, `assets/demo/gpt-voice-demo.mp4`, `assets/demo/gpt-voice-demo-poster.png`.  
-**Estimate:** M.
+**Likely files:** landing `spec.md`, `tasks/todo.md`.
+**Estimate:** S.
 
 ### Checkpoint A: Tasks 1-2
 
-- [ ] All landing artifacts and media rules are consistent and human-approved before frontend work.
+- [ ] All landing artifacts and media rules are consistent and human-approved; absent final media remains a visible Task 9 gate.
 
 ## Phase 1: Isolated Frontend Foundation
 

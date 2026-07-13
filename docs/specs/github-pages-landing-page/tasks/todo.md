@@ -5,13 +5,13 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 ## Phase 0: Contract Gates
 
 - [x] Task 1 (M): Reconcile the visible-page artifact contract. Dependencies: none.
-- [ ] Task 2 (M): Resolve media accessibility and delivery gates. Dependencies: Task 1.
+- [x] Task 2 (S): Resolve the landing media accessibility boundary. Dependencies: Task 1.
 
 ### Checkpoint A
 
-- [ ] Landing artifacts agree on the visible information architecture.
-- [ ] Media files and caption/transcript policy are approved.
-- [ ] Human approval is recorded to begin implementation.
+- [x] Landing artifacts agree on the visible information architecture.
+- [x] Landing-only caption/transcript policy is approved; absent final media remains a Task 9 blocker.
+- [x] Human approval is recorded to begin landing-only implementation.
 
 ## Phase 1: Isolated Frontend Foundation
 
