@@ -9,6 +9,10 @@ import { englishContent, getLocaleDefinition, localeRegistry } from '../content'
 
 afterEach(cleanup);
 
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+});
+
 beforeAll(() => {
   vi.stubGlobal(
     'ResizeObserver',
@@ -53,5 +57,24 @@ describe('SiteHeader', () => {
 
     await user.click(within(dialog).getByRole('link', { name: 'FAQ' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('keeps a native mobile navigation fallback and preserves section fragments in locale routes', async () => {
+    window.history.replaceState({}, '', '/gpt-voice/#faq');
+    const user = userEvent.setup();
+    const { container } = render(<SiteHeader content={englishContent.navigation} locale={getLocaleDefinition('en')} />);
+
+    const fallback = container.querySelector('.mobile-navigation-no-js');
+    expect(fallback?.tagName).toBe('DETAILS');
+    expect(
+      within(fallback as HTMLElement)
+        .getByRole('link', { name: 'FAQ' })
+        .getAttribute('href'),
+    ).toBe('#faq');
+
+    await user.click(screen.getByRole('button', { name: 'Language' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitem', { name: 'Русский' }).getAttribute('href')).toBe('/gpt-voice/ru/#faq');
+    });
   });
 });

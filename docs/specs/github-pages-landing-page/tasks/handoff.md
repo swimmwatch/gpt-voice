@@ -6,6 +6,7 @@
 - Hero asset availability: `landing:sync-shell-assets` now hash-validates the approved fresh `app-main.png` capture and generates PNG, WebP, and AVIF derivatives before landing development or build. The full `landing:sync-media` command remains blocked by, and strict about, the deferred video package.
 - Hero layout: the semantic prompt-first hero now has the specified mobile-first copy, CTA, shortcut, and approved screenshot order, then changes to a two-column desktop composition. The screenshot is a non-interactive modern source set with an explicit PNG fallback.
 - Provider signal map: the transcription section now has a static microphone and waveform input, solid current-route treatment, a separate dashed future horizon, compact fact chips, and the qualified ChatGPT Web claim. It deliberately uses no provider-brand icons and does not animate or expose cards as controls.
+- Interaction continuity: locale destinations retain the active fragment after hydration, while a native `details` navigation fallback keeps mobile section links usable without JavaScript. The fallback is removed only after the Radix sheet hydrates.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -48,6 +49,9 @@
 - `npm run landing:build`
 - Local CloakBrowser smoke against `landing:dev` at 1440px and 390px; temporary captures confirmed the hero’s desktop two-column and mobile stacked compositions.
 - Local CloakBrowser smoke confirmed the provider map at 1440px and 390px; temporary captures were not retained in the repository.
+- `npm run landing:test -- --run src/landing-page/components/SiteHeader.test.tsx`
+- `npm run landing:typecheck`
+- Local CloakBrowser interaction smoke at 390px verified the hydrated sheet, hidden native fallback, and preserved locale `#faq` fragment; the temporary capture was not retained in the repository.
 
 ## Next Step
 

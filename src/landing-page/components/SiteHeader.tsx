@@ -20,7 +20,27 @@ const navigationItems = (content: LandingContent['navigation']) => [
   { href: '#faq', label: content.faq },
 ];
 
+function subscribeToHash(listener: () => void): () => void {
+  window.addEventListener('hashchange', listener);
+  window.addEventListener('popstate', listener);
+
+  return () => {
+    window.removeEventListener('hashchange', listener);
+    window.removeEventListener('popstate', listener);
+  };
+}
+
+function getCurrentHash(): string {
+  return window.location.hash;
+}
+
+function useCurrentHash(): string {
+  return React.useSyncExternalStore(subscribeToHash, getCurrentHash, () => '');
+}
+
 function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element {
+  const currentHash = useCurrentHash();
+
   return (
     <>
       <DropdownMenu>
@@ -35,7 +55,7 @@ function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element {
             <DropdownMenuItem asChild key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
-                href={candidate.route}
+                href={`${candidate.route}${currentHash}`}
                 hrefLang={candidate.tag}
               >
                 <span>{candidate.nativeLabel}</span>
@@ -93,6 +113,16 @@ function MobileNavigation({ content }: Pick<SiteHeaderProps, 'content'>): React.
           ))}
         </nav>
       </SheetContent>
+      <details className="mobile-navigation-no-js">
+        <summary>{content.mobileMenu}</summary>
+        <nav aria-label={content.mobileMenu}>
+          {navigationItems(content).map((item) => (
+            <a href={item.href} key={item.href}>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </details>
     </Sheet>
   );
 }
