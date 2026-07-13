@@ -9,7 +9,7 @@ describe('LandingPage', () => {
 
     expect(markup).toContain('<header class="site-header">');
     expect(markup).toContain('<main id="main-content" tabindex="-1">');
-    expect(markup).toContain('<footer class="site-footer">');
+    expect(markup).toContain('<footer class="site-footer"');
     expect(markup).toContain('<h1 id="hero-title">Write better AI prompts faster.</h1>');
     expect(markup).toContain('See the complete workflow.');
     expect(markup).toContain('Three steps to better prompts, faster.');
@@ -26,5 +26,12 @@ describe('LandingPage', () => {
     expect(markup).toContain('Writing prompts for AI agents and assistants is work.');
     expect(markup).toContain('GPT-Voice does not bypass quotas.');
     expect(markup).toContain('No compatibility or timing is promised.');
+  });
+
+  it('keeps reveal targets visible by default in the static shell', () => {
+    const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
+
+    expect(markup.match(/data-landing-reveal="true"/g)).toHaveLength(4);
+    expect(markup.match(/data-revealed="false"/g)).toHaveLength(4);
   });
 });

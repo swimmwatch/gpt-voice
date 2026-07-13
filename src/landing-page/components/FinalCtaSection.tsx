@@ -10,7 +10,12 @@ type FinalCtaSectionProps = {
 
 export function FinalCtaSection({ content, links }: FinalCtaSectionProps): React.JSX.Element {
   return (
-    <section className="landing-section final-cta-section" aria-labelledby="final-cta-title">
+    <section
+      className="landing-section final-cta-section"
+      aria-labelledby="final-cta-title"
+      data-landing-reveal
+      data-revealed="false"
+    >
       <div className="final-cta-surface">
         <h2 id="final-cta-title">{content.title}</h2>
         <p className="landing-lead">{content.lead}</p>

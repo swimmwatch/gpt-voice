@@ -9,7 +9,13 @@ type FaqSectionProps = {
 
 export function FaqSection({ content }: FaqSectionProps): React.JSX.Element {
   return (
-    <section className="landing-section faq-section" aria-labelledby="faq-title" id="faq">
+    <section
+      className="landing-section faq-section"
+      aria-labelledby="faq-title"
+      data-landing-reveal
+      data-revealed="false"
+      id="faq"
+    >
       <header className="faq-heading">
         <p className="landing-eyebrow">{content.eyebrow}</p>
         <h2 id="faq-title">{content.title}</h2>

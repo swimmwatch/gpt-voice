@@ -73,7 +73,13 @@ function RetryBranch({ retry }: Pick<HowItWorksSectionProps['content'], 'retry'>
 
 export function HowItWorksSection({ content }: HowItWorksSectionProps): React.JSX.Element {
   return (
-    <section className="landing-section workflow-section" aria-labelledby="how-it-works-title" id="how-it-works">
+    <section
+      className="landing-section workflow-section"
+      aria-labelledby="how-it-works-title"
+      data-landing-reveal
+      data-revealed="false"
+      id="how-it-works"
+    >
       <div className="workflow-heading">
         <p className="landing-eyebrow">{content.eyebrow}</p>
         <h2 id="how-it-works-title">{content.title}</h2>

@@ -10,7 +10,7 @@ type SiteFooterProps = {
 
 export function SiteFooter({ content, links }: SiteFooterProps): React.JSX.Element {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer" data-landing-reveal data-revealed="false">
       <div className="site-footer-inner">
         <Separator />
         <div className="site-footer-content">
