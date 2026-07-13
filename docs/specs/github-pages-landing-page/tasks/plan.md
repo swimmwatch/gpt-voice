@@ -192,13 +192,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] Disclosures retain pre-rendered content and keyboard semantics; Skeleton stays decorative and never replaces fallback content.
-- [ ] Component inventory exactly matches `component-map.json`, with no omission or extra.
+- [x] Disclosures retain pre-rendered content and keyboard semantics; Skeleton stays decorative and never replaces fallback content.
+- [x] Component inventory exactly matches `component-map.json`, with no omission or extra.
 
 **Verification:**
 
-- [ ] Run landing typecheck/lint and disclosure/no-JavaScript tests.
-- [ ] Run the component-map inventory assertion.
+- [x] Run landing typecheck/lint and disclosure/no-JavaScript tests.
+- [x] Run the component-map inventory assertion.
 
 **Dependencies:** Task 5.  
 **Likely files:** five corresponding files under `components/ui/`.  
@@ -206,7 +206,7 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 ### Checkpoint C: Tasks 6-8
 
-- [ ] The exact accessible shadcn inventory is installed with no Electron renderer imports.
+- [x] The exact accessible shadcn inventory is installed with no Electron renderer imports.
 
 ### Task 9: Build the manifest-driven public asset pipeline
 

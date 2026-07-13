@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@landing/components/ui/dropdown-menu';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@landing/components/ui/accordion';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -21,6 +22,29 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 afterEach(cleanup);
 
 describe('landing navigation primitives', () => {
+  it('opens and closes an accordion with pointer and keyboard input', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <Accordion collapsible type="single">
+        <AccordionItem value="faq-1">
+          <AccordionTrigger>How does transcription work?</AccordionTrigger>
+          <AccordionContent>Record speech and send it to the selected provider.</AccordionContent>
+        </AccordionItem>
+      </Accordion>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'How does transcription work?' });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByText('Record speech and send it to the selected provider.')).toBeTruthy();
+
+    await user.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    await user.keyboard('{Enter}');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('keeps locale options as real links and returns focus after Escape', async () => {
     const user = userEvent.setup();
 

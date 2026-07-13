@@ -28,12 +28,12 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 - [x] Task 6 (M): Add shadcn action and surface primitives. Dependencies: Task 5.
 - [x] Task 7 (M): Add shadcn navigation primitives. Dependencies: Task 5.
-- [ ] Task 8 (M): Add shadcn disclosure and media primitives. Dependencies: Task 5.
+- [x] Task 8 (M): Add shadcn disclosure and media primitives. Dependencies: Task 5.
 
 ### Checkpoint C
 
-- [ ] The exact selected component inventory is installed and accessible.
-- [ ] No Electron renderer import or unapproved component exists.
+- [x] The exact selected component inventory is installed and accessible.
+- [x] No Electron renderer import or unapproved component exists.
 
 - [ ] Task 9 (M): Build the manifest-driven public asset pipeline. Dependencies: Tasks 2, 3, 8.
 
