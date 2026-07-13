@@ -6,6 +6,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const isProd = process.env.NODE_ENV === 'production';
 const mode = isProd ? 'production' : 'development';
 const styleLoader = isProd ? MiniCssExtractPlugin.loader : 'style-loader';
+const sourceExclude = /node_modules|src[\\/]landing-page/;
 const aliases = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
@@ -27,7 +28,7 @@ module.exports = [
         {
           test: /\.ts$/,
           use: 'ts-loader',
-          exclude: /node_modules/,
+          exclude: sourceExclude,
         },
       ],
     },
@@ -57,7 +58,7 @@ module.exports = [
         {
           test: /\.ts$/,
           use: 'ts-loader',
-          exclude: /node_modules/,
+          exclude: sourceExclude,
         },
       ],
     },
@@ -91,7 +92,7 @@ module.exports = [
               configFile: path.resolve(__dirname, 'tsconfig.renderer.json'),
             },
           },
-          exclude: /node_modules/,
+          exclude: sourceExclude,
         },
         {
           test: /\.css$/,

@@ -114,13 +114,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] Vite roots at `src/landing-page/`, uses `/gpt-voice/`, and emits only to `build/github-pages/`.
-- [ ] Strict browser/Node configs and modern/legacy targets match the spec while Electron configs exclude landing source.
+- [x] Vite roots at `src/landing-page/`, uses `/gpt-voice/`, and emits only to `build/github-pages/`.
+- [x] Strict browser/Node configs and modern/legacy targets match the spec while Electron configs exclude landing source.
 
 **Verification:**
 
-- [ ] Run `npm run landing:typecheck`, root `typecheck`, and `test:types`.
-- [ ] Run focused config assertions for root/base/output/aliases/exclusions.
+- [x] Run `npm run landing:typecheck`, root `typecheck`, and `test:types`.
+- [x] Run focused config assertions for root/base/output/aliases/exclusions.
 
 **Dependencies:** Task 3.  
 **Likely files:** `vite.landing.config.ts`, both landing tsconfigs, `.browserslistrc`, landing `index.html`.  

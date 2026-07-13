@@ -6,5 +6,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist", "release"]
+  "exclude": ["node_modules", "dist", "release", "src/landing-page/**"]
 }
