@@ -17,7 +17,7 @@ import unicorn from 'eslint-plugin-unicorn';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
-const tsFiles = ['src/**/*.{ts,tsx}', 'tests/**/*.ts'];
+const tsFiles = ['src/**/*.{ts,tsx}', 'tests/**/*.ts', 'vite.landing.config.ts', 'playwright.landing.config.ts'];
 const landingBrowserFiles = ['src/landing-page/**/*.{ts,tsx}'];
 const landingNodeFiles = ['src/landing-page/build/**/*.ts', 'vite.landing.config.ts', 'playwright.landing.config.ts'];
 const rendererFiles = ['src/renderer/**/*.{ts,tsx}'];

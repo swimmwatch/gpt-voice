@@ -17,6 +17,7 @@
 - FAQ has all twelve answers in initial HTML. Hydration adds the collapsed Accordion presentation; without JavaScript, the pre-rendered answers remain readable. The final CTA and factual footer have complete static links.
 - Navigation now has semantic desktop fragment links, an eleven-language native-label selector, a no-JavaScript `details` fallback, and an accessible mobile Sheet. Task 17 remains open for locale-aware hydration, video enhancement, and full interaction coverage.
 - The responsive accessibility foundation now includes non-gating one-time section reveal: static/no-JavaScript and reduced-motion output stays visible, while supported hydrated browsers reveal marked sections through the approved 480ms motion.
+- The production build now uses the checked-in modern/legacy Browserslist environments, Terser, Lightning CSS, and `@vitejs/plugin-legacy` with modern polyfills disabled. Static generation preserves Vite’s legacy body scripts and minifies generated HTML conservatively.
 
 ## Checks
 

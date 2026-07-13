@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { minify } from 'html-minifier-terser';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -22,13 +23,29 @@ export async function generateLocalePages(options: LocaleGenerationOptions = {})
     const locale = getLocaleDefinition(localeTag);
     const pageDirectory = locale.routeSlug ? path.join(outputDirectory, locale.routeSlug) : outputDirectory;
     await mkdir(pageDirectory, { recursive: true });
-    await writeFile(path.join(pageDirectory, 'index.html'), renderDocument(baseDocument, content, localeTag));
+    await writeFile(
+      path.join(pageDirectory, 'index.html'),
+      await minifyDocument(renderDocument(baseDocument, content, localeTag)),
+    );
   }
+}
+
+async function minifyDocument(document: string): Promise<string> {
+  return minify(document, {
+    collapseWhitespace: true,
+    minifyCSS: true,
+    minifyJS: true,
+    removeComments: true,
+    removeRedundantAttributes: false,
+    sortAttributes: false,
+    sortClassName: false,
+  });
 }
 
 function renderDocument(baseDocument: string, content: LandingContent, localeTag: LandingLocale): string {
   const locale = getLocaleDefinition(localeTag);
   const head = getDocumentHead(baseDocument);
+  const bodySuffix = getBodySuffix(baseDocument);
   const staticMarkup = renderToStaticMarkup(createElement(LandingPage, { content, locale }));
   const localizedHead = injectLocalizedMetadata(head, content, locale.canonical, locale.pageText);
 
@@ -39,10 +56,20 @@ function renderDocument(baseDocument: string, content: LandingContent, localeTag
     '<body>',
     `<a class="skip-link" href="#main-content">${content.navigation.skipLink}</a>`,
     `<div id="root">${staticMarkup}</div>`,
+    bodySuffix,
     '</body>',
     '</html>',
     '',
   ].join('\n');
+}
+
+function getBodySuffix(baseDocument: string): string {
+  const body = baseDocument.match(/<body>([\s\S]*?)<\/body>/i)?.[1];
+  if (body === undefined) {
+    throw new Error('Landing build output does not contain a body element');
+  }
+
+  return body.replace(/<div id="root"><\/div>/i, '').trim();
 }
 
 function getDocumentHead(baseDocument: string): string {
