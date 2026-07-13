@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  assertFileExists,
   assertManifestFileHash,
   getSafeRelativePath,
   isStreamingPath,
   readHashManifest,
   requiredMediaAssets,
 } from '../../src/landing-page/build/media-contract';
-import { syncPublicAssets } from '../../src/landing-page/build/sync-public-assets';
+import { syncPublicAssets, syncShellAssets } from '../../src/landing-page/build/sync-public-assets';
 import { verifyMediaAssets } from '../../src/landing-page/build/verify-media';
 
 const rootDirectory = path.resolve(__dirname, '../..');
@@ -55,6 +56,16 @@ test('blocks asset synchronization until the approved demo media is present', as
   await assert.rejects(syncPublicAssets, /Required landing asset is missing: .*assets\/demo/);
 });
 
-test('does not validate an absent generated media set as publishable', async () => {
+test('synchronizes the approved hero screenshot while video production is pending', async () => {
+  await syncShellAssets();
+
+  await Promise.all(
+    ['app-main.png', 'app-main.webp', 'app-main.avif'].map((fileName) =>
+      assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media', fileName)),
+    ),
+  );
+});
+
+test('does not validate an incomplete generated media set as publishable', async () => {
   await assert.rejects(verifyMediaAssets, /Required landing asset is missing/);
 });

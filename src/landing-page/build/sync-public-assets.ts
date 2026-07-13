@@ -50,6 +50,26 @@ export async function syncPublicAssets(): Promise<void> {
   }
 }
 
+export async function syncShellAssets(): Promise<void> {
+  const captureManifest = await readHashManifest(path.join(specificationAssets, 'capture-manifest.json'));
+  const mainCapture = captureManifest.files.find((file) => file.path === 'captures/app-main.png');
+
+  if (!mainCapture) {
+    throw new Error('The landing capture manifest must include captures/app-main.png');
+  }
+
+  await assertManifestFileHash(specificationAssets, mainCapture);
+
+  const source = path.join(specificationAssets, mainCapture.path);
+  const mediaDirectory = path.join(generatedDirectory, LANDING_PUBLIC_MEDIA_DIRECTORY);
+  await mkdir(mediaDirectory, { recursive: true });
+  await Promise.all([
+    copyFile(source, path.join(mediaDirectory, 'app-main.png')),
+    sharp(source).webp({ quality: 90 }).toFile(path.join(mediaDirectory, 'app-main.webp')),
+    sharp(source).avif({ quality: 65 }).toFile(path.join(mediaDirectory, 'app-main.avif')),
+  ]);
+}
+
 async function collectApprovedSources(): Promise<ApprovedSources> {
   const captureManifest = await readHashManifest(path.join(specificationAssets, 'capture-manifest.json'));
   const interfaceManifest = await readHashManifest(path.join(specificationAssets, 'interface-icons/manifest.json'));
@@ -187,7 +207,9 @@ async function createAssetManifest(destination: string): Promise<Record<string, 
 }
 
 if (process.argv[1]?.endsWith(path.join('src', 'landing-page', 'build', 'sync-public-assets.ts'))) {
-  void syncPublicAssets().catch((error: unknown) => {
+  const sync = process.argv.includes('--shell-only') ? syncShellAssets : syncPublicAssets;
+
+  void sync().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;

@@ -667,7 +667,9 @@ This is a better fit than a streaming-first player such as Shaka Player or a lar
 
 ### Media Sync
 
-`src/landing-page/build/sync-public-assets.ts` copies approved source files into the ignored `src/landing-page/public/generated/` staging directory before development, tests, or build:
+While the approved demo package is in production, `landing:sync-shell-assets` validates the approved `app-main.png` capture and creates its PNG, WebP, and AVIF derivatives in the ignored `src/landing-page/public/generated/` directory before development or build. It publishes no video, poster, captions, transcripts, or partial media manifest.
+
+`landing:sync-media` runs `src/landing-page/build/sync-public-assets.ts` as the final strict asset synchronization step. It copies approved source files into the same ignored staging directory:
 
 - App icon from `assets/icon.svg`.
 - The single render-approved `app-main.png` screenshot from this specification directory. The other four captures remain reference-only and are never copied to the public build.
@@ -675,7 +677,7 @@ This is a better fit than a streaming-first player such as Shaka Player or a lar
 - Demo video and poster from `assets/demo/`.
 - Eleven localized WebVTT caption files and eleven localized plain-text transcripts derived from the approved video narration and action timeline.
 
-The generated directory is ignored by Git. The script fails on missing sources, hash mismatch for any of the five capture PNGs or eleven icon SVGs, accidental copying of the reference-only provider capture, missing poster/video, a video containing a subtitle stream, malformed or missing locale WebVTT, transcript/caption text that does not match the approved cue IDs, or any `.m3u8`, `.mpd`, MPEG-TS/fMP4 media segment in public/build media paths, segment directory, HLS/DASH MIME type, or streaming dependency. TypeScript source files ending in `.ts` are not media segments and are not rejected by this check. This makes the video specification a hard build dependency and avoids committing duplicate media.
+The generated directory is ignored by Git. The final `landing:sync-media` command fails on missing sources, hash mismatch for any of the five capture PNGs or eleven icon SVGs, accidental copying of the reference-only provider capture, missing poster/video, a video containing a subtitle stream, malformed or missing locale WebVTT, transcript/caption text that does not match the approved cue IDs, or any `.m3u8`, `.mpd`, MPEG-TS/fMP4 media segment in public/build media paths, segment directory, HLS/DASH MIME type, or streaming dependency. TypeScript source files ending in `.ts` are not media segments and are not rejected by this check. This keeps the final video specification a hard acceptance dependency and avoids committing duplicate media.
 
 Production screenshot derivatives are WebP and AVIF, generated from the approved `app-main.png` with lossless geometry. All PNG source artifacts remain unchanged beside this spec.
 
@@ -818,6 +820,7 @@ Required root package scripts and direct commands:
 
 ```bash
 npm run landing:sync-media
+npm run landing:sync-shell-assets
 npm run landing:generate-locales
 npm run landing:generate-txt
 npm run landing:dev -- --host 127.0.0.1
