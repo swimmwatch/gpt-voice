@@ -240,6 +240,7 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
       </div>
       <div aria-label={content.providers.groupDescription} className="provider-signal-map">
         <ProviderAudioInput content={content} />
+        <span aria-hidden="true" className="provider-route-arrow" data-provider-route-arrow="true" />
         <div className="provider-routes">
           <ProviderCard provider={content.providers.chatGptWeb} />
           <ProviderCard provider={content.providers.openAiApi} />

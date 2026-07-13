@@ -50,6 +50,7 @@ describe('LandingPage', () => {
     expect(markup).toContain('class="provider-signal-map"');
     expect(markup).toContain('class="provider-audio-input"');
     expect(markup.match(/data-provider-waveform-bar="true"/g)).toHaveLength(31);
+    expect(markup.match(/data-provider-route-arrow="true"/g)).toHaveLength(1);
     expect(markup).toContain('YOUR VOICE');
     expect(markup).toContain('ChatGPT Web');
     expect(markup).toContain('OpenAI API');
