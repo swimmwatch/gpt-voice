@@ -57,7 +57,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 ## Phase 4: Core Product Story Slices
 
 - [ ] Task 13 (M): Deliver the progressive demo video slice. Dependencies: Tasks 2, 8, 9, 11.
-- [ ] Task 14 (M): Deliver the How it works slice. Dependencies: Tasks 6, 8, 10, 11.
+- [x] Task 14 (M): Deliver the How it works slice. Dependencies: Tasks 6, 8, 10, 11.
 - [ ] Task 15 (M): Deliver the provider signal-map slice. Dependencies: Tasks 6, 9, 10, 11.
 
 ### Checkpoint E

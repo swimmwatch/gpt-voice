@@ -115,6 +115,265 @@ button,
   transform: translateY(0);
 }
 
+.landing-section {
+  box-sizing: border-box;
+  inline-size: min(var(--content-max-width), calc(100% - 2rem));
+  margin-inline: auto;
+  padding-block: var(--space-18);
+  scroll-margin-block-start: 5rem;
+}
+
+.landing-eyebrow {
+  color: var(--cyan);
+  font-size: var(--font-eyebrow-size);
+  font-weight: var(--font-eyebrow-weight);
+  letter-spacing: var(--font-eyebrow-tracking);
+  line-height: var(--font-eyebrow-line-height);
+  margin: 0 0 var(--space-3);
+}
+
+.landing-lead {
+  color: var(--muted-foreground);
+  font-size: var(--font-lead-mobile-size);
+  font-weight: var(--font-lead-weight);
+  line-height: var(--font-lead-mobile-line-height);
+  margin: var(--space-6) 0 0;
+}
+
+.workflow-section {
+  display: grid;
+  gap: var(--space-12);
+}
+
+.workflow-heading h2 {
+  font-size: var(--font-heading-mobile-size);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: var(--font-heading-tracking);
+  line-height: var(--font-heading-mobile-line-height);
+  margin: 0;
+}
+
+.workflow-path {
+  display: grid;
+  gap: var(--space-10);
+  list-style: none;
+  margin: 0 0 0 var(--space-3);
+  padding: 0;
+  position: relative;
+}
+
+.workflow-path::before {
+  background: var(--gradient-retry-accent);
+  border-radius: var(--radius-pill);
+  content: '';
+  inline-size: 3px;
+  inset-block: 1.75rem;
+  inset-inline-start: 1.75rem;
+  position: absolute;
+}
+
+.workflow-step {
+  column-gap: var(--space-5);
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  position: relative;
+}
+
+.workflow-node,
+.workflow-retry-node {
+  align-items: center;
+  background: var(--card);
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  color: var(--cyan);
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.workflow-node {
+  block-size: 3.5rem;
+  inline-size: 3.5rem;
+}
+
+.workflow-node svg {
+  block-size: 1.625rem;
+  inline-size: 1.625rem;
+}
+
+.workflow-copy,
+.workflow-retry-copy {
+  min-inline-size: 0;
+}
+
+.workflow-order {
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: var(--font-small-size);
+  font-weight: var(--font-small-weight);
+  line-height: var(--font-small-line-height);
+  margin: 0 0 var(--space-1);
+}
+
+.workflow-copy h3,
+.workflow-retry-copy h3 {
+  font-size: 1.375rem;
+  font-weight: var(--font-card-title-weight);
+  letter-spacing: var(--font-card-title-tracking);
+  line-height: 1.75rem;
+  margin: 0;
+}
+
+.workflow-copy > p:not(.workflow-order):not(.workflow-footnote):not(.workflow-detail),
+.workflow-retry-copy > p:not(.workflow-footnote) {
+  color: var(--muted-foreground);
+  margin: var(--space-2) 0 0;
+}
+
+.workflow-proof {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-block-start: var(--space-3);
+}
+
+.workflow-proof > p {
+  color: var(--foreground);
+  font-size: var(--font-small-size);
+  font-weight: var(--font-small-weight);
+  line-height: var(--font-small-line-height);
+  margin: 0;
+}
+
+.workflow-detail,
+.workflow-footnote {
+  color: var(--subtle-foreground);
+  font-size: var(--font-small-size);
+  line-height: var(--font-small-line-height);
+  margin: var(--space-2) 0 0;
+}
+
+.workflow-retry {
+  column-gap: var(--space-3);
+  display: grid;
+  grid-template-columns: 3.5rem 3.25rem minmax(0, 1fr);
+  margin-block: calc(var(--space-2) * -1);
+  position: relative;
+}
+
+.workflow-retry::before {
+  border-block-start: 2px dashed var(--cyan);
+  content: '';
+  inline-size: calc(var(--space-12) + var(--space-2));
+  inset-block-start: 1.625rem;
+  inset-inline-start: 1.75rem;
+  position: absolute;
+}
+
+.workflow-retry-node {
+  align-self: start;
+  block-size: 3.25rem;
+  border-color: var(--cyan);
+  border-style: dashed;
+  grid-column: 2;
+  grid-row: 1;
+  inline-size: 3.25rem;
+}
+
+.workflow-retry-copy {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.workflow-retry-node svg {
+  block-size: 1.375rem;
+  inline-size: 1.375rem;
+}
+
+.workflow-retry-copy [data-slot='badge'] {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  margin-block-end: var(--space-2);
+}
+
+@media (min-width: 48rem) {
+  .landing-section {
+    inline-size: min(var(--content-max-width), calc(100% - 4rem));
+    padding-block: var(--space-22, 5.5rem);
+    scroll-margin-block-start: 6rem;
+  }
+
+  .landing-lead {
+    font-size: var(--font-lead-desktop-size);
+    line-height: var(--font-lead-desktop-line-height);
+  }
+}
+
+@media (min-width: 64rem) {
+  .landing-section {
+    inline-size: min(70rem, calc(100% - 5rem));
+  }
+
+  .workflow-section {
+    gap: 4rem;
+    grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1fr);
+  }
+
+  .workflow-heading h2 {
+    font-size: var(--font-heading-desktop-size);
+    line-height: var(--font-heading-desktop-line-height);
+  }
+
+  .workflow-step {
+    column-gap: var(--space-6);
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+  }
+
+  .workflow-node {
+    block-size: 4.25rem;
+    inline-size: 4.25rem;
+  }
+
+  .workflow-path::before {
+    inset-inline-start: 2.125rem;
+  }
+
+  .workflow-retry {
+    grid-template-columns: 4.25rem 3.75rem minmax(0, 1fr);
+  }
+
+  .workflow-retry-node {
+    block-size: 3.75rem;
+    inline-size: 3.75rem;
+  }
+
+  .workflow-retry::before {
+    inline-size: 4.625rem;
+    inset-inline-start: 2.125rem;
+    inset-block-start: 1.875rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .landing-section {
+    inline-size: var(--content-max-width);
+    padding-block: var(--space-30);
+  }
+
+  .workflow-section {
+    column-gap: 5.125rem;
+    grid-template-columns: 30rem minmax(0, 1fr);
+  }
+
+  .workflow-step {
+    column-gap: 2.25rem;
+  }
+}
+
 @keyframes landing-fade-in {
   from {
     opacity: 0;

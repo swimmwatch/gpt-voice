@@ -2,7 +2,7 @@
 
 ## Completed
 
-- Tasks 1–8 and 10: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, and defined the content contracts.
+- Tasks 1–8, 10, and 14: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the responsive semantic How it works flow.
 
 ## Changed Files
 
@@ -12,6 +12,8 @@
 - Direct-Radix navigation primitives, keyboard/focus-return tests, and an Electron Tailwind source boundary that excludes landing classes.
 - Direct-Radix Accordion and AspectRatio plus Alert, Kbd, and Skeleton primitives. Accordion content is present in initial server HTML; alerts remain static and skeletons decorative. Tests enforce keyboard behavior and the exact 13-file, Electron-free component inventory.
 - Landing content schema, canonical English copy, the complete eleven-locale route registry, and transcript-cue contracts. Tests compare the registry, all twelve FAQ answers, prompt-first/provider qualifications, and TXT-output requirements to the approved artifacts.
+- English static generation writes a no-JavaScript HTML route with localized metadata; it intentionally does not publish unreviewed English fallbacks for the ten non-English routes.
+- How it works is a connected, non-interactive three-step workflow with pinned Lucide geometry, keyboard proof, and an explicitly optional Retry provider-error branch. It has desktop and mobile layout checks at 1440 and 390 pixels.
 
 ## Checks
 
@@ -26,10 +28,12 @@
 - `npm run landing:build`
 - `npm ci` followed by `npx install-electron --no` (required once to repair Electron's postinstall race)
 - `npm test`
+- `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
+- `npm run landing:test -- --run src/landing-page/components/HowItWorksSection.test.tsx src/landing-page/components/LandingPage.test.tsx`
 
 ## Next Step
 
-- Task 9 remains blocked by the absent approved demo MP4/poster. Task 11 can now proceed independently with pre-rendered locale route-shell infrastructure.
+- Task 9 remains blocked by the absent approved demo MP4/poster. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 16 (FAQ, final CTA, and footer).
 
 ## Blockers
 

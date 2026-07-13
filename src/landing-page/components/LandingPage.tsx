@@ -1,4 +1,5 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { HowItWorksSection } from './HowItWorksSection';
 import * as React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AspectRatio } from './ui/aspect-ratio';
@@ -112,49 +113,6 @@ function Demo({ content, locale }: LandingPageProps): React.JSX.Element {
   );
 }
 
-function HowItWorks({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
-  const { prettify, retry, transcribe, translate } = content.workflow;
-
-  return (
-    <section aria-labelledby="how-it-works-title" id="how-it-works">
-      <p>{content.workflow.eyebrow}</p>
-      <h2 id="how-it-works-title">{content.workflow.title}</h2>
-      <p>{content.workflow.lead}</p>
-      <ol>
-        {[transcribe, translate, prettify].map((step) => (
-          <li key={step.id}>
-            <p>{step.order}</p>
-            <h3>{step.title}</h3>
-            <p>{step.description}</p>
-            <p>{step.compactResult}</p>
-            <KbdGroup aria-label={`${step.title} shortcuts`}>
-              {step.shortcuts.map((shortcut) => (
-                <Kbd key={shortcut}>{shortcut}</Kbd>
-              ))}
-            </KbdGroup>
-            <p>{step.footnote}</p>
-          </li>
-        ))}
-      </ol>
-      <aside aria-label={retry.statusLabel}>
-        <Badge variant="outline">{retry.statusLabel}</Badge>
-        <h3>{retry.title}</h3>
-        <p>{retry.condition}</p>
-        <p>{retry.description}</p>
-        <p>{retry.compactResult}</p>
-        <KbdGroup aria-label={`${retry.title} shortcut`}>
-          {retry.shortcuts.map((shortcut) => (
-            <Kbd key={shortcut}>{shortcut}</Kbd>
-          ))}
-        </KbdGroup>
-        <p>{retry.comparisonLabel}</p>
-        <p>{retry.comparisonNote}</p>
-        <p>{retry.footnote}</p>
-      </aside>
-    </section>
-  );
-}
-
 function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
   return (
     <section aria-labelledby="providers-title" id="providers">
@@ -254,7 +212,7 @@ export function LandingPage({ content, locale }: LandingPageProps): React.JSX.El
       <main id="main-content" tabIndex={-1}>
         <Hero content={content} />
         <Demo content={content} locale={locale} />
-        <HowItWorks content={content} />
+        <HowItWorksSection content={content.workflow} />
         <Providers content={content} />
         <Faq content={content} />
       </main>
