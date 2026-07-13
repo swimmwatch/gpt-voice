@@ -17,12 +17,12 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 - [x] Task 3 (M): Add the landing dependency and command boundary. Dependencies: Task 2.
 - [x] Task 4 (M): Configure Vite and strict TypeScript isolation. Dependencies: Task 3.
-- [ ] Task 5 (M): Establish landing tokens and shadcn ownership. Dependencies: Task 4.
+- [x] Task 5 (M): Establish landing tokens and shadcn ownership. Dependencies: Task 4.
 
 ### Checkpoint B
 
-- [ ] Root install, Electron checks, and landing typecheck pass together.
-- [ ] The landing shell resolves under `/gpt-voice/` without entering `dist/`.
+- [x] Root install, Electron checks, and landing typecheck pass together.
+- [x] The landing shell resolves under `/gpt-voice/` without entering `dist/`.
 
 ## Phase 2: Component and Asset Foundations
 

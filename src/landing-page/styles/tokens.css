@@ -1,0 +1,132 @@
+:root {
+  --background: #080b0e;
+  --foreground: #f6f7f8;
+  --card: #12171c;
+  --card-foreground: #f6f7f8;
+  --popover: #181e24;
+  --popover-foreground: #f6f7f8;
+  --primary: #2b60cb;
+  --primary-foreground: #ffffff;
+  --secondary: #181e24;
+  --secondary-foreground: #f6f7f8;
+  --muted: #0f1419;
+  --muted-foreground: #a4adb7;
+  --accent: #182432;
+  --accent-foreground: #f6f7f8;
+  --destructive: #c85d5d;
+  --border: #2a333d;
+  --input: #2a333d;
+  --ring: #4a8bff;
+  --radius: 0.625rem;
+  --background-elevated: #0c1014;
+  --surface-muted: #0f1419;
+  --surface-raised: #181e24;
+  --subtle-foreground: #737d88;
+  --border-strong: #3c4854;
+  --primary-hover: #3674e5;
+  --primary-subtle: #172a53;
+  --cyan: #43d7ff;
+  --magenta: #b66bff;
+  --success: #5da867;
+  --warning: #d0a247;
+  --overlay: rgb(0 0 0 / 72%);
+  --navigation: rgb(8 11 14 / 86%);
+  --waveform-edge: #244e7a;
+  --waveform-inner: #2e679c;
+  --waveform-center: #4a91c3;
+  --gradient-hero-blue: radial-gradient(circle at 78% 28%, rgb(43 96 203 / 14%), transparent 34%);
+  --gradient-hero-cyan: radial-gradient(circle at 20% 22%, rgb(67 215 255 / 7%), transparent 30%);
+  --gradient-hero-magenta: radial-gradient(circle at 88% 12%, rgb(182 107 255 / 7%), transparent 22%);
+  --gradient-retry-accent: linear-gradient(90deg, #2b60cb 0%, #43d7ff 100%);
+  --gradient-cta-surface: linear-gradient(145deg, rgb(43 96 203 / 18%), rgb(67 215 255 / 6%) 58%, rgb(18 23 28 / 96%));
+  --gradient-voice-waveform: linear-gradient(
+    90deg,
+    rgb(36 78 122 / 72%) 0%,
+    rgb(46 103 156 / 82%) 20%,
+    rgb(74 145 195 / 92%) 50%,
+    rgb(46 103 156 / 82%) 80%,
+    rgb(36 78 122 / 72%) 100%
+  );
+  --font-sans-base:
+    'Ubuntu Sans Variable', Ubuntu, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans-sc: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-sans-jp: 'Noto Sans JP Variable', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif;
+  --font-sans-devanagari: 'Noto Sans Devanagari Variable', 'Nirmala UI', Mangal, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font-display-desktop-size: 4.5rem;
+  --font-display-desktop-line-height: 4.75rem;
+  --font-display-mobile-size: 2.75rem;
+  --font-display-mobile-line-height: 3rem;
+  --font-heading-desktop-size: 3rem;
+  --font-heading-desktop-line-height: 3.5rem;
+  --font-heading-mobile-size: 2.125rem;
+  --font-heading-mobile-line-height: 2.5rem;
+  --font-card-title-size: 1.5rem;
+  --font-card-title-line-height: 1.875rem;
+  --font-lead-desktop-size: 1.25rem;
+  --font-lead-desktop-line-height: 1.9375rem;
+  --font-lead-mobile-size: 1.125rem;
+  --font-lead-mobile-line-height: 1.75rem;
+  --font-body-size: 1rem;
+  --font-body-line-height: 1.625rem;
+  --font-small-size: 0.875rem;
+  --font-small-line-height: 1.3125rem;
+  --font-eyebrow-size: 0.75rem;
+  --font-eyebrow-line-height: 1rem;
+  --font-display-weight: 760;
+  --font-heading-weight: 720;
+  --font-card-title-weight: 680;
+  --font-lead-weight: 430;
+  --font-body-weight: 430;
+  --font-small-weight: 500;
+  --font-eyebrow-weight: 720;
+  --font-display-tracking: -0.035em;
+  --font-heading-tracking: -0.025em;
+  --font-card-title-tracking: -0.01em;
+  --font-eyebrow-tracking: 0.12em;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-18: 4.5rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-30: 7.5rem;
+  --radius-control: 0.625rem;
+  --radius-card: 1.125rem;
+  --radius-media: 1.5rem;
+  --radius-pill: 999px;
+  --border-default: 1px;
+  --border-focus: 2px;
+  --border-feature-accent: 2px;
+  --shadow-card: 0 20px 80px rgb(0 0 0 / 22%);
+  --shadow-media: 0 40px 120px rgb(0 0 0 / 38%);
+  --shadow-focus: 0 0 0 2px #080b0e, 0 0 0 4px #4a8bff;
+  --shadow-voice-waveform-glow: 0 0 3.2px rgb(74 145 195 / 24%);
+  --duration-fast: 120ms;
+  --duration-standard: 180ms;
+  --duration-reveal: 480ms;
+  --duration-stagger: 70ms;
+  --reveal-offset: 0.75rem;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --touch-target: 2.75rem;
+  --content-max-width: 75rem;
+}
+
+:root:lang(zh-CN) {
+  --font-sans-base: var(--font-sans-sc);
+}
+
+:root:lang(ja) {
+  --font-sans-base: var(--font-sans-jp);
+}
+
+:root:lang(hi) {
+  --font-sans-base: var(--font-sans-devanagari);
+}

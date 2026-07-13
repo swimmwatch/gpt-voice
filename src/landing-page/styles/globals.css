@@ -1,0 +1,155 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/ubuntu-sans/wght.css';
+@import './tokens.css';
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-background: var(--background);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-destructive: var(--destructive);
+  --color-foreground: var(--foreground);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-sans-base);
+  --radius-lg: var(--radius-card);
+  --radius-md: var(--radius-control);
+  --radius-sm: calc(var(--radius-control) - 2px);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: dark;
+  font-family: var(--font-sans-base);
+  font-synthesis: none;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--gradient-hero-cyan), var(--gradient-hero-blue), var(--gradient-hero-magenta), var(--background);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  line-height: var(--font-body-line-height);
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[tabindex]:not([tabindex='-1']) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  box-shadow: var(--shadow-focus);
+  outline: var(--border-focus) solid transparent;
+  outline-offset: var(--border-focus);
+}
+
+main:focus {
+  outline: none;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+picture,
+svg,
+video {
+  block-size: auto;
+  display: block;
+  max-inline-size: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+[role='button'] {
+  min-block-size: var(--touch-target);
+  min-inline-size: var(--touch-target);
+}
+
+.skip-link {
+  background: var(--primary);
+  border-radius: var(--radius-control);
+  color: var(--primary-foreground);
+  font-weight: var(--font-small-weight);
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  position: fixed;
+  transform: translateY(calc(-100% - var(--space-4)));
+  transition: none;
+  z-index: 100;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+@media (max-width: 20rem) {
+  body {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0ms !important;
+    animation-duration: 0ms !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  * {
+    border-color: CanvasText;
+  }
+
+  :focus-visible {
+    box-shadow: none;
+    outline-color: Highlight;
+  }
+
+  .skip-link {
+    background: Canvas;
+    border: var(--border-focus) solid CanvasText;
+    color: CanvasText;
+  }
+}

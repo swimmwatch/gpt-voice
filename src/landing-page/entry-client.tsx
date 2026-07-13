@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import './styles/globals.css';
 
 const rootElement = document.querySelector('#root');
 
@@ -7,7 +8,7 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <main>
+  <main id="main-content" tabIndex={-1}>
     <h1>GPT-Voice landing page</h1>
   </main>,
 );

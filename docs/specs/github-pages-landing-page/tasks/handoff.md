@@ -2,12 +2,12 @@
 
 ## Completed
 
-- Tasks 1–4: reconciled the page/media contract, isolated dependencies and commands, and configured Vite/TypeScript/Electron build boundaries.
+- Tasks 1–5: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, and added landing-owned visual foundations.
 
 ## Changed Files
 
 - Landing root, Vite/browser configs, and Electron TypeScript/Webpack exclusions.
-- Focused Webpack boundary test and landing-aware ESLint configuration.
+- Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 
 ## Checks
 
@@ -23,7 +23,7 @@
 
 ## Next Step
 
-- Task 5: add landing-owned tokens, global accessibility styles, and shadcn configuration.
+- Task 6: add the Button, Badge, and Card primitives defined by the approved component map.
 
 ## Blockers
 

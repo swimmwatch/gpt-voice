@@ -132,13 +132,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] `components.json` targets only landing aliases; CSS matches token values, typography, spacing, radii, effects, and focus rules.
-- [ ] Global behavior supports dark scheme, skip link, 320-pixel reflow, forced colors, reduced motion, and system-font fallback.
+- [x] `components.json` targets only landing aliases; CSS matches token values, typography, spacing, radii, effects, and focus rules.
+- [x] Global behavior supports dark scheme, skip link, 320-pixel reflow, forced colors, reduced motion, and system-font fallback.
 
 **Verification:**
 
-- [ ] Run landing typecheck, lint, and format check.
-- [ ] Compare CSS variables directly with `design-tokens.json`.
+- [x] Run landing typecheck, lint, and format check.
+- [x] Compare CSS variables directly with `design-tokens.json`.
 
 **Dependencies:** Task 4.  
 **Likely files:** `components.json`, `lib/utils.ts`, `styles/tokens.css`, `styles/globals.css`.  
@@ -146,7 +146,7 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 ### Checkpoint B: Tasks 3-5
 
-- [ ] Root install/Electron checks and the isolated landing shell pass together under `/gpt-voice/`.
+- [x] Root install/Electron checks and the isolated landing shell pass together under `/gpt-voice/`.
 
 ## Phase 2: Components and Assets
 
