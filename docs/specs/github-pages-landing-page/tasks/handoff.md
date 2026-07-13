@@ -2,13 +2,14 @@
 
 ## Completed
 
-- Tasks 1–6: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, and installed the first shadcn primitives.
+- Tasks 1–7: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, and installed action and navigation shadcn primitives.
 
 ## Changed Files
 
 - Landing root, Vite/browser configs, and Electron TypeScript/Webpack exclusions.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 - CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
+- Direct-Radix navigation primitives, keyboard/focus-return tests, and an Electron Tailwind source boundary that excludes landing classes.
 
 ## Checks
 
@@ -24,7 +25,7 @@
 
 ## Next Step
 
-- Task 7: add NavigationMenu, DropdownMenu, Sheet, Tooltip, and Separator primitives.
+- Task 8: add AspectRatio, Accordion, Alert, Kbd, and Skeleton primitives.
 
 ## Blockers
 

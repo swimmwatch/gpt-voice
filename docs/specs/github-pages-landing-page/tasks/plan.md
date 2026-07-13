@@ -174,13 +174,13 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 
 **Acceptance criteria:**
 
-- [ ] Radix keyboard navigation, dismissal, naming, focus return, and 44x44 target goal are preserved.
-- [ ] Hover content is supplemental; navigation and locale actions work without hover.
+- [x] Radix keyboard navigation, dismissal, naming, focus return, and 44x44 target goal are preserved.
+- [x] Hover content is supplemental; navigation and locale actions work without hover.
 
 **Verification:**
 
-- [ ] Run landing typecheck/lint and focused open/close/keyboard tests.
-- [ ] Manually test Escape, outside click, and trigger focus return.
+- [x] Run landing typecheck/lint and focused open/close/keyboard tests.
+- [x] Manually test Escape, outside click, and trigger focus return.
 
 **Dependencies:** Task 5.  
 **Likely files:** five corresponding files under `components/ui/`.  

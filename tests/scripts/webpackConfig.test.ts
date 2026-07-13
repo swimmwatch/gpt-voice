@@ -46,3 +46,10 @@ test('excludes landing-page source from Electron TypeScript compilation', async 
     assert.ok(exclude?.test(path.join(rootDirectory, 'src', 'landing-page', 'entry-client.tsx')));
   }
 });
+
+test('limits Electron Tailwind source scanning to the renderer tree', async () => {
+  const rendererStyles = await readFile(path.join(rootDirectory, 'src/renderer/styles/globals.css'), 'utf8');
+
+  assert.match(rendererStyles, /@import 'tailwindcss' source\(none\);/);
+  assert.match(rendererStyles, /@source '\.\.';/);
+});
