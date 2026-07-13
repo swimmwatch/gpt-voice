@@ -7,7 +7,7 @@ describe('LandingPage', () => {
   it('renders the complete English information architecture as semantic HTML', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
-    expect(markup).toContain('<header>');
+    expect(markup).toContain('<header class="site-header">');
     expect(markup).toContain('<main id="main-content" tabindex="-1">');
     expect(markup).toContain('<footer class="site-footer">');
     expect(markup).toContain('<h1 id="hero-title">Write better AI prompts faster.</h1>');

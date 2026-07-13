@@ -3,6 +3,7 @@ import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { SiteFooter } from './SiteFooter';
+import { SiteHeader } from './SiteHeader';
 import * as React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AspectRatio } from './ui/aspect-ratio';
@@ -27,19 +28,6 @@ function Shortcut({ action, keys }: { action: string; keys: readonly string[] })
       </KbdGroup>
       <span>{action}</span>
     </span>
-  );
-}
-
-function Header({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
-  return (
-    <header>
-      <a href="/gpt-voice/">{content.navigation.brand}</a>
-      <nav aria-label={content.navigation.mobileMenu}>
-        <a href="#providers">{content.navigation.providers}</a>
-        <a href="#how-it-works">{content.navigation.howItWorks}</a>
-        <a href="#faq">{content.navigation.faq}</a>
-      </nav>
-    </header>
   );
 }
 
@@ -164,7 +152,7 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
 export function LandingPage({ content, locale }: LandingPageProps): React.JSX.Element {
   return (
     <>
-      <Header content={content} />
+      <SiteHeader content={content.navigation} locale={locale} />
       <main id="main-content" tabIndex={-1}>
         <Hero content={content} />
         <Demo content={content} locale={locale} />
