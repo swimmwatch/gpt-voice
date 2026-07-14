@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { LandingPage } from '../components/LandingPage.js';
 import { englishContent, getLocaleDefinition, type LandingContent, type LandingLocale } from '../content/index.js';
+import { getLocalizedSeoTags } from './seo.js';
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const defaultOutputDirectory = path.join(repositoryRoot, 'build/github-pages');
@@ -47,7 +48,7 @@ function renderDocument(baseDocument: string, content: LandingContent, localeTag
   const head = getDocumentHead(baseDocument);
   const bodySuffix = getBodySuffix(baseDocument);
   const staticMarkup = renderToStaticMarkup(createElement(LandingPage, { content, locale }));
-  const localizedHead = injectLocalizedMetadata(head, content, locale.canonical, locale.pageText);
+  const localizedHead = injectLocalizedMetadata(head, content, localeTag);
 
   return [
     '<!doctype html>',
@@ -80,14 +81,11 @@ function getDocumentHead(baseDocument: string): string {
   return `<head>${head}</head>`;
 }
 
-function injectLocalizedMetadata(head: string, content: LandingContent, canonical: string, pageText: string): string {
-  const title = `<title>${content.metadata.title}</title>`;
-  const description = `<meta name="description" content="${content.metadata.description}" />`;
-  const canonicalLink = `<link rel="canonical" href="${canonical}" />`;
-  const plainTextLink = `<link rel="alternate" type="text/plain" href="${pageText}" />`;
-  const withTitle = head.replace(/<title>[\s\S]*?<\/title>/i, title);
+function injectLocalizedMetadata(head: string, content: LandingContent, localeTag: LandingLocale): string {
+  const tags = getLocalizedSeoTags(content, getLocaleDefinition(localeTag));
+  const withTitle = head.replace(/<title>[\s\S]*?<\/title>/i, '');
 
-  return withTitle.replace('</head>', `${description}\n${canonicalLink}\n${plainTextLink}\n</head>`);
+  return withTitle.replace('</head>', `${tags}\n</head>`);
 }
 
 if (process.argv[1]?.endsWith(path.join('src', 'landing-page', 'build', 'generate-locales.ts'))) {

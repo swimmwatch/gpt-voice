@@ -9,6 +9,7 @@
 - Interaction continuity: locale destinations retain the active fragment after hydration, while a native `details` navigation fallback keeps mobile section links usable without JavaScript. The fallback is removed only after the Radix sheet hydrates.
 - Responsive accessibility baseline: the optional Retry status label now wraps within its mobile grid column rather than creating a 320-pixel horizontal overflow. Current English deep links clear the sticky header, and reduced-motion output remains immediately visible.
 - TXT/LLM output foundation: `landing:generate-txt` can produce the complete normalized 24-file set from fully supplied locale content and approved transcript sources. It validates all inputs before writing and fails closed with an explicit missing-input list while translations and video transcripts remain unavailable.
+- SEO foundation: the English generated route now derives its robots directive, Open Graph/Twitter basics, canonical, plain-text alternate, and `WebSite`/`SoftwareApplication`/twelve-item `FAQPage` JSON-LD from typed visible content. It intentionally does not publish a `VideoObject`, social image, `hreflang`, or sitemap before the required media and locale inputs exist.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -18,6 +19,7 @@
 - The asset sync script, landing command boundary, and media-contract test now support screenshot-only shell builds during video production.
 - `LandingPage` and its focused test now assert responsive hero media sources, image dimensions, and static reveal markup.
 - The TXT generator and native Node tests now cover page/transcript resource paths, UTF-8/LF/NFC normalization, plain-text digest creation, qualification-preserving page serialization, and no-partial-output behavior.
+- The locale generator now adds safe, serialized English SEO metadata and visible-content structured data; its Node test verifies every generated schema type and all twelve FAQ entries.
 - `LandingPage` now asserts the complete static provider signal-map structure, including 31 waveform bars and the absence of provider-brand assets.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 - CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
@@ -59,14 +61,17 @@
 - Local CloakBrowser interaction smoke at 390px verified the hydrated sheet, hidden native fallback, and preserved locale `#faq` fragment; the temporary capture was not retained in the repository.
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/generateTxtFiles.test.ts`
 - `npm run landing:generate-txt` (expected fail-closed result until all reviewed dictionaries and approved transcript sources exist)
+- `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
+- `npm run landing:build`
+- Production-preview CloakBrowser metadata smoke confirmed the canonical, robots directive, and three-item JSON-LD graph; temporary evidence was not retained in the repository.
 
 ## Next Step
 
-- Task 9 remains blocked by the absent approved demo MP4/poster. The visible page now has a non-media placeholder while that blocker remains. Task 11 has an English-only static route shell; it remains open until all reviewed dictionaries can be generated without fallback. Next independent implementation slice: Task 17/18 interaction and responsive accessibility work that does not require media.
+- The unblocked landing foundations are complete. Task 9 remains blocked by the absent approved demo MP4/poster, and Task 11 remains an English-only static route shell until every reviewed locale dictionary is available. Resume with the video, full locale dictionaries, and their required approval evidence; then complete localized video/SEO/TXT outputs and the remaining cross-locale quality gates.
 
 ## Blockers
 
-- `docs/specs/github-pages-landing-page/assets/demo/` is absent. `npm run landing:sync-media` therefore fails on the first required input: `assets/demo/demo.mp4`. The approved 60-fps MP4, poster, eleven WebVTT files, and eleven transcript TXT files are required before Tasks 9, 12, 13, 15, 23, and 27 can complete.
+- `docs/specs/github-pages-landing-page/assets/demo/` is absent. `npm run landing:sync-media` therefore fails on the first required input: `assets/demo/demo.mp4`. The approved 60-fps MP4, poster, eleven WebVTT files, and eleven transcript TXT files are required before the media-dependent static shell, player, localized public-output, and final quality tasks can complete.
 - Only `src/landing-page/content/locales/en.ts` exists. The ten non-English complete dictionaries and their recorded proficient-speaker approvals are required before Tasks 11 and 19–24 can complete. English must not be copied as a production fallback.
 - Tasks 17, 18, and 25 have committed foundations but remain incomplete until the media, all locale outputs, and the remaining page sections are available for the full interaction, accessibility, browser, and size gates.
 - No push, GitHub Pages deployment, or production verification is authorized. Task 32 remains authorization-gated after all local acceptance gates are satisfied.

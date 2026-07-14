@@ -20,8 +20,22 @@ test('pre-renders the English landing shell without a router or JavaScript depen
     assert.match(document, /GPT-Voice — Voice-to-text for faster AI prompts/);
     assert.match(document, /<link rel="canonical" href="https:\/\/swimmwatch.github.io\/gpt-voice\/"\/?>(?:<|$)/);
     assert.match(document, /<link rel="alternate" type="text\/plain" href="\/gpt-voice\/index.txt"\/?>(?:<|$)/);
+    assert.match(
+      document,
+      /<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"\/?>(?:<|$)/,
+    );
+    assert.match(document, /<meta property="og:locale" content="en_US"\/?>(?:<|$)/);
+    assert.match(document, /<meta name="twitter:card" content="summary"\/?>(?:<|$)/);
+    const structuredData = document.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
+    assert.ok(structuredData, 'Expected JSON-LD structured data.');
+    const graph = JSON.parse(structuredData) as { '@graph': Array<{ '@type': string; mainEntity?: unknown[] }> };
+    assert.deepEqual(
+      graph['@graph'].map((entry) => entry['@type']),
+      ['WebSite', 'SoftwareApplication', 'FAQPage'],
+    );
+    assert.equal(graph['@graph'][2]?.mainEntity?.length, 12);
     assert.match(document, /<main id="main-content" tabindex="-1">/);
-    assert.match(document, /Writing prompts for AI agents and assistants is work\./);
+    assert.match(document, /Writing clear, well-structured prompts takes time\./);
     assert.match(document, /src="\/gpt-voice\/assets\/index.js"/);
     assert.match(document, /nomodule id="vite-legacy-entry" src="\/gpt-voice\/assets\/index-legacy.js"/);
   } finally {
