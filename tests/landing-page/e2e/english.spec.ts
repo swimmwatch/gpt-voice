@@ -13,6 +13,7 @@ test('keeps the English demo and navigation usable without JavaScript', async ({
     await page.goto(landingUrl);
 
     const video = page.locator('[data-demo-video]');
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/gpt-voice/generated/icons/gpt-voice.svg');
     await expect(video).toHaveAttribute('preload', 'none');
     await expect(video).toHaveAttribute('controls');
     await expect(video).toHaveAttribute('poster', '/gpt-voice/generated/media/demo-poster.webp');
