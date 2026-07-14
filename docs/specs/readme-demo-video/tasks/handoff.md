@@ -48,7 +48,18 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Next, complete Task 13: build the same-audio retry scene. The translation result remains review-required until a human-approved Russian version is provided.
+Task 14 is blocked: it requires a human-approved Russian translation result. The translation fixture remains intentionally `reviewStatus: 'required'` with `result: null`; do not make up or render a Russian result.
+
+The next unblocked implementation task is Task 15, but its planned dependency on Task 14 should be reviewed before proceeding independently.
+
+## Latest Increment: Task 13 Complete
+
+- Added the retry sequence for frames 1740–2279: `Recognition failed`, the fixed stored-audio identity, `Ctrl+F8`, canonical `retrying`, and the matching clipboard result.
+- `getRetryViewState()` has an explicit three-fixture path. Its test enumerates every relevant cue and proves no state is `recording`; it also proves failure, resend, and success use `spoken-prompt-01` as both stored and request audio.
+- The comparison remains exactly limited to `Same-audio retry is not available in ChatGPT Web`. It makes no wider retry claim.
+- The recovered-prompt state collapses the large stored-audio card into a concise same-audio confirmation so all visible content stays in the title-safe area.
+- Verification passed: video typecheck; scene/UI tests; timeline validation; fallback stills at 1752, 1840, 1902, 1980, 2040, and 2200.
+- Changed files: `media/video/src/scenes/RetryScene.tsx`, `media/video/src/scenes/RetryScene.test.ts`, `media/video/src/data/retryState.ts`, `media/video/src/product-ui/StoredAudioCard.tsx`, `media/video/src/GptVoiceDemo.tsx`, and `media/video/package.json`.
 
 ## Latest Increment: Task 12 Complete
 

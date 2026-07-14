@@ -46,7 +46,7 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 - [x] The first 29 seconds explain the prompt problem and demonstrate transcription with React-rendered UI.
 - [ ] Content, product appearance, timing, and repeat-frame determinism are approved.
 
-- [ ] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
+- [x] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
 - [ ] Task 14 (M): Build the translation scene. Dependencies: Task 13 and translation review.
 - [ ] Task 15 (M): Build the Prettify scene. Dependencies: Task 14.
 
