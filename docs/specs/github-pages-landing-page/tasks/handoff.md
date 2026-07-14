@@ -10,6 +10,8 @@
 - Responsive accessibility baseline: the optional Retry status label now wraps within its mobile grid column rather than creating a 320-pixel horizontal overflow. Current English deep links clear the sticky header, and reduced-motion output remains immediately visible.
 - TXT/LLM output foundation: `landing:generate-txt` can produce the complete normalized 24-file set from fully supplied locale content and approved transcript sources. It validates all inputs before writing and fails closed with an explicit missing-input list while translations and video transcripts remain unavailable.
 - SEO foundation: the English generated route now derives its robots directive, Open Graph/Twitter basics, canonical, plain-text alternate, and `WebSite`/`SoftwareApplication`/twelve-item `FAQPage` JSON-LD from typed visible content. It intentionally does not publish a `VideoObject`, social image, `hreflang`, or sitemap before the required media and locale inputs exist.
+- English visual demo: `assets/demo/` now contains a 60-second, 1920×1080/60-fps, fast-start H.264/AAC visual master, a 1280×720 WebP poster, and English visual-description WebVTT/TXT resources. The manifest-driven pipeline validates stream inventory, codec, geometry, frame rate, size, fast-start placement, HLS/DASH absence, and generated-file hashes before staging public media.
+- Native playback: the English static page now renders the real demo with `preload="none"`, native controls, a poster, a caption-track-compatible visual-description resource, and adjacent native disclosure notes. Plyr progressively enhances the existing video only within 600 pixels of the viewport or after playback begins; an unavailable enhancement leaves the native player intact.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -32,6 +34,7 @@
 - Navigation now has semantic desktop fragment links, an eleven-language native-label selector, a no-JavaScript `details` fallback, and an accessible mobile Sheet. Task 17 remains open for locale-aware hydration, video enhancement, and full interaction coverage.
 - The responsive accessibility foundation now includes non-gating one-time section reveal: static/no-JavaScript and reduced-motion output stays visible, while supported hydrated browsers reveal marked sections through the approved 480ms motion.
 - The production build now uses the checked-in modern/legacy Browserslist environments, Terser, Lightning CSS, and `@vitejs/plugin-legacy` with modern polyfills disabled. Static generation preserves Vite’s legacy body scripts and minifies generated HTML conservatively.
+- Task 9 is complete for the published English route. The `landing:dev` and `landing:build` commands now stage the complete verified media set rather than the screenshot-only shell.
 
 ## Checks
 
@@ -45,6 +48,8 @@
 - `npm run build:prod`
 - `npm run landing:build`
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/mediaContract.test.ts`
+- `npm run landing:verify:media`
+- `npm run landing:test -- --run src/landing-page/components/LandingPage.test.tsx`
 - `npm ci` followed by `npx install-electron --no` (required once to repair Electron's postinstall race)
 - `npm test`
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
@@ -68,11 +73,11 @@
 
 ## Next Step
 
-- The unblocked landing foundations are complete. Task 9 remains blocked by the absent approved demo MP4/poster, and Task 11 remains an English-only static route shell until every reviewed locale dictionary is available. Resume with the video, full locale dictionaries, and their required approval evidence; then complete localized video/SEO/TXT outputs and the remaining cross-locale quality gates.
+- The English demo-media and native-player slices are complete. Task 11 remains an English-only static route shell until every reviewed locale dictionary is available. Resume with reviewed locale dictionaries and their accessibility resources; then complete localized video/SEO/TXT outputs and the remaining cross-locale quality gates.
 
 ## Blockers
 
-- `docs/specs/github-pages-landing-page/assets/demo/` is absent. `npm run landing:sync-media` therefore fails on the first required input: `assets/demo/demo.mp4`. The approved 60-fps MP4, poster, eleven WebVTT files, and eleven transcript TXT files are required before the media-dependent static shell, player, localized public-output, and final quality tasks can complete.
+- The committed English visual master is silent. Its visual-description resources are accurate for the current edition, but final voice-over, licensed music/SFX, and their synchronized captions remain required before it can be described as an audio-complete production master.
 - Only `src/landing-page/content/locales/en.ts` exists. The ten non-English complete dictionaries and their recorded proficient-speaker approvals are required before Tasks 11 and 19–24 can complete. English must not be copied as a production fallback.
-- Tasks 17, 18, and 25 have committed foundations but remain incomplete until the media, all locale outputs, and the remaining page sections are available for the full interaction, accessibility, browser, and size gates.
+- Tasks 17, 18, and 25 have committed foundations but remain incomplete until all locale outputs and the remaining page sections are available for the full interaction, accessibility, browser, and size gates.
 - No push, GitHub Pages deployment, or production verification is authorized. Task 32 remains authorization-gated after all local acceptance gates are satisfied.

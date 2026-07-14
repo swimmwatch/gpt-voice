@@ -35,7 +35,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 - [x] The exact selected component inventory is installed and accessible.
 - [x] No Electron renderer import or unapproved component exists.
 
-- [ ] Task 9 (M): Build the manifest-driven public asset pipeline. Dependencies: Tasks 2, 3, 8.
+- [x] Task 9 (M): Build the manifest-driven public asset pipeline. Dependencies: Tasks 2, 3, 8.
 
 ## Phase 3: Typed Content and Static Shell
 
