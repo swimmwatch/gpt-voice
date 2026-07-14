@@ -11,6 +11,7 @@
 - TXT/LLM output foundation: `landing:generate-txt` can produce the complete normalized 24-file set from fully supplied locale content and approved transcript sources. It validates all inputs before writing and fails closed with an explicit missing-input list while translations and video transcripts remain unavailable.
 - SEO foundation: the English generated route now derives its robots directive, Open Graph/Twitter basics, canonical, plain-text alternate, and `WebSite`/`SoftwareApplication`/`VideoObject`/twelve-item `FAQPage` JSON-LD from typed visible content. The `VideoObject` references the verified demo MP4, poster, visual transcript, and one-minute duration; social images, `hreflang`, and a sitemap remain deferred until their required inputs exist.
 - `landing:verify:seo` now validates the published English page’s indexability, canonical and plain-text metadata, social URLs, Schema.org graph, visible FAQ count, and the real demo MP4/poster/transcript references. It fails closed on missing or non-HTTPS structured-data URLs.
+- `landing:verify:browser-support` now validates the generated modern module entry, `nomodule` polyfill/legacy entry isolation, deferred Plyr, and the base-path-safe existence of every runtime HTML asset.
 - English visual demo: `assets/demo/` now contains a 60-second, 1920×1080/60-fps, fast-start H.264/AAC visual master, a 1280×720 WebP poster, and English visual-description WebVTT/TXT resources. The manifest-driven pipeline validates stream inventory, codec, geometry, frame rate, size, fast-start placement, HLS/DASH absence, and generated-file hashes before staging public media.
 - Native playback: the English static page now renders the real demo with `preload="none"`, native controls, a poster, a caption-track-compatible visual-description resource, and adjacent Accordion notes. All nine chronological notes remain in the static HTML; hydration only adds the collapsible interaction. Plyr progressively enhances the existing video only within 600 pixels of the viewport or after playback begins; an unavailable enhancement leaves the native player intact.
 - Published-locale safety: the language selector now renders only routes with complete published content. It is absent while English is the only published route, preventing links to the ten ungenerated locale paths; it expands from the shared published-locale registry when reviewed dictionaries become available.
@@ -66,6 +67,8 @@
 - `npm run landing:verify:sizes` (passing English baseline: 2.1 KiB gzip modern initial JS; 42.6 KiB legacy initial JS including polyfills)
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/verifySeo.test.ts`
 - `npm run landing:verify:seo`
+- `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/verifyBrowserSupport.test.ts`
+- `npm run landing:verify:browser-support`
 - Local CloakBrowser smoke against `landing:dev` at 1440px and 390px; temporary captures confirmed the hero’s desktop two-column and mobile stacked compositions.
 - Local CloakBrowser smoke confirmed the provider map at 1440px and 390px; temporary captures were not retained in the repository.
 - Local CloakBrowser provider-connector smoke confirmed the single 40-pixel mobile arrow and 48-pixel desktop arrow; close-up captures were not retained in the repository.
