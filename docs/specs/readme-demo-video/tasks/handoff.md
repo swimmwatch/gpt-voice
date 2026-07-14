@@ -32,9 +32,20 @@
 
 Complete Task 7: rehearse the disposable capture environment before any real product footage is accepted.
 
+## Capture-Rehearsal Findings (Task 7 Still Open)
+
+- A fresh GPT-Voice profile launched successfully after unsetting the inherited `ELECTRON_RUN_AS_NODE=1`; its English UI contains no provider session, transcript, history, credentials, notifications, or personal content.
+- A coordinate-based X11 capture was immediately rejected when another host window overlapped the capture rectangle. All source and review assets from that attempt were deleted.
+- FFmpeg direct-window and OBS XComposite captures avoided host-desktop disclosure, but both produced intermittent partial/black app frames. They were rejected and deleted.
+- A separate 1920×1080 Xephyr X server now isolates the capture display from the host desktop. GPT-Voice runs there with a separate XDG profile and its hotkeys register independently. Continuous `x11grab` and rapid direct-window sampling still show intermittent partial/black frames, so no take is accepted.
+- No `T07` source clip, review frame, raw capture sequence, or external asset remains. The ignored capture helpers/configuration contain no product deliverable or private media.
+
+**Current stop condition:** do not capture Tasks 8–9 until a continuous, direct-window capture path on the isolated display produces complete original-resolution frames throughout the take. Do not fall back to shared-desktop or coordinate-based capture.
+
 ## Blockers And External Gates
 
 - Marketplace registration, Remotion/Humanizer skill installation, stock purchases, hosted TTS, and external asset downloads require separate authorization.
 - Stock purchases, external asset downloads, hosted TTS, marketplace registration, and optional skills remain blocked pending separate authorization.
 - GitHub publication, Release uploads, LinkedIn posting, and pushes require separate authorization.
 - Keep unrelated `design-qa.md` unmodified.
+- The available X11/XComposite and X11-grab paths are currently visually unreliable for continuous Electron footage. A stable isolated recorder/display configuration is required before product capture can continue.
