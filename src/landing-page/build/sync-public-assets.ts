@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
-import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
@@ -32,7 +32,14 @@ type ApprovedSources = {
 };
 
 type ProbedVideo = {
-  streams?: Array<{ codec_type?: string }>;
+  format?: { size?: string };
+  streams?: Array<{
+    codec_name?: string;
+    codec_type?: string;
+    height?: number;
+    r_frame_rate?: string;
+    width?: number;
+  }>;
 };
 
 export async function syncPublicAssets(): Promise<void> {
@@ -107,7 +114,7 @@ async function assertApprovedDemoAssets(demoDirectory: string): Promise<void> {
     ),
   ]);
   await assertNoStreamingFiles(demoDirectory);
-  await assertMp4HasNoSubtitleStream(videoPath);
+  await assertApprovedDemoVideo(videoPath);
 }
 
 export async function assertNoStreamingFiles(directory: string): Promise<void> {
@@ -137,6 +144,47 @@ export async function assertMp4HasNoSubtitleStream(videoPath: string): Promise<v
 
   if (report.streams?.some((stream) => stream.codec_type === 'subtitle')) {
     throw new Error(`Demo MP4 must not contain a subtitle stream: ${videoPath}`);
+  }
+}
+
+export async function assertApprovedDemoVideo(videoPath: string): Promise<void> {
+  const { stdout } = await execFile('ffprobe', [
+    '-v',
+    'error',
+    '-show_entries',
+    'format=size:stream=codec_name,codec_type,width,height,r_frame_rate',
+    '-of',
+    'json',
+    videoPath,
+  ]);
+  const report = JSON.parse(stdout) as ProbedVideo;
+  const videoStreams = report.streams?.filter((stream) => stream.codec_type === 'video') ?? [];
+  const audioStreams = report.streams?.filter((stream) => stream.codec_type === 'audio') ?? [];
+  const video = videoStreams[0];
+  const audio = audioStreams[0];
+
+  if (
+    videoStreams.length !== 1 ||
+    video?.codec_name !== 'h264' ||
+    video.width !== 1920 ||
+    video.height !== 1080 ||
+    video.r_frame_rate !== '60/1'
+  ) {
+    throw new Error(`Demo MP4 must contain one 1920x1080 60-fps H.264 video stream: ${videoPath}`);
+  }
+  if (audioStreams.length !== 1 || audio?.codec_name !== 'aac') {
+    throw new Error(`Demo MP4 must contain one AAC audio stream: ${videoPath}`);
+  }
+  if ((report.streams?.length ?? 0) !== 2) {
+    throw new Error(`Demo MP4 may contain only video and audio streams: ${videoPath}`);
+  }
+  if (Number(report.format?.size) > 35 * 1024 * 1024) {
+    throw new Error(`Demo MP4 exceeds the 35 MiB landing budget: ${videoPath}`);
+  }
+
+  const header = (await readFile(videoPath)).subarray(0, 1024 * 1024);
+  if (!header.includes(Buffer.from('moov'))) {
+    throw new Error(`Demo MP4 must be fast-start optimized: ${videoPath}`);
   }
 }
 

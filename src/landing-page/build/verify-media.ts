@@ -9,7 +9,7 @@ import {
   getPathSha256,
   requiredMediaAssets,
 } from './media-contract.js';
-import { assertMp4HasNoSubtitleStream, assertNoStreamingFiles } from './sync-public-assets.js';
+import { assertApprovedDemoVideo, assertNoStreamingFiles } from './sync-public-assets.js';
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const generatedDirectory = path.join(repositoryRoot, 'src/landing-page/public/generated');
@@ -34,7 +34,7 @@ export async function verifyMediaAssets(): Promise<void> {
   ]);
   await Promise.all([
     assertNoStreamingFiles(generatedDirectory),
-    assertMp4HasNoSubtitleStream(videoPath),
+    assertApprovedDemoVideo(videoPath),
     assertScreenshotGeometry(mediaDirectory),
     assertCaptionFiles(captionsDirectory),
     assertAssetManifest(),

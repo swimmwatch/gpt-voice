@@ -1,0 +1,28 @@
+WEBVTT
+
+NOTE
+English visual-description track for the silent GPT-Voice product walkthrough.
+
+00:00.000 --> 00:15.000
+Visual: A prompt draft fills with missing goals, context, constraints, examples, success criteria, output format, ambiguity, grammar mistakes, filler, repetition, slow typing, translation detours, and failed recognition.
+
+00:15.000 --> 00:19.000
+Visual: GPT-Voice appears beside the draft with Transcribe, Retry, Translate, and Prettify actions.
+
+00:19.000 --> 00:29.000
+Visual: The Command Dock records a prompt with F9, stops with F10, processes the recording, copies the result, and pastes a prompt draft.
+
+00:29.000 --> 00:38.000
+Visual: Recognition fails. Ctrl+F8 resends the same stored audio without a new recording and returns a copied result.
+
+00:38.000 --> 00:45.000
+Visual: A Russian voice input is translated into an English prompt with F11. All displayed text remains English.
+
+00:45.000 --> 00:52.000
+Visual: F12 removes grammar errors, repetition, and filler from a rough prompt while preserving its meaning.
+
+00:52.000 --> 00:57.000
+Visual: ChatGPT Web and OpenAI API are shown as available transcription routes. Provider limits remain visible with the ChatGPT Web claim.
+
+00:57.000 --> 01:00.000
+Visual: The final poster resolves to Speak, Retry, Translate, Refine, Better prompts, Less effort, and GPT-Voice on GitHub.

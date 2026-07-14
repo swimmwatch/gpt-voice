@@ -9,7 +9,11 @@ import {
   readHashManifest,
   requiredMediaAssets,
 } from '../../src/landing-page/build/media-contract';
-import { syncPublicAssets, syncShellAssets } from '../../src/landing-page/build/sync-public-assets';
+import {
+  assertApprovedDemoVideo,
+  syncPublicAssets,
+  syncShellAssets,
+} from '../../src/landing-page/build/sync-public-assets';
 import { verifyMediaAssets } from '../../src/landing-page/build/verify-media';
 
 const rootDirectory = path.resolve(__dirname, '../..');
@@ -33,11 +37,11 @@ test('keeps approved capture and icon sources hash-pinned', async () => {
   ]);
 });
 
-test('defines one HLS-free media contract for every locale', () => {
+test('defines an HLS-free media contract for every published locale', () => {
   assert.equal(requiredMediaAssets.videoFileName, 'demo.mp4');
   assert.equal(requiredMediaAssets.posterFileName, 'demo-poster.webp');
-  assert.equal(requiredMediaAssets.captions.length, 11);
-  assert.equal(requiredMediaAssets.transcriptFiles.length, 11);
+  assert.deepEqual(requiredMediaAssets.captions, ['en.vtt']);
+  assert.deepEqual(requiredMediaAssets.transcriptFiles, ['en.txt']);
   assert.equal(isStreamingPath('media/demo.mp4'), false);
   assert.equal(isStreamingPath('media/segments/0001.m4s'), true);
   assert.equal(isStreamingPath('media/demo.m3u8'), true);
@@ -52,8 +56,16 @@ test('rejects asset paths outside their approved source directory', () => {
   assert.throws(() => getSafeRelativePath(specificationAssets, path.join(rootDirectory, 'assets/icon.svg')));
 });
 
-test('blocks asset synchronization until the approved demo media is present', async () => {
-  await assert.rejects(syncPublicAssets, /Required landing asset is missing: .*assets\/demo/);
+test('synchronizes the approved English visual demo and its accessibility resources', async () => {
+  await assertApprovedDemoVideo(path.join(specificationAssets, 'demo/demo.mp4'));
+  await syncPublicAssets();
+
+  await Promise.all([
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/demo.mp4')),
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/demo-poster.webp')),
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/captions/en.vtt')),
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/transcripts/en.txt')),
+  ]);
 });
 
 test('synchronizes the approved hero screenshot while video production is pending', async () => {
@@ -66,6 +78,6 @@ test('synchronizes the approved hero screenshot while video production is pendin
   );
 });
 
-test('does not validate an incomplete generated media set as publishable', async () => {
-  await assert.rejects(verifyMediaAssets, /Required landing asset is missing/);
+test('validates the complete generated English media set', async () => {
+  await verifyMediaAssets();
 });
