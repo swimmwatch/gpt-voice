@@ -4,6 +4,7 @@ export interface KineticBackdropMotion {
   dashOffset: number;
   driftX: number;
   driftY: number;
+  flowProgress: number;
   pulse: number;
 }
 
@@ -15,6 +16,7 @@ export function getKineticBackdropMotion(frame: number, phase = 0): KineticBackd
     dashOffset: interpolate(progress, [0, 1], [0, -180]),
     driftX: interpolate(progress, [0, 1], [-96, 96]),
     driftY: interpolate(progress, [0, 1], [56, -56]),
+    flowProgress: progress,
     pulse: 0.25 + Math.sin(progress * Math.PI * 2) * 0.12,
   };
 }
