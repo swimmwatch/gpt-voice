@@ -10,6 +10,7 @@
 - The project owner confirmed that Remotion may be used; Task 2 is complete without extending authorization to stock assets, hosted services, or optional skills.
 - Task 3 locked synthetic content, Russian as the translation target, the capture-review rule for final translated text, and all narrow claim qualifications.
 - Task 4 created the isolated `media/video/` project with exact Remotion `4.0.483` packages, strict TypeScript, a 1920×1080/60-fps/3600-frame bootstrap composition, and an ANGLE entry-point configuration.
+- Task 5 replaced the bootstrap with the typed `GptVoiceDemo` composition contract, explicit WebGL/fallback props, a required Zod schema, and a Studio-only 10% title-safe debug overlay.
 
 ## Changed Files
 
@@ -22,11 +23,12 @@
 - Markdown formatting passed for completed documentation increments.
 - Package metadata and the version-pinned official Remotion license were read without installing any dependency.
 - `npm --prefix media/video run typecheck`, the exact-version `npm ls` check, a 1920×108 bootstrap still render, and root `npm run typecheck` passed.
+- WebGL production and fallback debug stills rendered successfully from the typed composition; the fallback overlay was visually inspected.
 - No package installation, capture, media acquisition, upload, purchase, push, or publication has occurred.
 
 ## Next Step
 
-Complete Task 5: replace the bootstrap composition with typed WebGL/fallback/debug props and finish the deterministic render boundary.
+Complete Task 6: centralize the scene/cue timeline and add deterministic validation before rendering any story content.
 
 ## Blockers And External Gates
 

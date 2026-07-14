@@ -29,6 +29,14 @@ Sources:
 - `https://raw.githubusercontent.com/remotion-dev/remotion/v4.0.483/LICENSE.md`
 - Package metadata from the npm registry for each pinned package/version above.
 
+## Composition Schema Support
+
+| Package | Version | License | Purpose                                | Status                                      |
+| ------- | ------- | ------- | -------------------------------------- | ------------------------------------------- |
+| `zod`   | `4.3.6` | `MIT`   | Typed Remotion composition-prop schema | Installed as a local development dependency |
+
+`zod` is a direct development dependency because Remotion `4.0.483` requires a schema for a composition with typed non-empty props. Its npm metadata was reviewed on 2026-07-14; it does not add a runtime asset or an Electron dependency.
+
 ## Audio, Images, And Fonts
 
 | Asset group        | Source                                         | License/attribution             | Distribution eligibility               | Status                              |
