@@ -64,6 +64,7 @@
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/localeGeneration.test.ts`
 - `npm run landing:build`
 - Production-preview CloakBrowser metadata smoke confirmed the canonical, robots directive, and three-item JSON-LD graph; temporary evidence was not retained in the repository.
+- Consolidated landing check: `landing:format:check`, `landing:lint`, all 23 Vitest checks, and the three native Node locale/TXT tests pass.
 
 ## Next Step
 
