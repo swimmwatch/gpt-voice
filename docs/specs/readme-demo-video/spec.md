@@ -990,13 +990,21 @@ Install the committed, isolated Remotion project after specification and plan ap
 npm --prefix media/video install --ignore-scripts
 ```
 
-Add a selected Remotion package only at the exact project version:
+Install every selected Remotion plugin at the exact project version:
 
 ```bash
 npm --prefix media/video install --save-dev @remotion/media@4.0.483
+npm --prefix media/video install --save-dev @remotion/transitions@4.0.483
+npm --prefix media/video install --save-dev @remotion/motion-blur@4.0.483
+npm --prefix media/video install --save-dev @remotion/effects@4.0.483
+npm --prefix media/video install --save-dev @remotion/light-leaks@4.0.483
+npm --prefix media/video install --save-dev @remotion/noise@4.0.483
+npm --prefix media/video install --save-dev @remotion/shapes@4.0.483
+npm --prefix media/video install --save-dev @remotion/paths@4.0.483
+npm --prefix media/video install --save-dev @remotion/media-utils@4.0.483
 ```
 
-Update `media/video/package.json` and install each additional selected package with the same exact version. Do not use a floating tag or a command that can select a different Remotion version.
+Do not use a floating tag or a command that can select a different Remotion version. `remotion`, `@remotion/cli`, and every plugin above must resolve to `4.0.483` in `media/video/package-lock.json`.
 
 Create ignored working directories for captures, review frames, reports, and stills:
 
