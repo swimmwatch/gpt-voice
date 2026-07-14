@@ -9,6 +9,8 @@ export const VIDEO_UI_FIXTURE_IDS = [
   'recognitionFailed',
   'retryingStoredAudio',
   'translationSelection',
+  'translatingSelection',
+  'translationCopied',
   'prettifySelection',
   'prettifyingSelection',
   'prettifiedSelection',
@@ -53,7 +55,7 @@ const baseState = {
   modelControl: loadedModel,
   providerModal: 'closed',
   statusDetail: '',
-  targetLang: 'ru',
+  targetLang: 'en',
 } as const satisfies ProductUiFrameState;
 
 export const videoUiFixtures: VideoUiFixtures = {
@@ -116,9 +118,25 @@ export const videoUiFixtures: VideoUiFixtures = {
   translationSelection: {
     ...baseState,
     audio: noAudio,
-    contentId: 'translation-source-en-to-ru',
+    contentId: 'translation-source-ru-to-en',
     promptMode: 'selected',
     retryableAudio: 'none',
+  },
+  translatingSelection: {
+    ...baseState,
+    audio: noAudio,
+    contentId: 'translation-source-ru-to-en',
+    promptMode: 'selected',
+    retryableAudio: 'none',
+    statusDetail: 'Translating selection...',
+  },
+  translationCopied: {
+    ...baseState,
+    audio: noAudio,
+    contentId: 'translated-prompt-en',
+    promptMode: 'translated',
+    retryableAudio: 'none',
+    statusDetail: 'Translation copied',
   },
   prettifySelection: {
     ...baseState,
@@ -163,6 +181,7 @@ export const videoUiFixtures: VideoUiFixtures = {
 
 export const VIDEO_UI_PATHS = {
   retry: ['recognitionFailed', 'retryingStoredAudio'],
+  translation: ['translationSelection', 'translatingSelection', 'translationCopied'],
 } as const satisfies Readonly<Record<string, readonly VideoUiFixtureId[]>>;
 
 export function getVideoUiState(id: VideoUiFixtureId): VideoUiState {

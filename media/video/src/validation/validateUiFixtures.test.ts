@@ -10,6 +10,9 @@ function cloneFixtures() {
 test('video UI fixtures cover the approved deterministic states', () => {
   validateVideoUiFixtures(videoUiFixtures);
   assert.deepEqual(VIDEO_UI_PATHS.retry, ['recognitionFailed', 'retryingStoredAudio']);
+  assert.deepEqual(VIDEO_UI_PATHS.translation, ['translationSelection', 'translatingSelection', 'translationCopied']);
+  assert.equal(videoUiFixtures.translatingSelection.statusDetail, 'Translating selection...');
+  assert.equal(videoUiFixtures.translationCopied.promptMode, 'translated');
   assert.equal(videoUiFixtures.prettifyingSelection.statusDetail, 'Prettifying selection...');
   assert.equal(videoUiFixtures.prettifiedSelection.promptMode, 'prettified');
 });
@@ -24,7 +27,7 @@ test('video UI fixtures reject invalid providers, content, translation targets, 
   assert.throws(() => validateVideoUiFixtures(missingContent));
 
   const wrongTarget = cloneFixtures();
-  wrongTarget.translationSelection.targetLang = 'en';
+  wrongTarget.translationSelection.targetLang = 'ru';
   assert.throws(() => validateVideoUiFixtures(wrongTarget));
 
   const mismatchedRetry = cloneFixtures();

@@ -8,6 +8,7 @@ import { PrettificationScene } from './scenes/PrettificationScene';
 import { PromptProblemsScene } from './scenes/PromptProblemsScene';
 import { RetryScene } from './scenes/RetryScene';
 import { TranscriptionScene } from './scenes/TranscriptionScene';
+import { TranslationScene } from './scenes/TranslationScene';
 
 export interface GptVoiceDemoProps extends Record<string, unknown> {
   effectsMode: 'webgl' | 'fallback';
@@ -46,6 +47,9 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
       </Sequence>
       <Sequence durationInFrames={scenes.retry.durationInFrames} from={scenes.retry.from}>
         <RetryScene />
+      </Sequence>
+      <Sequence durationInFrames={scenes.translation.durationInFrames} from={scenes.translation.from}>
+        <TranslationScene />
       </Sequence>
       <Sequence durationInFrames={scenes.prettification.durationInFrames} from={scenes.prettification.from}>
         <PrettificationScene />

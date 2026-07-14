@@ -24,7 +24,7 @@ function requireValidState(id: VideoUiFixtureId, state: VideoUiState): void {
   if (!recordingLifecycleStates.has(state.lifecycle)) throw new Error(`${id}: unsupported lifecycle`);
   if (!promptModes.has(state.promptMode)) throw new Error(`${id}: unsupported prompt mode`);
   if (!retryableAudioStates.has(state.retryableAudio)) throw new Error(`${id}: unsupported retryable audio state`);
-  if (state.targetLang !== 'ru') throw new Error(`${id}: target language must be Russian`);
+  if (state.targetLang !== 'en') throw new Error(`${id}: target language must be English`);
   if (!state.contentId.trim()) throw new Error(`${id}: content identifier is required`);
 
   if (state.lifecycle === 'retrying') {
@@ -40,5 +40,9 @@ export function validateVideoUiFixtures(fixtures: VideoUiFixtures): void {
 
   for (const id of VIDEO_UI_PATHS.retry) {
     if (fixtures[id].lifecycle === 'recording') throw new Error('retry path must not contain a second recording state');
+  }
+
+  for (const id of VIDEO_UI_PATHS.translation) {
+    if (fixtures[id].targetLang !== 'en') throw new Error('translation path must target English');
   }
 }

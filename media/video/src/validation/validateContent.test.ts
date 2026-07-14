@@ -5,10 +5,11 @@ import { narrationReferences } from '../data/script.ts';
 
 const prohibitedCopy = [/\b1\.4\.0\b/, /\b2\.0\.0\b/, /LinkedIn/i, /subtitle/i, /caption/i];
 
-test('content keeps approved prompt examples, qualification, and translation review gate', () => {
+test('content keeps approved prompt examples, qualification, and English translation direction', () => {
   assert.equal(promptProblems.flatMap((group) => group.issues).length, 16);
-  assert.equal(prompts.translation.reviewStatus, 'required');
-  assert.equal(prompts.translation.result, null);
+  assert.equal(prompts.translation.inputLanguage, 'Russian');
+  assert.equal(prompts.translation.targetLanguage, 'English');
+  assert.equal(prompts.translation.result, prompts.spoken);
   assert.equal(prompts.prettify.result.includes('three highest-priority findings'), true);
   assert.match(claims.providerQualification, /does not bypass quotas/);
 });

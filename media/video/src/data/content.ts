@@ -29,9 +29,10 @@ export const prompts = {
       'um review this pull request for security issues and, you know, find security problems and list the top three',
   },
   translation: {
-    reviewStatus: 'required' as const,
-    result: null,
-    source: 'Review this pull request and summarize the three most important risks.',
+    inputLanguage: 'Russian',
+    result: 'Review this pull request and summarize the three most important risks.',
+    source: 'Russian voice input',
+    targetLanguage: 'English',
   },
 } as const;
 
