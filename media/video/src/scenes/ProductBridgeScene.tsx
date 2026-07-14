@@ -93,7 +93,7 @@ export function ProductBridgeScene(): JSX.Element {
           transformOrigin: 'top right',
         }}
       >
-        <ProductUiFrame scale={1.45} spinnerRotation={frame * 7} state={getVideoUiState('bridgeReady')} />
+        <ProductUiFrame scale={1.45} spinnerRotation={(frame * 7) % 360} state={getVideoUiState('bridgeReady')} />
       </div>
     </AbsoluteFill>
   );

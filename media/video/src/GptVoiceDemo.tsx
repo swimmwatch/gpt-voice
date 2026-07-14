@@ -5,6 +5,7 @@ import { DebugOverlay } from './components/DebugOverlay';
 import { scenes } from './data/timeline';
 import { ProductBridgeScene } from './scenes/ProductBridgeScene';
 import { PromptProblemsScene } from './scenes/PromptProblemsScene';
+import { TranscriptionScene } from './scenes/TranscriptionScene';
 
 export interface GptVoiceDemoProps extends Record<string, unknown> {
   effectsMode: 'webgl' | 'fallback';
@@ -37,6 +38,9 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
       </Sequence>
       <Sequence durationInFrames={scenes.productBridge.durationInFrames} from={scenes.productBridge.from}>
         <ProductBridgeScene />
+      </Sequence>
+      <Sequence durationInFrames={scenes.transcription.durationInFrames} from={scenes.transcription.from}>
+        <TranscriptionScene />
       </Sequence>
       {debugOverlays ? (
         <DebugOverlay effectsMode={effectsMode} />
