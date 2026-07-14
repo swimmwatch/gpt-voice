@@ -44,6 +44,7 @@ describe('LandingPage', () => {
     expect(markup).toContain('kind="captions"');
     expect(markup).toContain('/gpt-voice/generated/captions/en.vtt');
     expect(markup).toContain('Read the visual walkthrough notes');
+    expect(markup).toContain('data-demo-transcript="true"');
     expect(markup.match(/data-demo-visual-note="true"/g)).toHaveLength(9);
     expect(markup).toContain('GPT-Voice does not bypass quotas.');
     expect(markup).toContain('No compatibility or timing is promised.');

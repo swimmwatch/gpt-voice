@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Kbd, KbdGroup } from './ui/kbd';
 import { Separator } from './ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { LandingContent, LandingLocaleDefinition, ProviderRoute } from '../content/schema';
 
 type LandingPageProps = {
@@ -155,19 +156,21 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
         <p className="demo-supporting-note" id="demo-note">
           {content.demo.supportingNote}
         </p>
-        <details className="demo-transcript">
-          <summary>{content.demo.transcriptControl}</summary>
-          <div>
-            <p>{content.demo.summary}</p>
-            <ol>
-              {content.demo.transcriptCues.map((cue) => (
-                <li data-demo-visual-note="true" key={cue.id}>
-                  {cue.visualDescription}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </details>
+        <Accordion className="demo-transcript" collapsible data-demo-transcript="true" type="single">
+          <AccordionItem value="visual-walkthrough">
+            <AccordionTrigger>{content.demo.transcriptControl}</AccordionTrigger>
+            <AccordionContent>
+              <p>{content.demo.summary}</p>
+              <ol>
+                {content.demo.transcriptCues.map((cue) => (
+                  <li data-demo-visual-note="true" key={cue.id}>
+                    {cue.visualDescription}
+                  </li>
+                ))}
+              </ol>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </section>
   );

@@ -530,15 +530,19 @@ html[data-landing-enhanced='true'] .locale-no-js {
   padding: var(--space-3) var(--space-4);
 }
 
-.demo-transcript summary {
+.demo-transcript [data-slot='accordion-trigger'] {
   color: var(--foreground);
   cursor: pointer;
   font-weight: 650;
   min-block-size: var(--touch-target);
 }
 
-.demo-transcript > div {
+.demo-transcript [data-slot='accordion-content'] {
   line-height: var(--font-body-line-height);
+}
+
+.demo-transcript [data-slot='accordion-content'] > div {
+  padding-block-end: var(--space-1);
 }
 
 .demo-transcript ol {
