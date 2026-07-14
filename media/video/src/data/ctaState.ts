@@ -7,5 +7,5 @@ export interface CtaViewState {
 export function getCtaViewState(frame: number): CtaViewState {
   if (frame >= 120) return { isStable: true, resolveOpacity: 1 };
 
-  return { isStable: false, resolveOpacity: Math.min(1, (frame + 1) / 60) };
+  return { isStable: false, resolveOpacity: Math.min(1, (frame + 1) / 18) };
 }
