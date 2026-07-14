@@ -50,7 +50,16 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 Task 14 is blocked: it requires a human-approved Russian translation result. The translation fixture remains intentionally `reviewStatus: 'required'` with `result: null`; do not make up or render a Russian result.
 
-The next unblocked implementation task is Task 15, but its planned dependency on Task 14 should be reviewed before proceeding independently.
+Task 15 was safely implemented out of order because it uses the separately approved Prettify source/result pair. Tasks 16–33 remain blocked by the incomplete translation scene and their documented approval, asset, or publication gates.
+
+## Latest Increment: Task 15 Complete
+
+- Added the independent Prettify sequence for frames 2700–3119: selected rough prompt, F12, canonical `Prettifying selection...` fixture, and the approved meaning-preserving result.
+- Added explicit `prettifyingSelection` and `prettifiedSelection` fixtures, validated by the existing UI-fixture suite.
+- `ResultComparison` shows the rough and refined text together with `Clearer for the model`, `Meaning preserved`, and the precise removal categories: grammar, repetition, and filler.
+- The scene test verifies cue boundaries and preserves the pull-request, security-issues, and top-three requirements across source and result.
+- Verification passed: video typecheck; scene/UI/content tests; fallback stills at 2730, 2790, 2880, 2952, and 3040.
+- Changed files: `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/scenes/PrettificationScene.test.ts`, `media/video/src/data/prettificationState.ts`, `media/video/src/data/uiFixtures.ts`, `media/video/src/product-ui/ResultComparison.tsx`, `media/video/src/GptVoiceDemo.tsx`, and `media/video/package.json`.
 
 ## Latest Increment: Task 13 Complete
 

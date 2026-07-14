@@ -48,7 +48,7 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 
 - [x] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
 - [ ] Task 14 (M): Build the translation scene. Dependencies: Task 13 and translation review.
-- [ ] Task 15 (M): Build the Prettify scene. Dependencies: Task 14.
+- [x] Task 15 (M): Build the Prettify scene. Dependencies: Task 14. Implemented independently; Task 14 remains blocked.
 
 ### Checkpoint E
 
