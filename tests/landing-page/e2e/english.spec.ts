@@ -73,6 +73,24 @@ test.describe('English responsive accessibility', () => {
       expect(offset).toBeGreaterThanOrEqual(0);
     }
   });
+
+  test('keeps mobile navigation operable in forced colors', async ({ page }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+
+    const trigger = page.getByRole('button', { name: 'Open navigation' });
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(
+      false,
+    );
+  });
 });
 
 test.describe('English keyboard interactions', () => {
