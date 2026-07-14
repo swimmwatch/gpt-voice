@@ -8,6 +8,7 @@
 - Provider signal map: the transcription section now has a static microphone and waveform input, one clear vertical mobile arrow / full 48-pixel desktop arrow to the provider list, solid current-route treatment, a separate dashed future horizon, compact fact chips, and the qualified ChatGPT Web claim. It deliberately uses no provider-brand icons and does not animate or expose cards as controls.
 - Interaction continuity: locale destinations retain the active fragment after hydration, while a native `details` navigation fallback keeps mobile section links usable without JavaScript. The fallback is removed only after the Radix sheet hydrates.
 - Responsive accessibility baseline: the optional Retry status label now wraps within its mobile grid column rather than creating a 320-pixel horizontal overflow. Current English deep links clear the sticky header, and reduced-motion output remains immediately visible.
+- TXT/LLM output foundation: `landing:generate-txt` can produce the complete normalized 24-file set from fully supplied locale content and approved transcript sources. It validates all inputs before writing and fails closed with an explicit missing-input list while translations and video transcripts remain unavailable.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -16,6 +17,7 @@
 - `LandingPage`, its content contract, and landing styles now contain the temporary demo placeholder and its dedicated static-rendering test.
 - The asset sync script, landing command boundary, and media-contract test now support screenshot-only shell builds during video production.
 - `LandingPage` and its focused test now assert responsive hero media sources, image dimensions, and static reveal markup.
+- The TXT generator and native Node tests now cover page/transcript resource paths, UTF-8/LF/NFC normalization, plain-text digest creation, qualification-preserving page serialization, and no-partial-output behavior.
 - `LandingPage` now asserts the complete static provider signal-map structure, including 31 waveform bars and the absence of provider-brand assets.
 - Landing-owned shadcn configuration, class utility, token/global styles, and token-contract test.
 - CLI-generated and landing-adapted Button, Badge, and Card sources with direct Slot dependency and Vitest semantics coverage.
@@ -55,6 +57,8 @@
 - `npm run landing:test -- --run src/landing-page/components/SiteHeader.test.tsx`
 - `npm run landing:typecheck`
 - Local CloakBrowser interaction smoke at 390px verified the hydrated sheet, hidden native fallback, and preserved locale `#faq` fragment; the temporary capture was not retained in the repository.
+- `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/generateTxtFiles.test.ts`
+- `npm run landing:generate-txt` (expected fail-closed result until all reviewed dictionaries and approved transcript sources exist)
 
 ## Next Step
 
