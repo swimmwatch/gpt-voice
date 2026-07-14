@@ -48,7 +48,16 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Next, complete Task 12: build the canonical transcription scene. The translation result remains review-required until a human-approved Russian version is provided.
+Next, complete Task 13: build the same-audio retry scene. The translation result remains review-required until a human-approved Russian version is provided.
+
+## Latest Increment: Task 12 Complete
+
+- Added the canonical transcription sequence for frames 1140–1739: idle, F9/recording, F10/stopping, transcribing, clipboard success, and paste to a generic prompt destination.
+- `getTranscriptionViewState()` is a pure, tested mapping to the existing deterministic product fixtures. The approved spoken sentence is not shown while recording; it appears only at the frame-1692 paste cue.
+- `HotkeyChip` and `VideoCursor` are deterministic React primitives. The live-audio activity treatment is temporary; Task 20 must replace it with the exact local-sample-derived waveform.
+- The frame-derived processing spinner uses a non-cardinal phase to avoid an ANGLE rasterization defect while retaining deterministic motion.
+- Verification passed: video typecheck; scene/UI/content tests; fallback cue frames 1170, 1260, 1428, 1500, 1560, 1620, and 1692, each byte-identical on repeated render. Inspected recording, stopping, processing, copied, and pasted states.
+- Changed files: `media/video/src/scenes/TranscriptionScene.tsx`, `media/video/src/scenes/TranscriptionScene.test.ts`, `media/video/src/data/transcriptionState.ts`, `media/video/src/GptVoiceDemo.tsx`, and `media/video/package.json`.
 
 ## Latest Increment: Task 11 Complete
 

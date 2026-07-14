@@ -39,11 +39,11 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 
 - [x] Task 10 (M): Materialize approved content and narration references. Dependencies: Checkpoint C and Task 3.
 - [x] Task 11 (M): Build the prompt-problem and product-bridge scenes. Dependencies: Task 10.
-- [ ] Task 12 (M): Build the transcription scene. Dependencies: Task 11.
+- [x] Task 12 (M): Build the transcription scene. Dependencies: Task 11.
 
 ### Checkpoint D
 
-- [ ] The first 29 seconds explain the prompt problem and demonstrate transcription with React-rendered UI.
+- [x] The first 29 seconds explain the prompt problem and demonstrate transcription with React-rendered UI.
 - [ ] Content, product appearance, timing, and repeat-frame determinism are approved.
 
 - [ ] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
