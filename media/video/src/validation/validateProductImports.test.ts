@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const productImports = path.join(repoRoot, 'media/video/src/product-ui/productImports.tsx');
 const videoI18n = path.join(repoRoot, 'media/video/src/product-ui/videoI18n.ts');
+const providerSettingsModalView = path.join(repoRoot, 'src/renderer/components/ProviderSettingsModalView.tsx');
 
 const forbiddenImportFragments = [
   'electron',
@@ -97,6 +98,7 @@ test('product imports use the deterministic video i18n adapter and exclude privi
   const graph = walkImportGraph(productImports);
 
   assert.equal(graph.has(videoI18n), true);
+  assert.equal(graph.has(providerSettingsModalView), true);
   assert.equal(graph.has(path.join(repoRoot, 'src/renderer/hooks/useI18n.tsx')), false);
   assert.equal(graph.has(path.join(repoRoot, 'src/renderer/App.tsx')), false);
 });

@@ -70,9 +70,9 @@ function configureRendererSource(currentConfiguration: WebpackConfiguration): We
       ...currentConfiguration.resolve,
       alias: {
         ...aliases,
+        '@renderer/hooks/useI18n$': videoI18n,
         '@main': path.join(repoRoot, 'src/main'),
         '@renderer': path.join(repoRoot, 'src/renderer'),
-        '@renderer/hooks/useI18n$': videoI18n,
         '@shared': path.join(repoRoot, 'src/shared'),
         react: require.resolve('react'),
         'react-dom': require.resolve('react-dom'),

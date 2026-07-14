@@ -1,6 +1,6 @@
-import type { JSX } from 'react';
 import MainToolbar from '@renderer/components/MainToolbar';
 import PrettifyModelMemoryRow from '@renderer/components/PrettifyModelMemoryRow';
+import { ProviderSettingsModalView } from '@renderer/components/ProviderSettingsModalView';
 import RecordingControls from '@renderer/components/RecordingControls';
 import TranslateSection from '@renderer/components/TranslateSection';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
@@ -18,33 +18,11 @@ export {
   getRecordingWorkspaceViewState,
   MainToolbar,
   PrettifyModelMemoryRow,
+  ProviderSettingsModalView,
   RecordingControls,
   RecordingWorkspacePrimaryAction,
   RecordingWorkspaceSecondaryAction,
   RecordingWorkspaceStatus,
+  TooltipProvider,
   TranslateSection,
 };
-
-/** Renders only in the Task 7 debug proof; Task 8 replaces it with the complete ProductUiFrame. */
-export function ProductImportProbe(): JSX.Element {
-  return (
-    <TooltipProvider>
-      <div className="command-dock" style={{ height: 117, width: 460 }}>
-        <MainToolbar
-          activeProviderAuthType="browserSession"
-          activeProviderId="chatgpt"
-          activeProviderName="ChatGPT Web"
-          isLoggedIn
-          isLoggingIn={false}
-          onOpenAbout={() => undefined}
-          onOpenAppSettings={() => undefined}
-          onOpenHistory={() => undefined}
-          onOpenProviderSettings={() => undefined}
-          onProviderChange={() => undefined}
-          onProviderLogin={() => undefined}
-          providers={[{ authType: 'browserSession', id: 'chatgpt', name: 'ChatGPT Web' }]}
-        />
-      </div>
-    </TooltipProvider>
-  );
-}

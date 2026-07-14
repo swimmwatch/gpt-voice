@@ -23,6 +23,8 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 - Task 6 centralized all eight scene boundaries, the poster range, and every audio cue. Timeline validation and six focused tests pass.
 - Task 7 configured the allowlisted renderer-source boundary. Remotion resolves the canonical renderer aliases, applies the deterministic English video i18n adapter, compiles `globals.css` through the root PostCSS/Tailwind pipeline, and forces React/ReactDOM runtime imports to `media/video/node_modules`.
 - The typed product import module now exposes the four approved direct components and pure state helpers. Its static graph test rejects privileged Electron/runtime, browser media, clipboard, timer, and network paths. A fresh debug still confirms the styled canonical `MainToolbar` renders at full composition resolution without Electron.
+- Task 8 added `ProductUiFrame`: the native 460x420 Command Dock composes the four canonical components with typed inert callbacks, clipped video geometry, disabled pointer events/keyframes/transitions, and a frame-derived spinner rotation variable. Fresh idle, recording, processing, and saved-session modal stills render through Remotion.
+- `ProviderSettingsModalView` now owns the shared, side-effect-free provider-settings markup. The Electron wrapper retains persistence, focus restoration, and `window.electronAPI` calls; Remotion imports the pure view under the Task 7 graph guard. A 250 ms Remotion render gate prevents first-bundle CSS capture before the canonical Tailwind styles settle; repeated idle stills have identical SHA-256 hashes.
 - The specification now requires a React-rendered interface, direct reuse/shared pure views for all relevant Command Dock components, deterministic fixtures, and no runtime Electron behavior.
 - The implementation plan has been rebuilt from Task 7 onward. All old capture tasks, commands, directories, acceptance criteria, and blockers have been removed.
 - The exact Remotion package installation list remains pinned to `4.0.483`; product-footage removal does not reduce plugin scope.
@@ -44,7 +46,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Next, complete Task 8: render the canonical `MainToolbar`, `PrettifyModelMemoryRow`, `RecordingControls`, and `TranslateSection`, plus the shared pure `ProviderSettingsModalView`, inside `ProductUiFrame` before any scene implementation continues.
+Next, complete Task 9: define and validate deterministic UI fixtures for every approved lifecycle, provider, retry, translation, and Prettify state before scene implementation continues.
 
 ## Blockers And External Gates
 
@@ -53,3 +55,4 @@ Next, complete Task 8: render the canonical `MainToolbar`, `PrettifyModelMemoryR
 - GitHub uploads/releases, LinkedIn posting, pushes, and publication require separate authorization.
 - A human-reviewed Russian translation is required before the translation scene can be finalized.
 - Keep unrelated `design-qa.md` unmodified and uncommitted.
+- The full root `npm test` suite currently has one unrelated landing-page failure: `tests/landing-page/localeGeneration.test.ts` cannot resolve `@landing/lib/utils`. Focused video checks, video/root typechecks, and the remaining 342 root tests pass.
