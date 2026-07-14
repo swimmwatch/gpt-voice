@@ -5,6 +5,7 @@ import { DebugOverlay } from './components/DebugOverlay';
 import { scenes } from './data/timeline';
 import { ProductBridgeScene } from './scenes/ProductBridgeScene';
 import { PrettificationScene } from './scenes/PrettificationScene';
+import { ProvidersScene } from './scenes/ProvidersScene';
 import { PromptProblemsScene } from './scenes/PromptProblemsScene';
 import { RetryScene } from './scenes/RetryScene';
 import { TranscriptionScene } from './scenes/TranscriptionScene';
@@ -53,6 +54,9 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
       </Sequence>
       <Sequence durationInFrames={scenes.prettification.durationInFrames} from={scenes.prettification.from}>
         <PrettificationScene />
+      </Sequence>
+      <Sequence durationInFrames={scenes.providers.durationInFrames} from={scenes.providers.from}>
+        <ProvidersScene />
       </Sequence>
       {debugOverlays ? (
         <DebugOverlay effectsMode={effectsMode} />
