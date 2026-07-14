@@ -26,7 +26,7 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 
 ## Phase 2: React Product UI Boundary
 
-- [ ] Task 7 (M): Configure the canonical renderer import boundary. Dependencies: Checkpoint B.
+- [x] Task 7 (M): Configure the canonical renderer import boundary. Dependencies: Checkpoint B.
 - [ ] Task 8 (M): Build the reused Command Dock render frame. Dependencies: Task 7.
 - [ ] Task 9 (M): Define and validate deterministic UI fixtures. Dependencies: Task 8.
 

@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { AbsoluteFill } from 'remotion';
 import { z } from 'zod';
 import { DebugOverlay } from './components/DebugOverlay';
+import { ProductImportProbe } from './product-ui/productImports';
 
 export interface GptVoiceDemoProps extends Record<string, unknown> {
   effectsMode: 'webgl' | 'fallback';
@@ -17,7 +18,14 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
   return (
     <AbsoluteFill style={{ backgroundColor: '#080B12', color: '#F8FAFC' }}>
       <AbsoluteFill style={{ backgroundColor: effectsMode === 'webgl' ? '#080B12' : '#111827' }} />
-      {debugOverlays ? <DebugOverlay effectsMode={effectsMode} /> : null}
+      {debugOverlays ? (
+        <>
+          <div style={{ left: 730, position: 'absolute', top: 400 }}>
+            <ProductImportProbe />
+          </div>
+          <DebugOverlay effectsMode={effectsMode} />
+        </>
+      ) : null}
     </AbsoluteFill>
   );
 }

@@ -21,6 +21,8 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 - Task 4 created the isolated `media/video/` project with strict TypeScript and exact Remotion `4.0.483` packages in its own lockfile.
 - Task 5 registered `GptVoiceDemo` at 1920x1080, 60 fps, and 3600 frames with Zod-validated WebGL/fallback/debug props and ANGLE configuration.
 - Task 6 centralized all eight scene boundaries, the poster range, and every audio cue. Timeline validation and six focused tests pass.
+- Task 7 configured the allowlisted renderer-source boundary. Remotion resolves the canonical renderer aliases, applies the deterministic English video i18n adapter, compiles `globals.css` through the root PostCSS/Tailwind pipeline, and forces React/ReactDOM runtime imports to `media/video/node_modules`.
+- The typed product import module now exposes the four approved direct components and pure state helpers. Its static graph test rejects privileged Electron/runtime, browser media, clipboard, timer, and network paths. A fresh debug still confirms the styled canonical `MainToolbar` renders at full composition resolution without Electron.
 - The specification now requires a React-rendered interface, direct reuse/shared pure views for all relevant Command Dock components, deterministic fixtures, and no runtime Electron behavior.
 - The implementation plan has been rebuilt from Task 7 onward. All old capture tasks, commands, directories, acceptance criteria, and blockers have been removed.
 - The exact Remotion package installation list remains pinned to `4.0.483`; product-footage removal does not reduce plugin scope.
@@ -42,9 +44,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-After the revised specification and plan are accepted, complete Task 7: configure the allowlisted renderer-source import boundary and a static test that rejects Electron/runtime dependencies.
-
-Then Task 8 must render the canonical `MainToolbar`, `PrettifyModelMemoryRow`, `RecordingControls`, and `TranslateSection`, plus the shared pure `ProviderSettingsModalView`, inside `ProductUiFrame` before any scene implementation continues.
+Next, complete Task 8: render the canonical `MainToolbar`, `PrettifyModelMemoryRow`, `RecordingControls`, and `TranslateSection`, plus the shared pure `ProviderSettingsModalView`, inside `ProductUiFrame` before any scene implementation continues.
 
 ## Blockers And External Gates
 
