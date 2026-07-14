@@ -40,7 +40,7 @@ test('keeps the English landing Pages workflow least-privilege and self-validati
   assert.ok(build.steps?.some((step) => step.uses === 'actions/configure-pages@v6'));
   for (const command of [
     'npm ci',
-    'npx playwright install --with-deps chromium',
+    'npx playwright install --with-deps chromium firefox webkit',
     'npm run landing:typecheck',
     'npm run landing:lint',
     'npm run landing:format:check',
