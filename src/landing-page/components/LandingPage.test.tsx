@@ -50,12 +50,13 @@ describe('LandingPage', () => {
     expect(markup).toContain('No compatibility or timing is promised.');
   });
 
-  it('renders the static provider signal map with microphone input and no provider-brand icons', () => {
+  it('renders the provider signal map with a decorative recording waveform and no provider-brand icons', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
     expect(markup).toContain('class="landing-section provider-section"');
     expect(markup).toContain('class="provider-signal-map"');
     expect(markup).toContain('class="provider-audio-input"');
+    expect(markup).toContain('data-provider-waveform="recording"');
     expect(markup.match(/data-provider-waveform-bar="true"/g)).toHaveLength(31);
     expect(markup.match(/data-provider-route-arrow="true"/g)).toHaveLength(1);
     expect(markup).toContain('YOUR VOICE');

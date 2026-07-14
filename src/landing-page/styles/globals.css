@@ -668,12 +668,41 @@ html[data-landing-enhanced='true'] .locale-no-js {
 }
 
 .provider-waveform span {
-  background: var(--gradient-voice-waveform);
+  animation: provider-waveform-recording var(--provider-wave-duration) ease-in-out var(--provider-wave-delay) infinite
+    alternate;
+  background-image: var(--gradient-voice-waveform);
+  background-position: var(--provider-wave-offset) center;
+  background-repeat: no-repeat;
+  background-size: 5.75rem 100%;
   block-size: var(--provider-wave-height);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-voice-waveform-glow);
   flex: 1 1 0;
   max-inline-size: 2px;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+@keyframes provider-waveform-recording {
+  0% {
+    opacity: 0.7;
+    transform: scaleY(0.58);
+  }
+
+  42% {
+    opacity: 1;
+    transform: scaleY(1.08);
+  }
+
+  72% {
+    opacity: 0.82;
+    transform: scaleY(0.74);
+  }
+
+  100% {
+    opacity: 0.96;
+    transform: scaleY(1);
+  }
 }
 
 .provider-audio-labels {
@@ -1465,6 +1494,12 @@ html[data-landing-reveal='true'] [data-landing-reveal][data-revealed='true'] {
     scroll-behavior: auto !important;
     transition-delay: 0ms !important;
     transition-duration: 0ms !important;
+  }
+
+  .provider-waveform span {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 
   html {

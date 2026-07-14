@@ -182,12 +182,19 @@ function ProviderAudioInput({ content }: Pick<LandingPageProps, 'content'>): Rea
       <div aria-hidden="true" className="provider-microphone">
         <Mic strokeWidth={1.75} />
       </div>
-      <div aria-hidden="true" className="provider-waveform">
-        {providerWaveformBars.map(({ amplitude, id }) => (
+      <div aria-hidden="true" className="provider-waveform" data-provider-waveform="recording">
+        {providerWaveformBars.map(({ amplitude, id }, index) => (
           <span
             data-provider-waveform-bar="true"
             key={id}
-            style={{ '--provider-wave-height': `${amplitude}px` } as React.CSSProperties}
+            style={
+              {
+                '--provider-wave-delay': `${-(index * 83)}ms`,
+                '--provider-wave-duration': `${700 + (index % 5) * 90}ms`,
+                '--provider-wave-height': `${amplitude}px`,
+                '--provider-wave-offset': `${-(index * 3)}px`,
+              } as React.CSSProperties
+            }
           />
         ))}
       </div>
