@@ -14,7 +14,7 @@ import {
   syncPublicAssets,
   syncShellAssets,
 } from '../../src/landing-page/build/sync-public-assets';
-import { verifyMediaAssets } from '../../src/landing-page/build/verify-media';
+import { assertEnglishMediaText, verifyMediaAssets } from '../../src/landing-page/build/verify-media';
 
 const rootDirectory = path.resolve(__dirname, '../..');
 const specificationAssets = path.join(rootDirectory, 'docs/specs/github-pages-landing-page/assets');
@@ -54,6 +54,11 @@ test('rejects asset paths outside their approved source directory', () => {
     'captures/app-main.png',
   );
   assert.throws(() => getSafeRelativePath(specificationAssets, path.join(rootDirectory, 'assets/icon.svg')));
+});
+
+test('rejects Cyrillic in English landing media descriptions', () => {
+  assert.doesNotThrow(() => assertEnglishMediaText('Russian voice input becomes an English prompt.', 'en.txt'));
+  assert.throws(() => assertEnglishMediaText('Русский голосовой ввод.', 'en.txt'), /must not render Cyrillic/);
 });
 
 test('synchronizes the approved English visual demo and its accessibility resources', async () => {

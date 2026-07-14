@@ -37,6 +37,7 @@ export async function verifyMediaAssets(): Promise<void> {
     assertApprovedDemoVideo(videoPath),
     assertScreenshotGeometry(mediaDirectory),
     assertCaptionFiles(captionsDirectory),
+    assertTranscriptFiles(transcriptsDirectory),
     assertAssetManifest(),
   ]);
 }
@@ -61,6 +62,23 @@ async function assertCaptionFiles(captionsDirectory: string): Promise<void> {
     if (!caption.startsWith('WEBVTT')) {
       throw new Error(`Invalid WebVTT caption file: ${requiredMediaAssets.captions[index]}`);
     }
+    assertEnglishMediaText(caption, requiredMediaAssets.captions[index] ?? 'caption');
+  }
+}
+
+async function assertTranscriptFiles(transcriptsDirectory: string): Promise<void> {
+  const transcripts = await Promise.all(
+    requiredMediaAssets.transcriptFiles.map((fileName) => readFile(path.join(transcriptsDirectory, fileName), 'utf8')),
+  );
+
+  for (const [index, transcript] of transcripts.entries()) {
+    assertEnglishMediaText(transcript, requiredMediaAssets.transcriptFiles[index] ?? 'transcript');
+  }
+}
+
+export function assertEnglishMediaText(source: string, fileName: string): void {
+  if (/\p{Script=Cyrillic}/u.test(source)) {
+    throw new Error(`English landing media must not render Cyrillic text: ${fileName}`);
   }
 }
 
