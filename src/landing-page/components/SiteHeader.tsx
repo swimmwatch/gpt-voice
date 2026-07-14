@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList } from './ui/navigation-menu';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { localeRegistry } from '../content/locale-registry';
+import { publishedLocaleDefinitions } from '../content';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
 
 type SiteHeaderProps = {
@@ -38,8 +38,12 @@ function useCurrentHash(): string {
   return React.useSyncExternalStore(subscribeToHash, getCurrentHash, () => '');
 }
 
-function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element {
+function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element | null {
   const currentHash = useCurrentHash();
+
+  if (publishedLocaleDefinitions.length < 2) {
+    return null;
+  }
 
   return (
     <>
@@ -51,7 +55,7 @@ function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="locale-menu-content">
-          {localeRegistry.map((candidate) => (
+          {publishedLocaleDefinitions.map((candidate) => (
             <DropdownMenuItem asChild key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
@@ -68,7 +72,7 @@ function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element {
       <details className="locale-no-js">
         <summary>{content.language}</summary>
         <ul>
-          {localeRegistry.map((candidate) => (
+          {publishedLocaleDefinitions.map((candidate) => (
             <li key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}

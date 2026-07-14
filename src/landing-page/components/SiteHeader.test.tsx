@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SiteHeader } from './SiteHeader';
-import { englishContent, getLocaleDefinition, localeRegistry } from '../content';
+import { englishContent, getLocaleDefinition } from '../content';
 
 afterEach(cleanup);
 
@@ -29,21 +29,11 @@ afterAll(() => {
 });
 
 describe('SiteHeader', () => {
-  it('provides all native-language locale routes and marks the active route', async () => {
-    const user = userEvent.setup();
-    render(<SiteHeader content={englishContent.navigation} locale={getLocaleDefinition('en')} />);
+  it('does not offer unpublished locale routes', () => {
+    const { container } = render(<SiteHeader content={englishContent.navigation} locale={getLocaleDefinition('en')} />);
 
-    const trigger = screen.getByRole('button', { name: 'Language' });
-    await user.click(trigger);
-
-    const localeLinks = await screen.findAllByRole('menuitem');
-    expect(localeLinks).toHaveLength(localeRegistry.length);
-    expect(screen.getByRole('menuitem', { name: 'Русский' }).getAttribute('href')).toBe('/gpt-voice/ru/');
-    expect(screen.getByRole('menuitem', { name: 'English' }).getAttribute('aria-current')).toBe('page');
-
-    await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Русский' })).toBeNull());
-    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole('button', { name: 'Language' })).toBeNull();
+    expect(container.querySelector('.locale-no-js')).toBeNull();
   });
 
   it('opens the mobile sheet and closes it when a static section link is chosen', async () => {
@@ -59,9 +49,8 @@ describe('SiteHeader', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('keeps a native mobile navigation fallback and preserves section fragments in locale routes', async () => {
+  it('keeps a native mobile navigation fallback', () => {
     window.history.replaceState({}, '', '/gpt-voice/#faq');
-    const user = userEvent.setup();
     const { container } = render(<SiteHeader content={englishContent.navigation} locale={getLocaleDefinition('en')} />);
 
     const fallback = container.querySelector('.mobile-navigation-no-js');
@@ -71,10 +60,5 @@ describe('SiteHeader', () => {
         .getByRole('link', { name: 'FAQ' })
         .getAttribute('href'),
     ).toBe('#faq');
-
-    await user.click(screen.getByRole('button', { name: 'Language' }));
-    await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Русский' }).getAttribute('href')).toBe('/gpt-voice/ru/#faq');
-    });
   });
 });
