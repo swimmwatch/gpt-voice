@@ -10,6 +10,8 @@ function cloneFixtures() {
 test('video UI fixtures cover the approved deterministic states', () => {
   validateVideoUiFixtures(videoUiFixtures);
   assert.deepEqual(VIDEO_UI_PATHS.retry, ['recognitionFailed', 'retryingStoredAudio']);
+  assert.equal(videoUiFixtures.prettifyingSelection.statusDetail, 'Prettifying selection...');
+  assert.equal(videoUiFixtures.prettifiedSelection.promptMode, 'prettified');
 });
 
 test('video UI fixtures reject invalid providers, content, translation targets, and retry identity', () => {

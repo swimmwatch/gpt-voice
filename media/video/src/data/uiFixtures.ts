@@ -10,6 +10,8 @@ export const VIDEO_UI_FIXTURE_IDS = [
   'retryingStoredAudio',
   'translationSelection',
   'prettifySelection',
+  'prettifyingSelection',
+  'prettifiedSelection',
   'chatGptSessionSaved',
   'openAiApiReady',
 ] as const;
@@ -124,6 +126,22 @@ export const videoUiFixtures: VideoUiFixtures = {
     contentId: 'prettify-rough-to-clear',
     promptMode: 'rough',
     retryableAudio: 'none',
+  },
+  prettifyingSelection: {
+    ...baseState,
+    audio: noAudio,
+    contentId: 'prettify-rough-to-clear',
+    promptMode: 'rough',
+    retryableAudio: 'none',
+    statusDetail: 'Prettifying selection...',
+  },
+  prettifiedSelection: {
+    ...baseState,
+    audio: noAudio,
+    contentId: 'prettified-prompt-01',
+    promptMode: 'prettified',
+    retryableAudio: 'none',
+    statusDetail: 'Selection prettified',
   },
   chatGptSessionSaved: {
     ...baseState,
