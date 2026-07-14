@@ -1,8 +1,10 @@
 import { useEffect, useState, type JSX } from 'react';
-import { AbsoluteFill, continueRender, delayRender } from 'remotion';
+import { AbsoluteFill, continueRender, delayRender, Sequence } from 'remotion';
 import { z } from 'zod';
 import { DebugOverlay } from './components/DebugOverlay';
-import { ProductUiFrame, productUiFramePreviewState } from './product-ui/ProductUiFrame';
+import { scenes } from './data/timeline';
+import { ProductBridgeScene } from './scenes/ProductBridgeScene';
+import { PromptProblemsScene } from './scenes/PromptProblemsScene';
 
 export interface GptVoiceDemoProps extends Record<string, unknown> {
   effectsMode: 'webgl' | 'fallback';
@@ -30,13 +32,14 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
   return (
     <AbsoluteFill style={{ backgroundColor: '#080B12', color: '#F8FAFC' }}>
       <AbsoluteFill style={{ backgroundColor: effectsMode === 'webgl' ? '#080B12' : '#111827' }} />
+      <Sequence durationInFrames={scenes.promptProblems.durationInFrames} from={scenes.promptProblems.from}>
+        <PromptProblemsScene durationInFrames={scenes.promptProblems.durationInFrames} />
+      </Sequence>
+      <Sequence durationInFrames={scenes.productBridge.durationInFrames} from={scenes.productBridge.from}>
+        <ProductBridgeScene />
+      </Sequence>
       {debugOverlays ? (
-        <>
-          <div style={{ left: 730, position: 'absolute', top: 330 }}>
-            <ProductUiFrame spinnerRotation={0} state={productUiFramePreviewState} />
-          </div>
-          <DebugOverlay effectsMode={effectsMode} />
-        </>
+        <DebugOverlay effectsMode={effectsMode} />
       ) : null}
     </AbsoluteFill>
   );
