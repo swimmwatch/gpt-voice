@@ -53,7 +53,7 @@ function PrimaryStepRow({ step }: { step: PrimaryStep }): React.JSX.Element {
 
 function RetryBranch({ retry }: Pick<HowItWorksSectionProps['content'], 'retry'>): React.JSX.Element {
   return (
-    <li className="workflow-retry" role="note">
+    <li className="workflow-retry">
       <div className="workflow-retry-node" aria-hidden="true">
         <RefreshCw strokeWidth={1.75} />
       </div>

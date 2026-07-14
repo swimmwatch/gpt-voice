@@ -12,7 +12,8 @@ describe('HowItWorksSection', () => {
     expect(markup).toContain('data-workflow-step="transcribe"');
     expect(markup).toContain('data-workflow-step="translate"');
     expect(markup).toContain('data-workflow-step="prettify"');
-    expect(markup).toContain('class="workflow-retry" role="note"');
+    expect(markup).toContain('class="workflow-retry"');
+    expect(markup).not.toContain('role="note"');
     expect(markup).toContain('OPTIONAL · PROVIDER ERROR');
     expect(markup).toContain('Only if the voice provider returns an error.');
     expect(markup.indexOf('data-workflow-step="transcribe"')).toBeLessThan(markup.indexOf('workflow-retry'));
