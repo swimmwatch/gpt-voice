@@ -1,6 +1,7 @@
 import type { CSSProperties, JSX } from 'react';
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { KineticBackdrop } from '../components/KineticBackdrop';
+import { SceneLightLeak } from '../components/SceneLightLeak';
 import { claims, productLabels } from '../data/content';
 import { getVideoUiState } from '../data/uiFixtures';
 import { ProductUiFrame } from '../product-ui/ProductUiFrame';
@@ -40,6 +41,7 @@ export function ProductBridgeScene(): JSX.Element {
       style={{ background: 'radial-gradient(circle at 75% 42%, #0E315A 0%, #091321 41%, #050914 100%)' }}
     >
       <KineticBackdrop accent="#38BDF8" phase={42} />
+      <SceneLightLeak from={0} hueShift={196} seed={11} />
       <div
         aria-hidden="true"
         style={{

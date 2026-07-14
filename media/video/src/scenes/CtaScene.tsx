@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
+import { SceneLightLeak } from '../components/SceneLightLeak';
 import { claims, productLabels, prompts } from '../data/content';
 import { getCtaViewState } from '../data/ctaState';
 
@@ -45,6 +46,7 @@ export function CtaScene(): JSX.Element {
       data-slot="cta-scene"
       style={{ background: 'radial-gradient(circle at 50% 34%, #1D4E89 0%, #101A33 44%, #050914 100%)' }}
     >
+      <SceneLightLeak from={0} hueShift={214} seed={37} />
       <div style={{ left: 320, opacity: view.resolveOpacity, position: 'absolute', top: 192, width: 1280 }}>
         <header style={{ opacity: headingProgress, transform: `translateY(${(1 - headingProgress) * 44}px)` }}>
           <p
