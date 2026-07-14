@@ -48,7 +48,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Task 18 is next: review the assembled no-effects animatic in the required modes before the plugin layer can begin. Tasks 19–33 remain subject to their documented approval, asset, or publication gates.
+Task 18 has complete automated assembly evidence. A human no-effects animatic review remains required before the plugin layer can begin. Tasks 19–33 remain subject to their documented approval, asset, or publication gates.
 
 ## Latest Increment: Task 15 Complete
 
@@ -100,6 +100,14 @@ Task 18 is next: review the assembled no-effects animatic in the required modes 
 - The last 60 CTA frames are frame-invariant. Fallback renders at frames 3540, 3570, and 3599 have the same SHA-256 hash; frame 3540 is legible at the requested poster size.
 - Verification passed: provider stills at 3120, 3150, 3240, 3330, and 3419 in fallback and WebGL modes; CTA stills at 3420, 3480, 3540, 3570, and 3599; scene and timeline tests plus video typecheck.
 - Changed files: `media/video/src/data/providersState.ts`, `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/scenes/ProvidersScene.test.ts`, `media/video/src/data/ctaState.ts`, `media/video/src/scenes/CtaScene.tsx`, `media/video/src/scenes/CtaScene.test.ts`, `media/video/src/GptVoiceDemo.tsx`, and the video package script.
+
+## Latest Increment: Task 18 Technical Evidence
+
+- Added a composition contract test that proves all eight validated timeline scenes mount exactly once and the debug overlay remains opt-in.
+- The fallback, no-effects quarter-scale composition rendered end to end. `ffprobe` confirms H.264, 480x270, 60 fps, 60.000 seconds, and exactly 3600 frames. The generated preview remains in `/tmp`, not in the repository.
+- Verification passed: video scene suite, video typecheck, timeline validation, and the complete quarter-scale fallback render.
+- The task is not checked off: its required human muted/audio/normal/half-speed review and resulting approval are still pending.
+- Changed files: `media/video/src/GptVoiceDemo.test.ts` and `media/video/package.json`.
 
 ## Blockers And External Gates
 
