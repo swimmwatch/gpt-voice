@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
+import { KineticBackdrop } from '../components/KineticBackdrop';
 import { prompts } from '../data/content';
 import { getTranscriptionViewState, type TranscriptionViewState } from '../data/transcriptionState';
 import { getVideoUiState } from '../data/uiFixtures';
@@ -29,7 +30,10 @@ function AudioInputCard({ frame }: { frame: number }): JSX.Element {
         <span aria-hidden="true" style={{ background: '#EF4444', borderRadius: '50%', height: 10, width: 10 }} />
         <span style={{ fontSize: 20, fontWeight: 700 }}>Audio input</span>
       </div>
-      <div aria-label="Live audio signal" style={{ alignItems: 'center', display: 'flex', gap: 7, height: 116, marginTop: 16 }}>
+      <div
+        aria-label="Live audio signal"
+        style={{ alignItems: 'center', display: 'flex', gap: 7, height: 116, marginTop: 16 }}
+      >
         {bars.map((bar) => (
           <span
             key={bar.index}
@@ -82,6 +86,8 @@ function StageCard({ stage }: Pick<TranscriptionViewState, 'stage'>): JSX.Elemen
 export function TranscriptionScene(): JSX.Element {
   const frame = useCurrentFrame();
   const view = getTranscriptionViewState(frame);
+  const productOffset = interpolate(frame, [0, 18], [48, 0], { extrapolateRight: 'clamp' });
+  const panelOffset = interpolate(frame, [6, 26], [64, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const pasteOpacity = interpolate(frame, [540, 552], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const spinnerRotation = (frame * 7.3 + 9) % 360;
 
@@ -90,10 +96,13 @@ export function TranscriptionScene(): JSX.Element {
       data-slot="transcription-scene"
       style={{ background: 'radial-gradient(circle at 23% 43%, #10365A 0%, #091321 42%, #050914 100%)' }}
     >
-      <div style={{ left: 192, position: 'absolute', top: 248 }}>
+      <KineticBackdrop accent="#60A5FA" phase={144} />
+      <div style={{ left: 192, position: 'absolute', top: 248, transform: `translateY(${productOffset}px)` }}>
         <ProductUiFrame scale={1.45} spinnerRotation={spinnerRotation} state={getVideoUiState(view.fixtureId)} />
       </div>
-      <section style={{ left: 1000, position: 'absolute', top: 258, width: 590 }}>
+      <section
+        style={{ left: 1000, position: 'absolute', top: 258, transform: `translateX(${panelOffset}px)`, width: 590 }}
+      >
         {view.hotkey === 'F9' ? <HotkeyChip keys={['F9']} label="Start recording" tone="red" /> : null}
         {view.hotkey === 'F10' ? <HotkeyChip keys={['F10']} label="Stop recording" tone="red" /> : null}
         <div style={{ marginTop: view.hotkey ? 18 : 0 }}>

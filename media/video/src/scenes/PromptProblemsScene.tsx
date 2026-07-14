@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
+import { KineticBackdrop } from '../components/KineticBackdrop';
 import { PromptProblemMap } from '../product-ui/PromptProblemMap';
 import { PromptWorkspace } from '../product-ui/PromptWorkspace';
 
@@ -27,6 +28,7 @@ export function PromptProblemsScene({ durationInFrames }: PromptProblemsScenePro
         opacity: exitOpacity,
       }}
     >
+      <KineticBackdrop accent="#60A5FA" phase={0} />
       <div
         aria-hidden="true"
         style={{
