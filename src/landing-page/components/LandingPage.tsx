@@ -133,6 +133,8 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
             aria-label={content.demo.videoLabel}
             className="demo-video"
             controls
+            data-demo-video="true"
+            data-poster="/gpt-voice/generated/media/demo-poster.webp"
             height="1080"
             playsInline
             poster="/gpt-voice/generated/media/demo-poster.webp"
@@ -142,7 +144,7 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
             <source src="/gpt-voice/generated/media/demo.mp4" type="video/mp4" />
             <track
               default
-              kind="descriptions"
+              kind="captions"
               label={content.demo.captionTrackLabel}
               src="/gpt-voice/generated/captions/en.vtt"
               srcLang="en"

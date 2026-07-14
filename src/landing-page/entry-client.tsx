@@ -40,6 +40,67 @@ function enableSectionReveals(): void {
   });
 }
 
+type PlyrConstructor = new (
+  target: HTMLVideoElement,
+  options: {
+    captions: { active: boolean; language: string; update: boolean };
+    controls: readonly string[];
+    keyboard: { focused: boolean; global: boolean };
+    settings: readonly string[];
+    speed: { options: readonly number[]; selected: number };
+  },
+) => unknown;
+
+function enableDeferredDemoPlayer(): void {
+  const video = document.querySelector<HTMLVideoElement>('[data-demo-video]');
+  if (!video || typeof IntersectionObserver === 'undefined') {
+    return;
+  }
+
+  let enhanced = false;
+  const enhance = (): void => {
+    if (enhanced) {
+      return;
+    }
+    enhanced = true;
+
+    void Promise.all([import('plyr'), import('plyr/dist/plyr.css')])
+      .then(([module]) => {
+        const Plyr = module.default as PlyrConstructor;
+        new Plyr(video, {
+          captions: { active: true, language: 'en', update: true },
+          controls: [
+            'play-large',
+            'play',
+            'progress',
+            'current-time',
+            'mute',
+            'volume',
+            'settings',
+            'pip',
+            'fullscreen',
+          ],
+          keyboard: { focused: true, global: false },
+          settings: ['captions', 'speed'],
+          speed: { options: [0.5, 0.75, 1, 1.25, 1.5, 2], selected: 1 },
+        });
+      })
+      .catch(() => undefined);
+  };
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        enhance();
+      }
+    },
+    { rootMargin: '600px 0px' },
+  );
+
+  video.addEventListener('play', enhance, { once: true });
+  observer.observe(video);
+}
+
 const application = (
   <TooltipProvider>
     <LandingPage content={englishContent} locale={getLocaleDefinition('en')} />
@@ -53,3 +114,4 @@ if (rootElement.hasChildNodes()) {
 }
 
 enableSectionReveals();
+enableDeferredDemoPlayer();

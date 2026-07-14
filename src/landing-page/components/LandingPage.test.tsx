@@ -40,7 +40,8 @@ describe('LandingPage', () => {
     expect(markup).not.toContain('autoplay');
     expect(markup).toContain('/gpt-voice/generated/media/demo.mp4');
     expect(markup).toContain('/gpt-voice/generated/media/demo-poster.webp');
-    expect(markup).toContain('kind="descriptions"');
+    expect(markup).toContain('data-demo-video="true"');
+    expect(markup).toContain('kind="captions"');
     expect(markup).toContain('/gpt-voice/generated/captions/en.vtt');
     expect(markup).toContain('Read the visual walkthrough notes');
     expect(markup.match(/data-demo-visual-note="true"/g)).toHaveLength(9);
