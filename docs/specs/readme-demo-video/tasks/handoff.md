@@ -109,6 +109,15 @@ Task 18 has complete automated assembly evidence. A human no-effects animatic re
 - The task is not checked off: its required human muted/audio/normal/half-speed review and resulting approval are still pending.
 - Changed files: `media/video/src/GptVoiceDemo.test.ts` and `media/video/package.json`.
 
+## Latest Increment: Pacing Revision
+
+- The 60-second, English-only composition now has deterministic frame-driven motion in the translation, Prettify, retry, and provider scenes. `KineticBackdrop` keeps a moving signal path, glow, and dots behind the canonical UI; its 180-frame loop is unit-tested.
+- Translation and Prettify receive quick Command Dock and panel entrances. Retry and Providers receive the same motion layer and faster entrances while retaining their approved fixture transitions and claims.
+- The CTA now resolves through staggered heading, action, outcome, and footer entrances. It is fully settled before the existing poster range; fallback stills at frames 3540, 3570, and 3599 have the identical SHA-256 hash `c6791cca064628a6c0e57d32a7d3466cbc337f001329749945e239c749b1871e`.
+- Verification passed: video typecheck; 15 scene tests; six timeline tests; two content tests; seven UI/import/fixture tests; timeline validation; formatting check; and a complete fallback quarter-scale render.
+- `/tmp/gptvoice-pacing-quarter.mp4` is H.264, 480x270, 60 fps, 60.000 seconds, and exactly 3600 frames. It is generated evidence and remains outside the repository.
+- Changed files: `media/video/src/data/kineticMotion.ts`, `media/video/src/components/KineticBackdrop.tsx`, `media/video/src/components/KineticBackdrop.test.ts`, `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/scenes/RetryScene.tsx`, `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/data/ctaState.ts`, `media/video/src/scenes/CtaScene.tsx`, `media/video/src/scenes/CtaScene.test.ts`, and `media/video/package.json`.
+
 ## Blockers And External Gates
 
 - There is no screen-capture blocker; screen capture is no longer part of the architecture.
