@@ -62,4 +62,19 @@ test.describe('English mobile enhancement', () => {
     const landingOrigin = new URL(landingUrl).origin;
     expect(requests.filter((url) => new URL(url).origin !== landingOrigin)).toEqual([]);
   });
+
+  test('keeps native video controls when the player enhancement cannot load', async ({ page }) => {
+    let playerChunkBlocked = false;
+    await page.route('**/assets/plyr-*.js', async (route) => {
+      playerChunkBlocked = true;
+      await route.abort();
+    });
+
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+    await page.locator('[data-demo-video]').scrollIntoViewIfNeeded();
+    await expect.poll(() => playerChunkBlocked).toBe(true);
+    await expect(page.locator('[data-demo-video]')).toHaveAttribute('controls');
+    await expect(page.locator('.plyr')).toHaveCount(0);
+  });
 });
