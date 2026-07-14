@@ -29,6 +29,32 @@ test('keeps the English demo and navigation usable without JavaScript', async ({
   }
 });
 
+test.describe('English responsive accessibility', () => {
+  test('avoids horizontal overflow from 320 to 1440 pixels', async ({ page }) => {
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ height: 900, width });
+      await page.goto('/');
+      await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth),
+      ).toBe(false);
+    }
+  });
+
+  test('keeps reveal content visible when reduced motion is requested', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+    await expect(page.locator('html')).not.toHaveAttribute('data-landing-reveal', 'true');
+
+    const revealTargets = page.locator('[data-landing-reveal]');
+    expect(await revealTargets.count()).toBeGreaterThan(0);
+    for (let index = 0; index < (await revealTargets.count()); index += 1) {
+      await expect(revealTargets.nth(index)).toBeVisible();
+    }
+  });
+});
+
 test.describe('English mobile enhancement', () => {
   test.use({ viewport: { height: 844, width: 390 } });
 
