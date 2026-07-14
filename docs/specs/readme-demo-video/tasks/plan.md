@@ -2,719 +2,861 @@
 
 ## Overview
 
-Produce one deterministic, English, prompt-first GPT-Voice demonstration from the approved video specification. The composition is exactly 3600 frames at 1920×1080 and 60 fps, uses sanitized real product footage with synthetic content, and demonstrates transcription, same-audio retry, translation, Prettify, and the qualified provider benefit. The same master supplies an optimized README MP4/poster and a full-resolution LinkedIn upload file. Publication, external uploads, purchases, marketplace registration, and skill installation remain separately authorized actions.
+Produce one deterministic, English, prompt-first GPT-Voice demonstration entirely from React-rendered interfaces. The composition remains exactly 3600 frames at 1920x1080 and 60 fps. It demonstrates prompt-writing difficulty, transcription, same-audio retry, translation, Prettify, and the qualified ChatGPT Web provider benefit. The Electron application is never launched or recorded for picture; Remotion renders the canonical Command Dock components with typed fixtures.
 
-This document is planning only. Implementation must not begin until the human approves both the specification and this plan. Every task must also satisfy the repository Definition of Done where applicable.
+Tasks 1–6 remain complete because the production contract, exact Remotion `4.0.483` package set, isolated project, composition schema, and timeline validators are still valid. The former capture phase is deleted. Task 7 now begins the React UI source boundary.
+
+This document is planning only. Resume implementation after the revised specification and plan are accepted. Every increment must satisfy the repository Definition of Done in addition to its task-specific criteria.
 
 ## Scope And Authority
 
-| Concern                               | Authority                                                                        | Planning treatment                                                                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Story, claims, frames, and audio cues | `docs/specs/readme-demo-video/spec.md`                                           | Treat frame ranges, narrow claims, qualifications, and the no-subtitle rule as immutable unless the specification is revised first. |
-| Current product behavior              | English application UI and current hotkey/lifecycle source                       | Reconfirm labels immediately before capture; never fabricate a product state.                                                       |
-| Product footage                       | Disposable GPT-Voice profile plus synthetic prompt/audio                         | Capture at constant 60 fps and import only after original-resolution privacy review.                                                |
-| Motion graphics                       | The nine selected version-aligned Remotion packages                              | Use each package only for its assigned purpose, with ANGLE/WebGL and deterministic CSS/SVG fallback.                                |
-| Audio                                 | Approved narration, live sample, licensed stock music, and licensed/original SFX | Keep provenance, use 48 kHz sources, synchronize to frames, and target approximately −14 LUFS-I with true peak at or below −1 dBTP. |
-| Distribution                          | One master, README derivative/poster, and LinkedIn derivative                    | Commit only the approved README MP4 and poster; keep captures, masters, reports, and LinkedIn upload ignored.                       |
-| External state                        | LinkedIn, GitHub uploads/releases, stock purchases, marketplaces, hosted TTS     | Stop and obtain explicit authorization before changing external state.                                                              |
+| Concern                               | Authority                                                                              | Planning treatment                                                                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Story, claims, frames, and audio cues | `docs/specs/readme-demo-video/spec.md`                                                 | Treat frame ranges, narrow claims, qualifications, prompt-first order, and no-subtitle rule as fixed unless the specification changes first. |
+| Product appearance                    | Current renderer components, English dictionary, view-state helpers, and `globals.css` | Reuse canonical React source; do not create a bitmap or independent Command Dock replica.                                                    |
+| Rendered product state                | `media/video/src/data/uiFixtures.ts`                                                   | Pure typed fixtures only; no Electron, provider, browser, microphone, clipboard, network, timer, or random value.                            |
+| Motion graphics                       | Nine exact version-aligned Remotion packages                                           | Use each only for its mapped purpose with ANGLE/WebGL and deterministic fallback.                                                            |
+| Audio                                 | Approved narration/live sample and licensed stock/original audio                       | Use local 48 kHz stems, documented provenance, frame synchronization, approximately -14 LUFS-I, and true peak <= -1 dBTP.                    |
+| Distribution                          | One master, README derivative/poster, and unpublished LinkedIn derivative              | Commit only approved README media; keep masters, reports, and LinkedIn output ignored.                                                       |
+| External state                        | Skills, stock downloads/purchases, hosted services, GitHub/LinkedIn publishing, pushes | Stop for separate authorization.                                                                                                             |
 
 ## Architecture Decisions
 
-- Keep the Remotion project isolated under `media/video/` with its own exact lockfile; do not add video packages to the Electron application dependency graph.
-- Register one `GptVoiceDemo` composition at 1920×1080, 60 fps, and 3600 frames. Distribution files are derivatives of this master and cannot change timing or content.
-- Store scene boundaries, audio cues, synthetic content, and approved narration in typed data modules. Validate continuity, ownership of cues, and poster-frame stability before rendering.
-- Build and approve a functional no-effects animatic before applying plugin treatments. Real UI, concise labels, hotkeys, and qualifications remain normal DOM/capture layers above effects.
-- Use `effectsMode: 'webgl' | 'fallback'` and a Studio-only debug overlay. The fallback must preserve content, timing, and layout without WebGL.
-- Keep voice-over, live spoken sample, music, and individual SFX independently addressable until final approval. Do not add captions, caption data, SRT/VTT, or subtitle streams.
-- Use frame 3540 for the poster. README integration is a linked accessible poster because GitHub README video support is not assumed.
-- Preserve raw and review media only in ignored working directories. Never solve a privacy failure by committing a blurred secret; reject and recapture the take.
+1. Keep the Remotion dependency graph isolated under `media/video/` with its exact lockfile. Reusing root renderer source does not move video packages into the Electron runtime.
+2. Directly render `MainToolbar`, `PrettifyModelMemoryRow`, `RecordingControls`, and `TranslateSection`. Extract a side-effect-free `ProviderSettingsModalView` that is shared by the Electron modal and Remotion. Reuse their existing UI primitives, CSS, icons, flags, and pure view-state helpers.
+3. Do not import `App`, `useRecording`, Electron preload/runtime modules, or effectful `I18nProvider`. Alias `@renderer/hooks/useI18n` to a deterministic video-only hook backed by current English copy and use inert typed callbacks.
+4. If any further direct reuse is blocked by Electron access, extract a side-effect-free sibling view and make the Electron wrapper consume it; never fork the visual markup.
+5. Configure explicit Remotion/TypeScript aliases for allowed renderer source and test the import graph for forbidden runtime dependencies.
+6. Put all visible state in typed fixtures. A state transition is a pure function of scene-local frame; retry validation explicitly rejects any second `recording` state.
+7. Disable CSS keyframes/transitions inside the video UI. Spinner, cursor, focus, selection, typing, and modal/menu state are frame-driven.
+8. Build and approve a complete no-effects React animatic before applying plugin treatments.
+9. Keep product UI and critical copy in normal DOM layers above WebGL backgrounds/effects.
+10. Keep voice-over, live sample, music, and SFX independently addressable until the mix is approved. Do not create caption data or subtitle output.
+11. Use frame 3540 for a stable poster. README playback remains an accessible poster link to a local MP4.
+12. The abandoned screen-capture attempt is historical only. No capture helper, directory, command, blocker, or acceptance criterion carries into implementation.
 
 ## Dependency Graph
 
 ```text
-approval and content gates 1-3
-  -> isolated Remotion foundation 4-6
-  -> disposable capture and reviewed footage 7-9
-  -> content/audio reference and no-effects animatic 10-15
-  -> shared plugin primitives and scene plugin passes 16-21
-  -> final narration, licensed sound, and mix 22-24
-  -> visual/master/distribution verification 25-28
-  -> README integration and human handoff 29-30
+completed approval/content gates 1-3
+  -> completed isolated Remotion foundation 4-6
+  -> React product source boundary and deterministic fixtures 7-9
+  -> approved content data and functional React scenes 10-18
+  -> shared plugin primitives and mapped scene treatments 19-25
+  -> final narration, licensed stock audio, and mix 26-28
+  -> visual/product/master/distribution QA 29-31
+  -> README integration and final handoff 32-33
 ```
 
-## Phase 0: Human, Claim, And License Gates
+## Phase 0: Completed Human, Claim, And License Gates
 
 ### Task 1: Approve the production contract
 
-**Description:** Resolve the specification's review status and four open questions before implementation changes or media acquisition begin.
+**Description:** Record the approved duration, audience, prompt-first story, claims, no-subtitle rule, README delivery, narration source, stock approach, and external-action boundaries.
 
 **Acceptance criteria:**
 
-- [ ] Human approval records one English video, exactly 3600 frames at 60 fps, the frame-accurate scene order, prompt-first opening, and no-subtitle rule.
-- [ ] README delivery, narration source, stock library approach, and README file-size ceiling are explicitly accepted or replaced with approved decisions.
-- [ ] The specification status and decision record make clear that LinkedIn/GitHub publication is not authorized by production approval.
+- [ ] One English 1920x1080, 60 fps, 3600-frame video and the frame-accurate scene order are approved.
+- [ ] README delivery, neutral-English human narration, stock approach, and 20 MB README target are recorded.
+- [ ] Production approval is explicitly separate from publication, upload, purchase, skill installation, or push authorization.
 
 **Verification:**
 
-- [ ] Review the specification assumptions, open questions, and boundaries against the recorded decisions.
-- [ ] Confirm no implementation, package installation, capture, purchase, upload, or publication occurred during approval.
+- [ ] Compare the decision record with the specification assumptions and boundaries.
+- [ ] Confirm no external state changed during approval.
 
 **Dependencies:** None.
+
 **Likely files:** `docs/specs/readme-demo-video/spec.md`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** S.
+
+**Estimated scope:** S.
 
 ### Task 2: Complete the tooling and license preflight
 
-**Description:** Establish whether the selected Remotion packages, stock sources, fonts, and requested implementation skills may be used before installing or acquiring anything.
+**Description:** Lock exact Remotion versions, identify license obligations, and record authorization boundaries for stock assets and optional skills.
 
 **Acceptance criteria:**
 
-- [ ] One exact Remotion version at or above `4.0.483` is selected for core/CLI and all nine approved packages, with a documented distribution-eligibility decision.
-- [ ] Music, SFX, and any local font have a source strategy compatible with repository and LinkedIn distribution; paid or attribution-expanding terms remain blocked pending approval.
-- [ ] Availability or authorization is recorded for the official Remotion skills and Humanizer; marketplace registration, skill installation, hosted TTS, and purchases are not inferred.
+- [ ] Core/CLI and all nine approved Remotion packages are pinned to `4.0.483` with distribution eligibility recorded.
+- [ ] Music, SFX, and font strategies are compatible with GitHub/LinkedIn distribution or explicitly blocked.
+- [ ] Remotion/Humanizer skill installation, marketplace registration, hosted TTS, downloads, and purchases are not inferred.
 
 **Verification:**
 
-- [ ] Human-review the preflight ledger for license, source URL, creator, attribution, download date, and eligibility fields.
-- [ ] Confirm every unresolved license or external-tool decision is marked as a stop condition rather than an implementation assumption.
+- [ ] Review `THIRD_PARTY_MEDIA.md` fields and exact package metadata.
+- [ ] Confirm unresolved external actions remain stop conditions.
 
 **Dependencies:** Task 1.
+
 **Likely files:** `media/video/THIRD_PARTY_MEDIA.md`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** S.
 
-### Task 3: Lock the synthetic content and claims
+**Estimated scope:** S.
 
-**Description:** Approve the spoken prompt, rough/Prettified pair, target language, translation-review method, and exact comparison/qualification wording before capture.
+### Task 3: Lock synthetic content and claims
+
+**Description:** Approve the spoken prompt, rough/Prettified pair, Russian target, translation-review method, retry comparison, and provider qualification.
 
 **Acceptance criteria:**
 
-- [ ] Synthetic source text covers transcription, retry, translation, and Prettify while the cleaned result removes grammar noise, repetition, and filler without changing instructions.
-- [ ] Retry wording is limited to resending the same stored audio without re-recording; translation makes no universal model-quality promise.
-- [ ] The provider benefit always includes the full plan/availability/fair-use/provider-limits qualification, and no release version appears in the video.
+- [ ] Synthetic content covers all four workflows and contains no personal or secret data.
+- [ ] Retry is limited to same-audio resend; translation makes no universal quality promise; Prettify preserves required meaning.
+- [ ] Every virtually-unlimited claim includes the full qualification and no release version appears.
 
 **Verification:**
 
-- [ ] Perform a factual/semantic comparison of source, translation method, rough text, and Prettified result.
-- [ ] Search the approved video copy for prohibited guarantees, unqualified `unlimited`, broad ChatGPT retry claims, release numbers, and caption requirements.
+- [ ] Perform source/result semantic review.
+- [ ] Search approved copy for broad guarantees, release numbers, captions, and unqualified `unlimited`.
 
-**Dependencies:** Tasks 1-2.
+**Dependencies:** Tasks 1–2.
+
 **Likely files:** `docs/specs/readme-demo-video/spec.md`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** S.
 
-### Checkpoint A: Tasks 1-3
+**Estimated scope:** S.
 
-- [ ] Specification and plan are human-approved, all content decisions are locked, and unresolved license/external-action gates are visible.
-- [ ] Implementation may begin only after this checkpoint is explicitly accepted.
+### Checkpoint A: Tasks 1–3
 
-## Phase 1: Isolated Remotion Foundation
+- [ ] Content, claims, licenses, and external-action gates are explicit.
+- [ ] Local implementation is approved; publication and acquisition remain separately authorized.
+
+## Phase 1: Completed Isolated Remotion Foundation
 
 ### Task 4: Scaffold the isolated video project
 
-**Description:** Create the blank strict-TypeScript Remotion project and install only the approved, exact-version video dependencies in its local lockfile.
+**Description:** Create the strict-TypeScript Remotion project and install the approved exact-version packages in its own lockfile.
 
 **Acceptance criteria:**
 
-- [ ] `media/video/` owns its package manifest, exact lockfile, and strict TypeScript configuration without changing root runtime dependencies.
-- [ ] Remotion core/CLI plus media, transitions, motion-blur, effects, light-leaks, noise, shapes, paths, and media-utils resolve to one exact version.
-- [ ] The project exposes local Studio, typecheck, still, render, and timeline-validation commands suitable for clean-checkout use.
+- [ ] `media/video/` owns a private package manifest, exact lockfile, and strict TypeScript configuration.
+- [ ] Remotion core/CLI and media, transitions, motion-blur, effects, light-leaks, noise, shapes, paths, and media-utils resolve to `4.0.483`.
+- [ ] Root Electron manifests remain unchanged by video dependencies.
 
 **Verification:**
 
-- [ ] Run the isolated install/typecheck and the specification's `npm --prefix media/video ls ...` version-alignment check.
-- [ ] Diff root `package.json`/`package-lock.json` and run the smallest Electron dependency check to prove isolation.
+- [ ] Run isolated install/typecheck and exact-version `npm ls`.
+- [ ] Confirm the root dependency graph does not include video-only packages.
 
 **Dependencies:** Checkpoint A.
+
 **Likely files:** `media/video/package.json`, `media/video/package-lock.json`, `media/video/tsconfig.json`.
-**Estimate:** M.
+
+**Estimated scope:** M.
 
 ### Task 5: Register the deterministic composition boundary
 
-**Description:** Configure ANGLE rendering, register `GptVoiceDemo`, establish WebGL/fallback/debug props, and protect generated or sensitive working media.
+**Description:** Configure ANGLE, register `GptVoiceDemo`, establish typed WebGL/fallback/debug props, and ignore generated render output.
 
 **Acceptance criteria:**
 
-- [ ] The only production composition is 1920×1080, 60 fps, and 3600 frames with typed `effectsMode` and `debugOverlays` props.
-- [ ] Chromium uses ANGLE; final paths default to WebGL with an explicit deterministic fallback and exclude debug overlays.
-- [ ] Raw captures, review frames, masters, reports, stills, and LinkedIn derivatives remain ignored while `assets/demo/` deliverables can be tracked.
+- [ ] The production composition is exactly 1920x1080, 60 fps, and 3600 frames.
+- [ ] `effectsMode` and `debugOverlays` are Zod-validated; WebGL and fallback frames render.
+- [ ] Masters, reports, stills, and the LinkedIn derivative remain ignored; approved README media can be tracked.
 
 **Verification:**
 
-- [ ] Open Remotion Studio locally and render one frame in both effect modes with debug overlays on and off.
-- [ ] Run `git status --ignored` on the planned media paths and confirm no Electron build includes `media/video/`.
+- [ ] Render one frame in both effect modes with debug overlays on/off.
+- [ ] Confirm generated video output cannot enter Electron packaging.
 
 **Dependencies:** Task 4.
+
 **Likely files:** `media/video/remotion.config.ts`, `media/video/src/Root.tsx`, `media/video/src/GptVoiceDemo.tsx`, `media/video/src/index.ts`, `.gitignore`.
-**Estimate:** M.
+
+**Estimated scope:** M.
 
 ### Task 6: Define and validate timeline data
 
-**Description:** Centralize scene ranges and audio cues, then fail renders when continuity, cue ownership, duration, or poster stability is invalid.
+**Description:** Centralize scene ranges and audio cues and reject invalid duration, continuity, ownership, or poster ranges.
 
 **Acceptance criteria:**
 
-- [ ] Typed data declares the eight approved frame ranges, every cue-sheet frame, 60 fps, total frame 3600, and poster frame 3540.
-- [ ] Validation rejects gaps/overlaps, non-positive durations, misplaced audio cues, a non-stable poster frame, or a final frame other than 3600.
-- [ ] Scene components do not own unexplained absolute frame literals.
+- [ ] Typed data contains all eight ranges, cue frames, 60 fps, 3600 total frames, and poster frame 3540.
+- [ ] Validation rejects gaps, overlaps, invalid cues, non-positive duration, wrong final duration, and unstable poster range.
+- [ ] Focused tests cover the invariants.
 
 **Verification:**
 
-- [ ] Run timeline validation in its passing form and focused negative fixtures for each invariant category.
-- [ ] Run isolated TypeScript checks and compare generated scene/cue summaries with the specification tables.
+- [ ] Run timeline validation/tests and isolated typecheck.
+- [ ] Compare ranges/cues to the specification.
 
 **Dependencies:** Task 5.
+
 **Likely files:** `media/video/src/data/timeline.ts`, `media/video/src/data/audioCues.ts`, `media/video/src/validation/validateTimeline.ts`, `media/video/src/validation/validateTimeline.test.ts`.
-**Estimate:** M.
 
-### Checkpoint B: Tasks 4-6
+**Estimated scope:** M.
 
-- [ ] The isolated project installs, type-checks, opens, and renders without entering the Electron dependency or output graph.
-- [ ] Timeline validation proves an exact 3600-frame contract in both effects modes.
+### Checkpoint B: Tasks 4–6
 
-## Phase 2: Disposable Capture And Privacy Review
+- [ ] The isolated project installs, type-checks, and renders in both effects modes.
+- [ ] Timeline validation proves the exact 3600-frame contract.
 
-### Task 7: Rehearse the sanitized capture environment
+## Phase 2: React Product UI Boundary
 
-**Description:** Prepare a disposable profile, synthetic editor document, English UI, fixed geometry/cursor/scaling, capture directories, and a privacy-test take before recording source footage.
+### Task 7: Configure the canonical renderer import boundary
 
-**Acceptance criteria:**
-
-- [ ] GPT-Voice uses disposable application/OS state; browser login, credentials, sessions, history, logs, notifications, clock, and unrelated desktop content stay off-screen.
-- [ ] OBS or equivalent records a window-only 1920×1080 constant-60-fps lossless MKV with no system audio and at least 60 handle frames.
-- [ ] A test take passes first/last/one-frame-per-second inspection at original resolution before source capture proceeds.
-
-**Verification:**
-
-- [ ] Inspect recorder metadata with FFprobe and review extracted privacy frames at original resolution.
-- [ ] Record the environment, geometry, target language, editor fixture, and privacy result in the implementation handoff without recording secrets.
-
-**Dependencies:** Checkpoint B and Task 3.
-**Likely files:** `.artifacts/video-source/`, `.artifacts/video-review/`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** M.
-
-### Task 8: Capture transcription and same-audio retry
-
-**Description:** Record, normalize, and privacy-clear the idle, recording, success, and failure/retry takes while preserving real current UI behavior.
+**Description:** Allow Remotion to import only the approved renderer components, styles, flags, English copy, shared types, and pure view-state helpers. Substitute the Electron-backed i18n hook with a deterministic video adapter and statically reject privileged runtime dependencies.
 
 **Acceptance criteria:**
 
-- [ ] `C01_IDLE` through `C04_FAILURE_RETRY` show the required real English states, current hotkeys, clean handles, and constant 60-fps sharp UI.
-- [ ] Retry starts from a real failed/unprocessed request, uses the stored audio through `Ctrl+F8`, and succeeds without a second recording action.
-- [ ] Every accepted take passes first/last/one-frame-per-second privacy review before entering `public/footage/`.
+- [ ] TypeScript/Remotion resolve approved root sources, substitute only the pure video i18n adapter, and force every root/Radix/Lucide import onto one `media/video` React/ReactDOM runtime.
+- [ ] The Remotion webpack override compiles canonical `globals.css` through the repository PostCSS/Tailwind pipeline from a clean root plus video install; no copied CSS snapshot exists.
+- [ ] A typed product module exposes the four direct components/view-state helpers and a provider-view slot, while a focused graph test rejects Electron, preload, IPC, `App`, `useRecording`, effectful `I18nProvider`, `window.electronAPI`, microphone/clipboard, and provider/network actions.
 
 **Verification:**
 
-- [ ] Use FFprobe on normalized clips and compare visible labels/hotkeys with the current English application source.
-- [ ] Watch the retry take frame by frame and confirm audio identity, state order, no second F9 action, and no sensitive frame.
+- [ ] Run clean root/video installs, typechecks, dependency/React-singleton inspection, and the import-boundary test.
+- [ ] Bundle a minimal still and verify computed canonical Command Dock styles without starting Electron, reaching `window.electronAPI`, or using the network.
+
+**Dependencies:** Checkpoint B.
+
+**Likely files:** `media/video/remotion.config.ts`, `media/video/tsconfig.json`, `media/video/src/product-ui/productImports.ts`, `media/video/src/product-ui/videoI18n.ts`, `media/video/src/validation/validateProductImports.test.ts`.
+
+**Estimated scope:** M.
+
+### Task 8: Build the reused Command Dock render frame
+
+**Description:** Compose the four directly reusable components and a shared pure provider-settings view inside a scaled, clipped, deterministic `ProductUiFrame` using canonical CSS and inert typed callbacks.
+
+**Acceptance criteria:**
+
+- [ ] `MainToolbar`, `PrettifyModelMemoryRow`, `RecordingControls`, and `TranslateSection` render directly from canonical source; `ProviderSettingsModalView` is extracted once, consumed by both Electron and Remotion, exported by the typed product module, and accepted by the forbidden-import test.
+- [ ] Native 460x420 geometry, canonical colors/type/icons/flags, and required `data-slot` markers are preserved at video scale.
+- [ ] Pointer events and CSS keyframes/transitions are disabled; spinner rotation is controlled by a frame-derived variable.
+
+**Verification:**
+
+- [ ] Render full-resolution idle, recording, processing, and provider-modal stills.
+- [ ] Inspect DOM slots/labels and pixel stability across two renders of the same frame.
 
 **Dependencies:** Task 7.
-**Likely files:** `media/video/public/footage/C01_IDLE.mp4`, `C02_RECORD.mp4`, `C03_STOP_SUCCESS.mp4`, `C04_FAILURE_RETRY.mp4`.
-**Estimate:** M.
 
-### Task 9: Capture text actions and provider evidence
+**Likely files:** `src/renderer/components/ProviderSettingsModal.tsx`, `src/renderer/components/ProviderSettingsModalView.tsx`, `media/video/src/product-ui/ProductUiFrame.tsx`, `media/video/src/product-ui/product-ui.css`, `media/video/src/product-ui/ProductUiFrame.test.tsx`.
 
-**Description:** Record, normalize, and privacy-clear translation, Prettify, provider, saved-session, and cursor-reference takes.
+**Estimated scope:** M.
 
-**Acceptance criteria:**
+### Task 9: Define and validate deterministic UI fixtures
 
-- [ ] `C05_TRANSLATE` and `C06_PRETTIFY` show current F11/F12 state sequences and reviewed synthetic results with meaning preserved.
-- [ ] `C07_PROVIDERS` and `C08_SESSION` visibly prove `ChatGPT Web`, `OpenAI API`, and a saved session without account identity or browser login.
-- [ ] All five takes, including `C09_CURSOR`, match the established geometry and pass the required original-resolution privacy sampling.
-
-**Verification:**
-
-- [ ] Compare results with the approved content lock and compare every product label with the current English UI.
-- [ ] Use FFprobe plus full-resolution privacy frames to reject variable frame rate, soft text, cursor jumps, or private data.
-
-**Dependencies:** Tasks 7-8.
-**Likely files:** `media/video/public/footage/C05_TRANSLATE.mp4`, `C06_PRETTIFY.mp4`, `C07_PROVIDERS.mp4`, `C08_SESSION.mp4`, `C09_CURSOR.mp4`.
-**Estimate:** M.
-
-### Checkpoint C: Tasks 7-9
-
-- [ ] All nine required takes are current, synthetic, constant-60-fps, readable, and privacy-approved.
-- [ ] No raw capture, review image, session, credential, personal data, or system audio is tracked.
-
-## Phase 3: Content Data And Functional Animatic
-
-### Task 10: Materialize approved content and timing references
-
-**Description:** Add typed synthetic content, approved narration, local icon/live sample, and a rough voice timing reference without adding caption infrastructure.
+**Description:** Model every product/prompt state and legal transition as typed data, with explicit same-audio identity across transcription and retry.
 
 **Acceptance criteria:**
 
-- [ ] `content.ts` matches accepted capture output, including the reviewed translation and meaning-preserving Prettify result.
-- [ ] `script.ts` preserves prompt-first positioning, factual qualifications, and the live-sample narration gap while fitting its assigned frame windows at a natural pace.
-- [ ] The repository icon and synthetic live sample are local, licensed/project-owned, privacy-safe, and referenced through `staticFile()`.
+- [ ] Fixtures cover bridge, recording, stopping, transcribing, copied, failed, retrying, translated, Prettified, ChatGPT session saved, and OpenAI API states.
+- [ ] Validation rejects unknown providers/statuses, missing content, non-Russian translation target, mismatched retry audio/result IDs, or a retry path containing `recording`.
+- [ ] `test:ui` runs fixture, import-boundary, DOM-slot, and deterministic callback checks.
 
 **Verification:**
 
-- [ ] Read the script aloud against frame windows and compare each spoken action with the cue sheet and captured result.
-- [ ] Search the video project for caption/SRT/VTT structures, remote assets, release numbers, and sensitive content; expect none.
+- [ ] Run positive and negative fixture tests plus root/video typechecks.
+- [ ] Generate a concise state-transition summary and compare it with the storyboard.
 
-**Dependencies:** Checkpoint C.
-**Likely files:** `media/video/src/data/content.ts`, `media/video/src/data/script.ts`, `media/video/public/images/gpt-voice-icon.png`, `media/video/public/audio/voiceover/live-transcription-sample.wav`, `.artifacts/video-audio/rough-voiceover.wav`.
-**Estimate:** M.
+**Dependencies:** Task 8.
 
-### Task 11: Build the prompt-problem and product-bridge animatic
+**Likely files:** `media/video/package.json`, `media/video/src/data/uiFixtures.ts`, `media/video/src/validation/validateUiFixtures.ts`, `media/video/src/validation/validateUiFixtures.test.ts`.
 
-**Description:** Implement scenes 1-2 with simple backgrounds so the complete problem story and first product reveal can be approved before effects work.
+**Estimated scope:** M.
+
+### Checkpoint C: Tasks 7–9
+
+- [ ] All relevant Command Dock React components render without Electron or runtime side effects.
+- [ ] Product styles and state transitions are canonical, typed, deterministic, and pixel-stable.
+
+## Phase 3: Functional React Animatic
+
+### Task 10: Materialize approved content and narration references
+
+**Description:** Convert the locked prompt, translation placeholder/review gate, Prettify pair, claims, labels, and voice-over windows into typed local data.
 
 **Acceptance criteria:**
 
-- [ ] Frames 0-899 visibly present all four prompt-problem groups and sixteen issue labels, with GPT-Voice product UI/name/actions absent.
-- [ ] Frame 900 is the first product appearance and maps the problem to speak, retry, translate, and Prettify without overclaiming.
-- [ ] The opening remains understandable muted without reproducing narration as subtitles.
+- [ ] All visible prompt/problem/claim copy is centralized and matches the specification.
+- [ ] Translation remains marked as review-required until a human-approved Russian result is inserted.
+- [ ] Content validation rejects prohibited claims, release numbers, caption structures, missing qualifications, or source/result semantic identifiers that do not match.
 
 **Verification:**
 
-- [ ] Render and review frames 60, 180, 360, 540, 720, and 900 at full resolution.
-- [ ] Watch frames 0-1139 muted and confirm inventory completeness, title-safe layout, and first-product timing.
+- [ ] Run content/type checks and a prohibited-copy search.
+- [ ] Human-review the final synthetic text and narration windows.
 
-**Dependencies:** Tasks 6 and 10.
-**Likely files:** `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/components/SafeClaim.tsx`.
-**Estimate:** M.
+**Dependencies:** Checkpoint C and Task 3.
 
-### Task 12: Build the transcription-recovery animatic
+**Likely files:** `media/video/src/data/content.ts`, `media/video/src/data/script.ts`, `media/video/src/validation/validateContent.test.ts`.
 
-**Description:** Implement scenes 3-4 as one continuous real-footage workflow from spoken prompt through success, failure, and stored-audio recovery.
+**Estimated scope:** M.
+
+### Task 11: Build the prompt-problem and product-bridge scenes
+
+**Description:** Render the first 19 seconds as a generic React prompt workspace followed by the first appearance of the reused Command Dock.
 
 **Acceptance criteria:**
 
-- [ ] Transcription shows F9, Recording, F10, Transcribing, clipboard success, and paste in the approved frame windows using the synthetic live sample.
-- [ ] Retry shows failure, `Ctrl+F8`, `Resending transcription…`, and the same result with no second record action.
-- [ ] The ChatGPT Web comparison is limited to the same-audio retry-without-re-recording workflow.
+- [ ] Frames 0–899 show the four groups and sixteen issue labels with no GPT-Voice UI/name/action.
+- [ ] Frame 900 is the first product appearance and renders the canonical Command Dock inside `ProductUiFrame`.
+- [ ] The bridge maps Transcribe, Retry, Translate, and Prettify to the problem without implying that the app invents intent or facts.
 
 **Verification:**
 
-- [ ] Render start/mid/end and cue frames for both scenes, including frames 1170, 1428, 1620, 1752, 1902, and 2040.
-- [ ] Watch the capture, cursor, hotkeys, result, and narration reference together at normal and half speed.
+- [ ] Render frames 60, 180, 360, 540, 720, 899, 900, and 1080.
+- [ ] Review frames 0–1139 muted for completeness, title safety, and first-product timing.
 
-**Dependencies:** Tasks 8, 10-11.
-**Likely files:** `media/video/src/scenes/TranscriptionScene.tsx`, `media/video/src/scenes/RetryScene.tsx`, `media/video/src/components/HotkeyChip.tsx`, `media/video/src/components/CaptureFrame.tsx`.
-**Estimate:** M.
+**Dependencies:** Task 10.
 
-### Checkpoint D: Tasks 10-12
+**Likely files:** `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/product-ui/PromptWorkspace.tsx`, `media/video/src/product-ui/PromptProblemMap.tsx`.
 
-- [ ] The first 38 seconds form a factual, privacy-safe, muted-traceable prompt and recovery story.
-- [ ] Rough narration fits without racing and every visible product state comes from reviewed footage.
+**Estimated scope:** M.
 
-### Task 13: Build the translation and Prettify animatic
+### Task 12: Build the transcription scene
 
-**Description:** Implement scenes 5-6 with real selections/results and a clear visual need for model-oriented translation and prompt cleanup.
+**Description:** Render the canonical recording lifecycle, synchronized sample cue, frame-driven cursor/hotkeys, and deterministic prompt paste.
 
 **Acceptance criteria:**
 
-- [ ] Translation shows F11, processing, clipboard success, reviewed output, and the benefit of avoiding a separate translation tool without guaranteeing a universally best language.
-- [ ] Prettify shows F12 and a legible rough/clean comparison that removes grammar noise, repetition, and filler while retaining the required security-review intent.
-- [ ] Both actions remain traceable when muted through actual UI states, selection, hotkeys, and concise labels.
+- [ ] F9, Recording, F10, Stopping, Transcribing, Copied, and paste appear in their specified frame windows.
+- [ ] `RecordingControls` supplies the product state; processing rotation is frame-derived and stable.
+- [ ] The pasted prompt exactly matches the approved spoken sample and no visual transcript acts as subtitles.
 
 **Verification:**
 
-- [ ] Render start/mid/end and cue frames for both scenes, including frames 2342, 2502, 2580, 2790, and 2952.
-- [ ] Human-review translation accuracy and perform a clause-by-clause meaning comparison of rough and Prettified text.
+- [ ] Render frames 1170, 1260, 1428, 1500, 1560, 1620, and 1692 twice and compare.
+- [ ] Watch frames 1140–1739 muted and at half speed; validate fixture transitions.
 
-**Dependencies:** Tasks 9-10 and Checkpoint D.
-**Likely files:** `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/components/SafeClaim.tsx`.
-**Estimate:** M.
+**Dependencies:** Task 11.
 
-### Task 14: Build the provider and CTA animatic
+**Likely files:** `media/video/src/scenes/TranscriptionScene.tsx`, `media/video/src/product-ui/HotkeyChip.tsx`, `media/video/src/product-ui/VideoCursor.tsx`, `media/video/src/scenes/TranscriptionScene.test.tsx`.
 
-**Description:** Implement scenes 7-8 with factual provider evidence, the fully qualified subscription benefit, and a pixel-stable ending.
+**Estimated scope:** M.
+
+### Checkpoint D: Tasks 10–12
+
+- [ ] The first 29 seconds explain the prompt problem and demonstrate transcription using only React-rendered UI.
+- [ ] Content, product appearance, timing, and repeated-frame determinism are approved before recovery work.
+
+### Task 13: Build the same-audio retry scene
+
+**Description:** Render failure, stored audio, Ctrl+F8 resend, retrying state, and identical success without a second recording.
 
 **Acceptance criteria:**
 
-- [ ] Frames 3120-3419 name ChatGPT Web and OpenAI API, identify ChatGPT Web as the implemented web provider, and keep the complete qualification legible for all 300 frames.
-- [ ] The CTA resolves transcription, retry, translation, and Prettify into the prompt-first faster/better/less-effort outcome without a release claim.
-- [ ] Frame 3540 falls inside a stable, sharp hold suitable for the README poster and LinkedIn thumbnail.
+- [ ] Failure and `Stored audio` visibly preserve the previous audio identity.
+- [ ] Ctrl+F8 and `Resending transcription...` use the actual retry lifecycle mapping and return the identical prompt result.
+- [ ] No frame in the retry scene has `recording`; the ChatGPT comparison remains limited to same-audio retry.
 
 **Verification:**
 
-- [ ] Render and inspect frames 3120, 3150, 3240, 3419, 3480, 3540, and 3599 at full resolution.
-- [ ] Run a frame-span check for qualification presence/contrast and pixel-compare the stable poster interval.
+- [ ] Render frames 1752, 1840, 1902, 1980, 2040, and 2200.
+- [ ] Run a frame-state enumeration proving no second recording and matching audio/result IDs.
 
-**Dependencies:** Tasks 9-10 and 13.
-**Likely files:** `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/scenes/CtaScene.tsx`, `media/video/src/components/SafeClaim.tsx`.
-**Estimate:** M.
+**Dependencies:** Task 12.
 
-### Task 15: Assemble and approve the no-effects animatic
+**Likely files:** `media/video/src/scenes/RetryScene.tsx`, `media/video/src/product-ui/StoredAudioCard.tsx`, `media/video/src/scenes/RetryScene.test.tsx`.
 
-**Description:** Connect all eight scenes, reviewed footage, rough narration, live sample, and debug layers into the complete functional timeline before plugin styling.
+**Estimated scope:** M.
+
+### Task 14: Build the translation scene
+
+**Description:** Render selected English prompt text, Russian target, F11 processing, copied state, and human-reviewed Russian result without another tool.
 
 **Acceptance criteria:**
 
-- [ ] The animatic renders exactly 3600 frames with the approved scene order, capture alignment, safe areas, and no missing/duplicated product state.
-- [ ] Every spoken action is within six frames of its visible action; no narration overlaps the live spoken sample.
-- [ ] Muted, audio-only, normal-speed, and half-speed reviews all preserve the intended prompt-first story and action order.
+- [ ] The reused `TranslateSection` shows Russian before F11.
+- [ ] F11, `Translating selection...`, `Translation copied`, and result paste occur in their frame windows.
+- [ ] Source/result labels communicate model/task language choice and avoid a universal “best language” guarantee.
 
 **Verification:**
 
-- [ ] Render one start/mid/end still per scene and a quarter-scale full animatic in WebGL-disabled placeholder mode.
-- [ ] Run timeline/type checks, then record human approval of the functional animatic before Task 16.
+- [ ] Render frames 2300, 2342, 2430, 2502, 2580, and 2660.
+- [ ] Human-review the Russian result and watch the scene muted.
 
-**Dependencies:** Tasks 11-14.
+**Dependencies:** Task 13 and the completed translation review gate in Task 10.
+
+**Likely files:** `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/product-ui/ResultComparison.tsx`, `media/video/src/scenes/TranslationScene.test.tsx`.
+
+**Estimated scope:** M.
+
+### Task 15: Build the Prettify scene
+
+**Description:** Render selection, F12 processing, and a token-level rough/clean transformation that preserves the security-review instruction.
+
+**Acceptance criteria:**
+
+- [ ] F12, `Prettifying selection...`, and `Selection prettified` occur at specified frames.
+- [ ] The result removes grammar noise, repetition, and filler while retaining pull-request security review and top-three output.
+- [ ] `Meaning preserved` and `Clearer for the model` are visible; the configured Prettify model row remains canonical and stable.
+
+**Verification:**
+
+- [ ] Render frames 2730, 2790, 2880, 2952, and 3040.
+- [ ] Run a clause/token preservation test and muted review.
+
+**Dependencies:** Task 14.
+
+**Likely files:** `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/scenes/PrettificationScene.test.tsx`.
+
+**Estimated scope:** M.
+
+### Checkpoint E: Tasks 13–15
+
+- [ ] Retry, translation, and Prettify form a factual prompt-recovery/refinement sequence.
+- [ ] Every workflow uses canonical product React state and remains understandable without audio.
+
+### Task 16: Build the provider proof scene
+
+**Description:** Render canonical ChatGPT Web/OpenAI API toolbar states, the saved-session modal, and the fixed qualified subscription benefit.
+
+**Acceptance criteria:**
+
+- [ ] `MainToolbar` shows ChatGPT Web connected and OpenAI API as the alternate provider in deterministic states.
+- [ ] The shared `ProviderSettingsModalView` shows only synthetic `Session status: Saved`; no key/session content exists.
+- [ ] The full qualification is untruncated and visible for frames 3120–3419.
+
+**Verification:**
+
+- [ ] Render frames 3120, 3150, 3240, 3330, and 3419 in both effects modes.
+- [ ] Run a 300-frame qualification presence/contrast check and product label comparison.
+
+**Dependencies:** Checkpoint E.
+
+**Likely files:** `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/product-ui/SafeClaim.tsx`, `media/video/src/scenes/ProvidersScene.test.tsx`.
+
+**Estimated scope:** M.
+
+### Task 17: Build the CTA and stable poster scene
+
+**Description:** Resolve the four workflows into one prompt-first outcome and create a pixel-stable final hold.
+
+**Acceptance criteria:**
+
+- [ ] CTA contains Speak, Retry, Translate, Refine, Better prompts, Less effort, and GPT-Voice on GitHub.
+- [ ] No release or LinkedIn post text appears.
+- [ ] Frames 3540–3599 are visually identical and frame 3540 is sharp at README size.
+
+**Verification:**
+
+- [ ] Render frames 3420, 3480, 3540, 3570, and 3599; pixel-compare the stable interval.
+- [ ] Inspect the poster at 960 px display width.
+
+**Dependencies:** Task 16.
+
+**Likely files:** `media/video/src/scenes/CtaScene.tsx`, `media/video/src/scenes/CtaScene.test.tsx`.
+
+**Estimated scope:** S.
+
+### Task 18: Assemble and approve the no-effects React animatic
+
+**Description:** Connect all eight functional scenes, UI fixtures, rough narration reference, safe areas, and debug layers before plugin styling.
+
+**Acceptance criteria:**
+
+- [ ] The animatic renders exactly 3600 frames with all scene/state boundaries and no missing or duplicated product state.
+- [ ] Spoken actions are within six frames of visible actions and no narration overlaps the live sample.
+- [ ] Muted, audio-only, normal-speed, and half-speed reviews preserve the story and action order.
+
+**Verification:**
+
+- [ ] Render one start/mid/end still per scene and a quarter-scale full animatic in fallback placeholder mode.
+- [ ] Run timeline, content, UI-fixture, import-boundary, type, and stable-frame tests; record human approval.
+
+**Dependencies:** Tasks 11–17.
+
 **Likely files:** `media/video/src/GptVoiceDemo.tsx`, `media/video/src/components/DebugOverlay.tsx`, `media/video/src/data/timeline.ts`, `media/video/src/data/audioCues.ts`.
-**Estimate:** M.
 
-### Checkpoint E: Tasks 13-15
+**Estimated scope:** M.
 
-- [ ] The complete no-effects video is functionally, factually, and temporally approved.
-- [ ] Plugin work cannot conceal or change any approved real state, claim, or scene boundary.
+### Checkpoint F: Tasks 16–18
+
+- [ ] The complete no-effects React animatic is factually, visually, and temporally approved.
+- [ ] Plugin work may decorate but cannot change approved product state, copy, or timing.
 
 ## Phase 4: Remotion Plugin Layer
 
-### Task 16: Implement deterministic background effects
+### Task 19: Implement deterministic background effects
 
-**Description:** Build the shared WebGL/fallback background and texture layer using approved effects and noise while preserving text/capture contrast.
-
-**Acceptance criteria:**
-
-- [ ] `@remotion/effects` and `@remotion/noise` produce fixed-seed gradient/grain treatments within the specified glow, opacity, and drift limits.
-- [ ] The CSS/SVG fallback preserves palette, geometry, content, and frame timing when WebGL is unavailable.
-- [ ] Effects remain below capture/claim layers and never recolor, blur, glow, or texture product UI or required qualifications.
-
-**Verification:**
-
-- [ ] Render matched WebGL/fallback stills from the opening, retry, provider, and CTA scenes; reject black/transparent/color-shifted frames.
-- [ ] Sample deterministic rerenders and confirm identical output for the same props/frame.
-
-**Dependencies:** Checkpoint E.
-**Likely files:** `media/video/src/visuals/AnimatedBackground.tsx`, `media/video/src/visuals/AnimatedBackground.test.tsx`, `media/video/src/GptVoiceDemo.tsx`.
-**Estimate:** M.
-
-### Task 17: Implement waveform and workflow-path primitives
-
-**Description:** Build reusable, typed speech waveform and directional connector visuals from the approved live sample.
+**Description:** Build the shared WebGL/fallback gradient, glow, and fixed-seed texture layer.
 
 **Acceptance criteria:**
 
-- [ ] `@remotion/media-utils` derives the visible waveform from the same local WAV heard in the mix.
-- [ ] `@remotion/paths` and `@remotion/shapes` create clamped, meaningfully directed paths/nodes with at most two moving dots.
-- [ ] Both primitives preserve title-safe layout and have deterministic CSS/SVG-safe behavior.
+- [ ] `@remotion/effects` and `@remotion/noise` produce bounded deterministic backgrounds.
+- [ ] Fallback preserves palette, geometry, timing, and contrast without WebGL.
+- [ ] Effects remain behind product UI, prompts, results, and qualifications.
 
 **Verification:**
 
-- [ ] Render cue stills across recording, retry, translation, Prettify, and provider flow; compare direction with the transition semantics table.
-- [ ] Run focused component/type tests with missing/short audio and path endpoints.
+- [ ] Render matched WebGL/fallback stills in opening, retry, provider, and CTA scenes.
+- [ ] Re-render identical frames and reject black, transparent, shifted, or nondeterministic output.
 
-**Dependencies:** Task 16.
-**Likely files:** `media/video/src/visuals/AudioWaveform.tsx`, `media/video/src/visuals/FlowPath.tsx`, `media/video/src/visuals/FlowPath.test.tsx`.
-**Estimate:** M.
+**Dependencies:** Checkpoint F.
 
-### Task 18: Implement transitions and bounded motion accents
+**Likely files:** `media/video/src/visuals/AnimatedBackground.tsx`, `media/video/src/visuals/AnimatedBackground.test.tsx`, `media/video/src/data/visualSeeds.ts`.
 
-**Description:** Standardize semantic scene transitions, the three approved light leaks, and motion trails for non-critical accent geometry.
+**Estimated scope:** M.
+
+### Task 20: Implement the audio-derived waveform
+
+**Description:** Build a reusable waveform from the exact local live-sample WAV with a deterministic static stored-audio form.
 
 **Acceptance criteria:**
 
-- [ ] `@remotion/transitions`, `@remotion/light-leaks`, and `@remotion/motion-blur` stay within duration, opacity, trail-layer, lag, and placement limits.
-- [ ] Light leaks occur only at product reveal, retry success, and provider-to-CTA; motion blur never touches capture, result, status, or qualification content.
-- [ ] Transition overlaps are represented in timeline math without changing the 3600-frame duration or hiding real states.
+- [ ] `@remotion/media-utils` drives the live waveform from the same WAV heard in the mix.
+- [ ] Retry uses the identical waveform data frozen as stored audio; no second live input is generated.
+- [ ] Missing/short audio falls back safely without changing layout or timing.
 
 **Verification:**
 
-- [ ] Render all transition boundary frames in WebGL/fallback modes and inspect every tenth frame through each transition.
-- [ ] Run timeline validation and focused assertions for allowed light-leak count/locations and motion bounds.
+- [ ] Render recording and retry cue frames and compare waveform identity.
+- [ ] Run focused tests for normal, missing, silent, and short audio fixtures.
 
-**Dependencies:** Tasks 16-17.
+**Dependencies:** Task 19 and authorization/availability of the local project-owned live sample.
+
+**Likely files:** `media/video/src/visuals/AudioWaveform.tsx`, `media/video/src/visuals/AudioWaveform.test.tsx`.
+
+**Estimated scope:** M.
+
+### Task 21: Implement path and shape primitives
+
+**Description:** Build reusable directed connectors, action nodes, rings, and problem markers.
+
+**Acceptance criteria:**
+
+- [ ] `@remotion/paths` and `@remotion/shapes` create clamped, semantically directed flow geometry.
+- [ ] No path has more than two moving dots; geometry remains title-safe and subordinate to UI.
+- [ ] CSS/SVG fallback preserves endpoints and meaning.
+
+**Verification:**
+
+- [ ] Render opening, bridge, retry, translation, Prettify, and CTA path states.
+- [ ] Test progress bounds, endpoint identity, and fallback geometry.
+
+**Dependencies:** Task 19.
+
+**Likely files:** `media/video/src/visuals/FlowPath.tsx`, `media/video/src/visuals/FlowPath.test.tsx`, `media/video/src/visuals/WorkflowNode.tsx`.
+
+**Estimated scope:** M.
+
+### Checkpoint G: Tasks 19–21
+
+- [ ] Background, waveform, path, and shape primitives are deterministic and readable in both modes.
+- [ ] Retry visibly reuses the original waveform identity.
+
+### Task 22: Implement transitions, light leaks, and bounded motion accents
+
+**Description:** Standardize scene transitions, exactly three light leaks, and motion trails on non-critical accents.
+
+**Acceptance criteria:**
+
+- [ ] `@remotion/transitions`, `@remotion/light-leaks`, and `@remotion/motion-blur` obey duration, count, opacity, and target limits.
+- [ ] Light leaks occur only at product reveal, retry success, and provider-to-CTA.
+- [ ] Product UI, prompt/results, statuses, and qualifications are never blurred or obscured.
+
+**Verification:**
+
+- [ ] Inspect every tenth frame through every transition in WebGL/fallback modes.
+- [ ] Test allowed light-leak frames/count and motion-blur target allowlist.
+
+**Dependencies:** Checkpoint G.
+
 **Likely files:** `media/video/src/visuals/SceneTransition.tsx`, `media/video/src/visuals/MotionAccent.tsx`, `media/video/src/visuals/SceneTransition.test.tsx`, `media/video/src/data/timeline.ts`.
-**Estimate:** M.
 
-### Checkpoint F: Tasks 16-18
+**Estimated scope:** M.
 
-- [ ] All nine selected packages now have a bounded shared implementation path in WebGL and fallback modes.
-- [ ] Shared effects are deterministic and cannot reduce critical UI/claim readability.
+### Task 23: Apply the plugin map to opening, bridge, transcription, and retry
 
-### Task 19: Apply the plugin map to the opening and recovery story
-
-**Description:** Integrate approved background, shape, path, waveform, transition, leak, and accent primitives into scenes 1-4 without changing the animatic contract.
+**Description:** Integrate approved plugin primitives into the first four scenes without changing functional states or copy.
 
 **Acceptance criteria:**
 
-- [ ] Prompt problems/product bridge use the specified shape/path/reveal treatments while GPT-Voice remains absent before frame 900.
-- [ ] Transcription/retry use the live waveform, broken-to-complete retry path, and bounded success punctuation without obscuring real states.
-- [ ] Muted traceability, title-safe bounds, and all animatic timing/claims remain unchanged.
+- [ ] Each scene uses only its mapped packages and maintains UI/title-safe contrast.
+- [ ] Product reveal, live waveform, stored-audio path, and retry success read clearly at normal and half speed.
+- [ ] Functional cue frames remain pixel-identical in UI geometry to the approved animatic.
 
 **Verification:**
 
-- [ ] Render the mandatory full-resolution frames 60, 180, 360, 540, 720, 900, and 2040 in both effects modes.
-- [ ] Compare scene timing/content against the approved animatic and inspect every tenth frame for accidental unreadability.
+- [ ] Render all specified cue/still frames in WebGL/fallback and overlay UI bounding boxes against animatic baselines.
+- [ ] Watch frames 0–2279 muted and at normal speed.
 
-**Dependencies:** Checkpoint F.
-**Likely files:** `media/video/src/scenes/PromptProblemsScene.tsx`, `ProductBridgeScene.tsx`, `TranscriptionScene.tsx`, `RetryScene.tsx`.
-**Estimate:** M.
+**Dependencies:** Task 22.
 
-### Task 20: Apply the plugin map to text actions and CTA
+**Likely files:** `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/scenes/TranscriptionScene.tsx`, `media/video/src/scenes/RetryScene.tsx`.
 
-**Description:** Integrate approved directional translation, token-refinement, provider flow, and CTA convergence treatments into scenes 5-8.
+**Estimated scope:** M.
+
+### Task 24: Apply the plugin map to translation, Prettify, providers, and CTA
+
+**Description:** Integrate directional flows, cleanup shapes, provider background treatment, and final resolve into the last four scenes.
 
 **Acceptance criteria:**
 
-- [ ] Translation direction, Prettify before/after motion, and provider connectors communicate data flow without altering or softening captured text.
-- [ ] Provider qualification remains fully readable for all frames 3120-3419, and CTA convergence leaves frame 3540 pixel-stable.
-- [ ] No third-party logo animation, unapproved decorative asset, or effect is added.
+- [ ] Translation direction, Prettify removal/preservation, provider proof, and CTA resolution remain semantically clear.
+- [ ] Qualification is untouched by effects for every provider frame.
+- [ ] Stable poster frames remain pixel-identical.
 
 **Verification:**
 
-- [ ] Render the mandatory frames 3240 and 3480 plus start/mid/end stills for scenes 5-8 in both effects modes.
-- [ ] Run muted, frame-span qualification, stable-poster, and every-tenth-frame reviews.
+- [ ] Render all specified cue/still frames in both modes and compare UI/claim geometry with animatic baselines.
+- [ ] Watch frames 2280–3599 muted and at normal speed.
 
-**Dependencies:** Checkpoint F.
-**Likely files:** `media/video/src/scenes/TranslationScene.tsx`, `PrettificationScene.tsx`, `ProvidersScene.tsx`, `CtaScene.tsx`.
-**Estimate:** M.
+**Dependencies:** Task 22.
 
-### Task 21: Pass the plugin compliance gate
+**Likely files:** `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/scenes/CtaScene.tsx`.
 
-**Description:** Prove version alignment, actual approved use, deterministic rendering, and removal of any unused selected dependency before final audio.
+**Estimated scope:** M.
+
+### Task 25: Pass the plugin compliance gate
+
+**Description:** Prove exact version alignment, use of all selected packages, scene-map compliance, deterministic fallback, and license eligibility.
 
 **Acceptance criteria:**
 
-- [ ] `npm ls` reports one exact valid version for Remotion core/CLI and every retained selected package.
-- [ ] Each retained plugin has a mapped, visible, approved use and no unselected animation/caption/remote-asset package is present.
-- [ ] Required WebGL and fallback stills render without black frames, missing textures, alpha defects, or content/timing differences.
+- [ ] All nine selected packages resolve to `4.0.483` and are used only in mapped components/scenes.
+- [ ] No unapproved visual/media dependency, caption package, remote asset, or product-video input exists.
+- [ ] License ledger and WebGL/fallback comparison are complete.
 
 **Verification:**
 
-- [ ] Run package-tree, import-map, timeline, typecheck, and deterministic still checks from a clean install.
-- [ ] Human-review a side-by-side plugin checklist against the scene-to-plugin map and parameter bounds.
+- [ ] Run exact `npm ls`, static plugin-usage validation, clean offline render, and license review.
+- [ ] Search source/manifests for unselected animation, screenshot, footage, caption, and remote-asset paths.
 
-**Dependencies:** Tasks 19-20.
-**Likely files:** `media/video/package.json`, `media/video/package-lock.json`, `media/video/THIRD_PARTY_MEDIA.md`, `media/video/out/stills/`.
-**Estimate:** M.
+**Dependencies:** Tasks 23–24.
 
-### Checkpoint G: Tasks 19-21
+**Likely files:** `media/video/src/validation/validatePluginUsage.ts`, `media/video/src/validation/validatePluginUsage.test.ts`, `media/video/THIRD_PARTY_MEDIA.md`.
 
-- [ ] The vibrant plugin pass is complete, deterministic, licensed, version-aligned, and subordinate to product legibility.
-- [ ] WebGL and fallback pictures tell the same approved story in exactly 3600 frames.
+**Estimated scope:** M.
 
-## Phase 5: Final Voice, Stock Audio, And Mix
+### Checkpoint H: Tasks 22–25
 
-### Task 22: Produce and synchronize the final voice-over
+- [ ] Every selected plugin has an approved, deterministic, version-aligned implementation.
+- [ ] Plugin styling preserves canonical React UI and approved story in both render modes.
 
-**Description:** Naturalize the approved script with the requested Humanizer skill when authorized/available, complete the human read-aloud pass, and record the final narration.
+## Phase 5: Voice, Stock Audio, And Mix
+
+### Task 26: Produce and synchronize final voice-over
+
+**Description:** Record project-owned neutral-English narration/live sample, apply the approved prose review, and align each line to frame windows.
 
 **Acceptance criteria:**
 
-- [ ] Humanizer edits improve cadence without changing factual meaning, claim qualifications, prompt-first positioning, or scene ownership; unavailable tooling remains an explicit blocker.
-- [ ] Final narration is clean project-owned 48 kHz/24-bit WAV and contains no private content or narration during the live sample.
-- [ ] Spoken actions align with visible states within six frames at natural speed without audible time stretching.
+- [ ] 48 kHz/24-bit mono sources are clean, natural, project-owned, and match approved copy.
+- [ ] Spoken actions align within six frames; no narration overlaps the live sample.
+- [ ] Humanizer, if authorized/available, changes rhythm only and a human read-aloud approves the result.
 
 **Verification:**
 
-- [ ] Diff reviewed/final script semantics, then record Humanizer and human read-aloud approvals.
-- [ ] Listen with picture at normal/half speed and without picture; confirm intelligibility, order, and cue alignment.
+- [ ] Review raw/processed stems, script diff, audio-only timeline, and picture synchronization.
+- [ ] Reject clipped, synthetic-sounding, rushed, or claim-altering takes.
 
-**Dependencies:** Checkpoint G and Task 2's skill/voice-source decision.
-**Likely files:** `media/video/src/data/script.ts`, `media/video/public/audio/voiceover/voiceover-main.wav`, `media/video/src/data/audioCues.ts`, `media/video/THIRD_PARTY_MEDIA.md`.
-**Estimate:** M.
+**Dependencies:** Checkpoint H and the optional skill decision from Task 2.
 
-### Task 23: Acquire and prepare licensed music and SFX
+**Likely files:** `media/video/public/audio/voiceover/`, `media/video/src/data/script.ts`, `media/video/THIRD_PARTY_MEDIA.md`.
 
-**Description:** Select approved stock music/effects, document provenance, and normalize editable 48 kHz/24-bit stems without mimicking real system notifications.
+**Estimated scope:** M.
+
+### Task 27: Acquire and prepare licensed music and SFX
+
+**Description:** After authorization, select one stock music track and the required licensed/original effects, normalize them to local 48 kHz stems, and complete provenance.
 
 **Acceptance criteria:**
 
-- [ ] Every music/SFX file has documented source, creator, license, download date, attribution, and repository/LinkedIn eligibility before import.
-- [ ] The music bed supports a restrained 60-second edit; action, processing, failure, success, and transition sounds match the cue sheet and remain distinguishable.
-- [ ] No unlicensed, purchase-required, private, remote-runtime, or opaque all-in-one final stem enters the project.
+- [ ] Every asset has source, creator, license, acquisition date, attribution, and GitHub/LinkedIn eligibility recorded.
+- [ ] Music and SFX fit the specified character and do not mimic protected brand/system sounds.
+- [ ] Only redistributable final stems enter the repository; receipts/non-redistributable originals stay outside.
 
 **Verification:**
 
-- [ ] Audit `THIRD_PARTY_MEDIA.md` against every imported audio file and stop on any missing/unclear right.
-- [ ] Inspect sample rate/bit depth/channel metadata and audition each stem at working level for clipping or notification confusion.
+- [ ] Human-review the license ledger and audition all stems on headphones/laptop speakers.
+- [ ] Confirm no asset was acquired before required authorization.
 
-**Dependencies:** Tasks 2 and 21.
-**Likely files:** `media/video/THIRD_PARTY_MEDIA.md`, `media/video/public/audio/music/`, `media/video/public/audio/sfx/`.
-**Estimate:** M.
+**Dependencies:** Tasks 2 and 25; explicit authorization for external acquisition.
 
-### Task 24: Integrate and approve the final mix
+**Likely files:** `media/video/public/audio/music/`, `media/video/public/audio/sfx/`, `media/video/THIRD_PARTY_MEDIA.md`.
 
-**Description:** Place final narration, live sample, music, and individual SFX by frame with controlled ducking, fades, and loudness.
+**Estimated scope:** M.
+
+### Task 28: Integrate and approve the final mix
+
+**Description:** Add frame-driven audio envelopes, music ducking, SFX cues, and final loudness/peak control.
 
 **Acceptance criteria:**
 
-- [ ] All cue-sheet events occur at their approved frames; music ducks 6-8 dB under the live sample/voice and reaches digital silence by frame 3599.
-- [ ] The integrated master is approximately −14 LUFS-I with true peak at or below −1 dBTP, with voice/live sample always intelligible.
-- [ ] Final audio remains independently editable and synchronized in both effects modes.
+- [ ] Every cue matches `audioCues.ts`; voice/live sample/music/SFX remain separately controllable.
+- [ ] Mix measures approximately -14 LUFS-I, true peak <= -1 dBTP, and reaches silence at the end.
+- [ ] Speech remains intelligible on laptop speakers and headphones; no subtitle stream exists.
 
 **Verification:**
 
-- [ ] Render an audio-review master, run EBU R128/true-peak analysis, and inspect waveform endpoints for silence/clipping.
-- [ ] Listen once with picture, once without picture, and on speakers/headphones; record human mix approval.
+- [ ] Run audio cue tests, full listen, EBU R128 analysis, peak check, and subtitle-stream check.
+- [ ] Review picture/audio at normal and half speed.
 
-**Dependencies:** Tasks 22-23.
-**Likely files:** `media/video/src/GptVoiceDemo.tsx`, `media/video/src/data/audioCues.ts`, `media/video/src/components/AudioMix.tsx`, `media/video/out/reports/loudness.txt`.
-**Estimate:** M.
+**Dependencies:** Tasks 26–27.
 
-### Checkpoint H: Tasks 22-24
+**Likely files:** `media/video/src/components/AudioLayer.tsx`, `media/video/src/data/audioCues.ts`, `media/video/src/validation/validateAudioMix.ts`, `media/video/src/validation/validateAudioMix.test.ts`.
 
-- [ ] Final voice, live sample, music, and SFX are licensed/owned, frame-synchronized, intelligible, and technically within mix targets.
-- [ ] No caption asset, subtitle stream, or narration-derived on-screen transcript has been introduced.
+**Estimated scope:** M.
+
+### Checkpoint I: Tasks 26–28
+
+- [ ] Voice, live sample, music, and effects are owned/licensed, synchronized, intelligible, and within mix targets.
+- [ ] No caption source/output exists.
 
 ## Phase 6: Visual QA, Masters, And Distribution Files
 
-### Task 25: Complete frame-accurate visual and content QA
+### Task 29: Complete frame-accurate product and visual QA
 
-**Description:** Run the required still suite and motion reviews, then correct only evidence-backed visual, synchronization, claim, or privacy defects.
-
-**Acceptance criteria:**
-
-- [ ] All required timestamps and mandatory full-resolution frames pass title-safe, legibility, capture sharpness, effect-bound, and claim checks.
-- [ ] Full-speed, half-speed, muted, audio-only, and every-tenth-frame reviews preserve functionality and prompt-first comprehension.
-- [ ] A renewed privacy/content review finds only synthetic data and confirms all narrow claims, results, labels, and qualifications.
-
-**Verification:**
-
-- [ ] Render the specification's mandatory still commands plus scene start/mid/end frames in WebGL/fallback modes.
-- [ ] Record each review outcome and any bounded correction in the handoff; repeat failed evidence after correction.
-
-**Dependencies:** Checkpoint H.
-**Likely files:** `media/video/out/stills/`, `media/video/out/reports/`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** M.
-
-### Task 26: Render and compare the master variants
-
-**Description:** Produce the full-quality WebGL master and deterministic fallback master from a clean, offline-capable checkout.
+**Description:** Review all required frames, product component parity, UI state, claims, safe areas, deterministic renders, and WebGL/fallback behavior.
 
 **Acceptance criteria:**
 
-- [ ] Both masters render exactly 3600 frames with identical content, scene order, audio timing, and no debug overlays or network dependency.
-- [ ] The WebGL master has no black/transparent frames, missing textures, alpha/color defects, or plugin instability.
-- [ ] The fallback master remains fully readable and distribution-capable if WebGL is unavailable.
+- [ ] Required direct/shared component, label, data-slot, color, and geometry parity checks pass against current source.
+- [ ] Repeated stills are pixel-stable; fallback preserves content/layout/timing.
+- [ ] No raster product UI, screen recording, screenshot, private data, release copy, caption, clipping, or unreadable qualification exists.
 
 **Verification:**
 
-- [ ] Run the two specification render commands after a clean install with runtime network access disabled.
-- [ ] Compare FFprobe metadata, selected pixel frames, audio synchronization, and full-duration playback between variants.
-
-**Dependencies:** Task 25.
-**Likely files:** `media/video/out/gpt-voice-demo-master.mp4`, `media/video/out/gpt-voice-demo-fallback.mp4`, `media/video/out/reports/master-compare.json`.
-**Estimate:** M.
-
-### Task 27: Pass master technical acceptance
-
-**Description:** Verify the selected master before deriving any distribution output.
-
-**Acceptance criteria:**
-
-- [ ] The master is at most 60.0 seconds, 1920×1080, H.264/AAC, 60/1 fps, and contains at least one valid audio stream.
-- [ ] Loudness remains approximately −14 LUFS-I with true peak at or below −1 dBTP after the final render.
-- [ ] No subtitle stream, caption dependency/data, SRT/VTT file, remote asset, debug overlay, or sensitive media exists.
-
-**Verification:**
-
-- [ ] Run FFprobe JSON metadata, EBU R128/true-peak, subtitle-stream, package, and focused source searches.
-- [ ] Watch the selected master end to end and obtain human picture/sound/content approval before encoding derivatives.
-
-**Dependencies:** Task 26.
-**Likely files:** `media/video/out/gpt-voice-demo-master.mp4`, `media/video/out/reports/master-ffprobe.json`, `media/video/out/reports/master-loudness.txt`, `media/video/out/reports/subtitles.json`.
-**Estimate:** S.
-
-### Checkpoint I: Tasks 25-27
-
-- [ ] The selected 1080p/60 master passes deterministic picture, sound, claims, privacy, license, and no-subtitle acceptance.
-- [ ] No derivative is produced from an unapproved or technically failing master.
-
-### Task 28: Create and verify distribution derivatives
-
-**Description:** Derive the optimized README MP4, full-resolution LinkedIn upload, and frame-3540 poster from the approved master.
-
-**Acceptance criteria:**
-
-- [ ] README output is 1280×720, H.264/AAC, 60 fps, `faststart`, readable, and targets the approved size ceiling without sacrificing UI clarity.
-- [ ] LinkedIn output is 1920×1080, H.264/AAC, 60 fps, `faststart`, readable when muted, and remains ignored/unpublished.
-- [ ] The PNG poster exactly matches the stable frame-3540 CTA and is sharp at a 960-pixel README display width.
-
-**Verification:**
-
-- [ ] Run FFprobe on both MP4s, inspect file size/startup from a local HTTP server, and repeat the no-subtitle check.
-- [ ] Pixel-compare the poster with master frame 3540 and review all three outputs at their expected display sizes.
+- [ ] Render and inspect the full specification still list plus every tenth frame through transitions.
+- [ ] Run complete root/video focused checks and muted/audio-only/normal/half-speed human reviews.
 
 **Dependencies:** Checkpoint I.
-**Likely files:** `assets/demo/gpt-voice-demo.mp4`, `assets/demo/gpt-voice-demo-poster.png`, `media/video/out/gpt-voice-linkedin.mp4`.
-**Estimate:** M.
+
+**Likely files:** `media/video/out/stills/`, `media/video/out/reports/`, `docs/specs/readme-demo-video/tasks/handoff.md`.
+
+**Estimated scope:** M.
+
+### Task 30: Render and approve master variants
+
+**Description:** Render WebGL and fallback masters, compare them, and select the final 1080p/60 source.
+
+**Acceptance criteria:**
+
+- [ ] Both masters are exactly 3600 frames, <=60 seconds, 1920x1080, 60 fps, H.264/AAC, and contain audio/no subtitles.
+- [ ] WebGL has no black/missing/corrupt frames; fallback changes decoration only.
+- [ ] Selected master passes claim, product, privacy, audio, and license gates.
+
+**Verification:**
+
+- [ ] Run FFprobe, frame count, loudness/peak, subtitle, black-frame, and sampled-frame comparisons.
+- [ ] Record human master approval before derivatives.
+
+**Dependencies:** Task 29.
+
+**Likely files:** `media/video/out/gpt-voice-demo-master.mp4`, `media/video/out/gpt-voice-demo-fallback.mp4`, `media/video/out/reports/`.
+
+**Estimated scope:** M.
+
+### Task 31: Create and verify distribution derivatives
+
+**Description:** Encode the 1280x720 README MP4, full-resolution LinkedIn file, and stable poster from the approved master.
+
+**Acceptance criteria:**
+
+- [ ] README MP4 is 1280x720, 60 fps, fast-start, readable, and targets <=20 MB.
+- [ ] LinkedIn derivative is 1920x1080, 60 fps, H.264/AAC, and remains unpublished.
+- [ ] Poster comes from frame 3540 and matches the approved stable CTA interval.
+
+**Verification:**
+
+- [ ] Run FFprobe/file-size checks and inspect desktop/mobile playback from a local server.
+- [ ] Compare derivative UI/qualification legibility with the master.
+
+**Dependencies:** Task 30 and human master approval.
+
+**Likely files:** `assets/demo/gpt-voice-demo.mp4`, `assets/demo/gpt-voice-demo-poster.png`, `media/video/out/gpt-voice-linkedin.mp4`, `media/video/out/reports/`.
+
+**Estimated scope:** M.
+
+### Checkpoint J: Tasks 29–31
+
+- [ ] Master, fallback, README derivative, poster, and unpublished LinkedIn derivative pass all technical/content checks.
+- [ ] Human approval authorizes README integration, not external publication.
 
 ## Phase 7: README Integration And Handoff
 
-### Task 29: Integrate the accessible README demo block
+### Task 32: Integrate the accessible README demo block
 
-**Description:** Place the linked poster after the badges and before `Why GPT-Voice?`, then verify repository-relative playback in GitHub-compatible rendering.
+**Description:** Add the approved poster-linked video near the README introduction and verify relative paths and accessible text.
 
 **Acceptance criteria:**
 
-- [ ] The centered poster link opens the tracked README MP4, uses accurate video-opening alt text, and includes the concise one-minute demo label.
-- [ ] Relative paths/case work from the repository README; unsupported inline `<video>` behavior is not assumed.
-- [ ] The README remains factually consistent with the video and contains no broken whitespace or media links.
+- [ ] Poster link appears after badges and before `Why GPT-Voice?` with approved alt text and visible label.
+- [ ] Activating the poster opens the local MP4 in GitHub-compatible rendering.
+- [ ] Only README MP4/poster are tracked; masters/reports/LinkedIn output remain ignored.
 
 **Verification:**
 
-- [ ] Preview the README with a GitHub-compatible renderer and activate the poster by keyboard and pointer.
-- [ ] Run link/path checks, `git diff --check`, and the smallest applicable documentation/format checks.
+- [ ] Preview GitHub-compatible Markdown, activate the link, and test paths from a clean checkout.
+- [ ] Run Markdown formatting, `git diff --check`, and tracked/ignored media review.
 
-**Dependencies:** Task 28.
+**Dependencies:** Checkpoint J.
+
 **Likely files:** `README.md`, `assets/demo/gpt-voice-demo.mp4`, `assets/demo/gpt-voice-demo-poster.png`.
-**Estimate:** S.
 
-### Task 30: Complete final human approval and local handoff
+**Estimated scope:** S.
 
-**Description:** Close the production checklist, preserve only approved tracked deliverables, and hand off the unpublished LinkedIn file without mutating remote state.
+### Task 33: Complete final approval and local handoff
+
+**Description:** Re-run the final scoped checks, record outputs/provenance, close the task list, and hand the unpublished files to the user without pushing or publishing.
 
 **Acceptance criteria:**
 
-- [ ] Human approval covers master, README derivative, LinkedIn derivative, poster, narration, music/SFX, claims, privacy, license ledger, and muted comprehension.
-- [ ] Git status contains no raw capture, review frame, master, report, cache, credential, session, unlicensed file, or unrelated edit; unrelated `design-qa.md` remains untouched.
-- [ ] Handoff records changed files, completed checks, exact local LinkedIn path, remaining platform-specific checks, and that upload/publication still requires explicit authorization.
+- [ ] Specification success criteria, Definition of Done, task checklist, license ledger, and final reports are complete.
+- [ ] Handoff records changed files, checks, local deliverables, remaining external publication action, and no blockers.
+- [ ] No push, upload, publication, release, purchase, or external message occurred without explicit authorization.
 
 **Verification:**
 
-- [ ] Run final isolated type/timeline/package checks, media probes, README checks, `git diff --check`, and scoped `git status` review.
-- [ ] Reconcile every success criterion in the specification and every task/checkpoint in `todo.md` before marking complete.
+- [ ] Review staged/tracked scope, final diff, ignored outputs, and media metadata.
+- [ ] Human final review accepts README behavior and local deliverables.
 
-**Dependencies:** Tasks 1-29.
-**Likely files:** `media/video/THIRD_PARTY_MEDIA.md`, `docs/specs/readme-demo-video/tasks/todo.md`, `docs/specs/readme-demo-video/tasks/handoff.md`.
-**Estimate:** S.
+**Dependencies:** Tasks 1–32.
 
-### Checkpoint J: Tasks 28-30
+**Likely files:** `docs/specs/readme-demo-video/tasks/todo.md`, `docs/specs/readme-demo-video/tasks/handoff.md`, `media/video/THIRD_PARTY_MEDIA.md`.
 
-- [ ] The approved README assets and unpublished LinkedIn derivative are complete, verified, and handed off.
-- [ ] No upload, LinkedIn post, GitHub publication, purchase, release, push, or other remote mutation has occurred without separate authorization.
+**Estimated scope:** S.
+
+### Checkpoint K: Tasks 32–33
+
+- [ ] README demo and local LinkedIn derivative are complete and verified.
+- [ ] Only approved README media is tracked; no external publication or push occurred.
 
 ## Parallelization And Coordination
 
-- Tasks 1-15 are sequential because approvals, capture truth, content, and the functional animatic establish the source of truth.
-- After Task 15, Tasks 16-18 may be developed in separate sessions only if their component contracts and ownership are fixed first; they converge before scene integration.
-- Tasks 19 and 20 affect disjoint scene files and may run in parallel after Checkpoint F, but Task 21 must validate their combined package/render state.
-- Tasks 22 and 23 may proceed in parallel only after the script and stock-source decisions are locked; Task 24 consumes both.
-- Tasks 25-30 are sequential because every artifact must derive from the same approved master.
-- Any work sharing `GptVoiceDemo.tsx`, `timeline.ts`, `audioCues.ts`, `package-lock.json`, or `THIRD_PARTY_MEDIA.md` needs an agreed merge order.
+- Tasks 7–10 are sequential because aliases/import boundaries, canonical UI frame, fixtures, and content contracts build on each other.
+- After Task 10, prompt visual components may be prepared independently, but Tasks 11–18 should be integrated in storyboard order to preserve one continuous state narrative.
+- Tasks 19–21 are safe to implement independently after the animatic is approved; Task 22 depends on their contracts.
+- Tasks 23 and 24 can proceed independently after Task 22, provided they do not edit shared timeline/plugin primitives simultaneously.
+- Voice recording and stock selection may be prepared after their authorization gates, but the final mix waits for plugin/content lock.
+- Master, derivatives, README integration, and handoff are sequential approval gates.
+- No sub-agent or parallel worker should edit the same scene/data file without explicit coordination.
 
 ## Risks And Mitigations
 
-| Risk                                           | Impact | Mitigation                                                                                                                                 |
-| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Specification or claims change after capture   | High   | Lock Tasks 1-3 before recording; revise the spec and recapture affected footage rather than patching claims in motion graphics.            |
-| Remotion/plugin distribution terms are unclear | High   | Treat Task 2 as a stop gate; do not install/distribute until eligibility is documented or an approved CSS/SVG replacement is specified.    |
-| Sensitive data appears in one frame            | High   | Inspect original-resolution samples and reject/recapture the take; never commit raw captures or use blur as the primary remedy.            |
-| A real retry cannot recover continuously       | High   | Capture real failure and real retry success separately if necessary, while preserving truthful state order and never fabricating recovery. |
-| Translation or Prettify output changes meaning | High   | Make reviewed captured output authoritative, update typed content, and recapture/reject semantically unsafe results.                       |
-| WebGL renders black or inconsistently          | High   | Run early still gates, keep the deterministic fallback, and select fallback output if final WebGL eligibility fails.                       |
-| No subtitles weakens muted comprehension       | Medium | Use real states, hotkeys, concise labels, visible before/after text, and longer holds; never add narration-derived captions.               |
-| 60-fps README encode exceeds the size ceiling  | Medium | Compare CRF 21-24/max-rate variants and prefer a modest size increase over unreadable UI.                                                  |
-| Voice-over drifts from picture                 | Medium | Re-record or move cue frames within the approved scene; reject audible speech time-stretching.                                             |
-| Plugin energy reduces legibility               | Medium | Enforce layer order/parameter bounds and sample every tenth frame; disable an effect rather than obscure product truth.                    |
-| External skill or stock source is unavailable  | Medium | Record the blocker, use an explicitly approved alternative, and do not silently skip the required Humanizer/license review.                |
+| Risk                                                          | Impact | Mitigation                                                                                                                                                                                  |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Renderer import pulls Electron/runtime code                   | High   | Allowlisted product import module plus static forbidden-import test; never polyfill Electron.                                                                                               |
+| Canonical components depend on CSS keyframes or portal state  | High   | Scope render overrides, control open state with props, and drive all motion from frames.                                                                                                    |
+| Direct reuse becomes a second visual fork                     | High   | Extract shared pure views in original source when necessary; prohibit copied Command Dock markup.                                                                                           |
+| Root/video dependency resolution becomes fragile              | High   | Explicit source aliases, one forced video React runtime, repository PostCSS/Tailwind compilation, clean root/video installs, isolated video lockfile, and clean-checkout bundle/style test. |
+| Product UI is too small at 720p                               | High   | Fixed native geometry, minimum scaled text threshold, full-size/720p still review before scene approval.                                                                                    |
+| Retry accidentally implies re-recording or persistent storage | High   | Fixture identity validation, no `recording` state in retry scene, precise copy.                                                                                                             |
+| Translation/Prettify overclaim model quality                  | Medium | Reviewed examples, non-universal wording, explicit meaning-preservation check.                                                                                                              |
+| CSS/WebGL nondeterminism changes pixels                       | High   | Disable wall-clock motion, fixed seeds, repeat-render pixel comparisons, fallback mode.                                                                                                     |
+| Provider qualification is unreadable                          | High   | Dedicated `SafeClaim`, 300-frame presence/contrast test, no effect layer above it.                                                                                                          |
+| Plugin layer overwhelms canonical UI                          | Medium | No-effects approval baseline, target allowlists, bounded opacity/duration, UI geometry comparison.                                                                                          |
+| Stock licensing is unclear                                    | High   | Separate acquisition gate and complete provenance before import.                                                                                                                            |
+| 60 fps README file exceeds 20 MB                              | Medium | Readability-first CRF comparison; request approval before raising ceiling.                                                                                                                  |
+| No subtitles reduces muted comprehension                      | Medium | Product state, hotkeys, prompt examples, concise labels, and structured infographic—not voice-over transcription.                                                                           |
 
 ## Approval And Authorization Gates
 
-- [ ] Human approves the draft specification and this plan before Task 4.
-- [ ] Remotion/plugin and stock-media distribution eligibility is documented before installation/import.
-- [ ] Purchases, attribution-expanding terms, hosted TTS, marketplace registration, and skill installation have separate approval when needed.
-- [ ] The functional animatic is approved before the plugin pass.
-- [ ] The selected master is approved before derivatives and README integration.
-- [ ] LinkedIn/GitHub upload, publication, push, or release remains outside this plan unless separately authorized.
+1. Revised React-rendered specification and plan approved before Task 7 implementation.
+2. Canonical product UI boundary/fixture checkpoint approved before functional scenes.
+3. No-effects animatic approved before plugin treatment.
+4. Exact package/license/plugin compliance approved before final audio.
+5. Stock download/purchase and optional external skill actions separately authorized.
+6. Master approved before derivatives.
+7. README integration approved before task closure.
+8. GitHub/LinkedIn publication, uploads, pushes, and releases separately authorized.
 
 ## Plan Validation
 
-- [x] Every task has no more than three acceptance criteria, explicit verification, ordered dependencies, likely files, and an S/M estimate.
-- [x] No task is L/XL or intentionally touches more than five likely files/directories.
-- [x] Checkpoints occur after every two or three tasks and include human approval at high-risk boundaries.
-- [x] The plan preserves all unrelated work, especially the untracked `design-qa.md` file.
+- [ ] Every task has acceptance criteria, verification, dependencies, likely files, and estimated scope.
+- [ ] No task requires more than five likely source/document files.
+- [ ] Tasks are dependency-ordered and checkpoints occur after every major two-to-three-task slice.
+- [ ] The plan contains no screen-capture task, command, directory, media requirement, or capture blocker.
+- [ ] All relevant existing React components and their source-of-truth boundaries are explicit.
+- [ ] Exact Remotion `4.0.483` plugin scope is preserved.
+- [ ] Human approval is recorded before implementation resumes.

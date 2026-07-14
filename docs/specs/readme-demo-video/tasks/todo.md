@@ -1,20 +1,19 @@
 # Task List: GPT-Voice README And LinkedIn Demo Video
 
-Detailed acceptance criteria, verification steps, dependencies, likely files, estimates, risks, and authorization boundaries are in `plan.md`. Planning is complete only after plan validation; implementation starts only after explicit human approval of the draft specification and this plan.
+The video is rendered entirely from React components in Remotion. Screen recording, screenshots, captured application windows, and product footage are not part of this task graph. Detailed acceptance criteria, verification, dependencies, likely files, risks, and authorization gates are in `plan.md`.
 
-## Phase 0: Human, Claim, And License Gates
+## Phase 0: Completed Human, Claim, And License Gates
 
 - [x] Task 1 (S): Approve the production contract. Dependencies: none.
 - [x] Task 2 (S): Complete the tooling and license preflight. Dependencies: Task 1.
-- [x] Task 3 (S): Lock the synthetic content and claims. Dependencies: Tasks 1-2.
+- [x] Task 3 (S): Lock synthetic content and claims. Dependencies: Tasks 1–2.
 
 ### Checkpoint A
 
-- [x] Specification/plan approval and open-question decisions are recorded.
-- [x] Claims, content, license, skill, and external-action gates are explicit.
-- [x] Human approval authorizes implementation to begin.
+- [x] Content, claims, licenses, and external-action gates are explicit.
+- [x] Local implementation is approved; publication/acquisition remain separately authorized.
 
-## Phase 1: Isolated Remotion Foundation
+## Phase 1: Completed Isolated Remotion Foundation
 
 - [x] Task 4 (M): Scaffold the isolated video project. Dependencies: Checkpoint A.
 - [x] Task 5 (M): Register the deterministic composition boundary. Dependencies: Task 4.
@@ -22,100 +21,109 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, es
 
 ### Checkpoint B
 
-- [x] The isolated Remotion project installs/type-checks without entering Electron dependencies or output.
-- [x] Both effects modes obey the exact 1920×1080, 60-fps, 3600-frame contract.
+- [x] The isolated project installs, type-checks, and renders in both effects modes.
+- [x] Timeline validation proves the exact 1920x1080, 60 fps, 3600-frame contract.
 
-## Phase 2: Disposable Capture And Privacy Review
+## Phase 2: React Product UI Boundary
 
-- [ ] Task 7 (M): Rehearse the sanitized capture environment. Dependencies: Checkpoint B and Task 3.
-- [ ] Task 8 (M): Capture transcription and same-audio retry. Dependencies: Task 7.
-- [ ] Task 9 (M): Capture text actions and provider evidence. Dependencies: Tasks 7-8.
+- [ ] Task 7 (M): Configure the canonical renderer import boundary. Dependencies: Checkpoint B.
+- [ ] Task 8 (M): Build the reused Command Dock render frame. Dependencies: Task 7.
+- [ ] Task 9 (M): Define and validate deterministic UI fixtures. Dependencies: Task 8.
 
 ### Checkpoint C
 
-- [ ] All nine takes are current, synthetic, constant-60-fps, readable, and privacy-approved.
-- [ ] No raw/private/session media is tracked.
+- [ ] All relevant Command Dock React components render without Electron/runtime side effects.
+- [ ] Product styles and state transitions are canonical, typed, deterministic, and pixel-stable.
 
-## Phase 3: Content Data And Functional Animatic
+## Phase 3: Functional React Animatic
 
-- [ ] Task 10 (M): Materialize approved content and timing references. Dependencies: Checkpoint C.
-- [ ] Task 11 (M): Build the prompt-problem and product-bridge animatic. Dependencies: Tasks 6 and 10.
-- [ ] Task 12 (M): Build the transcription-recovery animatic. Dependencies: Tasks 8 and 10-11.
+- [ ] Task 10 (M): Materialize approved content and narration references. Dependencies: Checkpoint C and Task 3.
+- [ ] Task 11 (M): Build the prompt-problem and product-bridge scenes. Dependencies: Task 10.
+- [ ] Task 12 (M): Build the transcription scene. Dependencies: Task 11.
 
 ### Checkpoint D
 
-- [ ] The first 38 seconds are factual, privacy-safe, prompt-first, and understandable when muted.
-- [ ] Rough narration fits naturally and matches real product states.
+- [ ] The first 29 seconds explain the prompt problem and demonstrate transcription with React-rendered UI.
+- [ ] Content, product appearance, timing, and repeat-frame determinism are approved.
 
-- [ ] Task 13 (M): Build the translation and Prettify animatic. Dependencies: Tasks 9-10 and Checkpoint D.
-- [ ] Task 14 (M): Build the provider and CTA animatic. Dependencies: Tasks 9-10 and 13.
-- [ ] Task 15 (M): Assemble and approve the no-effects animatic. Dependencies: Tasks 11-14.
+- [ ] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
+- [ ] Task 14 (M): Build the translation scene. Dependencies: Task 13 and translation review.
+- [ ] Task 15 (M): Build the Prettify scene. Dependencies: Task 14.
 
 ### Checkpoint E
 
-- [ ] The full functional animatic passes picture, muted, audio-only, normal-speed, and half-speed review.
-- [ ] Human approval authorizes the plugin pass without changing approved behavior or claims.
+- [ ] Retry, translation, and Prettify form a factual prompt recovery/refinement sequence.
+- [ ] Every workflow uses canonical product React state and remains understandable muted.
 
-## Phase 4: Remotion Plugin Layer
-
-- [ ] Task 16 (M): Implement deterministic background effects. Dependencies: Checkpoint E.
-- [ ] Task 17 (M): Implement waveform and workflow-path primitives. Dependencies: Task 16.
-- [ ] Task 18 (M): Implement transitions and bounded motion accents. Dependencies: Tasks 16-17.
+- [ ] Task 16 (M): Build the provider proof scene. Dependencies: Checkpoint E.
+- [ ] Task 17 (S): Build the CTA and stable poster scene. Dependencies: Task 16.
+- [ ] Task 18 (M): Assemble and approve the no-effects React animatic. Dependencies: Tasks 11–17.
 
 ### Checkpoint F
 
-- [ ] Shared WebGL/fallback effects are deterministic, bounded, and keep critical content readable.
-- [ ] All nine selected Remotion packages have an approved implementation path.
+- [ ] The complete no-effects React animatic is factually, visually, and temporally approved.
+- [ ] Plugin work cannot change approved product state, copy, or timing.
 
-- [ ] Task 19 (M): Apply the plugin map to the opening and recovery story. Dependencies: Checkpoint F.
-- [ ] Task 20 (M): Apply the plugin map to text actions and CTA. Dependencies: Checkpoint F.
-- [ ] Task 21 (M): Pass the plugin compliance gate. Dependencies: Tasks 19-20.
+## Phase 4: Remotion Plugin Layer
+
+- [ ] Task 19 (M): Implement deterministic background effects. Dependencies: Checkpoint F.
+- [ ] Task 20 (M): Implement the audio-derived waveform. Dependencies: Task 19 and local live sample.
+- [ ] Task 21 (M): Implement path and shape primitives. Dependencies: Task 19.
 
 ### Checkpoint G
 
-- [ ] The full plugin pass is version-aligned, licensed, deterministic, and mapped to the specification.
-- [ ] WebGL and fallback modes preserve the same content, timing, and readability.
+- [ ] Background, waveform, path, and shape primitives are deterministic in both modes.
+- [ ] Retry visibly reuses the original waveform identity.
 
-## Phase 5: Final Voice, Stock Audio, And Mix
-
-- [ ] Task 22 (M): Produce and synchronize the final voice-over. Dependencies: Checkpoint G and Task 2's skill/voice decision.
-- [ ] Task 23 (M): Acquire and prepare licensed music and SFX. Dependencies: Tasks 2 and 21.
-- [ ] Task 24 (M): Integrate and approve the final mix. Dependencies: Tasks 22-23.
+- [ ] Task 22 (M): Implement transitions, light leaks, and bounded motion accents. Dependencies: Checkpoint G.
+- [ ] Task 23 (M): Apply the plugin map to opening, bridge, transcription, and retry. Dependencies: Task 22.
+- [ ] Task 24 (M): Apply the plugin map to translation, Prettify, providers, and CTA. Dependencies: Task 22.
+- [ ] Task 25 (M): Pass the plugin compliance gate. Dependencies: Tasks 23–24.
 
 ### Checkpoint H
 
-- [ ] Voice, live sample, music, and SFX are owned/licensed, synchronized, intelligible, and within mix targets.
-- [ ] No caption or subtitle source/output exists.
+- [ ] Every selected plugin has an approved, deterministic, version-aligned implementation.
+- [ ] Plugin styling preserves canonical React UI in WebGL and fallback modes.
 
-## Phase 6: Visual QA, Masters, And Distribution Files
+## Phase 5: Voice, Stock Audio, And Mix
 
-- [ ] Task 25 (M): Complete frame-accurate visual and content QA. Dependencies: Checkpoint H.
-- [ ] Task 26 (M): Render and compare the master variants. Dependencies: Task 25.
-- [ ] Task 27 (S): Pass master technical acceptance. Dependencies: Task 26.
+- [ ] Task 26 (M): Produce and synchronize final voice-over. Dependencies: Checkpoint H and optional skill decision.
+- [ ] Task 27 (M): Acquire and prepare licensed music and SFX. Dependencies: Tasks 2 and 25 plus authorization.
+- [ ] Task 28 (M): Integrate and approve the final mix. Dependencies: Tasks 26–27.
 
 ### Checkpoint I
 
-- [ ] The selected 1080p/60 master passes picture, audio, claim, privacy, license, and no-subtitle checks.
-- [ ] Human approval authorizes distribution derivatives.
+- [ ] Voice, live sample, music, and effects are owned/licensed, synchronized, and within mix targets.
+- [ ] No caption source or subtitle stream exists.
 
-- [ ] Task 28 (M): Create and verify distribution derivatives. Dependencies: Checkpoint I.
+## Phase 6: Visual QA, Masters, And Distribution Files
 
-## Phase 7: README Integration And Handoff
-
-- [ ] Task 29 (S): Integrate the accessible README demo block. Dependencies: Task 28.
-- [ ] Task 30 (S): Complete final human approval and local handoff. Dependencies: Tasks 1-29.
+- [ ] Task 29 (M): Complete frame-accurate product and visual QA. Dependencies: Checkpoint I.
+- [ ] Task 30 (M): Render and approve master variants. Dependencies: Task 29.
+- [ ] Task 31 (M): Create and verify distribution derivatives. Dependencies: Task 30 and master approval.
 
 ### Checkpoint J
 
-- [ ] README MP4/poster and the unpublished LinkedIn derivative are complete and verified.
-- [ ] Only approved README media is tracked; raw captures, masters, reports, and LinkedIn output remain ignored.
-- [ ] No push, upload, publication, release, purchase, or other remote mutation occurred without separate authorization.
+- [ ] Master, fallback, README media, and unpublished LinkedIn derivative pass technical/content checks.
+- [ ] Human approval authorizes README integration, not external publication.
+
+## Phase 7: README Integration And Handoff
+
+- [ ] Task 32 (S): Integrate the accessible README demo block. Dependencies: Checkpoint J.
+- [ ] Task 33 (S): Complete final approval and local handoff. Dependencies: Tasks 1–32.
+
+### Checkpoint K
+
+- [ ] README demo and local LinkedIn derivative are complete and verified.
+- [ ] Only approved README media is tracked; no external publication or push occurred.
 
 ## Approval Gates
 
-- [ ] Draft specification and plan approved before implementation.
-- [ ] Remotion/plugin and stock-media eligibility documented before install/import.
-- [ ] External skill installation, marketplace registration, hosted TTS, purchases, or new attribution separately authorized if required.
-- [ ] Functional animatic approved before plugin work.
-- [ ] Master approved before derivatives/README integration.
-- [ ] LinkedIn/GitHub publication separately authorized.
+- [ ] Revised React-rendered specification and plan approved before Task 7.
+- [ ] Canonical product UI/fixture checkpoint approved before functional scenes.
+- [ ] No-effects animatic approved before plugin work.
+- [ ] Plugin/license compliance approved before final audio.
+- [ ] Stock acquisition and optional external skill actions separately authorized.
+- [ ] Master approved before derivatives.
+- [ ] README integration approved before task closure.
+- [ ] GitHub/LinkedIn publication, uploads, pushes, and releases separately authorized.
