@@ -11,7 +11,7 @@ Task 32 remains authorization-gated: no commit was pushed, GitHub Pages setting 
 ## Completed evidence
 
 - The approved 1920×1080, 60-fps English MP4 and 1280×720 poster are hash-validated, local-only public assets. The player has native controls, a poster, visual-description resources, and a no-JavaScript fallback; enhancement loads only after hydration/viewport intent.
-- The provider input waveform now matches the SVG reference's 31-bar, 92×28 tapered silhouette, full-width blue gradient, and soft glow. Its decorative recording motion is independently phased and becomes the exact static reference shape when reduced motion is requested.
+- The provider signal map now reproduces the SVG reference: its 31-bar, 92×28 tapered waveform has the full-width blue gradient, glow, and decorative recording motion; the voice card connects through a solid current-route branch and dashed future route to icon-led current-provider cards and the future horizon. Reduced-motion users see the exact static waveform shape.
 - The generated English page is pre-rendered, uses `/gpt-voice/`-safe assets and metadata, has no Electron/private/remote streaming artifacts, and includes canonical/robots/social basics plus `WebSite`, `SoftwareApplication`, `VideoObject`, and FAQ JSON-LD.
 - The responsive page passes native fallback, Sheet focus return, keyboard FAQ, reduced-motion, forced-colors, text-spacing, anchor-clearance, overflow, local-player, accessibility, media, SEO, browser-support, and size checks.
 - Chromium and Firefox each passed all 11 English Playwright scenarios. WebKit is configured in Pages CI with `--with-deps`; it cannot launch locally because `libavif16` and `libwoff1` are unavailable and elevation is unavailable.

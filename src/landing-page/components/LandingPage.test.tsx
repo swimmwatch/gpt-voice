@@ -50,7 +50,7 @@ describe('LandingPage', () => {
     expect(markup).toContain('No compatibility or timing is promised.');
   });
 
-  it('renders the provider signal map with a decorative recording waveform and no provider-brand icons', () => {
+  it('renders the SVG-reference provider signal map with branded cards and branched routes', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
     expect(markup).toContain('class="landing-section provider-section"');
@@ -58,12 +58,17 @@ describe('LandingPage', () => {
     expect(markup).toContain('class="provider-audio-input"');
     expect(markup).toContain('data-provider-waveform="recording"');
     expect(markup.match(/data-provider-waveform-bar="true"/g)).toHaveLength(31);
+    expect(markup).toContain('class="provider-route-map"');
     expect(markup.match(/data-provider-route-arrow="true"/g)).toHaveLength(1);
+    expect(markup.match(/data-provider-route-branch="current"/g)).toHaveLength(2);
+    expect(markup.match(/data-provider-route-branch="future"/g)).toHaveLength(1);
     expect(markup).toContain('YOUR VOICE');
     expect(markup).toContain('ChatGPT Web');
     expect(markup).toContain('OpenAI API');
     expect(markup).toContain('FUTURE HORIZON · NOT AVAILABLE');
-    expect(markup).not.toContain('/generated/icons/providers/');
+    expect(markup).toContain('/generated/icons/providers/openai.svg');
+    expect(markup).toContain('/generated/icons/providers/claude.svg');
+    expect(markup).toContain('/generated/icons/providers/gemini.svg');
   });
 
   it('keeps reveal targets visible by default in the static shell', () => {

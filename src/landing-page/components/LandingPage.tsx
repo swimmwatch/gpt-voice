@@ -1,4 +1,4 @@
-import { Mic } from 'lucide-react';
+import { AudioWaveform, Database, KeyRound, Mic, UserRound } from 'lucide-react';
 import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { HowItWorksSection } from './HowItWorksSection';
@@ -53,6 +53,13 @@ const providerWaveformBars = [
   { amplitude: 7, id: '30' },
   { amplitude: 6, id: '31' },
 ] as const;
+
+const providerLogoFiles: Record<string, string> = {
+  'ChatGPT Web': 'openai.svg',
+  'Claude Web': 'claude.svg',
+  'Gemini Web': 'gemini.svg',
+  'OpenAI API': 'openai.svg',
+};
 
 function Shortcut({ action, keys }: { action: string; keys: readonly string[] }): React.JSX.Element {
   return (
@@ -206,17 +213,55 @@ function ProviderAudioInput({ content }: Pick<LandingPageProps, 'content'>): Rea
   );
 }
 
+function ProviderLogo({ provider }: { provider: string }): React.JSX.Element | null {
+  const fileName = providerLogoFiles[provider];
+
+  if (!fileName) {
+    return null;
+  }
+
+  return (
+    <span aria-hidden="true" className="provider-logo">
+      <img alt="" height="36" src={`/gpt-voice/generated/icons/providers/${fileName}`} width="36" />
+    </span>
+  );
+}
+
+function ProviderFactIcon({ fact }: { fact: string }): React.JSX.Element | null {
+  const className = 'provider-fact-icon';
+
+  switch (fact) {
+    case 'Subscription':
+      return <UserRound aria-hidden="true" className={className} />;
+    case 'Saved session':
+      return <Database aria-hidden="true" className={className} />;
+    case 'No API key':
+    case 'API key + billing/quota':
+      return <KeyRound aria-hidden="true" className={className} />;
+    case 'whisper-1':
+      return <AudioWaveform aria-hidden="true" className={className} />;
+    default:
+      return null;
+  }
+}
+
 function ProviderCard({ provider }: { provider: ProviderRoute }): React.JSX.Element {
   return (
-    <Card className="provider-card">
+    <Card className="provider-card provider-card-current">
       <CardHeader className="provider-card-header">
+        <div className="provider-card-identity">
+          <ProviderLogo provider={provider.provider} />
+          <h3>{provider.provider}</h3>
+        </div>
         <Badge>{provider.status}</Badge>
-        <h3>{provider.provider}</h3>
       </CardHeader>
       <CardContent className="provider-card-content">
         <ul aria-label={`${provider.provider} requirements`} className="provider-facts">
           {provider.facts.map((fact) => (
-            <li key={fact}>{fact}</li>
+            <li key={fact}>
+              <ProviderFactIcon fact={fact} />
+              {fact}
+            </li>
           ))}
         </ul>
         {provider.claim ? <p className="provider-claim">{provider.claim}</p> : null}
@@ -260,7 +305,13 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
       </div>
       <div aria-label={content.providers.groupDescription} className="provider-signal-map">
         <ProviderAudioInput content={content} />
-        <span aria-hidden="true" className="provider-route-arrow" data-provider-route-arrow="true" />
+        <div aria-hidden="true" className="provider-route-map">
+          <span className="provider-route-line provider-route-input" data-provider-route-arrow="true" />
+          <span className="provider-route-line provider-route-current" data-provider-route-branch="current" />
+          <span className="provider-route-line provider-route-api" data-provider-route-branch="current" />
+          <span className="provider-route-line provider-route-future" data-provider-route-branch="future" />
+          <i className="provider-route-junction" />
+        </div>
         <div className="provider-routes">
           <ProviderCard provider={content.providers.chatGptWeb} />
           <ProviderCard provider={content.providers.openAiApi} />
@@ -269,6 +320,7 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
             <ul>
               {content.providers.future.providers.map((provider) => (
                 <li key={provider.provider}>
+                  <ProviderLogo provider={provider.provider} />
                   <strong>{provider.provider}</strong>
                   <span>{provider.status}</span>
                 </li>
