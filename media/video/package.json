@@ -7,7 +7,9 @@
     "render": "remotion render",
     "still": "remotion still",
     "studio": "remotion studio",
-    "typecheck": "tsc --noEmit"
+    "test:timeline": "node --experimental-strip-types --test src/validation/validateTimeline.test.ts",
+    "typecheck": "tsc --noEmit",
+    "validate:timeline": "node --experimental-strip-types src/validation/validateTimeline.ts"
   },
   "devDependencies": {
     "@remotion/cli": "4.0.483",

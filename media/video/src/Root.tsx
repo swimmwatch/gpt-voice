@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { Composition } from 'remotion';
+import { fps, totalFrames } from './data/timeline';
 import { GptVoiceDemo, gptVoiceDemoSchema, type GptVoiceDemoProps } from './GptVoiceDemo';
 
 export function RemotionRoot(): JSX.Element {
@@ -12,8 +13,8 @@ export function RemotionRoot(): JSX.Element {
     <Composition<typeof gptVoiceDemoSchema, GptVoiceDemoProps>
       component={GptVoiceDemo}
       defaultProps={defaultProps}
-      durationInFrames={3600}
-      fps={60}
+      durationInFrames={totalFrames}
+      fps={fps}
       height={1080}
       id="GptVoiceDemo"
       schema={gptVoiceDemoSchema}

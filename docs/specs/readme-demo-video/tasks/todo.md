@@ -18,12 +18,12 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, es
 
 - [x] Task 4 (M): Scaffold the isolated video project. Dependencies: Checkpoint A.
 - [x] Task 5 (M): Register the deterministic composition boundary. Dependencies: Task 4.
-- [ ] Task 6 (M): Define and validate timeline data. Dependencies: Task 5.
+- [x] Task 6 (M): Define and validate timeline data. Dependencies: Task 5.
 
 ### Checkpoint B
 
-- [ ] The isolated Remotion project installs/type-checks without entering Electron dependencies or output.
-- [ ] Both effects modes obey the exact 1920×1080, 60-fps, 3600-frame contract.
+- [x] The isolated Remotion project installs/type-checks without entering Electron dependencies or output.
+- [x] Both effects modes obey the exact 1920×1080, 60-fps, 3600-frame contract.
 
 ## Phase 2: Disposable Capture And Privacy Review
 
