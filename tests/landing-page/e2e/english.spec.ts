@@ -49,6 +49,23 @@ test.describe('English mobile enhancement', () => {
     await expect(trigger).toBeFocused();
   });
 
+  test('keeps mobile navigation usable when hydration cannot load', async ({ page }) => {
+    let hydrationBlocked = false;
+    await page.route('**/assets/hydrate-*.js', async (route) => {
+      hydrationBlocked = true;
+      await route.abort();
+    });
+
+    await page.goto('/');
+    await expect.poll(() => hydrationBlocked).toBe(true);
+
+    const fallback = page.locator('.mobile-navigation-no-js');
+    await expect(fallback).toBeVisible();
+    await fallback.locator('summary').click();
+    await expect(fallback.getByRole('link', { name: 'FAQ' })).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute('data-landing-enhanced', 'true');
+  });
+
   test('loads the enhanced player without remote assets', async ({ page }) => {
     const requests: string[] = [];
     page.on('request', (request) => requests.push(request.url()));
