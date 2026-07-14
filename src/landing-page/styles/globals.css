@@ -1111,6 +1111,9 @@ html[data-landing-enhanced='true'] .locale-no-js {
   font-size: 0.625rem;
   letter-spacing: 0.08em;
   margin-block-end: var(--space-2);
+  max-inline-size: 100%;
+  text-align: center;
+  white-space: normal;
 }
 
 @media (min-width: 48rem) {

@@ -7,6 +7,7 @@
 - Hero layout: the semantic prompt-first hero now has the specified mobile-first copy, CTA, shortcut, and approved screenshot order, then changes to a two-column desktop composition. The screenshot is a non-interactive modern source set with an explicit PNG fallback.
 - Provider signal map: the transcription section now has a static microphone and waveform input, one clear vertical mobile arrow / full 48-pixel desktop arrow to the provider list, solid current-route treatment, a separate dashed future horizon, compact fact chips, and the qualified ChatGPT Web claim. It deliberately uses no provider-brand icons and does not animate or expose cards as controls.
 - Interaction continuity: locale destinations retain the active fragment after hydration, while a native `details` navigation fallback keeps mobile section links usable without JavaScript. The fallback is removed only after the Radix sheet hydrates.
+- Responsive accessibility baseline: the optional Retry status label now wraps within its mobile grid column rather than creating a 320-pixel horizontal overflow. Current English deep links clear the sticky header, and reduced-motion output remains immediately visible.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -50,6 +51,7 @@
 - Local CloakBrowser smoke against `landing:dev` at 1440px and 390px; temporary captures confirmed the hero’s desktop two-column and mobile stacked compositions.
 - Local CloakBrowser smoke confirmed the provider map at 1440px and 390px; temporary captures were not retained in the repository.
 - Local CloakBrowser provider-connector smoke confirmed the single 40-pixel mobile arrow and 48-pixel desktop arrow; close-up captures were not retained in the repository.
+- Production-preview CloakBrowser smoke confirmed no horizontal overflow at 320, 390, 768, 1024, and 1440 pixels; `#providers`, `#how-it-works`, and `#faq` clear the sticky header at 390 pixels; reduced-motion reveal targets remain visible. Temporary evidence was not retained in the repository.
 - `npm run landing:test -- --run src/landing-page/components/SiteHeader.test.tsx`
 - `npm run landing:typecheck`
 - Local CloakBrowser interaction smoke at 390px verified the hydrated sheet, hidden native fallback, and preserved locale `#faq` fragment; the temporary capture was not retained in the repository.
