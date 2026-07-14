@@ -38,7 +38,7 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 ## Phase 3: Functional React Animatic
 
 - [x] Task 10 (M): Materialize approved content and narration references. Dependencies: Checkpoint C and Task 3.
-- [ ] Task 11 (M): Build the prompt-problem and product-bridge scenes. Dependencies: Task 10.
+- [x] Task 11 (M): Build the prompt-problem and product-bridge scenes. Dependencies: Task 10.
 - [ ] Task 12 (M): Build the transcription scene. Dependencies: Task 11.
 
 ### Checkpoint D

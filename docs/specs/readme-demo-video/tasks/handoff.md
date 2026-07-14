@@ -48,7 +48,15 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Next, complete Task 11: build the generic prompt-problem and product-bridge scenes. The translation result remains review-required until a human-approved Russian version is provided.
+Next, complete Task 12: build the canonical transcription scene. The translation result remains review-required until a human-approved Russian version is provided.
+
+## Latest Increment: Task 11 Complete
+
+- Added the generic `PromptWorkspace` and `PromptProblemMap`, driven directly by the approved four problem groups and sixteen labels. The opening contains no product component, product name, hotkey, or solution claim.
+- Added `PromptProblemsScene` for frames 0–899 and `ProductBridgeScene` for frames 900–1139. The bridge mounts the canonical `ProductUiFrame` exactly at frame 900 and maps Transcribe, Retry, Translate, and Prettify to bounded user-controlled outcomes.
+- Added a scene boundary test and wired it into `npm --prefix media/video run test:scenes`.
+- Verification passed: video typecheck; scene/content tests; fallback stills at 60, 180, 360, 540, 720, 899, 900, and 1080. A repeated frame-720 render had the same SHA-256 hash.
+- Changed files: `media/video/src/GptVoiceDemo.tsx`, `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/scenes/PromptProblemsScene.test.ts`, `media/video/src/product-ui/PromptWorkspace.tsx`, `media/video/src/product-ui/PromptProblemMap.tsx`, and `media/video/package.json`.
 
 ## Blockers And External Gates
 
