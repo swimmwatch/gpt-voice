@@ -1,4 +1,4 @@
-import { Clapperboard, Languages, Mic, WandSparkles } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { FaqSection } from './FaqSection';
 import { FinalCtaSection } from './FinalCtaSection';
 import { HowItWorksSection } from './HowItWorksSection';
@@ -18,11 +18,6 @@ type LandingPageProps = {
   content: LandingContent;
   locale: LandingLocaleDefinition;
 };
-
-const demoWaveformHeights = [
-  18, 26, 16, 34, 28, 42, 36, 54, 68, 50, 76, 62, 90, 72, 100, 66, 86, 58, 78, 52, 64, 46, 60, 38, 48, 32, 44, 24, 40,
-  20, 30,
-] as const;
 
 const providerWaveformBars = [
   { amplitude: 6, id: '01' },
@@ -131,34 +126,47 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
         <h2 id="demo-title">{content.demo.title}</h2>
         <p className="landing-lead">{content.demo.lead}</p>
       </div>
-      <AspectRatio ratio={16 / 9}>
-        <div className="demo-placeholder" data-demo-placeholder="true">
-          <div aria-hidden="true" className="demo-placeholder-visual">
-            <div className="demo-placeholder-waveform">
-              {demoWaveformHeights.map((height) => (
-                <span key={height} style={{ '--wave-height': `${height}%` } as React.CSSProperties} />
+      <div className="demo-media">
+        <AspectRatio ratio={16 / 9}>
+          <video
+            aria-describedby="demo-note"
+            aria-label={content.demo.videoLabel}
+            className="demo-video"
+            controls
+            height="1080"
+            playsInline
+            poster="/gpt-voice/generated/media/demo-poster.webp"
+            preload="none"
+            width="1920"
+          >
+            <source src="/gpt-voice/generated/media/demo.mp4" type="video/mp4" />
+            <track
+              default
+              kind="descriptions"
+              label={content.demo.captionTrackLabel}
+              src="/gpt-voice/generated/captions/en.vtt"
+              srcLang="en"
+            />
+            Your browser does not support HTML video. Read the visual walkthrough notes below.
+          </video>
+        </AspectRatio>
+        <p className="demo-supporting-note" id="demo-note">
+          {content.demo.supportingNote}
+        </p>
+        <details className="demo-transcript">
+          <summary>{content.demo.transcriptControl}</summary>
+          <div>
+            <p>{content.demo.summary}</p>
+            <ol>
+              {content.demo.transcriptCues.map((cue) => (
+                <li data-demo-visual-note="true" key={cue.id}>
+                  {cue.visualDescription}
+                </li>
               ))}
-            </div>
-            <div className="demo-placeholder-actions">
-              <span>
-                <Mic />
-              </span>
-              <span>
-                <Languages />
-              </span>
-              <span>
-                <WandSparkles />
-              </span>
-            </div>
+            </ol>
           </div>
-          <div className="demo-placeholder-copy">
-            <Clapperboard aria-hidden="true" />
-            <p>{content.demo.placeholder.status}</p>
-            <h3>{content.demo.placeholder.title}</h3>
-            <span>{content.demo.placeholder.description}</span>
-          </div>
-        </div>
-      </AspectRatio>
+        </details>
+      </div>
     </section>
   );
 }

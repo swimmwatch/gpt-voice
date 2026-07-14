@@ -31,14 +31,19 @@ describe('LandingPage', () => {
     expect(markup).toContain('width="920"');
   });
 
-  it('renders an accessible video placeholder until the approved demo media is available', () => {
+  it('renders the native English visual walkthrough without autoplay', () => {
     const markup = renderToStaticMarkup(<LandingPage content={englishContent} locale={getLocaleDefinition('en')} />);
 
-    expect(markup).toContain('data-demo-placeholder="true"');
-    expect(markup).toContain('Full product demo coming soon.');
-    expect(markup).not.toContain('<video');
-    expect(markup).not.toContain('/gpt-voice/generated/media/demo.mp4');
-    expect(markup).not.toContain('/gpt-voice/generated/captions/en.vtt');
+    expect(markup).toContain('<video');
+    expect(markup).toContain('controls=""');
+    expect(markup).toContain('preload="none"');
+    expect(markup).not.toContain('autoplay');
+    expect(markup).toContain('/gpt-voice/generated/media/demo.mp4');
+    expect(markup).toContain('/gpt-voice/generated/media/demo-poster.webp');
+    expect(markup).toContain('kind="descriptions"');
+    expect(markup).toContain('/gpt-voice/generated/captions/en.vtt');
+    expect(markup).toContain('Read the visual walkthrough notes');
+    expect(markup.match(/data-demo-visual-note="true"/g)).toHaveLength(9);
     expect(markup).toContain('GPT-Voice does not bypass quotas.');
     expect(markup).toContain('No compatibility or timing is promised.');
   });
