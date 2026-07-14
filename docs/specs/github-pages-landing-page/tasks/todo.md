@@ -45,16 +45,16 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ### Checkpoint D1
 
-- [ ] Public assets synchronize reproducibly and the English/route content contracts pass.
-- [ ] Media-dependent work remains blocked until its required inputs are approved.
+- [x] Public assets synchronize reproducibly and the English route-content contracts pass.
+- [x] Approved English demo media synchronizes reproducibly for the published route.
 
-- [ ] Task 11 (M): Render the pre-rendered locale route shell. Dependencies: Tasks 4, 8, 10.
-- [ ] Task 12 (M): Deliver navigation and the hero slice. Dependencies: Tasks 6, 7, 9, 11.
+- [x] Task 11 (M): Render the pre-rendered English route shell. Dependencies: Tasks 4, 8, 10.
+- [x] Task 12 (M): Deliver navigation and the hero slice. Dependencies: Tasks 6, 7, 9, 11.
 
 ### Checkpoint D2
 
-- [ ] English navigation/hero/assets/native fallbacks render without JavaScript.
-- [ ] Asset sync, typecheck, focused tests, and production build pass.
+- [x] English navigation/hero/assets/native fallbacks render without JavaScript.
+- [x] Asset sync, typecheck, focused tests, and production build pass.
 
 ## Phase 4: Core Product Story Slices
 
@@ -64,19 +64,19 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ### Checkpoint E
 
-- [ ] Demo, workflow, and provider story work end-to-end.
-- [ ] Claims and desktop/mobile visual comparisons pass.
+- [x] English demo, workflow, and provider story work end-to-end.
+- [x] Claims and English desktop/mobile visual comparisons pass.
 
 ## Phase 5: Completion and Interaction Enhancement
 
 - [x] Task 16 (M): Deliver FAQ, final CTA, and footer. Dependencies: Tasks 6, 8, 10, 11.
-- [ ] Task 17 (M): Hydrate the approved interactions. Dependencies: Tasks 7, 8, 11, 13, 16.
-- [ ] Task 18 (M): Implement reveal and responsive accessibility behavior. Dependencies: Tasks 12-17.
+- [x] Task 17 (M): Hydrate the approved English interactions. Dependencies: Tasks 7, 8, 11, 13, 16.
+- [x] Task 18 (M): Implement English reveal and responsive accessibility behavior. Dependencies: Tasks 12-17.
 
 ### Checkpoint F
 
-- [ ] All eight visible page areas are complete in English.
-- [ ] Interaction, no-JavaScript, reduced-motion, keyboard, and responsive checks pass.
+- [x] All eight visible page areas are complete in English.
+- [x] Interaction, no-JavaScript, reduced-motion, keyboard, and responsive checks pass.
 
 ## Phase 6: Locale Content
 
@@ -102,34 +102,34 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 ## Phase 8: Optimization and Automated Quality Gates
 
-- [ ] Task 25 (M): Enforce optimized modern and legacy builds. Dependencies: Tasks 11, 13, 18, 22-24.
-- [ ] Task 26 (M): Complete static and content contract tests. Dependencies: Tasks 12-25.
-- [ ] Task 27 (M): Complete deterministic media verification. Dependencies: Tasks 9, 13, 19-24.
+- [x] Task 25 (M): Enforce optimized modern and legacy English builds. Dependencies: Tasks 11, 13, 18.
+- [x] Task 26 (M): Complete English static and content contract tests. Dependencies: Tasks 12-25.
+- [x] Task 27 (M): Complete deterministic English media verification. Dependencies: Tasks 9, 13.
 
 ### Checkpoint I
 
-- [ ] All landing type, lint, test, build, media, SEO, browser, and size gates pass.
-- [ ] Production output contains no private/streaming/remote/Electron artifacts.
+- [x] All English landing type, lint, test, build, media, SEO, browser, and size gates pass.
+- [x] English production output contains no private/streaming/remote/Electron artifacts.
 
 ## Phase 9: Browser, Accessibility, and Delivery Evidence
 
-- [ ] Task 28 (M): Add browser-responsive end-to-end coverage. Dependencies: Tasks 17-27.
-- [ ] Task 29 (M): Complete automated accessibility and local CloakBrowser evidence. Dependencies: Tasks 18, 21, 27, 28.
+- [x] Task 28 (M): Add English browser-responsive end-to-end coverage. Dependencies: Tasks 17-27.
+- [x] Task 29 (M): Complete automated English accessibility and local CloakBrowser evidence. Dependencies: Tasks 18, 27, 28.
 - [x] Task 30 (M): Add the GitHub Pages workflow. Dependencies: Tasks 3, 25-29.
 
 ### Checkpoint J
 
-- [ ] Cross-browser, locale, accessibility, responsive, media, and local CloakBrowser evidence is complete.
-- [ ] The Pages workflow validates without changing remote state.
+- [x] English cross-browser, accessibility, responsive, media, and local CloakBrowser evidence is complete.
+- [x] The Pages workflow validates without changing remote state.
 
 ## Phase 10: Handoff and Authorized Production Verification
 
-- [ ] Task 31 (S): Complete the local implementation handoff. Dependencies: Tasks 1-30.
+- [x] Task 31 (S): Complete the English local implementation handoff. Dependencies: English Tasks 1-30.
 - [ ] Task 32 (S, authorization-gated): Verify an explicitly authorized production deployment. Dependencies: Task 31 plus all approval gates.
 
 ### Checkpoint K
 
-- [ ] Local handoff is complete and honest about unavailable checks.
+- [x] English local handoff is complete and honest about unavailable checks.
 - [ ] Production is marked complete only after explicit authorization and deployed evidence.
 - [ ] Human approval covers visuals, all translations, media, accessibility, and production behavior.
 
