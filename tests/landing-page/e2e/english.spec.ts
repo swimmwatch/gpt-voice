@@ -53,6 +53,26 @@ test.describe('English responsive accessibility', () => {
       await expect(revealTargets.nth(index)).toBeVisible();
     }
   });
+
+  test('keeps deep links below the sticky header on mobile', async ({ page }) => {
+    await page.setViewportSize({ height: 844, width: 390 });
+
+    for (const anchor of ['#providers', '#how-it-works', '#faq']) {
+      await page.goto(`/${anchor}`);
+      const offset = await page.evaluate((targetSelector) => {
+        const target = document.querySelector(targetSelector);
+        const header = document.querySelector('header');
+        if (!target || !header) {
+          return null;
+        }
+
+        return target.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+      }, anchor);
+
+      expect(offset).not.toBeNull();
+      expect(offset).toBeGreaterThanOrEqual(0);
+    }
+  });
 });
 
 test.describe('English mobile enhancement', () => {
