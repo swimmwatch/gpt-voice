@@ -118,6 +118,16 @@ Task 18 has complete automated assembly evidence. A human no-effects animatic re
 - `/tmp/gptvoice-pacing-quarter.mp4` is H.264, 480x270, 60 fps, 60.000 seconds, and exactly 3600 frames. It is generated evidence and remains outside the repository.
 - Changed files: `media/video/src/data/kineticMotion.ts`, `media/video/src/components/KineticBackdrop.tsx`, `media/video/src/components/KineticBackdrop.test.ts`, `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/scenes/PrettificationScene.tsx`, `media/video/src/scenes/RetryScene.tsx`, `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/data/ctaState.ts`, `media/video/src/scenes/CtaScene.tsx`, `media/video/src/scenes/CtaScene.test.ts`, and `media/video/package.json`.
 
+## Latest Increment: Local Visual Feature Completion
+
+- Extended the deterministic kinetic layer to the opening, product bridge, and transcription scenes, including quick Command Dock/panel entrances in transcription. Every workflow scene now has frame-driven visual momentum; the CTA remains deliberately static during the poster hold.
+- Added `DirectedFlowPath`, backed by `@remotion/paths`, to keep two bounded dots moving along the shared semantic Bézier route. Its endpoint clamping and deterministic advance are covered by a focused unit test.
+- Added exactly three fixed-seed `@remotion/light-leaks` accents: product reveal, retry recovery, and CTA entry. Each lasts 24 frames, is blurred and limited to 12% opacity, and remains behind critical UI and copy.
+- No project-owned local audio asset exists. The waveform therefore remains the existing deterministic placeholder; no voice-over, live sample, music, or SFX was fabricated or downloaded.
+- Full verification passed: strict video typecheck; 17 scene tests; six timeline tests; two content tests; seven UI/import/fixture tests; timeline validation; formatting checks; cue-frame visual inspection; and stable-poster hash comparison.
+- `/tmp/gptvoice-demo-1080p-visual-master.mp4` is H.264, 1920x1080, 60 fps, 60.000 seconds, and 3600 frames. Its AAC stream is digital silence (`-91.0 dB`); this is a high-quality visual master, not an audio-complete release master. The file remains outside the repository.
+- Changed files: `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/scenes/TranscriptionScene.tsx`, `media/video/src/data/directedFlow.ts`, `media/video/src/data/directedFlow.test.ts`, `media/video/src/components/DirectedFlowPath.tsx`, `media/video/src/data/kineticMotion.ts`, `media/video/src/components/KineticBackdrop.tsx`, `media/video/src/components/SceneLightLeak.tsx`, `media/video/src/components/SceneLightLeak.test.ts`, `media/video/src/scenes/RetryScene.tsx`, `media/video/src/scenes/CtaScene.tsx`, and `media/video/package.json`.
+
 ## Blockers And External Gates
 
 - There is no screen-capture blocker; screen capture is no longer part of the architecture.
