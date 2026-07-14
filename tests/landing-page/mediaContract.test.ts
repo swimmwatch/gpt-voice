@@ -14,7 +14,11 @@ import {
   syncPublicAssets,
   syncShellAssets,
 } from '../../src/landing-page/build/sync-public-assets';
-import { assertEnglishMediaText, verifyMediaAssets } from '../../src/landing-page/build/verify-media';
+import {
+  assertCaptionCueTiming,
+  assertEnglishMediaText,
+  verifyMediaAssets,
+} from '../../src/landing-page/build/verify-media';
 
 const rootDirectory = path.resolve(__dirname, '../..');
 const specificationAssets = path.join(rootDirectory, 'docs/specs/github-pages-landing-page/assets');
@@ -59,6 +63,16 @@ test('rejects asset paths outside their approved source directory', () => {
 test('rejects Cyrillic in English landing media descriptions', () => {
   assert.doesNotThrow(() => assertEnglishMediaText('Russian voice input becomes an English prompt.', 'en.txt'));
   assert.throws(() => assertEnglishMediaText('Русский голосовой ввод.', 'en.txt'), /must not render Cyrillic/);
+});
+
+test('requires timed, ordered, non-overlapping WebVTT cues', () => {
+  assert.doesNotThrow(() => assertCaptionCueTiming('WEBVTT\n\n00:00.000 --> 00:01.000\nFirst cue', 'en.vtt'));
+  assert.throws(() => assertCaptionCueTiming('WEBVTT\n\n00:02.000 --> 00:01.000\nInvalid cue', 'en.vtt'));
+  assert.throws(
+    () =>
+      assertCaptionCueTiming('WEBVTT\n\n00:00.000 --> 00:02.000\nFirst\n\n00:01.000 --> 00:03.000\nSecond', 'en.vtt'),
+    /non-overlapping/,
+  );
 });
 
 test('synchronizes the approved English visual demo and its accessibility resources', async () => {

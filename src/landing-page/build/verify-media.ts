@@ -62,6 +62,7 @@ async function assertCaptionFiles(captionsDirectory: string): Promise<void> {
     if (!caption.startsWith('WEBVTT')) {
       throw new Error(`Invalid WebVTT caption file: ${requiredMediaAssets.captions[index]}`);
     }
+    assertCaptionCueTiming(caption, requiredMediaAssets.captions[index] ?? 'caption');
     assertEnglishMediaText(caption, requiredMediaAssets.captions[index] ?? 'caption');
   }
 }
@@ -80,6 +81,33 @@ export function assertEnglishMediaText(source: string, fileName: string): void {
   if (/\p{Script=Cyrillic}/u.test(source)) {
     throw new Error(`English landing media must not render Cyrillic text: ${fileName}`);
   }
+}
+
+export function assertCaptionCueTiming(source: string, fileName: string): void {
+  const cueMatches = source.matchAll(/^(\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}\.\d{3})$/gm);
+  let previousEnd = -1;
+  let cueCount = 0;
+
+  for (const [, start, end] of cueMatches) {
+    const startMilliseconds = getTimestampMilliseconds(start ?? '');
+    const endMilliseconds = getTimestampMilliseconds(end ?? '');
+
+    if (startMilliseconds >= endMilliseconds || startMilliseconds < previousEnd) {
+      throw new Error(`WebVTT cue timing must be ordered and non-overlapping: ${fileName}`);
+    }
+    previousEnd = endMilliseconds;
+    cueCount += 1;
+  }
+
+  if (cueCount === 0) {
+    throw new Error(`WebVTT caption file has no timed cues: ${fileName}`);
+  }
+}
+
+function getTimestampMilliseconds(timestamp: string): number {
+  const [minutes, seconds] = timestamp.split(':');
+
+  return (Number(minutes) * 60 + Number(seconds)) * 1000;
 }
 
 async function assertAssetManifest(): Promise<void> {
