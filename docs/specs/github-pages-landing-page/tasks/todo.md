@@ -115,7 +115,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 
 - [ ] Task 28 (M): Add browser-responsive end-to-end coverage. Dependencies: Tasks 17-27.
 - [ ] Task 29 (M): Complete automated accessibility and local CloakBrowser evidence. Dependencies: Tasks 18, 21, 27, 28.
-- [ ] Task 30 (M): Add the GitHub Pages workflow. Dependencies: Tasks 3, 25-29.
+- [x] Task 30 (M): Add the GitHub Pages workflow. Dependencies: Tasks 3, 25-29.
 
 ### Checkpoint J
 

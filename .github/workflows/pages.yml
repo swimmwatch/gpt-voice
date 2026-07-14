@@ -1,0 +1,107 @@
+name: Deploy GitHub Pages Landing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/pages.yml
+      - assets/demo/**
+      - package.json
+      - package-lock.json
+      - src/landing-page/**
+      - tests/landing-page/**
+      - tsconfig.landing*.json
+      - vite.landing.config.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build English landing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck landing
+        run: npm run landing:typecheck
+
+      - name: Lint landing
+        run: npm run landing:lint
+
+      - name: Check landing formatting
+        run: npm run landing:format:check
+
+      - name: Build landing
+        run: npm run landing:build
+
+      - name: Run landing component tests
+        run: npm run landing:test
+
+      - name: Run landing contract tests
+        run: npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/*.test.ts
+
+      - name: Verify landing media
+        run: npm run landing:verify:media
+
+      - name: Verify landing SEO
+        run: npm run landing:verify:seo
+
+      - name: Verify landing accessibility
+        run: npm run landing:verify:a11y
+
+      - name: Verify landing browser support
+        run: npm run landing:verify:browser-support
+
+      - name: Verify landing size budgets
+        run: npm run landing:verify:sizes
+
+      - name: Run landing browser tests
+        run: npm run landing:test:e2e
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/github-pages
+
+  deploy:
+    name: Deploy GitHub Pages Landing
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      pages: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v5

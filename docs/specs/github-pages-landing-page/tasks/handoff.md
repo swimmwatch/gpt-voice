@@ -21,6 +21,7 @@
 - English browser proof: Playwright now checks the 390px no-JavaScript player and mobile navigation fallbacks, the hydrated Sheet’s Escape/focus-return behavior, keyboard FAQ disclosure, local-only enhanced-player assets, the fallback `details` navigation when hydration is unavailable, horizontal overflow from 320–1440 pixels, reduced-motion visibility, forced-colors navigation, and sticky-header clearance for the Providers, How it works, and FAQ anchors. Plyr starts only after hydration succeeds, so React cannot replace an already-enhanced native video. Its icon sprite is emitted locally rather than fetched from `cdn.plyr.io`.
 - Video enhancement fallback: the English E2E suite blocks the deferred Plyr JavaScript chunk and proves the hydrated route retains its original native video controls instead of losing playback.
 - Browser shell integrity: the generated English document now declares the existing local GPT-Voice SVG as its favicon. A fresh browser navigation loads it successfully and no longer produces a missing `/favicon.ico` console error.
+- Pages workflow: `.github/workflows/pages.yml` path-filters English-landing inputs, builds and verifies the static output with Node 24, uploads only `build/github-pages/`, and deploys through the official Pages action only from `main`. Its job-level permissions are limited to the artifact/deploy requirement and the workflow does not commit generated output or expose secrets.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -95,6 +96,7 @@
 - Final English quality gate: all 23 landing Vitest checks, all 30 Node landing-contract checks, the nine browser scenarios, and the media, SEO, static accessibility, browser-support, and size verifiers pass together.
 - Local production-preview CloakBrowser smoke at 390px confirmed the hydrated Sheet opens, closes with Escape, and returns focus; the enhanced video controls load from local assets with no console errors or horizontal overflow. At 1440px, desktop navigation and the enhanced player render without overflow. Temporary evidence was not retained in the repository.
 - A fresh 1440px production-preview CloakBrowser navigation confirmed the local favicon returns `200` and produces no console errors. Temporary evidence was not retained in the repository.
+- Local `actionlint` 1.7.12 accepts `.github/workflows/pages.yml`; its deterministic Node test and the full local equivalent of the workflow's English landing checks pass.
 
 ## Next Step
 
