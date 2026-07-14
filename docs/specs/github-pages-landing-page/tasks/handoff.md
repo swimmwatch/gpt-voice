@@ -17,6 +17,7 @@
 - Native playback: the English static page now renders the real demo with `preload="none"`, native controls, a poster, a caption-track-compatible visual-description resource, and adjacent Accordion notes. All nine chronological notes remain in the static HTML; hydration only adds the collapsible interaction. Plyr progressively enhances the existing video only within 600 pixels of the viewport or after playback begins; an unavailable enhancement leaves the native player intact.
 - Static HTML integrity: locale generation now removes Vite’s placeholder skip link and root shell before inserting the pre-rendered app, so the published output contains exactly one skip link, root, and main landmark. The optional Retry branch retains its `li` list semantics rather than overriding it with an invalid ARIA note role.
 - Published-locale safety: the language selector now renders only routes with complete published content. It is absent while English is the only published route, preventing links to the ten ungenerated locale paths; it expands from the shared published-locale registry when reviewed dictionaries become available.
+- English browser proof: Playwright now checks the 390px no-JavaScript player and mobile navigation fallbacks, the hydrated Sheet’s Escape/focus-return behavior, and local-only enhanced-player assets. Plyr starts only after hydration succeeds, so React cannot replace an already-enhanced native video. Its icon sprite is emitted locally rather than fetched from `cdn.plyr.io`.
 - Tasks 1–8, 10, 14, and 16: reconciled the page/media contract, isolated dependencies and commands, configured Vite/TypeScript/Electron build boundaries, added landing-owned visual foundations, installed all selected shadcn primitives, defined the content contracts, and delivered the workflow plus FAQ/CTA/footer slices.
 
 ## Changed Files
@@ -42,6 +43,7 @@
 - The production build now uses the checked-in modern/legacy Browserslist environments, Terser, Lightning CSS, and `@vitejs/plugin-legacy` with modern polyfills disabled. Static generation preserves Vite’s legacy body scripts and minifies generated HTML conservatively.
 - `landing:verify:sizes` now deterministically measures raw, gzip, and Brotli output for modern/legacy initial JavaScript, initial CSS, deferred Plyr, and HTML, and rejects published source maps.
 - The static landing remains usable before enhancement: native video, links, transcript content, and the mobile `details` navigation work immediately. React/Radix hydration now begins after page load or first user intent, and hides the fallback only after the enhancement module loads successfully. This brings the English initial JavaScript under the enforced budgets.
+- Landing Playwright configuration and English E2E coverage now build and preview the generated route, check no-JavaScript playback/navigation, mobile Sheet keyboard return, and a local-only Plyr enhancement. The player’s local SVG sprite is emitted through Vite, and initialization runs after React hydration to avoid an enhancement race.
 - Task 9 is complete for the published English route. The `landing:dev` and `landing:build` commands now stage the complete verified media set rather than the screenshot-only shell.
 
 ## Checks
@@ -86,6 +88,8 @@
 - `npm run landing:build`
 - Production-preview CloakBrowser metadata smoke confirmed the canonical, robots directive, and three-item JSON-LD graph; temporary evidence was not retained in the repository.
 - Consolidated landing check: `landing:format:check`, `landing:lint`, all 23 Vitest checks, and the three native Node locale/TXT tests pass.
+- `npm run landing:test:e2e` (three English browser scenarios pass).
+- Local production-preview CloakBrowser smoke at 390px confirmed the hydrated Sheet opens, closes with Escape, and returns focus; the enhanced video controls load from local assets with no console errors or horizontal overflow. At 1440px, desktop navigation and the enhanced player render without overflow. Temporary evidence was not retained in the repository.
 
 ## Next Step
 

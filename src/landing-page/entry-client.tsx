@@ -7,6 +7,7 @@ if (!rootElement) {
 }
 
 const landingRoot = rootElement;
+const plyrIconUrl = new URL('../../node_modules/plyr/dist/plyr.svg', import.meta.url).href;
 
 let landingHydration: Promise<void> | undefined;
 
@@ -15,6 +16,7 @@ function hydrateLanding(): void {
     .then(({ hydrateLandingPage }) => {
       hydrateLandingPage(landingRoot);
       document.documentElement.dataset.landingEnhanced = 'true';
+      enableDeferredDemoPlayer();
     })
     .catch(() => undefined);
 }
@@ -65,6 +67,7 @@ type PlyrConstructor = new (
   options: {
     captions: { active: boolean; language: string; update: boolean };
     controls: readonly string[];
+    iconUrl: string;
     keyboard: { focused: boolean; global: boolean };
     settings: readonly string[];
     speed: { options: readonly number[]; selected: number };
@@ -100,6 +103,7 @@ function enableDeferredDemoPlayer(): void {
             'pip',
             'fullscreen',
           ],
+          iconUrl: plyrIconUrl,
           keyboard: { focused: true, global: false },
           settings: ['captions', 'speed'],
           speed: { options: [0.5, 0.75, 1, 1.25, 1.5, 2], selected: 1 },
@@ -123,4 +127,3 @@ function enableDeferredDemoPlayer(): void {
 
 scheduleLandingHydration();
 enableSectionReveals();
-enableDeferredDemoPlayer();
