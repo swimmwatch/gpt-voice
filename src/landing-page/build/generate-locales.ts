@@ -75,7 +75,11 @@ function getBodySuffix(baseDocument: string): string {
     throw new Error('Landing build output does not contain a body element');
   }
 
-  return body.replace(/<div id="root"><\/div>/i, '').trim();
+  return body
+    .replace(/<a class="skip-link" href="#main-content">[\s\S]*?<\/a>/i, '')
+    .replace(/<div id="root"><\/div>/i, '')
+    .replace(/<div id="root"><main\b[^>]*><\/main><\/div>/i, '')
+    .trim();
 }
 
 function getDocumentHead(baseDocument: string): string {

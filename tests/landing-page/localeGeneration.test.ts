@@ -41,6 +41,9 @@ test('pre-renders the English landing shell without a router or JavaScript depen
       'https://swimmwatch.github.io/gpt-voice/generated/media/demo-poster.webp',
     );
     assert.equal(graph['@graph'][3]?.mainEntity?.length, 12);
+    assert.equal((document.match(/id="root"/g) ?? []).length, 1);
+    assert.equal((document.match(/id="main-content"/g) ?? []).length, 1);
+    assert.equal((document.match(/class="skip-link"/g) ?? []).length, 1);
     assert.match(document, /<main id="main-content" tabindex="-1">/);
     assert.match(document, /Writing clear, well-structured prompts takes time\./);
     assert.match(document, /src="\/gpt-voice\/assets\/index.js"/);
