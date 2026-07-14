@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
 import { claims, prompts } from '../data/content';
 import { getRetryViewState } from '../data/retryState';
 import { getVideoUiState } from '../data/uiFixtures';
+import { KineticBackdrop } from '../components/KineticBackdrop';
 import { HotkeyChip } from '../product-ui/HotkeyChip';
 import { ProductUiFrame } from '../product-ui/ProductUiFrame';
 import { PromptWorkspace } from '../product-ui/PromptWorkspace';
@@ -33,6 +34,8 @@ function RecoveredPrompt(): JSX.Element {
 export function RetryScene(): JSX.Element {
   const frame = useCurrentFrame();
   const view = getRetryViewState(frame);
+  const productOffset = interpolate(frame, [0, 18], [48, 0], { extrapolateRight: 'clamp' });
+  const panelOffset = interpolate(frame, [4, 24], [72, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const successOpacity = interpolate(frame, [300, 324], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const spinnerRotation = (frame * 7.3 + 9) % 360;
 
@@ -41,10 +44,11 @@ export function RetryScene(): JSX.Element {
       data-slot="retry-scene"
       style={{ background: 'radial-gradient(circle at 25% 45%, #3A1626 0%, #12101C 42%, #050914 100%)' }}
     >
-      <div style={{ left: 192, position: 'absolute', top: 248 }}>
+      <KineticBackdrop accent="#FB7185" phase={126} />
+      <div style={{ left: 192, position: 'absolute', top: 248, transform: `translateY(${productOffset}px)` }}>
         <ProductUiFrame scale={1.45} spinnerRotation={spinnerRotation} state={getVideoUiState(view.fixtureId)} />
       </div>
-      <section style={{ left: 1000, position: 'absolute', top: 236, width: 590 }}>
+      <section style={{ left: 1000, position: 'absolute', top: 236, transform: `translateX(${panelOffset}px)`, width: 590 }}>
         {view.showHotkey ? <HotkeyChip keys={['Ctrl', 'F8']} label="Resend transcription" tone="blue" /> : null}
         {view.showComparison ? (
           <div

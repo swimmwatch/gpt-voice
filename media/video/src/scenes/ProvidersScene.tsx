@@ -1,8 +1,9 @@
 import type { JSX } from 'react';
-import { AbsoluteFill, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
 import { claims } from '../data/content';
 import { getProvidersViewState } from '../data/providersState';
 import { getVideoUiState } from '../data/uiFixtures';
+import { KineticBackdrop } from '../components/KineticBackdrop';
 import { ProductUiFrame } from '../product-ui/ProductUiFrame';
 
 function ProviderQualification(): JSX.Element {
@@ -50,16 +51,19 @@ function ProviderQualification(): JSX.Element {
 export function ProvidersScene(): JSX.Element {
   const frame = useCurrentFrame();
   const view = getProvidersViewState(frame);
+  const productOffset = interpolate(frame, [0, 18], [48, 0], { extrapolateRight: 'clamp' });
+  const panelOffset = interpolate(frame, [4, 24], [72, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill
       data-slot="providers-scene"
       style={{ background: 'radial-gradient(circle at 74% 38%, #26204D 0%, #121426 42%, #050914 100%)' }}
     >
-      <div style={{ left: 192, position: 'absolute', top: 248 }}>
+      <KineticBackdrop accent="#A78BFA" phase={108} />
+      <div style={{ left: 192, position: 'absolute', top: 248, transform: `translateY(${productOffset}px)` }}>
         <ProductUiFrame scale={1.45} spinnerRotation={0} state={getVideoUiState(view.fixtureId)} />
       </div>
-      <div style={{ left: 1000, position: 'absolute', top: 284, width: 590 }}>
+      <div style={{ left: 1000, position: 'absolute', top: 284, transform: `translateX(${panelOffset}px)`, width: 590 }}>
         <ProviderQualification />
       </div>
     </AbsoluteFill>
