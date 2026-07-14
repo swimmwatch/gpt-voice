@@ -9,7 +9,7 @@
     "studio": "remotion studio",
     "test:timeline": "node --experimental-strip-types --test src/validation/validateTimeline.test.ts",
     "test:content": "node --experimental-strip-types --test src/validation/validateContent.test.ts",
-    "test:scenes": "node --experimental-strip-types --test src/scenes/PromptProblemsScene.test.ts src/scenes/TranscriptionScene.test.ts src/scenes/RetryScene.test.ts src/scenes/PrettificationScene.test.ts",
+    "test:scenes": "node --experimental-strip-types --test src/scenes/PromptProblemsScene.test.ts src/scenes/TranscriptionScene.test.ts src/scenes/RetryScene.test.ts src/scenes/TranslationScene.test.ts src/scenes/PrettificationScene.test.ts src/scenes/ProvidersScene.test.ts src/scenes/CtaScene.test.ts",
     "test:ui": "node --experimental-strip-types --test src/validation/ProductUiFrame.test.ts src/validation/validateProductImports.test.ts src/validation/validateUiFixtures.test.ts",
     "typecheck": "tsc --noEmit",
     "validate:timeline": "node --experimental-strip-types src/validation/validateTimeline.ts"

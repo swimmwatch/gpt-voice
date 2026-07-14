@@ -6,6 +6,7 @@ import { scenes } from './data/timeline';
 import { ProductBridgeScene } from './scenes/ProductBridgeScene';
 import { PrettificationScene } from './scenes/PrettificationScene';
 import { ProvidersScene } from './scenes/ProvidersScene';
+import { CtaScene } from './scenes/CtaScene';
 import { PromptProblemsScene } from './scenes/PromptProblemsScene';
 import { RetryScene } from './scenes/RetryScene';
 import { TranscriptionScene } from './scenes/TranscriptionScene';
@@ -57,6 +58,9 @@ export function GptVoiceDemo({ debugOverlays, effectsMode }: GptVoiceDemoProps):
       </Sequence>
       <Sequence durationInFrames={scenes.providers.durationInFrames} from={scenes.providers.from}>
         <ProvidersScene />
+      </Sequence>
+      <Sequence durationInFrames={scenes.cta.durationInFrames} from={scenes.cta.from}>
+        <CtaScene />
       </Sequence>
       {debugOverlays ? (
         <DebugOverlay effectsMode={effectsMode} />
