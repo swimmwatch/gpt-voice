@@ -233,6 +233,10 @@ button,
   text-decoration: none;
 }
 
+html:not([data-landing-enhanced='true']) .mobile-menu-trigger {
+  display: none;
+}
+
 html[data-landing-enhanced='true'] .mobile-navigation-no-js {
   display: none;
 }

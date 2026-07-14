@@ -1,7 +1,3 @@
-import { createRoot, hydrateRoot } from 'react-dom/client';
-import { TooltipProvider } from '@landing/components/ui/tooltip';
-import { LandingPage } from '@landing/components/LandingPage';
-import { englishContent, getLocaleDefinition } from '@landing/content';
 import './styles/globals.css';
 
 const rootElement = document.querySelector('#root');
@@ -10,7 +6,31 @@ if (!rootElement) {
   throw new Error('Landing page root element is missing.');
 }
 
-document.documentElement.dataset.landingEnhanced = 'true';
+const landingRoot = rootElement;
+
+let landingHydration: Promise<void> | undefined;
+
+function hydrateLanding(): void {
+  landingHydration ??= import('./hydrate')
+    .then(({ hydrateLandingPage }) => {
+      hydrateLandingPage(landingRoot);
+      document.documentElement.dataset.landingEnhanced = 'true';
+    })
+    .catch(() => undefined);
+}
+
+function scheduleLandingHydration(): void {
+  const start = (): void => {
+    window.removeEventListener('load', start);
+    document.removeEventListener('keydown', start, true);
+    document.removeEventListener('pointerdown', start, true);
+    hydrateLanding();
+  };
+
+  window.addEventListener('load', start, { once: true });
+  document.addEventListener('keydown', start, { capture: true, once: true });
+  document.addEventListener('pointerdown', start, { capture: true, once: true });
+}
 
 function enableSectionReveals(): void {
   if (typeof IntersectionObserver === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -101,17 +121,6 @@ function enableDeferredDemoPlayer(): void {
   observer.observe(video);
 }
 
-const application = (
-  <TooltipProvider>
-    <LandingPage content={englishContent} locale={getLocaleDefinition('en')} />
-  </TooltipProvider>
-);
-
-if (rootElement.hasChildNodes()) {
-  hydrateRoot(rootElement, application);
-} else {
-  createRoot(rootElement).render(application);
-}
-
+scheduleLandingHydration();
 enableSectionReveals();
 enableDeferredDemoPlayer();
