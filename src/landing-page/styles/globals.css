@@ -932,23 +932,28 @@ html[data-landing-enhanced='true'] .locale-no-js {
   .provider-signal-map {
     align-items: stretch;
     column-gap: 0;
-    grid-template-columns: 9rem 3rem minmax(0, 1fr);
+    grid-template-columns: 7.5rem 5rem minmax(0, 1fr);
   }
 
   .provider-audio-input {
     align-self: center;
-    min-block-size: 12rem;
+    min-block-size: 11rem;
+    padding: var(--space-3);
     position: relative;
   }
 
   .provider-microphone {
-    block-size: 4rem;
-    inline-size: 4rem;
+    block-size: 3rem;
+    inline-size: 3rem;
   }
 
   .provider-microphone svg {
-    block-size: 2rem;
-    inline-size: 2rem;
+    block-size: 1.5rem;
+    inline-size: 1.5rem;
+  }
+
+  .provider-waveform {
+    margin-block: var(--space-2);
   }
 
   .provider-route-map {
@@ -1028,28 +1033,76 @@ html[data-landing-enhanced='true'] .locale-no-js {
     gap: var(--space-3);
   }
 
-  .provider-card-header,
-  .provider-card-content,
-  .provider-future-horizon {
-    padding-inline: var(--space-6);
+  .provider-card {
+    padding-block: var(--space-3);
   }
 
   .provider-card-header {
-    padding-block: var(--space-6) var(--space-4);
+    padding: var(--space-2) var(--space-4) var(--space-1);
+  }
+
+  .provider-card-content {
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-3);
   }
 
   .provider-logo {
-    block-size: 4rem;
-    inline-size: 4rem;
+    block-size: 3rem;
+    inline-size: 3rem;
   }
 
   .provider-logo img {
-    block-size: 2.25rem;
-    inline-size: 2.25rem;
+    block-size: 1.75rem;
+    inline-size: 1.75rem;
   }
 
   .provider-claim {
-    font-size: var(--font-lead-desktop-size);
+    font-size: var(--font-lead-mobile-size);
+  }
+
+  .provider-future-horizon {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .provider-future-horizon > p {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    margin-block-start: var(--space-2);
+  }
+
+  .provider-future-horizon ul {
+    margin-block-start: var(--space-3);
+  }
+
+  .provider-future-horizon li {
+    padding: 0.125rem 0.375rem;
+  }
+
+  .provider-future-horizon .provider-logo {
+    block-size: 1.5rem;
+    inline-size: 1.5rem;
+  }
+
+  .provider-future-horizon .provider-logo img {
+    block-size: 0.875rem;
+    inline-size: 0.875rem;
+  }
+
+  .provider-future-horizon li strong,
+  .provider-future-horizon li span {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+}
+
+@media (min-width: 64rem) and (max-width: 79.999rem) {
+  .provider-section {
+    column-gap: var(--space-8);
+    grid-template-columns: minmax(15rem, 0.45fr) minmax(0, 1fr);
+  }
+
+  .provider-facts {
+    gap: var(--space-1);
   }
 }
 
