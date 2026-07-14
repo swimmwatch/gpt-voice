@@ -75,6 +75,23 @@ test.describe('English responsive accessibility', () => {
   });
 });
 
+test.describe('English keyboard interactions', () => {
+  test('opens an FAQ disclosure with Enter', async ({ page }) => {
+    await page.goto('/#faq');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+
+    const trigger = page.getByRole('button', { name: 'How do I record and transcribe speech?' });
+    const answer = page.getByText('Press F9 to start recording.');
+    await expect(answer).not.toBeVisible();
+    await trigger.focus();
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(answer).toBeVisible();
+  });
+});
+
 test.describe('English mobile enhancement', () => {
   test.use({ viewport: { height: 844, width: 390 } });
 
