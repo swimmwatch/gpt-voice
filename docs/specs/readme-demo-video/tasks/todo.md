@@ -28,12 +28,12 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 
 - [x] Task 7 (M): Configure the canonical renderer import boundary. Dependencies: Checkpoint B.
 - [x] Task 8 (M): Build the reused Command Dock render frame. Dependencies: Task 7.
-- [ ] Task 9 (M): Define and validate deterministic UI fixtures. Dependencies: Task 8.
+- [x] Task 9 (M): Define and validate deterministic UI fixtures. Dependencies: Task 8.
 
 ### Checkpoint C
 
-- [ ] All relevant Command Dock React components render without Electron/runtime side effects.
-- [ ] Product styles and state transitions are canonical, typed, deterministic, and pixel-stable.
+- [x] All relevant Command Dock React components render without Electron/runtime side effects.
+- [x] Product styles and state transitions are canonical, typed, deterministic, and pixel-stable.
 
 ## Phase 3: Functional React Animatic
 

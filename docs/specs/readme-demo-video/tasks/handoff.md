@@ -25,6 +25,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 - The typed product import module now exposes the four approved direct components and pure state helpers. Its static graph test rejects privileged Electron/runtime, browser media, clipboard, timer, and network paths. A fresh debug still confirms the styled canonical `MainToolbar` renders at full composition resolution without Electron.
 - Task 8 added `ProductUiFrame`: the native 460x420 Command Dock composes the four canonical components with typed inert callbacks, clipped video geometry, disabled pointer events/keyframes/transitions, and a frame-derived spinner rotation variable. Fresh idle, recording, processing, and saved-session modal stills render through Remotion.
 - `ProviderSettingsModalView` now owns the shared, side-effect-free provider-settings markup. The Electron wrapper retains persistence, focus restoration, and `window.electronAPI` calls; Remotion imports the pure view under the Task 7 graph guard. A 250 ms Remotion render gate prevents first-bundle CSS capture before the canonical Tailwind styles settle; repeated idle stills have identical SHA-256 hashes.
+- Task 9 added typed fixtures for every bridge, recording, processing, retry, translation, Prettify, and provider state. Fixture validation rejects unsupported providers/lifecycles, missing content identifiers, non-Russian translation targets, mismatched retry audio identities, and a retry path that includes a new recording state. `npm run test:ui` now runs product-frame, import-boundary, and fixture checks.
 - The specification now requires a React-rendered interface, direct reuse/shared pure views for all relevant Command Dock components, deterministic fixtures, and no runtime Electron behavior.
 - The implementation plan has been rebuilt from Task 7 onward. All old capture tasks, commands, directories, acceptance criteria, and blockers have been removed.
 - The exact Remotion package installation list remains pinned to `4.0.483`; product-footage removal does not reduce plugin scope.
@@ -46,7 +47,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Next, complete Task 9: define and validate deterministic UI fixtures for every approved lifecycle, provider, retry, translation, and Prettify state before scene implementation continues.
+Next, complete Task 10: materialize approved synthetic content and narration references. The translation result remains review-required until a human-approved Russian version is provided.
 
 ## Blockers And External Gates
 

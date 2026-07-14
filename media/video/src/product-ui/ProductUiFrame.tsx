@@ -2,6 +2,7 @@ import type { CSSProperties, JSX } from 'react';
 import type { OllamaModelControl } from '@renderer/prettifyModelControl';
 import type { ProviderAuthType, ProviderInfo, ProviderSettings } from '@renderer/types';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import { getVideoUiState } from '../data/uiFixtures';
 import {
   MainToolbar,
   PrettifyModelMemoryRow,
@@ -46,20 +47,7 @@ export interface ProductUiFrameProps {
   state: ProductUiFrameState;
 }
 
-/** Temporary Task 8 preview state; Task 9 replaces this with the complete validated fixture module. */
-export const productUiFramePreviewState: ProductUiFrameState = {
-  activeProviderId: 'chatgpt',
-  connection: 'connected',
-  lifecycle: 'idle',
-  modelControl: {
-    isLoaded: true,
-    model: 'llama3.2:3b-instruct-q4_K_M',
-    vramSizeBytes: 2_147_483_648,
-  },
-  providerModal: 'closed',
-  statusDetail: '',
-  targetLang: 'ru',
-};
+export const productUiFramePreviewState: ProductUiFrameState = getVideoUiState('bridgeReady');
 
 function getActiveProvider(providerId: ProductUiFrameState['activeProviderId']): ProviderInfo {
   return providers.find((provider) => provider.id === providerId) ?? providers[0];
