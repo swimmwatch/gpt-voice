@@ -36,7 +36,8 @@
 - Navigation now has semantic desktop fragment links, a published-locale selector when more than one route is available, a no-JavaScript `details` fallback, and an accessible mobile Sheet. Task 17 remains open for locale-aware hydration and full interaction coverage.
 - The responsive accessibility foundation now includes non-gating one-time section reveal: static/no-JavaScript and reduced-motion output stays visible, while supported hydrated browsers reveal marked sections through the approved 480ms motion.
 - The production build now uses the checked-in modern/legacy Browserslist environments, Terser, Lightning CSS, and `@vitejs/plugin-legacy` with modern polyfills disabled. Static generation preserves Vite’s legacy body scripts and minifies generated HTML conservatively.
-- `landing:verify:sizes` now deterministically measures raw, gzip, and Brotli output for modern/legacy initial JavaScript, initial CSS, deferred Plyr, and HTML, and rejects published source maps. It deliberately fails the current build until the JavaScript budgets are met.
+- `landing:verify:sizes` now deterministically measures raw, gzip, and Brotli output for modern/legacy initial JavaScript, initial CSS, deferred Plyr, and HTML, and rejects published source maps.
+- The static landing remains usable before enhancement: native video, links, transcript content, and the mobile `details` navigation work immediately. React/Radix hydration now begins after page load or first user intent, and hides the fallback only after the enhancement module loads successfully. This brings the English initial JavaScript under the enforced budgets.
 - Task 9 is complete for the published English route. The `landing:dev` and `landing:build` commands now stage the complete verified media set rather than the screenshot-only shell.
 
 ## Checks
@@ -61,7 +62,7 @@
 - `npm run landing:test -- --run src/landing-page/components/LandingPage.test.tsx`
 - `npm run landing:build`
 - `npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/verifySizes.test.ts`
-- `npm run landing:verify:sizes` (expected failure: modern initial JS is 118.7 KiB gzip against 90 KiB; legacy is 160.4 KiB against 145 KiB)
+- `npm run landing:verify:sizes` (passing English baseline: 2.1 KiB gzip modern initial JS; 42.6 KiB legacy initial JS including polyfills)
 - Local CloakBrowser smoke against `landing:dev` at 1440px and 390px; temporary captures confirmed the hero’s desktop two-column and mobile stacked compositions.
 - Local CloakBrowser smoke confirmed the provider map at 1440px and 390px; temporary captures were not retained in the repository.
 - Local CloakBrowser provider-connector smoke confirmed the single 40-pixel mobile arrow and 48-pixel desktop arrow; close-up captures were not retained in the repository.
@@ -85,5 +86,5 @@
 - The committed English visual master is silent. Its visual-description resources are accurate for the current edition, but final voice-over, licensed music/SFX, and their synchronized captions remain required before it can be described as an audio-complete production master.
 - Only `src/landing-page/content/locales/en.ts` exists. The ten non-English complete dictionaries and their recorded proficient-speaker approvals are required before Tasks 11 and 19–24 can complete. English must not be copied as a production fallback.
 - Tasks 17, 18, and 25 have committed foundations but remain incomplete until all locale outputs and the remaining page sections are available for the full interaction, accessibility, browser, and size gates.
-- The enforced size gate currently fails only its initial JavaScript budgets: modern is 118.7 KiB gzip versus 90 KiB, and legacy is 160.4 KiB versus 145 KiB. No budget exception has been approved.
+- The English size baseline passes, but complete locale-font isolation and transfer-budget enforcement remain blocked by the ten reviewed locale dictionaries and their generated font subsets.
 - No push, GitHub Pages deployment, or production verification is authorized. Task 32 remains authorization-gated after all local acceptance gates are satisfied.
