@@ -5,14 +5,14 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, es
 ## Phase 0: Human, Claim, And License Gates
 
 - [x] Task 1 (S): Approve the production contract. Dependencies: none.
-- [ ] Task 2 (S): Complete the tooling and license preflight. Dependencies: Task 1.
-- [ ] Task 3 (S): Lock the synthetic content and claims. Dependencies: Tasks 1-2.
+- [x] Task 2 (S): Complete the tooling and license preflight. Dependencies: Task 1.
+- [x] Task 3 (S): Lock the synthetic content and claims. Dependencies: Tasks 1-2.
 
 ### Checkpoint A
 
-- [ ] Specification/plan approval and open-question decisions are recorded.
-- [ ] Claims, content, license, skill, and external-action gates are explicit.
-- [ ] Human approval authorizes implementation to begin.
+- [x] Specification/plan approval and open-question decisions are recorded.
+- [x] Claims, content, license, skill, and external-action gates are explicit.
+- [x] Human approval authorizes implementation to begin.
 
 ## Phase 1: Isolated Remotion Foundation
 

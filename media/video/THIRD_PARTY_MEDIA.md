@@ -22,7 +22,7 @@ The isolated video project will pin the following packages to exact version `4.0
 
 The version-pinned Remotion license retrieved from the official `v4.0.483` source on 2026-07-14 permits free use by an individual, a for-profit organization with up to three employees, a non-profit/not-for-profit organization, or an organization evaluating Remotion without commercial use. A Company License is required otherwise. Package-level npm metadata is not a substitute for this eligibility decision.
 
-**Decision required:** Confirm that GPT-Voice's legal entity qualifies for the Remotion Free License, or confirm that an applicable Company License is already held. Do not install any Remotion package until this is confirmed.
+**Human decision:** On 2026-07-14, the project owner confirmed that Remotion may be used for GPT-Voice. The agent records this as the required eligibility confirmation and does not make an independent legal classification. The project may install only the exact version-pinned packages listed above.
 
 Sources:
 

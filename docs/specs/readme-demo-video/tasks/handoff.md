@@ -7,6 +7,8 @@
 - README delivery is a committed poster-linked MP4; the README target is at most 20 MB unless a later documented visual comparison and approval change it.
 - Final narration must be a natural, neutral-English, project-owned human recording. Hosted and paid TTS are out of scope.
 - The Task 2 preflight selected exact Remotion version `4.0.483` and recorded package metadata, but no package was installed.
+- The project owner confirmed that Remotion may be used; Task 2 is complete without extending authorization to stock assets, hosted services, or optional skills.
+- Task 3 locked synthetic content, Russian as the translation target, the capture-review rule for final translated text, and all narrow claim qualifications.
 
 ## Changed Files
 
@@ -16,17 +18,17 @@
 
 ## Checks
 
-- Markdown formatting passed for the completed contract increment.
+- Markdown formatting passed for completed documentation increments.
 - Package metadata and the version-pinned official Remotion license were read without installing any dependency.
 - No package installation, capture, media acquisition, upload, purchase, push, or publication has occurred.
 
 ## Next Step
 
-Obtain a human confirmation that the legal entity qualifies for the Remotion Free License or already holds an applicable Company License. Then complete Task 2 before installing packages or importing assets.
+Complete Task 4: scaffold the isolated, exact-version Remotion project without changing the Electron dependency graph.
 
 ## Blockers And External Gates
 
 - Marketplace registration, Remotion/Humanizer skill installation, stock purchases, hosted TTS, and external asset downloads require separate authorization.
-- Remotion `4.0.483` eligibility is unresolved: the free license covers individuals, for-profit organizations with up to three employees, non-profits/not-for-profits, and non-commercial evaluation; otherwise a Company License is required.
+- Stock purchases, external asset downloads, hosted TTS, marketplace registration, and optional skills remain blocked pending separate authorization.
 - GitHub publication, Release uploads, LinkedIn posting, and pushes require separate authorization.
 - Keep unrelated `design-qa.md` unmodified.
