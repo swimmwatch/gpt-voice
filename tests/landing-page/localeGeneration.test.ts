@@ -28,12 +28,19 @@ test('pre-renders the English landing shell without a router or JavaScript depen
     assert.match(document, /<meta name="twitter:card" content="summary"\/?>(?:<|$)/);
     const structuredData = document.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
     assert.ok(structuredData, 'Expected JSON-LD structured data.');
-    const graph = JSON.parse(structuredData) as { '@graph': Array<{ '@type': string; mainEntity?: unknown[] }> };
+    const graph = JSON.parse(structuredData) as {
+      '@graph': Array<{ '@type': string; contentUrl?: string; mainEntity?: unknown[]; thumbnailUrl?: string }>;
+    };
     assert.deepEqual(
       graph['@graph'].map((entry) => entry['@type']),
-      ['WebSite', 'SoftwareApplication', 'FAQPage'],
+      ['WebSite', 'SoftwareApplication', 'VideoObject', 'FAQPage'],
     );
-    assert.equal(graph['@graph'][2]?.mainEntity?.length, 12);
+    assert.equal(graph['@graph'][2]?.contentUrl, 'https://swimmwatch.github.io/gpt-voice/generated/media/demo.mp4');
+    assert.equal(
+      graph['@graph'][2]?.thumbnailUrl,
+      'https://swimmwatch.github.io/gpt-voice/generated/media/demo-poster.webp',
+    );
+    assert.equal(graph['@graph'][3]?.mainEntity?.length, 12);
     assert.match(document, /<main id="main-content" tabindex="-1">/);
     assert.match(document, /Writing clear, well-structured prompts takes time\./);
     assert.match(document, /src="\/gpt-voice\/assets\/index.js"/);
