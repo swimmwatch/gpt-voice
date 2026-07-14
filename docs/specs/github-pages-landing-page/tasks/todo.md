@@ -134,7 +134,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 ## Approval Gates
 
 - [ ] External WebVTT sidecars versus the no-caption-file video rule is explicitly resolved.
-- [ ] The final 60-fps MP4 and poster exist and are approved.
+- [x] The final 60-fps MP4 and poster exist and are approved.
 - [ ] All ten non-English locales have recorded proficient-speaker approval.
 - [ ] Exact legacy/device and required screen-reader evidence is recorded or remains visibly incomplete.
 - [ ] Push/deployment authorization is obtained before any remote mutation or Task 32.
