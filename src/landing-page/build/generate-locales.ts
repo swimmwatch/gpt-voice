@@ -5,13 +5,17 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { LandingPage } from '../components/LandingPage.js';
-import { englishContent, getLocaleDefinition, type LandingContent, type LandingLocale } from '../content/index.js';
+import {
+  getLocaleDefinition,
+  publishedLocaleContent,
+  publishedLocaleTags,
+  type LandingContent,
+  type LandingLocale,
+} from '../content/index.js';
 import { getLocalizedSeoTags } from './seo.js';
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const defaultOutputDirectory = path.join(repositoryRoot, 'build/github-pages');
-const contentByLocale = new Map<LandingLocale, LandingContent>([['en', englishContent]]);
-
 export type LocaleGenerationOptions = {
   outputDirectory?: string;
 };
@@ -20,7 +24,8 @@ export async function generateLocalePages(options: LocaleGenerationOptions = {})
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory;
   const baseDocument = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
 
-  for (const [localeTag, content] of contentByLocale) {
+  for (const localeTag of publishedLocaleTags) {
+    const content = publishedLocaleContent[localeTag];
     const locale = getLocaleDefinition(localeTag);
     const pageDirectory = locale.routeSlug ? path.join(outputDirectory, locale.routeSlug) : outputDirectory;
     await mkdir(pageDirectory, { recursive: true });

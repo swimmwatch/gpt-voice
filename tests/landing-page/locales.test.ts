@@ -7,8 +7,10 @@ import {
   getLocaleDefinition,
   getLocaleFromRouteSlug,
   localeRegistry,
+  publishedLocaleDefinitions,
+  publishedLocaleTags,
   supportedLocales,
-} from '../../src/landing-page/content/locale-registry';
+} from '../../src/landing-page/content';
 
 const rootDirectory = path.resolve(__dirname, '../..');
 
@@ -37,4 +39,9 @@ test('resolves approved route slugs without an implicit locale fallback', () => 
   assert.equal(getLocaleFromRouteSlug(''), 'en');
   assert.equal(getLocaleFromRouteSlug('pt-br'), 'pt-BR');
   assert.equal(getLocaleFromRouteSlug('unknown'), undefined);
+});
+
+test('publishes only locale routes with complete content', () => {
+  assert.deepEqual(publishedLocaleTags, ['en']);
+  assert.deepEqual(publishedLocaleDefinitions, [getLocaleDefinition('en')]);
 });

@@ -1,4 +1,6 @@
 import { getLocaleDefinition } from './locale-registry';
+import { englishContent } from './locales/en';
+import type { LandingContent, LandingLocale } from './schema';
 
 export {
   defaultLocale,
@@ -7,8 +9,11 @@ export {
   localeRegistry,
   supportedLocales,
 } from './locale-registry';
-export { englishContent } from './locales/en';
-export const publishedLocaleTags = ['en'] as const;
+export { englishContent };
+export const publishedLocaleContent = {
+  en: englishContent,
+} satisfies Partial<Record<LandingLocale, LandingContent>>;
+export const publishedLocaleTags = Object.keys(publishedLocaleContent) as Array<keyof typeof publishedLocaleContent>;
 export const publishedLocaleDefinitions = publishedLocaleTags.map(getLocaleDefinition);
 export type {
   FaqItem,
