@@ -92,6 +92,7 @@
 - Production-preview CloakBrowser metadata smoke confirmed the canonical, robots directive, and three-item JSON-LD graph; temporary evidence was not retained in the repository.
 - Consolidated landing check: `landing:format:check`, `landing:lint`, all 23 Vitest checks, and the three native Node locale/TXT tests pass.
 - `npm run landing:test:e2e` (nine English browser scenarios pass, including blocked hydration/Plyr chunks plus keyboard, responsive, reduced-motion, and sticky-anchor coverage).
+- Final English quality gate: all 23 landing Vitest checks, all 30 Node landing-contract checks, the nine browser scenarios, and the media, SEO, static accessibility, browser-support, and size verifiers pass together.
 - Local production-preview CloakBrowser smoke at 390px confirmed the hydrated Sheet opens, closes with Escape, and returns focus; the enhanced video controls load from local assets with no console errors or horizontal overflow. At 1440px, desktop navigation and the enhanced player render without overflow. Temporary evidence was not retained in the repository.
 - A fresh 1440px production-preview CloakBrowser navigation confirmed the local favicon returns `200` and produces no console errors. Temporary evidence was not retained in the repository.
 
