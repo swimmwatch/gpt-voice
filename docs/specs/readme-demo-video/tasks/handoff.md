@@ -25,8 +25,8 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 - The typed product import module now exposes the four approved direct components and pure state helpers. Its static graph test rejects privileged Electron/runtime, browser media, clipboard, timer, and network paths. A fresh debug still confirms the styled canonical `MainToolbar` renders at full composition resolution without Electron.
 - Task 8 added `ProductUiFrame`: the native 460x420 Command Dock composes the four canonical components with typed inert callbacks, clipped video geometry, disabled pointer events/keyframes/transitions, and a frame-derived spinner rotation variable. Fresh idle, recording, processing, and saved-session modal stills render through Remotion.
 - `ProviderSettingsModalView` now owns the shared, side-effect-free provider-settings markup. The Electron wrapper retains persistence, focus restoration, and `window.electronAPI` calls; Remotion imports the pure view under the Task 7 graph guard. A 250 ms Remotion render gate prevents first-bundle CSS capture before the canonical Tailwind styles settle; repeated idle stills have identical SHA-256 hashes.
-- Task 9 added typed fixtures for every bridge, recording, processing, retry, translation, Prettify, and provider state. Fixture validation rejects unsupported providers/lifecycles, missing content identifiers, non-Russian translation targets, mismatched retry audio identities, and a retry path that includes a new recording state. `npm run test:ui` now runs product-frame, import-boundary, and fixture checks.
-- Task 10 centralized all visible problem/claim/prompt copy and scene narration references. Content tests reject release versions, LinkedIn/caption copy, and an unqualified provider scale claim. The translation object remains explicitly review-required with no Russian result; do not complete the translation scene or final render until a human-approved result is supplied.
+- Task 9 added typed fixtures for every bridge, recording, processing, retry, translation, Prettify, and provider state. Fixture validation rejects unsupported providers/lifecycles, missing content identifiers, non-English translation targets, mismatched retry audio identities, and a retry path that includes a new recording state. `npm run test:ui` now runs product-frame, import-boundary, and fixture checks.
+- Task 10 centralized all visible problem/claim/prompt copy and scene narration references. Content tests reject release versions, LinkedIn/caption copy, and an unqualified provider scale claim. The translation example describes Russian voice input in English and produces an English prompt; no Russian text is rendered.
 - The specification now requires a React-rendered interface, direct reuse/shared pure views for all relevant Command Dock components, deterministic fixtures, and no runtime Electron behavior.
 - The implementation plan has been rebuilt from Task 7 onward. All old capture tasks, commands, directories, acceptance criteria, and blockers have been removed.
 - The exact Remotion package installation list remains pinned to `4.0.483`; product-footage removal does not reduce plugin scope.
@@ -48,9 +48,7 @@ Remotion must not import `App`, `useRecording`, Electron preload/runtime modules
 
 ## Next Step
 
-Task 14 is blocked: it requires a human-approved Russian translation result. The translation fixture remains intentionally `reviewStatus: 'required'` with `result: null`; do not make up or render a Russian result.
-
-Task 15 was safely implemented out of order because it uses the separately approved Prettify source/result pair. Tasks 16–33 remain blocked by the incomplete translation scene and their documented approval, asset, or publication gates.
+Task 18 is next: review the assembled no-effects animatic in the required modes before the plugin layer can begin. Tasks 19–33 remain subject to their documented approval, asset, or publication gates.
 
 ## Latest Increment: Task 15 Complete
 
@@ -87,11 +85,26 @@ Task 15 was safely implemented out of order because it uses the separately appro
 - Verification passed: video typecheck; scene/content tests; fallback stills at 60, 180, 360, 540, 720, 899, 900, and 1080. A repeated frame-720 render had the same SHA-256 hash.
 - Changed files: `media/video/src/GptVoiceDemo.tsx`, `media/video/src/scenes/PromptProblemsScene.tsx`, `media/video/src/scenes/ProductBridgeScene.tsx`, `media/video/src/scenes/PromptProblemsScene.test.ts`, `media/video/src/product-ui/PromptWorkspace.tsx`, `media/video/src/product-ui/PromptProblemMap.tsx`, and `media/video/package.json`.
 
+## Latest Increment: Task 14 Complete
+
+- Replaced the obsolete Russian-result approval gate with an English-only Russian-voice-input-to-English example. The rendered selector targets English; the scene contains no Cyrillic or other Russian text.
+- Added deterministic selection, F11, processing, copied, and paste fixtures for frames 2300, 2342, 2430, 2502, 2580, and 2660. `TranslationScene` uses the canonical `TranslateSection` through `ProductUiFrame` and labels the source and result in English.
+- Generalized `ResultComparison` labels without changing the existing Prettify wording or its two factual detail chips.
+- Verification passed: video typecheck; content, fixture, timeline, and scene tests; fallback stills at all six required global cue frames. The rendered English result is visible at its initial paste frame.
+- Changed files: `media/video/src/data/content.ts`, `media/video/src/data/uiFixtures.ts`, `media/video/src/data/translationState.ts`, `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/scenes/TranslationScene.test.ts`, `media/video/src/product-ui/ResultComparison.tsx`, `media/video/src/GptVoiceDemo.tsx`, validation tests, and the video package script.
+
+## Latest Increment: Tasks 16–17 Complete
+
+- Added the provider proof for frames 3120–3419. It reuses the canonical ChatGPT Web and OpenAI API toolbar states, then opens only the synthetic `Session status: Saved` view. The full qualified recognition claim is visible throughout; no key or session data is rendered.
+- Added the CTA for frames 3420–3599 with Speak, Retry, Translate, Refine, Better prompts, Less effort, and GPT-Voice on GitHub. The rendered prompt outcome is clean and factual; it contains no release or LinkedIn copy.
+- The last 60 CTA frames are frame-invariant. Fallback renders at frames 3540, 3570, and 3599 have the same SHA-256 hash; frame 3540 is legible at the requested poster size.
+- Verification passed: provider stills at 3120, 3150, 3240, 3330, and 3419 in fallback and WebGL modes; CTA stills at 3420, 3480, 3540, 3570, and 3599; scene and timeline tests plus video typecheck.
+- Changed files: `media/video/src/data/providersState.ts`, `media/video/src/scenes/ProvidersScene.tsx`, `media/video/src/scenes/ProvidersScene.test.ts`, `media/video/src/data/ctaState.ts`, `media/video/src/scenes/CtaScene.tsx`, `media/video/src/scenes/CtaScene.test.ts`, `media/video/src/GptVoiceDemo.tsx`, and the video package script.
+
 ## Blockers And External Gates
 
 - There is no screen-capture blocker; screen capture is no longer part of the architecture.
 - Stock downloads/purchases, hosted TTS, marketplace registration, and optional Remotion/Humanizer skill installation require separate authorization.
 - GitHub uploads/releases, LinkedIn posting, pushes, and publication require separate authorization.
-- A human-reviewed Russian translation is required before the translation scene can be finalized.
 - Keep unrelated `design-qa.md` unmodified and uncommitted.
 - The full root `npm test` suite currently has one unrelated landing-page failure: `tests/landing-page/localeGeneration.test.ts` cannot resolve `@landing/lib/utils`. Focused video checks, video/root typechecks, and the remaining 342 root tests pass.

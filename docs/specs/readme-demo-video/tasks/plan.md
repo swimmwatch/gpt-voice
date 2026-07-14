@@ -94,7 +94,7 @@ completed approval/content gates 1-3
 
 ### Task 3: Lock synthetic content and claims
 
-**Description:** Approve the spoken prompt, rough/Prettified pair, Russian target, translation-review method, retry comparison, and provider qualification.
+**Description:** Approve the spoken prompt, Russian voice-input-to-English example, rough/Prettified pair, retry comparison, and provider qualification.
 
 **Acceptance criteria:**
 
@@ -239,7 +239,7 @@ completed approval/content gates 1-3
 **Acceptance criteria:**
 
 - [ ] Fixtures cover bridge, recording, stopping, transcribing, copied, failed, retrying, translated, Prettified, ChatGPT session saved, and OpenAI API states.
-- [ ] Validation rejects unknown providers/statuses, missing content, non-Russian translation target, mismatched retry audio/result IDs, or a retry path containing `recording`.
+- [ ] Validation rejects unknown providers/statuses, missing content, a non-English translation target, mismatched retry audio/result IDs, or a retry path containing `recording`.
 - [ ] `test:ui` runs fixture, import-boundary, DOM-slot, and deterministic callback checks.
 
 **Verification:**
@@ -262,12 +262,12 @@ completed approval/content gates 1-3
 
 ### Task 10: Materialize approved content and narration references
 
-**Description:** Convert the locked prompt, translation placeholder/review gate, Prettify pair, claims, labels, and voice-over windows into typed local data.
+**Description:** Convert the locked prompt, English-only Russian-voice-input translation example, Prettify pair, claims, labels, and voice-over windows into typed local data.
 
 **Acceptance criteria:**
 
 - [ ] All visible prompt/problem/claim copy is centralized and matches the specification.
-- [ ] Translation remains marked as review-required until a human-approved Russian result is inserted.
+- [ ] Translation describes Russian voice input in English and renders an English result; no Russian text is required in the video.
 - [ ] Content validation rejects prohibited claims, release numbers, caption structures, missing qualifications, or source/result semantic identifiers that do not match.
 
 **Verification:**
@@ -351,20 +351,20 @@ completed approval/content gates 1-3
 
 ### Task 14: Build the translation scene
 
-**Description:** Render selected English prompt text, Russian target, F11 processing, copied state, and human-reviewed Russian result without another tool.
+**Description:** Render a Russian voice-input example, English target, F11 processing, copied state, and English result without another tool.
 
 **Acceptance criteria:**
 
-- [ ] The reused `TranslateSection` shows Russian before F11.
+- [ ] The reused `TranslateSection` shows English before F11.
 - [ ] F11, `Translating selection...`, `Translation copied`, and result paste occur in their frame windows.
 - [ ] Source/result labels communicate model/task language choice and avoid a universal “best language” guarantee.
 
 **Verification:**
 
 - [ ] Render frames 2300, 2342, 2430, 2502, 2580, and 2660.
-- [ ] Human-review the Russian result and watch the scene muted.
+- [ ] Watch the English-only scene muted.
 
-**Dependencies:** Task 13 and the completed translation review gate in Task 10.
+**Dependencies:** Task 13.
 
 **Likely files:** `media/video/src/scenes/TranslationScene.tsx`, `media/video/src/product-ui/ResultComparison.tsx`, `media/video/src/scenes/TranslationScene.test.tsx`.
 

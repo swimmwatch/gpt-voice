@@ -47,16 +47,16 @@ The video is rendered entirely from React components in Remotion. Screen recordi
 - [ ] Content, product appearance, timing, and repeat-frame determinism are approved.
 
 - [x] Task 13 (M): Build the same-audio retry scene. Dependencies: Task 12.
-- [ ] Task 14 (M): Build the translation scene. Dependencies: Task 13 and translation review.
+- [x] Task 14 (M): Build the translation scene. Dependencies: Task 13.
 - [x] Task 15 (M): Build the Prettify scene. Dependencies: Task 14. Implemented independently; Task 14 remains blocked.
 
 ### Checkpoint E
 
-- [ ] Retry, translation, and Prettify form a factual prompt recovery/refinement sequence.
-- [ ] Every workflow uses canonical product React state and remains understandable muted.
+- [x] Retry, translation, and Prettify form a factual prompt recovery/refinement sequence.
+- [x] Every workflow uses canonical product React state and remains understandable muted.
 
-- [ ] Task 16 (M): Build the provider proof scene. Dependencies: Checkpoint E.
-- [ ] Task 17 (S): Build the CTA and stable poster scene. Dependencies: Task 16.
+- [x] Task 16 (M): Build the provider proof scene. Dependencies: Checkpoint E.
+- [x] Task 17 (S): Build the CTA and stable poster scene. Dependencies: Task 16.
 - [ ] Task 18 (M): Assemble and approve the no-effects React animatic. Dependencies: Tasks 11–17.
 
 ### Checkpoint F
