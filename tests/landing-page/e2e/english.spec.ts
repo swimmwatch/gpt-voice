@@ -91,6 +91,26 @@ test.describe('English responsive accessibility', () => {
       false,
     );
   });
+
+  test('keeps mobile navigation operable with WCAG text spacing', async ({ page }) => {
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
+    await page.addStyleTag({
+      content:
+        '* { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }',
+    });
+
+    const trigger = page.getByRole('button', { name: 'Open navigation' });
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(
+      false,
+    );
+  });
 });
 
 test.describe('English keyboard interactions', () => {
