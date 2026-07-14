@@ -1,0 +1,31 @@
+{
+  "name": "gpt-voice-demo-video",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "remotion render",
+    "still": "remotion still",
+    "studio": "remotion studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.483",
+    "@remotion/effects": "4.0.483",
+    "@remotion/light-leaks": "4.0.483",
+    "@remotion/media": "4.0.483",
+    "@remotion/media-utils": "4.0.483",
+    "@remotion/motion-blur": "4.0.483",
+    "@remotion/noise": "4.0.483",
+    "@remotion/paths": "4.0.483",
+    "@remotion/shapes": "4.0.483",
+    "@remotion/transitions": "4.0.483",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.483",
+    "typescript": "5.9.3"
+  }
+}

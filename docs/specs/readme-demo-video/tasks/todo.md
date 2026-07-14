@@ -16,7 +16,7 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, es
 
 ## Phase 1: Isolated Remotion Foundation
 
-- [ ] Task 4 (M): Scaffold the isolated video project. Dependencies: Checkpoint A.
+- [x] Task 4 (M): Scaffold the isolated video project. Dependencies: Checkpoint A.
 - [ ] Task 5 (M): Register the deterministic composition boundary. Dependencies: Task 4.
 - [ ] Task 6 (M): Define and validate timeline data. Dependencies: Task 5.
 

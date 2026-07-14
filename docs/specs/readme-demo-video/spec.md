@@ -984,26 +984,19 @@ Marketplace registration creates external state and must not be run without huma
 
 ## Commands
 
-Scaffold the isolated Remotion project after specification and plan approval:
+Install the committed, isolated Remotion project after specification and plan approval:
 
 ```bash
-npx create-video@latest --yes --blank --no-tailwind media/video
-npm --prefix media/video install
+npm --prefix media/video install --ignore-scripts
 ```
 
-Install each selected Remotion package through the version-aware Remotion CLI:
+Add a selected Remotion package only at the exact project version:
 
 ```bash
-npm --prefix media/video exec -- remotion add @remotion/media
-npm --prefix media/video exec -- remotion add @remotion/transitions
-npm --prefix media/video exec -- remotion add @remotion/motion-blur
-npm --prefix media/video exec -- remotion add @remotion/effects
-npm --prefix media/video exec -- remotion add @remotion/light-leaks
-npm --prefix media/video exec -- remotion add @remotion/noise
-npm --prefix media/video exec -- remotion add @remotion/shapes
-npm --prefix media/video exec -- remotion add @remotion/paths
-npm --prefix media/video exec -- remotion add @remotion/media-utils
+npm --prefix media/video install --save-dev @remotion/media@4.0.483
 ```
+
+Update `media/video/package.json` and install each additional selected package with the same exact version. Do not use a floating tag or a command that can select a different Remotion version.
 
 Create ignored working directories for captures, review frames, reports, and stills:
 
@@ -1032,45 +1025,45 @@ ffmpeg -i .artifacts/video-source/C02_RECORD.mkv -vf "fps=1" .artifacts/video-re
 Preview:
 
 ```bash
-npm --prefix media/video exec -- remotion studio --no-open
+npm --prefix media/video run studio -- --no-open
 ```
 
 Type-check the video project:
 
 ```bash
-npm --prefix media/video exec -- tsc --noEmit
+npm --prefix media/video run typecheck
 ```
 
 Render a quarter-scale inspection still at the start of the provider claim:
 
 ```bash
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/provider-check.png --frame=3120 --scale=0.25
+npm --prefix media/video run still -- GptVoiceDemo out/stills/provider-check.png --frame=3120 --scale=0.25
 ```
 
 Render mandatory full-resolution problem, product-reveal, and plugin check frames:
 
 ```bash
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-opening.png --frame=60
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-problem-structure.png --frame=180
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-problem-clarity.png --frame=360
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-problem-language.png --frame=540
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-problem-workflow.png --frame=720
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-product-reveal.png --frame=900
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-retry.png --frame=2040
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-provider.png --frame=3240
-npm --prefix media/video exec -- remotion still GptVoiceDemo out/stills/check-cta.png --frame=3480
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-opening.png --frame=60
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-problem-structure.png --frame=180
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-problem-clarity.png --frame=360
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-problem-language.png --frame=540
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-problem-workflow.png --frame=720
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-product-reveal.png --frame=900
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-retry.png --frame=2040
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-provider.png --frame=3240
+npm --prefix media/video run still -- GptVoiceDemo out/stills/check-cta.png --frame=3480
 ```
 
 Render the 1080p, 60 fps master:
 
 ```bash
-npm --prefix media/video exec -- remotion render GptVoiceDemo out/gpt-voice-demo-master.mp4 --codec=h264 --crf=18 --audio-codec=aac --props='{"effectsMode":"webgl","debugOverlays":false}'
+npm --prefix media/video run render -- GptVoiceDemo out/gpt-voice-demo-master.mp4 --codec=h264 --crf=18 --audio-codec=aac --props='{"effectsMode":"webgl","debugOverlays":false}'
 ```
 
 Render the deterministic fallback master for comparison:
 
 ```bash
-npm --prefix media/video exec -- remotion render GptVoiceDemo out/gpt-voice-demo-fallback.mp4 --codec=h264 --crf=18 --audio-codec=aac --props='{"effectsMode":"fallback","debugOverlays":false}'
+npm --prefix media/video run render -- GptVoiceDemo out/gpt-voice-demo-fallback.mp4 --codec=h264 --crf=18 --audio-codec=aac --props='{"effectsMode":"fallback","debugOverlays":false}'
 ```
 
 Create the optimized README deliverable:
@@ -1088,7 +1081,7 @@ ffmpeg -i media/video/out/gpt-voice-demo-master.mp4 -c:v libx264 -preset slow -c
 Render the poster at the final CTA frame:
 
 ```bash
-npm --prefix media/video exec -- remotion still GptVoiceDemo ../../assets/demo/gpt-voice-demo-poster.png --frame=3540
+npm --prefix media/video run still -- GptVoiceDemo ../../assets/demo/gpt-voice-demo-poster.png --frame=3540
 ```
 
 Inspect final media metadata and repository whitespace:

@@ -9,6 +9,7 @@
 - The Task 2 preflight selected exact Remotion version `4.0.483` and recorded package metadata, but no package was installed.
 - The project owner confirmed that Remotion may be used; Task 2 is complete without extending authorization to stock assets, hosted services, or optional skills.
 - Task 3 locked synthetic content, Russian as the translation target, the capture-review rule for final translated text, and all narrow claim qualifications.
+- Task 4 created the isolated `media/video/` project with exact Remotion `4.0.483` packages, strict TypeScript, a 1920×1080/60-fps/3600-frame bootstrap composition, and an ANGLE entry-point configuration.
 
 ## Changed Files
 
@@ -20,11 +21,12 @@
 
 - Markdown formatting passed for completed documentation increments.
 - Package metadata and the version-pinned official Remotion license were read without installing any dependency.
+- `npm --prefix media/video run typecheck`, the exact-version `npm ls` check, a 1920×108 bootstrap still render, and root `npm run typecheck` passed.
 - No package installation, capture, media acquisition, upload, purchase, push, or publication has occurred.
 
 ## Next Step
 
-Complete Task 4: scaffold the isolated, exact-version Remotion project without changing the Electron dependency graph.
+Complete Task 5: replace the bootstrap composition with typed WebGL/fallback/debug props and finish the deterministic render boundary.
 
 ## Blockers And External Gates
 
