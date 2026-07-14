@@ -1,5 +1,7 @@
 # Implementation Plan: GitHub Pages Landing Page
 
+> **Active delivery scope:** English-only. Tasks 19–24 describe a future locale expansion and do not gate completion of the English landing. Requirements referring to eleven routes, localized assets, or locale snapshots apply only when that expansion is explicitly authorized. Deployment remains Task 32 and requires separate authorization.
+
 ## Overview
 
 Build an isolated static landing page under `src/landing-page/`, emitted to `build/github-pages/` with base `/gpt-voice/`. It will follow the approved 1440x5332 and 390x6580 designs, pre-render eleven locales, embed the progressive demo, and generate matching SEO, accessibility, and TXT/LLM outputs. It must not enter Electron compilation, packaging, or runtime APIs.

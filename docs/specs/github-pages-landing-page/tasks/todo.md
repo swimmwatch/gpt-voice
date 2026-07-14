@@ -2,6 +2,8 @@
 
 Detailed acceptance criteria, verification steps, dependencies, likely files, and estimates are in `plan.md`. Do not mark a task complete until its task-level verification and the applicable checkpoint pass.
 
+> **Active completion target:** the English static landing at `/gpt-voice/`. Tasks 19–24 are deferred future localization work, not blockers for this delivery. Task 32 remains authorization-gated.
+
 ## Phase 0: Contract Gates
 
 - [x] Task 1 (M): Reconcile the visible-page artifact contract. Dependencies: none.

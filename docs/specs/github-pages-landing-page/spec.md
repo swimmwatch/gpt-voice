@@ -5,6 +5,12 @@
 - Task slug: `github-pages-landing-page`
   Scope owner: Public product landing page, approved marketing copy, static media, and GitHub Pages deployment
 
+## Approved Delivery Scope Update
+
+The active landing delivery is English-only. The user has approved the current English visual demo and does not authorize Russian or other non-English landing/video content for this delivery. The existing eleven-locale architecture remains a future expansion, but reviewed locale dictionaries, locale font subsets, localized TXT/SEO outputs, and their speaker approvals are not prerequisites for completing the English GitHub Pages landing.
+
+The local English source, static output, accessibility, browser, and workflow tasks are in scope. Deployment itself remains separately authorization-gated: this repository may contain the Pages workflow, but no push, Pages-setting change, or production verification is implied.
+
 ## Assumptions For Review
 
 1. The deliverable is one localized landing-page experience with eleven fully pre-rendered HTML variants. English is the default at `https://swimmwatch.github.io/gpt-voice/`; Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese, Simplified Chinese, Japanese, German, French, and Hindi use deterministic locale subpaths defined in this specification. A custom domain remains out of scope unless approved later.
