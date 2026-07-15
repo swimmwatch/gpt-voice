@@ -386,6 +386,16 @@ const ukrainianStagedSources = {
     '`%APPDATA%\\GPT-Voice`',
     '`~/.config/GPT-Voice`',
   ],
+  'getting-started.uk.md': [
+    '# Перше використання: підключіть постачальника та розшифруйте мовлення',
+    'ChatGPT Web',
+    'OpenAI API',
+    '`whisper-1`',
+    'Electron safe storage',
+    '`F9`',
+    '`F10`',
+    'Copied to clipboard',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -550,5 +560,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('install.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('getting-started.uk.md', '')));
 });
