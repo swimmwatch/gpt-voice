@@ -34,6 +34,7 @@ release-artifacts/
 
 # Local caches
 .cache/
+.venv-docs/
 .eslintcache
 .stylelintcache
 .playwright-mcp/
@@ -100,4 +101,5 @@ temp/
 
 .artifacts
 src/landing-page/public/generated/
+docs/user-guide/assets/generated/
 .tokensave

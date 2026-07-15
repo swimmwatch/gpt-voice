@@ -1,0 +1,21 @@
+site_name: GPT-Voice documentation
+site_description: User guide for GPT-Voice desktop transcription.
+site_url: https://swimmwatch.github.io/gpt-voice/docs/
+repo_url: https://github.com/swimmwatch/gpt-voice
+repo_name: swimmwatch/gpt-voice
+
+docs_dir: docs/user-guide
+site_dir: build/github-pages/docs
+
+theme:
+  name: material
+  language: en
+  font: false
+
+nav:
+  - Overview: index.md
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
