@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "defaultLocale": "en",
+  "locales": [
+    { "tag": "en", "mkdocsLocale": "en", "routeSlug": "", "sourceSuffix": "" },
+    { "tag": "ru", "mkdocsLocale": "ru", "routeSlug": "ru", "sourceSuffix": ".ru.md" },
+    { "tag": "be", "mkdocsLocale": "be", "routeSlug": "be", "sourceSuffix": ".be.md" },
+    { "tag": "uk", "mkdocsLocale": "uk", "routeSlug": "uk", "sourceSuffix": ".uk.md" },
+    { "tag": "es", "mkdocsLocale": "es", "routeSlug": "es", "sourceSuffix": ".es.md" },
+    { "tag": "pt-BR", "mkdocsLocale": "pt-BR", "routeSlug": "pt-br", "sourceSuffix": ".pt-BR.md" },
+    { "tag": "zh-CN", "mkdocsLocale": "zh-CN", "routeSlug": "zh-cn", "sourceSuffix": ".zh-CN.md" },
+    { "tag": "ja", "mkdocsLocale": "ja", "routeSlug": "ja", "sourceSuffix": ".ja.md" },
+    { "tag": "de", "mkdocsLocale": "de", "routeSlug": "de", "sourceSuffix": ".de.md" },
+    { "tag": "fr", "mkdocsLocale": "fr", "routeSlug": "fr", "sourceSuffix": ".fr.md" },
+    { "tag": "hi", "mkdocsLocale": "hi", "routeSlug": "hi", "sourceSuffix": ".hi.md" }
+  ]
+}

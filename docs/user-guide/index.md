@@ -1,3 +1,9 @@
+<div class="guide-wordmark" align="center" markdown>
+
+![GPT-Voice wordmark](assets/generated/icons/gpt-voice-wordmark.svg){ width="620" }
+
+</div>
+
 # GPT-Voice Documentation
 
 GPT-Voice is a desktop voice-to-text application. Record a thought with a global shortcut, send the audio through a
@@ -13,8 +19,8 @@ provider you control, and receive the transcription on your clipboard.
 
 <div class="guide-actions" markdown>
 
-[Download GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-button .md-button--primary }
-[Get started](getting-started.md){ .md-button }
+[:material-download: Download GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-button .md-button--primary }
+[:material-rocket-launch: Get started](getting-started.md){ .md-button }
 
 </div>
 
@@ -36,12 +42,30 @@ provider you control, and receive the transcription on your clipboard.
 
 ## What GPT-Voice does
 
-- Transcribes speech through either a signed-in **ChatGPT Web** session or the official **OpenAI API**.
-- Keeps the workflow close to the desktop: record, stop, then paste the copied text into the application you were
-  using.
-- Provides global shortcuts, local transcription history, selected-text translation, and selected-text **Prettify**
-  actions.
-- Uses a separately configured Ollama or vLLM service for Prettify; GPT-Voice does not start those services for you.
+<div class="grid cards" markdown>
+
+- :material-microphone: **Transcribe speech**
+
+  Use a signed-in **ChatGPT Web** session or the official **OpenAI API** to transcribe a recording.
+
+- :material-content-paste: **Keep the workflow on your desktop**
+
+  Record, stop, and paste the copied text where you need it. Successful results are copied to the clipboard;
+  GPT-Voice does not automatically insert them into another application.
+
+- :material-translate: **Translate selected text**
+
+  Run a selected-text translation action with a global shortcut, then paste the result from the clipboard.
+
+- :material-auto-fix: **Use Prettify**
+
+  Clean up selected text while preserving its meaning through an Ollama or vLLM service that you configure and run.
+
+- :material-history: **Return to useful results**
+
+  Use global shortcuts and local transcription history to return to a copied result without sending the audio again.
+
+</div>
 
 ## Before you begin
 
@@ -60,8 +84,9 @@ bypass those limits.
 ## Guide scope
 
 Start with [installation](install.md), then follow [first use](getting-started.md) to connect a provider and confirm
-that a transcription reaches your clipboard. Recording, settings, privacy, and troubleshooting pages are added in
-subsequent documentation increments.
+that a transcription reaches your clipboard. Continue with [recording and transcription](guides/transcription.md),
+[provider setup](guides/providers.md), [Settings](settings/index.md), [privacy and data](privacy.md),
+[troubleshooting](troubleshooting.md), and [frequently asked questions](faq.md).
 
 GPT-Voice is an independent project and is not affiliated with OpenAI, Anthropic, or Google. It is licensed under
 [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/), which is not an

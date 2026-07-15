@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "sourceLocale": "en",
+  "locales": [
+    { "tag": "ru", "status": "blocked", "pages": [] },
+    { "tag": "be", "status": "blocked", "pages": [] },
+    { "tag": "uk", "status": "blocked", "pages": [] },
+    { "tag": "es", "status": "blocked", "pages": [] },
+    { "tag": "pt-BR", "status": "blocked", "pages": [] },
+    { "tag": "zh-CN", "status": "blocked", "pages": [] },
+    { "tag": "ja", "status": "blocked", "pages": [] },
+    { "tag": "de", "status": "blocked", "pages": [] },
+    { "tag": "fr", "status": "blocked", "pages": [] },
+    { "tag": "hi", "status": "blocked", "pages": [] }
+  ]
+}

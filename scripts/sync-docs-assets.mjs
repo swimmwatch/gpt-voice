@@ -21,9 +21,38 @@ const pinnedAssets = [
     source: 'node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2',
   },
   {
-    destination: 'icons/gpt-voice.svg',
-    sha256: '917db3c726f3dc55f126bc7dc473d2c675d8d9f7875d694a3dd6f7e17f7e5c41',
-    source: 'assets/icon.svg',
+    destination: 'icons/gpt-voice.png',
+    sha256: 'e4dcafc38327b7f4bc8fc2b1c5700fe29f8e5b59d4f6d7b39dbc3d6826081c81',
+    source: 'assets/icon.png',
+  },
+  {
+    destination: 'icons/gpt-voice-wordmark.svg',
+    sha256: 'f61f64178b4f4505e869456bbd6ae96934a9380c7e737296e28571d9b9a43b49',
+    source: 'assets/gpt-voice-wordmark.svg',
+  },
+];
+
+const pinnedFontPackages = [
+  {
+    destination: 'fonts/noto-sans-sc',
+    sha256: 'bb1eb50afcec4272a169c3885284263676dbb52c00f278e0e22feacaeca9c381',
+    sourceDirectory: 'node_modules/@fontsource-variable/noto-sans-sc/files',
+    stylesheetDestination: 'fonts/noto-sans-sc-wght.css',
+    stylesheetSource: 'node_modules/@fontsource-variable/noto-sans-sc/wght.css',
+  },
+  {
+    destination: 'fonts/noto-sans-jp',
+    sha256: 'e7f0f6adb8015153bc32436c306ea5bc91f1f2fd879fb4818d57051c98cc9a66',
+    sourceDirectory: 'node_modules/@fontsource-variable/noto-sans-jp/files',
+    stylesheetDestination: 'fonts/noto-sans-jp-wght.css',
+    stylesheetSource: 'node_modules/@fontsource-variable/noto-sans-jp/wght.css',
+  },
+  {
+    destination: 'fonts/noto-sans-devanagari',
+    sha256: '49cfdc618a3cf97cd2d5be75da5049cbfb716d64d2cbd4d1a815a4c61ea4a055',
+    sourceDirectory: 'node_modules/@fontsource-variable/noto-sans-devanagari/files',
+    stylesheetDestination: 'fonts/noto-sans-devanagari-wght.css',
+    stylesheetSource: 'node_modules/@fontsource-variable/noto-sans-devanagari/wght.css',
   },
 ];
 
@@ -76,6 +105,47 @@ async function assertPinnedSource(rootDirectory, asset) {
   return sourcePath;
 }
 
+async function assertPinnedFontPackage(rootDirectory, fontPackage) {
+  const sourceDirectory = getSafeAssetPath(rootDirectory, fontPackage.sourceDirectory);
+  const stylesheetPath = getSafeAssetPath(rootDirectory, fontPackage.stylesheetSource);
+  const [directoryDetails, stylesheetDetails, files] = await Promise.all([
+    lstat(sourceDirectory),
+    lstat(stylesheetPath),
+    listFiles(sourceDirectory),
+  ]);
+  if (!directoryDetails.isDirectory() || directoryDetails.isSymbolicLink()) {
+    throw new Error(`Documentation font source must be a regular directory: ${fontPackage.sourceDirectory}`);
+  }
+  if (!stylesheetDetails.isFile() || stylesheetDetails.isSymbolicLink()) {
+    throw new Error(`Documentation font stylesheet must be a regular file: ${fontPackage.stylesheetSource}`);
+  }
+  if (files.length === 0 || !files.every((file) => /^[-a-z0-9]+\.woff2$/u.test(file))) {
+    throw new Error(`Documentation font package contains unsupported files: ${fontPackage.sourceDirectory}`);
+  }
+
+  const hash = createHash('sha256');
+  hash.update('wght.css\0');
+  hash.update(await readFile(stylesheetPath));
+  const fontFiles = await Promise.all(
+    files.map(async (file) => {
+      const sourcePath = getSafeAssetPath(sourceDirectory, file);
+      const details = await lstat(sourcePath);
+      if (!details.isFile() || details.isSymbolicLink()) {
+        throw new Error(`Documentation font source must be a regular file: ${fontPackage.sourceDirectory}/${file}`);
+      }
+      return { contents: await readFile(sourcePath), file, sourcePath };
+    }),
+  );
+  for (const fontFile of fontFiles) {
+    hash.update(`files/${fontFile.file}\0`);
+    hash.update(fontFile.contents);
+  }
+  if (hash.digest('hex') !== fontPackage.sha256) {
+    throw new Error(`Documentation font package hash mismatch: ${fontPackage.sourceDirectory}`);
+  }
+  return { ...fontPackage, fontFiles, stylesheetPath };
+}
+
 async function collectApprovedSources(rootDirectory) {
   const manifestPath = getSafeAssetPath(
     rootDirectory,
@@ -102,8 +172,11 @@ async function collectApprovedSources(rootDirectory) {
     throw new Error(`Documentation capture dimensions are not approved: ${capture.path}`);
   }
 
-  const sources = await Promise.all(pinnedAssets.map((asset) => assertPinnedSource(rootDirectory, asset)));
-  return { capture, screenshotPath, sources };
+  const [sources, fontPackages] = await Promise.all([
+    Promise.all(pinnedAssets.map((asset) => assertPinnedSource(rootDirectory, asset))),
+    Promise.all(pinnedFontPackages.map((fontPackage) => assertPinnedFontPackage(rootDirectory, fontPackage))),
+  ]);
+  return { capture, fontPackages, screenshotPath, sources };
 }
 
 async function copyAsset(sourcePath, destinationPath) {
@@ -122,9 +195,31 @@ async function listFiles(directory, relativeDirectory = '') {
   return files.flat().sort();
 }
 
-async function createAssetManifest(stagingDirectory, capture) {
+function getFontPackageDestinations(fontPackages) {
+  return fontPackages.flatMap((fontPackage) => [
+    fontPackage.stylesheetDestination,
+    ...fontPackage.fontFiles.map((fontFile) => path.join(fontPackage.destination, fontFile.file)),
+  ]);
+}
+
+async function copyFontPackage(fontPackage, stagingDirectory) {
+  await Promise.all(
+    fontPackage.fontFiles.map((fontFile) =>
+      copyAsset(fontFile.sourcePath, path.join(stagingDirectory, fontPackage.destination, fontFile.file)),
+    ),
+  );
+  const stylesheet = await readFile(fontPackage.stylesheetPath, 'utf8');
+  const stagedStylesheet = stylesheet.replaceAll('./files/', `./${path.basename(fontPackage.destination)}/`);
+  if (stagedStylesheet === stylesheet || stagedStylesheet.includes('://') || stagedStylesheet.includes('//')) {
+    throw new Error(`Documentation font stylesheet contains unsupported sources: ${fontPackage.stylesheetSource}`);
+  }
+  await writeFile(path.join(stagingDirectory, fontPackage.stylesheetDestination), stagedStylesheet, 'utf8');
+}
+
+async function createAssetManifest(stagingDirectory, capture, fontPackageDestinations) {
   const files = [
     ...pinnedAssets.map((asset) => asset.destination),
+    ...fontPackageDestinations,
     'images/app-main.png',
     'images/app-main.webp',
     'images/app-main.avif',
@@ -145,10 +240,11 @@ async function createAssetManifest(stagingDirectory, capture) {
   };
 }
 
-async function assertStagedAssetSet(stagingDirectory) {
+async function assertStagedAssetSet(stagingDirectory, fontPackageDestinations) {
   const expectedFiles = [
     'asset-manifest.json',
     ...pinnedAssets.map((asset) => asset.destination),
+    ...fontPackageDestinations,
     'images/app-main.png',
     'images/app-main.webp',
     'images/app-main.avif',
@@ -163,7 +259,8 @@ export async function syncDocumentationAssets({ destinationDirectory, rootDirect
   const root = rootDirectory ?? repositoryRoot;
   const destination = destinationDirectory ?? getSafeAssetPath(root, generatedRelativeDirectory);
   const staging = `${destination}.staging`;
-  const { capture, screenshotPath, sources } = await collectApprovedSources(root);
+  const { capture, fontPackages, screenshotPath, sources } = await collectApprovedSources(root);
+  const fontPackageDestinations = getFontPackageDestinations(fontPackages);
 
   await rm(staging, { force: true, recursive: true });
   await mkdir(staging, { recursive: true });
@@ -171,6 +268,7 @@ export async function syncDocumentationAssets({ destinationDirectory, rootDirect
     await Promise.all(
       pinnedAssets.map((asset, index) => copyAsset(sources[index], path.join(staging, asset.destination))),
     );
+    await Promise.all(fontPackages.map((fontPackage) => copyFontPackage(fontPackage, staging)));
     await copyAsset(screenshotPath, path.join(staging, 'images/app-main.png'));
     await Promise.all([
       sharp(screenshotPath).webp({ quality: 90 }).toFile(path.join(staging, 'images/app-main.webp')),
@@ -178,10 +276,10 @@ export async function syncDocumentationAssets({ destinationDirectory, rootDirect
     ]);
     await writeFile(
       path.join(staging, 'asset-manifest.json'),
-      `${JSON.stringify(await createAssetManifest(staging, capture), null, 2)}\n`,
+      `${JSON.stringify(await createAssetManifest(staging, capture, fontPackageDestinations), null, 2)}\n`,
       'utf8',
     );
-    await assertStagedAssetSet(staging);
+    await assertStagedAssetSet(staging, fontPackageDestinations);
     await mkdir(path.dirname(destination), { recursive: true });
     await rm(destination, { force: true, recursive: true });
     await rename(staging, destination);

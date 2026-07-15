@@ -48,7 +48,7 @@
     "landing:preview": "vite preview --config vite.landing.config.ts",
     "docs:install": "python3.12 -m venv .venv-docs && .venv-docs/bin/python -m pip install --requirement docs/requirements.txt",
     "docs:serve": ".venv-docs/bin/mkdocs serve --config-file mkdocs.yml --dev-addr 127.0.0.1:8000",
-    "docs:build": ".venv-docs/bin/mkdocs build --strict --config-file mkdocs.yml",
+    "docs:build": "node scripts/validate-doc-translations.mjs && .venv-docs/bin/mkdocs build --strict --config-file mkdocs.yml && node scripts/normalize-docs-locale-routes.mjs",
     "docs:test": "node --import tsx --test \"tests/documentation/**/*.test.ts\"",
     "docs:sync-assets": "node scripts/sync-docs-assets.mjs",
     "ci:install": "node scripts/ci-install.mjs",

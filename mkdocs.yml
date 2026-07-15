@@ -4,30 +4,298 @@ site_url: https://swimmwatch.github.io/gpt-voice/docs/
 
 docs_dir: docs/user-guide
 site_dir: build/github-pages/docs
+exclude_docs: |
+  data/
 
 theme:
   name: material
+  custom_dir: docs/mkdocs-overrides
   language: en
   font: false
-  logo: assets/generated/icons/gpt-voice.svg
-  favicon: assets/generated/icons/gpt-voice.svg
+  logo: assets/generated/icons/gpt-voice.png
+  favicon: assets/generated/icons/gpt-voice.png
   palette:
     scheme: slate
     primary: custom
     accent: custom
   features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.footer
     - navigation.sections
     - navigation.top
+    - navigation.path
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
     - content.code.copy
+    - content.code.annotate
+    - content.code.select
+    - content.tabs.link
     - content.tooltips
 
 nav:
   - Overview: index.md
   - Install, update, or remove: install.md
   - First use: getting-started.md
+  - Record and transcribe: guides/transcription.md
+  - Providers: guides/providers.md
+  - Text actions: guides/text-actions.md
+  - History and tray: guides/history-and-tray.md
+  - Settings:
+      - Overview: settings/index.md
+      - Provider settings: settings/providers.md
+      - Shortcut settings: settings/shortcuts.md
+      - Prettify settings: settings/prettify.md
+      - Browser settings: settings/browser.md
+      - Network settings: settings/network.md
+  - Support:
+      - Privacy and data: privacy.md
+      - Troubleshooting: troubleshooting.md
+      - FAQ: faq.md
 
 plugins:
+  - i18n:
+      build_only_locale: en
+      docs_structure: suffix
+      fallback_to_default: false
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          name: English
+          build: true
+          default: true
+          nav_translations:
+            Overview: Overview
+            Install, update, or remove: Install, update, or remove
+            First use: First use
+            Record and transcribe: Record and transcribe
+            Providers: Providers
+            Text actions: Text actions
+            History and tray: History and tray
+            Settings: Settings
+            Provider settings: Provider settings
+            Shortcut settings: Shortcut settings
+            Prettify settings: Prettify settings
+            Browser settings: Browser settings
+            Network settings: Network settings
+            Support: Support
+            Privacy and data: Privacy and data
+            Troubleshooting: Troubleshooting
+            FAQ: FAQ
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Overview: Обзор
+            Install, update, or remove: Установка, обновление или удаление
+            First use: Первый запуск
+            Record and transcribe: Запись и расшифровка
+            Providers: Поставщики
+            Text actions: Действия с текстом
+            History and tray: История и системный трей
+            Settings: Настройки
+            Provider settings: Настройки поставщика
+            Shortcut settings: Настройки сочетаний клавиш
+            Prettify settings: Настройки Prettify
+            Browser settings: Настройки браузера
+            Network settings: Настройки сети
+            Support: Поддержка
+            Privacy and data: Конфиденциальность и данные
+            Troubleshooting: Устранение неполадок
+            FAQ: Частые вопросы
+        - locale: be
+          name: Беларуская
+          build: true
+          nav_translations:
+            Overview: Агляд
+            Install, update, or remove: Усталяванне, абнаўленне або выдаленне
+            First use: Першы запуск
+            Record and transcribe: Запіс і расшыфроўка
+            Providers: Пастаўшчыкі
+            Text actions: Дзеянні з тэкстам
+            History and tray: Гісторыя і сістэмны трэй
+            Settings: Налады
+            Provider settings: Налады пастаўшчыка
+            Shortcut settings: Налады спалучэнняў клавіш
+            Prettify settings: Налады Prettify
+            Browser settings: Налады браўзера
+            Network settings: Налады сеткі
+            Support: Падтрымка
+            Privacy and data: Прыватнасць і даныя
+            Troubleshooting: Вырашэнне праблем
+            FAQ: Частыя пытанні
+        - locale: uk
+          name: Українська
+          build: true
+          nav_translations:
+            Overview: Огляд
+            Install, update, or remove: Установлення, оновлення або видалення
+            First use: Перше використання
+            Record and transcribe: Запис і транскрибування
+            Providers: Постачальники
+            Text actions: Дії з текстом
+            History and tray: Історія та системний трей
+            Settings: Налаштування
+            Provider settings: Налаштування постачальника
+            Shortcut settings: Налаштування сполучень клавіш
+            Prettify settings: Налаштування Prettify
+            Browser settings: Налаштування браузера
+            Network settings: Налаштування мережі
+            Support: Підтримка
+            Privacy and data: Конфіденційність і дані
+            Troubleshooting: Усунення несправностей
+            FAQ: Поширені запитання
+        - locale: es
+          name: Español
+          build: true
+          nav_translations:
+            Overview: Resumen
+            Install, update, or remove: Instalar, actualizar o eliminar
+            First use: Primer uso
+            Record and transcribe: Grabar y transcribir
+            Providers: Proveedores
+            Text actions: Acciones de texto
+            History and tray: Historial y bandeja
+            Settings: Configuración
+            Provider settings: Configuración del proveedor
+            Shortcut settings: Configuración de atajos
+            Prettify settings: Configuración de Prettify
+            Browser settings: Configuración del navegador
+            Network settings: Configuración de red
+            Support: Ayuda
+            Privacy and data: Privacidad y datos
+            Troubleshooting: Solución de problemas
+            FAQ: Preguntas frecuentes
+        - locale: pt-BR
+          name: Português (Brasil)
+          build: true
+          nav_translations:
+            Overview: Visão geral
+            Install, update, or remove: Instalar, atualizar ou remover
+            First use: Primeiro uso
+            Record and transcribe: Gravar e transcrever
+            Providers: Provedores
+            Text actions: Ações de texto
+            History and tray: Histórico e bandeja
+            Settings: Configurações
+            Provider settings: Configurações do provedor
+            Shortcut settings: Configurações de atalhos
+            Prettify settings: Configurações do Prettify
+            Browser settings: Configurações do navegador
+            Network settings: Configurações de rede
+            Support: Suporte
+            Privacy and data: Privacidade e dados
+            Troubleshooting: Solução de problemas
+            FAQ: Perguntas frequentes
+        - locale: zh-CN
+          name: 简体中文
+          build: true
+          nav_translations:
+            Overview: 概览
+            Install, update, or remove: 安装、更新或卸载
+            First use: 首次使用
+            Record and transcribe: 录音和转写
+            Providers: 提供商
+            Text actions: 文本操作
+            History and tray: 历史记录和托盘
+            Settings: 设置
+            Provider settings: 提供商设置
+            Shortcut settings: 快捷键设置
+            Prettify settings: Prettify 设置
+            Browser settings: 浏览器设置
+            Network settings: 网络设置
+            Support: 支持
+            Privacy and data: 隐私和数据
+            Troubleshooting: 故障排除
+            FAQ: 常见问题
+        - locale: ja
+          name: 日本語
+          build: true
+          nav_translations:
+            Overview: 概要
+            Install, update, or remove: インストール、更新、または削除
+            First use: 初回使用
+            Record and transcribe: 録音と文字起こし
+            Providers: プロバイダー
+            Text actions: テキスト操作
+            History and tray: 履歴とトレイ
+            Settings: 設定
+            Provider settings: プロバイダー設定
+            Shortcut settings: ショートカット設定
+            Prettify settings: Prettify 設定
+            Browser settings: ブラウザー設定
+            Network settings: ネットワーク設定
+            Support: サポート
+            Privacy and data: プライバシーとデータ
+            Troubleshooting: トラブルシューティング
+            FAQ: よくある質問
+        - locale: de
+          name: Deutsch
+          build: true
+          nav_translations:
+            Overview: Überblick
+            Install, update, or remove: Installieren, aktualisieren oder entfernen
+            First use: Erste Verwendung
+            Record and transcribe: Aufnehmen und transkribieren
+            Providers: Anbieter
+            Text actions: Textaktionen
+            History and tray: Verlauf und Infobereich
+            Settings: Einstellungen
+            Provider settings: Anbietereinstellungen
+            Shortcut settings: Tastenkürzel-Einstellungen
+            Prettify settings: Prettify-Einstellungen
+            Browser settings: Browser-Einstellungen
+            Network settings: Netzwerkeinstellungen
+            Support: Hilfe
+            Privacy and data: Datenschutz und Daten
+            Troubleshooting: Fehlerbehebung
+            FAQ: Häufige Fragen
+        - locale: fr
+          name: Français
+          build: true
+          nav_translations:
+            Overview: Vue d’ensemble
+            Install, update, or remove: Installer, mettre à jour ou supprimer
+            First use: Première utilisation
+            Record and transcribe: Enregistrer et transcrire
+            Providers: Fournisseurs
+            Text actions: Actions de texte
+            History and tray: Historique et zone de notification
+            Settings: Paramètres
+            Provider settings: Paramètres du fournisseur
+            Shortcut settings: Paramètres des raccourcis
+            Prettify settings: Paramètres de Prettify
+            Browser settings: Paramètres du navigateur
+            Network settings: Paramètres réseau
+            Support: Assistance
+            Privacy and data: Confidentialité et données
+            Troubleshooting: Dépannage
+            FAQ: Questions fréquentes
+        - locale: hi
+          name: हिन्दी
+          build: true
+          nav_translations:
+            Overview: अवलोकन
+            Install, update, or remove: इंस्टॉल, अपडेट या हटाएँ
+            First use: पहली बार उपयोग
+            Record and transcribe: रिकॉर्ड करें और ट्रांसक्राइब करें
+            Providers: प्रदाता
+            Text actions: टेक्स्ट क्रियाएँ
+            History and tray: इतिहास और ट्रे
+            Settings: सेटिंग्स
+            Provider settings: प्रदाता सेटिंग्स
+            Shortcut settings: शॉर्टकट सेटिंग्स
+            Prettify settings: Prettify सेटिंग्स
+            Browser settings: ब्राउज़र सेटिंग्स
+            Network settings: नेटवर्क सेटिंग्स
+            Support: सहायता
+            Privacy and data: गोपनीयता और डेटा
+            Troubleshooting: समस्या निवारण
+            FAQ: अक्सर पूछे जाने वाले प्रश्न
   - search
   - minify:
       minify_html: true
@@ -35,6 +303,9 @@ plugins:
 markdown_extensions:
   - attr_list
   - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 extra:
   homepage: /gpt-voice/
