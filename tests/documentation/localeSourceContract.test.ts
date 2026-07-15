@@ -195,7 +195,7 @@ const russianStagedSources = {
   ],
 } as const;
 
-const belarusianCoreSources = {
+const belarusianStagedSources = {
   'getting-started.be.md': [
     '# Першы запуск: падключыце пастаўшчыка і расшыфруйце маўленне',
     'ChatGPT Web',
@@ -214,6 +214,37 @@ const belarusianCoreSources = {
     'GPT-Voice-*.AppImage',
     '`%APPDATA%\\GPT-Voice`',
     '`~/.config/GPT-Voice`',
+  ],
+  'guides/transcription.be.md': [
+    '# Запіс і расшыфроўка',
+    '`F9`',
+    '`F10`',
+    'ChatGPT Web',
+    'OpenAI API',
+    'Паўтор не запісвае мікрафон наноў.',
+  ],
+  'guides/providers.be.md': [
+    '# Выбар пастаўшчыка расшыфроўкі і кіраванне ім',
+    '`whisper-1`',
+    'Electron safe storage',
+    'Clear authentication',
+  ],
+  'guides/text-actions.be.md': [
+    '# Пераклад і Prettify для вылучанага тэксту',
+    'Google Translate',
+    'Ollama',
+    'vLLM',
+    '16,000',
+    '`F11`',
+    '`F12`',
+    '`Escape`',
+  ],
+  'guides/history-and-tray.be.md': [
+    '# Гісторыя расшыфровак і сістэмны трэй',
+    'SQLite',
+    'Clear history',
+    'Show GPT-Voice',
+    'Quit',
   ],
 } as const;
 
@@ -254,8 +285,8 @@ function assertRussianStagedSources(sources: ReadonlyMap<string, string>): void 
   }
 }
 
-function assertBelarusianCoreSources(sources: ReadonlyMap<string, string>): void {
-  for (const [filename, requiredFragments] of Object.entries(belarusianCoreSources)) {
+function assertBelarusianStagedSources(sources: ReadonlyMap<string, string>): void {
+  for (const [filename, requiredFragments] of Object.entries(belarusianStagedSources)) {
     const source = sources.get(filename) ?? '';
     for (const fragment of requiredFragments) {
       assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
@@ -298,10 +329,10 @@ test('rejects a missing Russian source or an attempt to publish its incomplete b
   assert.throws(() => assertRussianStagedSources(new Map(sources).set('guides/transcription.ru.md', '')));
 });
 
-test('stages the Belarusian core batch without enabling fallback publication', async () => {
+test('stages the Belarusian core and workflow batches without enabling fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
-      Object.keys(belarusianCoreSources).map(
+      Object.keys(belarusianStagedSources).map(
         async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
       ),
     ).then((entries) => new Map(entries)),
@@ -312,9 +343,21 @@ test('stages the Belarusian core batch without enabling fallback publication', a
   const i18n = getI18nPlugin(parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration);
   const belarusianRecord = manifest.locales.find(({ tag }) => tag === 'be');
 
-  assertBelarusianCoreSources(sources);
+  assertBelarusianStagedSources(sources);
   assert.ok(belarusianRecord, 'Translation manifest must retain the Belarusian locale record.');
   assert.equal(belarusianRecord.status, 'blocked');
   assert.deepEqual(belarusianRecord.pages, []);
   assert.equal(i18n.build_only_locale, 'en');
+});
+
+test('rejects a missing Belarusian workflow source', async () => {
+  const sources = new Map(
+    await Promise.all(
+      Object.keys(belarusianStagedSources).map(
+        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
+      ),
+    ),
+  );
+
+  assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('guides/transcription.be.md', '')));
 });

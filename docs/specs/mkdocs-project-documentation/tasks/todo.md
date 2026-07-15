@@ -1,8 +1,8 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
 **Status:** Tasks 1–14, 6a, 14b–14c, and Checkpoints D–E are complete; Task 14a has a complete staged Russian
-source set and staged Belarusian core pages. Both locales remain blocked pending complete source sets and
-proficient-speaker review; eight further locale source sets are not yet staged.
+source set plus staged Belarusian core and workflow pages. Both locales remain blocked pending complete source sets
+and proficient-speaker review; eight further locale source sets are not yet staged.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
