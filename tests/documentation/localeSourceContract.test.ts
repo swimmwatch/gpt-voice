@@ -396,6 +396,14 @@ const ukrainianStagedSources = {
     '`F10`',
     'Copied to clipboard',
   ],
+  'guides/transcription.uk.md': [
+    '# Записування й розшифрування',
+    '`F9`',
+    '`F10`',
+    'ChatGPT Web',
+    'OpenAI API',
+    'Повторна спроба не записує мікрофон повторно.',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -560,5 +568,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('getting-started.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/transcription.uk.md', '')));
 });
