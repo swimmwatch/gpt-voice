@@ -2,8 +2,8 @@
 
 **Status:** Tasks 1–14, 6a, 14b–14c, and Checkpoints D–E are complete; Task 14a has complete staged Russian and
 Belarusian source sets plus staged Ukrainian core pages. Russian and Belarusian remain blocked pending
-proficient-speaker review; Ukrainian recording, provider, and text-action guides are staged, while its remaining
-workflow/settings/support pages plus seven further locale source sets remain incomplete.
+proficient-speaker review; Ukrainian workflow guides are staged, while its remaining settings/support pages plus seven
+further locale source sets remain incomplete.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.

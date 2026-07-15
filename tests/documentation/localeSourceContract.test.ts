@@ -422,6 +422,13 @@ const ukrainianStagedSources = {
     '`F12`',
     '`Escape`',
   ],
+  'guides/history-and-tray.uk.md': [
+    '# Історія розшифровок і системний трей',
+    'SQLite',
+    'Clear history',
+    'Show GPT-Voice',
+    'Quit',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -586,5 +593,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/text-actions.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/history-and-tray.uk.md', '')));
 });
