@@ -376,6 +376,16 @@ const belarusianStagedSources = {
 
 const ukrainianStagedSources = {
   'index.uk.md': ['# Документація GPT-Voice', 'GPT-Voice', 'ChatGPT Web', 'OpenAI API', 'Ollama', 'vLLM', 'Prettify'],
+  'install.uk.md': [
+    '# Встановлення, оновлення або видалення GPT-Voice',
+    'SHA256SUMS-*.txt',
+    'GPT-Voice Setup *.exe',
+    'gpt-voice_*_amd64.deb',
+    'gpt-voice-*.x86_64.rpm',
+    'GPT-Voice-*.AppImage',
+    '`%APPDATA%\\GPT-Voice`',
+    '`~/.config/GPT-Voice`',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -509,7 +519,7 @@ test('rejects a missing Belarusian source or an attempt to publish its incomplet
   assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('privacy.be.md', '')));
 });
 
-test('stages the Ukrainian overview source without enabling fallback publication', async () => {
+test('stages the Ukrainian source batches without enabling fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
       Object.keys(ukrainianStagedSources).map(
@@ -531,7 +541,7 @@ test('stages the Ukrainian overview source without enabling fallback publication
   assert.equal(i18n.build_only_locale, 'en');
 });
 
-test('rejects a missing staged Ukrainian overview source', async () => {
+test('rejects a missing staged Ukrainian source', async () => {
   const sources = new Map(
     await Promise.all(
       Object.keys(ukrainianStagedSources).map(
@@ -540,5 +550,5 @@ test('rejects a missing staged Ukrainian overview source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('index.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('install.uk.md', '')));
 });
