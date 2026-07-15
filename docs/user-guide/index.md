@@ -1,7 +1,38 @@
-# GPT-Voice documentation
+# GPT-Voice Documentation
 
 GPT-Voice is a desktop voice-to-text application. Record a thought with a global shortcut, send the audio through a
 provider you control, and receive the transcription on your clipboard.
+
+<div class="guide-links" markdown>
+
+[GPT-Voice home](/gpt-voice/) <span aria-hidden="true">·</span>
+[Repository](https://github.com/swimmwatch/gpt-voice) <span aria-hidden="true">·</span>
+[Latest release](https://github.com/swimmwatch/gpt-voice/releases)
+
+</div>
+
+<div class="guide-actions" markdown>
+
+[Download GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-button .md-button--primary }
+[Choose a transcription provider](#before-you-begin){ .md-button }
+
+</div>
+
+<figure class="product-screenshot">
+  <a href="assets/generated/images/app-main.png">
+    <picture>
+      <source srcset="assets/generated/images/app-main.avif" type="image/avif" />
+      <source srcset="assets/generated/images/app-main.webp" type="image/webp" />
+      <img src="assets/generated/images/app-main.png" width="920" height="840" loading="eager" decoding="async" alt="GPT-Voice Command Dock showing ChatGPT Web connected, a loaded Prettify model, the Start recording action with F9, and English as the target language." />
+    </picture>
+  </a>
+  <figcaption>A ready-to-record Command Dock in GPT-Voice.</figcaption>
+</figure>
+
+<aside class="release-note">
+  This guide documents the latest released GPT-Voice version. Provider availability, limits, billing, and terms remain
+  controlled by the provider account you use.
+</aside>
 
 ## What GPT-Voice does
 

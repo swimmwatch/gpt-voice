@@ -6,9 +6,13 @@ import { parse } from 'yaml';
 
 type MkDocsConfiguration = {
   docs_dir?: unknown;
+  extra?: unknown;
+  extra_css?: unknown;
   nav?: unknown;
+  repo_url?: unknown;
   site_dir?: unknown;
   site_url?: unknown;
+  theme?: unknown;
 };
 
 const projectRoot = process.cwd();
@@ -75,7 +79,7 @@ test('publishes canonical overview metadata without internal engineering artifac
   assert.ok(files.includes('index.html'));
   assert.ok(files.includes('search/search_index.json'));
   assert.ok(index.includes(`<link href=${canonicalUrl} rel=canonical>`));
-  assert.ok(index.includes('<title>GPT-Voice documentation</title>'));
+  assert.ok(index.includes('<title>GPT-Voice Documentation</title>'));
   assert.ok(index.includes('Overview'));
 
   for (const [file, contents] of await readPublishedText(files)) {
@@ -84,4 +88,39 @@ test('publishes canonical overview metadata without internal engineering artifac
       assert.equal(contents.includes(fragment), false, `Published content must not expose ${fragment}: ${file}`);
     }
   }
+});
+
+test('uses local product assets and an accessible overview screenshot', async () => {
+  const configuration = parse(await readFile(configurationPath, 'utf8')) as MkDocsConfiguration;
+  const theme = configuration.theme as Record<string, unknown>;
+  const files = await listFiles(outputDirectory);
+  const index = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
+  const stylesheetPath = path.join(outputDirectory, 'assets/stylesheets/extra.css');
+
+  assert.equal(theme.font, false);
+  assert.equal(configuration.repo_url, undefined);
+  assert.equal(theme.logo, 'assets/generated/icons/gpt-voice.svg');
+  assert.equal(theme.favicon, 'assets/generated/icons/gpt-voice.svg');
+  assert.ok(Array.isArray(configuration.extra_css));
+  assert.ok(configuration.extra_css.includes('assets/stylesheets/extra.css'));
+  assert.ok(files.includes('assets/stylesheets/extra.css'));
+  assert.ok(index.includes('assets/generated/images/app-main.avif'));
+  assert.ok(index.includes('assets/generated/images/app-main.webp'));
+  assert.ok(index.includes('assets/generated/images/app-main.png'));
+  assert.ok(index.includes('width=920'));
+  assert.ok(index.includes('height=840'));
+  assert.ok(index.includes('GPT-Voice Command Dock showing ChatGPT Web connected'));
+  assert.ok(index.includes('A ready-to-record Command Dock in GPT-Voice.'));
+  assert.ok(index.includes('href=/gpt-voice/ title="GPT-Voice Documentation" class="md-header__button md-logo"'));
+  assert.ok(index.includes('https://github.com/swimmwatch/gpt-voice'));
+  assert.ok(index.includes('https://github.com/swimmwatch/gpt-voice/releases'));
+
+  const stylesheet = await readFile(stylesheetPath, 'utf8');
+  assert.ok(stylesheet.includes('--md-default-bg-color: #080b0e'));
+  assert.ok(stylesheet.includes('--md-primary-fg-color: #2b60cb'));
+  assert.ok(stylesheet.includes('ubuntu-sans-latin-wght-normal.woff2'));
+  assert.ok(stylesheet.includes('jetbrains-mono-latin-wght-normal.woff2'));
+  assert.ok(stylesheet.includes('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(stylesheet.includes(':focus-visible'));
+  assert.equal(/url\(['"]?https?:/u.test(stylesheet), false);
 });

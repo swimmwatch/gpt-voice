@@ -1,8 +1,6 @@
-site_name: GPT-Voice documentation
+site_name: GPT-Voice Documentation
 site_description: User guide for GPT-Voice desktop transcription.
 site_url: https://swimmwatch.github.io/gpt-voice/docs/
-repo_url: https://github.com/swimmwatch/gpt-voice
-repo_name: swimmwatch/gpt-voice
 
 docs_dir: docs/user-guide
 site_dir: build/github-pages/docs
@@ -11,6 +9,18 @@ theme:
   name: material
   language: en
   font: false
+  logo: assets/generated/icons/gpt-voice.svg
+  favicon: assets/generated/icons/gpt-voice.svg
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.tooltips
 
 nav:
   - Overview: index.md
@@ -19,3 +29,21 @@ plugins:
   - search
   - minify:
       minify_html: true
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+
+extra:
+  homepage: /gpt-voice/
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/swimmwatch/gpt-voice
+      name: GPT-Voice on GitHub
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+copyright: >-
+  Copyright &copy; 2026 GPT-Voice · <a href="/gpt-voice/">GPT-Voice home</a> ·
+  <a href="https://github.com/swimmwatch/gpt-voice/releases">Latest release</a>

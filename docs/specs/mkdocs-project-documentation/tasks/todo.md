@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress. Tasks 1–4 are complete; Task 5 is next.
+**Status:** Incremental implementation in progress. Tasks 1–5 are complete; Checkpoint C review is next.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -30,7 +30,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
     captures fail.
   - Verify: Repeat sync/hash comparison and focused asset tests.
   - Files: asset script/test, package script, `.gitignore`.
-- [ ] Task 5: Apply the product theme.
+- [x] Task 5: Apply the product theme.
   - Acceptance: Material uses landing tokens/local assets, accessible navigation, approved screenshot, and no remote
     runtime request.
   - Verify: Docs build/tests plus responsive local inspection.

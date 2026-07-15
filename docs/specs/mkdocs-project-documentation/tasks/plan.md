@@ -1,10 +1,10 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–4 complete
+**Status:** Incremental implementation in progress — Tasks 1–5 complete; Checkpoint C review pending
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 24–32 focused engineering hours, plus human content/privacy review and CI/deployment
 runtime
-**Implementation authorization:** Approved one task at a time; Task 5 is the next implementation slice.
+**Implementation authorization:** Complete Checkpoint C human visual review before Task 6.
 
 ## Overview
 
@@ -213,15 +213,15 @@ retaining accessible MkDocs navigation, local search, responsive content, and re
 
 **Acceptance criteria:**
 
-- [ ] Theme uses approved graphite/blue tokens, local Ubuntu Sans/JetBrains Mono, GPT-Voice icon, 10-pixel controls,
+- [x] Theme uses approved graphite/blue tokens, local Ubuntu Sans/JetBrains Mono, GPT-Voice icon, 10-pixel controls,
   visible focus, reduced-motion behavior, and no remote runtime asset.
-- [ ] Overview shows the approved optimized main screenshot with dimensions, alt text, caption, and nearby task links.
-- [ ] Desktop/mobile layout, local search, table of contents, drawer, and home/repository/release links remain usable.
+- [x] Overview shows the approved optimized main screenshot with dimensions, alt text, caption, and nearby task links.
+- [x] Desktop/mobile layout, local search, table of contents, drawer, and home/repository/release links remain usable.
 
 **Verification:**
 
-- [ ] Run `npm run docs:sync-assets && npm run docs:build && npm run docs:test`.
-- [ ] Inspect the local guide at 320, 390, 768, and 1440 CSS pixels with external requests recorded.
+- [x] Run `npm run docs:sync-assets && npm run docs:build && npm run docs:test`.
+- [x] Inspect the local guide at 320, 390, 768, and 1440 CSS pixels with external requests recorded.
 
 **Dependencies:** Task 4.
 **Files likely touched:** `docs/user-guide/assets/stylesheets/extra.css`, `mkdocs.yml`, `docs/user-guide/index.md`,
@@ -230,8 +230,8 @@ retaining accessible MkDocs navigation, local search, responsive content, and re
 
 ### Checkpoint C: Branded Foundation
 
-- [ ] Strict build, boundary tests, and asset tests pass.
-- [ ] Only the approved main capture is public.
+- [x] Strict build, boundary tests, and asset tests pass.
+- [x] Only the approved main capture is public.
 - [ ] A human confirms the initial landing/docs visual relationship before bulk authoring.
 
 ## Phase 2: User Documentation Slices

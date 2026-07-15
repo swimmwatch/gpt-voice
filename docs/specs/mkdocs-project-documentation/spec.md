@@ -1,6 +1,6 @@
 # Spec: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Approved for incremental implementation — Tasks 1–4 complete
+**Status:** Approved for incremental implementation — Tasks 1–5 complete; Checkpoint C human visual review pending
 **Global task slug:** `mkdocs-project-documentation`
 **Last updated:** 2026-07-15
 
@@ -316,7 +316,8 @@ would delete the documentation.
 
 - `site_name: GPT-Voice Documentation`.
 - `site_url: https://swimmwatch.github.io/gpt-voice/docs/`.
-- `repo_url`, `repo_name`, and `edit_uri` for `docs/user-guide/`.
+- Static repository and release links through public Markdown/footer content. Do not configure Material's repository
+  source integration, because it fetches GitHub API metadata at runtime.
 - `docs_dir: docs/user-guide` and `site_dir: build/github-pages/docs`.
 - `strict: true` behavior through the build command.
 - Explicit navigation matching this specification.
