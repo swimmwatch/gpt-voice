@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress. Tasks 1–2 are complete; Task 3 is next.
+**Status:** Incremental implementation in progress. Tasks 1–3 are complete; Task 4 is next.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -16,14 +16,14 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Acceptance: Pinned isolated MkDocs builds a canonical overview into `build/github-pages/docs/` with ignored output.
   - Verify: `npm run docs:install && npm run docs:build`; inspect output and `git status`.
   - Files: `mkdocs.yml`, requirements, overview, package scripts, `.gitignore`.
-- [ ] Task 3: Guard the public source boundary.
+- [x] Task 3: Guard the public source boundary.
   - Acceptance: Tests prevent internal docs exposure and validate metadata/navigation/output paths.
   - Verify: Representative failing mutation, then `npm run docs:build && npm run docs:test`.
   - Files: MkDocs output test and package script.
 
 ### Checkpoint B
 
-- [ ] Strict guide builds and internal engineering content is proven absent.
+- [x] Strict guide builds and internal engineering content is proven absent.
 
 - [ ] Task 4: Stage approved documentation assets.
   - Acceptance: Deterministic sync publishes only local icon/fonts/approved main screenshot; tampering and reference

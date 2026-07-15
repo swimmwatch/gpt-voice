@@ -1,10 +1,10 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–2 complete
+**Status:** Incremental implementation in progress — Tasks 1–3 complete
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 24–32 focused engineering hours, plus human content/privacy review and CI/deployment
 runtime
-**Implementation authorization:** Approved one task at a time; Task 3 is the next implementation slice.
+**Implementation authorization:** Approved one task at a time; Task 4 is the next implementation slice.
 
 ## Overview
 
@@ -163,14 +163,14 @@ engineering artifacts and that the initial metadata/navigation contract is corre
 
 **Acceptance criteria:**
 
-- [ ] Tests reject a docs root broader than `docs/user-guide` and assert canonical site/output paths.
-- [ ] Generated output contains expected metadata/navigation and no spec, research, agent, handoff, or private paths.
-- [ ] `npm run docs:test` executes the documentation test directory through the repository's `node:test` stack.
+- [x] Tests reject a docs root broader than `docs/user-guide` and assert canonical site/output paths.
+- [x] Generated output contains expected metadata/navigation and no spec, research, agent, handoff, or private paths.
+- [x] `npm run docs:test` executes the documentation test directory through the repository's `node:test` stack.
 
 **Verification:**
 
-- [ ] Demonstrate the test fails when `docs_dir` is temporarily pointed at `docs`, then restore it.
-- [ ] Run `npm run docs:build && npm run docs:test`.
+- [x] Demonstrate the test fails when `docs_dir` is temporarily pointed at `docs`, then restore it.
+- [x] Run `npm run docs:build && npm run docs:test`.
 
 **Dependencies:** Task 2.
 **Files likely touched:** `tests/documentation/mkdocsOutput.test.ts`, `package.json`.
@@ -178,9 +178,9 @@ engineering artifacts and that the initial metadata/navigation contract is corre
 
 ### Checkpoint B: Isolated Build
 
-- [ ] A strict guide builds at the planned subpath.
-- [ ] Internal engineering content is proven absent.
-- [ ] The root Electron build and packaging inputs are unchanged.
+- [x] A strict guide builds at the planned subpath.
+- [x] Internal engineering content is proven absent.
+- [x] The root Electron build and packaging inputs are unchanged.
 
 ### Task 4: Stage Approved Documentation Assets
 

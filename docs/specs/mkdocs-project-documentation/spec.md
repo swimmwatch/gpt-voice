@@ -1,6 +1,6 @@
 # Spec: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Approved for incremental implementation — Tasks 1–2 complete
+**Status:** Approved for incremental implementation — Tasks 1–3 complete
 **Global task slug:** `mkdocs-project-documentation`
 **Last updated:** 2026-07-15
 
