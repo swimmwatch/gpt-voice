@@ -35,7 +35,7 @@ When artifacts disagree, Tasks 1-2 update the approved contract instead of choos
 - Media is one `faststart` H.264/AAC MP4 at 60 fps with native fallback and lazy Plyr; no autoplay, HLS/DASH, or embedded subtitles.
 - HTML, metadata/JSON-LD, WebVTT/transcripts subject to Task 2, and TXT share typed locale content.
 - WCAG 2.2 AA, Lighthouse SEO/Accessibility 100, browser tiers, base-path safety, and transfer budgets are gates.
-- `.github/workflows/pages.yml` may be prepared, but no push, deployment, publication, or Pages-setting mutation is authorized.
+- `.github/workflows/pr-checks.yml` may run landing validation for pull requests to `main`; deployment, release-time validation, and Pages-setting mutation are out of scope.
 
 ## Dependency Graph
 
@@ -630,27 +630,28 @@ Contracts 1-2 -> foundation 3-5 -> components/assets 6-9
 **Likely files:** accessibility verifier, unit/E2E accessibility tests, task handoff; evidence stays ignored.  
 **Estimate:** M.
 
-### Task 30: Add the GitHub Pages workflow
+### Task 30: Add landing validation to the pull request workflow
 
-**Description:** Add the least-privilege, path-filtered official Pages build/deploy workflow without authorizing remote execution.
+**Description:** Add the English landing validation job to the pull request workflow. It runs only before a pull request to `main` can be merged and never deploys Pages.
 
 **Acceptance criteria:**
 
-- [ ] Node 24/root `npm ci` job runs all landing generation/tests/verifiers before uploading `build/github-pages/`.
-- [ ] Workflow has specified permissions/concurrency and never writes `gh-pages`, commits output, exposes secrets, or packages/tests providers.
+- [ ] Node 24/root `npm ci` job runs all landing generation/tests/verifiers after the `quality` job succeeds.
+- [ ] Workflow is triggered only by pull requests targeting `main`, never by pushes, manual dispatches, or releases.
+- [ ] Workflow has least-privilege permissions and never deploys Pages, uploads a Pages artifact, writes `gh-pages`, commits output, or exposes secrets.
 
 **Verification:**
 
-- [ ] Run actionlint and a local equivalent of all build-job commands.
-- [ ] Inspect triggers, permissions, environment, concurrency, scripts, and artifact root.
+- [ ] Run actionlint and a local equivalent of all validation-job commands.
+- [ ] Inspect PR trigger, dependencies, permissions, scripts, and absence of Pages actions.
 
 **Dependencies:** Tasks 3, 25-29.  
-**Likely files:** `.github/workflows/pages.yml`, `package.json`, workflow test.  
+**Likely files:** `.github/workflows/pr-checks.yml`, workflow test.
 **Estimate:** M.
 
 ### Checkpoint J: Tasks 28-30
 
-- [ ] Browser, locale, accessibility, media, and local CloakBrowser evidence passes; workflow validates without remote mutation.
+- [ ] Browser, locale, accessibility, media, and local CloakBrowser evidence passes; landing validation is PR-only and deployment-free.
 
 ## Phase 10: Handoff and Authorized Production Verification
 

@@ -120,17 +120,17 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 ### Checkpoint J
 
 - [x] English cross-browser, accessibility, responsive, media, and local CloakBrowser evidence is complete.
-- [x] The Pages workflow validates without changing remote state.
+- [x] The pull request workflow runs landing validation only before code can merge into `main`; it does not deploy Pages or run during releases.
 
 ## Phase 10: Handoff and Authorized Production Verification
 
 - [x] Task 31 (S): Complete the English local implementation handoff. Dependencies: English Tasks 1-30.
-- [ ] Task 32 (S, authorization-gated): Verify an explicitly authorized production deployment. Dependencies: Task 31 plus all approval gates.
+- [x] Task 32 (S, scope decision): No landing deployment or release-time landing validation is part of the current delivery flow.
 
 ### Checkpoint K
 
 - [x] English local handoff is complete and honest about unavailable checks.
-- [ ] Production is marked complete only after explicit authorization and deployed evidence.
+- [x] Landing delivery is complete after required pull request validation; production deployment is outside the current scope.
 - [ ] Human approval covers visuals, all translations, media, accessibility, and production behavior.
 
 ## Approval Gates
@@ -139,4 +139,4 @@ Detailed acceptance criteria, verification steps, dependencies, likely files, an
 - [x] The final 60-fps MP4 and poster exist and are approved.
 - [ ] All ten non-English locales have recorded proficient-speaker approval.
 - [ ] Exact legacy/device and required screen-reader evidence is recorded or remains visibly incomplete.
-- [ ] Push/deployment authorization is obtained before any remote mutation or Task 32.
+- [x] No landing deployment or remote Pages mutation is required.

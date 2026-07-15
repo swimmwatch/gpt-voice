@@ -751,17 +751,35 @@ TXT contract:
 
 `assets/txt-output-contract.json` defines the exact paths, content source, normalization, linkage, and verification rules.
 
-### GitHub Pages Deployment
+### Landing Pull Request Validation
 
-Workflow file: `.github/workflows/pages.yml`.
+Workflow file: `.github/workflows/pr-checks.yml`.
 
-- Trigger: push to `main` for `src/landing-page/**`, `tests/landing-page/**`, `vite.landing.config.ts`, `tsconfig.landing*.json`, landing-page dependency or script changes in the root package files, `assets/demo/**`, the approved capture artifacts, or the workflow itself; plus `workflow_dispatch`.
-- Permissions: `contents: read`, `pages: write`, `id-token: write`.
-- Concurrency group: `pages`, cancel in progress.
-- Build job: Ubuntu, checkout, Node 24, root `npm ci`, landing-page media/font sync and optimization, locale/TXT generation, landing-specific tests and typecheck, modern/legacy production build, HTML minification, SEO/accessibility/browser/media/size verification, Pages configuration, and upload of `build/github-pages/`.
-- Deploy job: `github-pages` environment and official Pages deploy action.
-- Researched current action majors on 2026-07-13: `actions/checkout@v7`, `actions/setup-node@v6`, `actions/configure-pages@v6`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`.
+- Trigger: pull requests targeting `main` only. The workflow does not run on pushes, manual dispatches, releases, or release publication.
+- Permissions: global `contents: read` only.
+- Ordering: the `Landing Page Checks` job depends on the successful `Quality Gates` job.
+- Validation job: Ubuntu, checkout, Node 24, root `npm ci`, FFmpeg, all browser engines, landing-page media/font sync and optimization, locale/TXT generation, landing-specific tests and typecheck, modern/legacy production build, HTML minification, and SEO/accessibility/browser/media/size verification.
+- No GitHub Pages deployment, Pages configuration, Pages artifact upload, release-time landing validation, or release dependency is part of the active delivery flow.
 - The workflow must not write back to `gh-pages`, commit generated output, expose secrets, or run desktop-provider tests.
+
+#### Planned MkDocs And Release Deployment Integration
+
+The documentation specification at
+`docs/specs/mkdocs-project-documentation/spec.md` proposes static MkDocs user guides for all eleven landing locales:
+English at `/gpt-voice/docs/`; Brazilian Portuguese at `/gpt-voice/docs/pt-br/`; Simplified Chinese at
+`/gpt-voice/docs/zh-cn/`; and every other locale at `/gpt-voice/docs/<landing-route-slug>/`. A typed,
+locale-aware landing documentation-route helper must preserve this mapping; the active English landing renders only
+`/gpt-voice/docs/` until a non-English landing delivery is separately approved. The guide's broader language coverage
+does not imply that the desktop application UI supports more than `en`, `ru`, `uk`, and `be`. The current delivery
+flow remains PR-only and non-deploying until that plan and its implementation are separately approved.
+
+Future implementation must preserve the intentional absence of `.github/workflows/pages.yml`. It adds release-gated
+Pages build/deploy jobs to `.github/workflows/release-builds.yml`, after release-asset publication, and composes
+MkDocs into `build/github-pages/docs/` only after the Vite landing build has emptied and rebuilt the artifact root.
+The documentation specification owns guide content, screenshots, and MkDocs decisions; this specification continues
+to own landing design, landing routes, and pull-request validation. Cross-surface visual consistency is limited to
+the shared product identity and landing color palette: the guide retains Material for MkDocs' native components and
+does not copy landing-page component styling.
 
 Custom domains and `CNAME` are ask-first changes. Until approved, the Vite base and canonical remain `/gpt-voice/`.
 
@@ -870,7 +888,7 @@ The landing-page commands must use `vite.landing.config.ts`, `tsconfig.landing.j
 Planned implementation layout:
 
 ```text
-.github/workflows/pages.yml               # GitHub Pages build/deploy
+.github/workflows/pr-checks.yml           # PR-only English landing validation
 vite.landing.config.ts                    # Vite root, `/gpt-voice/` base, Pages output
 tsconfig.landing.json                     # browser/component/content TypeScript boundary
 tsconfig.landing.node.json                # Vite and build-tool TypeScript boundary

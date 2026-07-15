@@ -4,10 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -82,6 +78,67 @@ jobs:
 
       - name: Build production bundles
         run: npm run build:prod
+
+  landing:
+    name: Landing Page Checks
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
+
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Typecheck landing
+        run: npm run landing:typecheck
+
+      - name: Lint landing
+        run: npm run landing:lint
+
+      - name: Check landing formatting
+        run: npm run landing:format:check
+
+      - name: Build landing
+        run: npm run landing:build
+
+      - name: Run landing component tests
+        run: npm run landing:test
+
+      - name: Run landing contract tests
+        run: npx tsx --tsconfig tsconfig.landing.node.json --test tests/landing-page/*.test.ts
+
+      - name: Verify landing media
+        run: npm run landing:verify:media
+
+      - name: Verify landing SEO
+        run: npm run landing:verify:seo
+
+      - name: Verify landing accessibility
+        run: npm run landing:verify:a11y
+
+      - name: Verify landing browser support
+        run: npm run landing:verify:browser-support
+
+      - name: Verify landing size budgets
+        run: npm run landing:verify:sizes
+
+      - name: Run landing browser tests
+        run: npm run landing:test:e2e
 
   package-smoke-fedora:
     name: Package Smoke (Fedora Linux)

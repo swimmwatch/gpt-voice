@@ -10,36 +10,40 @@ type WorkflowStep = {
 };
 
 type WorkflowJob = {
-  needs?: string;
-  permissions?: Record<string, string>;
+  needs?: string | string[];
   steps?: WorkflowStep[];
 };
 
 type Workflow = {
-  concurrency?: { 'cancel-in-progress'?: boolean; group?: string };
   jobs?: Record<string, WorkflowJob>;
-  on?: { push?: { branches?: string[]; paths?: string[] }; workflow_dispatch?: Record<string, never> | null };
+  on?: {
+    pull_request?: { branches?: string[] };
+    push?: unknown;
+    release?: unknown;
+    workflow_dispatch?: unknown;
+  };
   permissions?: Record<string, string>;
 };
 
-test('keeps the English landing Pages workflow least-privilege and self-validating', async () => {
-  const workflowPath = path.join(process.cwd(), '.github', 'workflows', 'pages.yml');
+test('keeps English landing validation PR-only and free of deployment work', async () => {
+  const workflowPath = path.join(process.cwd(), '.github', 'workflows', 'pr-checks.yml');
   const workflow = parse(await readFile(workflowPath, 'utf8')) as Workflow;
+  const pagesWorkflowPath = path.join(process.cwd(), '.github', 'workflows', 'pages.yml');
 
   assert.deepEqual(workflow.permissions, { contents: 'read' });
-  assert.equal(workflow.concurrency?.group, 'github-pages');
-  assert.equal(workflow.concurrency?.['cancel-in-progress'], false);
-  assert.deepEqual(workflow.on?.push?.branches, ['main']);
-  assert.ok(workflow.on?.push?.paths?.includes('src/landing-page/**'));
-  assert.ok(workflow.on?.push?.paths?.includes('tests/landing-page/**'));
-  assert.ok(workflow.on?.workflow_dispatch !== undefined);
+  await assert.rejects(readFile(pagesWorkflowPath), 'A standalone Pages deployment workflow must not exist.');
+  assert.deepEqual(workflow.on?.pull_request?.branches, ['main']);
+  assert.equal(workflow.on?.push, undefined);
+  assert.equal(workflow.on?.release, undefined);
+  assert.equal(workflow.on?.workflow_dispatch, undefined);
 
-  const build = workflow.jobs?.build;
-  assert.ok(build, 'Expected a build job.');
-  assert.ok(build.steps?.some((step) => step.uses === 'actions/setup-node@v6'));
-  assert.ok(build.steps?.some((step) => step.uses === 'actions/configure-pages@v6'));
+  const landing = workflow.jobs?.landing;
+  assert.ok(landing, 'Expected a landing validation job.');
+  assert.equal(landing.needs, 'quality');
+  assert.ok(landing.steps?.some((step) => step.uses === 'actions/setup-node@v6'));
   for (const command of [
     'npm ci',
+    'sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg',
     'npx playwright install --with-deps chromium firefox webkit',
     'npm run landing:typecheck',
     'npm run landing:lint',
@@ -54,15 +58,17 @@ test('keeps the English landing Pages workflow least-privilege and self-validati
     'npm run landing:verify:sizes',
   ]) {
     assert.ok(
-      build.steps?.some((step) => step.run === command),
-      `Expected build command: ${command}`,
+      landing.steps?.some((step) => step.run === command),
+      `Expected landing command: ${command}`,
     );
   }
-  assert.ok(build.steps?.some((step) => step.uses === 'actions/upload-pages-artifact@v5'));
-
-  const deploy = workflow.jobs?.deploy;
-  assert.ok(deploy, 'Expected a deploy job.');
-  assert.equal(deploy.needs, 'build');
-  assert.deepEqual(deploy.permissions, { 'id-token': 'write', pages: 'write' });
-  assert.ok(deploy.steps?.some((step) => step.uses === 'actions/deploy-pages@v5'));
+  for (const action of ['actions/configure-pages@v6', 'actions/upload-pages-artifact@v5', 'actions/deploy-pages@v5']) {
+    assert.equal(
+      Object.values(workflow.jobs ?? {})
+        .flatMap((job) => job.steps ?? [])
+        .some((step) => step.uses === action),
+      false,
+      `Landing validation must not deploy Pages: ${action}`,
+    );
+  }
 });

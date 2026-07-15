@@ -6,7 +6,7 @@ The English-only static landing at `/gpt-voice/` is locally complete. It contain
 
 Tasks 19–24 are intentionally deferred future localization work. No Russian or other non-English landing/video content has been added. They are not blockers for the approved English delivery.
 
-Task 32 remains authorization-gated: no commit was pushed, GitHub Pages setting changed, or deployment performed.
+Landing deployment is out of scope: no release-time landing validation, GitHub Pages setting change, or deployment is required.
 
 ## Completed evidence
 
@@ -16,7 +16,7 @@ Task 32 remains authorization-gated: no commit was pushed, GitHub Pages setting 
 - The responsive page passes native fallback, Sheet focus return, keyboard FAQ, reduced-motion, forced-colors, text-spacing, anchor-clearance, overflow, local-player, accessibility, media, SEO, browser-support, and size checks.
 - Chromium and Firefox each passed all 11 English Playwright scenarios. WebKit is configured in Pages CI with `--with-deps`; it cannot launch locally because `libavif16` and `libwoff1` are unavailable and elevation is unavailable.
 - Local CloakBrowser production-preview checks passed at mobile and desktop: zero final console errors, no horizontal overflow, local player assets, native fallback, and Sheet focus return.
-- `.github/workflows/pages.yml` uses Node 24, `npm ci`, English landing checks, all three Playwright engines in CI, Pages artifact upload, path filters, and least-privilege deployment permissions. It deploys only from `main` and does not mutate generated output or expose secrets. Local `actionlint` passes.
+- `.github/workflows/pr-checks.yml` runs the English landing checks, including all three Playwright engines, only for pull requests targeting `main` and only after the root quality gates succeed. It contains no Pages configuration, artifact upload, deployment, or release-time landing work.
 - Root test configuration now keeps landing test typechecking isolated while allowing the root runtime unit suite to resolve `@landing/*`. This makes `npm test` a truthful whole-project command rather than silently excluding the landing tests.
 
 ## Current checks
@@ -25,14 +25,13 @@ Passed after the final configuration fix:
 
 - `npm run typecheck`
 - `npm run test:types`
-- `npm test` — 355 passing tests
+- `npm test` — 356 passing tests
 - `npm run build:prod`
 
 Previously completed English landing gates remain valid: landing typecheck/lint/format, 23 landing Vitest tests, 30 landing Node contract tests, all media/SEO/static-accessibility/browser-support/size verifiers, Chromium and Firefox E2E, and local CloakBrowser production-preview evidence.
 
-Known unrelated root baseline findings, intentionally untouched:
+Known unrelated root baseline finding, intentionally untouched:
 
-- `npm run format:check` fails only because `tests/scripts/webpackConfig.test.ts` is not Prettier-formatted and has no landing diff.
 - `npm run lint` completes with one existing unused-import warning in `src/renderer/components/ProviderSettingsModal.tsx` (`OpenAIApiProviderSettings`).
 
 ## Final commits
@@ -42,4 +41,4 @@ Known unrelated root baseline findings, intentionally untouched:
 
 ## Remaining boundary
 
-Only Task 32 remains for this English delivery: the user must separately authorize a remote push/deployment, after which the deployed GitHub Pages URL can be verified. Future localization Tasks 19–24 require independently reviewed dictionaries and approvals before they are scheduled.
+No landing deployment task remains for this English delivery: validation happens at the pull request level before code reaches `main`. Future localization Tasks 19–24 require independently reviewed dictionaries and approvals before they are scheduled.
