@@ -2,8 +2,8 @@
 
 **Status:** Incremental implementation in progress — Tasks 1–14, 6a, and 14b–14c are complete; Task 14a has
 complete staged Russian and Belarusian source sets plus staged Ukrainian core pages. Russian and Belarusian remain
-blocked pending proficient-speaker review; Ukrainian recording and provider guides are staged, while its remaining
-workflow/settings/support pages plus seven further locale source sets remain incomplete.
+blocked pending proficient-speaker review; Ukrainian recording, provider, and text-action guides are staged, while
+its remaining workflow/settings/support pages plus seven further locale source sets remain incomplete.
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 75–98 focused engineering hours, plus recorded proficient-speaker review for each
 non-English locale and the content/privacy/CI/deployment review

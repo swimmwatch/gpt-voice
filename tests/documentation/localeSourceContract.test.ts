@@ -412,6 +412,16 @@ const ukrainianStagedSources = {
     'ChatGPT Web',
     'OpenAI API',
   ],
+  'guides/text-actions.uk.md': [
+    '# Переклад і Prettify для виділеного тексту',
+    'Google Translate',
+    'Ollama',
+    'vLLM',
+    '16,000',
+    '`F11`',
+    '`F12`',
+    '`Escape`',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -576,5 +586,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/providers.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/text-actions.uk.md', '')));
 });

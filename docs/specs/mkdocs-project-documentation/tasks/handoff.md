@@ -57,6 +57,8 @@
   manifest until its remaining public pages are complete and a proficient-speaker review is recorded.
 - Task 14a has staged the Ukrainian provider guide. Ukrainian remains blocked in the translation manifest until its
   remaining public pages are complete and a proficient-speaker review is recorded.
+- Task 14a has staged the Ukrainian text-actions guide. Ukrainian remains blocked in the translation manifest until
+  its remaining public pages are complete and a proficient-speaker review is recorded.
 - The specification and plan define Material for MkDocs as the structural documentation UI and permit only the
   user-authorized reference-derived content treatment in addition to the landing palette and local font/glyph rules.
 
@@ -116,6 +118,7 @@
 - `docs/user-guide/getting-started.uk.md`
 - `docs/user-guide/guides/transcription.uk.md`
 - `docs/user-guide/guides/providers.uk.md`
+- `docs/user-guide/guides/text-actions.uk.md`
 - `assets/gpt-voice-wordmark.svg`
 - `docs/user-guide/assets/stylesheets/extra.css`
 - `docs/user-guide/data/locales.json`
@@ -237,6 +240,10 @@
   option bounds, and safe recovery are now staged. The blocked-locale source contract preserves provider,
   credential-storage, and fixed-model terms while production builds remain English-only. The strict English-only
   build, complete documentation suite (24 passing), Prettier, and `git diff --check` passed as the handoff gate.
+- Task 14a Ukrainian text actions: selected-text privacy, Translate, Prettify setup, endpoint ownership, clipboard
+  restoration, cancellation, and concurrency behavior are now staged. The blocked-locale source contract preserves
+  services, character limit, and shortcuts while production builds remain English-only. The strict English-only build,
+  complete documentation suite (24 passing), Prettier, and `git diff --check` passed as the handoff gate.
 - Material-native planning revision: updated the documentation specification, landing cross-reference, detailed
   plan, and task checklist. The revision adds Task 14b with a palette/font CSS allowlist and a negative
   component-selector contract; no MkDocs configuration or stylesheet implementation changed in this slice.
@@ -253,8 +260,8 @@
 ## Next Step
 
 Arrange the required proficient-speaker review for the complete Russian and Belarusian source sets, then continue
-Task 14a with Ukrainian text actions, then history and tray, or another user-directed locale. Task 15 waits for
-complete reviewed translations in all ten non-English locales.
+Task 14a with Ukrainian history and tray, then settings, or another user-directed locale. Task 15 waits for complete
+reviewed translations in all ten non-English locales.
 
 ## Blockers
 
