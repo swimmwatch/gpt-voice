@@ -30,8 +30,12 @@ test('uses ESM only for the renderer TypeScript compilation', async () => {
 });
 
 test('excludes landing-page source from Electron TypeScript compilation', async () => {
-  const rootConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.json'), 'utf8')) as { exclude: string[] };
-  const testConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.test.json'), 'utf8')) as { exclude: string[] };
+  const rootConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.json'), 'utf8')) as {
+    exclude: string[];
+  };
+  const testConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.test.json'), 'utf8')) as {
+    exclude: string[];
+  };
   const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
 
   assert.ok(rootConfig.exclude.includes('src/landing-page/**'));
