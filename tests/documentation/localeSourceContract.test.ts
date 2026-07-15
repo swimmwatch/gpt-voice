@@ -404,6 +404,14 @@ const ukrainianStagedSources = {
     'OpenAI API',
     'Повторна спроба не записує мікрофон повторно.',
   ],
+  'guides/providers.uk.md': [
+    '# Вибір постачальника розшифрування та керування ним',
+    '`whisper-1`',
+    'Electron safe storage',
+    'Clear authentication',
+    'ChatGPT Web',
+    'OpenAI API',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -568,5 +576,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/transcription.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/providers.uk.md', '')));
 });
