@@ -429,6 +429,17 @@ const ukrainianStagedSources = {
     'Show GPT-Voice',
     'Quit',
   ],
+  'settings/index.uk.md': [
+    '# Огляд налаштувань',
+    'Shortcuts',
+    'Prettify',
+    'Browser',
+    'Network',
+    'Unsaved changes',
+    'Save changes',
+    'Keep editing',
+    'Discard changes',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -593,5 +604,5 @@ test('rejects a missing staged Ukrainian source', async () => {
     ),
   );
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('guides/history-and-tray.uk.md', '')));
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('settings/index.uk.md', '')));
 });
