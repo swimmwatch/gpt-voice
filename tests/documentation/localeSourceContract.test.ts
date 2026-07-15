@@ -323,6 +323,55 @@ const belarusianStagedSources = {
     'Proxy GeoIP controls locale and timezone',
     'Save changes',
   ],
+  'privacy.be.md': [
+    '# Канфідэнцыяльнасць і даныя',
+    'ChatGPT Web',
+    'OpenAI API',
+    'Google Translate',
+    'Ollama',
+    'vLLM',
+    '`gpt-voice.sqlite3`',
+    'Electron safe storage',
+    'Clear history',
+    'Clear session',
+    'Clear API key',
+    '`%APPDATA%\\GPT-Voice`',
+    '`~/.config/GPT-Voice`',
+  ],
+  'troubleshooting.be.md': [
+    '# Устараненне непаладак',
+    'Could not access microphone',
+    'ChatGPT Web',
+    'Connected',
+    'Connect',
+    'Clear session',
+    'OpenAI API',
+    '`whisper-1`',
+    'Clear API key',
+    'Prettify',
+    'Ollama',
+    'vLLM',
+    'Load model',
+    'Proxy enabled',
+    '`socks5://`',
+    'CloakBrowser',
+    'GeoIP',
+    'Copied to clipboard',
+    '16,000',
+  ],
+  'faq.be.md': [
+    '# Частыя пытанні',
+    'ChatGPT Web',
+    'OpenAI API',
+    'Google Translate',
+    'Ollama',
+    'vLLM',
+    'Translate',
+    'Prettify',
+    'SOCKS5',
+    'Proxy GeoIP',
+    'Clear history',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -350,6 +399,12 @@ function collectNavigationSources(node: unknown): string[] {
 function expectedRussianStagedSources(configuration: MkDocsConfiguration): string[] {
   return collectNavigationSources(configuration.nav)
     .map((source) => source.replace(/\.md$/u, '.ru.md'))
+    .sort();
+}
+
+function expectedBelarusianStagedSources(configuration: MkDocsConfiguration): string[] {
+  return collectNavigationSources(configuration.nav)
+    .map((source) => source.replace(/\.md$/u, '.be.md'))
     .sort();
 }
 
@@ -406,7 +461,7 @@ test('rejects a missing Russian source or an attempt to publish its incomplete b
   assert.throws(() => assertRussianStagedSources(new Map(sources).set('guides/transcription.ru.md', '')));
 });
 
-test('stages the Belarusian core and workflow batches without enabling fallback publication', async () => {
+test('stages the complete Belarusian guide sources without enabling fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
       Object.keys(belarusianStagedSources).map(
@@ -417,9 +472,11 @@ test('stages the Belarusian core and workflow batches without enabling fallback 
     readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8'),
   ]);
   const manifest = JSON.parse(manifestSource) as TranslationManifest;
-  const i18n = getI18nPlugin(parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration);
+  const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
+  const i18n = getI18nPlugin(configuration);
   const belarusianRecord = manifest.locales.find(({ tag }) => tag === 'be');
 
+  assert.deepEqual(Object.keys(belarusianStagedSources).sort(), expectedBelarusianStagedSources(configuration));
   assertBelarusianStagedSources(sources);
   assert.ok(belarusianRecord, 'Translation manifest must retain the Belarusian locale record.');
   assert.equal(belarusianRecord.status, 'blocked');
@@ -427,7 +484,7 @@ test('stages the Belarusian core and workflow batches without enabling fallback 
   assert.equal(i18n.build_only_locale, 'en');
 });
 
-test('rejects a missing staged Belarusian source', async () => {
+test('rejects a missing Belarusian source or an attempt to publish its incomplete batch', async () => {
   const sources = new Map(
     await Promise.all(
       Object.keys(belarusianStagedSources).map(
@@ -436,5 +493,5 @@ test('rejects a missing staged Belarusian source', async () => {
     ),
   );
 
-  assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('guides/transcription.be.md', '')));
+  assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('privacy.be.md', '')));
 });
