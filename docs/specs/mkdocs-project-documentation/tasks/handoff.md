@@ -51,6 +51,8 @@
 - Task 14a has staged the complete Belarusian source set: overview, installation, first use, recording, providers,
   text actions, history, tray, all five settings pages, privacy, troubleshooting, and FAQ. Belarusian remains blocked
   in the translation manifest until a proficient-speaker review is recorded.
+- Task 14a has staged the Ukrainian overview. Ukrainian remains blocked in the translation manifest until its
+  remaining public pages are complete and a proficient-speaker review is recorded.
 - The specification and plan define Material for MkDocs as the structural documentation UI and permit only the
   user-authorized reference-derived content treatment in addition to the landing palette and local font/glyph rules.
 
@@ -105,6 +107,7 @@
 - `docs/user-guide/settings/prettify.be.md`
 - `docs/user-guide/settings/browser.be.md`
 - `docs/user-guide/settings/network.be.md`
+- `docs/user-guide/index.uk.md`
 - `assets/gpt-voice-wordmark.svg`
 - `docs/user-guide/assets/stylesheets/extra.css`
 - `docs/user-guide/data/locales.json`
@@ -204,6 +207,10 @@
   `mkdocs.yml` while the translation manifest keeps the locale blocked until proficient-speaker review. The strict
   English-only build, complete documentation suite (22 passing), Prettier, and `git diff --check` passed as the
   handoff gate.
+- Task 14a Ukrainian overview: the public overview now covers the application workflow, provider options,
+  selected-text actions, local result history, release scope, and guide routes. The blocked-locale contract rejects a
+  missing overview source and keeps production builds English-only. The strict English-only build, complete
+  documentation suite (24 passing), Prettier, and `git diff --check` passed as the handoff gate.
 - Material-native planning revision: updated the documentation specification, landing cross-reference, detailed
   plan, and task checklist. The revision adds Task 14b with a palette/font CSS allowlist and a negative
   component-selector contract; no MkDocs configuration or stylesheet implementation changed in this slice.
@@ -220,8 +227,8 @@
 ## Next Step
 
 Arrange the required proficient-speaker review for the complete Russian and Belarusian source sets, then continue
-Task 14a with the Ukrainian core batch (or another user-directed locale). Task 15 waits for complete reviewed
-translations in all ten non-English locales.
+Task 14a with Ukrainian installation and first-use pages (or another user-directed locale). Task 15 waits for
+complete reviewed translations in all ten non-English locales.
 
 ## Blockers
 

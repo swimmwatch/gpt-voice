@@ -374,6 +374,10 @@ const belarusianStagedSources = {
   ],
 } as const;
 
+const ukrainianStagedSources = {
+  'index.uk.md': ['# Документація GPT-Voice', 'GPT-Voice', 'ChatGPT Web', 'OpenAI API', 'Ollama', 'vLLM', 'Prettify'],
+} as const;
+
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
   const plugin = configuration.plugins?.find(
     (candidate): candidate is { i18n: Record<string, unknown> } =>
@@ -419,6 +423,15 @@ function assertRussianStagedSources(sources: ReadonlyMap<string, string>): void 
 
 function assertBelarusianStagedSources(sources: ReadonlyMap<string, string>): void {
   for (const [filename, requiredFragments] of Object.entries(belarusianStagedSources)) {
+    const source = sources.get(filename) ?? '';
+    for (const fragment of requiredFragments) {
+      assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
+    }
+  }
+}
+
+function assertUkrainianStagedSources(sources: ReadonlyMap<string, string>): void {
+  for (const [filename, requiredFragments] of Object.entries(ukrainianStagedSources)) {
     const source = sources.get(filename) ?? '';
     for (const fragment of requiredFragments) {
       assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
@@ -494,4 +507,38 @@ test('rejects a missing Belarusian source or an attempt to publish its incomplet
   );
 
   assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('privacy.be.md', '')));
+});
+
+test('stages the Ukrainian overview source without enabling fallback publication', async () => {
+  const [sources, manifestSource, configurationSource] = await Promise.all([
+    Promise.all(
+      Object.keys(ukrainianStagedSources).map(
+        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
+      ),
+    ).then((entries) => new Map(entries)),
+    readFile(path.join(guideRoot, 'data', 'translation-manifest.json'), 'utf8'),
+    readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8'),
+  ]);
+  const manifest = JSON.parse(manifestSource) as TranslationManifest;
+  const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
+  const i18n = getI18nPlugin(configuration);
+  const ukrainianRecord = manifest.locales.find(({ tag }) => tag === 'uk');
+
+  assertUkrainianStagedSources(sources);
+  assert.ok(ukrainianRecord, 'Translation manifest must retain the Ukrainian locale record.');
+  assert.equal(ukrainianRecord.status, 'blocked');
+  assert.deepEqual(ukrainianRecord.pages, []);
+  assert.equal(i18n.build_only_locale, 'en');
+});
+
+test('rejects a missing staged Ukrainian overview source', async () => {
+  const sources = new Map(
+    await Promise.all(
+      Object.keys(ukrainianStagedSources).map(
+        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
+      ),
+    ),
+  );
+
+  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('index.uk.md', '')));
 });
