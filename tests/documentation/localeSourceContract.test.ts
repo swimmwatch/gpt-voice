@@ -246,6 +246,41 @@ const belarusianStagedSources = {
     'Show GPT-Voice',
     'Quit',
   ],
+  'settings/index.be.md': [
+    '# Агляд налад',
+    'Shortcuts',
+    'Prettify',
+    'Browser',
+    'Network',
+    'Unsaved changes',
+    'Save changes',
+    'Keep editing',
+    'Discard changes',
+  ],
+  'settings/providers.be.md': [
+    '# Налады пастаўшчыка',
+    'ChatGPT Web',
+    'OpenAI API',
+    'Log in again',
+    'Clear session',
+    '`whisper-1`',
+    '`0.05`',
+    'Electron safe storage',
+    'Clear API key',
+  ],
+  'settings/shortcuts.be.md': [
+    '# Налады спалучэнняў клавіш',
+    '`F9`',
+    '`F10`',
+    '`Escape`',
+    '`F11`',
+    '`F12`',
+    '`Ctrl+F8`',
+    'Ctrl+F9',
+    'Translate',
+    'Prettify',
+    'Save changes',
+  ],
 } as const;
 
 function getI18nPlugin(configuration: MkDocsConfiguration): Record<string, unknown> {
@@ -350,7 +385,7 @@ test('stages the Belarusian core and workflow batches without enabling fallback 
   assert.equal(i18n.build_only_locale, 'en');
 });
 
-test('rejects a missing Belarusian workflow source', async () => {
+test('rejects a missing staged Belarusian source', async () => {
   const sources = new Map(
     await Promise.all(
       Object.keys(belarusianStagedSources).map(

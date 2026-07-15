@@ -48,9 +48,10 @@
   text actions, history and tray, all five settings pages, privacy, troubleshooting, and FAQ. The locale remains
   blocked in the translation manifest until a proficient-speaker review is recorded; the remaining nine locale source
   sets are not yet staged.
-- Task 14a has staged the Belarusian core and workflow pages: overview, installation, first use, recording,
-  providers, text actions, history, and tray. Belarusian remains blocked in the translation manifest until its
-  settings and support pages are complete and a proficient-speaker review is recorded.
+- Task 14a has staged the Belarusian core, workflow, and core-settings pages: overview, installation, first use,
+  recording, providers, text actions, history, tray, settings overview, provider settings, and shortcuts. Belarusian
+  remains blocked in the translation manifest until its advanced-settings and support pages are complete and a
+  proficient-speaker review is recorded.
 - The specification and plan define Material for MkDocs as the structural documentation UI and permit only the
   user-authorized reference-derived content treatment in addition to the landing palette and local font/glyph rules.
 
@@ -99,6 +100,9 @@
 - `docs/user-guide/guides/providers.be.md`
 - `docs/user-guide/guides/text-actions.be.md`
 - `docs/user-guide/guides/history-and-tray.be.md`
+- `docs/user-guide/settings/index.be.md`
+- `docs/user-guide/settings/providers.be.md`
+- `docs/user-guide/settings/shortcuts.be.md`
 - `assets/gpt-voice-wordmark.svg`
 - `docs/user-guide/assets/stylesheets/extra.css`
 - `docs/user-guide/data/locales.json`
@@ -185,6 +189,10 @@
   `whisper-1`, selected-text privacy and cancellation, and local-history/tray actions are now staged. The
   blocked-locale contract rejects a missing workflow source; the strict English-only build and final documentation
   suite (22 passing), Prettier, and `git diff --check` passed as the handoff gate.
+- Task 14a Belarusian core-settings batch: settings lifecycle, provider session/API-key storage, every shortcut
+  default, capture and conflict behavior, and selected-text action controls are now staged. The blocked-locale
+  contract rejects a missing staged source; the strict English-only build and final documentation suite (22 passing),
+  Prettier, and `git diff --check` passed as the handoff gate.
 - Material-native planning revision: updated the documentation specification, landing cross-reference, detailed
   plan, and task checklist. The revision adds Task 14b with a palette/font CSS allowlist and a negative
   component-selector contract; no MkDocs configuration or stylesheet implementation changed in this slice.
@@ -201,8 +209,8 @@
 ## Next Step
 
 Arrange the required proficient-speaker review for the complete Russian source set, then continue Task 14a with the
-Belarusian settings batch (settings overview, providers, shortcuts, Prettify, Browser, and Network). Task 15 waits
-for complete reviewed translations in all ten non-English locales.
+Belarusian advanced-settings batch (Prettify, Browser, and Network). Task 15 waits for complete reviewed translations
+in all ten non-English locales.
 
 ## Blockers
 
