@@ -19,6 +19,20 @@ type MkDocsConfiguration = {
 
 const projectRoot = process.cwd();
 const guideRoot = path.join(projectRoot, 'docs', 'user-guide');
+const completeStagedLocales = ['ru', 'be', 'uk', 'es', 'pt-BR', 'zh-CN', 'ja', 'de', 'fr', 'hi'] as const;
+const bulkDraftLocales = ['uk', 'es', 'pt-BR', 'zh-CN', 'ja', 'de', 'fr', 'hi'] as const;
+const protectedTerms = [
+  'GPT-Voice',
+  'ChatGPT Web',
+  'OpenAI API',
+  'Google Translate',
+  'Ollama',
+  'vLLM',
+  'Electron safe storage',
+  'CloakBrowser',
+  'SOCKS5',
+  'GeoIP',
+] as const;
 const russianStagedSources = {
   'getting-started.ru.md': [
     '# Первый запуск: подключите поставщика и расшифруйте речь',
@@ -476,6 +490,47 @@ function expectedBelarusianStagedSources(configuration: MkDocsConfiguration): st
     .sort();
 }
 
+function expectedStagedSources(configuration: MkDocsConfiguration, locale: string): string[] {
+  return collectNavigationSources(configuration.nav)
+    .map((source) => source.replace(/\.md$/u, `.${locale}.md`))
+    .sort();
+}
+
+function countOccurrences(source: string, fragment: string): number {
+  return source.split(fragment).length - 1;
+}
+
+function markdownCodeSpans(source: string): string[] {
+  return source.match(/`[^`\n]+`/gu) ?? [];
+}
+
+function markdownLinkDestinations(source: string): string[] {
+  return Array.from(source.matchAll(/\]\(([^\n)]+)\)/gu), ([, destination]) => destination);
+}
+
+function assertProtectedSourceParity(filename: string, englishSource: string, localizedSource: string): void {
+  for (const term of protectedTerms) {
+    const requiredCount = countOccurrences(englishSource, term);
+    if (requiredCount > 0) {
+      assert.ok(
+        countOccurrences(localizedSource, term) >= requiredCount,
+        `${filename} must preserve every ${term} occurrence from its English source.`,
+      );
+    }
+  }
+
+  for (const codeSpan of markdownCodeSpans(englishSource)) {
+    assert.ok(localizedSource.includes(codeSpan), `${filename} must preserve ${codeSpan}.`);
+  }
+
+  for (const destination of markdownLinkDestinations(englishSource)) {
+    assert.ok(
+      localizedSource.includes(`](${destination})`),
+      `${filename} must preserve link destination ${destination}.`,
+    );
+  }
+}
+
 function assertRussianStagedSources(sources: ReadonlyMap<string, string>): void {
   for (const [filename, requiredFragments] of Object.entries(russianStagedSources)) {
     const source = sources.get(filename) ?? '';
@@ -605,4 +660,51 @@ test('rejects a missing staged Ukrainian source', async () => {
   );
 
   assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('settings/index.uk.md', '')));
+});
+
+test('stages complete blocked source sets for every remaining guide locale', async () => {
+  const configurationSource = await readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8');
+  const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
+  const i18n = getI18nPlugin(configuration);
+
+  for (const locale of completeStagedLocales) {
+    const expectedSources = expectedStagedSources(configuration, locale);
+    const sources = await Promise.all(
+      expectedSources.map(
+        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
+      ),
+    );
+
+    assert.equal(sources.length, expectedSources.length, `${locale} must stage every public guide source.`);
+    for (const [filename, source] of sources) {
+      assert.ok(source.startsWith('#') || source.startsWith('<'), `${filename} must retain document content.`);
+      assert.ok(
+        !source.includes('ZXQPH') && !source.includes('[[[X'),
+        `${filename} must not expose draft placeholders.`,
+      );
+    }
+  }
+
+  assert.equal(i18n.build_only_locale, 'en');
+});
+
+test('preserves protected literals in every bulk translation draft', async () => {
+  const configurationSource = await readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8');
+  const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
+  const englishSources = expectedStagedSources(configuration, 'en').map((filename) =>
+    filename.replace(/\.en\.md$/u, '.md'),
+  );
+
+  for (const filename of englishSources) {
+    const englishSource = await readFile(path.join(guideRoot, filename), 'utf8');
+    for (const locale of bulkDraftLocales) {
+      const localizedFilename = filename.replace(/\.md$/u, `.${locale}.md`);
+      const localizedSource = await readFile(path.join(guideRoot, localizedFilename), 'utf8');
+      assertProtectedSourceParity(localizedFilename, englishSource, localizedSource);
+    }
+  }
+});
+
+test('rejects a missing protected literal in a bulk translation draft', () => {
+  assert.throws(() => assertProtectedSourceParity('index.es.md', 'GPT-Voice uses ChatGPT Web.', 'GPT-Voice uses it.'));
 });

@@ -1,9 +1,8 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–14, 6a, and 14b–14c are complete; Task 14a has
-complete staged Russian and Belarusian source sets plus staged Ukrainian core pages. Russian and Belarusian remain
-blocked pending proficient-speaker review; Ukrainian workflow guides and settings overview are staged, while its
-remaining settings/support pages plus seven further locale source sets remain incomplete.
+**Status:** Tasks 1–14, 6a, and 14b–14c are complete; Task 14a has complete staged source sets for all ten
+non-English guide locales. Every locale remains blocked pending independent proficient-speaker review and manifest
+approval; production documentation remains English-only.
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 75–98 focused engineering hours, plus recorded proficient-speaker review for each
 non-English locale and the content/privacy/CI/deployment review
