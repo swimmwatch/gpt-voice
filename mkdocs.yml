@@ -24,6 +24,8 @@ theme:
 
 nav:
   - Overview: index.md
+  - Install, update, or remove: install.md
+  - First use: getting-started.md
 
 plugins:
   - search

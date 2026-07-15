@@ -14,7 +14,7 @@ provider you control, and receive the transcription on your clipboard.
 <div class="guide-actions" markdown>
 
 [Download GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-button .md-button--primary }
-[Choose a transcription provider](#before-you-begin){ .md-button }
+[Get started](getting-started.md){ .md-button }
 
 </div>
 
@@ -59,8 +59,9 @@ bypass those limits.
 
 ## Guide scope
 
-This overview is the starting point for the GPT-Voice user guide. Installation, first-use, recording, settings,
-privacy, and troubleshooting pages are added in subsequent documentation increments.
+Start with [installation](install.md), then follow [first use](getting-started.md) to connect a provider and confirm
+that a transcription reaches your clipboard. Recording, settings, privacy, and troubleshooting pages are added in
+subsequent documentation increments.
 
 GPT-Voice is an independent project and is not affiliated with OpenAI, Anthropic, or Google. It is licensed under
 [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/), which is not an

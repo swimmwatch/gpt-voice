@@ -7,12 +7,17 @@
 - Task 3 added deterministic source-boundary and built-output checks.
 - Task 4 added atomic, hash-pinned staging for the approved icon, fonts, and main screenshot derivatives.
 - Task 5 applied the local graphite/blue Material theme, responsive screenshot, and static public navigation links.
+- Checkpoint C is complete: the user authorized continuation after the visual review.
+- Task 6 added verified Windows/Linux installation, update, uninstall, retained-data, provider setup, microphone,
+  first-recording, and clipboard-result guidance.
 
 ## Changed Files
 
 - `mkdocs.yml`
 - `docs/requirements.txt`
 - `docs/user-guide/index.md`
+- `docs/user-guide/install.md`
+- `docs/user-guide/getting-started.md`
 - `docs/user-guide/assets/stylesheets/extra.css`
 - `tests/documentation/mkdocsOutput.test.ts`
 - `scripts/sync-docs-assets.mjs`
@@ -36,14 +41,14 @@
 - `npx prettier --check scripts/sync-docs-assets.mjs tests/documentation/*.test.ts package.json`
 - `npm run test:types`
 - Canonical URL inspection of `build/github-pages/docs/index.html`
+- Built-route inspection for `/docs/install/` and `/docs/getting-started/`, including canonical URLs and internal links
 - `git diff --check`
 - `git status --short` and ignore-rule inspection
 
 ## Next Step
 
-Obtain the Checkpoint C human visual review, then implement Task 6: publish the installation journey.
+Implement Task 7: publish the detailed transcription and provider paths.
 
 ## Blockers
 
-Checkpoint C requires human confirmation of the landing/docs visual relationship. Deployment, release publication,
-and GitHub Pages settings remain out of scope until separately authorized.
+Deployment, release publication, and GitHub Pages settings remain out of scope until separately authorized.

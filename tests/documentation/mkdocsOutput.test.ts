@@ -19,6 +19,11 @@ const projectRoot = process.cwd();
 const configurationPath = path.join(projectRoot, 'mkdocs.yml');
 const outputDirectory = path.join(projectRoot, 'build', 'github-pages', 'docs');
 const canonicalUrl = 'https://swimmwatch.github.io/gpt-voice/docs/';
+const expectedNavigation = [
+  { Overview: 'index.md' },
+  { 'Install, update, or remove': 'install.md' },
+  { 'First use': 'getting-started.md' },
+];
 const prohibitedPathFragments = [
   '.agents/',
   'docs/agent-guides/',
@@ -35,7 +40,7 @@ function assertPublicGuideConfiguration(configuration: MkDocsConfiguration): voi
   assert.equal(configuration.site_dir, 'build/github-pages/docs', 'MkDocs must write only the Pages docs subpath.');
   assert.equal(configuration.site_url, canonicalUrl, 'MkDocs must use the canonical documentation URL.');
   assert.ok(Array.isArray(configuration.nav), 'MkDocs must use explicit navigation.');
-  assert.deepEqual(configuration.nav[0], { Overview: 'index.md' });
+  assert.deepEqual(configuration.nav, expectedNavigation);
 }
 
 async function listFiles(directory: string, relativeDirectory = ''): Promise<string[]> {
@@ -75,12 +80,21 @@ test('restricts MkDocs to the public guide source and Pages docs path', async ()
 test('publishes canonical overview metadata without internal engineering artifacts', async () => {
   const files = await listFiles(outputDirectory);
   const index = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
+  const install = await readFile(path.join(outputDirectory, 'install', 'index.html'), 'utf8');
+  const gettingStarted = await readFile(path.join(outputDirectory, 'getting-started', 'index.html'), 'utf8');
 
   assert.ok(files.includes('index.html'));
+  assert.ok(files.includes('install/index.html'));
+  assert.ok(files.includes('getting-started/index.html'));
   assert.ok(files.includes('search/search_index.json'));
   assert.ok(index.includes(`<link href=${canonicalUrl} rel=canonical>`));
   assert.ok(index.includes('<title>GPT-Voice Documentation</title>'));
   assert.ok(index.includes('Overview'));
+  assert.ok(index.includes('href=getting-started/ class=md-button'));
+  assert.ok(install.includes(`<link href=${canonicalUrl}install/ rel=canonical>`));
+  assert.ok(install.includes('href=../getting-started/'));
+  assert.ok(gettingStarted.includes(`<link href=${canonicalUrl}getting-started/ rel=canonical>`));
+  assert.ok(gettingStarted.includes('Copied to clipboard'));
 
   for (const [file, contents] of await readPublishedText(files)) {
     for (const fragment of prohibitedPathFragments) {

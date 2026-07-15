@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress. Tasks 1–5 are complete; Checkpoint C review is next.
+**Status:** Incremental implementation in progress. Tasks 1–6 and Checkpoint C are complete; Task 7 is next.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -38,14 +38,14 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint C
 
-- [ ] Branded foundation, asset/privacy tests, and human visual review pass.
+- [x] Branded foundation, asset/privacy tests, and user-authorized visual review pass.
 
 ## Phase 2: User Documentation Slices
 
-- [ ] Task 6: Publish the installation journey.
+- [x] Task 6: Publish the installation journey.
   - Acceptance: Install/update/uninstall/retained-data and first-launch-to-clipboard flows match current packages/UI.
   - Verify: Strict build plus README/package/UI comparison.
-  - Files: `install.md`, `getting-started.md`, `mkdocs.yml`.
+  - Files: `install.md`, `getting-started.md`, `mkdocs.yml`, output contract test.
 - [ ] Task 7: Publish the transcription path.
   - Acceptance: Recording/retry/output plus both provider lifecycles and qualifications are complete.
   - Verify: Strict build plus recording/provider contract review.

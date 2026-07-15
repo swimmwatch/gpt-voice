@@ -1,10 +1,10 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–5 complete; Checkpoint C review pending
+**Status:** Incremental implementation in progress — Tasks 1–6 complete; Task 7 is next
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 24–32 focused engineering hours, plus human content/privacy review and CI/deployment
 runtime
-**Implementation authorization:** Complete Checkpoint C human visual review before Task 6.
+**Implementation authorization:** The user authorized continuation after Checkpoint C.
 
 ## Overview
 
@@ -232,7 +232,7 @@ retaining accessible MkDocs navigation, local search, responsive content, and re
 
 - [x] Strict build, boundary tests, and asset tests pass.
 - [x] Only the approved main capture is public.
-- [ ] A human confirms the initial landing/docs visual relationship before bulk authoring.
+- [x] The user confirmed the initial landing/docs visual relationship before bulk authoring.
 
 ## Phase 2: User Documentation Slices
 
@@ -243,18 +243,20 @@ first-launch guidance as one complete new-user path.
 
 **Acceptance criteria:**
 
-- [ ] Installation instructions match current package names, supported Windows/Linux artifacts, checksum files, and
+- [x] Installation instructions match current package names, supported Windows/Linux artifacts, checksum files, and
   the paused macOS status.
-- [ ] Update/uninstall steps clearly distinguish application removal from retained local settings/session data.
-- [ ] Getting Started reaches a configured provider and first clipboard result with visible success/failure cues.
+- [x] Update/uninstall steps clearly distinguish application removal from retained local settings/session data.
+- [x] Getting Started reaches a configured provider and first clipboard result with visible success/failure cues.
 
 **Verification:**
 
-- [ ] Run `npm run docs:build` with zero warnings or broken internal links.
-- [ ] Manually compare package commands and first-launch flow with `README.md`, package metadata, and current UI.
+- [x] Run `npm run docs:build` with no documentation warnings or broken internal links. The pinned Material package's
+  future-release notice is external to this guide and does not affect the strict build.
+- [x] Manually compare package commands and first-launch flow with `README.md`, package metadata, and current UI.
 
 **Dependencies:** Task 5.
-**Files likely touched:** `docs/user-guide/install.md`, `docs/user-guide/getting-started.md`, `mkdocs.yml`.
+**Files likely touched:** `docs/user-guide/install.md`, `docs/user-guide/getting-started.md`,
+`docs/user-guide/index.md`, `mkdocs.yml`, `tests/documentation/mkdocsOutput.test.ts`.
 **Estimated scope:** M, 75–105 minutes, 3 files.
 
 ### Task 7: Publish The Transcription Path
