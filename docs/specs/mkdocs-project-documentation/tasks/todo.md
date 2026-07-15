@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress. Tasks 1–3 are complete; Task 4 is next.
+**Status:** Incremental implementation in progress. Tasks 1–4 are complete; Task 5 is next.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -25,7 +25,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 - [x] Strict guide builds and internal engineering content is proven absent.
 
-- [ ] Task 4: Stage approved documentation assets.
+- [x] Task 4: Stage approved documentation assets.
   - Acceptance: Deterministic sync publishes only local icon/fonts/approved main screenshot; tampering and reference
     captures fail.
   - Verify: Repeat sync/hash comparison and focused asset tests.

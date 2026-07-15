@@ -1,10 +1,10 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–3 complete
+**Status:** Incremental implementation in progress — Tasks 1–4 complete
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 24–32 focused engineering hours, plus human content/privacy review and CI/deployment
 runtime
-**Implementation authorization:** Approved one task at a time; Task 4 is the next implementation slice.
+**Implementation authorization:** Approved one task at a time; Task 5 is the next implementation slice.
 
 ## Overview
 
@@ -189,17 +189,17 @@ already public main screenshot, including manifest/hash/dimension checks and ign
 
 **Acceptance criteria:**
 
-- [ ] Asset sync validates source containment, hashes, dimensions, allowed files, and the main screenshot's approved
+- [x] Asset sync validates source containment, hashes, dimensions, allowed files, and the main screenshot's approved
   public-use status before writing.
-- [ ] Only local icon/font/main-screenshot derivatives enter the staged MkDocs assets; reference-only captures are
+- [x] Only local icon/font/main-screenshot derivatives enter the staged MkDocs assets; reference-only captures are
   rejected.
-- [ ] Staged files are deterministic, ignored, and covered by failure-path tests for missing/tampered sources.
+- [x] Staged files are deterministic, ignored, and covered by failure-path tests for missing/tampered sources.
 
 **Verification:**
 
-- [ ] Run `npm run docs:sync-assets` twice and compare hashes.
-- [ ] Run `node --import tsx --test tests/documentation/docsAssets.test.ts`.
-- [ ] Confirm reference-only capture names do not occur under staged or built docs assets.
+- [x] Run `npm run docs:sync-assets` twice and compare hashes.
+- [x] Run `node --import tsx --test tests/documentation/docsAssets.test.ts`.
+- [x] Confirm reference-only capture names do not occur under staged or built docs assets.
 
 **Dependencies:** Tasks 2–3.
 **Files likely touched:** `scripts/sync-docs-assets.mjs`, `tests/documentation/docsAssets.test.ts`, `package.json`,

@@ -50,6 +50,7 @@
     "docs:serve": ".venv-docs/bin/mkdocs serve --config-file mkdocs.yml --dev-addr 127.0.0.1:8000",
     "docs:build": ".venv-docs/bin/mkdocs build --strict --config-file mkdocs.yml",
     "docs:test": "node --import tsx --test \"tests/documentation/**/*.test.ts\"",
+    "docs:sync-assets": "node scripts/sync-docs-assets.mjs",
     "ci:install": "node scripts/ci-install.mjs",
     "apply:release-version": "node scripts/apply-release-version.mjs",
     "prepare:cloakbrowser": "node scripts/prepare-cloakbrowser.mjs",
