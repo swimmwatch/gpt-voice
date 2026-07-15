@@ -58,3 +58,56 @@ No music, SFX, image, font, or audio source may be imported until its creator, s
 | `openclaw-skills-ai-humanizer` | Not installed | Do not register with a marketplace or install without separate authorization. |
 
 The final voice-over cannot claim Humanizer review until the requested skill is available through an authorized installation and its review has occurred.
+
+## Audio Research Shortlist — Not Acquired
+
+The following candidates were researched on 2026-07-14. They are not in the
+repository and cannot be added to the render until acquisition is authorized,
+the current item-level terms are reviewed, and the final mix is approved.
+
+### Recommended Background Music
+
+| Field | Candidate |
+| --- | --- |
+| Title | Digital Clouds |
+| Creator | Alejandro Magaña (A. M.) |
+| Style / duration | Chillout electronic, 1:41 |
+| Source | https://mixkit.co/free-stock-music/electronic/ |
+| Preview | https://assets.mixkit.co/music/175/175.mp3 |
+| Listed license | Mixkit Stock Music Free License |
+| Acquisition date | Not acquired |
+| Attribution | Confirm with the current license at acquisition time |
+| GitHub / LinkedIn eligibility | Provisional; confirm the current license permits the final video and its distribution before use |
+| Rationale | A restrained electronic/chillout option with enough material for a clean 60-second edit; preview and BPM must be approved before acquisition. |
+
+### Alternate Music Candidates
+
+| Title | Creator | Style / duration | Source | Preview |
+| --- | --- | --- | --- | --- |
+| Sci-Fi Score | Arulo | Corporate electronic, 1:37 | https://mixkit.co/free-stock-music/electronic/ | https://assets.mixkit.co/music/464/464.mp3 |
+| Uplifting Bass | Lily J | Ambient electronic, 1:36 | https://mixkit.co/free-stock-music/electronic/ | https://assets.mixkit.co/music/726/726.mp3 |
+
+### Minimal UI-SFX Palette
+
+All candidates below are listed under the **Mixkit Sound Effects Free License**
+and are unacquired. The final edit should use only the cues mapped in the
+specification, at restrained levels below speech.
+
+| Use | Candidate | Duration | Source | Preview |
+| --- | --- | --- | --- | --- |
+| Key/action taps | Select click (ID 1109) | 0:01 | https://mixkit.co/free-sound-effects/interface/ | https://assets.mixkit.co/active_storage/sfx/1109/1109-preview.mp3 |
+| Processing transitions | Fast small sweep transition (ID 166) | 0:01 | https://mixkit.co/free-sound-effects/sweep/ | https://assets.mixkit.co/active_storage/sfx/166/166-preview.mp3 |
+| Failure | Click error (ID 1110) | 0:01 | https://mixkit.co/free-sound-effects/interface/ | https://assets.mixkit.co/active_storage/sfx/1110/1110-preview.mp3 |
+| Success / clipboard | Page forward single chime (ID 1107) | 0:01 | https://mixkit.co/free-sound-effects/interface/ | https://assets.mixkit.co/active_storage/sfx/1107/1107-preview.mp3 |
+| Product reveal | Software interface start (ID 2574) | 0:02 | https://mixkit.co/free-sound-effects/interface/ | https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3 |
+
+### Before Acquisition
+
+- Preview and approve the proposed 60-second music edit; reject it if it has
+  vocals, aggressive bass, a mismatched BPM, or insufficient calm momentum.
+- Re-check the item-level license and attribution terms at acquisition; record
+  the download date and final distribution eligibility.
+- Acquire only with authorization, then convert the approved source files to
+  the specified 48 kHz WAV working format.
+- Obtain the project-owned natural English narration and live-sample WAV. They
+  cannot be replaced by stock music or effects.

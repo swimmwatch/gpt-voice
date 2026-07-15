@@ -135,3 +135,9 @@ Task 18 has complete automated assembly evidence. A human no-effects animatic re
 - GitHub uploads/releases, LinkedIn posting, pushes, and publication require separate authorization.
 - Keep unrelated `design-qa.md` unmodified and uncommitted.
 - The full root `npm test` suite currently has one unrelated landing-page failure: `tests/landing-page/localeGeneration.test.ts` cannot resolve `@landing/lib/utils`. Focused video checks, video/root typechecks, and the remaining 342 root tests pass.
+
+## Latest Increment: Audio Source Research
+
+- Recorded the pre-acquisition shortlist in the existing `media/video/THIRD_PARTY_MEDIA.md` ledger. It recommends the Mixkit electronic/chillout candidate **Digital Clouds** by Alejandro Magaña (A. M.), with **Sci-Fi Score** and **Uplifting Bass** as alternatives.
+- Shortlisted five restrained Mixkit UI effects for action taps, processing, failure, success, and product reveal. The register includes source and preview URLs, listed license family, and the asset-specific checks required at acquisition.
+- No asset was downloaded, purchased, committed, or added to the video. The final mix remains blocked by source authorization, final license verification, project-owned natural English narration, and the live-sample WAV.
