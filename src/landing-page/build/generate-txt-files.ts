@@ -162,13 +162,22 @@ export function renderTranscriptText(content: LandingContent, locale: LandingLoc
   );
 }
 
-function renderLlmsIndex(content: LandingContent, localeDefinitions: readonly LandingLocaleDefinition[]): string {
+function renderLlmsIndex(
+  content: LandingContent,
+  englishLocale: LandingLocaleDefinition,
+  localeDefinitions: readonly LandingLocaleDefinition[],
+): string {
+  const documentationUrl = new URL(content.links.documentation, englishLocale.canonical).href;
+
   return normalizeText(
     [
       '# GPT-Voice',
       `> ${content.hero.lead}`,
       '',
       content.metadata.description,
+      '',
+      '## Documentation',
+      `- [${content.navigation.documentation}](${documentationUrl}): The user guide covers installation, first use, workflows, settings, privacy, troubleshooting, and FAQ.`,
       '',
       '## Localized pages',
       ...localeDefinitions.map((locale) => `- [${locale.nativeLabel}](${locale.canonical})`),
@@ -247,7 +256,7 @@ export async function generateTextFiles(options: TextGenerationOptions = {}): Pr
   }
 
   const files: TextFile[] = [
-    { publicPath: '/gpt-voice/llms.txt', content: renderLlmsIndex(englishContent, localeDefinitions) },
+    { publicPath: '/gpt-voice/llms.txt', content: renderLlmsIndex(englishContent, englishLocale, localeDefinitions) },
     {
       publicPath: '/gpt-voice/llms-full.txt',
       content: renderLlmsFull(englishContent, englishLocale, localeDefinitions),

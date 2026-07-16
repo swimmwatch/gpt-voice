@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { generateTextFiles, getTextDigest } from '../../src/landing-page/build/generate-txt-files';
+import { generateTextFiles, getTextDigest, renderPageText } from '../../src/landing-page/build/generate-txt-files';
 import {
   englishContent,
   localeRegistry,
@@ -18,6 +18,9 @@ const fullContentMap = new Map<LandingLocale, LandingContent>(
 const fullTranscriptMap = new Map<LandingLocale, string>(
   localeRegistry.map((locale) => [locale.tag, `Approved ${locale.tag} transcript source.`]),
 );
+const englishLocale = localeRegistry.find((locale) => locale.tag === 'en');
+
+assert.ok(englishLocale, 'The TXT generation contract requires an English locale.');
 
 test('refuses to write partial TXT output when required locale inputs are absent', async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-txt-'));
@@ -44,6 +47,7 @@ test('generates all normalized TXT resources from complete localized inputs', as
     const englishPage = await readFile(path.join(outputDirectory, 'index.txt'), 'utf8');
     const russianTranscript = await readFile(path.join(outputDirectory, 'media/transcripts/ru.txt'), 'utf8');
     const llmsIndex = await readFile(path.join(outputDirectory, 'llms.txt'), 'utf8');
+    const llmsFull = await readFile(path.join(outputDirectory, 'llms-full.txt'), 'utf8');
 
     assert.equal(files.length, 24);
     assert.match(englishPage, /^# Write better AI prompts faster\./);
@@ -51,6 +55,16 @@ test('generates all normalized TXT resources from complete localized inputs', as
     assert.match(englishPage, /Subject to ChatGPT plan, availability, fair-use, and provider limits/);
     assert.match(russianTranscript, /^Approved ru transcript source\.\n$/);
     assert.match(llmsIndex, /https:\/\/swimmwatch\.github\.io\/gpt-voice\/ru\//);
+    assert.match(
+      llmsIndex,
+      /\[Documentation\]\(https:\/\/swimmwatch\.github\.io\/gpt-voice\/docs\/\): The user guide covers installation, first use, workflows, settings, privacy, troubleshooting, and FAQ\./,
+    );
+    assert.equal(llmsIndex.includes('\r'), false);
+    assert.equal(llmsIndex, llmsIndex.normalize('NFC'));
+    assert.equal(llmsIndex.endsWith('\n'), true);
+    assert.ok(llmsFull.startsWith(renderPageText(englishContent, englishLocale).trimEnd()));
+    assert.doesNotMatch(llmsFull, /https:\/\/swimmwatch\.github\.io\/gpt-voice\/docs\//);
+    assert.doesNotMatch(llmsFull, /First use: connect a provider and transcribe speech/);
     assert.equal(englishPage.includes('\r'), false);
     assert.equal(englishPage, englishPage.normalize('NFC'));
     assert.equal(englishPage.endsWith('\n'), true);
