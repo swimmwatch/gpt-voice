@@ -288,6 +288,15 @@ html[data-landing-loading='true'] .landing-loader {
   display: none;
 }
 
+.desktop-navigation-list {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .desktop-navigation [data-slot='navigation-menu-link'] {
   color: var(--muted-foreground);
   text-decoration: none;
@@ -301,6 +310,10 @@ html[data-landing-loading='true'] .landing-loader {
   min-inline-size: var(--touch-target);
 }
 
+.locale-menu {
+  position: relative;
+}
+
 .locale-menu-trigger svg,
 .mobile-menu-trigger svg {
   block-size: 1.125rem;
@@ -308,15 +321,28 @@ html[data-landing-loading='true'] .landing-loader {
 }
 
 .locale-menu-content {
+  background: var(--popover);
+  border: var(--border-default) solid var(--border);
+  border-radius: var(--radius-control);
   inline-size: min(18rem, calc(100vw - 2rem));
+  max-block-size: min(28rem, calc(100vh - 6rem));
+  overflow-y: auto;
+  padding: var(--space-1);
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  z-index: 50;
 }
 
-.locale-menu-content [data-slot='dropdown-menu-item'] a {
+.locale-menu-content [data-slot='dropdown-menu-item'] {
   align-items: center;
+  border-radius: var(--radius-control);
   color: inherit;
   display: flex;
   inline-size: 100%;
   justify-content: space-between;
+  min-block-size: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
   text-decoration: none;
 }
 
@@ -1895,23 +1921,11 @@ html[data-landing-enhanced='true'] .locale-no-js {
 }
 
 html[data-landing-enhanced='true'] .landing-accordion-content[data-state='closed'] {
-  animation: landing-accordion-close 200ms cubic-bezier(0.2, 0, 0, 1) both;
+  display: none;
 }
 
 html[data-landing-enhanced='true'] .landing-accordion-content[data-state='open'] {
-  animation: landing-accordion-open 200ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-html[data-landing-enhanced='true'] .landing-accordion-content[data-state='closed'] {
-  block-size: 0;
-  opacity: 0;
-  visibility: hidden;
-}
-
-html[data-landing-enhanced='true'] .landing-accordion-content[data-state='open'] {
-  block-size: var(--radix-accordion-content-height);
-  opacity: 1;
-  visibility: visible;
+  display: block;
 }
 
 html[data-landing-reveal='true'] [data-landing-reveal][data-revealed='false'] {

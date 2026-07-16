@@ -1,17 +1,22 @@
 import { createRoot, hydrateRoot } from 'react-dom/client';
-import { TooltipProvider } from '@landing/components/ui/tooltip';
 import { LandingPage } from '@landing/components/LandingPage';
-import { getLocaleDefinition, publishedLocaleContent, type LandingLocale } from '@landing/content';
+import { getLocaleDefinition } from '@landing/content/locale-registry';
+import type { LandingContent, LandingLocale } from '@landing/content/schema';
+
+function getSerializedLandingContent(): LandingContent {
+  const source = document.querySelector<HTMLScriptElement>('#landing-content')?.textContent;
+  if (!source) {
+    throw new Error('Landing content payload is missing.');
+  }
+
+  return JSON.parse(source) as LandingContent;
+}
 
 export function hydrateLandingPage(rootElement: Element): void {
   const localeTag = document.documentElement.lang as LandingLocale;
   const locale = getLocaleDefinition(localeTag);
-  const content = publishedLocaleContent[localeTag];
-  const application = (
-    <TooltipProvider>
-      <LandingPage content={content} locale={locale} />
-    </TooltipProvider>
-  );
+  const content = getSerializedLandingContent();
+  const application = <LandingPage content={content} locale={locale} />;
 
   if (rootElement.hasChildNodes()) {
     hydrateRoot(rootElement, application);

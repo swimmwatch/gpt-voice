@@ -1,13 +1,9 @@
-import { CheckIcon, LanguagesIcon, MenuIcon } from 'lucide-react';
+import { CheckIcon, LanguagesIcon, MenuIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
-import { Button } from './ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList } from './ui/navigation-menu';
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { localeRegistry } from '../content';
+import { localeRegistry } from '../content/locale-registry';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
+import { Button } from './ui/button';
 
 type SiteHeaderProps = {
   brandDescription: LandingContent['footer']['description'];
@@ -24,35 +20,41 @@ const navigationItems = (content: LandingContent['navigation'], documentation: s
 ];
 
 function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'locale'>): React.JSX.Element {
+  const [isOpen, setIsOpen] = React.useState(false);
+
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`${content.language}: ${locale.nativeLabel}`}
-            className="locale-menu-trigger"
-            size="sm"
-            variant="outline"
-          >
-            <LanguagesIcon aria-hidden="true" />
-            <span className="locale-menu-label">{locale.nativeLabel}</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="locale-menu-content">
-          {localeRegistry.map((candidate) => (
-            <DropdownMenuItem asChild key={candidate.tag}>
+      <div className="locale-menu">
+        <Button
+          aria-expanded={isOpen}
+          aria-label={`${content.language}: ${locale.nativeLabel}`}
+          className="locale-menu-trigger"
+          onClick={() => setIsOpen((open) => !open)}
+          size="sm"
+          variant="outline"
+        >
+          <LanguagesIcon aria-hidden="true" />
+          <span className="locale-menu-label">{locale.nativeLabel}</span>
+        </Button>
+        {isOpen ? (
+          <div className="locale-menu-content" data-slot="dropdown-menu-content" role="menu">
+            {localeRegistry.map((candidate) => (
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
+                data-slot="dropdown-menu-item"
                 href={candidate.route}
                 hrefLang={candidate.tag}
+                key={candidate.tag}
+                onClick={() => setIsOpen(false)}
+                role="menuitem"
               >
                 <span>{candidate.nativeLabel}</span>
                 {candidate.tag === locale.tag ? <CheckIcon aria-hidden="true" className="locale-menu-check" /> : null}
               </a>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <details className="locale-no-js">
         <summary>{content.language}</summary>
         <ul>
@@ -74,33 +76,82 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
 }
 
 function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 'links'>): React.JSX.Element {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const close = React.useCallback(() => {
+    document.getElementById('mobile-navigation-trigger')?.focus();
+    setIsOpen(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [close, isOpen]);
+
   return (
-    <Sheet>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <SheetTrigger asChild>
-              <Button aria-label={content.mobileMenu} className="mobile-menu-trigger" size="icon" variant="icon">
-                <MenuIcon aria-hidden="true" />
-              </Button>
-            </SheetTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{content.mobileMenu}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <SheetContent aria-describedby="mobile-navigation-description" closeLabel={content.mobileMenuClose} side="right">
-        <SheetHeader>
-          <SheetTitle>{content.brand}</SheetTitle>
-          <SheetDescription id="mobile-navigation-description">{content.mobileMenuLabel}</SheetDescription>
-        </SheetHeader>
-        <nav aria-label={content.mobileMenuLabel} className="mobile-navigation-links">
-          {navigationItems(content, links.documentation).map((item) => (
-            <SheetClose asChild key={item.href}>
-              <a href={item.href}>{item.label}</a>
-            </SheetClose>
-          ))}
-        </nav>
-      </SheetContent>
+    <>
+      <Button
+        aria-expanded={isOpen}
+        aria-label={content.mobileMenu}
+        className="mobile-menu-trigger"
+        id="mobile-navigation-trigger"
+        onClick={() => setIsOpen(true)}
+        size="icon"
+        variant="icon"
+      >
+        <MenuIcon aria-hidden="true" />
+      </Button>
+      {isOpen ? (
+        <>
+          <button
+            aria-label={content.mobileMenuClose}
+            className="landing-sheet-overlay fixed inset-0 z-50 bg-[var(--overlay)]"
+            data-slot="sheet-overlay"
+            data-state="open"
+            onClick={close}
+            type="button"
+          />
+          <aside
+            aria-describedby="mobile-navigation-description"
+            aria-modal="true"
+            className="landing-sheet-content fixed inset-y-0 right-0 z-50 flex h-full w-3/4 flex-col gap-4 border-l bg-background shadow-[var(--shadow-media)] sm:max-w-sm"
+            data-side="right"
+            data-slot="sheet-content"
+            data-state="open"
+            role="dialog"
+          >
+            <div className="flex flex-col gap-1.5 p-4">
+              <h2 className="font-semibold text-foreground">{content.brand}</h2>
+              <p className="text-sm text-muted-foreground" id="mobile-navigation-description">
+                {content.mobileMenuLabel}
+              </p>
+            </div>
+            <Button
+              aria-label={content.mobileMenuClose}
+              className="landing-sheet-close absolute top-4 right-4"
+              onClick={close}
+              size="icon"
+              variant="outline"
+            >
+              <XIcon aria-hidden="true" />
+            </Button>
+            <nav aria-label={content.mobileMenuLabel} className="mobile-navigation-links">
+              {navigationItems(content, links.documentation).map((item) => (
+                <a href={item.href} key={item.href} onClick={close}>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          </aside>
+        </>
+      ) : null}
       <details className="mobile-navigation-no-js">
         <summary>{content.mobileMenu}</summary>
         <nav aria-label={content.mobileMenuLabel}>
@@ -111,7 +162,7 @@ function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 
           ))}
         </nav>
       </details>
-    </Sheet>
+    </>
   );
 }
 
@@ -135,17 +186,17 @@ export function SiteHeader({ brandDescription, content, links, locale }: SiteHea
             </span>
           </span>
         </a>
-        <NavigationMenu className="desktop-navigation" viewport={false}>
-          <NavigationMenuList>
+        <nav aria-label="Main" className="desktop-navigation">
+          <ul className="desktop-navigation-list">
             {navigationItems(content, links.documentation).map((item) => (
-              <NavigationMenuItem key={item.href}>
-                <NavigationMenuLink asChild>
-                  <a href={item.href}>{item.label}</a>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
+              <li key={item.href}>
+                <a data-slot="navigation-menu-link" href={item.href}>
+                  {item.label}
+                </a>
+              </li>
             ))}
-          </NavigationMenuList>
-        </NavigationMenu>
+          </ul>
+        </nav>
         <div className="site-header-actions">
           <LocaleMenu content={content} locale={locale} />
           <MobileNavigation content={content} links={links} />

@@ -49,13 +49,17 @@ export async function measureLandingBuild(buildDirectory = defaultBuildDirectory
     .filter((asset) => !path.basename(asset).startsWith('plyr-'));
   const assetPaths = await listBuildFiles(buildDirectory);
   const deferredPlyr = assetPaths.filter((assetPath) => path.basename(assetPath).startsWith('plyr-'));
+  const [modernHydrationScripts, legacyHydrationScripts] = await Promise.all([
+    findImmediatelyLoadedHydrationAssets(buildDirectory, modernScripts),
+    findImmediatelyLoadedHydrationAssets(buildDirectory, legacyScripts),
+  ]);
 
   return {
     deferredPlyr: await measurePlyrAssets(buildDirectory, deferredPlyr),
     html: measureBuffers([html]),
     initialCss: await measureAssets(buildDirectory, stylesheets),
-    legacyInitialJavaScript: await measureAssets(buildDirectory, legacyScripts),
-    modernInitialJavaScript: await measureAssets(buildDirectory, modernScripts),
+    legacyInitialJavaScript: await measureAssets(buildDirectory, [...legacyScripts, ...legacyHydrationScripts]),
+    modernInitialJavaScript: await measureAssets(buildDirectory, [...modernScripts, ...modernHydrationScripts]),
     sourceMaps: assetPaths.filter((assetPath) => assetPath.endsWith('.map')),
   };
 }
@@ -117,6 +121,22 @@ async function measureAssets(buildDirectory: string, urls: readonly string[]): P
   const buffers = await Promise.all(urls.map((url) => readFile(getAssetPath(buildDirectory, url))));
 
   return measureBuffers(buffers);
+}
+
+async function findImmediatelyLoadedHydrationAssets(
+  buildDirectory: string,
+  entryUrls: readonly string[],
+): Promise<readonly string[]> {
+  const references = await Promise.all(
+    entryUrls.map(async (entryUrl) => {
+      const source = await readFile(getAssetPath(buildDirectory, entryUrl), 'utf8');
+      return Array.from(source.matchAll(/["']([^"']*hydrate(?:-legacy)?(?:-[\w-]+)?\.js)["']/gu)).map(
+        ([, reference]) => new URL(reference, new URL(entryUrl, 'https://landing.invalid')).pathname,
+      );
+    }),
+  );
+
+  return [...new Set(references.flat())];
 }
 
 async function measurePlyrAssets(buildDirectory: string, paths: readonly string[]): Promise<EncodedSize> {

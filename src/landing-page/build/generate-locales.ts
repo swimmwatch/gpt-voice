@@ -61,11 +61,16 @@ function renderDocument(baseDocument: string, content: LandingContent, locale: L
     '<body>',
     `<a class="skip-link" href="#main-content">${content.navigation.skipLink}</a>`,
     `<div id="root">${staticMarkup}</div>`,
+    `<script id="landing-content" type="application/json">${serializeLandingContent(content)}</script>`,
     bodySuffix,
     '</body>',
     '</html>',
     '',
   ].join('\n');
+}
+
+function serializeLandingContent(content: LandingContent): string {
+  return JSON.stringify(content).replaceAll('<', '\\u003c');
 }
 
 function getBodySuffix(baseDocument: string): string {

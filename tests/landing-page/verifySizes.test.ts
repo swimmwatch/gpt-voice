@@ -17,8 +17,11 @@ test('measures browser-initial chunks separately from deferred Plyr assets', asy
   try {
     const report = await measureLandingBuild(buildDirectory);
 
-    assert.equal(report.modernInitialJavaScript.raw, 1024);
-    assert.equal(report.legacyInitialJavaScript.raw, 3072);
+    assert.equal(report.modernInitialJavaScript.raw, 2048 + Buffer.byteLength('import "./hydrate.js";'));
+    assert.equal(
+      report.legacyInitialJavaScript.raw,
+      3072 + 2048 + Buffer.byteLength('System.import("./hydrate-legacy.js");'),
+    );
     assert.equal(report.initialCss.raw, 512);
     assert.equal(report.deferredPlyr.raw, 2048);
     assert.equal(report.sourceMaps.length, 0);
@@ -52,8 +55,16 @@ async function createBuildFixture(): Promise<string> {
   const assetsDirectory = path.join(buildDirectory, 'assets');
   await mkdir(assetsDirectory, { recursive: true });
   await Promise.all([
-    writeFile(path.join(assetsDirectory, 'index.js'), randomBytes(1024)),
-    writeFile(path.join(assetsDirectory, 'index-legacy.js'), randomBytes(2048)),
+    writeFile(path.join(assetsDirectory, 'hydrate.js'), randomBytes(1024)),
+    writeFile(
+      path.join(assetsDirectory, 'index.js'),
+      Buffer.concat([Buffer.from('import "./hydrate.js";'), randomBytes(1024)]),
+    ),
+    writeFile(
+      path.join(assetsDirectory, 'index-legacy.js'),
+      Buffer.concat([Buffer.from('System.import("./hydrate-legacy.js");'), randomBytes(2048)]),
+    ),
+    writeFile(path.join(assetsDirectory, 'hydrate-legacy.js'), randomBytes(2048)),
     writeFile(path.join(assetsDirectory, 'polyfills-legacy.js'), randomBytes(1024)),
     writeFile(path.join(assetsDirectory, 'index.css'), randomBytes(512)),
     writeFile(path.join(assetsDirectory, 'plyr-main.js'), randomBytes(2048)),
