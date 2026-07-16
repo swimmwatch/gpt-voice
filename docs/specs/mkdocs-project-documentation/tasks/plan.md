@@ -600,18 +600,18 @@ landing pages are currently published.
 
 **Acceptance criteria:**
 
-- [ ] `LandingLinks` exposes `documentation`, the active English dictionary exposes its label, and a typed route
+- [x] `LandingLinks` exposes `documentation`, the active English dictionary exposes its label, and a typed route
       helper derives a future destination from a landing locale definition.
-- [ ] The active English landing uses `/gpt-voice/docs/`; the pure route helper maps `pt-BR` and `zh-CN` to
+- [x] The active English landing uses `/gpt-voice/docs/`; the pure route helper maps `pt-BR` and `zh-CN` to
       `/gpt-voice/docs/pt-br/` and `/gpt-voice/docs/zh-cn/`, and every other locale to its lowercase route slug, without
       aliases or fallback.
-- [ ] Content/locale tests cover all eleven route values, reject base-path escapes/mixed-case routes, prevent a future
+- [x] Content/locale tests cover all eleven route values, reject base-path escapes/mixed-case routes, prevent a future
       landing locale from selecting an incomplete guide, and prove only English landing content is published in this task.
 
 **Verification:**
 
-- [ ] Run `npm run landing:typecheck`.
-- [ ] Run the focused landing content/locale tests.
+- [x] Run `npm run landing:typecheck`.
+- [x] Run the focused landing content/locale tests.
 
 **Dependencies:** Tasks 6a, 14a, and 14b.
 **Files likely touched:** `src/landing-page/content/schema.ts`, `src/landing-page/content/locale-registry.ts`,

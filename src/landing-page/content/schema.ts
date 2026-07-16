@@ -35,6 +35,7 @@ export interface VideoTranscriptCue {
 }
 
 export interface LandingLinks {
+  documentation: string;
   issues: string;
   license: string;
   latestRelease: string;
@@ -50,6 +51,7 @@ export interface LandingContent {
   navigation: {
     brand: string;
     currentLanguage: string;
+    documentation: string;
     faq: string;
     howItWorks: string;
     language: string;

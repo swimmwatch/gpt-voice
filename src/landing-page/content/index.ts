@@ -4,6 +4,7 @@ import type { LandingContent, LandingLocale } from './schema';
 
 export {
   defaultLocale,
+  getDocumentationRoute,
   getLocaleDefinition,
   getLocaleFromRouteSlug,
   localeRegistry,

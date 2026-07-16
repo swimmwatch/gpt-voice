@@ -3,6 +3,8 @@ import type { LandingLocale, LandingLocaleDefinition } from './schema';
 export const supportedLocales = ['en', 'ru', 'be', 'uk', 'es', 'pt-BR', 'zh-CN', 'ja', 'de', 'fr', 'hi'] as const;
 
 export const defaultLocale: LandingLocale = 'en';
+const documentationBasePath = '/gpt-voice/docs/';
+const documentationRouteSlugPattern = /^[a-z]{2}(?:-[a-z]{2})?$/u;
 
 export const localeRegistry: readonly LandingLocaleDefinition[] = [
   {
@@ -182,4 +184,20 @@ export function getLocaleDefinition(locale: LandingLocale): LandingLocaleDefinit
 
 export function getLocaleFromRouteSlug(routeSlug: string): LandingLocale | undefined {
   return localeRegistry.find((candidate) => candidate.routeSlug === routeSlug)?.tag;
+}
+
+export function getDocumentationRoute(locale: LandingLocaleDefinition): string {
+  if (locale.tag === defaultLocale) {
+    if (locale.routeSlug !== '') {
+      throw new Error('Documentation routes require the English locale to use an empty route slug.');
+    }
+
+    return documentationBasePath;
+  }
+
+  if (!documentationRouteSlugPattern.test(locale.routeSlug) || locale.routeSlug !== locale.tag.toLowerCase()) {
+    throw new Error('Documentation routes require a lowercase route slug matching the locale tag.');
+  }
+
+  return `${documentationBasePath}${locale.routeSlug}/`;
 }

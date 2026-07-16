@@ -4,9 +4,11 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   defaultLocale,
+  getDocumentationRoute,
   getLocaleDefinition,
   getLocaleFromRouteSlug,
   localeRegistry,
+  publishedLocaleContent,
   publishedLocaleDefinitions,
   publishedLocaleTags,
   supportedLocales,
@@ -41,7 +43,35 @@ test('resolves approved route slugs without an implicit locale fallback', () => 
   assert.equal(getLocaleFromRouteSlug('unknown'), undefined);
 });
 
+test('derives reserved documentation routes without allowing unsafe slug aliases', () => {
+  assert.deepEqual(
+    localeRegistry.map((locale) => [locale.tag, getDocumentationRoute(locale)]),
+    [
+      ['en', '/gpt-voice/docs/'],
+      ['ru', '/gpt-voice/docs/ru/'],
+      ['be', '/gpt-voice/docs/be/'],
+      ['uk', '/gpt-voice/docs/uk/'],
+      ['es', '/gpt-voice/docs/es/'],
+      ['pt-BR', '/gpt-voice/docs/pt-br/'],
+      ['zh-CN', '/gpt-voice/docs/zh-cn/'],
+      ['ja', '/gpt-voice/docs/ja/'],
+      ['de', '/gpt-voice/docs/de/'],
+      ['fr', '/gpt-voice/docs/fr/'],
+      ['hi', '/gpt-voice/docs/hi/'],
+    ],
+  );
+  assert.throws(
+    () => getDocumentationRoute({ ...getLocaleDefinition('pt-BR'), routeSlug: 'pt-BR' }),
+    /lowercase route slug/u,
+  );
+  assert.throws(
+    () => getDocumentationRoute({ ...getLocaleDefinition('pt-BR'), routeSlug: '../escape' }),
+    /lowercase route slug/u,
+  );
+});
+
 test('publishes only locale routes with complete content', () => {
   assert.deepEqual(publishedLocaleTags, ['en']);
   assert.deepEqual(publishedLocaleDefinitions, [getLocaleDefinition('en')]);
+  assert.equal(publishedLocaleContent.ru, undefined);
 });

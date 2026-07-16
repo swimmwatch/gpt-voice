@@ -12,6 +12,7 @@ export const englishContent = {
     providers: 'Providers',
     howItWorks: 'How it works',
     faq: 'FAQ',
+    documentation: 'Documentation',
     language: 'Language',
     currentLanguage: 'English',
     repositoryCta: 'GitHub',
@@ -299,6 +300,7 @@ export const englishContent = {
     copyright: '© 2026 Dmitry Vasiliev',
   },
   links: {
+    documentation: '/gpt-voice/docs/',
     latestRelease: 'https://github.com/swimmwatch/gpt-voice/releases/latest',
     repository: 'https://github.com/swimmwatch/gpt-voice',
     issues: 'https://github.com/swimmwatch/gpt-voice/issues',

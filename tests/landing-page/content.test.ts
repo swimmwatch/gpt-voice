@@ -73,3 +73,8 @@ test('keeps the English content ready for shared HTML and plain-text output', as
   assert.ok(englishContent.metadata.title.length < 60);
   assert.ok(englishContent.metadata.description.length < 160);
 });
+
+test('centralizes the active English documentation label and destination', () => {
+  assert.equal(englishContent.navigation.documentation, 'Documentation');
+  assert.equal(englishContent.links.documentation, '/gpt-voice/docs/');
+});

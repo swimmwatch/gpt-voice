@@ -44,30 +44,12 @@
 
 ## In Progress
 
-- Task 14a has staged a complete Russian source set: overview, installation, first use, transcription, providers,
-  text actions, history and tray, all five settings pages, privacy, troubleshooting, and FAQ. The locale remains
-  blocked in the translation manifest until a proficient-speaker review is recorded; the remaining nine locale source
-  sets are not yet staged.
-- Task 14a has staged the complete Belarusian source set: overview, installation, first use, recording, providers,
-  text actions, history, tray, all five settings pages, privacy, troubleshooting, and FAQ. Belarusian remains blocked
-  in the translation manifest until a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian core pages: overview, installation, and first use. Ukrainian remains blocked in
-  the translation manifest until its remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian recording and transcription guide. Ukrainian remains blocked in the translation
-  manifest until its remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian provider guide. Ukrainian remains blocked in the translation manifest until its
-  remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian text-actions guide. Ukrainian remains blocked in the translation manifest until
-  its remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian history and tray guide. Ukrainian remains blocked in the translation manifest
-  until its remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged the Ukrainian settings overview. Ukrainian remains blocked in the translation manifest until
-  its remaining public pages are complete and a proficient-speaker review is recorded.
-- Task 14a has staged every remaining Ukrainian guide and complete AI-draft source sets for Spanish, Brazilian
-  Portuguese, Simplified Chinese, Japanese, German, French, and Hindi. All ten non-English locales remain blocked in
-  the translation manifest until independent proficient-speaker review and manifest approval are recorded.
-- The specification and plan define Material for MkDocs as the structural documentation UI and permit only the
-  user-authorized reference-derived content treatment in addition to the landing palette and local font/glyph rules.
+- Task 14a has complete staged source sets for Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese,
+  Simplified Chinese, Japanese, German, French, and Hindi. All ten non-English locales remain blocked in the
+  translation manifest until independent proficient-speaker review and manifest approval are recorded.
+- Task 15 centralizes the English Documentation label and `/gpt-voice/docs/` destination, reserves a validated
+  future guide route for every landing locale, and retains English as the only published landing content.
+- Task 16 is the next implementation slice: render the English Documentation link in every landing navigation path.
 
 ## Changed Files
 
@@ -91,6 +73,12 @@
 - `docs/user-guide/faq.md`
 - `docs/user-guide/install.md`
 - `docs/user-guide/getting-started.md`
+- `src/landing-page/content/schema.ts`
+- `src/landing-page/content/locale-registry.ts`
+- `src/landing-page/content/index.ts`
+- `src/landing-page/content/locales/en.ts`
+- `tests/landing-page/content.test.ts`
+- `tests/landing-page/locales.test.ts`
 - `docs/user-guide/index.ru.md`
 - `docs/user-guide/install.ru.md`
 - `docs/user-guide/getting-started.ru.md`
@@ -285,11 +273,15 @@
   icon cards, and desktop tabs with no horizontal overflow or console errors; requests remained on `127.0.0.1`.
   The final documentation suite (21 passing), Prettier, and `git diff --check` passed. ESLint has no errors; its two
   remaining warnings predate this task (a dynamic-regexp test and an existing oversized output-contract test).
+- Task 15: all eleven future guide paths, including lowercase `pt-br` and `zh-cn` adapters, are derived by a typed
+  helper that rejects mixed-case and escaping slugs. The active English label/path and English-only publication gate
+  are contract tested. Focused content/locale tests, landing typecheck/lint/format checks, strict docs build, and the
+  full unit suite (385 passing) passed; the repository-wide lint has no errors and three pre-existing warnings.
 
 ## Next Step
 
-Arrange independent proficient-speaker review for each complete non-English source set, record the approvals and
-source hashes in the manifest, then run every locale's strict build. Task 15 waits for those reviewed translations.
+Implement Task 16: render the already typed English Documentation destination in desktop, mobile, no-JavaScript, and
+footer navigation without publishing a non-English landing page. Proficient-speaker review can proceed independently.
 
 ## Blockers
 

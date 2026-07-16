@@ -129,7 +129,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ## Phase 3: Landing And Discoverability
 
-- [ ] Task 15: Add the typed guide destination.
+- [x] Task 15: Add the typed guide destination.
   - Acceptance: Typed landing schema/content centralize the active English documentation label and `/gpt-voice/docs/`
     path, while a pure route helper derives all eleven future paths, including `pt-br` and `zh-cn` adapters.
   - Verify: Landing typecheck plus focused all-locale content/route tests.
