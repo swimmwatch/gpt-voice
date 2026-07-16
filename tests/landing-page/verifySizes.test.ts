@@ -11,7 +11,7 @@ import {
   type LandingSizeReport,
 } from '../../src/landing-page/build/verify-sizes';
 
-test('measures browser-initial chunks separately from deferred Plyr assets', async () => {
+test('measures landing assets separately from deferred Plyr and documentation assets', async () => {
   const buildDirectory = await createBuildFixture();
 
   try {
@@ -53,7 +53,9 @@ function encodedSize(gzip: number) {
 async function createBuildFixture(): Promise<string> {
   const buildDirectory = await mkdtemp(path.join(os.tmpdir(), 'landing-size-'));
   const assetsDirectory = path.join(buildDirectory, 'assets');
+  const documentationAssetsDirectory = path.join(buildDirectory, 'docs', 'assets');
   await mkdir(assetsDirectory, { recursive: true });
+  await mkdir(documentationAssetsDirectory, { recursive: true });
   await Promise.all([
     writeFile(path.join(assetsDirectory, 'hydrate.js'), randomBytes(1024)),
     writeFile(
@@ -69,6 +71,7 @@ async function createBuildFixture(): Promise<string> {
     writeFile(path.join(assetsDirectory, 'index.css'), randomBytes(512)),
     writeFile(path.join(assetsDirectory, 'plyr-main.js'), randomBytes(2048)),
     writeFile(path.join(assetsDirectory, 'plyr-legacy-main.js'), randomBytes(1024)),
+    writeFile(path.join(documentationAssetsDirectory, 'bundle.js.map'), '{}'),
   ]);
   await writeFile(
     path.join(buildDirectory, 'index.html'),

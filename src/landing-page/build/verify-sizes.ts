@@ -60,7 +60,7 @@ export async function measureLandingBuild(buildDirectory = defaultBuildDirectory
     initialCss: await measureAssets(buildDirectory, stylesheets),
     legacyInitialJavaScript: await measureAssets(buildDirectory, [...legacyScripts, ...legacyHydrationScripts]),
     modernInitialJavaScript: await measureAssets(buildDirectory, [...modernScripts, ...modernHydrationScripts]),
-    sourceMaps: assetPaths.filter((assetPath) => assetPath.endsWith('.map')),
+    sourceMaps: assetPaths.filter((assetPath) => assetPath.endsWith('.map') && !assetPath.startsWith('docs/')),
   };
 }
 
