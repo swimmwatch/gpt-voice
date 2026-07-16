@@ -7,6 +7,9 @@ site_dir: build/github-pages/docs
 exclude_docs: |
   data/
 
+hooks:
+  - docs/mkdocs_hooks.py
+
 theme:
   name: material
   custom_dir: docs/mkdocs-overrides

@@ -9,6 +9,7 @@ type MkDocsConfiguration = {
   docs_dir?: unknown;
   extra?: unknown;
   extra_css?: unknown;
+  hooks?: unknown;
   nav?: unknown;
   repo_url?: unknown;
   site_dir?: unknown;
@@ -66,20 +67,20 @@ const prohibitedPathFragments = [
   'openai-api-settings.json',
 ];
 const expectedPaletteVariables = {
-  '--md-accent-fg-color': '#3674e5',
-  '--md-code-bg-color': '#12171c',
+  '--md-accent-fg-color': '#4a8bff',
+  '--md-code-bg-color': '#181e24',
   '--md-code-font': "'JetBrains Mono Variable', 'Roboto Mono', monospace",
-  '--md-default-bg-color': '#080b0e',
-  '--md-default-bg-color--light': '#12171c',
+  '--md-default-bg-color': '#12171c',
+  '--md-default-bg-color--light': '#181e24',
   '--md-default-fg-color': '#f6f7f8',
   '--md-default-fg-color--light': '#a4adb7',
-  '--md-default-fg-color--lighter': '#2a333d',
-  '--md-primary-bg-color': '#ffffff',
-  '--md-primary-fg-color': '#2b60cb',
-  '--md-primary-fg-color--light': '#3674e5',
+  '--md-default-fg-color--lighter': '#3c4854',
+  '--md-primary-bg-color': '#f6f7f8',
+  '--md-primary-fg-color': '#172a53',
+  '--md-primary-fg-color--light': '#2b60cb',
   '--md-text-font':
     "'Ubuntu Sans Variable', 'Noto Sans SC Variable', 'Noto Sans JP Variable', 'Noto Sans Devanagari Variable', Ubuntu, system-ui, sans-serif",
-  '--md-typeset-a-color': '#3674e5',
+  '--md-typeset-a-color': '#4a8bff',
 } as const;
 const expectedFontImports = [
   "@import url('../generated/fonts/noto-sans-sc-wght.css');",
@@ -105,10 +106,18 @@ const expectedMaterialFeatures = [
   'content.tooltips',
 ];
 const approvedVisualSelectors = [
+  'html',
   '.md-typeset .md-button',
+  '.md-typeset .md-button:not(.md-button--primary)',
+  '.md-typeset .md-button:not(.md-button--primary):focus,\n.md-typeset .md-button:not(.md-button--primary):hover',
+  '.md-select__list',
+  '.md-select__list::-webkit-scrollbar',
+  '.md-select__list::-webkit-scrollbar-thumb',
   '.md-typeset .guide-wordmark',
   '.md-typeset .guide-wordmark img',
+  '.md-typeset .guide-wordmark .guide-logo',
   '.md-typeset .guide-actions',
+  '.md-typeset .guide-actions .md-button',
   '.md-typeset .guide-actions p',
   '.md-typeset .product-screenshot',
   '.md-typeset .product-screenshot > a',
@@ -165,9 +174,77 @@ function assertMaterialThemeContract(configuration: MkDocsConfiguration, stylesh
     );
   }
 
+  const rootTypography = blocks.find(({ selector }) => selector === 'html');
+  assert.ok(rootTypography, 'The guide must use the approved globally reduced type scale.');
+  assert.deepEqual(parseCssDeclarations(rootTypography.declarations), { 'font-size': '115%' });
+
   const palette = blocks.find(({ selector }) => selector === "[data-md-color-scheme='slate']");
   assert.ok(palette, "The palette must target Material's slate scheme.");
   assert.deepEqual(parseCssDeclarations(palette.declarations), expectedPaletteVariables);
+
+  const secondaryButton = blocks.find(({ selector }) => selector === '.md-typeset .md-button:not(.md-button--primary)');
+  assert.ok(secondaryButton, 'Secondary Material buttons must use the accessible accent color.');
+  assert.deepEqual(parseCssDeclarations(secondaryButton.declarations), {
+    'border-color': 'var(--md-accent-fg-color)',
+    color: 'var(--md-accent-fg-color)',
+  });
+
+  const secondaryButtonInteractive = blocks.find(
+    ({ selector }) =>
+      selector ===
+      '.md-typeset .md-button:not(.md-button--primary):focus,\n.md-typeset .md-button:not(.md-button--primary):hover',
+  );
+  assert.ok(secondaryButtonInteractive, 'Secondary Material button focus and hover states must preserve contrast.');
+  assert.deepEqual(parseCssDeclarations(secondaryButtonInteractive.declarations), {
+    'background-color': 'var(--md-primary-fg-color--light)',
+    'border-color': 'var(--md-primary-fg-color--light)',
+    color: 'var(--md-primary-bg-color)',
+  });
+
+  const languageSelectorList = blocks.find(({ selector }) => selector === '.md-select__list');
+  assert.ok(languageSelectorList, 'The language selector must expose an accessible overflow affordance.');
+  assert.deepEqual(parseCssDeclarations(languageSelectorList.declarations), {
+    'scrollbar-color': 'var(--md-accent-fg-color) var(--md-default-bg-color--light)',
+    'scrollbar-width': 'thin',
+  });
+
+  const languageSelectorScrollbar = blocks.find(({ selector }) => selector === '.md-select__list::-webkit-scrollbar');
+  assert.ok(languageSelectorScrollbar, 'Chromium language selector scrollbars must remain visible.');
+  assert.deepEqual(parseCssDeclarations(languageSelectorScrollbar.declarations), { width: '0.3rem' });
+
+  const languageSelectorScrollbarThumb = blocks.find(
+    ({ selector }) => selector === '.md-select__list::-webkit-scrollbar-thumb',
+  );
+  assert.ok(languageSelectorScrollbarThumb, 'Chromium language selector scrollbar thumbs must remain visible.');
+  assert.deepEqual(parseCssDeclarations(languageSelectorScrollbarThumb.declarations), {
+    'background-color': 'var(--md-accent-fg-color)',
+    'border-radius': '999px',
+  });
+
+  const productScreenshot = blocks.find(({ selector }) => selector === '.md-typeset .product-screenshot');
+  assert.ok(productScreenshot, 'The overview screenshot must remain framed as guide content.');
+  assert.deepEqual(parseCssDeclarations(productScreenshot.declarations), {
+    margin: '1.25rem 0 0.65rem',
+    'margin-inline': 'auto',
+    'max-width': 'min(100%, 30rem)',
+  });
+
+  const guideActions = blocks.find(({ selector }) => selector === '.md-typeset .guide-actions');
+  assert.ok(guideActions, 'The overview CTAs must remain a Material-native action group.');
+  assert.deepEqual(parseCssDeclarations(guideActions.declarations), {
+    display: 'flex',
+    'flex-wrap': 'wrap',
+    gap: '1.2rem',
+    'justify-content': 'center',
+    margin: '0 0 2rem',
+  });
+
+  const guideActionButton = blocks.find(({ selector }) => selector === '.md-typeset .guide-actions .md-button');
+  assert.ok(guideActionButton, 'Overview CTAs must remain compact without changing Material button structure.');
+  assert.deepEqual(parseCssDeclarations(guideActionButton.declarations), {
+    'font-size': '0.75rem',
+    padding: '0.6em 1.5em',
+  });
 
   const visualSelectors = blocks
     .map(({ selector }) => selector)
@@ -184,6 +261,7 @@ function assertPublicGuideConfiguration(configuration: MkDocsConfiguration): voi
   assert.equal(configuration.docs_dir, 'docs/user-guide', 'MkDocs must read only the public guide source.');
   assert.equal(configuration.site_dir, 'build/github-pages/docs', 'MkDocs must write only the Pages docs subpath.');
   assert.equal(configuration.site_url, canonicalUrl, 'MkDocs must use the canonical documentation URL.');
+  assert.deepEqual(configuration.hooks, ['docs/mkdocs_hooks.py']);
   assert.ok(Array.isArray(configuration.nav), 'MkDocs must use explicit navigation.');
   assert.deepEqual(configuration.nav, expectedNavigation);
 }
@@ -219,6 +297,17 @@ test('publishes every localized Material selector at its normalized documentatio
 
     assert.match(output, new RegExp(`<html lang=${locale.tag}(?=[\\s>])`, 'u'));
     assert.match(output, /<div class=md-select>/u, `${locale.tag} must render Material's language selector.`);
+    assert.ok(
+      output.includes('assets/generated/icons/gpt-voice-wordmark.svg'),
+      `${locale.tag} overview must render the shared GPT-Voice wordmark.`,
+    );
+    assert.ok(output.includes('class=guide-logo'), `${locale.tag} overview must render the GPT-Voice logo.`);
+    assert.match(
+      output,
+      /class="md-button md-button--primary"/u,
+      `${locale.tag} overview must preserve the primary Material CTA class.`,
+    );
+    assert.match(output, /class=md-button(?:\s|>)/u, `${locale.tag} overview must preserve the Material CTA class.`);
     for (const candidate of localeRegistry) {
       assert.ok(
         output.includes(`href=${getDocumentationRoute(candidate)} hreflang=${candidate.tag} class=md-select__link`),
@@ -236,6 +325,30 @@ test('publishes every localized Material selector at its normalized documentatio
         `${locale.tag} overview must not reference a nonexistent locale-local screenshot.`,
       );
     }
+  }
+});
+
+test('publishes page-relative sitemap compatibility copies without changing canonical ownership', async () => {
+  const rootSitemap = await readFile(path.join(outputDirectory, 'sitemap.xml'), 'utf8');
+  const files = await listFiles(outputDirectory);
+
+  for (const locale of localeRegistry) {
+    const canonicalPath = locale.routeSlug ? `${locale.routeSlug}/` : '';
+    assert.ok(
+      rootSitemap.includes(`${canonicalUrl}${canonicalPath}`),
+      `The canonical root sitemap must include the ${locale.tag} guide root.`,
+    );
+  }
+
+  const pageDirectories = [...new Set(files.filter((file) => file.endsWith('index.html')).map(path.dirname))];
+  for (const pageDirectory of pageDirectories) {
+    const sitemapPath = path.join(outputDirectory, pageDirectory, 'sitemap.xml');
+    const sitemapCopy = await readFile(sitemapPath, 'utf8');
+    assert.equal(
+      sitemapCopy,
+      rootSitemap,
+      `${pageDirectory} must receive a compatibility copy of the canonical root sitemap.`,
+    );
   }
 });
 
@@ -561,8 +674,8 @@ test('uses local product assets and an accessible overview screenshot', async ()
   assert.ok(index.includes('https://github.com/swimmwatch/gpt-voice/releases'));
 
   const stylesheet = await readFile(stylesheetPath, 'utf8');
-  assert.ok(stylesheet.includes('--md-default-bg-color: #080b0e'));
-  assert.ok(stylesheet.includes('--md-primary-fg-color: #2b60cb'));
+  assert.ok(stylesheet.includes('--md-default-bg-color: #12171c'));
+  assert.ok(stylesheet.includes('--md-primary-fg-color: #172a53'));
   assert.ok(stylesheet.includes('ubuntu-sans-latin-wght-normal.woff2'));
   assert.ok(stylesheet.includes('jetbrains-mono-latin-wght-normal.woff2'));
   assert.ok(stylesheet.includes('noto-sans-sc-wght.css'));

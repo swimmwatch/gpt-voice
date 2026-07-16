@@ -46,6 +46,14 @@
 - Task 14c applied the user-authorized CloakBrowser reference visual treatment while preserving GPT-Voice branding and
   the landing palette: a self-contained PNG header/fav icon, local hero wordmark, useful Material icons/features,
   icon-led overview cards, and a tested content-style selector allowlist.
+- Task 14d adds a standalone PNG logo with the shared SVG wordmark in every localized overview, avoiding nested-SVG
+  raster rendering; Material now uses the landing's raised graphite canvas, subdued navy primary, and ring-blue links
+  plus readable secondary buttons. Their focus and hover state uses landing primary blue with the light landing
+  foreground, without introducing a structural override.
+- Task 14e resolves the audit regressions: Hindi CTAs retain literal Material classes, the native eleven-language menu
+  exposes a visible palette-consistent scrollbar, and a low-priority MkDocs hook provides non-canonical root-sitemap
+  copies beside every generated guide page for Material's page-relative XMLHttpRequests. The root sitemap remains the
+  only crawler/robots reference.
 - Task 14a published the complete Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese, Simplified Chinese,
   Japanese, German, French, and Hindi guide sets after project-owner approval. The output contract verifies Material's
   selector at every root, normalized `pt-br`/`zh-cn` routes, canonical BCP 47 `lang` values, and shared-asset paths.
@@ -322,6 +330,15 @@
   a final route-matrix inspection confirmed all four installation pages at every one of the eleven locale roots.
 - Task 6c: `npm run docs:build` and `npm run docs:test` (28 passing) verified the grouped `Use GPT-Voice` navigation
   in all eleven locales, with the exact hierarchy and localized parent labels enforced by contracts.
+- Task 14d: `npm run docs:sync-assets`, `npm run docs:build`, and `npm run docs:test` (28 passing) verified the
+  hash-pinned standalone logo and wordmark across all eleven localized overviews. Prettier and `git diff --check`
+  passed; ESLint reported zero errors and its two pre-existing warnings. Local Chromium inspection at 1440 and 390 CSS
+  pixels confirmed the lower-contrast Material palette, visible hero logo, and readable secondary button without
+  horizontal overflow.
+- Task 14e: Prettier, Python compilation, `npm run docs:build`, and `npm run docs:test` (29 passing) verified the
+  CTA, selector, sitemap-hook, and normalized deep-route contracts. CloakBrowser at 390 CSS pixels confirmed 50-pixel
+  Hindi Material CTA boxes, readable secondary-button hover colours, all eleven selector choices, a visible 6-pixel
+  accent scrollbar, and `200` for all eleven deep `settings/browser/sitemap.xml` requests with no new console errors.
 
 ## Next Step
 

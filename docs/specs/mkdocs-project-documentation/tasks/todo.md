@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–17, 6a, 14a–14c, and Checkpoints D–G are complete. All eleven guide locales publish through
+**Status:** Tasks 1–17, 6a, 14a–14e, and Checkpoints D–G are complete. All eleven guide locales publish through
 Material's native selector, and the English landing selector links to each localized documentation root.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
@@ -128,6 +128,21 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Verify: Asset sync, strict build, full documentation suite, negative structural-selector mutation, and responsive
     390/1440-pixel rendered checks with no console errors or remote runtime assets.
   - Files: logo staging, MkDocs config, overview sources, stylesheet, parser/asset/theme contracts, task artifacts.
+- [x] Task 14d: Refine documentation brand contrast.
+  - Acceptance: The standalone PNG logo and shared wordmark are visible on every localized overview; Material uses
+    the landing raised graphite canvas, subdued navy primary, and readable ring-blue links/secondary buttons without
+    structural overrides.
+  - Acceptance: Secondary-button focus and hover states use the landing primary blue with readable light foreground
+    text.
+  - Verify: Strict all-locale build, documentation suite, and responsive desktop/mobile overview inspection.
+  - Files: palette stylesheet, output contract, and scoped task artifacts.
+- [x] Task 14e: Resolve documentation audit regressions.
+  - Acceptance: Localized overview CTA attributes preserve Material classes; the native language selector has a
+    discoverable overflow scrollbar; and every generated guide directory responds to Material's page-relative sitemap
+    request without changing the root sitemap's crawler ownership.
+  - Verify: Strict all-locale build, documentation suite, formatter/Python compilation, and CloakBrowser 390-pixel
+    selector, Hindi-CTA, hover, root/deep sitemap, and console checks.
+  - Files: Hindi overview, stylesheet, MkDocs hook/configuration, output/route contracts, and scoped task artifacts.
 
 ### Checkpoint F
 

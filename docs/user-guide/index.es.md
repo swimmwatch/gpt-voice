@@ -1,5 +1,7 @@
 <div class="guide-wordmark" align="center" markdown>
 
+<img class="guide-logo" src="/gpt-voice/docs/assets/generated/icons/gpt-voice.png" width="112" height="112" alt="GPT-Voice logo" />
+
 ![GPT-Voice marca denominativa](/gpt-voice/docs/assets/generated/icons/gpt-voice-wordmark.svg){ ancho="620" }
 
 </div>

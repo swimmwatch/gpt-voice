@@ -18,18 +18,22 @@
   src: url('../generated/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
 }
 
+html {
+  font-size: 115%;
+}
+
 [data-md-color-scheme='slate'] {
-  --md-default-bg-color: #080b0e;
-  --md-default-bg-color--light: #12171c;
+  --md-default-bg-color: #12171c;
+  --md-default-bg-color--light: #181e24;
   --md-default-fg-color: #f6f7f8;
   --md-default-fg-color--light: #a4adb7;
-  --md-default-fg-color--lighter: #2a333d;
-  --md-code-bg-color: #12171c;
-  --md-primary-fg-color: #2b60cb;
-  --md-primary-fg-color--light: #3674e5;
-  --md-primary-bg-color: #ffffff;
-  --md-accent-fg-color: #3674e5;
-  --md-typeset-a-color: #3674e5;
+  --md-default-fg-color--lighter: #3c4854;
+  --md-code-bg-color: #181e24;
+  --md-primary-fg-color: #172a53;
+  --md-primary-fg-color--light: #2b60cb;
+  --md-primary-bg-color: #f6f7f8;
+  --md-accent-fg-color: #4a8bff;
+  --md-typeset-a-color: #4a8bff;
   --md-text-font:
     'Ubuntu Sans Variable', 'Noto Sans SC Variable', 'Noto Sans JP Variable', 'Noto Sans Devanagari Variable', Ubuntu,
     system-ui, sans-serif;
@@ -38,6 +42,32 @@
 
 .md-typeset .md-button {
   border-radius: 0.25rem;
+}
+
+.md-typeset .md-button:not(.md-button--primary) {
+  border-color: var(--md-accent-fg-color);
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .md-button:not(.md-button--primary):focus,
+.md-typeset .md-button:not(.md-button--primary):hover {
+  background-color: var(--md-primary-fg-color--light);
+  border-color: var(--md-primary-fg-color--light);
+  color: var(--md-primary-bg-color);
+}
+
+.md-select__list {
+  scrollbar-color: var(--md-accent-fg-color) var(--md-default-bg-color--light);
+  scrollbar-width: thin;
+}
+
+.md-select__list::-webkit-scrollbar {
+  width: 0.3rem;
+}
+
+.md-select__list::-webkit-scrollbar-thumb {
+  background-color: var(--md-accent-fg-color);
+  border-radius: 999px;
 }
 
 .md-typeset .guide-wordmark {
@@ -50,12 +80,22 @@
   max-width: min(100%, 38rem);
 }
 
+.md-typeset .guide-wordmark .guide-logo {
+  display: block;
+  margin: 0 auto 0.75rem;
+}
+
 .md-typeset .guide-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 1.2rem;
   justify-content: center;
   margin: 0 0 2rem;
+}
+
+.md-typeset .guide-actions .md-button {
+  font-size: 0.75rem;
+  padding: 0.6em 1.5em;
 }
 
 .md-typeset .guide-actions p {
@@ -64,6 +104,8 @@
 
 .md-typeset .product-screenshot {
   margin: 1.25rem 0 0.65rem;
+  margin-inline: auto;
+  max-width: min(100%, 30rem);
 }
 
 .md-typeset .product-screenshot > a {

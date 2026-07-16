@@ -315,15 +315,20 @@ Material for MkDocs is the documentation UI. The guide uses Material's native he
 table of contents, typography scale, buttons, tables, admonitions, tabs, code blocks, footer, spacing, radii,
 elevation, focus behavior, breakpoints, and motion. It does not reproduce the landing page's components or layout.
 
-- Configure `theme.name: material` and the dark `slate` palette in `mkdocs.yml`.
-- Match the landing page through color variables only: `#080B0E` background, `#12171C` raised/code surface,
-  `#F6F7F8` foreground, `#A4ADB7` muted foreground, `#2A333D` subtle borders, `#2B60CB` primary, and `#3674E5`
-  accent/link/hover.
+- Configure `theme.name: material` and the `slate` palette in `mkdocs.yml`.
+- Match the landing page through color variables only, using its raised graphite surface for the documentation
+  background so the standalone local hero logo remains distinct: `#12171C` background, `#181E24` raised/code surface,
+  `#F6F7F8` foreground, `#A4ADB7` muted foreground, `#3C4854` subtle borders, `#172A53` subdued header/primary,
+  `#2B60CB` primary hover, and `#4A8BFF` accent/link.
 - Use local `@font-face` declarations and locale glyph fallbacks because remote fonts are prohibited and all guide
   locales need reliable glyph coverage; they must not redefine Material's type scale, weights, or line heights.
 - The user-authorized CloakBrowser reference treatment may style only guide content: compact buttons, a centered
   local product wordmark, responsive hero actions, screenshot framing/caption, Material card rounding, and inline-code
-  rounding. The exact selector allowlist is enforced in tests.
+  rounding. Secondary buttons use the landing ring blue for both their text and border so they remain legible while the
+  Material header stays subdued navy; their focus and hover state uses the landing primary blue with the landing
+  foreground. The exact selector allowlist is enforced in tests.
+- The native Material language selector remains structurally unchanged. Its list may define only a visible, accent-colour
+  scrollbar and thumb so an eleven-language overflow is discoverable by mouse, touchpad, and keyboard users.
 - Do not add visual rules targeting structural Material selectors such as `.md-header`, `.md-tabs`, `.md-sidebar`,
   `.md-nav`, `.md-search`, `.md-main`, `.md-grid`, or `.md-footer`. Do not replace a Material template. Visual
   consistency means the shared GPT-Voice palette, icon, naming, claims, and links; it does not mean copying
@@ -338,14 +343,14 @@ Palette override example:
 
 ```css
 [data-md-color-scheme='slate'] {
-  --md-default-bg-color: #080b0e;
+  --md-default-bg-color: #12171c;
   --md-default-fg-color: #f6f7f8;
   --md-default-fg-color--light: #a4adb7;
-  --md-default-fg-color--lighter: #2a333d;
-  --md-code-bg-color: #12171c;
-  --md-primary-fg-color: #2b60cb;
-  --md-accent-fg-color: #3674e5;
-  --md-typeset-a-color: #3674e5;
+  --md-default-fg-color--lighter: #3c4854;
+  --md-code-bg-color: #181e24;
+  --md-primary-fg-color: #172a53;
+  --md-accent-fg-color: #4a8bff;
+  --md-typeset-a-color: #4a8bff;
 }
 ```
 
@@ -393,13 +398,13 @@ would delete the documentation.
 - `docs_dir: docs/user-guide` and `site_dir: build/github-pages/docs`.
 - `strict: true` behavior through the build command.
 - Explicit navigation matching this specification.
-- `theme.name: material` with the dark `slate` scheme; Material templates and structural component styles remain the
+- `theme.name: material` with the `slate` scheme; Material templates and structural component styles remain the
   default.
 - Material navigation tracking, tabs, sticky tabs, sections, breadcrumb path, footer/top links, following table of
   contents, search suggestion/highlight/share, code copy/annotation/select, linked tabs, tooltips, and local emoji
   icon rendering.
-- A hash-pinned PNG header/favicon logo and a local, hash-pinned SVG hero wordmark whose embedded icon resolves to
-  the staged PNG. `extra_css` contains the exact approved content-style allowlist and locale fonts.
+- A hash-pinned PNG header/favicon and overview-hero logo, plus a local, hash-pinned SVG hero wordmark. `extra_css`
+  contains the exact approved content-style allowlist and locale fonts.
 - `custom_dir` may contain localization compatibility partials required by the locale contract, but no visual theme
   template replacement without separate approval.
 - Pinned `mkdocs-static-i18n`, `search`, and `minify` plugins. The i18n plugin uses suffix-based source documents,
@@ -416,6 +421,9 @@ would delete the documentation.
   has a self-canonical route from the Localization Contract plus reciprocal `hreflang` alternates and `x-default` for
   English.
 - The generated docs sitemap remains at `/gpt-voice/docs/sitemap.xml` and contains every published locale route.
+- A low-priority MkDocs post-build hook copies that sitemap beside every generated `index.html` as a non-canonical
+  compatibility response for Material's page-relative language-selector XMLHttpRequests. `robots.txt`, canonical
+  metadata, and crawlers continue to reference only `/gpt-voice/docs/sitemap.xml`.
 - Root `robots.txt` references both the landing sitemap and documentation sitemap.
 - The landing sitemap continues to own landing locale routes; the MkDocs sitemap owns all localized guide pages.
 - The landing `llms.txt` gains a descriptive link to the documentation overview; this task does not introduce a
@@ -598,14 +606,16 @@ recording. A new recording or application restart removes the retained retry aud
 - Asset tests verify manifests, hashes, dimensions, alt text, captions, optimized formats, and size budgets.
 - A theme contract verifies `theme.name: material`, the `slate` scheme, reference-derived Material feature set,
   approved landing color variables, staged logo paths, and a small content-style selector allowlist. It rejects
-  structural Material selectors, visual template replacements, and unapproved declarations.
+  structural Material selectors, visual template replacements, and unapproved declarations, except the selector-list
+  scrollbar affordance defined above.
 - Locale contracts compare every MkDocs tag, source suffix, public route, label, and font requirement to the landing
   locale registry. They reject missing or duplicate localized pages, fallback-only output, untranslated navigation,
   invalid route casing, `zh` aliases, invalid publication-manifest entries, missing local glyph fonts, and inconsistent
   app-UI language claims.
 - Generated HTML tests verify each locale's title, description, canonical, `lang`, reciprocal `hreflang`, Material
   language-selector routes, local search, home/repository/release links, heading hierarchy, viewport, and absence of
-  remote runtime assets.
+  remote runtime assets. They also require the native Material CTA classes in every localized overview and a byte-equal
+  non-canonical sitemap copy beside every generated page route.
 - The combined artifact test verifies landing and MkDocs roots coexist and no build step erases the other.
 - Workflow contracts verify Python setup, pinned requirements, build order, one artifact root, dependencies,
   permissions, release gate, and official Pages actions.
@@ -616,6 +626,9 @@ recording. A new recording or application restart removes the retained retry aud
   and return to the English landing. Parameterize guide-language selector, direct-load, refresh, and route assertions
   over all eleven documentation locales; a typed route-matrix contract reserves matching landing destinations for any
   future separately approved landing locale.
+- Exercise the native language selector at overview and deep-guide routes; its complete locale list must be reachable,
+  every Material page-relative sitemap request must return `200`, and the resulting browser session must have no new
+  console errors.
 - Test 320, 390, 768, and 1440 CSS-pixel widths for overflow and navigation reachability.
 - Verify keyboard navigation, visible focus, skip link, drawer focus behavior, local search, heading landmarks,
   previous/next navigation, and external-link names.

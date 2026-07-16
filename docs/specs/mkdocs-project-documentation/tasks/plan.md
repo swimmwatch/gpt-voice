@@ -1,6 +1,6 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–17, 6a, and 14a–14c are complete. The documentation publishes all eleven guide locales through
+**Status:** Tasks 1–17, 6a, and 14a–14e are complete. The documentation publishes all eleven guide locales through
 Material's native selector; the English landing selector links directly to every localized documentation root.
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 75–98 focused engineering hours, plus the remaining content/privacy/CI/deployment review
@@ -613,6 +613,57 @@ the local logo/wordmark, Material navigation/search/code/icon capabilities, and 
 sources, parser/asset/theme contracts, and the scoped task artifacts.
 **Estimated scope:** M, 120–180 minutes, 10–15 files.
 
+### Task 14d: Refine Documentation Brand Contrast
+
+**Description:** Make the existing local GPT-Voice wordmark clearly visible on the documentation overview while
+retaining Material's native layout. Use the established landing tokens to replace the near-black documentation canvas
+and vivid-blue primary surface with a raised graphite canvas and subdued navy primary surface.
+
+**Acceptance criteria:**
+
+- [x] Every localized overview renders the shared wordmark and standalone PNG logo.
+- [x] The documentation background uses landing `card` graphite (`#12171C`) rather than landing base black, and
+      Material's header/primary uses landing `primary-subtle` navy (`#172A53`) rather than vivid primary blue.
+- [x] Links and secondary Material buttons retain the landing focus/ring blue (`#4A8BFF`) for readable text and
+      borders; no structural Material selector or template override is introduced.
+- [x] Secondary Material buttons retain readable `#F6F7F8` foreground text on focus and hover against landing primary
+      blue (`#2B60CB`).
+
+**Verification:**
+
+- [x] Run the strict documentation build and full documentation test suite.
+- [x] Inspect the overview at desktop and mobile widths, confirming that the standalone logo is visible and the header
+      does not sharply contrast with the page background.
+
+**Dependencies:** Task 14c and the user's visual-direction revision.
+**Files touched:** palette stylesheet, documentation output contract, and scoped task artifacts.
+**Estimated scope:** S, 30–45 minutes, 5 files.
+
+### Task 14e: Resolve Documentation Audit Regressions
+
+**Description:** Correct the localized CTA, language-selector discoverability, and Material sitemap XMLHttpRequest
+defects found during the CloakBrowser audit without replacing Material UI or changing canonical crawler ownership.
+
+**Acceptance criteria:**
+
+- [x] Every localized overview, including Hindi, renders both CTA links with literal Material `md-button` classes.
+- [x] The native selector exposes all eleven languages and has a visible, palette-consistent overflow scrollbar using
+      only the approved selector-list scrollbar declarations.
+- [x] A low-priority MkDocs hook places an identical non-canonical root-sitemap copy beside every generated guide
+      page; it works for both `mkdocs build` and `mkdocs serve`, including normalized `pt-br` and `zh-cn` routes.
+- [x] The root sitemap remains the sole crawler/robots/canonical sitemap reference.
+
+**Verification:**
+
+- [x] Run the strict all-locale documentation build, full documentation suite, formatter, and Python compilation.
+- [x] With CloakBrowser at 390 CSS pixels, select Hindi, inspect Material CTA sizes/classes and secondary-button hover
+      contrast, then inspect the selector scrollbar and all root/deep locale sitemap response statuses.
+
+**Dependencies:** Task 14d and the completed audit.
+**Files touched:** Hindi overview source, Material palette stylesheet, MkDocs hook/configuration, output/route contracts,
+and scoped task artifacts.
+**Estimated scope:** S, 45–75 minutes, 8 files.
+
 ### Checkpoint F: Content Complete
 
 - [x] English and all ten translated guide variants contain every required page, settings mapping, support path, and
@@ -997,7 +1048,7 @@ Accepted for planning unless the human changes them during plan review:
 - Screenshots: approved main screenshot only.
 - Domain: `https://swimmwatch.github.io/gpt-voice/`.
 - Deployment: published-release event through `.github/workflows/release-builds.yml`; PR validation never deploys.
-- Theme: Material for MkDocs structural components with the dark landing palette, local logo/wordmark, useful Material
+- Theme: Material for MkDocs structural components with the raised-graphite landing palette, local logo/wordmark, useful Material
   icons/features, and the approved reference-derived content-style selector allowlist.
 - No custom domain, analytics, hosted search, blog, version selector, third-party runtime assets, or contributor docs.
 

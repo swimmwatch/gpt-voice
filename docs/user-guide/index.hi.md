@@ -1,5 +1,7 @@
 <div class="guide-wordmark" align="center" markdown>
 
+<img class="guide-logo" src="/gpt-voice/docs/assets/generated/icons/gpt-voice.png" width="112" height="112" alt="GPT-Voice logo" />
+
 ![GPT-Voice वर्डमार्क](/gpt-voice/docs/assets/generated/icons/gpt-voice-wordmark.svg){ width='620' }
 
 </div>
@@ -19,8 +21,8 @@ GPT-Voice एक डेस्कटॉप वॉयस-टू-टेक्स्
 
 <div class="guide-actions" markdown>
 
-[:material-download: डाउनलोड GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-बटन .md-बटन--प्राथमिक }
-[:material-rocket-launch: आरंभ करें](getting-started.md){ .md-बटन }
+[:material-download: डाउनलोड GPT-Voice](https://github.com/swimmwatch/gpt-voice/releases){ .md-button .md-button--primary }
+[:material-rocket-launch: आरंभ करें](getting-started.md){ .md-button }
 
 </div>
 

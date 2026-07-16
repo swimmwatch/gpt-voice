@@ -27,7 +27,7 @@ const pinnedAssets = [
   },
   {
     destination: 'icons/gpt-voice-wordmark.svg',
-    sha256: 'f61f64178b4f4505e869456bbd6ae96934a9380c7e737296e28571d9b9a43b49',
+    sha256: 'fd4cb757c8d82a6336a8f577802775b93064751e1f18cce68240a63304db6812',
     source: 'assets/gpt-voice-wordmark.svg',
   },
 ];
