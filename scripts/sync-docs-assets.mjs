@@ -69,6 +69,17 @@ export function getSafeAssetPath(rootDirectory, relativePath) {
   return resolvedPath;
 }
 
+function getVerifiedDestinationDirectory(rootDirectory, destinationDirectory) {
+  const expectedDestination = getSafeAssetPath(rootDirectory, generatedRelativeDirectory);
+  const destination = destinationDirectory === undefined ? expectedDestination : path.resolve(destinationDirectory);
+
+  if (destination !== expectedDestination) {
+    throw new Error(`Documentation assets may be staged only at ${expectedDestination}.`);
+  }
+
+  return destination;
+}
+
 export function getApprovedDocumentationCapture(captureManifest, capturePath) {
   if (capturePath !== approvedCapturePath) {
     throw new Error(`Documentation capture is not approved for public staging: ${capturePath}`);
@@ -252,8 +263,8 @@ async function assertStagedAssetSet(stagingDirectory, assetDestinations) {
 }
 
 export async function syncDocumentationAssets({ destinationDirectory, rootDirectory } = {}) {
-  const root = rootDirectory ?? repositoryRoot;
-  const destination = destinationDirectory ?? getSafeAssetPath(root, generatedRelativeDirectory);
+  const root = path.resolve(rootDirectory ?? repositoryRoot);
+  const destination = getVerifiedDestinationDirectory(root, destinationDirectory);
   const staging = `${destination}.staging`;
   const { capture, fontPackages, screenshotPath, sources } = await collectApprovedSources(root);
   const fontPackageDestinations = getFontPackageDestinations(fontPackages);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendFile, copyFile, mkdtemp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
+import { appendFile, copyFile, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { before } from 'node:test';
@@ -204,5 +204,43 @@ test('rejects reference-only, escaped, tampered, and missing asset sources', asy
     );
   } finally {
     await rm(fixtureRoot, { force: true, recursive: true });
+  }
+});
+
+test('refuses unsafe documentation asset destinations before recursive cleanup', async () => {
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-doc-assets-destination-'));
+  const outsideDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-doc-assets-outside-'));
+  try {
+    await copyFixture(fixtureRoot);
+    const rootSentinel = path.join(fixtureRoot, 'root-sentinel.txt');
+    const outsideSentinel = path.join(outsideDirectory, 'outside-sentinel.txt');
+    const sourcePath = path.join(fixtureRoot, 'assets', 'icon.png');
+    const sourceBefore = await readFile(sourcePath);
+    await Promise.all([writeFile(rootSentinel, 'keep root'), writeFile(outsideSentinel, 'keep outside')]);
+
+    await assert.rejects(
+      documentationAssets.syncDocumentationAssets({ destinationDirectory: fixtureRoot, rootDirectory: fixtureRoot }),
+      /may be staged only/u,
+    );
+    await assert.rejects(
+      documentationAssets.syncDocumentationAssets({ destinationDirectory: sourcePath, rootDirectory: fixtureRoot }),
+      /may be staged only/u,
+    );
+    await assert.rejects(
+      documentationAssets.syncDocumentationAssets({
+        destinationDirectory: outsideDirectory,
+        rootDirectory: fixtureRoot,
+      }),
+      /may be staged only/u,
+    );
+
+    assert.equal(await readFile(rootSentinel, 'utf8'), 'keep root');
+    assert.equal(await readFile(outsideSentinel, 'utf8'), 'keep outside');
+    assert.deepEqual(await readFile(sourcePath), sourceBefore);
+  } finally {
+    await Promise.all([
+      rm(fixtureRoot, { force: true, recursive: true }),
+      rm(outsideDirectory, { force: true, recursive: true }),
+    ]);
   }
 });
