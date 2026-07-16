@@ -830,17 +830,17 @@ owns guide routes, and root robots references both without hard-coded drift.
 
 **Acceptance criteria:**
 
-- [ ] Composition reads built landing canonicals and the MkDocs sitemap, then writes a root landing sitemap and
+- [x] Composition reads built landing canonicals and the MkDocs sitemap, then writes a root landing sitemap and
       robots file referencing both canonical sitemap URLs.
-- [ ] Output is deterministic, base-path-safe, excludes generated/private paths, and fails on missing or malformed
+- [x] Output is deterministic, base-path-safe, excludes generated/private paths, and fails on missing or malformed
       inputs.
-- [ ] Tests cover the active English landing canonical, all localized guide sitemap entries and reciprocal alternates,
+- [x] Tests cover the active English landing canonical, all localized guide sitemap entries and reciprocal alternates,
       docs sitemap linkage, and no custom-domain assumptions.
 
 **Verification:**
 
-- [ ] Run the focused metadata composition tests.
-- [ ] Build both surfaces, run composition, and validate generated XML/text structure.
+- [x] Run the focused metadata composition tests.
+- [x] Build both surfaces, run composition, and validate generated XML/text structure.
 
 **Dependencies:** Tasks 14a, 16–17.
 **Files likely touched:** `src/landing-page/build/compose-pages-metadata.ts`,
@@ -849,11 +849,11 @@ owns guide routes, and root robots references both without hard-coded drift.
 
 ### Checkpoint H: Discoverable Site
 
-- [ ] Active English landing HTML/TXT and guide HTML cross-link without hidden duplicate content; every localized guide
+- [x] Active English landing HTML/TXT and guide HTML cross-link without hidden duplicate content; every localized guide
       route is directly reachable through its language selector without English fallback.
-- [ ] Root robots and both sitemaps use correct canonical project URLs; the docs sitemap carries every locale entry and
+- [x] Root robots and both sitemaps use correct canonical project URLs; the docs sitemap carries every locale entry and
       reciprocal alternate.
-- [ ] Landing SEO/text tests, docs tests, and locale/manifest tests pass.
+- [x] Landing SEO/text tests, docs tests, and locale/manifest tests pass.
 
 ## Phase 4: Combined Artifact And Browser Verification
 
@@ -864,17 +864,17 @@ MkDocs subdirectory preservation, metadata composition, and Electron/build-outpu
 
 **Acceptance criteria:**
 
-- [ ] `npm run pages:build` runs landing build, docs asset sync, strict MkDocs build, crawl composition, and docs
+- [x] `npm run pages:build` runs landing build, docs asset sync, strict MkDocs build, crawl composition, and docs
       contracts in the only safe order.
-- [ ] A clean build contains landing roots plus complete `/docs/` roots for all eleven locales, with no internal docs or
+- [x] A clean build contains landing roots plus complete `/docs/` roots for all eleven locales, with no internal docs or
       Electron output.
-- [ ] Contract tests fail when build order is reversed, a locale root is missing or wrongly cased, either root is
+- [x] Contract tests fail when build order is reversed, a locale root is missing or wrongly cased, either root is
       missing, or a private/generated source leaks.
 
 **Verification:**
 
-- [ ] Run `npm run pages:build` from a clean ignored output state.
-- [ ] Run the combined artifact contract test and inspect the generated file tree.
+- [x] Run `npm run pages:build` from a clean ignored output state.
+- [x] Run the combined artifact contract test and inspect the generated file tree.
 
 **Dependencies:** Tasks 13, 14a, 16, 18.
 **Files likely touched:** `package.json`, `tests/documentation/pagesBuild.test.ts`.
@@ -905,21 +905,21 @@ keyboard/focus behavior, accessibility, and same-origin assets.
 
 **Acceptance criteria:**
 
-- [ ] Playwright proves the exact active-English landing-to-MkDocs transition and round trip for desktop, mobile, and
+- [x] Playwright proves the exact active-English landing-to-MkDocs transition and round trip for desktop, mobile, and
       JavaScript-disabled entry points, then proves all localized guide deep-route refreshes and canonical trailing-slash
       paths.
-- [ ] No transition or localized guide route has a same-origin failed response, path-prefix escape/duplication,
+- [x] No transition or localized guide route has a same-origin failed response, path-prefix escape/duplication,
       route-case mismatch, English fallback, GitHub Pages 404, console error, or missing local asset; the exercised
       English landing anchor/FAQ behavior remains intact.
-- [ ] Axe/keyboard/zoom/text-spacing/reduced-motion/forced-colors checks cover each locale overview plus representative
+- [x] Axe/keyboard/zoom/text-spacing/reduced-motion/forced-colors checks cover each locale overview plus representative
       procedure/settings paths, with CJK/Indic glyph coverage and no remote asset requests.
 
 **Verification:**
 
-- [ ] Run the parameterized focused transition case in Chromium:
+- [x] Run the parameterized focused transition case in Chromium:
       `npx playwright test --config playwright.landing.config.ts tests/landing-page/e2e/documentation.spec.ts --grep "opens MkDocs from the landing page without path errors"`.
-- [ ] Run `npm run pages:test:e2e` to preserve the complete existing landing browser suite.
-- [ ] Run Chromium, Firefox, and WebKit coverage in CI-equivalent mode where platform libraries are available.
+- [x] Run `npm run pages:test:e2e` to preserve the complete existing landing browser suite.
+- [x] Run Chromium, Firefox, and WebKit coverage in CI-equivalent mode where platform libraries are available.
 
 **Dependencies:** Task 19.
 **Files likely touched:** `playwright.landing.config.ts`, `tests/landing-page/e2e/documentation.spec.ts`, `package.json`.
@@ -927,13 +927,13 @@ keyboard/focus behavior, accessibility, and same-origin assets.
 
 ### Checkpoint I: Local Pages Candidate
 
-- [ ] One local artifact passes docs, landing, crawl, integration, browser, and accessibility checks, including all
+- [x] One local artifact passes docs, landing, crawl, integration, browser, and accessibility checks, including all
       localized guide roots.
-- [ ] The dedicated active-English landing-to-MkDocs transition and return-path test passes with zero failed
+- [x] The dedicated active-English landing-to-MkDocs transition and return-path test passes with zero failed
       same-origin responses, path-prefix errors, missing assets, console errors, or landing regressions; every localized
       guide deep route passes its direct-load/refresh/language-selector check.
-- [ ] Existing landing E2E remains green across configured browsers.
-- [ ] No provider, microphone, personal profile, real clipboard, or external-service assertion is used.
+- [x] Existing landing E2E remains green across configured browsers.
+- [x] No provider, microphone, personal profile, real clipboard, or external-service assertion is used.
 
 ## Phase 5: Continuous Integration And Release Deployment
 
@@ -944,15 +944,15 @@ Pages build/tests, and browser checks while retaining least privilege and zero d
 
 **Acceptance criteria:**
 
-- [ ] PR job uses `actions/setup-python@v6` Python 3.12 with requirements caching and runs the canonical all-locale
+- [x] PR job uses `actions/setup-python@v6` Python 3.12 with requirements caching and runs the canonical all-locale
       docs, artifact, and browser scripts.
-- [ ] Existing quality dependency, Node/FFmpeg/browsers, landing gates, `contents: read`, and PR-only triggers remain.
-- [ ] Workflow contracts prove PR checks contain no configure/upload/deploy Pages action and `pages.yml` stays absent.
+- [x] Existing quality dependency, Node/FFmpeg/browsers, landing gates, `contents: read`, and PR-only triggers remain.
+- [x] Workflow contracts prove PR checks contain no configure/upload/deploy Pages action and `pages.yml` stays absent.
 
 **Verification:**
 
-- [ ] Run the focused workflow contract test and `actionlint` when available.
-- [ ] Compare local command order with the PR job step order.
+- [x] Run the focused workflow contract test and `actionlint` when available.
+- [x] Compare local command order with the PR job step order.
 
 **Dependencies:** Task 20.
 **Files likely touched:** `.github/workflows/pr-checks.yml`, `tests/landing-page/pagesWorkflow.test.ts`.
@@ -965,17 +965,17 @@ assets are published, without restoring the standalone workflow or changing rele
 
 **Acceptance criteria:**
 
-- [ ] Pages build runs only for a published release, depends on successful release-asset publication, installs the
+- [x] Pages build runs only for a published release, depends on successful release-asset publication, installs the
       pinned docs environment, validates all eleven static guide locales, configures Pages, and uploads one artifact.
-- [ ] Deploy depends on that build, uses the `github-pages` environment, `pages: write`/`id-token: write` only there,
+- [x] Deploy depends on that build, uses the `github-pages` environment, `pages: write`/`id-token: write` only there,
       official pinned-major actions, and non-cancelling `github-pages` concurrency.
-- [ ] Workflow contracts prove release/PR separation, dependency order, permissions, artifact root, absent
+- [x] Workflow contracts prove release/PR separation, dependency order, permissions, artifact root, absent
       `pages.yml`, and no write-back to a branch.
 
 **Verification:**
 
-- [ ] Run the expanded workflow contract test and `actionlint` when available.
-- [ ] Execute every release Pages build command locally without publishing or deploying.
+- [x] Run the expanded workflow contract test and `actionlint` when available.
+- [x] Execute every release Pages build command locally without publishing or deploying.
 
 **Dependencies:** Task 21.
 **Files likely touched:** `.github/workflows/release-builds.yml`, `tests/landing-page/pagesWorkflow.test.ts`.
@@ -983,9 +983,9 @@ assets are published, without restoring the standalone workflow or changing rele
 
 ### Checkpoint J: CI And Release Contract
 
-- [ ] PR validation is non-deploying and release publication is the sole automatic Pages deployment trigger.
-- [ ] One least-privilege artifact/deploy chain is represented in workflow tests.
-- [ ] No remote mutation, release, or Pages setting change has occurred.
+- [x] PR validation is non-deploying and release publication is the sole automatic Pages deployment trigger.
+- [x] One least-privilege artifact/deploy chain is represented in workflow tests.
+- [x] No remote mutation, release, or Pages setting change has occurred.
 
 ## Phase 6: Review And Authorized Production Verification
 

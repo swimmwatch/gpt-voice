@@ -73,6 +73,14 @@
   and keeps every Documentation link pointed at its matching Material guide root. The single English MP4 now pairs
   with a timed, cue-specific WebVTT track and normalized transcript for each locale; focused static/media contracts
   and the 30-case Chromium suite pass.
+- Tasks 18–22 compose deterministic crawl metadata, build one Vite-first Pages artifact, exercise the landing-to-guide
+  journey, validate it in PR checks, and deploy it only after a published release.
+- The final PR remediation confines generated-asset cleanup, corrects localized discovery metadata, enforces full
+  locale semantic parity, makes hydration budgets include immediately executed code, and keeps the landing budget
+  separate from MkDocs source maps.
+- The product-video remediation keeps the provider qualification readable above the dialog overlay, suppresses the
+  recording-only close tooltip, removes the three-second kinetic-motion seam, and validates a representative render
+  in CI. The licensing ledger now matches the installed, owner-approved Remotion package set.
 
 ## In Progress
 
@@ -80,6 +88,9 @@
 
 ## Changed Files
 
+- Review remediation: `scripts/build-pages.mjs`, `.github/workflows/pr-checks.yml`,
+  `media/video/{package.json,THIRD_PARTY_MEDIA.md,src/**}`, `src/landing-page/{build,components,content,styles}`, and
+  their landing/video/Pages tests.
 - `mkdocs.yml`
 - `README.md`
 - `docs/requirements.txt`
@@ -363,11 +374,18 @@
   no new console errors were recorded. The 19 public routes across all 11 locales passed 418 live desktop/mobile
   checks and 209 normalized production-route checks for HTTP 200, article structure, image loading, and page-level
   overflow. Prettier, `npm run docs:build`, `npm run docs:test` (29 passing), and `git diff --check` passed.
+- Final PR remediation: `npm run pages:build`, `npm run docs:test` (32 passing), landing SEO/media/accessibility/
+  browser-support/size verification, the Pages artifact contract, and the 26 Chromium/Firefox Pages journeys passed.
+  Root format, type checks, `npm test` (397 passing), production audit, and production build passed. The local WebKit
+  run is blocked only by missing `libavif16` and `libwoff1`; CI installs them before its required WebKit coverage.
 
 ## Next Step
 
-Implement Task 18: compose crawl metadata after both landing and documentation builds.
+Task 23: obtain the required human release-candidate walkthrough and approval, then await explicit authorization for
+the release-gated deployment verification in Task 24.
 
 ## Blockers
 
-Deployment, release publication, and GitHub Pages settings remain out of scope until separately authorized.
+Deployment, release publication, and GitHub Pages settings remain out of scope until separately authorized. Local
+WebKit verification also requires `libavif16` and `libwoff1`; Chromium and Firefox Pages journeys pass locally, and
+CI installs browser dependencies before the required WebKit run.

@@ -1,6 +1,6 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–17, 6a, 14a–14f, and 16a are complete. The project-owner-authorized eleven-language landing
+**Status:** Tasks 1–22, 6a, 14a–14f, and 16a are complete. The project-owner-authorized eleven-language landing
 and localized subtitle tracks for the shared English product video are published in the static landing artifact.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
@@ -189,7 +189,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
     selected locale's captions and transcript.
   - Verify: all-locale static-output contracts, subtitle/timing checks, landing typecheck, and browser checks.
   - Files: locale dictionaries, rendering/hydration, media staging, and focused landing tests.
-- [ ] Task 18: Compose crawl metadata.
+- [x] Task 18: Compose crawl metadata.
   - Acceptance: Deterministic root robots/active-English landing sitemap reference the all-locale MkDocs sitemap,
     guide reciprocal alternates are complete, and private paths are excluded.
   - Verify: All-locale metadata tests and built XML/text validation.
@@ -197,17 +197,17 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint H
 
-- [ ] Active English landing/docs HTML and TXT cross-link with valid canonical ownership; every guide locale appears
+- [x] Active English landing/docs HTML and TXT cross-link with valid canonical ownership; every guide locale appears
       in the docs sitemap and language selector.
 
 ## Phase 4: Combined Artifact And Browser Verification
 
-- [ ] Task 19: Compose the Pages artifact.
+- [x] Task 19: Compose the Pages artifact.
   - Acceptance: Canonical Vite-first build produces landing root plus all eleven `/docs/` locale roots, preserves
     isolation, and fails on reversed order, route mismatch, or leakage.
   - Verify: Clean `npm run pages:build`, artifact contract, tree inspection.
   - Files: package scripts and combined-build test.
-- [ ] Task 20: Exercise the browser journey.
+- [x] Task 20: Exercise the browser journey.
   - Acceptance: Active English desktop/mobile/no-JavaScript links reach the exact MkDocs canonical; every localized
     guide deep refresh has no `4xx`/`5xx`, wrong-case/fallback, prefix duplication/escape, console error, or Pages
     404; returning to the English landing preserves an anchor and FAQ interaction.
@@ -218,17 +218,17 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint I
 
-- [ ] One local Pages candidate passes all integration, browser, and accessibility checks without external accounts,
+- [x] One local Pages candidate passes all integration, browser, and accessibility checks without external accounts,
       including a zero-error landing-to-MkDocs transition and functional return trip.
 
 ## Phase 5: Continuous Integration And Release Deployment
 
-- [ ] Task 21: Integrate pull-request validation.
+- [x] Task 21: Integrate pull-request validation.
   - Acceptance: PR-only job installs cached Python docs tooling and validates all localized combined Pages output with
     no deploy action.
   - Verify: Workflow tests, actionlint, local command-order comparison.
   - Files: PR workflow and workflow test.
-- [ ] Task 22: Add release-gated Pages deployment.
+- [x] Task 22: Add release-gated Pages deployment.
   - Acceptance: Published-release build depends on release assets, validates every guide locale, uploads one artifact,
     and deploys with least privilege; `pages.yml` remains absent.
   - Verify: Workflow tests, actionlint, local execution of all build commands without remote mutation.
@@ -236,7 +236,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint J
 
-- [ ] PR/release separation, dependencies, permissions, artifact root, and no-write-back contracts pass.
+- [x] PR/release separation, dependencies, permissions, artifact root, and no-write-back contracts pass.
 
 ## Phase 6: Review And Authorized Production Verification
 
