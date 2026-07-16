@@ -186,7 +186,7 @@ function renderLlmsIndex(
       '## Plain-text resources',
       ...localeDefinitions.flatMap((locale) => [
         `- [${locale.nativeLabel} page text](${locale.canonical.replace(/\/$/, '')}/index.txt)`,
-        `- [${locale.nativeLabel} transcript](${locale.canonical.replace(/\/$/, '')}/media/transcripts/${locale.routeSlug || 'en'}.txt)`,
+        `- [${locale.nativeLabel} transcript](${new URL(locale.transcriptText, englishLocale.canonical).href})`,
       ]),
       '',
       'This plain-text index is an accessibility and interoperability resource. It is not a crawler directive and does not guarantee indexing.',

@@ -11,7 +11,8 @@ function serializeJsonLd(value: unknown): string {
 function createStructuredData(content: LandingContent, locale: LandingLocaleDefinition): object {
   const websiteId = `${locale.canonical}#website`;
   const applicationId = `${locale.canonical}#application`;
-  const mediaBaseUrl = `${locale.canonical}generated/media/`;
+  const englishLocale = localeRegistry.find((candidate) => candidate.tag === 'en');
+  const mediaBaseUrl = `${englishLocale?.canonical ?? locale.canonical}generated/media/`;
 
   return {
     '@context': 'https://schema.org',
@@ -43,7 +44,7 @@ function createStructuredData(content: LandingContent, locale: LandingLocaleDefi
         contentUrl: `${mediaBaseUrl}demo.mp4`,
         description: content.demo.lead,
         duration: 'PT1M',
-        inLanguage: locale.tag,
+        inLanguage: 'en',
         name: content.demo.title,
         thumbnailUrl: `${mediaBaseUrl}demo-poster.webp`,
         transcript: content.demo.transcriptCues.map((cue) => cue.visualDescription).join(' '),

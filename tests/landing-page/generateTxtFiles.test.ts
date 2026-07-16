@@ -57,6 +57,11 @@ test('generates all normalized TXT resources from the complete localized source'
       llmsIndex,
       /\[Documentation\]\(https:\/\/swimmwatch\.github\.io\/gpt-voice\/docs\/\): The user guide covers installation, first use, workflows, settings, privacy, troubleshooting, and FAQ\./,
     );
+    assert.match(
+      llmsIndex,
+      /\[Русский transcript\]\(https:\/\/swimmwatch\.github\.io\/gpt-voice\/media\/transcripts\/ru\.txt\)/,
+    );
+    assert.doesNotMatch(llmsIndex, /https:\/\/swimmwatch\.github\.io\/gpt-voice\/ru\/media\/transcripts\//);
     assert.equal(llmsIndex.includes('\r'), false);
     assert.equal(llmsIndex, llmsIndex.normalize('NFC'));
     assert.equal(llmsIndex.endsWith('\n'), true);

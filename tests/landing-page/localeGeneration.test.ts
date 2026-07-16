@@ -30,7 +30,13 @@ test('pre-renders the English landing shell without a router or JavaScript depen
     const structuredData = document.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
     assert.ok(structuredData, 'Expected JSON-LD structured data.');
     const graph = JSON.parse(structuredData) as {
-      '@graph': Array<{ '@type': string; contentUrl?: string; mainEntity?: unknown[]; thumbnailUrl?: string }>;
+      '@graph': Array<{
+        '@type': string;
+        contentUrl?: string;
+        inLanguage?: string;
+        mainEntity?: unknown[];
+        thumbnailUrl?: string;
+      }>;
     };
     assert.deepEqual(
       graph['@graph'].map((entry) => entry['@type']),
@@ -67,6 +73,26 @@ test('pre-renders the English landing shell without a router or JavaScript depen
       assert.ok(localeDocument.includes(`href="${content.links.documentation}"`));
       assert.ok(localeDocument.includes(`src="${locale.captions}" srclang="${locale.tag}"`));
       assert.ok(localeDocument.includes(`href="${locale.route}" hreflang="${locale.tag}"`));
+
+      const localeStructuredData = localeDocument.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
+      assert.ok(localeStructuredData, `Expected JSON-LD for ${locale.tag}.`);
+      const localeGraph = JSON.parse(localeStructuredData) as {
+        '@graph': Array<{ contentUrl?: string; inLanguage?: string; thumbnailUrl?: string }>;
+      };
+      const video = localeGraph['@graph'][2];
+      assert.deepEqual(
+        {
+          contentUrl: video?.contentUrl,
+          inLanguage: video?.inLanguage,
+          thumbnailUrl: video?.thumbnailUrl,
+        },
+        {
+          contentUrl: 'https://swimmwatch.github.io/gpt-voice/generated/media/demo.mp4',
+          inLanguage: 'en',
+          thumbnailUrl: 'https://swimmwatch.github.io/gpt-voice/generated/media/demo-poster.webp',
+        },
+        `${locale.tag} must describe the shared English video at its site-level media URL.`,
+      );
     }
   } finally {
     await rm(outputDirectory, { force: true, recursive: true });
