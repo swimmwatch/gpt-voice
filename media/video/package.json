@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "render": "remotion render",
+    "render:representative": "remotion still GptVoiceDemo out/representative-providers.png --frame=3300 --props='{\"debugOverlays\":false,\"effectsMode\":\"fallback\"}'",
     "still": "remotion still",
     "studio": "remotion studio",
     "test:timeline": "node --experimental-strip-types --test src/validation/validateTimeline.test.ts",

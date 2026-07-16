@@ -39,10 +39,13 @@ test('keeps English landing validation PR-only and free of deployment work', asy
   assert.equal(workflow.on?.workflow_dispatch, undefined);
 
   const landing = workflow.jobs?.landing;
+  const media = workflow.jobs?.media;
   const pages = workflow.jobs?.pages;
   assert.ok(landing, 'Expected a landing validation job.');
+  assert.ok(media, 'Expected a product video validation job.');
   assert.ok(pages, 'Expected a Pages artifact validation job.');
   assert.equal(landing.needs, 'quality');
+  assert.equal(media.needs, 'quality');
   assert.equal(pages.needs, 'landing');
   assert.ok(landing.steps?.some((step) => step.uses === 'actions/setup-node@v6'));
   for (const command of [
@@ -64,6 +67,22 @@ test('keeps English landing validation PR-only and free of deployment work', asy
     assert.ok(
       landing.steps?.some((step) => step.run === command),
       `Expected landing command: ${command}`,
+    );
+  }
+  for (const command of [
+    'npm ci',
+    'npm ci --prefix media/video',
+    'npm --prefix media/video run typecheck',
+    'npm --prefix media/video run test:timeline',
+    'npm --prefix media/video run test:content',
+    'npm --prefix media/video run test:scenes',
+    'npm --prefix media/video run test:ui',
+    'npm --prefix media/video run validate:timeline',
+    'npm --prefix media/video run render:representative',
+  ]) {
+    assert.ok(
+      media.steps?.some((step) => step.run === command),
+      `Expected media command: ${command}`,
     );
   }
   for (const command of [

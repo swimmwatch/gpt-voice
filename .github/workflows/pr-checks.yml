@@ -156,6 +156,52 @@ jobs:
       - name: Run landing browser tests
         run: npm run landing:test:e2e
 
+  media:
+    name: Product Video Checks
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            media/video/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install video dependencies
+        run: npm ci --prefix media/video
+
+      - name: Typecheck product video
+        run: npm --prefix media/video run typecheck
+
+      - name: Run video timeline tests
+        run: npm --prefix media/video run test:timeline
+
+      - name: Run video content tests
+        run: npm --prefix media/video run test:content
+
+      - name: Run video scene tests
+        run: npm --prefix media/video run test:scenes
+
+      - name: Run video UI tests
+        run: npm --prefix media/video run test:ui
+
+      - name: Validate video timeline
+        run: npm --prefix media/video run validate:timeline
+
+      - name: Render representative video frame
+        run: npm --prefix media/video run render:representative
+
   pages:
     name: GitHub Pages Artifact Checks
     needs: landing
