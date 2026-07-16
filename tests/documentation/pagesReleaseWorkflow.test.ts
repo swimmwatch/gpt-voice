@@ -39,7 +39,10 @@ test('deploys one verified Pages artifact only after release builds complete', a
     'npm run pages:build',
     'node --import tsx --test tests/documentation/pagesArtifact.test.ts',
   ]) {
-    assert.ok(pages.steps?.some((step) => step.run === command), `Expected Pages release command: ${command}`);
+    assert.ok(
+      pages.steps?.some((step) => step.run === command),
+      `Expected Pages release command: ${command}`,
+    );
   }
 
   assert.ok(pages.steps?.some((step) => step.uses === 'actions/configure-pages@v6'));

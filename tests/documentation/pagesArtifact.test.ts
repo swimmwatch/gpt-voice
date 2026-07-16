@@ -16,14 +16,16 @@ test('publishes one artifact with reciprocal landing and documentation routes', 
   await writeFile(path.join(outputDirectory, 'docs', 'sitemap.xml'), '<urlset />');
 
   await Promise.all(
-    localeSlugs.filter(Boolean).flatMap((localeSlug) => [
-      mkdir(path.join(outputDirectory, localeSlug), { recursive: true }).then(() =>
-        writeFile(path.join(outputDirectory, localeSlug, 'index.html'), '<html />'),
-      ),
-      mkdir(path.join(outputDirectory, 'docs', localeSlug), { recursive: true }).then(() =>
-        writeFile(path.join(outputDirectory, 'docs', localeSlug, 'index.html'), '<html />'),
-      ),
-    ]),
+    localeSlugs
+      .filter(Boolean)
+      .flatMap((localeSlug) => [
+        mkdir(path.join(outputDirectory, localeSlug), { recursive: true }).then(() =>
+          writeFile(path.join(outputDirectory, localeSlug, 'index.html'), '<html />'),
+        ),
+        mkdir(path.join(outputDirectory, 'docs', localeSlug), { recursive: true }).then(() =>
+          writeFile(path.join(outputDirectory, 'docs', localeSlug, 'index.html'), '<html />'),
+        ),
+      ]),
   );
 
   await writePagesMetadata(outputDirectory);
