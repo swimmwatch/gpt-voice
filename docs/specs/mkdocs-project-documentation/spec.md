@@ -1,9 +1,9 @@
 # Spec: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–14, 6a, and 14b–14c are complete; Task 14a is in
-progress with a complete staged Russian set and staged Belarusian core pages, while publication remains blocked
+**Status:** Incremental implementation in progress — Tasks 1–17, 6a, and 14a–14c are complete; all eleven guide
+locales publish through Material's native selector, and the English landing selector routes to each documentation root.
 **Global task slug:** `mkdocs-project-documentation`
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-16
 
 The plan is approved. Incremental implementation is authorized one task at a time; dependency installation,
 workflow changes, deployment, release publication, and GitHub Pages configuration changes remain subject to the
@@ -38,8 +38,8 @@ relevant task and their stated approval boundaries.
     never claim that the application UI is localized in Spanish, Brazilian Portuguese, Simplified Chinese, Japanese,
     German, French, or Hindi.
 11. The styling revision is covered by Task 14b's Material baseline and Task 14c's CloakBrowser reference-derived
-    content treatment. Existing staged translations remain blocked; any further theme exception follows the revised
-    ask-first boundary.
+    content treatment. The project owner approved all staged localized guide source sets on 2026-07-16; any further
+    theme exception follows the revised ask-first boundary.
 
 ## Objective
 
@@ -65,7 +65,7 @@ publish both surfaces as one coherent GitHub Pages project site.
 - Documentation and landing page use the same product name, capability claims, platform status, palette, canonical
   URLs, and release cadence. Their component systems remain intentionally distinct: Material for MkDocs owns the
   guide UI, while the landing page keeps its existing frontend design system.
-- Every published guide locale has complete, human-reviewed source text, localized navigation and search, a
+- Every published guide locale has complete project-owner-approved source text, localized navigation and search, a
   self-canonical URL, reciprocal language alternates, and an equivalent user journey.
 - A release cannot deploy Pages when the landing build, MkDocs strict build, integration contracts, or required
   documentation checks fail.
@@ -92,10 +92,9 @@ publish both surfaces as one coherent GitHub Pages project site.
   standalone `.github/workflows/pages.yml` is intentionally removed, and `.github/workflows/release-builds.yml`
   currently has no Pages jobs.
 - The landing registry is the authoritative public locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
-  `ja`, `de`, `fr`, and `hi`. Its current content publication is English-only, so guide/landing locale links remain
-  an implementation and release gate rather than a claim about the current build. The guide publishes all eleven
-  locales; the active English landing links to the English guide, while a separately approved future landing locale
-  must use its matching guide route from the shared matrix.
+  `ja`, `de`, `fr`, and `hi`. Landing content remains English-only, while its language selector links directly to all
+  eleven localized guide roots. A separately approved future landing locale must use its matching guide route from the
+  shared matrix.
 - End-user instructions are concentrated in `README.md`, while settings truth is distributed across renderer
   components and shared settings contracts.
 - `docs/` already contains engineering specifications, so pointing MkDocs at the whole directory would expose
@@ -115,7 +114,7 @@ Adopt from `swimmwatch/cloakbrowser-mcp`:
 Do not copy by default:
 
 - Its bounded localization pattern: `mkdocs-static-i18n` with `docs_structure: suffix`, localized navigation/search,
-  source-hash translation manifest, and stale-translation tests.
+  and complete localized source sets.
 - Project-specific hooks, macros, generated CLI reference, compatibility tables, IndexNow submission, social-card
   generation, advanced SEO plugin, or contributor documentation.
 - Its root `docs_dir: docs`, because GPT-Voice has internal artifacts in that namespace.
@@ -145,16 +144,15 @@ it and a contract test compares it with `src/landing-page/content/locale-registr
 `mkdocs-static-i18n` is configured for suffix-based source files, Material/search reconfiguration, and only the
 locale routes in this table. Its locale setting controls both suffix recognition and the initial static output
 directory, so a small, tested post-build route adapter normalizes the two BCP 47 output folders and generated path
-segments from `pt-BR`/`zh-CN` to the lowercase public slugs `pt-br`/`zh-cn`, without changing `lang` or `hreflang`
+segments from `pt-BR`/`zh-CN` to the lowercase public slugs `pt-br`/`zh-cn` and restores their canonical BCP 47 `lang`
 values. The non-public locale map retains the canonical BCP 47 tag. Aliases, guessed browser-language redirects, and a
 `zh` route are prohibited. The default guide never falls back silently for a missing localized page: a locale is
 publishable only when every required source page and its navigation translation are present.
 
 The English source page is authoritative. Localized Markdown preserves code blocks, commands, file names, literal UI
 labels, URLs, version identifiers, keys, and screenshot provenance. A committed, non-published translation manifest
-records the English source hash, localized file path/hash, non-personal approval reference, and review date. Draft
-translation may use an explicitly approved offline or credentialed authoring process, but builds and browser tests
-make no translation-network request and never require a provider credential.
+records the project-owner approval date and scope. It requires every suffix source page and an approved record for each
+locale, but it does not perform linguistic review or call a translation service during builds or browser tests.
 
 ## Documentation Information Architecture
 
@@ -526,7 +524,7 @@ docs/
 │       └── generated/                           # Ignored synced PNG logo, SVG wordmark, fonts, and approved screenshots
 │   └── data/
 │       ├── locales.json                         # Non-public MkDocs route and navigation metadata
-│       └── translation-manifest.json            # Non-public source/review/hash record
+│       └── translation-manifest.json            # Non-public project-owner publication record
 ├── specs/                                       # Existing internal specifications; never public MkDocs input
 └── researches/                                  # Existing internal research; never public MkDocs input
 scripts/
@@ -592,10 +590,11 @@ recording. A new recording or application restart removes the retained retry aud
   structural Material selectors, visual template replacements, and unapproved declarations.
 - Locale contracts compare every MkDocs tag, source suffix, public route, label, and font requirement to the landing
   locale registry. They reject missing or duplicate localized pages, fallback-only output, untranslated navigation,
-  invalid route casing, `zh` aliases, stale translation-manifest entries, missing local glyph fonts, and inconsistent
+  invalid route casing, `zh` aliases, invalid publication-manifest entries, missing local glyph fonts, and inconsistent
   app-UI language claims.
-- Generated HTML tests verify each locale's title, description, canonical, `lang`, reciprocal `hreflang`, local search,
-  home/repository/release links, heading hierarchy, viewport, and absence of remote runtime assets.
+- Generated HTML tests verify each locale's title, description, canonical, `lang`, reciprocal `hreflang`, Material
+  language-selector routes, local search, home/repository/release links, heading hierarchy, viewport, and absence of
+  remote runtime assets.
 - The combined artifact test verifies landing and MkDocs roots coexist and no build step erases the other.
 - Workflow contracts verify Python setup, pinned requirements, build order, one artifact root, dependencies,
   permissions, release gate, and official Pages actions.
@@ -620,13 +619,13 @@ recording. A new recording or application restart removes the retained retry aud
 - A maintainer follows first launch, provider configuration, one transcription, retry, translation, prettification,
   history, and relevant settings instructions against the release candidate.
 - A human reviews screenshot privacy and public-use scope before deployment.
-- A proficient reviewer approves each non-English guide locale for accuracy, terminology, completeness, locale-appropriate
-  typography, and the distinction between translated guide text and the four localized application UI languages.
+- The project owner approved all ten staged non-English guide source sets for publication on 2026-07-16; no independent
+  linguistic review is required for this work.
 - Compare the active English landing and guide at desktop/mobile widths for product naming, logo, palette, link
   destinations, disclaimers, and current platform/provider messaging. Confirm the reference-derived wordmark,
   screenshot framing, icon actions, and card treatment remain responsive while Material retains the structural UI.
-  Review every guide locale for equivalent terminology, locale glyph coverage, and its language-selector/landing-route
-  contract; do not imply a non-English landing is publicly available before its separate approval.
+  Confirm every guide locale has glyph coverage and its language-selector/landing-route contract; do not imply a
+  non-English landing is publicly available before its separate approval.
 - After an authorized release deployment, smoke-test root and docs URLs, direct refreshes, sitemaps, robots links,
   canonical URLs, console errors, response types, and 404 behavior.
 
@@ -641,8 +640,8 @@ recording. A new recording or application restart removes the retained retry aud
 - Removed settings are deleted from navigation and prose in the release that removes them; deprecated behavior is
   labeled with its removal status rather than left as current guidance.
 - README retains brief setup and contributor material and links to the guide for full user instructions.
-- English remains the source of truth. A public behavior change updates English and marks every affected translation
-  stale in the manifest; all published locales are refreshed and linguistically reviewed in the same release change.
+- English remains the source of truth. A public behavior change updates English and every affected published locale in
+  the same release change, followed by renewed project-owner approval.
 - The translation manifest and locale registry are build inputs only. They never expose a translation-provider key,
   reviewer personal data, internal notes, or an unsupported application locale.
 - Public documentation changes are reviewed for accuracy, accessibility, privacy, and landing consistency before a
@@ -719,8 +718,8 @@ workflow only after plan and implementation approval.
 - Commit `.venv-docs/`, MkDocs cache, generated screenshot/font derivatives, `site/`, or `build/github-pages/`.
 - Publish an API key, token, cookie, session, browser profile, proxy credential, account identifier, real transcript,
   audio, clipboard content, local path, or personal data.
-- Treat a draft machine translation as linguistically reviewed content, invoke a translation service during CI/browser
-  tests, or publish a locale with a missing/stale source page.
+- Invoke a translation service during CI/browser tests or publish a locale with a missing source page or without the
+  recorded project-owner approval.
 - Use a real authenticated provider or personal profile to produce or test documentation.
 - Imply official OpenAI affiliation, unlimited/quota-bypassing use, universal platform support, or guaranteed service
   behavior.
@@ -765,8 +764,8 @@ workflow only after plan and implementation approval.
     assertions.
 13. README links to the public guide and remains a concise repository overview rather than a competing settings
     manual.
-14. Human content, screenshot-privacy, and landing/docs consistency reviews are recorded before an authorized
-    deployment.
+14. Project-owner content approval, screenshot-privacy, and landing/docs consistency reviews are recorded before an
+    authorized deployment.
 15. No implementation or remote mutation occurs until the specification and subsequent gated artifacts receive
     their required approvals.
 
@@ -775,11 +774,8 @@ workflow only after plan and implementation approval.
 1. Should the first release publish only the already approved main screenshot, or should the four reference-only
    provider/hotkey/prettify/history captures be explicitly re-approved for documentation? Default: publish only the
    main screenshot until each expanded use is approved.
-2. Who will provide recorded proficient-speaker approval for `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`, `ja`, `de`,
-   `fr`, and `hi`? The guide may be prepared locally, but no non-English locale is deployed before its approval is
-   recorded in the translation manifest.
-3. Is `/gpt-voice/docs/` the desired stable route, or is `/gpt-voice/guide/` preferred? Default: `/docs/` because it
+2. Is `/gpt-voice/docs/` the desired stable route, or is `/gpt-voice/guide/` preferred? Default: `/docs/` because it
    is conventional, descriptive, and compatible with one Pages artifact.
-4. Should browser/network settings receive new synthetic captures in a later media task? Default: textual settings
+3. Should browser/network settings receive new synthetic captures in a later media task? Default: textual settings
    documentation is complete without them; add captures only after a privacy-reviewed deterministic source exists.
-5. Is a custom Pages domain planned? Default: no; canonical URLs remain under `swimmwatch.github.io/gpt-voice/`.
+4. Is a custom Pages domain planned? Default: no; canonical URLs remain under `swimmwatch.github.io/gpt-voice/`.

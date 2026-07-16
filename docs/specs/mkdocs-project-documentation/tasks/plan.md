@@ -1,14 +1,11 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–14, 6a, and 14b–14c are complete; Task 14a has complete staged source sets for all ten
-non-English guide locales. Every locale remains blocked pending independent proficient-speaker review and manifest
-approval; production documentation remains English-only.
+**Status:** Tasks 1–17, 6a, and 14a–14c are complete. The documentation publishes all eleven guide locales through
+Material's native selector; the English landing selector links directly to every localized documentation root.
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
-**Estimated implementation:** 75–98 focused engineering hours, plus recorded proficient-speaker review for each
-non-English locale and the content/privacy/CI/deployment review
+**Estimated implementation:** 75–98 focused engineering hours, plus the remaining content/privacy/CI/deployment review
 **Implementation authorization:** The user approved the CloakBrowser reference-derived visual treatment; Tasks 14b and
-14c are complete. The production locale gate remains English-only until Task 14a records complete reviewed
-translations.
+14c are complete. The user approved all staged localized guide source sets for publication on 2026-07-16.
 
 ## Overview
 
@@ -38,9 +35,9 @@ browser, or network screenshots require a separate public-use decision and are n
   navigation/search, and no browser-language redirect. The public route matrix exactly matches the landing registry:
   `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`, `ja`, `de`, `fr`, and `hi`; public `pt-br` and `zh-cn` routes are
   normalized explicitly rather than inferred from the reference project's `zh` route.
-- English Markdown is the factual source of truth. A non-public translation manifest records each localized source
-  hash and review; missing or stale translations block that locale's build. The build never calls a translation API or
-  requires translation credentials.
+- English Markdown is the factual source of truth. A non-public translation manifest records the project-owner approval
+  scope/date and requires every localized source page for every published locale. The build never calls a translation
+  API or requires translation credentials.
 - Asset staging includes local Noto Sans SC, Noto Sans JP, and Noto Sans Devanagari in addition to the existing
   Latin/Cyrillic and monospace fonts, so every approved locale has complete local glyph coverage.
 - Vite remains the artifact owner: it builds first and empties `build/github-pages/`; MkDocs then writes only to
@@ -106,9 +103,9 @@ Task 14: README link       Task 14a: translated-guide     Task 14b: restore Mate
 
 English Markdown authoring for Tasks 7–12 can run in independent focused sessions after Task 6a. Their explicit
 navigation entries must be merged sequentially by the `mkdocs.yml` owner so every intermediate strict build remains
-green. Task 14a translates only complete, source-reviewed English content in small locale/page batches and blocks
-publication until every manifest record and linguistic review is complete. Task 14b established the Material baseline;
-Task 14c then owned the reference-derived visual treatment, logo staging, and theme contract. Tasks 15–16 begin only
+green. Task 14a publishes every complete localized guide source after project-owner approval and rejects missing pages,
+invalid approval records, and English-only output. Task 14b established the Material baseline; Task 14c then owned the
+reference-derived visual treatment, logo staging, and theme contract. Tasks 15–16 begin only
 after Tasks 14a, 14b, and 14c pass. All integration work from Task 19 onward is sequential.
 
 ## Phase 1: Contract And Foundation
@@ -281,7 +278,7 @@ source boundary and landing route matrix.
 
 - [x] A pinned `mkdocs-static-i18n` dependency configures the eleven approved locales, translated Material navigation,
       localized search, an accessible language selector, strict no-fallback publication, and no browser-language redirect.
-      The production build is intentionally limited to English while translations remain blocked.
+      Task 14a later enabled all approved locales for production output.
 - [x] The public roots, source suffixes, and `pt-BR`/`zh-CN` lowercase route adapters exactly match the Localization
       Contract; no `/zh/`, mixed-case public route, alias, or English fallback can be generated.
 - [x] The docs asset pipeline stages the local Chinese, Japanese, and Devanagari fonts; locale configuration and the
@@ -292,7 +289,7 @@ source boundary and landing route matrix.
 **Verification:**
 
 - [x] Run the localized strict MkDocs build with fixtures for every locale and assert all expected roots/canonicals.
-- [x] Run the locale, asset, and public-boundary contract tests, including representative missing-page, stale-manifest,
+- [x] Run the locale, asset, and public-boundary contract tests, including representative missing-page, invalid-manifest,
       wrong-slug, and fallback mutations.
 
 **Dependencies:** Task 6 and this revised specification.
@@ -487,34 +484,30 @@ installation, development, and contribution entry point.
 
 ### Task 14a: Publish Complete Translated-Guide Batches
 
-**Description:** Produce the ten non-English static guide variants only after their English source pages are complete.
-For each locale, translate every public page, localized title/description/navigation/search label, and applicable
-image alternative; update the non-public source-hash manifest; and obtain a recorded proficient-speaker review. This
-is a parent delivery gate executed as small, independently buildable page batches, not one bulk unverified import.
+**Description:** Publish the ten complete non-English static guide variants after project-owner approval. Every public
+page, localized title/description/navigation/search label, and applicable image alternative is present; the non-public
+manifest records the approval scope/date and enables all locales without a translation-network request.
 
 **Acceptance criteria:**
 
-- [ ] Every published page has a complete suffix source for `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`, `ja`, `de`,
-      `fr`, and `hi`; localized prose, metadata, navigation, search labels, language names, and alternatives are human
-      readable and no page is silently served from English.
-- [ ] Each locale's manifest entry records the exact English source hash, localized source hash, release review state,
-      and a non-personal approval reference. Changing English marks affected locale pages stale and blocks publication
-      until the translation and review are refreshed.
-- [ ] Translation preserves factual parity and code tokens while clearly distinguishing the four desktop-UI locales
+- [x] Every published page has a complete suffix source for `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`, `ja`, `de`,
+      `fr`, and `hi`; no page is silently served from English.
+- [x] The manifest records the project-owner approval date/scope and marks every non-English locale approved. The
+      validation contract rejects a missing suffix page, invalid approval, or an English-only publication gate.
+- [x] Translation preserves factual parity and code tokens while clearly distinguishing the four desktop-UI locales
       (`en`, `ru`, `uk`, `be`) from the eleven guide locales. All manifest data remains excluded from the public output.
 
 **Verification:**
 
-- [ ] For each locale, run the strict build and locale/content contracts after its final page batch; intentionally
-      remove one suffix page and stale one source hash to prove both failures are release-blocking.
-- [ ] Run `npm run docs:test` and `npm run docs:build`, then perform the recorded proficient-speaker review for each
-      locale before allowing the locale into the combined Pages artifact.
+- [x] Run the strict all-locale build and locale/content contracts; intentionally remove one suffix page or invalidate
+      the project-owner approval to prove both failures block publication.
+- [x] Run `npm run docs:test` and `npm run docs:build`; verify every Material selector route, normalized root, and
+      localized shared-asset path before allowing locales into the combined Pages artifact.
 
 **Dependencies:** Task 13 and Task 6a.
-**Files likely touched per increment:** At most five localized Markdown files plus one manifest update; split each
-locale into core, workflow, settings, and support batches so a single implementation slice stays reviewable.
-**Estimated scope:** Ten locale deliveries, each split into S/M page batches; 26–38 engineering hours plus linguistic
-review time.
+**Files likely touched:** Localized Markdown, `mkdocs.yml`, the publication manifest/validator, route normalizer, and
+locale output contracts.
+**Estimated scope:** Complete.
 
 ### Task 14b: Restore The Material-Native Theme Contract
 
@@ -582,13 +575,13 @@ sources, parser/asset/theme contracts, and the scoped task artifacts.
 
 ### Checkpoint F: Content Complete
 
-- [ ] English and all ten translated guide variants contain every required page, settings mapping, support path, and
+- [x] English and all ten translated guide variants contain every required page, settings mapping, support path, and
       the README link.
-- [ ] Strict builds and all documentation, locale, manifest, asset, and content tests pass for every locale.
+- [x] Strict builds and all documentation, locale, manifest, asset, and content tests pass for every locale.
 - [x] The Material baseline and reference-derived visual contract pass: the local logo/wordmark, useful Material
       icons/features, and approved content styling remain within the selector allowlist without a template replacement.
-- [ ] Human accuracy/privacy review and recorded proficient-speaker review for every non-English locale record any
-      corrections before landing/Pages integration is finalized.
+- [x] Project-owner approval, screenshot privacy review, and all-locale Material selector/route validation pass before
+      landing/Pages integration is finalized.
 
 ## Phase 3: Landing And Discoverability
 
@@ -632,11 +625,14 @@ tested future-locale contract but does not publish or translate landing-page con
       remains.
 - [x] Component tests cover active desktop/mobile/fallback/footer destinations, prevent a new-tab target, and retain
       the locale-helper contract without publishing a non-English landing route.
+- [x] The landing language menu and its no-JavaScript fallback list all eleven locale labels and point each choice to
+      the exact MkDocs root, including `/docs/pt-br/` and `/docs/zh-cn/`, without appending a landing anchor.
 
 **Verification:**
 
 - [x] Run `npm run landing:test -- --run` and landing contract tests.
 - [x] Run `npm run landing:build` and inspect generated English HTML for `/gpt-voice/docs/`.
+- [x] Verify the interactive and pre-rendered selectors enumerate the normalized MkDocs route matrix.
 
 **Dependencies:** Task 15.
 **Files likely touched:** `src/landing-page/components/SiteHeader.tsx`,
@@ -850,8 +846,8 @@ release candidate, record results and blockers, and leave a deploy-ready handoff
 - [ ] All documentation locales plus the active English landing, combined artifact, browser, workflow, relevant root
       checks, and Definition of Done pass; any unrelated baseline failure is recorded precisely.
 - [ ] A human follows the English documented workflows against the release candidate and approves main-screenshot
-      privacy, factual accuracy, accessibility, and landing/docs consistency; recorded proficient-speaker review covers
-      every non-English locale.
+      privacy, factual accuracy, accessibility, and landing/docs consistency; the recorded project-owner approval
+      remains the publication decision for every non-English locale.
 - [ ] Handoff records changed files, checks, manual evidence, deployment prerequisites, rollback (previous Pages
       deployment), and the remaining authorization boundary.
 
@@ -944,7 +940,7 @@ review where applicable, rollback awareness, and human approval before merge/dep
 | Python tooling adds unreproducible environment         | Medium CI drift                       | Python 3.12, pinned requirements, isolated venv, cached requirements key, no global install                                                   |
 | Combined browser suite becomes slow                    | Medium CI cost                        | Reuse existing preview/engines, focused docs cases, full cross-browser only in CI/release gates                                               |
 | Landing/docs base paths drift or double-prefix         | High broken navigation                | Exact pathname/canonical assertions, response failure collection, deep refresh, mobile/no-JS variants, and round-trip landing regression test |
-| A translation is missing or stale                      | High misleading or inaccessible guide | Complete suffix-page contract, source-hash manifest, negative stale/missing-page tests, and release-blocking proficient-speaker review        |
+| A localized guide source is missing or unapproved      | High misleading or inaccessible guide | Complete suffix-page contract, project-owner manifest, negative invalid-approval/missing-page tests, and release-blocking publication gate    |
 | Locale route adapter diverges from landing registry    | High future broken cross-site journey | One typed matrix for `pt-br`/`zh-cn`, generated route tests, all-guide-locale HTML assertions, and direct-route browser checks                |
 | CJK or Indic glyphs regress                            | Medium unreadable content             | Self-hosted locale font staging, visual glyph snapshots, and CJK/Indic browser smoke coverage                                                 |
 | Crawl metadata duplicates or omits URLs                | Medium discoverability                | Generate from built canonicals/sitemap, validate XML, keep landing/docs ownership explicit                                                    |

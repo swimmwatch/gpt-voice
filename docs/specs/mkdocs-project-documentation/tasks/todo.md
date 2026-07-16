@@ -1,8 +1,7 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–14, 6a, 14b–14c, and Checkpoints D–E are complete; Task 14a has complete staged source sets for
-all ten non-English guide locales. Every locale remains blocked pending independent proficient-speaker review and
-manifest approval; production documentation remains English-only.
+**Status:** Tasks 1–17, 6a, 14a–14c, and Checkpoints D–G are complete. All eleven guide locales publish through
+Material's native selector, and the English landing selector links to each localized documentation root.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -52,9 +51,8 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 - [x] Task 6a: Establish the multilingual MkDocs foundation.
   - Acceptance: Pinned suffix-based `mkdocs-static-i18n` supports `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
     `ja`, `de`, `fr`, and `hi` with localized navigation/search, local glyph fonts, route adapters, no redirect, and
-    no fallback publication. The production build remains English-only until Task 14a supplies complete reviewed
-    translations.
-  - Verify: Localized strict build plus locale/asset/public-boundary tests, including missing-page, stale-manifest,
+    no fallback publication. Task 14a enables all project-owner-approved guide locales for production output.
+  - Verify: Localized strict build plus locale/asset/public-boundary tests, including missing-page, invalid-manifest,
     wrong-slug, and fallback mutations.
   - Files: requirements, MkDocs config, asset sync, locale contract, asset test.
 - [x] Task 7: Publish the transcription path.
@@ -102,12 +100,12 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Acceptance: README prominently links the full public guide without becoming a duplicate settings manual.
   - Verify: Docs content test, negative destination mutations, and rendered link review.
   - Files: README and content test.
-- [ ] Task 14a: Publish complete translated-guide batches.
-  - Acceptance: Every public page is complete in all ten non-English suffix variants; hashes/review state in the
-    non-public manifest are current; no guide silently falls back to English.
-  - Verify: Per-locale strict build and negative missing/stale mutations, then `npm run docs:test` and recorded
-    proficient-speaker review.
-  - Files: Up to five localized Markdown files plus one manifest update per implementation increment.
+- [x] Task 14a: Publish complete translated-guide batches.
+  - Acceptance: Every public page is complete in all ten non-English suffix variants; the non-public manifest records
+    project-owner approval; no guide silently falls back to English.
+  - Verify: Strict all-locale build and negative missing-source/invalid-approval mutations, then `npm run docs:test`
+    and Material selector/normalized-route output checks.
+  - Files: Localized Markdown, MkDocs publication config, manifest/validator, route normalizer, and output contracts.
 - [x] Task 14b: Restore the Material-native theme contract.
   - Acceptance: Material for MkDocs owns all documentation components and layout; custom CSS contains only the
     approved landing palette plus required local font/glyph declarations, enforced by a regression contract.
@@ -123,8 +121,8 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint F
 
-- [ ] English and every translated guide have complete content/settings coverage; README link, manifest, human
-      accuracy/privacy review, and recorded proficient-speaker review all pass.
+- [x] English and every translated guide have complete content/settings coverage; README link, project-owner approval,
+      manifest, and screenshot privacy review all pass.
 - [x] Material baseline and reference-derived visual contract pass before landing integration begins.
 
 ## Phase 3: Landing And Discoverability
@@ -136,14 +134,16 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Files: schema, locale registry/content, content test.
 - [x] Task 16: Render the landing guide navigation.
   - Acceptance: Active English desktop, mobile, no-JavaScript, footer, and pre-rendered HTML expose the same guide
-    route; no non-English landing content is published in this task.
-  - Verify: Landing component/contracts, future-route contract, and English production-build inspection.
+    route; its language selector and no-JavaScript fallback link to every localized documentation root without
+    publishing non-English landing content.
+  - Verify: Landing component/contracts, future-route contract, static selector route matrix, and English
+    production-build inspection.
   - Files: header, page composition, header/page tests.
 
 ### Checkpoint G
 
-- [x] Active English landing guide entry points and the future-locale route matrix work without regressing CTAs,
-      anchors, locale, or focus behavior.
+- [x] Active English landing guide entry points and the all-locale documentation selector matrix work without
+      regressing CTAs, anchors, locale, or focus behavior.
 
 - [x] Task 17: Expose the guide in text discovery.
   - Acceptance: English `llms.txt` links to the guide without duplicated/hidden content or changed landing-content
@@ -203,7 +203,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 - [ ] Task 23: Complete local release-candidate review.
   - Acceptance: Full all-guide-locale automated suite, English landing/content/privacy/visual walkthrough, recorded
-    proficient-speaker reviews, and deploy-ready handoff pass.
+    project-owner approval, and deploy-ready handoff pass.
   - Verify: Commands listed in detailed plan plus complete spec/diff review.
   - Files: handoff and this checklist only unless findings create separately scoped fixes.
 - [ ] Task 24: Verify the authorized deployment.
@@ -216,5 +216,5 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 ### Final Checkpoint
 
 - [ ] All specification success criteria and Definition of Done items are satisfied.
-- [ ] Human review is recorded before merge and before deployment.
+- [ ] Required project-owner and human privacy/consistency reviews are recorded before merge and before deployment.
 - [ ] Landing and documentation are live, mutually navigable, release-consistent, and verified.

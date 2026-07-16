@@ -14,8 +14,8 @@
 - Task 6a added the pinned suffix-based `mkdocs-static-i18n` configuration for the eleven landing locales, localized
   navigation/search, no-fallback behavior, and tested lowercase `pt-br`/`zh-cn` route adapters.
 - Task 6a stages all local Noto Sans SC, Noto Sans JP, and Noto Sans Devanagari Unicode subsets with hash validation.
-- A non-public translation manifest blocks every non-English locale until every page has current source/local hashes
-  and a non-personal proficient-speaker review record. The production docs build therefore remains English-only.
+- The non-public translation manifest records project-owner approval and requires every localized source page before
+  publishing all eleven Material guide roots with no English fallback.
 - Task 7 added source-derived English guides for the recording lifecycle, temporary retry behavior, clipboard/history
   output, user-facing failures, ChatGPT Web sessions, OpenAI API keys/settings, provider switching, and authentication
   clearing.
@@ -41,19 +41,21 @@
 - Task 14c applied the user-authorized CloakBrowser reference visual treatment while preserving GPT-Voice branding and
   the landing palette: a self-contained PNG header/fav icon, local hero wordmark, useful Material icons/features,
   icon-led overview cards, and a tested content-style selector allowlist.
+- Task 14a published the complete Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese, Simplified Chinese,
+  Japanese, German, French, and Hindi guide sets after project-owner approval. The output contract verifies Material's
+  selector at every root, normalized `pt-br`/`zh-cn` routes, canonical BCP 47 `lang` values, and shared-asset paths.
 - Task 15 centralized the English Documentation label and `/gpt-voice/docs/` destination, reserved a validated future
   guide route for every landing locale, and retained English as the only published landing content.
 - Task 16 renders that typed English destination after the on-page desktop links and in hydrated mobile, no-JavaScript,
-  pre-rendered, and footer navigation without opening a new tab or publishing a non-English landing page.
+  pre-rendered, and footer navigation without opening a new tab or publishing a non-English landing page. Its language
+  menu and no-JavaScript fallback now route every locale choice directly to the matching MkDocs root.
 - Task 17 adds the one factual English documentation link to `llms.txt` while keeping `llms-full.txt` limited to the
   landing content and its localized landing-resource index. The all-locale MkDocs fixture now rejects a sitemap missing
   any normalized guide root.
 
 ## In Progress
 
-- Task 14a has complete staged source sets for Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese,
-  Simplified Chinese, Japanese, German, French, and Hindi. All ten non-English locales remain blocked in the
-  translation manifest until independent proficient-speaker review and manifest approval are recorded.
+- No implementation is in progress for the locale selector task.
 
 ## Changed Files
 
@@ -144,6 +146,7 @@
 - `tests/documentation/localeContract.test.ts`
 - `tests/documentation/normalizeDocsLocaleRoutes.test.ts`
 - `tests/documentation/translationManifest.test.ts`
+- `tests/landing-page/localeGeneration.test.ts`
 - `tests/documentation/localeSourceContract.test.ts`
 - `tests/documentation/contentContract.test.ts`
 - `tests/documentation/settingsCoverage.test.ts`
@@ -305,13 +308,15 @@
 - Task 17: focused TXT and all-locale sitemap tests, strict documentation build and 27 documentation contracts, the
   full unit suite (388 passing), landing production build, 24 landing tests, landing typecheck/lint/format checks, and
   `git diff --check` passed.
+- Locale selector publication: `npm run docs:build`, `npm run docs:test` (28 passing), focused landing selector tests,
+  `node --import tsx --test tests/landing-page/localeGeneration.test.ts`, landing build/typecheck/lint/format checks,
+  and `git diff --check` passed. The static landing output contains all 11 canonical documentation routes with no
+  appended landing anchor.
 
 ## Next Step
 
 Implement Task 18: compose crawl metadata after both landing and documentation builds.
-Proficient-speaker review can proceed independently.
 
 ## Blockers
 
-Deployment, release publication, and GitHub Pages settings remain out of scope until separately authorized. Every
-non-English locale requires a recorded proficient-speaker approval before Task 14a can enable it for publication.
+Deployment, release publication, and GitHub Pages settings remain out of scope until separately authorized.
