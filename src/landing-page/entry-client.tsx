@@ -50,6 +50,15 @@ function scheduleLandingHydration(): void {
   document.addEventListener('pointerdown', start, { capture: true, once: true });
 }
 
+function revealInitialHashTarget(): void {
+  const targetId = window.location.hash.slice(1);
+  const target = targetId ? document.getElementById(targetId) : null;
+
+  if (target?.matches('[data-landing-reveal]')) {
+    target.dataset.revealed = 'true';
+  }
+}
+
 function enableSectionReveals(): void {
   if (typeof IntersectionObserver === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
     return;
@@ -142,4 +151,5 @@ function enableDeferredDemoPlayer(): void {
 }
 
 scheduleLandingHydration();
+revealInitialHashTarget();
 enableSectionReveals();

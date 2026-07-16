@@ -84,6 +84,7 @@
 - `src/landing-page/components/LandingPage.test.tsx`
 - `src/landing-page/components/SiteHeader.tsx`
 - `src/landing-page/components/SiteHeader.test.tsx`
+- `src/landing-page/entry-client.tsx`
 - `docs/user-guide/index.ru.md`
 - `docs/user-guide/install.ru.md`
 - `docs/user-guide/getting-started.ru.md`
@@ -285,6 +286,10 @@
 - Task 16: all landing component and future-route contract tests (24 passing), landing format, typecheck, and lint
   passed. The production build emits the English Documentation link at `/gpt-voice/docs/` in desktop, no-JavaScript,
   and footer markup; the component tests also cover the hydrated mobile sheet and prevent a new-tab target.
+- CI follow-up: run `29482367798` failed only when WebKit measured an initial deep-link target 11px under the sticky
+  header. The entrance transition changed that target's geometry after its position was corrected. Initial fragment
+  targets now begin revealed; focused and full Chromium browser checks, landing tests, format, typecheck, and lint pass.
+  Local WebKit cannot launch without system libraries, so the cross-browser confirmation is delegated to CI.
 
 ## Next Step
 
