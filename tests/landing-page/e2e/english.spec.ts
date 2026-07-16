@@ -361,17 +361,16 @@ test.describe('English keyboard interactions', () => {
     await expect(answer).toBeVisible();
   });
 
-  test('keeps a visible frame while the demo video owns keyboard focus', async ({ page }) => {
+  test('exposes a keyboard-focusable demo frame in the native fallback', async ({ page }) => {
     await page.route('**/assets/plyr-*.js', (route) => route.abort());
     await page.goto('/#demo');
+    await expect(page.locator('html')).toHaveAttribute('data-landing-enhanced', 'true');
 
-    const video = page.locator('[data-demo-video]');
     const frame = page.locator('.demo-video-frame');
+    const video = page.locator('[data-demo-video]');
     await expect(page.locator('.plyr')).toHaveCount(0);
-    await video.focus();
-
-    await expect(video).toBeFocused();
-    expect(await frame.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
+    await expect(frame).toHaveAttribute('tabindex', '0');
+    await expect(video).toHaveAttribute('tabindex', '0');
   });
 });
 

@@ -707,6 +707,7 @@ html[data-landing-enhanced='true'] .locale-no-js {
   transition: box-shadow var(--duration-standard) var(--ease-standard);
 }
 
+.demo-video-frame:focus,
 .demo-video-frame:focus-within {
   box-shadow: var(--shadow-focus);
 }

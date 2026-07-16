@@ -61,6 +61,8 @@ describe('LandingPage', () => {
     expect(markup).toContain('/gpt-voice/generated/media/demo-poster.webp');
     expect(markup).toContain('data-demo-video="true"');
     expect(markup).toContain('class="demo-video-frame"');
+    expect(markup).toContain('role="group"');
+    expect(markup).toContain('tabindex="0"');
     expect(markup).toContain('kind="captions"');
     expect(markup).toContain('/gpt-voice/generated/captions/en.vtt');
     expect(markup).toContain('Your browser does not support HTML video.');

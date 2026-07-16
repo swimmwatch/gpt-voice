@@ -149,7 +149,13 @@ function Demo({ content, locale }: Pick<LandingPageProps, 'content' | 'locale'>)
         <p className="landing-lead">{content.demo.lead}</p>
       </div>
       <div className="demo-media">
-        <AspectRatio className="demo-video-frame" ratio={16 / 9}>
+        <AspectRatio
+          aria-label={content.demo.videoLabel}
+          className="demo-video-frame"
+          role="group"
+          ratio={16 / 9}
+          tabIndex={0}
+        >
           <video
             aria-describedby="demo-note"
             aria-label={content.demo.videoLabel}
@@ -161,6 +167,7 @@ function Demo({ content, locale }: Pick<LandingPageProps, 'content' | 'locale'>)
             playsInline
             poster="/gpt-voice/generated/media/demo-poster.webp"
             preload="none"
+            tabIndex={0}
             width="1920"
           >
             <source src="/gpt-voice/generated/media/demo.mp4" type="video/mp4" />
