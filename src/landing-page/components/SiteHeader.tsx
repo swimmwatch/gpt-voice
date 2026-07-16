@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList } from './ui/navigation-menu';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { publishedLocaleDefinitions } from '../content';
+import { getDocumentationRoute, localeRegistry } from '../content';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
 
 type SiteHeaderProps = {
@@ -22,31 +22,7 @@ const navigationItems = (content: LandingContent['navigation'], documentation: s
   { href: documentation, label: content.documentation },
 ];
 
-function subscribeToHash(listener: () => void): () => void {
-  window.addEventListener('hashchange', listener);
-  window.addEventListener('popstate', listener);
-
-  return () => {
-    window.removeEventListener('hashchange', listener);
-    window.removeEventListener('popstate', listener);
-  };
-}
-
-function getCurrentHash(): string {
-  return window.location.hash;
-}
-
-function useCurrentHash(): string {
-  return React.useSyncExternalStore(subscribeToHash, getCurrentHash, () => '');
-}
-
-function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'locale'>): React.JSX.Element | null {
-  const currentHash = useCurrentHash();
-
-  if (publishedLocaleDefinitions.length < 2) {
-    return null;
-  }
-
+function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'locale'>): React.JSX.Element {
   return (
     <>
       <DropdownMenu>
@@ -57,11 +33,11 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="locale-menu-content">
-          {publishedLocaleDefinitions.map((candidate) => (
+          {localeRegistry.map((candidate) => (
             <DropdownMenuItem asChild key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
-                href={`${candidate.route}${currentHash}`}
+                href={getDocumentationRoute(candidate)}
                 hrefLang={candidate.tag}
               >
                 <span>{candidate.nativeLabel}</span>
@@ -74,11 +50,11 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
       <details className="locale-no-js">
         <summary>{content.language}</summary>
         <ul>
-          {publishedLocaleDefinitions.map((candidate) => (
+          {localeRegistry.map((candidate) => (
             <li key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
-                href={candidate.route}
+                href={getDocumentationRoute(candidate)}
                 hrefLang={candidate.tag}
               >
                 {candidate.nativeLabel}

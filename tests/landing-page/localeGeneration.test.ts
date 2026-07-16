@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { generateLocalePages } from '../../src/landing-page/build/generate-locales';
+import { getDocumentationRoute, localeRegistry } from '../../src/landing-page/content';
 
 test('pre-renders the English landing shell without a router or JavaScript dependency', async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-landing-'));
@@ -46,6 +47,17 @@ test('pre-renders the English landing shell without a router or JavaScript depen
     assert.equal((document.match(/class="skip-link"/g) ?? []).length, 1);
     assert.match(document, /<main id="main-content" tabindex="-1">/);
     assert.match(document, /Writing clear, well-structured prompts takes time\./);
+    assert.match(document, /class="locale-no-js"/);
+    for (const locale of localeRegistry) {
+      assert.ok(
+        document.includes(`href="${getDocumentationRoute(locale)}" hreflang="${locale.tag}"`),
+        `The static landing selector must link to ${locale.tag} documentation.`,
+      );
+      assert.ok(
+        !document.includes(`${getDocumentationRoute(locale)}#`),
+        `The static landing selector must not append a landing-page anchor to ${locale.tag} documentation.`,
+      );
+    }
     assert.match(document, /src="\/gpt-voice\/assets\/index.js"/);
     assert.match(document, /nomodule id="vite-legacy-entry" src="\/gpt-voice\/assets\/index-legacy.js"/);
   } finally {

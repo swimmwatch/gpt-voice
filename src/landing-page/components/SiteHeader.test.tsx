@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SiteHeader } from './SiteHeader';
-import { englishContent, getLocaleDefinition } from '../content';
+import { englishContent, getDocumentationRoute, getLocaleDefinition, localeRegistry } from '../content';
 
 afterEach(cleanup);
 
@@ -29,7 +29,8 @@ afterAll(() => {
 });
 
 describe('SiteHeader', () => {
-  it('does not offer unpublished locale routes', () => {
+  it('links every language choice to its documentation root', async () => {
+    const user = userEvent.setup();
     const { container } = render(
       <SiteHeader
         content={englishContent.navigation}
@@ -38,8 +39,24 @@ describe('SiteHeader', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'Language' })).toBeNull();
-    expect(container.querySelector('.locale-no-js')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Language' }));
+    const menu = await screen.findByRole('menu');
+
+    for (const candidate of localeRegistry) {
+      const link = within(menu).getByRole('menuitem', { name: candidate.nativeLabel });
+      expect(link.getAttribute('href')).toBe(getDocumentationRoute(candidate));
+      expect(link.getAttribute('hreflang')).toBe(candidate.tag);
+      expect(link.getAttribute('aria-current')).toBe(candidate.tag === 'en' ? 'page' : null);
+    }
+
+    const fallback = container.querySelector('.locale-no-js');
+    expect(fallback?.tagName).toBe('DETAILS');
+    const fallbackLinks = Array.from(fallback?.querySelectorAll('a') ?? []);
+    expect(fallbackLinks).toHaveLength(localeRegistry.length);
+    for (const [index, candidate] of localeRegistry.entries()) {
+      expect(fallbackLinks[index].getAttribute('href')).toBe(getDocumentationRoute(candidate));
+      expect(fallbackLinks[index].getAttribute('hreflang')).toBe(candidate.tag);
+    }
   });
 
   it('opens the mobile sheet and closes it when a static section link is chosen', async () => {

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { englishContent, getLocaleDefinition } from '@landing/content';
+import { englishContent, getDocumentationRoute, getLocaleDefinition, localeRegistry } from '@landing/content';
 import { LandingPage } from '@landing/components/LandingPage';
 
 describe('LandingPage', () => {
@@ -17,6 +17,11 @@ describe('LandingPage', () => {
     expect(markup).toContain('How GPT-Voice works.');
     expect(markup).toContain('<a href="/gpt-voice/docs/">Documentation</a>');
     expect(markup).toMatch(/<footer[\s\S]*?<a href="\/gpt-voice\/docs\/">Documentation<\/a>[\s\S]*?<\/footer>/);
+    expect(markup).toContain('class="locale-no-js"');
+    for (const locale of localeRegistry) {
+      expect(markup).toContain(`href="${getDocumentationRoute(locale)}"`);
+      expect(markup).toContain(`hrefLang="${locale.tag}"`);
+    }
   });
 
   it('renders the approved hero capture as a responsive, non-interactive image', () => {
