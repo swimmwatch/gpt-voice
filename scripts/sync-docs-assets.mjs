@@ -202,6 +202,16 @@ function getFontPackageDestinations(fontPackages) {
   ]);
 }
 
+function getGeneratedAssetDestinations(fontPackageDestinations) {
+  return [
+    ...pinnedAssets.map((asset) => asset.destination),
+    ...fontPackageDestinations,
+    'images/app-main.png',
+    'images/app-main.webp',
+    'images/app-main.avif',
+  ];
+}
+
 async function copyFontPackage(fontPackage, stagingDirectory) {
   await Promise.all(
     fontPackage.fontFiles.map((fontFile) =>
@@ -216,16 +226,9 @@ async function copyFontPackage(fontPackage, stagingDirectory) {
   await writeFile(path.join(stagingDirectory, fontPackage.stylesheetDestination), stagedStylesheet, 'utf8');
 }
 
-async function createAssetManifest(stagingDirectory, capture, fontPackageDestinations) {
-  const files = [
-    ...pinnedAssets.map((asset) => asset.destination),
-    ...fontPackageDestinations,
-    'images/app-main.png',
-    'images/app-main.webp',
-    'images/app-main.avif',
-  ];
+async function createAssetManifest(stagingDirectory, capture, assetDestinations) {
   const fileHashes = await Promise.all(
-    files.map(async (file) => [file, sha256(await readFile(path.join(stagingDirectory, file)))]),
+    assetDestinations.map(async (file) => [file, sha256(await readFile(path.join(stagingDirectory, file)))]),
   );
 
   return {
@@ -240,15 +243,8 @@ async function createAssetManifest(stagingDirectory, capture, fontPackageDestina
   };
 }
 
-async function assertStagedAssetSet(stagingDirectory, fontPackageDestinations) {
-  const expectedFiles = [
-    'asset-manifest.json',
-    ...pinnedAssets.map((asset) => asset.destination),
-    ...fontPackageDestinations,
-    'images/app-main.png',
-    'images/app-main.webp',
-    'images/app-main.avif',
-  ].sort();
+async function assertStagedAssetSet(stagingDirectory, assetDestinations) {
+  const expectedFiles = ['asset-manifest.json', ...assetDestinations].sort();
   const actualFiles = await listFiles(stagingDirectory);
   if (JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)) {
     throw new Error(`Documentation staging contains unapproved assets: ${actualFiles.join(', ')}`);
@@ -261,6 +257,7 @@ export async function syncDocumentationAssets({ destinationDirectory, rootDirect
   const staging = `${destination}.staging`;
   const { capture, fontPackages, screenshotPath, sources } = await collectApprovedSources(root);
   const fontPackageDestinations = getFontPackageDestinations(fontPackages);
+  const assetDestinations = getGeneratedAssetDestinations(fontPackageDestinations);
 
   await rm(staging, { force: true, recursive: true });
   await mkdir(staging, { recursive: true });
@@ -276,10 +273,10 @@ export async function syncDocumentationAssets({ destinationDirectory, rootDirect
     ]);
     await writeFile(
       path.join(staging, 'asset-manifest.json'),
-      `${JSON.stringify(await createAssetManifest(staging, capture, fontPackageDestinations), null, 2)}\n`,
+      `${JSON.stringify(await createAssetManifest(staging, capture, assetDestinations), null, 2)}\n`,
       'utf8',
     );
-    await assertStagedAssetSet(staging, fontPackageDestinations);
+    await assertStagedAssetSet(staging, assetDestinations);
     await mkdir(path.dirname(destination), { recursive: true });
     await rm(destination, { force: true, recursive: true });
     await rename(staging, destination);

@@ -41,7 +41,7 @@ theme:
 
 nav:
   - Overview: index.md
-  - Install, update, or remove:
+  - Installation:
       - Overview: install.md
       - Windows: install/windows.md
       - Linux: install/linux.md
@@ -77,7 +77,7 @@ plugins:
           default: true
           nav_translations:
             Overview: Overview
-            Install, update, or remove: Install, update, or remove
+            Installation: Installation
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -102,7 +102,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Обзор
-            Install, update, or remove: Установка, обновление или удаление
+            Installation: Установка
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -127,7 +127,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Агляд
-            Install, update, or remove: Усталяванне, абнаўленне або выдаленне
+            Installation: Усталяванне
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -152,7 +152,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Огляд
-            Install, update, or remove: Установлення, оновлення або видалення
+            Installation: Установлення
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -177,7 +177,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Resumen
-            Install, update, or remove: Instalar, actualizar o eliminar
+            Installation: Instalación
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -202,7 +202,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Visão geral
-            Install, update, or remove: Instalar, atualizar ou remover
+            Installation: Instalação
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -227,7 +227,7 @@ plugins:
           build: true
           nav_translations:
             Overview: 概览
-            Install, update, or remove: 安装、更新或卸载
+            Installation: 安装
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -252,7 +252,7 @@ plugins:
           build: true
           nav_translations:
             Overview: 概要
-            Install, update, or remove: インストール、更新、または削除
+            Installation: インストール
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -277,7 +277,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Überblick
-            Install, update, or remove: Installieren, aktualisieren oder entfernen
+            Installation: Installation
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -302,7 +302,7 @@ plugins:
           build: true
           nav_translations:
             Overview: Vue d’ensemble
-            Install, update, or remove: Installer, mettre à jour ou supprimer
+            Installation: Installation
             Windows: Windows
             Linux: Linux
             macOS: macOS
@@ -327,7 +327,7 @@ plugins:
           build: true
           nav_translations:
             Overview: अवलोकन
-            Install, update, or remove: इंस्टॉल, अपडेट या हटाएँ
+            Installation: इंस्टॉलेशन
             Windows: Windows
             Linux: Linux
             macOS: macOS

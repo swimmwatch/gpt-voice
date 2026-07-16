@@ -482,22 +482,21 @@ function collectNavigationSources(node: unknown): string[] {
   return [];
 }
 
-function expectedRussianStagedSources(configuration: MkDocsConfiguration): string[] {
-  return collectNavigationSources(configuration.nav)
-    .map((source) => source.replace(/\.md$/u, '.ru.md'))
-    .sort();
-}
-
-function expectedBelarusianStagedSources(configuration: MkDocsConfiguration): string[] {
-  return collectNavigationSources(configuration.nav)
-    .map((source) => source.replace(/\.md$/u, '.be.md'))
-    .sort();
-}
-
 function expectedStagedSources(configuration: MkDocsConfiguration, locale: string): string[] {
   return collectNavigationSources(configuration.nav)
     .map((source) => source.replace(/\.md$/u, `.${locale}.md`))
     .sort();
+}
+
+type StagedSourceContract = Readonly<Record<string, readonly string[]>>;
+
+async function readStagedSources(contract: StagedSourceContract): Promise<Map<string, string>> {
+  const sources = await Promise.all(
+    Object.keys(contract).map(
+      async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
+    ),
+  );
+  return new Map(sources);
 }
 
 function countOccurrences(source: string, fragment: string): number {
@@ -541,26 +540,8 @@ function assertProtectedSourceParity(filename: string, englishSource: string, lo
   }
 }
 
-function assertRussianStagedSources(sources: ReadonlyMap<string, string>): void {
-  for (const [filename, requiredFragments] of Object.entries(russianStagedSources)) {
-    const source = sources.get(filename) ?? '';
-    for (const fragment of requiredFragments) {
-      assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
-    }
-  }
-}
-
-function assertBelarusianStagedSources(sources: ReadonlyMap<string, string>): void {
-  for (const [filename, requiredFragments] of Object.entries(belarusianStagedSources)) {
-    const source = sources.get(filename) ?? '';
-    for (const fragment of requiredFragments) {
-      assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
-    }
-  }
-}
-
-function assertUkrainianStagedSources(sources: ReadonlyMap<string, string>): void {
-  for (const [filename, requiredFragments] of Object.entries(ukrainianStagedSources)) {
+function assertStagedSources(contract: StagedSourceContract, sources: ReadonlyMap<string, string>): void {
+  for (const [filename, requiredFragments] of Object.entries(contract)) {
     const source = sources.get(filename) ?? '';
     for (const fragment of requiredFragments) {
       assert.ok(source.includes(fragment), `${filename} must preserve ${fragment}.`);
@@ -570,11 +551,7 @@ function assertUkrainianStagedSources(sources: ReadonlyMap<string, string>): voi
 
 test('publishes the complete Russian guide sources without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
-    Promise.all(
-      Object.keys(russianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ).then((entries) => new Map(entries)),
+    readStagedSources(russianStagedSources),
     readFile(path.join(guideRoot, 'data', 'translation-manifest.json'), 'utf8'),
     readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8'),
   ]);
@@ -583,32 +560,24 @@ test('publishes the complete Russian guide sources without fallback publication'
   const i18n = getI18nPlugin(configuration);
   const russianRecord = manifest.locales.find(({ tag }) => tag === 'ru');
 
-  assert.deepEqual(Object.keys(russianStagedSources).sort(), expectedRussianStagedSources(configuration));
-  assertRussianStagedSources(sources);
+  assert.deepEqual(Object.keys(russianStagedSources).sort(), expectedStagedSources(configuration, 'ru'));
+  assertStagedSources(russianStagedSources, sources);
   assert.ok(russianRecord, 'Translation manifest must retain the Russian locale record.');
   assert.equal(russianRecord.status, 'approved');
   assert.equal(i18n.build_only_locale, undefined);
 });
 
 test('rejects a missing Russian source', async () => {
-  const sources = new Map(
-    await Promise.all(
-      Object.keys(russianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ),
-  );
+  const sources = await readStagedSources(russianStagedSources);
 
-  assert.throws(() => assertRussianStagedSources(new Map(sources).set('guides/transcription.ru.md', '')));
+  assert.throws(() =>
+    assertStagedSources(russianStagedSources, new Map(sources).set('guides/transcription.ru.md', '')),
+  );
 });
 
 test('publishes the complete Belarusian guide sources without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
-    Promise.all(
-      Object.keys(belarusianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ).then((entries) => new Map(entries)),
+    readStagedSources(belarusianStagedSources),
     readFile(path.join(guideRoot, 'data', 'translation-manifest.json'), 'utf8'),
     readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8'),
   ]);
@@ -617,32 +586,22 @@ test('publishes the complete Belarusian guide sources without fallback publicati
   const i18n = getI18nPlugin(configuration);
   const belarusianRecord = manifest.locales.find(({ tag }) => tag === 'be');
 
-  assert.deepEqual(Object.keys(belarusianStagedSources).sort(), expectedBelarusianStagedSources(configuration));
-  assertBelarusianStagedSources(sources);
+  assert.deepEqual(Object.keys(belarusianStagedSources).sort(), expectedStagedSources(configuration, 'be'));
+  assertStagedSources(belarusianStagedSources, sources);
   assert.ok(belarusianRecord, 'Translation manifest must retain the Belarusian locale record.');
   assert.equal(belarusianRecord.status, 'approved');
   assert.equal(i18n.build_only_locale, undefined);
 });
 
 test('rejects a missing Belarusian source', async () => {
-  const sources = new Map(
-    await Promise.all(
-      Object.keys(belarusianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ),
-  );
+  const sources = await readStagedSources(belarusianStagedSources);
 
-  assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('privacy.be.md', '')));
+  assert.throws(() => assertStagedSources(belarusianStagedSources, new Map(sources).set('privacy.be.md', '')));
 });
 
 test('publishes the Ukrainian source batches without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
-    Promise.all(
-      Object.keys(ukrainianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ).then((entries) => new Map(entries)),
+    readStagedSources(ukrainianStagedSources),
     readFile(path.join(guideRoot, 'data', 'translation-manifest.json'), 'utf8'),
     readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8'),
   ]);
@@ -651,22 +610,16 @@ test('publishes the Ukrainian source batches without fallback publication', asyn
   const i18n = getI18nPlugin(configuration);
   const ukrainianRecord = manifest.locales.find(({ tag }) => tag === 'uk');
 
-  assertUkrainianStagedSources(sources);
+  assertStagedSources(ukrainianStagedSources, sources);
   assert.ok(ukrainianRecord, 'Translation manifest must retain the Ukrainian locale record.');
   assert.equal(ukrainianRecord.status, 'approved');
   assert.equal(i18n.build_only_locale, undefined);
 });
 
 test('rejects a missing staged Ukrainian source', async () => {
-  const sources = new Map(
-    await Promise.all(
-      Object.keys(ukrainianStagedSources).map(
-        async (filename) => [filename, await readFile(path.join(guideRoot, filename), 'utf8')] as const,
-      ),
-    ),
-  );
+  const sources = await readStagedSources(ukrainianStagedSources);
 
-  assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('settings/index.uk.md', '')));
+  assert.throws(() => assertStagedSources(ukrainianStagedSources, new Map(sources).set('settings/index.uk.md', '')));
 });
 
 test('publishes complete approved source sets for every remaining guide locale', async () => {

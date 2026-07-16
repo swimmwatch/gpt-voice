@@ -46,7 +46,7 @@ const configurationPath = path.join(projectRoot, 'mkdocs.yml');
 const localeMapPath = path.join(projectRoot, 'docs', 'user-guide', 'data', 'locales.json');
 const expectedNavigationLabels = [
   'Overview',
-  'Install, update, or remove',
+  'Installation',
   'Windows',
   'Linux',
   'macOS',
@@ -67,10 +67,6 @@ const expectedNavigationLabels = [
   'Troubleshooting',
   'FAQ',
 ];
-
-function expectedMkDocsLocale(tag: string): string {
-  return tag;
-}
 
 function getI18nPlugin(configuration: MkDocsConfiguration): I18nPlugin {
   assert.ok(Array.isArray(configuration.plugins), 'MkDocs must configure plugins.');
@@ -97,7 +93,7 @@ function assertLocaleContract(localeMap: LocaleMap, i18n: I18nPlugin): void {
   assert.equal(localeMap.locales.length, localeRegistry.length);
 
   for (const landingLocale of localeRegistry) {
-    const expectedLocale = expectedMkDocsLocale(landingLocale.tag);
+    const expectedLocale = landingLocale.tag;
     const mapping = localeMap.locales.find((candidate) => candidate.tag === landingLocale.tag);
     const language = configuredLanguages.find((candidate) => candidate.locale === expectedLocale);
 

@@ -127,7 +127,8 @@ test('stages only the approved, hash-pinned documentation assets deterministical
   await documentationAssets.syncDocumentationAssets();
 
   const expectedStagedFiles = await expectedFiles();
-  assert.deepEqual(await listFiles(generatedDirectory), expectedStagedFiles);
+  const stagedFiles = await listFiles(generatedDirectory);
+  assert.deepEqual(stagedFiles, expectedStagedFiles);
   assert.equal(await readFile(path.join(generatedDirectory, 'asset-manifest.json'), 'utf8'), firstManifest);
 
   const manifest = JSON.parse(firstManifest) as { files: Record<string, string>; screenshot: Record<string, unknown> };
@@ -153,7 +154,7 @@ test('stages only the approved, hash-pinned documentation assets deterministical
     'app-provider-settings.png',
   ]) {
     assert.equal(
-      (await listFiles(generatedDirectory)).some((file) => file.includes(referenceCapture)),
+      stagedFiles.some((file) => file.includes(referenceCapture)),
       false,
     );
   }

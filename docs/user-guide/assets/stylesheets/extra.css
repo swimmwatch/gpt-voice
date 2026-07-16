@@ -99,6 +99,10 @@ html {
 }
 
 .md-typeset .guide-actions p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  justify-content: center;
   margin: 0;
 }
 
@@ -130,6 +134,13 @@ html {
 
 .md-typeset .grid.cards > ul > li {
   border-radius: 0.35rem;
+}
+
+.md-typeset .grid.cards > ul > li:focus-within,
+.md-typeset .grid.cards > ul > li:hover {
+  background-color: var(--md-default-bg-color--light);
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 0.35rem 1.1rem rgb(74 139 255 / 18%);
 }
 
 .md-typeset code {

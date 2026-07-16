@@ -24,7 +24,7 @@ const canonicalUrl = 'https://swimmwatch.github.io/gpt-voice/docs/';
 const expectedNavigation = [
   { Overview: 'index.md' },
   {
-    'Install, update, or remove': [
+    Installation: [
       { Overview: 'install.md' },
       { Windows: 'install/windows.md' },
       { Linux: 'install/linux.md' },
@@ -65,6 +65,255 @@ const prohibitedPathFragments = [
   'access-token.json',
   'chatgpt-session.json',
   'openai-api-settings.json',
+];
+type PublishedPageContract = {
+  detailMessage?: (detail: string) => string;
+  requiredFragments: readonly string[];
+  route: string;
+};
+type CssBlock = {
+  declarations: string;
+  selector: string;
+};
+const publishedPageContracts: readonly PublishedPageContract[] = [
+  {
+    requiredFragments: [
+      '<title>GPT-Voice Documentation</title>',
+      'assets/generated/icons/gpt-voice.png',
+      'assets/generated/icons/gpt-voice-wordmark.svg',
+      'GPT-Voice wordmark',
+      'class="grid cards"',
+      'Overview',
+      'href=getting-started/ class=md-button',
+    ],
+    route: '',
+  },
+  {
+    requiredFragments: ['href=windows/', 'href=linux/', 'href=macos/', 'href=../getting-started/'],
+    route: 'install',
+  },
+  {
+    requiredFragments: ['GPT-Voice Setup *.exe', '%APPDATA%\\GPT-Voice'],
+    route: 'install/windows',
+  },
+  {
+    requiredFragments: [
+      'sudo apt install ./gpt-voice_*_amd64.deb',
+      'sudo dnf install ./gpt-voice-*.x86_64.rpm',
+      'GPT-Voice-*.AppImage',
+      'href=../../getting-started/',
+    ],
+    route: 'install/linux',
+  },
+  {
+    requiredFragments: ['no supported macOS package in current releases'],
+    route: 'install/macos',
+  },
+  {
+    requiredFragments: ['Copied to clipboard'],
+    route: 'getting-started',
+  },
+  {
+    detailMessage: (detail) => `Transcription guide must cover ${detail}.`,
+    requiredFragments: [
+      'Pause',
+      'Resume',
+      'Cancel',
+      'Transcribing',
+      'Copied to clipboard',
+      'Retry a failed transcription',
+      'kept only in the running application',
+      'local transcription history',
+      'Could not access microphone',
+    ],
+    route: 'guides/transcription',
+  },
+  {
+    detailMessage: (detail) => `Provider guide must cover ${detail}.`,
+    requiredFragments: [
+      'ChatGPT Web',
+      'OpenAI API',
+      'Clear authentication',
+      'whisper-1',
+      'Electron safe storage',
+      'billing, quotas, usage limits',
+    ],
+    route: 'guides/providers',
+  },
+  {
+    detailMessage: (detail) => `Text-actions guide must cover ${detail}.`,
+    requiredFragments: [
+      'Google Translate',
+      'English, Russian, Ukrainian, or Belarusian',
+      'only one selected-text action at a time',
+      '16,000 characters',
+      'user-operated dependencies',
+      'remote endpoint receives the selected text',
+      'restores the clipboard value',
+    ],
+    route: 'guides/text-actions',
+  },
+  {
+    detailMessage: (detail) => `History-and-tray guide must cover ${detail}.`,
+    requiredFragments: [
+      'stored locally with its request time, provider name, and text',
+      'loads progressively as you scroll',
+      "copies that entry's stored text to the system clipboard",
+      'Clear history',
+      'hides it instead of quitting',
+      'Show GPT-Voice',
+      'Settings',
+      'History',
+      'About',
+      'Quit',
+    ],
+    route: 'guides/history-and-tray',
+  },
+  {
+    detailMessage: (detail) => `Settings overview must cover ${detail}.`,
+    requiredFragments: [
+      'Shortcuts',
+      'Prettify',
+      'Browser',
+      'Network',
+      'Unsaved changes',
+      'Save changes',
+      'Keep editing',
+      'Discard changes',
+      'temporarily suspends global shortcuts',
+    ],
+    route: 'settings',
+  },
+  {
+    detailMessage: (detail) => `Provider settings must cover ${detail}.`,
+    requiredFragments: [
+      'ChatGPT Web',
+      'Clear session',
+      'Electron safe storage',
+      'whisper-1',
+      'automatic detection',
+      '0.05 steps',
+      'blank save does not replace that stored key',
+      'Clear API key',
+    ],
+    route: 'settings/providers',
+  },
+  {
+    detailMessage: (detail) => `Shortcut settings must cover ${detail}.`,
+    requiredFragments: [
+      'F9',
+      'F10',
+      'Escape',
+      'F11',
+      'F12',
+      'Ctrl+F8',
+      'temporarily suspends all of its global shortcuts',
+      'F9 with Ctrl+F9',
+      'Both are enabled by default',
+      'Save changes',
+    ],
+    route: 'settings/shortcuts',
+  },
+  {
+    detailMessage: (detail) => `Prettify settings must cover ${detail}.`,
+    requiredFragments: [
+      'Ollama',
+      'vLLM',
+      'http://127.0.0.1:11434',
+      'http://127.0.0.1:8000/v1',
+      'Electron safe storage',
+      'Clear API key',
+      'Load model',
+      'Free model',
+      'Loaded',
+      'Not loaded',
+      'VRAM',
+      'non-loopback endpoint must use HTTPS',
+      'decimal controls use 0.05 increments',
+      'Top P accepts 0.05 through 1',
+      'Repeat penalty accepts 0.8 through 1.5',
+      'Top K accepts whole numbers from 1 through 200',
+      'Maximum output tokens accepts whole numbers from 1 through 8192',
+      '2147483647',
+      '4,000 characters or fewer',
+      'A blank prompt',
+      'selected text and your configured Prettify prompt',
+      'never returned in the settings view',
+    ],
+    route: 'settings/prettify',
+  },
+  {
+    detailMessage: (detail) => `Browser settings must cover ${detail}.`,
+    requiredFragments: [
+      'Humanize input',
+      'Careful',
+      'Background browser',
+      'five-digit numeric seed',
+      'en-US',
+      'valid BCP 47 locale',
+      'valid IANA timezone',
+      'Proxy GeoIP controls locale and timezone',
+      'not sent to a browser context while active proxy GeoIP owns them',
+    ],
+    route: 'settings/browser',
+  },
+  {
+    detailMessage: (detail) => `Network settings must cover ${detail}.`,
+    requiredFragments: [
+      'Proxy enabled',
+      'http://',
+      'https://',
+      'socks5://',
+      'Put credentials in the separate fields instead',
+      'Electron safe storage',
+      'does not support a username or password for a SOCKS5 proxy',
+      'does not pass SOCKS5 credentials',
+      'Proxy GeoIP controls locale and timezone',
+      'does not pass its separately saved locale or timezone',
+    ],
+    route: 'settings/network',
+  },
+  {
+    detailMessage: (detail) => `Privacy guide must cover ${detail}.`,
+    requiredFragments: [
+      'Google Translate',
+      'gpt-voice.sqlite3',
+      '20 results',
+      '60 seconds',
+      'Electron safe storage',
+      'not a blanket encryption claim',
+      '%APPDATA%\\GPT-Voice',
+      '~/.config/GPT-Voice',
+    ],
+    route: 'privacy',
+  },
+  {
+    detailMessage: (detail) => `Troubleshooting guide must cover ${detail}.`,
+    requiredFragments: [
+      'Could not access microphone',
+      'Clear session',
+      'whisper-1',
+      'Load model',
+      'SOCKS5 credentials',
+      'Background browser',
+      'Translation and Prettify cannot run at the same time',
+      '16,000 characters',
+      'SHA-256',
+    ],
+    route: 'troubleshooting',
+  },
+  {
+    detailMessage: (detail) => `FAQ must route ${detail} to authoritative guidance.`,
+    requiredFragments: [
+      'What leaves my computer?',
+      'copied to the system clipboard',
+      'ChatGPT Web',
+      'macOS releases are paused',
+      'SOCKS5 credentials are not supported',
+      'troubleshooting',
+    ],
+    route: 'faq',
+  },
 ];
 const expectedPaletteVariables = {
   '--md-accent-fg-color': '#4a8bff',
@@ -124,6 +373,7 @@ const approvedVisualSelectors = [
   '.md-typeset .product-screenshot img',
   '.md-typeset .product-screenshot figcaption',
   '.md-typeset .grid.cards > ul > li',
+  '.md-typeset .grid.cards > ul > li:focus-within,\n.md-typeset .grid.cards > ul > li:hover',
   '.md-typeset code',
 ].sort();
 
@@ -143,6 +393,16 @@ function parseCssDeclarations(block: string): Record<string, string> {
         return [declaration.slice(0, separatorIndex).trim(), normalizeCssValue(declaration.slice(separatorIndex + 1))];
       }),
   );
+}
+
+function getRequiredCssDeclarations(
+  blocks: readonly CssBlock[],
+  selector: string,
+  missingMessage: string,
+): Record<string, string> {
+  const block = blocks.find((candidate) => candidate.selector === selector);
+  assert.ok(block, missingMessage);
+  return parseCssDeclarations(block.declarations);
 }
 
 function assertMaterialThemeContract(configuration: MkDocsConfiguration, stylesheet: string): void {
@@ -174,77 +434,134 @@ function assertMaterialThemeContract(configuration: MkDocsConfiguration, stylesh
     );
   }
 
-  const rootTypography = blocks.find(({ selector }) => selector === 'html');
-  assert.ok(rootTypography, 'The guide must use the approved globally reduced type scale.');
-  assert.deepEqual(parseCssDeclarations(rootTypography.declarations), { 'font-size': '115%' });
-
-  const palette = blocks.find(({ selector }) => selector === "[data-md-color-scheme='slate']");
-  assert.ok(palette, "The palette must target Material's slate scheme.");
-  assert.deepEqual(parseCssDeclarations(palette.declarations), expectedPaletteVariables);
-
-  const secondaryButton = blocks.find(({ selector }) => selector === '.md-typeset .md-button:not(.md-button--primary)');
-  assert.ok(secondaryButton, 'Secondary Material buttons must use the accessible accent color.');
-  assert.deepEqual(parseCssDeclarations(secondaryButton.declarations), {
-    'border-color': 'var(--md-accent-fg-color)',
-    color: 'var(--md-accent-fg-color)',
-  });
-
-  const secondaryButtonInteractive = blocks.find(
-    ({ selector }) =>
-      selector ===
+  assert.deepEqual(
+    getRequiredCssDeclarations(blocks, 'html', 'The guide must use the approved globally reduced type scale.'),
+    { 'font-size': '115%' },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      "[data-md-color-scheme='slate']",
+      "The palette must target Material's slate scheme.",
+    ),
+    expectedPaletteVariables,
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .md-button:not(.md-button--primary)',
+      'Secondary Material buttons must use the accessible accent color.',
+    ),
+    {
+      'border-color': 'var(--md-accent-fg-color)',
+      color: 'var(--md-accent-fg-color)',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
       '.md-typeset .md-button:not(.md-button--primary):focus,\n.md-typeset .md-button:not(.md-button--primary):hover',
+      'Secondary Material button focus and hover states must preserve contrast.',
+    ),
+    {
+      'background-color': 'var(--md-primary-fg-color--light)',
+      'border-color': 'var(--md-primary-fg-color--light)',
+      color: 'var(--md-primary-bg-color)',
+    },
   );
-  assert.ok(secondaryButtonInteractive, 'Secondary Material button focus and hover states must preserve contrast.');
-  assert.deepEqual(parseCssDeclarations(secondaryButtonInteractive.declarations), {
-    'background-color': 'var(--md-primary-fg-color--light)',
-    'border-color': 'var(--md-primary-fg-color--light)',
-    color: 'var(--md-primary-bg-color)',
-  });
-
-  const languageSelectorList = blocks.find(({ selector }) => selector === '.md-select__list');
-  assert.ok(languageSelectorList, 'The language selector must expose an accessible overflow affordance.');
-  assert.deepEqual(parseCssDeclarations(languageSelectorList.declarations), {
-    'scrollbar-color': 'var(--md-accent-fg-color) var(--md-default-bg-color--light)',
-    'scrollbar-width': 'thin',
-  });
-
-  const languageSelectorScrollbar = blocks.find(({ selector }) => selector === '.md-select__list::-webkit-scrollbar');
-  assert.ok(languageSelectorScrollbar, 'Chromium language selector scrollbars must remain visible.');
-  assert.deepEqual(parseCssDeclarations(languageSelectorScrollbar.declarations), { width: '0.3rem' });
-
-  const languageSelectorScrollbarThumb = blocks.find(
-    ({ selector }) => selector === '.md-select__list::-webkit-scrollbar-thumb',
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list',
+      'The language selector must expose an accessible overflow affordance.',
+    ),
+    {
+      'scrollbar-color': 'var(--md-accent-fg-color) var(--md-default-bg-color--light)',
+      'scrollbar-width': 'thin',
+    },
   );
-  assert.ok(languageSelectorScrollbarThumb, 'Chromium language selector scrollbar thumbs must remain visible.');
-  assert.deepEqual(parseCssDeclarations(languageSelectorScrollbarThumb.declarations), {
-    'background-color': 'var(--md-accent-fg-color)',
-    'border-radius': '999px',
-  });
-
-  const productScreenshot = blocks.find(({ selector }) => selector === '.md-typeset .product-screenshot');
-  assert.ok(productScreenshot, 'The overview screenshot must remain framed as guide content.');
-  assert.deepEqual(parseCssDeclarations(productScreenshot.declarations), {
-    margin: '1.25rem 0 0.65rem',
-    'margin-inline': 'auto',
-    'max-width': 'min(100%, 30rem)',
-  });
-
-  const guideActions = blocks.find(({ selector }) => selector === '.md-typeset .guide-actions');
-  assert.ok(guideActions, 'The overview CTAs must remain a Material-native action group.');
-  assert.deepEqual(parseCssDeclarations(guideActions.declarations), {
-    display: 'flex',
-    'flex-wrap': 'wrap',
-    gap: '1.2rem',
-    'justify-content': 'center',
-    margin: '0 0 2rem',
-  });
-
-  const guideActionButton = blocks.find(({ selector }) => selector === '.md-typeset .guide-actions .md-button');
-  assert.ok(guideActionButton, 'Overview CTAs must remain compact without changing Material button structure.');
-  assert.deepEqual(parseCssDeclarations(guideActionButton.declarations), {
-    'font-size': '0.75rem',
-    padding: '0.6em 1.5em',
-  });
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list::-webkit-scrollbar',
+      'Chromium language selector scrollbars must remain visible.',
+    ),
+    { width: '0.3rem' },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list::-webkit-scrollbar-thumb',
+      'Chromium language selector scrollbar thumbs must remain visible.',
+    ),
+    {
+      'background-color': 'var(--md-accent-fg-color)',
+      'border-radius': '999px',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .product-screenshot',
+      'The overview screenshot must remain framed as guide content.',
+    ),
+    {
+      margin: '1.25rem 0 0.65rem',
+      'margin-inline': 'auto',
+      'max-width': 'min(100%, 30rem)',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions',
+      'The overview CTAs must remain a Material-native action group.',
+    ),
+    {
+      display: 'flex',
+      'flex-wrap': 'wrap',
+      gap: '1.2rem',
+      'justify-content': 'center',
+      margin: '0 0 2rem',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions .md-button',
+      'Overview CTAs must remain compact without changing Material button structure.',
+    ),
+    {
+      'font-size': '0.75rem',
+      padding: '0.6em 1.5em',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions p',
+      'Overview CTA links must retain visible spacing when Markdown groups them in one paragraph.',
+    ),
+    {
+      display: 'flex',
+      'flex-wrap': 'wrap',
+      gap: '1.2rem',
+      'justify-content': 'center',
+      margin: '0',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .grid.cards > ul > li:focus-within,\n.md-typeset .grid.cards > ul > li:hover',
+      'Overview cards must have a visible hover and keyboard-focus surface.',
+    ),
+    {
+      'background-color': 'var(--md-default-bg-color--light)',
+      'border-color': 'var(--md-accent-fg-color)',
+      'box-shadow': '0 0.35rem 1.1rem rgb(74 139 255 / 18%)',
+    },
+  );
 
   const visualSelectors = blocks
     .map(({ selector }) => selector)
@@ -378,45 +695,17 @@ test('uses Material navigation and approved reference-derived content styling', 
 
 test('publishes canonical overview metadata without internal engineering artifacts', async () => {
   const files = await listFiles(outputDirectory);
-  const index = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
-  const install = await readFile(path.join(outputDirectory, 'install', 'index.html'), 'utf8');
-  const installWindows = await readFile(path.join(outputDirectory, 'install', 'windows', 'index.html'), 'utf8');
-  const installLinux = await readFile(path.join(outputDirectory, 'install', 'linux', 'index.html'), 'utf8');
-  const installMacos = await readFile(path.join(outputDirectory, 'install', 'macos', 'index.html'), 'utf8');
-  const gettingStarted = await readFile(path.join(outputDirectory, 'getting-started', 'index.html'), 'utf8');
-  const transcription = await readFile(path.join(outputDirectory, 'guides', 'transcription', 'index.html'), 'utf8');
-  const providers = await readFile(path.join(outputDirectory, 'guides', 'providers', 'index.html'), 'utf8');
-  const textActions = await readFile(path.join(outputDirectory, 'guides', 'text-actions', 'index.html'), 'utf8');
-  const historyAndTray = await readFile(path.join(outputDirectory, 'guides', 'history-and-tray', 'index.html'), 'utf8');
-  const settingsOverview = await readFile(path.join(outputDirectory, 'settings', 'index.html'), 'utf8');
-  const providerSettings = await readFile(path.join(outputDirectory, 'settings', 'providers', 'index.html'), 'utf8');
-  const shortcutSettings = await readFile(path.join(outputDirectory, 'settings', 'shortcuts', 'index.html'), 'utf8');
-  const prettifySettings = await readFile(path.join(outputDirectory, 'settings', 'prettify', 'index.html'), 'utf8');
-  const browserSettings = await readFile(path.join(outputDirectory, 'settings', 'browser', 'index.html'), 'utf8');
-  const networkSettings = await readFile(path.join(outputDirectory, 'settings', 'network', 'index.html'), 'utf8');
-  const privacy = await readFile(path.join(outputDirectory, 'privacy', 'index.html'), 'utf8');
-  const troubleshooting = await readFile(path.join(outputDirectory, 'troubleshooting', 'index.html'), 'utf8');
-  const faq = await readFile(path.join(outputDirectory, 'faq', 'index.html'), 'utf8');
+  const publishedPages = await Promise.all(
+    publishedPageContracts.map(async (contract) => {
+      const outputPath = contract.route ? `${contract.route}/index.html` : 'index.html';
+      const contents = await readFile(path.join(outputDirectory, outputPath), 'utf8');
+      return { contents, contract, outputPath };
+    }),
+  );
 
-  assert.ok(files.includes('index.html'));
-  assert.ok(files.includes('install/index.html'));
-  assert.ok(files.includes('install/windows/index.html'));
-  assert.ok(files.includes('install/linux/index.html'));
-  assert.ok(files.includes('install/macos/index.html'));
-  assert.ok(files.includes('getting-started/index.html'));
-  assert.ok(files.includes('guides/transcription/index.html'));
-  assert.ok(files.includes('guides/providers/index.html'));
-  assert.ok(files.includes('guides/text-actions/index.html'));
-  assert.ok(files.includes('guides/history-and-tray/index.html'));
-  assert.ok(files.includes('settings/index.html'));
-  assert.ok(files.includes('settings/providers/index.html'));
-  assert.ok(files.includes('settings/shortcuts/index.html'));
-  assert.ok(files.includes('settings/prettify/index.html'));
-  assert.ok(files.includes('settings/browser/index.html'));
-  assert.ok(files.includes('settings/network/index.html'));
-  assert.ok(files.includes('privacy/index.html'));
-  assert.ok(files.includes('troubleshooting/index.html'));
-  assert.ok(files.includes('faq/index.html'));
+  for (const { outputPath } of publishedPages) {
+    assert.ok(files.includes(outputPath));
+  }
   assert.ok(files.includes('search/search_index.json'));
   assert.equal(
     files.some((file) => file.includes('data/locales.json')),
@@ -426,218 +715,18 @@ test('publishes canonical overview metadata without internal engineering artifac
     files.some((file) => file.includes('data/translation-manifest.json')),
     false,
   );
-  assert.ok(index.includes(`<link href=${canonicalUrl} rel=canonical>`));
-  assert.ok(index.includes('<title>GPT-Voice Documentation</title>'));
-  assert.ok(index.includes('assets/generated/icons/gpt-voice.png'));
-  assert.ok(index.includes('assets/generated/icons/gpt-voice-wordmark.svg'));
-  assert.ok(index.includes('GPT-Voice wordmark'));
-  assert.ok(index.includes('class="grid cards"'));
-  assert.ok(index.includes('Overview'));
-  assert.ok(index.includes('href=getting-started/ class=md-button'));
-  assert.ok(install.includes(`<link href=${canonicalUrl}install/ rel=canonical>`));
-  assert.ok(install.includes('href=windows/'));
-  assert.ok(install.includes('href=linux/'));
-  assert.ok(install.includes('href=macos/'));
-  assert.ok(installWindows.includes(`<link href=${canonicalUrl}install/windows/ rel=canonical>`));
-  assert.ok(installWindows.includes('GPT-Voice Setup *.exe'));
-  assert.ok(installWindows.includes('%APPDATA%\\GPT-Voice'));
-  assert.ok(installLinux.includes(`<link href=${canonicalUrl}install/linux/ rel=canonical>`));
-  assert.ok(installLinux.includes('sudo apt install ./gpt-voice_*_amd64.deb'));
-  assert.ok(installLinux.includes('sudo dnf install ./gpt-voice-*.x86_64.rpm'));
-  assert.ok(installLinux.includes('GPT-Voice-*.AppImage'));
-  assert.ok(installLinux.includes('href=../../getting-started/'));
-  assert.ok(installMacos.includes(`<link href=${canonicalUrl}install/macos/ rel=canonical>`));
-  assert.ok(installMacos.includes('no supported macOS package in current releases'));
-  assert.ok(install.includes('href=../getting-started/'));
-  assert.ok(gettingStarted.includes(`<link href=${canonicalUrl}getting-started/ rel=canonical>`));
-  assert.ok(gettingStarted.includes('Copied to clipboard'));
-  assert.ok(transcription.includes(`<link href=${canonicalUrl}guides/transcription/ rel=canonical>`));
-  for (const detail of [
-    'Pause',
-    'Resume',
-    'Cancel',
-    'Transcribing',
-    'Copied to clipboard',
-    'Retry a failed transcription',
-    'kept only in the running application',
-    'local transcription history',
-    'Could not access microphone',
-  ]) {
-    assert.ok(transcription.includes(detail), `Transcription guide must cover ${detail}.`);
-  }
-  assert.ok(providers.includes(`<link href=${canonicalUrl}guides/providers/ rel=canonical>`));
-  for (const detail of [
-    'ChatGPT Web',
-    'OpenAI API',
-    'Clear authentication',
-    'whisper-1',
-    'Electron safe storage',
-    'billing, quotas, usage limits',
-  ]) {
-    assert.ok(providers.includes(detail), `Provider guide must cover ${detail}.`);
-  }
-  assert.ok(textActions.includes(`<link href=${canonicalUrl}guides/text-actions/ rel=canonical>`));
-  for (const detail of [
-    'Google Translate',
-    'English, Russian, Ukrainian, or Belarusian',
-    'only one selected-text action at a time',
-    '16,000 characters',
-    'user-operated dependencies',
-    'remote endpoint receives the selected text',
-    'restores the clipboard value',
-  ]) {
-    assert.ok(textActions.includes(detail), `Text-actions guide must cover ${detail}.`);
-  }
-  assert.ok(historyAndTray.includes(`<link href=${canonicalUrl}guides/history-and-tray/ rel=canonical>`));
-  for (const detail of [
-    'stored locally with its request time, provider name, and text',
-    'loads progressively as you scroll',
-    "copies that entry's stored text to the system clipboard",
-    'Clear history',
-    'hides it instead of quitting',
-    'Show GPT-Voice',
-    'Settings',
-    'History',
-    'About',
-    'Quit',
-  ]) {
-    assert.ok(historyAndTray.includes(detail), `History-and-tray guide must cover ${detail}.`);
-  }
-  assert.ok(settingsOverview.includes(`<link href=${canonicalUrl}settings/ rel=canonical>`));
-  for (const detail of [
-    'Shortcuts',
-    'Prettify',
-    'Browser',
-    'Network',
-    'Unsaved changes',
-    'Save changes',
-    'Keep editing',
-    'Discard changes',
-    'temporarily suspends global shortcuts',
-  ]) {
-    assert.ok(settingsOverview.includes(detail), `Settings overview must cover ${detail}.`);
-  }
-  assert.ok(providerSettings.includes(`<link href=${canonicalUrl}settings/providers/ rel=canonical>`));
-  for (const detail of [
-    'ChatGPT Web',
-    'Clear session',
-    'Electron safe storage',
-    'whisper-1',
-    'automatic detection',
-    '0.05 steps',
-    'blank save does not replace that stored key',
-    'Clear API key',
-  ]) {
-    assert.ok(providerSettings.includes(detail), `Provider settings must cover ${detail}.`);
-  }
-  assert.ok(shortcutSettings.includes(`<link href=${canonicalUrl}settings/shortcuts/ rel=canonical>`));
-  for (const detail of [
-    'F9',
-    'F10',
-    'Escape',
-    'F11',
-    'F12',
-    'Ctrl+F8',
-    'temporarily suspends all of its global shortcuts',
-    'F9 with Ctrl+F9',
-    'Both are enabled by default',
-    'Save changes',
-  ]) {
-    assert.ok(shortcutSettings.includes(detail), `Shortcut settings must cover ${detail}.`);
-  }
-  assert.ok(prettifySettings.includes(`<link href=${canonicalUrl}settings/prettify/ rel=canonical>`));
-  for (const detail of [
-    'Ollama',
-    'vLLM',
-    'http://127.0.0.1:11434',
-    'http://127.0.0.1:8000/v1',
-    'Electron safe storage',
-    'Clear API key',
-    'Load model',
-    'Free model',
-    'Loaded',
-    'Not loaded',
-    'VRAM',
-    'non-loopback endpoint must use HTTPS',
-    'decimal controls use 0.05 increments',
-    'Top P accepts 0.05 through 1',
-    'Repeat penalty accepts 0.8 through 1.5',
-    'Top K accepts whole numbers from 1 through 200',
-    'Maximum output tokens accepts whole numbers from 1 through 8192',
-    '2147483647',
-    '4,000 characters or fewer',
-    'A blank prompt',
-    'selected text and your configured Prettify prompt',
-    'never returned in the settings view',
-  ]) {
-    assert.ok(prettifySettings.includes(detail), `Prettify settings must cover ${detail}.`);
-  }
-  assert.ok(browserSettings.includes(`<link href=${canonicalUrl}settings/browser/ rel=canonical>`));
-  for (const detail of [
-    'Humanize input',
-    'Careful',
-    'Background browser',
-    'five-digit numeric seed',
-    'en-US',
-    'valid BCP 47 locale',
-    'valid IANA timezone',
-    'Proxy GeoIP controls locale and timezone',
-    'not sent to a browser context while active proxy GeoIP owns them',
-  ]) {
-    assert.ok(browserSettings.includes(detail), `Browser settings must cover ${detail}.`);
-  }
-  assert.ok(networkSettings.includes(`<link href=${canonicalUrl}settings/network/ rel=canonical>`));
-  for (const detail of [
-    'Proxy enabled',
-    'http://',
-    'https://',
-    'socks5://',
-    'Put credentials in the separate fields instead',
-    'Electron safe storage',
-    'does not support a username or password for a SOCKS5 proxy',
-    'does not pass SOCKS5 credentials',
-    'Proxy GeoIP controls locale and timezone',
-    'does not pass its separately saved locale or timezone',
-  ]) {
-    assert.ok(networkSettings.includes(detail), `Network settings must cover ${detail}.`);
-  }
-  assert.ok(privacy.includes(`<link href=${canonicalUrl}privacy/ rel=canonical>`));
-  for (const detail of [
-    'Google Translate',
-    'gpt-voice.sqlite3',
-    '20 results',
-    '60 seconds',
-    'Electron safe storage',
-    'not a blanket encryption claim',
-    '%APPDATA%\\GPT-Voice',
-    '~/.config/GPT-Voice',
-  ]) {
-    assert.ok(privacy.includes(detail), `Privacy guide must cover ${detail}.`);
-  }
-  assert.ok(troubleshooting.includes(`<link href=${canonicalUrl}troubleshooting/ rel=canonical>`));
-  for (const detail of [
-    'Could not access microphone',
-    'Clear session',
-    'whisper-1',
-    'Load model',
-    'SOCKS5 credentials',
-    'Background browser',
-    'Translation and Prettify cannot run at the same time',
-    '16,000 characters',
-    'SHA-256',
-  ]) {
-    assert.ok(troubleshooting.includes(detail), `Troubleshooting guide must cover ${detail}.`);
-  }
-  assert.ok(faq.includes(`<link href=${canonicalUrl}faq/ rel=canonical>`));
-  for (const detail of [
-    'What leaves my computer?',
-    'copied to the system clipboard',
-    'ChatGPT Web',
-    'macOS releases are paused',
-    'SOCKS5 credentials are not supported',
-    'troubleshooting',
-  ]) {
-    assert.ok(faq.includes(detail), `FAQ must route ${detail} to authoritative guidance.`);
+
+  for (const { contents, contract } of publishedPages) {
+    const canonicalPath = contract.route ? `${contract.route}/` : '';
+    assert.ok(contents.includes(`<link href=${canonicalUrl}${canonicalPath} rel=canonical>`));
+
+    for (const detail of contract.requiredFragments) {
+      if (contract.detailMessage) {
+        assert.ok(contents.includes(detail), contract.detailMessage(detail));
+      } else {
+        assert.ok(contents.includes(detail));
+      }
+    }
   }
 
   for (const [file, contents] of await readPublishedText(files)) {

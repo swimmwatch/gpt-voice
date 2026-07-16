@@ -118,7 +118,7 @@ test('accepts complete approved locales and rejects missing translated sources',
 test('rejects publication gates other than project-owner approval', async () => {
   await withFixture({ buildOnlyEnglish: true }, async (fixture, module) => {
     await assert.rejects(
-      module.validateDocumentationTranslations({ ...fixture, configurationPath: fixture.configurationPath }),
+      module.validateDocumentationTranslations(fixture),
       /MkDocs must publish every approved locale/u,
     );
   });

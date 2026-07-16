@@ -35,6 +35,8 @@ release-artifacts/
 # Local caches
 .cache/
 .venv-docs/
+__pycache__/
+*.py[cod]
 .eslintcache
 .stylelintcache
 .playwright-mcp/
