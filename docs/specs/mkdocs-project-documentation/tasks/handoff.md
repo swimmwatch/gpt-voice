@@ -294,12 +294,14 @@
   a `Trust Tokens` handle. Startup-profile cleanup now retries only Windows `EBUSY` and `EPERM` errors with five bounded
   attempts and 100/200/400/800-ms backoff. Deterministic tests cover successful recovery, immediate rejection of
   non-Windows and unexpected errors, and the retry cap. `npm run docs:build`, `npm test` (388 passing), format,
-  lint (zero errors; three pre-existing warnings), and both type checks pass locally.
+  lint (zero errors; three pre-existing warnings), and both type checks pass locally. GitHub Actions run `29483979873`
+  passed Quality Gates, Fedora Package Smoke, Windows Package Smoke including its cold-start measurement, and Landing
+  Page Checks.
 
 ## Next Step
 
-Monitor the pushed Windows Package Smoke rerun to completion, then implement Task 17: expose the English guide in
-`llms.txt` while preserving landing-content equivalence. Proficient-speaker review can proceed independently.
+Implement Task 17: expose the English guide in `llms.txt` while preserving landing-content equivalence.
+Proficient-speaker review can proceed independently.
 
 ## Blockers
 
