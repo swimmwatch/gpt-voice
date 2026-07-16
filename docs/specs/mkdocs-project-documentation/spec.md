@@ -159,27 +159,30 @@ locale, but it does not perform linguistic review or call a translation service 
 The first release uses this explicit navigation. Each page owns one user intent; material should not be copied
 between pages except for a short summary and a descriptive cross-link.
 
-| Navigation             | Source                       | Required content                                                                                                              |
-| ---------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Overview               | `index.md`                   | Product purpose, supported platforms, providers, core workflows, screenshot, quick links, current limitations                 |
-| Install overview       | `install.md`                 | Release downloads, checksum verification, platform selection, macOS status, and links to the platform-specific guides         |
-| Install on Windows     | `install/windows.md`         | NSIS download, installation steps, update, removal, and retained `%APPDATA%\GPT-Voice` data                                   |
-| Install on Linux       | `install/linux.md`           | deb, rpm, and AppImage steps; launch, update, removal, and retained `~/.config/GPT-Voice` data                                |
-| Install on macOS       | `install/macos.md`           | Explicit current no-package status and the Developer ID signing/notarization constraint                                       |
-| Getting Started        | `getting-started.md`         | First launch, provider choice, authentication, first recording, clipboard result, next steps                                  |
-| Record And Transcribe  | `guides/transcription.md`    | Start, pause, resume, stop, cancel, retry retained audio, provider result, clipboard, notifications, failure states           |
-| Providers              | `guides/providers.md`        | ChatGPT Web session lifecycle, OpenAI API configuration, provider limits, cost/account ownership, switching and clearing auth |
-| Translate And Prettify | `guides/text-actions.md`     | Selection requirements, enable switches, target language, clipboard behavior, Ollama/vLLM prerequisites and privacy           |
-| History And Tray       | `guides/history-and-tray.md` | Local history, progressive loading, recopy, clear behavior, tray actions, lifecycle expectations                              |
-| Settings               | `settings/index.md`          | Saving, validation, unsaved changes, dependencies, and links to all settings sections                                         |
-| Provider Settings      | `settings/providers.md`      | ChatGPT session controls and every OpenAI transcription field                                                                 |
-| Shortcuts And Actions  | `settings/shortcuts.md`      | All configurable shortcuts, defaults, conflicts, translation/prettify enable switches                                         |
-| Prettify               | `settings/prettify.md`       | Provider, endpoint, key, model, model actions, prompt, temperature, and advanced generation fields                            |
-| Browser                | `settings/browser.md`        | Humanization, preset, background mode, fingerprint, locale, timezone, and proxy GeoIP interaction                             |
-| Network                | `settings/network.md`        | Proxy enablement, URL, bypass, credentials, GeoIP, SOCKS5 credential limitation, secret storage                               |
-| Privacy And Data       | `privacy.md`                 | Remote data flows, local files, encryption qualification, history/session sensitivity, retry cache, deletion/reset            |
-| Troubleshooting        | `troubleshooting.md`         | Microphone, login/session, provider, model, proxy, shortcut, clipboard, package, and browser-runtime diagnostics              |
-| FAQ                    | `faq.md`                     | Concise answers and routes to the authoritative detail pages                                                                  |
+The top-level **Use GPT-Voice** section groups first use, recording, providers, text actions, and history/tray so the
+Material tab navigation presents one operational entry point without changing any child-page route.
+
+| Navigation                            | Source                       | Required content                                                                                                              |
+| ------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Overview                              | `index.md`                   | Product purpose, supported platforms, providers, core workflows, screenshot, quick links, current limitations                 |
+| Install overview                      | `install.md`                 | Release downloads, checksum verification, platform selection, macOS status, and links to the platform-specific guides         |
+| Install on Windows                    | `install/windows.md`         | NSIS download, installation steps, update, removal, and retained `%APPDATA%\GPT-Voice` data                                   |
+| Install on Linux                      | `install/linux.md`           | deb, rpm, and AppImage steps; launch, update, removal, and retained `~/.config/GPT-Voice` data                                |
+| Install on macOS                      | `install/macos.md`           | Explicit current no-package status and the Developer ID signing/notarization constraint                                       |
+| Use GPT-Voice / First use             | `getting-started.md`         | First launch, provider choice, authentication, first recording, clipboard result, next steps                                  |
+| Use GPT-Voice / Record and transcribe | `guides/transcription.md`    | Start, pause, resume, stop, cancel, retry retained audio, provider result, clipboard, notifications, failure states           |
+| Use GPT-Voice / Providers             | `guides/providers.md`        | ChatGPT Web session lifecycle, OpenAI API configuration, provider limits, cost/account ownership, switching and clearing auth |
+| Use GPT-Voice / Text actions          | `guides/text-actions.md`     | Selection requirements, enable switches, target language, clipboard behavior, Ollama/vLLM prerequisites and privacy           |
+| Use GPT-Voice / History and tray      | `guides/history-and-tray.md` | Local history, progressive loading, recopy, clear behavior, tray actions, lifecycle expectations                              |
+| Settings                              | `settings/index.md`          | Saving, validation, unsaved changes, dependencies, and links to all settings sections                                         |
+| Provider Settings                     | `settings/providers.md`      | ChatGPT session controls and every OpenAI transcription field                                                                 |
+| Shortcuts And Actions                 | `settings/shortcuts.md`      | All configurable shortcuts, defaults, conflicts, translation/prettify enable switches                                         |
+| Prettify                              | `settings/prettify.md`       | Provider, endpoint, key, model, model actions, prompt, temperature, and advanced generation fields                            |
+| Browser                               | `settings/browser.md`        | Humanization, preset, background mode, fingerprint, locale, timezone, and proxy GeoIP interaction                             |
+| Network                               | `settings/network.md`        | Proxy enablement, URL, bypass, credentials, GeoIP, SOCKS5 credential limitation, secret storage                               |
+| Privacy And Data                      | `privacy.md`                 | Remote data flows, local files, encryption qualification, history/session sensitivity, retry cache, deletion/reset            |
+| Troubleshooting                       | `troubleshooting.md`         | Microphone, login/session, provider, model, proxy, shortcut, clipboard, package, and browser-runtime diagnostics              |
+| FAQ                                   | `faq.md`                     | Concise answers and routes to the authoritative detail pages                                                                  |
 
 The README remains the concise repository overview and installation/development entry point. It gains one prominent
 link to the public guide after the guide exists, but it does not duplicate the complete settings reference.

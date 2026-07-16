@@ -53,6 +53,11 @@ Every completed item must meet its acceptance criteria, verification steps, and 
     availability page; all eleven locales supply the same localized source and navigation structure.
   - Verify: Strict all-locale build and source/output contracts for every platform route and locale.
   - Files: `docs/user-guide/install/`, localized installation sources, `mkdocs.yml`, and documentation contracts.
+- [x] Task 6c: Group operational guides under one navigation point.
+  - Acceptance: `Use GPT-Voice` contains First use, Record and transcribe, Providers, Text actions, and History and
+    tray in every locale without changing their routes or source content.
+  - Verify: Strict all-locale build plus navigation, locale, and output contracts.
+  - Files: `mkdocs.yml`, documentation contracts, and scoped task artifacts.
 - [x] Task 6a: Establish the multilingual MkDocs foundation.
   - Acceptance: Pinned suffix-based `mkdocs-static-i18n` supports `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
     `ja`, `de`, `fr`, and `hi` with localized navigation/search, local glyph fonts, route adapters, no redirect, and

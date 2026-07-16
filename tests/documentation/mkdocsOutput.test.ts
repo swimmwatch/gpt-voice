@@ -30,11 +30,15 @@ const expectedNavigation = [
       { macOS: 'install/macos.md' },
     ],
   },
-  { 'First use': 'getting-started.md' },
-  { 'Record and transcribe': 'guides/transcription.md' },
-  { Providers: 'guides/providers.md' },
-  { 'Text actions': 'guides/text-actions.md' },
-  { 'History and tray': 'guides/history-and-tray.md' },
+  {
+    'Use GPT-Voice': [
+      { 'First use': 'getting-started.md' },
+      { 'Record and transcribe': 'guides/transcription.md' },
+      { Providers: 'guides/providers.md' },
+      { 'Text actions': 'guides/text-actions.md' },
+      { 'History and tray': 'guides/history-and-tray.md' },
+    ],
+  },
   {
     Settings: [
       { Overview: 'settings/index.md' },

@@ -290,6 +290,24 @@ platform-specific instructions into Windows, Linux, and macOS child pages in eve
 **Dependencies:** Tasks 6 and 6a.
 **Files touched:** `docs/user-guide/install*.md`, `docs/user-guide/install/`, `mkdocs.yml`, documentation contracts.
 
+### Task 6c: Group Operational Guides Under One Navigation Point
+
+**Description:** Replace the five operational top-level Material tabs with one localized `Use GPT-Voice` parent that
+contains the existing First use, Record and transcribe, Providers, Text actions, and History and tray pages.
+
+**Acceptance criteria:**
+
+- [x] The five pages appear as ordered child pages of `Use GPT-Voice`, with no source-content or route change.
+- [x] Every published locale supplies a Material navigation translation for the parent.
+- [x] Navigation, locale, and generated-output contracts reject hierarchy or localization drift.
+
+**Verification:**
+
+- [x] Run `npm run docs:build` and `npm run docs:test`.
+
+**Dependencies:** Tasks 6 and 6a.
+**Files touched:** `mkdocs.yml`, documentation contracts, and scoped task artifacts.
+
 ### Task 6a: Establish The Multilingual MkDocs Foundation
 
 **Description:** Replace the English-only documentation configuration with a static, suffix-based MkDocs locale

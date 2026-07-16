@@ -43,11 +43,12 @@ nav:
       - Windows: install/windows.md
       - Linux: install/linux.md
       - macOS: install/macos.md
-  - First use: getting-started.md
-  - Record and transcribe: guides/transcription.md
-  - Providers: guides/providers.md
-  - Text actions: guides/text-actions.md
-  - History and tray: guides/history-and-tray.md
+  - Use GPT-Voice:
+      - First use: getting-started.md
+      - Record and transcribe: guides/transcription.md
+      - Providers: guides/providers.md
+      - Text actions: guides/text-actions.md
+      - History and tray: guides/history-and-tray.md
   - Settings:
       - Overview: settings/index.md
       - Provider settings: settings/providers.md
@@ -77,6 +78,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Use GPT-Voice
             First use: First use
             Record and transcribe: Record and transcribe
             Providers: Providers
@@ -101,6 +103,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Использование GPT-Voice
             First use: Первый запуск
             Record and transcribe: Запись и расшифровка
             Providers: Поставщики
@@ -125,6 +128,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Выкарыстанне GPT-Voice
             First use: Першы запуск
             Record and transcribe: Запіс і расшыфроўка
             Providers: Пастаўшчыкі
@@ -149,6 +153,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Використання GPT-Voice
             First use: Перше використання
             Record and transcribe: Запис і транскрибування
             Providers: Постачальники
@@ -173,6 +178,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Usar GPT-Voice
             First use: Primer uso
             Record and transcribe: Grabar y transcribir
             Providers: Proveedores
@@ -197,6 +203,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Usar o GPT-Voice
             First use: Primeiro uso
             Record and transcribe: Gravar e transcrever
             Providers: Provedores
@@ -221,6 +228,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: 使用 GPT-Voice
             First use: 首次使用
             Record and transcribe: 录音和转写
             Providers: 提供商
@@ -245,6 +253,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: GPT-Voice を使う
             First use: 初回使用
             Record and transcribe: 録音と文字起こし
             Providers: プロバイダー
@@ -269,6 +278,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: GPT-Voice verwenden
             First use: Erste Verwendung
             Record and transcribe: Aufnehmen und transkribieren
             Providers: Anbieter
@@ -293,6 +303,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: Utiliser GPT-Voice
             First use: Première utilisation
             Record and transcribe: Enregistrer et transcrire
             Providers: Fournisseurs
@@ -317,6 +328,7 @@ plugins:
             Windows: Windows
             Linux: Linux
             macOS: macOS
+            Use GPT-Voice: GPT-Voice का उपयोग करें
             First use: पहली बार उपयोग
             Record and transcribe: रिकॉर्ड करें और ट्रांसक्राइब करें
             Providers: प्रदाता

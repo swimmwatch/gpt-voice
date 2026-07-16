@@ -14,6 +14,8 @@
 - Task 6b split the installation overview into Material navigation pages for Windows, Linux, and macOS. Every one of
   the eleven published locales supplies the same platform pages; the output contract covers their canonical paths,
   retained-data guidance, and the Linux next-step link.
+- Task 6c grouped First use, recording, providers, text actions, and history/tray below one localized `Use GPT-Voice`
+  Material navigation point while retaining every page route and source document.
 - Task 6a added the pinned suffix-based `mkdocs-static-i18n` configuration for the eleven landing locales, localized
   navigation/search, no-fallback behavior, and tested lowercase `pt-br`/`zh-cn` route adapters.
 - Task 6a stages all local Noto Sans SC, Noto Sans JP, and Noto Sans Devanagari Unicode subsets with hash validation.
@@ -318,6 +320,8 @@
 - Task 6b: `npm run docs:build` and `npm run docs:test` (28 passing) verified the Material installation section and
   every localized source page. The generated-output contract checks the Windows, Linux, and macOS canonical routes;
   a final route-matrix inspection confirmed all four installation pages at every one of the eleven locale roots.
+- Task 6c: `npm run docs:build` and `npm run docs:test` (28 passing) verified the grouped `Use GPT-Voice` navigation
+  in all eleven locales, with the exact hierarchy and localized parent labels enforced by contracts.
 
 ## Next Step
 

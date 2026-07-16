@@ -50,6 +50,7 @@ const expectedNavigationLabels = [
   'Windows',
   'Linux',
   'macOS',
+  'Use GPT-Voice',
   'First use',
   'Record and transcribe',
   'Providers',
