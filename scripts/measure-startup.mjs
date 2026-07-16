@@ -7,6 +7,7 @@ import {
   getPackagedStartupExecutableCandidates,
   getStartupBenchmarkLaunchArguments,
   normalizeRunCount,
+  removeStartupProfile,
   runStartupBenchmark,
   waitForChildExit,
 } from './startup-benchmark.mjs';
@@ -14,6 +15,10 @@ import {
 const STARTUP_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_TIMEOUT_MS = 60_000;
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function waitForRetry(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
 
 function parseArguments(args) {
   const options = { output: null, runs: undefined };
@@ -114,7 +119,11 @@ async function measureStartupRun(executablePath) {
       await exitPromise;
     }
 
-    await rm(userDataPath, { force: true, recursive: true });
+    await removeStartupProfile(userDataPath, {
+      delay: waitForRetry,
+      platform: process.platform,
+      remove: rm,
+    });
   }
 }
 

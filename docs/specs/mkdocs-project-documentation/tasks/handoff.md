@@ -290,11 +290,16 @@
   header. The entrance transition changed that target's geometry after its position was corrected. Initial fragment
   targets now begin revealed; focused and full Chromium browser checks, landing tests, format, typecheck, and lint pass.
   Local WebKit cannot launch without system libraries, so the cross-browser confirmation is delegated to CI.
+- CI follow-up: the Windows Package Smoke benchmark could remove its temporary Chromium profile before Windows released
+  a `Trust Tokens` handle. Startup-profile cleanup now retries only Windows `EBUSY` and `EPERM` errors with five bounded
+  attempts and 100/200/400/800-ms backoff. Deterministic tests cover successful recovery, immediate rejection of
+  non-Windows and unexpected errors, and the retry cap. `npm run docs:build`, `npm test` (388 passing), format,
+  lint (zero errors; three pre-existing warnings), and both type checks pass locally.
 
 ## Next Step
 
-Implement Task 17: expose the English guide in `llms.txt` while preserving landing-content equivalence.
-Proficient-speaker review can proceed independently.
+Monitor the pushed Windows Package Smoke rerun to completion, then implement Task 17: expose the English guide in
+`llms.txt` while preserving landing-content equivalence. Proficient-speaker review can proceed independently.
 
 ## Blockers
 
