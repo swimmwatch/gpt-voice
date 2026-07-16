@@ -45,6 +45,9 @@
   guide route for every landing locale, and retained English as the only published landing content.
 - Task 16 renders that typed English destination after the on-page desktop links and in hydrated mobile, no-JavaScript,
   pre-rendered, and footer navigation without opening a new tab or publishing a non-English landing page.
+- Task 17 adds the one factual English documentation link to `llms.txt` while keeping `llms-full.txt` limited to the
+  landing content and its localized landing-resource index. The all-locale MkDocs fixture now rejects a sitemap missing
+  any normalized guide root.
 
 ## In Progress
 
@@ -78,8 +81,10 @@
 - `src/landing-page/content/locale-registry.ts`
 - `src/landing-page/content/index.ts`
 - `src/landing-page/content/locales/en.ts`
+- `src/landing-page/build/generate-txt-files.ts`
 - `tests/landing-page/content.test.ts`
 - `tests/landing-page/locales.test.ts`
+- `tests/landing-page/generateTxtFiles.test.ts`
 - `src/landing-page/components/LandingPage.tsx`
 - `src/landing-page/components/LandingPage.test.tsx`
 - `src/landing-page/components/SiteHeader.tsx`
@@ -297,10 +302,13 @@
   lint (zero errors; three pre-existing warnings), and both type checks pass locally. GitHub Actions run `29483979873`
   passed Quality Gates, Fedora Package Smoke, Windows Package Smoke including its cold-start measurement, and Landing
   Page Checks.
+- Task 17: focused TXT and all-locale sitemap tests, strict documentation build and 27 documentation contracts, the
+  full unit suite (388 passing), landing production build, 24 landing tests, landing typecheck/lint/format checks, and
+  `git diff --check` passed.
 
 ## Next Step
 
-Implement Task 17: expose the English guide in `llms.txt` while preserving landing-content equivalence.
+Implement Task 18: compose crawl metadata after both landing and documentation builds.
 Proficient-speaker review can proceed independently.
 
 ## Blockers

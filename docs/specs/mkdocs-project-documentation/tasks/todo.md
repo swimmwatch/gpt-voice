@@ -145,7 +145,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 - [x] Active English landing guide entry points and the future-locale route matrix work without regressing CTAs,
       anchors, locale, or focus behavior.
 
-- [ ] Task 17: Expose the guide in text discovery.
+- [x] Task 17: Expose the guide in text discovery.
   - Acceptance: English `llms.txt` links to the guide without duplicated/hidden content or changed landing-content
     equivalence; the all-locale documentation sitemap remains the localized discovery source.
   - Verify: Focused English text-generation tests and fixture inspection, plus all-locale documentation sitemap test.

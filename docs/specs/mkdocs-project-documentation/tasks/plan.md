@@ -658,16 +658,16 @@ owned by the all-locale MkDocs sitemap and language selector until landing local
 
 **Acceptance criteria:**
 
-- [ ] English `llms.txt` links to `/gpt-voice/docs/` with descriptive text and preserves existing qualification/content
+- [x] English `llms.txt` links to `/gpt-voice/docs/` with descriptive text and preserves existing qualification/content
       rules.
-- [ ] `llms-full.txt` remains content-equivalent to the active landing source without a hidden copy of any guide.
-- [ ] Text-generation tests enforce the English guide destination, UTF-8/LF/NFC output, and absence of hidden docs
+- [x] `llms-full.txt` remains content-equivalent to the active landing source without a hidden copy of any guide.
+- [x] Text-generation tests enforce the English guide destination, UTF-8/LF/NFC output, and absence of hidden docs
       copy; the documentation sitemap test enforces every localized guide root.
 
 **Verification:**
 
-- [ ] Run the focused TXT generation tests.
-- [ ] Generate text output in a temporary fixture and inspect the documentation link.
+- [x] Run the focused TXT generation tests.
+- [x] Generate text output in a temporary fixture and inspect the documentation link.
 
 **Dependencies:** Tasks 14, 14a, 15.
 **Files likely touched:** `src/landing-page/build/generate-txt-files.ts`,
