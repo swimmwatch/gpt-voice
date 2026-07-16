@@ -7,10 +7,6 @@ const routeAliases = [
   ['pt-BR', 'pt-br'],
   ['zh-CN', 'zh-cn'],
 ];
-const htmlLanguageAliases = [
-  ['pt', 'pt-BR'],
-  ['zh', 'zh-CN'],
-];
 const textExtensions = new Set(['.css', '.html', '.json', '.js', '.txt', '.xml']);
 
 async function pathExists(targetPath) {
@@ -40,13 +36,11 @@ function normalizePathSegments(contents) {
     (normalized, [source, destination]) => normalized.replaceAll(`${source}/`, `${destination}/`),
     contents,
   );
-  return htmlLanguageAliases.reduce(
-    (normalized, [source, destination]) =>
-      normalized
-        .replace(new RegExp(`(<html\\b[^>]*\\blang=)${source}(?=[\\s>])`, 'gu'), `$1${destination}`)
-        .replace(new RegExp(`(<html\\b[^>]*\\blang=["'])${source}(?=["'])`, 'gu'), `$1${destination}`),
-    normalizedPaths,
-  );
+  return normalizedPaths
+    .replace(/(<html\b[^>]+\blang=)pt(?=[\s>])/gu, '$1pt-BR')
+    .replace(/(<html\b[^>]+\blang=["'])pt(?=["'])/gu, '$1pt-BR')
+    .replace(/(<html\b[^>]+\blang=)zh(?=[\s>])/gu, '$1zh-CN')
+    .replace(/(<html\b[^>]+\blang=["'])zh(?=["'])/gu, '$1zh-CN');
 }
 
 export async function normalizeDocumentationLocaleRoutes({ siteDirectory } = {}) {
