@@ -63,7 +63,16 @@ export function ProvidersScene(): JSX.Element {
       <div style={{ left: 192, position: 'absolute', top: 248, transform: `translateY(${productOffset}px)` }}>
         <ProductUiFrame scale={1.45} spinnerRotation={0} state={getVideoUiState(view.fixtureId)} />
       </div>
-      <div style={{ left: 1000, position: 'absolute', top: 284, transform: `translateX(${panelOffset}px)`, width: 590 }}>
+      <div
+        style={{
+          left: 1240,
+          position: 'absolute',
+          top: 284,
+          transform: `translateX(${panelOffset}px)`,
+          width: 500,
+          zIndex: 60,
+        }}
+      >
         <ProviderQualification />
       </div>
     </AbsoluteFill>

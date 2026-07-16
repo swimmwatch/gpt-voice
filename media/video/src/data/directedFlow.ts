@@ -9,14 +9,14 @@ export const kineticSignalPath = 'M-80 792 C400 552 700 1010 1120 700 S1650 330 
 
 const kineticSignalLength = getLength(kineticSignalPath);
 
-function clampProgress(progress: number): number {
-  return Math.max(0, Math.min(1, progress));
+function wrapProgress(progress: number): number {
+  return ((progress % 1) + 1) % 1;
 }
 
-/** Returns two bounded, deterministic points moving in the path's semantic direction. */
+/** Returns two deterministic points that wrap beyond the canvas edges in the path's semantic direction. */
 export function getDirectedFlowPoints(progress: number): readonly [FlowPoint, FlowPoint] {
-  const leadingProgress = clampProgress(progress);
-  const trailingProgress = clampProgress(progress - 0.2);
+  const leadingProgress = wrapProgress(progress);
+  const trailingProgress = wrapProgress(progress - 0.2);
 
   return [
     getPointAtLength(kineticSignalPath, kineticSignalLength * leadingProgress),

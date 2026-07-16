@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { claims } from '../data/content.ts';
 import { getProvidersViewState } from '../data/providersState.ts';
 import { getVideoUiState } from '../data/uiFixtures.ts';
+
+const providersScene = readFileSync(new URL('./ProvidersScene.tsx', import.meta.url), 'utf8');
 
 test('provider proof shows both canonical providers and then the saved ChatGPT Web session', () => {
   assert.equal(getProvidersViewState(0).fixtureId, 'bridgeReady');
@@ -18,4 +21,9 @@ test('the provider qualification is available for every frame in the 300-frame s
     assert.match(claims.providerQualification, /does not bypass quotas/);
     assert.equal(getProvidersViewState(frame).fixtureId.length > 0, true);
   }
+});
+
+test('the provider qualification stays above the modal overlay without overlapping the dialog', () => {
+  assert.match(providersScene, /left: 1240/);
+  assert.match(providersScene, /zIndex: 60/);
 });

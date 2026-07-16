@@ -120,6 +120,7 @@ export function ProductUiFrame({ scale = 1, spinnerRotation, state }: ProductUiF
               onTemperatureChange={inertCallback}
               prompt=""
               provider={providers[0]}
+              showCloseTooltip={false}
               settings={savedChatGptSession}
               temperature={0}
             />

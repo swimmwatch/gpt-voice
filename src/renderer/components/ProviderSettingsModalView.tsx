@@ -59,6 +59,7 @@ export interface ProviderSettingsModalViewProps {
   onTemperatureChange: (value: number) => void;
   prompt: string;
   provider: ProviderInfo;
+  showCloseTooltip?: boolean;
   settings: ProviderSettings;
   temperature: number;
 }
@@ -85,6 +86,7 @@ export function ProviderSettingsModalView({
   onTemperatureChange,
   prompt,
   provider,
+  showCloseTooltip = true,
   settings,
   temperature,
 }: ProviderSettingsModalViewProps): React.JSX.Element {
@@ -110,21 +112,34 @@ export function ProviderSettingsModalView({
               <DialogTitle>{t('providerSettings.title', { provider: provider.name })}</DialogTitle>
               <DialogDescription>{t('providerSettings.description', { provider: provider.name })}</DialogDescription>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={t('dialog.close')}
-                  disabled={isSaving}
-                  onClick={onClose}
-                  size="icon"
-                  title={t('dialog.close')}
-                  variant="ghost"
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t('dialog.close')}</TooltipContent>
-            </Tooltip>
+            {showCloseTooltip ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label={t('dialog.close')}
+                    disabled={isSaving}
+                    onClick={onClose}
+                    size="icon"
+                    title={t('dialog.close')}
+                    variant="ghost"
+                  >
+                    <X aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('dialog.close')}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button
+                aria-label={t('dialog.close')}
+                disabled={isSaving}
+                onClick={onClose}
+                size="icon"
+                title={t('dialog.close')}
+                variant="ghost"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            )}
           </DialogHeader>
 
           {viewState.kind === 'browserSession' && settings.authType === 'browserSession' && (

@@ -1,5 +1,3 @@
-import { interpolate } from 'remotion';
-
 export interface KineticBackdropMotion {
   dashOffset: number;
   driftX: number;
@@ -10,13 +8,14 @@ export interface KineticBackdropMotion {
 
 /** Calculates a looping, deterministic background movement without touching product UI. */
 export function getKineticBackdropMotion(frame: number, phase = 0): KineticBackdropMotion {
-  const progress = ((frame + phase) % 180) / 180;
+  const totalFrames = frame + phase;
+  const cycle = (totalFrames * Math.PI * 2) / 180;
 
   return {
-    dashOffset: interpolate(progress, [0, 1], [0, -180]),
-    driftX: interpolate(progress, [0, 1], [-96, 96]),
-    driftY: interpolate(progress, [0, 1], [56, -56]),
-    flowProgress: progress,
-    pulse: 0.25 + Math.sin(progress * Math.PI * 2) * 0.12,
+    dashOffset: -(totalFrames * 16) / 15,
+    driftX: Math.sin(cycle) * 96,
+    driftY: Math.cos(cycle) * 56,
+    flowProgress: totalFrames / 180,
+    pulse: 0.25 + Math.sin(cycle) * 0.12,
   };
 }

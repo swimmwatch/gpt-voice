@@ -29,3 +29,7 @@ test('ProductUiFrame uses inert callbacks and disables ambient interaction and m
   assert.match(productUiCss, /transition: none !important/);
   assert.match(productUiCss, /--video-spinner-rotation/);
 });
+
+test('ProductUiFrame prevents an auto-focused tooltip from appearing in the recorded provider dialog', () => {
+  assert.match(productUiFrame, /showCloseTooltip=\{false\}/);
+});
