@@ -11,12 +11,28 @@ const plyrIconUrl = new URL('../../node_modules/plyr/dist/plyr.svg', import.meta
 
 let landingHydration: Promise<void> | undefined;
 
+function correctInitialHashPosition(): void {
+  const targetId = window.location.hash.slice(1);
+  const target = targetId ? document.getElementById(targetId) : null;
+  const header = document.querySelector<HTMLElement>('.site-header');
+
+  if (!target || !header) {
+    return;
+  }
+
+  const overlap = target.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+  if (overlap < 0) {
+    window.scrollBy(0, overlap);
+  }
+}
+
 function hydrateLanding(): void {
   landingHydration ??= import('./hydrate')
     .then(({ hydrateLandingPage }) => {
       hydrateLandingPage(landingRoot);
       document.documentElement.dataset.landingEnhanced = 'true';
       enableDeferredDemoPlayer();
+      requestAnimationFrame(() => requestAnimationFrame(correctInitialHashPosition));
     })
     .catch(() => undefined);
 }
