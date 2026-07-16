@@ -117,6 +117,7 @@ test('builds complete suffix fixtures at every static guide root without fallbac
     await writeFile(fixtureConfigPath, stringify(fixtureConfig), 'utf8');
     await executeFile(mkdocsPath, ['build', '--strict', '--config-file', fixtureConfigPath], { cwd: projectRoot });
     await localeRoutes.normalizeDocumentationLocaleRoutes({ siteDirectory: fixtureSite });
+    const sitemap = await readFile(path.join(fixtureSite, 'sitemap.xml'), 'utf8');
 
     for (const locale of localeMap.locales) {
       const localeDirectory = locale.routeSlug || '.';
@@ -126,6 +127,10 @@ test('builds complete suffix fixtures at every static guide root without fallbac
 
       assert.ok(output.includes(`Fixture ${locale.tag}`));
       assert.ok(output.includes(`${canonicalUrl}${canonicalPath}`));
+      assert.ok(
+        sitemap.includes(`${canonicalUrl}${canonicalPath}`),
+        `Documentation sitemap must include the ${locale.tag} guide root.`,
+      );
     }
 
     await assert.rejects(readFile(path.join(fixtureSite, 'pt-BR', 'index.html'), 'utf8'));
