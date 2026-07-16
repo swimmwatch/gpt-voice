@@ -28,7 +28,7 @@ function sceneEnd(scene: SceneTiming): number {
   return scene.from + scene.durationInFrames;
 }
 
-function isInteger(value: number): boolean {
+function isNonNegativeInteger(value: number): boolean {
   return Number.isInteger(value) && value >= 0;
 }
 
@@ -39,7 +39,7 @@ export function getTimelineValidationErrors(input: TimelineValidationInput = def
   for (const sceneId of sceneIds) {
     const scene = input.scenes[sceneId];
 
-    if (!isInteger(scene.from) || !Number.isInteger(scene.durationInFrames) || scene.durationInFrames <= 0) {
+    if (!isNonNegativeInteger(scene.from) || !Number.isInteger(scene.durationInFrames) || scene.durationInFrames <= 0) {
       errors.push(`${sceneId} has an invalid frame range.`);
       continue;
     }
@@ -69,7 +69,7 @@ export function getTimelineValidationErrors(input: TimelineValidationInput = def
     const owner = input.scenes[cue.scene];
     const ownerLastFrame = sceneEnd(owner) - 1;
 
-    if (!isInteger(cue.from) || !isInteger(cueEnd) || cueEnd < cue.from) {
+    if (!isNonNegativeInteger(cue.from) || !isNonNegativeInteger(cueEnd) || cueEnd < cue.from) {
       errors.push(`${cue.id} has an invalid cue range.`);
       continue;
     }

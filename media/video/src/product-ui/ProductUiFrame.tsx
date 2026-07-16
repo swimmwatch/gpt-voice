@@ -1,6 +1,6 @@
 import type { CSSProperties, JSX } from 'react';
 import type { OllamaModelControl } from '@renderer/prettifyModelControl';
-import type { ProviderAuthType, ProviderInfo, ProviderSettings } from '@renderer/types';
+import type { ProviderInfo, ProviderSettings } from '@renderer/types';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import { getVideoUiState } from '../data/uiFixtures';
 import {
@@ -56,7 +56,6 @@ function getActiveProvider(providerId: ProductUiFrameState['activeProviderId']):
 /** Renders the canonical Command Dock at its native geometry with deterministic video-only interaction behavior. */
 export function ProductUiFrame({ scale = 1, spinnerRotation, state }: ProductUiFrameProps): JSX.Element {
   const activeProvider = getActiveProvider(state.activeProviderId);
-  const activeProviderAuthType: ProviderAuthType = activeProvider.authType;
   const isLoggedIn = state.connection === 'connected';
   const frameStyle = {
     '--video-spinner-rotation': `${spinnerRotation}deg`,
@@ -76,7 +75,7 @@ export function ProductUiFrame({ scale = 1, spinnerRotation, state }: ProductUiF
         <TooltipProvider>
           <div className="command-dock">
             <MainToolbar
-              activeProviderAuthType={activeProviderAuthType}
+              activeProviderAuthType={activeProvider.authType}
               activeProviderId={activeProvider.id}
               activeProviderName={activeProvider.name}
               isLoggedIn={isLoggedIn}

@@ -9,6 +9,13 @@ import { ProductUiFrame } from '../product-ui/ProductUiFrame';
 import { PromptWorkspace } from '../product-ui/PromptWorkspace';
 import { VideoCursor } from '../product-ui/VideoCursor';
 
+const stageCardContent = {
+  copied: { detail: 'Ready for your next prompt.', title: 'Copied to clipboard', tone: '#34D399' },
+  stopping: { detail: 'The recording is closing.', title: 'Stopping…', tone: '#F59E0B' },
+  transcribing: { detail: 'The request is being processed.', title: 'Transcribing…', tone: '#60A5FA' },
+  waiting: { detail: 'Use the global shortcut when you are ready.', title: 'Start from speech', tone: '#94A3B8' },
+} as const;
+
 function AudioInputCard({ frame }: { frame: number }): JSX.Element {
   const bars = Array.from({ length: 18 }, (_, index) => {
     const intensity = 0.32 + Math.abs(Math.sin(frame * 0.19 + index * 0.83)) * 0.68;
@@ -53,13 +60,7 @@ function AudioInputCard({ frame }: { frame: number }): JSX.Element {
 }
 
 function StageCard({ stage }: Pick<TranscriptionViewState, 'stage'>): JSX.Element {
-  const content = {
-    copied: { detail: 'Ready for your next prompt.', title: 'Copied to clipboard', tone: '#34D399' },
-    stopping: { detail: 'The recording is closing.', title: 'Stopping…', tone: '#F59E0B' },
-    transcribing: { detail: 'The request is being processed.', title: 'Transcribing…', tone: '#60A5FA' },
-    waiting: { detail: 'Use the global shortcut when you are ready.', title: 'Start from speech', tone: '#94A3B8' },
-  } as const;
-  const current = content[stage === 'recording' ? 'waiting' : stage];
+  const current = stageCardContent[stage === 'recording' ? 'waiting' : stage];
 
   return (
     <div
