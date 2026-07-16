@@ -81,6 +81,9 @@
 - The product-video remediation keeps the provider qualification readable above the dialog overlay, suppresses the
   recording-only close tooltip, removes the three-second kinetic-motion seam, and validates a representative render
   in CI. The licensing ledger now matches the installed, owner-approved Remotion package set.
+- The final landing CI repair renders the hydrated mobile-navigation sheet in a document-level portal, so its backdrop
+  is above the sticky header's stacking context. Its browser test now verifies pointer hit testing before the backdrop
+  click, preventing the previous cross-browser timeout.
 
 ## In Progress
 
@@ -91,6 +94,8 @@
 - Review remediation: `scripts/build-pages.mjs`, `.github/workflows/pr-checks.yml`,
   `media/video/{package.json,THIRD_PARTY_MEDIA.md,src/**}`, `src/landing-page/{build,components,content,styles}`, and
   their landing/video/Pages tests.
+- Latest CI repair: `src/landing-page/components/SiteHeader.tsx` and
+  `tests/landing-page/e2e/english.spec.ts`.
 - `mkdocs.yml`
 - `README.md`
 - `docs/requirements.txt`
@@ -378,6 +383,9 @@
   browser-support/size verification, the Pages artifact contract, and the 26 Chromium/Firefox Pages journeys passed.
   Root format, type checks, `npm test` (397 passing), production audit, and production build passed. The local WebKit
   run is blocked only by missing `libavif16` and `libwoff1`; CI installs them before its required WebKit coverage.
+- Latest CI repair: landing typecheck, lint, format, and Vitest (27 passing) pass. The repaired mobile-sheet case
+  passes in Chromium and Firefox; the complete CI-equivalent run has 60 Chromium/Firefox passes. Local WebKit remains
+  blocked by the host's missing `libavif16` and `libwoff1`, while CI installs both packages.
 
 ## Next Step
 

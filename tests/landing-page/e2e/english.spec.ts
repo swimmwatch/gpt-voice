@@ -434,7 +434,16 @@ test.describe('English mobile enhancement', () => {
 
     await trigger.click();
     await expect(dialog).toBeVisible();
-    await page.locator('[data-slot="sheet-overlay"]').click({ position: { x: 20, y: 400 } });
+    const backdrop = page.locator('[data-slot="sheet-overlay"]');
+    await expect
+      .poll(() =>
+        backdrop.evaluate((element) => {
+          const target = document.elementFromPoint(20, 400);
+          return target === element || element.contains(target);
+        }),
+      )
+      .toBe(true);
+    await backdrop.click({ position: { x: 20, y: 400 } });
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
   });

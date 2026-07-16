@@ -1,5 +1,6 @@
 import { CheckIcon, LanguagesIcon, MenuIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 import { localeRegistry } from '../content/locale-registry';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
@@ -109,50 +110,53 @@ function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 
       >
         <MenuIcon aria-hidden="true" />
       </Button>
-      {isOpen ? (
-        <>
-          <button
-            aria-label={content.mobileMenuClose}
-            className="landing-sheet-overlay fixed inset-0 z-50 bg-[var(--overlay)]"
-            data-slot="sheet-overlay"
-            data-state="open"
-            onClick={close}
-            type="button"
-          />
-          <aside
-            aria-describedby="mobile-navigation-description"
-            aria-modal="true"
-            className="landing-sheet-content fixed inset-y-0 right-0 z-50 flex h-full w-3/4 flex-col gap-4 border-l bg-background shadow-[var(--shadow-media)] sm:max-w-sm"
-            data-side="right"
-            data-slot="sheet-content"
-            data-state="open"
-            role="dialog"
-          >
-            <div className="flex flex-col gap-1.5 p-4">
-              <h2 className="font-semibold text-foreground">{content.brand}</h2>
-              <p className="text-sm text-muted-foreground" id="mobile-navigation-description">
-                {content.mobileMenuLabel}
-              </p>
-            </div>
-            <Button
-              aria-label={content.mobileMenuClose}
-              className="landing-sheet-close absolute top-4 right-4"
-              onClick={close}
-              size="icon"
-              variant="outline"
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-            <nav aria-label={content.mobileMenuLabel} className="mobile-navigation-links">
-              {navigationItems(content, links.documentation).map((item) => (
-                <a href={item.href} key={item.href} onClick={close}>
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          </aside>
-        </>
-      ) : null}
+      {isOpen
+        ? createPortal(
+            <>
+              <button
+                aria-label={content.mobileMenuClose}
+                className="landing-sheet-overlay fixed inset-0 z-50 bg-[var(--overlay)]"
+                data-slot="sheet-overlay"
+                data-state="open"
+                onClick={close}
+                type="button"
+              />
+              <aside
+                aria-describedby="mobile-navigation-description"
+                aria-modal="true"
+                className="landing-sheet-content fixed inset-y-0 right-0 z-50 flex h-full w-3/4 flex-col gap-4 border-l bg-background shadow-[var(--shadow-media)] sm:max-w-sm"
+                data-side="right"
+                data-slot="sheet-content"
+                data-state="open"
+                role="dialog"
+              >
+                <div className="flex flex-col gap-1.5 p-4">
+                  <h2 className="font-semibold text-foreground">{content.brand}</h2>
+                  <p className="text-sm text-muted-foreground" id="mobile-navigation-description">
+                    {content.mobileMenuLabel}
+                  </p>
+                </div>
+                <Button
+                  aria-label={content.mobileMenuClose}
+                  className="landing-sheet-close absolute top-4 right-4"
+                  onClick={close}
+                  size="icon"
+                  variant="outline"
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+                <nav aria-label={content.mobileMenuLabel} className="mobile-navigation-links">
+                  {navigationItems(content, links.documentation).map((item) => (
+                    <a href={item.href} key={item.href} onClick={close}>
+                      {item.label}
+                    </a>
+                  ))}
+                </nav>
+              </aside>
+            </>,
+            document.body,
+          )
+        : null}
       <details className="mobile-navigation-no-js">
         <summary>{content.mobileMenu}</summary>
         <nav aria-label={content.mobileMenuLabel}>
