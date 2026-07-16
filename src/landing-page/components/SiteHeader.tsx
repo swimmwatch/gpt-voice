@@ -11,13 +11,15 @@ import type { LandingContent, LandingLocaleDefinition } from '../content/schema'
 
 type SiteHeaderProps = {
   content: LandingContent['navigation'];
+  links: Pick<LandingContent['links'], 'documentation'>;
   locale: LandingLocaleDefinition;
 };
 
-const navigationItems = (content: LandingContent['navigation']) => [
+const navigationItems = (content: LandingContent['navigation'], documentation: string) => [
   { href: '#providers', label: content.providers },
   { href: '#how-it-works', label: content.howItWorks },
   { href: '#faq', label: content.faq },
+  { href: documentation, label: content.documentation },
 ];
 
 function subscribeToHash(listener: () => void): () => void {
@@ -38,7 +40,7 @@ function useCurrentHash(): string {
   return React.useSyncExternalStore(subscribeToHash, getCurrentHash, () => '');
 }
 
-function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element | null {
+function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'locale'>): React.JSX.Element | null {
   const currentHash = useCurrentHash();
 
   if (publishedLocaleDefinitions.length < 2) {
@@ -89,7 +91,7 @@ function LocaleMenu({ content, locale }: SiteHeaderProps): React.JSX.Element | n
   );
 }
 
-function MobileNavigation({ content }: Pick<SiteHeaderProps, 'content'>): React.JSX.Element {
+function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 'links'>): React.JSX.Element {
   return (
     <Sheet>
       <TooltipProvider>
@@ -110,7 +112,7 @@ function MobileNavigation({ content }: Pick<SiteHeaderProps, 'content'>): React.
           <SheetDescription id="mobile-navigation-description">{content.mobileMenu}</SheetDescription>
         </SheetHeader>
         <nav aria-label={content.mobileMenu} className="mobile-navigation-links">
-          {navigationItems(content).map((item) => (
+          {navigationItems(content, links.documentation).map((item) => (
             <SheetClose asChild key={item.href}>
               <a href={item.href}>{item.label}</a>
             </SheetClose>
@@ -120,7 +122,7 @@ function MobileNavigation({ content }: Pick<SiteHeaderProps, 'content'>): React.
       <details className="mobile-navigation-no-js">
         <summary>{content.mobileMenu}</summary>
         <nav aria-label={content.mobileMenu}>
-          {navigationItems(content).map((item) => (
+          {navigationItems(content, links.documentation).map((item) => (
             <a href={item.href} key={item.href}>
               {item.label}
             </a>
@@ -131,7 +133,7 @@ function MobileNavigation({ content }: Pick<SiteHeaderProps, 'content'>): React.
   );
 }
 
-export function SiteHeader({ content, locale }: SiteHeaderProps): React.JSX.Element {
+export function SiteHeader({ content, links, locale }: SiteHeaderProps): React.JSX.Element {
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -140,7 +142,7 @@ export function SiteHeader({ content, locale }: SiteHeaderProps): React.JSX.Elem
         </a>
         <NavigationMenu className="desktop-navigation" viewport={false}>
           <NavigationMenuList>
-            {navigationItems(content).map((item) => (
+            {navigationItems(content, links.documentation).map((item) => (
               <NavigationMenuItem key={item.href}>
                 <NavigationMenuLink asChild>
                   <a href={item.href}>{item.label}</a>
@@ -151,7 +153,7 @@ export function SiteHeader({ content, locale }: SiteHeaderProps): React.JSX.Elem
         </NavigationMenu>
         <div className="site-header-actions">
           <LocaleMenu content={content} locale={locale} />
-          <MobileNavigation content={content} />
+          <MobileNavigation content={content} links={links} />
         </div>
       </div>
     </header>

@@ -15,6 +15,8 @@ describe('LandingPage', () => {
     expect(markup).toContain('Three steps to better prompts, faster.');
     expect(markup).toContain('Two ways to turn speech into prompts.');
     expect(markup).toContain('How GPT-Voice works.');
+    expect(markup).toContain('<a href="/gpt-voice/docs/">Documentation</a>');
+    expect(markup).toMatch(/<footer[\s\S]*?<a href="\/gpt-voice\/docs\/">Documentation<\/a>[\s\S]*?<\/footer>/);
   });
 
   it('renders the approved hero capture as a responsive, non-interactive image', () => {

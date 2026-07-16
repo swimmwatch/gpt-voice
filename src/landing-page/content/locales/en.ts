@@ -291,6 +291,7 @@ export const englishContent = {
     brand: 'GPT-Voice',
     description: 'Desktop voice-to-text for better AI prompts, faster.',
     links: [
+      { label: 'Documentation', href: 'documentation' },
       { label: 'Releases', href: 'latestRelease' },
       { label: 'Repository', href: 'repository' },
       { label: 'Issues', href: 'issues' },

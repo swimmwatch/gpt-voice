@@ -626,29 +626,29 @@ tested future-locale contract but does not publish or translate landing-page con
 
 **Acceptance criteria:**
 
-- [ ] The active English landing places Documentation after on-page links; mobile hydrated/fallback navigation and the
+- [x] The active English landing places Documentation after on-page links; mobile hydrated/fallback navigation and the
       footer expose the same `/gpt-voice/docs/` route.
-- [ ] Pre-rendered English HTML contains the guide link without hydration and all existing landing navigation behavior
+- [x] Pre-rendered English HTML contains the guide link without hydration and all existing landing navigation behavior
       remains.
-- [ ] Component tests cover active desktop/mobile/fallback/footer destinations, prevent a new-tab target, and retain
+- [x] Component tests cover active desktop/mobile/fallback/footer destinations, prevent a new-tab target, and retain
       the locale-helper contract without publishing a non-English landing route.
 
 **Verification:**
 
-- [ ] Run `npm run landing:test -- --run` and landing contract tests.
-- [ ] Run `npm run landing:build` and inspect generated English HTML for `/gpt-voice/docs/`.
+- [x] Run `npm run landing:test -- --run` and landing contract tests.
+- [x] Run `npm run landing:build` and inspect generated English HTML for `/gpt-voice/docs/`.
 
 **Dependencies:** Task 15.
 **Files likely touched:** `src/landing-page/components/SiteHeader.tsx`,
 `src/landing-page/components/LandingPage.tsx`, `src/landing-page/components/SiteHeader.test.tsx`,
-`src/landing-page/components/LandingPage.test.tsx`.
-**Estimated scope:** M, 60–90 minutes, 4 files.
+`src/landing-page/components/LandingPage.test.tsx`, `src/landing-page/content/locales/en.ts`.
+**Estimated scope:** M, 60–90 minutes, 5 files.
 
 ### Checkpoint G: Landing Entry Points
 
-- [ ] Active English desktop, mobile, no-JavaScript, and footer guide links work from the pre-rendered landing root.
-- [ ] Landing typecheck, component tests, future-route contract, and production build pass.
-- [ ] Existing download/GitHub CTAs and on-page anchors remain unchanged.
+- [x] Active English desktop, mobile, no-JavaScript, and footer guide links work from the pre-rendered landing root.
+- [x] Landing typecheck, component tests, future-route contract, and production build pass.
+- [x] Existing download/GitHub CTAs and on-page anchors remain unchanged.
 
 ### Task 17: Expose The Guide In Text Discovery
 

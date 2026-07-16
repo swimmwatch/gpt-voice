@@ -134,7 +134,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
     path, while a pure route helper derives all eleven future paths, including `pt-br` and `zh-cn` adapters.
   - Verify: Landing typecheck plus focused all-locale content/route tests.
   - Files: schema, locale registry/content, content test.
-- [ ] Task 16: Render the landing guide navigation.
+- [x] Task 16: Render the landing guide navigation.
   - Acceptance: Active English desktop, mobile, no-JavaScript, footer, and pre-rendered HTML expose the same guide
     route; no non-English landing content is published in this task.
   - Verify: Landing component/contracts, future-route contract, and English production-build inspection.
@@ -142,7 +142,7 @@ Every completed item must meet its acceptance criteria, verification steps, and 
 
 ### Checkpoint G
 
-- [ ] Active English landing guide entry points and the future-locale route matrix work without regressing CTAs,
+- [x] Active English landing guide entry points and the future-locale route matrix work without regressing CTAs,
       anchors, locale, or focus behavior.
 
 - [ ] Task 17: Expose the guide in text discovery.

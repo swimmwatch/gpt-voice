@@ -41,15 +41,16 @@
 - Task 14c applied the user-authorized CloakBrowser reference visual treatment while preserving GPT-Voice branding and
   the landing palette: a self-contained PNG header/fav icon, local hero wordmark, useful Material icons/features,
   icon-led overview cards, and a tested content-style selector allowlist.
+- Task 15 centralized the English Documentation label and `/gpt-voice/docs/` destination, reserved a validated future
+  guide route for every landing locale, and retained English as the only published landing content.
+- Task 16 renders that typed English destination after the on-page desktop links and in hydrated mobile, no-JavaScript,
+  pre-rendered, and footer navigation without opening a new tab or publishing a non-English landing page.
 
 ## In Progress
 
 - Task 14a has complete staged source sets for Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese,
   Simplified Chinese, Japanese, German, French, and Hindi. All ten non-English locales remain blocked in the
   translation manifest until independent proficient-speaker review and manifest approval are recorded.
-- Task 15 centralizes the English Documentation label and `/gpt-voice/docs/` destination, reserves a validated
-  future guide route for every landing locale, and retains English as the only published landing content.
-- Task 16 is the next implementation slice: render the English Documentation link in every landing navigation path.
 
 ## Changed Files
 
@@ -79,6 +80,10 @@
 - `src/landing-page/content/locales/en.ts`
 - `tests/landing-page/content.test.ts`
 - `tests/landing-page/locales.test.ts`
+- `src/landing-page/components/LandingPage.tsx`
+- `src/landing-page/components/LandingPage.test.tsx`
+- `src/landing-page/components/SiteHeader.tsx`
+- `src/landing-page/components/SiteHeader.test.tsx`
 - `docs/user-guide/index.ru.md`
 - `docs/user-guide/install.ru.md`
 - `docs/user-guide/getting-started.ru.md`
@@ -277,11 +282,14 @@
   helper that rejects mixed-case and escaping slugs. The active English label/path and English-only publication gate
   are contract tested. Focused content/locale tests, landing typecheck/lint/format checks, strict docs build, and the
   full unit suite (385 passing) passed; the repository-wide lint has no errors and three pre-existing warnings.
+- Task 16: all landing component and future-route contract tests (24 passing), landing format, typecheck, and lint
+  passed. The production build emits the English Documentation link at `/gpt-voice/docs/` in desktop, no-JavaScript,
+  and footer markup; the component tests also cover the hydrated mobile sheet and prevent a new-tab target.
 
 ## Next Step
 
-Implement Task 16: render the already typed English Documentation destination in desktop, mobile, no-JavaScript, and
-footer navigation without publishing a non-English landing page. Proficient-speaker review can proceed independently.
+Implement Task 17: expose the English guide in `llms.txt` while preserving landing-content equivalence.
+Proficient-speaker review can proceed independently.
 
 ## Blockers
 

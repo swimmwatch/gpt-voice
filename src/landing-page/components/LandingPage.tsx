@@ -339,7 +339,7 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
 export function LandingPage({ content, locale }: LandingPageProps): React.JSX.Element {
   return (
     <>
-      <SiteHeader content={content.navigation} locale={locale} />
+      <SiteHeader content={content.navigation} links={content.links} locale={locale} />
       <main id="main-content" tabIndex={-1}>
         <Hero content={content} />
         <Demo content={content} />
