@@ -75,6 +75,7 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
   );
 }
 
+/** Provides keyboard-safe mobile navigation without including desktop-only UI dependencies in hydration. */
 function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 'links'>): React.JSX.Element {
   const [isOpen, setIsOpen] = React.useState(false);
   const close = React.useCallback(() => {
