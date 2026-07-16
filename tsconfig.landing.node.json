@@ -17,5 +17,10 @@
     "types": ["node"]
   },
   "exclude": ["node_modules", "build", "dist"],
-  "include": ["vite.landing.config.ts", "playwright.landing.config.ts", "src/landing-page/build/**/*.ts"]
+  "include": [
+    "vite.landing.config.ts",
+    "playwright.landing.config.ts",
+    "playwright.pages.config.ts",
+    "src/landing-page/build/**/*.ts"
+  ]
 }

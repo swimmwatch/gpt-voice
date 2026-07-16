@@ -11,6 +11,7 @@ type WorkflowStep = {
 
 type WorkflowJob = {
   needs?: string | string[];
+  permissions?: Record<string, string>;
   steps?: WorkflowStep[];
 };
 
@@ -38,8 +39,11 @@ test('keeps English landing validation PR-only and free of deployment work', asy
   assert.equal(workflow.on?.workflow_dispatch, undefined);
 
   const landing = workflow.jobs?.landing;
+  const pages = workflow.jobs?.pages;
   assert.ok(landing, 'Expected a landing validation job.');
+  assert.ok(pages, 'Expected a Pages artifact validation job.');
   assert.equal(landing.needs, 'quality');
+  assert.equal(pages.needs, 'landing');
   assert.ok(landing.steps?.some((step) => step.uses === 'actions/setup-node@v6'));
   for (const command of [
     'npm ci',
@@ -60,6 +64,20 @@ test('keeps English landing validation PR-only and free of deployment work', asy
     assert.ok(
       landing.steps?.some((step) => step.run === command),
       `Expected landing command: ${command}`,
+    );
+  }
+  for (const command of [
+    'npm ci',
+    'npm run docs:install',
+    'npm run docs:sync-assets',
+    'npx playwright install --with-deps chromium firefox webkit',
+    'npm run pages:build',
+    'node --import tsx --test tests/documentation/pagesArtifact.test.ts',
+    'npm run pages:test:e2e',
+  ]) {
+    assert.ok(
+      pages.steps?.some((step) => step.run === command),
+      `Expected Pages command: ${command}`,
     );
   }
   for (const action of ['actions/configure-pages@v6', 'actions/upload-pages-artifact@v5', 'actions/deploy-pages@v5']) {

@@ -29,7 +29,9 @@ export default defineConfig({
   build: {
     cssMinify: 'lightningcss',
     cssTarget: toEsbuildTargets(legacyBrowsers),
-    emptyOutDir: true,
+    // A standalone landing build owns this directory. The combined Pages build
+    // clears it once, then keeps the MkDocs child artifact intact.
+    emptyOutDir: process.env.PAGES_BUILD !== '1',
     minify: 'terser',
     outDir: path.resolve(__dirname, 'build', 'github-pages'),
     sourcemap: false,

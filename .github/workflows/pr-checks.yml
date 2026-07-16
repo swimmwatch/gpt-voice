@@ -156,6 +156,50 @@ jobs:
       - name: Run landing browser tests
         run: npm run landing:test:e2e
 
+  pages:
+    name: GitHub Pages Artifact Checks
+    needs: landing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install documentation tools
+        run: npm run docs:install
+
+      - name: Sync documentation assets
+        run: npm run docs:sync-assets
+
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Build combined Pages artifact
+        run: npm run pages:build
+
+      - name: Verify Pages artifact contract
+        run: node --import tsx --test tests/documentation/pagesArtifact.test.ts
+
+      - name: Run Pages browser tests
+        run: npm run pages:test:e2e
+
   package-smoke-fedora:
     name: Package Smoke (Fedora Linux)
     needs: quality
