@@ -49,7 +49,7 @@ export interface ProviderSettingsModalViewProps {
   isSaving: boolean;
   language: OpenAIApiProviderSettings['language'];
   onApiKeyChange: (value: string) => void;
-  onClearAuthentication: () => void;
+  onClearAuthentication: () => void | Promise<void>;
   onClearConfirmationOpenChange: (open: boolean) => void;
   onClose: () => void;
   onLanguageChange: (value: OpenAIApiProviderSettings['language']) => void;

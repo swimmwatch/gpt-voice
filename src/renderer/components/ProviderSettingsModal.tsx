@@ -1,7 +1,7 @@
 import { useRef, useState, type JSX } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { ProviderSettingsModalView } from '@renderer/components/ProviderSettingsModalView';
-import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '@renderer/types';
+import type { ProviderInfo, ProviderSettings } from '@renderer/types';
 import { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import { presentNotificationError } from '@shared/notifications';
 
@@ -112,13 +112,13 @@ function ProviderSettingsModal({
       isSaving={isSaving}
       language={language}
       onApiKeyChange={setApiKey}
-      onClearAuthentication={() => void clearAuthentication()}
+      onClearAuthentication={clearAuthentication}
       onClearConfirmationOpenChange={handleClearConfirmationOpenChange}
       onClose={closeModal}
       onLanguageChange={setLanguage}
-      onLogin={() => void login()}
+      onLogin={login}
       onPromptChange={setPrompt}
-      onSaveOpenAIApiSettings={() => void saveOpenAIApiSettings()}
+      onSaveOpenAIApiSettings={saveOpenAIApiSettings}
       onTemperatureChange={setTemperature}
       prompt={prompt}
       provider={provider}
