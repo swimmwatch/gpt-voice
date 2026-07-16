@@ -3,6 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { parseMkDocsConfiguration } from '../../scripts/mkdocs-configuration.mjs';
+import { getDocumentationRoute, localeRegistry } from '../../src/landing-page/content/locale-registry';
 
 type MkDocsConfiguration = {
   docs_dir?: unknown;
@@ -199,6 +200,33 @@ async function readPublishedText(files: readonly string[]): Promise<Map<string, 
 
   return new Map(contents);
 }
+
+test('publishes every localized Material selector at its normalized documentation root', async () => {
+  for (const locale of localeRegistry) {
+    const localeDirectory = locale.routeSlug || '.';
+    const output = await readFile(path.join(outputDirectory, localeDirectory, 'index.html'), 'utf8');
+
+    assert.match(output, new RegExp(`<html lang=${locale.tag}(?=[\\s>])`, 'u'));
+    assert.match(output, /<div class=md-select>/u, `${locale.tag} must render Material's language selector.`);
+    for (const candidate of localeRegistry) {
+      assert.ok(
+        output.includes(`href=${getDocumentationRoute(candidate)} hreflang=${candidate.tag} class=md-select__link`),
+        `${locale.tag} selector must link to ${candidate.tag}.`,
+      );
+    }
+
+    if (locale.tag !== 'en') {
+      assert.ok(
+        output.includes('src=/gpt-voice/docs/assets/generated/images/app-main.png'),
+        `${locale.tag} overview must reference the shared screenshot without an invalid locale prefix.`,
+      );
+      assert.ok(
+        !output.includes('src=assets/generated/images/app-main.png'),
+        `${locale.tag} overview must not reference a nonexistent locale-local screenshot.`,
+      );
+    }
+  }
+});
 
 test('restricts MkDocs to the public guide source and Pages docs path', async () => {
   const configuration = parseMkDocsConfiguration(await readFile(configurationPath, 'utf8')) as MkDocsConfiguration;

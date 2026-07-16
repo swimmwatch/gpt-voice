@@ -6,7 +6,6 @@ import { parseMkDocsConfiguration } from '../../scripts/mkdocs-configuration.mjs
 
 type TranslationManifest = {
   locales: Array<{
-    pages: unknown[];
     status: string;
     tag: string;
   }>;
@@ -508,6 +507,12 @@ function markdownLinkDestinations(source: string): string[] {
   return Array.from(source.matchAll(/\]\(([^\n)]+)\)/gu), ([, destination]) => destination);
 }
 
+function localizedDestination(destination: string): string {
+  return destination === 'assets/generated/icons/gpt-voice-wordmark.svg'
+    ? `/gpt-voice/docs/${destination}`
+    : destination;
+}
+
 function assertProtectedSourceParity(filename: string, englishSource: string, localizedSource: string): void {
   for (const term of protectedTerms) {
     const requiredCount = countOccurrences(englishSource, term);
@@ -525,8 +530,8 @@ function assertProtectedSourceParity(filename: string, englishSource: string, lo
 
   for (const destination of markdownLinkDestinations(englishSource)) {
     assert.ok(
-      localizedSource.includes(`](${destination})`),
-      `${filename} must preserve link destination ${destination}.`,
+      localizedSource.includes(`](${localizedDestination(destination)})`),
+      `${filename} must preserve link destination ${localizedDestination(destination)}.`,
     );
   }
 }
@@ -558,7 +563,7 @@ function assertUkrainianStagedSources(sources: ReadonlyMap<string, string>): voi
   }
 }
 
-test('stages the Russian guide sources without enabling fallback publication', async () => {
+test('publishes the complete Russian guide sources without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
       Object.keys(russianStagedSources).map(
@@ -576,12 +581,11 @@ test('stages the Russian guide sources without enabling fallback publication', a
   assert.deepEqual(Object.keys(russianStagedSources).sort(), expectedRussianStagedSources(configuration));
   assertRussianStagedSources(sources);
   assert.ok(russianRecord, 'Translation manifest must retain the Russian locale record.');
-  assert.equal(russianRecord.status, 'blocked');
-  assert.deepEqual(russianRecord.pages, []);
-  assert.equal(i18n.build_only_locale, 'en');
+  assert.equal(russianRecord.status, 'approved');
+  assert.equal(i18n.build_only_locale, undefined);
 });
 
-test('rejects a missing Russian source or an attempt to publish its incomplete batch', async () => {
+test('rejects a missing Russian source', async () => {
   const sources = new Map(
     await Promise.all(
       Object.keys(russianStagedSources).map(
@@ -593,7 +597,7 @@ test('rejects a missing Russian source or an attempt to publish its incomplete b
   assert.throws(() => assertRussianStagedSources(new Map(sources).set('guides/transcription.ru.md', '')));
 });
 
-test('stages the complete Belarusian guide sources without enabling fallback publication', async () => {
+test('publishes the complete Belarusian guide sources without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
       Object.keys(belarusianStagedSources).map(
@@ -611,12 +615,11 @@ test('stages the complete Belarusian guide sources without enabling fallback pub
   assert.deepEqual(Object.keys(belarusianStagedSources).sort(), expectedBelarusianStagedSources(configuration));
   assertBelarusianStagedSources(sources);
   assert.ok(belarusianRecord, 'Translation manifest must retain the Belarusian locale record.');
-  assert.equal(belarusianRecord.status, 'blocked');
-  assert.deepEqual(belarusianRecord.pages, []);
-  assert.equal(i18n.build_only_locale, 'en');
+  assert.equal(belarusianRecord.status, 'approved');
+  assert.equal(i18n.build_only_locale, undefined);
 });
 
-test('rejects a missing Belarusian source or an attempt to publish its incomplete batch', async () => {
+test('rejects a missing Belarusian source', async () => {
   const sources = new Map(
     await Promise.all(
       Object.keys(belarusianStagedSources).map(
@@ -628,7 +631,7 @@ test('rejects a missing Belarusian source or an attempt to publish its incomplet
   assert.throws(() => assertBelarusianStagedSources(new Map(sources).set('privacy.be.md', '')));
 });
 
-test('stages the Ukrainian source batches without enabling fallback publication', async () => {
+test('publishes the Ukrainian source batches without fallback publication', async () => {
   const [sources, manifestSource, configurationSource] = await Promise.all([
     Promise.all(
       Object.keys(ukrainianStagedSources).map(
@@ -645,9 +648,8 @@ test('stages the Ukrainian source batches without enabling fallback publication'
 
   assertUkrainianStagedSources(sources);
   assert.ok(ukrainianRecord, 'Translation manifest must retain the Ukrainian locale record.');
-  assert.equal(ukrainianRecord.status, 'blocked');
-  assert.deepEqual(ukrainianRecord.pages, []);
-  assert.equal(i18n.build_only_locale, 'en');
+  assert.equal(ukrainianRecord.status, 'approved');
+  assert.equal(i18n.build_only_locale, undefined);
 });
 
 test('rejects a missing staged Ukrainian source', async () => {
@@ -662,7 +664,7 @@ test('rejects a missing staged Ukrainian source', async () => {
   assert.throws(() => assertUkrainianStagedSources(new Map(sources).set('settings/index.uk.md', '')));
 });
 
-test('stages complete blocked source sets for every remaining guide locale', async () => {
+test('publishes complete approved source sets for every remaining guide locale', async () => {
   const configurationSource = await readFile(path.join(projectRoot, 'mkdocs.yml'), 'utf8');
   const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
   const i18n = getI18nPlugin(configuration);
@@ -685,7 +687,7 @@ test('stages complete blocked source sets for every remaining guide locale', asy
     }
   }
 
-  assert.equal(i18n.build_only_locale, 'en');
+  assert.equal(i18n.build_only_locale, undefined);
 });
 
 test('preserves protected literals in every bulk translation draft', async () => {

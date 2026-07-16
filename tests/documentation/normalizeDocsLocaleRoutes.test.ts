@@ -30,7 +30,11 @@ test('normalizes only MkDocs locale path segments after the static build', async
     await Promise.all([
       writeFile(
         path.join(outputDirectory, 'pt-BR', 'index.html'),
-        '<html lang="pt-BR"><link hreflang="pt-BR" href="https://example.test/docs/pt-BR/"><a href="../zh-CN/">next</a></html>',
+        '<html lang=pt><link hreflang="pt-BR" href="https://example.test/docs/pt-BR/"><a href="../zh-CN/">next</a></html>',
+      ),
+      writeFile(
+        path.join(outputDirectory, 'zh-CN', 'index.html'),
+        '<html lang="zh"><link hreflang="zh-CN" href="https://example.test/docs/zh-CN/"></html>',
       ),
       writeFile(
         path.join(outputDirectory, 'sitemap.xml'),
@@ -41,11 +45,13 @@ test('normalizes only MkDocs locale path segments after the static build', async
     await localeRoutes.normalizeDocumentationLocaleRoutes({ siteDirectory: outputDirectory });
 
     const index = await readFile(path.join(outputDirectory, 'pt-br', 'index.html'), 'utf8');
+    const chineseIndex = await readFile(path.join(outputDirectory, 'zh-cn', 'index.html'), 'utf8');
     const sitemap = await readFile(path.join(outputDirectory, 'sitemap.xml'), 'utf8');
-    assert.match(index, /lang="pt-BR"/u);
+    assert.match(index, /lang=pt-BR/u);
     assert.match(index, /hreflang="pt-BR"/u);
     assert.match(index, /docs\/pt-br\//u);
     assert.match(index, /\.\.\/zh-cn\//u);
+    assert.match(chineseIndex, /lang="zh-CN"/u);
     assert.match(sitemap, /docs\/pt-br\//u);
     assert.match(sitemap, /docs\/zh-cn\//u);
     await assert.rejects(readFile(path.join(outputDirectory, 'pt-BR', 'index.html'), 'utf8'));

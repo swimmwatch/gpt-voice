@@ -7,6 +7,10 @@ const routeAliases = [
   ['pt-BR', 'pt-br'],
   ['zh-CN', 'zh-cn'],
 ];
+const htmlLanguageAliases = [
+  ['pt', 'pt-BR'],
+  ['zh', 'zh-CN'],
+];
 const textExtensions = new Set(['.css', '.html', '.json', '.js', '.txt', '.xml']);
 
 async function pathExists(targetPath) {
@@ -32,9 +36,16 @@ async function listFiles(directory, relativeDirectory = '') {
 }
 
 function normalizePathSegments(contents) {
-  return routeAliases.reduce(
+  const normalizedPaths = routeAliases.reduce(
     (normalized, [source, destination]) => normalized.replaceAll(`${source}/`, `${destination}/`),
     contents,
+  );
+  return htmlLanguageAliases.reduce(
+    (normalized, [source, destination]) =>
+      normalized
+        .replace(new RegExp(`(<html\\b[^>]*\\blang=)${source}(?=[\\s>])`, 'gu'), `$1${destination}`)
+        .replace(new RegExp(`(<html\\b[^>]*\\blang=["'])${source}(?=["'])`, 'gu'), `$1${destination}`),
+    normalizedPaths,
   );
 }
 

@@ -1,6 +1,6 @@
 <div class="guide-wordmark" align="center" markdown>
 
-![GPT-Voice marca denominativa](assets/generated/icons/gpt-voice-wordmark.svg){ ancho="620" }
+![GPT-Voice marca denominativa](/gpt-voice/docs/assets/generated/icons/gpt-voice-wordmark.svg){ ancho="620" }
 
 </div>
 
@@ -25,11 +25,11 @@ proveedor que controlas y recibe la transcripción en tu portapapeles.
 </div>
 
 <figure class="product-screenshot">
-  <a href="assets/generated/images/app-main.png">
+  <a href="/gpt-voice/docs/assets/generated/images/app-main.png">
     <picture>
-      <source srcset="assets/generated/images/app-main.avif" type="image/avif" />
-      <source srcset="assets/generated/images/app-main.webp" type="image/webp" />
-      <img src="assets/generated/images/app-main.png" width="920" height="840" loading="eager" decoding="async" alt="GPT-Voice Command Dock showing ChatGPT Web connected, a loaded Prettify model, the Start recording action with F9, and English as the target language." />
+      <source srcset="/gpt-voice/docs/assets/generated/images/app-main.avif" type="image/avif" />
+      <source srcset="/gpt-voice/docs/assets/generated/images/app-main.webp" type="image/webp" />
+      <img src="/gpt-voice/docs/assets/generated/images/app-main.png" width="920" height="840" loading="eager" decoding="async" alt="GPT-Voice Command Dock showing ChatGPT Web connected, a loaded Prettify model, the Start recording action with F9, and English as the target language." />
     </picture>
   </a>
   <figcaption>Un Command Dock listo para grabar en GPT-Voice.</figcaption>

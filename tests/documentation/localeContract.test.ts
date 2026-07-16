@@ -85,7 +85,7 @@ function assertLocaleContract(localeMap: LocaleMap, i18n: I18nPlugin): void {
   assert.equal(i18n.fallback_to_default, false);
   assert.equal(i18n.reconfigure_material, true);
   assert.equal(i18n.reconfigure_search, true);
-  assert.equal(i18n.build_only_locale, 'en');
+  assert.equal(i18n.build_only_locale, undefined);
   assert.ok(Array.isArray(i18n.languages), 'MkDocs i18n must declare every locale.');
 
   const configuredLanguages = i18n.languages as MkDocsLanguage[];

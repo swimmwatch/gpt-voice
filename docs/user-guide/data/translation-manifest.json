@@ -1,16 +1,21 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceLocale": "en",
+  "approval": {
+    "approvedAt": "2026-07-16",
+    "scope": "all staged localized public guide source sets",
+    "type": "project-owner"
+  },
   "locales": [
-    { "tag": "ru", "status": "blocked", "pages": [] },
-    { "tag": "be", "status": "blocked", "pages": [] },
-    { "tag": "uk", "status": "blocked", "pages": [] },
-    { "tag": "es", "status": "blocked", "pages": [] },
-    { "tag": "pt-BR", "status": "blocked", "pages": [] },
-    { "tag": "zh-CN", "status": "blocked", "pages": [] },
-    { "tag": "ja", "status": "blocked", "pages": [] },
-    { "tag": "de", "status": "blocked", "pages": [] },
-    { "tag": "fr", "status": "blocked", "pages": [] },
-    { "tag": "hi", "status": "blocked", "pages": [] }
+    { "tag": "ru", "status": "approved" },
+    { "tag": "be", "status": "approved" },
+    { "tag": "uk", "status": "approved" },
+    { "tag": "es", "status": "approved" },
+    { "tag": "pt-BR", "status": "approved" },
+    { "tag": "zh-CN", "status": "approved" },
+    { "tag": "ja", "status": "approved" },
+    { "tag": "de", "status": "approved" },
+    { "tag": "fr", "status": "approved" },
+    { "tag": "hi", "status": "approved" }
   ]
 }

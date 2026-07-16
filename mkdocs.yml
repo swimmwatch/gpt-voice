@@ -58,7 +58,6 @@ nav:
 
 plugins:
   - i18n:
-      build_only_locale: en
       docs_structure: suffix
       fallback_to_default: false
       reconfigure_material: true

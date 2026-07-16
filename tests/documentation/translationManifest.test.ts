@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -26,17 +25,13 @@ const projectRoot = path.resolve(__dirname, '../..');
 const scriptPath = path.join(projectRoot, 'scripts', 'validate-doc-translations.mjs');
 const sourcePages = ['index.md', 'install.md', 'getting-started.md'];
 
-function hash(contents: string): string {
-  return createHash('sha256').update(contents).digest('hex');
-}
-
 function localizedPath(source: string): string {
   return source.replace(/\.md$/u, '.ru.md');
 }
 
 async function createFixture({
   buildOnlyEnglish = false,
-  status = 'ready',
+  status = 'approved',
 }: { buildOnlyEnglish?: boolean; status?: string } = {}): Promise<Fixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-doc-translations-'));
   const docsDirectory = path.join(root, 'docs');
@@ -67,26 +62,21 @@ async function createFixture({
     'utf8',
   );
 
-  const pages = await Promise.all(
-    sourcePages.map(async (source) => ({
-      localized: localizedPath(source),
-      localizedSha256: hash(await readFile(path.join(docsDirectory, localizedPath(source)), 'utf8')),
-      source,
-      sourceSha256: hash(await readFile(path.join(docsDirectory, source), 'utf8')),
-    })),
-  );
   await writeFile(
     manifestPath,
     JSON.stringify({
       locales: [
         {
-          pages: status === 'ready' ? pages : [],
           status,
           tag: 'ru',
-          ...(status === 'ready' ? { review: { reference: 'translation-review-ru', reviewedAt: '2026-07-15' } } : {}),
         },
       ],
-      schemaVersion: 1,
+      approval: {
+        approvedAt: '2026-07-16',
+        scope: 'fixture localized guide source set',
+        type: 'project-owner',
+      },
+      schemaVersion: 2,
       sourceLocale: 'en',
     }),
     'utf8',
@@ -112,36 +102,27 @@ async function withFixture(
   }
 }
 
-test('accepts the current English-only publication gate', async () => {
+test('accepts the current project-owner-approved publication set', async () => {
   const importedModule = (await import(pathToFileURL(scriptPath).href)) as TranslationManifestModule;
   await importedModule.validateDocumentationTranslations();
 });
 
-test('accepts a complete reviewed locale and rejects missing or stale translations', async () => {
+test('accepts complete approved locales and rejects missing translated sources', async () => {
   await withFixture({}, async (fixture, module) => {
     await module.validateDocumentationTranslations(fixture);
     await rm(path.join(fixture.docsDirectory, 'install.ru.md'));
     await assert.rejects(module.validateDocumentationTranslations(fixture), /missing source page: install\.ru\.md/u);
   });
-  await withFixture({}, async (fixture, module) => {
-    await writeFile(path.join(fixture.docsDirectory, 'index.md'), '# Changed English source\n', 'utf8');
-    await assert.rejects(module.validateDocumentationTranslations(fixture), /stale source hash for index\.md/u);
-  });
 });
 
-test('rejects wrong suffix paths and attempts to publish blocked translations', async () => {
-  await withFixture({}, async (fixture, module) => {
-    const manifest = JSON.parse(await readFile(fixture.manifestPath, 'utf8')) as {
-      locales: Array<{ pages: Array<{ localized: string }> }>;
-    };
-    manifest.locales[0].pages[0].localized = 'index.RU.md';
-    await writeFile(fixture.manifestPath, JSON.stringify(manifest), 'utf8');
-    await assert.rejects(module.validateDocumentationTranslations(fixture), /wrong localized path for index\.md/u);
+test('rejects publication gates other than project-owner approval', async () => {
+  await withFixture({ buildOnlyEnglish: true }, async (fixture, module) => {
+    await assert.rejects(
+      module.validateDocumentationTranslations({ ...fixture, configurationPath: fixture.configurationPath }),
+      /MkDocs must publish every approved locale/u,
+    );
   });
   await withFixture({ status: 'blocked' }, async (fixture, module) => {
-    await assert.rejects(
-      module.validateDocumentationTranslations(fixture),
-      /ru is blocked but MkDocs would publish every locale/u,
-    );
+    await assert.rejects(module.validateDocumentationTranslations(fixture), /ru must be approved for publication/u);
   });
 });

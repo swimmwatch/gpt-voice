@@ -1,6 +1,6 @@
 <div class="guide-wordmark" align="center" markdown>
 
-![Лагатып GPT-Voice](assets/generated/icons/gpt-voice-wordmark.svg){ width="620" }
+![Лагатып GPT-Voice](/gpt-voice/docs/assets/generated/icons/gpt-voice-wordmark.svg){ width="620" }
 
 </div>
 
@@ -25,11 +25,11 @@ GPT-Voice — настольная праграма для пераўтварэ�
 </div>
 
 <figure class="product-screenshot">
-  <a href="assets/generated/images/app-main.png">
+  <a href="/gpt-voice/docs/assets/generated/images/app-main.png">
     <picture>
-      <source srcset="assets/generated/images/app-main.avif" type="image/avif" />
-      <source srcset="assets/generated/images/app-main.webp" type="image/webp" />
-      <img src="assets/generated/images/app-main.png" width="920" height="840" loading="eager" decoding="async" alt="Command Dock GPT-Voice паказвае падлучаны ChatGPT Web, загружаную мадэль Prettify, дзеянне Start recording з F9 і English як мову прызначэння." />
+      <source srcset="/gpt-voice/docs/assets/generated/images/app-main.avif" type="image/avif" />
+      <source srcset="/gpt-voice/docs/assets/generated/images/app-main.webp" type="image/webp" />
+      <img src="/gpt-voice/docs/assets/generated/images/app-main.png" width="920" height="840" loading="eager" decoding="async" alt="Command Dock GPT-Voice паказвае падлучаны ChatGPT Web, загружаную мадэль Prettify, дзеянне Start recording з F9 і English як мову прызначэння." />
     </picture>
   </a>
   <figcaption>Command Dock GPT-Voice, гатовая да запісу.</figcaption>
