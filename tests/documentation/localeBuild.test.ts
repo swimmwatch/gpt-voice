@@ -40,6 +40,9 @@ const canonicalUrl = 'https://example.test/gpt-voice/docs/';
 const sourcePages = [
   'index.md',
   'install.md',
+  'install/windows.md',
+  'install/linux.md',
+  'install/macos.md',
   'getting-started.md',
   'guides/transcription.md',
   'guides/providers.md',

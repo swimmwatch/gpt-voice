@@ -20,6 +20,9 @@ const publicGuideUrl = 'https://swimmwatch.github.io/gpt-voice/docs/';
 const guidePages: readonly GuidePage[] = [
   { source: 'index.md', heading: 'GPT-Voice Documentation' },
   { source: 'install.md', heading: 'Install, update, or remove GPT-Voice' },
+  { source: 'install/windows.md', heading: 'Windows' },
+  { source: 'install/linux.md', heading: 'Linux' },
+  { source: 'install/macos.md', heading: 'macOS' },
   { source: 'getting-started.md', heading: 'First use: connect a provider and transcribe speech' },
   { source: 'guides/transcription.md', heading: 'Record and transcribe' },
   { source: 'guides/providers.md', heading: 'Choose and manage a transcription provider' },

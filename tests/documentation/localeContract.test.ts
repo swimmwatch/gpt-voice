@@ -47,6 +47,9 @@ const localeMapPath = path.join(projectRoot, 'docs', 'user-guide', 'data', 'loca
 const expectedNavigationLabels = [
   'Overview',
   'Install, update, or remove',
+  'Windows',
+  'Linux',
+  'macOS',
   'First use',
   'Record and transcribe',
   'Providers',

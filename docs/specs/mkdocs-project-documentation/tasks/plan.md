@@ -268,6 +268,28 @@ first-launch guidance as one complete new-user path.
 `docs/user-guide/index.md`, `mkdocs.yml`, `tests/documentation/mkdocsOutput.test.ts`.
 **Estimated scope:** M, 75–105 minutes, 3 files.
 
+### Task 6b: Split The Installation Guide By Operating System
+
+**Description:** Keep the shared release-download and checksum information in the installation overview, and move
+platform-specific instructions into Windows, Linux, and macOS child pages in every published guide locale.
+
+**Acceptance criteria:**
+
+- [x] `Install, update, or remove` is a Material navigation section with the overview and `Windows`, `Linux`, and
+      `macOS` child pages.
+- [x] Windows covers the NSIS installer, update, removal, and retained `%APPDATA%\GPT-Voice` data; Linux covers
+      deb, rpm, and AppImage installation/update/removal plus `~/.config/GPT-Voice` retention.
+- [x] macOS clearly states that no supported package is currently published; it does not invent installation steps.
+- [x] All eleven locale suffix variants exist, retain literal commands and paths, and build with no English fallback.
+
+**Verification:**
+
+- [x] Run `npm run docs:build` and `npm run docs:test`.
+- [x] Assert every generated platform route, canonical URL, and relative next-step link in the output contract.
+
+**Dependencies:** Tasks 6 and 6a.
+**Files touched:** `docs/user-guide/install*.md`, `docs/user-guide/install/`, `mkdocs.yml`, documentation contracts.
+
 ### Task 6a: Establish The Multilingual MkDocs Foundation
 
 **Description:** Replace the English-only documentation configuration with a static, suffix-based MkDocs locale

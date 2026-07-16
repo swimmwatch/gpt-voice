@@ -48,6 +48,11 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Acceptance: Install/update/uninstall/retained-data and first-launch-to-clipboard flows match current packages/UI.
   - Verify: Strict build plus README/package/UI comparison.
   - Files: `install.md`, `getting-started.md`, `mkdocs.yml`, output contract test.
+- [x] Task 6b: Split the installation guide by operating system.
+  - Acceptance: The installation overview routes to step-by-step Windows and Linux guides plus a clear macOS
+    availability page; all eleven locales supply the same localized source and navigation structure.
+  - Verify: Strict all-locale build and source/output contracts for every platform route and locale.
+  - Files: `docs/user-guide/install/`, localized installation sources, `mkdocs.yml`, and documentation contracts.
 - [x] Task 6a: Establish the multilingual MkDocs foundation.
   - Acceptance: Pinned suffix-based `mkdocs-static-i18n` supports `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
     `ja`, `de`, `fr`, and `hi` with localized navigation/search, local glyph fonts, route adapters, no redirect, and

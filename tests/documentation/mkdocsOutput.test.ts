@@ -22,7 +22,14 @@ const outputDirectory = path.join(projectRoot, 'build', 'github-pages', 'docs');
 const canonicalUrl = 'https://swimmwatch.github.io/gpt-voice/docs/';
 const expectedNavigation = [
   { Overview: 'index.md' },
-  { 'Install, update, or remove': 'install.md' },
+  {
+    'Install, update, or remove': [
+      { Overview: 'install.md' },
+      { Windows: 'install/windows.md' },
+      { Linux: 'install/linux.md' },
+      { macOS: 'install/macos.md' },
+    ],
+  },
   { 'First use': 'getting-started.md' },
   { 'Record and transcribe': 'guides/transcription.md' },
   { Providers: 'guides/providers.md' },
@@ -256,6 +263,9 @@ test('publishes canonical overview metadata without internal engineering artifac
   const files = await listFiles(outputDirectory);
   const index = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
   const install = await readFile(path.join(outputDirectory, 'install', 'index.html'), 'utf8');
+  const installWindows = await readFile(path.join(outputDirectory, 'install', 'windows', 'index.html'), 'utf8');
+  const installLinux = await readFile(path.join(outputDirectory, 'install', 'linux', 'index.html'), 'utf8');
+  const installMacos = await readFile(path.join(outputDirectory, 'install', 'macos', 'index.html'), 'utf8');
   const gettingStarted = await readFile(path.join(outputDirectory, 'getting-started', 'index.html'), 'utf8');
   const transcription = await readFile(path.join(outputDirectory, 'guides', 'transcription', 'index.html'), 'utf8');
   const providers = await readFile(path.join(outputDirectory, 'guides', 'providers', 'index.html'), 'utf8');
@@ -273,6 +283,9 @@ test('publishes canonical overview metadata without internal engineering artifac
 
   assert.ok(files.includes('index.html'));
   assert.ok(files.includes('install/index.html'));
+  assert.ok(files.includes('install/windows/index.html'));
+  assert.ok(files.includes('install/linux/index.html'));
+  assert.ok(files.includes('install/macos/index.html'));
   assert.ok(files.includes('getting-started/index.html'));
   assert.ok(files.includes('guides/transcription/index.html'));
   assert.ok(files.includes('guides/providers/index.html'));
@@ -305,6 +318,19 @@ test('publishes canonical overview metadata without internal engineering artifac
   assert.ok(index.includes('Overview'));
   assert.ok(index.includes('href=getting-started/ class=md-button'));
   assert.ok(install.includes(`<link href=${canonicalUrl}install/ rel=canonical>`));
+  assert.ok(install.includes('href=windows/'));
+  assert.ok(install.includes('href=linux/'));
+  assert.ok(install.includes('href=macos/'));
+  assert.ok(installWindows.includes(`<link href=${canonicalUrl}install/windows/ rel=canonical>`));
+  assert.ok(installWindows.includes('GPT-Voice Setup *.exe'));
+  assert.ok(installWindows.includes('%APPDATA%\\GPT-Voice'));
+  assert.ok(installLinux.includes(`<link href=${canonicalUrl}install/linux/ rel=canonical>`));
+  assert.ok(installLinux.includes('sudo apt install ./gpt-voice_*_amd64.deb'));
+  assert.ok(installLinux.includes('sudo dnf install ./gpt-voice-*.x86_64.rpm'));
+  assert.ok(installLinux.includes('GPT-Voice-*.AppImage'));
+  assert.ok(installLinux.includes('href=../../getting-started/'));
+  assert.ok(installMacos.includes(`<link href=${canonicalUrl}install/macos/ rel=canonical>`));
+  assert.ok(installMacos.includes('no supported macOS package in current releases'));
   assert.ok(install.includes('href=../getting-started/'));
   assert.ok(gettingStarted.includes(`<link href=${canonicalUrl}getting-started/ rel=canonical>`));
   assert.ok(gettingStarted.includes('Copied to clipboard'));

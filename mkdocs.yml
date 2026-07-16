@@ -38,7 +38,11 @@ theme:
 
 nav:
   - Overview: index.md
-  - Install, update, or remove: install.md
+  - Install, update, or remove:
+      - Overview: install.md
+      - Windows: install/windows.md
+      - Linux: install/linux.md
+      - macOS: install/macos.md
   - First use: getting-started.md
   - Record and transcribe: guides/transcription.md
   - Providers: guides/providers.md
@@ -70,6 +74,9 @@ plugins:
           nav_translations:
             Overview: Overview
             Install, update, or remove: Install, update, or remove
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: First use
             Record and transcribe: Record and transcribe
             Providers: Providers
@@ -91,6 +98,9 @@ plugins:
           nav_translations:
             Overview: Обзор
             Install, update, or remove: Установка, обновление или удаление
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Первый запуск
             Record and transcribe: Запись и расшифровка
             Providers: Поставщики
@@ -112,6 +122,9 @@ plugins:
           nav_translations:
             Overview: Агляд
             Install, update, or remove: Усталяванне, абнаўленне або выдаленне
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Першы запуск
             Record and transcribe: Запіс і расшыфроўка
             Providers: Пастаўшчыкі
@@ -133,6 +146,9 @@ plugins:
           nav_translations:
             Overview: Огляд
             Install, update, or remove: Установлення, оновлення або видалення
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Перше використання
             Record and transcribe: Запис і транскрибування
             Providers: Постачальники
@@ -154,6 +170,9 @@ plugins:
           nav_translations:
             Overview: Resumen
             Install, update, or remove: Instalar, actualizar o eliminar
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Primer uso
             Record and transcribe: Grabar y transcribir
             Providers: Proveedores
@@ -175,6 +194,9 @@ plugins:
           nav_translations:
             Overview: Visão geral
             Install, update, or remove: Instalar, atualizar ou remover
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Primeiro uso
             Record and transcribe: Gravar e transcrever
             Providers: Provedores
@@ -196,6 +218,9 @@ plugins:
           nav_translations:
             Overview: 概览
             Install, update, or remove: 安装、更新或卸载
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: 首次使用
             Record and transcribe: 录音和转写
             Providers: 提供商
@@ -217,6 +242,9 @@ plugins:
           nav_translations:
             Overview: 概要
             Install, update, or remove: インストール、更新、または削除
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: 初回使用
             Record and transcribe: 録音と文字起こし
             Providers: プロバイダー
@@ -238,6 +266,9 @@ plugins:
           nav_translations:
             Overview: Überblick
             Install, update, or remove: Installieren, aktualisieren oder entfernen
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Erste Verwendung
             Record and transcribe: Aufnehmen und transkribieren
             Providers: Anbieter
@@ -259,6 +290,9 @@ plugins:
           nav_translations:
             Overview: Vue d’ensemble
             Install, update, or remove: Installer, mettre à jour ou supprimer
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: Première utilisation
             Record and transcribe: Enregistrer et transcrire
             Providers: Fournisseurs
@@ -280,6 +314,9 @@ plugins:
           nav_translations:
             Overview: अवलोकन
             Install, update, or remove: इंस्टॉल, अपडेट या हटाएँ
+            Windows: Windows
+            Linux: Linux
+            macOS: macOS
             First use: पहली बार उपयोग
             Record and transcribe: रिकॉर्ड करें और ट्रांसक्राइब करें
             Providers: प्रदाता

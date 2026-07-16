@@ -162,7 +162,10 @@ between pages except for a short summary and a descriptive cross-link.
 | Navigation             | Source                       | Required content                                                                                                              |
 | ---------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Overview               | `index.md`                   | Product purpose, supported platforms, providers, core workflows, screenshot, quick links, current limitations                 |
-| Install                | `install.md`                 | Release downloads, checksums, Windows installer, deb, rpm, AppImage, updates, uninstall, retained user data, macOS status     |
+| Install overview       | `install.md`                 | Release downloads, checksum verification, platform selection, macOS status, and links to the platform-specific guides         |
+| Install on Windows     | `install/windows.md`         | NSIS download, installation steps, update, removal, and retained `%APPDATA%\GPT-Voice` data                                   |
+| Install on Linux       | `install/linux.md`           | deb, rpm, and AppImage steps; launch, update, removal, and retained `~/.config/GPT-Voice` data                                |
+| Install on macOS       | `install/macos.md`           | Explicit current no-package status and the Developer ID signing/notarization constraint                                       |
 | Getting Started        | `getting-started.md`         | First launch, provider choice, authentication, first recording, clipboard result, next steps                                  |
 | Record And Transcribe  | `guides/transcription.md`    | Start, pause, resume, stop, cancel, retry retained audio, provider result, clipboard, notifications, failure states           |
 | Providers              | `guides/providers.md`        | ChatGPT Web session lifecycle, OpenAI API configuration, provider limits, cost/account ownership, switching and clearing auth |
@@ -502,6 +505,11 @@ docs/
 │   ├── index.ru.md                           # One complete suffix variant per non-English locale
 │   ├── install.md
 │   ├── install.ru.md
+│   ├── install/
+│   │   ├── windows.md
+│   │   ├── linux.md
+│   │   ├── macos.md
+│   │   └── windows.ru.md                       # One suffix variant per non-English locale for each platform page
 │   ├── getting-started.md
 │   ├── getting-started.ru.md
 │   ├── privacy.md
