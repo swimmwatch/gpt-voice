@@ -46,7 +46,9 @@ function SheetContent({
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetPrimitive.Close asChild>
+        <SheetOverlay />
+      </SheetPrimitive.Close>
       <SheetPrimitive.Content
         data-slot="sheet-content"
         data-side={side}
@@ -68,7 +70,7 @@ function SheetContent({
         {showCloseButton && (
           <SheetPrimitive.Close
             aria-label={closeLabel}
-            className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary"
+            className="landing-sheet-close absolute top-4 right-4 flex size-11 items-center justify-center rounded-[var(--radius-control)] border border-border bg-muted text-foreground transition-[background-color,border-color,box-shadow] hover:border-[var(--ring)] hover:bg-accent focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-hidden disabled:pointer-events-none"
           >
             <XIcon className="size-4" />
             <span className="sr-only">{closeLabel}</span>

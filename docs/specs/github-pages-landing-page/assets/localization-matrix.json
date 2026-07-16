@@ -21,7 +21,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/en.txt",
-      "captions": "/gpt-voice/media/captions/en.vtt"
+      "captions": "/gpt-voice/generated/captions/en.vtt"
     },
     {
       "language": "Russian",
@@ -36,7 +36,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/ru/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/ru.txt",
-      "captions": "/gpt-voice/media/captions/ru.vtt"
+      "captions": "/gpt-voice/generated/captions/ru.vtt"
     },
     {
       "language": "Belarusian",
@@ -51,7 +51,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/be/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/be.txt",
-      "captions": "/gpt-voice/media/captions/be.vtt"
+      "captions": "/gpt-voice/generated/captions/be.vtt"
     },
     {
       "language": "Ukrainian",
@@ -66,7 +66,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/uk/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/uk.txt",
-      "captions": "/gpt-voice/media/captions/uk.vtt"
+      "captions": "/gpt-voice/generated/captions/uk.vtt"
     },
     {
       "language": "Spanish",
@@ -81,7 +81,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/es/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/es.txt",
-      "captions": "/gpt-voice/media/captions/es.vtt"
+      "captions": "/gpt-voice/generated/captions/es.vtt"
     },
     {
       "language": "Brazilian Portuguese",
@@ -96,7 +96,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/pt-br/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/pt-br.txt",
-      "captions": "/gpt-voice/media/captions/pt-br.vtt"
+      "captions": "/gpt-voice/generated/captions/pt-br.vtt"
     },
     {
       "language": "Simplified Chinese",
@@ -111,7 +111,7 @@
       "fontPackage": "@fontsource-variable/noto-sans-sc@5.2.10",
       "pageText": "/gpt-voice/zh-cn/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/zh-cn.txt",
-      "captions": "/gpt-voice/media/captions/zh-cn.vtt"
+      "captions": "/gpt-voice/generated/captions/zh-cn.vtt"
     },
     {
       "language": "Japanese",
@@ -126,7 +126,7 @@
       "fontPackage": "@fontsource-variable/noto-sans-jp@5.2.10",
       "pageText": "/gpt-voice/ja/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/ja.txt",
-      "captions": "/gpt-voice/media/captions/ja.vtt"
+      "captions": "/gpt-voice/generated/captions/ja.vtt"
     },
     {
       "language": "German",
@@ -141,7 +141,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/de/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/de.txt",
-      "captions": "/gpt-voice/media/captions/de.vtt"
+      "captions": "/gpt-voice/generated/captions/de.vtt"
     },
     {
       "language": "French",
@@ -156,7 +156,7 @@
       "fontPackage": "@fontsource-variable/ubuntu-sans@5.2.10",
       "pageText": "/gpt-voice/fr/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/fr.txt",
-      "captions": "/gpt-voice/media/captions/fr.vtt"
+      "captions": "/gpt-voice/generated/captions/fr.vtt"
     },
     {
       "language": "Hindi",
@@ -171,7 +171,7 @@
       "fontPackage": "@fontsource-variable/noto-sans-devanagari@5.2.8",
       "pageText": "/gpt-voice/hi/index.txt",
       "transcriptText": "/gpt-voice/media/transcripts/hi.txt",
-      "captions": "/gpt-voice/media/captions/hi.vtt"
+      "captions": "/gpt-voice/generated/captions/hi.vtt"
     }
   ],
   "selector": {

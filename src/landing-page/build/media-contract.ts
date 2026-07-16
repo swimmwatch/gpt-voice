@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-import { publishedLocaleTags } from '../content/index.js';
+import { localeRegistry } from '../content/index.js';
 
 export const LANDING_PUBLIC_MEDIA_DIRECTORY = 'media';
 export const LANDING_PUBLIC_CAPTIONS_DIRECTORY = 'captions';
@@ -30,8 +30,8 @@ export type MediaAssetContract = {
 export const requiredMediaAssets: MediaAssetContract = {
   videoFileName: 'demo.mp4',
   posterFileName: 'demo-poster.webp',
-  captions: publishedLocaleTags.map((tag) => `${tag}.vtt`),
-  transcriptFiles: publishedLocaleTags.map((tag) => `${tag}.txt`),
+  captions: localeRegistry.map((locale) => `${locale.routeSlug || 'en'}.vtt`),
+  transcriptFiles: localeRegistry.map((locale) => `${locale.routeSlug || 'en'}.txt`),
 };
 
 export function getFileSha256(source: Buffer | string): string {

@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { generateLocalePages } from '../../src/landing-page/build/generate-locales';
 import { verifySeoOutput } from '../../src/landing-page/build/verify-seo';
+import { createGeneratedEnglishPage } from './helpers/createGeneratedEnglishPage';
 
 test('verifies the generated English canonical metadata and video structured data', async () => {
-  const outputDirectory = await createGeneratedEnglishPage();
+  const outputDirectory = await createGeneratedEnglishPage('gpt-voice-seo-');
 
   try {
     await assert.doesNotReject(() => verifySeoOutput(outputDirectory));
@@ -17,7 +16,7 @@ test('verifies the generated English canonical metadata and video structured dat
 });
 
 test('rejects a missing JSON-LD graph', async () => {
-  const outputDirectory = await createGeneratedEnglishPage();
+  const outputDirectory = await createGeneratedEnglishPage('gpt-voice-seo-');
 
   try {
     const pagePath = path.join(outputDirectory, 'index.html');
@@ -29,14 +28,3 @@ test('rejects a missing JSON-LD graph', async () => {
     await rm(outputDirectory, { force: true, recursive: true });
   }
 });
-
-async function createGeneratedEnglishPage(): Promise<string> {
-  const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-seo-'));
-  await writeFile(
-    path.join(outputDirectory, 'index.html'),
-    '<!doctype html><html lang="en"><head><title>Placeholder</title><script type="module" src="/gpt-voice/assets/index.js"></script></head><body><div id="root"></div><script nomodule id="vite-legacy-entry" src="/gpt-voice/assets/index-legacy.js"></script></body></html>',
-  );
-  await generateLocalePages({ outputDirectory });
-
-  return outputDirectory;
-}

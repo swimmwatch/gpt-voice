@@ -3,175 +3,142 @@ import type { LandingLocale, LandingLocaleDefinition } from './schema';
 export const supportedLocales = ['en', 'ru', 'be', 'uk', 'es', 'pt-BR', 'zh-CN', 'ja', 'de', 'fr', 'hi'] as const;
 
 export const defaultLocale: LandingLocale = 'en';
+const landingBasePath = '/gpt-voice/';
+const landingCanonicalBaseUrl = 'https://swimmwatch.github.io/gpt-voice/';
 const documentationBasePath = '/gpt-voice/docs/';
 const documentationRouteSlugPattern = /^[a-z]{2}(?:-[a-z]{2})?$/u;
 
+type LocaleDefinitionSource = Omit<
+  LandingLocaleDefinition,
+  'canonical' | 'captions' | 'pageText' | 'route' | 'transcriptText'
+>;
+
+function createLocaleDefinition(source: LocaleDefinitionSource): LandingLocaleDefinition {
+  const routeSegment = source.routeSlug ? `${source.routeSlug}/` : '';
+  const mediaSlug = source.routeSlug || source.tag.toLowerCase();
+  const route = `${landingBasePath}${routeSegment}`;
+
+  return {
+    ...source,
+    route,
+    canonical: `${landingCanonicalBaseUrl}${routeSegment}`,
+    pageText: `${route}index.txt`,
+    transcriptText: `${landingBasePath}media/transcripts/${mediaSlug}.txt`,
+    captions: `${landingBasePath}generated/captions/${mediaSlug}.vtt`,
+  };
+}
+
 export const localeRegistry: readonly LandingLocaleDefinition[] = [
-  {
+  createLocaleDefinition({
     language: 'English',
     tag: 'en',
     routeSlug: '',
-    route: '/gpt-voice/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/',
     nativeLabel: 'English',
     ogLocale: 'en_US',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/en.txt',
-    captions: '/gpt-voice/media/captions/en.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Russian',
     tag: 'ru',
     routeSlug: 'ru',
-    route: '/gpt-voice/ru/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/ru/',
     nativeLabel: 'Русский',
     ogLocale: 'ru_RU',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/ru/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/ru.txt',
-    captions: '/gpt-voice/media/captions/ru.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Belarusian',
     tag: 'be',
     routeSlug: 'be',
-    route: '/gpt-voice/be/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/be/',
     nativeLabel: 'Беларуская',
     ogLocale: 'be_BY',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/be/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/be.txt',
-    captions: '/gpt-voice/media/captions/be.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Ukrainian',
     tag: 'uk',
     routeSlug: 'uk',
-    route: '/gpt-voice/uk/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/uk/',
     nativeLabel: 'Українська',
     ogLocale: 'uk_UA',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/uk/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/uk.txt',
-    captions: '/gpt-voice/media/captions/uk.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Spanish',
     tag: 'es',
     routeSlug: 'es',
-    route: '/gpt-voice/es/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/es/',
     nativeLabel: 'Español',
     ogLocale: 'es_ES',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/es/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/es.txt',
-    captions: '/gpt-voice/media/captions/es.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Brazilian Portuguese',
     tag: 'pt-BR',
     routeSlug: 'pt-br',
-    route: '/gpt-voice/pt-br/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/pt-br/',
     nativeLabel: 'Português (Brasil)',
     ogLocale: 'pt_BR',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/pt-br/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/pt-br.txt',
-    captions: '/gpt-voice/media/captions/pt-br.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Simplified Chinese',
     tag: 'zh-CN',
     routeSlug: 'zh-cn',
-    route: '/gpt-voice/zh-cn/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/zh-cn/',
     nativeLabel: '简体中文',
     ogLocale: 'zh_CN',
     direction: 'ltr',
     primaryFont: 'Noto Sans SC Variable',
     fontPackage: '@fontsource-variable/noto-sans-sc@5.2.10',
-    pageText: '/gpt-voice/zh-cn/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/zh-cn.txt',
-    captions: '/gpt-voice/media/captions/zh-cn.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Japanese',
     tag: 'ja',
     routeSlug: 'ja',
-    route: '/gpt-voice/ja/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/ja/',
     nativeLabel: '日本語',
     ogLocale: 'ja_JP',
     direction: 'ltr',
     primaryFont: 'Noto Sans JP Variable',
     fontPackage: '@fontsource-variable/noto-sans-jp@5.2.10',
-    pageText: '/gpt-voice/ja/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/ja.txt',
-    captions: '/gpt-voice/media/captions/ja.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'German',
     tag: 'de',
     routeSlug: 'de',
-    route: '/gpt-voice/de/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/de/',
     nativeLabel: 'Deutsch',
     ogLocale: 'de_DE',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/de/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/de.txt',
-    captions: '/gpt-voice/media/captions/de.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'French',
     tag: 'fr',
     routeSlug: 'fr',
-    route: '/gpt-voice/fr/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/fr/',
     nativeLabel: 'Français',
     ogLocale: 'fr_FR',
     direction: 'ltr',
     primaryFont: 'Ubuntu Sans Variable',
     fontPackage: '@fontsource-variable/ubuntu-sans@5.2.10',
-    pageText: '/gpt-voice/fr/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/fr.txt',
-    captions: '/gpt-voice/media/captions/fr.vtt',
-  },
-  {
+  }),
+  createLocaleDefinition({
     language: 'Hindi',
     tag: 'hi',
     routeSlug: 'hi',
-    route: '/gpt-voice/hi/',
-    canonical: 'https://swimmwatch.github.io/gpt-voice/hi/',
     nativeLabel: 'हिन्दी',
     ogLocale: 'hi_IN',
     direction: 'ltr',
     primaryFont: 'Noto Sans Devanagari Variable',
     fontPackage: '@fontsource-variable/noto-sans-devanagari@5.2.8',
-    pageText: '/gpt-voice/hi/index.txt',
-    transcriptText: '/gpt-voice/media/transcripts/hi.txt',
-    captions: '/gpt-voice/media/captions/hi.vtt',
-  },
+  }),
 ];
 
 export function getLocaleDefinition(locale: LandingLocale): LandingLocaleDefinition {

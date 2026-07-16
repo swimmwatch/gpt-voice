@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { generateLocalePages } from '../../src/landing-page/build/generate-locales';
-import { getDocumentationRoute, localeRegistry } from '../../src/landing-page/content';
+import { localeRegistry, publishedLocaleContent } from '../../src/landing-page/content';
 
 test('pre-renders the English landing shell without a router or JavaScript dependency', async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-landing-'));
@@ -50,16 +50,24 @@ test('pre-renders the English landing shell without a router or JavaScript depen
     assert.match(document, /class="locale-no-js"/);
     for (const locale of localeRegistry) {
       assert.ok(
-        document.includes(`href="${getDocumentationRoute(locale)}" hreflang="${locale.tag}"`),
-        `The static landing selector must link to ${locale.tag} documentation.`,
-      );
-      assert.ok(
-        !document.includes(`${getDocumentationRoute(locale)}#`),
-        `The static landing selector must not append a landing-page anchor to ${locale.tag} documentation.`,
+        document.includes(`href="${locale.route}" hreflang="${locale.tag}"`),
+        `The static landing selector must link to ${locale.tag} landing page.`,
       );
     }
     assert.match(document, /src="\/gpt-voice\/assets\/index.js"/);
     assert.match(document, /nomodule id="vite-legacy-entry" src="\/gpt-voice\/assets\/index-legacy.js"/);
+
+    for (const locale of localeRegistry) {
+      const localeDirectory = locale.routeSlug ? path.join(outputDirectory, locale.routeSlug) : outputDirectory;
+      const localeDocument = await readFile(path.join(localeDirectory, 'index.html'), 'utf8');
+      const content = publishedLocaleContent[locale.tag];
+
+      assert.ok(localeDocument.includes(`<html lang="${locale.tag}" dir="ltr">`));
+      assert.ok(localeDocument.includes(content.metadata.title));
+      assert.ok(localeDocument.includes(`href="${content.links.documentation}"`));
+      assert.ok(localeDocument.includes(`src="${locale.captions}" srclang="${locale.tag}"`));
+      assert.ok(localeDocument.includes(`href="${locale.route}" hreflang="${locale.tag}"`));
+    }
   } finally {
     await rm(outputDirectory, { force: true, recursive: true });
   }

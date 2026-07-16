@@ -63,7 +63,6 @@ async function assertCaptionFiles(captionsDirectory: string): Promise<void> {
       throw new Error(`Invalid WebVTT caption file: ${requiredMediaAssets.captions[index]}`);
     }
     assertCaptionCueTiming(caption, requiredMediaAssets.captions[index] ?? 'caption');
-    assertEnglishMediaText(caption, requiredMediaAssets.captions[index] ?? 'caption');
   }
 }
 
@@ -73,7 +72,14 @@ async function assertTranscriptFiles(transcriptsDirectory: string): Promise<void
   );
 
   for (const [index, transcript] of transcripts.entries()) {
-    assertEnglishMediaText(transcript, requiredMediaAssets.transcriptFiles[index] ?? 'transcript');
+    const fileName = requiredMediaAssets.transcriptFiles[index] ?? 'transcript';
+
+    if (transcript.trim().length === 0) {
+      throw new Error(`Localized transcript is empty: ${fileName}`);
+    }
+    if (transcript !== transcript.normalize('NFC')) {
+      throw new Error(`Localized transcript must use NFC text: ${fileName}`);
+    }
   }
 }
 

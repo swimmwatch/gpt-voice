@@ -6,10 +6,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList } from './ui/navigation-menu';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { getDocumentationRoute, localeRegistry } from '../content';
+import { localeRegistry } from '../content';
 import type { LandingContent, LandingLocaleDefinition } from '../content/schema';
 
 type SiteHeaderProps = {
+  brandDescription: LandingContent['footer']['description'];
   content: LandingContent['navigation'];
   links: Pick<LandingContent['links'], 'documentation'>;
   locale: LandingLocaleDefinition;
@@ -27,7 +28,12 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button aria-label={content.language} className="locale-menu-trigger" size="sm" variant="outline">
+          <Button
+            aria-label={`${content.language}: ${locale.nativeLabel}`}
+            className="locale-menu-trigger"
+            size="sm"
+            variant="outline"
+          >
             <LanguagesIcon aria-hidden="true" />
             <span className="locale-menu-label">{locale.nativeLabel}</span>
           </Button>
@@ -37,7 +43,7 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
             <DropdownMenuItem asChild key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
-                href={getDocumentationRoute(candidate)}
+                href={candidate.route}
                 hrefLang={candidate.tag}
               >
                 <span>{candidate.nativeLabel}</span>
@@ -54,7 +60,7 @@ function LocaleMenu({ content, locale }: Pick<SiteHeaderProps, 'content' | 'loca
             <li key={candidate.tag}>
               <a
                 aria-current={candidate.tag === locale.tag ? 'page' : undefined}
-                href={getDocumentationRoute(candidate)}
+                href={candidate.route}
                 hrefLang={candidate.tag}
               >
                 {candidate.nativeLabel}
@@ -82,12 +88,12 @@ function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 
           <TooltipContent side="bottom">{content.mobileMenu}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <SheetContent aria-describedby="mobile-navigation-description" showCloseButton={false} side="right">
+      <SheetContent aria-describedby="mobile-navigation-description" closeLabel={content.mobileMenuClose} side="right">
         <SheetHeader>
           <SheetTitle>{content.brand}</SheetTitle>
-          <SheetDescription id="mobile-navigation-description">{content.mobileMenu}</SheetDescription>
+          <SheetDescription id="mobile-navigation-description">{content.mobileMenuLabel}</SheetDescription>
         </SheetHeader>
-        <nav aria-label={content.mobileMenu} className="mobile-navigation-links">
+        <nav aria-label={content.mobileMenuLabel} className="mobile-navigation-links">
           {navigationItems(content, links.documentation).map((item) => (
             <SheetClose asChild key={item.href}>
               <a href={item.href}>{item.label}</a>
@@ -97,7 +103,7 @@ function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 
       </SheetContent>
       <details className="mobile-navigation-no-js">
         <summary>{content.mobileMenu}</summary>
-        <nav aria-label={content.mobileMenu}>
+        <nav aria-label={content.mobileMenuLabel}>
           {navigationItems(content, links.documentation).map((item) => (
             <a href={item.href} key={item.href}>
               {item.label}
@@ -109,12 +115,25 @@ function MobileNavigation({ content, links }: Pick<SiteHeaderProps, 'content' | 
   );
 }
 
-export function SiteHeader({ content, links, locale }: SiteHeaderProps): React.JSX.Element {
+export function SiteHeader({ brandDescription, content, links, locale }: SiteHeaderProps): React.JSX.Element {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <a className="site-brand" href={locale.route}>
-          {content.brand}
+        <a aria-label={content.brand} className="site-brand" href={locale.route}>
+          <img
+            alt=""
+            aria-hidden="true"
+            className="site-brand-logo"
+            height="40"
+            src="/gpt-voice/generated/icons/gpt-voice.png"
+            width="40"
+          />
+          <span className="site-brand-copy">
+            <span className="site-brand-title">{content.brand}</span>
+            <span aria-hidden="true" className="site-brand-description">
+              {brandDescription}
+            </span>
+          </span>
         </a>
         <NavigationMenu className="desktop-navigation" viewport={false}>
           <NavigationMenuList>

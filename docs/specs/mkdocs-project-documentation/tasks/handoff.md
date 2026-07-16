@@ -54,6 +54,10 @@
   exposes a visible palette-consistent scrollbar, and a low-priority MkDocs hook provides non-canonical root-sitemap
   copies beside every generated guide page for Material's page-relative XMLHttpRequests. The root sitemap remains the
   only crawler/robots reference.
+- Task 14f audited the shared documentation interface with CloakBrowser. The Markdown CTA paragraph now applies its
+  own 1.2rem wrapping gap, and feature cards use a clearly visible raised graphite, ring-blue, and blue-shadow hover
+  state. The evidence record captures desktop/mobile, selector, navigation, keyboard-focus, resource, contrast, and
+  complete all-locale route checks.
 - Task 14a published the complete Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese, Simplified Chinese,
   Japanese, German, French, and Hindi guide sets after project-owner approval. The output contract verifies Material's
   selector at every root, normalized `pt-br`/`zh-cn` routes, canonical BCP 47 `lang` values, and shared-asset paths.
@@ -65,6 +69,10 @@
 - Task 17 adds the one factual English documentation link to `llms.txt` while keeping `llms-full.txt` limited to the
   landing content and its localized landing-resource index. The all-locale MkDocs fixture now rejects a sitemap missing
   any normalized guide root.
+- Task 16a publishes the eleven pre-rendered landing locales, switches the selector to their matching landing routes,
+  and keeps every Documentation link pointed at its matching Material guide root. The single English MP4 now pairs
+  with a timed, cue-specific WebVTT track and normalized transcript for each locale; focused static/media contracts
+  and the 30-case Chromium suite pass.
 
 ## In Progress
 
@@ -96,10 +104,15 @@
 - `src/landing-page/content/locale-registry.ts`
 - `src/landing-page/content/index.ts`
 - `src/landing-page/content/locales/en.ts`
+- `src/landing-page/content/locales/localized.ts`
 - `src/landing-page/build/generate-txt-files.ts`
+- `src/landing-page/build/media-contract.ts`
+- `src/landing-page/build/sync-public-assets.ts`
+- `src/landing-page/build/verify-media.ts`
 - `tests/landing-page/content.test.ts`
 - `tests/landing-page/locales.test.ts`
 - `tests/landing-page/generateTxtFiles.test.ts`
+- `tests/landing-page/mediaContract.test.ts`
 - `src/landing-page/components/LandingPage.tsx`
 - `src/landing-page/components/LandingPage.test.tsx`
 - `src/landing-page/components/SiteHeader.tsx`
@@ -146,6 +159,7 @@
   `*.hi.md` guide sources.
 - `assets/gpt-voice-wordmark.svg`
 - `docs/user-guide/assets/stylesheets/extra.css`
+- `docs/researches/mkdocs-interface-audit/`
 - `docs/user-guide/data/locales.json`
 - `docs/user-guide/data/translation-manifest.json`
 - `docs/mkdocs-overrides/partials/languages/zh-CN.html`
@@ -321,6 +335,10 @@
 - Task 17: focused TXT and all-locale sitemap tests, strict documentation build and 27 documentation contracts, the
   full unit suite (388 passing), landing production build, 24 landing tests, landing typecheck/lint/format checks, and
   `git diff --check` passed.
+- Task 16a: `npm run landing:typecheck`, the landing Vitest suite (27 passing), focused locale/output/TXT/media
+  contracts (17 passing), `npm run landing:build`, media and size verification, clean landing lint/format checks, and
+  `npm run landing:test:e2e` (30 passing) passed. The browser suite loaded all eleven localized landing routes and
+  caption tracks, and exercised selector navigation from English to Russian.
 - Locale selector publication: `npm run docs:build`, `npm run docs:test` (28 passing), focused landing selector tests,
   `node --import tsx --test tests/landing-page/localeGeneration.test.ts`, landing build/typecheck/lint/format checks,
   and `git diff --check` passed. The static landing output contains all 11 canonical documentation routes with no
@@ -339,6 +357,12 @@
   CTA, selector, sitemap-hook, and normalized deep-route contracts. CloakBrowser at 390 CSS pixels confirmed 50-pixel
   Hindi Material CTA boxes, readable secondary-button hover colours, all eleven selector choices, a visible 6-pixel
   accent scrollbar, and `200` for all eleven deep `settings/browser/sitemap.xml` requests with no new console errors.
+- Task 14f: CloakBrowser screenshots at 1440 and 390 CSS pixels confirmed the 22px CTA gap, compact 40.6px CTA
+  height, visible secondary-button hover, visible card hover, selector navigation to Russian, CTA navigation to first
+  use, and keyboard skip-link focus. Computed text ratios are at least 5.38:1. Current local requests returned 200 and
+  no new console errors were recorded. The 19 public routes across all 11 locales passed 418 live desktop/mobile
+  checks and 209 normalized production-route checks for HTTP 200, article structure, image loading, and page-level
+  overflow. Prettier, `npm run docs:build`, `npm run docs:test` (29 passing), and `git diff --check` passed.
 
 ## Next Step
 

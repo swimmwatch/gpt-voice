@@ -1,7 +1,7 @@
 # Task List: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–17, 6a, 14a–14e, and Checkpoints D–G are complete. All eleven guide locales publish through
-Material's native selector, and the English landing selector links to each localized documentation root.
+**Status:** Tasks 1–17, 6a, 14a–14f, and 16a are complete. The project-owner-authorized eleven-language landing
+and localized subtitle tracks for the shared English product video are published in the static landing artifact.
 **Detailed plan:** `docs/specs/mkdocs-project-documentation/tasks/plan.md`
 
 Every completed item must meet its acceptance criteria, verification steps, and the standing Definition of Done.
@@ -143,6 +143,14 @@ Every completed item must meet its acceptance criteria, verification steps, and 
   - Verify: Strict all-locale build, documentation suite, formatter/Python compilation, and CloakBrowser 390-pixel
     selector, Hindi-CTA, hover, root/deep sitemap, and console checks.
   - Files: Hindi overview, stylesheet, MkDocs hook/configuration, output/route contracts, and scoped task artifacts.
+- [x] Task 14f: Audit and refine documentation interaction contrast.
+  - Acceptance: Overview CTAs are visibly separated despite Markdown's shared paragraph; card hover/focus uses a
+    visibly raised and bordered state; and the slightly smaller shared type scale stays readable at desktop and mobile
+    widths.
+  - Verify: CloakBrowser desktop/mobile overview, CTA/card hover, selector/localized navigation, first-use route,
+    keyboard focus, resource, and console checks; then a 209-page all-locale route sweep against the production-style
+    Pages output, strict build, documentation suite, Prettier, and diff check.
+  - Files: palette stylesheet, output contract, and audit evidence.
 
 ### Checkpoint F
 
@@ -175,6 +183,12 @@ Every completed item must meet its acceptance criteria, verification steps, and 
     equivalence; the all-locale documentation sitemap remains the localized discovery source.
   - Verify: Focused English text-generation tests and fixture inspection, plus all-locale documentation sitemap test.
   - Files: TXT generator and test.
+- [x] Task 16a: Publish the eleven-language landing.
+  - Acceptance: All eleven locale routes render localized landing content and corresponding MkDocs links; the
+    selector switches the landing route without a client-side translation fallback; and the English MP4 uses each
+    selected locale's captions and transcript.
+  - Verify: all-locale static-output contracts, subtitle/timing checks, landing typecheck, and browser checks.
+  - Files: locale dictionaries, rendering/hydration, media staging, and focused landing tests.
 - [ ] Task 18: Compose crawl metadata.
   - Acceptance: Deterministic root robots/active-English landing sitemap reference the all-locale MkDocs sitemap,
     guide reciprocal alternates are complete, and private paths are excluded.

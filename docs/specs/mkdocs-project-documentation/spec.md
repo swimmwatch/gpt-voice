@@ -1,7 +1,8 @@
 # Spec: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Incremental implementation in progress — Tasks 1–17, 6a, and 14a–14c are complete; all eleven guide
-locales publish through Material's native selector, and the English landing selector routes to each documentation root.
+**Status:** Incremental implementation in progress — Tasks 1–17, 6a, and 14a–14f are complete; all eleven guide
+locales publish through Material's native selector. The project owner authorized matching eleven-language landing
+localization and locale-specific English-video subtitle tracks.
 **Global task slug:** `mkdocs-project-documentation`
 **Last updated:** 2026-07-16
 
@@ -17,10 +18,10 @@ relevant task and their stated approval boundaries.
 3. Landing and documentation are built into one `build/github-pages/` artifact. Implementation adds release-gated
    Pages jobs to `.github/workflows/release-builds.yml`; the current branch has PR-only landing validation and no
    active Pages deployment job.
-4. The public guide supports the landing locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`, `ja`, `de`,
-   `fr`, and `hi`. English remains the source language, is served at `/gpt-voice/docs/`, and has no redirect.
-   Each non-English locale has a complete static guide, a stable locale route, local search, localized navigation,
-   and a visible language selector.
+4. The public guide and landing support the shared locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
+   `ja`, `de`, `fr`, and `hi`. English remains the source language, is served at `/gpt-voice/docs/`, and has no
+   redirect. Each non-English locale has a complete static guide and a matching pre-rendered landing route, local
+   search, localized navigation, a visible language selector, and an English-video subtitle track in that locale.
 5. Public documentation source lives under `docs/user-guide/`; existing `docs/specs/`, `docs/researches/`, and
    agent guides remain internal engineering artifacts and are excluded from MkDocs.
 6. The documentation UI is Material for MkDocs, following the relevant `swimmwatch/cloakbrowser-mcp` implementation
@@ -92,9 +93,9 @@ publish both surfaces as one coherent GitHub Pages project site.
   standalone `.github/workflows/pages.yml` is intentionally removed, and `.github/workflows/release-builds.yml`
   currently has no Pages jobs.
 - The landing registry is the authoritative public locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
-  `ja`, `de`, `fr`, and `hi`. Landing content remains English-only, while its language selector links directly to all
-  eleven localized guide roots. A separately approved future landing locale must use its matching guide route from the
-  shared matrix.
+  `ja`, `de`, `fr`, and `hi`. Every locale publishes a typed, pre-rendered landing page at its matching root route;
+  its selector switches between landing routes, while each Documentation link uses the matching MkDocs route. All
+  locale pages retain the same English-language MP4 with their own WebVTT subtitles and transcript.
 - End-user instructions are concentrated in `README.md`, while settings truth is distributed across renderer
   components and shared settings contracts.
 - `docs/` already contains engineering specifications, so pointing MkDocs at the whole directory would expose

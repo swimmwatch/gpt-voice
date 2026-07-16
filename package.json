@@ -39,7 +39,7 @@
     "landing:format:check": "prettier --no-error-on-unmatched-pattern --check \"src/landing-page/**/*.{ts,tsx,css,html,json}\" \"tests/landing-page/**/*.{ts,tsx}\" vite.landing.config.ts playwright.landing.config.ts tsconfig.landing*.json",
     "landing:test": "vitest --config vite.landing.config.ts",
     "landing:test:e2e": "playwright test --config playwright.landing.config.ts",
-    "landing:build": "npm run landing:sync-media && vite build --config vite.landing.config.ts && npm run landing:generate-locales",
+    "landing:build": "npm run landing:sync-media && vite build --config vite.landing.config.ts && npm run landing:generate-locales && npm run landing:generate-txt",
     "landing:verify:seo": "tsx --tsconfig tsconfig.landing.node.json src/landing-page/build/verify-seo.ts",
     "landing:verify:a11y": "tsx --tsconfig tsconfig.landing.node.json src/landing-page/build/verify-accessibility.ts",
     "landing:verify:browser-support": "tsx --tsconfig tsconfig.landing.node.json src/landing-page/build/verify-browser-support.ts",

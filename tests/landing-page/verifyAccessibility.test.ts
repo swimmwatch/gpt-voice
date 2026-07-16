@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { generateLocalePages } from '../../src/landing-page/build/generate-locales';
 import { verifyAccessibility } from '../../src/landing-page/build/verify-accessibility';
+import { createGeneratedEnglishPage } from './helpers/createGeneratedEnglishPage';
 
 test('accepts the generated English static accessibility structure', async () => {
-  const outputDirectory = await createGeneratedEnglishPage();
+  const outputDirectory = await createGeneratedEnglishPage('gpt-voice-a11y-');
 
   try {
     await assert.doesNotReject(() => verifyAccessibility(outputDirectory));
@@ -17,7 +16,7 @@ test('accepts the generated English static accessibility structure', async () =>
 });
 
 test('rejects duplicate main landmarks', async () => {
-  const outputDirectory = await createGeneratedEnglishPage();
+  const outputDirectory = await createGeneratedEnglishPage('gpt-voice-a11y-');
 
   try {
     const pagePath = path.join(outputDirectory, 'index.html');
@@ -29,14 +28,3 @@ test('rejects duplicate main landmarks', async () => {
     await rm(outputDirectory, { force: true, recursive: true });
   }
 });
-
-async function createGeneratedEnglishPage(): Promise<string> {
-  const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-a11y-'));
-  await writeFile(
-    path.join(outputDirectory, 'index.html'),
-    '<!doctype html><html lang="en"><head><title>Placeholder</title><script type="module" src="/gpt-voice/assets/index.js"></script></head><body><div id="root"></div><script nomodule id="vite-legacy-entry" src="/gpt-voice/assets/index-legacy.js"></script></body></html>',
-  );
-  await generateLocalePages({ outputDirectory });
-
-  return outputDirectory;
-}

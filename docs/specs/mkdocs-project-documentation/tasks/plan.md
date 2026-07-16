@@ -1,7 +1,8 @@
 # Implementation Plan: MkDocs Project Documentation And GitHub Pages Integration
 
-**Status:** Tasks 1–17, 6a, and 14a–14e are complete. The documentation publishes all eleven guide locales through
-Material's native selector; the English landing selector links directly to every localized documentation root.
+**Status:** Tasks 1–17, 6a, 14a–14f, and 16a are complete. The documentation publishes all eleven guide locales
+through Material's native selector, and the matching eleven-language landing publishes localized English-video
+subtitle tracks and landing-to-guide routes.
 **Specification:** `docs/specs/mkdocs-project-documentation/spec.md`
 **Estimated implementation:** 75–98 focused engineering hours, plus the remaining content/privacy/CI/deployment review
 **Implementation authorization:** The user approved the CloakBrowser reference-derived visual treatment; Tasks 14b and
@@ -9,10 +10,10 @@ Material's native selector; the English landing selector links directly to every
 
 ## Overview
 
-Build an eleven-language MkDocs Material user guide rooted at `/gpt-voice/docs/`, connect the active English Vite
-landing to the English guide, reserve tested locale-matched documentation routes for any future landing locales,
-validate both surfaces together, and publish one GitHub Pages artifact from the release workflow. English is the
-source language; the guide does not claim that the desktop application supports all eleven UI languages. The plan
+Build an eleven-language MkDocs Material user guide rooted at `/gpt-voice/docs/`, connect eleven pre-rendered Vite
+landing locales to their matching guide locales, validate both surfaces together, and publish one GitHub Pages
+artifact from the release workflow. English is the source language; the guide does not claim that the desktop
+application supports all eleven UI languages. The plan
 uses Material for MkDocs as the native documentation UI and matches the landing through its palette and shared product
 identity. It adopts the user-authorized, reference-derived content treatment without replacing Material's structural
 UI. It preserves the current PR-only English landing checks, the intentional removal of
@@ -275,7 +276,7 @@ platform-specific instructions into Windows, Linux, and macOS child pages in eve
 
 **Acceptance criteria:**
 
-- [x] `Install, update, or remove` is a Material navigation section with the overview and `Windows`, `Linux`, and
+- [x] `Installation` is a Material navigation section with the overview and `Windows`, `Linux`, and
       `macOS` child pages.
 - [x] Windows covers the NSIS installer, update, removal, and retained `%APPDATA%\GPT-Voice` data; Linux covers
       deb, rpm, and AppImage installation/update/removal plus `~/.config/GPT-Voice` retention.
@@ -664,6 +665,33 @@ defects found during the CloakBrowser audit without replacing Material UI or cha
 and scoped task artifacts.
 **Estimated scope:** S, 45–75 minutes, 8 files.
 
+### Task 14f: Audit And Refine Documentation Interaction Contrast
+
+**Description:** Audit the shared Material documentation interface with CloakBrowser and correct verified visual
+interaction defects without replacing Material UI. Keep the overview CTAs compact and visibly separated, and make
+feature-card hover and keyboard-focus states distinct from the graphite canvas.
+
+**Acceptance criteria:**
+
+- Overview CTA links remain compact, have a visible 1.2rem gap even when Markdown places them in one paragraph, and
+  wrap safely at 390px.
+- Feature cards use a raised graphite surface, ring-blue border, and visible blue shadow on hover and focus within;
+  their text remains readable.
+- The shared type scale is slightly reduced without causing clipped overview, first-use, or language-selector content.
+- CloakBrowser confirms desktop/mobile overview rendering, secondary-CTA hover, card hover, selector navigation,
+  first-use navigation, keyboard skip-link focus, successful local requests, and no newly recorded console errors.
+
+**Verification:**
+
+- [x] Capture and inspect the representative desktop/mobile interaction states with CloakBrowser; then sweep all 209
+      locale/path routes in the live and production-style outputs for HTTP status, document structure, image loading,
+      and page-level overflow; record results.
+- [x] Run the strict all-locale documentation build, the full documentation suite, Prettier, and `git diff --check`.
+
+**Dependencies:** Task 14e and the user-reported hover regression.
+**Files touched:** documentation stylesheet, output-theme contract, and scoped audit evidence.
+**Estimated scope:** S, 45–75 minutes, 4 files.
+
 ### Checkpoint F: Content Complete
 
 - [x] English and all ten translated guide variants contain every required page, settings mapping, support path, and
@@ -760,6 +788,40 @@ owned by the all-locale MkDocs sitemap and language selector until landing local
 **Files likely touched:** `src/landing-page/build/generate-txt-files.ts`,
 `tests/landing-page/generateTxtFiles.test.ts`.
 **Estimated scope:** S, 30–45 minutes, 2 files.
+
+### Task 16a: Publish The Eleven-Language Landing
+
+**Description:** Publish English, Russian, Belarusian, Ukrainian, Spanish, Brazilian Portuguese, Simplified Chinese,
+Japanese, German, French, and Hindi as first-class, pre-rendered landing routes. The static language selector must
+navigate to the equivalent landing route, while every locale’s Documentation link retains the exact matching MkDocs
+root. The product video remains a single English progressive MP4; each locale supplies its own same-timed WebVTT
+captions and a plain-text transcript, without subtitle streams, burned-in text, or translated video derivatives.
+
+**Acceptance criteria:**
+
+- [x] Every locale dictionary contains localized metadata, visible content, accessible names, FAQs, plain-text output,
+      and a matching documentation destination. Hydration reads the pre-rendered document language and never replaces
+      a localized page with English content.
+- [x] The desktop and no-JavaScript selectors have a deterministic route for every locale, including lowercase
+      `/pt-br/` and `/zh-cn/`; changing the selector is a normal same-origin page navigation.
+- [x] The shared English MP4 is the only video asset. Each selected page binds the locale’s sidecar track and
+      transcript; every non-English track has cue-specific translated content rather than a repeated generic cue.
+- [x] Static-output, subtitle timing, media, plain-text, and browser checks reject missing locale pages, wrong-case or
+      escaped paths, an English fallback, a mismatched caption URL, an empty/non-normalized transcript, or a missing
+      matching MkDocs link.
+
+**Verification:**
+
+- [x] Run `npm run landing:typecheck`, `npm run landing:test -- --run`, and the focused locale, output, TXT, and media
+      tests.
+- [x] Run `npm run landing:build`, `npm run landing:verify:sizes`, `npm run landing:lint`,
+      `npm run landing:format:check`, and `git diff --check`.
+- [x] Run `npm run landing:test:e2e`, including the selector navigation and every locale’s route/caption-track case.
+
+**Dependencies:** Tasks 6a, 14a, 15–17.
+**Files likely touched:** landing locale registry/content, static generation/hydration, media/TXT staging, and focused
+landing tests.
+**Estimated scope:** L, 4–6 hours, 14 files.
 
 ### Task 18: Compose Crawl Metadata
 

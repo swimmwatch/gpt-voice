@@ -19,7 +19,7 @@ const icons: Record<PrimaryStep['id'], LucideIcon> = {
 
 function WorkflowShortcuts({ label, shortcuts }: { label: string; shortcuts: readonly string[] }): React.JSX.Element {
   return (
-    <KbdGroup aria-label={`${label} shortcuts`}>
+    <KbdGroup aria-label={label}>
       {shortcuts.map((shortcut) => (
         <Kbd key={shortcut}>{shortcut}</Kbd>
       ))}

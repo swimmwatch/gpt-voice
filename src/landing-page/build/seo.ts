@@ -1,4 +1,4 @@
-import type { LandingContent, LandingLocaleDefinition } from '../content/index.js';
+import { localeRegistry, type LandingContent, type LandingLocaleDefinition } from '../content/index.js';
 
 function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
@@ -71,12 +71,19 @@ export function getLocalizedSeoTags(content: LandingContent, locale: LandingLoca
   const description = escapeHtml(content.metadata.description);
   const canonical = escapeHtml(locale.canonical);
   const plainText = escapeHtml(locale.pageText);
+  const alternates = [
+    ...localeRegistry.map(
+      (candidate) => `<link rel="alternate" hreflang="${candidate.tag}" href="${escapeHtml(candidate.canonical)}">`,
+    ),
+    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(localeRegistry[0]?.canonical ?? locale.canonical)}">`,
+  ];
 
   return [
     `<title>${title}</title>`,
     `<meta name="description" content="${description}">`,
     '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
     `<link rel="canonical" href="${canonical}">`,
+    ...alternates,
     `<link rel="alternate" type="text/plain" href="${plainText}">`,
     '<meta property="og:type" content="website">',
     `<meta property="og:site_name" content="${escapeHtml(content.navigation.brand)}">`,

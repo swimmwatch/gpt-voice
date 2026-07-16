@@ -5,6 +5,14 @@ import path from 'node:path';
 import sharp from 'sharp';
 
 import {
+  getLocaleDefinition,
+  publishedLocaleContent,
+  publishedLocaleTags,
+  type LandingContent,
+  type LandingLocale,
+} from '../content/index.js';
+
+import {
   LANDING_PUBLIC_CAPTIONS_DIRECTORY,
   LANDING_PUBLIC_ICONS_DIRECTORY,
   LANDING_PUBLIC_MEDIA_DIRECTORY,
@@ -25,6 +33,7 @@ const stagingDirectory = path.join(landingPublicDirectory, '.generated-staging')
 
 type ApprovedSources = {
   demoDirectory: string;
+  iconRasterSource: string;
   iconSource: string;
   interfaceIconDirectory: string;
   mainCapture: string;
@@ -85,18 +94,20 @@ async function collectApprovedSources(): Promise<ApprovedSources> {
   const providerIconDirectory = path.join(specificationAssets, 'provider-icons');
   const demoDirectory = path.join(specificationAssets, 'demo');
   const mainCapture = path.join(specificationAssets, 'captures/app-main.png');
+  const iconRasterSource = path.join(repositoryRoot, 'assets/icon.png');
   const iconSource = path.join(repositoryRoot, 'assets/icon.svg');
 
   await Promise.all([
     ...captureManifest.files.map((file) => assertManifestFileHash(specificationAssets, file)),
     ...interfaceManifest.files.map((file) => assertManifestFileHash(interfaceIconDirectory, file)),
     ...providerManifest.files.map((file) => assertManifestFileHash(providerIconDirectory, file)),
+    assertFileExists(iconRasterSource),
     assertFileExists(iconSource),
     assertFileExists(mainCapture),
   ]);
   await assertApprovedDemoAssets(demoDirectory);
 
-  return { demoDirectory, iconSource, interfaceIconDirectory, mainCapture, providerIconDirectory };
+  return { demoDirectory, iconRasterSource, iconSource, interfaceIconDirectory, mainCapture, providerIconDirectory };
 }
 
 async function assertApprovedDemoAssets(demoDirectory: string): Promise<void> {
@@ -108,13 +119,36 @@ async function assertApprovedDemoAssets(demoDirectory: string): Promise<void> {
   await Promise.all([
     assertFileExists(videoPath),
     assertFileExists(posterPath),
-    ...requiredMediaAssets.captions.map((fileName) => assertFileExists(path.join(captionsDirectory, fileName))),
-    ...requiredMediaAssets.transcriptFiles.map((fileName) =>
-      assertFileExists(path.join(transcriptsDirectory, fileName)),
-    ),
+    assertFileExists(path.join(captionsDirectory, 'en.vtt')),
+    assertFileExists(path.join(transcriptsDirectory, 'en.txt')),
   ]);
   await assertNoStreamingFiles(demoDirectory);
   await assertApprovedDemoVideo(videoPath);
+}
+
+const captionTimings = [
+  ['00:00.000', '00:15.000'],
+  ['00:15.000', '00:19.000'],
+  ['00:19.000', '00:29.000'],
+  ['00:29.000', '00:38.000'],
+  ['00:38.000', '00:45.000'],
+  ['00:45.000', '00:52.000'],
+  ['00:52.000', '00:57.000'],
+  ['00:57.000', '01:00.000'],
+] as const;
+
+function renderLocalizedCaptions(content: LandingContent): string {
+  const descriptions = content.demo.transcriptCues.map((cue) => cue.visualDescription);
+
+  return `WEBVTT\n\n${captionTimings
+    .map(([start, end], index) => `${start} --> ${end}\n${descriptions[index] ?? content.demo.lead}`)
+    .join('\n\n')}\n`;
+}
+
+function renderLocalizedTranscript(content: LandingContent): string {
+  return `${content.demo.title}\n\n${content.demo.transcriptCues
+    .map((cue) => `${cue.narration}\n${cue.visualDescription}`)
+    .join('\n\n')}\n`;
 }
 
 export async function assertNoStreamingFiles(directory: string): Promise<void> {
@@ -201,6 +235,7 @@ async function copyApprovedAssets(sources: ApprovedSources, destination: string)
   ]);
 
   await Promise.all([
+    copyFile(sources.iconRasterSource, path.join(iconsDirectory, 'gpt-voice.png')),
     copyFile(sources.iconSource, path.join(iconsDirectory, 'gpt-voice.svg')),
     copyFile(sources.mainCapture, path.join(mediaDirectory, 'app-main.png')),
     copyDirectoryFiles(sources.interfaceIconDirectory, path.join(iconsDirectory, 'interface')),
@@ -213,13 +248,21 @@ async function copyApprovedAssets(sources: ApprovedSources, destination: string)
       path.join(sources.demoDirectory, requiredMediaAssets.posterFileName),
       path.join(mediaDirectory, requiredMediaAssets.posterFileName),
     ),
-    ...requiredMediaAssets.captions.map((fileName) =>
-      copyFile(path.join(sources.demoDirectory, 'captions', fileName), path.join(captionsDirectory, fileName)),
-    ),
-    ...requiredMediaAssets.transcriptFiles.map((fileName) =>
-      copyFile(path.join(sources.demoDirectory, 'transcripts', fileName), path.join(transcriptsDirectory, fileName)),
-    ),
+    copyFile(path.join(sources.demoDirectory, 'captions', 'en.vtt'), path.join(captionsDirectory, 'en.vtt')),
+    copyFile(path.join(sources.demoDirectory, 'transcripts', 'en.txt'), path.join(transcriptsDirectory, 'en.txt')),
   ]);
+  await Promise.all(
+    publishedLocaleTags
+      .filter((locale): locale is Exclude<LandingLocale, 'en'> => locale !== 'en')
+      .map(async (locale) => {
+        const content = publishedLocaleContent[locale];
+        const fileStem = getLocaleDefinition(locale).routeSlug;
+        await Promise.all([
+          writeFile(path.join(captionsDirectory, `${fileStem}.vtt`), renderLocalizedCaptions(content), 'utf8'),
+          writeFile(path.join(transcriptsDirectory, `${fileStem}.txt`), renderLocalizedTranscript(content), 'utf8'),
+        ]);
+      }),
+  );
 
   await Promise.all([
     sharp(sources.mainCapture).webp({ quality: 90 }).toFile(path.join(mediaDirectory, 'app-main.webp')),

@@ -13,16 +13,19 @@ export const englishContent = {
     howItWorks: 'How it works',
     faq: 'FAQ',
     documentation: 'Documentation',
-    language: 'Language',
+    language: 'Website language',
     currentLanguage: 'English',
     repositoryCta: 'GitHub',
     releaseCta: 'Download',
     mobileMenu: 'Open navigation',
+    mobileMenuClose: 'Close navigation',
+    mobileMenuLabel: 'Site navigation',
     skipLink: 'Skip to main content',
   },
   hero: {
     badge: 'Desktop utility · Windows + Linux',
     title: 'Write better AI prompts faster.',
+    shortcutsLabel: 'Keyboard shortcuts',
     lead: 'Writing clear, well-structured prompts takes time. GPT-Voice turns speech into prompt-ready text, then helps you translate it and remove grammar errors, repetition, and filler—with less effort.',
     primaryCta: 'Download latest release',
     secondaryCta: 'View source on GitHub',
@@ -46,6 +49,7 @@ export const englishContent = {
     transcriptControl: 'Read the visual walkthrough notes',
     transcriptRequirement:
       'Include every narration line, meaningful sound cue, and meaningful visual-only action in chronological order.',
+    videoUnsupported: 'Your browser does not support HTML video.',
     transcriptCues: [
       {
         id: 'prompt-problem',
@@ -173,6 +177,7 @@ export const englishContent = {
     lead: 'Choose a subscription-backed web session or a usage-based API.',
     inputNode: 'YOUR VOICE',
     inputDetail: 'Audio input',
+    requirementsLabel: 'requirements',
     availableNow: 'Available now',
     futureRouteLegend: 'Future · not available',
     groupDescription:

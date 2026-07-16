@@ -10,7 +10,7 @@ import {
   publishedLocaleContent,
   publishedLocaleTags,
   type LandingContent,
-  type LandingLocale,
+  type LandingLocaleDefinition,
 } from '../content/index.js';
 import { getLocalizedSeoTags } from './seo.js';
 
@@ -31,7 +31,7 @@ export async function generateLocalePages(options: LocaleGenerationOptions = {})
     await mkdir(pageDirectory, { recursive: true });
     await writeFile(
       path.join(pageDirectory, 'index.html'),
-      await minifyDocument(renderDocument(baseDocument, content, localeTag)),
+      await minifyDocument(renderDocument(baseDocument, content, locale)),
     );
   }
 }
@@ -48,12 +48,11 @@ async function minifyDocument(document: string): Promise<string> {
   });
 }
 
-function renderDocument(baseDocument: string, content: LandingContent, localeTag: LandingLocale): string {
-  const locale = getLocaleDefinition(localeTag);
+function renderDocument(baseDocument: string, content: LandingContent, locale: LandingLocaleDefinition): string {
   const head = getDocumentHead(baseDocument);
   const bodySuffix = getBodySuffix(baseDocument);
   const staticMarkup = renderToStaticMarkup(createElement(LandingPage, { content, locale }));
-  const localizedHead = injectLocalizedMetadata(head, content, localeTag);
+  const localizedHead = injectLocalizedMetadata(head, content, locale);
 
   return [
     '<!doctype html>',
@@ -90,8 +89,8 @@ function getDocumentHead(baseDocument: string): string {
   return `<head>${head}</head>`;
 }
 
-function injectLocalizedMetadata(head: string, content: LandingContent, localeTag: LandingLocale): string {
-  const tags = getLocalizedSeoTags(content, getLocaleDefinition(localeTag));
+function injectLocalizedMetadata(head: string, content: LandingContent, locale: LandingLocaleDefinition): string {
+  const tags = getLocalizedSeoTags(content, locale);
   const withTitle = head.replace(/<title>[\s\S]*?<\/title>/i, '');
 
   return withTitle.replace('</head>', `${tags}\n</head>`);

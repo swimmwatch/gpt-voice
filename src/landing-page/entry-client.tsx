@@ -1,5 +1,19 @@
 import './styles/globals.css';
 
+const landingDocument = document.documentElement;
+const loaderStartedAt = performance.now();
+const loaderMinimumDurationMs = 280;
+const loaderMaximumDurationMs = 5000;
+const localeFontLoaders: Readonly<Record<string, () => Promise<unknown>>> = {
+  hi: () => import('@fontsource-variable/noto-sans-devanagari/wght.css'),
+  ja: () => import('@fontsource-variable/noto-sans-jp/wght.css'),
+  'zh-CN': () => import('@fontsource-variable/noto-sans-sc/wght.css'),
+};
+const localeFontLoading =
+  localeFontLoaders[document.documentElement.lang]?.().catch(() => undefined) ?? Promise.resolve();
+
+landingDocument.dataset.landingLoading = 'true';
+
 const rootElement = document.querySelector('#root');
 
 if (!rootElement) {
@@ -9,7 +23,46 @@ if (!rootElement) {
 const landingRoot = rootElement;
 const plyrIconUrl = new URL('../../node_modules/plyr/dist/plyr.svg', import.meta.url).href;
 
+landingRoot.setAttribute('aria-busy', 'true');
+
 let landingHydration: Promise<void> | undefined;
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, durationMs));
+}
+
+function waitForWindowLoad(): Promise<void> {
+  if (document.readyState === 'complete') {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => window.addEventListener('load', () => resolve(), { once: true }));
+}
+
+async function waitForFonts(): Promise<void> {
+  await localeFontLoading;
+  await document.fonts?.ready?.catch(() => undefined);
+}
+
+async function waitForCriticalImages(): Promise<void> {
+  const images = Array.from(
+    document.querySelectorAll<HTMLImageElement>('.site-header img, .hero-section img, .landing-loader img'),
+  );
+
+  await Promise.all(
+    images.map((image) =>
+      typeof image.decode === 'function' ? image.decode().catch(() => undefined) : Promise.resolve(),
+    ),
+  );
+}
+
+function waitForStablePaint(): Promise<void> {
+  return new Promise((resolve) =>
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())),
+    ),
+  );
+}
 
 function correctInitialHashPosition(): void {
   const targetId = window.location.hash.slice(1);
@@ -26,7 +79,7 @@ function correctInitialHashPosition(): void {
   }
 }
 
-function hydrateLanding(): void {
+function hydrateLanding(): Promise<void> {
   landingHydration ??= import('./hydrate')
     .then(({ hydrateLandingPage }) => {
       hydrateLandingPage(landingRoot);
@@ -35,6 +88,8 @@ function hydrateLanding(): void {
       requestAnimationFrame(() => requestAnimationFrame(correctInitialHashPosition));
     })
     .catch(() => undefined);
+
+  return landingHydration;
 }
 
 function scheduleLandingHydration(): void {
@@ -42,12 +97,24 @@ function scheduleLandingHydration(): void {
     window.removeEventListener('load', start);
     document.removeEventListener('keydown', start, true);
     document.removeEventListener('pointerdown', start, true);
-    hydrateLanding();
+    void hydrateLanding();
   };
 
   window.addEventListener('load', start, { once: true });
   document.addEventListener('keydown', start, { capture: true, once: true });
   document.addEventListener('pointerdown', start, { capture: true, once: true });
+}
+
+async function settleInitialLandingLayout(): Promise<void> {
+  const minimumDuration = Math.max(0, loaderMinimumDurationMs - (performance.now() - loaderStartedAt));
+  const prepareLayout = waitForWindowLoad().then(async () => {
+    await Promise.all([hydrateLanding(), waitForFonts(), waitForCriticalImages()]);
+    await waitForStablePaint();
+  });
+
+  await Promise.race([Promise.all([prepareLayout, delay(minimumDuration)]), delay(loaderMaximumDurationMs)]);
+  delete landingDocument.dataset.landingLoading;
+  landingRoot.removeAttribute('aria-busy');
 }
 
 function revealInitialHashTarget(): void {
@@ -116,7 +183,7 @@ function enableDeferredDemoPlayer(): void {
       .then(([module]) => {
         const Plyr = module.default as PlyrConstructor;
         new Plyr(video, {
-          captions: { active: true, language: 'en', update: true },
+          captions: { active: true, language: document.documentElement.lang, update: true },
           controls: [
             'play-large',
             'play',
@@ -153,3 +220,4 @@ function enableDeferredDemoPlayer(): void {
 scheduleLandingHydration();
 revealInitialHashTarget();
 enableSectionReveals();
+void settleInitialLandingLayout();

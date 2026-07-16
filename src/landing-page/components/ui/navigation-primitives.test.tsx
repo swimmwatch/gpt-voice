@@ -96,6 +96,31 @@ describe('landing navigation primitives', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('closes a right-side sheet when its backdrop is clicked', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <Sheet>
+        <SheetTrigger asChild>
+          <button type="button">Menu</button>
+        </SheetTrigger>
+        <SheetContent side="right">
+          <SheetTitle>Navigation</SheetTitle>
+          <SheetDescription>Site navigation links.</SheetDescription>
+        </SheetContent>
+      </Sheet>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Menu' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+
+    const backdrop = document.querySelector<HTMLElement>('[data-slot="sheet-overlay"]');
+    expect(backdrop).toBeTruthy();
+    await user.click(backdrop as HTMLElement);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(container.querySelector('[data-slot="sheet-overlay"]')).toBeNull();
+  });
+
   it('renders navigation links and decorative separators without synthetic controls', () => {
     render(
       <>

@@ -12,47 +12,13 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Kbd, KbdGroup } from './ui/kbd';
 import { Separator } from './ui/separator';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { LandingContent, LandingLocaleDefinition, ProviderRoute } from '../content/schema';
+import { getVoiceWaveformBarStyle, voiceWaveformBars } from './voice-waveform';
 
 type LandingPageProps = {
   content: LandingContent;
   locale: LandingLocaleDefinition;
 };
-
-const providerWaveformBars = [
-  { amplitude: 6, id: '01' },
-  { amplitude: 8, id: '02' },
-  { amplitude: 7, id: '03' },
-  { amplitude: 10, id: '04' },
-  { amplitude: 12, id: '05' },
-  { amplitude: 9, id: '06' },
-  { amplitude: 14, id: '07' },
-  { amplitude: 18, id: '08' },
-  { amplitude: 13, id: '09' },
-  { amplitude: 20, id: '10' },
-  { amplitude: 16, id: '11' },
-  { amplitude: 22, id: '12' },
-  { amplitude: 18, id: '13' },
-  { amplitude: 24, id: '14' },
-  { amplitude: 21, id: '15' },
-  { amplitude: 28, id: '16' },
-  { amplitude: 24, id: '17' },
-  { amplitude: 19, id: '18' },
-  { amplitude: 23, id: '19' },
-  { amplitude: 17, id: '20' },
-  { amplitude: 21, id: '21' },
-  { amplitude: 15, id: '22' },
-  { amplitude: 18, id: '23' },
-  { amplitude: 13, id: '24' },
-  { amplitude: 15, id: '25' },
-  { amplitude: 10, id: '26' },
-  { amplitude: 12, id: '27' },
-  { amplitude: 9, id: '28' },
-  { amplitude: 10, id: '29' },
-  { amplitude: 7, id: '30' },
-  { amplitude: 6, id: '31' },
-] as const;
 
 const providerLogoFiles: Record<string, string> = {
   'ChatGPT Web': 'openai.svg',
@@ -61,10 +27,50 @@ const providerLogoFiles: Record<string, string> = {
   'OpenAI API': 'openai.svg',
 };
 
+const providerRoutePulseDelays = [0, -0.52, -1.04] as const;
+
+type ProviderRouteGeometry = {
+  apiY: number;
+  currentY: number;
+  futureY: number;
+  height: number;
+  inputY: number;
+  width: number;
+};
+
+const defaultProviderRouteGeometry: ProviderRouteGeometry = {
+  apiY: 307.2,
+  currentY: 92.16,
+  futureY: 460.8,
+  height: 512,
+  inputY: 256,
+  width: 80,
+};
+
+function roundRouteCoordinate(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function routeTargetCenter(target: HTMLElement, mapRect: DOMRect): number {
+  const targetRect = target.getBoundingClientRect();
+  return roundRouteCoordinate(targetRect.top + targetRect.height / 2 - mapRect.top);
+}
+
+function buildProviderRoutePaths({ apiY, currentY, futureY, height, inputY, width }: ProviderRouteGeometry) {
+  const junctionX = roundRouteCoordinate(width / 2);
+
+  return {
+    api: `M0 ${inputY}H${junctionX}V${apiY}H${width}`,
+    current: `M0 ${inputY}H${junctionX}V${currentY}H${width}`,
+    future: `M${junctionX} ${apiY}V${futureY}H${width}`,
+    viewBox: `0 0 ${width} ${height}`,
+  };
+}
+
 function Shortcut({ action, keys }: { action: string; keys: readonly string[] }): React.JSX.Element {
   return (
     <span className="hero-shortcut">
-      <KbdGroup aria-label={`${action} shortcut`}>
+      <KbdGroup aria-label={action}>
         {keys.map((key) => (
           <Kbd key={key}>{key}</Kbd>
         ))}
@@ -94,7 +100,7 @@ function Hero({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
             <a href={content.links.repository}>{content.hero.secondaryCta}</a>
           </Button>
         </div>
-        <div aria-label="Keyboard shortcuts" className="hero-shortcuts">
+        <div aria-label={content.hero.shortcutsLabel} className="hero-shortcuts">
           {content.hero.shortcuts.map((shortcut) => (
             <Shortcut key={shortcut.action} {...shortcut} />
           ))}
@@ -120,7 +126,7 @@ function Hero({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
   );
 }
 
-function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
+function Demo({ content, locale }: Pick<LandingPageProps, 'content' | 'locale'>): React.JSX.Element {
   return (
     <section
       aria-labelledby="demo-title"
@@ -135,7 +141,7 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
         <p className="landing-lead">{content.demo.lead}</p>
       </div>
       <div className="demo-media">
-        <AspectRatio ratio={16 / 9}>
+        <AspectRatio className="demo-video-frame" ratio={16 / 9}>
           <video
             aria-describedby="demo-note"
             aria-label={content.demo.videoLabel}
@@ -154,30 +160,15 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
               default
               kind="captions"
               label={content.demo.captionTrackLabel}
-              src="/gpt-voice/generated/captions/en.vtt"
-              srcLang="en"
+              src={locale.captions}
+              srcLang={locale.tag}
             />
-            Your browser does not support HTML video. Read the visual walkthrough notes below.
+            {content.demo.videoUnsupported}
           </video>
         </AspectRatio>
         <p className="demo-supporting-note" id="demo-note">
           {content.demo.supportingNote}
         </p>
-        <Accordion className="demo-transcript" collapsible data-demo-transcript="true" type="single">
-          <AccordionItem value="visual-walkthrough">
-            <AccordionTrigger>{content.demo.transcriptControl}</AccordionTrigger>
-            <AccordionContent>
-              <p>{content.demo.summary}</p>
-              <ol>
-                {content.demo.transcriptCues.map((cue) => (
-                  <li data-demo-visual-note="true" key={cue.id}>
-                    {cue.visualDescription}
-                  </li>
-                ))}
-              </ol>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
       </div>
     </section>
   );
@@ -185,24 +176,13 @@ function Demo({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element
 
 function ProviderAudioInput({ content }: Pick<LandingPageProps, 'content'>): React.JSX.Element {
   return (
-    <div className="provider-audio-input">
+    <div className="provider-audio-input" data-provider-route-target="input">
       <div aria-hidden="true" className="provider-microphone">
         <Mic strokeWidth={1.75} />
       </div>
       <div aria-hidden="true" className="provider-waveform" data-provider-waveform="recording">
-        {providerWaveformBars.map(({ amplitude, id }, index) => (
-          <span
-            data-provider-waveform-bar="true"
-            key={id}
-            style={
-              {
-                '--provider-wave-delay': `${-(index * 83)}ms`,
-                '--provider-wave-duration': `${700 + (index % 5) * 90}ms`,
-                '--provider-wave-height': `${amplitude}px`,
-                '--provider-wave-offset': `${-(index * 3)}px`,
-              } as React.CSSProperties
-            }
-          />
+        {voiceWaveformBars.map(({ amplitude, id }, index) => (
+          <span data-provider-waveform-bar="true" key={id} style={getVoiceWaveformBarStyle({ amplitude, index })} />
         ))}
       </div>
       <div className="provider-audio-labels">
@@ -245,7 +225,13 @@ function ProviderFactIcon({ fact }: { fact: string }): React.JSX.Element | null 
   }
 }
 
-function ProviderCard({ provider }: { provider: ProviderRoute }): React.JSX.Element {
+function ProviderCard({
+  provider,
+  requirementsLabel,
+}: {
+  provider: ProviderRoute;
+  requirementsLabel: string;
+}): React.JSX.Element {
   return (
     <Card className="provider-card provider-card-current">
       <CardHeader className="provider-card-header">
@@ -256,7 +242,7 @@ function ProviderCard({ provider }: { provider: ProviderRoute }): React.JSX.Elem
         <Badge>{provider.status}</Badge>
       </CardHeader>
       <CardContent className="provider-card-content">
-        <ul aria-label={`${provider.provider} requirements`} className="provider-facts">
+        <ul aria-label={`${provider.provider} ${requirementsLabel}`} className="provider-facts">
           {provider.facts.map((fact) => (
             <li key={fact}>
               <ProviderFactIcon fact={fact} />
@@ -276,6 +262,86 @@ function ProviderCard({ provider }: { provider: ProviderRoute }): React.JSX.Elem
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/** Draws responsive connector paths and animated pulses between the voice input and provider cards. */
+function ProviderRouteMap(): React.JSX.Element {
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [geometry, setGeometry] = React.useState(defaultProviderRouteGeometry);
+  const paths = buildProviderRoutePaths(geometry);
+
+  React.useEffect(() => {
+    const map = mapRef.current;
+    const signalMap = map?.parentElement;
+    if (!map || !signalMap) return undefined;
+
+    const input = signalMap.querySelector<HTMLElement>('[data-provider-route-target="input"]');
+    const chatGpt = signalMap.querySelector<HTMLElement>('[data-provider-route-target="chatgpt"]');
+    const api = signalMap.querySelector<HTMLElement>('[data-provider-route-target="api"]');
+    const future = signalMap.querySelector<HTMLElement>('[data-provider-route-target="future"]');
+
+    if (!input || !chatGpt || !api || !future) return undefined;
+    const updateGeometry = () => {
+      const mapRect = map.getBoundingClientRect();
+      if (mapRect.width === 0 || mapRect.height === 0) return;
+
+      const nextGeometry: ProviderRouteGeometry = {
+        apiY: routeTargetCenter(api, mapRect),
+        currentY: routeTargetCenter(chatGpt, mapRect),
+        futureY: routeTargetCenter(future, mapRect),
+        height: roundRouteCoordinate(mapRect.height),
+        inputY: routeTargetCenter(input, mapRect),
+        width: roundRouteCoordinate(mapRect.width),
+      };
+
+      setGeometry((previousGeometry) =>
+        Object.entries(nextGeometry).every(
+          ([key, value]) => previousGeometry[key as keyof ProviderRouteGeometry] === value,
+        )
+          ? previousGeometry
+          : nextGeometry,
+      );
+    };
+
+    const resizeObserver = new ResizeObserver(updateGeometry);
+    [map, input, chatGpt, api, future].forEach((element) => resizeObserver.observe(element));
+    const animationFrame = window.requestAnimationFrame(updateGeometry);
+    window.addEventListener('resize', updateGeometry);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', updateGeometry);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  return (
+    <div aria-hidden="true" className="provider-route-map" ref={mapRef}>
+      <span className="provider-route-line provider-route-input" data-provider-route-input="true" />
+      <span className="provider-route-line provider-route-current" data-provider-route-branch="current" />
+      <span className="provider-route-line provider-route-api" data-provider-route-branch="current" />
+      <span className="provider-route-line provider-route-future" data-provider-route-branch="future" />
+      <svg className="provider-route-pulses" focusable="false" preserveAspectRatio="none" viewBox={paths.viewBox}>
+        <path className="provider-route-vector" d={paths.current} data-provider-route-path="chatgpt" />
+        <path className="provider-route-vector" d={paths.api} data-provider-route-path="api" />
+        <path
+          className="provider-route-vector provider-route-vector-future"
+          d={paths.future}
+          data-provider-route-path="future"
+        />
+        {providerRoutePulseDelays.map((delay) => (
+          <React.Fragment key={delay}>
+            <circle className="provider-route-pulse" cx="0" cy="0" r="3">
+              <animateMotion begin={`${delay}s`} dur="1.56s" path={paths.current} repeatCount="indefinite" />
+            </circle>
+            <circle className="provider-route-pulse" cx="0" cy="0" r="3">
+              <animateMotion begin={`${delay}s`} dur="1.56s" path={paths.api} repeatCount="indefinite" />
+            </circle>
+          </React.Fragment>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -305,17 +371,25 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
       </div>
       <div aria-label={content.providers.groupDescription} className="provider-signal-map">
         <ProviderAudioInput content={content} />
-        <div aria-hidden="true" className="provider-route-map">
-          <span className="provider-route-line provider-route-input" data-provider-route-arrow="true" />
-          <span className="provider-route-line provider-route-current" data-provider-route-branch="current" />
-          <span className="provider-route-line provider-route-api" data-provider-route-branch="current" />
-          <span className="provider-route-line provider-route-future" data-provider-route-branch="future" />
-          <i className="provider-route-junction" />
-        </div>
+        <ProviderRouteMap />
         <div className="provider-routes">
-          <ProviderCard provider={content.providers.chatGptWeb} />
-          <ProviderCard provider={content.providers.openAiApi} />
-          <aside aria-label={content.providers.future.blockLabel} className="provider-future-horizon">
+          <div data-provider-route-target="chatgpt">
+            <ProviderCard
+              provider={content.providers.chatGptWeb}
+              requirementsLabel={content.providers.requirementsLabel}
+            />
+          </div>
+          <div data-provider-route-target="api">
+            <ProviderCard
+              provider={content.providers.openAiApi}
+              requirementsLabel={content.providers.requirementsLabel}
+            />
+          </div>
+          <aside
+            aria-label={content.providers.future.blockLabel}
+            className="provider-future-horizon"
+            data-provider-route-target="future"
+          >
             <p>{content.providers.future.blockLabel}</p>
             <ul>
               {content.providers.future.providers.map((provider) => (
@@ -336,13 +410,42 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
   );
 }
 
+function LandingLoader(): React.JSX.Element {
+  return (
+    <div aria-hidden="true" className="landing-loader" data-landing-loader="true">
+      <div className="landing-loader-mark">
+        <img
+          alt=""
+          className="landing-loader-logo"
+          height="72"
+          src="/gpt-voice/generated/icons/gpt-voice.png"
+          width="72"
+        />
+        <div className="landing-loader-wave">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LandingPage({ content, locale }: LandingPageProps): React.JSX.Element {
   return (
     <>
-      <SiteHeader content={content.navigation} links={content.links} locale={locale} />
+      <LandingLoader />
+      <SiteHeader
+        brandDescription={content.footer.description}
+        content={content.navigation}
+        links={content.links}
+        locale={locale}
+      />
       <main id="main-content" tabIndex={-1}>
         <Hero content={content} />
-        <Demo content={content} />
+        <Demo content={content} locale={locale} />
         <HowItWorksSection content={content.workflow} />
         <Providers content={content} />
         <FaqSection content={content.faq} />

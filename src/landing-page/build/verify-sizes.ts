@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { brotliCompressSync, gzipSync } from 'node:zlib';
+import { getHtmlAttribute, getHtmlTags } from './html.js';
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const defaultBuildDirectory = path.join(repositoryRoot, 'build/github-pages');
@@ -32,18 +33,18 @@ export async function measureLandingBuild(buildDirectory = defaultBuildDirectory
   const indexPath = path.join(buildDirectory, 'index.html');
   const html = await readFile(indexPath);
   const source = html.toString('utf8');
-  const scriptTags = getTags(source, 'script');
-  const stylesheetTags = getTags(source, 'link').filter((tag) => getAttribute(tag, 'rel') === 'stylesheet');
+  const scriptTags = getHtmlTags(source, 'script');
+  const stylesheetTags = getHtmlTags(source, 'link').filter((tag) => getHtmlAttribute(tag, 'rel') === 'stylesheet');
   const modernScripts = scriptTags
-    .filter((tag) => getAttribute(tag, 'type') === 'module')
-    .map((tag) => getAttribute(tag, 'src'))
+    .filter((tag) => getHtmlAttribute(tag, 'type') === 'module')
+    .map((tag) => getHtmlAttribute(tag, 'src'))
     .filter((value): value is string => value !== undefined);
   const legacyScripts = scriptTags
     .filter((tag) => tag.includes('nomodule'))
-    .flatMap((tag) => [getAttribute(tag, 'src'), getAttribute(tag, 'data-src')])
+    .flatMap((tag) => [getHtmlAttribute(tag, 'src'), getHtmlAttribute(tag, 'data-src')])
     .filter((value): value is string => value !== undefined);
   const stylesheets = stylesheetTags
-    .map((tag) => getAttribute(tag, 'href'))
+    .map((tag) => getHtmlAttribute(tag, 'href'))
     .filter((value): value is string => value !== undefined)
     .filter((asset) => !path.basename(asset).startsWith('plyr-'));
   const assetPaths = await listBuildFiles(buildDirectory);
@@ -110,16 +111,6 @@ function formatBytes(value: number): string {
 
 function formatMeasurement(label: string, size: EncodedSize): string {
   return `- ${label}: ${formatBytes(size.raw)} raw, ${formatBytes(size.gzip)} gzip, ${formatBytes(size.brotli)} Brotli`;
-}
-
-function getTags(source: string, name: string): string[] {
-  return source.match(new RegExp(`<${name}\\b[^>]*>`, 'gi')) ?? [];
-}
-
-function getAttribute(tag: string, name: string): string | undefined {
-  const match = tag.match(new RegExp(`(?:^|\\s)${name}=(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
-
-  return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
 async function measureAssets(buildDirectory: string, urls: readonly string[]): Promise<EncodedSize> {

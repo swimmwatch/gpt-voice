@@ -3,8 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  englishContent,
   localeRegistry,
+  publishedLocaleContent,
   type LandingContent,
   type LandingLocale,
   type LandingLocaleDefinition,
@@ -12,7 +12,9 @@ import {
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const defaultOutputDirectory = path.join(repositoryRoot, 'build/github-pages');
-const defaultContentByLocale = new Map<LandingLocale, LandingContent>([['en', englishContent]]);
+const defaultContentByLocale = new Map<LandingLocale, LandingContent>(
+  localeRegistry.map((locale) => [locale.tag, publishedLocaleContent[locale.tag]]),
+);
 
 export type TextGenerationOptions = {
   contentByLocale?: ReadonlyMap<LandingLocale, LandingContent>;
@@ -41,8 +43,8 @@ function renderShortcutList(shortcuts: readonly string[]): string {
 function renderProvider(provider: LandingContent['providers']['chatGptWeb']): string {
   return [
     `### ${provider.provider}`,
-    `Status: ${provider.status}`,
-    `Requirements: ${provider.facts.join('; ')}`,
+    provider.status,
+    provider.facts.join('; '),
     provider.claim,
     provider.qualification,
   ]
@@ -53,30 +55,25 @@ function renderProvider(provider: LandingContent['providers']['chatGptWeb']): st
 /** Renders the visible landing-page content into its normalized plain-text equivalent. */
 export function renderPageText(content: LandingContent, locale: LandingLocaleDefinition): string {
   const transcript = content.demo.transcriptCues
-    .map((cue) =>
-      [
-        `### ${cue.id}`,
-        cue.narration,
-        `Sound cues: ${cue.soundCues.join('; ')}`,
-        `Visual: ${cue.visualDescription}`,
-      ].join('\n'),
+    .map((cue, index) =>
+      [`### ${index + 1}`, cue.narration, cue.soundCues.join('; '), cue.visualDescription].join('\n'),
     )
     .join('\n\n');
 
   return normalizeText(
     [
       `# ${content.hero.title}`,
-      `Language: ${locale.tag}`,
-      `Canonical: ${locale.canonical}`,
+      `${content.navigation.language}: ${locale.tag}`,
+      locale.canonical,
       '',
       content.hero.lead,
       '',
-      '## Navigation',
+      `## ${content.navigation.mobileMenuLabel}`,
       [content.navigation.providers, content.navigation.howItWorks, content.navigation.faq]
         .map((label) => `- ${label}`)
         .join('\n'),
       '',
-      '## Shortcuts',
+      `## ${content.hero.shortcutsLabel}`,
       content.hero.shortcuts.map(({ action, keys }) => `- ${action}: ${keys.join(' + ')}`).join('\n'),
       '',
       `## ${content.demo.title}`,
@@ -94,7 +91,7 @@ export function renderPageText(content: LandingContent, locale: LandingLocaleDef
       content.workflow.transcribe.footnote,
       '',
       `### ${content.workflow.retry.title}`,
-      `Status: ${content.workflow.retry.statusLabel}`,
+      content.workflow.retry.statusLabel,
       content.workflow.retry.condition,
       content.workflow.retry.description,
       renderShortcutList(content.workflow.retry.shortcuts),
@@ -118,8 +115,8 @@ export function renderPageText(content: LandingContent, locale: LandingLocaleDef
       '',
       `## ${content.providers.title}`,
       content.providers.lead,
-      `Voice input: ${content.providers.inputNode} — ${content.providers.inputDetail}`,
-      `Available now: ${content.providers.availableNow}`,
+      `${content.providers.inputNode} — ${content.providers.inputDetail}`,
+      content.providers.availableNow,
       renderProvider(content.providers.chatGptWeb),
       renderProvider(content.providers.openAiApi),
       `### ${content.providers.future.blockLabel}`,
@@ -139,7 +136,7 @@ export function renderPageText(content: LandingContent, locale: LandingLocaleDef
       content.footer.description,
       content.footer.disclaimer,
       '',
-      '## Video transcript outline',
+      `## ${content.demo.title}`,
       transcript,
     ].join('\n\n'),
   );
@@ -148,19 +145,23 @@ export function renderPageText(content: LandingContent, locale: LandingLocaleDef
 export function renderTranscriptText(content: LandingContent, locale: LandingLocaleDefinition): string {
   return normalizeText(
     [
-      `# ${content.demo.title} transcript`,
-      `Language: ${locale.tag}`,
-      `Canonical page: ${locale.canonical}`,
+      `# ${content.demo.title}`,
+      `${content.navigation.language}: ${locale.tag}`,
+      locale.canonical,
       '',
-      ...content.demo.transcriptCues.flatMap((cue) => [
-        `## ${cue.id}`,
-        `Narration: ${cue.narration}`,
-        `Sound cues: ${cue.soundCues.join('; ')}`,
-        `Visual: ${cue.visualDescription}`,
+      ...content.demo.transcriptCues.flatMap((cue, index) => [
+        `## ${index + 1}`,
+        cue.narration,
+        cue.soundCues.join('; '),
+        cue.visualDescription,
       ]),
     ].join('\n\n'),
   );
 }
+
+const defaultTranscriptsByLocale = new Map<LandingLocale, string>(
+  localeRegistry.map((locale) => [locale.tag, renderTranscriptText(publishedLocaleContent[locale.tag], locale)]),
+);
 
 function renderLlmsIndex(
   content: LandingContent,
@@ -246,7 +247,7 @@ export async function generateTextFiles(options: TextGenerationOptions = {}): Pr
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory;
   const contentByLocale = options.contentByLocale ?? defaultContentByLocale;
   const localeDefinitions = options.localeDefinitions ?? localeRegistry;
-  const transcriptsByLocale = options.transcriptsByLocale ?? new Map<LandingLocale, string>();
+  const transcriptsByLocale = options.transcriptsByLocale ?? defaultTranscriptsByLocale;
   assertReady(contentByLocale, localeDefinitions, transcriptsByLocale);
 
   const englishLocale = localeDefinitions.find((locale) => locale.tag === 'en');

@@ -1,5 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { getHtmlAttribute, getHtmlTags } from './html.js';
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const defaultOutputDirectory = path.join(repositoryRoot, 'build/github-pages');
@@ -7,10 +8,10 @@ const basePath = '/gpt-voice/';
 
 export async function verifyBrowserSupport(outputDirectory = defaultOutputDirectory): Promise<void> {
   const document = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
-  const scripts = getTags(document, 'script');
-  const modernScripts = scripts.filter((script) => getAttribute(script, 'type') === 'module');
-  const legacyPolyfill = scripts.find((script) => getAttribute(script, 'id') === 'vite-legacy-polyfill');
-  const legacyEntry = scripts.find((script) => getAttribute(script, 'id') === 'vite-legacy-entry');
+  const scripts = getHtmlTags(document, 'script');
+  const modernScripts = scripts.filter((script) => getHtmlAttribute(script, 'type') === 'module');
+  const legacyPolyfill = scripts.find((script) => getHtmlAttribute(script, 'id') === 'vite-legacy-polyfill');
+  const legacyEntry = scripts.find((script) => getHtmlAttribute(script, 'id') === 'vite-legacy-entry');
 
   if (modernScripts.length === 0) {
     throw new Error('Production output is missing a module browser entry');
@@ -20,9 +21,9 @@ export async function verifyBrowserSupport(outputDirectory = defaultOutputDirect
   }
 
   const modernUrls = modernScripts
-    .map((script) => getAttribute(script, 'src'))
+    .map((script) => getHtmlAttribute(script, 'src'))
     .filter((url): url is string => url !== undefined);
-  const legacyUrls = [getAttribute(legacyPolyfill, 'src'), getAttribute(legacyEntry, 'data-src')].filter(
+  const legacyUrls = [getHtmlAttribute(legacyPolyfill, 'src'), getHtmlAttribute(legacyEntry, 'data-src')].filter(
     (url): url is string => url !== undefined,
   );
   if (modernUrls.length === 0 || legacyUrls.length !== 2) {
@@ -41,20 +42,20 @@ export async function verifyBrowserSupport(outputDirectory = defaultOutputDirect
 
 function getRuntimeUrls(document: string): string[] {
   const urls = new Set<string>();
-  for (const tag of getTags(document, 'script')) {
-    addUrl(urls, getAttribute(tag, 'src'));
-    addUrl(urls, getAttribute(tag, 'data-src'));
+  for (const tag of getHtmlTags(document, 'script')) {
+    addUrl(urls, getHtmlAttribute(tag, 'src'));
+    addUrl(urls, getHtmlAttribute(tag, 'data-src'));
   }
-  for (const tag of getTags(document, 'link')) {
-    if (getAttribute(tag, 'rel') === 'stylesheet') {
-      addUrl(urls, getAttribute(tag, 'href'));
+  for (const tag of getHtmlTags(document, 'link')) {
+    if (getHtmlAttribute(tag, 'rel') === 'stylesheet') {
+      addUrl(urls, getHtmlAttribute(tag, 'href'));
     }
   }
   for (const tagName of ['img', 'source', 'track', 'video']) {
-    for (const tag of getTags(document, tagName)) {
-      addUrl(urls, getAttribute(tag, 'src'));
-      addUrl(urls, getAttribute(tag, 'srcset'));
-      addUrl(urls, getAttribute(tag, 'poster'));
+    for (const tag of getHtmlTags(document, tagName)) {
+      addUrl(urls, getHtmlAttribute(tag, 'src'));
+      addUrl(urls, getHtmlAttribute(tag, 'srcset'));
+      addUrl(urls, getHtmlAttribute(tag, 'poster'));
     }
   }
 
@@ -77,16 +78,6 @@ async function assertLocalRuntimeAsset(outputDirectory: string, url: string): Pr
   }
 
   await access(path.join(outputDirectory, relativePath));
-}
-
-function getTags(document: string, name: string): string[] {
-  return document.match(new RegExp(`<${name}\\b[^>]*>`, 'gi')) ?? [];
-}
-
-function getAttribute(tag: string, name: string): string | undefined {
-  const match = tag.match(new RegExp(`(?:^|\\s)${name}=(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
-
-  return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
 if (process.argv[1]?.endsWith(path.join('src', 'landing-page', 'build', 'verify-browser-support.ts'))) {

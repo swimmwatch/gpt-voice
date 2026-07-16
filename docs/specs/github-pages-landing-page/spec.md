@@ -1,15 +1,23 @@
 # Spec: GPT-Voice GitHub Pages Landing Page
 
-- Status: Draft for human review
+- Status: Incremental implementation in progress
 - Date: 2026-07-13
 - Task slug: `github-pages-landing-page`
   Scope owner: Public product landing page, approved marketing copy, static media, and GitHub Pages deployment
 
 ## Approved Delivery Scope Update
 
-The active landing delivery is English-only. The user has approved the current English visual demo and does not authorize Russian or other non-English landing/video content for this delivery. The existing eleven-locale architecture remains a future expansion, but reviewed locale dictionaries, locale font subsets, localized TXT/SEO outputs, and their speaker approvals are not prerequisites for completing the English GitHub Pages landing.
+The active landing delivery publishes all eleven approved locales: English, Russian, Belarusian, Ukrainian, Spanish,
+Brazilian Portuguese, Simplified Chinese, Japanese, German, French, and Hindi. The project owner authorized complete
+landing localization on 2026-07-16; no further approval gate is required for this scoped implementation. Every locale
+is a pre-rendered, first-class page with localized visible copy, metadata, accessible names, FAQ, plain-text output,
+and a direct link to the matching MkDocs guide locale. The product demonstration remains one English-language MP4.
+Each landing locale provides a matching localized WebVTT subtitle track and transcript; no locale changes the video
+stream, embeds subtitles, or creates translated video variants.
 
-The local English source, static output, accessibility, browser, and workflow tasks are in scope. Deployment itself remains separately authorization-gated: this repository may contain the Pages workflow, but no push, Pages-setting change, or production verification is implied.
+The local source, static output, accessibility, browser, and workflow tasks are in scope. Deployment remains
+separately authorization-gated: this repository may contain the Pages workflow, but no push, Pages-setting change, or
+production verification is implied.
 
 ## Assumptions For Review
 

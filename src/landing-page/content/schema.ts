@@ -56,6 +56,8 @@ export interface LandingContent {
     howItWorks: string;
     language: string;
     mobileMenu: string;
+    mobileMenuClose: string;
+    mobileMenuLabel: string;
     providers: string;
     repositoryCta: string;
     releaseCta: string;
@@ -68,6 +70,7 @@ export interface LandingContent {
     secondaryCta: string;
     screenshotAlt: string;
     title: string;
+    shortcutsLabel: string;
     shortcuts: readonly ShortcutLabel[];
   };
   demo: {
@@ -80,6 +83,7 @@ export interface LandingContent {
     transcriptControl: string;
     transcriptCues: readonly VideoTranscriptCue[];
     transcriptRequirement: string;
+    videoUnsupported: string;
     videoLabel: string;
   };
   workflow: {
@@ -100,6 +104,7 @@ export interface LandingContent {
     groupDescription: string;
     inputDetail: string;
     inputNode: string;
+    requirementsLabel: string;
     lead: string;
     openAiApi: ProviderRoute;
     title: string;

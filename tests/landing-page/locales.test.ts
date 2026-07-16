@@ -70,8 +70,34 @@ test('derives reserved documentation routes without allowing unsafe slug aliases
   );
 });
 
-test('publishes only locale routes with complete content', () => {
-  assert.deepEqual(publishedLocaleTags, ['en']);
-  assert.deepEqual(publishedLocaleDefinitions, [getLocaleDefinition('en')]);
-  assert.equal(publishedLocaleContent.ru, undefined);
+test('publishes every locale only when it has complete localized landing content', () => {
+  assert.deepEqual(publishedLocaleTags, supportedLocales);
+  assert.deepEqual(publishedLocaleDefinitions, localeRegistry);
+
+  for (const locale of localeRegistry) {
+    const content = publishedLocaleContent[locale.tag];
+    assert.ok(content, `Expected published landing content for ${locale.tag}`);
+    assert.equal(content.links.documentation, getDocumentationRoute(locale));
+    assert.equal(content.navigation.currentLanguage, locale.nativeLabel);
+    assert.ok(content.hero.title.length > 0);
+    assert.ok(content.demo.captionTrackLabel.length > 0);
+  }
+});
+
+test('gives every non-English landing locale a complete, cue-specific subtitle source', () => {
+  for (const locale of localeRegistry.filter((candidate) => candidate.tag !== 'en')) {
+    const cues = publishedLocaleContent[locale.tag].demo.transcriptCues;
+
+    assert.equal(cues.length, 9, `${locale.tag} needs one transcript entry for every demo moment`);
+    assert.equal(
+      new Set(cues.map((cue) => cue.narration)).size,
+      cues.length,
+      `${locale.tag} must not reuse one generic subtitle for every demo moment`,
+    );
+    assert.equal(
+      new Set(cues.map((cue) => cue.visualDescription)).size,
+      cues.length,
+      `${locale.tag} must provide cue-specific visual text`,
+    );
+  }
 });

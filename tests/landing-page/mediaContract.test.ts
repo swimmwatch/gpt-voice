@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import {
@@ -19,9 +20,18 @@ import {
   assertEnglishMediaText,
   verifyMediaAssets,
 } from '../../src/landing-page/build/verify-media';
+import { localeRegistry, publishedLocaleContent } from '../../src/landing-page/content';
 
 const rootDirectory = path.resolve(__dirname, '../..');
 const specificationAssets = path.join(rootDirectory, 'docs/specs/github-pages-landing-page/assets');
+
+test('keeps the footer signal divider as clean vector artwork', async () => {
+  const source = await readFile(path.join(rootDirectory, 'src/landing-page/assets/footer-signal-divider.svg'), 'utf8');
+
+  assert.match(source, /^<svg\b/);
+  assert.match(source, /vector-effect="non-scaling-stroke"/);
+  assert.doesNotMatch(source, /<(?:filter|image)\b/);
+});
 
 test('keeps approved capture and icon sources hash-pinned', async () => {
   const [captures, interfaceIcons, providerIcons] = await Promise.all([
@@ -44,8 +54,14 @@ test('keeps approved capture and icon sources hash-pinned', async () => {
 test('defines an HLS-free media contract for every published locale', () => {
   assert.equal(requiredMediaAssets.videoFileName, 'demo.mp4');
   assert.equal(requiredMediaAssets.posterFileName, 'demo-poster.webp');
-  assert.deepEqual(requiredMediaAssets.captions, ['en.vtt']);
-  assert.deepEqual(requiredMediaAssets.transcriptFiles, ['en.txt']);
+  assert.deepEqual(
+    requiredMediaAssets.captions,
+    localeRegistry.map((locale) => `${locale.routeSlug || 'en'}.vtt`),
+  );
+  assert.deepEqual(
+    requiredMediaAssets.transcriptFiles,
+    localeRegistry.map((locale) => `${locale.routeSlug || 'en'}.txt`),
+  );
   assert.equal(isStreamingPath('media/demo.mp4'), false);
   assert.equal(isStreamingPath('media/segments/0001.m4s'), true);
   assert.equal(isStreamingPath('media/demo.m3u8'), true);
@@ -75,16 +91,41 @@ test('requires timed, ordered, non-overlapping WebVTT cues', () => {
   );
 });
 
-test('synchronizes the approved English visual demo and its accessibility resources', async () => {
+test('synchronizes the shared English visual demo with localized accessibility resources', async () => {
   await assertApprovedDemoVideo(path.join(specificationAssets, 'demo/demo.mp4'));
   await syncPublicAssets();
 
   await Promise.all([
     assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/demo.mp4')),
     assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/demo-poster.webp')),
-    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/captions/en.vtt')),
-    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/transcripts/en.txt')),
+    ...requiredMediaAssets.captions.map((fileName) =>
+      assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/captions', fileName)),
+    ),
+    ...requiredMediaAssets.transcriptFiles.map((fileName) =>
+      assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/media/transcripts', fileName)),
+    ),
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/icons/gpt-voice.png')),
+    assertFileExists(path.join(rootDirectory, 'src/landing-page/public/generated/icons/gpt-voice.svg')),
   ]);
+
+  await Promise.all(
+    localeRegistry
+      .filter((locale) => locale.tag !== 'en')
+      .map(async (locale) => {
+        const captions = await readFile(
+          path.join(rootDirectory, 'src/landing-page/public/generated/captions', `${locale.routeSlug}.vtt`),
+          'utf8',
+        );
+        const visualCues = publishedLocaleContent[locale.tag].demo.transcriptCues.slice(0, 8);
+
+        for (const cue of visualCues) {
+          assert.ok(
+            captions.includes(cue.visualDescription),
+            `${locale.tag} captions must contain the localized ${cue.id} cue`,
+          );
+        }
+      }),
+  );
 });
 
 test('synchronizes the approved hero screenshot while video production is pending', async () => {
@@ -97,6 +138,6 @@ test('synchronizes the approved hero screenshot while video production is pendin
   );
 });
 
-test('validates the complete generated English media set', async () => {
+test('validates the complete generated localized media set', async () => {
   await verifyMediaAssets();
 });

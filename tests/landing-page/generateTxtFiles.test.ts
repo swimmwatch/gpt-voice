@@ -8,16 +8,11 @@ import { generateTextFiles, getTextDigest, renderPageText } from '../../src/land
 import {
   englishContent,
   localeRegistry,
+  publishedLocaleContent,
   type LandingContent,
   type LandingLocale,
 } from '../../src/landing-page/content';
 
-const fullContentMap = new Map<LandingLocale, LandingContent>(
-  localeRegistry.map((locale) => [locale.tag, englishContent]),
-);
-const fullTranscriptMap = new Map<LandingLocale, string>(
-  localeRegistry.map((locale) => [locale.tag, `Approved ${locale.tag} transcript source.`]),
-);
 const englishLocale = localeRegistry.find((locale) => locale.tag === 'en');
 
 assert.ok(englishLocale, 'The TXT generation contract requires an English locale.');
@@ -27,7 +22,11 @@ test('refuses to write partial TXT output when required locale inputs are absent
 
   try {
     await assert.rejects(
-      generateTextFiles({ outputDirectory }),
+      generateTextFiles({
+        contentByLocale: new Map<LandingLocale, LandingContent>([['en', englishContent]]),
+        outputDirectory,
+        transcriptsByLocale: new Map<LandingLocale, string>([['en', 'Approved English transcript source.']]),
+      }),
       /missing reviewed locale dictionaries: ru, be, uk, es, pt-BR, zh-CN, ja, de, fr, hi.*missing approved transcript sources:/,
     );
   } finally {
@@ -35,17 +34,14 @@ test('refuses to write partial TXT output when required locale inputs are absent
   }
 });
 
-test('generates all normalized TXT resources from complete localized inputs', async () => {
+test('generates all normalized TXT resources from the complete localized source', async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-txt-'));
 
   try {
-    const files = await generateTextFiles({
-      contentByLocale: fullContentMap,
-      outputDirectory,
-      transcriptsByLocale: fullTranscriptMap,
-    });
+    const files = await generateTextFiles({ outputDirectory });
     const englishPage = await readFile(path.join(outputDirectory, 'index.txt'), 'utf8');
     const russianTranscript = await readFile(path.join(outputDirectory, 'media/transcripts/ru.txt'), 'utf8');
+    const spanishPage = await readFile(path.join(outputDirectory, 'es/index.txt'), 'utf8');
     const llmsIndex = await readFile(path.join(outputDirectory, 'llms.txt'), 'utf8');
     const llmsFull = await readFile(path.join(outputDirectory, 'llms-full.txt'), 'utf8');
 
@@ -53,7 +49,9 @@ test('generates all normalized TXT resources from complete localized inputs', as
     assert.match(englishPage, /^# Write better AI prompts faster\./);
     assert.match(englishPage, /High-quality, virtually unlimited recognition\*/);
     assert.match(englishPage, /Subject to ChatGPT plan, availability, fair-use, and provider limits/);
-    assert.match(russianTranscript, /^Approved ru transcript source\.\n$/);
+    assert.match(russianTranscript, /Посмотрите полный рабочий процесс/);
+    assert.ok(spanishPage.includes(publishedLocaleContent.es.hero.title));
+    assert.doesNotMatch(spanishPage, /^### prompt-problem$/mu);
     assert.match(llmsIndex, /https:\/\/swimmwatch\.github\.io\/gpt-voice\/ru\//);
     assert.match(
       llmsIndex,
