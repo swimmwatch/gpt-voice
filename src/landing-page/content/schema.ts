@@ -175,6 +175,7 @@ export interface RetryWorkflowStep {
 export interface ProviderRoute {
   claim?: string;
   facts: readonly string[];
+  id: 'chatgpt-web' | 'openai-api';
   provider: string;
   qualification?: string;
   status: string;
@@ -189,6 +190,7 @@ export interface FutureProviders {
 }
 
 export interface PlannedProvider {
+  id: 'claude-web' | 'gemini-web';
   provider: string;
   status: string;
 }

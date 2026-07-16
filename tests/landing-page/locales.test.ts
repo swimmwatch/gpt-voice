@@ -21,6 +21,20 @@ type LocalizationMatrix = {
   locales: typeof localeRegistry;
 };
 
+function schemaShape(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.length === 0 ? [] : [schemaShape(value[0])];
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, schemaShape(nestedValue)]),
+    );
+  }
+  return typeof value;
+}
+
 test('keeps the landing locale registry aligned with the approved route matrix', async () => {
   const source = await readFile(
     path.join(rootDirectory, 'docs/specs/github-pages-landing-page/assets/localization-matrix.json'),
@@ -99,5 +113,36 @@ test('gives every non-English landing locale a complete, cue-specific subtitle s
       cues.length,
       `${locale.tag} must provide cue-specific visual text`,
     );
+  }
+});
+
+test('keeps every localized landing page semantically aligned with the English contract', () => {
+  const englishShape = schemaShape(publishedLocaleContent.en);
+  const englishFaqIds = publishedLocaleContent.en.faq.items.map((item) => item.id);
+  const englishCueIds = publishedLocaleContent.en.demo.transcriptCues.map((cue) => cue.id);
+  const englishFutureProviderIds = publishedLocaleContent.en.providers.future.providers.map((provider) => provider.id);
+
+  for (const locale of localeRegistry.filter((candidate) => candidate.tag !== 'en')) {
+    const content = publishedLocaleContent[locale.tag];
+
+    assert.deepEqual(schemaShape(content), englishShape, `${locale.tag} must retain the complete landing schema.`);
+    assert.deepEqual(
+      content.faq.items.map((item) => item.id),
+      englishFaqIds,
+      `${locale.tag} must retain every FAQ's stable semantic ID.`,
+    );
+    assert.deepEqual(
+      content.demo.transcriptCues.map((cue) => cue.id),
+      englishCueIds,
+      `${locale.tag} must retain every video-cue semantic ID.`,
+    );
+    assert.deepEqual(
+      content.providers.future.providers.map((provider) => provider.id),
+      englishFutureProviderIds,
+      `${locale.tag} must retain every provider semantic ID.`,
+    );
+    assert.equal(content.providers.chatGptWeb.id, 'chatgpt-web');
+    assert.equal(content.providers.openAiApi.id, 'openai-api');
+    assert.equal(content.faq.items.length, englishFaqIds.length);
   }
 });

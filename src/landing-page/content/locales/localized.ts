@@ -1,17 +1,58 @@
 import { getDocumentationRoute, getLocaleDefinition } from '../locale-registry';
-import type { LandingContent, LandingLocale } from '../schema';
+import type { FutureProviders, LandingContent, LandingLocale, PlannedProvider, ProviderRoute } from '../schema';
+import { englishContent } from './en';
 
-type LocaleCopy = Omit<LandingContent, 'links'>;
+type LocalizedProviderRoute = Omit<ProviderRoute, 'id'>;
+
+type LocaleCopy = Omit<LandingContent, 'links' | 'providers'> & {
+  providers: Omit<LandingContent['providers'], 'chatGptWeb' | 'future' | 'openAiApi'> & {
+    chatGptWeb: LocalizedProviderRoute;
+    future: Omit<FutureProviders, 'providers'> & { providers: readonly Omit<PlannedProvider, 'id'>[] };
+    openAiApi: LocalizedProviderRoute;
+  };
+};
 
 function withLocalizedGuideRoute(locale: LandingLocale, content: LocaleCopy): LandingContent {
+  const canonicalFaqItems = englishContent.faq.items.map((fallback, index) => ({
+    ...fallback,
+    ...content.faq.items[index],
+    id: fallback.id,
+  }));
+  const canonicalFutureProviders = englishContent.providers.future.providers.map((fallback, index) => ({
+    ...fallback,
+    ...content.providers.future.providers[index],
+    id: fallback.id,
+  }));
+
   return {
     ...content,
+    demo: {
+      ...content.demo,
+      transcriptCues: content.demo.transcriptCues.map((cue, index) => ({
+        ...cue,
+        soundCues:
+          cue.soundCues.length > 0 ? cue.soundCues : (englishContent.demo.transcriptCues[index]?.soundCues ?? []),
+      })),
+    },
+    faq: {
+      ...content.faq,
+      items: canonicalFaqItems,
+    },
     links: {
       documentation: getDocumentationRoute(getLocaleDefinition(locale)),
       issues: 'https://github.com/swimmwatch/gpt-voice/issues',
       latestRelease: 'https://github.com/swimmwatch/gpt-voice/releases/latest',
       license: 'https://github.com/swimmwatch/gpt-voice/blob/main/LICENSE',
       repository: 'https://github.com/swimmwatch/gpt-voice',
+    },
+    providers: {
+      ...content.providers,
+      chatGptWeb: { ...content.providers.chatGptWeb, id: 'chatgpt-web' },
+      future: {
+        ...content.providers.future,
+        providers: canonicalFutureProviders,
+      },
+      openAiApi: { ...content.providers.openAiApi, id: 'openai-api' },
     },
   };
 }
@@ -186,9 +227,9 @@ function compactLocalizedContent(
         description: copy.workflow.translate,
         footnote: copy.workflow.lead,
         id: 'translate',
-        languages: copy.currentLanguage,
+        languages: englishContent.workflow.translate.languages,
         order: '02',
-        serviceDetail: copy.workflow.translate,
+        serviceDetail: englishContent.workflow.translate.serviceDetail,
         shortcuts: ['F11'],
         title: translate,
       },
@@ -196,22 +237,22 @@ function compactLocalizedContent(
     providers: {
       availableNow: copy.providers.available,
       chatGptWeb: {
-        claim: copy.providers.available,
+        claim: englishContent.providers.chatGptWeb.claim,
         facts: [copy.providers.subscription, copy.providers.savedSession, copy.providers.noApiKey],
         provider: 'ChatGPT Web',
-        qualification: copy.providers.lead,
+        qualification: englishContent.providers.chatGptWeb.qualification,
         status: copy.providers.available,
       },
       eyebrow: copy.navigation.providers,
       future: {
         blockLabel: copy.providers.future,
         independenceNote: copy.footer.disclaimer,
-        longerTermCopy: copy.providers.future,
+        longerTermCopy: englishContent.providers.future.longerTermCopy,
         providers: [
           { provider: 'Claude Web', status: copy.providers.planned },
           { provider: 'Gemini Web', status: copy.providers.planned },
         ],
-        qualification: copy.providers.future,
+        qualification: englishContent.providers.future.qualification,
       },
       futureRouteLegend: copy.providers.future,
       groupDescription: copy.providers.lead,

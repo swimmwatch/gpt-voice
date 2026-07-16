@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Kbd, KbdGroup } from './ui/kbd';
 import { Separator } from './ui/separator';
-import type { LandingContent, LandingLocaleDefinition, ProviderRoute } from '../content/schema';
+import type { LandingContent, LandingLocaleDefinition, PlannedProvider, ProviderRoute } from '../content/schema';
 import { getVoiceWaveformBarStyle, voiceWaveformBars } from './voice-waveform';
 
 type LandingPageProps = {
@@ -20,11 +20,19 @@ type LandingPageProps = {
   locale: LandingLocaleDefinition;
 };
 
-const providerLogoFiles: Record<string, string> = {
-  'ChatGPT Web': 'openai.svg',
-  'Claude Web': 'claude.svg',
-  'Gemini Web': 'gemini.svg',
-  'OpenAI API': 'openai.svg',
+const providerLogoFiles: Record<ProviderRoute['id'] | PlannedProvider['id'], string> = {
+  'chatgpt-web': 'openai.svg',
+  'claude-web': 'claude.svg',
+  'gemini-web': 'gemini.svg',
+  'openai-api': 'openai.svg',
+};
+
+const providerFactIcons: Record<
+  ProviderRoute['id'],
+  readonly ('credential' | 'model' | 'session' | 'subscription' | 'usage')[]
+> = {
+  'chatgpt-web': ['subscription', 'session', 'credential'],
+  'openai-api': ['model', 'usage', 'credential'],
 };
 
 const providerRoutePulseDelays = [0, -0.52, -1.04] as const;
@@ -193,12 +201,8 @@ function ProviderAudioInput({ content }: Pick<LandingPageProps, 'content'>): Rea
   );
 }
 
-function ProviderLogo({ provider }: { provider: string }): React.JSX.Element | null {
-  const fileName = providerLogoFiles[provider];
-
-  if (!fileName) {
-    return null;
-  }
+function ProviderLogo({ providerId }: { providerId: ProviderRoute['id'] | PlannedProvider['id'] }): React.JSX.Element {
+  const fileName = providerLogoFiles[providerId];
 
   return (
     <span aria-hidden="true" className="provider-logo">
@@ -207,19 +211,26 @@ function ProviderLogo({ provider }: { provider: string }): React.JSX.Element | n
   );
 }
 
-function ProviderFactIcon({ fact }: { fact: string }): React.JSX.Element | null {
+function ProviderFactIcon({
+  index,
+  providerId,
+}: {
+  index: number;
+  providerId: ProviderRoute['id'];
+}): React.JSX.Element | null {
   const className = 'provider-fact-icon';
+  const icon = providerFactIcons[providerId][index];
 
-  switch (fact) {
-    case 'Subscription':
+  switch (icon) {
+    case 'subscription':
       return <UserRound aria-hidden="true" className={className} />;
-    case 'Saved session':
-      return <Database aria-hidden="true" className={className} />;
-    case 'No API key':
-    case 'API key + billing/quota':
-      return <KeyRound aria-hidden="true" className={className} />;
-    case 'whisper-1':
+    case 'model':
       return <AudioWaveform aria-hidden="true" className={className} />;
+    case 'session':
+    case 'usage':
+      return <Database aria-hidden="true" className={className} />;
+    case 'credential':
+      return <KeyRound aria-hidden="true" className={className} />;
     default:
       return null;
   }
@@ -236,16 +247,16 @@ function ProviderCard({
     <Card className="provider-card provider-card-current">
       <CardHeader className="provider-card-header">
         <div className="provider-card-identity">
-          <ProviderLogo provider={provider.provider} />
+          <ProviderLogo providerId={provider.id} />
           <h3>{provider.provider}</h3>
         </div>
         <Badge>{provider.status}</Badge>
       </CardHeader>
       <CardContent className="provider-card-content">
         <ul aria-label={`${provider.provider} ${requirementsLabel}`} className="provider-facts">
-          {provider.facts.map((fact) => (
+          {provider.facts.map((fact, index) => (
             <li key={fact}>
-              <ProviderFactIcon fact={fact} />
+              <ProviderFactIcon index={index} providerId={provider.id} />
               {fact}
             </li>
           ))}
@@ -393,8 +404,8 @@ function Providers({ content }: Pick<LandingPageProps, 'content'>): React.JSX.El
             <p>{content.providers.future.blockLabel}</p>
             <ul>
               {content.providers.future.providers.map((provider) => (
-                <li key={provider.provider}>
-                  <ProviderLogo provider={provider.provider} />
+                <li key={provider.id}>
+                  <ProviderLogo providerId={provider.id} />
                   <strong>{provider.provider}</strong>
                   <span>{provider.status}</span>
                 </li>

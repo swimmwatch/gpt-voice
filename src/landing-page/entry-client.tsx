@@ -1,4 +1,5 @@
 import './styles/globals.css';
+import { getPlyrLabels } from './plyr-i18n';
 
 const landingDocument = document.documentElement;
 const loaderStartedAt = performance.now();
@@ -159,6 +160,7 @@ type PlyrConstructor = new (
   options: {
     captions: { active: boolean; language: string; update: boolean };
     controls: readonly string[];
+    i18n: Readonly<Record<string, string>>;
     iconUrl: string;
     keyboard: { focused: boolean; global: boolean };
     settings: readonly string[];
@@ -196,6 +198,7 @@ function enableDeferredDemoPlayer(): void {
             'fullscreen',
           ],
           iconUrl: plyrIconUrl,
+          i18n: getPlyrLabels(document.documentElement.lang),
           keyboard: { focused: true, global: false },
           settings: ['captions', 'speed'],
           speed: { options: [0.5, 0.75, 1, 1.25, 1.5, 2], selected: 1 },

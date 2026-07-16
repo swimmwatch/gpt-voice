@@ -183,6 +183,7 @@ export const englishContent = {
     groupDescription:
       'Both supported transcription routes are visible at once and connect to the same voice-input node.',
     chatGptWeb: {
+      id: 'chatgpt-web',
       provider: 'ChatGPT Web',
       status: 'Available now',
       facts: ['Subscription', 'Saved session', 'No API key'],
@@ -191,6 +192,7 @@ export const englishContent = {
         'Subject to ChatGPT plan, availability, fair-use, and provider limits. GPT-Voice does not bypass quotas.',
     },
     openAiApi: {
+      id: 'openai-api',
       provider: 'OpenAI API',
       status: 'Available now',
       facts: ['whisper-1', 'Usage based', 'API key + billing/quota'],
@@ -198,8 +200,8 @@ export const englishContent = {
     future: {
       blockLabel: 'FUTURE HORIZON · NOT AVAILABLE',
       providers: [
-        { provider: 'Claude Web', status: 'Planned' },
-        { provider: 'Gemini Web', status: 'Planned' },
+        { id: 'claude-web', provider: 'Claude Web', status: 'Planned' },
+        { id: 'gemini-web', provider: 'Gemini Web', status: 'Planned' },
       ],
       longerTermCopy: 'More providers may follow where technically and legally viable.',
       qualification: 'No compatibility or timing is promised.',
