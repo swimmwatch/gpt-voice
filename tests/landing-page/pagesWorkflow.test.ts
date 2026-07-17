@@ -87,6 +87,7 @@ test('keeps English landing validation PR-only and free of deployment work', asy
   }
   for (const command of [
     'npm ci',
+    'sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg',
     'npm run docs:install',
     'npm run docs:sync-assets',
     'npx playwright install --with-deps chromium firefox webkit',

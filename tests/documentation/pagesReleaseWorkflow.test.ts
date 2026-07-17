@@ -34,6 +34,7 @@ test('deploys one verified Pages artifact only after release builds complete', a
 
   for (const command of [
     'npm ci',
+    'sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg',
     'npm run docs:install',
     'npm run docs:sync-assets',
     'npm run pages:build',

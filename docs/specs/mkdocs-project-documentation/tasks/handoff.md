@@ -84,6 +84,8 @@
 - The final landing CI repair renders the hydrated mobile-navigation sheet in a document-level portal, so its backdrop
   is above the sticky header's stacking context. Its browser test now verifies pointer hit testing before the backdrop
   click, preventing the previous cross-browser timeout.
+- The Pages CI follow-up installs FFmpeg before the shared landing/media build in both the pull-request validation and
+  release-gated deployment jobs. Workflow contracts now require that prerequisite in both paths.
 
 ## In Progress
 
@@ -96,6 +98,8 @@
   their landing/video/Pages tests.
 - Latest CI repair: `src/landing-page/components/SiteHeader.tsx` and
   `tests/landing-page/e2e/english.spec.ts`.
+- Pages CI follow-up: `.github/workflows/{pr-checks,release-builds}.yml`,
+  `tests/{landing-page/pagesWorkflow,documentation/pagesReleaseWorkflow}.test.ts`.
 - `mkdocs.yml`
 - `README.md`
 - `docs/requirements.txt`
@@ -386,6 +390,9 @@
 - Latest CI repair: landing typecheck, lint, format, and Vitest (27 passing) pass. The repaired mobile-sheet case
   passes in Chromium and Firefox; the complete CI-equivalent run has 60 Chromium/Firefox passes. Local WebKit remains
   blocked by the host's missing `libavif16` and `libwoff1`, while CI installs both packages.
+- Pages CI follow-up: the pull-request and release workflow contracts pass; landing lint and test typechecking pass;
+  and a clean `npm run pages:build` completes. The GitHub Actions `actionlint` binary is not installed locally; the
+  repository's required Actionlint workflow validates the changed YAML in CI.
 
 ## Next Step
 
