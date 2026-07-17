@@ -99,3 +99,6 @@ temp/
 
 .artifacts
 .tokensave
+
+# Private provider research captures (never commit)
+/docs/specs/claude-web-voice-provider/claude.ai.har
