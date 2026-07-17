@@ -136,9 +136,108 @@ state cannot be proven in a future account state.
 
 Claude also has a conceptual personal account scope, but this investigation did
 not inspect or retain account labels and did not establish a stable explicit
-personal-scope signal. Personal scope must therefore remain `unknown` in Phase
+personal-scope signal. In Phase 1, personal scope must therefore remain
+`unknown`. It must not be inferred from organization count/order, display names,
+subscription labels, or identifier shape. A future authorized research gate
+will determine whether personal scope needs behavior beyond the same resolved
+organization UUID routing used by the current endpoint.
 
-1. It must not be inferred from organization count/order, display names,
-   subscription labels, or identifier shape. A future authorized research gate
-   will determine whether personal scope needs behavior beyond the same resolved
-   organization UUID routing used by the current endpoint.
+## Task 02 Buffered Replay And Lifecycle Gate
+
+Evidence date: 2026-07-18
+
+### Procedure And Run Count
+
+The canary used the dedicated restored CloakBrowser research profile and
+locally generated PCM16, 16 kHz, mono speech. It retained only synthetic
+phrase-match booleans, event categories/counts, close codes, and timing ranges.
+It did not retain the synthetic phrase, transcript text, audio, raw frames,
+socket URLs, identifiers, responses, screenshots, or profile data.
+
+Two accepted matrices each used nine measured fresh sockets plus one
+interruption-only socket, for 20 accepted socket lifecycles. An earlier
+nine-socket phrase calibration was excluded from Gate A evidence because its
+exact phrase-match boolean failed; no captured value was retained. Both
+accepted matrices used the same shorter synthetic phrase label and reproduced
+the results below.
+
+### Replay And Timing Results
+
+| Case                        | Accepted result                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| Baseline A then B           | Pass twice per matrix on distinct sockets; exact phrase match and one endpoint    |
+| 640 bytes every 20 ms       | Pass at real-time PCM throughput                                                  |
+| 2,730 bytes every 85.31 ms  | Pass at real-time PCM throughput                                                  |
+| 5,460 bytes every 170.63 ms | Pass at real-time PCM throughput                                                  |
+| 2,730 bytes every 40 ms     | Pass at approximately 2.13 times real-time replay                                 |
+| Stop after half the PCM     | One endpoint and a bounded normal remote close; partial result text not retained  |
+| Cancel after one quarter    | No endpoint, client close `1000`, and no retained interim state                   |
+| Five seconds of silence     | One four-second KeepAlive, no transcript/endpoint, normal remote close `1000`     |
+| Invalid synthetic scope     | Handshake opened but produced no events before normal close; not a readiness test |
+| Page reload interruption    | Open socket was discarded and the restored browser context remained responsive    |
+
+Across the accepted matrices, connect time was 593-788 ms. Runs with transcript
+events observed their first event 537-775 ms after open. `TranscriptEndpoint`
+arrived 184-576 ms after `CloseStream`, and the final normal close completed
+2,186-2,579 ms after `CloseStream`. Successful speech runs accepted three to
+five events after `CloseStream`; consumers must therefore continue reading
+during the drain phase. No `TranscriptInterim` event appeared, so interim
+support remains optional and must not be required for finalization.
+
+The proven frame range is 640-5,460 bytes at equivalent real-time PCM cadence.
+The initial production contract remains the captured 2,730-byte frame with a
+target cadence of 85.31 ms and a three-second post-`CloseStream` drain bound.
+The approximately 2.13-times faster canary passed, but Phase 1 does not depend
+on faster replay because the endpoint is private and volatile. Faster rates and
+frame sizes outside the proven range remain unsupported until revalidated.
+
+### Lifecycle And Failure Decisions
+
+- Create a fresh socket for each recording. Both consecutive baseline pairs
+  finalized exactly once and left zero active sockets or timers.
+- Send `KeepAlive` every four seconds while a socket remains open. Short speech
+  runs completed before the first interval; the silence run proved the control.
+- Send `CloseStream` once after the final frame and accept cumulative text,
+  optional interim, endpoint, and remote close events during the bounded drain.
+- Treat `TranscriptText` and optional `TranscriptInterim` as cumulative
+  snapshots. `TranscriptEndpoint` is the only commit boundary.
+- Ignore unknown well-formed event types safely. A metadata-only parser harness
+  classified malformed JSON as a protocol failure without retaining payloads.
+- A normal server close after `CloseStream` is expected. A premature or
+  non-`1000` remote close is a typed connection failure and never returns a
+  partial result as final.
+- A WebSocket handshake is not an authentication or organization-readiness
+  check: the invalid synthetic scope still opened. Resolve and validate the
+  active organization through authenticated same-origin HTTP state before
+  opening the socket.
+- The live session was not expired or mutated. Omitting credentials reproduced
+  an unauthenticated readiness rejection. Feature unavailability was not safely
+  inducible; production must map a failed authenticated readiness/feature
+  preflight before opening a socket.
+- Retry is disabled after the first audio byte. The private contract exposes no
+  idempotency key, so replaying PCM on a fresh socket is not proven
+  duplicate-safe. Navigation/readiness work may retry only before audio starts.
+- Keep `conversation_uuid` omitted. The accepted runs used a standalone new-chat
+  page; existing-conversation coupling is excluded from Phase 1.
+- The gate validates explicit `en-US`. Other BCP-47 values remain configurable
+  per the specification but require protocol revalidation if behavior differs;
+  `en-US` is the safe default.
+
+### Gate Decision
+
+**Gate A approved by evidence.** Buffered PCM replay is repeatable through the
+existing batch-provider contract, finalization is stable, cleanup is bounded,
+and live recorder cadence is not required. Tasks 03-08 may proceed only after
+human review of this gate. Gate B and a renderer streaming-IPC redesign are not
+required by the current evidence.
+
+### Manual Revalidation Triggers
+
+Rerun this canary when the private endpoint path, query names, control/event
+shapes, provider identifier, or authenticated bootstrap path changes; when two
+consecutive baseline runs no longer phrase-match and finalize once; when the
+selected frame/cadence or three-second drain bound fails; when a non-`1000`
+close becomes normal; or when Claude begins requiring conversation context.
+Run locale-specific confirmation before relying on materially different
+language behavior. Personal-scope behavior remains outside this gate and must
+follow the deferred sanitized research task.

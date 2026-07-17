@@ -1,77 +1,51 @@
 # Handoff: Claude Web Voice and CLI Prettify Providers
 
-Status: Task 01 complete and approved. Task 02 is the next unchecked packet.
+Status: Task 02 Gate A is complete and approved. Task 03 is the next unchecked
+packet.
 
 Completed:
 
-- Mapped the existing ChatGPT Web, browser-session, transcription, and Prettify provider architecture.
-- Sanitized and analyzed the supplied Claude HAR.
-- Studied the authenticated Claude UI, current JavaScript/CSS, and a no-audio WebSocket canary through Chrome DevTools MCP.
-- Inspected installed Claude Code and Codex CLI capabilities without running a model request.
-- Wrote the Phase-1 specification.
-- Resolved language, organization selection, executable path, fallback model, timeout, and Codex experimental-gate decisions.
-- Mapped exact voice, browser-session, Prettify, renderer, IPC, packaging, test,
-  localization, and documentation boundaries with CodeGraph.
-- Created 20 dependency-ordered, independently verifiable task packets.
-- Added hard review gates for buffered replay and Codex schema packaging.
-- Created an empty isolated Claude research context through Chrome DevTools MCP.
-- Verified that the new context is logged out and did not reuse the shared
-  personal-profile Claude tab.
-- Revalidated a user-authenticated isolated context using sanitized page-context
-  results only: credentialed organization access passed, omitted credentials
-  failed, and multiple organizations were present.
-- Established a deterministic active-organization rule from one authenticated
-  bootstrap-path candidate matching exactly one `uuid` field, never list order.
-- Rechecked sanitized HAR endpoint metadata and completed a no-audio socket
-  canary without `conversation_uuid`; it opened and closed cleanly.
-- Created a separate persistent CloakBrowser research profile outside the
-  repository, let the user sign in manually, closed it cleanly, and reopened it
-  in a new process. Sanitized page-context authentication passed after restore.
-- After a bounded wait, the restored page exposed exactly one active
-  bootstrap-path candidate. It matched one `uuid` field, and the no-audio
-  private-endpoint canary opened and closed cleanly without choosing by order.
-- Added a narrow ignore rule for the local HAR capture. The capture remains
-  local, untracked, and unreferenced by runtime code.
-- Revised later packets to separate active-organization routing from private
-  `personal | organization | unknown` account-scope classification.
-- Added deferred Task 20 as the future research/spec gate for any
-  personal-specific behavior or UI. It does not block Phase 1.
+- Task 01 was approved and committed as `1d62f72a`.
+- Ran two accepted synthetic-audio matrices through the restored dedicated
+  CloakBrowser profile: 18 measured fresh sockets plus two interruption-only
+  sockets.
+- Proved exact phrase match and single finalization for consecutive baseline,
+  640/2,730/5,460-byte real-time frames, and 2,730-byte approximately 2.13-times
+  replay.
+- Exercised stop, silence, cancel, delayed events, normal remote close, page
+  interruption, credential omission, invalid synthetic scope, and metadata-only
+  unknown/malformed parsing.
+- Selected Gate A, 2,730-byte frames at 85.31 ms, a three-second drain bound,
+  no post-audio retry, omitted `conversation_uuid`, and `en-US` as the canary
+  default.
+- Confirmed organization routing remained resolved for the authorized
+  multi-organization state without returning or retaining identifiers.
 
 Changed files:
 
-- `docs/specs/claude-web-voice-provider/spec.md`
-- `docs/specs/claude-web-voice-provider/tasks/plan.md`
+- `docs/researches/claude-web-voice-provider/main.md`
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
-- `docs/specs/claude-web-voice-provider/tasks/01_*.md` through
-  `docs/specs/claude-web-voice-provider/tasks/20_*.md`
-- `docs/researches/claude-web-voice-provider/main.md`
-- `.gitignore`
 
 Checks:
 
-- All 20 task packets contain every required contract section.
-- All 20 plan/todo packet links resolve.
-- Prettier passes for the specification and all planning artifacts.
-- Sensitive UUID/credential-value scans pass.
-- Contradictory legacy task names/gates were not found.
-- git diff --check passes.
-- Isolated-context check passed: the new context reached Claude sign-in without
-  authenticated state; no authentication, cookie-consent, or private-endpoint
-  interaction was performed.
-- Prettier, UUID/credential-value scans, and `git diff --check` pass for the
-  current research update.
+- Accepted timing ranges: connect 593-788 ms, first event 537-775 ms, endpoint
+  after `CloseStream` 184-576 ms, and final drain 2,186-2,579 ms.
+- Consecutive baseline sockets phrase-matched and finalized exactly once in both
+  accepted matrices.
+- Every accepted matrix ended with zero active sockets and timers; interruption
+  left the restored context responsive.
+- Prettier, sensitive-value scans, artifact/status checks, and the scoped Git
+  whitespace check passed.
 
 Next step:
 
-- Commit the approved Task 01 packet, then execute
-  `02_prove_buffered_replay_and_lifecycle.md` in one incremental invocation.
+- Commit Task 02 documentation, then execute
+  `03_define_claude_settings_and_session.md` in one incremental invocation.
 
 Blockers:
 
-- Claude Web production tasks are gated on the Gate A decision in Task 02.
-- Task 14 requires explicit approval to add the Codex schema to packaged
+- Task 14 still requires explicit approval to add the Codex schema to packaged
   runtime assets.
-- Personal-specific behavior is gated on future Task 20 and an explicitly
-  authorized account state; Phase 1 keeps scope `unknown` without blocking
-  resolved routing.
+- Personal-specific behavior remains gated on deferred Task 20 and an explicitly
+  authorized personal-state account.
