@@ -17,6 +17,7 @@ pnpm-debug.log*
 dist/
 out/
 build/generated/
+build/github-pages/
 release/
 release-artifacts/
 *.asar
@@ -33,6 +34,9 @@ release-artifacts/
 
 # Local caches
 .cache/
+.venv-docs/
+__pycache__/
+*.py[cod]
 .eslintcache
 .stylelintcache
 .playwright-mcp/
@@ -98,7 +102,11 @@ tmp/
 temp/
 
 .artifacts
+src/landing-page/public/generated/
+docs/user-guide/assets/generated/
 .tokensave
+
+build
 
 # Private provider research captures (never commit)
 /docs/specs/claude-web-voice-provider/claude.ai.har

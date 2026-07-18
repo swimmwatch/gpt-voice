@@ -16,7 +16,8 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 
 - If `.codegraph/` exists, use CodeGraph before broad code search.
 - Before work, read only the target file, directly related tests/types, one local precedent, and the relevant spec section.
-- Read the current task item from `tasks/todo.md`, not a complete spec or plan unless the task requires it.
+- For planned work, read the current `tasks/todo.md` entry and its linked numbered task packet. Do not read the full specification, full plan, or unrelated packets by default.
+- Read a targeted specification section only for an unresolved conditional detail or conflict identified by the packet. Repair an incomplete packet through planning instead of reconstructing it during implementation.
 - Keep command output to relevant failures or concise pass/fail summaries. Do not reread unchanged files or repeat successful checks.
 - Load the relevant section of [`docs/agent-guides/project-conventions.md`](docs/agent-guides/project-conventions.md) for runtime, provider, packaging, documentation, or commit rules.
 
@@ -30,8 +31,12 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 
 ## State And Handoffs
 
-- For a global task, use one `docs/specs/<slug>/` directory with `spec.md`, `tasks/plan.md`, `tasks/todo.md`, and `tasks/handoff.md`.
-- Keep those files compact. `handoff.md` records completed work, changed files, checks, next step, and blockers only.
+- For a global task, use one `docs/specs/<slug>/` directory with `spec.md`, `tasks/plan.md`, `tasks/todo.md`, `tasks/handoff.md`, and one `tasks/NN_<slug>.md` packet per executable task.
+- `spec.md` owns the durable contract. `plan.md` is a compact ordered index, `todo.md` contains linked checklist state, and each numbered packet is a self-contained implementation contract.
+- Follow [`.agents/references/task-packets.md`](.agents/references/task-packets.md) when planning, revising, or executing a substantial workstream.
+- During implementation, execute one packet per explicit incremental-implementation invocation, update `todo.md` and `handoff.md`, then stop for review before continuing.
+- Keep plan, todo, and handoff compact. `handoff.md` records completed work, changed files, checks, exact next packet, and blockers only.
+- Convert a legacy bundle without numbered packets through planning before resuming implementation; do not execute a monolithic task list directly.
 - When switching major workstreams or context becomes stale, update `handoff.md` and begin a fresh session from it.
 
 ## Verification
