@@ -11,6 +11,7 @@ const BROWSER_NAVIGATION_JITTER_RATIO = 0.2;
 
 export enum BrowserNavigationService {
   ChatGPT = 'ChatGPT Web',
+  Claude = 'Claude Web',
   GoogleTranslate = 'Google Translate',
 }
 

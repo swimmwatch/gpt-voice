@@ -1,50 +1,57 @@
 # Handoff: Claude Web Voice and CLI Prettify Providers
 
-Status: Task 05 is complete and awaits review. Do not begin Task 06 until a
+Status: Task 06 is complete and awaits review. Do not begin Task 07 until a
 later explicit incremental-implementation invocation.
 
 Completed:
 
-- Task 04 was approved and committed as `c133461a`.
-- Added a native WebSocket registry owned by the authenticated Claude page and
-  controlled through short, independently cancellable Page evaluations.
-- Added deterministic raw-PCM replay at 2,730 bytes every 85.31 ms, four-second
-  keepalives, one CloseStream, and late endpoint handling through a bounded
-  drain.
-- Selected a 5-second connect timeout, 15-second first-event timeout,
-  130-second overall timeout, and 3-second post-CloseStream drain timeout from
-  the sanitized Gate A and studied UI bounds.
-- Added a single exported error-code enum for typed upgrade/auth, connection,
-  malformed-event, rate-limit, timeout, empty-result, cancellation, and page-
-  shutdown failures with phase, event type, byte/event counts, duration, and
-  close code only.
-- Added explicit cancel and shutdown paths. Every socket, timeout, interval,
-  queued page message, and accumulator is operation-scoped and cleared on all
-  terminal paths; no reconnect or audio replay occurs after failure.
+- Task 05 was approved and committed as `973b73b4`.
+- Added an unregistered `ClaudeWebVoiceProvider` with isolated session
+  save/load/clear, scoped local-storage restoration, safe page resource
+  blocking, and Claude-specific bounded navigation retry classification.
+- Added async initialization readiness and per-transcription revalidation with
+  no access-token surrogate. Active routing comes from the exact
+  `current_user_access` request path and is validated against UUID-only
+  `account.memberships` projected from the studied authenticated bootstrap
+  response.
+- Kept organization UUID and `personal | organization | unknown` scope out of
+  provider fields, persistence, results, cache context, renderer contracts, and
+  logs. All three scopes use the same Phase 1 routing path.
+- Added WAV-only PCM extraction, current-language transport calls, one
+  clipboard write on success, stable enum-based provider errors, cancellation,
+  and transport-first shutdown without reconnect or replay.
+- Consulted the committed HAR only through sanitized shape scripts. It
+  confirmed `current_user_access`; compiled frontend assets disproved the
+  tentative bare `/api/organizations` path and confirmed bootstrap
+  `account.memberships` as the eligible-organization source.
 
 Changed files:
 
-- `src/main/providers/claudeWebPageTransport.ts`
-- `tests/main/providers/claudeWebPageTransport.test.ts`
+- `src/main/browserNavigationRetry.ts`
+- `src/main/providers/ClaudeWebVoiceProvider.ts`
+- `tests/main/browserNavigationRetry.test.ts`
+- `tests/main/providers/ClaudeWebVoiceProvider.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
 
 Checks:
 
-- Focused Claude page transport tests pass: 10 tests.
-- Upstream Claude audio/protocol tests pass: 14 tests.
+- Focused provider and navigation suites pass: 20 tests.
+- Task 03-05 Claude settings, session, audio, protocol, and transport suites
+  pass: 38 tests.
 - Application and test TypeScript checks pass.
-- Focused Prettier and ESLint checks pass.
-- Full unit suite passes: 360 tests.
-- A fake-page native-WebSocket smoke proves the real boundary without browser,
-  network, account, or private-endpoint access.
-- Diff, captured-value, auth-field, logging, and diagnostic-shape scans pass.
+- Full Prettier and ESLint checks pass.
+- Full unit suite passes: 375 tests.
+- A synthetic page-boundary test executes the studied bootstrap/current-access
+  projection without a browser, network, account, or private response fixture.
+- Diff, session-artifact, field-retention, logging, captured-UUID intersection,
+  and cache-privacy scans pass.
 
 Next step:
 
-- Review Task 05. On the next explicit incremental-implementation invocation,
+- Review Task 06. On the next explicit incremental-implementation invocation,
   commit it with a focused conventional commit and execute
-  `06_implement_claude_provider_lifecycle.md` only.
+  `07_localize_claude_voice.md` only.
 
 Blockers:
 
@@ -52,5 +59,8 @@ Blockers:
   runtime assets.
 - The private endpoint remains volatile. Non-default locales and any changed
   query/event contract require the recorded manual revalidation before use.
+- The unregistered provider has not made a live request. Before enabling it,
+  manually revalidate restored-session bootstrap readiness and the dictation
+  button accessibility name in an explicitly authorized Claude account.
 - Personal-specific behavior remains gated on deferred Task 20 and an explicitly
   authorized personal-state account.
