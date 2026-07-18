@@ -1,8 +1,9 @@
-import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import type { AppInfo } from '@shared/appInfo';
+import type { ClaudeWebSettings, ClaudeWebSettingsUpdateInput } from '@shared/claudeWebSettings';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
+import type { OpenAIApiTranscriptionLanguage, OpenAIApiTranscriptionModel } from '@shared/openaiApiTranscription';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
@@ -21,6 +22,7 @@ import type {
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 
 export type ProviderAuthType = 'browserSession' | 'apiKey';
+export type ProviderCategory = 'web' | 'api' | 'local';
 
 export interface BackgroundBrowserStatus {
   ready: boolean;
@@ -32,25 +34,36 @@ export interface ProviderInfo {
   id: string;
   name: string;
   authType: ProviderAuthType;
+  category: ProviderCategory;
+  hasSettings: boolean;
 }
 
 export interface OpenAIApiProviderSettings {
   providerId: 'openai-api';
   authType: 'apiKey';
   hasApiKey: boolean;
-  model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
-  language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
+  model: OpenAIApiTranscriptionModel;
+  language: OpenAIApiTranscriptionLanguage;
   prompt: string;
   temperature: number;
 }
 
-export interface BrowserSessionProviderSettings {
-  providerId: string;
+export interface ChatGPTWebProviderSettings {
+  providerId: 'chatgpt';
   authType: 'browserSession';
   hasSession: boolean;
 }
 
+export interface ClaudeWebProviderSettings extends ClaudeWebSettings {
+  providerId: 'claude-web';
+  authType: 'browserSession';
+  hasSession: boolean;
+}
+
+export type BrowserSessionProviderSettings = ChatGPTWebProviderSettings | ClaudeWebProviderSettings;
 export type ProviderSettings = OpenAIApiProviderSettings | BrowserSessionProviderSettings;
+export type OpenAIApiProviderSettingsInput = Partial<OpenAIApiProviderSettings> & { apiKey?: string };
+export type ProviderSettingsSaveInput = OpenAIApiProviderSettingsInput | ClaudeWebSettingsUpdateInput;
 
 export interface ElectronAPI {
   onToggleRecording: (callback: (isRecording: boolean) => void) => () => void;
@@ -64,9 +77,12 @@ export interface ElectronAPI {
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
-  providerLogin: () => Promise<{ success: boolean; error?: string }>;
+  providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
+  openProviderSettings: (providerId: string) => Promise<{ success: boolean; error?: string }>;
+  closeProviderSettings: () => Promise<{ success: boolean }>;
+  onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void) => () => void;
   closeAppSettings: () => Promise<{ success: boolean }>;
   onAppSettingsCloseRequested: (callback: () => void) => () => void;
   openAppSettings: () => Promise<{ success: boolean }>;
@@ -83,7 +99,7 @@ export interface ElectronAPI {
   }>;
   saveProviderSettings: (
     providerId: string,
-    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+    settings: ProviderSettingsSaveInput,
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getActiveProvider: () => Promise<string>;

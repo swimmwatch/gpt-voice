@@ -9,6 +9,7 @@ const entryDirectory = path.join(rendererDirectory, 'entries');
 
 const entries = [
   ['main.tsx', 'App'],
+  ['providerSettings.tsx', 'ProviderSettingsWindow'],
   ['settings.tsx', 'AppSettingsWindow'],
   ['history.tsx', 'HistoryWindow'],
   ['about.tsx', 'AboutWindow'],

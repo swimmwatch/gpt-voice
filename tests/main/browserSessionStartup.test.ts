@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BrowserSessionStartupState, getBrowserSessionStartupState } from '@main/browser';
+import {
+  BrowserSessionStartupState,
+  getBrowserSessionStartupError,
+  getBrowserSessionStartupState,
+} from '@main/browser';
+import { t } from '@main/i18n';
 
 describe('browser session startup state', () => {
   it('treats a missing access token after loading a saved session as temporary', () => {
@@ -30,5 +35,12 @@ describe('browser session startup state', () => {
 
     assert.equal(previousProviderState, BrowserSessionStartupState.Ready);
     assert.equal(switchedProviderState, BrowserSessionStartupState.Expired);
+  });
+
+  it('preserves a provider-specific readiness failure and falls back for legacy providers', () => {
+    const providerError = 'Claude readiness failed safely';
+
+    assert.equal(getBrowserSessionStartupError(providerError), providerError);
+    assert.equal(getBrowserSessionStartupError(null), t('error.noAccessToken'));
   });
 });

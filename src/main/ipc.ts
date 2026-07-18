@@ -29,11 +29,13 @@ import {
 import { createProvider, getAvailableProviders } from './providers';
 import {
   closeAboutWindow,
+  closeProviderSettingsWindow,
   closeSettingsWindow,
   getMainWindow,
   isTrustedAppWindow,
   showAboutWindow,
   showHistoryWindow,
+  showProviderSettingsWindow,
   showSettingsWindow,
 } from './window';
 import { getAppInfo } from './appMetadata';
@@ -48,8 +50,9 @@ import {
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { isGoogleTranslateTargetLanguage } from './services/translationUtils';
-import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
+import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
+import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import {
   assertValidOpenAIApiSettingsInput,
@@ -59,6 +62,7 @@ import {
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
+import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import {
   getHotkeyConflict,
@@ -87,6 +91,7 @@ import {
 } from './services/transcriptionHistoryStorage';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
 import { listPrettifyModels, loadPrettifyModel, unloadPrettifyModel } from './services/prettifyProviders';
+import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 
 const log = createLogger('ipc');
 
@@ -189,6 +194,12 @@ function sendBackgroundStatus(status: { ready: boolean; error?: string; authExpi
   }
 }
 
+function sendProviderSettingsChanged(settings: unknown, source: IpcMainInvokeEvent['sender']): void {
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.webContents.id === source.id) return;
+  mainWindow.webContents.send('provider-settings-changed', settings);
+}
+
 function getHotkeySettingsSnapshot(): HotkeySettings {
   return {
     hotkey: currentHotkey,
@@ -210,6 +221,14 @@ function getProviderSettingsSnapshot(providerId: string) {
   }
 
   const provider = createProvider(providerId);
+  if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+    return {
+      providerId,
+      authType: 'browserSession',
+      hasSession: provider.hasSession(),
+      ...getClaudeWebSettings(),
+    };
+  }
   return {
     providerId,
     authType: provider.info.authType,
@@ -217,11 +236,12 @@ function getProviderSettingsSnapshot(providerId: string) {
   };
 }
 
-async function refreshActiveProvider(providerId: string): Promise<void> {
-  if (providerId !== currentProvider) return;
+async function refreshActiveProvider(providerId: string) {
+  if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
   await shutdownBackgroundBrowser();
   const status = await initBackgroundBrowser();
   sendBackgroundStatus(status);
+  return status;
 }
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
@@ -281,10 +301,13 @@ export function registerIpcHandlers(): void {
     return { success: true };
   });
 
-  handle('provider-login', async () => {
+  handle('provider-login', async (event, providerId: unknown) => {
     let provider;
     try {
-      provider = getActiveProvider() ?? createProvider(currentProvider);
+      if (typeof providerId !== 'string') {
+        return { success: false, error: 'Unsupported provider' };
+      }
+      provider = createProvider(providerId);
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
@@ -327,17 +350,17 @@ export function registerIpcHandlers(): void {
         return { success: false, error: 'Login window closed before session was saved' };
       }
 
-      await shutdownBackgroundBrowser();
-      const status = await initBackgroundBrowser();
-      sendBackgroundStatus(status);
-      if (status.error) {
+      const status = await refreshActiveProvider(provider.info.id);
+      const settings = getProviderSettingsSnapshot(provider.info.id);
+      sendProviderSettingsChanged(settings, event.sender);
+      if (status?.error) {
         return { success: false, error: status.error };
       }
-      if (!status.ready) {
+      if (status && !status.ready) {
         return { success: false, error: 'Login did not produce a valid provider session' };
       }
 
-      return { success: true };
+      return { success: true, settings };
     } catch (error: unknown) {
       if (context) {
         try {
@@ -374,6 +397,22 @@ export function registerIpcHandlers(): void {
 
   handle('get-provider-settings', (_event, providerId: string) => {
     return getProviderSettingsSnapshot(providerId);
+  });
+
+  handle('open-provider-settings', (_event, providerId: unknown) => {
+    if (typeof providerId !== 'string') {
+      return { success: false, error: 'Unsupported provider' };
+    }
+    const provider = getAvailableProviders().find((candidate) => candidate.id === providerId);
+    if (!provider?.hasSettings) {
+      return { success: false, error: 'Provider settings are not available' };
+    }
+    showProviderSettingsWindow(provider.id, t('providerSettings.title', { provider: provider.name }));
+    return { success: true };
+  });
+
+  handle('close-provider-settings', (event) => {
+    return { success: closeProviderSettingsWindow(event.sender) };
   });
 
   handle('close-app-settings', () => {
@@ -439,15 +478,38 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('save-provider-settings', async (_event, providerId: unknown, settings: unknown) => {
+  handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
         return { success: false, error: 'Unsupported provider' };
       }
+      if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+        try {
+          assertValidClaudeWebSettingsUpdateInput(settings);
+        } catch {
+          log.warn('Claude Web provider settings rejected:', { providerId });
+          return { success: false, error: t('error.claudeWeb.invalid-settings') };
+        }
+
+        log.info('Saving provider settings:', { providerId });
+        const savedSettings = saveClaudeWebSettings(settings);
+        await refreshActiveProvider(providerId);
+        log.info('Provider settings saved:', { providerId });
+        const nextSettings = {
+          providerId,
+          authType: 'browserSession' as const,
+          hasSession: createProvider(providerId).hasSession(),
+          language: savedSettings.language,
+        };
+        sendProviderSettingsChanged(nextSettings, event.sender);
+        return { success: true, settings: nextSettings };
+      }
       if (providerId !== OPENAI_API_PROVIDER_ID) {
         log.info('Saving provider settings:', { providerId });
         log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
-        return { success: true, settings: getProviderSettingsSnapshot(providerId) };
+        const nextSettings = getProviderSettingsSnapshot(providerId);
+        sendProviderSettingsChanged(nextSettings, event.sender);
+        return { success: true, settings: nextSettings };
       }
 
       assertValidOpenAIApiSettingsInput(settings);
@@ -462,21 +524,20 @@ export function registerIpcHandlers(): void {
         promptLength: savedSettings.prompt.length,
         temperature: savedSettings.temperature,
       });
-      return {
-        success: true,
-        settings: {
-          providerId,
-          authType: 'apiKey',
-          ...savedSettings,
-        },
+      const nextSettings = {
+        providerId,
+        authType: 'apiKey' as const,
+        ...savedSettings,
       };
+      sendProviderSettingsChanged(nextSettings, event.sender);
+      return { success: true, settings: nextSettings };
     } catch (error: unknown) {
       log.error('Provider settings save error:', getErrorMessage(error));
       return { success: false, error: getErrorMessage(error) };
     }
   });
 
-  handle('clear-provider-auth', async (_event, providerId: string) => {
+  handle('clear-provider-auth', async (event, providerId: string) => {
     try {
       log.info('Clearing provider auth:', { providerId });
       if (providerId === OPENAI_API_PROVIDER_ID) {
@@ -486,7 +547,9 @@ export function registerIpcHandlers(): void {
       }
       await refreshActiveProvider(providerId);
       log.info('Provider auth cleared:', { providerId });
-      return { success: true, settings: getProviderSettingsSnapshot(providerId) };
+      const settings = getProviderSettingsSnapshot(providerId);
+      sendProviderSettingsChanged(settings, event.sender);
+      return { success: true, settings };
     } catch (error: unknown) {
       log.error('Provider auth clear error:', getErrorMessage(error));
       return { success: false, error: getErrorMessage(error) };

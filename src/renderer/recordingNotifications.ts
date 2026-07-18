@@ -1,18 +1,29 @@
 import rendererLog from 'electron-log/renderer';
 import {
   formatNotificationBody,
+  getNotificationErrorMessage,
   presentNotificationError,
   type PresentedNotificationError,
   type SystemNotificationOptions,
 } from '@shared/notifications';
 
 const log = rendererLog.scope('recording-notifications');
+const CLAUDE_WEB_ERROR_TRANSLATION_PREFIX = 'error.claudeWeb.';
 
 interface TranscriptionNotificationApi {
   showNotification(title: string, body: string, options?: SystemNotificationOptions): Promise<void>;
 }
 
 type Translate = (key: string, params?: Record<string, string>) => string;
+
+function localizeProviderError(error: unknown, t: Translate): unknown {
+  const errorMessage = getNotificationErrorMessage(error);
+  if (!errorMessage) return error;
+
+  const translationKey = `${CLAUDE_WEB_ERROR_TRANSLATION_PREFIX}${errorMessage}`;
+  const translated = t(translationKey);
+  return translated === translationKey ? error : translated;
+}
 
 function showNotificationSafely(
   api: TranscriptionNotificationApi,
@@ -43,7 +54,11 @@ export function showTranscriptionFailureNotification(
   fallback: string,
   options?: SystemNotificationOptions,
 ): PresentedNotificationError {
-  const presented = presentNotificationError(error, { context: 'transcription', fallback, t });
+  const presented = presentNotificationError(localizeProviderError(error, t), {
+    context: 'transcription',
+    fallback,
+    t,
+  });
   showNotificationSafely(
     api,
     t('notification.transcriptionFailed'),

@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type {
   BackgroundBrowserStatus,
-  OpenAIApiProviderSettings,
   ProviderInfo,
   ProviderSettings,
+  ProviderSettingsSaveInput,
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { AppInfo } from '@shared/appInfo';
@@ -71,14 +71,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getRecordingStatus: (): Promise<boolean> => {
     return ipcRenderer.invoke('get-recording-status');
   },
-  providerLogin: (): Promise<{ success: boolean; error?: string }> => {
-    return ipcRenderer.invoke('provider-login');
+  providerLogin: (providerId: string): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
+    return ipcRenderer.invoke('provider-login', providerId);
   },
   getProviders: (): Promise<ProviderInfo[]> => {
     return ipcRenderer.invoke('get-providers');
   },
   getProviderSettings: (providerId: string): Promise<ProviderSettings> => {
     return ipcRenderer.invoke('get-provider-settings', providerId);
+  },
+  openProviderSettings: (providerId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('open-provider-settings', providerId);
+  },
+  closeProviderSettings: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('close-provider-settings');
+  },
+  onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void): (() => void) => {
+    return onMainEvent<[ProviderSettings]>('provider-settings-changed', callback);
   },
   closeAppSettings: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('close-app-settings');
@@ -118,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   saveProviderSettings: (
     providerId: string,
-    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+    settings: ProviderSettingsSaveInput,
   ): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
     return ipcRenderer.invoke('save-provider-settings', providerId, settings);
   },

@@ -1,11 +1,14 @@
 import type { BrowserContext, Page } from 'playwright-core';
 
 export type VoiceProviderAuthType = 'browserSession' | 'apiKey';
+export type VoiceProviderCategory = 'web' | 'api' | 'local';
 
 export interface VoiceProviderInfo {
   id: string;
   name: string;
   authType: VoiceProviderAuthType;
+  category: VoiceProviderCategory;
+  hasSettings: boolean;
   loginUrl?: string;
 }
 
@@ -91,5 +94,10 @@ export abstract class BaseVoiceProvider {
 
   isReady(): boolean {
     return this.page !== null && this.accessToken.length > 0;
+  }
+
+  /** Returns a provider-specific user-facing reason when browser-session readiness fails. */
+  getReadinessError(): string | null {
+    return null;
   }
 }

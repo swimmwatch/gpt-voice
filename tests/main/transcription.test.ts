@@ -13,6 +13,8 @@ class TestVoiceProvider extends BaseVoiceProvider {
     id: 'test-provider',
     name: 'Test Provider',
     authType: 'apiKey',
+    category: 'api',
+    hasSettings: true,
   };
 
   transcribeCalls = 0;

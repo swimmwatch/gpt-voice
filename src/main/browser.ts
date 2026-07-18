@@ -60,6 +60,10 @@ export function getBrowserSessionStartupState({
   return providerReady ? BrowserSessionStartupState.Ready : BrowserSessionStartupState.TemporaryFailure;
 }
 
+export function getBrowserSessionStartupError(providerReadinessError: string | null): string {
+  return providerReadinessError || t('error.noAccessToken');
+}
+
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
   return { ready: bgReady, error: bgError || undefined, authExpired: bgAuthExpired || undefined };
 }
@@ -197,7 +201,7 @@ export async function initBackgroundBrowser(
       }
 
       if (startupState === BrowserSessionStartupState.TemporaryFailure) {
-        throw new Error(t('error.noAccessToken'));
+        throw new Error(getBrowserSessionStartupError(activeProvider.getReadinessError()));
       }
     } else if (!activeProvider.isReady()) {
       throw new Error(t('error.noAccessToken'));

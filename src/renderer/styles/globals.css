@@ -263,7 +263,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 11px 0 16px;
 }
 
 .command-dock-section-icon {
@@ -316,16 +316,16 @@
 .command-dock-provider-state {
   display: inline-flex;
   min-width: 0;
-  margin-left: auto;
   align-items: center;
   gap: 7px;
   padding: 5px 0;
   border: 0;
   background: transparent;
   color: var(--dock-muted);
-  cursor: pointer;
   font-size: 11.92px;
   font-weight: 500;
+  grid-column: 1;
+  grid-row: 1;
   line-height: 1.2;
 }
 
@@ -342,13 +342,14 @@
 .command-dock .command-dock-provider-action {
   max-width: 104px;
   height: 28px;
-  margin-left: auto;
   padding: 0 9px;
   overflow: hidden;
   border-color: var(--dock-control-border);
   border-radius: 3.5px;
   color: var(--dock-foreground);
   font-size: 10.51px;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .command-dock .command-dock-provider-action span {
@@ -357,25 +358,40 @@
   white-space: nowrap;
 }
 
+.command-dock-provider-controls {
+  display: grid;
+  width: 125px;
+  min-width: 0;
+  margin-left: auto;
+  align-items: center;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) 37px;
+}
+
+.command-dock-provider-controls[data-has-settings='false'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .command-dock-provider-settings-shortcut {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: 37px;
+  height: 34px;
   flex: none;
-  margin-left: 6px;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 1px solid var(--dock-control-border);
   border-radius: 3.5px;
-  background: transparent;
+  background: var(--dock-surface);
   color: var(--dock-icon);
   cursor: pointer;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .command-dock-provider-settings-shortcut svg {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
 }
 
 .command-dock-model-band {

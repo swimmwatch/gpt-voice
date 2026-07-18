@@ -14,6 +14,7 @@ import {
   DEFAULT_CLAUDE_WEB_SETTINGS,
   MAX_CLAUDE_WEB_LANGUAGE_LENGTH,
   getClaudeWebSettingsInputError,
+  getClaudeWebSettingsUpdateInputError,
   normalizeClaudeWebSettings,
   suggestClaudeWebLanguage,
 } from '@shared/claudeWebSettings';
@@ -58,6 +59,20 @@ describe('claudeWebSettings', () => {
     );
     assert.equal(getClaudeWebSettingsInputError({ language: 42 }), 'Claude language must be a string');
     assert.throws(() => normalizeClaudeWebSettings({ language: 'not_a_locale' }));
+  });
+
+  it('accepts only the explicit language field at the renderer update boundary', () => {
+    assert.equal(getClaudeWebSettingsUpdateInputError({ language: 'en-US' }), null);
+    assert.equal(getClaudeWebSettingsUpdateInputError({}), 'Claude Web settings update must contain only language');
+    assert.equal(
+      getClaudeWebSettingsUpdateInputError({ language: 'en-US', organizationUuid: 'synthetic-organization' }),
+      'Claude Web settings update must contain only language',
+    );
+    assert.equal(
+      getClaudeWebSettingsUpdateInputError({ language: 'en-US', endpoint: 'synthetic-endpoint' }),
+      'Claude Web settings update must contain only language',
+    );
+    assert.equal(getClaudeWebSettingsUpdateInputError({ language: 42 }), 'Claude language must be a string');
   });
 
   it('returns a canonical locale suggestion without mutating saved settings', () => {

@@ -61,6 +61,8 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     id: 'chatgpt',
     name: 'ChatGPT Web',
     authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
     loginUrl: 'https://chatgpt.com',
   };
 

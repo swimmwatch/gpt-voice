@@ -7,6 +7,7 @@ import {
 import type { SystemNotificationOptions } from '@shared/notifications';
 
 const translations: Record<string, string> = {
+  'error.claudeWeb.connection-loss': 'Claude connection lost. Check your network and try again.',
   'error.notificationAudioPreparationFailed': 'Could not prepare the recording. Try recording again.',
   'error.notificationClipboardUnavailable': 'Could not read the selected text. Check the selection and try again.',
   'error.notificationConnectionFailed':
@@ -58,6 +59,23 @@ describe('recordingNotifications', () => {
 
     assert.deepEqual(notifications, [
       { title: 'Recognition failed', body: 'provider failed', options: { sound: 'error' } },
+    ]);
+  });
+
+  it('displays a localized message instead of a Claude provider error status', () => {
+    const { api, notifications } = createNotificationApi();
+
+    const presented = showTranscriptionFailureNotification(api, t, 'connection-loss', 'Transcription failed', {
+      sound: 'error',
+    });
+
+    assert.equal(presented.userMessage, 'Claude connection lost. Check your network and try again.');
+    assert.deepEqual(notifications, [
+      {
+        title: 'Recognition failed',
+        body: 'Claude connection lost. Check your network and try again.',
+        options: { sound: 'error' },
+      },
     ]);
   });
 

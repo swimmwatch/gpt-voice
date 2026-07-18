@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_OPENAI_API_SETTINGS,
-  OPENAI_API_SETTINGS_MODEL,
+  OPENAI_API_SETTINGS_MODELS,
   getOpenAIApiSettingsInputError,
   normalizeOpenAIApiSettings,
   normalizeTemperature,
@@ -16,7 +16,7 @@ describe('openaiApiSettingsUtils', () => {
       normalizeOpenAIApiSettings({
         model: 'unknown',
         prettifyModel: '',
-        language: 'de',
+        language: 'xx',
         prompt: 42 as unknown as string,
         temperature: Number.NaN,
       }),
@@ -24,17 +24,18 @@ describe('openaiApiSettingsUtils', () => {
     );
   });
 
-  it('keeps supported language, trims prompt, clamps temperature, and ignores legacy prettify model', () => {
+  it('keeps supported model and language, trims prompt, clamps temperature, and ignores legacy prettify model', () => {
     assert.deepEqual(
       normalizeOpenAIApiSettings({
-        language: 'ru',
+        language: 'de',
+        model: 'gpt-4o-transcribe',
         prettifyModel: '  gpt-5.5  ',
         prompt: '  domain vocabulary  ',
         temperature: 1.2,
       }),
       {
-        model: OPENAI_API_SETTINGS_MODEL,
-        language: 'ru',
+        model: 'gpt-4o-transcribe',
+        language: 'de',
         prompt: 'domain vocabulary',
         temperature: 1,
       },
@@ -49,6 +50,7 @@ describe('openaiApiSettingsUtils', () => {
       {
         apiKey: 'sk-secret',
         language: 'en',
+        model: 'gpt-4o-mini-transcribe',
         prompt: 'names',
         temperature: 0.1,
       },
@@ -58,7 +60,7 @@ describe('openaiApiSettingsUtils', () => {
     assert.equal('apiKey' in sanitized, false);
     assert.deepEqual(sanitized, {
       hasApiKey: true,
-      model: OPENAI_API_SETTINGS_MODEL,
+      model: 'gpt-4o-mini-transcribe',
       language: 'en',
       prompt: 'names',
       temperature: 0.1,
@@ -75,10 +77,16 @@ describe('openaiApiSettingsUtils', () => {
     assert.equal(getOpenAIApiSettingsInputError([]), 'OpenAI API settings must be an object');
     assert.equal(getOpenAIApiSettingsInputError({ apiKey: 42 }), 'OpenAI API key must be a string');
     assert.equal(
-      getOpenAIApiSettingsInputError({ model: 'gpt-4o-transcribe' }),
-      `Only ${OPENAI_API_SETTINGS_MODEL} is supported`,
+      getOpenAIApiSettingsInputError({ model: 'gpt-4o-transcribe-diarize' }),
+      'Select a supported transcription model',
     );
-    assert.equal(getOpenAIApiSettingsInputError({ language: 'de' }), 'Select a supported transcription language');
+    assert.equal(getOpenAIApiSettingsInputError({ language: 'xx' }), 'Select a supported transcription language');
     assert.equal(getOpenAIApiSettingsInputError({ temperature: 1.01 }), 'Temperature must be between 0 and 1');
+  });
+
+  it('accepts every model offered by the settings selector', () => {
+    for (const model of OPENAI_API_SETTINGS_MODELS) {
+      assert.equal(getOpenAIApiSettingsInputError({ model }), null);
+    }
   });
 });

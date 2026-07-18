@@ -4,13 +4,17 @@ import MainToolbar from './components/MainToolbar';
 import PrettifyModelMemoryRow from './components/PrettifyModelMemoryRow';
 import RecordingControls from './components/RecordingControls';
 import TranslateSection from './components/TranslateSection';
-import ProviderSettingsModal from './components/ProviderSettingsModal';
 import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
-import { expireBrowserSessionSettings, getProviderLoginState, type ProviderLoginState } from './providerState';
-import type { BackgroundBrowserStatus, ProviderInfo, ProviderSettings } from './types';
+import {
+  getProviderLoginState,
+  isActiveProviderSettingsChange,
+  isProviderConfigured,
+  type ProviderLoginState,
+} from './providerState';
+import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
 import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
@@ -24,8 +28,6 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [targetLang, setTargetLang] = useState('en');
-  const [showProviderSettings, setShowProviderSettings] = useState(false);
-  const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
@@ -38,6 +40,8 @@ const App: React.FC = () => {
   useWindowStartupReady(isI18nReady && !isLoading);
 
   const preserveStatusRef = useRef(false);
+  const activeProviderIdRef = useRef(activeProviderId);
+  const activeProviderAuthTypeRef = useRef<ProviderAuthType>('browserSession');
   const prettifyModelRefreshIdRef = useRef(0);
 
   const showStatusNotification = useCallback((nextStatus: string) => {
@@ -108,19 +112,22 @@ const App: React.FC = () => {
   }, [refreshOllamaModelState]);
 
   const applyProviderLoginState = useCallback(
-    (hasSession: boolean, backgroundStatus?: BackgroundBrowserStatus): ProviderLoginState => {
-      const loginState = getProviderLoginState(hasSession, backgroundStatus);
+    (
+      authType: ProviderAuthType,
+      hasSession: boolean,
+      backgroundStatus?: BackgroundBrowserStatus,
+    ): ProviderLoginState => {
+      const loginState = getProviderLoginState(authType, hasSession, backgroundStatus);
       setIsLoggedIn(loginState.isLoggedIn);
       setIsLoading(loginState.isLoading);
 
-      if (loginState.sessionExpired) {
+      if (authType === 'browserSession' && loginState.sessionExpired) {
         preserveStatusRef.current = true;
         setStatusAndNotify(t('status.sessionExpired'));
-        setProviderSettings((settings) => expireBrowserSessionSettings(settings));
-      } else if (backgroundStatus?.error) {
+      } else if (authType === 'browserSession' && backgroundStatus?.error) {
         preserveStatusRef.current = true;
         setStatusAndNotify(t('status.browserInitFailed', { error: backgroundStatus.error }));
-      } else if (backgroundStatus?.ready) {
+      } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
@@ -129,13 +136,16 @@ const App: React.FC = () => {
     [setStatusAndNotify, t],
   );
 
-  const refreshProviderState = useCallback(async (): Promise<ProviderLoginState> => {
-    const [hasSession, backgroundStatus] = await Promise.all([
-      window.electronAPI.checkSession(),
-      window.electronAPI.getBgBrowserStatus(),
-    ]);
-    return applyProviderLoginState(hasSession, backgroundStatus);
-  }, [applyProviderLoginState]);
+  const refreshProviderState = useCallback(
+    async (authType: ProviderAuthType): Promise<ProviderLoginState> => {
+      const [hasSession, backgroundStatus] = await Promise.all([
+        window.electronAPI.checkSession(),
+        window.electronAPI.getBgBrowserStatus(),
+      ]);
+      return applyProviderLoginState(authType, hasSession, backgroundStatus);
+    },
+    [applyProviderLoginState],
+  );
 
   useEffect(() => {
     if (!isI18nReady) {
@@ -168,21 +178,23 @@ const App: React.FC = () => {
         if (!disposed) setStatus(nextStatus);
       }),
       window.electronAPI.onBgBrowserReady(() => {
-        if (disposed) return;
+        if (disposed || activeProviderAuthTypeRef.current !== 'browserSession') return;
         preserveStatusRef.current = false;
         setIsLoggedIn(true);
         setIsLoading(false);
       }),
       window.electronAPI.onBgBrowserError((error, authExpired) => {
-        if (disposed) return;
+        if (disposed || activeProviderAuthTypeRef.current !== 'browserSession') return;
         if (authExpired) {
-          applyProviderLoginState(false, { ready: false, error, authExpired: true });
+          applyProviderLoginState('browserSession', false, { ready: false, error, authExpired: true });
           return;
         }
         // The background-browser event is synchronous; refresh its session state without delaying the event callback.
         // eslint-disable-next-line promise/no-promise-in-callback -- The asynchronous refresh intentionally outlives this event.
         void window.electronAPI.checkSession().then((hasSession) => {
-          if (!disposed) applyProviderLoginState(hasSession, { ready: false, error });
+          if (!disposed && activeProviderAuthTypeRef.current === 'browserSession') {
+            applyProviderLoginState('browserSession', hasSession, { ready: false, error });
+          }
         });
       }),
       window.electronAPI.onHotkeySettingsChanged((settings) => {
@@ -194,18 +206,19 @@ const App: React.FC = () => {
       }),
     ];
 
-    void Promise.all([window.electronAPI.checkSession(), window.electronAPI.getBgBrowserStatus()]).then(
-      ([hasSession, backgroundStatus]) => {
-        if (!disposed) applyProviderLoginState(hasSession, backgroundStatus);
-      },
-    );
-
-    void window.electronAPI.isBgReady().then((ready) => {
+    void Promise.all([
+      window.electronAPI.getProviders(),
+      window.electronAPI.getActiveProvider(),
+      window.electronAPI.checkSession(),
+      window.electronAPI.getBgBrowserStatus(),
+    ]).then(([availableProviders, providerId, hasSession, backgroundStatus]) => {
       if (disposed) return;
-      if (ready) {
-        setIsLoggedIn(true);
-        setIsLoading(false);
-      }
+      const authType = availableProviders.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
+      activeProviderIdRef.current = providerId;
+      activeProviderAuthTypeRef.current = authType;
+      setProviders(availableProviders);
+      setActiveProviderId(providerId);
+      applyProviderLoginState(authType, hasSession, backgroundStatus);
     });
 
     void window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
@@ -219,13 +232,6 @@ const App: React.FC = () => {
     void window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
       if (disposed) return;
       setTargetLang(tl);
-    });
-
-    void window.electronAPI.getProviders().then((value) => {
-      if (!disposed) setProviders(value);
-    });
-    void window.electronAPI.getActiveProvider().then((value) => {
-      if (!disposed) setActiveProviderId(value);
     });
 
     return () => {
@@ -250,54 +256,97 @@ const App: React.FC = () => {
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
 
-  const openProviderSettings = async () => {
+  const applyProviderSettingsSnapshot = useCallback(
+    (settings: ProviderSettings): void => {
+      if (settings.authType === 'browserSession') {
+        setIsLoading(false);
+        if (!settings.hasSession) {
+          setIsLoggedIn(false);
+          preserveStatusRef.current = true;
+          setStatusAndNotify(t('status.providerNotConfigured', { provider: activeProviderName }));
+        }
+        return;
+      }
+
+      const configured = isProviderConfigured(settings);
+      setIsLoggedIn(configured);
+      setIsLoading(false);
+      if (configured) {
+        preserveStatusRef.current = false;
+        setStatusAndNotify(t('status.providerConfigured', { provider: activeProviderName }));
+      } else {
+        preserveStatusRef.current = true;
+        setStatusAndNotify(t('status.providerNotConfigured', { provider: activeProviderName }));
+      }
+    },
+    [activeProviderName, setStatusAndNotify, t],
+  );
+
+  useEffect(() => {
+    activeProviderIdRef.current = activeProviderId;
+    return window.electronAPI.onProviderSettingsChanged((settings) => {
+      if (isActiveProviderSettingsChange(settings, activeProviderId)) applyProviderSettingsSnapshot(settings);
+    });
+  }, [activeProviderId, applyProviderSettingsSnapshot]);
+
+  const openProviderSettings = async (providerId: string): Promise<void> => {
     try {
-      const settings = await window.electronAPI.getProviderSettings(activeProviderId);
-      setProviderSettings(settings);
-      setShowProviderSettings(true);
+      const result = await window.electronAPI.openProviderSettings(providerId);
+      if (!result.success) setStatus(result.error || t('error.notificationUnknown'));
     } catch {
       setStatus(t('error.notificationUnknown'));
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
+    const providerId = activeProviderId;
+    const providerName = activeProviderName;
     if (activeProviderAuthType === 'apiKey') {
-      await openProviderSettings();
+      await openProviderSettings(providerId);
       return;
     }
 
     setIsLoggingIn(true);
     preserveStatusRef.current = false;
-    setStatus(t('status.loggingIn', { provider: activeProviderName }));
-    const result = await window.electronAPI.providerLogin();
-    setIsLoggingIn(false);
-    if (result.success) {
-      setIsLoggedIn(true);
-      setStatusAndNotify(t('status.loggedIn', { provider: activeProviderName }));
-    } else {
+    setStatus(t('status.loggingIn', { provider: providerName }));
+    try {
+      const result = await window.electronAPI.providerLogin(providerId);
+      if (activeProviderIdRef.current !== providerId) return;
+      if (result.success) {
+        setIsLoggedIn(true);
+        setStatusAndNotify(t('status.loggedIn', { provider: providerName }));
+      } else {
+        preserveStatusRef.current = true;
+        const message = presentNotificationError(result.error, {
+          context: 'generic',
+          fallback: t('error.notificationUnknown'),
+          t,
+        }).userMessage;
+        setStatusAndNotify(t('status.loginFailed', { error: message }));
+      }
+    } catch (error: unknown) {
+      if (activeProviderIdRef.current !== providerId) return;
       preserveStatusRef.current = true;
-      setStatusAndNotify(t('status.loginFailed', { error: result.error || '' }));
-    }
-  };
-
-  const handleProviderSettingsSaved = (settings: ProviderSettings) => {
-    setProviderSettings(settings);
-    const configured = settings.authType === 'apiKey' ? settings.hasApiKey : settings.hasSession;
-    setIsLoggedIn(configured);
-    if (configured) {
-      preserveStatusRef.current = false;
-      setStatusAndNotify(t('status.providerConfigured', { provider: activeProviderName }));
-    } else {
-      preserveStatusRef.current = true;
-      setStatusAndNotify(t('status.providerNotConfigured', { provider: activeProviderName }));
+      const message = presentNotificationError(error, {
+        context: 'generic',
+        fallback: t('error.notificationUnknown'),
+        t,
+      }).userMessage;
+      setStatusAndNotify(t('status.loginFailed', { error: message }));
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
   const handleProviderChange = async (providerId: string) => {
+    const authType = providers.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
+    activeProviderIdRef.current = providerId;
+    activeProviderAuthTypeRef.current = authType;
     setActiveProviderId(providerId);
+    setIsLoggingIn(false);
     setIsLoading(true);
     const result = await window.electronAPI.setActiveProvider(providerId);
-    const loginState = await refreshProviderState();
+    const loginState = await refreshProviderState(authType);
     if (!loginState.sessionExpired && !result.success && result.error) {
       preserveStatusRef.current = true;
       setStatusAndNotify(t('status.browserInitFailed', { error: result.error }));
@@ -389,13 +438,14 @@ const App: React.FC = () => {
       <MainToolbar
         activeProviderAuthType={activeProviderAuthType}
         activeProviderId={activeProviderId}
+        activeProviderHasSettings={Boolean(activeProvider?.hasSettings)}
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
         onOpenAbout={openAboutWindow}
         onOpenAppSettings={openAppSettingsWindow}
         onOpenHistory={openHistoryWindow}
-        onOpenProviderSettings={() => void openProviderSettings()}
+        onOpenProviderSettings={() => void openProviderSettings(activeProviderId)}
         onProviderChange={(providerId) => void handleProviderChange(providerId)}
         onProviderLogin={() => void handleLogin()}
         providers={providers}
@@ -425,15 +475,6 @@ const App: React.FC = () => {
           void window.electronAPI.setTranslateSettings(lang);
         }}
       />
-      {showProviderSettings && activeProvider && providerSettings && (
-        <ProviderSettingsModal
-          provider={activeProvider}
-          settings={providerSettings}
-          onClose={() => setShowProviderSettings(false)}
-          onSaved={handleProviderSettingsSaved}
-          onLogin={handleLogin}
-        />
-      )}
     </main>
   );
 };

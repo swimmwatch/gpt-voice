@@ -1,6 +1,7 @@
 import { BrowserWindow, shell, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
 import * as path from 'node:path';
 import { createAboutWindowController, isTrustedWindow } from './aboutWindowController';
+import { createProviderSettingsWindowController } from './providerSettingsWindowController';
 import { createLogger } from './logger';
 import { getAppIcon, getAppIconPath } from './assets';
 import { getAppUrl } from './appProtocol';
@@ -14,6 +15,7 @@ const log = createLogger('window');
 const MAIN_WINDOW_CONTENT_WIDTH = 460;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
+const providerSettingsWindowController = createProviderSettingsWindowController<BrowserWindow>();
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
@@ -29,10 +31,52 @@ export function getHistoryWindow(): BrowserWindow | null {
 
 export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
   return isTrustedWindow(
-    [mainWindow, settingsWindow, historyWindow, aboutWindowController.getWindow()],
+    [
+      mainWindow,
+      settingsWindow,
+      historyWindow,
+      aboutWindowController.getWindow(),
+      ...providerSettingsWindowController.getWindows(),
+    ],
     webContents,
     senderUrl,
   );
+}
+
+export function showProviderSettingsWindow(providerId: string, title: string): void {
+  providerSettingsWindowController.show(providerId, () => {
+    const providerSettingsUrl = new URL(getAppUrl('provider-settings.html'));
+    providerSettingsUrl.searchParams.set('providerId', providerId);
+    const providerWindow = new BrowserWindow({
+      width: 560,
+      height: 680,
+      minWidth: 440,
+      minHeight: 520,
+      useContentSize: true,
+      autoHideMenuBar: true,
+      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+      resizable: true,
+      show: true,
+      title,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
+        navigateOnDragDrop: false,
+      },
+      icon: getAppIconPath(),
+    });
+    providerWindow.setMenuBarVisibility(false);
+    applyNavigationGuards(providerWindow);
+    void providerWindow.loadURL(providerSettingsUrl.toString());
+    return providerWindow;
+  });
+}
+
+export function closeProviderSettingsWindow(webContents: WebContents): boolean {
+  return providerSettingsWindowController.closeForWebContents(webContents);
 }
 
 export function setQuitting(value: boolean): void {

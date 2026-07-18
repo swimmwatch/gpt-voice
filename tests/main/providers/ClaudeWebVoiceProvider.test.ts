@@ -29,6 +29,7 @@ import { CLAUDE_WEB_SPEECH_PROTOCOL_VERSION } from '@main/providers/claudeWebPro
 import { CLAUDE_WEB_PCM_CHUNK_BYTES, CLAUDE_WEB_PCM_SAMPLE_RATE_HZ } from '@main/providers/claudeWebAudio';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE, WEBM_OPUS_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+import { t } from '@main/i18n';
 
 const SYNTHETIC_ORGANIZATION_UUID = '11111111-2222-4333-8444-555555555555';
 const SYNTHETIC_ORIGIN_STORAGE = [{ name: 'synthetic-state', value: 'synthetic-value' }];
@@ -156,6 +157,7 @@ interface ProviderHarness {
     clearCalls: number;
     clipboardWrites: string[];
     navigationCalls: number;
+    readinessRetryDelays: number[];
     savedStates: unknown[];
     transportCreations: number;
   };
@@ -172,6 +174,7 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     clearCalls: 0,
     clipboardWrites: [] as string[],
     navigationCalls: 0,
+    readinessRetryDelays: [] as number[],
     savedStates: [] as unknown[],
     transportCreations: 0,
   };
@@ -198,6 +201,9 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     writeClipboardText: (text) => state.clipboardWrites.push(text),
     navigatePage: async () => {
       state.navigationCalls += 1;
+    },
+    waitForReadinessRetry: async (delayMs) => {
+      state.readinessRetryDelays.push(delayMs);
     },
     ...overrides,
   };
@@ -337,6 +343,8 @@ describe('ClaudeWebVoiceProvider', () => {
       id: CLAUDE_WEB_PROVIDER_ID,
       name: 'Claude Web',
       authType: 'browserSession',
+      category: 'web',
+      hasSettings: true,
       loginUrl: CLAUDE_WEB_ORIGIN,
     });
     assert.equal(harness.provider.isReady(), true);
@@ -346,6 +354,62 @@ describe('ClaudeWebVoiceProvider', () => {
     assert.deepEqual(harness.page.runRoute('image'), { aborted: 1, continued: 0 });
     assert.deepEqual(harness.page.runRoute('script'), { aborted: 0, continued: 1 });
     assert.deepEqual(harness.page.runRoute('websocket'), { aborted: 0, continued: 1 });
+  });
+
+  it('waits for delayed Claude SPA feature and organization readiness during startup', async () => {
+    const snapshots: ClaudeWebReadinessSnapshot[] = [
+      {
+        authenticated: true,
+        featureAvailable: false,
+        organizationEvidence: {
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [
+            { uuid: SYNTHETIC_ORGANIZATION_UUID },
+            { uuid: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' },
+          ],
+        },
+      },
+      {
+        authenticated: true,
+        featureAvailable: true,
+        organizationEvidence: {
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [
+            { uuid: SYNTHETIC_ORGANIZATION_UUID },
+            { uuid: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' },
+          ],
+        },
+      },
+      READY_SNAPSHOT,
+    ];
+    let inspectionIndex = 0;
+    const harness = createHarness({
+      inspectReadiness: async () => snapshots[Math.min(inspectionIndex++, snapshots.length - 1)] ?? READY_SNAPSHOT,
+    });
+
+    await initialize(harness);
+
+    assert.equal(harness.provider.isReady(), true);
+    assert.equal(harness.provider.getReadinessError(), null);
+    assert.equal(inspectionIndex, 3);
+    assert.deepEqual(harness.state.readinessRetryDelays, [500, 500]);
+    assert.equal(JSON.stringify(harness.provider.getReadinessError()).includes(SYNTHETIC_ORGANIZATION_UUID), false);
+  });
+
+  it('stops readiness polling at the startup bound and preserves the final Claude error', async () => {
+    const harness = createHarness();
+    harness.state.snapshot = { ...READY_SNAPSHOT, featureAvailable: false };
+
+    await initialize(harness);
+
+    assert.equal(harness.provider.isReady(), false);
+    assert.equal(harness.provider.getReadinessError(), t('error.claudeWeb.feature-unavailable'));
+    assert.equal(harness.state.readinessRetryDelays.length, 20);
+    assert.equal(
+      harness.state.readinessRetryDelays.reduce((total, delayMs) => total + delayMs, 0),
+      10_000,
+    );
+    assert.equal(harness.provider.getReadinessError()?.includes(SYNTHETIC_ORGANIZATION_UUID), false);
   });
 
   it('handles fresh, restored, missing, expired, malformed, and cleared sessions', async () => {

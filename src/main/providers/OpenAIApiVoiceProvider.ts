@@ -45,6 +45,8 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     id: OPENAI_API_PROVIDER_ID,
     name: 'OpenAI API',
     authType: 'apiKey',
+    category: 'api',
+    hasSettings: true,
   };
 
   hasSession(): boolean {

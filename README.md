@@ -85,13 +85,13 @@ Use this provider when you want the app to work through the GPT web account you 
 
 ### OpenAI API
 
-OpenAI API uses the official audio transcription endpoint and the `whisper-1` model.
+OpenAI API uses the official audio transcription endpoint with a selectable compatible transcription model.
 
 - Requires your own OpenAI API key with available billing/quota.
 - Does not require browser login for transcription.
 - Stores API settings separately from ChatGPT Web settings.
 - Encrypts the API key with Electron `safeStorage`; if secure storage is unavailable, the key is not saved as plaintext.
-- Supports Whisper-specific settings only: model `whisper-1`, language auto/en/ru/uk/be, optional prompt, and temperature from `0` to `1`.
+- Supports `whisper-1`, `gpt-4o-transcribe`, and `gpt-4o-mini-transcribe`, a searchable supported-language selector, an optional prompt, and temperature from `0` to `1`.
 
 Use this provider when you want the official API path and predictable API-account billing instead of web-session automation.
 
@@ -277,7 +277,7 @@ After installation, the first run is the same on every supported packaged platfo
 2. Choose a provider in the **Provider** select.
 3. Open **Settings** next to the provider selector.
 4. For **ChatGPT Web**, sign in through the browser login flow and close the login window after ChatGPT is ready.
-5. For **OpenAI API**, paste your OpenAI API key and adjust the Whisper settings you need.
+5. For **OpenAI API**, paste your OpenAI API key and select the transcription model and language you need.
 6. Wait until the main button shows the provider as connected or configured.
 
 After that, GPT-Voice reuses the saved provider settings. ChatGPT Web starts its background browser automatically; OpenAI API does not need a browser for transcription.
@@ -297,7 +297,7 @@ On first launch, choose a provider from the app window. ChatGPT Web opens a logi
 ## How To Use
 
 1. **Start the app** and choose **ChatGPT Web** or **OpenAI API** in the Provider select in the main toolbar.
-2. **Configure the provider** with the adjacent provider-settings button. Use ChatGPT Web to sign in once through the login browser, or save an OpenAI API key and Whisper settings. The API key is encrypted with Electron safe storage and is never shown back in the UI.
+2. **Configure the provider** with the adjacent provider-settings button. Use ChatGPT Web to sign in once through the login browser, or save an OpenAI API key and transcription settings. The API key is encrypted with Electron safe storage and is never shown back in the UI.
 3. **Record** with the visible primary button or the configured hotkey, then use the visible Stop, Pause, Resume, or Cancel action as needed.
 4. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
 5. Optional: open **History** from the main toolbar or tray menu. Existing entries load progressively while you scroll; click transcript text to copy it again.

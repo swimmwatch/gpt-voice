@@ -8,6 +8,8 @@ class TestVoiceProvider extends BaseVoiceProvider {
     id: 'test',
     name: 'Test Provider',
     authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
     loginUrl: 'https://example.com/login',
   };
 

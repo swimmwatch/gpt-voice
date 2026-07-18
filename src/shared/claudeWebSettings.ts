@@ -12,11 +12,15 @@ export interface ClaudeWebSettingsInput {
   language?: string;
 }
 
+export interface ClaudeWebSettingsUpdateInput {
+  language: string;
+}
+
 export const DEFAULT_CLAUDE_WEB_SETTINGS: ClaudeWebSettings = {
   language: DEFAULT_CLAUDE_WEB_LANGUAGE,
 };
 
-function isSettingsObject(value: unknown): value is ClaudeWebSettingsInput {
+function isSettingsObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -56,6 +60,20 @@ export function getClaudeWebSettingsInputError(input: unknown = {}): string | nu
 
 export function assertValidClaudeWebSettingsInput(input: unknown = {}): asserts input is ClaudeWebSettingsInput {
   const error = getClaudeWebSettingsInputError(input);
+  if (error) throw new Error(error);
+}
+
+export function getClaudeWebSettingsUpdateInputError(input: unknown): string | null {
+  if (!isSettingsObject(input)) return 'Claude Web settings update must be an object';
+  const keys = Object.keys(input);
+  if (keys.length !== 1 || keys[0] !== 'language') {
+    return 'Claude Web settings update must contain only language';
+  }
+  return getClaudeWebLanguageInputError(input.language);
+}
+
+export function assertValidClaudeWebSettingsUpdateInput(input: unknown): asserts input is ClaudeWebSettingsUpdateInput {
+  const error = getClaudeWebSettingsUpdateInputError(input);
   if (error) throw new Error(error);
 }
 

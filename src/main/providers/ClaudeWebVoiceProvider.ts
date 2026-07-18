@@ -31,6 +31,7 @@ import {
 import { getClaudeWebSettings } from './claudeWebSettings';
 import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
 import { writeClipboardText } from '../electronRuntime';
+import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
@@ -38,6 +39,8 @@ import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 const log = createLogger('claude-web-provider');
 const CLAUDE_WEB_NAVIGATION_TIMEOUT_MS = 30_000;
 const CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS = 10_000;
+const CLAUDE_WEB_READINESS_TIMEOUT_MS = 10_000;
+const CLAUDE_WEB_READINESS_POLL_INTERVAL_MS = 500;
 const CLAUDE_WEB_BOOTSTRAP_PATH =
   '/edge-api/bootstrap?statsig_hashing_algorithm=djb2&growthbook_format=sdk&include_system_prompts=false';
 const CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME = 'Press and hold to record';
@@ -66,6 +69,13 @@ export enum ClaudeWebVoiceProviderErrorCode {
   PageShutdown = 'page-shutdown',
   UnexpectedFailure = 'unexpected-failure',
 }
+
+const TRANSIENT_STARTUP_READINESS_ERRORS = new Set<ClaudeWebVoiceProviderErrorCode>([
+  ClaudeWebVoiceProviderErrorCode.SessionExpired,
+  ClaudeWebVoiceProviderErrorCode.FeatureUnavailable,
+  ClaudeWebVoiceProviderErrorCode.OrganizationMissing,
+  ClaudeWebVoiceProviderErrorCode.OrganizationAmbiguous,
+]);
 
 const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, ClaudeWebVoiceProviderErrorCode>> = {
   [ClaudeWebPageTransportErrorCode.UpgradeOrAuth]: ClaudeWebVoiceProviderErrorCode.UpgradeOrAuth,
@@ -106,6 +116,7 @@ export interface ClaudeWebVoiceProviderDependencies {
   createTransport(page: Page): ClaudeWebPageTransportLike;
   writeClipboardText(text: string): void;
   navigatePage(page: Page): Promise<void>;
+  waitForReadinessRetry(delayMs: number): Promise<void>;
 }
 
 interface ClaudeWebReadinessResolution {
@@ -231,6 +242,7 @@ const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
   createTransport: createClaudeWebPageTransport,
   writeClipboardText,
   navigatePage: navigateClaudeWebPage,
+  waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
 };
 
 function getSessionErrorCode(result: ClaudeWebSessionReadResult): ClaudeWebVoiceProviderErrorCode | null {
@@ -267,12 +279,15 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
     id: CLAUDE_WEB_PROVIDER_ID,
     name: 'Claude Web',
     authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
     loginUrl: CLAUDE_WEB_ORIGIN,
   };
 
   private readonly deps: ClaudeWebVoiceProviderDependencies;
   private transport: ClaudeWebPageTransportLike | null = null;
   private ready = false;
+  private readinessErrorCode: ClaudeWebVoiceProviderErrorCode | null = null;
 
   constructor(dependencies: Partial<ClaudeWebVoiceProviderDependencies> = {}) {
     super();
@@ -284,7 +299,7 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
     this.page = await context.newPage();
     await configureClaudeWebPage(this.page);
     await this.deps.navigatePage(this.page);
-    this.ready = (await this.resolveReadiness(this.page)).errorCode === null;
+    this.setReadiness(await this.resolveStartupReadiness(this.page));
     this.transport = this.deps.createTransport(this.page);
   }
 
@@ -302,12 +317,14 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
 
   clearSession(): void {
     this.ready = false;
+    this.readinessErrorCode = null;
     this.deps.clearSession();
   }
 
   async saveSession(context: BrowserContext): Promise<void> {
     this.deps.saveSession(await context.storageState());
     this.ready = false;
+    this.readinessErrorCode = null;
   }
 
   async loadSession(context: BrowserContext): Promise<boolean> {
@@ -315,6 +332,7 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
     if (result.status !== 'usable') {
       if (result.status !== 'missing') this.deps.clearSession();
       this.ready = false;
+      this.readinessErrorCode = getSessionErrorCode(result);
       return false;
     }
 
@@ -334,6 +352,10 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
 
   isReady(): boolean {
     return this.ready && this.page !== null && !this.page.isClosed() && this.transport !== null;
+  }
+
+  getReadinessError(): string | null {
+    return this.readinessErrorCode ? t(`error.claudeWeb.${this.readinessErrorCode}`) : null;
   }
 
   getTranscriptionCacheContext(): readonly string[] {
@@ -374,7 +396,7 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
         return { success: false, error: ClaudeWebVoiceProviderErrorCode.InvalidSettings };
       }
       const readiness = await this.resolveReadiness(this.page);
-      this.ready = readiness.errorCode === null;
+      this.setReadiness(readiness);
       if (readiness.errorCode || readiness.organization.routing.status !== 'resolved') {
         return {
           success: false,
@@ -408,6 +430,7 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
 
   async shutdown(): Promise<void> {
     this.ready = false;
+    this.readinessErrorCode = null;
     const transport = this.transport;
     this.transport = null;
     try {
@@ -465,5 +488,28 @@ export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
       return { errorCode: ClaudeWebVoiceProviderErrorCode.SessionExpired, organization };
     }
     return { errorCode: null, organization };
+  }
+
+  private async resolveStartupReadiness(page: Page): Promise<ClaudeWebReadinessResolution> {
+    let readiness = await this.resolveReadiness(page);
+    let elapsedMs = 0;
+
+    while (
+      readiness.errorCode !== null &&
+      TRANSIENT_STARTUP_READINESS_ERRORS.has(readiness.errorCode) &&
+      elapsedMs < CLAUDE_WEB_READINESS_TIMEOUT_MS
+    ) {
+      const delayMs = Math.min(CLAUDE_WEB_READINESS_POLL_INTERVAL_MS, CLAUDE_WEB_READINESS_TIMEOUT_MS - elapsedMs);
+      await this.deps.waitForReadinessRetry(delayMs);
+      elapsedMs += delayMs;
+      readiness = await this.resolveReadiness(page);
+    }
+
+    return readiness;
+  }
+
+  private setReadiness(readiness: ClaudeWebReadinessResolution): void {
+    this.ready = readiness.errorCode === null;
+    this.readinessErrorCode = readiness.errorCode;
   }
 }

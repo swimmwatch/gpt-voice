@@ -8,9 +8,15 @@ describe('provider registry', () => {
     const providers = getAvailableProviders();
 
     assert.deepEqual(providers, [
-      { id: 'chatgpt', name: 'ChatGPT Web', authType: 'browserSession' },
-      { id: 'openai-api', name: 'OpenAI API', authType: 'apiKey' },
-      { id: CLAUDE_WEB_PROVIDER_ID, name: 'Claude Web', authType: 'browserSession' },
+      { id: 'chatgpt', name: 'ChatGPT Web', authType: 'browserSession', category: 'web', hasSettings: true },
+      { id: 'openai-api', name: 'OpenAI API', authType: 'apiKey', category: 'api', hasSettings: true },
+      {
+        id: CLAUDE_WEB_PROVIDER_ID,
+        name: 'Claude Web',
+        authType: 'browserSession',
+        category: 'web',
+        hasSettings: true,
+      },
     ]);
     assert.equal(providers.filter((provider) => provider.id === CLAUDE_WEB_PROVIDER_ID).length, 1);
   });
