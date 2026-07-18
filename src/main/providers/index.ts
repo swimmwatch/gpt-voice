@@ -1,15 +1,19 @@
 import { BaseVoiceProvider, type VoiceProviderAuthType } from './BaseVoiceProvider';
 import { ChatGPTVoiceProvider } from './ChatGPTVoiceProvider';
+import { ClaudeWebVoiceProvider } from './ClaudeWebVoiceProvider';
 import { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';
+import { CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 
 export type { TranscriptionResult, VoiceProviderInfo, VoiceProviderAuthType } from './BaseVoiceProvider';
 export { BaseVoiceProvider } from './BaseVoiceProvider';
 export { ChatGPTVoiceProvider } from './ChatGPTVoiceProvider';
+export { ClaudeWebVoiceProvider } from './ClaudeWebVoiceProvider';
 export { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';
 
 const providerRegistry: Record<string, () => BaseVoiceProvider> = {
   chatgpt: () => new ChatGPTVoiceProvider(),
   'openai-api': () => new OpenAIApiVoiceProvider(),
+  [CLAUDE_WEB_PROVIDER_ID]: () => new ClaudeWebVoiceProvider(),
 };
 
 export function getAvailableProviders(): { id: string; name: string; authType: VoiceProviderAuthType }[] {

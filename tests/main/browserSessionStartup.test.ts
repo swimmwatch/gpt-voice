@@ -23,4 +23,12 @@ describe('browser session startup state', () => {
       BrowserSessionStartupState.Ready,
     );
   });
+
+  it('classifies a switched provider from its own restored-session state', () => {
+    const previousProviderState = getBrowserSessionStartupState({ providerReady: true, sessionLoaded: true });
+    const switchedProviderState = getBrowserSessionStartupState({ providerReady: false, sessionLoaded: false });
+
+    assert.equal(previousProviderState, BrowserSessionStartupState.Ready);
+    assert.equal(switchedProviderState, BrowserSessionStartupState.Expired);
+  });
 });
