@@ -36,6 +36,10 @@ const App: React.FC = () => {
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
 
   const { t, isReady: isI18nReady } = useI18n();
+  const activeProvider = providers.find((provider) => provider.id === activeProviderId);
+  const activeProviderName = activeProvider?.name || activeProviderId;
+  const activeProviderAuthType = activeProvider?.authType || 'browserSession';
+  const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
 
   useWindowStartupReady(isI18nReady && !isLoading);
 
@@ -83,13 +87,21 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, resendLastTranscription } =
-    useRecording({
-      setStatus,
-      setRecordingState,
-      notifyStatus: showStatusNotification,
-      t,
-    });
+  const {
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    cancelStreamingForProviderChange,
+    resendLastTranscription,
+  } = useRecording({
+    setStatus,
+    setRecordingState,
+    notifyStatus: showStatusNotification,
+    t,
+    transcriptionMode: activeProviderTranscriptionMode,
+  });
 
   useEffect(() => {
     let disposed = false;
@@ -252,10 +264,6 @@ const App: React.FC = () => {
     t,
   ]);
 
-  const activeProviderName = providers.find((p) => p.id === activeProviderId)?.name || activeProviderId;
-  const activeProvider = providers.find((p) => p.id === activeProviderId);
-  const activeProviderAuthType = activeProvider?.authType || 'browserSession';
-
   const applyProviderSettingsSnapshot = useCallback(
     (settings: ProviderSettings): void => {
       if (settings.authType === 'browserSession') {
@@ -340,6 +348,7 @@ const App: React.FC = () => {
 
   const handleProviderChange = async (providerId: string) => {
     const authType = providers.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
+    cancelStreamingForProviderChange();
     activeProviderIdRef.current = providerId;
     activeProviderAuthTypeRef.current = authType;
     setActiveProviderId(providerId);

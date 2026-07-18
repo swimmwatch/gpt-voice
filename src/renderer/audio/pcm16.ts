@@ -2,7 +2,7 @@ export const LIVE_PCM_SAMPLE_RATE_HZ = 16_000;
 export const LIVE_PCM_CHANNELS = 1;
 export const PCM16_BITS_PER_SAMPLE = 16;
 export const PCM16_BYTES_PER_SAMPLE = PCM16_BITS_PER_SAMPLE / 8;
-export const LIVE_PCM_FRAME_BYTES = 2_730;
+export const LIVE_PCM_FRAME_BYTES = MAX_STREAMING_TRANSCRIPTION_PCM_CHUNK_BYTES;
 export const PCM16_WAV_HEADER_BYTES = 44;
 
 const WAV_FORMAT_PCM = 1;
@@ -104,3 +104,4 @@ function writeAscii(view: DataView, offset: number, value: string): void {
     view.setUint8(offset + index, value.charCodeAt(index));
   }
 }
+import { MAX_STREAMING_TRANSCRIPTION_PCM_CHUNK_BYTES } from '@shared/streamingTranscription';
