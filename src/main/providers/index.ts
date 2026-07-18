@@ -40,6 +40,7 @@ export type {
   StreamingVoiceProviderCapability,
   StreamingVoiceProviderOperations,
 } from './streamingVoiceProvider';
+export { resolveStreamingVoiceProviderCapability } from './streamingVoiceProviderCapability';
 export { isBatchVoiceProvider, isStreamingVoiceProvider } from './voiceProviderGuards';
 
 const providerRegistry: Record<string, () => BaseVoiceProvider> = {
