@@ -52,6 +52,7 @@ export default {
   'provider.connected': 'Connected',
   'provider.connectionReady': 'Ready',
   'provider.connectionSetupRequired': 'Setup required',
+  'provider.claudeWeb.name': 'Claude Web',
 
   // Provider settings
   'providerSettings.title': '{provider} settings',
@@ -76,6 +77,11 @@ export default {
   'providerSettings.clearFailed': 'Could not clear provider data',
   'providerSettings.language.auto': 'Auto',
   'providerSettings.description': 'Configure transcription access for {provider}.',
+  'providerSettings.claudeWeb.description': 'Use a saved Claude browser session for transcription.',
+  'providerSettings.claudeWeb.language': 'Transcription language',
+  'providerSettings.claudeWeb.languageDescription':
+    'Enter the BCP 47 language tag sent to Claude Web, for example en-US.',
+  'providerSettings.claudeWeb.languagePlaceholder': 'For example, en-US',
   'providerSettings.clearSessionConfirmTitle': 'Clear saved session?',
   'providerSettings.clearKeyConfirmTitle': 'Clear saved API key?',
   'providerSettings.clearConfirmDescription': 'You will need to sign in or enter a key again to use this provider.',
@@ -283,6 +289,36 @@ export default {
   'error.noPrettifyResult': 'No prettified text in response',
   'error.noPrettifyModel': 'Select a prettify model in App Settings',
   'error.prettifyInProgress': 'Prettify already in progress',
+  'error.claudeWeb.session-missing': 'Sign in to Claude Web in Provider Settings, then try again.',
+  'error.claudeWeb.session-expired': 'Your Claude Web session expired. Sign in again, then retry.',
+  'error.claudeWeb.session-invalid': 'The saved Claude Web session is invalid. Clear it, sign in again, then retry.',
+  'error.claudeWeb.feature-unavailable':
+    'Voice transcription is unavailable in the active Claude session. Check dictation access in Claude, then retry.',
+  'error.claudeWeb.organization-missing':
+    'Claude Web could not determine the active organization. Make the intended organization active in Claude, then retry.',
+  'error.claudeWeb.organization-ambiguous':
+    'Claude Web could not identify one active organization. Make the intended organization active in Claude, then retry.',
+  'error.claudeWeb.invalid-settings':
+    'The Claude Web language setting is invalid. Enter a valid BCP 47 tag such as en-US, then retry.',
+  'error.claudeWeb.invalid-audio':
+    'Claude Web requires uncompressed 16 kHz mono PCM audio. Record again; compressed fallback audio cannot be sent.',
+  'error.claudeWeb.upgrade-or-auth':
+    'Claude Web rejected the speech connection. Sign in again; if it continues, revalidate the private integration.',
+  'error.claudeWeb.connect-timeout':
+    'The Claude Web speech connection did not open in time. Check the network, then retry.',
+  'error.claudeWeb.connection-loss': 'The Claude Web speech connection was interrupted. Check the network, then retry.',
+  'error.claudeWeb.malformed-event':
+    'Claude Web returned an unsupported speech event. This private integration may have changed; sign in again and revalidate it before retrying.',
+  'error.claudeWeb.rate-limit': 'Claude Web is temporarily limiting transcription. Wait, then retry.',
+  'error.claudeWeb.first-event-timeout':
+    'Claude Web did not start returning transcription in time. Check the network, then retry.',
+  'error.claudeWeb.overall-timeout': 'Claude Web transcription took too long. Retry manually.',
+  'error.claudeWeb.drain-timeout': 'Claude Web did not finish the transcription in time. Retry manually.',
+  'error.claudeWeb.empty-result': 'Claude Web returned no final transcription. Record again, then retry.',
+  'error.claudeWeb.cancelled': 'Claude Web transcription was cancelled.',
+  'error.claudeWeb.page-shutdown': 'The authenticated Claude page closed. Connect Claude Web again, then retry.',
+  'error.claudeWeb.unexpected-failure':
+    'Claude Web transcription failed unexpectedly. Connect Claude Web again, then retry.',
   'error.notificationConnectionFailed':
     'Could not connect to {service}. Make sure it is running and the URL is correct.',
   'error.notificationProviderRequestFailed':

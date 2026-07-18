@@ -52,6 +52,7 @@ export default {
   'provider.connected': 'Падключана',
   'provider.connectionReady': 'Гатова',
   'provider.connectionSetupRequired': 'Патрэбная наладка',
+  'provider.claudeWeb.name': 'Claude Web',
 
   // Provider settings
   'providerSettings.title': 'Налады {provider}',
@@ -76,6 +77,11 @@ export default {
   'providerSettings.clearFailed': 'Не ўдалося ачысціць даныя правайдара',
   'providerSettings.language.auto': 'Аўта',
   'providerSettings.description': 'Наладзьце доступ да транскрыбавання праз {provider}.',
+  'providerSettings.claudeWeb.description': 'Выкарыстоўвайце захаваную сесію браўзера Claude для транскрыбавання.',
+  'providerSettings.claudeWeb.language': 'Мова транскрыбавання',
+  'providerSettings.claudeWeb.languageDescription':
+    'Укажыце тэг мовы BCP 47, які будзе адпраўляцца ў Claude Web, напрыклад en-US.',
+  'providerSettings.claudeWeb.languagePlaceholder': 'Напрыклад, en-US',
   'providerSettings.clearSessionConfirmTitle': 'Ачысціць захаваную сесію?',
   'providerSettings.clearKeyConfirmTitle': 'Ачысціць захаваны ключ API?',
   'providerSettings.clearConfirmDescription':
@@ -284,6 +290,40 @@ export default {
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',
   'error.prettifyInProgress': 'Паляпшэнне тэксту ўжо выконваецца',
+  'error.claudeWeb.session-missing': 'Увайдзіце ў Claude Web у наладах правайдара і паўтарыце спробу.',
+  'error.claudeWeb.session-expired': 'Сесія Claude Web скончылася. Увайдзіце зноў і паўтарыце спробу.',
+  'error.claudeWeb.session-invalid':
+    'Захаваная сесія Claude Web несапраўдная. Ачысціце яе, увайдзіце зноў і паўтарыце спробу.',
+  'error.claudeWeb.feature-unavailable':
+    'Галасавое транскрыбаванне недаступнае ў актыўнай сесіі Claude. Праверце доступ да дыктоўкі ў Claude і паўтарыце спробу.',
+  'error.claudeWeb.organization-missing':
+    'Claude Web не ўдалося вызначыць актыўную арганізацыю. Зрабіце патрэбную арганізацыю актыўнай у Claude і паўтарыце спробу.',
+  'error.claudeWeb.organization-ambiguous':
+    'Claude Web не ўдалося адназначна вызначыць актыўную арганізацыю. Зрабіце патрэбную арганізацыю актыўнай у Claude і паўтарыце спробу.',
+  'error.claudeWeb.invalid-settings':
+    'Налада мовы Claude Web несапраўдная. Укажыце карэктны тэг BCP 47, напрыклад en-US, і паўтарыце спробу.',
+  'error.claudeWeb.invalid-audio':
+    'Claude Web патрабуе несціснуты монагук PCM 16 кГц. Запішыце гук нанова; сціснуты рэзервовы аўдыяфармат нельга адправіць.',
+  'error.claudeWeb.upgrade-or-auth':
+    'Claude Web адхіліў падключэнне да распазнавання. Увайдзіце зноў; калі памылка паўторыцца, пераправерце прыватную інтэграцыю.',
+  'error.claudeWeb.connect-timeout':
+    'Падключэнне да распазнавання Claude Web не адкрылася своечасова. Праверце сетку і паўтарыце спробу.',
+  'error.claudeWeb.connection-loss':
+    'Падключэнне да распазнавання Claude Web перарвалася. Праверце сетку і паўтарыце спробу.',
+  'error.claudeWeb.malformed-event':
+    'Claude Web вярнуў непадтрымліваемую падзею распазнавання. Прыватная інтэграцыя магла змяніцца; увайдзіце зноў і пераправерце яе перад паўторам.',
+  'error.claudeWeb.rate-limit': 'Claude Web часова абмяжоўвае частату транскрыбавання. Пачакайце і паўтарыце спробу.',
+  'error.claudeWeb.first-event-timeout':
+    'Claude Web не пачаў вяртаць транскрыпцыю своечасова. Праверце сетку і паўтарыце спробу.',
+  'error.claudeWeb.overall-timeout': 'Транскрыбаванне Claude Web заняло занадта шмат часу. Паўтарыце спробу ўручную.',
+  'error.claudeWeb.drain-timeout': 'Claude Web не завяршыў транскрыбаванне своечасова. Паўтарыце спробу ўручную.',
+  'error.claudeWeb.empty-result':
+    'Claude Web не вярнуў выніковую транскрыпцыю. Запішыце гук нанова і паўтарыце спробу.',
+  'error.claudeWeb.cancelled': 'Транскрыбаванне Claude Web адменена.',
+  'error.claudeWeb.page-shutdown':
+    'Аўтарызаваная старонка Claude закрылася. Падключыце Claude Web зноў і паўтарыце спробу.',
+  'error.claudeWeb.unexpected-failure':
+    'Нечаканая памылка транскрыбавання Claude Web. Падключыце Claude Web зноў і паўтарыце спробу.',
   'error.notificationConnectionFailed':
     'Не ўдалося падключыцца да {service}. Пераканайцеся, што сэрвіс запушчаны і адрас указаны правільна.',
   'error.notificationProviderRequestFailed':

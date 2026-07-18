@@ -52,6 +52,7 @@ export default {
   'provider.connected': 'Подключено',
   'provider.connectionReady': 'Готово',
   'provider.connectionSetupRequired': 'Требуется настройка',
+  'provider.claudeWeb.name': 'Claude Web',
 
   // Provider settings
   'providerSettings.title': 'Настройки {provider}',
@@ -76,6 +77,11 @@ export default {
   'providerSettings.clearFailed': 'Не удалось очистить данные провайдера',
   'providerSettings.language.auto': 'Авто',
   'providerSettings.description': 'Настройте доступ к распознаванию через {provider}.',
+  'providerSettings.claudeWeb.description': 'Используйте сохранённую сессию браузера Claude для транскрипции.',
+  'providerSettings.claudeWeb.language': 'Язык транскрипции',
+  'providerSettings.claudeWeb.languageDescription':
+    'Укажите тег языка BCP 47, который будет отправляться в Claude Web, например en-US.',
+  'providerSettings.claudeWeb.languagePlaceholder': 'Например, en-US',
   'providerSettings.clearSessionConfirmTitle': 'Очистить сохраненную сессию?',
   'providerSettings.clearKeyConfirmTitle': 'Очистить сохраненный ключ API?',
   'providerSettings.clearConfirmDescription':
@@ -285,6 +291,40 @@ export default {
   'error.noPrettifyResult': 'В ответе нет улучшенного текста',
   'error.noPrettifyModel': 'Выберите модель улучшения текста в настройках приложения',
   'error.prettifyInProgress': 'Улучшение текста уже выполняется',
+  'error.claudeWeb.session-missing': 'Войдите в Claude Web в настройках провайдера и повторите попытку.',
+  'error.claudeWeb.session-expired': 'Сессия Claude Web истекла. Войдите снова и повторите попытку.',
+  'error.claudeWeb.session-invalid':
+    'Сохранённая сессия Claude Web недействительна. Очистите её, войдите снова и повторите попытку.',
+  'error.claudeWeb.feature-unavailable':
+    'Голосовая транскрипция недоступна в активной сессии Claude. Проверьте доступ к диктовке в Claude и повторите попытку.',
+  'error.claudeWeb.organization-missing':
+    'Claude Web не удалось определить активную организацию. Сделайте нужную организацию активной в Claude и повторите попытку.',
+  'error.claudeWeb.organization-ambiguous':
+    'Claude Web не удалось однозначно определить активную организацию. Сделайте нужную организацию активной в Claude и повторите попытку.',
+  'error.claudeWeb.invalid-settings':
+    'Настройка языка Claude Web недействительна. Укажите корректный тег BCP 47, например en-US, и повторите попытку.',
+  'error.claudeWeb.invalid-audio':
+    'Claude Web требует несжатый монофонический звук PCM 16 кГц. Запишите звук снова; сжатый резервный аудиоформат отправить нельзя.',
+  'error.claudeWeb.upgrade-or-auth':
+    'Claude Web отклонил подключение к распознаванию. Войдите снова; если ошибка повторится, перепроверьте частную интеграцию.',
+  'error.claudeWeb.connect-timeout':
+    'Подключение к распознаванию Claude Web не открылось вовремя. Проверьте сеть и повторите попытку.',
+  'error.claudeWeb.connection-loss':
+    'Подключение к распознаванию Claude Web прервалось. Проверьте сеть и повторите попытку.',
+  'error.claudeWeb.malformed-event':
+    'Claude Web вернул неподдерживаемое событие распознавания. Частная интеграция могла измениться; войдите снова и перепроверьте её перед повтором.',
+  'error.claudeWeb.rate-limit': 'Claude Web временно ограничивает частоту транскрипции. Подождите и повторите попытку.',
+  'error.claudeWeb.first-event-timeout':
+    'Claude Web не начал возвращать транскрипцию вовремя. Проверьте сеть и повторите попытку.',
+  'error.claudeWeb.overall-timeout': 'Транскрипция Claude Web заняла слишком много времени. Повторите попытку вручную.',
+  'error.claudeWeb.drain-timeout': 'Claude Web не завершил транскрипцию вовремя. Повторите попытку вручную.',
+  'error.claudeWeb.empty-result':
+    'Claude Web не вернул итоговую транскрипцию. Запишите звук снова и повторите попытку.',
+  'error.claudeWeb.cancelled': 'Транскрипция Claude Web отменена.',
+  'error.claudeWeb.page-shutdown':
+    'Авторизованная страница Claude закрылась. Подключите Claude Web снова и повторите попытку.',
+  'error.claudeWeb.unexpected-failure':
+    'Неожиданная ошибка транскрипции Claude Web. Подключите Claude Web снова и повторите попытку.',
   'error.notificationConnectionFailed':
     'Не удалось подключиться к {service}. Убедитесь, что сервис запущен и адрес указан правильно.',
   'error.notificationProviderRequestFailed':

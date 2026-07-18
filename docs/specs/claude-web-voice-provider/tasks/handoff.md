@@ -1,57 +1,49 @@
 # Handoff: Claude Web Voice and CLI Prettify Providers
 
-Status: Task 06 is complete and awaits review. Do not begin Task 07 until a
+Status: Task 07 is complete and awaits review. Do not begin Task 08 until a
 later explicit incremental-implementation invocation.
 
 Completed:
 
-- Task 05 was approved and committed as `973b73b4`.
-- Added an unregistered `ClaudeWebVoiceProvider` with isolated session
-  save/load/clear, scoped local-storage restoration, safe page resource
-  blocking, and Claude-specific bounded navigation retry classification.
-- Added async initialization readiness and per-transcription revalidation with
-  no access-token surrogate. Active routing comes from the exact
-  `current_user_access` request path and is validated against UUID-only
-  `account.memberships` projected from the studied authenticated bootstrap
-  response.
-- Kept organization UUID and `personal | organization | unknown` scope out of
-  provider fields, persistence, results, cache context, renderer contracts, and
-  logs. All three scopes use the same Phase 1 routing path.
-- Added WAV-only PCM extraction, current-language transport calls, one
-  clipboard write on success, stable enum-based provider errors, cancellation,
-  and transport-first shutdown without reconnect or replay.
-- Consulted the committed HAR only through sanitized shape scripts. It
-  confirmed `current_user_access`; compiled frontend assets disproved the
-  tentative bare `/api/organizations` path and confirmed bootstrap
-  `account.memberships` as the eligible-organization source.
+- Task 06 was approved and committed as `877d5725`.
+- Added 25 Claude Web keys to every supported locale: the provider name, four
+  language/settings strings, and one safe actionable message for each of the
+  20 `ClaudeWebVoiceProviderErrorCode` values.
+- Kept Claude messages free of placeholders and raw provider, account,
+  organization, session, URL, audio, transcript, and browser values.
+- Added complete locale-key and placeholder parity coverage plus exhaustive
+  enum-to-key and runtime `t()` resolution checks in every locale.
+- Locked organization ambiguity guidance to activating the intended
+  organization in Claude, private-protocol drift guidance to sign-in and
+  revalidation, compressed-audio guidance to recording again, and timeout or
+  cancellation guidance to manual user action without replay claims.
+- Added no personal/scope-specific copy; future personal-state behavior remains
+  gated on Task 20.
 
 Changed files:
 
-- `src/main/browserNavigationRetry.ts`
-- `src/main/providers/ClaudeWebVoiceProvider.ts`
-- `tests/main/browserNavigationRetry.test.ts`
-- `tests/main/providers/ClaudeWebVoiceProvider.test.ts`
+- `src/main/i18n/en.ts`
+- `src/main/i18n/ru.ts`
+- `src/main/i18n/uk.ts`
+- `src/main/i18n/be.ts`
+- `tests/main/i18n.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
 
 Checks:
 
-- Focused provider and navigation suites pass: 20 tests.
-- Task 03-05 Claude settings, session, audio, protocol, and transport suites
-  pass: 38 tests.
+- Focused i18n suite passes: 11 tests.
+- Full unit suite passes: 378 tests.
 - Application and test TypeScript checks pass.
 - Full Prettier and ESLint checks pass.
-- Full unit suite passes: 375 tests.
-- A synthetic page-boundary test executes the studied bootstrap/current-access
-  projection without a browser, network, account, or private response fixture.
-- Diff, session-artifact, field-retention, logging, captured-UUID intersection,
-  and cache-privacy scans pass.
+- Locale and placeholder parity, exhaustive enum coverage, runtime translation
+  resolution, privacy-safe wording, and retry-claim checks pass.
 
 Next step:
 
-- Review Task 06. On the next explicit incremental-implementation invocation,
+- Review Task 07. On the next explicit incremental-implementation invocation,
   commit it with a focused conventional commit and execute
-  `07_localize_claude_voice.md` only.
+  `08_register_claude_web_provider.md` only.
 
 Blockers:
 
