@@ -46,16 +46,16 @@ export interface StartMainStreamingTranscriptionInput {
 export interface SendMainStreamingTranscriptionChunkInput {
   readonly owner: StreamingTranscriptionOwnerToken;
   readonly operationId: StreamingTranscriptionOperationId;
-  readonly sequence: number;
-  readonly chunk: Uint8Array;
+  readonly sequence: unknown;
+  readonly chunk: unknown;
 }
 
 export interface FinishMainStreamingTranscriptionInput {
   readonly owner: StreamingTranscriptionOwnerToken;
   readonly operationId: StreamingTranscriptionOperationId;
-  readonly sequence: number;
-  readonly finalChunk: Uint8Array;
-  readonly recordingWav: ArrayBuffer;
+  readonly sequence: unknown;
+  readonly finalChunk: unknown;
+  readonly recordingWav: unknown;
 }
 
 export interface CancelMainStreamingTranscriptionInput {
@@ -146,8 +146,8 @@ function mapProviderError(error: unknown): StreamingTranscriptionError {
   return createStreamingError(StreamingTranscriptionErrorCode.TransportFailure);
 }
 
-function isValidSequence(sequence: number, expected: number): boolean {
-  return Number.isSafeInteger(sequence) && sequence >= 0 && sequence === expected;
+function isValidSequence(sequence: unknown, expected: number): sequence is number {
+  return typeof sequence === 'number' && Number.isSafeInteger(sequence) && sequence >= 0 && sequence === expected;
 }
 
 function isValidPcmChunk(chunk: unknown, allowEmpty: boolean): chunk is Uint8Array {

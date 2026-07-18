@@ -21,6 +21,13 @@ import type {
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import type {
+  CancelStreamingTranscriptionIpcResult,
+  FinishStreamingTranscriptionIpcResult,
+  SendStreamingTranscriptionChunkIpcResult,
+  StartStreamingTranscriptionIpcResult,
+  StreamingTranscriptionOperationId,
+} from '@shared/streamingTranscription';
+import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
   VoiceProviderCategory,
@@ -108,6 +115,21 @@ export interface ElectronAPI {
     buffer: ArrayBuffer,
     mimeType: string,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
+  startStreamingTranscription: () => Promise<StartStreamingTranscriptionIpcResult>;
+  sendStreamingTranscriptionChunk: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    chunk: Uint8Array,
+  ) => Promise<SendStreamingTranscriptionChunkIpcResult>;
+  finishStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    finalChunk: Uint8Array,
+    recordingWav: ArrayBuffer,
+  ) => Promise<FinishStreamingTranscriptionIpcResult>;
+  cancelStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+  ) => Promise<CancelStreamingTranscriptionIpcResult>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   getTranscriptionHistory: (query?: TranscriptionHistoryQuery) => Promise<TranscriptionHistoryPage>;
   copyTranscriptionHistoryText: (id: number) => Promise<TranscriptionHistoryCopyResult>;

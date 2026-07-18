@@ -5,7 +5,7 @@ import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
-import { registerIpcHandlers } from './ipc';
+import { registerIpcHandlers, teardownStreamingTranscriptionIpcHandlers } from './ipc';
 import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
@@ -166,6 +166,7 @@ app.on('activate', () => {
 
 async function runQuitCleanup(): Promise<void> {
   globalShortcut.unregisterAll();
+  await teardownStreamingTranscriptionIpcHandlers();
   try {
     await unloadLoadedOllamaPrettifyModel();
   } catch (error: unknown) {

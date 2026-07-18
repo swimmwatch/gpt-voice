@@ -1,4 +1,4 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import {
   currentHotkey,
@@ -92,8 +92,12 @@ import {
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
 import { listPrettifyModels, loadPrettifyModel, unloadPrettifyModel } from './services/prettifyProviders';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
+import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
+import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
+import { streamingTranscriptionService } from './services/streamingTranscription';
 
 const log = createLogger('ipc');
+let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -186,6 +190,37 @@ function handle<Args extends unknown[]>(
   });
 }
 
+function registerStreamingTranscriptionIpcHandlers(): void {
+  if (streamingTranscriptionIpcController) {
+    throw new Error('Streaming transcription IPC handlers are already registered');
+  }
+
+  streamingTranscriptionIpcController = new StreamingTranscriptionIpcController<WebContents>({
+    addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
+    getMainWindowSender: () => {
+      const mainWindow = getMainWindow();
+      return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+    },
+    isSenderDestroyed: (sender) => sender.isDestroyed(),
+    registerBeforeBrowserShutdownHook: registerBeforeBackgroundBrowserShutdownHook,
+    registerHandler: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        assertTrustedSender(event);
+        return listener(event.sender, ...(args as unknown[]));
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+    removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
+    service: streamingTranscriptionService,
+  });
+}
+
+export async function teardownStreamingTranscriptionIpcHandlers(): Promise<void> {
+  const controller = streamingTranscriptionIpcController;
+  streamingTranscriptionIpcController = null;
+  await controller?.dispose();
+}
+
 function sendBackgroundStatus(status: { ready: boolean; error?: string; authExpired?: boolean }): void {
   if (status.ready) {
     getMainWindow()?.webContents.send('bg-browser-ready');
@@ -246,6 +281,8 @@ async function refreshActiveProvider(providerId: string) {
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(): void {
+  registerStreamingTranscriptionIpcHandlers();
+
   handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return transcribeAudio(buffer, mimeType);
   });

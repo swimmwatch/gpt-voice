@@ -20,7 +20,8 @@ describe('provider settings IPC contract', () => {
     assert.match(preloadSource, /getProviders: \(\): Promise<ProviderInfo\[\]>/u);
     assert.match(rendererTypes, /onProviderSettingsChanged: \(callback: \(settings: ProviderSettings\) => void\)/u);
     assert.match(rendererTypes, /export type ProviderInfo = RendererSafeVoiceProviderInfo/u);
-    assert.doesNotMatch(preloadSource, /startStreamingTranscription|sendStreamingTranscriptionChunk/u);
+    assert.match(preloadSource, /startStreamingTranscription/u);
+    assert.match(preloadSource, /sendStreamingTranscriptionChunk/u);
     assert.doesNotMatch(rendererTypes, /cookie|organization|storageState|accessToken/u);
   });
 });

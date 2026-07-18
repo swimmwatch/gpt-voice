@@ -1,8 +1,10 @@
+import { MAX_STREAMING_TRANSCRIPTION_PCM_CHUNK_BYTES } from '@shared/streamingTranscription';
+
 export const CLAUDE_WEB_PCM_SAMPLE_RATE_HZ = 16_000;
 export const CLAUDE_WEB_PCM_CHANNELS = 1;
 export const CLAUDE_WEB_PCM_BITS_PER_SAMPLE = 16;
 export const CLAUDE_WEB_PCM_BYTES_PER_SAMPLE = 2;
-export const CLAUDE_WEB_PCM_CHUNK_BYTES = 2_730;
+export const CLAUDE_WEB_PCM_CHUNK_BYTES = MAX_STREAMING_TRANSCRIPTION_PCM_CHUNK_BYTES;
 export const CLAUDE_WEB_PCM_CHUNK_CADENCE_MS = 85.31;
 
 export type ClaudeWebAudioErrorCode =

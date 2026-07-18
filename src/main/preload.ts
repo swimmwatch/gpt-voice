@@ -25,6 +25,14 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import {
+  STREAMING_TRANSCRIPTION_IPC_CHANNELS,
+  type CancelStreamingTranscriptionIpcResult,
+  type FinishStreamingTranscriptionIpcResult,
+  type SendStreamingTranscriptionChunkIpcResult,
+  type StartStreamingTranscriptionIpcResult,
+  type StreamingTranscriptionOperationId,
+} from '@shared/streamingTranscription';
 
 type Unsubscribe = () => void;
 
@@ -150,6 +158,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     mimeType: string,
   ): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('transcribe-audio', buffer, mimeType);
+  },
+  startStreamingTranscription: (): Promise<StartStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.start);
+  },
+  sendStreamingTranscriptionChunk: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    chunk: Uint8Array,
+  ): Promise<SendStreamingTranscriptionChunkIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.sendChunk, operationId, sequence, chunk);
+  },
+  finishStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    finalChunk: Uint8Array,
+    recordingWav: ArrayBuffer,
+  ): Promise<FinishStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(
+      STREAMING_TRANSCRIPTION_IPC_CHANNELS.finish,
+      operationId,
+      sequence,
+      finalChunk,
+      recordingWav,
+    );
+  },
+  cancelStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+  ): Promise<CancelStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.cancel, operationId);
   },
   translateText: (text: string, targetLang: string): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('translate-text', text, targetLang);

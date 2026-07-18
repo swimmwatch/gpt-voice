@@ -16,6 +16,7 @@ import {
   normalizeGoogleTranslateTargetLang,
 } from '@main/services/translationUtils';
 import { presentNotificationError } from '@shared/notifications';
+import { runBeforeBackgroundBrowserShutdownHooks } from '@main/backgroundBrowserLifecycle';
 
 const log = createLogger('browser');
 
@@ -222,6 +223,7 @@ export async function initBackgroundBrowser(
 }
 
 export async function shutdownBackgroundBrowser(preserveError = false): Promise<void> {
+  await runBeforeBackgroundBrowserShutdownHooks();
   bgReady = false;
   if (!preserveError) {
     bgError = '';
@@ -281,7 +283,7 @@ export async function ensureTranslateBrowser(
 
 export async function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
   createProvider(providerId);
-  setProvider(providerId);
   await shutdownBackgroundBrowser();
+  setProvider(providerId);
   return initBackgroundBrowser();
 }
