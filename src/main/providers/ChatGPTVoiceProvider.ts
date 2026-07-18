@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
-import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
+import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+import { BatchVoiceProvider } from './BatchVoiceProvider';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -56,15 +57,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Browser-session provider for ChatGPT's transcription endpoint. */
-export class ChatGPTVoiceProvider extends BaseVoiceProvider {
-  readonly info: VoiceProviderInfo = {
+export class ChatGPTVoiceProvider extends BatchVoiceProvider {
+  readonly info = {
     id: 'chatgpt',
     name: 'ChatGPT Web',
     authType: 'browserSession',
     category: 'web',
     hasSettings: true,
+    transcriptionMode: 'batch',
     loginUrl: 'https://chatgpt.com',
-  };
+  } satisfies VoiceProviderInfo;
 
   async initPage(context: BrowserContext): Promise<void> {
     this.context = context;

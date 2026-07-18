@@ -192,7 +192,10 @@ only a finalized transcript reaches the renderer completion flow.
 
 1. Provider metadata declares `VoiceTranscriptionMode = 'batch' | 'streaming'`.
    Claude Web advertises `streaming`; ChatGPT Web and OpenAI API advertise
-   `batch`.
+   `batch`. Main uses a common provider lifecycle base plus nominal batch and
+   streaming base classes. Streaming providers retain buffered `transcribe()`
+   only for explicit retry; live operations require a separate privileged
+   capability.
 2. The preload exposes four typed operations:
    - `startStreamingTranscription()`
    - `sendStreamingTranscriptionChunk(operationId, sequence, chunk)`

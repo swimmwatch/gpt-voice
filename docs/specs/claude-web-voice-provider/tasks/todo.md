@@ -1,7 +1,7 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Task 21 passed with an attributed public LibriSpeech fixture and
-awaits human review. Task 22 is next after approval.
+Plan gate: Tasks 21-22 passed. Task 22 awaits human review; Task 23 is next
+after approval.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
@@ -13,7 +13,7 @@ awaits human review. Task 22 is next after approval.
 - [x] [08 Claude registry](08_register_claude_web_provider.md)
 - [x] [09 Claude settings UI](09_expose_claude_voice_settings.md)
 - [x] [21 Live streaming canary](21_revalidate_live_streaming.md)
-- [ ] [22 Streaming provider contracts](22_define_streaming_provider_contracts.md)
+- [x] [22 Streaming provider contracts](22_define_streaming_provider_contracts.md)
 - [ ] [23 Live PCM capture](23_build_live_pcm_capture.md)
 - [ ] [24 Claude streaming transport](24_refactor_claude_streaming_transport.md)
 - [ ] [25 Main streaming service](25_build_main_streaming_service.md)

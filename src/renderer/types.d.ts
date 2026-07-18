@@ -20,9 +20,14 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import type {
+  RendererSafeVoiceProviderInfo,
+  VoiceProviderAuthType,
+  VoiceProviderCategory,
+} from '@shared/voiceProvider';
 
-export type ProviderAuthType = 'browserSession' | 'apiKey';
-export type ProviderCategory = 'web' | 'api' | 'local';
+export type ProviderAuthType = VoiceProviderAuthType;
+export type ProviderCategory = VoiceProviderCategory;
 
 export interface BackgroundBrowserStatus {
   ready: boolean;
@@ -30,13 +35,7 @@ export interface BackgroundBrowserStatus {
   authExpired?: boolean;
 }
 
-export interface ProviderInfo {
-  id: string;
-  name: string;
-  authType: ProviderAuthType;
-  category: ProviderCategory;
-  hasSettings: boolean;
-}
+export type ProviderInfo = RendererSafeVoiceProviderInfo;
 
 export interface OpenAIApiProviderSettings {
   providerId: 'openai-api';

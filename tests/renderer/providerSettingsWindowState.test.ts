@@ -8,8 +8,22 @@ import {
 import type { ProviderInfo, ProviderSettings } from '@renderer/types';
 
 const providers: ProviderInfo[] = [
-  { authType: 'browserSession', category: 'web', hasSettings: true, id: 'claude-web', name: 'Claude Web' },
-  { authType: 'browserSession', category: 'web', hasSettings: false, id: 'future', name: 'Future' },
+  {
+    authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
+    id: 'claude-web',
+    name: 'Claude Web',
+    transcriptionMode: 'streaming',
+  },
+  {
+    authType: 'browserSession',
+    category: 'web',
+    hasSettings: false,
+    id: 'future',
+    name: 'Future',
+    transcriptionMode: 'batch',
+  },
 ];
 
 describe('provider settings window state', () => {

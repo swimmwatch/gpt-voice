@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from 'playwright-core';
-import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
+import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+import { StreamingVoiceProvider } from './streamingVoiceProvider';
 import {
   CLAUDE_WEB_PCM_BITS_PER_SAMPLE,
   CLAUDE_WEB_PCM_CHANNELS,
@@ -274,15 +275,16 @@ function isSupportedWavMimeType(mimeType: string): boolean {
 }
 
 /** Browser-session Claude provider; organization identity remains operation-local. */
-export class ClaudeWebVoiceProvider extends BaseVoiceProvider {
-  readonly info: VoiceProviderInfo = {
+export class ClaudeWebVoiceProvider extends StreamingVoiceProvider {
+  readonly info = {
     id: CLAUDE_WEB_PROVIDER_ID,
     name: 'Claude Web',
     authType: 'browserSession',
     category: 'web',
     hasSettings: true,
+    transcriptionMode: 'streaming',
     loginUrl: CLAUDE_WEB_ORIGIN,
-  };
+  } satisfies VoiceProviderInfo;
 
   private readonly deps: ClaudeWebVoiceProviderDependencies;
   private transport: ClaudeWebPageTransportLike | null = null;

@@ -1,16 +1,12 @@
 import type { BrowserContext, Page } from 'playwright-core';
 
-export type VoiceProviderAuthType = 'browserSession' | 'apiKey';
-export type VoiceProviderCategory = 'web' | 'api' | 'local';
+import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 
-export interface VoiceProviderInfo {
-  id: string;
-  name: string;
-  authType: VoiceProviderAuthType;
-  category: VoiceProviderCategory;
-  hasSettings: boolean;
+export type { VoiceProviderAuthType, VoiceProviderCategory, VoiceTranscriptionMode } from '@shared/voiceProvider';
+
+export type VoiceProviderInfo = RendererSafeVoiceProviderInfo & {
   loginUrl?: string;
-}
+};
 
 export interface TranscriptionResult {
   success: boolean;

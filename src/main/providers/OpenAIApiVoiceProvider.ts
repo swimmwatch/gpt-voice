@@ -1,5 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
-import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
+import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+import { BatchVoiceProvider } from './BatchVoiceProvider';
 import { getAudioFileExtension } from './chatgptUtils';
 import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
@@ -30,7 +31,7 @@ interface OpenAIApiVoiceProviderDependencies {
 }
 
 /** API-key provider for OpenAI's hosted audio transcription endpoint. */
-export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
+export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
   private readonly deps: OpenAIApiVoiceProviderDependencies;
 
   constructor(deps: Partial<OpenAIApiVoiceProviderDependencies> = {}) {
@@ -41,13 +42,14 @@ export class OpenAIApiVoiceProvider extends BaseVoiceProvider {
     };
   }
 
-  readonly info: VoiceProviderInfo = {
+  readonly info = {
     id: OPENAI_API_PROVIDER_ID,
     name: 'OpenAI API',
     authType: 'apiKey',
     category: 'api',
     hasSettings: true,
-  };
+    transcriptionMode: 'batch',
+  } satisfies VoiceProviderInfo;
 
   hasSession(): boolean {
     return Boolean(this.deps.getSettings().apiKey);

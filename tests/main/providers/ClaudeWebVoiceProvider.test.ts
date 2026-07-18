@@ -345,6 +345,7 @@ describe('ClaudeWebVoiceProvider', () => {
       authType: 'browserSession',
       category: 'web',
       hasSettings: true,
+      transcriptionMode: 'streaming',
       loginUrl: CLAUDE_WEB_ORIGIN,
     });
     assert.equal(harness.provider.isReady(), true);

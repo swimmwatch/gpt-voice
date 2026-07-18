@@ -6,10 +6,38 @@ import type { ProviderInfo } from '@renderer/types';
 describe('provider grouping', () => {
   it('sorts Web, API, and Local groups and omits empty categories', () => {
     const providers: ProviderInfo[] = [
-      { id: 'whisper', name: 'Whisper', authType: 'apiKey', category: 'local', hasSettings: true },
-      { id: 'openai-api', name: 'OpenAI API', authType: 'apiKey', category: 'api', hasSettings: true },
-      { id: 'claude-web', name: 'Claude Web', authType: 'browserSession', category: 'web', hasSettings: true },
-      { id: 'chatgpt', name: 'ChatGPT Web', authType: 'browserSession', category: 'web', hasSettings: true },
+      {
+        id: 'whisper',
+        name: 'Whisper',
+        authType: 'apiKey',
+        category: 'local',
+        hasSettings: true,
+        transcriptionMode: 'batch',
+      },
+      {
+        id: 'openai-api',
+        name: 'OpenAI API',
+        authType: 'apiKey',
+        category: 'api',
+        hasSettings: true,
+        transcriptionMode: 'batch',
+      },
+      {
+        id: 'claude-web',
+        name: 'Claude Web',
+        authType: 'browserSession',
+        category: 'web',
+        hasSettings: true,
+        transcriptionMode: 'streaming',
+      },
+      {
+        id: 'chatgpt',
+        name: 'ChatGPT Web',
+        authType: 'browserSession',
+        category: 'web',
+        hasSettings: true,
+        transcriptionMode: 'batch',
+      },
     ];
 
     assert.deepEqual(
