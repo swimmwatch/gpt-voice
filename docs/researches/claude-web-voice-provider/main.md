@@ -241,3 +241,67 @@ close becomes normal; or when Claude begins requiring conversation context.
 Run locale-specific confirmation before relying on materially different
 language behavior. Personal-scope behavior remains outside this gate and must
 follow the deferred sanitized research task.
+
+## Task 21 Live Streaming Canary
+
+Evidence date: 2026-07-18
+
+### Procedure And Privacy
+
+The canary used the authorized dedicated CloakBrowser research profile and
+one public reference-transcribed clip from
+[LibriSpeech ASR Dummy](https://huggingface.co/datasets/hf-internal-testing/librispeech_asr_dummy),
+`clean/validation` row 0, utterance `1272-128104-0000`. The source is the
+[LibriSpeech ASR Corpus](https://www.openslr.org/12), licensed CC BY 4.0. The
+clip was downloaded and converted in memory to PCM16, 16-kHz, mono; neither its
+audio nor reference text was written to disk, output, or committed.
+
+Organization resolution, the socket URL, PCM, cumulative transcript snapshots,
+and reference text remained inside transient process/page memory. The page
+normalized words and returned only a boolean requiring at least 80% reference
+coverage in order. Earlier runner/tooling and generated-voice calibration
+attempts were excluded from gate evidence and retained no raw content.
+
+Authenticated bootstrap returned status `200`. The authorized
+multi-organization state contained two eligible memberships, one asynchronous
+active candidate, and one exact match. No identifier, membership value, label, or
+response body was retained.
+
+### Accepted Matrix
+
+The accepted matrix used six fresh page-owned sockets: two consecutive short
+streams, pause/resume, an approximately 30-second stream made from repeated
+fixture audio with 1.2-second generated-silence gaps, cancellation, and Stop
+before open.
+
+| Evidence                       | Sanitized result                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Connect                        | 615-667 ms                                                                                               |
+| Immediate-capture backlog      | Seven complete frames before open in normal cases                                                        |
+| Queue bound                    | High-water 0-21 frames; never exceeded the 64-frame limit                                                |
+| Binary cadence                 | Minimum observed interval 85.4-85.5 ms                                                                   |
+| Public reference               | All four normal cases passed the 80% normalized word-order coverage threshold                            |
+| Consecutive short streams      | Both used distinct sockets, reference-matched, finalized once, and closed `1000`                         |
+| Normal finalization            | Every normal case received a final endpoint after `CloseStream`                                          |
+| Post-Stop final endpoint       | 377-2,163 ms                                                                                             |
+| Approximately 30-second stream | 352 sends, 960,000 bytes, 21-frame high-water, two endpoints, final endpoint after 2,163 ms              |
+| Duration scaling               | Sanitized slope 0.05; short and long cases stayed below the three-second target                          |
+| Pause/resume                   | One KeepAlive occurred during the 4.5-second no-sample pause; queued audio drained and reference matched |
+| Cancellation                   | Five frames sent; no `CloseStream`, endpoint, or result; clean `1000`; zero resources                    |
+| Stop before open               | Stop at 20 ms before a 653-ms open; 640-byte tail sent; clean `1000`; zero resources                     |
+| Event safety                   | No interim, unknown, malformed, or binary server events                                                  |
+| Cleanup                        | Every reported case ended with zero active socket/timer/queue resources                                  |
+
+### Gate Decision
+
+**Task 21 gate passed.** The attributed public fixture proved reference
+correctness without exposing transcript text. Immediate backlog, bounded
+ordering/cadence, repeated endpoint handling, pause/KeepAlive behavior,
+cancellation, Stop-before-open handling, clean consecutive sockets, cleanup, and
+duration-independent post-Stop timing all passed. The 30-second case finalized
+within the three-second target and did not replay recording duration after Stop.
+
+Tasks 22-28 may proceed in order after human review. The endpoint remains
+private and volatile; rerun this metadata-only gate if the query/event contract,
+selected cadence, authenticated bootstrap routing, or finalization timing
+changes.

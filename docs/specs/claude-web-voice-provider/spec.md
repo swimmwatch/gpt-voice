@@ -169,21 +169,74 @@ Server event shapes:
 ### Claude Web Data Flow
 
 ```text
-renderer records -> PCM16/16 kHz/mono WAV -> typed IPC -> main transcription service
-  -> ClaudeWebVoiceProvider -> authenticated Claude Page
-  -> strip/validate WAV -> pace raw PCM frames over same-origin WebSocket
-  -> replace cumulative interim -> commit endpoint -> existing clipboard/cache/history flow
+renderer AudioWorklet -> incremental PCM16/16 kHz/mono -> typed streaming IPC
+  -> main streaming service -> ClaudeWebVoiceProvider -> authenticated Claude Page
+  -> paced page-owned WebSocket -> finalized transcript
+  -> existing clipboard/cache/history flow
 ```
 
-The initial design preference is **buffered replay inside the existing provider contract**. It minimizes IPC and recorder changes and preserves current retry/cache semantics. This preference is conditional on the research gate below.
-
-If real-time capture is required, the design changes to an explicit streaming capability:
+Claude Web uses live streaming automatically. The reusable capability is explicit
+in provider metadata, while ChatGPT Web and OpenAI API retain the existing batch
+recording path. The current buffered Claude `transcribe()` implementation remains
+available only for an explicit manual Retry and rollback:
 
 ```text
-renderer PCM chunks -> typed start/chunk/finish/cancel IPC -> streaming-capable provider
+failed live capture -> retained in-memory WAV -> explicit Retry -> buffered transcribe()
 ```
 
-The implementation must not emulate streaming through unrelated one-shot calls or silently send an invalid WAV/compressed payload.
+There is no automatic replay after any live audio byte has been sent. The final
+UI remains unchanged: interim snapshots are consumed for protocol state only and
+only a finalized transcript reaches the renderer completion flow.
+
+### Live Streaming Contract
+
+1. Provider metadata declares `VoiceTranscriptionMode = 'batch' | 'streaming'`.
+   Claude Web advertises `streaming`; ChatGPT Web and OpenAI API advertise
+   `batch`.
+2. The preload exposes four typed operations:
+   - `startStreamingTranscription()`
+   - `sendStreamingTranscriptionChunk(operationId, sequence, chunk)`
+   - `finishStreamingTranscription(operationId, sequence, finalChunk, recordingWav)`
+   - `cancelStreamingTranscription(operationId)`
+3. Main binds one opaque operation ID to the trusted main-window sender and the
+   active streaming-capable provider. It rejects concurrent operations, wrong
+   senders, provider switches, invalid or repeated sequence numbers, oversized
+   chunks, odd-byte PCM, and finish data that does not match the accumulated
+   recording WAV.
+4. Capture begins immediately through a self-hosted `AudioWorklet`. It mixes
+   input channels to mono, resamples statefully to 16 kHz, converts and clamps
+   samples to little-endian PCM16, and retains only the current recording's PCM
+   in memory so an equivalent retry WAV can be constructed.
+5. Capture and socket connection start concurrently. While the socket connects,
+   the renderer may queue at most 64 complete 2,730-byte frames. Frames drain in
+   strict sequence, serially, and no faster than one every 85.31 ms. Queue
+   overflow cancels the operation safely and retains the current recording only
+   for explicit retry.
+6. Pause excludes new microphone samples from PCM, frame, and WAV state. The
+   socket stays open, queued frames continue draining, and `KeepAlive` continues
+   every four seconds. Resume does not insert synthetic silence.
+7. Stop flushes the resampler and the final even-length PCM fragment, drains all
+   queued audio, sends `CloseStream` exactly once, and waits for the finalized
+   endpoint within the existing transport deadline. Stop before socket open is
+   supported by the same bounded queue and deadlines.
+8. Transport start, push, finish, and cancel use one fresh page-owned WebSocket
+   per operation. They serialize chunk and keepalive writes, replace cumulative
+   transcript snapshots, commit endpoint text once, retain no interim UI, and
+   release timers, sockets, page state, and buffers on every terminal path.
+9. Provider switch, main-window destruction, browser shutdown, and application
+   exit cancel the active operation. Late chunks or completion from a cancelled
+   operation cannot affect clipboard, cache, history, notifications, or another
+   provider.
+10. Successful finish enters the existing cache, clipboard, history, and timing
+    flow once. Diagnostics retain safe timing and byte/count metadata only;
+    audio, transcript text, account data, socket URLs, and raw events are never
+    logged or persisted.
+11. The existing private transport deadline remains authoritative. Live mode
+    adds no new user-visible recording-duration limit, setting, dependency, or
+    automatic reconnect.
+12. A feature gate keeps Claude on the current buffered path unless the
+    metadata-only live canary passes. A canary failure blocks streaming rollout;
+    it never silently enables a partial or unverified live implementation.
 
 ### Claude Web Requirements
 
@@ -191,15 +244,15 @@ The implementation must not emulate streaming through unrelated one-shot calls o
 2. Reuse the centralized CloakBrowser lifecycle, trusted IPC sender checks, navigation retry, provider switching, and session clearing.
 3. Store Claude session state separately from ChatGPT and encrypted API settings. Never reuse or import the research Chrome profile.
 4. Validate session usability using only the minimum required Claude cookie/origin state. Research must confirm whether cookies alone are sufficient when restoring into the persistent background context.
-5. Navigate an authenticated provider page and derive the active organization from current authenticated application state/traffic. Validate it against the organizations response. Never hardcode the supplied UUID, log it, or use list ordering as an undocumented selection rule.
+5. Navigate an authenticated provider page and derive the active organization from current authenticated application state/traffic. Validate it against eligible organization evidence from an authenticated response, currently the bootstrap membership list. Never hardcode the supplied UUID, log it, or use list ordering as an undocumented selection rule.
 6. If multiple eligible organizations make active selection ambiguous, fail with an actionable setup message until a deterministic policy is approved; do not guess.
 7. Override readiness for page/session auth without inventing an access token.
-8. Accept only verified PCM16/16 kHz/mono input for the WebSocket path. Parse and strip the WAV container. Reject compressed fallback input with an actionable error unless a deterministic conversion path is explicitly implemented and tested.
+8. Accept only verified PCM16/16 kHz/mono input for the WebSocket path. Validate live PCM chunks directly and parse/strip the WAV container only for explicit buffered retry. Reject compressed fallback input with an actionable error unless a deterministic conversion path is explicitly implemented and tested.
 9. Open the WebSocket from the authenticated page context so browser-managed origin/session behavior remains inside the privileged provider browser.
-10. Pace binary chunks according to canary evidence, send four-second keepalives, send `CloseStream` after the last chunk, and continue accepting final events during a bounded drain period.
+10. Pace live and retry binary chunks according to canary evidence, send four-second keepalives, send `CloseStream` after the last chunk, and continue accepting final events during the existing bounded drain period.
 11. Parse JSON defensively with an exhaustive known-event union. Ignore unknown events safely while recording length/type-only diagnostics.
 12. Replace cumulative interim text; commit once per endpoint; deduplicate repeated final snapshots.
-13. Use a fresh socket per transcription. Do not implement unproven mid-stream reconnect. A retry may replay the original buffered audio only after classifying the failure and proving duplicate-safe behavior.
+13. Use a fresh socket per transcription. Do not implement mid-stream reconnect. Explicit Retry may replay the retained original buffered audio, but no automatic replay occurs after live audio transmission starts.
 14. Apply connect, first-event, overall, and drain timeouts; close sockets/timers on completion, error, provider switch, and shutdown.
 15. Keep result-affecting language/protocol settings in the transcription cache context, excluding session/account identifiers.
 16. Map login/session expiry, permission/feature unavailability, upgrade failure, rate limit, malformed event, timeout, empty transcript, and connection loss to safe localized errors.
@@ -305,7 +358,9 @@ This research is an implementation prerequisite, not a production telemetry feat
 
 - Validate a fresh GPT-Voice login context and restored background context independently.
 - Determine the minimum required cookie/origin storage and whether localStorage/IndexedDB is necessary.
-- Identify a deterministic active-organization signal from authenticated bootstrap state or observed same-origin traffic and validate it against the organizations list.
+- Identify a deterministic active-organization signal from authenticated
+  bootstrap state or observed same-origin traffic and validate it against
+  eligible organization evidence from the authenticated bootstrap response.
 - Test single- and multi-organization accounts without persisting raw account metadata.
 - Treat active-organization resolution separately from personal/organization scope classification. Record a personal scope only when a stable explicit same-origin signal is verified; otherwise record `unknown` without blocking a uniquely resolved active organization.
 - Gate: no implementation proceeds with list-order selection or a hardcoded UUID.
@@ -332,6 +387,29 @@ This research is an implementation prerequisite, not a production telemetry feat
 - Document a manual revalidation checklist and the observed contract version/date.
 - Fail closed with an actionable “Claude Web protocol changed” error when required query/event assumptions are no longer met.
 - Re-run the checklist before releases that modify Claude Web, browser runtime, session persistence, or audio encoding.
+
+### R6 — Live Streaming Canary
+
+- Use the authorized dedicated CloakBrowser research profile and either locally
+  generated synthetic speech or a publicly licensed, reference-transcribed,
+  non-personal fixture converted in memory to PCM16/16 kHz/mono. Never run this
+  canary in CI or commit the audio/reference text.
+- Open fresh authenticated page-owned sockets and model immediate capture by
+  accumulating frames before the connection opens, then draining them at the
+  validated 2,730-byte and 85.31 ms cadence.
+- Revalidate two consecutive streams, pause/resume with keepalive, cumulative
+  transcript and multiple-endpoint behavior, cancellation, Stop before open,
+  and finalization after `CloseStream`.
+- Compare a short stream with a 30-second stream. On a stable connection the
+  30-second stream should normally finalize within three seconds after Stop,
+  and post-Stop time must not grow linearly with recording duration.
+- Retain only timing ranges, event categories/counts, close codes, queue
+  high-water marks, public fixture attribution, and normalized reference-match
+  booleans. Do not retain audio, transcript/reference text, identifiers, URLs,
+  raw events, or the profile.
+- Gate: all downstream live-streaming work remains blocked until this canary
+  passes and receives human review. Failure preserves the buffered provider as
+  the default and requires contract revalidation or replanning.
 
 ## Tech Stack
 
@@ -383,23 +461,29 @@ Expected areas; the Phase-2 plan will assign exact slices after this spec is app
 ```text
 src/main/providers/
   ClaudeWebVoiceProvider.ts       -> browser-session provider lifecycle
-  claudeWebProtocol.ts            -> pure WAV/protocol/event helpers
+  claudeWebProtocol.ts            -> pure query/control/event helpers
+  claudeWebPageTransport.ts       -> page-owned start/push/finish/cancel transport
   index.ts                        -> voice provider registry
 src/main/services/
-  transcription.ts               -> existing orchestration; change only if streaming is required
+  transcription.ts               -> existing batch orchestration and explicit retry
+  streamingTranscription.ts      -> owned live operation and completion orchestration
   prettifyProviders.ts            -> adapter registry/capabilities or extracted adapters
   cliProcessRunner.ts             -> bounded, cancellable, injectable subprocess runner
   selectedTextPrettify.ts         -> exhaustive cache/error behavior
 src/shared/
   prettifySettings.ts             -> provider IDs, settings, defaults, validation
 src/renderer/
+  audio/                          -> self-hosted worklet and incremental PCM pipeline
+  hooks/useRecording.ts           -> capability-driven batch/live recording workflow
   AppSettingsWindow.tsx           -> provider-specific settings state
   appSettingsUtils.ts             -> exhaustive validation/dirty-state handling
   components/settings/PrettifySection.tsx -> capability-driven controls
 tests/main/providers/
   ClaudeWebVoiceProvider.test.ts
   claudeWebProtocol.test.ts
+  claudeWebPageTransport.test.ts
 tests/main/
+  streamingTranscription.test.ts
   cliProcessRunner.test.ts
   prettifyProviders.test.ts
 tests/shared/
@@ -413,7 +497,9 @@ docs/specs/claude-web-voice-provider/
   tasks/handoff.md
 ```
 
-IPC contract files (`src/main/ipc.ts`, `src/main/preload.ts`, and `src/renderer/types.d.ts`) change together only if settings or the research gate requires a new typed operation.
+Streaming IPC contract files (`src/main/ipc.ts`, `src/main/preload.ts`, and
+`src/renderer/types.d.ts`) change together and retain trusted main-window sender
+validation.
 
 ## Code Style
 
@@ -446,8 +532,16 @@ Conventions:
 
 ### Unit Tests
 
-- WAV validation/header stripping, PCM chunk boundaries, query construction, event parsing, cumulative transcript replacement, endpoint commit/deduplication, keepalive/drain timeouts, and unknown events.
+- WAV validation/header stripping, 44.1/48-kHz stateful resampling, mono mixing,
+  PCM clamping, exact frame boundaries, final fragments, pause behavior, WAV
+  equality, query construction, event parsing, cumulative transcript
+  replacement, endpoint commit/deduplication, keepalive/drain timeouts, and
+  unknown events.
 - Claude provider lifecycle with injected page/socket/session fakes: ready/not ready, active organization discovery, ambiguous organizations, auth expiry, connect failure, late final, timeout, empty result, cleanup, and shutdown.
+- Live queue start/backlog, 64-frame overflow, strict pacing/order, Stop before
+  connect, cancellation, provider switching, trusted sender and operation
+  ownership, invalid sequences/chunks, final-WAV equality, cache/history
+  completion, manual retry retention, and cleanup.
 - CLI runner argv/stdin separation, `shell: false`, sanitized environment, isolated cwd, output caps, spawn errors, `EPIPE`, exit/signal handling, timeout, abort, graceful/forced process-tree cleanup, and sanitized errors.
 - Claude/Codex adapter command vectors, auth preflights, schema output, malformed/empty output, stderr-on-success, model/effort validation, and cache context.
 - Exhaustive settings normalization/migration, capability-driven UI validation, free-text/discovered models, hidden unsupported controls, and locale key parity.
@@ -462,6 +556,12 @@ Conventions:
 ### Manual Verification
 
 - Use an isolated Claude test session/profile and synthetic/non-private audio.
+- Verify short, 30-second, paused, cancelled, Stop-before-connect, and
+  consecutive live recordings with metadata-only evidence. Under a stable
+  connection, confirm normal finalization within three seconds after Stop and
+  no duration-proportional replay delay.
+- Verify the self-hosted AudioWorklet loads from the trusted application origin
+  under the development and production CSP/bundles.
 - Verify login/save/restart/restore, first transcription, consecutive recordings, provider switching, clear auth, expiry, network failure, and protocol-change error.
 - Verify each CLI with an explicitly authorized account, no project files in cwd, tool isolation, model/effort selection, cancellation, timeout, and quota disclosure.
 - Inspect logs and persisted configuration to confirm absence of account IDs, cookies, tokens, audio, selected text, transcript text, stdout, and response bodies.
@@ -486,7 +586,6 @@ Conventions:
 ### Ask First
 
 - Add a dependency, package a CLI/schema asset in a new way, or alter installers/signing/entitlements.
-- Extend renderer-to-main audio IPC into a streaming lifecycle.
 - Persist or expose organization/account metadata in Settings.
 - Add editable private endpoint/query controls, arbitrary CLI arguments, environment overrides, or API-key auth for CLI providers.
 - Change CI, release targets, clipboard semantics, recording limits, or existing provider defaults.
@@ -510,8 +609,19 @@ Conventions:
 - No account identifier is hardcoded; active organization ambiguity produces an actionable error.
 - Multi-organization routing succeeds only from one proven active UUID. Personal, organization, and unknown scope classifications never alter that routing rule, and `unknown` remains usable when routing is resolved.
 - Verified PCM WAV input is stripped to raw PCM, streamed with validated pacing/control messages, and finalized from cumulative transcript events without duplication.
+- Claude captures, resamples, and sends PCM while the user speaks; Stop drains
+  only the bounded live queue and normally finalizes a stable 30-second stream
+  within three seconds rather than replaying 30 seconds of audio.
+- Provider metadata selects live mode only for Claude. ChatGPT Web and OpenAI
+  API remain behaviorally compatible batch providers.
+- Pause excludes samples while keepalive and queued-frame draining continue;
+  cancel, overflow, provider switch, browser shutdown, and window destruction
+  release the live operation without side effects.
+- Failed live audio is available only for explicit in-memory Retry. No live
+  operation automatically replays after sending its first audio byte.
 - Consecutive recordings use fresh sockets; all timers/sockets/audio buffers are released on success, error, switch, and shutdown.
-- The batch replay research gate is documented and passed, or this spec is revised and re-approved before streaming IPC is implemented.
+- The live-streaming canary is documented and passed before streaming IPC is
+  implemented or enabled.
 - Mock tests cover auth, protocol, parsing, timeout, cleanup, and failure behavior; one opt-in isolated-profile canary succeeds.
 
 ### CLI Prettify
@@ -544,8 +654,8 @@ Conventions:
 ## Phase Gate
 
 Phase 1 was approved by the explicit planning invocation on 2026-07-17. The
-organization-scope revision dated 2026-07-18 and its updated Phase-2 task plan
-require human review before implementation continues. The buffered-replay
-research gate still controls whether the current batch-provider architecture
-may proceed. Personal-specific behavior remains a future follow-up and does not
-block Phase 1 when active routing is resolved.
+organization-scope revision and Claude Web live-streaming amendment dated
+2026-07-18 were explicitly authorized. The metadata-only live canary is a hard
+gate: production streaming contracts cannot begin until its evidence passes and
+receives human review. Personal-specific behavior remains a future follow-up and
+does not block Phase 1 when active routing is resolved.
