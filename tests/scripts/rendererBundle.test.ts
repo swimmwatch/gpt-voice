@@ -10,7 +10,9 @@ const rootDirectory = path.resolve(__dirname, '..', '..');
 const require = createRequire(__filename);
 
 interface RendererRule {
+  generator?: { filename?: string };
   test: RegExp;
+  type?: string;
   use: string[];
 }
 
@@ -113,6 +115,11 @@ test('assigns a dedicated renderer entry to every application window', () => {
   assert.equal(rendererConfig.optimization.runtimeChunk, 'single');
   assert.equal(rendererConfig.optimization.splitChunks.chunks, 'all');
 
+  const workletRule = rendererConfig.module.rules.find((rule) => rule.test.test('livePcmCapture.worklet.js'));
+  assert.ok(workletRule);
+  assert.equal(workletRule.type, 'asset/resource');
+  assert.equal(workletRule.generator?.filename, 'renderer/assets/[name][ext]');
+
   const htmlChunks = new Map(
     rendererConfig.plugins.map((plugin) => [plugin.userOptions?.filename, plugin.userOptions?.chunks]),
   );
@@ -131,6 +138,11 @@ test('emits renderer bundles under a separate nested path from Electron main', a
 
     const outputFiles = await readdir(outputPath);
     assert.ok(!outputFiles.includes('main.js'));
+
+    const workletSource = await readFile(path.join(outputPath, 'renderer/assets/livePcmCapture.worklet.js'), 'utf8');
+    assert.match(workletSource, /gpt-voice-live-pcm-capture/u);
+    assert.match(workletSource, /registerProcessor/u);
+    assert.doesNotMatch(workletSource, /https?:\/\//u);
 
     const windows = [
       ['index.html', 'main'],

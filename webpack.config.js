@@ -103,6 +103,13 @@ module.exports = [
           use: [styleLoader, 'css-loader', 'postcss-loader', 'sass-loader'],
         },
         {
+          test: /\.worklet\.js$/,
+          type: 'asset/resource',
+          generator: {
+            filename: 'renderer/assets/[name][ext]',
+          },
+        },
+        {
           test: /\.(png|svg)$/,
           type: 'asset/resource',
         },

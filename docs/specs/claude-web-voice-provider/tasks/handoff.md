@@ -1,63 +1,62 @@
 # Handoff: Claude Web Live Streaming Amendment
 
-Status: Task 22 is complete and uncommitted; it awaits human review. Do not
-begin Task 23 until a later explicit incremental-implementation invocation.
+Status: Task 23 is complete and uncommitted; it awaits human review. Do not
+begin Task 24 until a later explicit incremental-implementation invocation.
 
 Completed:
 
-- Tasks 01-09 and 21 are committed through `1f69fa39`.
-- Added the closed renderer-safe `batch | streaming` transcription mode and
-  strict metadata guards that reject unknown modes and extra fields.
-- Split provider classification into a shared lifecycle base plus nominal
-  `BatchVoiceProvider` and `StreamingVoiceProvider` bases. ChatGPT Web and
-  OpenAI API are batch; Claude Web is streaming.
-- Kept buffered `transcribe()` on the common base for Claude's explicit retry
-  path. Callable start/push/finish/cancel operations remain a separate main-only
-  capability, so metadata cannot invoke an incomplete live path.
-- Added typed opaque operation IDs, copied PCM chunk ownership, lifecycle and
-  error enums, operation inputs/results, and nominal exhaustive guards.
-- Preserved existing readiness, settings, category, auth, and batch
-  transcription behavior. Preload exposes only the updated safe metadata shape
-  and no streaming IPC operations.
+- Tasks 01-09 and 21-22 are committed through `2fc2355b`.
+- Added a deterministic renderer pipeline that normalizes browser channel
+  blocks to mono, resamples 44.1/48 kHz input statefully to 16 kHz, converts to
+  signed little-endian PCM16, and emits exact 2,730-byte frames plus one even
+  final fragment.
+- Added explicit pause, resume, flush, and cancel behavior. Paused samples are
+  discarded before audio state, and cancellation clears retained PCM while
+  making late worklet messages inert.
+- Retained emitted PCM only in memory for the active capture and constructed a
+  canonical mono/16-bit/16-kHz retry WAV whose data bytes exactly match the
+  emitted frames and final fragment.
+- Added a self-hosted AudioWorklet and browser capture session with idempotent
+  node, track, and audio-context cleanup. The development build emits
+  `dist/renderer/assets/livePcmCapture.worklet.js` (665 bytes).
+- Kept capture inactive: no recording hook, transport, IPC, main-process,
+  localization, dependency, or feature-gate behavior changed in this packet.
 
 Changed files:
 
-- `docs/specs/claude-web-voice-provider/spec.md`
-- `docs/specs/claude-web-voice-provider/tasks/22_define_streaming_provider_contracts.md`
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
-- `src/shared/voiceProvider.ts`
-- `src/main/providers/BaseVoiceProvider.ts`
-- `src/main/providers/BatchVoiceProvider.ts`
-- `src/main/providers/streamingVoiceProvider.ts`
-- `src/main/providers/voiceProviderGuards.ts`
-- `src/main/providers/ChatGPTVoiceProvider.ts`
-- `src/main/providers/ClaudeWebVoiceProvider.ts`
-- `src/main/providers/OpenAIApiVoiceProvider.ts`
-- `src/main/providers/index.ts`
-- `src/renderer/types.d.ts`
-- `tests/main/providerSettingsIpcContract.test.ts`
-- `tests/main/providers/BaseVoiceProvider.test.ts`
-- `tests/main/providers/ClaudeWebVoiceProvider.test.ts`
-- `tests/main/providers/providerRegistry.test.ts`
-- `tests/main/transcription.test.ts`
-- `tests/renderer/providerGrouping.test.ts`
-- `tests/renderer/providerSettingsWindowState.test.ts`
+- `src/renderer/audio/pcm16.ts`
+- `src/renderer/audio/streamingLinearResampler.ts`
+- `src/renderer/audio/pcmFrameAccumulator.ts`
+- `src/renderer/audio/livePcmPipeline.ts`
+- `src/renderer/audio/livePcmCapture.worklet.js`
+- `src/renderer/audio/livePcmCaptureAsset.ts`
+- `src/renderer/audio/livePcmCaptureSession.ts`
+- `src/renderer/audio/livePcmCaptureBrowser.ts`
+- `src/renderer/audioEncoding.ts`
+- `src/renderer/entries/main.tsx`
+- `src/renderer/styles.d.ts`
+- `webpack.config.js`
+- `eslint.config.mjs`
+- `tests/renderer/livePcmPipeline.test.ts`
+- `tests/renderer/livePcmCapture.test.ts`
+- `tests/scripts/rendererBundle.test.ts`
 
 Checks:
 
-- Focused provider, preload-contract, renderer-state, Claude, OpenAI, and batch
-  service tests pass (46 tests).
-- Full unit suite passes (412 tests).
+- Focused renderer audio and capture tests pass.
+- Full unit suite passes (423 tests).
 - Application and test TypeScript checks pass.
 - Full ESLint and Prettier checks pass.
-- `git diff --check` and renderer metadata privacy checks pass.
+- Development build and production renderer bundle asset assertions pass.
+- `git diff --check` and sensitive-artifact/credential scans pass.
 
 Exact next packet:
 
-- After human approval, commit Task 22 with a focused conventional commit, then
-  execute `23_build_live_pcm_capture.md` only.
+- After human approval, commit Task 23 with a focused conventional commit, then
+  execute `24_refactor_claude_streaming_transport.md` only.
 
 Blockers:
 
-- None. Task 22 is at its required human-review checkpoint.
+- None. Task 23 is at its required human-review checkpoint.

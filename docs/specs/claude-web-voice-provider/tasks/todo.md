@@ -1,6 +1,6 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 21-22 passed. Task 22 awaits human review; Task 23 is next
+Plan gate: Tasks 21-23 passed. Task 23 awaits human review; Task 24 is next
 after approval.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
@@ -14,7 +14,7 @@ after approval.
 - [x] [09 Claude settings UI](09_expose_claude_voice_settings.md)
 - [x] [21 Live streaming canary](21_revalidate_live_streaming.md)
 - [x] [22 Streaming provider contracts](22_define_streaming_provider_contracts.md)
-- [ ] [23 Live PCM capture](23_build_live_pcm_capture.md)
+- [x] [23 Live PCM capture](23_build_live_pcm_capture.md)
 - [ ] [24 Claude streaming transport](24_refactor_claude_streaming_transport.md)
 - [ ] [25 Main streaming service](25_build_main_streaming_service.md)
 - [ ] [26 Trusted IPC integration](26_integrate_trusted_streaming_ipc.md)
