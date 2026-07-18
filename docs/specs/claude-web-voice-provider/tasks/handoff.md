@@ -1,45 +1,50 @@
 # Handoff: Claude Web Voice and CLI Prettify Providers
 
-Status: Task 04 is complete and awaits review. Do not begin Task 05 until a
+Status: Task 05 is complete and awaits review. Do not begin Task 06 until a
 later explicit incremental-implementation invocation.
 
 Completed:
 
-- Task 03 was approved and committed as `fb75ea78`.
-- Added strict RIFF/WAVE traversal with chunk-length and padding handling,
-  typed format/structure failures, and exact raw PCM extraction.
-- Selected PCM16, 16 kHz, mono, 2,730-byte frames with the Gate A target cadence
-  of 85.31 ms; chunking preserves complete samples and every byte exactly once.
-- Added the version-1 private speech query with only the verified endpoint and
-  keys. Language is canonicalized, organization UUIDs are validated and kept
-  transient, and optional conversation/interim parameters remain omitted.
-- Added explicit KeepAlive and CloseStream controls plus defensive known,
-  unknown, and malformed server-event classifications. Non-known results retain
-  only event type and length metadata.
-- Added cumulative snapshot replacement and endpoint commit deduplication.
+- Task 04 was approved and committed as `c133461a`.
+- Added a native WebSocket registry owned by the authenticated Claude page and
+  controlled through short, independently cancellable Page evaluations.
+- Added deterministic raw-PCM replay at 2,730 bytes every 85.31 ms, four-second
+  keepalives, one CloseStream, and late endpoint handling through a bounded
+  drain.
+- Selected a 5-second connect timeout, 15-second first-event timeout,
+  130-second overall timeout, and 3-second post-CloseStream drain timeout from
+  the sanitized Gate A and studied UI bounds.
+- Added a single exported error-code enum for typed upgrade/auth, connection,
+  malformed-event, rate-limit, timeout, empty-result, cancellation, and page-
+  shutdown failures with phase, event type, byte/event counts, duration, and
+  close code only.
+- Added explicit cancel and shutdown paths. Every socket, timeout, interval,
+  queued page message, and accumulator is operation-scoped and cleared on all
+  terminal paths; no reconnect or audio replay occurs after failure.
 
 Changed files:
 
-- `src/main/providers/claudeWebAudio.ts`
-- `src/main/providers/claudeWebProtocol.ts`
-- `tests/main/providers/claudeWebAudio.test.ts`
-- `tests/main/providers/claudeWebProtocol.test.ts`
+- `src/main/providers/claudeWebPageTransport.ts`
+- `tests/main/providers/claudeWebPageTransport.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
 
 Checks:
 
-- Focused Claude audio/protocol tests pass: 14 tests.
+- Focused Claude page transport tests pass: 10 tests.
+- Upstream Claude audio/protocol tests pass: 14 tests.
 - Application and test TypeScript checks pass.
 - Focused Prettier and ESLint checks pass.
-- Full unit suite passes: 350 tests.
-- Diff checks plus captured-value and side-effect-boundary scans pass.
+- Full unit suite passes: 360 tests.
+- A fake-page native-WebSocket smoke proves the real boundary without browser,
+  network, account, or private-endpoint access.
+- Diff, captured-value, auth-field, logging, and diagnostic-shape scans pass.
 
 Next step:
 
-- Review Task 04. On the next explicit incremental-implementation invocation,
+- Review Task 05. On the next explicit incremental-implementation invocation,
   commit it with a focused conventional commit and execute
-  `05_build_claude_page_transport.md` only.
+  `06_implement_claude_provider_lifecycle.md` only.
 
 Blockers:
 
