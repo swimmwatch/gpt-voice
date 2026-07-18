@@ -1,6 +1,6 @@
 /* eslint-disable max-classes-per-file -- The packet keeps transport and its typed boundary errors in one module. */
 import type { Page } from 'playwright-core';
-import { CLAUDE_WEB_PCM_CHUNK_CADENCE_MS, splitClaudeWebPcm } from './claudeWebAudio';
+import { CLAUDE_WEB_PCM_CHUNK_BYTES, CLAUDE_WEB_PCM_CHUNK_CADENCE_MS, splitClaudeWebPcm } from './claudeWebAudio';
 import {
   CLAUDE_WEB_CLOSE_STREAM_CONTROL,
   CLAUDE_WEB_KEEP_ALIVE_CONTROL,
@@ -291,7 +291,7 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
   };
 }
 
-export type ClaudeWebPageTransportPhase = 'connecting' | 'replaying' | 'draining';
+export type ClaudeWebPageTransportPhase = 'connecting' | 'streaming' | 'draining';
 
 export interface ClaudeWebPageTransportDiagnostics {
   phase: ClaudeWebPageTransportPhase;
@@ -351,16 +351,25 @@ export interface ClaudeWebPageTransportDependencies {
   timing?: Partial<ClaudeWebPageTransportTiming>;
 }
 
-export interface ClaudeWebPageTransportInput {
-  pcm: Uint8Array;
+declare const CLAUDE_WEB_PAGE_TRANSPORT_OPERATION_ID: unique symbol;
+
+export type ClaudeWebPageTransportOperationId = string & {
+  readonly [CLAUDE_WEB_PAGE_TRANSPORT_OPERATION_ID]: never;
+};
+
+export interface ClaudeWebPageTransportStartInput {
   language: ClaudeWebLanguage;
   organizationUuid: string;
+}
+
+export interface ClaudeWebPageTransportInput extends ClaudeWebPageTransportStartInput {
+  pcm: Uint8Array;
 }
 
 type DeadlineKind = 'connect' | 'first-event' | 'overall' | 'drain';
 
 interface ActiveOperation {
-  id: string;
+  id: ClaudeWebPageTransportOperationId;
   controller: AbortController;
   failure: ClaudeWebPageTransportError | null;
   phase: ClaudeWebPageTransportPhase;
@@ -375,6 +384,11 @@ interface ActiveOperation {
   deadlineTimers: Map<DeadlineKind, unknown>;
   timeoutHandles: Set<unknown>;
   intervalHandles: Set<unknown>;
+  boundaryTail: Promise<void>;
+  openPromise: Promise<void> | null;
+  finishPromise: Promise<string> | null;
+  finishRequested: boolean;
+  closeStreamSent: boolean;
   closePromise: Promise<void> | null;
 }
 
@@ -390,12 +404,12 @@ function sanitizeEventType(value: string | null): string | null {
   return value ? value.slice(0, MAX_EVENT_TYPE_METADATA_LENGTH) : null;
 }
 
-/** Replays raw PCM through a fresh native WebSocket owned by the authenticated Claude page. */
+/** Streams raw PCM through fresh native WebSockets owned by the authenticated Claude page. */
 export class ClaudeWebPageTransport {
   private readonly boundary: ClaudeWebPageSocketBoundary;
   private readonly clock: ClaudeWebPageTransportClock;
   private readonly timing: ClaudeWebPageTransportTiming;
-  private readonly activeOperations = new Map<string, ActiveOperation>();
+  private readonly activeOperations = new Map<ClaudeWebPageTransportOperationId, ActiveOperation>();
   private nextOperationId = 1;
   private stopped = false;
 
@@ -405,9 +419,8 @@ export class ClaudeWebPageTransport {
     this.timing = normalizeTiming(dependencies.timing);
   }
 
-  async transcribe(input: ClaudeWebPageTransportInput): Promise<string> {
+  async start(input: ClaudeWebPageTransportStartInput): Promise<ClaudeWebPageTransportOperationId> {
     if (this.stopped) throw this.createInactiveError(ClaudeWebPageTransportErrorCode.PageShutdown);
-    const chunks = splitClaudeWebPcm(input.pcm);
     const url = buildClaudeWebSpeechUrl(input);
     const operation = this.createOperation();
     this.activeOperations.set(operation.id, operation);
@@ -430,59 +443,91 @@ export class ClaudeWebPageTransport {
         () => this.boundary.start(operation.id, url),
         ClaudeWebPageTransportErrorCode.UpgradeOrAuth,
       );
-      await this.waitForOpen(operation);
-      this.clearDeadline(operation, 'connect');
-      if (!operation.hasServerEvent) {
-        this.armDeadline(
-          operation,
-          'first-event',
-          this.timing.firstEventTimeoutMs,
-          ClaudeWebPageTransportErrorCode.FirstEventTimeout,
-        );
-      }
-      this.startKeepAlive(operation);
-
-      operation.phase = 'replaying';
-      await this.replayChunks(operation, chunks);
-      await this.callBoundary(
-        operation,
-        () => this.boundary.sendControl(operation.id, CLAUDE_WEB_CLOSE_STREAM_CONTROL),
-        ClaudeWebPageTransportErrorCode.ConnectionLoss,
-      );
-
-      operation.phase = 'draining';
-      const endpointCountAtClose = operation.endpointCount;
-      this.armDeadline(operation, 'drain', this.timing.drainTimeoutMs, ClaudeWebPageTransportErrorCode.DrainTimeout);
-      return await this.drainFinalTranscript(operation, endpointCountAtClose);
-    } finally {
-      this.clearAllTimers(operation);
-      this.activeOperations.delete(operation.id);
-      await this.closeOperation(operation);
+      operation.openPromise = this.openOperation(operation);
+      void operation.openPromise.catch(() => this.cleanupOperation(operation));
+      return operation.id;
+    } catch (error: unknown) {
+      await this.cleanupOperation(operation);
+      throw error;
     }
   }
 
-  async cancel(): Promise<void> {
-    const operations = Array.from(this.activeOperations.values());
-    for (const operation of operations) {
-      this.failOperation(operation, ClaudeWebPageTransportErrorCode.Cancelled);
-      this.clearAllTimers(operation);
+  async push(operationId: ClaudeWebPageTransportOperationId, chunk: Uint8Array): Promise<void> {
+    this.assertPcmChunk(chunk, false);
+    const operation = this.getOperation(operationId);
+    if (operation.finishRequested) throw new RangeError('Claude Web transport operation is already finishing');
+    const ownedChunk = Uint8Array.from(chunk);
+
+    try {
+      await this.getOpenPromise(operation);
+      await this.enqueueBoundaryAction(operation, async () => {
+        await this.callBoundary(
+          operation,
+          () => this.boundary.sendBinary(operation.id, ownedChunk),
+          ClaudeWebPageTransportErrorCode.ConnectionLoss,
+        );
+        operation.bytesSent += ownedChunk.byteLength;
+        this.processSnapshot(operation, await this.inspectNow(operation));
+      });
+    } catch (error: unknown) {
+      await this.cleanupOperation(operation);
+      throw error;
     }
-    await Promise.all(operations.map((operation) => this.closeOperation(operation)));
+  }
+
+  finish(operationId: ClaudeWebPageTransportOperationId, finalChunk: Uint8Array = new Uint8Array()): Promise<string> {
+    this.assertPcmChunk(finalChunk, true);
+    const operation = this.getOperation(operationId);
+    if (operation.finishPromise) return operation.finishPromise;
+
+    operation.finishRequested = true;
+    const ownedFinalChunk = Uint8Array.from(finalChunk);
+    operation.finishPromise = this.finishOperation(operation, ownedFinalChunk);
+    return operation.finishPromise;
+  }
+
+  async cancel(operationId: ClaudeWebPageTransportOperationId): Promise<void> {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    this.failOperation(operation, ClaudeWebPageTransportErrorCode.Cancelled);
+    await this.cleanupOperation(operation);
+  }
+
+  async cancelAll(): Promise<void> {
+    await this.stopOperations(ClaudeWebPageTransportErrorCode.Cancelled);
   }
 
   async shutdown(): Promise<void> {
     this.stopped = true;
-    const operations = Array.from(this.activeOperations.values());
-    for (const operation of operations) {
-      this.failOperation(operation, ClaudeWebPageTransportErrorCode.PageShutdown);
-      this.clearAllTimers(operation);
+    await this.stopOperations(ClaudeWebPageTransportErrorCode.PageShutdown);
+  }
+
+  async transcribe(input: ClaudeWebPageTransportInput): Promise<string> {
+    const chunks = splitClaudeWebPcm(input.pcm);
+    const lastChunk = chunks[chunks.length - 1];
+    const hasFinalFragment = lastChunk.byteLength < CLAUDE_WEB_PCM_CHUNK_BYTES;
+    const completeChunks = hasFinalFragment ? chunks.slice(0, -1) : chunks;
+    const finalChunk = hasFinalFragment ? lastChunk : new Uint8Array();
+    const operationId = await this.start(input);
+    const operation = this.getOperation(operationId);
+
+    try {
+      for (let index = 0; index < completeChunks.length; index += 1) {
+        await this.push(operationId, completeChunks[index]);
+        if (index + 1 < completeChunks.length || finalChunk.byteLength > 0) {
+          await this.delay(operation, this.timing.chunkCadenceMs);
+        }
+      }
+      return await this.finish(operationId, finalChunk);
+    } catch (error: unknown) {
+      await this.cancel(operationId);
+      throw error;
     }
-    await Promise.all(operations.map((operation) => this.closeOperation(operation)));
   }
 
   private createOperation(): ActiveOperation {
     const operation: ActiveOperation = {
-      id: `claude-web-${this.nextOperationId}`,
+      id: `claude-web-${this.nextOperationId}` as ClaudeWebPageTransportOperationId,
       controller: new AbortController(),
       failure: null,
       phase: 'connecting',
@@ -497,15 +542,36 @@ export class ClaudeWebPageTransport {
       deadlineTimers: new Map(),
       timeoutHandles: new Set(),
       intervalHandles: new Set(),
+      boundaryTail: Promise.resolve(),
+      openPromise: null,
+      finishPromise: null,
+      finishRequested: false,
+      closeStreamSent: false,
       closePromise: null,
     };
     this.nextOperationId += 1;
     return operation;
   }
 
+  private async openOperation(operation: ActiveOperation): Promise<void> {
+    await this.waitForOpen(operation);
+    this.throwIfFailed(operation);
+    this.clearDeadline(operation, 'connect');
+    if (!operation.hasServerEvent) {
+      this.armDeadline(
+        operation,
+        'first-event',
+        this.timing.firstEventTimeoutMs,
+        ClaudeWebPageTransportErrorCode.FirstEventTimeout,
+      );
+    }
+    operation.phase = 'streaming';
+    this.startKeepAlive(operation);
+  }
+
   private async waitForOpen(operation: ActiveOperation): Promise<void> {
     while (true) {
-      const snapshot = await this.inspect(operation);
+      const snapshot = await this.enqueueBoundaryAction(operation, () => this.inspectNow(operation));
       this.processSnapshot(operation, snapshot);
       if (snapshot.phase === 'open') return;
       if (snapshot.phase === 'closed') {
@@ -516,29 +582,46 @@ export class ClaudeWebPageTransport {
     }
   }
 
-  private async replayChunks(operation: ActiveOperation, chunks: readonly Uint8Array[]): Promise<void> {
-    for (let index = 0; index < chunks.length; index += 1) {
-      const chunk = chunks[index];
-      await this.callBoundary(
-        operation,
-        () => this.boundary.sendBinary(operation.id, chunk),
-        ClaudeWebPageTransportErrorCode.ConnectionLoss,
-      );
-      operation.bytesSent += chunk.byteLength;
+  private async finishOperation(operation: ActiveOperation, finalChunk: Uint8Array): Promise<string> {
+    try {
+      await this.getOpenPromise(operation);
+      this.stopKeepAlive(operation);
+      operation.phase = 'draining';
 
-      const snapshot = await this.inspect(operation);
-      this.processSnapshot(operation, snapshot);
-      if (snapshot.phase !== 'open') {
-        this.failOperation(operation, ClaudeWebPageTransportErrorCode.ConnectionLoss);
-        this.throwOperationFailure(operation);
-      }
-      if (index + 1 < chunks.length) await this.delay(operation, this.timing.chunkCadenceMs);
+      const endpointCountAtClose = await this.enqueueBoundaryAction(operation, async () => {
+        if (finalChunk.byteLength > 0) {
+          await this.callBoundary(
+            operation,
+            () => this.boundary.sendBinary(operation.id, finalChunk),
+            ClaudeWebPageTransportErrorCode.ConnectionLoss,
+          );
+          operation.bytesSent += finalChunk.byteLength;
+        }
+
+        this.processSnapshot(operation, await this.inspectNow(operation));
+        const endpointCount = operation.endpointCount;
+        if (!operation.closeStreamSent) {
+          await this.callBoundary(
+            operation,
+            () => this.boundary.sendControl(operation.id, CLAUDE_WEB_CLOSE_STREAM_CONTROL),
+            ClaudeWebPageTransportErrorCode.ConnectionLoss,
+          );
+          operation.closeStreamSent = true;
+        }
+        return endpointCount;
+      });
+
+      this.throwIfFailed(operation);
+      this.armDeadline(operation, 'drain', this.timing.drainTimeoutMs, ClaudeWebPageTransportErrorCode.DrainTimeout);
+      return await this.drainFinalTranscript(operation, endpointCountAtClose);
+    } finally {
+      await this.cleanupOperation(operation);
     }
   }
 
   private async drainFinalTranscript(operation: ActiveOperation, endpointCountAtClose: number): Promise<string> {
     while (true) {
-      const snapshot = await this.inspect(operation);
+      const snapshot = await this.enqueueBoundaryAction(operation, () => this.inspectNow(operation));
       this.processSnapshot(operation, snapshot);
 
       if (snapshot.phase === 'closed') {
@@ -559,7 +642,7 @@ export class ClaudeWebPageTransport {
     }
   }
 
-  private async inspect(operation: ActiveOperation): Promise<ClaudeWebPageSocketSnapshot> {
+  private async inspectNow(operation: ActiveOperation): Promise<ClaudeWebPageSocketSnapshot> {
     return this.callBoundary(
       operation,
       () => this.boundary.inspect(operation.id),
@@ -614,20 +697,29 @@ export class ClaudeWebPageTransport {
   private startKeepAlive(operation: ActiveOperation): void {
     const handle = this.clock.setInterval(() => {
       if (operation.controller.signal.aborted) return;
-      void this.callBoundary(
-        operation,
-        () => this.boundary.sendControl(operation.id, CLAUDE_WEB_KEEP_ALIVE_CONTROL),
-        ClaudeWebPageTransportErrorCode.ConnectionLoss,
-      ).catch((error: unknown) => {
+      void this.enqueueBoundaryAction(operation, async () => {
+        await this.callBoundary(
+          operation,
+          () => this.boundary.sendControl(operation.id, CLAUDE_WEB_KEEP_ALIVE_CONTROL),
+          ClaudeWebPageTransportErrorCode.ConnectionLoss,
+        );
+        this.processSnapshot(operation, await this.inspectNow(operation));
+      }).catch((error: unknown) => {
         if (!operation.failure) {
           this.failOperation(
             operation,
             error instanceof ClaudeWebPageTransportError ? error.code : ClaudeWebPageTransportErrorCode.ConnectionLoss,
           );
         }
+        void this.cleanupOperation(operation);
       });
     }, this.timing.keepAliveIntervalMs);
     operation.intervalHandles.add(handle);
+  }
+
+  private stopKeepAlive(operation: ActiveOperation): void {
+    for (const handle of operation.intervalHandles) this.clock.clearInterval(handle);
+    operation.intervalHandles.clear();
   }
 
   private armDeadline(
@@ -641,6 +733,7 @@ export class ClaudeWebPageTransport {
       operation.timeoutHandles.delete(handle);
       operation.deadlineTimers.delete(kind);
       this.failOperation(operation, code);
+      void this.cleanupOperation(operation);
     }, delayMs);
     operation.timeoutHandles.add(handle);
     operation.deadlineTimers.set(kind, handle);
@@ -688,6 +781,18 @@ export class ClaudeWebPageTransport {
       }
       this.throwOperationFailure(operation);
     }
+  }
+
+  private enqueueBoundaryAction<T>(operation: ActiveOperation, action: () => Promise<T>): Promise<T> {
+    const pending = operation.boundaryTail.then(async () => {
+      this.throwIfFailed(operation);
+      return action();
+    });
+    operation.boundaryTail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
   }
 
   private async awaitWithCancellation<T>(operation: ActiveOperation, action: () => Promise<T>): Promise<T> {
@@ -764,6 +869,36 @@ export class ClaudeWebPageTransport {
     operation.timeoutHandles.clear();
     operation.intervalHandles.clear();
     operation.deadlineTimers.clear();
+  }
+
+  private async cleanupOperation(operation: ActiveOperation): Promise<void> {
+    this.clearAllTimers(operation);
+    if (this.activeOperations.get(operation.id) === operation) this.activeOperations.delete(operation.id);
+    operation.transcript = createClaudeWebTranscriptState();
+    await this.closeOperation(operation);
+  }
+
+  private async stopOperations(code: ClaudeWebPageTransportErrorCode): Promise<void> {
+    const operations = Array.from(this.activeOperations.values());
+    for (const operation of operations) this.failOperation(operation, code);
+    await Promise.all(operations.map((operation) => this.cleanupOperation(operation)));
+  }
+
+  private getOperation(operationId: ClaudeWebPageTransportOperationId): ActiveOperation {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) throw new RangeError('Unknown Claude Web transport operation');
+    return operation;
+  }
+
+  private getOpenPromise(operation: ActiveOperation): Promise<void> {
+    if (!operation.openPromise) throw new RangeError('Claude Web transport operation did not start');
+    return operation.openPromise;
+  }
+
+  private assertPcmChunk(chunk: Uint8Array, allowEmpty: boolean): void {
+    if (!(chunk instanceof Uint8Array)) throw new TypeError('Claude Web PCM chunk must be a Uint8Array');
+    if (!allowEmpty && chunk.byteLength === 0) throw new RangeError('Claude Web PCM chunk must not be empty');
+    if (chunk.byteLength % 2 !== 0) throw new RangeError('Claude Web PCM chunk must contain complete samples');
   }
 
   private closeOperation(operation: ActiveOperation): Promise<void> {

@@ -1,62 +1,58 @@
 # Handoff: Claude Web Live Streaming Amendment
 
-Status: Task 23 is complete and uncommitted; it awaits human review. Do not
-begin Task 24 until a later explicit incremental-implementation invocation.
+Status: Task 24 is complete and uncommitted; it awaits human review. Do not
+begin Task 25 until a later explicit incremental-implementation invocation.
 
 Completed:
 
-- Tasks 01-09 and 21-22 are committed through `2fc2355b`.
-- Added a deterministic renderer pipeline that normalizes browser channel
-  blocks to mono, resamples 44.1/48 kHz input statefully to 16 kHz, converts to
-  signed little-endian PCM16, and emits exact 2,730-byte frames plus one even
-  final fragment.
-- Added explicit pause, resume, flush, and cancel behavior. Paused samples are
-  discarded before audio state, and cancellation clears retained PCM while
-  making late worklet messages inert.
-- Retained emitted PCM only in memory for the active capture and constructed a
-  canonical mono/16-bit/16-kHz retry WAV whose data bytes exactly match the
-  emitted frames and final fragment.
-- Added a self-hosted AudioWorklet and browser capture session with idempotent
-  node, track, and audio-context cleanup. The development build emits
-  `dist/renderer/assets/livePcmCapture.worklet.js` (665 bytes).
-- Kept capture inactive: no recording hook, transport, IPC, main-process,
-  localization, dependency, or feature-gate behavior changed in this packet.
+- Tasks 01-09 and 21-23 are committed through `3bad0a89`.
+- Refactored the authenticated page transport into opaque start, push, finish,
+  per-operation cancel, and lifecycle-wide cancel operations. Start returns
+  after page socket creation while connection polling continues, so queued
+  audio and Stop-before-open are supported.
+- Serialized binary, KeepAlive, and CloseStream writes per operation. Finish
+  drains earlier writes, sends the optional even final fragment, stops
+  KeepAlive, and sends CloseStream exactly once before waiting for a finalized
+  endpoint.
+- Preserved the connect, first-event, overall, and drain deadlines, four-second
+  KeepAlive, cumulative transcript replacement, multiple endpoints, safe
+  diagnostics, and page-owned socket cleanup. Cancellation cannot arm a late
+  post-open or drain timer.
+- Reimplemented buffered replay through the incremental operations while
+  retaining the validated 85.31 ms cadence, exact PCM order, explicit Retry
+  compatibility, and no reconnect or automatic replay.
+- Implemented Claude's privileged streaming provider operations with main-ID to
+  transport-ID binding, copied/even PCM validation, sequence acknowledgements,
+  typed lifecycle failures, idempotent cancellation, and no live clipboard
+  writes. Buffered Retry retains its existing clipboard behavior.
+- Kept renderer capture, IPC, main service completion, queue limits,
+  localization, and feature enablement unchanged for Tasks 25-28.
 
 Changed files:
 
 - `docs/specs/claude-web-voice-provider/tasks/todo.md`
 - `docs/specs/claude-web-voice-provider/tasks/handoff.md`
-- `src/renderer/audio/pcm16.ts`
-- `src/renderer/audio/streamingLinearResampler.ts`
-- `src/renderer/audio/pcmFrameAccumulator.ts`
-- `src/renderer/audio/livePcmPipeline.ts`
-- `src/renderer/audio/livePcmCapture.worklet.js`
-- `src/renderer/audio/livePcmCaptureAsset.ts`
-- `src/renderer/audio/livePcmCaptureSession.ts`
-- `src/renderer/audio/livePcmCaptureBrowser.ts`
-- `src/renderer/audioEncoding.ts`
-- `src/renderer/entries/main.tsx`
-- `src/renderer/styles.d.ts`
-- `webpack.config.js`
-- `eslint.config.mjs`
-- `tests/renderer/livePcmPipeline.test.ts`
-- `tests/renderer/livePcmCapture.test.ts`
-- `tests/scripts/rendererBundle.test.ts`
+- `src/main/providers/claudeWebPageTransport.ts`
+- `src/main/providers/ClaudeWebVoiceProvider.ts`
+- `src/main/providers/StreamingTranscriptionOperationError.ts`
+- `src/main/providers/index.ts`
+- `tests/main/providers/claudeWebPageTransport.test.ts`
+- `tests/main/providers/ClaudeWebVoiceProvider.test.ts`
 
 Checks:
 
-- Focused renderer audio and capture tests pass.
-- Full unit suite passes (423 tests).
+- Focused Claude audio, protocol, page-transport, and provider tests pass (46
+  tests).
+- Full unit suite passes (429 tests).
 - Application and test TypeScript checks pass.
 - Full ESLint and Prettier checks pass.
-- Development build and production renderer bundle asset assertions pass.
 - `git diff --check` and sensitive-artifact/credential scans pass.
 
 Exact next packet:
 
-- After human approval, commit Task 23 with a focused conventional commit, then
-  execute `24_refactor_claude_streaming_transport.md` only.
+- After human approval, commit Task 24 with a focused conventional commit, then
+  execute `25_build_main_streaming_service.md` only.
 
 Blockers:
 
-- None. Task 23 is at its required human-review checkpoint.
+- None. Task 24 is at its required human-review checkpoint.

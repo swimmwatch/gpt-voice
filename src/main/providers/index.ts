@@ -18,6 +18,7 @@ export { BatchVoiceProvider } from './BatchVoiceProvider';
 export { ChatGPTVoiceProvider } from './ChatGPTVoiceProvider';
 export { ClaudeWebVoiceProvider } from './ClaudeWebVoiceProvider';
 export { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';
+export { StreamingTranscriptionOperationError } from './StreamingTranscriptionOperationError';
 export {
   copyStreamingTranscriptionChunk,
   StreamingVoiceProvider,

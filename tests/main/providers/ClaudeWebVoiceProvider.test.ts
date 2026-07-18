@@ -15,7 +15,16 @@ import {
   ClaudeWebPageTransportErrorCode,
   type ClaudeWebPageTransportDiagnostics,
   type ClaudeWebPageTransportInput,
+  type ClaudeWebPageTransportOperationId,
+  type ClaudeWebPageTransportStartInput,
 } from '@main/providers/claudeWebPageTransport';
+import {
+  copyStreamingTranscriptionChunk,
+  StreamingTranscriptionErrorCode,
+  StreamingTranscriptionLifecycle,
+  type StreamingTranscriptionOperationId,
+} from '@main/providers/streamingVoiceProvider';
+import { StreamingTranscriptionOperationError } from '@main/providers/StreamingTranscriptionOperationError';
 import {
   CLAUDE_WEB_ORIGIN,
   CLAUDE_WEB_SESSION_SCHEMA_VERSION,
@@ -70,11 +79,17 @@ interface FakeRouteResult {
 
 class FakePageTransport implements ClaudeWebPageTransportLike {
   readonly inputs: ClaudeWebPageTransportInput[] = [];
+  readonly startInputs: ClaudeWebPageTransportStartInput[] = [];
+  readonly pushedChunks: Array<{ operationId: ClaudeWebPageTransportOperationId; chunk: Uint8Array }> = [];
+  readonly finishInputs: Array<{ operationId: ClaudeWebPageTransportOperationId; finalChunk: Uint8Array }> = [];
+  readonly cancelledOperationIds: ClaudeWebPageTransportOperationId[] = [];
   cancelCalls = 0;
+  cancelAllCalls = 0;
   shutdownCalls = 0;
   result = 'synthetic final';
   error: Error | null = null;
   onShutdown: (() => void) | null = null;
+  private nextOperationId = 1;
 
   async transcribe(input: ClaudeWebPageTransportInput): Promise<string> {
     this.inputs.push(input);
@@ -82,8 +97,32 @@ class FakePageTransport implements ClaudeWebPageTransportLike {
     return this.result;
   }
 
-  async cancel(): Promise<void> {
+  async start(input: ClaudeWebPageTransportStartInput): Promise<ClaudeWebPageTransportOperationId> {
+    this.startInputs.push(input);
+    if (this.error) throw this.error;
+    const operationId = `synthetic-transport-${this.nextOperationId}` as ClaudeWebPageTransportOperationId;
+    this.nextOperationId += 1;
+    return operationId;
+  }
+
+  async push(operationId: ClaudeWebPageTransportOperationId, chunk: Uint8Array): Promise<void> {
+    this.pushedChunks.push({ operationId, chunk: Uint8Array.from(chunk) });
+    if (this.error) throw this.error;
+  }
+
+  async finish(operationId: ClaudeWebPageTransportOperationId, finalChunk = new Uint8Array()): Promise<string> {
+    this.finishInputs.push({ operationId, finalChunk: Uint8Array.from(finalChunk) });
+    if (this.error) throw this.error;
+    return this.result;
+  }
+
+  async cancel(operationId: ClaudeWebPageTransportOperationId): Promise<void> {
     this.cancelCalls += 1;
+    this.cancelledOperationIds.push(operationId);
+  }
+
+  async cancelAll(): Promise<void> {
+    this.cancelAllCalls += 1;
   }
 
   async shutdown(): Promise<void> {
@@ -246,7 +285,7 @@ async function initialize(harness: ProviderHarness): Promise<void> {
 
 function transportError(code: ClaudeWebPageTransportErrorCode): ClaudeWebPageTransportError {
   const diagnostics: ClaudeWebPageTransportDiagnostics = {
-    phase: 'replaying',
+    phase: 'streaming',
     eventType: null,
     bytesSent: 2,
     eventCount: 0,
@@ -254,6 +293,10 @@ function transportError(code: ClaudeWebPageTransportErrorCode): ClaudeWebPageTra
     closeCode: null,
   };
   return new ClaudeWebPageTransportError(code, diagnostics);
+}
+
+function streamingOperationId(value: string): StreamingTranscriptionOperationId {
+  return value as StreamingTranscriptionOperationId;
 }
 
 describe('ClaudeWebVoiceProvider', () => {
@@ -654,11 +697,163 @@ describe('ClaudeWebVoiceProvider', () => {
     }
   });
 
+  it('maps main-owned operation IDs to live transport operations without writing the clipboard', async () => {
+    const harness = createHarness();
+    harness.state.settings = { language: 'fr-FR' };
+    await initialize(harness);
+    const operationId = streamingOperationId('synthetic-main-operation');
+
+    assert.deepEqual(await harness.provider.startStreamingTranscription({ operationId }), {
+      operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Starting,
+    });
+    assert.deepEqual(harness.transport.startInputs, [
+      { language: 'fr-FR', organizationUuid: SYNTHETIC_ORGANIZATION_UUID },
+    ]);
+
+    const chunk = copyStreamingTranscriptionChunk(Uint8Array.of(1, 0, 2, 0));
+    assert.deepEqual(await harness.provider.pushStreamingTranscriptionChunk({ operationId, sequence: 7, chunk }), {
+      operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Streaming,
+      acceptedSequence: 7,
+    });
+    assert.deepEqual(Array.from(harness.transport.pushedChunks[0]?.chunk ?? []), [1, 0, 2, 0]);
+
+    const finalChunk = copyStreamingTranscriptionChunk(Uint8Array.of(3, 0));
+    assert.deepEqual(await harness.provider.finishStreamingTranscription({ operationId, sequence: 8, finalChunk }), {
+      success: true,
+      operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Completed,
+      text: 'synthetic final',
+    });
+    assert.deepEqual(Array.from(harness.transport.finishInputs[0]?.finalChunk ?? []), [3, 0]);
+    assert.deepEqual(harness.state.clipboardWrites, []);
+  });
+
+  it('rejects conflicting, missing, and invalid live operations with typed metadata-only errors', async () => {
+    const harness = createHarness();
+    await initialize(harness);
+    const operationId = streamingOperationId('synthetic-main-operation');
+    await harness.provider.startStreamingTranscription({ operationId });
+
+    await assert.rejects(
+      () => harness.provider.startStreamingTranscription({ operationId }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        assert.equal(
+          (error as StreamingTranscriptionOperationError).error.code,
+          StreamingTranscriptionErrorCode.OperationConflict,
+        );
+        return true;
+      },
+    );
+
+    const missingOperationId = streamingOperationId('missing-main-operation');
+    await assert.rejects(
+      () =>
+        harness.provider.pushStreamingTranscriptionChunk({
+          operationId: missingOperationId,
+          sequence: 0,
+          chunk: copyStreamingTranscriptionChunk(Uint8Array.of(0, 0)),
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        assert.equal(
+          (error as StreamingTranscriptionOperationError).error.code,
+          StreamingTranscriptionErrorCode.InvalidOperation,
+        );
+        return true;
+      },
+    );
+    assert.deepEqual(
+      await harness.provider.finishStreamingTranscription({
+        operationId: missingOperationId,
+        sequence: 0,
+        finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
+      }),
+      {
+        success: false,
+        operationId: missingOperationId,
+        error: {
+          lifecycle: StreamingTranscriptionLifecycle.Failed,
+          code: StreamingTranscriptionErrorCode.InvalidOperation,
+        },
+      },
+    );
+
+    await assert.rejects(
+      () =>
+        harness.provider.pushStreamingTranscriptionChunk({
+          operationId,
+          sequence: 1,
+          chunk: copyStreamingTranscriptionChunk(Uint8Array.of(1)),
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        assert.equal(
+          (error as StreamingTranscriptionOperationError).error.code,
+          StreamingTranscriptionErrorCode.InvalidChunk,
+        );
+        return true;
+      },
+    );
+    assert.equal(harness.transport.cancelledOperationIds.length, 1);
+  });
+
+  it('maps live cancellation and readiness failures without retaining operation state', async () => {
+    const harness = createHarness();
+    await initialize(harness);
+    const operationId = streamingOperationId('synthetic-main-operation');
+    await harness.provider.startStreamingTranscription({ operationId });
+    harness.transport.error = transportError(ClaudeWebPageTransportErrorCode.Cancelled);
+
+    assert.deepEqual(
+      await harness.provider.finishStreamingTranscription({
+        operationId,
+        sequence: 0,
+        finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
+      }),
+      {
+        success: false,
+        operationId,
+        error: {
+          lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+          code: StreamingTranscriptionErrorCode.Cancelled,
+        },
+      },
+    );
+
+    harness.transport.error = null;
+    const cancellableOperationId = streamingOperationId('cancellable-main-operation');
+    await harness.provider.startStreamingTranscription({ operationId: cancellableOperationId });
+    assert.deepEqual(await harness.provider.cancelStreamingTranscription({ operationId: cancellableOperationId }), {
+      operationId: cancellableOperationId,
+      lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+    });
+    assert.equal(harness.transport.cancelledOperationIds.length >= 1, true);
+
+    const unready = createHarness();
+    unready.state.session = { status: 'missing' };
+    await initialize(unready);
+    await assert.rejects(
+      () => unready.provider.startStreamingTranscription({ operationId }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        assert.equal(
+          (error as StreamingTranscriptionOperationError).error.code,
+          StreamingTranscriptionErrorCode.TransportFailure,
+        );
+        return true;
+      },
+    );
+    assert.equal(unready.transport.startInputs.length, 0);
+  });
+
   it('delegates cancellation and drains transport before clearing base page references on shutdown', async () => {
     const harness = createHarness();
     await initialize(harness);
     await harness.provider.cancelTranscription();
-    assert.equal(harness.transport.cancelCalls, 1);
+    assert.equal(harness.transport.cancelAllCalls, 1);
 
     let pagePresentDuringTransportShutdown = false;
     harness.transport.onShutdown = () => {

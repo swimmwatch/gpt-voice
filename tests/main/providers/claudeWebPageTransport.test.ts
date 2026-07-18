@@ -113,11 +113,13 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
   readonly controls: ClaudeWebClientControl[] = [];
   readonly operationIds: string[] = [];
   readonly closedOperationIds = new Set<string>();
+  maxConcurrentWrites = 0;
   autoOpen = true;
   inspectError: ClaudeWebPageSocketError | null = null;
   onBinary: ((operationId: string, bytes: Uint8Array) => void) | null = null;
   onControl: ((operationId: string, control: ClaudeWebClientControl) => void) | null = null;
   onStart: ((operationId: string) => void) | null = null;
+  private activeWrites = 0;
   private readonly records = new Map<string, FakeSocketRecord>();
 
   async start(operationId: string, _url: string): Promise<void> {
@@ -144,16 +146,28 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
   }
 
   async sendBinary(operationId: string, bytes: Uint8Array): Promise<void> {
-    this.getRecord(operationId);
-    const copy = Uint8Array.from(bytes);
-    this.binaryFrames.push(copy);
-    this.onBinary?.(operationId, copy);
+    this.beginWrite();
+    try {
+      this.getRecord(operationId);
+      const copy = Uint8Array.from(bytes);
+      this.binaryFrames.push(copy);
+      this.onBinary?.(operationId, copy);
+      await Promise.resolve();
+    } finally {
+      this.activeWrites -= 1;
+    }
   }
 
   async sendControl(operationId: string, control: ClaudeWebClientControl): Promise<void> {
-    this.getRecord(operationId);
-    this.controls.push(control);
-    this.onControl?.(operationId, control);
+    this.beginWrite();
+    try {
+      this.getRecord(operationId);
+      this.controls.push(control);
+      this.onControl?.(operationId, control);
+      await Promise.resolve();
+    } finally {
+      this.activeWrites -= 1;
+    }
   }
 
   async close(operationId: string): Promise<void> {
@@ -171,6 +185,10 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
     record.phase = 'closed';
   }
 
+  open(operationId: string): void {
+    this.getRecord(operationId).phase = 'open';
+  }
+
   fail(operationId: string, failure: ClaudeWebPageSocketFailureCode, closeCode: number | null = null): void {
     const record = this.getRecord(operationId);
     record.closeCode = closeCode;
@@ -182,6 +200,11 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
     const record = this.records.get(operationId);
     if (!record) throw new ClaudeWebPageSocketError(ClaudeWebPageTransportErrorCode.PageShutdown);
     return record;
+  }
+
+  private beginWrite(): void {
+    this.activeWrites += 1;
+    this.maxConcurrentWrites = Math.max(this.maxConcurrentWrites, this.activeWrites);
   }
 }
 
@@ -229,6 +252,13 @@ function transcribe(transport: ClaudeWebPageTransport, pcm = syntheticPcm(4)): P
     language: 'en-US',
     organizationUuid: SYNTHETIC_ORGANIZATION_UUID,
     pcm,
+  });
+}
+
+function startTransport(transport: ClaudeWebPageTransport) {
+  return transport.start({
+    language: 'en-US',
+    organizationUuid: SYNTHETIC_ORGANIZATION_UUID,
   });
 }
 
@@ -355,6 +385,88 @@ describe('Claude Web page transport', () => {
         writable: true,
       });
     }
+  });
+
+  it('returns an operation before socket open and serializes queued audio before Stop', async () => {
+    const { boundary, clock, transport } = createHarness();
+    boundary.autoOpen = false;
+    boundary.onControl = (operationId, control) => {
+      if (control.type !== 'CloseStream') return;
+      boundary.emit(operationId, '{"type":"TranscriptText","data":"synthetic final"}');
+      boundary.emit(operationId, '{"type":"TranscriptEndpoint"}');
+    };
+
+    const operationId = await startTransport(transport);
+    const firstChunk = new Uint8Array(CLAUDE_WEB_PCM_CHUNK_BYTES).fill(1);
+    const secondChunk = new Uint8Array(CLAUDE_WEB_PCM_CHUNK_BYTES).fill(2);
+    const firstPush = transport.push(operationId, firstChunk);
+    const secondPush = transport.push(operationId, secondChunk);
+    const finish = transport.finish(operationId, Uint8Array.of(3, 0));
+    firstChunk.fill(9);
+    secondChunk.fill(9);
+    await flushMicrotasks();
+
+    assert.equal(boundary.binaryFrames.length, 0);
+    assert.equal(boundary.controls.length, 0);
+    boundary.open(operationId);
+
+    const [, , text] = await settleWithClock(Promise.all([firstPush, secondPush, finish]), clock);
+    assert.equal(text, 'synthetic final');
+    assert.deepEqual(
+      boundary.binaryFrames.map((chunk) => [chunk.byteLength, chunk[0]]),
+      [
+        [CLAUDE_WEB_PCM_CHUNK_BYTES, 1],
+        [CLAUDE_WEB_PCM_CHUNK_BYTES, 2],
+        [2, 3],
+      ],
+    );
+    assert.equal(boundary.controls.filter((control) => control.type === 'CloseStream').length, 1);
+    assert.equal(boundary.maxConcurrentWrites, 1);
+    assert.equal(clock.activeTimerCount, 0);
+  });
+
+  it('keeps the open socket alive while paused and commits only the latest cumulative endpoint', async () => {
+    const { boundary, clock, transport } = createHarness({ firstEventTimeoutMs: 30 });
+    boundary.onBinary = (operationId) => {
+      boundary.emit(operationId, '{"type":"TranscriptInterim","data":"synthetic"}');
+      boundary.emit(operationId, '{"type":"TranscriptEndpoint"}');
+    };
+    boundary.onControl = (operationId, control) => {
+      if (control.type !== 'CloseStream') return;
+      boundary.emit(operationId, '{"type":"TranscriptText","data":"synthetic final"}');
+      boundary.emit(operationId, '{"type":"TranscriptEndpoint"}');
+    };
+
+    const operationId = await startTransport(transport);
+    await settleWithClock(transport.push(operationId, Uint8Array.of(1, 0)), clock);
+    await advanceClock(clock, 12);
+
+    assert.equal(boundary.controls.filter((control) => control.type === 'KeepAlive').length, 3);
+    assert.equal(
+      boundary.controls.some((control) => control.type === 'CloseStream'),
+      false,
+    );
+    assert.equal(await settleWithClock(transport.finish(operationId), clock), 'synthetic final');
+    assert.equal(boundary.controls.filter((control) => control.type === 'CloseStream').length, 1);
+    assert.equal(clock.activeTimerCount, 0);
+  });
+
+  it('rejects empty or sample-unaligned streamed chunks without closing a valid operation', async () => {
+    const { boundary, clock, transport } = createHarness();
+    const operationId = await startTransport(transport);
+
+    await assert.rejects(() => transport.push(operationId, new Uint8Array()), RangeError);
+    await assert.rejects(() => transport.push(operationId, Uint8Array.of(1)), RangeError);
+    assert.throws(() => transport.finish(operationId, Uint8Array.of(1)), RangeError);
+    assert.equal(boundary.binaryFrames.length, 0);
+    assert.equal(
+      boundary.controls.some((control) => control.type === 'CloseStream'),
+      false,
+    );
+
+    await transport.cancel(operationId);
+    assert.equal(boundary.closedOperationIds.size, 1);
+    assert.equal(clock.activeTimerCount, 0);
   });
 
   it('paces complete chunks, sends keepalives and one CloseStream, and accepts a late final endpoint', async () => {
@@ -517,25 +629,31 @@ describe('Claude Web page transport', () => {
     assert.equal(drain.clock.activeTimerCount, 0);
   });
 
-  it('cancels promptly and idempotently during connect, replay, and drain', async () => {
-    for (const phase of ['connect', 'replay', 'drain'] as const) {
+  it('cancels promptly and idempotently during connect, streaming, and drain', async () => {
+    for (const phase of ['connect', 'streaming', 'drain'] as const) {
       const { boundary, clock, transport } = createHarness();
       if (phase === 'connect') boundary.autoOpen = false;
-      const pcm = phase === 'replay' ? syntheticPcm(CLAUDE_WEB_PCM_CHUNK_BYTES * 3) : syntheticPcm(4);
+      const pcm = phase === 'streaming' ? syntheticPcm(CLAUDE_WEB_PCM_CHUNK_BYTES * 3) : syntheticPcm(4);
       const operation = transcribe(transport, pcm);
 
       if (phase === 'connect') {
         await flushMicrotasks();
-      } else if (phase === 'replay') {
+      } else if (phase === 'streaming') {
         while (boundary.binaryFrames.length === 0) await advanceClock(clock, 1);
       } else {
         while (!boundary.controls.some((control) => control.type === 'CloseStream')) await advanceClock(clock, 1);
       }
 
-      await transport.cancel();
-      assert.equal(clock.activeTimerCount, 0);
-      await transport.cancel();
+      await transport.cancelAll();
+      assert.equal(clock.activeTimerCount, 0, `timers remain after ${phase} cancellation`);
+      await transport.cancelAll();
       await expectTransportFailure(operation, clock, ClaudeWebPageTransportErrorCode.Cancelled);
+      if (phase !== 'drain') {
+        assert.equal(
+          boundary.controls.some((control) => control.type === 'CloseStream'),
+          false,
+        );
+      }
       assert.equal(boundary.operationIds.length, 1);
       assert.equal(boundary.closedOperationIds.size, 1);
       assert.equal(clock.activeTimerCount, 0);
