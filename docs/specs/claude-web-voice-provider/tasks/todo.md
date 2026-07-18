@@ -1,6 +1,6 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Task 08 is complete and awaits review; Task 09 is next after
+Plan gate: Task 09 is complete and awaits review; Task 10 is next after
 approval.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
@@ -11,7 +11,7 @@ approval.
 - [x] [06 Claude provider lifecycle](06_implement_claude_provider_lifecycle.md)
 - [x] [07 Claude localization](07_localize_claude_voice.md)
 - [x] [08 Claude registry](08_register_claude_web_provider.md)
-- [ ] [09 Claude settings UI](09_expose_claude_voice_settings.md)
+- [x] [09 Claude settings UI](09_expose_claude_voice_settings.md)
 - [ ] [10 CLI settings and capabilities](10_define_cli_prettify_contracts.md)
 - [ ] [11 CLI process runner](11_build_cli_process_runner.md)
 - [ ] [12 Claude CLI adapter](12_implement_claude_cli_adapter.md)
