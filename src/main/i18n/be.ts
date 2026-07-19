@@ -342,6 +342,12 @@ export default {
   'error.notificationOperationTimedOut': 'Аперацыя заняла занадта шмат часу. Паўтарыце спробу.',
   'error.notificationClipboardUnavailable': 'Не ўдалося прачытаць вылучаны тэкст. Праверце вылучэнне і паўтарыце.',
   'error.notificationAudioPreparationFailed': 'Не ўдалося падрыхтаваць запіс. Паспрабуйце запісаць яшчэ раз.',
+  'error.streamingRecordingCancelled': 'Запіс скасаваны.',
+  'error.streamingAudioUnavailable': 'Не ўдалося падрыхтаваць аўдыя. Запішыце яшчэ раз.',
+  'error.streamingRecordingRestart': 'Налады запісу змяніліся. Пачніце новы запіс.',
+  'error.streamingConnectionFailed':
+    'Не ўдалося падтрымліваць злучэнне падчас запісу. Праверце сетку і запішыце яшчэ раз.',
+  'error.streamingQueueOverflow': 'Злучэнне не паспявае перадаваць аўдыя. Паўтарыце спробу пры стабільнай сетцы.',
   'error.notificationUnknown': 'Нешта пайшло не так. Паўтарыце спробу.',
 
   // Tray

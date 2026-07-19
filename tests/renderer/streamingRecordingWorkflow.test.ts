@@ -49,6 +49,14 @@ describe('streaming recording workflow', () => {
     assert.match(hook, /if \(result\.success && result\.text\) \{\s*showSuccessfulTranscription/u);
   });
 
+  it('presents typed live failures through a localized safe-message adapter', () => {
+    const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
+
+    assert.match(hook, /const message = t\(getStreamingTranscriptionFailureTranslationKey\(failure\)\);/u);
+    assert.match(hook, /showRecognitionErrorNotification\(undefined, message, \{/u);
+    assert.doesNotMatch(hook, /showRecognitionErrorNotification\(failure/u);
+  });
+
   it('cancels only a live recording before provider mutation and during teardown', () => {
     const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
     const app = readProjectFile('src/renderer/App.tsx');

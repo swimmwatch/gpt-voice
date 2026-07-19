@@ -342,6 +342,12 @@ export default {
   'error.notificationOperationTimedOut': 'Операція тривала занадто довго. Повторіть спробу.',
   'error.notificationClipboardUnavailable': 'Не вдалося прочитати виділений текст. Перевірте виділення й повторіть.',
   'error.notificationAudioPreparationFailed': 'Не вдалося підготувати запис. Спробуйте записати ще раз.',
+  'error.streamingRecordingCancelled': 'Запис скасовано.',
+  'error.streamingAudioUnavailable': 'Не вдалося підготувати аудіо. Запишіть ще раз.',
+  'error.streamingRecordingRestart': 'Налаштування запису змінилося. Почніть новий запис.',
+  'error.streamingConnectionFailed':
+    'Не вдалося підтримувати з’єднання під час запису. Перевірте мережу й запишіть ще раз.',
+  'error.streamingQueueOverflow': 'З’єднання не встигає передавати аудіо. Повторіть спробу за стабільної мережі.',
   'error.notificationUnknown': 'Щось пішло не так. Повторіть спробу.',
 
   // Tray

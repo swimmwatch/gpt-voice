@@ -305,3 +305,122 @@ Tasks 22-28 may proceed in order after human review. The endpoint remains
 private and volatile; rerun this metadata-only gate if the query/event contract,
 selected cadence, authenticated bootstrap routing, or finalization timing
 changes.
+
+## Task 28 Streaming Feature-Gate Attempt
+
+Evidence date: 2026-07-19
+
+### Procedure And Privacy
+
+An authorized saved Claude session was loaded into an isolated CloakBrowser
+context by a temporary local runner. The runner was removed after the attempt.
+It retained no audio, transcript, socket URL, session value, account data,
+browser-profile data, or raw provider event. The evidence below contains only
+safe result classifications and completion booleans.
+
+### Sanitized Runtime Matrix
+
+| Case                               | Result                                                  |
+| ---------------------------------- | ------------------------------------------------------- |
+| First short recording              | Completed                                               |
+| Second consecutive short recording | Completed                                               |
+| Paused and resumed recording       | Completed                                               |
+| Approximately 30-second recording  | Failed with the safe `transport-failure` classification |
+| Cancellation and immediate Stop    | Not asserted after the long-stream failure              |
+
+The long recording did not produce the required normal post-Stop result, so its
+finalization target and duration-independence requirement could not be
+established. The short, consecutive, and pause/resume cases do not substitute
+for that release evidence.
+
+### Gate Decision
+
+**Task 28 remains blocked and unchecked.** The implementation must keep the
+safe live path and explicit Retry behavior; it must not silently switch to
+buffered transcription. Rerun the complete authorized metadata-only matrix on
+a stable connection before release review can enable this gate.
+
+### Authorized Revalidation Attempt
+
+Evidence date: 2026-07-19
+
+The same public reference fixture and authorized saved session were used in a
+fresh isolated CloakBrowser context. Audio, reference text, transcript text,
+raw events, URLs, session values, and browser-profile data stayed in transient
+process/page memory. The temporary runner and its sanitized output were removed
+after this record was prepared.
+
+| Case                              | Safe outcome                          | Sanitized metadata                                      |
+| --------------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| First short recording             | Safe terminal failure                 | 68 sent frames; queue high-water 10; post-Stop 2,316 ms |
+| Second short recording            | Safe terminal failure                 | 68 sent frames; queue high-water 7; post-Stop 2,258 ms  |
+| Paused and resumed recording      | Safe terminal failure                 | 68 sent frames; queue high-water 4; post-Stop 2,260 ms  |
+| Immediate Stop                    | Safe terminal failure                 | No complete frame; post-Stop 3,146 ms                   |
+| Cancellation                      | Cancelled cleanly                     | Five sent frames                                        |
+| Approximately 30-second recording | Completed but did not reference-match | 351 sent frames; queue high-water 7; post-Stop 256 ms   |
+
+The long recording met the three-second post-Stop target, but the short and
+paused recordings did not finalize normally and the long result failed the
+metadata-only reference-match check. Consequently, duration-independent normal
+finalization was not established. Provider-owned socket close-code observation
+was unavailable from this temporary harness, so no close code was recorded.
+
+### Revalidation Decision
+
+**Task 28 remains blocked and unchecked.** This attempt does not authorize an
+automatic replay, reconnect, fallback to buffered transcription, or transport
+change. A future authorized investigation must first explain the divergent
+short/long behavior and restore close-code observation before it can rerun the
+release matrix.
+
+### Runtime-Gap Resolution Revalidation
+
+Evidence date: 2026-07-19
+
+The authorized matrix was repeated in a fresh isolated CloakBrowser context
+after correcting three temporary-runner defects. The runner captured the
+existing typed transport error before provider-level presentation, compared
+normal results with at least 80% normalized word-order coverage using an
+in-memory longest-common-subsequence check, and observed the page-owned
+socket's actual `CloseEvent` code outside the measured post-Stop interval.
+The long fixture ended on a complete public utterance and used generated
+silence to reach approximately 30 seconds, avoiding a truncated final
+reference repetition.
+
+The public fixture audio, reference, recognized text, socket URL, raw events,
+session values, and organization values remained transient and were neither
+printed nor persisted. The ignored temporary runner was removed after the
+sanitized aggregate was inspected.
+
+| Case                                            | Sanitized outcome                                                       | Permitted metadata                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Consecutive short recordings                    | Completion and reference match: true for both                           | 69 audio sends each; queue high-water 6; post-Stop 475-503 ms; close `1000` |
+| Pause and resume                                | Completion and reference match: true                                    | 69 audio sends; queue high-water 6; post-Stop 660 ms; close `1000`          |
+| Immediate Stop before awaiting socket readiness | Completion: false with the expected typed `empty-result` classification | Zero complete-frame sends; post-Stop 2,946 ms; close `1000`                 |
+| Cancellation                                    | Cancellation completion: true                                           | Five audio sends; close `1000`                                              |
+| Approximately 30 seconds                        | Completion and reference match: true                                    | 352 audio sends; queue high-water 7; post-Stop 280 ms; close `1000`         |
+
+The long case finalized faster after Stop than either short case, so post-Stop
+time did not scale with recording length, and all normal cases stayed below the
+three-second target.
+
+The corrected run establishes current successful short, pause/resume, and long
+behavior; fixes the long-fixture matching check; and makes typed failures and
+actual socket close codes observable in future attempts. It cannot reconstruct
+the reasons discarded by the earlier temporary runner, so it does not claim
+that every historical short or paused failure was caused by that runner.
+
+### Visible Application Verification
+
+The freshly built application selected Claude Web on the first provider-change
+attempt, reached the passive Connected state, and retained that provider after
+the main window was recreated. An in-memory zero-gain synthetic source exercised
+the recording UI without using the microphone or retaining audio. The visible
+window showed only the recording lifecycle while capture was active, rendered
+no interim transcript, and ended with the short localized live-connection
+message rather than an error code, URL, sequence value, or raw provider error.
+The renderer accepted focus when brought to the foreground.
+
+**The Task 28 authorized runtime and visible-application gates now pass.** This
+result does not authorize reconnect, automatic replay, buffered fallback, or a
+transport-contract change.

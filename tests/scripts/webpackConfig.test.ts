@@ -28,3 +28,26 @@ test('uses ESM only for the renderer TypeScript compilation', async () => {
     options: { configFile: path.join(rootDirectory, 'tsconfig.renderer.json') },
   });
 });
+
+test('emits the live PCM worklet as one local renderer asset under the strict startup CSP', async () => {
+  const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
+  const rendererWebpackConfig = webpackConfigs[2];
+  const rules = (rendererWebpackConfig.module as { rules: Array<Record<string, unknown>> }).rules;
+  const workletRule = rules.find((rule) => String(rule.test).includes('worklet'));
+  const captureAsset = await readFile(
+    path.join(rootDirectory, 'src', 'renderer', 'audio', 'livePcmCaptureAsset.ts'),
+    'utf8',
+  );
+  const captureBrowser = await readFile(
+    path.join(rootDirectory, 'src', 'renderer', 'audio', 'livePcmCaptureBrowser.ts'),
+    'utf8',
+  );
+  const indexHtml = await readFile(path.join(rootDirectory, 'src', 'renderer', 'index.html'), 'utf8');
+
+  assert.equal(workletRule?.type, 'asset/resource');
+  assert.deepEqual(workletRule?.generator, { filename: 'renderer/assets/[name][ext]' });
+  assert.match(captureAsset, /import workletAssetUrl from '\.\/livePcmCapture\.worklet\.js';/u);
+  assert.match(captureBrowser, /audioWorklet\.addModule\(LIVE_PCM_WORKLET_ASSET_URL\)/u);
+  assert.match(indexHtml, /default-src 'self'; script-src 'self';/u);
+  assert.doesNotMatch(indexHtml, /script-src[^;]*(?:\*|https?:)/u);
+});

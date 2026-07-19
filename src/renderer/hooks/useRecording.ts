@@ -8,6 +8,7 @@ import {
   StreamingTranscriptionQueue,
   type StreamingRecordingFailure,
 } from '../audio/streamingTranscriptionQueue';
+import { getStreamingTranscriptionFailureTranslationKey } from '../audio/streamingTranscriptionPresentation';
 import {
   beginRetryTranscription,
   clearRetryableTranscriptionAudio,
@@ -53,10 +54,6 @@ function createLiveTranscriptionAudio(recordingWav: ArrayBuffer): TranscriptionA
     mimeType: WAV_TRANSCRIPTION_MIME_TYPE,
     transcoded: false,
   };
-}
-
-function getStreamingFailureCode(failure: StreamingRecordingFailure): string {
-  return failure.kind === 'ipc' ? failure.error.code : failure.code;
 }
 
 /** Coordinates audio capture, shortcut state, retry behavior, and recording notifications. */
@@ -137,11 +134,12 @@ export function useRecording({
 
   const showStreamingFailure = useCallback(
     (failure: StreamingRecordingFailure) => {
-      const presented = showRecognitionErrorNotification(undefined, t('status.transcriptionFailed'), {
+      const message = t(getStreamingTranscriptionFailureTranslationKey(failure));
+      const presented = showRecognitionErrorNotification(undefined, message, {
         sound: 'error',
       });
       log.error('Streaming transcription failed:', {
-        errorCode: getStreamingFailureCode(failure),
+        errorCode: failure.kind === 'ipc' ? failure.error.code : failure.code,
         retryEligible: failure.retryEligible,
       });
       setStatus(presented.userMessage);

@@ -38,6 +38,7 @@ const requiredPaths = [
   'dist/renderer/providerSettings.js',
   'dist/renderer/runtime.js',
   'dist/renderer/settings.js',
+  'dist/renderer/assets/livePcmCapture.worklet.js',
   'dist/settings.html',
   'package.json',
 ];
@@ -61,6 +62,7 @@ describe('packaged runtime policy', () => {
         'dist\\renderer/providerSettings.js',
         'dist\\renderer/runtime.js',
         'dist\\renderer/settings.js',
+        'dist\\renderer/assets/livePcmCapture.worklet.js',
         'dist\\settings.html',
         'package.json',
         'node_modules/cloakbrowser/dist/index.js',
@@ -104,6 +106,10 @@ describe('packaged runtime policy', () => {
     assert.deepEqual(importedModule.getPackagedRuntimeViolations([...requiredPaths, 'assets/icon.png']), [
       'duplicate ASAR asset: assets/icon.png',
     ]);
+    assert.deepEqual(
+      importedModule.getPackagedRuntimeViolations([...requiredPaths, 'dist/renderer/assets/livePcmCapture.worklet.js']),
+      ['duplicate renderer worklet asset: dist/renderer/assets/livePcmCapture.worklet.js'],
+    );
   });
 
   it('requires the Electron locale allowlist while ignoring non-locale resources', async () => {

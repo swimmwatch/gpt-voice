@@ -5,9 +5,9 @@
 <h1 align="center">GPT-Voice</h1>
 
 <p align="center">
-  <strong>Desktop voice transcription powered by GPT providers.</strong>
+  <strong>Desktop voice transcription powered by web and API providers.</strong>
   <br />
-  Record a thought, send it through a GPT web session or OpenAI API, and get clean text back on your clipboard.
+  Record a thought, send it through a supported web session or API, and get clean text back on your clipboard.
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 ## Why GPT-Voice?
 
-GPT-Voice is a small Electron app for people who want fast voice-to-text without running a local Whisper model, downloading large checkpoints, or needing a GPU. It sends audio to a provider you control: either a logged-in GPT web session or the official OpenAI API transcription endpoint.
+GPT-Voice is a small Electron app for people who want fast voice-to-text without running a local Whisper model, downloading large checkpoints, or needing a GPU. It sends audio to a provider you control: a logged-in web session or the official OpenAI API transcription endpoint.
 
 The result is a quiet desktop utility: press a hotkey, speak, stop, and the transcript is copied to your clipboard.
 
@@ -32,7 +32,7 @@ The provider architecture is intentionally simple so more GPT-capable web apps a
 ## Highlights
 
 - **No local Whisper runtime**: no model files, no CUDA setup, no GPU requirement.
-- **Provider choice**: use ChatGPT Web through a saved browser session, or OpenAI API through your own API key.
+- **Provider choice**: use ChatGPT Web or Claude Web through saved browser sessions, or OpenAI API through your own API key.
 - **Fast remote recognition**: get high-quality transcription from remote GPT/Whisper infrastructure instead of spending local CPU/GPU resources.
 - **Separate provider settings**: web-session auth and API-key auth are stored independently.
 - **Bundled Cloak Chromium**: packaged builds include the browser runtime needed by CloakBrowser.
@@ -52,9 +52,13 @@ flowchart LR
   Provider --> Web[ChatGPT Web provider]
   Web --> Browser[CloakBrowser persistent session]
   Browser --> ChatGPT[GPT web transcription]
+  Provider --> Claude[Claude Web provider]
+  Claude --> ClaudeBrowser[CloakBrowser persistent session]
+  ClaudeBrowser --> ClaudeAI[Claude live speech recognition]
   Provider --> API[OpenAI API provider]
   API --> Whisper[Whisper transcription endpoint]
   ChatGPT --> Clipboard[Clipboard text]
+  ClaudeAI --> Clipboard
   Whisper --> Clipboard
   Clipboard --> Editor[Your target app]
   Editor --> Selection[Selected edited text]
@@ -64,7 +68,7 @@ flowchart LR
   LLM --> Clipboard
 ```
 
-GPT-Voice records audio locally and sends it to the selected provider. The ChatGPT Web provider uses a background CloakBrowser context with your saved ChatGPT cookies. The OpenAI API provider sends multipart audio to OpenAI's transcription endpoint with your API key. In both cases, GPT-Voice parses the final text and copies it to the clipboard.
+GPT-Voice records audio locally and sends it to the selected provider. ChatGPT Web uses a background CloakBrowser context with your saved ChatGPT cookies. Claude Web sends live audio through its authenticated browser session. OpenAI API sends multipart audio to OpenAI's transcription endpoint with your API key. GPT-Voice copies finalized text to the clipboard.
 
 Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the configured Ollama or vLLM provider and copies the improved result to the clipboard.
 
@@ -82,6 +86,17 @@ ChatGPT Web uses a real browser session through CloakBrowser.
 - Starts a persistent background CloakBrowser context for transcription.
 
 Use this provider when you want the app to work through the GPT web account you already use.
+
+### Claude Web
+
+Claude Web uses a saved Claude browser session through CloakBrowser and a private, browser-owned speech-recognition integration. This integration is not a public API and can change when Claude changes its web application.
+
+- Requires login in a visible browser window and does not require an API key.
+- Sends live audio while you speak. Pause excludes new microphone audio while the connection remains active.
+- Stop drains the bounded live-audio queue and waits for one final result. Cancel stops the active operation and discards it.
+- A failed live recording is retained in memory only when an explicit Retry is available. Retry uses the buffered provider path; GPT-Voice never automatically replays audio after it has been sent live.
+
+Use this provider when your Claude account has browser dictation available and you accept the volatility of the private web integration.
 
 ### OpenAI API
 
@@ -277,10 +292,10 @@ After installation, the first run is the same on every supported packaged platfo
 2. Choose a provider in the **Provider** select.
 3. Open **Settings** next to the provider selector.
 4. For **ChatGPT Web**, sign in through the browser login flow and close the login window after ChatGPT is ready.
-5. For **OpenAI API**, paste your OpenAI API key and select the transcription model and language you need.
+5. For **Claude Web**, sign in through the browser login flow and choose the recognition language. For **OpenAI API**, paste your OpenAI API key and select the transcription model and language you need.
 6. Wait until the main button shows the provider as connected or configured.
 
-After that, GPT-Voice reuses the saved provider settings. ChatGPT Web starts its background browser automatically; OpenAI API does not need a browser for transcription.
+After that, GPT-Voice reuses the saved provider settings. ChatGPT Web and Claude Web start their background browsers automatically; OpenAI API does not need a browser for transcription.
 
 ## Run From Source
 
@@ -292,12 +307,12 @@ npm run prepare:cloakbrowser
 npm run start
 ```
 
-On first launch, choose a provider from the app window. ChatGPT Web opens a login browser and saves the browser session under your user profile. OpenAI API opens the provider settings modal and saves encrypted API settings locally.
+On first launch, choose a provider from the app window. ChatGPT Web and Claude Web open provider-specific login browsers and save separate browser sessions under your user profile. OpenAI API opens the provider settings window and saves encrypted API settings locally.
 
 ## How To Use
 
-1. **Start the app** and choose **ChatGPT Web** or **OpenAI API** in the Provider select in the main toolbar.
-2. **Configure the provider** with the adjacent provider-settings button. Use ChatGPT Web to sign in once through the login browser, or save an OpenAI API key and transcription settings. The API key is encrypted with Electron safe storage and is never shown back in the UI.
+1. **Start the app** and choose **ChatGPT Web**, **Claude Web**, or **OpenAI API** in the Provider select in the main toolbar.
+2. **Configure the provider** with the adjacent provider-settings button. Use a web provider to sign in once through its login browser, or save an OpenAI API key and transcription settings. The API key is encrypted with Electron safe storage and is never shown back in the UI.
 3. **Record** with the visible primary button or the configured hotkey, then use the visible Stop, Pause, Resume, or Cancel action as needed.
 4. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
 5. Optional: open **History** from the main toolbar or tray menu. Existing entries load progressively while you scroll; click transcript text to copy it again.
@@ -421,11 +436,11 @@ build/           Packaging metadata, macOS entitlements, and Fedora release imag
 
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to your configured Ollama or vLLM endpoint.
+GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. Claude Web sends live audio through an authenticated browser session and a private integration that can change. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to your configured Ollama or vLLM endpoint.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings are stored in `config.json`, and an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`; Claude Web stores `claude-web-session.json` and its non-secret language setting separately. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings are stored in `config.json`, and an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
 
-To avoid duplicate provider requests when the same audio is retried, GPT-Voice keeps up to 10 successful transcription results in process memory for up to 5 minutes. It hashes the exact audio bytes with the selected provider's transcription settings to derive an opaque lookup key, but the cache never retains the audio itself. Failed and empty results are not cached, and all cached entries disappear when GPT-Voice restarts.
+To avoid duplicate provider requests when the same audio is retried, GPT-Voice keeps up to 10 successful transcription results in process memory for up to 5 minutes. It hashes the exact audio bytes with the selected provider's transcription settings to derive an opaque lookup key, but the cache never retains the audio itself. For Claude Web, a canonical recording is retained only in memory for an eligible explicit Retry after a live failure or successful completion; it is never automatically replayed. Failed and empty results are not cached, and all cached entries disappear when GPT-Voice restarts.
 
 This project automates browser interactions with services you sign into. Use it responsibly and make sure your usage matches the rules of the services you connect to.
 

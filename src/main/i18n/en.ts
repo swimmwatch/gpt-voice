@@ -337,6 +337,11 @@ export default {
   'error.notificationOperationTimedOut': 'The operation timed out. Try again.',
   'error.notificationClipboardUnavailable': 'Could not read the selected text. Check the selection and try again.',
   'error.notificationAudioPreparationFailed': 'Could not prepare the recording. Try recording again.',
+  'error.streamingRecordingCancelled': 'Recording was cancelled.',
+  'error.streamingAudioUnavailable': 'Audio could not be prepared. Record again.',
+  'error.streamingRecordingRestart': 'Recording setup changed. Start a new recording.',
+  'error.streamingConnectionFailed': 'The live connection failed. Check your network and record again.',
+  'error.streamingQueueOverflow': 'The connection could not keep up with live audio. Retry when it is stable.',
   'error.notificationUnknown': 'Something went wrong. Try again.',
 
   // Tray
