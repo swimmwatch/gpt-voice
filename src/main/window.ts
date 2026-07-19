@@ -5,6 +5,8 @@ import { createProviderSettingsWindowController } from './providerSettingsWindow
 import { createLogger } from './logger';
 import { getAppIcon, getAppIconPath } from './assets';
 import { getAppUrl } from './appProtocol';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
@@ -27,6 +29,19 @@ export function getSettingsWindow(): BrowserWindow | null {
 
 export function getHistoryWindow(): BrowserWindow | null {
   return historyWindow;
+}
+
+export function broadcastLocaleChanged(locale: AppLocaleId): void {
+  const windows = [
+    mainWindow,
+    settingsWindow,
+    historyWindow,
+    aboutWindowController.getWindow(),
+    ...providerSettingsWindowController.getWindows(),
+  ];
+  for (const window of new Set(windows)) {
+    if (window && !window.isDestroyed()) window.webContents.send('locale-changed', locale);
+  }
 }
 
 export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
@@ -126,13 +141,14 @@ function applyNavigationGuards(win: BrowserWindow): void {
   });
 }
 
-export function showSettingsWindow(): void {
+export function showSettingsWindow(section?: AppSettingsSectionId): void {
   if (settingsWindow) {
     if (settingsWindow.isMinimized()) {
       settingsWindow.restore();
     }
     settingsWindow.show();
     settingsWindow.focus();
+    if (section) settingsWindow.webContents.send('app-settings-section-requested', section);
     return;
   }
 
@@ -160,7 +176,9 @@ export function showSettingsWindow(): void {
   settingsWindow = new BrowserWindow(options);
   settingsWindow.setMenuBarVisibility(false);
   applyNavigationGuards(settingsWindow);
-  void settingsWindow.loadURL(getAppUrl('settings.html'));
+  const settingsUrl = new URL(getAppUrl('settings.html'));
+  if (section) settingsUrl.searchParams.set('section', section);
+  void settingsWindow.loadURL(settingsUrl.toString());
 
   settingsWindow.on('close', (event) => {
     if (isQuitting || isSettingsWindowCloseConfirmed) {

@@ -101,6 +101,11 @@ export default {
   // App settings
   'appSettings.open': 'Настройки приложения',
   'appSettings.title': 'Настройки',
+  'appSettings.system': 'Система',
+  'appSettings.language': 'Язык приложения',
+  'appSettings.languageHelp': 'Изменяет язык во всех открытых окнах GPT-Voice.',
+  'appSettings.languageSaving': 'Изменение языка...',
+  'appSettings.languageSaveFailed': 'Не удалось изменить язык приложения',
   'appSettings.hotkeys': 'Горячие клавиши',
   'appSettings.prettify': 'Улучшение текста',
   'appSettings.cloakBrowser': 'CloakBrowser',
@@ -138,6 +143,16 @@ export default {
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Провайдер распознавания',
+  'mainDock.prettifyProviderLabel': 'Улучшение',
+  'mainDock.prettifyModelLabel': 'Модель',
+  'mainDock.prettifyNotConfigured': 'Не настроен',
+  'mainDock.prettifyConfigured': 'Настроен',
+  'mainDock.prettifyEffort': 'Усилие',
+  'mainDock.prettifyExperimental': 'Экспериментальный',
+  'mainDock.openPrettifySettings': 'Открыть настройки улучшения текста',
+  'mainDock.prettifySaveFailed': 'Не удалось сменить провайдера улучшения текста',
+  'mainDock.prettifyLoad': 'Загрузить',
+  'mainDock.prettifyFree': 'Выгрузить',
   'navigation.openHistory': 'Открыть историю распознаваний',
   'navigation.openAbout': 'Открыть информацию о GPT-Voice',
   'navigation.openAppSettings': 'Открыть настройки приложения',
@@ -170,6 +185,7 @@ export default {
   'modelMemory.unknown': 'Состояние неизвестно',
 
   // Settings sections
+  'settingsSection.system': 'Система',
   'settingsSection.shortcuts': 'Клавиши и действия',
   'settingsSection.prettify': 'Улучшение текста',
   'settingsSection.browser': 'Браузер',
@@ -249,12 +265,17 @@ export default {
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
   'prettify.provider.claudeCli': 'Claude CLI',
-  'prettify.provider.codexCli': 'Codex CLI (экспериментальный)',
+  'prettify.provider.codexCli': 'Codex CLI',
   'prettify.cli.executablePath': 'Путь к исполняемому файлу CLI',
   'prettify.cli.executablePathHelp':
     'Оставьте поле пустым для поиска через PATH или выберите один абсолютный путь к исполняемому файлу без аргументов.',
   'prettify.cli.model': 'Модель CLI',
   'prettify.cli.modelHelp': 'Оставьте поле пустым, чтобы использовать модель CLI по умолчанию.',
+  'prettify.cli.showModelOptions': 'Показать варианты моделей',
+  'prettify.cli.statusUnchecked': 'Доступность CLI ещё не проверена. Обновите список, чтобы проверить CLI и модели.',
+  'prettify.cli.statusChecking': 'Проверка доступности CLI и моделей...',
+  'prettify.cli.statusAvailable': 'CLI готов к работе.',
+  'prettify.cli.statusUnavailable': 'CLI недоступен. Проверьте настройку и повторите обновление.',
   'prettify.cli.timeout': 'Тайм-аут CLI',
   'prettify.cli.timeoutHelp': 'Укажите время работы процесса CLI от 15 до 600 секунд.',
   'prettify.claudeCli.fallbackModel': 'Резервная модель',
@@ -357,6 +378,10 @@ export default {
     'Процесс Claude CLI был завершён после отмены. Автоматический повтор не выполнялся.',
   'error.prettify.claudeCli.timed-out':
     'Процесс Claude CLI был завершён по истечении времени. Автоматический повтор не выполнялся.',
+  'error.prettify.claudeCli.output-limit':
+    'Claude CLI вернул слишком много данных, поэтому процесс был завершён. Автоматический повтор не выполнялся.',
+  'error.prettify.claudeCli.nonzero-exit':
+    'Claude CLI завершился с ошибкой. Проверьте авторизацию, модель, квоту и доступ к сети, затем повторите попытку.',
   'error.prettify.claudeCli.process-failed':
     'Claude CLI не смог выполнить запрос. Проверьте настройку CLI и повторите попытку.',
   'error.prettify.claudeCli.empty-output':
@@ -376,6 +401,10 @@ export default {
     'Процесс Codex CLI был завершён после отмены. Автоматический повтор не выполнялся.',
   'error.prettify.codexCli.timed-out':
     'Процесс Codex CLI был завершён по истечении времени. Автоматический повтор не выполнялся.',
+  'error.prettify.codexCli.output-limit':
+    'Codex CLI вернул слишком много данных, поэтому процесс был завершён. Автоматический повтор не выполнялся.',
+  'error.prettify.codexCli.nonzero-exit':
+    'Codex CLI завершился с ошибкой. Проверьте авторизацию, модель, квоту и доступ к сети, затем повторите попытку.',
   'error.prettify.codexCli.process-failed':
     'Codex CLI не смог выполнить запрос. Проверьте настройку CLI и повторите попытку.',
   'error.prettify.codexCli.empty-output':

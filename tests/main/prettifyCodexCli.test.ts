@@ -451,9 +451,9 @@ describe('CodexCliPrettifyAdapter', () => {
       [CliProcessFailureCode.TimedOut, CodexCliPrettifyErrorCode.TimedOut],
       [CliProcessFailureCode.SpawnError, CodexCliPrettifyErrorCode.ProcessFailed],
       [CliProcessFailureCode.StdinEpipe, CodexCliPrettifyErrorCode.ProcessFailed],
-      [CliProcessFailureCode.StdoutLimit, CodexCliPrettifyErrorCode.ProcessFailed],
-      [CliProcessFailureCode.StderrLimit, CodexCliPrettifyErrorCode.ProcessFailed],
-      [CliProcessFailureCode.NonzeroExit, CodexCliPrettifyErrorCode.ProcessFailed],
+      [CliProcessFailureCode.StdoutLimit, CodexCliPrettifyErrorCode.OutputLimit],
+      [CliProcessFailureCode.StderrLimit, CodexCliPrettifyErrorCode.OutputLimit],
+      [CliProcessFailureCode.NonzeroExit, CodexCliPrettifyErrorCode.NonzeroExit],
       [CliProcessFailureCode.SignalExit, CodexCliPrettifyErrorCode.ProcessFailed],
       [CliProcessFailureCode.ForcedTermination, CodexCliPrettifyErrorCode.ProcessFailed],
       [CliProcessFailureCode.CleanupFailure, CodexCliPrettifyErrorCode.ProcessFailed],
@@ -499,6 +499,55 @@ describe('CodexCliPrettifyAdapter', () => {
         success: true,
       },
     );
+  });
+
+  it('serializes the audited Spark reasoning and verbosity capabilities when an older catalog omits it', async () => {
+    const settings = getSettings({
+      model: 'gpt-5.3-codex-spark',
+      reasoningEffort: 'xhigh',
+      verbosity: 'high',
+    });
+    const runner = new FakeRunner([
+      ...getAvailabilityResults(),
+      success(MODEL_CATALOG),
+      success({ text: 'synthetic-placeholder' }),
+    ]);
+    const schema = createFakeSchemaFileSystem();
+    const adapter = new CodexCliPrettifyAdapter({
+      outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
+      runner,
+      schemaFileSystem: schema.fileSystem,
+    });
+
+    const result = await adapter.prettify({
+      prompt: PROTECTED_PROMPT,
+      settings,
+      signal: new AbortController().signal,
+      text: 'synthetic-input',
+    });
+
+    assert.equal(result.success, true);
+    const executionArguments = runner.calls[runner.calls.length - 1]?.args ?? [];
+    assert.equal(executionArguments.includes('--model'), true);
+    assert.equal(executionArguments.includes('gpt-5.3-codex-spark'), true);
+    assert.equal(executionArguments.includes('model_reasoning_effort="xhigh"'), true);
+    assert.equal(executionArguments.includes('model_verbosity="high"'), true);
+
+    const discovery = await new CodexCliPrettifyAdapter({
+      runner: new FakeRunner([success(MODEL_CATALOG)]),
+    }).discoverModels(settings, new AbortController().signal);
+    assert.equal(discovery.success, true);
+    if (discovery.success) {
+      assert.deepEqual(
+        discovery.models.find((model) => model.id === 'gpt-5.3-codex-spark'),
+        {
+          id: 'gpt-5.3-codex-spark',
+          name: 'GPT-5.3-Codex-Spark',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+      );
+    }
   });
 
   it('maps invalid models and unavailable model discovery precisely', async () => {

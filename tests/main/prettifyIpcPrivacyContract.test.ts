@@ -10,7 +10,7 @@ function readProjectFile(relativePath: string): string {
 }
 
 describe('Prettify IPC privacy contract', () => {
-  it('accepts every known provider for model inspection while selectable IDs stay gated', () => {
+  it('accepts every selectable provider for model inspection', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const preload = readProjectFile('src/main/preload.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
@@ -25,7 +25,7 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(modelHandlers, /assertValidKnownPrettifySettingsInput\(draftSettings\)/u);
     assert.match(preload, /listPrettifyModels: \(\s*providerId: KnownPrettifyProviderId/u);
     assert.match(rendererTypes, /listPrettifyModels: \(\s*providerId: KnownPrettifyProviderId/u);
-    assert.match(settings, /ENABLED_PRETTIFY_PROVIDER_IDS = \['ollama', 'vllm'\]/u);
+    assert.match(settings, /ENABLED_PRETTIFY_PROVIDER_IDS = \['ollama', 'vllm', 'claude-cli', 'codex-cli'\]/u);
     assert.match(settings, /KNOWN_PRETTIFY_PROVIDER_IDS = \['ollama', 'vllm', 'claude-cli', 'codex-cli'\]/u);
   });
 

@@ -7,6 +7,8 @@ import type {
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { AppInfo } from '@shared/appInfo';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
@@ -105,8 +107,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app-settings-close-requested', listener);
     return () => ipcRenderer.removeListener('app-settings-close-requested', listener);
   },
-  openAppSettings: (): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('open-app-settings');
+  onAppSettingsSectionRequested: (callback: (section: AppSettingsSectionId) => void): (() => void) => {
+    return onMainEvent<[AppSettingsSectionId]>('app-settings-section-requested', callback);
+  },
+  openAppSettings: (section?: AppSettingsSectionId): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('open-app-settings', section);
   },
   openTranscriptionHistory: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('open-transcription-history');
@@ -223,6 +228,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
     return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
   },
+  onLocaleChanged: (callback: (locale: AppLocaleId) => void): (() => void) => {
+    return onMainEvent<[AppLocaleId]>('locale-changed', callback);
+  },
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
   },
@@ -257,7 +265,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPrettifySettings: (): Promise<PrettifySettings> => {
     return ipcRenderer.invoke('get-prettify-settings');
   },
-  setPrettifySettings: (settings: PrettifySettingsInput): Promise<{ success: boolean; settings: PrettifySettings }> => {
+  setPrettifySettings: (
+    settings: PrettifySettingsInput,
+  ): Promise<{ success: boolean; settings: PrettifySettings; error?: string }> => {
     return ipcRenderer.invoke('set-prettify-settings', settings);
   },
   listPrettifyModels: (
@@ -281,13 +291,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');
   },
-  getLocale: (): Promise<string> => {
+  getLocale: (): Promise<AppLocaleId> => {
     return ipcRenderer.invoke('get-locale');
   },
-  getSupportedLocales: (): Promise<string[]> => {
+  getSupportedLocales: (): Promise<AppLocaleId[]> => {
     return ipcRenderer.invoke('get-supported-locales');
   },
-  setLocale: (locale: string): Promise<{ success: boolean }> => {
+  setLocale: (locale: AppLocaleId): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('set-locale', locale);
   },
   getPlatform: (): Promise<NodeJS.Platform> => {

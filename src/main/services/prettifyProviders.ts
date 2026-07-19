@@ -333,6 +333,8 @@ const CLAUDE_CLI_ERROR_KEYS: Record<ClaudeCliPrettifyErrorCode, TranslationKey> 
   [ClaudeCliPrettifyErrorCode.Unsupported]: 'error.prettify.claudeCli.unsupported',
   [ClaudeCliPrettifyErrorCode.Cancelled]: 'error.prettify.claudeCli.cancelled',
   [ClaudeCliPrettifyErrorCode.TimedOut]: 'error.prettify.claudeCli.timed-out',
+  [ClaudeCliPrettifyErrorCode.OutputLimit]: 'error.prettify.claudeCli.output-limit',
+  [ClaudeCliPrettifyErrorCode.NonzeroExit]: 'error.prettify.claudeCli.nonzero-exit',
   [ClaudeCliPrettifyErrorCode.ProcessFailed]: 'error.prettify.claudeCli.process-failed',
   [ClaudeCliPrettifyErrorCode.EmptyOutput]: 'error.prettify.claudeCli.empty-output',
   [ClaudeCliPrettifyErrorCode.MalformedOutput]: 'error.prettify.claudeCli.malformed-output',
@@ -346,6 +348,8 @@ const CODEX_CLI_ERROR_KEYS: Record<CodexCliPrettifyErrorCode, TranslationKey> = 
   [CodexCliPrettifyErrorCode.Unsupported]: 'error.prettify.codexCli.unsupported',
   [CodexCliPrettifyErrorCode.Cancelled]: 'error.prettify.codexCli.cancelled',
   [CodexCliPrettifyErrorCode.TimedOut]: 'error.prettify.codexCli.timed-out',
+  [CodexCliPrettifyErrorCode.OutputLimit]: 'error.prettify.codexCli.output-limit',
+  [CodexCliPrettifyErrorCode.NonzeroExit]: 'error.prettify.codexCli.nonzero-exit',
   [CodexCliPrettifyErrorCode.ProcessFailed]: 'error.prettify.codexCli.process-failed',
   [CodexCliPrettifyErrorCode.EmptyOutput]: 'error.prettify.codexCli.empty-output',
   [CodexCliPrettifyErrorCode.MalformedOutput]: 'error.prettify.codexCli.malformed-output',
@@ -940,11 +944,17 @@ export function getKnownPrettifyProvider(providerId: KnownPrettifyProviderId): B
   }
 }
 
-function getProviderName(providerId: PrettifyProviderId): string {
+type HttpPrettifyProviderId = 'ollama' | 'vllm';
+
+function isHttpPrettifyProviderId(providerId: KnownPrettifyProviderId): providerId is HttpPrettifyProviderId {
+  return getPrettifyProviderCapabilities(providerId).baseUrl;
+}
+
+function getProviderName(providerId: HttpPrettifyProviderId): string {
   return providerId === 'ollama' ? 'Ollama' : 'vLLM';
 }
 
-function getProviderBaseUrl(settings: PrettifySettingsWithSecret, providerId: PrettifyProviderId): string {
+function getProviderBaseUrl(settings: PrettifySettingsWithSecret, providerId: HttpPrettifyProviderId): string {
   return providerId === 'ollama' ? settings.ollama.baseUrl : settings.vllm.baseUrl;
 }
 
@@ -997,15 +1007,10 @@ export async function listPrettifyModels(
       success,
     };
   } catch (error: unknown) {
-    if (!provider.capabilities.baseUrl) throw error;
-    const enabledProviderId = providerId as PrettifyProviderId;
+    if (!isHttpPrettifyProviderId(providerId)) throw error;
     return {
       availability: { status: 'unavailable' },
-      error: createConnectionError(
-        getProviderName(enabledProviderId),
-        getProviderBaseUrl(settings, enabledProviderId),
-        error,
-      ),
+      error: createConnectionError(getProviderName(providerId), getProviderBaseUrl(settings, providerId), error),
       models: [],
       providerId,
       source: provider.capabilities.modelSource,
@@ -1072,17 +1077,12 @@ export async function preparePrettifyExecution(
     return await provider.prepare(settings, signal, deps);
   } catch (error: unknown) {
     if (signal.aborted) return { success: false, error: t('status.prettifyCancelled') };
-    if (!provider.capabilities.baseUrl) {
+    if (!isHttpPrettifyProviderId(providerId)) {
       return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
     }
-    const httpProviderId = providerId as PrettifyProviderId;
     return {
       success: false,
-      error: createConnectionError(
-        getProviderName(httpProviderId),
-        getProviderBaseUrl(settings, httpProviderId),
-        error,
-      ),
+      error: createConnectionError(getProviderName(providerId), getProviderBaseUrl(settings, providerId), error),
     };
   }
 }

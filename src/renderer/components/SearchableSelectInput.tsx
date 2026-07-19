@@ -1,7 +1,8 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Input } from '@renderer/components/ui/input';
 import { cn } from '@renderer/lib/cn';
+import { selectOpenCoordinator } from '@renderer/selectOpenCoordinator';
 
 export interface SearchableSelectOption {
   label: string;
@@ -14,6 +15,7 @@ interface SearchableSelectInputProps {
   className?: string;
   disabled?: boolean;
   emptyMessage: string;
+  onOpen?: () => void;
   onValueChange: (value: string) => void;
   options: readonly SearchableSelectOption[];
   placeholder: string;
@@ -52,6 +54,7 @@ function SearchableSelectInput({
   className,
   disabled = false,
   emptyMessage,
+  onOpen,
   onValueChange,
   options,
   placeholder,
@@ -61,12 +64,33 @@ function SearchableSelectInput({
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [openToken] = useState(() => Symbol('searchable-select'));
+  const isOpenRef = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [query, setQuery] = useState('');
   const [inputValue, setInputValue] = useState(() => getSearchableSelectDisplayValue(options, value));
   const isEditingRef = useRef(false);
   const filteredOptions = useMemo(() => filterSearchableSelectOptions(options, query), [options, query]);
+
+  const closeFromCoordinator = useCallback((): void => {
+    isOpenRef.current = false;
+    setIsOpen(false);
+    setActiveIndex(-1);
+  }, []);
+
+  const setListOpen = useCallback(
+    (nextOpen: boolean): void => {
+      if (nextOpen && !isOpenRef.current) onOpen?.();
+      if (nextOpen) selectOpenCoordinator.activate(openToken, closeFromCoordinator);
+      else selectOpenCoordinator.deactivate(openToken);
+      isOpenRef.current = nextOpen;
+      setIsOpen(nextOpen);
+    },
+    [closeFromCoordinator, onOpen, openToken],
+  );
+
+  useEffect(() => () => selectOpenCoordinator.deactivate(openToken), [openToken]);
 
   useEffect(() => {
     if (!isEditingRef.current) {
@@ -79,13 +103,13 @@ function SearchableSelectInput({
 
     const handlePointerDown = (event: PointerEvent): void => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
-        setIsOpen(false);
+        setListOpen(false);
       }
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
-  }, [isOpen]);
+  }, [isOpen, setListOpen]);
 
   const effectiveActiveIndex = activeIndex >= 0 && activeIndex < filteredOptions.length ? activeIndex : -1;
 
@@ -94,7 +118,7 @@ function SearchableSelectInput({
     onValueChange(option.value);
     setInputValue(option.label);
     setQuery('');
-    setIsOpen(false);
+    setListOpen(false);
     setActiveIndex(-1);
     window.requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -102,13 +126,13 @@ function SearchableSelectInput({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setIsOpen(true);
+      setListOpen(true);
       setActiveIndex((current) => Math.min(current + 1, filteredOptions.length - 1));
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setIsOpen(true);
+      setListOpen(true);
       setActiveIndex((current) =>
         current <= 0 || current >= filteredOptions.length ? filteredOptions.length - 1 : current - 1,
       );
@@ -125,7 +149,7 @@ function SearchableSelectInput({
       isEditingRef.current = false;
       setInputValue(getSearchableSelectDisplayValue(options, value));
       setQuery('');
-      setIsOpen(false);
+      setListOpen(false);
       setActiveIndex(-1);
     }
   };
@@ -148,7 +172,7 @@ function SearchableSelectInput({
               isEditingRef.current = false;
               setInputValue(getSearchableSelectDisplayValue(options, value));
               setQuery('');
-              setIsOpen(false);
+              setListOpen(false);
             }
           }}
           onChange={(event) => {
@@ -158,12 +182,12 @@ function SearchableSelectInput({
               onValueChange(event.target.value);
             }
             setQuery(event.target.value);
-            setIsOpen(true);
+            setListOpen(true);
             setActiveIndex(0);
           }}
           onFocus={() => {
             setQuery('');
-            setIsOpen(true);
+            setListOpen(true);
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -177,11 +201,11 @@ function SearchableSelectInput({
           className="absolute inset-y-0 right-0 flex w-10 cursor-pointer items-center justify-center text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           onClick={() => {
-            const nextOpen = !isOpen;
+            const nextOpen = !isOpenRef.current;
             isEditingRef.current = false;
             setInputValue(getSearchableSelectDisplayValue(options, value));
             setQuery('');
-            setIsOpen(nextOpen);
+            setListOpen(nextOpen);
             if (nextOpen) inputRef.current?.focus();
           }}
           onMouseDown={(event) => event.preventDefault()}

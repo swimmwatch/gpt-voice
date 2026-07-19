@@ -42,7 +42,7 @@ describe('prettifyProviders', () => {
     assert.equal(KNOWN_PRETTIFY_PROVIDERS['codex-cli'] instanceof CodexCliPrettifyProvider, true);
   });
 
-  it('keeps CLI providers unselectable while routing runtime checks only to injected adapters', async () => {
+  it('routes selectable CLI providers only to injected adapters', async () => {
     const settings = {
       ...DEFAULT_PRETTIFY_SETTINGS,
       vllm: {
@@ -104,7 +104,7 @@ describe('prettifyProviders', () => {
       providerId: 'codex-cli',
       error: 'Model unloading is available only for Ollama',
     });
-    assert.deepEqual(PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm']);
+    assert.deepEqual(PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
     assert.equal(fetchCalls, 0);
   });
 

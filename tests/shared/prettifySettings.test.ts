@@ -34,8 +34,8 @@ describe('prettifySettings', () => {
   it('recognizes supported provider values', () => {
     assert.equal(isPrettifyProviderId('ollama'), true);
     assert.equal(isPrettifyProviderId('vllm'), true);
-    assert.equal(isPrettifyProviderId('claude-cli'), false);
-    assert.equal(isPrettifyProviderId('codex-cli'), false);
+    assert.equal(isPrettifyProviderId('claude-cli'), true);
+    assert.equal(isPrettifyProviderId('codex-cli'), true);
     assert.equal(isPrettifyProviderId('chatgpt'), false);
     assert.equal(isPrettifyProviderId(null), false);
     assert.equal(isKnownPrettifyProviderId('claude-cli'), true);
@@ -44,7 +44,7 @@ describe('prettifySettings', () => {
     assert.deepEqual(KNOWN_PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
   });
 
-  it('declares complete runtime capabilities without enabling CLI provider selection', () => {
+  it('declares complete runtime capabilities for every selectable provider', () => {
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.baseUrl, true);
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.modelLifecycle, true);
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.apiKey, true);
@@ -170,7 +170,7 @@ describe('prettifySettings', () => {
     );
   });
 
-  it('normalizes non-secret CLI settings while keeping disabled provider IDs nonselectable', () => {
+  it('normalizes non-secret CLI settings for selectable providers', () => {
     const settings = normalizePrettifySettings({
       providerId: 'claude-cli',
       claudeCli: {
@@ -189,7 +189,7 @@ describe('prettifySettings', () => {
       },
     });
 
-    assert.equal(settings.providerId, 'ollama');
+    assert.equal(settings.providerId, 'claude-cli');
     assert.deepEqual(settings.claudeCli, {
       executablePath: '/Applications/Claude CLI/claude',
       model: 'claude-sonnet',
@@ -266,7 +266,7 @@ describe('prettifySettings', () => {
     assert.equal(isValidCodexCliPrettifyModel('model with spaces'), false);
   });
 
-  it('validates known CLI model-inspection drafts without enabling provider selection', () => {
+  it('validates selectable CLI model-inspection drafts', () => {
     assert.doesNotThrow(() =>
       assertValidKnownPrettifySettingsInput({
         providerId: 'claude-cli',
@@ -277,7 +277,7 @@ describe('prettifySettings', () => {
       () => assertValidKnownPrettifySettingsInput({ providerId: 'unknown-cli' }),
       /Unsupported prettify provider/u,
     );
-    assert.equal(isPrettifyProviderId('claude-cli'), false);
+    assert.equal(isPrettifyProviderId('claude-cli'), true);
   });
 
   it('uses a bounded output default when a legacy provider-default value is stored', () => {

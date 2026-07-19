@@ -1,5 +1,5 @@
 export const PRETTIFY_REASONING_VALUES = ['instant', 'standard', 'extended'] as const;
-export const ENABLED_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm'] as const;
+export const ENABLED_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
 export const PRETTIFY_PROVIDER_IDS = ENABLED_PRETTIFY_PROVIDER_IDS;
 export const KNOWN_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
 export const CLAUDE_CLI_PRETTIFY_EFFORT_VALUES = ['default', 'low', 'medium', 'high'] as const;
@@ -26,6 +26,8 @@ export type PrettifyCliRuntimeErrorCode =
   | 'unsupported'
   | 'cancelled'
   | 'timed-out'
+  | 'output-limit'
+  | 'nonzero-exit'
   | 'process-failed'
   | 'empty-output'
   | 'malformed-output'

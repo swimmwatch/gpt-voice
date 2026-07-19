@@ -20,6 +20,7 @@ import {
   type PrettifySettingsInput,
 } from '@shared/prettifySettings';
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
+import { DEFAULT_APP_LOCALE, normalizeAppLocale, type AppLocaleId } from '@shared/appLocale';
 
 const log = createLogger('config');
 const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
@@ -107,7 +108,8 @@ export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabl
 export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
 export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
-export let currentLocale = '';
+export let currentLocale: AppLocaleId = DEFAULT_APP_LOCALE;
+let currentLocaleWasExplicitlySelected = false;
 export let currentFingerprintSeed = '';
 export let currentPrettifyPrompt = DEFAULT_PRETTIFY_PROMPT;
 export let currentPrettifyReasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
@@ -199,8 +201,9 @@ export function setProvider(providerId: string): void {
   currentProvider = providerId;
 }
 
-export function setCurrentLocale(locale: string): void {
+export function setCurrentLocale(locale: AppLocaleId): void {
   currentLocale = locale;
+  currentLocaleWasExplicitlySelected = true;
 }
 
 export function getFingerprintSeed(): string {
@@ -211,8 +214,12 @@ export function getFingerprintSeed(): string {
   return currentFingerprintSeed;
 }
 
-export function getCurrentLocale(): string {
+export function getCurrentLocale(): AppLocaleId {
   return currentLocale;
+}
+
+export function hasExplicitLocalePreference(): boolean {
+  return currentLocaleWasExplicitlySelected;
 }
 
 // Configuration loading validates each persisted field independently to isolate corrupt legacy values.
@@ -232,6 +239,7 @@ export function loadConfig(): void {
       const targetLang = getConfigString(config, 'targetLang');
       const provider = getConfigString(config, 'provider');
       const locale = getConfigString(config, 'locale');
+      const localeExplicit = getConfigBoolean(config, 'localeExplicit');
       const fingerprintSeed = getConfigString(config, 'fingerprintSeed');
       const prettifySettings = config.prettifySettings;
       const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
@@ -246,7 +254,10 @@ export function loadConfig(): void {
       if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
       if (targetLang) currentTargetLang = targetLang;
       if (provider) currentProvider = provider;
-      if (locale) currentLocale = locale;
+      if (locale && localeExplicit === true) {
+        currentLocale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
+        currentLocaleWasExplicitlySelected = true;
+      }
       if (fingerprintSeed) currentFingerprintSeed = fingerprintSeed;
       currentPrettifySettings = normalizePrettifySettings(
         isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
@@ -288,6 +299,7 @@ export function saveConfig(): void {
           targetLang: currentTargetLang,
           provider: currentProvider,
           locale: currentLocale,
+          localeExplicit: currentLocaleWasExplicitlySelected,
           fingerprintSeed: currentFingerprintSeed,
           prettifySettings: currentPrettifySettings,
         },

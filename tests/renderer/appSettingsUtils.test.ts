@@ -4,6 +4,7 @@ import {
   areCloakBrowserSettingsEqual,
   arePrettifySettingsEqual,
   areTextActionSettingsEqual,
+  applyExternalPrettifyProviderSelection,
   createAppSettingsLogSummary,
   createCloakBrowserSettingsInput,
   createEditableSettings,
@@ -625,6 +626,26 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(transition.settings.vllm, current.vllm);
     assert.equal(transition.resetModelState, true);
     assert.deepEqual(transition.clearFieldErrors, PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS);
+  });
+
+  it('synchronizes an external provider choice without discarding dirty provider drafts', () => {
+    const current = prettifySettingsDraft('claude-cli', {
+      prompt: 'unsaved prompt',
+      claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, model: 'unsaved-claude-model' },
+      codexCli: { ...DEFAULT_PRETTIFY_SETTINGS.codexCli, model: 'unsaved-codex-model' },
+    });
+    const initial = prettifySettingsDraft('claude-cli');
+
+    const synchronizedCurrent = applyExternalPrettifyProviderSelection(current, 'vllm');
+    const synchronizedInitial = applyExternalPrettifyProviderSelection(initial, 'vllm');
+
+    assert.equal(synchronizedCurrent.providerId, 'vllm');
+    assert.equal(synchronizedInitial.providerId, 'vllm');
+    assert.equal(synchronizedCurrent.prompt, 'unsaved prompt');
+    assert.equal(synchronizedCurrent.claudeCli.model, 'unsaved-claude-model');
+    assert.equal(synchronizedCurrent.codexCli.model, 'unsaved-codex-model');
+    assert.equal(synchronizedCurrent.claudeCli, current.claudeCli);
+    assert.equal(synchronizedCurrent.codexCli, current.codexCli);
   });
 
   it('keeps inactive provider changes dirty without reporting them as active CLI controls', () => {

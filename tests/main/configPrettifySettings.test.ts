@@ -13,6 +13,7 @@ describe('config prettify settings', () => {
   it('preserves each CLI settings object through independent configuration updates', () => {
     setPrettifySettings({
       ...DEFAULT_PRETTIFY_SETTINGS,
+      providerId: 'claude-cli',
       claudeCli: {
         ...DEFAULT_PRETTIFY_SETTINGS.claudeCli,
         executablePath: '/opt/Claude CLI/claude',
@@ -43,6 +44,6 @@ describe('config prettify settings', () => {
       timeoutSeconds: 240,
       verbosity: 'medium',
     });
-    assert.equal(currentPrettifySettings.providerId, 'ollama');
+    assert.equal(currentPrettifySettings.providerId, 'claude-cli');
   });
 });

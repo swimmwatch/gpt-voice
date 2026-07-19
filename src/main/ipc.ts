@@ -31,7 +31,9 @@ import {
   closeAboutWindow,
   closeProviderSettingsWindow,
   closeSettingsWindow,
+  broadcastLocaleChanged,
   getMainWindow,
+  getSettingsWindow,
   isTrustedAppWindow,
   showAboutWindow,
   showHistoryWindow,
@@ -97,6 +99,8 @@ import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
 import { streamingTranscriptionService } from './services/streamingTranscription';
+import { isAppSettingsSectionId } from '@shared/appSettings';
+import { isAppLocaleId } from '@shared/appLocale';
 
 const log = createLogger('ipc');
 let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
@@ -249,6 +253,11 @@ function sendProviderSettingsChanged(settings: unknown, source: IpcMainInvokeEve
   const mainWindow = getMainWindow();
   if (!mainWindow || mainWindow.webContents.id === source.id) return;
   mainWindow.webContents.send('provider-settings-changed', settings);
+}
+
+function sendPrettifySettingsChanged(settings: ReturnType<typeof getPrettifySettingsSnapshot>): void {
+  getMainWindow()?.webContents.send('prettify-settings-changed', settings);
+  getSettingsWindow()?.webContents.send('prettify-settings-changed', settings);
 }
 
 function getHotkeySettingsSnapshot(): HotkeySettings {
@@ -473,8 +482,11 @@ export function registerIpcHandlers(): void {
     return { success: true };
   });
 
-  handle('open-app-settings', () => {
-    showSettingsWindow();
+  handle('open-app-settings', (_event, section: unknown) => {
+    if (section !== undefined && !isAppSettingsSectionId(section)) {
+      return { success: false, error: 'Unsupported settings section' };
+    }
+    showSettingsWindow(section);
     return { success: true };
   });
 
@@ -777,7 +789,7 @@ export function registerIpcHandlers(): void {
         vllmModelLength: savedSettings.vllm.model.length,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
-      getMainWindow()?.webContents.send('prettify-settings-changed', savedSettings);
+      sendPrettifySettingsChanged(savedSettings);
       return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
@@ -938,13 +950,14 @@ export function registerIpcHandlers(): void {
 
   handle('set-locale', (_event, locale: unknown) => {
     try {
-      if (typeof locale !== 'string' || !getSupportedLocales().includes(locale)) {
+      if (!isAppLocaleId(locale)) {
         return { success: false, error: 'Select a supported locale' };
       }
       log.info('Saving locale:', { from: getLocale(), to: locale });
       setLocale(locale);
       setCurrentLocale(locale);
       saveConfig();
+      broadcastLocaleChanged(locale);
       log.info('Locale saved:', { locale: getLocale() });
       return { success: true };
     } catch (error: unknown) {

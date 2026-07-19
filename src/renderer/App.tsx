@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import LoadingScreen from './components/LoadingScreen';
 import MainToolbar from './components/MainToolbar';
-import PrettifyModelMemoryRow from './components/PrettifyModelMemoryRow';
+import MainPrettifyProviderBand from './components/MainPrettifyProviderBand';
 import RecordingControls from './components/RecordingControls';
 import TranslateSection from './components/TranslateSection';
 import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
+import { reduceMainPrettifyProviderSelection } from './mainPrettifyProvider';
 import {
   getProviderLoginState,
   isActiveProviderSettingsChange,
@@ -16,7 +17,12 @@ import {
 } from './providerState';
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
-import type { PrettifyModelOption, PrettifySettings } from '@shared/prettifySettings';
+import {
+  DEFAULT_PRETTIFY_SETTINGS,
+  type PrettifyModelOption,
+  type PrettifyProviderId,
+  type PrettifySettings,
+} from '@shared/prettifySettings';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
@@ -30,7 +36,15 @@ const App: React.FC = () => {
   const [targetLang, setTargetLang] = useState('en');
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
-  const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
+  const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
+    reduceMainPrettifyProviderSelection,
+    {
+      error: '',
+      pendingRequestId: null,
+      settings: DEFAULT_PRETTIFY_SETTINGS,
+    },
+  );
+  const prettifySettings = prettifyProviderSelection.settings;
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
@@ -47,6 +61,7 @@ const App: React.FC = () => {
   const activeProviderIdRef = useRef(activeProviderId);
   const activeProviderAuthTypeRef = useRef<ProviderAuthType>('browserSession');
   const prettifyModelRefreshIdRef = useRef(0);
+  const prettifyProviderChangeRequestRef = useRef(0);
 
   const showStatusNotification = useCallback((nextStatus: string) => {
     const notificationBody = nextStatus.trim();
@@ -66,7 +81,7 @@ const App: React.FC = () => {
 
   const refreshOllamaModelState = useCallback(async (settings: PrettifySettings): Promise<void> => {
     const refreshId = ++prettifyModelRefreshIdRef.current;
-    setPrettifySettings(settings);
+    dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
     setIsPrettifyModelActionRunning(false);
     setPrettifyModelActionError('');
 
@@ -119,6 +134,7 @@ const App: React.FC = () => {
 
     return () => {
       disposed = true;
+      prettifyProviderChangeRequestRef.current += 1;
       unsubscribe();
     };
   }, [refreshOllamaModelState]);
@@ -365,6 +381,41 @@ const App: React.FC = () => {
 
   const ollamaModelControl = getOllamaModelControl(prettifySettings, ollamaModelOptions);
 
+  const handlePrettifyProviderChange = async (providerId: PrettifyProviderId): Promise<void> => {
+    if (providerId === prettifySettings.providerId || prettifyProviderSelection.pendingRequestId !== null) {
+      return;
+    }
+
+    const requestId = ++prettifyProviderChangeRequestRef.current;
+    const previousSettings = prettifySettings;
+    dispatchPrettifyProviderSelection({ providerId, requestId, type: 'begin' });
+    setIsPrettifyModelActionRunning(false);
+    setPrettifyModelActionError('');
+
+    try {
+      const result = await window.electronAPI.setPrettifySettings({ providerId });
+      if (requestId !== prettifyProviderChangeRequestRef.current) return;
+      dispatchPrettifyProviderSelection(
+        result.success
+          ? { requestId, settings: result.settings, type: 'resolved' }
+          : {
+              error: t('mainDock.prettifySaveFailed'),
+              requestId,
+              settings: result.settings,
+              type: 'rejected',
+            },
+      );
+    } catch {
+      if (requestId !== prettifyProviderChangeRequestRef.current) return;
+      dispatchPrettifyProviderSelection({
+        error: t('mainDock.prettifySaveFailed'),
+        requestId,
+        settings: previousSettings,
+        type: 'rejected',
+      });
+    }
+  };
+
   const handleOllamaModelAction = async (): Promise<void> => {
     if (!prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
       return;
@@ -422,11 +473,14 @@ const App: React.FC = () => {
     }
   };
 
-  const openAppSettingsWindow = useCallback((): void => {
-    void window.electronAPI.openAppSettings().catch(() => {
-      setStatus(t('error.notificationUnknown'));
-    });
-  }, [t]);
+  const openAppSettingsWindow = useCallback(
+    (section?: 'prettify'): void => {
+      void window.electronAPI.openAppSettings(section).catch(() => {
+        setStatus(t('error.notificationUnknown'));
+      });
+    },
+    [t],
+  );
 
   const openHistoryWindow = useCallback((): void => {
     void window.electronAPI.openTranscriptionHistory().catch(() => {
@@ -452,21 +506,23 @@ const App: React.FC = () => {
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
         onOpenAbout={openAboutWindow}
-        onOpenAppSettings={openAppSettingsWindow}
+        onOpenAppSettings={() => openAppSettingsWindow()}
         onOpenHistory={openHistoryWindow}
         onOpenProviderSettings={() => void openProviderSettings(activeProviderId)}
         onProviderChange={(providerId) => void handleProviderChange(providerId)}
         onProviderLogin={() => void handleLogin()}
         providers={providers}
       />
-      {ollamaModelControl && (
-        <PrettifyModelMemoryRow
-          control={ollamaModelControl}
-          error={prettifyModelActionError}
-          isRunning={isPrettifyModelActionRunning}
-          onAction={() => void handleOllamaModelAction()}
-        />
-      )}
+      <MainPrettifyProviderBand
+        error={prettifyProviderSelection.error || prettifyModelActionError}
+        isModelActionRunning={isPrettifyModelActionRunning}
+        isProviderChangeSaving={prettifyProviderSelection.pendingRequestId !== null}
+        ollamaModels={ollamaModelOptions}
+        onModelAction={() => void handleOllamaModelAction()}
+        onOpenSettings={() => openAppSettingsWindow('prettify')}
+        onProviderChange={(providerId) => void handlePrettifyProviderChange(providerId)}
+        settings={prettifySettings}
+      />
       <RecordingControls
         onCancel={cancelRecording}
         onPause={pauseRecording}

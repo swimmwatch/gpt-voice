@@ -10,16 +10,16 @@ function readRendererSource(filename: string): string {
 }
 
 describe('main window iconography', () => {
-  it('uses a microphone for the voice provider and a brain circuit for the LLM model', () => {
+  it('uses a microphone for the voice provider and a brain circuit for the Prettify provider', () => {
     const toolbar = readRendererSource('components/MainToolbar.tsx');
-    const modelMemory = readRendererSource('components/PrettifyModelMemoryRow.tsx');
+    const prettifyBand = readRendererSource('components/MainPrettifyProviderBand.tsx');
 
     assert.match(toolbar, /\bMic\b/u);
     assert.match(toolbar, /<Mic\b/u);
     assert.doesNotMatch(toolbar, /\bGlobe\b/u);
-    assert.match(modelMemory, /\bBrainCircuit\b/u);
-    assert.match(modelMemory, /<BrainCircuit\b/u);
-    assert.doesNotMatch(modelMemory, /\bBox\b/u);
+    assert.match(prettifyBand, /\bBrainCircuit\b/u);
+    assert.match(prettifyBand, /<BrainCircuit\b/u);
+    assert.doesNotMatch(prettifyBand, /\bBox\b/u);
   });
 
   it('renders provider settings as a conditional gear and connected state as passive status', () => {

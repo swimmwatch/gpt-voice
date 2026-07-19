@@ -99,6 +99,11 @@ export default {
   // App settings
   'appSettings.open': 'App settings',
   'appSettings.title': 'Settings',
+  'appSettings.system': 'System',
+  'appSettings.language': 'Application language',
+  'appSettings.languageHelp': 'Changes the language in every open GPT-Voice window.',
+  'appSettings.languageSaving': 'Changing language...',
+  'appSettings.languageSaveFailed': 'Could not change the application language',
   'appSettings.hotkeys': 'Hotkeys',
   'appSettings.prettify': 'Prettify Text',
   'appSettings.cloakBrowser': 'CloakBrowser',
@@ -136,6 +141,16 @@ export default {
   'mainDock.title': 'Command Dock',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Voice provider',
+  'mainDock.prettifyProviderLabel': 'Prettify',
+  'mainDock.prettifyModelLabel': 'Model',
+  'mainDock.prettifyNotConfigured': 'Not configured',
+  'mainDock.prettifyConfigured': 'Configured',
+  'mainDock.prettifyEffort': 'Effort',
+  'mainDock.prettifyExperimental': 'Experimental',
+  'mainDock.openPrettifySettings': 'Open Prettify settings',
+  'mainDock.prettifySaveFailed': 'Could not change Prettify provider',
+  'mainDock.prettifyLoad': 'Load',
+  'mainDock.prettifyFree': 'Free',
   'navigation.openHistory': 'Open transcription history',
   'navigation.openAbout': 'Open about GPT-Voice',
   'navigation.openAppSettings': 'Open app settings',
@@ -168,6 +183,7 @@ export default {
   'modelMemory.unknown': 'State unknown',
 
   // Settings sections
+  'settingsSection.system': 'System',
   'settingsSection.shortcuts': 'Shortcuts & actions',
   'settingsSection.prettify': 'Prettify',
   'settingsSection.browser': 'Browser',
@@ -246,12 +262,17 @@ export default {
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
   'prettify.provider.claudeCli': 'Claude CLI',
-  'prettify.provider.codexCli': 'Codex CLI (Experimental)',
+  'prettify.provider.codexCli': 'Codex CLI',
   'prettify.cli.executablePath': 'CLI executable path',
   'prettify.cli.executablePathHelp':
     'Leave empty to use PATH, or select one absolute executable file without arguments.',
   'prettify.cli.model': 'CLI model',
   'prettify.cli.modelHelp': 'Leave empty to use the CLI default model.',
+  'prettify.cli.showModelOptions': 'Show model options',
+  'prettify.cli.statusUnchecked': 'Availability has not been checked. Refresh to verify the CLI and models.',
+  'prettify.cli.statusChecking': 'Checking CLI availability and models...',
+  'prettify.cli.statusAvailable': 'CLI is ready.',
+  'prettify.cli.statusUnavailable': 'CLI is unavailable. Review its setup and refresh again.',
   'prettify.cli.timeout': 'CLI timeout',
   'prettify.cli.timeoutHelp': 'Set how long the CLI process may run, from 15 to 600 seconds.',
   'prettify.claudeCli.fallbackModel': 'Fallback model',
@@ -352,6 +373,10 @@ export default {
     'The Claude CLI process was terminated after cancellation. No automatic retry occurred.',
   'error.prettify.claudeCli.timed-out':
     'The Claude CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.claudeCli.output-limit':
+    'Claude CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.claudeCli.nonzero-exit':
+    'Claude CLI exited unsuccessfully. Check its authentication, model, quota, and network access, then try again.',
   'error.prettify.claudeCli.process-failed':
     'Claude CLI could not complete the request. Check the CLI setup and try again.',
   'error.prettify.claudeCli.empty-output':
@@ -372,6 +397,10 @@ export default {
     'The Codex CLI process was terminated after cancellation. No automatic retry occurred.',
   'error.prettify.codexCli.timed-out':
     'The Codex CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.codexCli.output-limit':
+    'Codex CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.codexCli.nonzero-exit':
+    'Codex CLI exited unsuccessfully. Check its authentication, model, quota, and network access, then try again.',
   'error.prettify.codexCli.process-failed':
     'Codex CLI could not complete the request. Check the CLI setup and try again.',
   'error.prettify.codexCli.empty-output': 'Codex CLI returned no edited text. Review the model setting and try again.',

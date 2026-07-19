@@ -1,7 +1,41 @@
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import * as SelectPrimitive from '@radix-ui/react-select';
-import type { ComponentProps } from 'react';
+import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { cn } from '@renderer/lib/cn';
+import { selectOpenCoordinator } from '@renderer/selectOpenCoordinator';
+
+function Select(rootProps: ComponentProps<typeof SelectPrimitive.Root>): React.JSX.Element {
+  const { defaultOpen = false, open: controlledOpen, ...props } = rootProps;
+  const [token] = useState(() => Symbol('select'));
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+
+  const notifyOpenChange = useCallback((nextOpen: boolean): void => rootProps.onOpenChange?.(nextOpen), [rootProps]);
+
+  const closeFromCoordinator = useCallback((): void => {
+    if (!isControlled) setUncontrolledOpen(false);
+    notifyOpenChange(false);
+  }, [isControlled, notifyOpenChange]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean): void => {
+      if (nextOpen) selectOpenCoordinator.activate(token, closeFromCoordinator);
+      else selectOpenCoordinator.deactivate(token);
+      if (!isControlled) setUncontrolledOpen(nextOpen);
+      notifyOpenChange(nextOpen);
+    },
+    [closeFromCoordinator, isControlled, notifyOpenChange, token],
+  );
+
+  useEffect(() => {
+    if (open) selectOpenCoordinator.activate(token, closeFromCoordinator);
+    else selectOpenCoordinator.deactivate(token);
+    return () => selectOpenCoordinator.deactivate(token);
+  }, [closeFromCoordinator, open, token]);
+
+  return <SelectPrimitive.Root {...props} onOpenChange={handleOpenChange} open={open} />;
+}
 
 function SelectTrigger({
   className,
@@ -123,7 +157,6 @@ function SelectSeparator({ className, ...props }: ComponentProps<typeof SelectPr
   );
 }
 
-const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
 

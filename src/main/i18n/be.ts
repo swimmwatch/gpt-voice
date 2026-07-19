@@ -101,6 +101,11 @@ export default {
   // App settings
   'appSettings.open': 'Налады праграмы',
   'appSettings.title': 'Налады',
+  'appSettings.system': 'Сістэма',
+  'appSettings.language': 'Мова праграмы',
+  'appSettings.languageHelp': 'Змяняе мову ва ўсіх адкрытых вокнах GPT-Voice.',
+  'appSettings.languageSaving': 'Змена мовы...',
+  'appSettings.languageSaveFailed': 'Не ўдалося змяніць мову праграмы',
   'appSettings.hotkeys': 'Гарачыя клавішы',
   'appSettings.prettify': 'Паляпшэнне тэксту',
   'appSettings.cloakBrowser': 'CloakBrowser',
@@ -138,6 +143,16 @@ export default {
   'mainDock.title': 'Панэль каманд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Правайдар распазнавання',
+  'mainDock.prettifyProviderLabel': 'Паляпшэнне',
+  'mainDock.prettifyModelLabel': 'Мадэль',
+  'mainDock.prettifyNotConfigured': 'Не наладжана',
+  'mainDock.prettifyConfigured': 'Наладжана',
+  'mainDock.prettifyEffort': 'Намаганне',
+  'mainDock.prettifyExperimental': 'Эксперыментальны',
+  'mainDock.openPrettifySettings': 'Адкрыць налады паляпшэння тэксту',
+  'mainDock.prettifySaveFailed': 'Не ўдалося змяніць правайдара паляпшэння тэксту',
+  'mainDock.prettifyLoad': 'Загрузіць',
+  'mainDock.prettifyFree': 'Вызваліць',
   'navigation.openHistory': 'Адкрыць гісторыю транскрыбаванняў',
   'navigation.openAbout': 'Адкрыць звесткі пра GPT-Voice',
   'navigation.openAppSettings': 'Адкрыць налады праграмы',
@@ -170,6 +185,7 @@ export default {
   'modelMemory.unknown': 'Стан невядомы',
 
   // Settings sections
+  'settingsSection.system': 'Сістэма',
   'settingsSection.shortcuts': 'Клавішы і дзеянні',
   'settingsSection.prettify': 'Паляпшэнне тэксту',
   'settingsSection.browser': 'Браўзер',
@@ -248,12 +264,17 @@ export default {
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
   'prettify.provider.claudeCli': 'Claude CLI',
-  'prettify.provider.codexCli': 'Codex CLI (эксперыментальны)',
+  'prettify.provider.codexCli': 'Codex CLI',
   'prettify.cli.executablePath': 'Шлях да выканальнага файла CLI',
   'prettify.cli.executablePathHelp':
     'Пакіньце поле пустым для пошуку праз PATH або выберыце адзін абсалютны шлях да выканальнага файла без аргументаў.',
   'prettify.cli.model': 'Мадэль CLI',
   'prettify.cli.modelHelp': 'Пакіньце поле пустым, каб выкарыстоўваць прадвызначаную мадэль CLI.',
+  'prettify.cli.showModelOptions': 'Паказаць варыянты мадэляў',
+  'prettify.cli.statusUnchecked': 'Даступнасць CLI яшчэ не праверана. Абнавіце спіс, каб праверыць CLI і мадэлі.',
+  'prettify.cli.statusChecking': 'Праверка даступнасці CLI і мадэляў...',
+  'prettify.cli.statusAvailable': 'CLI гатовы да працы.',
+  'prettify.cli.statusUnavailable': 'CLI недаступны. Праверце наладжванне і паўтарыце абнаўленне.',
   'prettify.cli.timeout': 'Тайм-аўт CLI',
   'prettify.cli.timeoutHelp': 'Укажыце час працы працэсу CLI ад 15 да 600 секунд.',
   'prettify.claudeCli.fallbackModel': 'Рэзервовая мадэль',
@@ -356,6 +377,10 @@ export default {
     'Працэс Claude CLI быў завершаны пасля скасавання. Аўтаматычны паўтор не выконваўся.',
   'error.prettify.claudeCli.timed-out':
     'Працэс Claude CLI быў завершаны па заканчэнні часу. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.claudeCli.output-limit':
+    'Claude CLI вярнуў зашмат даных, таму працэс быў завершаны. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.claudeCli.nonzero-exit':
+    'Claude CLI завяршыўся з памылкай. Праверце аўтарызацыю, мадэль, квоту і доступ да сеткі, затым паўтарыце спробу.',
   'error.prettify.claudeCli.process-failed':
     'Claude CLI не змог выканаць запыт. Праверце налады CLI і паўтарыце спробу.',
   'error.prettify.claudeCli.empty-output':
@@ -376,6 +401,10 @@ export default {
     'Працэс Codex CLI быў завершаны пасля скасавання. Аўтаматычны паўтор не выконваўся.',
   'error.prettify.codexCli.timed-out':
     'Працэс Codex CLI быў завершаны па заканчэнні часу. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.codexCli.output-limit':
+    'Codex CLI вярнуў зашмат даных, таму працэс быў завершаны. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.codexCli.nonzero-exit':
+    'Codex CLI завяршыўся з памылкай. Праверце аўтарызацыю, мадэль, квоту і доступ да сеткі, затым паўтарыце спробу.',
   'error.prettify.codexCli.process-failed': 'Codex CLI не змог выканаць запыт. Праверце налады CLI і паўтарыце спробу.',
   'error.prettify.codexCli.empty-output':
     'Codex CLI не вярнуў палепшаны тэкст. Праверце наладу мадэлі і паўтарыце спробу.',

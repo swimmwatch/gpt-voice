@@ -47,6 +47,8 @@ export enum ClaudeCliPrettifyErrorCode {
   Unsupported = 'unsupported',
   Cancelled = 'cancelled',
   TimedOut = 'timed-out',
+  OutputLimit = 'output-limit',
+  NonzeroExit = 'nonzero-exit',
   ProcessFailed = 'process-failed',
   EmptyOutput = 'empty-output',
   MalformedOutput = 'malformed-output',
@@ -182,6 +184,10 @@ function mapRunnerFailure(result: Exclude<CliProcessResult, { success: true }>):
   if (result.failure === CliProcessFailureCode.NotExecutable) return ClaudeCliPrettifyErrorCode.NotExecutable;
   if (result.failure === CliProcessFailureCode.Cancelled) return ClaudeCliPrettifyErrorCode.Cancelled;
   if (result.failure === CliProcessFailureCode.TimedOut) return ClaudeCliPrettifyErrorCode.TimedOut;
+  if (result.failure === CliProcessFailureCode.StdoutLimit || result.failure === CliProcessFailureCode.StderrLimit) {
+    return ClaudeCliPrettifyErrorCode.OutputLimit;
+  }
+  if (result.failure === CliProcessFailureCode.NonzeroExit) return ClaudeCliPrettifyErrorCode.NonzeroExit;
   return ClaudeCliPrettifyErrorCode.ProcessFailed;
 }
 

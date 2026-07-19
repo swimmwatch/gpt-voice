@@ -33,6 +33,12 @@ const REQUIRED_CODEX_CLI_EXEC_HELP_FLAGS = [
 const REQUIRED_CODEX_CLI_MODEL_HELP_FLAGS = ['--bundled'] as const;
 const SUPPORTED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const;
 const SUPPORTED_VERBOSITIES = ['low', 'medium', 'high'] as const;
+const GPT_5_3_CODEX_SPARK_CAPABILITY = {
+  id: 'gpt-5.3-codex-spark',
+  name: 'GPT-5.3-Codex-Spark',
+  reasoningEfforts: SUPPORTED_REASONING_EFFORTS,
+  verbosity: SUPPORTED_VERBOSITIES,
+} as const satisfies CodexCliModelCapability;
 const REQUIRED_DISABLED_FEATURES = [
   'apps',
   'browser_use',
@@ -70,6 +76,8 @@ export enum CodexCliPrettifyErrorCode {
   Unsupported = 'unsupported',
   Cancelled = 'cancelled',
   TimedOut = 'timed-out',
+  OutputLimit = 'output-limit',
+  NonzeroExit = 'nonzero-exit',
   ProcessFailed = 'process-failed',
   EmptyOutput = 'empty-output',
   MalformedOutput = 'malformed-output',
@@ -271,6 +279,10 @@ function mapRunnerFailure(result: Exclude<CliProcessResult, { success: true }>):
   if (result.failure === CliProcessFailureCode.NotExecutable) return CodexCliPrettifyErrorCode.NotExecutable;
   if (result.failure === CliProcessFailureCode.Cancelled) return CodexCliPrettifyErrorCode.Cancelled;
   if (result.failure === CliProcessFailureCode.TimedOut) return CodexCliPrettifyErrorCode.TimedOut;
+  if (result.failure === CliProcessFailureCode.StdoutLimit || result.failure === CliProcessFailureCode.StderrLimit) {
+    return CodexCliPrettifyErrorCode.OutputLimit;
+  }
+  if (result.failure === CliProcessFailureCode.NonzeroExit) return CodexCliPrettifyErrorCode.NonzeroExit;
   return CodexCliPrettifyErrorCode.ProcessFailed;
 }
 
@@ -329,6 +341,19 @@ function parseModelCatalog(output: Uint8Array): ParsedModelCatalog | null {
   } catch {
     return null;
   }
+}
+
+function getKnownConfiguredModelCapability(model: string): CodexCliModelCapability | null {
+  return model === GPT_5_3_CODEX_SPARK_CAPABILITY.id ? GPT_5_3_CODEX_SPARK_CAPABILITY : null;
+}
+
+function appendKnownConfiguredModelCapability(
+  models: readonly CodexCliModelCapability[],
+  configuredModel: string,
+): readonly CodexCliModelCapability[] {
+  if (!configuredModel || models.some((model) => model.id === configuredModel)) return models;
+  const knownCapability = getKnownConfiguredModelCapability(configuredModel);
+  return knownCapability ? [...models, knownCapability] : models;
 }
 
 function parseCodexCliEnvelope(
@@ -493,7 +518,13 @@ export class CodexCliPrettifyAdapter {
     );
     if (primaryResult.success) {
       const catalog = parseModelCatalog(primaryResult.stdout);
-      if (catalog) return { models: catalog.models, source: 'catalog', success: true };
+      if (catalog) {
+        return {
+          models: appendKnownConfiguredModelCapability(catalog.models, settings.model),
+          source: 'catalog',
+          success: true,
+        };
+      }
     }
     const primaryTerminalError = getTerminalModelDiscoveryError(primaryResult);
     if (primaryTerminalError) return { error: primaryTerminalError, success: false };
@@ -508,14 +539,21 @@ export class CodexCliPrettifyAdapter {
     );
     if (bundledResult.success) {
       const catalog = parseModelCatalog(bundledResult.stdout);
-      if (catalog) return { models: catalog.models, source: 'bundled', success: true };
+      if (catalog) {
+        return {
+          models: appendKnownConfiguredModelCapability(catalog.models, settings.model),
+          source: 'bundled',
+          success: true,
+        };
+      }
     }
     const bundledTerminalError = getTerminalModelDiscoveryError(bundledResult);
     if (bundledTerminalError) return { error: bundledTerminalError, success: false };
 
     if (settings.model && isValidCodexCliModel(settings.model)) {
+      const knownCapability = getKnownConfiguredModelCapability(settings.model);
       return {
-        models: [{ id: settings.model, name: settings.model, reasoningEfforts: [], verbosity: [] }],
+        models: [knownCapability ?? { id: settings.model, name: settings.model, reasoningEfforts: [], verbosity: [] }],
         source: 'configured-model',
         success: true,
       };

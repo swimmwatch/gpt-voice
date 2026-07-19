@@ -32,6 +32,7 @@ describe('prettify settings storage', () => {
     const merged = mergePrettifySettingsForStorage(
       current,
       {
+        providerId: 'codex-cli',
         claudeCli: { model: ' claude-opus ' },
         codexCli: { timeoutSeconds: 300 },
       },
@@ -52,6 +53,7 @@ describe('prettify settings storage', () => {
       timeoutSeconds: 300,
       verbosity: 'medium',
     });
+    assert.equal(merged.providerId, 'codex-cli');
     assert.deepEqual(merged.vllm, {
       baseUrl: 'https://models.example.com/v1',
       model: 'remote-model',

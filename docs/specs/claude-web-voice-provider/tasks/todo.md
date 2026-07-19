@@ -1,7 +1,11 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 28 and 10-16 are committed. Task 17 is complete and
-uncommitted for review; Task 18 is next after approval.
+Plan gate: Tasks 28 and 10-17 are committed. Task 18, its approved main-window
+amendment, and the English-startup/compact-copy/alignment review corrections
+plus the Codex Spark capability-serialization, chevron alignment, and
+open-to-load capability-list and single-menu dismissal corrections, together
+with the eleven-locale CloakBrowser-site parity amendment, are complete and
+uncommitted for review; Task 19 remains blocked pending explicit continuation.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
@@ -28,7 +32,7 @@ uncommitted for review; Task 18 is next after approval.
 - [x] [15 CLI localization](15_localize_cli_prettify.md)
 - [x] [16 CLI runtime integration](16_integrate_cli_prettify_runtime.md)
 - [x] [17 CLI settings state](17_add_cli_settings_state.md)
-- [ ] [18 CLI settings controls](18_render_cli_prettify_controls.md)
+- [x] [18 CLI settings controls](18_render_cli_prettify_controls.md)
 - [ ] [19 Documentation and feature gate](19_document_and_verify_providers.md)
 
 ## Deferred Future Follow-Up

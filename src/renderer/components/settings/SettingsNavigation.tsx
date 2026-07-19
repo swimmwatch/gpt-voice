@@ -1,11 +1,11 @@
-import { Globe2, Keyboard, Network, Sparkles, type LucideIcon } from 'lucide-react';
+import { Globe2, Keyboard, Network, Settings2, Sparkles, type LucideIcon } from 'lucide-react';
 import type { JSX } from 'react';
 import { TabsList, TabsTrigger } from '@renderer/components/ui/tabs';
 import type { TranslationFunction } from '@renderer/components/settings/types';
+import { APP_SETTINGS_SECTION_IDS, type AppSettingsSectionId } from '@shared/appSettings';
 
-export const SETTINGS_SECTION_IDS = ['shortcuts', 'prettify', 'browser', 'network'] as const;
-
-export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
+export const SETTINGS_SECTION_IDS = APP_SETTINGS_SECTION_IDS;
+export type SettingsSectionId = AppSettingsSectionId;
 
 interface SettingsNavigationItem {
   icon: LucideIcon;
@@ -14,6 +14,7 @@ interface SettingsNavigationItem {
 }
 
 const SETTINGS_NAVIGATION_ITEMS: readonly SettingsNavigationItem[] = [
+  { icon: Settings2, id: 'system', labelKey: 'settingsSection.system' },
   { icon: Keyboard, id: 'shortcuts', labelKey: 'settingsSection.shortcuts' },
   { icon: Sparkles, id: 'prettify', labelKey: 'settingsSection.prettify' },
   { icon: Globe2, id: 'browser', labelKey: 'settingsSection.browser' },

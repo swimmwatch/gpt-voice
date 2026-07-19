@@ -1,4 +1,6 @@
 import type { AppInfo } from '@shared/appInfo';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
 import type { ClaudeWebSettings, ClaudeWebSettingsUpdateInput } from '@shared/claudeWebSettings';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
@@ -91,7 +93,8 @@ export interface ElectronAPI {
   onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void) => () => void;
   closeAppSettings: () => Promise<{ success: boolean }>;
   onAppSettingsCloseRequested: (callback: () => void) => () => void;
-  openAppSettings: () => Promise<{ success: boolean }>;
+  onAppSettingsSectionRequested: (callback: (section: AppSettingsSectionId) => void) => () => void;
+  openAppSettings: (section?: AppSettingsSectionId) => Promise<{ success: boolean; error?: string }>;
   openTranscriptionHistory: () => Promise<{ success: boolean }>;
   openAbout: () => Promise<{ success: boolean }>;
   closeAbout: () => Promise<{ success: boolean }>;
@@ -141,6 +144,7 @@ export interface ElectronAPI {
   onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
+  onLocaleChanged: (callback: (locale: AppLocaleId) => void) => () => void;
   getHotkey: () => Promise<HotkeySettings>;
   setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
@@ -151,7 +155,9 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getPrettifySettings: () => Promise<PrettifySettings>;
-  setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
+  setPrettifySettings: (
+    settings: PrettifySettingsInput,
+  ) => Promise<{ success: boolean; settings: PrettifySettings; error?: string }>;
   listPrettifyModels: (
     providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
@@ -165,9 +171,9 @@ export interface ElectronAPI {
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelUnloadResult>;
   getTranslations: () => Promise<Record<string, string>>;
-  getLocale: () => Promise<string>;
-  getSupportedLocales: () => Promise<string[]>;
-  setLocale: (locale: string) => Promise<{ success: boolean }>;
+  getLocale: () => Promise<AppLocaleId>;
+  getSupportedLocales: () => Promise<AppLocaleId[]>;
+  setLocale: (locale: AppLocaleId) => Promise<{ success: boolean; error?: string }>;
   getPlatform: () => Promise<NodeJS.Platform>;
 }
 

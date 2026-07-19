@@ -240,6 +240,14 @@ export function createPrettifyProviderTransitionState(
   };
 }
 
+/** Applies an externally persisted provider choice without replacing any unsaved provider drafts. */
+export function applyExternalPrettifyProviderSelection(
+  settings: PrettifySettingsDraft,
+  providerId: KnownPrettifyProviderId,
+): PrettifySettingsDraft {
+  return settings.providerId === providerId ? settings : { ...settings, providerId };
+}
+
 function hasVllmApiKeyUpdate(settings: PrettifySettingsDraft): boolean {
   return Boolean(settings.vllm.apiKey?.trim());
 }

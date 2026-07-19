@@ -7,6 +7,7 @@ import PrettifySection from '@renderer/components/settings/PrettifySection';
 import SettingsFooter from '@renderer/components/settings/SettingsFooter';
 import SettingsNavigation, { type SettingsSectionId } from '@renderer/components/settings/SettingsNavigation';
 import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
+import SystemSection from '@renderer/components/settings/SystemSection';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 import {
   AlertDialog,
@@ -22,25 +23,49 @@ import { Button } from '@renderer/components/ui/button';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs';
 import {
+  applyExternalPrettifyProviderSelection,
   createAppSettingsLogSummary,
   createEditableSettings,
+  createPrettifyProviderTransitionState,
   getCloakBrowserLocaleOptions,
   getCloakBrowserTimezoneOptions,
   getAppSettingsFormState,
   hasAppSettingsFieldErrors,
   saveAppSettingsState,
+  PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS,
   type AppSettingsSaveResult,
   type AppSettingsFieldErrors,
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
+  type PrettifySettingsDraft,
 } from '@renderer/appSettingsUtils';
 import { useI18n } from '@renderer/hooks/useI18n';
+import {
+  createPrettifyProviderModelOptions,
+  createPrettifyProviderModelStates,
+  mergePrettifyProviderModelOptions,
+  normalizeCodexCliSettingsForModel,
+  type PrettifyProviderModelOptions,
+  type PrettifyProviderModelStates,
+} from '@renderer/prettifyModelControl';
 import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
 import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
-import { type PrettifyModelOption, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
+import {
+  DEFAULT_PRETTIFY_SETTINGS,
+  getPrettifyProviderCapabilities,
+  type ClaudeCliPrettifySettings,
+  type CodexCliPrettifySettings,
+  type PrettifyProviderId,
+} from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
+import { isAppSettingsSectionId } from '@shared/appSettings';
 
 const log = rendererLog.scope('app-settings');
+
+function getInitialSettingsSection(): SettingsSectionId {
+  const section = new URLSearchParams(window.location.search).get('section');
+  return isAppSettingsSectionId(section) ? section : 'shortcuts';
+}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -50,31 +75,43 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
-function getActivePrettifyProviderSettings(settings: PrettifySettings) {
-  return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
+function getConfiguredPrettifyModel(settings: PrettifySettingsDraft, providerId: PrettifyProviderId): string {
+  switch (providerId) {
+    case 'ollama':
+      return settings.ollama.model;
+    case 'vllm':
+      return settings.vllm.model;
+    case 'claude-cli':
+      return settings.claudeCli.model;
+    case 'codex-cli':
+      return settings.codexCli.model;
+  }
 }
 
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
+// eslint-disable-next-line max-lines-per-function -- The window coordinates one transactional multi-section form.
 const AppSettingsWindow: React.FC = () => {
-  const { isReady: isI18nReady, t } = useI18n();
+  const { isReady: isI18nReady, locale, setLocale, supportedLocales, t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
-  const [prettifySettings, setPrettifySettings] = useState<PrettifySettings | null>(null);
-  const [initialPrettifySettings, setInitialPrettifySettings] = useState<PrettifySettings | null>(null);
+  const [prettifySettings, setPrettifySettings] = useState<PrettifySettingsDraft | null>(null);
+  const [initialPrettifySettings, setInitialPrettifySettings] = useState<PrettifySettingsDraft | null>(null);
   const [textActionSettings, setTextActionSettings] = useState<TextActionSettings | null>(null);
   const [initialTextActionSettings, setInitialTextActionSettings] = useState<TextActionSettings | null>(null);
   const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
-  const [prettifyModelOptions, setPrettifyModelOptions] = useState<Record<PrettifyProviderId, PrettifyModelOption[]>>({
-    ollama: [],
-    vllm: [],
-  });
+  const [prettifyModelOptions, setPrettifyModelOptions] = useState<PrettifyProviderModelOptions>(() =>
+    createPrettifyProviderModelOptions(DEFAULT_PRETTIFY_SETTINGS),
+  );
+  const [prettifyProviderModelStates, setPrettifyProviderModelStates] = useState<PrettifyProviderModelStates>(
+    createPrettifyProviderModelStates,
+  );
   const [prettifyModelError, setPrettifyModelError] = useState('');
   const [isLoadingPrettifyModels, setIsLoadingPrettifyModels] = useState(false);
   const [prettifyModelLoadError, setPrettifyModelLoadError] = useState('');
   const [prettifyModelLoadStatus, setPrettifyModelLoadStatus] = useState('');
   const [isLoadingPrettifyModel, setIsLoadingPrettifyModel] = useState(false);
   const [isPrettifyModelActionMenuOpen, setIsPrettifyModelActionMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('shortcuts');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
@@ -83,9 +120,11 @@ const AppSettingsWindow: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<AppSettingsFieldErrors>({});
   const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
   const closeRequestFocusRef = useRef<HTMLElement | null>(null);
+  const prettifyModelRequestRef = useRef(0);
 
   useEffect(() => {
     let disposed = false;
+    /** Loads transactional settings and performs the existing HTTP-only model inspection. */
     const loadSettings = async (): Promise<void> => {
       try {
         const [nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform] =
@@ -107,14 +146,32 @@ const AppSettingsWindow: React.FC = () => {
         setInitialTextActionSettings(nextTextActionSettings);
         setHotkeySettings(nextHotkeySettings);
         setPlatform(nextPlatform);
+        setPrettifyModelOptions(createPrettifyProviderModelOptions(nextPrettifySettings));
+
+        const providerId = nextPrettifySettings.providerId;
+        if (!getPrettifyProviderCapabilities(providerId).baseUrl) return;
+
+        const requestId = ++prettifyModelRequestRef.current;
         setIsLoadingPrettifyModels(true);
+        setPrettifyProviderModelStates((current) => ({
+          ...current,
+          [providerId]: {
+            ...current[providerId],
+            checkStatus: 'checking',
+          },
+        }));
 
         try {
-          const result = await window.electronAPI.listPrettifyModels(
-            nextPrettifySettings.providerId,
-            nextPrettifySettings,
-          );
-          if (disposed) return;
+          const result = await window.electronAPI.listPrettifyModels(providerId, nextPrettifySettings);
+          if (disposed || requestId !== prettifyModelRequestRef.current) return;
+          setPrettifyProviderModelStates((current) => ({
+            ...current,
+            [providerId]: {
+              availability: result.availability,
+              checkStatus: result.success ? 'available' : 'unavailable',
+              source: result.source,
+            },
+          }));
           if (!result.success) {
             setPrettifyModelError(result.error || '');
             return;
@@ -122,14 +179,25 @@ const AppSettingsWindow: React.FC = () => {
 
           setPrettifyModelOptions((current) => ({
             ...current,
-            [result.providerId]: result.models,
+            [result.providerId]: mergePrettifyProviderModelOptions(
+              result.models,
+              getConfiguredPrettifyModel(nextPrettifySettings, result.providerId),
+            ),
           }));
         } catch (modelError: unknown) {
-          if (!disposed) {
+          if (!disposed && requestId === prettifyModelRequestRef.current) {
+            setPrettifyProviderModelStates((current) => ({
+              ...current,
+              [providerId]: {
+                ...current[providerId],
+                availability: { status: 'unavailable' },
+                checkStatus: 'unavailable',
+              },
+            }));
             setPrettifyModelError(getErrorMessage(modelError));
           }
         } finally {
-          if (!disposed) {
+          if (!disposed && requestId === prettifyModelRequestRef.current) {
             setIsLoadingPrettifyModels(false);
           }
         }
@@ -144,6 +212,7 @@ const AppSettingsWindow: React.FC = () => {
 
     return () => {
       disposed = true;
+      prettifyModelRequestRef.current += 1;
     };
   }, []);
 
@@ -187,25 +256,31 @@ const AppSettingsWindow: React.FC = () => {
     );
   };
 
-  const updatePrettifySetting = <Key extends keyof PrettifySettings>(
+  const updatePrettifySetting = <Key extends keyof PrettifySettingsDraft>(
     key: Key,
-    value: PrettifySettings[Key],
+    value: PrettifySettingsDraft[Key],
     fieldKey: AppSettingsFieldKey,
   ): void => {
     clearFieldErrors(fieldKey);
-    if (key === 'providerId') {
-      setPrettifyModelError('');
-      setPrettifyModelLoadError('');
-      setPrettifyModelLoadStatus('');
-      setIsPrettifyModelActionMenuOpen(false);
-      clearFieldErrors('prettifyBaseUrl', 'prettifyModel', 'prettifyApiKey');
-    }
     setPrettifySettings((current) => (current ? { ...current, [key]: value } : current));
   };
 
-  const updatePrettifyProviderSetting = <Key extends keyof PrettifySettings['ollama'] & keyof PrettifySettings['vllm']>(
+  const changePrettifyProvider = (providerId: PrettifyProviderId): void => {
+    if (!prettifySettings || prettifySettings.providerId === providerId) return;
+    const transition = createPrettifyProviderTransitionState(prettifySettings, providerId);
+    prettifyModelRequestRef.current += 1;
+    setIsLoadingPrettifyModels(false);
+    setPrettifyModelError('');
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    setIsPrettifyModelActionMenuOpen(false);
+    clearFieldErrors('prettifyProvider', ...transition.clearFieldErrors);
+    setPrettifySettings(transition.settings);
+  };
+
+  const updateHttpPrettifyProviderSetting = <Key extends 'baseUrl' | 'model'>(
     key: Key,
-    value: PrettifySettings['ollama'][Key] | PrettifySettings['vllm'][Key],
+    value: string,
     fieldKey: AppSettingsFieldKey,
   ): void => {
     clearFieldErrors(fieldKey);
@@ -215,17 +290,79 @@ const AppSettingsWindow: React.FC = () => {
     if (key === 'baseUrl' || key === 'model') {
       setIsPrettifyModelActionMenuOpen(false);
     }
+    setPrettifySettings((current) => {
+      if (!current) return current;
+      if (current.providerId === 'ollama') {
+        return { ...current, ollama: { ...current.ollama, [key]: value } };
+      }
+      if (current.providerId === 'vllm') {
+        return { ...current, vllm: { ...current.vllm, [key]: value } };
+      }
+      return current;
+    });
+  };
+
+  const markPrettifyProviderUnchecked = (providerId: 'claude-cli' | 'codex-cli'): void => {
+    setPrettifyProviderModelStates((current) => ({
+      ...current,
+      [providerId]: {
+        ...current[providerId],
+        availability: { status: 'unavailable' },
+        checkStatus: 'unchecked',
+      },
+    }));
+    setPrettifyModelError('');
+  };
+
+  const updateClaudeCliSetting = <Key extends keyof ClaudeCliPrettifySettings>(
+    key: Key,
+    value: ClaudeCliPrettifySettings[Key],
+    fieldKey: AppSettingsFieldKey,
+  ): void => {
+    clearFieldErrors(fieldKey);
     setPrettifySettings((current) =>
-      current
-        ? {
-            ...current,
-            [current.providerId]: {
-              ...current[current.providerId],
-              [key]: value,
-            },
-          }
-        : current,
+      current ? { ...current, claudeCli: { ...current.claudeCli, [key]: value } } : current,
     );
+    if (key === 'executablePath') markPrettifyProviderUnchecked('claude-cli');
+  };
+
+  const updateCodexCliSetting = <Key extends keyof CodexCliPrettifySettings>(
+    key: Key,
+    value: CodexCliPrettifySettings[Key],
+    fieldKey: AppSettingsFieldKey,
+  ): void => {
+    clearFieldErrors(fieldKey);
+    setPrettifySettings((current) =>
+      current ? { ...current, codexCli: { ...current.codexCli, [key]: value } } : current,
+    );
+    if (key === 'executablePath') markPrettifyProviderUnchecked('codex-cli');
+  };
+
+  const updatePrettifyModel = (value: string): void => {
+    clearFieldErrors('prettifyModel');
+    setPrettifyModelError('');
+    setPrettifyModelLoadError('');
+    setPrettifyModelLoadStatus('');
+    setIsPrettifyModelActionMenuOpen(false);
+    setPrettifySettings((current) => {
+      if (!current) return current;
+      switch (current.providerId) {
+        case 'ollama':
+          return { ...current, ollama: { ...current.ollama, model: value } };
+        case 'vllm':
+          return { ...current, vllm: { ...current.vllm, model: value } };
+        case 'claude-cli':
+          return { ...current, claudeCli: { ...current.claudeCli, model: value } };
+        case 'codex-cli': {
+          const codexCli = normalizeCodexCliSettingsForModel(
+            { ...current.codexCli, model: value },
+            prettifyModelOptions['codex-cli'],
+            prettifyProviderModelStates['codex-cli'].checkStatus === 'available',
+          );
+          return { ...current, codexCli };
+        }
+      }
+    });
   };
 
   const updateVllmApiKey = (value: string): void => {
@@ -264,30 +401,72 @@ const AppSettingsWindow: React.FC = () => {
   const refreshPrettifyModels = async (): Promise<void> => {
     if (!prettifySettings) return;
 
+    const settingsSnapshot = prettifySettings;
+    const providerId = settingsSnapshot.providerId;
+    const requestId = ++prettifyModelRequestRef.current;
     setIsLoadingPrettifyModels(true);
     setPrettifyModelError('');
     clearFieldErrors('prettifyModel');
+    setPrettifyProviderModelStates((current) => ({
+      ...current,
+      [providerId]: {
+        ...current[providerId],
+        checkStatus: 'checking',
+      },
+    }));
     try {
-      const providerId = prettifySettings.providerId;
-      const result = await window.electronAPI.listPrettifyModels(providerId, prettifySettings);
+      const result = await window.electronAPI.listPrettifyModels(providerId, settingsSnapshot);
+      if (requestId !== prettifyModelRequestRef.current) return;
+      setPrettifyProviderModelStates((current) => ({
+        ...current,
+        [providerId]: {
+          availability: result.availability,
+          checkStatus: result.success ? 'available' : 'unavailable',
+          source: result.source,
+        },
+      }));
       if (!result.success) {
         setPrettifyModelError(result.error || t('prettify.modelsRefreshFailed'));
         return;
       }
 
+      const configuredModel = getConfiguredPrettifyModel(settingsSnapshot, providerId);
+      const nextModels = mergePrettifyProviderModelOptions(result.models, configuredModel);
       setPrettifyModelOptions((current) => ({
         ...current,
-        [providerId]: result.models,
+        [providerId]: nextModels,
       }));
 
-      const activeProviderSettings = getActivePrettifyProviderSettings(prettifySettings);
-      if (!activeProviderSettings.model && result.models[0]) {
-        updatePrettifyProviderSetting('model', result.models[0].id, 'prettifyModel');
-      }
+      setPrettifySettings((current) => {
+        if (!current || current.providerId !== providerId) return current;
+        if (providerId === 'ollama' && !current.ollama.model && result.models[0]) {
+          return { ...current, ollama: { ...current.ollama, model: result.models[0].id } };
+        }
+        if (providerId === 'vllm' && !current.vllm.model && result.models[0]) {
+          return { ...current, vllm: { ...current.vllm, model: result.models[0].id } };
+        }
+        if (providerId === 'codex-cli') {
+          return {
+            ...current,
+            codexCli: normalizeCodexCliSettingsForModel(current.codexCli, nextModels, true),
+          };
+        }
+        return current;
+      });
     } catch (modelError: unknown) {
-      setPrettifyModelError(getErrorMessage(modelError));
+      if (requestId === prettifyModelRequestRef.current) {
+        setPrettifyProviderModelStates((current) => ({
+          ...current,
+          [providerId]: {
+            ...current[providerId],
+            availability: { status: 'unavailable' },
+            checkStatus: 'unavailable',
+          },
+        }));
+        setPrettifyModelError(getErrorMessage(modelError));
+      }
     } finally {
-      setIsLoadingPrettifyModels(false);
+      if (requestId === prettifyModelRequestRef.current) setIsLoadingPrettifyModels(false);
     }
   };
 
@@ -658,6 +837,33 @@ const AppSettingsWindow: React.FC = () => {
   );
 
   useEffect(() => window.electronAPI.onAppSettingsCloseRequested(requestCloseWindow), [requestCloseWindow]);
+  useEffect(() => window.electronAPI.onAppSettingsSectionRequested(setActiveSection), []);
+  useEffect(
+    () =>
+      window.electronAPI.onPrettifySettingsChanged((snapshot) => {
+        prettifyModelRequestRef.current += 1;
+        setPrettifySettings((current) =>
+          current ? applyExternalPrettifyProviderSelection(current, snapshot.providerId) : current,
+        );
+        setInitialPrettifySettings((current) =>
+          current ? applyExternalPrettifyProviderSelection(current, snapshot.providerId) : current,
+        );
+        setPrettifyProviderModelStates(createPrettifyProviderModelStates());
+        setIsLoadingPrettifyModels(false);
+        setIsLoadingPrettifyModel(false);
+        setIsPrettifyModelActionMenuOpen(false);
+        setPrettifyModelError('');
+        setPrettifyModelLoadError('');
+        setPrettifyModelLoadStatus('');
+        setFieldErrors((current) => {
+          const next = { ...current };
+          delete next.prettifyProvider;
+          for (const field of PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS) delete next[field];
+          return next;
+        });
+      }),
+    [],
+  );
 
   return (
     <>
@@ -692,6 +898,14 @@ const AppSettingsWindow: React.FC = () => {
                     className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]"
                     data-slot="settings-content"
                   >
+                    <TabsContent className="mt-0" value="system">
+                      <SystemSection
+                        locale={locale}
+                        onLocaleChange={setLocale}
+                        supportedLocales={supportedLocales}
+                        t={t}
+                      />
+                    </TabsContent>
                     <TabsContent className="mt-0" value="shortcuts">
                       <ShortcutsSection
                         getHotkeyValue={getHotkeyValue}
@@ -703,27 +917,46 @@ const AppSettingsWindow: React.FC = () => {
                     </TabsContent>
                     <TabsContent className="mt-0" value="prettify">
                       <PrettifySection
+                        availability={prettifyProviderModelStates[prettifySettings.providerId].availability}
                         fieldError={renderFieldError}
                         isLoadingModel={isLoadingPrettifyModel}
                         isLoadingModels={isLoadingPrettifyModels}
                         isModelActionMenuOpen={isPrettifyModelActionMenuOpen}
+                        modelCheckStatus={prettifyProviderModelStates[prettifySettings.providerId].checkStatus}
                         modelLoadError={prettifyModelLoadError}
                         modelLoadStatus={prettifyModelLoadStatus}
-                        modelOptions={prettifyModelOptions}
+                        modelOptions={prettifyModelOptions[prettifySettings.providerId]}
                         modelRefreshError={prettifyModelError}
-                        onBaseUrlChange={(value) => updatePrettifyProviderSetting('baseUrl', value, 'prettifyBaseUrl')}
+                        onBaseUrlChange={(value) =>
+                          updateHttpPrettifyProviderSetting('baseUrl', value, 'prettifyBaseUrl')
+                        }
+                        onClaudeEffortChange={(value) => updateClaudeCliSetting('effort', value, 'prettifyEffort')}
                         onClearVllmApiKey={clearVllmApiKey}
+                        onCodexReasoningEffortChange={(value) =>
+                          updateCodexCliSetting('reasoningEffort', value, 'prettifyReasoningEffort')
+                        }
+                        onCodexVerbosityChange={(value) =>
+                          updateCodexCliSetting('verbosity', value, 'prettifyVerbosity')
+                        }
+                        onExecutablePathChange={(value) => {
+                          if (prettifySettings.providerId === 'claude-cli') {
+                            updateClaudeCliSetting('executablePath', value, 'prettifyExecutablePath');
+                          } else if (prettifySettings.providerId === 'codex-cli') {
+                            updateCodexCliSetting('executablePath', value, 'prettifyExecutablePath');
+                          }
+                        }}
+                        onFallbackModelChange={(value) =>
+                          updateClaudeCliSetting('fallbackModel', value, 'prettifyFallbackModel')
+                        }
                         onLoadModel={() => void loadSelectedOllamaModel()}
                         onMaxOutputTokensChange={(value) =>
                           updatePrettifySetting('maxOutputTokens', value, 'prettifyMaxOutputTokens')
                         }
                         onMinPChange={(value) => updatePrettifySetting('minP', value, 'prettifyMinP')}
                         onModelActionMenuOpenChange={setIsPrettifyModelActionMenuOpen}
-                        onModelChange={(value) => updatePrettifyProviderSetting('model', value, 'prettifyModel')}
+                        onModelChange={updatePrettifyModel}
                         onPromptChange={(value) => updatePrettifySetting('prompt', value, 'prettifyPrompt')}
-                        onProviderChange={(providerId) =>
-                          updatePrettifySetting('providerId', providerId, 'prettifyProvider')
-                        }
+                        onProviderChange={changePrettifyProvider}
                         onRefreshModels={() => void refreshPrettifyModels()}
                         onRepeatPenaltyChange={(value) =>
                           updatePrettifySetting('repeatPenalty', value, 'prettifyRepeatPenalty')
@@ -732,6 +965,13 @@ const AppSettingsWindow: React.FC = () => {
                         onTemperatureChange={(value) =>
                           updatePrettifySetting('temperature', value, 'prettifyTemperature')
                         }
+                        onTimeoutChange={(value) => {
+                          if (prettifySettings.providerId === 'claude-cli') {
+                            updateClaudeCliSetting('timeoutSeconds', value, 'prettifyTimeout');
+                          } else if (prettifySettings.providerId === 'codex-cli') {
+                            updateCodexCliSetting('timeoutSeconds', value, 'prettifyTimeout');
+                          }
+                        }}
                         onTopKChange={(value) => updatePrettifySetting('topK', value, 'prettifyTopK')}
                         onTopPChange={(value) => updatePrettifySetting('topP', value, 'prettifyTopP')}
                         onUnloadModel={() => void unloadSelectedOllamaModel()}
