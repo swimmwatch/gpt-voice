@@ -1,7 +1,7 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 28 and 10-13 are committed. Task 14 is complete and
-uncommitted for review; Task 15 is next after approval.
+Plan gate: Tasks 28 and 10-14 are committed. Task 15 is complete and
+uncommitted for review; Task 16 is next after approval.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
@@ -25,7 +25,7 @@ uncommitted for review; Task 15 is next after approval.
 - [x] [12 Claude CLI adapter](12_implement_claude_cli_adapter.md)
 - [x] [13 Codex CLI adapter](13_implement_codex_cli_adapter.md)
 - [x] [14 Codex schema packaging](14_package_codex_output_schema.md)
-- [ ] [15 CLI localization](15_localize_cli_prettify.md)
+- [x] [15 CLI localization](15_localize_cli_prettify.md)
 - [ ] [16 CLI runtime integration](16_integrate_cli_prettify_runtime.md)
 - [ ] [17 CLI settings state](17_add_cli_settings_state.md)
 - [ ] [18 CLI settings controls](18_render_cli_prettify_controls.md)

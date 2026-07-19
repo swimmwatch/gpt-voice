@@ -247,6 +247,44 @@ export default {
   'prettify.provider': 'Правайдар паляпшэння',
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
+  'prettify.provider.claudeCli': 'Claude CLI',
+  'prettify.provider.codexCli': 'Codex CLI (эксперыментальны)',
+  'prettify.cli.executablePath': 'Шлях да выканальнага файла CLI',
+  'prettify.cli.executablePathHelp':
+    'Пакіньце поле пустым для пошуку праз PATH або выберыце адзін абсалютны шлях да выканальнага файла без аргументаў.',
+  'prettify.cli.model': 'Мадэль CLI',
+  'prettify.cli.modelHelp': 'Пакіньце поле пустым, каб выкарыстоўваць прадвызначаную мадэль CLI.',
+  'prettify.cli.timeout': 'Тайм-аўт CLI',
+  'prettify.cli.timeoutHelp': 'Укажыце час працы працэсу CLI ад 15 да 600 секунд.',
+  'prettify.claudeCli.fallbackModel': 'Рэзервовая мадэль',
+  'prettify.claudeCli.fallbackModelHelp':
+    'Пакіньце поле пустым, каб адключыць рэзервовую мадэль і выкарыстоўваць прадвызначаныя паводзіны Claude CLI.',
+  'prettify.claudeCli.effort': 'Узровень разважанняў',
+  'prettify.claudeCli.effortHelp': 'Кіруе ўзроўнем разважанняў Claude CLI, калі выбраная мадэль яго падтрымлівае.',
+  'prettify.claudeCli.effort.default': 'Прадвызначаны для CLI',
+  'prettify.claudeCli.effort.low': 'Нізкі',
+  'prettify.claudeCli.effort.medium': 'Сярэдні',
+  'prettify.claudeCli.effort.high': 'Высокі',
+  'prettify.claudeCli.privacy':
+    'Вылучаны тэкст і абаронены запыт адпраўляюцца праз ваш уліковы запіс Anthropic Claude CLI і могуць расходаваць квоту падпіскі або API.',
+  'prettify.codexCli.reasoningEffort': 'Узровень разважанняў',
+  'prettify.codexCli.reasoningEffortHelp':
+    'Кіруе ўзроўнем разважанняў Codex CLI, калі выбраная мадэль яго падтрымлівае.',
+  'prettify.codexCli.reasoningEffort.default': 'Прадвызначаны для CLI',
+  'prettify.codexCli.reasoningEffort.low': 'Нізкі',
+  'prettify.codexCli.reasoningEffort.medium': 'Сярэдні',
+  'prettify.codexCli.reasoningEffort.high': 'Высокі',
+  'prettify.codexCli.reasoningEffort.xhigh': 'Вельмі высокі',
+  'prettify.codexCli.verbosity': 'Падрабязнасць адказу',
+  'prettify.codexCli.verbosityHelp': 'Кіруе падрабязнасцю адказу, калі выбраная мадэль Codex гэта падтрымлівае.',
+  'prettify.codexCli.verbosity.low': 'Нізкая',
+  'prettify.codexCli.verbosity.medium': 'Сярэдняя',
+  'prettify.codexCli.verbosity.high': 'Высокая',
+  'prettify.codexCli.experimental': 'Эксперыментальны правайдар',
+  'prettify.codexCli.experimentalHelp':
+    'Codex CLI даступны, толькі калі ўсталяваны CLI пацвярджае неабходныя абмежаванні інструментаў і ізаляцыі. Абысці гэтую праверку немагчыма.',
+  'prettify.codexCli.privacy':
+    'Вылучаны тэкст і абаронены запыт адпраўляюцца праз ваш уліковы запіс OpenAI Codex CLI і могуць расходаваць квоту падпіскі або API.',
   'prettify.baseUrl': 'Base URL',
   'prettify.model': 'Мадэль',
   'prettify.refreshModels': 'Абнавіць',
@@ -301,6 +339,56 @@ export default {
   'error.noPrettifyResult': 'У адказе няма палепшанага тэксту',
   'error.noPrettifyModel': 'Выберыце мадэль паляпшэння тэксту ў наладах праграмы',
   'error.prettifyInProgress': 'Паляпшэнне тэксту ўжо выконваецца',
+  'error.prettify.cli.invalid-executable-path':
+    'Выберыце адзін выканальны файл па абсалютным шляху без аргументаў каманднага радка.',
+  'error.prettify.cli.output-limit':
+    'CLI вярнуў зашмат даных, таму працэс быў завершаны. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.cli.nonzero-exit': 'Працэс CLI завяршыўся з памылкай. Праверце налады CLI і паўтарыце спробу.',
+  'error.prettify.claudeCli.not-installed':
+    'Claude CLI не знойдзены. Усталюйце яго або ўкажыце шлях да выканальнага файла і паўтарыце спробу.',
+  'error.prettify.claudeCli.not-executable':
+    'Claude CLI не ўдалося запусціць з указанага выканальнага файла. Праверце гэту наладу.',
+  'error.prettify.claudeCli.not-authenticated':
+    'Claude CLI не аўтарызаваны. Увайдзіце праз Claude CLI і паўтарыце спробу.',
+  'error.prettify.claudeCli.unsupported':
+    'Версія Claude CLI або неабходныя сродкі ізаляцыі не падтрымліваюцца. Абнавіце Claude CLI і паўтарыце спробу.',
+  'error.prettify.claudeCli.cancelled':
+    'Працэс Claude CLI быў завершаны пасля скасавання. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.claudeCli.timed-out':
+    'Працэс Claude CLI быў завершаны па заканчэнні часу. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.claudeCli.process-failed':
+    'Claude CLI не змог выканаць запыт. Праверце налады CLI і паўтарыце спробу.',
+  'error.prettify.claudeCli.empty-output':
+    'Claude CLI не вярнуў палепшаны тэкст. Праверце наладу мадэлі і паўтарыце спробу.',
+  'error.prettify.claudeCli.malformed-output':
+    'Claude CLI вярнуў непадтрымліваемы адказ. Абнавіце Claude CLI і паўтарыце спробу.',
+  'error.prettify.claudeCli.invalid-model':
+    'Выберыце падтрымліваемую мадэль Claude або пакіньце поле пустым для прадвызначанай мадэлі CLI.',
+  'error.prettify.codexCli.not-installed':
+    'Codex CLI не знойдзены. Усталюйце яго або ўкажыце шлях да выканальнага файла і паўтарыце спробу.',
+  'error.prettify.codexCli.not-executable':
+    'Codex CLI не ўдалося запусціць з указанага выканальнага файла. Праверце гэту наладу.',
+  'error.prettify.codexCli.not-authenticated':
+    'Codex CLI не аўтарызаваны. Увайдзіце праз Codex CLI і паўтарыце спробу.',
+  'error.prettify.codexCli.unsupported':
+    'Эксперыментальны правайдар Codex CLI недаступны: версія або неабходныя сродкі ізаляцыі не падтрымліваюцца.',
+  'error.prettify.codexCli.cancelled':
+    'Працэс Codex CLI быў завершаны пасля скасавання. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.codexCli.timed-out':
+    'Працэс Codex CLI быў завершаны па заканчэнні часу. Аўтаматычны паўтор не выконваўся.',
+  'error.prettify.codexCli.process-failed': 'Codex CLI не змог выканаць запыт. Праверце налады CLI і паўтарыце спробу.',
+  'error.prettify.codexCli.empty-output':
+    'Codex CLI не вярнуў палепшаны тэкст. Праверце наладу мадэлі і паўтарыце спробу.',
+  'error.prettify.codexCli.malformed-output':
+    'Codex CLI вярнуў непадтрымліваемы адказ. Абнавіце Codex CLI і паўтарыце спробу.',
+  'error.prettify.codexCli.invalid-model':
+    'Выберыце падтрымліваемую мадэль Codex або пакіньце поле пустым для прадвызначанай мадэлі CLI.',
+  'error.prettify.codexCli.schema-unavailable':
+    'Убудаваная схема адказу Codex недаступная або пашкоджаная. Аднавіце праграму; запуск без абмежаванняў адключаны.',
+  'error.prettify.codexCli.no-tools-unavailable':
+    'Codex CLI не можа пацвердзіць неабходныя абмежаванні інструментаў і ізаляцыі. Эксперыментальны правайдар застанецца недаступным; абысці праверку немагчыма.',
+  'error.prettify.codexCli.model-discovery-failed':
+    'Codex CLI не змог бяспечна загрузіць каталог мадэляў. Укажыце падтрымліваемую мадэль або абнавіце Codex CLI.',
   'error.claudeWeb.session-missing': 'Увайдзіце ў Claude Web у наладах правайдара і паўтарыце спробу.',
   'error.claudeWeb.session-expired': 'Сесія Claude Web скончылася. Увайдзіце зноў і паўтарыце спробу.',
   'error.claudeWeb.session-invalid':

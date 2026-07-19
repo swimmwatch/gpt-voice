@@ -245,6 +245,43 @@ export default {
   'prettify.provider': 'Prettify provider',
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
+  'prettify.provider.claudeCli': 'Claude CLI',
+  'prettify.provider.codexCli': 'Codex CLI (Experimental)',
+  'prettify.cli.executablePath': 'CLI executable path',
+  'prettify.cli.executablePathHelp':
+    'Leave empty to use PATH, or select one absolute executable file without arguments.',
+  'prettify.cli.model': 'CLI model',
+  'prettify.cli.modelHelp': 'Leave empty to use the CLI default model.',
+  'prettify.cli.timeout': 'CLI timeout',
+  'prettify.cli.timeoutHelp': 'Set how long the CLI process may run, from 15 to 600 seconds.',
+  'prettify.claudeCli.fallbackModel': 'Fallback model',
+  'prettify.claudeCli.fallbackModelHelp':
+    'Leave empty to disable the fallback model and use the Claude CLI default behavior.',
+  'prettify.claudeCli.effort': 'Reasoning effort',
+  'prettify.claudeCli.effortHelp': 'Controls Claude CLI reasoning effort when the selected model supports it.',
+  'prettify.claudeCli.effort.default': 'CLI default',
+  'prettify.claudeCli.effort.low': 'Low',
+  'prettify.claudeCli.effort.medium': 'Medium',
+  'prettify.claudeCli.effort.high': 'High',
+  'prettify.claudeCli.privacy':
+    'Selected text and the protected prompt are sent through your Anthropic Claude CLI account and may consume subscription or API quota.',
+  'prettify.codexCli.reasoningEffort': 'Reasoning effort',
+  'prettify.codexCli.reasoningEffortHelp': 'Controls Codex CLI reasoning effort when the selected model supports it.',
+  'prettify.codexCli.reasoningEffort.default': 'CLI default',
+  'prettify.codexCli.reasoningEffort.low': 'Low',
+  'prettify.codexCli.reasoningEffort.medium': 'Medium',
+  'prettify.codexCli.reasoningEffort.high': 'High',
+  'prettify.codexCli.reasoningEffort.xhigh': 'Extra high',
+  'prettify.codexCli.verbosity': 'Response verbosity',
+  'prettify.codexCli.verbosityHelp': 'Controls response detail when the selected Codex model supports it.',
+  'prettify.codexCli.verbosity.low': 'Low',
+  'prettify.codexCli.verbosity.medium': 'Medium',
+  'prettify.codexCli.verbosity.high': 'High',
+  'prettify.codexCli.experimental': 'Experimental provider',
+  'prettify.codexCli.experimentalHelp':
+    'Codex CLI is available only when the installed CLI proves the required no-tools and isolation controls. There is no bypass.',
+  'prettify.codexCli.privacy':
+    'Selected text and the protected prompt are sent through your OpenAI Codex CLI account and may consume subscription or API quota.',
   'prettify.baseUrl': 'Base URL',
   'prettify.model': 'Model',
   'prettify.refreshModels': 'Refresh',
@@ -299,6 +336,55 @@ export default {
   'error.noPrettifyResult': 'No prettified text in response',
   'error.noPrettifyModel': 'Select a prettify model in App Settings',
   'error.prettifyInProgress': 'Prettify already in progress',
+  'error.prettify.cli.invalid-executable-path': 'Select one absolute executable file without command-line arguments.',
+  'error.prettify.cli.output-limit':
+    'The CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.cli.nonzero-exit': 'The CLI process exited unsuccessfully. Check the CLI setup and try again.',
+  'error.prettify.claudeCli.not-installed':
+    'Claude CLI was not found. Install it or configure its executable path, then try again.',
+  'error.prettify.claudeCli.not-executable':
+    'Claude CLI could not start from the configured executable. Check the executable setting.',
+  'error.prettify.claudeCli.not-authenticated':
+    'Claude CLI is not authenticated. Sign in through Claude CLI, then try again.',
+  'error.prettify.claudeCli.unsupported':
+    'The installed Claude CLI version or required isolation controls are unsupported. Update Claude CLI and try again.',
+  'error.prettify.claudeCli.cancelled':
+    'The Claude CLI process was terminated after cancellation. No automatic retry occurred.',
+  'error.prettify.claudeCli.timed-out':
+    'The Claude CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.claudeCli.process-failed':
+    'Claude CLI could not complete the request. Check the CLI setup and try again.',
+  'error.prettify.claudeCli.empty-output':
+    'Claude CLI returned no edited text. Review the model setting and try again.',
+  'error.prettify.claudeCli.malformed-output':
+    'Claude CLI returned an unsupported response. Update Claude CLI and try again.',
+  'error.prettify.claudeCli.invalid-model':
+    'Choose a supported Claude model or leave the field empty to use the CLI default.',
+  'error.prettify.codexCli.not-installed':
+    'Codex CLI was not found. Install it or configure its executable path, then try again.',
+  'error.prettify.codexCli.not-executable':
+    'Codex CLI could not start from the configured executable. Check the executable setting.',
+  'error.prettify.codexCli.not-authenticated':
+    'Codex CLI is not authenticated. Sign in through Codex CLI, then try again.',
+  'error.prettify.codexCli.unsupported':
+    'The experimental Codex CLI provider is unavailable because its version or required isolation controls are unsupported.',
+  'error.prettify.codexCli.cancelled':
+    'The Codex CLI process was terminated after cancellation. No automatic retry occurred.',
+  'error.prettify.codexCli.timed-out':
+    'The Codex CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.codexCli.process-failed':
+    'Codex CLI could not complete the request. Check the CLI setup and try again.',
+  'error.prettify.codexCli.empty-output': 'Codex CLI returned no edited text. Review the model setting and try again.',
+  'error.prettify.codexCli.malformed-output':
+    'Codex CLI returned an unsupported response. Update Codex CLI and try again.',
+  'error.prettify.codexCli.invalid-model':
+    'Choose a supported Codex model or leave the field empty to use the CLI default.',
+  'error.prettify.codexCli.schema-unavailable':
+    'The packaged Codex output schema is unavailable or invalid. Repair the app before trying again; unconstrained execution is disabled.',
+  'error.prettify.codexCli.no-tools-unavailable':
+    'Codex CLI cannot prove the required no-tools and isolation controls. The experimental provider remains unavailable; there is no bypass.',
+  'error.prettify.codexCli.model-discovery-failed':
+    'Codex CLI could not safely load its model catalog. Enter a supported model or update Codex CLI.',
   'error.claudeWeb.session-missing': 'Sign in to Claude Web in Provider Settings, then try again.',
   'error.claudeWeb.session-expired': 'Your Claude Web session expired. Sign in again, then retry.',
   'error.claudeWeb.session-invalid': 'The saved Claude Web session is invalid. Clear it, sign in again, then retry.',

@@ -247,6 +247,43 @@ export default {
   'prettify.provider': 'Провайдер покращення',
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
+  'prettify.provider.claudeCli': 'Claude CLI',
+  'prettify.provider.codexCli': 'Codex CLI (експериментальний)',
+  'prettify.cli.executablePath': 'Шлях до виконуваного файлу CLI',
+  'prettify.cli.executablePathHelp':
+    'Залиште поле порожнім для пошуку через PATH або виберіть один абсолютний шлях до виконуваного файлу без аргументів.',
+  'prettify.cli.model': 'Модель CLI',
+  'prettify.cli.modelHelp': 'Залиште поле порожнім, щоб використовувати типову модель CLI.',
+  'prettify.cli.timeout': 'Тайм-аут CLI',
+  'prettify.cli.timeoutHelp': 'Укажіть час роботи процесу CLI від 15 до 600 секунд.',
+  'prettify.claudeCli.fallbackModel': 'Резервна модель',
+  'prettify.claudeCli.fallbackModelHelp':
+    'Залиште поле порожнім, щоб вимкнути резервну модель і використовувати типову поведінку Claude CLI.',
+  'prettify.claudeCli.effort': 'Рівень міркувань',
+  'prettify.claudeCli.effortHelp': 'Керує рівнем міркувань Claude CLI, якщо вибрана модель його підтримує.',
+  'prettify.claudeCli.effort.default': 'Типовий для CLI',
+  'prettify.claudeCli.effort.low': 'Низький',
+  'prettify.claudeCli.effort.medium': 'Середній',
+  'prettify.claudeCli.effort.high': 'Високий',
+  'prettify.claudeCli.privacy':
+    'Виділений текст і захищений запит надсилаються через ваш обліковий запис Anthropic Claude CLI та можуть витрачати квоту підписки або API.',
+  'prettify.codexCli.reasoningEffort': 'Рівень міркувань',
+  'prettify.codexCli.reasoningEffortHelp': 'Керує рівнем міркувань Codex CLI, якщо вибрана модель його підтримує.',
+  'prettify.codexCli.reasoningEffort.default': 'Типовий для CLI',
+  'prettify.codexCli.reasoningEffort.low': 'Низький',
+  'prettify.codexCli.reasoningEffort.medium': 'Середній',
+  'prettify.codexCli.reasoningEffort.high': 'Високий',
+  'prettify.codexCli.reasoningEffort.xhigh': 'Дуже високий',
+  'prettify.codexCli.verbosity': 'Докладність відповіді',
+  'prettify.codexCli.verbosityHelp': 'Керує докладністю відповіді, якщо вибрана модель Codex це підтримує.',
+  'prettify.codexCli.verbosity.low': 'Низька',
+  'prettify.codexCli.verbosity.medium': 'Середня',
+  'prettify.codexCli.verbosity.high': 'Висока',
+  'prettify.codexCli.experimental': 'Експериментальний провайдер',
+  'prettify.codexCli.experimentalHelp':
+    'Codex CLI доступний, лише якщо встановлений CLI підтверджує необхідні обмеження інструментів та ізоляції. Обійти цю перевірку неможливо.',
+  'prettify.codexCli.privacy':
+    'Виділений текст і захищений запит надсилаються через ваш обліковий запис OpenAI Codex CLI та можуть витрачати квоту підписки або API.',
   'prettify.baseUrl': 'Base URL',
   'prettify.model': 'Модель',
   'prettify.refreshModels': 'Оновити',
@@ -301,6 +338,58 @@ export default {
   'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
   'error.noPrettifyModel': 'Виберіть модель покращення тексту в налаштуваннях застосунку',
   'error.prettifyInProgress': 'Покращення тексту вже виконується',
+  'error.prettify.cli.invalid-executable-path':
+    'Виберіть один виконуваний файл за абсолютним шляхом без аргументів командного рядка.',
+  'error.prettify.cli.output-limit':
+    'CLI повернув забагато даних, тому процес було завершено. Автоматичний повтор не виконувався.',
+  'error.prettify.cli.nonzero-exit':
+    'Процес CLI завершився з помилкою. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.claudeCli.not-installed':
+    'Claude CLI не знайдено. Установіть його або вкажіть шлях до виконуваного файлу та повторіть спробу.',
+  'error.prettify.claudeCli.not-executable':
+    'Claude CLI не вдалося запустити з указаного виконуваного файлу. Перевірте це налаштування.',
+  'error.prettify.claudeCli.not-authenticated':
+    'Claude CLI не авторизовано. Увійдіть через Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.unsupported':
+    'Версія Claude CLI або необхідні засоби ізоляції не підтримуються. Оновіть Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.cancelled':
+    'Процес Claude CLI було завершено після скасування. Автоматичний повтор не виконувався.',
+  'error.prettify.claudeCli.timed-out':
+    'Процес Claude CLI було завершено після завершення часу очікування. Автоматичний повтор не виконувався.',
+  'error.prettify.claudeCli.process-failed':
+    'Claude CLI не зміг виконати запит. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.claudeCli.empty-output':
+    'Claude CLI не повернув покращений текст. Перевірте налаштування моделі та повторіть спробу.',
+  'error.prettify.claudeCli.malformed-output':
+    'Claude CLI повернув непідтримувану відповідь. Оновіть Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.invalid-model':
+    'Виберіть підтримувану модель Claude або залиште поле порожнім для типової моделі CLI.',
+  'error.prettify.codexCli.not-installed':
+    'Codex CLI не знайдено. Установіть його або вкажіть шлях до виконуваного файлу та повторіть спробу.',
+  'error.prettify.codexCli.not-executable':
+    'Codex CLI не вдалося запустити з указаного виконуваного файлу. Перевірте це налаштування.',
+  'error.prettify.codexCli.not-authenticated':
+    'Codex CLI не авторизовано. Увійдіть через Codex CLI та повторіть спробу.',
+  'error.prettify.codexCli.unsupported':
+    'Експериментальний провайдер Codex CLI недоступний: версія або необхідні засоби ізоляції не підтримуються.',
+  'error.prettify.codexCli.cancelled':
+    'Процес Codex CLI було завершено після скасування. Автоматичний повтор не виконувався.',
+  'error.prettify.codexCli.timed-out':
+    'Процес Codex CLI було завершено після завершення часу очікування. Автоматичний повтор не виконувався.',
+  'error.prettify.codexCli.process-failed':
+    'Codex CLI не зміг виконати запит. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.codexCli.empty-output':
+    'Codex CLI не повернув покращений текст. Перевірте налаштування моделі та повторіть спробу.',
+  'error.prettify.codexCli.malformed-output':
+    'Codex CLI повернув непідтримувану відповідь. Оновіть Codex CLI та повторіть спробу.',
+  'error.prettify.codexCli.invalid-model':
+    'Виберіть підтримувану модель Codex або залиште поле порожнім для типової моделі CLI.',
+  'error.prettify.codexCli.schema-unavailable':
+    'Вбудована схема відповіді Codex недоступна або пошкоджена. Відновіть застосунок; запуск без обмежень вимкнено.',
+  'error.prettify.codexCli.no-tools-unavailable':
+    'Codex CLI не може підтвердити необхідні обмеження інструментів та ізоляції. Експериментальний провайдер залишиться недоступним; обійти перевірку неможливо.',
+  'error.prettify.codexCli.model-discovery-failed':
+    'Codex CLI не зміг безпечно завантажити каталог моделей. Укажіть підтримувану модель або оновіть Codex CLI.',
   'error.claudeWeb.session-missing': 'Увійдіть у Claude Web у налаштуваннях провайдера й повторіть спробу.',
   'error.claudeWeb.session-expired': 'Сесія Claude Web завершилася. Увійдіть знову й повторіть спробу.',
   'error.claudeWeb.session-invalid':

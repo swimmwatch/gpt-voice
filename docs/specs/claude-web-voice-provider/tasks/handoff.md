@@ -1,56 +1,46 @@
-# Handoff: Packaged Codex Output Schema
+# Handoff: CLI Prettify Localization
 
-Status: Task 13 was committed as `014c442d feat(prettify): add experimental
-Codex CLI adapter`. Task 14 is complete and deliberately uncommitted for
-review. Do not begin Task 15 or enable either CLI provider in this invocation.
+Status: Task 14 was committed as `2f2f3037 feat(prettify): package Codex
+output schema`. Task 15 is complete and deliberately uncommitted for review.
+Do not begin Task 16 or enable either CLI provider in this invocation.
 
-Implemented in Task 14:
+Implemented in Task 15:
 
-- Added one deterministic non-secret schema at
-  `assets/prettify/codex-output.schema.json`. It requires exactly one string
-  `text` property and rejects additional properties.
-- Added the schema exactly once to Electron's existing asset extra-resource
-  filter and the packaged-runtime asset allowlist. No CLI binary, CLI config,
-  test fixture, or research directory was added to packaging.
-- Replaced caller-supplied schema paths with an injected
-  `outputSchemaPathResolver`. The default resolver uses the source asset path in
-  development and `process.resourcesPath/assets` in packaged applications.
-- Added fail-closed schema validation before Codex model discovery or
-  Prettify execution: the resolved path must be absolute, readable, and a
-  regular file whose SHA-256 matches the audited asset. Missing, unreadable,
-  non-file, relative, resolver-failed, and tampered schemas return the existing
-  safe `Unsupported` result without unconstrained fallback.
-- Preserved paths containing spaces as one `--output-schema` argv value.
+- Added Claude CLI and experimental Codex CLI provider labels plus executable,
+  model, fallback, effort, verbosity, timeout, and capability guidance in
+  English, Russian, Ukrainian, and Belarusian.
+- Added provider-specific privacy notices explaining that selected text and the
+  protected prompt use the user's Anthropic or OpenAI CLI account and may
+  consume subscription or API quota.
+- Localized every Claude and Codex adapter error code and the dedicated invalid
+  path/model, output-limit, nonzero-exit, packaged-schema, no-tools isolation,
+  and model-discovery states.
+- Kept every CLI message placeholder-free. Cancellation and timeout messages
+  state that the process was terminated without automatic retry; Codex remains
+  unavailable when isolation cannot be proven and exposes no bypass.
+- Extended i18n tests to enforce adapter-enum coverage, supported option values,
+  locale/key parity, placeholder parity, fail-closed guidance, and privacy-safe
+  wording.
 
-Task 14 changed files:
+Task 15 changed files:
 
-- `assets/prettify/codex-output.schema.json`
-- `package.json`
-- `scripts/packaged-runtime-policy.mjs`
-- `src/main/services/prettifyCodexCli.ts`
-- `tests/main/prettifyCodexCli.test.ts`
-- `tests/scripts/packagedRuntimePolicy.test.ts`
+- `src/main/i18n/{en,ru,uk,be}.ts`
+- `tests/main/i18n.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
 Verification:
 
-- Focused adapter and packaged-policy tests, `npm run typecheck`,
-  `npm run test:types`, `npm run lint`, `npm run format:check`, diff hygiene,
-  and `npm run build:prod` pass. Lint retains only the two pre-existing warnings
-  in `tests/main/streamingTranscription.test.ts`.
-- `npm test` passes 98/99 files. The unrelated
-  `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists.
-- `npm run pack` and `npm run verify:packaged` pass for Linux x64. The first
-  sandboxed pack attempt could not resolve GitHub; the authorized networked
-  rerun completed successfully.
-- The packaged schema exists once at
-  `resources/assets/prettify/codex-output.schema.json` and matches canonical
-  SHA-256 `c5d6a5a0eb318596d03edb9e697d124f9daa2cfd1b1928f4ae1b786d081a22f6`.
-  Package scans found no Codex/Claude binaries, auth/config directories, tests,
-  fixtures, research files, or diagnostics. Generated package output remains
-  ignored and untracked.
+- `node --import tsx --test tests/main/i18n.test.ts`, `npm run typecheck`,
+  `npm run test:types`, `npm run lint`, and `npm run format:check` pass. Lint
+  retains only the two pre-existing warnings in
+  `tests/main/streamingTranscription.test.ts`.
+- `git diff --check` and the targeted localization privacy scan pass. The scan
+  found no raw process fields, identities, credentials, full paths, URLs, or
+  sensitive runtime placeholders in the new locale text.
+- No adapter, renderer, IPC, provider-enablement, dependency, or packaging
+  behavior changed. Unrelated provider-switching work remains preserved.
 
 Exact next packet:
 
-- After human review, run Task 15 (`15_localize_cli_prettify.md`). Keep both CLI
-  providers unselectable until their runtime-integration packet.
+- After human review, run Task 16 (`16_integrate_cli_prettify_runtime.md`). Keep
+  both CLI providers unselectable until that packet's capability gate passes.
