@@ -39,12 +39,12 @@ describe('App Settings section IPC contract', () => {
       ipc.indexOf('function sendPrettifySettingsChanged'),
       ipc.indexOf('function getHotkeySettingsSnapshot'),
     );
-    const appSettings = readProjectFile('src/renderer/AppSettingsWindow.tsx');
+    const prettifyController = readProjectFile('src/renderer/hooks/usePrettifySettingsController.ts');
 
     assert.match(broadcaster, /getMainWindow\(\)\?\.webContents\.send\('prettify-settings-changed'/u);
     assert.match(broadcaster, /getSettingsWindow\(\)\?\.webContents\.send\('prettify-settings-changed'/u);
-    assert.match(appSettings, /onPrettifySettingsChanged\(\(snapshot\)/u);
-    assert.match(appSettings, /applyExternalPrettifyProviderSelection\(current, snapshot\.providerId\)/u);
+    assert.match(prettifyController, /onPrettifySettingsChanged\(\(snapshot\)/u);
+    assert.match(prettifyController, /applyExternalPrettifyProviderSelection\(current, snapshot\.providerId\)/u);
   });
 
   it('broadcasts application-language changes through the typed preload contract', () => {

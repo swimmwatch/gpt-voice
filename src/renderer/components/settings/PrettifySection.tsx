@@ -11,6 +11,11 @@ import { useState, type JSX } from 'react';
 import { formatByteSize } from '@renderer/byteFormatting';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
 import type { PrettifySettingsDraft } from '@renderer/appSettingsUtils';
+import {
+  ClaudeCliPrettifyPanel,
+  CodexCliPrettifyPanel,
+  HttpPrettifyPanel,
+} from '@renderer/components/settings/PrettifyProviderPanels';
 import type { FieldErrorRenderer, TranslationFunction } from '@renderer/components/settings/types';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { Badge } from '@renderer/components/ui/badge';
@@ -31,18 +36,12 @@ import { Textarea } from '@renderer/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import {
   getCodexCliModelControls,
+  normalizeCodexCliSettingsForModel,
   shouldRefreshCliModelsOnOpen,
   type PrettifyModelCheckStatus,
 } from '@renderer/prettifyModelControl';
 import { getOllamaModelAction, getPrettifyProviderSettingsViewState } from '@renderer/prettifySettingsViewState';
 import {
-  CLAUDE_CLI_PRETTIFY_EFFORT_VALUES,
-  CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES,
-  CODEX_CLI_PRETTIFY_VERBOSITY_VALUES,
-  DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
-  DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS,
-  MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
-  MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
   PRETTIFY_PROVIDER_IDS,
   getPrettifyBaseUrlValidationError,
   isPrettifyProviderBaseUrlLoopback,
@@ -99,16 +98,6 @@ interface PrettifySectionProps {
   prettifySettings: PrettifySettingsDraft;
   selectedOllamaModelLoaded: boolean;
   t: TranslationFunction;
-}
-
-function parseIntegerInput(value: string, fallback: number): number {
-  const trimmed = value.trim();
-  return trimmed ? Number(trimmed) : fallback;
-}
-
-function parseOptionalIntegerInput(value: string): number | null {
-  const trimmed = value.trim();
-  return trimmed ? Number(trimmed) : null;
 }
 
 function getActiveModel(settings: PrettifySettingsDraft): string {
@@ -190,6 +179,11 @@ function PrettifySection({
   }));
   const codexControls = getCodexCliModelControls(
     prettifySettings.codexCli.model,
+    modelOptions,
+    modelCheckStatus === 'available',
+  );
+  const displayedCodexSettings = normalizeCodexCliSettingsForModel(
+    prettifySettings.codexCli,
     modelOptions,
     modelCheckStatus === 'available',
   );
@@ -508,243 +502,45 @@ function PrettifySection({
 
             <CollapsibleContent className="pt-4">
               {capabilities.httpGenerationControls && (
-                <div className="grid gap-4">
-                  <Field
-                    error={fieldError('prettifyTopP')}
-                    label={t('prettify.topP', { value: prettifySettings.topP.toFixed(2) })}
-                  >
-                    <Slider
-                      aria-label={t('prettify.topP', { value: prettifySettings.topP.toFixed(2) })}
-                      max={1}
-                      min={0.05}
-                      onValueChange={([value]) => onTopPChange(value ?? prettifySettings.topP)}
-                      step={0.05}
-                      value={[prettifySettings.topP]}
-                    />
-                  </Field>
-                  <Field
-                    error={fieldError('prettifyMinP')}
-                    label={t('prettify.minP', { value: prettifySettings.minP.toFixed(2) })}
-                  >
-                    <Slider
-                      aria-label={t('prettify.minP', { value: prettifySettings.minP.toFixed(2) })}
-                      max={1}
-                      min={0}
-                      onValueChange={([value]) => onMinPChange(value ?? prettifySettings.minP)}
-                      step={0.05}
-                      value={[prettifySettings.minP]}
-                    />
-                  </Field>
-                  <Field
-                    error={fieldError('prettifyRepeatPenalty')}
-                    label={t('prettify.repeatPenalty', { value: prettifySettings.repeatPenalty.toFixed(2) })}
-                  >
-                    <Slider
-                      aria-label={t('prettify.repeatPenalty', { value: prettifySettings.repeatPenalty.toFixed(2) })}
-                      max={1.5}
-                      min={0.8}
-                      onValueChange={([value]) => onRepeatPenaltyChange(value ?? prettifySettings.repeatPenalty)}
-                      step={0.05}
-                      value={[prettifySettings.repeatPenalty]}
-                    />
-                  </Field>
-                  <div className="grid gap-4 min-[700px]:grid-cols-2">
-                    <Field error={fieldError('prettifyTopK')} label={t('prettify.topK')}>
-                      <Input
-                        inputMode="numeric"
-                        max="200"
-                        min="1"
-                        onChange={(event) => onTopKChange(parseIntegerInput(event.target.value, 40))}
-                        step="1"
-                        type="number"
-                        value={prettifySettings.topK}
-                      />
-                    </Field>
-                    <Field error={fieldError('prettifyMaxOutputTokens')} label={t('prettify.maxOutputTokens')}>
-                      <Input
-                        inputMode="numeric"
-                        max="8192"
-                        min="1"
-                        onChange={(event) =>
-                          onMaxOutputTokensChange(
-                            parseIntegerInput(event.target.value, DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS),
-                          )
-                        }
-                        step="1"
-                        type="number"
-                        value={prettifySettings.maxOutputTokens}
-                      />
-                    </Field>
-                    <Field error={fieldError('prettifySeed')} label={t('prettify.seed')}>
-                      <Input
-                        inputMode="numeric"
-                        max="2147483647"
-                        min="0"
-                        onChange={(event) => onSeedChange(parseOptionalIntegerInput(event.target.value))}
-                        step="1"
-                        type="number"
-                        value={prettifySettings.seed === null ? '' : prettifySettings.seed}
-                      />
-                    </Field>
-                  </div>
-                </div>
+                <HttpPrettifyPanel
+                  fieldError={fieldError}
+                  onMaxOutputTokensChange={onMaxOutputTokensChange}
+                  onMinPChange={onMinPChange}
+                  onRepeatPenaltyChange={onRepeatPenaltyChange}
+                  onSeedChange={onSeedChange}
+                  onTopKChange={onTopKChange}
+                  onTopPChange={onTopPChange}
+                  settings={prettifySettings}
+                  t={t}
+                />
               )}
 
               {prettifySettings.providerId === 'claude-cli' && (
-                <div className="grid gap-4">
-                  <Field
-                    description={t('prettify.claudeCli.fallbackModelHelp')}
-                    error={fieldError('prettifyFallbackModel')}
-                    label={t('prettify.claudeCli.fallbackModel')}
-                  >
-                    <SearchableSelectInput
-                      ariaLabel={t('prettify.claudeCli.fallbackModel')}
-                      emptyMessage={t(isLoadingModels ? 'prettify.loadingModels' : 'prettify.noModels')}
-                      onOpen={refreshCliModelsOnOpen}
-                      onValueChange={onFallbackModelChange}
-                      options={searchableModelOptions}
-                      placeholder={t('prettify.providerDefault')}
-                      toggleLabel={t('prettify.cli.showModelOptions')}
-                      value={prettifySettings.claudeCli.fallbackModel}
-                    />
-                  </Field>
-                  <Field
-                    description={t('prettify.claudeCli.effortHelp')}
-                    error={fieldError('prettifyEffort')}
-                    label={t('prettify.claudeCli.effort')}
-                  >
-                    <Select
-                      onValueChange={(value) => onClaudeEffortChange(value as ClaudeCliPrettifyEffort)}
-                      value={prettifySettings.claudeCli.effort}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLAUDE_CLI_PRETTIFY_EFFORT_VALUES.map((effort) => (
-                          <SelectItem key={effort} value={effort}>
-                            {t(`prettify.claudeCli.effort.${effort}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field
-                    description={t('prettify.cli.timeoutHelp')}
-                    error={fieldError('prettifyTimeout')}
-                    label={t('prettify.cli.timeout')}
-                  >
-                    <Input
-                      inputMode="numeric"
-                      max={MAX_PRETTIFY_CLI_TIMEOUT_SECONDS}
-                      min={MIN_PRETTIFY_CLI_TIMEOUT_SECONDS}
-                      onChange={(event) =>
-                        onTimeoutChange(parseIntegerInput(event.target.value, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS))
-                      }
-                      step="1"
-                      type="number"
-                      value={prettifySettings.claudeCli.timeoutSeconds}
-                    />
-                  </Field>
-                </div>
+                <ClaudeCliPrettifyPanel
+                  fieldError={fieldError}
+                  isLoadingModels={isLoadingModels}
+                  modelOptions={searchableModelOptions}
+                  onEffortChange={onClaudeEffortChange}
+                  onFallbackModelChange={onFallbackModelChange}
+                  onModelsOpen={refreshCliModelsOnOpen}
+                  onTimeoutChange={onTimeoutChange}
+                  settings={prettifySettings.claudeCli}
+                  t={t}
+                />
               )}
 
               {prettifySettings.providerId === 'codex-cli' && (
-                <div className="grid gap-4">
-                  <Field
-                    description={t('prettify.codexCli.reasoningEffortHelp')}
-                    error={fieldError('prettifyReasoningEffort')}
-                    label={t('prettify.codexCli.reasoningEffort')}
-                  >
-                    <Select
-                      onOpenChange={(open) => {
-                        if (open) refreshCliModelsOnOpen();
-                      }}
-                      onValueChange={(value) => onCodexReasoningEffortChange(value as CodexCliPrettifyReasoningEffort)}
-                      value={prettifySettings.codexCli.reasoningEffort}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isLoadingModels && (
-                          <div
-                            className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground"
-                            role="status"
-                          >
-                            <LoaderCircle
-                              aria-hidden="true"
-                              className="size-4 animate-spin motion-reduce:animate-none"
-                            />
-                            <span>{t('prettify.loadingModels')}</span>
-                          </div>
-                        )}
-                        {CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES.filter((effort) =>
-                          codexControls.reasoningEfforts.includes(effort),
-                        ).map((effort) => (
-                          <SelectItem key={effort} value={effort}>
-                            {t(`prettify.codexCli.reasoningEffort.${effort}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field
-                    description={t('prettify.codexCli.verbosityHelp')}
-                    error={fieldError('prettifyVerbosity')}
-                    label={t('prettify.codexCli.verbosity')}
-                  >
-                    <Select
-                      onOpenChange={(open) => {
-                        if (open) refreshCliModelsOnOpen();
-                      }}
-                      onValueChange={(value) => onCodexVerbosityChange(value as CodexCliPrettifyVerbosity)}
-                      value={prettifySettings.codexCli.verbosity}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isLoadingModels && (
-                          <div
-                            className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground"
-                            role="status"
-                          >
-                            <LoaderCircle
-                              aria-hidden="true"
-                              className="size-4 animate-spin motion-reduce:animate-none"
-                            />
-                            <span>{t('prettify.loadingModels')}</span>
-                          </div>
-                        )}
-                        {CODEX_CLI_PRETTIFY_VERBOSITY_VALUES.filter((verbosity) =>
-                          codexControls.verbosity.includes(verbosity),
-                        ).map((verbosity) => (
-                          <SelectItem key={verbosity} value={verbosity}>
-                            {t(`prettify.codexCli.verbosity.${verbosity}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field
-                    description={t('prettify.cli.timeoutHelp')}
-                    error={fieldError('prettifyTimeout')}
-                    label={t('prettify.cli.timeout')}
-                  >
-                    <Input
-                      inputMode="numeric"
-                      max={MAX_PRETTIFY_CLI_TIMEOUT_SECONDS}
-                      min={MIN_PRETTIFY_CLI_TIMEOUT_SECONDS}
-                      onChange={(event) =>
-                        onTimeoutChange(parseIntegerInput(event.target.value, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS))
-                      }
-                      step="1"
-                      type="number"
-                      value={prettifySettings.codexCli.timeoutSeconds}
-                    />
-                  </Field>
-                </div>
+                <CodexCliPrettifyPanel
+                  controls={codexControls}
+                  displayedSettings={displayedCodexSettings}
+                  fieldError={fieldError}
+                  isLoadingModels={isLoadingModels}
+                  onModelsOpen={refreshCliModelsOnOpen}
+                  onReasoningEffortChange={onCodexReasoningEffortChange}
+                  onTimeoutChange={onTimeoutChange}
+                  onVerbosityChange={onCodexVerbosityChange}
+                  t={t}
+                />
               )}
             </CollapsibleContent>
           </div>

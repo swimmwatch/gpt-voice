@@ -56,6 +56,7 @@ describe('prettifyProviders', () => {
         prepare: async () => ({ success: false as const, error: ClaudeCliPrettifyErrorCode.NotInstalled }),
       },
       codexCliAdapter: {
+        listModels: async () => ({ success: false as const, error: CodexCliPrettifyErrorCode.NoToolsUnavailable }),
         prepare: async () => ({ success: false as const, error: CodexCliPrettifyErrorCode.NoToolsUnavailable }),
       },
       fetch: async () => {
@@ -195,23 +196,20 @@ describe('prettifyProviders', () => {
       {},
       {
         codexCliAdapter: {
-          prepare: async () => ({
+          listModels: async () => ({
             success: true as const,
-            prepared: {
-              cacheContext: ['codex-cli', '0.144.3'],
-              capabilityVersion: '0.144.3',
-              execute: async () => ({ error: CodexCliPrettifyErrorCode.ProcessFailed, success: false as const }),
-              models: [
-                {
-                  id: 'gpt-synthetic',
-                  name: 'Synthetic model',
-                  reasoningEfforts: ['low', 'high'] as const,
-                  verbosity: ['low', 'medium'] as const,
-                },
-              ],
-              source: 'bundled' as const,
-            },
+            capabilityVersion: '0.144.3',
+            models: [
+              {
+                id: 'gpt-synthetic',
+                name: 'Synthetic model',
+                reasoningEfforts: ['low', 'high'] as const,
+                verbosity: ['low', 'medium'] as const,
+              },
+            ],
+            source: 'bundled' as const,
           }),
+          prepare: async () => ({ error: CodexCliPrettifyErrorCode.ProcessFailed, success: false as const }),
         },
         fetch: async () => response(200, {}),
       },
