@@ -1,11 +1,16 @@
 import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
-import type { ClaudeCliPrettifyEffort, ClaudeCliPrettifySettings } from '@shared/prettifySettings';
+import {
+  CLAUDE_CLI_PRETTIFY_MODEL_ALIASES,
+  isValidClaudeCliPrettifyModel,
+  type ClaudeCliPrettifyEffort,
+  type ClaudeCliPrettifySettings,
+} from '@shared/prettifySettings';
 
 export const CLAUDE_CLI_EXECUTABLE_NAME = 'claude';
 export const CLAUDE_CLI_MINIMUM_VERSION = '2.1.71';
 export const CLAUDE_CLI_STDERR_LIMIT_BYTES = 16 * 1024;
 export const CLAUDE_CLI_STDOUT_LIMIT_BYTES = 256 * 1024;
-export const CLAUDE_CLI_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
+export const CLAUDE_CLI_MODEL_ALIASES = CLAUDE_CLI_PRETTIFY_MODEL_ALIASES;
 
 const REQUIRED_CLAUDE_CLI_HELP_FLAGS = [
   '--print',
@@ -196,11 +201,7 @@ function parseClaudeCliEnvelope(
   }
 }
 
-export function isValidClaudeCliModel(value: string): boolean {
-  if ((CLAUDE_CLI_MODEL_ALIASES as readonly string[]).includes(value)) return true;
-  const suffix = value.startsWith('claude-') ? value.slice('claude-'.length) : '';
-  return Boolean(suffix) && /^[a-z0-9._-]+$/u.test(suffix);
-}
+export const isValidClaudeCliModel = isValidClaudeCliPrettifyModel;
 
 function appendModelArguments(args: string[], settings: ClaudeCliPrettifySettings): boolean {
   if (settings.model) {

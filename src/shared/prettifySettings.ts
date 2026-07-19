@@ -3,6 +3,7 @@ export const ENABLED_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm'] as const;
 export const PRETTIFY_PROVIDER_IDS = ENABLED_PRETTIFY_PROVIDER_IDS;
 export const KNOWN_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
 export const CLAUDE_CLI_PRETTIFY_EFFORT_VALUES = ['default', 'low', 'medium', 'high'] as const;
+export const CLAUDE_CLI_PRETTIFY_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
 export const CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES = ['default', 'low', 'medium', 'high', 'xhigh'] as const;
 export const CODEX_CLI_PRETTIFY_VERBOSITY_VALUES = ['low', 'medium', 'high'] as const;
 export const MAX_PRETTIFY_PROMPT_LENGTH = 4_000;
@@ -299,6 +300,26 @@ export function isCodexCliPrettifyReasoningEffort(value: unknown): value is Code
 
 export function isCodexCliPrettifyVerbosity(value: unknown): value is CodexCliPrettifyVerbosity {
   return typeof value === 'string' && CODEX_CLI_PRETTIFY_VERBOSITY_VALUES.includes(value as CodexCliPrettifyVerbosity);
+}
+
+/** Accepts an empty PATH-discovered executable or an absolute POSIX/Windows path. */
+export function isValidPrettifyCliExecutablePath(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (trimmed.includes('\0')) return false;
+  return trimmed.startsWith('/') || /^[a-z]:[\\/]/iu.test(trimmed) || /^\\\\[^\\/]+[\\/][^\\/]+/u.test(trimmed);
+}
+
+export function isValidClaudeCliPrettifyModel(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  if ((CLAUDE_CLI_PRETTIFY_MODEL_ALIASES as readonly string[]).includes(value)) return true;
+  const suffix = value.startsWith('claude-') ? value.slice('claude-'.length) : '';
+  return Boolean(suffix) && /^[a-z0-9._-]+$/u.test(suffix);
+}
+
+export function isValidCodexCliPrettifyModel(value: unknown): value is string {
+  return typeof value === 'string' && /^\w[\w.:/-]{0,127}$/u.test(value);
 }
 
 function isLoopbackHost(hostname: string): boolean {

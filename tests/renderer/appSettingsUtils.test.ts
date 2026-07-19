@@ -7,6 +7,7 @@ import {
   createAppSettingsLogSummary,
   createCloakBrowserSettingsInput,
   createEditableSettings,
+  createPrettifyProviderTransitionState,
   createSanitizedCloakBrowserSettingsSummary,
   getAppSettingsFormState,
   getCloakBrowserLocaleOptions,
@@ -14,9 +15,18 @@ import {
   hasAppSettingsFieldErrors,
   saveAppSettingsState,
   validateAppSettings,
+  PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS,
+  type PrettifySettingsDraft,
 } from '@renderer/appSettingsUtils';
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
-import { DEFAULT_PRETTIFY_SETTINGS, MAX_PRETTIFY_PROMPT_LENGTH, type PrettifySettings } from '@shared/prettifySettings';
+import {
+  DEFAULT_PRETTIFY_SETTINGS,
+  MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  MAX_PRETTIFY_PROMPT_LENGTH,
+  MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  type KnownPrettifyProviderId,
+  type PrettifySettings,
+} from '@shared/prettifySettings';
 
 function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
   return {
@@ -32,6 +42,17 @@ function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySe
       model: 'qwen2.5',
     },
     ...overrides,
+  };
+}
+
+function prettifySettingsDraft(
+  providerId: KnownPrettifyProviderId,
+  overrides: Partial<Omit<PrettifySettingsDraft, 'providerId'>> = {},
+): PrettifySettingsDraft {
+  return {
+    ...prettifySettings(),
+    ...overrides,
+    providerId,
   };
 }
 
@@ -208,7 +229,7 @@ describe('appSettingsUtils', () => {
     assert.equal(summary.prettifyPromptChanged, true);
     assert.equal(summary.prettifyPromptLength, 'secret prompt text'.length);
     assert.equal(summary.prettifyProviderId, 'vllm');
-    assert.equal(summary.prettifyModel, 'qwen3');
+    assert.equal(summary.prettifyModelLength, 'qwen3'.length);
     assert.equal(summary.prettifyTemperature, 0.4);
     assert.equal(summary.prettifyTopP, 0.8);
     assert.equal(summary.prettifyTopK, 32);
@@ -225,6 +246,55 @@ describe('appSettingsUtils', () => {
     assert.equal(serialized.includes('secret-user'), false);
     assert.equal(serialized.includes('secret-pass'), false);
     assert.equal(serialized.includes('secret-api-key'), false);
+    assert.equal(serialized.includes('qwen3'), false);
+  });
+
+  it('summarizes only active Claude CLI fields using privacy-safe metadata', () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialPrettifySettings = prettifySettingsDraft('claude-cli');
+    const executablePath = '/Applications/Private Claude CLI/claude';
+    const model = 'claude-private-model';
+    const fallbackModel = 'claude-private-fallback';
+    const current = prettifySettingsDraft('claude-cli', {
+      maxOutputTokens: 9_999,
+      topP: 0,
+      claudeCli: {
+        executablePath,
+        model,
+        fallbackModel,
+        effort: 'high',
+        timeoutSeconds: 300,
+      },
+    });
+
+    const summary = createAppSettingsLogSummary({
+      settings: initialSettings,
+      initialSettings,
+      prettifySettings: current,
+      initialPrettifySettings,
+      textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+    });
+    const serialized = JSON.stringify(summary);
+
+    assert.deepEqual(summary.changedGroups, ['prettify']);
+    assert.deepEqual(summary.changedFields, [
+      'prettifyExecutablePath',
+      'prettifyModel',
+      'prettifyFallbackModel',
+      'prettifyEffort',
+      'prettifyTimeout',
+    ]);
+    assert.equal(summary.prettifyModelLength, model.length);
+    assert.equal(summary.prettifyFallbackModelLength, fallbackModel.length);
+    assert.equal(summary.prettifyHasExecutablePath, true);
+    assert.equal(summary.prettifyEffort, 'high');
+    assert.equal(summary.prettifyTimeoutSeconds, 300);
+    assert.equal(summary.prettifyTopP, undefined);
+    assert.equal(summary.prettifyMaxOutputTokens, undefined);
+    for (const sensitiveValue of [executablePath, model, fallbackModel]) {
+      assert.equal(serialized.includes(sensitiveValue), false);
+    }
   });
 
   it('summarizes CloakBrowser settings shape without proxy details', () => {
@@ -377,6 +447,87 @@ describe('appSettingsUtils', () => {
     );
   });
 
+  it('validates only active Claude CLI controls and permits optional defaults', () => {
+    const browserSettings = createEditableSettings(cloakBrowserSettings());
+    const validErrors = validateAppSettings({
+      settings: browserSettings,
+      prettifySettings: prettifySettingsDraft('claude-cli', {
+        maxOutputTokens: 9_999,
+        topP: 0,
+        claudeCli: {
+          executablePath: '/Applications/Claude CLI/claude',
+          model: '',
+          fallbackModel: '',
+          effort: 'default',
+          timeoutSeconds: MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        },
+      }),
+    });
+    assert.deepEqual(validErrors, {});
+
+    const invalidDraft = prettifySettingsDraft('claude-cli', {
+      claudeCli: {
+        executablePath: 'bin/claude --print',
+        model: 'custom model',
+        fallbackModel: 'fallback',
+        effort: 'extended' as unknown as PrettifySettingsDraft['claudeCli']['effort'],
+        timeoutSeconds: MAX_PRETTIFY_CLI_TIMEOUT_SECONDS + 1,
+      },
+    });
+    const invalidErrors = validateAppSettings({ settings: browserSettings, prettifySettings: invalidDraft });
+    assert.equal(invalidErrors.prettifyExecutablePath, 'Executable path must be empty or absolute');
+    assert.equal(invalidErrors.prettifyModel, 'Enter a supported Claude CLI model');
+    assert.equal(invalidErrors.prettifyFallbackModel, 'Enter a supported Claude CLI fallback model');
+    assert.equal(invalidErrors.prettifyEffort, 'Select a supported Claude CLI effort');
+    assert.equal(invalidErrors.prettifyTimeout, 'Timeout must be an integer between 15 and 600 seconds');
+
+    const maximumTimeoutErrors = validateAppSettings({
+      settings: browserSettings,
+      prettifySettings: prettifySettingsDraft('claude-cli', {
+        claudeCli: {
+          ...DEFAULT_PRETTIFY_SETTINGS.claudeCli,
+          timeoutSeconds: MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        },
+      }),
+    });
+    assert.equal(maximumTimeoutErrors.prettifyTimeout, undefined);
+  });
+
+  it('validates only active Codex CLI controls and permits optional models', () => {
+    const browserSettings = createEditableSettings(cloakBrowserSettings());
+    const validErrors = validateAppSettings({
+      settings: browserSettings,
+      prettifySettings: prettifySettingsDraft('codex-cli', {
+        minP: 2,
+        topK: 0,
+        codexCli: {
+          executablePath: 'C:\\Program Files\\Codex CLI\\codex.exe',
+          model: '',
+          reasoningEffort: 'default',
+          timeoutSeconds: MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+          verbosity: 'low',
+        },
+      }),
+    });
+    assert.deepEqual(validErrors, {});
+
+    const invalidDraft = prettifySettingsDraft('codex-cli', {
+      codexCli: {
+        executablePath: 'codex --ephemeral',
+        model: 'model with spaces',
+        reasoningEffort: 'ultra' as unknown as PrettifySettingsDraft['codexCli']['reasoningEffort'],
+        timeoutSeconds: MIN_PRETTIFY_CLI_TIMEOUT_SECONDS - 1,
+        verbosity: 'verbose' as unknown as PrettifySettingsDraft['codexCli']['verbosity'],
+      },
+    });
+    const invalidErrors = validateAppSettings({ settings: browserSettings, prettifySettings: invalidDraft });
+    assert.equal(invalidErrors.prettifyExecutablePath, 'Executable path must be empty or absolute');
+    assert.equal(invalidErrors.prettifyModel, 'Enter a supported Codex CLI model');
+    assert.equal(invalidErrors.prettifyReasoningEffort, 'Select a supported Codex CLI reasoning effort');
+    assert.equal(invalidErrors.prettifyVerbosity, 'Select a supported Codex CLI verbosity');
+    assert.equal(invalidErrors.prettifyTimeout, 'Timeout must be an integer between 15 and 600 seconds');
+  });
+
   it('validates proxy server and SOCKS5 auth settings', () => {
     const invalidProxyUrl = createEditableSettings(cloakBrowserSettings());
     invalidProxyUrl.proxy.enabled = true;
@@ -455,6 +606,52 @@ describe('appSettingsUtils', () => {
   it('appends existing valid locale and timezone values to dropdown options', () => {
     assert.equal(getCloakBrowserLocaleOptions('fr-CA').includes('fr-CA'), true);
     assert.equal(getCloakBrowserTimezoneOptions('Etc/GMT+12').includes('Etc/GMT+12'), true);
+  });
+
+  it('transitions providers without discarding drafts and requests stale provider state cleanup', () => {
+    const current = prettifySettingsDraft('claude-cli', {
+      claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, model: 'sonnet' },
+      codexCli: { ...DEFAULT_PRETTIFY_SETTINGS.codexCli, model: 'gpt-5.6-codex' },
+      ollama: { baseUrl: 'http://127.0.0.1:11434', model: 'llama3.2' },
+      vllm: { baseUrl: 'https://models.example.com/v1', model: 'qwen3', hasApiKey: true },
+    });
+
+    const transition = createPrettifyProviderTransitionState(current, 'codex-cli');
+
+    assert.equal(transition.settings.providerId, 'codex-cli');
+    assert.deepEqual(transition.settings.claudeCli, current.claudeCli);
+    assert.deepEqual(transition.settings.codexCli, current.codexCli);
+    assert.deepEqual(transition.settings.ollama, current.ollama);
+    assert.deepEqual(transition.settings.vllm, current.vllm);
+    assert.equal(transition.resetModelState, true);
+    assert.deepEqual(transition.clearFieldErrors, PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS);
+  });
+
+  it('keeps inactive provider changes dirty without reporting them as active CLI controls', () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialPrettifySettings = prettifySettingsDraft('claude-cli');
+    const current = prettifySettingsDraft('claude-cli', {
+      topP: 0,
+      ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'inactive-private-model' },
+    });
+    const input = {
+      settings: initialSettings,
+      initialSettings,
+      prettifySettings: current,
+      initialPrettifySettings,
+      textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+    };
+
+    assert.deepEqual(getAppSettingsFormState(input), {
+      isDirty: true,
+      isValid: true,
+      validationErrors: {},
+    });
+    const summary = createAppSettingsLogSummary(input);
+    assert.deepEqual(summary.changedGroups, ['prettify']);
+    assert.deepEqual(summary.changedFields, []);
+    assert.equal(JSON.stringify(summary).includes('inactive-private-model'), false);
   });
 
   it('detects changed prettify settings separately from CloakBrowser settings', () => {
@@ -541,6 +738,45 @@ describe('appSettingsUtils', () => {
     assert.equal(result.prettifySettingsSaved, true);
     assert.deepEqual(calls, ['prettify']);
     assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt' }));
+  });
+
+  it('passes a valid CLI draft to persistence without enabling CLI selection', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialPrettifySettings = prettifySettingsDraft('claude-cli');
+    const current = prettifySettingsDraft('claude-cli', {
+      claudeCli: {
+        ...DEFAULT_PRETTIFY_SETTINGS.claudeCli,
+        executablePath: '/Applications/Claude CLI/claude',
+        model: 'sonnet',
+      },
+    });
+    let savedProviderId: unknown;
+    let savedModel: unknown;
+
+    const result = await saveAppSettingsState(
+      {
+        settings: initialSettings,
+        initialSettings,
+        prettifySettings: current,
+        initialPrettifySettings,
+        textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+        initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      },
+      {
+        saveCloakBrowserSettings: async () => ({ success: true, settings: cloakBrowserSettings() }),
+        setPrettifySettings: async (settings) => {
+          savedProviderId = settings.providerId;
+          savedModel = settings.claudeCli?.model;
+          return { success: true, settings: prettifySettings() };
+        },
+        setTextActionSettings: async (settings) => ({ success: true, settings }),
+      },
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.prettifySettingsSaved, true);
+    assert.equal(savedProviderId, 'claude-cli');
+    assert.equal(savedModel, 'sonnet');
   });
 
   it('propagates prettify settings save errors', async () => {

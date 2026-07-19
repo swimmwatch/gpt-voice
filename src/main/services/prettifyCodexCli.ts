@@ -3,10 +3,11 @@ import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
-import type {
-  CodexCliPrettifyReasoningEffort,
-  CodexCliPrettifySettings,
-  CodexCliPrettifyVerbosity,
+import {
+  isValidCodexCliPrettifyModel,
+  type CodexCliPrettifyReasoningEffort,
+  type CodexCliPrettifySettings,
+  type CodexCliPrettifyVerbosity,
 } from '@shared/prettifySettings';
 
 export const CODEX_CLI_EXECUTABLE_NAME = 'codex';
@@ -346,9 +347,7 @@ function parseCodexCliEnvelope(
   }
 }
 
-export function isValidCodexCliModel(value: string): boolean {
-  return /^\w[\w.:/-]{0,127}$/u.test(value);
-}
+export const isValidCodexCliModel = isValidCodexCliPrettifyModel;
 
 function findModelCapability(
   configuredModel: string,

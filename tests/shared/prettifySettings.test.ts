@@ -12,6 +12,9 @@ import {
   PRETTIFY_PROVIDER_CAPABILITIES,
   getPrettifyBaseUrlValidationError,
   getPrettifySettingsInputError,
+  isValidClaudeCliPrettifyModel,
+  isValidCodexCliPrettifyModel,
+  isValidPrettifyCliExecutablePath,
   isKnownPrettifyProviderId,
   isPrettifyProviderId,
   isPrettifyProviderBaseUrlLoopback,
@@ -241,6 +244,26 @@ describe('prettifySettings', () => {
       getPrettifySettingsInputError({ codexCli: { timeoutSeconds: 600.5 } }),
       'Codex CLI timeout seconds must be an integer between 15 and 600',
     );
+  });
+
+  it('validates reusable CLI path and model draft syntax without filesystem access', () => {
+    assert.equal(isValidPrettifyCliExecutablePath(''), true);
+    assert.equal(isValidPrettifyCliExecutablePath('/Applications/Claude CLI/claude'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('C:\\Program Files\\Codex\\codex.exe'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('\\\\server\\share\\codex.exe'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('bin/claude'), false);
+    assert.equal(isValidPrettifyCliExecutablePath('/usr/bin/claude\0--help'), false);
+
+    for (const model of ['sonnet', 'opus', 'haiku', 'claude-sonnet-4.5']) {
+      assert.equal(isValidClaudeCliPrettifyModel(model), true);
+    }
+    assert.equal(isValidClaudeCliPrettifyModel(''), false);
+    assert.equal(isValidClaudeCliPrettifyModel('custom-model'), false);
+
+    assert.equal(isValidCodexCliPrettifyModel('gpt-5.6-codex'), true);
+    assert.equal(isValidCodexCliPrettifyModel('openai/gpt-5.6:latest'), true);
+    assert.equal(isValidCodexCliPrettifyModel(''), false);
+    assert.equal(isValidCodexCliPrettifyModel('model with spaces'), false);
   });
 
   it('validates known CLI model-inspection drafts without enabling provider selection', () => {

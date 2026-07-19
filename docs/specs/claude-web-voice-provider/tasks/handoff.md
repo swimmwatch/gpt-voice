@@ -1,61 +1,55 @@
-# Handoff: CLI Prettify Runtime Integration
+# Handoff: Capability-Driven CLI Settings State
 
-Status: Task 15 was committed as `01bde8c3 feat(prettify): localize CLI
-provider states`. Task 16 is complete and deliberately uncommitted for review.
+Status: Task 16 was committed as `f4b517b9 feat(prettify): integrate CLI
+runtime and cache`. Task 17 is complete and deliberately uncommitted for review.
 Claude CLI and experimental Codex CLI remain absent from the selectable
-provider list. Do not begin Task 17 in this invocation.
+provider list. Do not begin Task 18 in this invocation.
 
-Implemented in Task 16:
+Implemented in Task 17:
 
-- Extended model-list contracts with safe availability/capability metadata,
-  HTTP/alias/catalog/bundled/configured sources, and proven Codex reasoning and
-  verbosity options.
-- Added precise invalid-model, schema, no-tools isolation, and model-discovery
-  adapter errors. Claude and Codex now prepare capability/auth/model gates once
-  and expose one-shot generation handles; existing `prettify()` wrappers remain
-  compatible.
-- Integrated all four known providers through explicit main-process dispatch.
-  HTTP providers receive only fetch behavior; CLI paths use only injected
-  adapters and cannot fall through to HTTP. Empty CLI models retain CLI-default
-  semantics.
-- Added prepared cache contexts before lookup. Capability versions and
-  result-affecting settings invalidate cached text; executable paths, auth,
-  timeouts, environment, source, and output remain excluded. Generation runs
-  only on a miss.
-- Preserved selected-text single-flight, clipboard restoration, cancellation,
-  notifications, Ollama lifecycle, vLLM requests/API-key handling, and the
-  HTTP-only selectable provider gate.
-- Allowed known provider IDs on typed model-inspection IPC while keeping
-  persistence and renderer selection HTTP-only. IPC logs contain only provider
-  IDs, safe enums, booleans, counts, and string lengths.
+- Added a renderer-only four-provider settings draft while preserving the
+  HTTP-only persisted/selectable provider type and list.
+- Centralized absolute CLI path and Claude/Codex model syntax validation in the
+  shared contract. The main adapters reuse the same model validators, while the
+  main runner remains authoritative for file existence and executability.
+- Replaced renderer non-vLLM-to-Ollama fallthroughs with exhaustive active
+  provider handling. HTTP generation and URL rules apply only to HTTP
+  providers; CLI model/fallback, effort, verbosity, and 15-600 second timeout
+  validation applies only to the selected CLI.
+- Added provider-transition metadata that preserves every provider draft,
+  clears provider-specific field errors, and requests model-action state reset.
+- Kept dirty/save equality sensitive to all persisted drafts while restricting
+  active change summaries and advanced counts to supported controls.
+- Removed raw model values from App Settings summaries. Runtime summary fields
+  contain only provider IDs, safe enums, booleans, counts, lengths, and active
+  HTTP numeric settings.
+- Added capability/availability-aware provider view state. Codex unavailable
+  status remains fail-closed without erasing or invalidating its draft.
 
-Task 16 changed files:
+Task 17 changed files:
 
 - `src/shared/prettifySettings.ts`
-- `src/main/services/{prettifyClaudeCli,prettifyCodexCli,prettifyProviders,selectedTextPrettify}.ts`
-- Task-scoped hunks in `src/main/{ipc,preload}.ts` and
-  `src/renderer/types.d.ts`; unrelated provider-switching hunks remain intact.
-- `tests/main/{prettifyClaudeCli,prettifyCodexCli,prettifyProviders,selectedTextPrettify,prettifyIpcPrivacyContract}.test.ts`
-- `tests/shared/prettifySettings.test.ts`
+- `src/main/services/{prettifyClaudeCli,prettifyCodexCli}.ts`
+- `src/renderer/{appSettingsUtils,prettifySettingsViewState}.ts`
+- `tests/{shared/prettifySettings,renderer/appSettingsUtils,renderer/prettifySettingsViewState}.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
 Verification:
 
-- Focused provider, selected-text, adapter, runner, settings, i18n, IPC privacy,
-  shared-contract, and renderer model tests pass.
+- Focused renderer settings, view-state, shared validation, and both CLI adapter
+  suites pass.
 - `npm run typecheck`, `npm run test:types`, `npm run format:check`, and
   `git diff --check` pass.
 - `npm run lint` has no errors and retains only two pre-existing warnings in
   `tests/main/streamingTranscription.test.ts`.
 - `npm test` passes 99 of 100 test files. The pre-existing unrelated
-  `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists: its
-  measure and verify assertions receive empty stdout.
-- No test launched a real CLI or provider. Diff/privacy inspection found no
-  credentials, identities, account state, source/output values, raw process
-  data, or full executable paths in runtime logs or IPC results.
+  `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists.
+- No test launched a CLI or provider. Privacy inspection found no executable
+  paths, free-text models, prompts, credentials, account data, or process output
+  in runtime settings summaries.
 
 Exact next packet:
 
-- After human review, run Task 17 (`17_add_cli_settings_state.md`). Preserve the
-  HTTP-only selectable-provider gate until Task 18 adds capability-correct
-  renderer controls.
+- After human review, run Task 18 (`18_render_cli_prettify_controls.md`). Wire
+  the Task 17 draft/transition/view-state contracts into the UI and enable CLI
+  selection only when every required provider-specific control is rendered.
