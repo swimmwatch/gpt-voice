@@ -1,11 +1,11 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 28 and 10-17 are committed. Task 18, its approved main-window
-amendment, and the English-startup/compact-copy/alignment review corrections
-plus the Codex Spark capability-serialization, chevron alignment, and
-open-to-load capability-list and single-menu dismissal corrections, together
-with the eleven-locale CloakBrowser-site parity amendment, are complete and
-uncommitted for review; Task 19 remains blocked pending explicit continuation.
+Plan gate: Tasks 01-18 are committed. Task 19 documentation, automated checks,
+packaged-runtime inspection, and the one authorized Claude Web/CLI runtime
+matrix were completed. The full unit suite and build-size CLI test now pass,
+but Task 19 remains unchecked because the current Claude Web
+short/pause/finalization runtime gates did not pass and the authorized request
+allowance is consumed. Task 20 has not begun.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)

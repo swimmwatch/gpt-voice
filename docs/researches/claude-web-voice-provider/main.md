@@ -424,3 +424,65 @@ The renderer accepted focus when brought to the foreground.
 **The Task 28 authorized runtime and visible-application gates now pass.** This
 result does not authorize reconnect, automatic replay, buffered fallback, or a
 transport-contract change.
+
+## Task 19 Documentation And Runtime Verification
+
+Evidence date: 2026-07-19
+
+### Procedure And Privacy
+
+One explicitly authorized provider matrix ran on Linux with isolated temporary
+application and browser state. The Claude Web run reused the saved session and
+the existing public reference fixture. The Claude CLI and Codex CLI runs each
+used one inert synthetic request through the production process runner.
+
+Only versions, booleans, safe error classifications, counts, close codes, and
+rounded durations were retained. Audio, reference and recognized text, selected
+text, provider output, raw events, socket URLs, executable paths, raw stderr,
+environment values, account data, credentials, sessions, and organization data
+were neither recorded nor added to the repository. The temporary runners and
+isolated state were removed after inspection.
+
+### Claude Web Matrix
+
+| Case                                    | Sanitized outcome                                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Initial and restored session            | Both reached authenticated readiness; the isolated saved-session round trip passed       |
+| Language and Clear                      | Language configuration was present; isolated Clear passed                                |
+| Two consecutive short streams           | Both ended with typed `empty-result`                                                     |
+| Pause and resume                        | Ended with typed `empty-result`                                                          |
+| Immediate Stop                          | Ended with typed `empty-result`                                                          |
+| Approximately 30 seconds                | Completed and reference-match boolean was true; measured post-Stop duration was 3,589 ms |
+| Cancellation                            | Completed safely after five sent frames                                                  |
+| Interruption                            | Failed safely with typed `page-shutdown`                                                 |
+| Expired session and compressed fallback | Both rejected safely                                                                     |
+| Socket/event observation                | Five close codes were `1000`; no malformed or unknown events were observed               |
+
+The long-stream timing included the temporary close-code observer and is
+therefore conservative, but the observed value still exceeded the required
+three-second gate. Short, paused, and immediate-Stop cases did not produce a
+normal final result. This attempt does not authorize transport changes,
+reconnect, automatic replay, or buffered fallback.
+
+### CLI Matrix
+
+| Evidence         | Sanitized outcome                                                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude CLI       | Capability version `2.1.71`; PATH and configured-path preparation passed; output accepted; prepare 442 ms; execution 7,439 ms                                                            |
+| Codex CLI        | Capability version `0.144.3`; PATH and configured-path preparation passed; eight catalog entries; selected capability booleans true; output accepted; prepare 186 ms; execution 3,418 ms |
+| Lifecycle        | Both prepared handles rejected reuse; cancellation and timeout terminated safely                                                                                                         |
+| Failure handling | Missing executables returned `not-installed`; isolated unauthenticated state returned `nonzero-exit` for Claude and `not-authenticated` for Codex                                        |
+| Persistence      | The isolated CLI settings round trip passed                                                                                                                                              |
+
+No CLI binary or provider-owned authentication data was copied into application
+state or packaged output. The canary did not retain the configured model names,
+source text, or generated values.
+
+### Gate Decision
+
+**Task 19 remains blocked and unchecked.** The complete unit suite still has
+the existing `buildSizeCli` stdout-capture failure. In addition, the current
+Claude Web short and pause cases returned `empty-result`, and the long case
+missed the three-second post-Stop requirement. These failures are recorded for
+their owning follow-up work and are not repaired inside the documentation and
+verification packet.

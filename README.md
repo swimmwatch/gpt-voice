@@ -70,7 +70,7 @@ flowchart LR
 
 GPT-Voice records audio locally and sends it to the selected provider. ChatGPT Web uses a background CloakBrowser context with your saved ChatGPT cookies. Claude Web sends live audio through its authenticated browser session. OpenAI API sends multipart audio to OpenAI's transcription endpoint with your API key. GPT-Voice copies finalized text to the clipboard.
 
-Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text to the configured Ollama or vLLM provider and copies the improved result to the clipboard.
+Selected-text translation copies the translated result to the clipboard. Selected-text prettify sends the selected text and protected prettify prompt to the configured Ollama, vLLM, Claude CLI, or Codex CLI provider and copies the improved result to the clipboard.
 
 Availability, quotas, and behavior are determined by the web service account you use. GPT-Voice does not bypass provider-side limits; it gives you a desktop workflow around the web features available to your account.
 
@@ -91,10 +91,13 @@ Use this provider when you want the app to work through the GPT web account you 
 
 Claude Web uses a saved Claude browser session through CloakBrowser and a private, browser-owned speech-recognition integration. This integration is not a public API and can change when Claude changes its web application.
 
-- Requires login in a visible browser window and does not require an API key.
-- Sends live audio while you speak. Pause excludes new microphone audio while the connection remains active.
+- Requires login in a visible browser window and does not require an API key. Login and Clear affect only Claude's saved GPT-Voice browser session; no external Chrome profile is read.
+- Restores the saved session after restart and uses the recognition language selected in Claude provider settings.
+- Captures microphone audio as 16 kHz mono PCM and sends it live while you speak. Pause excludes new microphone audio while the connection remains active.
 - Stop drains the bounded live-audio queue and waits for one final result. Cancel stops the active operation and discards it.
 - A failed live recording is retained in memory only when an explicit Retry is available. Retry uses the buffered provider path; GPT-Voice never automatically replays audio after it has been sent live.
+- Routing uses one proven active Claude organization deterministically, including for multi-organization accounts. GPT-Voice does not infer or expose personal versus organization scope, and there is no account-scope selector. An unknown scope remains usable when routing is resolved.
+- Compressed audio is not sent through the live PCM path. If Claude changes its private endpoint or protocol, transcription fails safely until the integration is revalidated; it does not silently switch to another provider or replay the recording.
 
 Use this provider when your Claude account has browser dictation available and you accept the volatility of the private web integration.
 
@@ -112,14 +115,20 @@ Use this provider when you want the official API path and predictable API-accoun
 
 ### Prettify Providers
 
-Prettify Text is configured independently from transcription providers in **App settings**.
+Prettify Text is configured independently from transcription providers. Its provider selector is always visible in the main window, while complete settings are under **App settings → Prettify**.
 
 - **Ollama** is the default prettify provider and uses `http://127.0.0.1:11434`.
 - **vLLM** uses an OpenAI-compatible API base URL, defaulting to `http://127.0.0.1:8000/v1`.
-- Model choices are loaded from the selected provider with the **Refresh** button and must be selected from the dropdown. Ollama model entries show an approximate VRAM footprint when size metadata is available.
+- **Claude CLI** uses an installed Claude Code CLI. GPT-Voice requires a compatible CLI, but authentication remains owned by the CLI. The model and fallback model are optional; blank values use CLI defaults. Effort can be left at the default or set to low, medium, or high.
+- **Codex CLI** uses an installed Codex CLI and is experimental. GPT-Voice enables execution only when the CLI proves the required schema, read-only isolation, disabled tools/integrations, and disabled web-search capabilities. A failed capability gate makes the provider unavailable without a bypass.
+- HTTP model choices are loaded with **Refresh**. Opening a CLI model or capability dropdown starts one required preflight/discovery request when no current result exists; **Refresh** can revalidate it explicitly. Merely selecting a CLI provider performs no authentication, discovery, or generation command.
+- Claude aliases include `sonnet`, `opus`, and `haiku`; a valid configured Claude model is preserved. Codex exposes only the reasoning-effort and verbosity values proven for the selected model. A blank CLI model uses the CLI default.
 - Ollama models can be explicitly loaded from **App settings** or the visible model-memory control in the main window to reduce first-request latency. GPT-Voice unloads the Ollama model it loaded when the app fully quits.
 - vLLM API keys are optional and saved encrypted with Electron `safeStorage` when secure storage is available.
-- GPT-Voice does not start Ollama or vLLM for you; the chosen provider must already be running.
+- For a CLI executable, leave the path blank to resolve it through the GUI process `PATH`, or enter one absolute executable path, including paths containing spaces. Do not enter command-line arguments in this field.
+- Claude CLI and Codex CLI use their standard platform configuration locations for authentication. GPT-Voice does not read, copy, store, or display CLI credentials or account identity.
+- CLI timeouts accept whole seconds from 15 to 600 and default to 120. Cancellation or timeout terminates the isolated process and never retries automatically.
+- GPT-Voice does not start Ollama, vLLM, or either CLI for you. Selected text is sent through the configured provider and can consume local resources, API quota, or subscription quota under that provider account.
 
 ## Install
 
@@ -316,8 +325,8 @@ On first launch, choose a provider from the app window. ChatGPT Web and Claude W
 3. **Record** with the visible primary button or the configured hotkey, then use the visible Stop, Pause, Resume, or Cancel action as needed.
 4. **Paste anywhere**. The recognized text is copied to your clipboard automatically.
 5. Optional: open **History** from the main toolbar or tray menu. Existing entries load progressively while you scroll; click transcript text to copy it again.
-6. Optional: open **App settings** from the main toolbar or tray menu. Shortcuts and actions, Prettify, Browser, and Network are organized as separate sections. Unsaved changes require confirmation before closing.
-7. Optional: configure Ollama or vLLM in the **Prettify** section, select text, and press the Prettify hotkey to copy a clearer version. For Ollama, the main window also provides a visible model-memory action when a model is selected.
+6. Optional: open **App settings** from the main toolbar or tray menu. Shortcuts and actions, Prettify, Browser, Network, and System are organized as separate sections. Unsaved changes require confirmation before closing.
+7. Optional: choose Ollama, vLLM, Claude CLI, or Codex CLI in the always-visible Prettify selector, complete its settings, select text, and press the Prettify hotkey to copy a clearer version. For Ollama, the main window also provides a visible model-memory action when a model is selected.
 8. Optional: select a target language in GPT-Voice, select text in another app, and press the Translate hotkey to copy the translated text.
 
 ## Default Controls
@@ -334,7 +343,7 @@ Shortcuts are configurable from **App settings**.
 
 Selected-text translation copies the translated result to the clipboard. Selected-text prettify copies the improved result to the clipboard. Translation uses OS automation to copy selected text when needed; Prettify reads the Linux primary selection directly and does not automate paste.
 
-The Prettify Text provider, base URL, model, prompt, and temperature are configurable from **App settings**.
+The Prettify provider and its supported HTTP or CLI controls are configurable from **App settings**. Unsupported provider controls are not passed through as arbitrary process arguments.
 
 ## Build Locally
 
@@ -434,11 +443,22 @@ build/           Packaging metadata, macOS entitlements, and Fedora release imag
 .github/         PR checks, release builds, Dependabot, and templates
 ```
 
+## Provider Troubleshooting
+
+- **Claude Web is not connected**: open its provider settings, use Login, finish signing in in the visible browser, and close the login window. If the saved session expired, use Clear and sign in again. Confirm that an explicit recognition language is selected.
+- **Claude Web fails after previously working**: the speech endpoint belongs to the Claude web application and can change without notice. Cancel the operation, keep the recording only if the UI offers explicit Retry, and update GPT-Voice after the integration has been revalidated. Do not repeatedly replay private audio while diagnosing a protocol change.
+- **Claude Web cannot resolve an account route**: open Claude normally in the login window and leave one organization active. GPT-Voice uses the proven active route and does not offer a personal/organization scope override.
+- **A CLI is not installed or executable**: verify the command is available to GUI applications through `PATH`, or configure one absolute executable-file path. A value containing flags or multiple commands is rejected.
+- **A CLI is not authenticated**: authenticate with that CLI outside GPT-Voice using its documented login flow, then use **Refresh** in Prettify settings. GPT-Voice never asks for or stores the CLI credential.
+- **A CLI model is unavailable**: leave the model blank to use the CLI default, choose a discovered model, or enter a provider-supported custom model. Claude fallback and Codex reasoning/verbosity are applied only where supported.
+- **Codex remains unavailable**: update to a compatible Codex CLI and use **Refresh**. Missing output-schema support, model discovery, or proven no-tools/isolation controls fails closed and cannot be bypassed in GPT-Voice.
+- **A request is cancelled, times out, exceeds an output limit, or exits unsuccessfully**: no automatic retry occurs. Check provider availability and quota, adjust the 15–600-second timeout if appropriate, and retry manually with non-private input after resolving the cause.
+
 ## Privacy And Sessions
 
-GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. Claude Web sends live audio through an authenticated browser session and a private integration that can change. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the configured prettify prompt to your configured Ollama or vLLM endpoint.
+GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. Claude Web sends live audio through an authenticated browser session and a private integration that can change. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the protected prettify prompt to the configured Ollama, vLLM, Claude CLI, or Codex CLI provider. These requests use your provider account and can consume subscription or API quota; GPT-Voice does not bypass provider limits.
 
-Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`; Claude Web stores `claude-web-session.json` and its non-secret language setting separately. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings are stored in `config.json`, and an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
+Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`; Claude Web stores `claude-web-session.json` and its non-secret language setting separately. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings, including optional CLI executable paths and model choices, are stored in `config.json`; an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. GPT-Voice does not store Claude CLI or Codex CLI authentication, account data, raw stdout, or stderr. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
 
 To avoid duplicate provider requests when the same audio is retried, GPT-Voice keeps up to 10 successful transcription results in process memory for up to 5 minutes. It hashes the exact audio bytes with the selected provider's transcription settings to derive an opaque lookup key, but the cache never retains the audio itself. For Claude Web, a canonical recording is retained only in memory for an eligible explicit Retry after a live failure or successful completion; it is never automatically replayed. Failed and empty results are not cached, and all cached entries disappear when GPT-Voice restarts.
 
