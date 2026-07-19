@@ -460,6 +460,20 @@ describe('appSettingsUtils', () => {
   it('detects changed prettify settings separately from CloakBrowser settings', () => {
     assert.equal(arePrettifySettingsEqual(prettifySettings(), prettifySettings()), true);
     assert.equal(arePrettifySettingsEqual(prettifySettings({ providerId: 'vllm' }), prettifySettings()), false);
+    assert.equal(
+      arePrettifySettingsEqual(
+        prettifySettings({ claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, model: 'claude-sonnet' } }),
+        prettifySettings(),
+      ),
+      false,
+    );
+    assert.equal(
+      arePrettifySettingsEqual(
+        prettifySettings({ codexCli: { ...DEFAULT_PRETTIFY_SETTINGS.codexCli, timeoutSeconds: 240 } }),
+        prettifySettings(),
+      ),
+      false,
+    );
     assert.equal(arePrettifySettingsEqual(prettifySettings({ temperature: 0.2 }), prettifySettings()), false);
     assert.equal(arePrettifySettingsEqual(prettifySettings({ topP: 0.8 }), prettifySettings()), false);
     assert.equal(arePrettifySettingsEqual(prettifySettings({ topK: 32 }), prettifySettings()), false);

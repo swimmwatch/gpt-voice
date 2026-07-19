@@ -1,13 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
   DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
   DEFAULT_PRETTIFY_REASONING,
   DEFAULT_PRETTIFY_SETTINGS,
   DEFAULT_VLLM_PRETTIFY_BASE_URL,
+  KNOWN_PRETTIFY_PROVIDER_IDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
+  PRETTIFY_PROVIDER_CAPABILITIES,
   getPrettifyBaseUrlValidationError,
   getPrettifySettingsInputError,
+  isKnownPrettifyProviderId,
   isPrettifyProviderId,
   isPrettifyProviderBaseUrlLoopback,
   isPrettifyReasoning,
@@ -26,8 +30,36 @@ describe('prettifySettings', () => {
   it('recognizes supported provider values', () => {
     assert.equal(isPrettifyProviderId('ollama'), true);
     assert.equal(isPrettifyProviderId('vllm'), true);
+    assert.equal(isPrettifyProviderId('claude-cli'), false);
+    assert.equal(isPrettifyProviderId('codex-cli'), false);
     assert.equal(isPrettifyProviderId('chatgpt'), false);
     assert.equal(isPrettifyProviderId(null), false);
+    assert.equal(isKnownPrettifyProviderId('claude-cli'), true);
+    assert.equal(isKnownPrettifyProviderId('codex-cli'), true);
+    assert.equal(isKnownPrettifyProviderId('chatgpt'), false);
+    assert.deepEqual(KNOWN_PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
+  });
+
+  it('declares complete known-provider capabilities without enabling incomplete CLI providers', () => {
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.baseUrl, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.modelLifecycle, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.apiKey, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.httpGenerationControls, true);
+    assert.deepEqual(PRETTIFY_PROVIDER_CAPABILITIES['claude-cli'], {
+      apiKey: false,
+      baseUrl: false,
+      experimental: true,
+      httpGenerationControls: false,
+      modelLifecycle: false,
+      modelListing: false,
+      modelSource: 'cli',
+      privacyNotice: 'cli',
+      reasoningEffort: true,
+      supportsFreeTextModel: true,
+      verbosity: false,
+    });
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].reasoningEffort, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].verbosity, true);
   });
 
   it('normalizes missing or invalid settings to defaults', () => {
@@ -129,6 +161,82 @@ describe('prettifySettings', () => {
         topP: Number.NaN,
       }),
       DEFAULT_PRETTIFY_SETTINGS,
+    );
+  });
+
+  it('normalizes non-secret CLI settings while keeping disabled provider IDs nonselectable', () => {
+    const settings = normalizePrettifySettings({
+      providerId: 'claude-cli',
+      claudeCli: {
+        executablePath: ' /Applications/Claude CLI/claude ',
+        model: ' claude-sonnet ',
+        fallbackModel: ' claude-haiku ',
+        effort: 'high',
+        timeoutSeconds: 300.8,
+      },
+      codexCli: {
+        executablePath: ' /Applications/Codex CLI/codex ',
+        model: ' gpt-5.6 ',
+        reasoningEffort: 'xhigh',
+        verbosity: 'high',
+        timeoutSeconds: 14,
+      },
+    });
+
+    assert.equal(settings.providerId, 'ollama');
+    assert.deepEqual(settings.claudeCli, {
+      executablePath: '/Applications/Claude CLI/claude',
+      model: 'claude-sonnet',
+      fallbackModel: 'claude-haiku',
+      effort: 'high',
+      timeoutSeconds: 300,
+    });
+    assert.deepEqual(settings.codexCli, {
+      executablePath: '/Applications/Codex CLI/codex',
+      model: 'gpt-5.6',
+      reasoningEffort: 'xhigh',
+      timeoutSeconds: 15,
+      verbosity: 'high',
+    });
+    assert.equal(DEFAULT_PRETTIFY_SETTINGS.claudeCli.timeoutSeconds, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS);
+    assert.equal(DEFAULT_PRETTIFY_SETTINGS.codexCli.timeoutSeconds, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS);
+  });
+
+  it('rejects malformed CLI settings but accepts empty PATH/model/fallback semantics', () => {
+    assert.equal(
+      getPrettifySettingsInputError({
+        claudeCli: { executablePath: '', model: '', fallbackModel: '', effort: 'default', timeoutSeconds: 120 },
+        codexCli: { executablePath: '', model: '', reasoningEffort: 'default', verbosity: 'low', timeoutSeconds: 120 },
+      }),
+      null,
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { executablePath: 42 } }),
+      'Claude CLI executable path must be a string',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { fallbackModel: 42 } }),
+      'Claude CLI fallback model must be a string',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { effort: 'extended' } }),
+      'Claude CLI effort is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { reasoningEffort: 'ultra' } }),
+      'Codex CLI reasoning effort is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { verbosity: 'verbose' } }),
+      'Codex CLI verbosity is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { timeoutSeconds: 14 } }),
+      'Claude CLI timeout seconds must be an integer between 15 and 600',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { timeoutSeconds: 600.5 } }),
+      'Codex CLI timeout seconds must be an integer between 15 and 600',
     );
   });
 

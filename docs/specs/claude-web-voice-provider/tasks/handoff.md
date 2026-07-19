@@ -1,96 +1,60 @@
-# Handoff: Claude Web Live Streaming Amendment
+# Handoff: CLI Prettify Provider Contracts
 
-Status: Task 27 was committed as `f2a338f8 feat(transcription): stream audio
-during recording`. Task 28 is complete and deliberately uncommitted for human
-review. Do not begin Task 10 in this invocation.
+Status: Task 28 was committed as `cb4c0d7b feat(claude): complete streaming
+feature gate`. Task 10 is complete and deliberately uncommitted for human
+review. Do not begin Task 11 in this invocation.
 
-Completed in Task 28:
+Completed in Task 10:
 
-- Added a renderer-safe live-streaming failure presenter. Every shared and
-  local queue error maps to a short localized message in English, Russian,
-  Ukrainian, and Belarusian; the same safe text is used for status and native
-  notification presentation.
-- Added exact packaged-runtime worklet policy and tests. The AudioWorklet is
-  emitted once at the trusted local renderer path without relaxing the existing
-  `self` Content Security Policy.
-- Documented Claude Web live recording, pause, Stop, cancellation, explicit
-  buffered Retry, in-memory retention, and private-integration volatility in
-  the README without documenting private transport details.
-- Recorded the sanitized authorized runtime attempt in
-  `docs/researches/claude-web-voice-provider/main.md`.
-- Completed the visible-app gate with an in-memory zero-gain source: the window
-  showed lifecycle state only during capture, exposed no interim transcript,
-  and presented the safe localized live-connection message after the expected
-  no-speech failure. Foreground renderer focus was confirmed.
+- Added separate known and enabled Prettify provider IDs. Ollama and vLLM are
+  the only enabled/selectable providers; Claude CLI and Codex CLI are known,
+  experimental, and fail closed before settings resolution, HTTP, or process
+  dispatch.
+- Added provider capabilities plus normalized non-secret CLI settings:
+  executable path, model, Claude fallback model/effort, Codex reasoning
+  effort/verbosity, and a 15–600-second timeout with a 120-second default.
+  Empty values retain PATH/default-model/no-fallback semantics.
+- Replaced adapter objects with concrete `BasePrettifyProvider` subclasses for
+  Ollama, vLLM, Claude CLI, and Codex CLI. Ollama retains its loaded-model
+  lifecycle; vLLM and both CLI providers inherit safe unavailable lifecycle
+  operations until their assigned packets.
+- Deep-merged CLI settings through config and settings storage while retaining
+  encrypted vLLM API-key handling. URL validation, cache context, and logging
+  remain capability-aware; configured executable paths are never logged.
+- Preserved hidden CLI settings through App Settings equality/dirty-state
+  handling without adding a selectable CLI UI.
 
-Task 28 changed files:
+Task 10 changed files:
 
-- `README.md`
-- `scripts/packaged-runtime-policy.mjs`
-- `src/main/i18n/{be,en,ru,uk}.ts`
-- `src/renderer/audio/streamingTranscriptionPresentation.ts`
-- `src/renderer/hooks/useRecording.ts`
-- `tests/renderer/streamingRecordingWorkflow.test.ts`
-- `tests/renderer/streamingTranscriptionPresentation.test.ts`
-- `tests/scripts/{packagedRuntimePolicy,webpackConfig}.test.ts`
-- `docs/researches/claude-web-voice-provider/main.md`
+- `src/shared/prettifySettings.ts`
+- `src/main/config.ts`
+- `src/main/services/{prettifyProviders,prettifySettingsStorage,selectedTextPrettify}.ts`
+- `src/main/ipc.ts`
+- `src/renderer/appSettingsUtils.ts`
+- `tests/{shared/prettifySettings,main/{prettifyProviders,prettifySettingsStorage,configPrettifySettings},renderer/appSettingsUtils}.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
-Checks passed:
+Checks:
 
-- Focused Task 28 renderer, Webpack, and packaged-policy tests (14 tests).
-- Full unit suite (490 tests), application and test TypeScript checks, and
-  Prettier.
-- ESLint with two pre-existing warnings in the committed Task 25 streaming
-  service test and no errors.
-- Production dependency audit, CloakBrowser preparation and smoke, production
-  build, fresh unpacked package build, and packaged-runtime verification.
-- Final `git diff --check` and privacy scans passed. Task 28 added no session,
-  credential, raw-audio, transcript, socket-URL, or browser-profile artifact;
-  the renderer build emitted one trusted worklet asset. Existing provider
-  transport assembly remains outside this packet and no private endpoint was
-  added to user-facing documentation.
-
-Authorized runtime evidence (2026-07-19):
-
-- A corrected ignored runner captured typed transport failures before generic
-  presentation, used in-memory 80% word-order coverage for the public fixture,
-  and observed actual page-owned socket close events outside post-Stop timing.
-- Two consecutive short cases and pause/resume completed and reference-matched.
-  They sent 69 audio chunks, used queue high-water 6, finalized 475-660 ms after
-  Stop, and closed `1000`.
-- The approximately 30-second case completed and reference-matched with 352
-  sends, queue high-water 7, 280 ms post-Stop, and close `1000`. Its post-Stop
-  time did not scale with duration.
-- Immediate Stop before awaiting readiness returned the expected typed
-  `empty-result` in 2,946 ms and closed `1000`. Cancellation sent five frames
-  and closed `1000`.
-- No audio, transcript, reference, raw event, URL, session/account value, or
-  profile artifact was retained. The temporary runner was removed. The corrected
-  run establishes current behavior but does not reconstruct the discarded typed
-  reasons from the earlier failed attempt.
-
-Revalidation checks:
-
-- Focused Task 28 renderer, Webpack, and packaged-policy tests pass (14
-  tests), as do Prettier, `git diff --check`, and packaged-runtime verification.
-- No product code changed during this revalidation; the previously recorded
-  full automated quality set remains the applicable code verification.
-- The final diff scan found no full socket URL, audio data URI, bearer/API
-  credential, or changed sensitive-artifact path. Descriptive documentation
-  references to existing session filenames are not session data.
-- The current development build passed the visible check: Claude Web switched
-  on the first selection and reached Connected; synthetic silent capture showed
-  lifecycle state without interim text; the terminal status used the safe
-  localized message; and foreground focus was confirmed.
+- Focused shared-settings, config/storage, provider, cache, and App Settings
+  tests pass (6 files).
+- `npm run typecheck`, `npm run test:types`, and `npm run format:check` pass.
+- `npm run lint` has no errors and only the two pre-existing warnings in
+  `tests/main/streamingTranscription.test.ts`.
+- `npm test` passes 95/96 files. The unrelated
+  `tests/scripts/buildSizeCli.test.ts` fails because its spawned `measure` and
+  `verify` commands return empty captured stdout even though direct invocation
+  prints the expected summary. No Task 10 code or files participate in that
+  failure.
 
 Exact next packet:
 
-- After human review, commit Task 28. Task 10
-  (`10_define_cli_prettify_contracts.md`) is the next packet on a later explicit
-  incremental-implementation invocation.
+- After human review, run Task 11
+  (`11_build_cli_process_runner.md`). It may add the isolated CLI runner but
+  must not enable a CLI provider or launch a real CLI without its stated
+  authorization.
 
 Blockers:
 
-- None for Task 28 review. Preserve the concurrent uncommitted provider-switch
-  fix in the shared worktree; it is outside the Task 28 commit boundary.
+- Resolve or separately triage the pre-existing build-size CLI test stdout
+  capture issue before claiming a fully green unit suite.

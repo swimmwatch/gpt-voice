@@ -205,6 +205,22 @@ function collectPrettifyChangedFields(input: AppSettingsSaveInput): string[] {
     [current.repeatPenalty !== initial.repeatPenalty, 'prettifyRepeatPenalty'],
     [current.maxOutputTokens !== initial.maxOutputTokens, 'prettifyMaxOutputTokens'],
     [current.seed !== initial.seed, 'prettifySeed'],
+    [
+      current.claudeCli.executablePath !== initial.claudeCli.executablePath ||
+        current.claudeCli.model !== initial.claudeCli.model ||
+        current.claudeCli.fallbackModel !== initial.claudeCli.fallbackModel ||
+        current.claudeCli.effort !== initial.claudeCli.effort ||
+        current.claudeCli.timeoutSeconds !== initial.claudeCli.timeoutSeconds,
+      'prettifyClaudeCli',
+    ],
+    [
+      current.codexCli.executablePath !== initial.codexCli.executablePath ||
+        current.codexCli.model !== initial.codexCli.model ||
+        current.codexCli.reasoningEffort !== initial.codexCli.reasoningEffort ||
+        current.codexCli.verbosity !== initial.codexCli.verbosity ||
+        current.codexCli.timeoutSeconds !== initial.codexCli.timeoutSeconds,
+      'prettifyCodexCli',
+    ],
     [current.ollama.baseUrl !== initial.ollama.baseUrl, 'prettifyBaseUrl'],
     [current.ollama.model !== initial.ollama.model, 'prettifyModel'],
     [current.vllm.baseUrl !== initial.vllm.baseUrl, 'prettifyBaseUrl'],
@@ -539,6 +555,16 @@ export function arePrettifySettingsEqual(left: PrettifySettings, right: Prettify
     left.repeatPenalty === right.repeatPenalty &&
     left.maxOutputTokens === right.maxOutputTokens &&
     left.seed === right.seed &&
+    left.claudeCli.executablePath === right.claudeCli.executablePath &&
+    left.claudeCli.model === right.claudeCli.model &&
+    left.claudeCli.fallbackModel === right.claudeCli.fallbackModel &&
+    left.claudeCli.effort === right.claudeCli.effort &&
+    left.claudeCli.timeoutSeconds === right.claudeCli.timeoutSeconds &&
+    left.codexCli.executablePath === right.codexCli.executablePath &&
+    left.codexCli.model === right.codexCli.model &&
+    left.codexCli.reasoningEffort === right.codexCli.reasoningEffort &&
+    left.codexCli.verbosity === right.codexCli.verbosity &&
+    left.codexCli.timeoutSeconds === right.codexCli.timeoutSeconds &&
     left.ollama.baseUrl === right.ollama.baseUrl &&
     left.ollama.model === right.ollama.model &&
     left.vllm.baseUrl === right.vllm.baseUrl &&

@@ -21,7 +21,7 @@ import {
   type PresentedNotificationError,
   type SystemNotificationOptions,
 } from '@shared/notifications';
-import type { PrettifySettings } from '@shared/prettifySettings';
+import { getPrettifyProviderCapabilities, type PrettifySettings } from '@shared/prettifySettings';
 
 const log = createLogger('selection-prettify');
 export const COPY_SETTLE_DELAY_MS = 120;
@@ -164,10 +164,14 @@ function getPrettifyCacheContext(): readonly string[] {
 
 function getPrettifyProviderCacheContext(settings: PrettifySettings): readonly string[] {
   const providerSettings = settings.providerId === 'ollama' ? settings.ollama : settings.vllm;
+  const capabilities = getPrettifyProviderCapabilities(settings.providerId);
+  const context: string[] = [settings.providerId];
+  if (capabilities.baseUrl) context.push(providerSettings.baseUrl);
+  context.push(providerSettings.model);
+  if (!capabilities.httpGenerationControls) return context;
+
   return [
-    settings.providerId,
-    providerSettings.baseUrl,
-    providerSettings.model,
+    ...context,
     String(settings.temperature),
     String(settings.topP),
     String(settings.topK),

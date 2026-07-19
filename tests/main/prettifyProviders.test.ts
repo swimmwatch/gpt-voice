@@ -1,13 +1,20 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BasePrettifyProvider,
+  ClaudeCliPrettifyProvider,
+  CodexCliPrettifyProvider,
+  KNOWN_PRETTIFY_PROVIDERS,
+  OllamaPrettifyProvider,
+  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+  VllmPrettifyProvider,
   listPrettifyModels,
   loadPrettifyModel,
   runPrettify,
   unloadLoadedOllamaPrettifyModel,
   unloadPrettifyModel,
 } from '@main/services/prettifyProviders';
-import { DEFAULT_PRETTIFY_PROMPT } from '@shared/prettifySettings';
+import { DEFAULT_PRETTIFY_PROMPT, DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 
 interface FetchCall {
   url: string;
@@ -22,6 +29,66 @@ function response(status: number, body: unknown) {
 }
 
 describe('prettifyProviders', () => {
+  it('registers every known provider as a shared base-provider subclass', () => {
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS.ollama instanceof BasePrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS.vllm instanceof BasePrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS['claude-cli'] instanceof BasePrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS['codex-cli'] instanceof BasePrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS.ollama instanceof OllamaPrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS.vllm instanceof VllmPrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS['claude-cli'] instanceof ClaudeCliPrettifyProvider, true);
+    assert.equal(KNOWN_PRETTIFY_PROVIDERS['codex-cli'] instanceof CodexCliPrettifyProvider, true);
+  });
+
+  it('keeps incomplete CLI providers fail-closed without fetches or active selection', async () => {
+    const settings = {
+      ...DEFAULT_PRETTIFY_SETTINGS,
+      vllm: {
+        ...DEFAULT_PRETTIFY_SETTINGS.vllm,
+        apiKey: '',
+      },
+    };
+    let fetchCalls = 0;
+    const deps = {
+      fetch: async () => {
+        fetchCalls += 1;
+        return response(200, {});
+      },
+    };
+
+    assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['claude-cli'].listModels(settings, deps), []);
+    assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['codex-cli'].prettify({ text: 'selected text', settings }, deps), {
+      success: false,
+      error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+    });
+    assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['claude-cli'].loadModel(settings, deps), {
+      success: false,
+      providerId: 'claude-cli',
+      error: 'Model loading is available only for Ollama',
+    });
+    assert.equal(fetchCalls, 0);
+
+    const runResult = await runPrettify(
+      'selected text',
+      { providerId: 'claude-cli', claudeCli: { model: 'claude-sonnet' } },
+      undefined,
+      deps,
+    );
+    assert.deepEqual(runResult, { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
+    for (const attempt of [
+      () => listPrettifyModels('codex-cli', { providerId: 'codex-cli', codexCli: { model: 'gpt-5.6' } }, deps),
+      () => loadPrettifyModel('claude-cli', { providerId: 'claude-cli' }, deps),
+      () => unloadPrettifyModel('codex-cli', { providerId: 'codex-cli' }, deps),
+    ]) {
+      await assert.rejects(attempt, (error: unknown) => {
+        assert.equal(error instanceof Error, true);
+        assert.equal((error as Error).message, PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
+        return true;
+      });
+    }
+    assert.equal(fetchCalls, 0);
+  });
+
   it('lists Ollama models from /api/tags', async () => {
     const calls: FetchCall[] = [];
     const models = await listPrettifyModels(

@@ -175,6 +175,14 @@ export function setPrettifySettings(settings: PrettifySettingsInput = {}): void 
   currentPrettifySettings = normalizePrettifySettings({
     ...currentPrettifySettings,
     ...settings,
+    claudeCli: {
+      ...currentPrettifySettings.claudeCli,
+      ...settings.claudeCli,
+    },
+    codexCli: {
+      ...currentPrettifySettings.codexCli,
+      ...settings.codexCli,
+    },
     ollama: {
       ...currentPrettifySettings.ollama,
       ...settings.ollama,

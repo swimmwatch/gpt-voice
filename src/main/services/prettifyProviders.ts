@@ -1,16 +1,24 @@
+/* eslint-disable max-classes-per-file -- The small, closed provider registry keeps shared domain behavior auditable. */
 import { StatusCodes } from 'http-status-codes';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
 import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
-import type {
-  PrettifyModelLoadResult,
-  PrettifyModelOption,
-  PrettifyModelUnloadResult,
-  PrettifyProviderId,
-  PrettifySettingsInput,
+import {
+  getPrettifyProviderCapabilities,
+  isKnownPrettifyProviderId,
+  isPrettifyProviderId,
+  type KnownPrettifyProviderId,
+  type PrettifyModelLoadResult,
+  type PrettifyModelOption,
+  type PrettifyModelSource,
+  type PrettifyModelUnloadResult,
+  type PrettifyProviderCapabilities,
+  type PrettifyProviderId,
+  type PrettifySettingsInput,
 } from '@shared/prettifySettings';
 
 const log = createLogger('prettify-provider');
+export const PRETTIFY_PROVIDER_UNAVAILABLE_ERROR = 'Prettify provider is unavailable';
 
 export interface TextProcessingResult {
   success: boolean;
@@ -23,19 +31,20 @@ interface FetchResponseLike {
   text(): Promise<string>;
 }
 
-interface PrettifyProviderDependencies {
+export interface PrettifyProviderDependencies {
   fetch: (url: string, init?: RequestInit) => Promise<FetchResponseLike>;
 }
 
-interface PrettifyProviderRequest {
+export interface PrettifyProviderRequest {
   text: string;
   signal?: AbortSignal;
   settings: PrettifySettingsWithSecret;
 }
 
-interface PrettifyProviderAdapter {
-  listModels(settings: PrettifySettingsWithSecret, deps: PrettifyProviderDependencies): Promise<PrettifyModelOption[]>;
-  prettify(request: PrettifyProviderRequest, deps: PrettifyProviderDependencies): Promise<TextProcessingResult>;
+export interface PrettifyProviderModelMetadata {
+  model: string;
+  source: PrettifyModelSource;
+  usesDefaultModel: boolean;
 }
 
 interface LoadedOllamaPrettifyModel {
@@ -47,8 +56,6 @@ interface RunningOllamaModelInfo {
   sizeBytes?: number;
   vramSizeBytes?: number;
 }
-
-let loadedOllamaPrettifyModel: LoadedOllamaPrettifyModel | null = null;
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
@@ -259,14 +266,6 @@ function withOllamaRunningMetadata(
   });
 }
 
-function isPinnedOllamaModel(settings: PrettifySettingsWithSecret['ollama']): boolean {
-  return (
-    Boolean(loadedOllamaPrettifyModel) &&
-    loadedOllamaPrettifyModel?.baseUrl === settings.baseUrl &&
-    loadedOllamaPrettifyModel.model === settings.model
-  );
-}
-
 function isSameOllamaModel(left: LoadedOllamaPrettifyModel | null, right: LoadedOllamaPrettifyModel): boolean {
   if (!left) return false;
   return left.baseUrl === right.baseUrl && left.model === right.model;
@@ -293,8 +292,74 @@ async function setOllamaModelKeepAlive(
   }
 }
 
-const ollamaAdapter: PrettifyProviderAdapter = {
-  async listModels(settings, deps) {
+/** Shared provider-domain contract. Persistence, validation, and IPC stay in their dedicated services. */
+export abstract class BasePrettifyProvider {
+  public readonly capabilities: PrettifyProviderCapabilities;
+
+  protected constructor(public readonly id: KnownPrettifyProviderId) {
+    this.capabilities = getPrettifyProviderCapabilities(id);
+  }
+
+  public getModelMetadata(settings: PrettifySettingsWithSecret): PrettifyProviderModelMetadata {
+    const model = this.getConfiguredModel(settings);
+    return {
+      model,
+      source: this.capabilities.modelSource,
+      usesDefaultModel: !model,
+    };
+  }
+
+  public listModels(
+    _settings: PrettifySettingsWithSecret,
+    _deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelOption[]> {
+    return Promise.resolve([]);
+  }
+
+  public prettify(
+    _request: PrettifyProviderRequest,
+    _deps: PrettifyProviderDependencies,
+  ): Promise<TextProcessingResult> {
+    return Promise.resolve({ success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
+  }
+
+  public loadModel(
+    _settings: PrettifySettingsWithSecret,
+    _deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelLoadResult> {
+    return Promise.resolve({
+      success: false,
+      providerId: this.id,
+      error: 'Model loading is available only for Ollama',
+    });
+  }
+
+  public unloadModel(
+    _settings: PrettifySettingsWithSecret,
+    _deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelUnloadResult> {
+    return Promise.resolve({
+      success: false,
+      providerId: this.id,
+      error: 'Model unloading is available only for Ollama',
+    });
+  }
+
+  protected abstract getConfiguredModel(settings: PrettifySettingsWithSecret): string;
+}
+
+/** HTTP-backed local Ollama provider with loaded-model lifecycle support. */
+export class OllamaPrettifyProvider extends BasePrettifyProvider {
+  private loadedModel: LoadedOllamaPrettifyModel | null = null;
+
+  public constructor() {
+    super('ollama');
+  }
+
+  public async listModels(
+    settings: PrettifySettingsWithSecret,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelOption[]> {
     const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'));
     const body = await response.text();
     if (response.status !== Number(StatusCodes.OK)) {
@@ -306,9 +371,12 @@ const ollamaAdapter: PrettifyProviderAdapter = {
     } catch {
       return models;
     }
-  },
+  }
 
-  async prettify({ text, signal, settings }, deps) {
+  public async prettify(
+    { text, signal, settings }: PrettifyProviderRequest,
+    deps: PrettifyProviderDependencies,
+  ): Promise<TextProcessingResult> {
     const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/chat'), {
       method: 'POST',
       headers: createJsonHeaders(),
@@ -317,7 +385,7 @@ const ollamaAdapter: PrettifyProviderAdapter = {
         model: settings.ollama.model,
         messages: createMessages(settings.prompt, text),
         options: createOllamaGenerationOptions(settings),
-        ...(isPinnedOllamaModel(settings.ollama) ? { keep_alive: -1 } : {}),
+        ...(this.isPinnedModel(settings.ollama) ? { keep_alive: -1 } : {}),
         stream: false,
       }),
     });
@@ -328,11 +396,164 @@ const ollamaAdapter: PrettifyProviderAdapter = {
 
     const result = extractOllamaText(body);
     return result ? { success: true, text: result } : { success: false, error: t('error.noPrettifyResult') };
-  },
-};
+  }
 
-const vllmAdapter: PrettifyProviderAdapter = {
-  async listModels(settings, deps) {
+  public async loadModel(
+    settings: PrettifySettingsWithSecret,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelLoadResult> {
+    if (!settings.ollama.model) {
+      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+    }
+
+    const nextModel = {
+      baseUrl: settings.ollama.baseUrl,
+      model: settings.ollama.model,
+    };
+
+    try {
+      let runningModels = new Map<string, RunningOllamaModelInfo>();
+      try {
+        runningModels = await getRunningOllamaModels(nextModel.baseUrl, deps);
+      } catch {
+        runningModels = new Map();
+      }
+      const runningSelectedModel = runningModels.get(nextModel.model);
+      if (isSameOllamaModel(this.loadedModel, nextModel) && runningSelectedModel) {
+        log.info('Ollama prettify model is already loaded:', { model: nextModel.model });
+        return {
+          success: true,
+          providerId: this.id,
+          model: nextModel.model,
+          vramSizeBytes: runningSelectedModel.vramSizeBytes,
+        };
+      }
+
+      if (
+        this.loadedModel &&
+        (this.loadedModel.baseUrl !== nextModel.baseUrl || this.loadedModel.model !== nextModel.model)
+      ) {
+        await setOllamaModelKeepAlive(this.loadedModel, 0, deps);
+        this.loadedModel = null;
+      }
+
+      if (runningSelectedModel) {
+        this.loadedModel = nextModel;
+        log.info('Using already running Ollama prettify model:', { model: nextModel.model });
+        return {
+          success: true,
+          providerId: this.id,
+          model: nextModel.model,
+          vramSizeBytes: runningSelectedModel.vramSizeBytes,
+        };
+      }
+
+      log.info('Loading Ollama prettify model:', { model: nextModel.model });
+      await setOllamaModelKeepAlive(nextModel, -1, deps);
+      this.loadedModel = nextModel;
+      return {
+        success: true,
+        providerId: this.id,
+        model: nextModel.model,
+        vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, deps),
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        providerId: this.id,
+        model: nextModel.model,
+        error: createConnectionError('Ollama', nextModel.baseUrl, error),
+      };
+    }
+  }
+
+  public async unloadModel(
+    settings: PrettifySettingsWithSecret,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelUnloadResult> {
+    if (!settings.ollama.model) {
+      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+    }
+
+    const model = {
+      baseUrl: settings.ollama.baseUrl,
+      model: settings.ollama.model,
+    };
+
+    try {
+      let shouldUnload = isSameOllamaModel(this.loadedModel, model);
+      try {
+        shouldUnload = shouldUnload || (await getRunningOllamaModels(model.baseUrl, deps)).has(model.model);
+      } catch {
+        shouldUnload = true;
+      }
+
+      if (shouldUnload) {
+        log.info('Unloading Ollama prettify model:', { model: model.model });
+        await setOllamaModelKeepAlive(model, 0, deps);
+      } else {
+        log.info('Ollama prettify model is not loaded:', { model: model.model });
+      }
+      if (isSameOllamaModel(this.loadedModel, model)) {
+        this.loadedModel = null;
+      }
+
+      return { success: true, providerId: this.id, model: model.model };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        providerId: this.id,
+        model: model.model,
+        error: createConnectionError('Ollama', model.baseUrl, error),
+      };
+    }
+  }
+
+  public async unloadLoadedModel(
+    deps: PrettifyProviderDependencies,
+    fallbackSettings: PrettifySettingsInput = {},
+  ): Promise<void> {
+    const savedSettings = getPrettifySettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
+    const model =
+      this.loadedModel ??
+      (savedSettings.ollama.model
+        ? {
+            baseUrl: savedSettings.ollama.baseUrl,
+            model: savedSettings.ollama.model,
+          }
+        : null);
+    if (!model) return;
+
+    log.info('Unloading Ollama prettify model:', { model: model.model });
+    await setOllamaModelKeepAlive(model, 0, deps);
+    if (isSameOllamaModel(this.loadedModel, model)) {
+      this.loadedModel = null;
+    }
+  }
+
+  protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
+    return settings.ollama.model;
+  }
+
+  private isPinnedModel(settings: PrettifySettingsWithSecret['ollama']): boolean {
+    return (
+      Boolean(this.loadedModel) &&
+      this.loadedModel?.baseUrl === settings.baseUrl &&
+      this.loadedModel.model === settings.model
+    );
+  }
+}
+
+/** HTTP-backed OpenAI-compatible vLLM provider. */
+export class VllmPrettifyProvider extends BasePrettifyProvider {
+  public constructor() {
+    super('vllm');
+  }
+
+  public async listModels(
+    settings: PrettifySettingsWithSecret,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyModelOption[]> {
     const response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
       headers: createJsonHeaders(settings.vllm.apiKey),
     });
@@ -341,9 +562,12 @@ const vllmAdapter: PrettifyProviderAdapter = {
       throw new Error(createHttpError('vLLM', response.status));
     }
     return parseVllmModels(body);
-  },
+  }
 
-  async prettify({ text, signal, settings }, deps) {
+  public async prettify(
+    { text, signal, settings }: PrettifyProviderRequest,
+    deps: PrettifyProviderDependencies,
+  ): Promise<TextProcessingResult> {
     const response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
       method: 'POST',
       headers: createJsonHeaders(settings.vllm.apiKey),
@@ -357,172 +581,116 @@ const vllmAdapter: PrettifyProviderAdapter = {
 
     const result = extractVllmText(body);
     return result ? { success: true, text: result } : { success: false, error: t('error.noPrettifyResult') };
-  },
-};
+  }
 
-const providerAdapters: Record<PrettifyProviderId, PrettifyProviderAdapter> = {
-  ollama: ollamaAdapter,
-  vllm: vllmAdapter,
-};
+  protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
+    return settings.vllm.model;
+  }
+}
+
+/** Structural Task 10 adapter. Execution remains unavailable until Task 12. */
+export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
+  public constructor() {
+    super('claude-cli');
+  }
+
+  protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
+    return settings.claudeCli.model;
+  }
+}
+
+/** Structural Task 10 adapter. Execution remains unavailable until Task 13. */
+export class CodexCliPrettifyProvider extends BasePrettifyProvider {
+  public constructor() {
+    super('codex-cli');
+  }
+
+  protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
+    return settings.codexCli.model;
+  }
+}
+
+export const KNOWN_PRETTIFY_PROVIDERS: Readonly<Record<KnownPrettifyProviderId, BasePrettifyProvider>> = Object.freeze({
+  ollama: new OllamaPrettifyProvider(),
+  vllm: new VllmPrettifyProvider(),
+  'claude-cli': new ClaudeCliPrettifyProvider(),
+  'codex-cli': new CodexCliPrettifyProvider(),
+});
+
+export function getKnownPrettifyProvider(providerId: KnownPrettifyProviderId): BasePrettifyProvider {
+  return KNOWN_PRETTIFY_PROVIDERS[providerId];
+}
+
+function getEnabledPrettifyProvider(
+  providerId: KnownPrettifyProviderId,
+): readonly [PrettifyProviderId, BasePrettifyProvider] {
+  if (!isPrettifyProviderId(providerId)) {
+    throw new Error(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
+  }
+  return [providerId, KNOWN_PRETTIFY_PROVIDERS[providerId]];
+}
+
+function getProviderName(providerId: PrettifyProviderId): string {
+  return providerId === 'ollama' ? 'Ollama' : 'vLLM';
+}
+
+function getProviderBaseUrl(settings: PrettifySettingsWithSecret, providerId: PrettifyProviderId): string {
+  return providerId === 'ollama' ? settings.ollama.baseUrl : settings.vllm.baseUrl;
+}
+
+function getKnownProviderForDispatch(providerId: unknown): BasePrettifyProvider | null {
+  if (!isKnownPrettifyProviderId(providerId)) return null;
+  if (!isPrettifyProviderId(providerId)) return null;
+  return KNOWN_PRETTIFY_PROVIDERS[providerId];
+}
 
 export async function listPrettifyModels(
-  providerId: PrettifyProviderId,
+  providerId: KnownPrettifyProviderId,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = { fetch },
 ): Promise<PrettifyModelOption[]> {
-  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId });
-  const adapter = providerAdapters[providerId];
+  const [enabledProviderId, provider] = getEnabledPrettifyProvider(providerId);
+  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId: enabledProviderId });
   try {
-    return await adapter.listModels(settings, deps);
+    return await provider.listModels(settings, deps);
   } catch (error: unknown) {
-    const baseUrl = providerId === 'ollama' ? settings.ollama.baseUrl : settings.vllm.baseUrl;
-    const wrappedError = new Error(createConnectionError(providerId === 'ollama' ? 'Ollama' : 'vLLM', baseUrl, error));
+    if (!provider.capabilities.baseUrl) throw error;
+    const baseUrl = getProviderBaseUrl(settings, enabledProviderId);
+    const wrappedError = new Error(createConnectionError(getProviderName(enabledProviderId), baseUrl, error));
     (wrappedError as Error & { cause?: unknown }).cause = error;
     throw wrappedError;
   }
 }
 
 export async function loadPrettifyModel(
-  providerId: PrettifyProviderId,
+  providerId: KnownPrettifyProviderId,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = { fetch },
 ): Promise<PrettifyModelLoadResult> {
-  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId });
-  if (providerId !== 'ollama') {
-    return { success: false, providerId, error: 'Model loading is available only for Ollama' };
-  }
-  if (!settings.ollama.model) {
-    return { success: false, providerId, error: t('error.noPrettifyModel') };
-  }
-
-  const nextModel = {
-    baseUrl: settings.ollama.baseUrl,
-    model: settings.ollama.model,
-  };
-
-  try {
-    let runningModels = new Map<string, RunningOllamaModelInfo>();
-    try {
-      runningModels = await getRunningOllamaModels(nextModel.baseUrl, deps);
-    } catch {
-      runningModels = new Map();
-    }
-    const runningSelectedModel = runningModels.get(nextModel.model);
-    if (isSameOllamaModel(loadedOllamaPrettifyModel, nextModel) && runningSelectedModel) {
-      log.info('Ollama prettify model is already loaded:', { model: nextModel.model });
-      return {
-        success: true,
-        providerId,
-        model: nextModel.model,
-        vramSizeBytes: runningSelectedModel.vramSizeBytes,
-      };
-    }
-
-    if (
-      loadedOllamaPrettifyModel &&
-      (loadedOllamaPrettifyModel.baseUrl !== nextModel.baseUrl || loadedOllamaPrettifyModel.model !== nextModel.model)
-    ) {
-      await setOllamaModelKeepAlive(loadedOllamaPrettifyModel, 0, deps);
-      loadedOllamaPrettifyModel = null;
-    }
-
-    if (runningSelectedModel) {
-      loadedOllamaPrettifyModel = nextModel;
-      log.info('Using already running Ollama prettify model:', { model: nextModel.model });
-      return {
-        success: true,
-        providerId,
-        model: nextModel.model,
-        vramSizeBytes: runningSelectedModel.vramSizeBytes,
-      };
-    }
-
-    log.info('Loading Ollama prettify model:', { model: nextModel.model });
-    await setOllamaModelKeepAlive(nextModel, -1, deps);
-    loadedOllamaPrettifyModel = nextModel;
-    return {
-      success: true,
-      providerId,
-      model: nextModel.model,
-      vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, deps),
-    };
-  } catch (error: unknown) {
-    return {
-      success: false,
-      providerId,
-      model: nextModel.model,
-      error: createConnectionError('Ollama', nextModel.baseUrl, error),
-    };
-  }
+  const [enabledProviderId, provider] = getEnabledPrettifyProvider(providerId);
+  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId: enabledProviderId });
+  return provider.loadModel(settings, deps);
 }
 
 export async function unloadPrettifyModel(
-  providerId: PrettifyProviderId,
+  providerId: KnownPrettifyProviderId,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = { fetch },
 ): Promise<PrettifyModelUnloadResult> {
-  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId });
-  if (providerId !== 'ollama') {
-    return { success: false, providerId, error: 'Model unloading is available only for Ollama' };
-  }
-  if (!settings.ollama.model) {
-    return { success: false, providerId, error: t('error.noPrettifyModel') };
-  }
-
-  const model = {
-    baseUrl: settings.ollama.baseUrl,
-    model: settings.ollama.model,
-  };
-
-  try {
-    let shouldUnload = isSameOllamaModel(loadedOllamaPrettifyModel, model);
-    try {
-      shouldUnload = shouldUnload || (await getRunningOllamaModels(model.baseUrl, deps)).has(model.model);
-    } catch {
-      shouldUnload = true;
-    }
-
-    if (shouldUnload) {
-      log.info('Unloading Ollama prettify model:', { model: model.model });
-      await setOllamaModelKeepAlive(model, 0, deps);
-    } else {
-      log.info('Ollama prettify model is not loaded:', { model: model.model });
-    }
-    if (isSameOllamaModel(loadedOllamaPrettifyModel, model)) {
-      loadedOllamaPrettifyModel = null;
-    }
-
-    return { success: true, providerId, model: model.model };
-  } catch (error: unknown) {
-    return {
-      success: false,
-      providerId,
-      model: model.model,
-      error: createConnectionError('Ollama', model.baseUrl, error),
-    };
-  }
+  const [enabledProviderId, provider] = getEnabledPrettifyProvider(providerId);
+  const settings = getPrettifySettingsWithSecret({ ...draftSettings, providerId: enabledProviderId });
+  return provider.unloadModel(settings, deps);
 }
 
 export async function unloadLoadedOllamaPrettifyModel(
   deps: PrettifyProviderDependencies = { fetch },
   fallbackSettings: PrettifySettingsInput = {},
 ): Promise<void> {
-  const savedSettings = getPrettifySettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
-  const model =
-    loadedOllamaPrettifyModel ??
-    (savedSettings.ollama.model
-      ? {
-          baseUrl: savedSettings.ollama.baseUrl,
-          model: savedSettings.ollama.model,
-        }
-      : null);
-  if (!model) return;
-
-  log.info('Unloading Ollama prettify model:', { model: model.model });
-  await setOllamaModelKeepAlive(model, 0, deps);
-  if (isSameOllamaModel(loadedOllamaPrettifyModel, model)) {
-    loadedOllamaPrettifyModel = null;
+  const provider = KNOWN_PRETTIFY_PROVIDERS.ollama;
+  if (!(provider instanceof OllamaPrettifyProvider)) {
+    throw new Error(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
   }
+  await provider.unloadLoadedModel(deps, fallbackSettings);
 }
 
 export async function runPrettify(
@@ -531,11 +699,18 @@ export async function runPrettify(
   signal?: AbortSignal,
   deps: PrettifyProviderDependencies = { fetch },
 ): Promise<TextProcessingResult> {
-  const settings = getPrettifySettingsWithSecret(draftSettings);
-  const adapter = providerAdapters[settings.providerId];
-  const model = settings.providerId === 'ollama' ? settings.ollama.model : settings.vllm.model;
-  const baseUrl = settings.providerId === 'ollama' ? settings.ollama.baseUrl : settings.vllm.baseUrl;
+  const requestedProvider = draftSettings.providerId;
+  if (isKnownPrettifyProviderId(requestedProvider) && !isPrettifyProviderId(requestedProvider)) {
+    return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  }
 
+  const settings = getPrettifySettingsWithSecret(draftSettings);
+  const provider = getKnownProviderForDispatch(settings.providerId);
+  if (!provider) {
+    return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  }
+
+  const model = provider.getModelMetadata(settings).model;
   if (!model) {
     return { success: false, error: t('error.noPrettifyModel') };
   }
@@ -546,22 +721,33 @@ export async function runPrettify(
       model,
       textLength: text.length,
       promptLength: settings.prompt.length,
-      maxOutputTokens: settings.maxOutputTokens,
-      minP: settings.minP,
-      repeatPenalty: settings.repeatPenalty,
-      hasSeed: settings.seed !== null,
-      temperature: settings.temperature,
-      topK: settings.topK,
-      topP: settings.topP,
+      ...(provider.capabilities.httpGenerationControls
+        ? {
+            maxOutputTokens: settings.maxOutputTokens,
+            minP: settings.minP,
+            repeatPenalty: settings.repeatPenalty,
+            hasSeed: settings.seed !== null,
+            temperature: settings.temperature,
+            topK: settings.topK,
+            topP: settings.topP,
+          }
+        : {}),
     });
-    return await adapter.prettify({ text, signal, settings }, deps);
+    return await provider.prettify({ text, signal, settings }, deps);
   } catch (error: unknown) {
     if (signal?.aborted) {
       return { success: false, error: t('status.prettifyCancelled') };
     }
+    if (!provider.capabilities.baseUrl) {
+      return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+    }
     return {
       success: false,
-      error: createConnectionError(settings.providerId === 'ollama' ? 'Ollama' : 'vLLM', baseUrl, error),
+      error: createConnectionError(
+        getProviderName(settings.providerId),
+        getProviderBaseUrl(settings, settings.providerId),
+        error,
+      ),
     };
   }
 }

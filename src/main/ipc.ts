@@ -147,6 +147,20 @@ function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
     providerId: settings.providerId,
     promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : undefined,
     temperature: settings.temperature,
+    claudeCli: {
+      hasExecutablePath: Boolean(settings.claudeCli?.executablePath?.trim()),
+      model: settings.claudeCli?.model,
+      fallbackModel: settings.claudeCli?.fallbackModel,
+      effort: settings.claudeCli?.effort,
+      timeoutSeconds: settings.claudeCli?.timeoutSeconds,
+    },
+    codexCli: {
+      hasExecutablePath: Boolean(settings.codexCli?.executablePath?.trim()),
+      model: settings.codexCli?.model,
+      reasoningEffort: settings.codexCli?.reasoningEffort,
+      timeoutSeconds: settings.codexCli?.timeoutSeconds,
+      verbosity: settings.codexCli?.verbosity,
+    },
     ollama: {
       baseUrlLength: typeof settings.ollama?.baseUrl === 'string' ? settings.ollama.baseUrl.length : undefined,
       model: settings.ollama?.model,
