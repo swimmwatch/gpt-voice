@@ -239,6 +239,33 @@ describe('ClaudeCliPrettifyAdapter', () => {
     assert.equal(runner.calls[3]?.args.includes(source), false);
   });
 
+  it('prepares once, executes once, and does not repeat preflight', async () => {
+    const runner = new FakeRunner([
+      ...getPreflightResults(),
+      success({ structured_output: { text: 'prepared result' } }),
+    ]);
+    const adapter = new ClaudeCliPrettifyAdapter({ runner });
+    const prepared = await adapter.prepare({
+      prompt: PROTECTED_PROMPT,
+      settings: getSettings(),
+      signal: new AbortController().signal,
+    });
+
+    assert.equal(prepared.success, true);
+    assert.equal(runner.calls.length, 3);
+    if (!prepared.success) return;
+    assert.deepEqual(await prepared.prepared.execute('source'), {
+      capabilityVersion: '2.1.71',
+      success: true,
+      text: 'prepared result',
+    });
+    assert.deepEqual(await prepared.prepared.execute('second source'), {
+      error: ClaudeCliPrettifyErrorCode.ProcessFailed,
+      success: false,
+    });
+    assert.equal(runner.calls.length, 4);
+  });
+
   it('omits default model, fallback, and effort flags while validating configured model values', () => {
     const defaults = buildClaudeCliPrettifyArguments(PROTECTED_PROMPT, getSettings());
     assert.ok(defaults);
@@ -283,6 +310,21 @@ describe('ClaudeCliPrettifyAdapter', () => {
         success: false,
       });
     }
+  });
+
+  it('maps invalid configured models precisely before generation', async () => {
+    const runner = new FakeRunner(getPreflightResults());
+    const adapter = new ClaudeCliPrettifyAdapter({ runner });
+
+    assert.deepEqual(
+      await adapter.prepare({
+        prompt: PROTECTED_PROMPT,
+        settings: getSettings({ model: 'invalid model' }),
+        signal: new AbortController().signal,
+      }),
+      { error: ClaudeCliPrettifyErrorCode.InvalidModel, success: false },
+    );
+    assert.equal(runner.calls.length, 3);
   });
 
   it('maps every runner failure without exposing diagnostics or failed process output', async () => {

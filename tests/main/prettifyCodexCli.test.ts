@@ -381,6 +381,38 @@ describe('CodexCliPrettifyAdapter', () => {
     assert.deepEqual(schema.readFileCalls, [OUTPUT_SCHEMA_PATH]);
   });
 
+  it('prepares capability, schema, and model gates once before one-shot execution', async () => {
+    const runner = new FakeRunner([
+      ...getAvailabilityResults(),
+      success(MODEL_CATALOG),
+      success({ text: 'prepared result' }),
+    ]);
+    const adapter = new CodexCliPrettifyAdapter({
+      outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
+      runner,
+      schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
+    });
+    const prepared = await adapter.prepare({
+      prompt: PROTECTED_PROMPT,
+      settings: getSettings({ model: 'gpt-synthetic-codex' }),
+      signal: new AbortController().signal,
+    });
+
+    assert.equal(prepared.success, true);
+    assert.equal(runner.calls.length, 6);
+    if (!prepared.success) return;
+    assert.deepEqual(await prepared.prepared.execute('source'), {
+      capabilityVersion: '0.144.3',
+      success: true,
+      text: 'prepared result',
+    });
+    assert.deepEqual(await prepared.prepared.execute('second source'), {
+      error: CodexCliPrettifyErrorCode.ProcessFailed,
+      success: false,
+    });
+    assert.equal(runner.calls.length, 7);
+  });
+
   it('requires the supported version, exact help capabilities, and successful login exit status', async () => {
     const controller = new AbortController();
     for (const [results, expected] of [
@@ -389,7 +421,7 @@ describe('CodexCliPrettifyAdapter', () => {
       [[success('0.144.3'), success(EXEC_HELP), success('')], CodexCliPrettifyErrorCode.Unsupported],
       [
         [success('0.144.3'), success(EXEC_HELP), success(MODEL_HELP), success('shell_tool stable true')],
-        CodexCliPrettifyErrorCode.Unsupported,
+        CodexCliPrettifyErrorCode.NoToolsUnavailable,
       ],
       [
         [
@@ -469,6 +501,28 @@ describe('CodexCliPrettifyAdapter', () => {
     );
   });
 
+  it('maps invalid models and unavailable model discovery precisely', async () => {
+    const invalidRunner = new FakeRunner(getAvailabilityResults());
+    const invalidAdapter = new CodexCliPrettifyAdapter({ runner: invalidRunner });
+    assert.deepEqual(
+      await invalidAdapter.prepare({
+        prompt: PROTECTED_PROMPT,
+        settings: getSettings({ model: 'invalid model with spaces' }),
+        signal: new AbortController().signal,
+      }),
+      { error: CodexCliPrettifyErrorCode.InvalidModel, success: false },
+    );
+    assert.equal(invalidRunner.calls.length, 5);
+
+    const discoveryAdapter = new CodexCliPrettifyAdapter({
+      runner: new FakeRunner([failure(CliProcessFailureCode.SpawnError), success({ unsupported: 'catalog shape' })]),
+    });
+    assert.deepEqual(await discoveryAdapter.discoverModels(getSettings(), new AbortController().signal), {
+      error: CodexCliPrettifyErrorCode.ModelDiscoveryFailed,
+      success: false,
+    });
+  });
+
   it('passes only model-advertised reasoning and verbosity settings', () => {
     const model = {
       id: 'gpt-synthetic-codex',
@@ -538,7 +592,7 @@ describe('CodexCliPrettifyAdapter', () => {
           signal: controller.signal,
           text: 'synthetic',
         }),
-        { error: CodexCliPrettifyErrorCode.Unsupported, success: false },
+        { error: CodexCliPrettifyErrorCode.SchemaUnavailable, success: false },
       );
       assert.deepEqual(
         runner.calls.map((call) => call.operationLabel),

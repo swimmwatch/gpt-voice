@@ -45,6 +45,7 @@ export enum ClaudeCliPrettifyErrorCode {
   ProcessFailed = 'process-failed',
   EmptyOutput = 'empty-output',
   MalformedOutput = 'malformed-output',
+  InvalidModel = 'invalid-model',
 }
 
 export interface ClaudeCliAvailability {
@@ -72,6 +73,14 @@ export interface ClaudeCliPrettifyFailure {
 
 export type ClaudeCliPrettifyResult = ClaudeCliPrettifySuccess | ClaudeCliPrettifyFailure;
 
+export interface ClaudeCliPreparedPrettify {
+  cacheContext: readonly string[];
+  capabilityVersion: string;
+  execute(text: string): Promise<ClaudeCliPrettifyResult>;
+}
+
+export type ClaudeCliPrepareResult = { prepared: ClaudeCliPreparedPrettify; success: true } | ClaudeCliPrettifyFailure;
+
 export interface ClaudeCliPrettifyInput {
   prompt: string;
   settings: ClaudeCliPrettifySettings;
@@ -82,6 +91,10 @@ export interface ClaudeCliPrettifyInput {
 export interface ClaudeCliAvailabilityInput {
   settings: ClaudeCliPrettifySettings;
   signal: AbortSignal;
+}
+
+export interface ClaudeCliPrepareInput extends ClaudeCliAvailabilityInput {
+  prompt: string;
 }
 
 export interface ClaudeCliProcessRunner {
@@ -183,7 +196,7 @@ function parseClaudeCliEnvelope(
   }
 }
 
-function isValidClaudeCliModel(value: string): boolean {
+export function isValidClaudeCliModel(value: string): boolean {
   if ((CLAUDE_CLI_MODEL_ALIASES as readonly string[]).includes(value)) return true;
   const suffix = value.startsWith('claude-') ? value.slice('claude-'.length) : '';
   return Boolean(suffix) && /^[a-z0-9._-]+$/u.test(suffix);
@@ -286,17 +299,39 @@ export class ClaudeCliPrettifyAdapter {
   }
 
   public async prettify(input: ClaudeCliPrettifyInput): Promise<ClaudeCliPrettifyResult> {
-    const availability = await this.checkAvailability({ settings: input.settings, signal: input.signal });
+    const prepared = await this.prepare(input);
+    return prepared.success ? prepared.prepared.execute(input.text) : prepared;
+  }
+
+  public async prepare(input: ClaudeCliPrepareInput): Promise<ClaudeCliPrepareResult> {
+    const availability = await this.checkAvailability(input);
     if (!availability.success) return availability;
 
     const args = buildClaudeCliPrettifyArguments(input.prompt, input.settings);
-    if (!args) return { error: ClaudeCliPrettifyErrorCode.Unsupported, success: false };
-    const result = await this.run(input.settings, input.signal, 'claude-cli-prettify', args, input.text);
-    if (!result.success) return { error: mapRunnerFailure(result), success: false };
+    if (!args) return { error: ClaudeCliPrettifyErrorCode.InvalidModel, success: false };
 
-    const envelope = parseClaudeCliEnvelope(result.stdout);
-    if (!envelope.success) return envelope;
-    return { capabilityVersion: availability.capabilityVersion, success: true, text: envelope.text };
+    let consumed = false;
+    return {
+      success: true,
+      prepared: {
+        cacheContext: getClaudeCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
+        capabilityVersion: availability.capabilityVersion,
+        execute: async (text) => {
+          if (consumed) return { error: ClaudeCliPrettifyErrorCode.ProcessFailed, success: false };
+          consumed = true;
+          const result = await this.run(input.settings, input.signal, 'claude-cli-prettify', args, text);
+          if (!result.success) return { error: mapRunnerFailure(result), success: false };
+
+          const envelope = parseClaudeCliEnvelope(result.stdout);
+          if (!envelope.success) return envelope;
+          return {
+            capabilityVersion: availability.capabilityVersion,
+            success: true,
+            text: envelope.text,
+          };
+        },
+      },
+    };
   }
 
   private run(

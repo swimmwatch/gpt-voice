@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  assertValidKnownPrettifySettingsInput,
   DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
   DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
   DEFAULT_PRETTIFY_REASONING,
@@ -40,7 +41,7 @@ describe('prettifySettings', () => {
     assert.deepEqual(KNOWN_PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
   });
 
-  it('declares complete known-provider capabilities without enabling incomplete CLI providers', () => {
+  it('declares complete runtime capabilities without enabling CLI provider selection', () => {
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.baseUrl, true);
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.modelLifecycle, true);
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.apiKey, true);
@@ -51,8 +52,8 @@ describe('prettifySettings', () => {
       experimental: true,
       httpGenerationControls: false,
       modelLifecycle: false,
-      modelListing: false,
-      modelSource: 'cli',
+      modelListing: true,
+      modelSource: 'known-aliases',
       privacyNotice: 'cli',
       reasoningEffort: true,
       supportsFreeTextModel: true,
@@ -60,6 +61,8 @@ describe('prettifySettings', () => {
     });
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].reasoningEffort, true);
     assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].verbosity, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].modelListing, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].modelSource, 'catalog');
   });
 
   it('normalizes missing or invalid settings to defaults', () => {
@@ -238,6 +241,20 @@ describe('prettifySettings', () => {
       getPrettifySettingsInputError({ codexCli: { timeoutSeconds: 600.5 } }),
       'Codex CLI timeout seconds must be an integer between 15 and 600',
     );
+  });
+
+  it('validates known CLI model-inspection drafts without enabling provider selection', () => {
+    assert.doesNotThrow(() =>
+      assertValidKnownPrettifySettingsInput({
+        providerId: 'claude-cli',
+        claudeCli: { model: 'sonnet', timeoutSeconds: 120 },
+      }),
+    );
+    assert.throws(
+      () => assertValidKnownPrettifySettingsInput({ providerId: 'unknown-cli' }),
+      /Unsupported prettify provider/u,
+    );
+    assert.equal(isPrettifyProviderId('claude-cli'), false);
   });
 
   it('uses a bounded output default when a legacy provider-default value is stored', () => {

@@ -6,15 +6,17 @@ import {
   CodexCliPrettifyProvider,
   KNOWN_PRETTIFY_PROVIDERS,
   OllamaPrettifyProvider,
-  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   VllmPrettifyProvider,
   listPrettifyModels,
   loadPrettifyModel,
+  preparePrettifyExecution,
   runPrettify,
   unloadLoadedOllamaPrettifyModel,
   unloadPrettifyModel,
 } from '@main/services/prettifyProviders';
-import { DEFAULT_PRETTIFY_PROMPT, DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
+import { DEFAULT_PRETTIFY_PROMPT, DEFAULT_PRETTIFY_SETTINGS, PRETTIFY_PROVIDER_IDS } from '@shared/prettifySettings';
+import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
+import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
 
 interface FetchCall {
   url: string;
@@ -40,7 +42,7 @@ describe('prettifyProviders', () => {
     assert.equal(KNOWN_PRETTIFY_PROVIDERS['codex-cli'] instanceof CodexCliPrettifyProvider, true);
   });
 
-  it('keeps incomplete CLI providers fail-closed without fetches or active selection', async () => {
+  it('keeps CLI providers unselectable while routing runtime checks only to injected adapters', async () => {
     const settings = {
       ...DEFAULT_PRETTIFY_SETTINGS,
       vllm: {
@@ -50,16 +52,29 @@ describe('prettifyProviders', () => {
     };
     let fetchCalls = 0;
     const deps = {
+      claudeCliAdapter: {
+        prepare: async () => ({ success: false as const, error: ClaudeCliPrettifyErrorCode.NotInstalled }),
+      },
+      codexCliAdapter: {
+        prepare: async () => ({ success: false as const, error: CodexCliPrettifyErrorCode.NoToolsUnavailable }),
+      },
       fetch: async () => {
         fetchCalls += 1;
         return response(200, {});
       },
     };
 
-    assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['claude-cli'].listModels(settings, deps), []);
-    assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['codex-cli'].prettify({ text: 'selected text', settings }, deps), {
+    assert.deepEqual(await listPrettifyModels('claude-cli', { providerId: 'claude-cli' }, deps), {
+      availability: { status: 'unavailable', errorCode: ClaudeCliPrettifyErrorCode.NotInstalled },
+      error: 'Claude CLI was not found. Install it or configure its executable path, then try again.',
+      models: [
+        { id: 'sonnet', name: 'sonnet' },
+        { id: 'opus', name: 'opus' },
+        { id: 'haiku', name: 'haiku' },
+      ],
+      providerId: 'claude-cli',
+      source: 'known-aliases',
       success: false,
-      error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
     });
     assert.deepEqual(await KNOWN_PRETTIFY_PROVIDERS['claude-cli'].loadModel(settings, deps), {
       success: false,
@@ -74,19 +89,147 @@ describe('prettifyProviders', () => {
       undefined,
       deps,
     );
-    assert.deepEqual(runResult, { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
-    for (const attempt of [
-      () => listPrettifyModels('codex-cli', { providerId: 'codex-cli', codexCli: { model: 'gpt-5.6' } }, deps),
-      () => loadPrettifyModel('claude-cli', { providerId: 'claude-cli' }, deps),
-      () => unloadPrettifyModel('codex-cli', { providerId: 'codex-cli' }, deps),
-    ]) {
-      await assert.rejects(attempt, (error: unknown) => {
-        assert.equal(error instanceof Error, true);
-        assert.equal((error as Error).message, PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
-        return true;
-      });
-    }
+    assert.deepEqual(runResult, {
+      success: false,
+      error: 'Claude CLI was not found. Install it or configure its executable path, then try again.',
+      errorCode: ClaudeCliPrettifyErrorCode.NotInstalled,
+    });
+    assert.deepEqual(await loadPrettifyModel('claude-cli', { providerId: 'claude-cli' }, deps), {
+      success: false,
+      providerId: 'claude-cli',
+      error: 'Model loading is available only for Ollama',
+    });
+    assert.deepEqual(await unloadPrettifyModel('codex-cli', { providerId: 'codex-cli' }, deps), {
+      success: false,
+      providerId: 'codex-cli',
+      error: 'Model unloading is available only for Ollama',
+    });
+    assert.deepEqual(PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm']);
     assert.equal(fetchCalls, 0);
+  });
+
+  it('prepares one-shot Claude CLI execution with an empty default model and no HTTP fallthrough', async () => {
+    let fetchCalls = 0;
+    let generationCalls = 0;
+    const prepared = await preparePrettifyExecution(
+      {
+        providerId: 'claude-cli',
+        prompt: 'protected prompt',
+        claudeCli: { executablePath: '/private/claude', model: '', timeoutSeconds: 321 },
+      },
+      new AbortController().signal,
+      {
+        claudeCliAdapter: {
+          prepare: async ({ prompt, settings }) => {
+            assert.equal(prompt, 'protected prompt');
+            assert.equal(settings.model, '');
+            return {
+              success: true as const,
+              prepared: {
+                cacheContext: ['claude-cli', '2.1.71', '', '', 'default', prompt],
+                capabilityVersion: '2.1.71',
+                execute: async (text: string) => {
+                  generationCalls += 1;
+                  return { capabilityVersion: '2.1.71', success: true as const, text: `${text} edited` };
+                },
+              },
+            };
+          },
+        },
+        fetch: async () => {
+          fetchCalls += 1;
+          return response(200, {});
+        },
+      },
+    );
+
+    assert.equal(prepared.success, true);
+    if (!prepared.success) return;
+    assert.deepEqual(prepared.prepared.cacheContext, ['claude-cli', '2.1.71', '', '', 'default', 'protected prompt']);
+    assert.deepEqual(await prepared.prepared.execute('source'), { success: true, text: 'source edited' });
+    assert.deepEqual(await prepared.prepared.execute('second source'), {
+      success: false,
+      error: 'Prettify provider is unavailable',
+    });
+    assert.equal(generationCalls, 1);
+    assert.equal(fetchCalls, 0);
+  });
+
+  it('lists Claude aliases and Codex catalog capabilities through injected CLI adapters', async () => {
+    const neverExecute = async () => ({
+      error: ClaudeCliPrettifyErrorCode.ProcessFailed,
+      success: false as const,
+    });
+    const claude = await listPrettifyModels(
+      'claude-cli',
+      { claudeCli: { model: 'claude-custom-model' } },
+      {
+        claudeCliAdapter: {
+          prepare: async () => ({
+            success: true as const,
+            prepared: {
+              cacheContext: ['claude-cli', '2.1.71'],
+              capabilityVersion: '2.1.71',
+              execute: neverExecute,
+            },
+          }),
+        },
+        fetch: async () => response(200, {}),
+      },
+    );
+    assert.deepEqual(claude, {
+      availability: { status: 'available', capabilityVersion: '2.1.71' },
+      models: [
+        { id: 'sonnet', name: 'sonnet' },
+        { id: 'opus', name: 'opus' },
+        { id: 'haiku', name: 'haiku' },
+        { id: 'claude-custom-model', name: 'claude-custom-model' },
+      ],
+      providerId: 'claude-cli',
+      source: 'configured-model',
+      success: true,
+    });
+
+    const codex = await listPrettifyModels(
+      'codex-cli',
+      {},
+      {
+        codexCliAdapter: {
+          prepare: async () => ({
+            success: true as const,
+            prepared: {
+              cacheContext: ['codex-cli', '0.144.3'],
+              capabilityVersion: '0.144.3',
+              execute: async () => ({ error: CodexCliPrettifyErrorCode.ProcessFailed, success: false as const }),
+              models: [
+                {
+                  id: 'gpt-synthetic',
+                  name: 'Synthetic model',
+                  reasoningEfforts: ['low', 'high'] as const,
+                  verbosity: ['low', 'medium'] as const,
+                },
+              ],
+              source: 'bundled' as const,
+            },
+          }),
+        },
+        fetch: async () => response(200, {}),
+      },
+    );
+    assert.deepEqual(codex, {
+      availability: { status: 'available', capabilityVersion: '0.144.3' },
+      models: [
+        {
+          id: 'gpt-synthetic',
+          name: 'Synthetic model',
+          reasoningEfforts: ['low', 'high'],
+          verbosity: ['low', 'medium'],
+        },
+      ],
+      providerId: 'codex-cli',
+      source: 'bundled',
+      success: true,
+    });
   });
 
   it('lists Ollama models from /api/tags', async () => {
@@ -113,10 +256,22 @@ describe('prettifyProviders', () => {
       },
     );
 
-    assert.deepEqual(models, [
-      { id: 'llama3.2', name: 'llama3.2', sizeBytes: 3_500_000_000, vramSizeBytes: 2_500_000_000, isLoaded: true },
-      { id: 'mistral', name: 'mistral', sizeBytes: 4_000_000_000 },
-    ]);
+    assert.deepEqual(models, {
+      availability: { status: 'available' },
+      models: [
+        {
+          id: 'llama3.2',
+          name: 'llama3.2',
+          sizeBytes: 3_500_000_000,
+          vramSizeBytes: 2_500_000_000,
+          isLoaded: true,
+        },
+        { id: 'mistral', name: 'mistral', sizeBytes: 4_000_000_000 },
+      ],
+      providerId: 'ollama',
+      source: 'http',
+      success: true,
+    });
     assert.equal(calls[0]?.url, 'http://localhost:11434/api/tags');
     assert.equal(calls[1]?.url, 'http://localhost:11434/api/ps');
   });
@@ -345,10 +500,16 @@ describe('prettifyProviders', () => {
       },
     );
 
-    assert.deepEqual(models, [
-      { id: 'qwen2.5', name: 'qwen2.5' },
-      { id: 'llama3', name: 'llama3' },
-    ]);
+    assert.deepEqual(models, {
+      availability: { status: 'available' },
+      models: [
+        { id: 'qwen2.5', name: 'qwen2.5' },
+        { id: 'llama3', name: 'llama3' },
+      ],
+      providerId: 'vllm',
+      source: 'http',
+      success: true,
+    });
     assert.equal(calls[0]?.url, 'http://localhost:8000/v1/models');
     assert.equal((calls[0]?.init?.headers as Record<string, string>).Authorization, 'Bearer secret');
   });

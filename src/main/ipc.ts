@@ -73,11 +73,13 @@ import {
 } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
-  isPrettifyProviderId,
+  assertValidKnownPrettifySettingsInput,
+  getPrettifyProviderCapabilities,
+  isKnownPrettifyProviderId,
+  type KnownPrettifyProviderId,
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
-  type PrettifyProviderId,
   type PrettifySettingsInput,
   assertValidPrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -149,25 +151,25 @@ function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
     temperature: settings.temperature,
     claudeCli: {
       hasExecutablePath: Boolean(settings.claudeCli?.executablePath?.trim()),
-      model: settings.claudeCli?.model,
-      fallbackModel: settings.claudeCli?.fallbackModel,
+      modelLength: settings.claudeCli?.model?.length,
+      fallbackModelLength: settings.claudeCli?.fallbackModel?.length,
       effort: settings.claudeCli?.effort,
       timeoutSeconds: settings.claudeCli?.timeoutSeconds,
     },
     codexCli: {
       hasExecutablePath: Boolean(settings.codexCli?.executablePath?.trim()),
-      model: settings.codexCli?.model,
+      modelLength: settings.codexCli?.model?.length,
       reasoningEffort: settings.codexCli?.reasoningEffort,
       timeoutSeconds: settings.codexCli?.timeoutSeconds,
       verbosity: settings.codexCli?.verbosity,
     },
     ollama: {
       baseUrlLength: typeof settings.ollama?.baseUrl === 'string' ? settings.ollama.baseUrl.length : undefined,
-      model: settings.ollama?.model,
+      modelLength: settings.ollama?.model?.length,
     },
     vllm: {
       baseUrlLength: typeof settings.vllm?.baseUrl === 'string' ? settings.vllm.baseUrl.length : undefined,
-      model: settings.vllm?.model,
+      modelLength: settings.vllm?.model?.length,
       apiKeyUpdated: typeof settings.vllm?.apiKey === 'string' && settings.vllm.apiKey.trim().length > 0,
       clearApiKey: Boolean(settings.vllm?.clearApiKey),
     },
@@ -771,8 +773,8 @@ export function registerIpcHandlers(): void {
         providerChanged: savedSettings.providerId !== previous.providerId,
         promptLength: savedSettings.prompt.length,
         temperature: savedSettings.temperature,
-        ollamaModel: savedSettings.ollama.model,
-        vllmModel: savedSettings.vllm.model,
+        ollamaModelLength: savedSettings.ollama.model.length,
+        vllmModelLength: savedSettings.vllm.model.length,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
       getMainWindow()?.webContents.send('prettify-settings-changed', savedSettings);
@@ -785,39 +787,69 @@ export function registerIpcHandlers(): void {
 
   handle(
     'list-prettify-models',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelListResult> => {
-      if (!isPrettifyProviderId(providerId)) {
-        return { success: false, providerId: 'ollama', models: [], error: 'Unsupported prettify provider' };
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelListResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
+        return {
+          availability: { status: 'unavailable' },
+          success: false,
+          providerId: 'ollama',
+          source: 'http',
+          models: [],
+          error: 'Unsupported prettify provider',
+        };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Listing Prettify models:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
         });
-        const models = await listPrettifyModels(providerId, draftSettings);
-        log.info('Prettify models listed:', { providerId, modelCount: models.length });
-        return { success: true, providerId, models };
+        const result = await listPrettifyModels(providerId, draftSettings);
+        log.info('Prettify models listed:', {
+          providerId,
+          modelCount: result.models.length,
+          source: result.source,
+          availability: result.availability.status,
+          ...(result.availability.status === 'unavailable'
+            ? { errorCode: result.availability.errorCode }
+            : { hasCapabilityVersion: Boolean(result.availability.capabilityVersion) }),
+        });
+        return result;
       } catch (error: unknown) {
         log.warn('Prettify model listing failed:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, models: [], error: getErrorMessage(error) };
+        return {
+          availability: { status: 'unavailable' },
+          success: false,
+          providerId,
+          source: getPrettifyProviderCapabilities(providerId).modelSource,
+          models: [],
+          error: t('status.prettifyFailed'),
+        };
       }
     },
   );
 
   handle(
     'load-prettify-model',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelLoadResult> => {
-      if (!isPrettifyProviderId(providerId)) {
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelLoadResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Loading Prettify model:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
@@ -826,13 +858,13 @@ export function registerIpcHandlers(): void {
         if (!result.success) {
           log.warn('Prettify model load failed:', {
             providerId,
-            model: result.model,
-            error: result.error,
+            hasModel: Boolean(result.model),
+            hasError: Boolean(result.error),
           });
         } else {
           log.info('Prettify model loaded:', {
             providerId,
-            model: result.model,
+            hasModel: Boolean(result.model),
             hasVramSize: typeof result.vramSizeBytes === 'number',
           });
         }
@@ -840,22 +872,26 @@ export function registerIpcHandlers(): void {
       } catch (error: unknown) {
         log.warn('Prettify model load error:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, error: getErrorMessage(error) };
+        return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },
   );
 
   handle(
     'unload-prettify-model',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelUnloadResult> => {
-      if (!isPrettifyProviderId(providerId)) {
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelUnloadResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Unloading Prettify model:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
@@ -864,22 +900,22 @@ export function registerIpcHandlers(): void {
         if (!result.success) {
           log.warn('Prettify model unload failed:', {
             providerId,
-            model: result.model,
-            error: result.error,
+            hasModel: Boolean(result.model),
+            hasError: Boolean(result.error),
           });
         } else {
           log.info('Prettify model unloaded:', {
             providerId,
-            model: result.model,
+            hasModel: Boolean(result.model),
           });
         }
         return result;
       } catch (error: unknown) {
         log.warn('Prettify model unload error:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, error: getErrorMessage(error) };
+        return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },
   );

@@ -16,8 +16,22 @@ export type ClaudeCliPrettifyEffort = (typeof CLAUDE_CLI_PRETTIFY_EFFORT_VALUES)
 export type CodexCliPrettifyReasoningEffort = (typeof CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES)[number];
 export type CodexCliPrettifyVerbosity = (typeof CODEX_CLI_PRETTIFY_VERBOSITY_VALUES)[number];
 
-export type PrettifyModelSource = 'catalog' | 'cli';
+export type PrettifyModelSource = 'http' | 'known-aliases' | 'catalog' | 'bundled' | 'configured-model';
 export type PrettifyProviderPrivacyNotice = 'local' | 'remote' | 'cli';
+export type PrettifyCliRuntimeErrorCode =
+  | 'not-installed'
+  | 'not-executable'
+  | 'not-authenticated'
+  | 'unsupported'
+  | 'cancelled'
+  | 'timed-out'
+  | 'process-failed'
+  | 'empty-output'
+  | 'malformed-output'
+  | 'invalid-model'
+  | 'schema-unavailable'
+  | 'no-tools-unavailable'
+  | 'model-discovery-failed';
 
 export interface PrettifyProviderCapabilities {
   apiKey: boolean;
@@ -41,7 +55,7 @@ export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, Pre
     httpGenerationControls: true,
     modelLifecycle: true,
     modelListing: true,
-    modelSource: 'catalog',
+    modelSource: 'http',
     privacyNotice: 'local',
     reasoningEffort: false,
     supportsFreeTextModel: true,
@@ -54,7 +68,7 @@ export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, Pre
     httpGenerationControls: true,
     modelLifecycle: false,
     modelListing: true,
-    modelSource: 'catalog',
+    modelSource: 'http',
     privacyNotice: 'remote',
     reasoningEffort: false,
     supportsFreeTextModel: true,
@@ -66,8 +80,8 @@ export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, Pre
     experimental: true,
     httpGenerationControls: false,
     modelLifecycle: false,
-    modelListing: false,
-    modelSource: 'cli',
+    modelListing: true,
+    modelSource: 'known-aliases',
     privacyNotice: 'cli',
     reasoningEffort: true,
     supportsFreeTextModel: true,
@@ -79,8 +93,8 @@ export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, Pre
     experimental: true,
     httpGenerationControls: false,
     modelLifecycle: false,
-    modelListing: false,
-    modelSource: 'cli',
+    modelListing: true,
+    modelSource: 'catalog',
     privacyNotice: 'cli',
     reasoningEffort: true,
     supportsFreeTextModel: true,
@@ -92,9 +106,15 @@ export interface PrettifyModelOption {
   id: string;
   isLoaded?: boolean;
   name: string;
+  reasoningEfforts?: readonly CodexCliPrettifyReasoningEffort[];
   sizeBytes?: number;
+  verbosity?: readonly CodexCliPrettifyVerbosity[];
   vramSizeBytes?: number;
 }
+
+export type PrettifyProviderAvailability =
+  | { status: 'available'; capabilityVersion?: string }
+  | { status: 'unavailable'; errorCode?: PrettifyCliRuntimeErrorCode };
 
 export interface OllamaPrettifySettings {
   baseUrl: string;
@@ -162,10 +182,12 @@ export interface PrettifySettingsInput {
 }
 
 export interface PrettifyModelListResult {
+  availability: PrettifyProviderAvailability;
+  error?: string;
+  models: PrettifyModelOption[];
   success: boolean;
   providerId: KnownPrettifyProviderId;
-  models: PrettifyModelOption[];
-  error?: string;
+  source: PrettifyModelSource;
 }
 
 export interface PrettifyModelLoadResult {
@@ -489,6 +511,16 @@ export function getPrettifySettingsInputError(input: unknown = {}): string | nul
 export function assertValidPrettifySettingsInput(input: unknown = {}): asserts input is PrettifySettingsInput {
   const error = getPrettifySettingsInputError(input);
   if (error) throw new Error(error);
+}
+
+/** Validates model-inspection drafts for all known providers without enabling their persistence or selection. */
+export function assertValidKnownPrettifySettingsInput(input: unknown = {}): asserts input is PrettifySettingsInput {
+  if (!isSettingsInput(input)) throw new Error('Prettify settings must be an object');
+  if (input.providerId !== undefined && !isKnownPrettifyProviderId(input.providerId)) {
+    throw new Error('Unsupported prettify provider');
+  }
+  const { providerId, ...settingsWithoutProvider } = input;
+  assertValidPrettifySettingsInput(isPrettifyProviderId(providerId) ? input : settingsWithoutProvider);
 }
 
 export function normalizePrettifyTemperature(value: unknown): number {

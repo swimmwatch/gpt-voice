@@ -13,7 +13,7 @@ import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
-  PrettifyProviderId,
+  KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -261,19 +261,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('set-prettify-settings', settings);
   },
   listPrettifyModels: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelListResult> => {
     return ipcRenderer.invoke('list-prettify-models', providerId, settings);
   },
   loadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelLoadResult> => {
     return ipcRenderer.invoke('load-prettify-model', providerId, settings);
   },
   unloadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelUnloadResult> => {
     return ipcRenderer.invoke('unload-prettify-model', providerId, settings);

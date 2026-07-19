@@ -8,7 +8,7 @@ import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
-  PrettifyProviderId,
+  KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -153,15 +153,15 @@ export interface ElectronAPI {
   getPrettifySettings: () => Promise<PrettifySettings>;
   setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
   listPrettifyModels: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelListResult>;
   loadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelLoadResult>;
   unloadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelUnloadResult>;
   getTranslations: () => Promise<Record<string, string>>;

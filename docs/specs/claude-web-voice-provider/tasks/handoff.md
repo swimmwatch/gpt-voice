@@ -1,46 +1,61 @@
-# Handoff: CLI Prettify Localization
+# Handoff: CLI Prettify Runtime Integration
 
-Status: Task 14 was committed as `2f2f3037 feat(prettify): package Codex
-output schema`. Task 15 is complete and deliberately uncommitted for review.
-Do not begin Task 16 or enable either CLI provider in this invocation.
+Status: Task 15 was committed as `01bde8c3 feat(prettify): localize CLI
+provider states`. Task 16 is complete and deliberately uncommitted for review.
+Claude CLI and experimental Codex CLI remain absent from the selectable
+provider list. Do not begin Task 17 in this invocation.
 
-Implemented in Task 15:
+Implemented in Task 16:
 
-- Added Claude CLI and experimental Codex CLI provider labels plus executable,
-  model, fallback, effort, verbosity, timeout, and capability guidance in
-  English, Russian, Ukrainian, and Belarusian.
-- Added provider-specific privacy notices explaining that selected text and the
-  protected prompt use the user's Anthropic or OpenAI CLI account and may
-  consume subscription or API quota.
-- Localized every Claude and Codex adapter error code and the dedicated invalid
-  path/model, output-limit, nonzero-exit, packaged-schema, no-tools isolation,
-  and model-discovery states.
-- Kept every CLI message placeholder-free. Cancellation and timeout messages
-  state that the process was terminated without automatic retry; Codex remains
-  unavailable when isolation cannot be proven and exposes no bypass.
-- Extended i18n tests to enforce adapter-enum coverage, supported option values,
-  locale/key parity, placeholder parity, fail-closed guidance, and privacy-safe
-  wording.
+- Extended model-list contracts with safe availability/capability metadata,
+  HTTP/alias/catalog/bundled/configured sources, and proven Codex reasoning and
+  verbosity options.
+- Added precise invalid-model, schema, no-tools isolation, and model-discovery
+  adapter errors. Claude and Codex now prepare capability/auth/model gates once
+  and expose one-shot generation handles; existing `prettify()` wrappers remain
+  compatible.
+- Integrated all four known providers through explicit main-process dispatch.
+  HTTP providers receive only fetch behavior; CLI paths use only injected
+  adapters and cannot fall through to HTTP. Empty CLI models retain CLI-default
+  semantics.
+- Added prepared cache contexts before lookup. Capability versions and
+  result-affecting settings invalidate cached text; executable paths, auth,
+  timeouts, environment, source, and output remain excluded. Generation runs
+  only on a miss.
+- Preserved selected-text single-flight, clipboard restoration, cancellation,
+  notifications, Ollama lifecycle, vLLM requests/API-key handling, and the
+  HTTP-only selectable provider gate.
+- Allowed known provider IDs on typed model-inspection IPC while keeping
+  persistence and renderer selection HTTP-only. IPC logs contain only provider
+  IDs, safe enums, booleans, counts, and string lengths.
 
-Task 15 changed files:
+Task 16 changed files:
 
-- `src/main/i18n/{en,ru,uk,be}.ts`
-- `tests/main/i18n.test.ts`
+- `src/shared/prettifySettings.ts`
+- `src/main/services/{prettifyClaudeCli,prettifyCodexCli,prettifyProviders,selectedTextPrettify}.ts`
+- Task-scoped hunks in `src/main/{ipc,preload}.ts` and
+  `src/renderer/types.d.ts`; unrelated provider-switching hunks remain intact.
+- `tests/main/{prettifyClaudeCli,prettifyCodexCli,prettifyProviders,selectedTextPrettify,prettifyIpcPrivacyContract}.test.ts`
+- `tests/shared/prettifySettings.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
 Verification:
 
-- `node --import tsx --test tests/main/i18n.test.ts`, `npm run typecheck`,
-  `npm run test:types`, `npm run lint`, and `npm run format:check` pass. Lint
-  retains only the two pre-existing warnings in
+- Focused provider, selected-text, adapter, runner, settings, i18n, IPC privacy,
+  shared-contract, and renderer model tests pass.
+- `npm run typecheck`, `npm run test:types`, `npm run format:check`, and
+  `git diff --check` pass.
+- `npm run lint` has no errors and retains only two pre-existing warnings in
   `tests/main/streamingTranscription.test.ts`.
-- `git diff --check` and the targeted localization privacy scan pass. The scan
-  found no raw process fields, identities, credentials, full paths, URLs, or
-  sensitive runtime placeholders in the new locale text.
-- No adapter, renderer, IPC, provider-enablement, dependency, or packaging
-  behavior changed. Unrelated provider-switching work remains preserved.
+- `npm test` passes 99 of 100 test files. The pre-existing unrelated
+  `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists: its
+  measure and verify assertions receive empty stdout.
+- No test launched a real CLI or provider. Diff/privacy inspection found no
+  credentials, identities, account state, source/output values, raw process
+  data, or full executable paths in runtime logs or IPC results.
 
 Exact next packet:
 
-- After human review, run Task 16 (`16_integrate_cli_prettify_runtime.md`). Keep
-  both CLI providers unselectable until that packet's capability gate passes.
+- After human review, run Task 17 (`17_add_cli_settings_state.md`). Preserve the
+  HTTP-only selectable-provider gate until Task 18 adds capability-correct
+  renderer controls.

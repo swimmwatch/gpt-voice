@@ -72,6 +72,10 @@ export enum CodexCliPrettifyErrorCode {
   ProcessFailed = 'process-failed',
   EmptyOutput = 'empty-output',
   MalformedOutput = 'malformed-output',
+  InvalidModel = 'invalid-model',
+  SchemaUnavailable = 'schema-unavailable',
+  NoToolsUnavailable = 'no-tools-unavailable',
+  ModelDiscoveryFailed = 'model-discovery-failed',
 }
 
 export interface CodexCliAvailability {
@@ -119,6 +123,16 @@ export interface CodexCliModelDiscoveryFailure {
 
 export type CodexCliModelDiscoveryResult = CodexCliModelDiscoverySuccess | CodexCliModelDiscoveryFailure;
 
+export interface CodexCliPreparedPrettify {
+  cacheContext: readonly string[];
+  capabilityVersion: string;
+  execute(text: string): Promise<CodexCliPrettifyResult>;
+  models: readonly CodexCliModelCapability[];
+  source: CodexCliModelDiscoverySuccess['source'];
+}
+
+export type CodexCliPrepareResult = { prepared: CodexCliPreparedPrettify; success: true } | CodexCliPrettifyFailure;
+
 export interface CodexCliPrettifyInput {
   prompt: string;
   settings: CodexCliPrettifySettings;
@@ -129,6 +143,10 @@ export interface CodexCliPrettifyInput {
 export interface CodexCliAvailabilityInput {
   settings: CodexCliPrettifySettings;
   signal: AbortSignal;
+}
+
+export interface CodexCliPrepareInput extends CodexCliAvailabilityInput {
+  prompt: string;
 }
 
 export interface CodexCliProcessRunner {
@@ -255,6 +273,14 @@ function mapRunnerFailure(result: Exclude<CliProcessResult, { success: true }>):
   return CodexCliPrettifyErrorCode.ProcessFailed;
 }
 
+function getTerminalModelDiscoveryError(
+  result: CliProcessResult,
+): CodexCliPrettifyErrorCode.Cancelled | CodexCliPrettifyErrorCode.TimedOut | null {
+  if (result.success) return null;
+  const error = mapRunnerFailure(result);
+  return error === CodexCliPrettifyErrorCode.Cancelled || error === CodexCliPrettifyErrorCode.TimedOut ? error : null;
+}
+
 function isSupportedReasoningEffort(value: unknown): value is CodexCliPrettifyReasoningEffort {
   return typeof value === 'string' && (SUPPORTED_REASONING_EFFORTS as readonly string[]).includes(value);
 }
@@ -320,7 +346,7 @@ function parseCodexCliEnvelope(
   }
 }
 
-function isValidCodexCliModel(value: string): boolean {
+export function isValidCodexCliModel(value: string): boolean {
   return /^\w[\w.:/-]{0,127}$/u.test(value);
 }
 
@@ -440,7 +466,7 @@ export class CodexCliPrettifyAdapter {
     const featuresResult = await this.run(input.settings, input.signal, 'codex-cli-features', ['features', 'list'], '');
     if (!featuresResult.success) return { error: mapRunnerFailure(featuresResult), success: false };
     if (!hasRequiredDisableFeatures(featuresResult.stdout)) {
-      return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
+      return { error: CodexCliPrettifyErrorCode.NoToolsUnavailable, success: false };
     }
 
     const authResult = await this.run(input.settings, input.signal, 'codex-cli-login-status', ['login', 'status'], '');
@@ -470,6 +496,8 @@ export class CodexCliPrettifyAdapter {
       const catalog = parseModelCatalog(primaryResult.stdout);
       if (catalog) return { models: catalog.models, source: 'catalog', success: true };
     }
+    const primaryTerminalError = getTerminalModelDiscoveryError(primaryResult);
+    if (primaryTerminalError) return { error: primaryTerminalError, success: false };
 
     const bundledResult = await this.run(
       settings,
@@ -483,6 +511,8 @@ export class CodexCliPrettifyAdapter {
       const catalog = parseModelCatalog(bundledResult.stdout);
       if (catalog) return { models: catalog.models, source: 'bundled', success: true };
     }
+    const bundledTerminalError = getTerminalModelDiscoveryError(bundledResult);
+    if (bundledTerminalError) return { error: bundledTerminalError, success: false };
 
     if (settings.model && isValidCodexCliModel(settings.model)) {
       return {
@@ -493,18 +523,31 @@ export class CodexCliPrettifyAdapter {
     }
 
     const failedResult = primaryResult.success ? bundledResult : primaryResult;
+    const mappedError = failedResult.success ? null : mapRunnerFailure(failedResult);
     return {
-      error: failedResult.success ? CodexCliPrettifyErrorCode.MalformedOutput : mapRunnerFailure(failedResult),
+      error:
+        mappedError === CodexCliPrettifyErrorCode.Cancelled || mappedError === CodexCliPrettifyErrorCode.TimedOut
+          ? mappedError
+          : CodexCliPrettifyErrorCode.ModelDiscoveryFailed,
       success: false,
     };
   }
 
   public async prettify(input: CodexCliPrettifyInput): Promise<CodexCliPrettifyResult> {
-    const availability = await this.checkAvailability({ settings: input.settings, signal: input.signal });
+    const prepared = await this.prepare(input);
+    return prepared.success ? prepared.prepared.execute(input.text) : prepared;
+  }
+
+  public async prepare(input: CodexCliPrepareInput): Promise<CodexCliPrepareResult> {
+    const availability = await this.checkAvailability(input);
     if (!availability.success) return availability;
+    if (input.settings.model && !isValidCodexCliModel(input.settings.model)) {
+      return { error: CodexCliPrettifyErrorCode.InvalidModel, success: false };
+    }
+
     const outputSchemaPath = this.resolveOutputSchemaPath();
     if (!outputSchemaPath || !(await this.hasValidSchema(outputSchemaPath))) {
-      return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
+      return { error: CodexCliPrettifyErrorCode.SchemaUnavailable, success: false };
     }
 
     const discovered = await this.discoverModels(input.settings, input.signal);
@@ -513,14 +556,32 @@ export class CodexCliPrettifyAdapter {
       ? findModelCapability(input.settings.model, discovered.models)
       : undefined;
     const args = buildCodexCliPrettifyArguments(input.prompt, outputSchemaPath, input.settings, modelCapability);
-    if (!args) return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
+    if (!args) return { error: CodexCliPrettifyErrorCode.InvalidModel, success: false };
 
-    const result = await this.run(input.settings, input.signal, 'codex-cli-prettify', args, input.text);
-    if (!result.success) return { error: mapRunnerFailure(result), success: false };
+    let consumed = false;
+    return {
+      success: true,
+      prepared: {
+        cacheContext: getCodexCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
+        capabilityVersion: availability.capabilityVersion,
+        execute: async (text) => {
+          if (consumed) return { error: CodexCliPrettifyErrorCode.ProcessFailed, success: false };
+          consumed = true;
+          const result = await this.run(input.settings, input.signal, 'codex-cli-prettify', args, text);
+          if (!result.success) return { error: mapRunnerFailure(result), success: false };
 
-    const envelope = parseCodexCliEnvelope(result.stdout);
-    if (!envelope.success) return envelope;
-    return { capabilityVersion: availability.capabilityVersion, success: true, text: envelope.text };
+          const envelope = parseCodexCliEnvelope(result.stdout);
+          if (!envelope.success) return envelope;
+          return {
+            capabilityVersion: availability.capabilityVersion,
+            success: true,
+            text: envelope.text,
+          };
+        },
+        models: discovered.models,
+        source: discovered.source,
+      },
+    };
   }
 
   private async hasValidSchema(outputSchemaPath: string): Promise<boolean> {
