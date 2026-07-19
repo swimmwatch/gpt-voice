@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { app } from 'electron';
 import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
 import type {
   CodexCliPrettifyReasoningEffort,
@@ -12,6 +14,8 @@ export const CODEX_CLI_MINIMUM_VERSION = '0.144.3';
 export const CODEX_CLI_STDERR_LIMIT_BYTES = 16 * 1024;
 export const CODEX_CLI_STDOUT_LIMIT_BYTES = 256 * 1024;
 export const CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES = 512 * 1024;
+export const CODEX_CLI_OUTPUT_SCHEMA_RELATIVE_PATH = 'prettify/codex-output.schema.json';
+export const CODEX_CLI_OUTPUT_SCHEMA_SHA256 = 'c5d6a5a0eb318596d03edb9e697d124f9daa2cfd1b1928f4ae1b786d081a22f6';
 
 const REQUIRED_CODEX_CLI_EXEC_HELP_FLAGS = [
   '--config',
@@ -116,7 +120,6 @@ export interface CodexCliModelDiscoveryFailure {
 export type CodexCliModelDiscoveryResult = CodexCliModelDiscoverySuccess | CodexCliModelDiscoveryFailure;
 
 export interface CodexCliPrettifyInput {
-  outputSchemaPath: string;
   prompt: string;
   settings: CodexCliPrettifySettings;
   signal: AbortSignal;
@@ -145,10 +148,18 @@ export interface CodexCliProcessRunner {
 
 export interface CodexCliSchemaFileSystem {
   access(filePath: string, mode: number): Promise<void>;
+  readFile(filePath: string): Promise<Uint8Array>;
   stat(filePath: string): Promise<{ isFile(): boolean }>;
 }
 
+export interface CodexCliOutputSchemaPathContext {
+  isPackaged: boolean;
+  mainDirectory: string;
+  resourcesPath: string;
+}
+
 export interface CodexCliPrettifyAdapterDependencies {
+  outputSchemaPathResolver?: () => string;
   runner?: CodexCliProcessRunner;
   schemaFileSystem?: CodexCliSchemaFileSystem;
 }
@@ -166,8 +177,24 @@ interface ParsedModelCatalog {
 
 const systemSchemaFileSystem: CodexCliSchemaFileSystem = {
   access: (filePath, mode) => fs.access(filePath, mode),
+  readFile: (filePath) => fs.readFile(filePath),
   stat: (filePath) => fs.stat(filePath),
 };
+
+export function resolveCodexCliOutputSchemaPath(context: CodexCliOutputSchemaPathContext): string {
+  const assetsDirectory = context.isPackaged
+    ? path.join(context.resourcesPath, 'assets')
+    : path.join(context.mainDirectory, '..', 'assets');
+  return path.join(assetsDirectory, CODEX_CLI_OUTPUT_SCHEMA_RELATIVE_PATH);
+}
+
+function resolveDefaultCodexCliOutputSchemaPath(): string {
+  return resolveCodexCliOutputSchemaPath({
+    isPackaged: app.isPackaged,
+    mainDirectory: __dirname,
+    resourcesPath: process.resourcesPath,
+  });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -372,10 +399,12 @@ export function getCodexCliPrettifyCacheContext(
 
 /** Executes the internal, capability-gated Codex CLI Prettify contract. */
 export class CodexCliPrettifyAdapter {
+  private readonly outputSchemaPathResolver: () => string;
   private readonly runner: CodexCliProcessRunner;
   private readonly schemaFileSystem: CodexCliSchemaFileSystem;
 
   constructor(dependencies: CodexCliPrettifyAdapterDependencies = {}) {
+    this.outputSchemaPathResolver = dependencies.outputSchemaPathResolver ?? resolveDefaultCodexCliOutputSchemaPath;
     this.runner = dependencies.runner ?? new CliProcessRunner();
     this.schemaFileSystem = dependencies.schemaFileSystem ?? systemSchemaFileSystem;
   }
@@ -473,7 +502,8 @@ export class CodexCliPrettifyAdapter {
   public async prettify(input: CodexCliPrettifyInput): Promise<CodexCliPrettifyResult> {
     const availability = await this.checkAvailability({ settings: input.settings, signal: input.signal });
     if (!availability.success) return availability;
-    if (!(await this.hasReadableSchema(input.outputSchemaPath))) {
+    const outputSchemaPath = this.resolveOutputSchemaPath();
+    if (!outputSchemaPath || !(await this.hasValidSchema(outputSchemaPath))) {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
     }
 
@@ -482,7 +512,7 @@ export class CodexCliPrettifyAdapter {
     const modelCapability = input.settings.model
       ? findModelCapability(input.settings.model, discovered.models)
       : undefined;
-    const args = buildCodexCliPrettifyArguments(input.prompt, input.outputSchemaPath, input.settings, modelCapability);
+    const args = buildCodexCliPrettifyArguments(input.prompt, outputSchemaPath, input.settings, modelCapability);
     if (!args) return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
 
     const result = await this.run(input.settings, input.signal, 'codex-cli-prettify', args, input.text);
@@ -493,15 +523,24 @@ export class CodexCliPrettifyAdapter {
     return { capabilityVersion: availability.capabilityVersion, success: true, text: envelope.text };
   }
 
-  private async hasReadableSchema(outputSchemaPath: string): Promise<boolean> {
+  private async hasValidSchema(outputSchemaPath: string): Promise<boolean> {
     if (!path.isAbsolute(outputSchemaPath)) return false;
     try {
       const metadata = await this.schemaFileSystem.stat(outputSchemaPath);
       if (!metadata.isFile()) return false;
       await this.schemaFileSystem.access(outputSchemaPath, constants.R_OK);
-      return true;
+      const contents = await this.schemaFileSystem.readFile(outputSchemaPath);
+      return createHash('sha256').update(contents).digest('hex') === CODEX_CLI_OUTPUT_SCHEMA_SHA256;
     } catch {
       return false;
+    }
+  }
+
+  private resolveOutputSchemaPath(): string | null {
+    try {
+      return this.outputSchemaPathResolver();
+    } catch {
+      return null;
     }
   }
 

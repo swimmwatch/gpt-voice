@@ -1,65 +1,56 @@
-# Handoff: Experimental Codex CLI Adapter
+# Handoff: Packaged Codex Output Schema
 
-Status: Task 12 was committed as `5e66896c feat(prettify): add Claude CLI
-adapter`. Task 13 is complete and deliberately uncommitted for review. Do not
-begin Task 14, enable either CLI provider, or add packaging changes in this
-invocation.
+Status: Task 13 was committed as `014c442d feat(prettify): add experimental
+Codex CLI adapter`. Task 14 is complete and deliberately uncommitted for
+review. Do not begin Task 15 or enable either CLI provider in this invocation.
 
-Implemented in Task 13:
+Implemented in Task 14:
 
-- Added an internal `CodexCliPrettifyAdapter` that uses `CliProcessRunner`
-  exclusively, keeps selected text on stdin, checks version and login status,
-  validates the `exec`/model/feature capabilities, and maps every runner or
-  parser failure to stable safe codes.
-- Added the fixed isolated `codex exec` vector: ephemeral session, ignored user
-  config and rules, strict config, skipped Git check, read-only sandbox, never
-  approval, empty MCP configuration, disabled executable/integration features,
-  disabled web search, forced reasoning summary `none`, and an injected
-  absolute readable output-schema path.
-- Added model discovery through `codex debug models` with bundled fallback,
-  parsing for the installed catalog's `slug`, reasoning-level objects, and
-  verbosity support. Only low/medium/high/xhigh reasoning and
-  low/medium/high verbosity are exposed; configured free-text models survive
-  catalog drift.
-- Corrected the initial runtime blocker: the installed bundled catalog is
-  286,936 bytes, so model discovery now has a dedicated 512 KiB cap while
-  Prettify output remains capped at 256 KiB. Obsolete feature names were
-  replaced with names proven by the installed feature registry.
-- Added deterministic tests for capability rejection, exact argv/stdin
-  separation, catalog fallback/drift, model-option filtering, schema and output
-  validation, auth-by-exit-code, runner failures, and cache privacy.
+- Added one deterministic non-secret schema at
+  `assets/prettify/codex-output.schema.json`. It requires exactly one string
+  `text` property and rejects additional properties.
+- Added the schema exactly once to Electron's existing asset extra-resource
+  filter and the packaged-runtime asset allowlist. No CLI binary, CLI config,
+  test fixture, or research directory was added to packaging.
+- Replaced caller-supplied schema paths with an injected
+  `outputSchemaPathResolver`. The default resolver uses the source asset path in
+  development and `process.resourcesPath/assets` in packaged applications.
+- Added fail-closed schema validation before Codex model discovery or
+  Prettify execution: the resolved path must be absolute, readable, and a
+  regular file whose SHA-256 matches the audited asset. Missing, unreadable,
+  non-file, relative, resolver-failed, and tampered schemas return the existing
+  safe `Unsupported` result without unconstrained fallback.
+- Preserved paths containing spaces as one `--output-schema` argv value.
 
-Sanitized canary evidence:
+Task 14 changed files:
 
-- Codex CLI capability version `0.144.3` passed version, exec-help,
-  model-help, feature-registry, authentication, model-discovery, and isolated
-  execution gates.
-- The final envelope was an object with one nonempty string `text` field. Model
-  metadata exposed only the redacted key/type shape for slug/display name,
-  verbosity support, and reasoning levels.
-- Evidence is stored in
-  `tests/fixtures/codex-cli-capability-shape.json`. No identity, source text,
-  provider output, model identifiers, raw catalog, paths, auth, or session data
-  is retained. The disposable canary files were deleted.
-
-Task 13 changed files:
-
+- `assets/prettify/codex-output.schema.json`
+- `package.json`
+- `scripts/packaged-runtime-policy.mjs`
 - `src/main/services/prettifyCodexCli.ts`
 - `tests/main/prettifyCodexCli.test.ts`
-- `tests/fixtures/codex-cli-capability-shape.json`
+- `tests/scripts/packagedRuntimePolicy.test.ts`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
-Checks:
+Verification:
 
-- Focused Codex adapter/runner tests, `npm run typecheck`,
-  `npm run test:types`, `npm run lint`, `npm run format:check`, and diff hygiene
-  pass. Lint retains only the two pre-existing warnings in
-  `tests/main/streamingTranscription.test.ts`.
+- Focused adapter and packaged-policy tests, `npm run typecheck`,
+  `npm run test:types`, `npm run lint`, `npm run format:check`, diff hygiene,
+  and `npm run build:prod` pass. Lint retains only the two pre-existing warnings
+  in `tests/main/streamingTranscription.test.ts`.
 - `npm test` passes 98/99 files. The unrelated
   `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists.
+- `npm run pack` and `npm run verify:packaged` pass for Linux x64. The first
+  sandboxed pack attempt could not resolve GitHub; the authorized networked
+  rerun completed successfully.
+- The packaged schema exists once at
+  `resources/assets/prettify/codex-output.schema.json` and matches canonical
+  SHA-256 `c5d6a5a0eb318596d03edb9e697d124f9daa2cfd1b1928f4ae1b786d081a22f6`.
+  Package scans found no Codex/Claude binaries, auth/config directories, tests,
+  fixtures, research files, or diagnostics. Generated package output remains
+  ignored and untracked.
 
 Exact next packet:
 
-- After human review and explicit packaging approval, run Task 14
-  (`14_package_codex_output_schema.md`). Keep both CLI providers unselectable
-  until their runtime-integration packet.
+- After human review, run Task 15 (`15_localize_cli_prettify.md`). Keep both CLI
+  providers unselectable until their runtime-integration packet.

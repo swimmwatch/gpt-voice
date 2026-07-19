@@ -28,6 +28,7 @@ export const RUNTIME_ASSET_PATHS = [
   'tray-icon-prettifying.png',
   'tray-icon-processing.png',
   'tray-icon-recording.png',
+  'prettify/codex-output.schema.json',
 ];
 
 export const ELECTRON_LOCALE_FILENAMES = ['en-GB.pak', 'en-US.pak', 'ru.pak', 'uk.pak'];

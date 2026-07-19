@@ -110,7 +110,8 @@
           "tray-icon-paused.png",
           "tray-icon-prettifying.png",
           "tray-icon-processing.png",
-          "tray-icon-recording.png"
+          "tray-icon-recording.png",
+          "prettify/codex-output.schema.json"
         ]
       },
       {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +13,11 @@ interface PackagedRuntimePolicyModule {
 }
 
 const modulePath = path.join(__dirname, '..', '..', 'scripts', 'packaged-runtime-policy.mjs');
+const packagePath = path.join(__dirname, '..', '..', 'package.json');
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function isPackagedRuntimePolicyModule(value: unknown): value is PackagedRuntimePolicyModule {
   return (
@@ -44,6 +50,27 @@ const requiredPaths = [
 ];
 
 describe('packaged runtime policy', () => {
+  it('packages only the audited Codex schema through the existing asset resource', async () => {
+    const packageJson: unknown = JSON.parse(await readFile(packagePath, 'utf8'));
+    assert.ok(isRecord(packageJson) && isRecord(packageJson.build));
+    const extraResources = packageJson.build.extraResources;
+    assert.ok(Array.isArray(extraResources));
+    const assetResource = extraResources.find(
+      (resource: unknown) => isRecord(resource) && resource.from === 'assets' && resource.to === 'assets',
+    );
+    assert.ok(isRecord(assetResource) && Array.isArray(assetResource.filter));
+    assert.equal(
+      assetResource.filter.filter((entry: unknown) => entry === 'prettify/codex-output.schema.json').length,
+      1,
+    );
+    assert.deepEqual(
+      assetResource.filter.filter(
+        (entry: unknown) => typeof entry === 'string' && /(?:^|\/)(?:claude|codex)(?:$|\/)/iu.test(entry),
+      ),
+      [],
+    );
+  });
+
   it('accepts required files and approved runtime modules with normalized separators', async () => {
     const importedModule: unknown = await import(pathToFileURL(modulePath).href);
     assert.ok(isPackagedRuntimePolicyModule(importedModule));
@@ -100,6 +127,17 @@ describe('packaged runtime policy', () => {
     assert.ok(isPackagedRuntimePolicyModule(importedModule));
 
     assert.deepEqual(importedModule.getRuntimeAssetViolations(importedModule.RUNTIME_ASSET_PATHS), []);
+    assert.equal(
+      importedModule.RUNTIME_ASSET_PATHS.filter((assetPath) => assetPath === 'prettify/codex-output.schema.json')
+        .length,
+      1,
+    );
+    assert.deepEqual(
+      importedModule.getRuntimeAssetViolations(
+        importedModule.RUNTIME_ASSET_PATHS.filter((assetPath) => assetPath !== 'prettify/codex-output.schema.json'),
+      ),
+      ['missing runtime asset: prettify/codex-output.schema.json'],
+    );
     assert.deepEqual(importedModule.getRuntimeAssetViolations([...importedModule.RUNTIME_ASSET_PATHS, 'readme.png']), [
       'unexpected runtime asset: readme.png',
     ]);
