@@ -1,6 +1,6 @@
 import { app, globalShortcut, session } from 'electron';
 import log from './logger';
-import { loadConfig, getCurrentLocale, hasExplicitLocalePreference } from './config';
+import { loadConfig, getCurrentLocale, hasExplicitLocalePreference, currentProvider } from './config';
 import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
@@ -138,10 +138,11 @@ app.on('ready', () => {
   registerShortcuts();
 
   void initBackgroundBrowser().then((status) => {
+    const providerId = status.providerId || currentProvider;
     if (status.ready) {
-      getMainWindow()?.webContents.send('bg-browser-ready');
+      getMainWindow()?.webContents.send('bg-browser-ready', providerId);
     } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
+      getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
     }
   });
 });

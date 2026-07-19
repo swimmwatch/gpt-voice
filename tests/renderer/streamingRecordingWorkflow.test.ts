@@ -12,63 +12,68 @@ function readProjectFile(relativePath: string): string {
 describe('streaming recording workflow', () => {
   it('snapshots provider mode and starts streaming IPC without waiting before live capture', () => {
     const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
-    const queueConstruction = hook.indexOf('const queue = new StreamingTranscriptionQueue({');
-    const liveCapture = hook.indexOf('const capturePromise = startLivePcmCapture(stream, {', queueConstruction);
+    const streaming = readProjectFile('src/renderer/hooks/useStreamingRecordingController.ts');
+    const queueConstruction = streaming.indexOf('const queue = new StreamingTranscriptionQueue({');
+    const liveCapture = streaming.indexOf('const capturePromise = startLivePcmCapture(stream, {', queueConstruction);
 
     assert.match(hook, /transcriptionMode: VoiceTranscriptionMode/u);
-    assert.match(hook, /if \(transcriptionMode === 'streaming'\) \{\s*await startStreamingRecording\(stream\);/u);
+    assert.match(hook, /recordingModeRef\.current = transcriptionMode;/u);
+    assert.match(
+      hook,
+      /if \(transcriptionMode === 'streaming'\) \{\s*await streamingRecording\.start\(stream, generation\);/u,
+    );
+    assert.match(streaming, /recordingGenerationRef\.current !== generation/u);
     assert.ok(queueConstruction >= 0 && liveCapture > queueConstruction);
-    assert.doesNotMatch(hook.slice(queueConstruction, liveCapture), /await/u);
-    assert.match(hook, /client: window\.electronAPI/u);
-    assert.match(hook, /onFrame: \(frame\) => \{\s*queue\.enqueueFrame\(frame\);/u);
+    assert.doesNotMatch(streaming.slice(queueConstruction, liveCapture), /await/u);
+    assert.match(streaming, /client: window\.electronAPI/u);
+    assert.match(streaming, /onFrame: \(frame\) => queue\.enqueueFrame\(frame\)/u);
   });
 
   it('routes pause, resume, Stop, cancellation, and explicit Retry through their owned paths', () => {
     const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
-    const streamingStart = hook.indexOf('const startStreamingRecording');
-    const batchStart = hook.indexOf('const startRecording');
-    const streamingSection = hook.slice(streamingStart, batchStart);
+    const streaming = readProjectFile('src/renderer/hooks/useStreamingRecordingController.ts');
 
-    assert.match(hook, /streamingCaptureRef\.current\?\.pause\(\)/u);
-    assert.match(hook, /streamingCaptureRef\.current\?\.resume\(\)/u);
-    assert.match(hook, /const finished = await capture\.finish\(\)/u);
-    assert.match(hook, /await queue\.finish\(finished\.finalChunk, finished\.recordingWav\)/u);
-    assert.match(hook, /void queue\.cancel\(\)/u);
+    assert.match(streaming, /captureRef\.current\?\.pause\(\)/u);
+    assert.match(streaming, /captureRef\.current\?\.resume\(\)/u);
+    assert.match(streaming, /const finished = await capture\.finish\(\)/u);
+    assert.match(streaming, /await queue\.finish\(finished\.finalChunk, finished\.recordingWav\)/u);
+    assert.match(streaming, /if \(!ownsRecording\(\)\) return;/u);
+    assert.match(streaming, /void queue\.cancel\(\)/u);
     assert.match(hook, /await submitTranscriptionAudio\(retry\.audio, true\)/u);
     assert.match(hook, /window\.electronAPI\.transcribeAudio\(audio\.buffer, audio\.mimeType\)/u);
-    assert.doesNotMatch(streamingSection, /transcribeAudio/u);
+    assert.doesNotMatch(streaming, /transcribeAudio/u);
   });
 
   it('retains canonical WAV only for successful or retry-eligible live outcomes', () => {
-    const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
+    const streaming = readProjectFile('src/renderer/hooks/useStreamingRecordingController.ts');
 
-    assert.match(hook, /mimeType: WAV_TRANSCRIPTION_MIME_TYPE,[\s\S]*transcoded: false,/u);
-    assert.match(hook, /if \(failure\.retryEligible\) \{[\s\S]*capture\?\.finish\(\)/u);
-    assert.match(hook, /if \(retryAudio\) rememberLastTranscriptionAudio\(retryAudio\)/u);
-    assert.match(hook, /if \(!result\.retryEligible\) clearLastTranscriptionAudio\(\)/u);
-    assert.match(hook, /if \(result\.success && result\.text\) \{\s*showSuccessfulTranscription/u);
+    assert.match(streaming, /mimeType: WAV_TRANSCRIPTION_MIME_TYPE,[\s\S]*transcoded: false,/u);
+    assert.match(streaming, /if \(failure\.retryEligible\) \{[\s\S]*capture\?\.finish\(\)/u);
+    assert.match(streaming, /if \(retryAudio\) rememberRetryAudio\(retryAudio\)/u);
+    assert.match(streaming, /if \(!result\.retryEligible\) clearRetryAudio\(\)/u);
+    assert.match(streaming, /if \(result\.success && result\.text\) \{\s*showSuccessfulTranscription/u);
   });
 
   it('presents typed live failures through a localized safe-message adapter', () => {
-    const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
+    const streaming = readProjectFile('src/renderer/hooks/useStreamingRecordingController.ts');
 
-    assert.match(hook, /const message = t\(getStreamingTranscriptionFailureTranslationKey\(failure\)\);/u);
-    assert.match(hook, /showRecognitionErrorNotification\(undefined, message, \{/u);
-    assert.doesNotMatch(hook, /showRecognitionErrorNotification\(failure/u);
+    assert.match(streaming, /const translationKey = getStreamingTranscriptionFailureTranslationKey\(failure\);/u);
+    assert.match(streaming, /showRecognitionError\(undefined, t\(translationKey\), \{ sound: 'error' \}\)/u);
+    assert.doesNotMatch(streaming, /showRecognitionError\(failure/u);
   });
 
   it('cancels only a live recording before provider mutation and during teardown', () => {
-    const hook = readProjectFile('src/renderer/hooks/useRecording.ts');
+    const streaming = readProjectFile('src/renderer/hooks/useStreamingRecordingController.ts');
     const app = readProjectFile('src/renderer/App.tsx');
-    const providerChange = app.indexOf('const handleProviderChange');
-    const rendererCancel = app.indexOf('cancelStreamingForProviderChange();', providerChange);
-    const providerMutation = app.indexOf('setActiveProviderId(providerId);', providerChange);
+    const switchStarted = app.indexOf("case 'switch-started'");
+    const rendererCancel = app.indexOf('cancelStreamingForProviderChange();', switchStarted);
+    const providerMutation = app.indexOf('setActiveProviderId(event.providerId);', switchStarted);
 
-    assert.match(hook, /if \(recordingModeRef\.current === 'streaming'\) cancelStreamingRecording\(false\);/u);
-    assert.ok(rendererCancel > providerChange && rendererCancel < providerMutation);
+    assert.match(streaming, /if \(recordingModeRef\.current === 'streaming'\) cancel\(false\);/u);
+    assert.ok(rendererCancel > switchStarted && rendererCancel < providerMutation);
     assert.match(app, /transcriptionMode: activeProviderTranscriptionMode/u);
-    assert.match(hook, /return \(\) => \{[\s\S]*void queue\.cancel\(\)/u);
-    assert.match(hook, /streamingCapturePromiseRef\.current\?\.then\(\(capture\) => capture\.cancel\(\)\)/u);
+    assert.match(streaming, /return \(\) => \{[\s\S]*void queue\.cancel\(\)/u);
+    assert.match(streaming, /capturePromiseRef\.current\?\.then\(\(capture\) => capture\.cancel\(\)\)/u);
   });
 
   it('keeps the established MediaRecorder batch workflow available', () => {

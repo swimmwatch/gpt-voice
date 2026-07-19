@@ -166,7 +166,8 @@
   min-height: 0;
   flex-direction: column;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   border: 1px solid var(--dock-border);
   background: var(--dock-background);
   color: var(--dock-foreground);

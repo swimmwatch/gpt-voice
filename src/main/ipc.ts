@@ -18,12 +18,11 @@ import {
   saveConfig,
 } from './config';
 import {
-  initBackgroundBrowser,
-  shutdownBackgroundBrowser,
   isBgReady,
   getBackgroundBrowserStatus,
   getActiveProvider,
   launchLoginContext,
+  restartBackgroundBrowser,
   switchProvider,
 } from './browser';
 import { createProvider, getAvailableProviders } from './providers';
@@ -241,11 +240,17 @@ export async function teardownStreamingTranscriptionIpcHandlers(): Promise<void>
   await controller?.dispose();
 }
 
-function sendBackgroundStatus(status: { ready: boolean; error?: string; authExpired?: boolean }): void {
+function sendBackgroundStatus(status: {
+  providerId?: string;
+  ready: boolean;
+  error?: string;
+  authExpired?: boolean;
+}): void {
+  const providerId = status.providerId || currentProvider;
   if (status.ready) {
-    getMainWindow()?.webContents.send('bg-browser-ready');
+    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
   } else if (status.error) {
-    getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
+    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
   }
 }
 
@@ -298,8 +303,7 @@ function getProviderSettingsSnapshot(providerId: string) {
 
 async function refreshActiveProvider(providerId: string) {
   if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
-  await shutdownBackgroundBrowser();
-  const status = await initBackgroundBrowser();
+  const status = await restartBackgroundBrowser();
   sendBackgroundStatus(status);
   return status;
 }
@@ -518,8 +522,7 @@ export function registerIpcHandlers(): void {
       assertValidCloakBrowserSettingsInput(settings);
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
       const preparedSettings = prepareCloakBrowserSettings(settings);
-      await shutdownBackgroundBrowser();
-      const backgroundStatus = await initBackgroundBrowser({
+      const backgroundStatus = await restartBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
       });
       sendBackgroundStatus(backgroundStatus);

@@ -26,6 +26,7 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /aria-label=\{providerSettingsLabel\}/u);
     assert.match(band, /<Settings aria-hidden="true"/u);
     assert.match(styles, /\.command-dock-prettify-band \{[\s\S]*?min-height: 60px;[\s\S]*?flex: 0 0 60px;/u);
+    assert.match(styles, /\.command-dock \{[\s\S]*?overflow-y: auto;/u);
   });
 
   it('persists only the provider ID and keeps non-Ollama selection free of availability probes', () => {

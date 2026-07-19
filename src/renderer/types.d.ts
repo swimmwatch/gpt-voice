@@ -39,6 +39,7 @@ export type ProviderAuthType = VoiceProviderAuthType;
 export type ProviderCategory = VoiceProviderCategory;
 
 export interface BackgroundBrowserStatus {
+  providerId?: string;
   ready: boolean;
   error?: string;
   authExpired?: boolean;
@@ -140,8 +141,8 @@ export interface ElectronAPI {
   showNotification: (title: string, body: string, options?: SystemNotificationOptions) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
-  onBgBrowserReady: (callback: () => void) => () => void;
-  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
+  onBgBrowserReady: (callback: (providerId: string) => void) => () => void;
+  onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => () => void;
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
   onLocaleChanged: (callback: (locale: AppLocaleId) => void) => () => void;

@@ -104,6 +104,17 @@ function toFinishFailure(failure: StreamingRecordingFailure): FinishStreamingTra
   };
 }
 
+function createCancelledFinishResult(): FinishStreamingTranscriptionIpcResult {
+  return {
+    success: false,
+    error: {
+      lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+      code: StreamingTranscriptionErrorCode.Cancelled,
+    },
+    retryEligible: false,
+  };
+}
+
 /** Owns one renderer streaming operation, its bounded backlog, and deterministic send cadence. */
 export class StreamingTranscriptionQueue {
   private readonly client: StreamingTranscriptionRendererClient;
@@ -259,14 +270,7 @@ export class StreamingTranscriptionQueue {
     await this.waitForDrain();
     if (this.failure) return toFinishFailure(this.failure);
     if (this.cancelled || !operationId) {
-      return {
-        success: false,
-        error: {
-          lifecycle: StreamingTranscriptionLifecycle.Cancelled,
-          code: StreamingTranscriptionErrorCode.Cancelled,
-        },
-        retryEligible: false,
-      };
+      return createCancelledFinishResult();
     }
 
     let result: FinishStreamingTranscriptionIpcResult;
@@ -280,6 +284,7 @@ export class StreamingTranscriptionQueue {
     } catch {
       result = toFinishFailure(createTransportFailure(this.nextSequence > 0 || finalChunk.byteLength > 0));
     }
+    if (this.cancelled) return createCancelledFinishResult();
     if (!result.success) this.failure = toIpcFailure(result);
     return result;
   }

@@ -393,6 +393,34 @@ describe('streaming transcription renderer queue', () => {
     assert.deepEqual(harness.failures, []);
   });
 
+  it('suppresses an in-flight finish result after cancellation', async () => {
+    const deferredFinish = createDeferred<FinishStreamingTranscriptionIpcResult>();
+    const harness = createQueueHarness({
+      finishStreamingTranscription: async () => deferredFinish.promise,
+    });
+    harness.start.resolve({
+      success: true,
+      operationId: OPERATION_ID,
+      lifecycle: StreamingTranscriptionLifecycle.Starting,
+    });
+    const finishPromise = harness.queue.finish(new Uint8Array([1, 2]), new ArrayBuffer(46));
+    await flushAsyncTurn();
+
+    const cancelPromise = harness.queue.cancel();
+    deferredFinish.resolve({ success: true, lifecycle: StreamingTranscriptionLifecycle.Completed, text: 'stale' });
+
+    assert.deepEqual(await finishPromise, {
+      success: false,
+      error: {
+        lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+        code: StreamingTranscriptionErrorCode.Cancelled,
+      },
+      retryEligible: false,
+    });
+    await cancelPromise;
+    assert.deepEqual(harness.calls.cancels, [OPERATION_ID]);
+  });
+
   it('rejects invalid capture frames without leaking operation state', async () => {
     const harness = createQueueHarness();
     assert.equal(harness.queue.enqueueFrame(new Uint8Array(2)), false);

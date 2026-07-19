@@ -214,12 +214,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBgBrowserStatus: (): Promise<BackgroundBrowserStatus> => {
     return ipcRenderer.invoke('get-bg-browser-status');
   },
-  onBgBrowserReady: (callback: () => void) => {
-    return onMainEvent('bg-browser-ready', callback);
+  onBgBrowserReady: (callback: (providerId: string) => void) => {
+    return onMainEvent<[string]>('bg-browser-ready', (providerId) => callback(String(providerId)));
   },
-  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => {
-    return onMainEvent<[string, boolean]>('bg-browser-error', (error, authExpired) =>
-      callback(String(error), Boolean(authExpired)),
+  onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => {
+    return onMainEvent<[string, string, boolean]>('bg-browser-error', (providerId, error, authExpired) =>
+      callback(String(providerId), String(error), Boolean(authExpired)),
     );
   },
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
