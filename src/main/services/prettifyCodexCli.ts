@@ -11,7 +11,7 @@ import {
 } from '@shared/prettifySettings';
 
 export const CODEX_CLI_EXECUTABLE_NAME = 'codex';
-export const CODEX_CLI_MINIMUM_VERSION = '0.144.3';
+export const CODEX_CLI_AUDITED_VERSION = '0.144.3';
 export const CODEX_CLI_STDERR_LIMIT_BYTES = 16 * 1024;
 export const CODEX_CLI_STDOUT_LIMIT_BYTES = 256 * 1024;
 export const CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES = 512 * 1024;
@@ -131,6 +131,12 @@ export interface CodexCliModelDiscoveryFailure {
 }
 
 export type CodexCliModelDiscoveryResult = CodexCliModelDiscoverySuccess | CodexCliModelDiscoveryFailure;
+
+export interface CodexCliModelListSuccess extends CodexCliModelDiscoverySuccess {
+  capabilityVersion: string;
+}
+
+export type CodexCliModelListResult = CodexCliModelListSuccess | CodexCliModelDiscoveryFailure;
 
 export interface CodexCliPreparedPrettify {
   cacheContext: readonly string[];
@@ -406,10 +412,7 @@ function appendModelSettings(
   return true;
 }
 
-/**
- * Builds the fixed, fail-closed Codex invocation. The schema path is supplied
- * by the privileged caller; Task 14 will provide packaged path resolution.
- */
+/** Builds the fixed, fail-closed Codex invocation from an already validated schema path. */
 export function buildCodexCliPrettifyArguments(
   prompt: string,
   outputSchemaPath: string,
@@ -464,8 +467,8 @@ export class CodexCliPrettifyAdapter {
     if (!versionResult.success) return { error: mapRunnerFailure(versionResult), success: false };
 
     const version = parseSemanticVersion(versionResult.stdout);
-    const minimumVersion = parseSemanticVersion(Uint8Array.from(Buffer.from(CODEX_CLI_MINIMUM_VERSION)));
-    if (!version || !minimumVersion || compareSemanticVersions(version, minimumVersion) < 0) {
+    const auditedVersion = parseSemanticVersion(Uint8Array.from(Buffer.from(CODEX_CLI_AUDITED_VERSION)));
+    if (!version || !auditedVersion || compareSemanticVersions(version, auditedVersion) !== 0) {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
     }
 
@@ -573,6 +576,20 @@ export class CodexCliPrettifyAdapter {
   public async prettify(input: CodexCliPrettifyInput): Promise<CodexCliPrettifyResult> {
     const prepared = await this.prepare(input);
     return prepared.success ? prepared.prepared.execute(input.text) : prepared;
+  }
+
+  public async listModels(input: CodexCliAvailabilityInput): Promise<CodexCliModelListResult> {
+    const availability = await this.checkAvailability(input);
+    if (!availability.success) return availability;
+
+    const outputSchemaPath = this.resolveOutputSchemaPath();
+    if (!outputSchemaPath || !(await this.hasValidSchema(outputSchemaPath))) {
+      return { error: CodexCliPrettifyErrorCode.SchemaUnavailable, success: false };
+    }
+
+    const discovered = await this.discoverModels(input.settings, input.signal);
+    if (!discovered.success) return discovered;
+    return { ...discovered, capabilityVersion: availability.capabilityVersion };
   }
 
   public async prepare(input: CodexCliPrepareInput): Promise<CodexCliPrepareResult> {

@@ -417,6 +417,7 @@ describe('CodexCliPrettifyAdapter', () => {
     const controller = new AbortController();
     for (const [results, expected] of [
       [[success('0.144.2')], CodexCliPrettifyErrorCode.Unsupported],
+      [[success('0.144.4')], CodexCliPrettifyErrorCode.Unsupported],
       [[success('0.144.3'), success('--ephemeral')], CodexCliPrettifyErrorCode.Unsupported],
       [[success('0.144.3'), success(EXEC_HELP), success('')], CodexCliPrettifyErrorCode.Unsupported],
       [
@@ -496,6 +497,44 @@ describe('CodexCliPrettifyAdapter', () => {
       {
         models: [{ id: 'gpt-free-text-model', name: 'gpt-free-text-model', reasoningEfforts: [], verbosity: [] }],
         source: 'configured-model',
+        success: true,
+      },
+    );
+  });
+
+  it('lists refreshed capabilities even when saved execution options are stale', async () => {
+    const catalog = {
+      models: [
+        {
+          display_name: 'Synthetic Codex',
+          slug: 'gpt-synthetic-codex',
+          support_verbosity: ['low'],
+          supported_reasoning_levels: [{ effort: 'low' }],
+        },
+      ],
+    };
+    const adapter = new CodexCliPrettifyAdapter({
+      outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
+      runner: new FakeRunner([...getAvailabilityResults(), success(catalog)]),
+      schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
+    });
+
+    assert.deepEqual(
+      await adapter.listModels({
+        settings: getSettings({ model: 'gpt-synthetic-codex', reasoningEffort: 'high', verbosity: 'high' }),
+        signal: new AbortController().signal,
+      }),
+      {
+        capabilityVersion: '0.144.3',
+        models: [
+          {
+            id: 'gpt-synthetic-codex',
+            name: 'Synthetic Codex',
+            reasoningEfforts: ['low'],
+            verbosity: ['low'],
+          },
+        ],
+        source: 'catalog',
         success: true,
       },
     );

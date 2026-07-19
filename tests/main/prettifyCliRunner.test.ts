@@ -11,6 +11,7 @@ import {
   CliProcessRunner,
   createCliProcessEnvironment,
   type CliExecutableResolution,
+  type CliExecutableResolver,
   type CliProcessClock,
   type CliProcessFileSystem,
   type CliProcessRunInput,
@@ -82,6 +83,10 @@ class FakeChild extends EventEmitter {
   public failToSpawn(): void {
     this.emit('error', new Error('synthetic'));
   }
+
+  public kill(): boolean {
+    return true;
+  }
 }
 
 interface FakeFileState {
@@ -142,7 +147,9 @@ interface Harness {
 function createHarness(
   options: {
     environment?: NodeJS.ProcessEnv;
+    executableResolver?: CliExecutableResolver;
     fileSystem?: FakeFileSystem;
+    forceFailure?: boolean;
     platform?: NodeJS.Platform;
     resolution?: CliExecutableResolution;
     useDefaultResolver?: boolean;
@@ -160,7 +167,9 @@ function createHarness(
     ...(options.useDefaultResolver
       ? {}
       : {
-          executableResolver: async () => options.resolution ?? { executable: 'resolved-cli', status: 'resolved' },
+          executableResolver:
+            options.executableResolver ??
+            (async () => options.resolution ?? { executable: 'resolved-cli', status: 'resolved' }),
         }),
     fileSystem,
     getTemporaryDirectory: () => path.join(path.sep, 'isolated'),
@@ -172,6 +181,7 @@ function createHarness(
     treeTerminator: {
       force: async () => {
         state.forceCalls += 1;
+        if (options.forceFailure) throw new Error('synthetic');
       },
       graceful: async () => {
         state.gracefulCalls += 1;
@@ -194,7 +204,10 @@ function createHarness(
   };
 }
 
-function createInput(harness: Harness, overrides: Partial<CliProcessRunInput> = {}): CliProcessRunInput {
+function createInput(
+  harness: Pick<Harness, 'abortController'>,
+  overrides: Partial<CliProcessRunInput> = {},
+): CliProcessRunInput {
   return {
     args: ['--print', '--fixed-option'],
     executableName: 'claude',
@@ -332,7 +345,53 @@ describe('CliProcessRunner', () => {
     assert.equal(invalid.spawnCalls.length, 0);
   });
 
-  it('uses PATHEXT for Windows PATH discovery and rejects a relative configured path', async () => {
+  it('does not spawn when cancellation or timeout wins during executable resolution', async () => {
+    let finishCancelledResolution!: (result: CliExecutableResolution) => void;
+    const cancelledResolution = new Promise<CliExecutableResolution>((resolve) => {
+      finishCancelledResolution = resolve;
+    });
+    const cancelled = createHarness({ executableResolver: () => cancelledResolution });
+    const cancelledPromise = cancelled.runner.run(createInput(cancelled));
+    await settleStart();
+    cancelled.abortController.abort();
+
+    const cancelledResult = await cancelledPromise;
+    assert.equal(cancelledResult.success, false);
+    if (!cancelledResult.success) {
+      assert.equal(cancelledResult.failure, CliProcessFailureCode.Cancelled);
+      assert.equal(cancelledResult.diagnostics.phase, CliProcessPhase.Resolution);
+    }
+    assert.equal(cancelled.spawnCalls.length, 0);
+    assert.equal(cancelled.clock.timerCount, 0);
+    assert.equal(cancelled.fileSystem.removeCalls.length, 1);
+    finishCancelledResolution({ executable: 'late-cli', status: 'resolved' });
+    await settleStart();
+    assert.equal(cancelled.spawnCalls.length, 0);
+
+    let finishTimedOutResolution!: (result: CliExecutableResolution) => void;
+    const timedOutResolution = new Promise<CliExecutableResolution>((resolve) => {
+      finishTimedOutResolution = resolve;
+    });
+    const timedOut = createHarness({ executableResolver: () => timedOutResolution });
+    const timedOutPromise = timedOut.runner.run(createInput(timedOut));
+    await settleStart();
+    timedOut.clock.advance(500);
+
+    const timedOutResult = await timedOutPromise;
+    assert.equal(timedOutResult.success, false);
+    if (!timedOutResult.success) {
+      assert.equal(timedOutResult.failure, CliProcessFailureCode.TimedOut);
+      assert.equal(timedOutResult.diagnostics.phase, CliProcessPhase.Resolution);
+    }
+    assert.equal(timedOut.spawnCalls.length, 0);
+    assert.equal(timedOut.clock.timerCount, 0);
+    assert.equal(timedOut.fileSystem.removeCalls.length, 1);
+    finishTimedOutResolution({ executable: 'late-cli', status: 'resolved' });
+    await settleStart();
+    assert.equal(timedOut.spawnCalls.length, 0);
+  });
+
+  it('uses only native Windows PATH entries and rejects shell-script executable paths', async () => {
     const windowsPath = path.win32.join('C:\\gui-bin', 'claude.EXE');
     const fileSystem = new FakeFileSystem(new Map([[windowsPath, { executable: true }]]));
     const harness = createHarness({
@@ -355,6 +414,14 @@ describe('CliProcessRunner', () => {
     assert.equal(result.success, false);
     if (!result.success) assert.equal(result.failure, CliProcessFailureCode.NotExecutable);
     assert.equal(relative.spawnCalls.length, 0);
+
+    const commandShim = createHarness({ platform: 'win32', useDefaultResolver: true });
+    const commandShimResult = await commandShim.runner.run(
+      createInput(commandShim, { configuredExecutablePath: 'C:\\gui-bin\\claude.cmd' }),
+    );
+    assert.equal(commandShimResult.success, false);
+    if (!commandShimResult.success) assert.equal(commandShimResult.failure, CliProcessFailureCode.NotExecutable);
+    assert.equal(commandShim.spawnCalls.length, 0);
   });
 
   it('classifies spawn, stdin, nonzero-exit, and signal-exit failures without raw process details', async () => {
@@ -442,6 +509,63 @@ describe('CliProcessRunner', () => {
     const cancelledResult = await cancelledPromise;
     assert.equal(cancelledResult.success, false);
     if (!cancelledResult.success) assert.equal(cancelledResult.failure, CliProcessFailureCode.Cancelled);
+  });
+
+  it('retains the primary failure and reports failed forced-termination cleanup', async () => {
+    const harness = createHarness({ forceFailure: true });
+    const promise = harness.runner.run(createInput(harness, { timeoutMs: 5 }));
+    await settleStart();
+    harness.clock.advance(5);
+    harness.clock.advance(CLI_PROCESS_GRACE_PERIOD_MS);
+
+    const result = await promise;
+    assert.equal(result.success, false);
+    if (!result.success) {
+      assert.equal(result.failure, CliProcessFailureCode.TimedOut);
+      assert.equal(result.diagnostics.cleanup, 'failed');
+      assert.equal(result.diagnostics.phase, CliProcessPhase.Termination);
+    }
+    assert.equal(harness.forceCalls, 1);
+  });
+
+  it('treats Windows taskkill errors and nonzero exits as failed cleanup', async () => {
+    for (const taskkillFailure of ['error', 'nonzero'] as const) {
+      const child = new FakeChild();
+      const taskkill = new FakeChild();
+      const clock = new FakeClock();
+      const fileSystem = new FakeFileSystem();
+      const abortController = new AbortController();
+      const spawnCalls: Array<{ args: string[]; executable: string; options: SpawnOptions }> = [];
+      const runner = new CliProcessRunner({
+        clock,
+        environment: { PATH: 'C:\\gui-bin' },
+        executableResolver: async () => ({ executable: 'resolved-cli.exe', status: 'resolved' }),
+        fileSystem,
+        getTemporaryDirectory: () => 'C:\\isolated',
+        platform: 'win32',
+        spawn: (executable, args, options) => {
+          spawnCalls.push({ args, executable, options });
+          return (executable === 'taskkill.exe' ? taskkill : child) as unknown as ChildProcess;
+        },
+      });
+      const promise = runner.run(createInput({ abortController }, { timeoutMs: 5 }));
+      await settleStart();
+      clock.advance(5);
+      clock.advance(CLI_PROCESS_GRACE_PERIOD_MS);
+      assert.equal(spawnCalls[1]?.executable, 'taskkill.exe');
+      assert.deepEqual(spawnCalls[1]?.args, ['/pid', '42', '/T', '/F']);
+      assert.equal(spawnCalls[1]?.options.shell, false);
+      if (taskkillFailure === 'error') taskkill.failToSpawn();
+      else taskkill.close(1);
+
+      const result = await promise;
+      assert.equal(result.success, false);
+      if (!result.success) {
+        assert.equal(result.failure, CliProcessFailureCode.TimedOut);
+        assert.equal(result.diagnostics.cleanup, 'failed');
+        assert.equal(result.diagnostics.phase, CliProcessPhase.Termination);
+      }
+    }
   });
 
   it('reports cleanup failure only after an otherwise successful command and cleans each temporary directory once', async () => {

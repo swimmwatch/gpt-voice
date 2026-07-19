@@ -300,6 +300,10 @@ describe('ClaudeCliPrettifyAdapter', () => {
         ClaudeCliPrettifyErrorCode.NotAuthenticated,
       ],
       [
+        [success('2.1.71'), success(REQUIRED_HELP), failure(CliProcessFailureCode.NonzeroExit)],
+        ClaudeCliPrettifyErrorCode.NotAuthenticated,
+      ],
+      [
         [success('2.1.71'), success(REQUIRED_HELP), success({ unexpected: true })],
         ClaudeCliPrettifyErrorCode.ProcessFailed,
       ],

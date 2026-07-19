@@ -297,7 +297,12 @@ export class ClaudeCliPrettifyAdapter {
       ['auth', 'status', '--json'],
       '',
     );
-    if (!authResult.success) return { error: mapRunnerFailure(authResult), success: false };
+    if (!authResult.success) {
+      if (authResult.failure === CliProcessFailureCode.NonzeroExit) {
+        return { error: ClaudeCliPrettifyErrorCode.NotAuthenticated, success: false };
+      }
+      return { error: mapRunnerFailure(authResult), success: false };
+    }
     const authStatus = parseAuthStatus(authResult.stdout);
     if (!authStatus) return { error: ClaudeCliPrettifyErrorCode.ProcessFailed, success: false };
     if (!authStatus.loggedIn) return { error: ClaudeCliPrettifyErrorCode.NotAuthenticated, success: false };

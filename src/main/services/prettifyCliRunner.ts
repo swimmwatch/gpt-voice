@@ -26,7 +26,8 @@ const WINDOWS_ENVIRONMENT_KEYS = [
   'PATHEXT',
 ] as const;
 
-const DEFAULT_WINDOWS_PATH_EXTENSIONS = ['.COM', '.EXE', '.BAT', '.CMD'];
+const DEFAULT_WINDOWS_PATH_EXTENSIONS = ['.COM', '.EXE'];
+const WINDOWS_NATIVE_PATH_EXTENSIONS = new Set(DEFAULT_WINDOWS_PATH_EXTENSIONS);
 
 export enum CliProcessFailureCode {
   NotFound = 'not-found',
@@ -254,7 +255,12 @@ function getWindowsPathExtensions(environment: NodeJS.ProcessEnv): string[] {
   return values
     .map((value) => value.trim())
     .filter((value) => /^\.\w+$/u.test(value))
-    .map((value) => value.toUpperCase());
+    .map((value) => value.toUpperCase())
+    .filter((value) => WINDOWS_NATIVE_PATH_EXTENSIONS.has(value));
+}
+
+function isUnsupportedWindowsScript(filePath: string, platform: NodeJS.Platform): boolean {
+  return platform === 'win32' && /\.(?:bat|cmd|ps1)$/iu.test(filePath);
 }
 
 async function resolveExecutableFromPath(
@@ -265,6 +271,7 @@ async function resolveExecutableFromPath(
 ): Promise<CliExecutableResolution> {
   const pathValue = environment.PATH;
   if (!pathValue) return { status: 'not-found' };
+  if (isUnsupportedWindowsScript(executableName, platform)) return { status: 'not-executable' };
 
   const pathApi = pathApiFor(platform);
   const extensionCandidates =
@@ -291,7 +298,12 @@ function createDefaultExecutableResolver(fileSystem: CliProcessFileSystem): CliE
     const hasConfiguredPath =
       typeof configuredExecutablePath === 'string' && configuredExecutablePath.trim().length > 0;
     if (hasConfiguredPath) {
-      if (!isAbsolutePath(configuredExecutablePath, platform)) return { status: 'not-executable' };
+      if (
+        !isAbsolutePath(configuredExecutablePath, platform) ||
+        isUnsupportedWindowsScript(configuredExecutablePath, platform)
+      ) {
+        return { status: 'not-executable' };
+      }
       const status = await inspectExecutable(configuredExecutablePath, fileSystem);
       return status === 'executable' ? { executable: configuredExecutablePath, status: 'resolved' } : { status };
     }
@@ -341,7 +353,10 @@ function isEpipe(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'EPIPE');
 }
 
-function defaultTreeTerminator(platform: NodeJS.Platform): CliProcessTreeTerminator {
+function defaultTreeTerminator(
+  platform: NodeJS.Platform,
+  spawnProcess: (executable: string, args: string[], options: SpawnOptions) => ChildProcess,
+): CliProcessTreeTerminator {
   const terminateUnixGroup = (child: ChildProcess, signal: NodeJS.Signals): void => {
     if (typeof child.pid === 'number') {
       try {
@@ -368,15 +383,25 @@ function defaultTreeTerminator(platform: NodeJS.Platform): CliProcessTreeTermina
         terminateUnixGroup(child, 'SIGKILL');
         return;
       }
-      if (typeof child.pid !== 'number') return;
-      await new Promise<void>((resolve) => {
-        const taskkill = nodeSpawn('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], {
+      if (typeof child.pid !== 'number') throw new Error('Process tree termination failed');
+      await new Promise<void>((resolve, reject) => {
+        const taskkill = spawnProcess('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], {
           shell: false,
           stdio: 'ignore',
           windowsHide: true,
         });
-        taskkill.once('close', () => resolve());
-        taskkill.once('error', () => resolve());
+        const settle = (error?: Error): void => {
+          taskkill.removeListener('close', onClose);
+          taskkill.removeListener('error', onError);
+          if (error) reject(error);
+          else resolve();
+        };
+        const onClose = (exitCode: number | null): void => {
+          settle(exitCode === 0 ? undefined : new Error('Process tree termination failed'));
+        };
+        const onError = (): void => settle(new Error('Process tree termination failed'));
+        taskkill.once('close', onClose);
+        taskkill.once('error', onError);
       });
     },
   };
@@ -401,45 +426,99 @@ export class CliProcessRunner {
     this.getTemporaryDirectory = dependencies.getTemporaryDirectory ?? os.tmpdir;
     this.platform = dependencies.platform ?? process.platform;
     this.spawn = dependencies.spawn ?? ((executable, args, options) => nodeSpawn(executable, args, options));
-    this.treeTerminator = dependencies.treeTerminator ?? defaultTreeTerminator(this.platform);
+    this.treeTerminator = dependencies.treeTerminator ?? defaultTreeTerminator(this.platform, this.spawn);
   }
 
+  /** Runs one isolated CLI process operation. */
   public async run(input: CliProcessRunInput): Promise<CliProcessResult> {
     validateRunInput(input);
     const startedAt = this.clock.now();
     const environment = createCliProcessEnvironment(this.environment, this.platform);
     let temporaryDirectory: string | null = null;
     let outcome: ExecutionOutcome;
+    let preparationFailure: ExecutionOutcome | null = null;
+    let preparationPhase = CliProcessPhase.Preparation;
+    let resolvePreparationFailure!: (outcome: ExecutionOutcome) => void;
+    const preparationFailurePromise = new Promise<ExecutionOutcome>((resolve) => {
+      resolvePreparationFailure = resolve;
+    });
+
+    /** Retains the first terminal cause observed before the child is spawned. */
+    const setPreparationFailure = (failure: CliProcessFailureCode): void => {
+      if (preparationFailure) return;
+      preparationFailure = this.createFailure(input, startedAt, {
+        failure,
+        phase: preparationPhase,
+      });
+      resolvePreparationFailure(preparationFailure);
+    };
+    const onPreparationAbort = (): void => setPreparationFailure(CliProcessFailureCode.Cancelled);
+
+    input.signal.addEventListener('abort', onPreparationAbort, { once: true });
+    const preparationTimeout = this.clock.setTimeout(
+      () => setPreparationFailure(CliProcessFailureCode.TimedOut),
+      input.timeoutMs,
+    );
+    if (input.signal.aborted) onPreparationAbort();
 
     try {
       temporaryDirectory = await this.fileSystem.mkdtemp(path.join(this.getTemporaryDirectory(), 'gpt-voice-cli-'));
-      if (input.signal.aborted) {
-        outcome = this.createFailure(input, startedAt, {
-          failure: CliProcessFailureCode.Cancelled,
-          phase: CliProcessPhase.Preparation,
-        });
+      if (preparationFailure) {
+        outcome = preparationFailure;
       } else {
-        const resolved = await this.executableResolver({
-          configuredExecutablePath: input.configuredExecutablePath,
-          environment,
-          executableName: input.executableName,
-          platform: this.platform,
-        });
-        if (resolved.status !== 'resolved' || !resolved.executable) {
-          outcome = this.createFailure(input, startedAt, {
-            failure:
-              resolved.status === 'not-found' ? CliProcessFailureCode.NotFound : CliProcessFailureCode.NotExecutable,
-            phase: CliProcessPhase.Resolution,
-          });
+        preparationPhase = CliProcessPhase.Resolution;
+        const resolvedOrFailure = await Promise.race([
+          this.executableResolver({
+            configuredExecutablePath: input.configuredExecutablePath,
+            environment,
+            executableName: input.executableName,
+            platform: this.platform,
+          }),
+          preparationFailurePromise,
+        ]);
+        if ('diagnostics' in resolvedOrFailure) {
+          outcome = resolvedOrFailure;
         } else {
-          outcome = await this.runChild(input, resolved.executable, environment, temporaryDirectory, startedAt);
+          if (!preparationFailure && input.signal.aborted) onPreparationAbort();
+          if (!preparationFailure && this.clock.now() - startedAt >= input.timeoutMs) {
+            setPreparationFailure(CliProcessFailureCode.TimedOut);
+          }
+
+          if (preparationFailure) {
+            outcome = preparationFailure;
+          } else if (resolvedOrFailure.status !== 'resolved' || !resolvedOrFailure.executable) {
+            outcome = this.createFailure(input, startedAt, {
+              failure:
+                resolvedOrFailure.status === 'not-found'
+                  ? CliProcessFailureCode.NotFound
+                  : CliProcessFailureCode.NotExecutable,
+              phase: CliProcessPhase.Resolution,
+            });
+          } else {
+            this.clock.clearTimeout(preparationTimeout);
+            input.signal.removeEventListener('abort', onPreparationAbort);
+            const remainingTimeoutMs = Math.max(0, input.timeoutMs - (this.clock.now() - startedAt));
+            outcome = await this.runChild(
+              input,
+              resolvedOrFailure.executable,
+              environment,
+              temporaryDirectory,
+              startedAt,
+              remainingTimeoutMs,
+            );
+          }
         }
       }
     } catch {
-      outcome = this.createFailure(input, startedAt, {
-        failure: CliProcessFailureCode.SpawnError,
-        phase: CliProcessPhase.Preparation,
-      });
+      outcome =
+        preparationFailure ??
+        this.createFailure(input, startedAt, {
+          failure: CliProcessFailureCode.SpawnError,
+          phase: preparationPhase,
+        });
+    } finally {
+      this.clock.clearTimeout(preparationTimeout);
+      input.signal.removeEventListener('abort', onPreparationAbort);
     }
 
     let cleanupFailed = outcome.cleanupFailed ?? false;
@@ -501,7 +580,25 @@ export class CliProcessRunner {
     environment: NodeJS.ProcessEnv,
     directory: string,
     startedAt: number,
+    timeoutMs: number,
   ): Promise<ExecutionOutcome> {
+    if (input.signal.aborted) {
+      return Promise.resolve(
+        this.createFailure(input, startedAt, {
+          failure: CliProcessFailureCode.Cancelled,
+          phase: CliProcessPhase.Termination,
+        }),
+      );
+    }
+    if (timeoutMs <= 0) {
+      return Promise.resolve(
+        this.createFailure(input, startedAt, {
+          failure: CliProcessFailureCode.TimedOut,
+          phase: CliProcessPhase.Termination,
+        }),
+      );
+    }
+
     return new Promise((resolve) => {
       let child: ChildProcess;
       try {
@@ -558,6 +655,10 @@ export class CliProcessRunner {
         if (forceTimer !== null) this.clock.clearTimeout(forceTimer);
         if (timeoutTimer !== null) this.clock.clearTimeout(timeoutTimer);
         removeListeners();
+        if (terminationCleanupFailed && terminal) {
+          terminal.cleanupFailed = true;
+          terminal.diagnostics.phase = CliProcessPhase.Termination;
+        }
         resolve(
           terminal ??
             this.createFailure(input, startedAt, {
@@ -672,10 +773,6 @@ export class CliProcessRunner {
             };
           }
         }
-        if (terminationCleanupFailed && terminal) {
-          terminal.cleanupFailed = true;
-          terminal.diagnostics.phase = CliProcessPhase.Termination;
-        }
         settle();
       };
 
@@ -689,7 +786,7 @@ export class CliProcessRunner {
       input.signal.addEventListener('abort', onAbort, { once: true });
       timeoutTimer = this.clock.setTimeout(
         () => setFailure(CliProcessFailureCode.TimedOut, CliProcessPhase.Termination),
-        input.timeoutMs,
+        timeoutMs,
       );
 
       if (input.signal.aborted) {
