@@ -66,6 +66,8 @@ const CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME = 'Press and hold to record';
 const BLOCKED_RESOURCE_TYPES = new Set(['font', 'image', 'media']);
 const SUPPORTED_WAV_MIME_TYPES = new Set(['audio/wav', 'audio/wave', 'audio/x-wav']);
 
+type ClaudeWebAuthenticationStatus = 'authenticated' | 'unauthenticated' | 'unavailable';
+
 export enum ClaudeWebVoiceProviderErrorCode {
   SessionMissing = 'session-missing',
   SessionExpired = 'session-expired',
@@ -94,6 +96,7 @@ const TRANSIENT_STARTUP_READINESS_ERRORS = new Set<ClaudeWebVoiceProviderErrorCo
   ClaudeWebVoiceProviderErrorCode.FeatureUnavailable,
   ClaudeWebVoiceProviderErrorCode.OrganizationMissing,
   ClaudeWebVoiceProviderErrorCode.OrganizationAmbiguous,
+  ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
 ]);
 
 const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, ClaudeWebVoiceProviderErrorCode>> = {
@@ -113,7 +116,7 @@ const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, Cl
 type ClaudeWebStorageState = ReturnType<typeof getPlaywrightStorageState>;
 
 export interface ClaudeWebReadinessSnapshot {
-  authenticated: boolean;
+  authentication: ClaudeWebAuthenticationStatus;
   featureAvailable: boolean;
   organizationEvidence: ClaudeWebOrganizationEvidence;
 }
@@ -135,10 +138,11 @@ export interface ClaudeWebVoiceProviderDependencies {
   clearSession(): boolean;
   getStorageState(session: Extract<ClaudeWebSessionReadResult, { status: 'usable' }>['state']): ClaudeWebStorageState;
   resolveOrganization(evidence: ClaudeWebOrganizationEvidence): ClaudeWebOrganizationContext;
-  inspectReadiness(page: Page): Promise<ClaudeWebReadinessSnapshot>;
+  inspectReadiness(page: Page, timeoutMs: number): Promise<ClaudeWebReadinessSnapshot>;
   createTransport(page: Page): ClaudeWebPageTransportLike;
   writeClipboardText(text: string): void;
   navigatePage(page: Page): Promise<void>;
+  now(): number;
   waitForReadinessRetry(delayMs: number): Promise<void>;
 }
 
@@ -177,9 +181,17 @@ async function navigateClaudeWebPage(page: Page): Promise<void> {
 }
 
 /** Reads only the minimum same-origin state needed to prove authenticated Claude routing. */
-export async function inspectClaudeWebReadiness(page: Page): Promise<ClaudeWebReadinessSnapshot> {
-  return page.evaluate(
-    async ({ bootstrapPath, recordButtonAccessibleName }) => {
+export async function inspectClaudeWebReadiness(
+  page: Page,
+  timeoutMs = CLAUDE_WEB_READINESS_TIMEOUT_MS,
+): Promise<ClaudeWebReadinessSnapshot> {
+  const unavailableSnapshot: ClaudeWebReadinessSnapshot = {
+    authentication: 'unavailable',
+    featureAvailable: false,
+    organizationEvidence: { activeOrganizationCandidates: [], eligibleOrganizations: [] },
+  };
+  const inspection = page.evaluate(
+    async ({ bootstrapPath, recordButtonAccessibleName, timeoutMs: inspectionTimeoutMs }) => {
       const activeOrganizationCandidates = new Set<string>();
       for (const entry of performance.getEntriesByType('resource')) {
         try {
@@ -194,20 +206,26 @@ export async function inspectClaudeWebReadiness(page: Page): Promise<ClaudeWebRe
       const featureAvailable = Array.from(document.querySelectorAll('button')).some(
         (button) => button.getAttribute('aria-label') === recordButtonAccessibleName,
       );
+      const unavailable = {
+        authentication: 'unavailable' as const,
+        featureAvailable,
+        organizationEvidence: {
+          activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
+          eligibleOrganizations: [],
+        },
+      };
+      const abortController = new AbortController();
+      const abortHandle = setTimeout(() => abortController.abort(), inspectionTimeoutMs);
       try {
         const response = await fetch(bootstrapPath, {
           credentials: 'include',
           headers: { Accept: 'application/json' },
+          signal: abortController.signal,
         });
         if (!response.ok) {
-          return {
-            authenticated: false,
-            featureAvailable,
-            organizationEvidence: {
-              activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
-              eligibleOrganizations: [],
-            },
-          };
+          return response.status === 401 || response.status === 403
+            ? { ...unavailable, authentication: 'unauthenticated' as const }
+            : unavailable;
         }
 
         const value: unknown = await response.json();
@@ -229,7 +247,7 @@ export async function inspectClaudeWebReadiness(page: Page): Promise<ClaudeWebRe
             })
           : [];
         return {
-          authenticated: true,
+          authentication: 'authenticated' as const,
           featureAvailable,
           organizationEvidence: {
             activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
@@ -237,21 +255,28 @@ export async function inspectClaudeWebReadiness(page: Page): Promise<ClaudeWebRe
           },
         };
       } catch {
-        return {
-          authenticated: false,
-          featureAvailable,
-          organizationEvidence: {
-            activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
-            eligibleOrganizations: [],
-          },
-        };
+        return unavailable;
+      } finally {
+        clearTimeout(abortHandle);
       }
     },
     {
       bootstrapPath: CLAUDE_WEB_BOOTSTRAP_PATH,
       recordButtonAccessibleName: CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME,
+      timeoutMs,
     },
   );
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<ClaudeWebReadinessSnapshot>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(unavailableSnapshot), timeoutMs);
+  });
+  try {
+    return await Promise.race([inspection, timeout]);
+  } catch {
+    return unavailableSnapshot;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
@@ -265,6 +290,7 @@ const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
   createTransport: createClaudeWebPageTransport,
   writeClipboardText,
   navigatePage: navigateClaudeWebPage,
+  now: () => Date.now(),
   waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
 };
 
@@ -617,7 +643,10 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
     };
   }
 
-  private async resolveReadiness(page: Page): Promise<ClaudeWebReadinessResolution> {
+  private async resolveReadiness(
+    page: Page,
+    timeoutMs = CLAUDE_WEB_READINESS_TIMEOUT_MS,
+  ): Promise<ClaudeWebReadinessResolution> {
     let session: ClaudeWebSessionReadResult;
     try {
       session = this.deps.readSession();
@@ -641,10 +670,24 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
       };
     }
 
-    const snapshot = await this.deps.inspectReadiness(page);
+    let snapshot: ClaudeWebReadinessSnapshot;
+    try {
+      snapshot = await this.deps.inspectReadiness(page, timeoutMs);
+    } catch {
+      return {
+        errorCode: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
+        organization: this.deps.resolveOrganization({
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [],
+        }),
+      };
+    }
     const organization = this.deps.resolveOrganization(snapshot.organizationEvidence);
-    if (!snapshot.authenticated) {
+    if (snapshot.authentication === 'unauthenticated') {
       return { errorCode: ClaudeWebVoiceProviderErrorCode.SessionExpired, organization };
+    }
+    if (snapshot.authentication === 'unavailable') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure, organization };
     }
 
     const category = getClaudeWebReadinessFailureCategory(
@@ -668,18 +711,19 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   }
 
   private async resolveStartupReadiness(page: Page): Promise<ClaudeWebReadinessResolution> {
-    let readiness = await this.resolveReadiness(page);
-    let elapsedMs = 0;
+    const deadline = this.deps.now() + CLAUDE_WEB_READINESS_TIMEOUT_MS;
+    let readiness = await this.resolveReadiness(page, Math.max(1, deadline - this.deps.now()));
 
     while (
       readiness.errorCode !== null &&
       TRANSIENT_STARTUP_READINESS_ERRORS.has(readiness.errorCode) &&
-      elapsedMs < CLAUDE_WEB_READINESS_TIMEOUT_MS
+      this.deps.now() < deadline
     ) {
-      const delayMs = Math.min(CLAUDE_WEB_READINESS_POLL_INTERVAL_MS, CLAUDE_WEB_READINESS_TIMEOUT_MS - elapsedMs);
+      const delayMs = Math.min(CLAUDE_WEB_READINESS_POLL_INTERVAL_MS, deadline - this.deps.now());
       await this.deps.waitForReadinessRetry(delayMs);
-      elapsedMs += delayMs;
-      readiness = await this.resolveReadiness(page);
+      const remainingMs = deadline - this.deps.now();
+      if (remainingMs <= 0) break;
+      readiness = await this.resolveReadiness(page, remainingMs);
     }
 
     return readiness;

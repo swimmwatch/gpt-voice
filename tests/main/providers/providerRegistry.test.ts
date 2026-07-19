@@ -83,9 +83,11 @@ describe('provider registry', () => {
   });
 
   it('rejects unknown providers explicitly', () => {
-    assert.throws(() => createProvider('missing-provider'), {
-      message: 'Unknown voice provider: missing-provider',
-    });
+    for (const providerId of ['missing-provider', 'constructor', 'toString', '__proto__']) {
+      assert.throws(() => createProvider(providerId), {
+        message: `Unknown voice provider: ${providerId}`,
+      });
+    }
   });
 
   it('fails closed for unknown modes and non-renderer metadata', () => {

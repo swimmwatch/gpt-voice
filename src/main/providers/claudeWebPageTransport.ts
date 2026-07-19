@@ -1,4 +1,4 @@
-/* eslint-disable max-classes-per-file -- The packet keeps transport and its typed boundary errors in one module. */
+/* eslint-disable max-classes-per-file -- Transport and typed boundary errors share one auditable protocol boundary. */
 import type { Page } from 'playwright-core';
 import { CLAUDE_WEB_PCM_CHUNK_BYTES, CLAUDE_WEB_PCM_CHUNK_CADENCE_MS, splitClaudeWebPcm } from './claudeWebAudio';
 import {
@@ -9,6 +9,7 @@ import {
   createClaudeWebTranscriptState,
   parseClaudeWebSpeechEvent,
   type ClaudeWebClientControl,
+  type ClaudeWebSpeechEvent,
   type ClaudeWebTranscriptState,
 } from './claudeWebProtocol';
 import type { ClaudeWebLanguage } from '@shared/claudeWebSettings';
@@ -19,12 +20,16 @@ export const CLAUDE_WEB_OVERALL_TIMEOUT_MS = 130_000;
 export const CLAUDE_WEB_DRAIN_TIMEOUT_MS = 3_000;
 export const CLAUDE_WEB_KEEP_ALIVE_INTERVAL_MS = 4_000;
 export const CLAUDE_WEB_SOCKET_POLL_INTERVAL_MS = 25;
+export const CLAUDE_WEB_CLOSE_TIMEOUT_MS = 1_000;
+export const CLAUDE_WEB_MAX_PAGE_MESSAGE_COUNT = 1_024;
+export const CLAUDE_WEB_MAX_PAGE_MESSAGE_BYTES = 1024 * 1024;
+export const CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES = 256 * 1024;
 
 const CLAUDE_WEB_PAGE_SOCKET_REGISTRY_KEY = '__gptVoiceClaudePageSocketsV1';
-const MAX_EVENT_TYPE_METADATA_LENGTH = 80;
 
 export interface ClaudeWebPageTransportTiming {
   chunkCadenceMs: number;
+  closeTimeoutMs: number;
   connectTimeoutMs: number;
   drainTimeoutMs: number;
   firstEventTimeoutMs: number;
@@ -35,6 +40,7 @@ export interface ClaudeWebPageTransportTiming {
 
 const DEFAULT_TRANSPORT_TIMING: ClaudeWebPageTransportTiming = {
   chunkCadenceMs: CLAUDE_WEB_PCM_CHUNK_CADENCE_MS,
+  closeTimeoutMs: CLAUDE_WEB_CLOSE_TIMEOUT_MS,
   connectTimeoutMs: CLAUDE_WEB_CONNECT_TIMEOUT_MS,
   drainTimeoutMs: CLAUDE_WEB_DRAIN_TIMEOUT_MS,
   firstEventTimeoutMs: CLAUDE_WEB_FIRST_EVENT_TIMEOUT_MS,
@@ -60,12 +66,14 @@ export enum ClaudeWebPageTransportErrorCode {
 export type ClaudeWebPageSocketFailureCode =
   | ClaudeWebPageTransportErrorCode.UpgradeOrAuth
   | ClaudeWebPageTransportErrorCode.ConnectionLoss
+  | ClaudeWebPageTransportErrorCode.MalformedEvent
   | ClaudeWebPageTransportErrorCode.RateLimit
   | ClaudeWebPageTransportErrorCode.PageShutdown;
 
 const PAGE_SOCKET_FAILURE_CODES = {
   upgradeOrAuth: ClaudeWebPageTransportErrorCode.UpgradeOrAuth,
   connectionLoss: ClaudeWebPageTransportErrorCode.ConnectionLoss,
+  malformedEvent: ClaudeWebPageTransportErrorCode.MalformedEvent,
   rateLimit: ClaudeWebPageTransportErrorCode.RateLimit,
   pageShutdown: ClaudeWebPageTransportErrorCode.PageShutdown,
 } as const;
@@ -105,6 +113,7 @@ interface BrowserPageSocketRecord {
   failure: ClaudeWebPageSocketFailureCode | null;
   closeCode: number | null;
   opened: boolean;
+  queuedMessageBytes: number;
 }
 
 type BrowserPageSocketRegistry = Map<string, BrowserPageSocketRecord>;
@@ -124,12 +133,13 @@ async function evaluatePageSafely<T>(
 /** Creates the native WebSocket boundary that remains inside the authenticated Claude page. */
 export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSocketBoundary {
   return {
+    /** Opens one page-owned WebSocket without exposing it to main. */
     start: (operationId, url) =>
       evaluatePageSafely(
         page,
         () =>
           page.evaluate(
-            ({ failureCodes, registryKey, socketId, socketUrl }) => {
+            ({ failureCodes, limits, registryKey, socketId, socketUrl }) => {
               const root = globalThis as unknown as Record<string, unknown>;
               let registry = root[registryKey] as BrowserPageSocketRegistry | undefined;
               if (!(registry instanceof Map)) {
@@ -150,6 +160,7 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
                 failure: null,
                 closeCode: null,
                 opened: false,
+                queuedMessageBytes: 0,
               };
               registry.set(socketId, record);
 
@@ -159,8 +170,30 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
                 record.phase = 'open';
               };
               socket.onmessage = (event: MessageEvent<unknown>) => {
+                const retainMessage = (message: ClaudeWebPageMessage, payloadLength: number): void => {
+                  if (record.failure) return;
+                  if (
+                    record.messages.length >= limits.messageCount ||
+                    record.queuedMessageBytes + payloadLength > limits.totalBytes
+                  ) {
+                    record.messages.length = 0;
+                    record.queuedMessageBytes = 0;
+                    record.failure = failureCodes.malformedEvent;
+                    record.phase = 'failed';
+                    if (socket.readyState < WebSocket.CLOSING) socket.close(1009);
+                    return;
+                  }
+                  record.messages.push(message);
+                  record.queuedMessageBytes += payloadLength;
+                };
+
                 if (typeof event.data === 'string') {
-                  record.messages.push({ kind: 'text', payload: event.data });
+                  const payloadLength = new TextEncoder().encode(event.data).byteLength;
+                  if (payloadLength > limits.textMessageBytes) {
+                    retainMessage({ kind: 'text', payload: '' }, limits.totalBytes + 1);
+                    return;
+                  }
+                  retainMessage({ kind: 'text', payload: event.data }, payloadLength);
                   return;
                 }
                 const payloadLength =
@@ -169,10 +202,10 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
                     : event.data instanceof Blob
                       ? event.data.size
                       : null;
-                record.messages.push({ kind: 'binary', payloadLength });
+                retainMessage({ kind: 'binary', payloadLength }, payloadLength ?? 0);
               };
               socket.onerror = () => {
-                record.failure = record.opened ? failureCodes.connectionLoss : failureCodes.upgradeOrAuth;
+                record.failure ??= record.opened ? failureCodes.connectionLoss : failureCodes.upgradeOrAuth;
                 record.phase = 'failed';
               };
               socket.onclose = (event: CloseEvent) => {
@@ -186,6 +219,11 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
               };
             },
             {
+              limits: {
+                messageCount: CLAUDE_WEB_MAX_PAGE_MESSAGE_COUNT,
+                textMessageBytes: CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES,
+                totalBytes: CLAUDE_WEB_MAX_PAGE_MESSAGE_BYTES,
+              },
               registryKey: CLAUDE_WEB_PAGE_SOCKET_REGISTRY_KEY,
               socketId: operationId,
               socketUrl: url,
@@ -211,9 +249,11 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
                   closeCode: null,
                 };
               }
+              const messages = record.messages.splice(0);
+              record.queuedMessageBytes = 0;
               return {
                 phase: record.phase,
-                messages: record.messages.splice(0),
+                messages,
                 failure: record.failure,
                 closeCode: record.closeCode,
               };
@@ -276,6 +316,7 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
 
               registry.delete(socketId);
               record.messages.length = 0;
+              record.queuedMessageBytes = 0;
               record.socket.onopen = null;
               record.socket.onmessage = null;
               record.socket.onerror = null;
@@ -292,10 +333,11 @@ export function createClaudeWebPageSocketBoundary(page: Page): ClaudeWebPageSock
 }
 
 export type ClaudeWebPageTransportPhase = 'connecting' | 'streaming' | 'draining';
+export type ClaudeWebPageTransportEventType = ClaudeWebSpeechEvent['type'] | 'unknown' | 'malformed';
 
 export interface ClaudeWebPageTransportDiagnostics {
   phase: ClaudeWebPageTransportPhase;
-  eventType: string | null;
+  eventType: ClaudeWebPageTransportEventType | null;
   bytesSent: number;
   eventCount: number;
   durationMs: number;
@@ -376,7 +418,7 @@ interface ActiveOperation {
   startedAt: number;
   bytesSent: number;
   eventCount: number;
-  eventType: string | null;
+  eventType: ClaudeWebPageTransportEventType | null;
   closeCode: number | null;
   transcript: ClaudeWebTranscriptState;
   endpointCount: number;
@@ -390,6 +432,7 @@ interface ActiveOperation {
   finishRequested: boolean;
   closeStreamSent: boolean;
   closePromise: Promise<void> | null;
+  cleanupPromise: Promise<void> | null;
 }
 
 function normalizeTiming(input: Partial<ClaudeWebPageTransportTiming> = {}): ClaudeWebPageTransportTiming {
@@ -398,10 +441,6 @@ function normalizeTiming(input: Partial<ClaudeWebPageTransportTiming> = {}): Cla
     if (!Number.isFinite(value) || value <= 0) throw new RangeError(`Invalid Claude Web transport timing: ${name}`);
   }
   return timing;
-}
-
-function sanitizeEventType(value: string | null): string | null {
-  return value ? value.slice(0, MAX_EVENT_TYPE_METADATA_LENGTH) : null;
 }
 
 /** Streams raw PCM through fresh native WebSockets owned by the authenticated Claude page. */
@@ -548,6 +587,7 @@ export class ClaudeWebPageTransport {
       finishRequested: false,
       closeStreamSent: false,
       closePromise: null,
+      cleanupPromise: null,
     };
     this.nextOperationId += 1;
     return operation;
@@ -657,14 +697,14 @@ export class ClaudeWebPageTransport {
       operation.hasServerEvent = true;
       this.clearDeadline(operation, 'first-event');
       if (message.kind !== 'text') {
-        operation.eventType = null;
+        operation.eventType = 'malformed';
         this.failOperation(operation, ClaudeWebPageTransportErrorCode.MalformedEvent);
         this.throwOperationFailure(operation);
       }
 
       const parsed = parseClaudeWebSpeechEvent(message.payload);
       if (parsed.status !== 'known') {
-        operation.eventType = sanitizeEventType(parsed.metadata.eventType);
+        operation.eventType = parsed.status;
         if (parsed.status === 'malformed') {
           this.failOperation(operation, ClaudeWebPageTransportErrorCode.MalformedEvent);
           this.throwOperationFailure(operation);
@@ -871,7 +911,12 @@ export class ClaudeWebPageTransport {
     operation.deadlineTimers.clear();
   }
 
-  private async cleanupOperation(operation: ActiveOperation): Promise<void> {
+  private cleanupOperation(operation: ActiveOperation): Promise<void> {
+    operation.cleanupPromise ??= this.performOperationCleanup(operation);
+    return operation.cleanupPromise;
+  }
+
+  private async performOperationCleanup(operation: ActiveOperation): Promise<void> {
     this.clearAllTimers(operation);
     if (this.activeOperations.get(operation.id) === operation) this.activeOperations.delete(operation.id);
     operation.transcript = createClaudeWebTranscriptState();
@@ -902,7 +947,19 @@ export class ClaudeWebPageTransport {
   }
 
   private closeOperation(operation: ActiveOperation): Promise<void> {
-    operation.closePromise ??= this.boundary.close(operation.id).catch(() => undefined);
+    operation.closePromise ??= new Promise<void>((resolve) => {
+      let settled = false;
+      const timeoutHandle = this.clock.setTimeout(() => settle(), this.timing.closeTimeoutMs);
+      operation.timeoutHandles.add(timeoutHandle);
+      const settle = (): void => {
+        if (settled) return;
+        settled = true;
+        this.clock.clearTimeout(timeoutHandle);
+        operation.timeoutHandles.delete(timeoutHandle);
+        resolve();
+      };
+      void this.boundary.close(operation.id).then(settle, settle);
+    });
     return operation.closePromise;
   }
 

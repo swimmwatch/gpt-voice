@@ -64,7 +64,7 @@ const USABLE_SESSION: Extract<ClaudeWebSessionReadResult, { status: 'usable' }> 
 };
 
 const READY_SNAPSHOT: ClaudeWebReadinessSnapshot = {
-  authenticated: true,
+  authentication: 'authenticated',
   featureAvailable: true,
   organizationEvidence: {
     activeOrganizationCandidates: [SYNTHETIC_ORGANIZATION_UUID],
@@ -197,6 +197,7 @@ interface ProviderHarness {
     clipboardWrites: string[];
     navigationCalls: number;
     readinessRetryDelays: number[];
+    readinessTimeMs: number;
     savedStates: unknown[];
     transportCreations: number;
   };
@@ -214,6 +215,7 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     clipboardWrites: [] as string[],
     navigationCalls: 0,
     readinessRetryDelays: [] as number[],
+    readinessTimeMs: 0,
     savedStates: [] as unknown[],
     transportCreations: 0,
   };
@@ -241,8 +243,10 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     navigatePage: async () => {
       state.navigationCalls += 1;
     },
+    now: () => state.readinessTimeMs,
     waitForReadinessRetry: async (delayMs) => {
       state.readinessRetryDelays.push(delayMs);
+      state.readinessTimeMs += delayMs;
     },
     ...overrides,
   };
@@ -357,7 +361,7 @@ describe('ClaudeWebVoiceProvider', () => {
         evaluate: async <T, A>(operation: (argument: A) => Promise<T>, argument: A): Promise<T> => operation(argument),
       } as unknown as Page;
       assert.deepEqual(await inspectClaudeWebReadiness(page), {
-        authenticated: true,
+        authentication: 'authenticated',
         featureAvailable: true,
         organizationEvidence: {
           activeOrganizationCandidates: [SYNTHETIC_ORGANIZATION_UUID],
@@ -370,12 +374,42 @@ describe('ClaudeWebVoiceProvider', () => {
       assert.equal(requestedPaths.length, 1);
       assert.equal(requestedPaths[0]?.startsWith('/edge-api/bootstrap?'), true);
       assert.equal(requestedPaths[0]?.includes('/api/organizations'), false);
+
+      Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async () => new Response(null, { status: 401 }),
+      });
+      assert.equal((await inspectClaudeWebReadiness(page)).authentication, 'unauthenticated');
+
+      Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async () => new Response(null, { status: 503 }),
+      });
+      assert.equal((await inspectClaudeWebReadiness(page)).authentication, 'unavailable');
+
+      Object.defineProperty(globalThis, 'fetch', {
+        configurable: true,
+        value: async () => new Response('{', { status: 200 }),
+      });
+      assert.equal((await inspectClaudeWebReadiness(page)).authentication, 'unavailable');
     } finally {
       for (const [name, descriptor] of originalDescriptors) {
         if (descriptor) Object.defineProperty(globalThis, name, descriptor);
         else Reflect.deleteProperty(globalThis, name);
       }
     }
+  });
+
+  it('bounds a readiness inspection even when the page evaluation never settles', async () => {
+    const page = {
+      evaluate: async () => new Promise<ClaudeWebReadinessSnapshot>(() => undefined),
+    } as unknown as Page;
+
+    assert.deepEqual(await inspectClaudeWebReadiness(page, 5), {
+      authentication: 'unavailable',
+      featureAvailable: false,
+      organizationEvidence: { activeOrganizationCandidates: [], eligibleOrganizations: [] },
+    });
   });
 
   it('initializes a browser-session provider with safe blocking, navigation, and no access token', async () => {
@@ -403,7 +437,7 @@ describe('ClaudeWebVoiceProvider', () => {
   it('waits for delayed Claude SPA feature and organization readiness during startup', async () => {
     const snapshots: ClaudeWebReadinessSnapshot[] = [
       {
-        authenticated: true,
+        authentication: 'authenticated',
         featureAvailable: false,
         organizationEvidence: {
           activeOrganizationCandidates: [],
@@ -414,7 +448,7 @@ describe('ClaudeWebVoiceProvider', () => {
         },
       },
       {
-        authenticated: true,
+        authentication: 'authenticated',
         featureAvailable: true,
         organizationEvidence: {
           activeOrganizationCandidates: [],
@@ -537,11 +571,15 @@ describe('ClaudeWebVoiceProvider', () => {
     assert.equal(unreadableSession.transport.inputs.length, 0);
   });
 
-  it('keeps unauthenticated and feature-unavailable pages unready without socket work', async () => {
+  it('distinguishes unauthenticated, unavailable, and feature-disabled pages without socket work', async () => {
     const cases = [
       {
-        snapshot: { ...READY_SNAPSHOT, authenticated: false },
+        snapshot: { ...READY_SNAPSHOT, authentication: 'unauthenticated' },
         code: ClaudeWebVoiceProviderErrorCode.SessionExpired,
+      },
+      {
+        snapshot: { ...READY_SNAPSHOT, authentication: 'unavailable' },
+        code: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
       },
       {
         snapshot: { ...READY_SNAPSHOT, featureAvailable: false },

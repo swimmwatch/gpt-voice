@@ -4,9 +4,13 @@ import { describe, it } from 'node:test';
 import type { Page } from 'playwright-core';
 import {
   CLAUDE_WEB_CONNECT_TIMEOUT_MS,
+  CLAUDE_WEB_CLOSE_TIMEOUT_MS,
   CLAUDE_WEB_DRAIN_TIMEOUT_MS,
   CLAUDE_WEB_FIRST_EVENT_TIMEOUT_MS,
   CLAUDE_WEB_KEEP_ALIVE_INTERVAL_MS,
+  CLAUDE_WEB_MAX_PAGE_MESSAGE_BYTES,
+  CLAUDE_WEB_MAX_PAGE_MESSAGE_COUNT,
+  CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES,
   CLAUDE_WEB_OVERALL_TIMEOUT_MS,
   ClaudeWebPageSocketError,
   ClaudeWebPageTransport,
@@ -26,6 +30,7 @@ import type { ClaudeWebClientControl } from '@main/providers/claudeWebProtocol';
 const SYNTHETIC_ORGANIZATION_UUID = '11111111-2222-3333-4444-555555555555';
 const TEST_TIMING: ClaudeWebPageTransportTiming = {
   chunkCadenceMs: 5,
+  closeTimeoutMs: 5,
   connectTimeoutMs: 20,
   drainTimeoutMs: 20,
   firstEventTimeoutMs: 20,
@@ -115,6 +120,7 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
   readonly closedOperationIds = new Set<string>();
   maxConcurrentWrites = 0;
   autoOpen = true;
+  closeNeverSettles = false;
   inspectError: ClaudeWebPageSocketError | null = null;
   onBinary: ((operationId: string, bytes: Uint8Array) => void) | null = null;
   onControl: ((operationId: string, control: ClaudeWebClientControl) => void) | null = null;
@@ -172,6 +178,7 @@ class FakePageSocketBoundary implements ClaudeWebPageSocketBoundary {
 
   async close(operationId: string): Promise<void> {
     this.closedOperationIds.add(operationId);
+    if (this.closeNeverSettles) return new Promise<void>(() => undefined);
     this.records.delete(operationId);
   }
 
@@ -332,6 +339,7 @@ describe('Claude Web page transport', () => {
     assert.equal(CLAUDE_WEB_OVERALL_TIMEOUT_MS, 130_000);
     assert.equal(CLAUDE_WEB_DRAIN_TIMEOUT_MS, 3_000);
     assert.equal(CLAUDE_WEB_KEEP_ALIVE_INTERVAL_MS, 4_000);
+    assert.equal(CLAUDE_WEB_CLOSE_TIMEOUT_MS, 1_000);
   });
 
   it('creates and controls the native socket through short page evaluations', async () => {
@@ -378,6 +386,74 @@ describe('Claude Web page transport', () => {
       assert.equal(socket.sent[1], '{"type":"KeepAlive"}');
       assert.deepEqual(socket.closeCodes, [1000]);
       assert.equal(evaluations.length, 6);
+    } finally {
+      Object.defineProperty(globalThis, 'WebSocket', {
+        configurable: true,
+        value: originalWebSocket,
+        writable: true,
+      });
+    }
+  });
+
+  it('fails closed when page-owned response buffering exceeds its byte or count bounds', async () => {
+    const originalWebSocket = globalThis.WebSocket;
+    const nativeSockets: FakeNativeWebSocket[] = [];
+    const page = {
+      isClosed: () => false,
+      evaluate: async (operation: (argument: unknown) => unknown, argument: unknown) => operation(argument),
+    } as unknown as Page;
+    class CapturedWebSocket extends FakeNativeWebSocket {
+      constructor(url: string) {
+        super(url);
+        nativeSockets.push(this);
+      }
+    }
+    Object.defineProperty(globalThis, 'WebSocket', {
+      configurable: true,
+      value: CapturedWebSocket,
+      writable: true,
+    });
+
+    try {
+      const boundary = createClaudeWebPageSocketBoundary(page);
+      await boundary.start('oversized', 'wss://example.invalid/oversized');
+      nativeSockets[0].open();
+      nativeSockets[0].message('x'.repeat(CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES + 1));
+      assert.deepEqual(await boundary.inspect('oversized'), {
+        closeCode: null,
+        failure: ClaudeWebPageTransportErrorCode.MalformedEvent,
+        messages: [],
+        phase: 'failed',
+      });
+      assert.deepEqual(nativeSockets[0].closeCodes, [1009]);
+
+      await boundary.start('aggregate', 'wss://example.invalid/aggregate');
+      nativeSockets[1].open();
+      const aggregateMessage = 'x'.repeat(CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES);
+      const acceptedMessageCount = CLAUDE_WEB_MAX_PAGE_MESSAGE_BYTES / CLAUDE_WEB_MAX_PAGE_TEXT_MESSAGE_BYTES;
+      for (let index = 0; index <= acceptedMessageCount; index += 1) {
+        nativeSockets[1].message(aggregateMessage);
+      }
+      assert.deepEqual(await boundary.inspect('aggregate'), {
+        closeCode: null,
+        failure: ClaudeWebPageTransportErrorCode.MalformedEvent,
+        messages: [],
+        phase: 'failed',
+      });
+      assert.deepEqual(nativeSockets[1].closeCodes, [1009]);
+
+      await boundary.start('burst', 'wss://example.invalid/burst');
+      nativeSockets[2].open();
+      for (let index = 0; index <= CLAUDE_WEB_MAX_PAGE_MESSAGE_COUNT; index += 1) {
+        nativeSockets[2].message('{}');
+      }
+      assert.deepEqual(await boundary.inspect('burst'), {
+        closeCode: null,
+        failure: ClaudeWebPageTransportErrorCode.MalformedEvent,
+        messages: [],
+        phase: 'failed',
+      });
+      assert.deepEqual(nativeSockets[2].closeCodes, [1009]);
     } finally {
       Object.defineProperty(globalThis, 'WebSocket', {
         configurable: true,
@@ -523,6 +599,34 @@ describe('Claude Web page transport', () => {
 
     assert.equal(await settleWithClock(transcribe(transport), clock), 'synthetic result');
     assert.equal(clock.activeTimerCount, 0);
+  });
+
+  it('records only safe categories for unknown and malformed provider event types', async () => {
+    const unknownHarness = createHarness();
+    unknownHarness.boundary.onControl = (operationId, control) => {
+      if (control.type !== 'CloseStream') return;
+      unknownHarness.boundary.emit(operationId, '{"type":"private-provider-sentinel","data":"private-provider-body"}');
+      unknownHarness.boundary.closeRemotely(operationId);
+    };
+    const unknownError = await expectTransportFailure(
+      transcribe(unknownHarness.transport),
+      unknownHarness.clock,
+      ClaudeWebPageTransportErrorCode.EmptyResult,
+    );
+    assert.equal(unknownError.diagnostics.eventType, 'unknown');
+    assert.equal(JSON.stringify(unknownError.diagnostics).includes('private-provider'), false);
+
+    const malformedHarness = createHarness();
+    malformedHarness.boundary.onControl = (operationId, control) => {
+      if (control.type !== 'CloseStream') return;
+      malformedHarness.boundary.emit(operationId, '{"type":"TranscriptText","data":42}');
+    };
+    const malformedError = await expectTransportFailure(
+      transcribe(malformedHarness.transport),
+      malformedHarness.clock,
+      ClaudeWebPageTransportErrorCode.MalformedEvent,
+    );
+    assert.equal(malformedError.diagnostics.eventType, 'malformed');
   });
 
   it('classifies upgrade, connection, malformed-event, rate-limit, empty-result, and page-shutdown failures', async () => {
@@ -672,6 +776,17 @@ describe('Claude Web page transport', () => {
     await expectTransportFailure(transcribe(transport), clock, ClaudeWebPageTransportErrorCode.PageShutdown);
     assert.equal(boundary.operationIds.length, 1);
     assert.equal(boundary.closedOperationIds.size, 1);
+    assert.equal(clock.activeTimerCount, 0);
+  });
+
+  it('does not let a stalled page-side close block cancellation', async () => {
+    const { boundary, clock, transport } = createHarness();
+    boundary.closeNeverSettles = true;
+    const operationId = await startTransport(transport);
+
+    await settleWithClock(transport.cancel(operationId), clock);
+
+    assert.equal(boundary.closedOperationIds.has(operationId), true);
     assert.equal(clock.activeTimerCount, 0);
   });
 

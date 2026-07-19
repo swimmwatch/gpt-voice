@@ -43,14 +43,14 @@ export type {
 export { resolveStreamingVoiceProviderCapability } from './streamingVoiceProviderCapability';
 export { isBatchVoiceProvider, isStreamingVoiceProvider } from './voiceProviderGuards';
 
-const providerRegistry: Record<string, () => BaseVoiceProvider> = {
-  chatgpt: () => new ChatGPTVoiceProvider(),
-  'openai-api': () => new OpenAIApiVoiceProvider(),
-  [CLAUDE_WEB_PROVIDER_ID]: () => new ClaudeWebVoiceProvider(),
-};
+const providerRegistry = new Map<string, () => BaseVoiceProvider>([
+  ['chatgpt', () => new ChatGPTVoiceProvider()],
+  ['openai-api', () => new OpenAIApiVoiceProvider()],
+  [CLAUDE_WEB_PROVIDER_ID, () => new ClaudeWebVoiceProvider()],
+]);
 
 export function getAvailableProviders(): RendererSafeVoiceProviderInfo[] {
-  return Object.values(providerRegistry).map((factory) => {
+  return [...providerRegistry.values()].map((factory) => {
     const p = factory();
     if (!isBatchVoiceProvider(p) && !isStreamingVoiceProvider(p)) {
       throw new Error(`Voice provider class does not match its transcription mode: ${p.info.id}`);
@@ -71,7 +71,7 @@ export function getAvailableProviders(): RendererSafeVoiceProviderInfo[] {
 }
 
 export function createProvider(id: string): BaseVoiceProvider {
-  const factory = providerRegistry[id];
+  const factory = providerRegistry.get(id);
   if (!factory) {
     throw new Error(`Unknown voice provider: ${id}`);
   }

@@ -463,7 +463,7 @@ describe('main streaming transcription service', () => {
           owner,
           operationId: harness.operationId,
           sequence: 0,
-          chunk: chunk as Uint8Array,
+          chunk,
         }),
         StreamingTranscriptionErrorCode.InvalidChunk,
       );
@@ -656,7 +656,7 @@ describe('main streaming transcription service', () => {
         owner,
         operationId: harness.operationId,
         sequence,
-        finalChunk: finalChunk as Uint8Array,
+        finalChunk,
         recordingWav: createPcm16Wav(Uint8Array.of(1, 0)),
       });
       assert.equal(result.success, false);
