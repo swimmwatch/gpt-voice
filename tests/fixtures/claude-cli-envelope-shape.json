@@ -1,0 +1,70 @@
+{
+  "capabilityVersion": "2.1.71",
+  "envelope": {
+    "keys": {
+      "duration_api_ms": { "type": "number" },
+      "duration_ms": { "type": "number" },
+      "fast_mode_state": { "type": "string" },
+      "is_error": { "type": "boolean" },
+      "modelUsage": {
+        "keys": {
+          "[model-id]": {
+            "keys": {
+              "cacheCreationInputTokens": { "type": "number" },
+              "cacheReadInputTokens": { "type": "number" },
+              "contextWindow": { "type": "number" },
+              "costUSD": { "type": "number" },
+              "inputTokens": { "type": "number" },
+              "maxOutputTokens": { "type": "number" },
+              "outputTokens": { "type": "number" },
+              "webSearchRequests": { "type": "number" }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "num_turns": { "type": "number" },
+      "permission_denials": { "items": [], "type": "array" },
+      "result": { "type": "string" },
+      "stop_reason": { "type": "string" },
+      "structured_output": {
+        "keys": {
+          "text": { "type": "string", "value": "synthetic-placeholder" }
+        },
+        "type": "object"
+      },
+      "subtype": { "type": "string" },
+      "total_cost_usd": { "type": "number" },
+      "type": { "type": "string" },
+      "usage": {
+        "keys": {
+          "cache_creation": {
+            "keys": {
+              "ephemeral_1h_input_tokens": { "type": "number" },
+              "ephemeral_5m_input_tokens": { "type": "number" }
+            },
+            "type": "object"
+          },
+          "cache_creation_input_tokens": { "type": "number" },
+          "cache_read_input_tokens": { "type": "number" },
+          "inference_geo": { "type": "string" },
+          "input_tokens": { "type": "number" },
+          "iterations": { "items": [], "type": "array" },
+          "output_tokens": { "type": "number" },
+          "server_tool_use": {
+            "keys": {
+              "web_fetch_requests": { "type": "number" },
+              "web_search_requests": { "type": "number" }
+            },
+            "type": "object"
+          },
+          "service_tier": { "type": "string" },
+          "speed": { "type": "string" }
+        },
+        "type": "object"
+      }
+    },
+    "type": "object"
+  }
+}

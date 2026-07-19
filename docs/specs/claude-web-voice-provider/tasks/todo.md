@@ -1,8 +1,7 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 28 and 10 are committed. Task 11 is complete and remains
-uncommitted for human review; Task 12 is the next packet on a later explicit
-incremental-implementation invocation.
+Plan gate: Tasks 28, 10, and 11 are committed. Task 12 is complete and
+uncommitted for review; Task 13 is next after approval.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
@@ -23,7 +22,7 @@ incremental-implementation invocation.
 - [x] [28 Localization and feature gate](28_complete_streaming_feature_gate.md)
 - [x] [10 CLI settings and capabilities](10_define_cli_prettify_contracts.md)
 - [x] [11 CLI process runner](11_build_cli_process_runner.md)
-- [ ] [12 Claude CLI adapter](12_implement_claude_cli_adapter.md)
+- [x] [12 Claude CLI adapter](12_implement_claude_cli_adapter.md)
 - [ ] [13 Codex CLI adapter](13_implement_codex_cli_adapter.md)
 - [ ] [14 Codex schema packaging](14_package_codex_output_schema.md)
 - [ ] [15 CLI localization](15_localize_cli_prettify.md)

@@ -1,51 +1,48 @@
-# Handoff: Private CLI Process Runner
+# Handoff: Claude CLI Prettify Adapter
 
-Status: Task 10 was committed as `adf5c2ab feat(prettify): define CLI provider
-contracts`. Task 11 is complete and deliberately uncommitted for human review.
-Do not begin Task 12 in this invocation.
+Status: Task 11 was committed as `0c78011a feat(prettify): add private CLI
+process runner`. Task 12 is complete and deliberately uncommitted for review.
+Do not begin Task 13 or enable the Claude CLI provider in this invocation.
 
-Completed in Task 11:
+Implemented in Task 12:
 
-- Added main-only, injectable `CliProcessRunner` with no adapter, renderer,
-  IPC, dependency, packaging, or real CLI integration.
-- It resolves only a validated configured absolute executable or a GUI-PATH
-  executable without a shell, creates an empty per-operation temporary cwd,
-  and passes selected input directly through piped stdin.
-- Spawned children use `shell: false`, a strict platform environment allowlist,
-  bounded stdout/stderr collection, a 1-second graceful-to-forced tree-kill
-  sequence, and idempotent listener/timer/directory cleanup.
-- Results use typed safe failure codes and diagnostics. Only successful calls
-  retain raw stdout; optional failed stderr excerpts are sanitized and limited
-  to 2 KiB. No paths, environment values, input, raw stderr, or credentials
-  are logged or returned in diagnostics.
-- Added deterministic fakes covering argv, stdin, cwd/environment isolation,
-  PATH/PATHEXT and configured-path resolution, exit/error classes, output
-  limits, cancellation, timeout, forced cleanup, and cleanup failures.
+- Added standalone `ClaudeCliPrettifyAdapter`, typed availability/result error
+  codes, GUI-PATH/configured-path runner use, and a fixed isolated print-mode
+  argument contract. It disables tools, skills, Chrome, session persistence,
+  and external MCP configuration.
+- Added version/help/auth preflight. The authorized local preflight passed with
+  capability version `2.1.71` and an authenticated boolean only; identity and
+  account fields were discarded.
+- Added model/fallback/effort validation, 256 KiB stdout and 16 KiB stderr
+  limits, safe runner error mapping, structured-output parsing, and a private
+  cache-context helper. No provider registry, renderer, IPC, or UI changed.
+- Added deterministic tests for the exact argv, stdin separation, defaults,
+  capability/auth gates, failure mapping, envelope validation, and cache
+  privacy, plus a metadata-only canary-envelope fixture test.
+- The authorized local canary passed through the private runner after a local
+  dry run in a context that supports child-process pipe capture. It confirmed
+  capability version `2.1.71` and the required nonempty
+  `structured_output.text` envelope path. The fixture retains only key/type
+  metadata and a synthetic text placeholder; dynamic model and session
+  identifiers are redacted or omitted.
 
-Task 11 changed files:
+Task 12 changed files:
 
-- `src/main/services/prettifyCliRunner.ts`
-- `tests/main/prettifyCliRunner.test.ts`
+- `src/main/services/prettifyClaudeCli.ts`
+- `tests/main/prettifyClaudeCli.test.ts`
+- `tests/fixtures/claude-cli-envelope-shape.json`
 - `docs/specs/claude-web-voice-provider/tasks/{todo,handoff}.md`
 
 Checks:
 
-- Focused runner test, `npm run typecheck`, `npm run test:types`,
+- Focused adapter/runner tests, `npm run typecheck`, `npm run test:types`,
   `npm run lint`, and `npm run format:check` pass. Lint retains only the two
   pre-existing warnings in `tests/main/streamingTranscription.test.ts`.
-- `npm test` passes 96/97 files. The unrelated
-  `tests/scripts/buildSizeCli.test.ts` still fails because its spawned
-  `measure` and `verify` commands produce empty captured stdout even though
-  direct invocation prints the expected summary. No Task 11 file participates
-  in that failure.
+- `npm test` passes 97/98 files. The unrelated
+  `tests/scripts/buildSizeCli.test.ts` stdout-capture failure persists.
 
 Exact next packet:
 
-- After human review, run Task 12
-  (`12_implement_claude_cli_adapter.md`). It may use this runner but must not
-  start Codex CLI work or enable the CLI provider UI.
-
-Blockers:
-
-- Resolve or separately triage the existing build-size CLI stdout-capture
-  failure before claiming a fully green unit suite.
+- After human review, run Task 13
+  (`13_implement_codex_cli_adapter.md`). Keep both CLI providers unselectable
+  until their runtime-integration packet.
