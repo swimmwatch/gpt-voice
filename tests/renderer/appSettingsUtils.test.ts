@@ -5,6 +5,7 @@ import {
   arePrettifySettingsEqual,
   areTextActionSettingsEqual,
   applyExternalPrettifyProviderSelection,
+  createAppSettingsValidationError,
   createAppSettingsLogSummary,
   createCloakBrowserSettingsInput,
   createEditableSettings,
@@ -115,7 +116,7 @@ describe('appSettingsUtils', () => {
         isDirty: true,
         isValid: false,
         validationErrors: {
-          prettifyPrompt: 'Prettify prompt is required',
+          prettifyPrompt: createAppSettingsValidationError('prettify-prompt-required'),
         },
       },
     );
@@ -343,7 +344,7 @@ describe('appSettingsUtils', () => {
       settings: createEditableSettings(cloakBrowserSettings()),
       prettifySettings: prettifySettings({ prompt: '   ' }),
     });
-    assert.equal(emptyPromptErrors.prettifyPrompt, 'Prettify prompt is required');
+    assert.deepEqual(emptyPromptErrors.prettifyPrompt, createAppSettingsValidationError('prettify-prompt-required'));
 
     const invalidBaseUrlErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
@@ -355,7 +356,10 @@ describe('appSettingsUtils', () => {
         },
       }),
     });
-    assert.equal(invalidBaseUrlErrors.prettifyBaseUrl, 'Base URL must be a valid http or https URL');
+    assert.deepEqual(
+      invalidBaseUrlErrors.prettifyBaseUrl,
+      createAppSettingsValidationError('prettify-base-url-invalid'),
+    );
 
     const insecureRemoteUrlErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
@@ -367,7 +371,10 @@ describe('appSettingsUtils', () => {
         },
       }),
     });
-    assert.equal(insecureRemoteUrlErrors.prettifyBaseUrl, 'Non-local provider URLs must use HTTPS');
+    assert.deepEqual(
+      insecureRemoteUrlErrors.prettifyBaseUrl,
+      createAppSettingsValidationError('prettify-base-url-insecure-remote'),
+    );
 
     const credentialUrlErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
@@ -379,15 +386,20 @@ describe('appSettingsUtils', () => {
         },
       }),
     });
-    assert.equal(credentialUrlErrors.prettifyBaseUrl, 'Base URL must not include credentials');
+    assert.deepEqual(
+      credentialUrlErrors.prettifyBaseUrl,
+      createAppSettingsValidationError('prettify-base-url-credentials'),
+    );
 
     const longPromptErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
       prettifySettings: prettifySettings({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
     });
-    assert.equal(
+    assert.deepEqual(
       longPromptErrors.prettifyPrompt,
-      `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`,
+      createAppSettingsValidationError('prettify-prompt-too-long', {
+        max: String(MAX_PRETTIFY_PROMPT_LENGTH),
+      }),
     );
 
     const missingModelErrors = validateAppSettings({
@@ -399,7 +411,7 @@ describe('appSettingsUtils', () => {
         },
       }),
     });
-    assert.equal(missingModelErrors.prettifyModel, 'Select a model');
+    assert.deepEqual(missingModelErrors.prettifyModel, createAppSettingsValidationError('prettify-model-required'));
 
     const invalidGenerationErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
@@ -412,39 +424,42 @@ describe('appSettingsUtils', () => {
         topP: 0,
       }),
     });
-    assert.equal(invalidGenerationErrors.prettifyTopP, 'Top P must be between 0.05 and 1');
-    assert.equal(invalidGenerationErrors.prettifyTopK, 'Top K must be an integer between 1 and 200');
-    assert.equal(invalidGenerationErrors.prettifyMinP, 'Min P must be between 0 and 1');
-    assert.equal(invalidGenerationErrors.prettifyRepeatPenalty, 'Repeat penalty must be between 0.8 and 1.5');
-    assert.equal(
-      invalidGenerationErrors.prettifyMaxOutputTokens,
-      'Max output tokens must be an integer between 1 and 8192',
+    assert.deepEqual(invalidGenerationErrors.prettifyTopP, createAppSettingsValidationError('prettify-top-p-range'));
+    assert.deepEqual(invalidGenerationErrors.prettifyTopK, createAppSettingsValidationError('prettify-top-k-range'));
+    assert.deepEqual(invalidGenerationErrors.prettifyMinP, createAppSettingsValidationError('prettify-min-p-range'));
+    assert.deepEqual(
+      invalidGenerationErrors.prettifyRepeatPenalty,
+      createAppSettingsValidationError('prettify-repeat-penalty-range'),
     );
-    assert.equal(invalidGenerationErrors.prettifySeed, 'Seed must be empty or an integer between 0 and 2147483647');
+    assert.deepEqual(
+      invalidGenerationErrors.prettifyMaxOutputTokens,
+      createAppSettingsValidationError('prettify-max-output-tokens-range'),
+    );
+    assert.deepEqual(invalidGenerationErrors.prettifySeed, createAppSettingsValidationError('prettify-seed-range'));
 
     const invalidSeedSettings = createEditableSettings(cloakBrowserSettings());
     invalidSeedSettings.fingerprintSeed = 'abc123';
-    assert.equal(
+    assert.deepEqual(
       validateAppSettings({ settings: invalidSeedSettings, prettifySettings: VALID_PRETTIFY_SETTINGS }).fingerprintSeed,
-      'Fingerprint seed must contain digits only',
+      createAppSettingsValidationError('fingerprint-seed-digits'),
     );
 
     const invalidLocaleSettings = createEditableSettings(cloakBrowserSettings());
     invalidLocaleSettings.locale = 'fr-CA';
-    assert.equal(
+    assert.deepEqual(
       validateAppSettings({
         settings: invalidLocaleSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
         localeValues: ['en-US'],
       }).locale,
-      'Select a supported locale',
+      createAppSettingsValidationError('locale-unsupported'),
     );
 
     const invalidTimezoneSettings = createEditableSettings(cloakBrowserSettings());
     invalidTimezoneSettings.timezone = 'Mars/Olympus';
-    assert.equal(
+    assert.deepEqual(
       validateAppSettings({ settings: invalidTimezoneSettings, prettifySettings: VALID_PRETTIFY_SETTINGS }).timezone,
-      'Select a supported timezone',
+      createAppSettingsValidationError('timezone-unsupported'),
     );
   });
 
@@ -476,11 +491,23 @@ describe('appSettingsUtils', () => {
       },
     });
     const invalidErrors = validateAppSettings({ settings: browserSettings, prettifySettings: invalidDraft });
-    assert.equal(invalidErrors.prettifyExecutablePath, 'Executable path must be empty or absolute');
-    assert.equal(invalidErrors.prettifyModel, 'Enter a supported Claude CLI model');
-    assert.equal(invalidErrors.prettifyFallbackModel, 'Enter a supported Claude CLI fallback model');
-    assert.equal(invalidErrors.prettifyEffort, 'Select a supported Claude CLI effort');
-    assert.equal(invalidErrors.prettifyTimeout, 'Timeout must be an integer between 15 and 600 seconds');
+    assert.deepEqual(
+      invalidErrors.prettifyExecutablePath,
+      createAppSettingsValidationError('prettify-executable-path-invalid'),
+    );
+    assert.deepEqual(invalidErrors.prettifyModel, createAppSettingsValidationError('prettify-claude-model-invalid'));
+    assert.deepEqual(
+      invalidErrors.prettifyFallbackModel,
+      createAppSettingsValidationError('prettify-claude-fallback-model-invalid'),
+    );
+    assert.deepEqual(invalidErrors.prettifyEffort, createAppSettingsValidationError('prettify-claude-effort-invalid'));
+    assert.deepEqual(
+      invalidErrors.prettifyTimeout,
+      createAppSettingsValidationError('prettify-cli-timeout-range', {
+        min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+        max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      }),
+    );
 
     const maximumTimeoutErrors = validateAppSettings({
       settings: browserSettings,
@@ -522,28 +549,43 @@ describe('appSettingsUtils', () => {
       },
     });
     const invalidErrors = validateAppSettings({ settings: browserSettings, prettifySettings: invalidDraft });
-    assert.equal(invalidErrors.prettifyExecutablePath, 'Executable path must be empty or absolute');
-    assert.equal(invalidErrors.prettifyModel, 'Enter a supported Codex CLI model');
-    assert.equal(invalidErrors.prettifyReasoningEffort, 'Select a supported Codex CLI reasoning effort');
-    assert.equal(invalidErrors.prettifyVerbosity, 'Select a supported Codex CLI verbosity');
-    assert.equal(invalidErrors.prettifyTimeout, 'Timeout must be an integer between 15 and 600 seconds');
+    assert.deepEqual(
+      invalidErrors.prettifyExecutablePath,
+      createAppSettingsValidationError('prettify-executable-path-invalid'),
+    );
+    assert.deepEqual(invalidErrors.prettifyModel, createAppSettingsValidationError('prettify-codex-model-invalid'));
+    assert.deepEqual(
+      invalidErrors.prettifyReasoningEffort,
+      createAppSettingsValidationError('prettify-codex-reasoning-invalid'),
+    );
+    assert.deepEqual(
+      invalidErrors.prettifyVerbosity,
+      createAppSettingsValidationError('prettify-codex-verbosity-invalid'),
+    );
+    assert.deepEqual(
+      invalidErrors.prettifyTimeout,
+      createAppSettingsValidationError('prettify-cli-timeout-range', {
+        min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+        max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      }),
+    );
   });
 
   it('validates proxy server and SOCKS5 auth settings', () => {
     const invalidProxyUrl = createEditableSettings(cloakBrowserSettings());
     invalidProxyUrl.proxy.enabled = true;
     invalidProxyUrl.proxy.server = 'not a url';
-    assert.equal(
+    assert.deepEqual(
       validateAppSettings({ settings: invalidProxyUrl, prettifySettings: VALID_PRETTIFY_SETTINGS }).proxyServer,
-      'Proxy server must be a valid URL',
+      createAppSettingsValidationError('proxy-url-invalid'),
     );
 
     const proxyUrlWithCredentials = createEditableSettings(cloakBrowserSettings());
     proxyUrlWithCredentials.proxy.enabled = true;
     proxyUrlWithCredentials.proxy.server = 'http://user:pass@proxy.example.com';
-    assert.equal(
+    assert.deepEqual(
       validateAppSettings({ settings: proxyUrlWithCredentials, prettifySettings: VALID_PRETTIFY_SETTINGS }).proxyServer,
-      'Proxy credentials must be stored in username and password fields',
+      createAppSettingsValidationError('proxy-credentials-in-url'),
     );
 
     const socks5Auth = createEditableSettings(cloakBrowserSettings());
@@ -552,8 +594,14 @@ describe('appSettingsUtils', () => {
     socks5Auth.proxy.username = 'user';
     socks5Auth.proxy.hasPassword = true;
     const socks5Errors = validateAppSettings({ settings: socks5Auth, prettifySettings: VALID_PRETTIFY_SETTINGS });
-    assert.equal(socks5Errors.proxyUsername, 'SOCKS5 proxy username/password is not supported');
-    assert.equal(socks5Errors.proxyPassword, 'SOCKS5 proxy username/password is not supported');
+    assert.deepEqual(
+      socks5Errors.proxyUsername,
+      createAppSettingsValidationError('proxy-socks5-credentials-unsupported'),
+    );
+    assert.deepEqual(
+      socks5Errors.proxyPassword,
+      createAppSettingsValidationError('proxy-socks5-credentials-unsupported'),
+    );
   });
 
   it('does not validate locale and timezone while proxy GeoIP owns them', () => {
@@ -902,7 +950,7 @@ describe('appSettingsUtils', () => {
     );
 
     assert.equal(result.success, false);
-    assert.equal(result.fieldErrors?.prettifyPrompt, 'Prettify prompt is required');
+    assert.deepEqual(result.fieldErrors?.prettifyPrompt, createAppSettingsValidationError('prettify-prompt-required'));
     assert.deepEqual(calls, []);
   });
 

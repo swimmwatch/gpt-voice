@@ -52,7 +52,7 @@ describe('prettifySettings', () => {
     assert.deepEqual(PRETTIFY_PROVIDER_CAPABILITIES['claude-cli'], {
       apiKey: false,
       baseUrl: false,
-      experimental: true,
+      experimental: false,
       httpGenerationControls: false,
       modelLifecycle: false,
       modelListing: true,
@@ -321,6 +321,32 @@ describe('prettifySettings', () => {
       getPrettifySettingsInputError({ vllm: { clearApiKey: 'yes' } }),
       'vLLM API key clear flag must be a boolean',
     );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { executablePath: 'claude --dangerous-flag' } }),
+      'Claude CLI executable path must be empty or absolute',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { model: 'untrusted-model' } }),
+      'Claude CLI model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { fallbackModel: 'untrusted-model' } }),
+      'Claude CLI fallback model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { model: 'codex --dangerous-flag' } }),
+      'Codex CLI model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({
+        providerId: 'claude-cli',
+        topP: 0,
+        ollama: { baseUrl: 'invalid', model: 42 },
+        claudeCli: { model: '  sonnet  ' },
+      }),
+      null,
+    );
+    assert.equal(getPrettifySettingsInputError({ providerId: 'ollama', topP: 0 }), 'Top P must be between 0.05 and 1');
   });
 
   it('keeps legacy reasoning helpers available without affecting normalized settings', () => {

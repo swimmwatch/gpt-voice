@@ -168,6 +168,11 @@ describe('CLI prettify model controls', () => {
     };
 
     assert.deepEqual(normalizeCodexCliSettingsForModel(settings, models, true), settings);
+    assert.deepEqual(normalizeCodexCliSettingsForModel(settings, models, false), {
+      ...settings,
+      reasoningEffort: 'default',
+      verbosity: 'low',
+    });
     assert.deepEqual(normalizeCodexCliSettingsForModel({ ...settings, model: 'custom-model' }, models, true), {
       ...settings,
       model: 'custom-model',

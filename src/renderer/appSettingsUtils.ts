@@ -10,7 +10,7 @@ import {
   MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
   MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
-  getPrettifyBaseUrlValidationError,
+  getPrettifyBaseUrlValidationErrorCode,
   getPrettifyProviderCapabilities,
   isClaudeCliPrettifyEffort,
   isCodexCliPrettifyReasoningEffort,
@@ -25,6 +25,7 @@ import {
   type KnownPrettifyProviderId,
   type PrettifySettings,
   type PrettifySettingsInput,
+  type PrettifyBaseUrlValidationErrorCode,
 } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
@@ -70,7 +71,96 @@ export type AppSettingsFieldKey =
   | 'proxyUsername'
   | 'proxyPassword';
 
-export type AppSettingsFieldErrors = Partial<Record<AppSettingsFieldKey, string>>;
+export type AppSettingsValidationErrorCode =
+  | PrettifyBaseUrlValidationErrorCode
+  | 'prettify-temperature-range'
+  | 'prettify-top-p-range'
+  | 'prettify-top-k-range'
+  | 'prettify-min-p-range'
+  | 'prettify-repeat-penalty-range'
+  | 'prettify-max-output-tokens-range'
+  | 'prettify-seed-range'
+  | 'prettify-base-url-required'
+  | 'prettify-model-required'
+  | 'prettify-model-unavailable'
+  | 'prettify-executable-path-invalid'
+  | 'prettify-claude-model-invalid'
+  | 'prettify-claude-fallback-model-invalid'
+  | 'prettify-claude-effort-invalid'
+  | 'prettify-cli-timeout-range'
+  | 'prettify-codex-model-invalid'
+  | 'prettify-codex-reasoning-invalid'
+  | 'prettify-codex-verbosity-invalid'
+  | 'prettify-prompt-required'
+  | 'prettify-prompt-too-long'
+  | 'prettify-provider-invalid'
+  | 'locale-required'
+  | 'locale-unsupported'
+  | 'timezone-required'
+  | 'timezone-unsupported'
+  | 'proxy-server-required'
+  | 'proxy-protocol-invalid'
+  | 'proxy-credentials-in-url'
+  | 'proxy-url-invalid'
+  | 'proxy-socks5-credentials-unsupported'
+  | 'human-preset-invalid'
+  | 'background-mode-invalid'
+  | 'fingerprint-seed-required'
+  | 'fingerprint-seed-digits';
+
+export const APP_SETTINGS_VALIDATION_ERROR_CODES = [
+  'prettify-temperature-range',
+  'prettify-top-p-range',
+  'prettify-top-k-range',
+  'prettify-min-p-range',
+  'prettify-repeat-penalty-range',
+  'prettify-max-output-tokens-range',
+  'prettify-seed-range',
+  'prettify-base-url-required',
+  'prettify-base-url-invalid',
+  'prettify-base-url-credentials',
+  'prettify-base-url-insecure-remote',
+  'prettify-model-required',
+  'prettify-model-unavailable',
+  'prettify-executable-path-invalid',
+  'prettify-claude-model-invalid',
+  'prettify-claude-fallback-model-invalid',
+  'prettify-claude-effort-invalid',
+  'prettify-cli-timeout-range',
+  'prettify-codex-model-invalid',
+  'prettify-codex-reasoning-invalid',
+  'prettify-codex-verbosity-invalid',
+  'prettify-prompt-required',
+  'prettify-prompt-too-long',
+  'prettify-provider-invalid',
+  'locale-required',
+  'locale-unsupported',
+  'timezone-required',
+  'timezone-unsupported',
+  'proxy-server-required',
+  'proxy-protocol-invalid',
+  'proxy-credentials-in-url',
+  'proxy-url-invalid',
+  'proxy-socks5-credentials-unsupported',
+  'human-preset-invalid',
+  'background-mode-invalid',
+  'fingerprint-seed-required',
+  'fingerprint-seed-digits',
+] as const satisfies readonly AppSettingsValidationErrorCode[];
+
+export interface AppSettingsValidationError {
+  code: AppSettingsValidationErrorCode;
+  params?: Record<string, string>;
+}
+
+export type AppSettingsFieldErrors = Partial<Record<AppSettingsFieldKey, AppSettingsValidationError>>;
+
+export function createAppSettingsValidationError(
+  code: AppSettingsValidationErrorCode,
+  params?: Record<string, string>,
+): AppSettingsValidationError {
+  return params ? { code, params } : { code };
+}
 
 export type PrettifySettingsDraft = Omit<PrettifySettings, 'providerId'> & {
   providerId: KnownPrettifyProviderId;
@@ -535,46 +625,46 @@ export interface ValidateAppSettingsInput {
 }
 
 function addNumericPrettifyErrors(settings: PrettifySettingsDraft, errors: AppSettingsFieldErrors): void {
-  const numericRules: Array<[AppSettingsFieldKey, boolean, string]> = [
+  const numericRules: Array<[AppSettingsFieldKey, boolean, AppSettingsValidationErrorCode]> = [
     [
       'prettifyTemperature',
       Number.isFinite(settings.temperature) && settings.temperature >= 0 && settings.temperature <= 1,
-      'Temperature must be between 0 and 1',
+      'prettify-temperature-range',
     ],
     [
       'prettifyTopP',
       Number.isFinite(settings.topP) && settings.topP >= 0.05 && settings.topP <= 1,
-      'Top P must be between 0.05 and 1',
+      'prettify-top-p-range',
     ],
     [
       'prettifyTopK',
       Number.isInteger(settings.topK) && settings.topK >= 1 && settings.topK <= 200,
-      'Top K must be an integer between 1 and 200',
+      'prettify-top-k-range',
     ],
     [
       'prettifyMinP',
       Number.isFinite(settings.minP) && settings.minP >= 0 && settings.minP <= 1,
-      'Min P must be between 0 and 1',
+      'prettify-min-p-range',
     ],
     [
       'prettifyRepeatPenalty',
       Number.isFinite(settings.repeatPenalty) && settings.repeatPenalty >= 0.8 && settings.repeatPenalty <= 1.5,
-      'Repeat penalty must be between 0.8 and 1.5',
+      'prettify-repeat-penalty-range',
     ],
     [
       'prettifyMaxOutputTokens',
       Number.isInteger(settings.maxOutputTokens) && settings.maxOutputTokens >= 1 && settings.maxOutputTokens <= 8192,
-      'Max output tokens must be an integer between 1 and 8192',
+      'prettify-max-output-tokens-range',
     ],
     [
       'prettifySeed',
       settings.seed === null ||
         (Number.isInteger(settings.seed) && settings.seed >= 0 && settings.seed <= 2_147_483_647),
-      'Seed must be empty or an integer between 0 and 2147483647',
+      'prettify-seed-range',
     ],
   ];
-  for (const [field, valid, message] of numericRules) {
-    if (!valid) errors[field] = message;
+  for (const [field, valid, code] of numericRules) {
+    if (!valid) errors[field] = createAppSettingsValidationError(code);
   }
 }
 
@@ -590,12 +680,12 @@ function validateHttpPrettifyProvider(
   provider: PrettifySettingsDraft['ollama'] | PrettifySettingsDraft['vllm'],
   errors: AppSettingsFieldErrors,
 ): void {
-  if (!provider.baseUrl.trim()) errors.prettifyBaseUrl = 'Base URL is required';
+  if (!provider.baseUrl.trim()) errors.prettifyBaseUrl = createAppSettingsValidationError('prettify-base-url-required');
   else {
-    const baseUrlError = getPrettifyBaseUrlValidationError(provider.baseUrl);
-    if (baseUrlError) errors.prettifyBaseUrl = baseUrlError;
+    const baseUrlErrorCode = getPrettifyBaseUrlValidationErrorCode(provider.baseUrl);
+    if (baseUrlErrorCode) errors.prettifyBaseUrl = createAppSettingsValidationError(baseUrlErrorCode);
   }
-  if (!provider.model.trim()) errors.prettifyModel = 'Select a model';
+  if (!provider.model.trim()) errors.prettifyModel = createAppSettingsValidationError('prettify-model-required');
 }
 
 function validateClaudeCliPrettifyProvider(
@@ -603,21 +693,24 @@ function validateClaudeCliPrettifyProvider(
   errors: AppSettingsFieldErrors,
 ): void {
   if (!isValidPrettifyCliExecutablePath(settings.executablePath)) {
-    errors.prettifyExecutablePath = 'Executable path must be empty or absolute';
+    errors.prettifyExecutablePath = createAppSettingsValidationError('prettify-executable-path-invalid');
   }
   const model = settings.model.trim();
   if (model && !isValidClaudeCliPrettifyModel(model)) {
-    errors.prettifyModel = 'Enter a supported Claude CLI model';
+    errors.prettifyModel = createAppSettingsValidationError('prettify-claude-model-invalid');
   }
   const fallbackModel = settings.fallbackModel.trim();
   if (fallbackModel && !isValidClaudeCliPrettifyModel(fallbackModel)) {
-    errors.prettifyFallbackModel = 'Enter a supported Claude CLI fallback model';
+    errors.prettifyFallbackModel = createAppSettingsValidationError('prettify-claude-fallback-model-invalid');
   }
   if (!isClaudeCliPrettifyEffort(settings.effort)) {
-    errors.prettifyEffort = 'Select a supported Claude CLI effort';
+    errors.prettifyEffort = createAppSettingsValidationError('prettify-claude-effort-invalid');
   }
   if (!isValidCliTimeout(settings.timeoutSeconds)) {
-    errors.prettifyTimeout = `Timeout must be an integer between ${MIN_PRETTIFY_CLI_TIMEOUT_SECONDS} and ${MAX_PRETTIFY_CLI_TIMEOUT_SECONDS} seconds`;
+    errors.prettifyTimeout = createAppSettingsValidationError('prettify-cli-timeout-range', {
+      min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+    });
   }
 }
 
@@ -626,31 +719,36 @@ function validateCodexCliPrettifyProvider(
   errors: AppSettingsFieldErrors,
 ): void {
   if (!isValidPrettifyCliExecutablePath(settings.executablePath)) {
-    errors.prettifyExecutablePath = 'Executable path must be empty or absolute';
+    errors.prettifyExecutablePath = createAppSettingsValidationError('prettify-executable-path-invalid');
   }
   const model = settings.model.trim();
   if (model && !isValidCodexCliPrettifyModel(model)) {
-    errors.prettifyModel = 'Enter a supported Codex CLI model';
+    errors.prettifyModel = createAppSettingsValidationError('prettify-codex-model-invalid');
   }
   if (!isCodexCliPrettifyReasoningEffort(settings.reasoningEffort)) {
-    errors.prettifyReasoningEffort = 'Select a supported Codex CLI reasoning effort';
+    errors.prettifyReasoningEffort = createAppSettingsValidationError('prettify-codex-reasoning-invalid');
   }
   if (!isCodexCliPrettifyVerbosity(settings.verbosity)) {
-    errors.prettifyVerbosity = 'Select a supported Codex CLI verbosity';
+    errors.prettifyVerbosity = createAppSettingsValidationError('prettify-codex-verbosity-invalid');
   }
   if (!isValidCliTimeout(settings.timeoutSeconds)) {
-    errors.prettifyTimeout = `Timeout must be an integer between ${MIN_PRETTIFY_CLI_TIMEOUT_SECONDS} and ${MAX_PRETTIFY_CLI_TIMEOUT_SECONDS} seconds`;
+    errors.prettifyTimeout = createAppSettingsValidationError('prettify-cli-timeout-range', {
+      min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+    });
   }
 }
 
 function validatePrettifySettings(settings: PrettifySettingsDraft, errors: AppSettingsFieldErrors): void {
   const prompt = settings.prompt.trim();
-  if (!prompt) errors.prettifyPrompt = 'Prettify prompt is required';
+  if (!prompt) errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-required');
   else if (prompt.length > MAX_PRETTIFY_PROMPT_LENGTH) {
-    errors.prettifyPrompt = `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`;
+    errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-too-long', {
+      max: String(MAX_PRETTIFY_PROMPT_LENGTH),
+    });
   }
   if (!isKnownPrettifyProviderId(settings.providerId)) {
-    errors.prettifyProvider = 'Select a supported provider';
+    errors.prettifyProvider = createAppSettingsValidationError('prettify-provider-invalid');
     return;
   }
 
@@ -684,33 +782,34 @@ function validateLocaleAndTimezone(
   if (settings.proxy.enabled && settings.proxy.geoip) return;
   const locale = settings.locale.trim();
   const timezone = settings.timezone.trim();
-  if (!locale) errors.locale = 'Locale is required';
-  else if (!localeValues.includes(locale)) errors.locale = 'Select a supported locale';
-  if (!timezone) errors.timezone = 'Timezone is required';
-  else if (!timezoneValues.includes(timezone)) errors.timezone = 'Select a supported timezone';
+  if (!locale) errors.locale = createAppSettingsValidationError('locale-required');
+  else if (!localeValues.includes(locale)) errors.locale = createAppSettingsValidationError('locale-unsupported');
+  if (!timezone) errors.timezone = createAppSettingsValidationError('timezone-required');
+  else if (!timezoneValues.includes(timezone))
+    errors.timezone = createAppSettingsValidationError('timezone-unsupported');
 }
 
 function validateProxy(settings: EditableCloakBrowserSettings, errors: AppSettingsFieldErrors): void {
   if (!settings.proxy.enabled) return;
   const server = settings.proxy.server.trim();
   if (!server) {
-    errors.proxyServer = 'Proxy server is required when proxy is enabled';
+    errors.proxyServer = createAppSettingsValidationError('proxy-server-required');
     return;
   }
 
   try {
     const proxyUrl = new URL(server);
     if (!SUPPORTED_PROXY_PROTOCOLS.has(proxyUrl.protocol)) {
-      errors.proxyServer = 'Proxy server must use http, https, or socks5';
+      errors.proxyServer = createAppSettingsValidationError('proxy-protocol-invalid');
     } else if (proxyUrl.username || proxyUrl.password) {
-      errors.proxyServer = 'Proxy credentials must be stored in username and password fields';
+      errors.proxyServer = createAppSettingsValidationError('proxy-credentials-in-url');
     }
   } catch {
-    errors.proxyServer = 'Proxy server must be a valid URL';
+    errors.proxyServer = createAppSettingsValidationError('proxy-url-invalid');
   }
 
   if (!isSocks5ProxyServer(server)) return;
-  const socks5Error = 'SOCKS5 proxy username/password is not supported';
+  const socks5Error = createAppSettingsValidationError('proxy-socks5-credentials-unsupported');
   if (settings.proxy.username.trim()) errors.proxyUsername = socks5Error;
   if (settings.proxy.password.trim() || (settings.proxy.hasPassword && !settings.proxy.clearPassword)) {
     errors.proxyPassword = socks5Error;
@@ -724,15 +823,15 @@ function validateCloakBrowserSettings(
   errors: AppSettingsFieldErrors,
 ): void {
   if (!CLOAK_BROWSER_HUMAN_PRESETS.includes(settings.humanPreset)) {
-    errors.humanPreset = 'Select a supported human preset';
+    errors.humanPreset = createAppSettingsValidationError('human-preset-invalid');
   }
   if (!CLOAK_BROWSER_BACKGROUND_MODES.includes(settings.backgroundMode)) {
-    errors.backgroundMode = 'Select a supported background mode';
+    errors.backgroundMode = createAppSettingsValidationError('background-mode-invalid');
   }
   const fingerprintSeed = settings.fingerprintSeed.trim();
-  if (!fingerprintSeed) errors.fingerprintSeed = 'Fingerprint seed is required';
+  if (!fingerprintSeed) errors.fingerprintSeed = createAppSettingsValidationError('fingerprint-seed-required');
   else if (!FINGERPRINT_SEED_PATTERN.test(fingerprintSeed))
-    errors.fingerprintSeed = 'Fingerprint seed must contain digits only';
+    errors.fingerprintSeed = createAppSettingsValidationError('fingerprint-seed-digits');
   validateLocaleAndTimezone(settings, localeValues, timezoneValues, errors);
   validateProxy(settings, errors);
 }

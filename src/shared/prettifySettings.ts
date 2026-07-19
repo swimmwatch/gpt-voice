@@ -80,7 +80,7 @@ export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, Pre
   'claude-cli': {
     apiKey: false,
     baseUrl: false,
-    experimental: true,
+    experimental: false,
     httpGenerationControls: false,
     modelLifecycle: false,
     modelListing: true,
@@ -347,18 +347,34 @@ export function isPrettifyProviderBaseUrlLoopback(value: unknown): boolean {
   return Boolean(url && isLoopbackHost(url.hostname));
 }
 
-export function getPrettifyBaseUrlValidationError(value: unknown): string | null {
+export type PrettifyBaseUrlValidationErrorCode =
+  'prettify-base-url-invalid' | 'prettify-base-url-credentials' | 'prettify-base-url-insecure-remote';
+
+export function getPrettifyBaseUrlValidationErrorCode(value: unknown): PrettifyBaseUrlValidationErrorCode | null {
   const url = parsePrettifyProviderBaseUrl(value);
   if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:')) {
-    return 'Base URL must be a valid http or https URL';
+    return 'prettify-base-url-invalid';
   }
   if (url.username || url.password) {
-    return 'Base URL must not include credentials';
+    return 'prettify-base-url-credentials';
   }
   if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
-    return 'Non-local provider URLs must use HTTPS';
+    return 'prettify-base-url-insecure-remote';
   }
   return null;
+}
+
+export function getPrettifyBaseUrlValidationError(value: unknown): string | null {
+  switch (getPrettifyBaseUrlValidationErrorCode(value)) {
+    case 'prettify-base-url-invalid':
+      return 'Base URL must be a valid http or https URL';
+    case 'prettify-base-url-credentials':
+      return 'Base URL must not include credentials';
+    case 'prettify-base-url-insecure-remote':
+      return 'Non-local provider URLs must use HTTPS';
+    case null:
+      return null;
+  }
 }
 
 function isSettingsInput(value: unknown): value is Record<string, unknown> {
@@ -405,21 +421,38 @@ function getPrettifyProviderInputError(
   return null;
 }
 
-function getCliSettingsInputError(
-  input: Record<string, unknown>,
-  providerName: string,
-  effortField: 'effort' | 'reasoningEffort',
-  isValidEffort: (value: unknown) => boolean,
-  supportsFallbackModel: boolean,
-  supportsVerbosity: boolean,
-): string | null {
+interface CliSettingsValidationRules {
+  effortField: 'effort' | 'reasoningEffort';
+  isValidEffort: (value: unknown) => boolean;
+  isValidModel: (value: unknown) => boolean;
+  providerName: string;
+  supportsFallbackModel: boolean;
+  supportsVerbosity: boolean;
+}
+
+function getCliSettingsInputError(input: Record<string, unknown>, rules: CliSettingsValidationRules): string | null {
+  const { effortField, isValidEffort, isValidModel, providerName, supportsFallbackModel, supportsVerbosity } = rules;
   for (const field of ['executablePath', 'model'] as const) {
     if (input[field] !== undefined && typeof input[field] !== 'string') {
       return `${providerName} ${field === 'executablePath' ? 'executable path' : 'model'} must be a string`;
     }
   }
+  if (input.executablePath !== undefined && !isValidPrettifyCliExecutablePath(input.executablePath)) {
+    return `${providerName} executable path must be empty or absolute`;
+  }
+  if (typeof input.model === 'string' && input.model.trim() !== '' && !isValidModel(input.model.trim())) {
+    return `${providerName} model is invalid`;
+  }
   if (supportsFallbackModel && input.fallbackModel !== undefined && typeof input.fallbackModel !== 'string') {
     return `${providerName} fallback model must be a string`;
+  }
+  if (
+    supportsFallbackModel &&
+    typeof input.fallbackModel === 'string' &&
+    input.fallbackModel.trim() !== '' &&
+    !isValidModel(input.fallbackModel.trim())
+  ) {
+    return `${providerName} fallback model is invalid`;
   }
   if (input[effortField] !== undefined && !isValidEffort(input[effortField])) {
     return `${providerName} ${effortField === 'effort' ? 'effort' : 'reasoning effort'} is unsupported`;
@@ -435,6 +468,73 @@ function getCliSettingsInputError(
       MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
       true,
     );
+  }
+  return null;
+}
+
+function getHttpGenerationSettingsInputError(input: Record<string, unknown>): string | null {
+  if (input.providerId !== undefined && input.providerId !== 'ollama' && input.providerId !== 'vllm') return null;
+
+  const numberFields: Array<[unknown, string, number, number, boolean?]> = [
+    [input.temperature, 'Temperature', 0, 1],
+    [input.topP, 'Top P', 0.05, 1],
+    [input.topK, 'Top K', 1, 200, true],
+    [input.minP, 'Min P', 0, 1],
+    [input.repeatPenalty, 'Repeat penalty', 0.8, 1.5],
+    [input.maxOutputTokens, 'Max output tokens', 1, 8192, true],
+  ];
+  for (const [value, label, min, max, integer] of numberFields) {
+    if (value === undefined) continue;
+    const error = getNumberRangeError(value, label, min, max, integer);
+    if (error) return error;
+  }
+  if (input.seed === undefined || input.seed === null) return null;
+  return getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true);
+}
+
+function getHttpProviderSettingsInputError(input: Record<string, unknown>): string | null {
+  for (const [providerId, value, providerName, isVllmProvider] of [
+    ['ollama', input.ollama, 'Ollama', false],
+    ['vllm', input.vllm, 'vLLM', true],
+  ] as const) {
+    if (input.providerId !== undefined && input.providerId !== providerId) continue;
+    if (value === undefined) continue;
+    if (!isSettingsInput(value)) return `${providerName} settings must be an object`;
+    const error = getPrettifyProviderInputError(value, providerName, isVllmProvider);
+    if (error) return error;
+  }
+  return null;
+}
+
+function getCliProviderSettingsInputError(input: Record<string, unknown>): string | null {
+  const providers: Array<CliSettingsValidationRules & { providerId: 'claude-cli' | 'codex-cli'; value: unknown }> = [
+    {
+      effortField: 'effort',
+      isValidEffort: isClaudeCliPrettifyEffort,
+      isValidModel: isValidClaudeCliPrettifyModel,
+      providerId: 'claude-cli',
+      providerName: 'Claude CLI',
+      supportsFallbackModel: true,
+      supportsVerbosity: false,
+      value: input.claudeCli,
+    },
+    {
+      effortField: 'reasoningEffort',
+      isValidEffort: isCodexCliPrettifyReasoningEffort,
+      isValidModel: isValidCodexCliPrettifyModel,
+      providerId: 'codex-cli',
+      providerName: 'Codex CLI',
+      supportsFallbackModel: false,
+      supportsVerbosity: true,
+      value: input.codexCli,
+    },
+  ];
+  for (const provider of providers) {
+    if (input.providerId !== undefined && input.providerId !== provider.providerId) continue;
+    if (provider.value === undefined) continue;
+    if (!isSettingsInput(provider.value)) return `${provider.providerName} settings must be an object`;
+    const error = getCliSettingsInputError(provider.value, provider);
+    if (error) return error;
   }
   return null;
 }
@@ -455,80 +555,11 @@ export function getPrettifySettingsInputError(input: unknown = {}): string | nul
     return 'Unsupported prettify provider';
   }
 
-  const numberErrors: Array<[unknown, string, number, number, boolean?]> = [
-    [input.temperature, 'Temperature', 0, 1],
-    [input.topP, 'Top P', 0.05, 1],
-    [input.topK, 'Top K', 1, 200, true],
-    [input.minP, 'Min P', 0, 1],
-    [input.repeatPenalty, 'Repeat penalty', 0.8, 1.5],
-    [input.maxOutputTokens, 'Max output tokens', 1, 8192, true],
-  ];
-  for (const [value, label, min, max, integer] of numberErrors) {
-    if (value === undefined) continue;
-    const error = getNumberRangeError(value, label, min, max, integer);
-    if (error) return error;
-  }
-
-  if (
-    input.seed !== undefined &&
-    input.seed !== null &&
-    getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true)
-  ) {
-    return getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true);
-  }
-
-  for (const [value, providerName, isVllmProvider] of [
-    [input.ollama, 'Ollama', false],
-    [input.vllm, 'vLLM', true],
-  ] as const) {
-    if (value === undefined) continue;
-    if (!isSettingsInput(value)) {
-      return `${providerName} settings must be an object`;
-    }
-    const error = getPrettifyProviderInputError(value, providerName, isVllmProvider);
-    if (error) return error;
-  }
-
-  const cliSettings: Array<{
-    effortField: 'effort' | 'reasoningEffort';
-    isValidEffort: (value: unknown) => boolean;
-    providerName: string;
-    supportsFallbackModel: boolean;
-    supportsVerbosity: boolean;
-    value: unknown;
-  }> = [
-    {
-      effortField: 'effort',
-      isValidEffort: isClaudeCliPrettifyEffort,
-      providerName: 'Claude CLI',
-      supportsFallbackModel: true,
-      supportsVerbosity: false,
-      value: input.claudeCli,
-    },
-    {
-      effortField: 'reasoningEffort',
-      isValidEffort: isCodexCliPrettifyReasoningEffort,
-      providerName: 'Codex CLI',
-      supportsFallbackModel: false,
-      supportsVerbosity: true,
-      value: input.codexCli,
-    },
-  ];
-  for (const cli of cliSettings) {
-    if (cli.value === undefined) continue;
-    if (!isSettingsInput(cli.value)) return `${cli.providerName} settings must be an object`;
-    const error = getCliSettingsInputError(
-      cli.value,
-      cli.providerName,
-      cli.effortField,
-      cli.isValidEffort,
-      cli.supportsFallbackModel,
-      cli.supportsVerbosity,
-    );
-    if (error) return error;
-  }
-
-  return null;
+  return (
+    getHttpGenerationSettingsInputError(input) ??
+    getHttpProviderSettingsInputError(input) ??
+    getCliProviderSettingsInputError(input)
+  );
 }
 
 export function assertValidPrettifySettingsInput(input: unknown = {}): asserts input is PrettifySettingsInput {
