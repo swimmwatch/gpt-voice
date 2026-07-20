@@ -496,18 +496,34 @@ successful, and merged into `main` with merge commit `1f35876b`. Before any
 release tag or GitHub Release was created, one newly authorized Claude Web
 runtime-matrix attempt was made from that exact merged commit.
 
-The disposable runner first passed a local no-network observability check and
-emitted exactly one metadata-only JSON line. The live attempt then terminated
-before it could emit case-level metadata. Its only retained classification was
-`runtime-matrix`; no completion, reference-match, timing, frame/event/endpoint,
-queue, or close-code result can be asserted from this attempt.
+The first disposable runner passed its local output-sanitization check but
+failed during module loading because a temporary ESM entry point could not
+resolve the repository-local CloakBrowser package. The failure occurred before
+fixture retrieval, browser launch, saved-session restoration, or a Claude
+speech connection. It therefore provided no evidence of a Claude or product
+startup failure.
 
-The runner and its local inspector were removed. Audio, reference or recognized
-text, socket URLs, raw events, session/account/organization data, browser state,
-and provider output were not printed or persisted. No automatic retry,
-reconnect, buffered fallback, transport change, tag, or release followed.
+After fresh explicit authorization, the runner was executed from the repository
+module context. Nine production-module imports passed, as did the public-fixture
+setup. A separate no-speech preflight then passed browser launch, saved-session
+restoration, Claude readiness, and final cleanup.
 
-**The v2.1.0 runtime gate failed closed. Task 19 remains unchecked.** The single
-authorized attempt is consumed; another live matrix requires fresh explicit
-authorization after the disposable runner's pre-case failure is made safely
-observable without exposing private runtime data.
+The authorized live matrix progressed through the two short, pause/resume,
+immediate-Stop, and cancellation stages, then terminated during the
+approximately 30-second stage. The safe retained classification was
+`runtime-matrix` at stage `long`. Because the disposable runner emitted case
+summaries only after the complete matrix, it retained neither the earlier case
+outcomes nor the long stage's typed queue/transport cause. No individual case
+is therefore asserted as passing.
+
+All disposable runners, inspectors, and their identified generated cache were
+removed. Audio, reference or recognized text, socket URLs, raw events,
+session/account/organization data, browser state, and provider output were not
+printed or persisted. No automatic retry, reconnect, buffered fallback,
+transport change, tag, or release followed.
+
+**The v2.1.0 runtime gate remains failed closed and Task 19 remains unchecked.**
+The newly authorized live attempt is consumed. A future runner must emit a
+sanitized terminal record per case and preserve the typed local/transport cause
+when a later case terminates; another live matrix requires fresh explicit
+authorization.

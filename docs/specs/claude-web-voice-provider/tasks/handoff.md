@@ -8,12 +8,19 @@ not begun. No `v2.1.0` tag or GitHub Release exists.
 
 - PR #38 was rechecked at head `904d5c4b`, targeted `main`, was mergeable, and
   retained four successful checks before its merge commit was created.
-- A disposable runtime runner passed its local no-network observability check
-  and produced exactly one sanitized output line.
-- The one newly authorized Claude Web attempt ended before case-level metadata
-  was emitted. The only retained classification is `runtime-matrix`.
-- No completion, reference-match, timing, frame/event/endpoint, queue, or close
-  result is claimed. The attempt cannot satisfy the release runtime gate.
+- The original disposable runner failed at local module resolution before the
+  fixture, browser, saved session, or Claude speech transport was accessed. It
+  was a runner startup defect, not evidence of a Claude startup failure.
+- With fresh explicit authorization, all nine production imports and the public
+  fixture setup passed from the repository module context.
+- A no-speech preflight passed browser launch, saved-session restoration,
+  Claude readiness, and final cleanup.
+- The authorized matrix progressed through the two short, pause/resume,
+  immediate-Stop, and cancellation stages, then ended during the approximately
+  30-second stage with classification `runtime-matrix` and safe stage `long`.
+- The runner emitted only after the complete matrix, so no preceding case
+  result or typed cause was retained. No case is claimed as passing, and the
+  attempt cannot satisfy the release runtime gate.
 - The temporary runner and inspector were removed. No audio, reference or
   recognized text, URL, raw event, session, account, organization, credential,
   profile, or provider output was retained.
@@ -37,9 +44,9 @@ not begun. No `v2.1.0` tag or GitHub Release exists.
 
 ## Blocker And Continuation Boundary
 
-The v2.1.0 gate is blocked by the disposable runner's safe pre-case
-`runtime-matrix` failure. The authorized attempt is consumed. Before another
-live run, make that pre-case stage observable using only safe classifications,
-validate it without Claude traffic, and obtain fresh explicit authorization.
-Task 19 stays unchecked; do not tag, publish, begin Task 20, or infer any live
-case as passing.
+The v2.1.0 gate is blocked by the safe `runtime-matrix` termination at stage
+`long`. The authorized live attempt is consumed. Before another run, make the
+disposable harness emit one sanitized terminal record per case and retain the
+typed local/transport cause without private payloads, validate that behavior
+without Claude traffic, and obtain fresh explicit authorization. Task 19 stays
+unchecked; do not tag, publish, begin Task 20, or infer any live case as passing.
