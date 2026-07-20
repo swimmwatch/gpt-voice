@@ -13,6 +13,8 @@ import {
 
 const STARTUP_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_TIMEOUT_MS = 60_000;
+const STARTUP_PROFILE_CLEANUP_RETRIES = 10;
+const STARTUP_PROFILE_CLEANUP_RETRY_DELAY_MS = 200;
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArguments(args) {
@@ -51,7 +53,9 @@ async function getPackagedStartupExecutable() {
     }
   }
 
-  throw new Error(`Packaged startup executable not found. Checked:\n${candidates.map((candidate) => `  - ${candidate}`).join('\n')}`);
+  throw new Error(
+    `Packaged startup executable not found. Checked:\n${candidates.map((candidate) => `  - ${candidate}`).join('\n')}`,
+  );
 }
 
 function waitForStartupReady(child) {
@@ -114,7 +118,12 @@ async function measureStartupRun(executablePath) {
       await exitPromise;
     }
 
-    await rm(userDataPath, { force: true, recursive: true });
+    await rm(userDataPath, {
+      force: true,
+      maxRetries: STARTUP_PROFILE_CLEANUP_RETRIES,
+      recursive: true,
+      retryDelay: STARTUP_PROFILE_CLEANUP_RETRY_DELAY_MS,
+    });
   }
 }
 
