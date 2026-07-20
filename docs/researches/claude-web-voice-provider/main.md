@@ -486,3 +486,28 @@ Claude Web short and pause cases returned `empty-result`, and the long case
 missed the three-second post-Stop requirement. These failures are recorded for
 their owning follow-up work and are not repaired inside the documentation and
 verification packet.
+
+## v2.1.0 Release Runtime Gate Revalidation
+
+Evidence date: 2026-07-20
+
+PR #38 was rechecked at reviewed head `904d5c4b`, with all four required checks
+successful, and merged into `main` with merge commit `1f35876b`. Before any
+release tag or GitHub Release was created, one newly authorized Claude Web
+runtime-matrix attempt was made from that exact merged commit.
+
+The disposable runner first passed a local no-network observability check and
+emitted exactly one metadata-only JSON line. The live attempt then terminated
+before it could emit case-level metadata. Its only retained classification was
+`runtime-matrix`; no completion, reference-match, timing, frame/event/endpoint,
+queue, or close-code result can be asserted from this attempt.
+
+The runner and its local inspector were removed. Audio, reference or recognized
+text, socket URLs, raw events, session/account/organization data, browser state,
+and provider output were not printed or persisted. No automatic retry,
+reconnect, buffered fallback, transport change, tag, or release followed.
+
+**The v2.1.0 runtime gate failed closed. Task 19 remains unchecked.** The single
+authorized attempt is consumed; another live matrix requires fresh explicit
+authorization after the disposable runner's pre-case failure is made safely
+observable without exposing private runtime data.

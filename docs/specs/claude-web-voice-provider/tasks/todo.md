@@ -1,11 +1,11 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 01-18 are committed. Task 19 documentation, automated checks,
-packaged-runtime inspection, and the one authorized Claude Web/CLI runtime
-matrix were completed. The full unit suite and build-size CLI test now pass,
-but Task 19 remains unchecked because the current Claude Web
-short/pause/finalization runtime gates did not pass and the authorized request
-allowance is consumed. Task 20 has not begun.
+Plan gate: Tasks 01-18 are committed and PR #38 was merged into `main` as
+`1f35876b`. Task 19 remains unchecked. The 2026-07-20 v2.1.0 release
+revalidation passed its local no-network observability check but the single
+authorized live attempt ended with the safe `runtime-matrix` classification
+before case metadata was emitted. No tag or release was created, and Task 20
+has not begun.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
