@@ -15,12 +15,24 @@ not begun. No `v2.1.0` tag or GitHub Release exists.
   fixture setup passed from the repository module context.
 - A no-speech preflight passed browser launch, saved-session restoration,
   Claude readiness, and final cleanup.
-- The authorized matrix progressed through the two short, pause/resume,
-  immediate-Stop, and cancellation stages, then ended during the approximately
-  30-second stage with classification `runtime-matrix` and safe stage `long`.
-- The runner emitted only after the complete matrix, so no preceding case
-  result or typed cause was retained. No case is claimed as passing, and the
-  attempt cannot satisfy the release runtime gate.
+- A rebuilt runner passed its dry, public-fixture, saved-session, Claude
+  readiness, and cleanup preflights, then emitted one terminal record per case.
+- Both short streams returned typed `empty-result` after 68 frames, with zero
+  server events/endpoints, queue high-water 12, clean close `1000`, and
+  post-Stop ranges of 3,200-3,299 ms and 3,500-3,599 ms.
+- Pause/resume also returned `empty-result` after 68 frames despite an observed
+  KeepAlive. It received zero events/endpoints, had queue high-water 12, closed
+  with `1000`, and finished in the 2,200-2,299 ms range after Stop.
+- Immediate Stop produced the expected empty result with zero complete frames
+  and close `1000`. Cancellation completed after five frames and cleaned up,
+  but its close code was not observed.
+- The approximately 30-second case ended with `transport-failure` before Stop:
+  enqueue was rejected at frame 192 after 176 sends. It received zero events or
+  endpoints, stayed within the queue bound at high-water 17, and cleaned up.
+- All fragments were valid, minimum cadence and cleanup checks passed, and no
+  malformed or unknown event was observed. The specific page-transport subtype
+  was not retained, so no timeout, connection, authentication, endpoint, or
+  rate-limit cause is inferred.
 - The temporary runner and inspector were removed. No audio, reference or
   recognized text, URL, raw event, session, account, organization, credential,
   profile, or provider output was retained.
@@ -44,9 +56,9 @@ not begun. No `v2.1.0` tag or GitHub Release exists.
 
 ## Blocker And Continuation Boundary
 
-The v2.1.0 gate is blocked by the safe `runtime-matrix` termination at stage
-`long`. The authorized live attempt is consumed. Before another run, make the
-disposable harness emit one sanitized terminal record per case and retain the
-typed local/transport cause without private payloads, validate that behavior
-without Claude traffic, and obtain fresh explicit authorization. Task 19 stays
-unchecked; do not tag, publish, begin Task 20, or infer any live case as passing.
+The v2.1.0 gate is blocked because normal short and paused streams received no
+server events and returned `empty-result`, while the long stream terminated
+before Stop with `transport-failure`. The authorized attempt is consumed.
+Diagnose the missing events and retain the specific safe page-transport subtype
+before requesting another live matrix. Task 19 stays unchecked; do not tag,
+publish, or begin Task 20.

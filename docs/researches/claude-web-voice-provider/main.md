@@ -508,13 +508,27 @@ module context. Nine production-module imports passed, as did the public-fixture
 setup. A separate no-speech preflight then passed browser launch, saved-session
 restoration, Claude readiness, and final cleanup.
 
-The authorized live matrix progressed through the two short, pause/resume,
-immediate-Stop, and cancellation stages, then terminated during the
-approximately 30-second stage. The safe retained classification was
-`runtime-matrix` at stage `long`. Because the disposable runner emitted case
-summaries only after the complete matrix, it retained neither the earlier case
-outcomes nor the long stage's typed queue/transport cause. No individual case
-is therefore asserted as passing.
+After another explicit release continuation, a rebuilt runner emitted one
+sanitized terminal record per case. Its local dry run, bounded public-fixture
+setup, saved-session restoration, Claude readiness, and cleanup preflights all
+passed before the live matrix.
+
+| Case                     | Safe outcome          | Permitted metadata                                                                                         |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| First short stream       | `empty-result`        | 68 frames; zero events/endpoints; queue high-water 12; post-Stop 3,200-3,299 ms; close `1000`              |
+| Second short stream      | `empty-result`        | 68 frames; zero events/endpoints; queue high-water 12; post-Stop 3,500-3,599 ms; close `1000`              |
+| Pause and resume         | `empty-result`        | 68 frames; KeepAlive observed; zero events/endpoints; queue high-water 12; post-Stop 2,200-2,299 ms        |
+| Immediate Stop           | Expected empty result | Zero complete frames/events/endpoints; post-Stop 3,200-3,299 ms; close `1000`                              |
+| Cancellation             | Completed safely      | Five frames; cleanup passed; close code was not observed                                                   |
+| Approximately 30 seconds | `transport-failure`   | Enqueue rejected at frame 192 after 176 sends; zero events/endpoints; queue high-water 17; no finalization |
+
+Every emitted fragment was valid, the minimum send cadence passed, each queue
+remained below its 64-frame bound, no malformed or unknown event was observed,
+and all operation/final cleanup checks passed. The long failure was not a queue
+overflow: the queue rejected further input after a typed transport failure. The
+runner did not retain the more specific page-transport subtype, so no
+first-event timeout, connection, authentication, endpoint, or rate-limit cause
+is asserted. Long finalization and duration independence were not reached.
 
 All disposable runners, inspectors, and their identified generated cache were
 removed. Audio, reference or recognized text, socket URLs, raw events,
@@ -523,7 +537,7 @@ printed or persisted. No automatic retry, reconnect, buffered fallback,
 transport change, tag, or release followed.
 
 **The v2.1.0 runtime gate remains failed closed and Task 19 remains unchecked.**
-The newly authorized live attempt is consumed. A future runner must emit a
-sanitized terminal record per case and preserve the typed local/transport cause
-when a later case terminates; another live matrix requires fresh explicit
-authorization.
+Normal short and paused streams produced no server events or final transcript,
+and the long stream terminated before Stop. The authorized live attempt is
+consumed. Diagnose the missing server events and preserve the specific safe
+page-transport subtype before requesting any further live matrix.
