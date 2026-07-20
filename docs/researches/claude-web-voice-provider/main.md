@@ -541,3 +541,15 @@ Normal short and paused streams produced no server events or final transcript,
 and the long stream terminated before Stop. The authorized live attempt is
 consumed. Diagnose the missing server events and preserve the specific safe
 page-transport subtype before requesting any further live matrix.
+
+### Release-Owner Known-Issue Decision
+
+Decision date: 2026-07-20
+
+After reviewing this sanitized evidence, the release owner explicitly directed
+the stable v2.1.0 release to continue without another live request or a
+transport change. This is a release-risk acceptance, not successful runtime
+evidence: Task 19 remains unchecked, the failed outcomes above remain the
+authoritative result, and Claude Web streaming must be disclosed as a known
+issue. No automatic replay, reconnect, buffered fallback, or hidden batch path
+is authorized by this decision.

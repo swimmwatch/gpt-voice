@@ -1,8 +1,9 @@
 # Handoff: Task 19 Release Runtime Gate
 
 Status: Tasks 01-18 and the reviewed feature work were merged through PR #38.
-`main` is at merge commit `1f35876b`. Task 19 remains unchecked and Task 20 has
-not begun. No `v2.1.0` tag or GitHub Release exists.
+The failed runtime evidence and Windows startup-smoke cleanup were merged
+through PR #45 as `5f833ae4`. Task 19 remains unchecked and Task 20 has not
+begun. No `v2.1.0` tag or GitHub Release exists.
 
 ## 2026-07-20 Release Revalidation
 
@@ -54,11 +55,18 @@ not begun. No `v2.1.0` tag or GitHub Release exists.
 - Historical live evidence remains in the research record; it does not replace
   the failed 2026-07-20 release attempt.
 
-## Blocker And Continuation Boundary
+## Release-Owner Decision And Continuation Boundary
 
-The v2.1.0 gate is blocked because normal short and paused streams received no
-server events and returned `empty-result`, while the long stream terminated
-before Stop with `transport-failure`. The authorized attempt is consumed.
-Diagnose the missing events and retain the specific safe page-transport subtype
-before requesting another live matrix. Task 19 stays unchecked; do not tag,
-publish, or begin Task 20.
+On 2026-07-20, after reviewing the sanitized failure evidence, the release
+owner explicitly directed the stable v2.1.0 release to continue and the current
+2.0.0 Debian installation to be upgraded. The Claude Web defect remains a
+known issue: normal short and paused streams received no server events and
+returned `empty-result`, while the long stream terminated before Stop with
+`transport-failure`. This decision does not convert the failed matrix into a
+pass, so Task 19 stays unchecked.
+
+Proceed only after the remaining automated quality, packaging, privacy, and
+artifact gates pass. Disclose the Claude Web streaming issue in the GitHub
+Release, make no retry, reconnect, replay, fallback, or transport change, and
+do not begin Task 20. After the published artifacts are verified, replace the
+installed Debian package with the verified v2.1.0 package.
