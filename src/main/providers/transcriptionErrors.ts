@@ -5,6 +5,7 @@ import { t } from '../i18n';
 interface TranscribeHttpResponse {
   status: number;
   body: string;
+  retryAfter?: string;
 }
 
 export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse): TranscriptionResult | null {
@@ -12,7 +13,7 @@ export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse)
     return null;
   }
 
-  const retryAfterSeconds = getRetryAfterSeconds(resp.body);
+  const retryAfterSeconds = getTranscriptionRetryAfterSeconds(resp);
   return {
     success: false,
     error: retryAfterSeconds
@@ -20,6 +21,22 @@ export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse)
       : t('error.rateLimited'),
     raw: resp.body,
   };
+}
+
+export function getTranscriptionRetryAfterSeconds(
+  resp: Pick<TranscribeHttpResponse, 'body' | 'retryAfter'>,
+  nowMs = Date.now(),
+): number | null {
+  return getRetryAfterHeaderSeconds(resp.retryAfter, nowMs) ?? getRetryAfterSeconds(resp.body);
+}
+
+function getRetryAfterHeaderSeconds(value: string | undefined, nowMs: number): number | null {
+  const direct = normalizeRetryAfterSeconds(value);
+  if (direct !== null) return direct;
+  if (!value) return null;
+
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? normalizeRetryAfterSeconds((retryAt - nowMs) / 1000) : null;
 }
 
 function getRetryAfterSeconds(body: string): number | null {

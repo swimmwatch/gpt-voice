@@ -24,6 +24,7 @@ import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavi
 import { APP_DIR } from '../config';
 import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
+import { getTranscriptionRetryAfterSeconds } from './transcriptionErrors';
 
 const log = createLogger('chatgpt-provider');
 
@@ -33,8 +34,10 @@ const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
 const TRANSCRIPTION_MAX_ATTEMPTS = 2;
-const TRANSCRIPTION_RETRY_DELAY_MS = 500;
-const TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS = 5000;
+const TRANSCRIPTION_REQUEST_TIMEOUT_MS = 20000;
+const TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS = 15000;
+const TRANSCRIPTION_RATE_LIMIT_FALLBACK_SECONDS = 60;
+const TRANSCRIPTION_RATE_LIMIT_MAX_SECONDS = 10 * 60;
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -62,38 +65,49 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 interface ChatGptTranscribeResponse {
   status: number;
   body: string;
+  retryAfter?: string;
 }
 
-type ChatGptPageTranscriptionResult = ({ kind: 'response' } & ChatGptTranscribeResponse) | { kind: 'request-failed' };
+type ChatGptPageTranscriptionResult =
+  ({ kind: 'response' } & ChatGptTranscribeResponse) | { kind: 'request-failed'; failure: 'network' | 'timeout' };
 
 type ChatGptTranscriptionAttempt =
   | ({ page: Page } & Extract<ChatGptPageTranscriptionResult, { kind: 'response' }>)
   | {
-      kind: 'page-failed' | 'request-failed';
+      failure: 'network' | 'timeout';
+      kind: 'request-failed';
+      page: Page;
+      pageClosed: boolean;
+      pageCurrent: boolean;
+    }
+  | {
+      kind: 'page-failed';
       page: Page | null;
       pageClosed: boolean;
       pageCurrent: boolean;
     };
 
 interface ChatGPTVoiceProviderDependencies {
-  waitForTranscriptionRetry(delayMs: number): Promise<void>;
+  now(): number;
+  reloadPage(page: Page, timeoutMs: number): Promise<void>;
   writeClipboardText(text: string): void;
-}
-
-function waitForDelay(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 /** Browser-session provider for ChatGPT's transcription endpoint. */
 export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private readonly deps: ChatGPTVoiceProviderDependencies;
+  private transcriptionPageRecovery: Promise<void> | null = null;
+  private transcriptionRateLimitUntil = 0;
 
   constructor(deps: Partial<ChatGPTVoiceProviderDependencies> = {}) {
     super();
     this.deps = {
-      waitForTranscriptionRetry: deps.waitForTranscriptionRetry || waitForDelay,
+      now: deps.now || Date.now,
+      reloadPage:
+        deps.reloadPage ||
+        (async (page, timeoutMs) => {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
+        }),
       writeClipboardText: deps.writeClipboardText || writeClipboardText,
     };
   }
@@ -109,6 +123,8 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   } satisfies VoiceProviderInfo;
 
   async initPage(context: BrowserContext): Promise<void> {
+    this.transcriptionPageRecovery = null;
+    this.transcriptionRateLimitUntil = 0;
     this.context = context;
     this.page = await context.newPage();
 
@@ -144,6 +160,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     } catch {
       /* ignore */
     }
+    this.transcriptionRateLimitUntil = 0;
     this.clearCachedToken();
   }
 
@@ -194,6 +211,16 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     try {
       log.info('Transcribing, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType);
 
+      const rateLimitFailure = this.getActiveRateLimitFailure();
+      if (rateLimitFailure) {
+        log.info('ChatGPT transcription skipped during rate-limit cooldown:', {
+          remainingSeconds: this.getRateLimitRemainingSeconds(),
+        });
+        return rateLimitFailure;
+      }
+
+      await this.transcriptionPageRecovery;
+
       if (!this.page) {
         return { success: false, error: t('error.notLoggedIn') };
       }
@@ -214,6 +241,8 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   }
 
   async shutdown(): Promise<void> {
+    this.transcriptionPageRecovery = null;
+    this.transcriptionRateLimitUntil = 0;
     this.clearCachedToken();
     await super.shutdown();
   }
@@ -298,17 +327,20 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     for (let attemptNumber = 1; attemptNumber <= TRANSCRIPTION_MAX_ATTEMPTS; attemptNumber += 1) {
       const attempt = await this.runTranscriptionAttempt(audioBase64, accessToken, mimeType);
       if (attempt.kind !== 'response') {
-        const retryScheduled =
-          attemptNumber < TRANSCRIPTION_MAX_ATTEMPTS && (await this.prepareTransientRetry(attempt));
+        this.startTranscriptionPageRecovery(attempt.page);
         log.warn('ChatGPT transcription transport failed:', {
           attempt: attemptNumber,
-          cause: attempt.kind === 'request-failed' ? 'page-request' : 'page-context',
-          maxAttempts: TRANSCRIPTION_MAX_ATTEMPTS,
+          audioReplaySuppressed: true,
+          cause:
+            attempt.kind === 'request-failed'
+              ? attempt.failure === 'timeout'
+                ? 'page-timeout'
+                : 'page-request'
+              : 'page-context',
           pageClosed: attempt.pageClosed,
           pageCurrent: attempt.pageCurrent,
-          retryScheduled,
+          recoveryScheduled: this.transcriptionPageRecovery !== null,
         });
-        if (retryScheduled) continue;
         return this.createConnectionFailure();
       }
 
@@ -324,6 +356,10 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
           return { success: false, error: t('error.noAccessToken') };
         }
         continue;
+      }
+
+      if (attempt.status === Number(StatusCodes.TOO_MANY_REQUESTS)) {
+        return this.applyRateLimitCooldown(attempt);
       }
 
       return this.parseTranscribeResponse(attempt, mimeType);
@@ -362,22 +398,57 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     }
   }
 
-  private async prepareTransientRetry(
-    attempt: Exclude<ChatGptTranscriptionAttempt, { kind: 'response' }>,
-  ): Promise<boolean> {
-    const { page } = attempt;
-    if (!page || this.page !== page || page.isClosed()) return false;
+  private startTranscriptionPageRecovery(page: Page | null): void {
+    if (!page || this.page !== page || page.isClosed() || this.transcriptionPageRecovery) return;
 
-    await this.deps.waitForTranscriptionRetry(TRANSCRIPTION_RETRY_DELAY_MS);
-    if (this.page !== page || page.isClosed()) return false;
-    if (attempt.kind === 'request-failed') return true;
+    const startedAt = this.deps.now();
+    const recovery = this.recoverTranscriptionPage(page, startedAt);
+    this.transcriptionPageRecovery = recovery;
+    void recovery.then(() => {
+      if (this.transcriptionPageRecovery === recovery) this.transcriptionPageRecovery = null;
+    });
+  }
 
+  private async recoverTranscriptionPage(page: Page, startedAt: number): Promise<void> {
+    let recovered: boolean;
     try {
-      await page.waitForLoadState('domcontentloaded', { timeout: TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS });
-      return this.page === page && !page.isClosed();
+      await this.deps.reloadPage(page, TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS);
+      recovered = this.page === page && !page.isClosed();
     } catch {
-      return false;
+      recovered = false;
     }
+    log.info('ChatGPT transcription page recovery completed:', {
+      durationMs: Math.max(0, this.deps.now() - startedAt),
+      pageCurrent: this.page === page,
+      recovered,
+    });
+  }
+
+  private applyRateLimitCooldown(resp: ChatGptTranscribeResponse): TranscriptionResult {
+    const retryAfterSeconds = Math.min(
+      TRANSCRIPTION_RATE_LIMIT_MAX_SECONDS,
+      getTranscriptionRetryAfterSeconds(resp, this.deps.now()) ?? TRANSCRIPTION_RATE_LIMIT_FALLBACK_SECONDS,
+    );
+    this.transcriptionRateLimitUntil = Math.max(
+      this.transcriptionRateLimitUntil,
+      this.deps.now() + retryAfterSeconds * 1000,
+    );
+    log.warn('ChatGPT transcription rate limited:', { retryAfterSeconds });
+    return this.getActiveRateLimitFailure() ?? { success: false, error: t('error.rateLimited') };
+  }
+
+  private getRateLimitRemainingSeconds(): number {
+    return Math.max(0, Math.ceil((this.transcriptionRateLimitUntil - this.deps.now()) / 1000));
+  }
+
+  private getActiveRateLimitFailure(): TranscriptionResult | null {
+    const remainingSeconds = this.getRateLimitRemainingSeconds();
+    return remainingSeconds > 0
+      ? {
+          success: false,
+          error: t('error.rateLimitedRetryAfter', { seconds: String(remainingSeconds) }),
+        }
+      : null;
   }
 
   private async transcribeViaPage(
@@ -395,6 +466,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         defaultMimeType,
         uploadFileBasename,
         transcriptionModel,
+        requestTimeoutMs,
       }: {
         audioBase64: string;
         accessToken: string;
@@ -403,6 +475,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         defaultMimeType: string;
         uploadFileBasename: string;
         transcriptionModel: string;
+        requestTimeoutMs: number;
       }) => {
         const binaryStr = atob(b64);
         const bytes = new Uint8Array(binaryStr.length);
@@ -414,6 +487,8 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         formData.append('file', blob, `${uploadFileBasename}.${uploadExtension}`);
         formData.append('model', transcriptionModel);
 
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), requestTimeoutMs);
         try {
           const res = await fetch('/backend-api/transcribe', {
             method: 'POST',
@@ -423,11 +498,23 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
               'OAI-Language': navigator.language || 'en-US',
             },
             body: formData,
+            signal: controller.signal,
           });
           const text = await res.text();
-          return { kind: 'response' as const, status: res.status, body: text };
+          const retryAfter = res.headers.get('retry-after')?.trim();
+          return {
+            kind: 'response' as const,
+            status: res.status,
+            body: text,
+            ...(retryAfter && retryAfter.length <= 128 ? { retryAfter } : {}),
+          };
         } catch {
-          return { kind: 'request-failed' as const };
+          return {
+            kind: 'request-failed' as const,
+            failure: controller.signal.aborted ? ('timeout' as const) : ('network' as const),
+          };
+        } finally {
+          window.clearTimeout(timer);
         }
       },
       {
@@ -438,6 +525,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         defaultMimeType: DEFAULT_TRANSCRIPTION_MIME_TYPE,
         uploadFileBasename: TRANSCRIPTION_UPLOAD_FILE_BASENAME,
         transcriptionModel: TRANSCRIPTION_MODEL_WHISPER_1,
+        requestTimeoutMs: TRANSCRIPTION_REQUEST_TIMEOUT_MS,
       },
     );
   }
