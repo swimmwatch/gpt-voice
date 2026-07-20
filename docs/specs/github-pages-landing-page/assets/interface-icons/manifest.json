@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "source": {
+    "package": "lucide-static",
+    "version": "1.24.0",
+    "repository": "https://github.com/lucide-icons/lucide",
+    "license": "ISC"
+  },
+  "usage": "Interface symbols used by the static SVG design source for the provider signal-flow infographic. Production React uses the equivalent lucide-react exports.",
+  "files": [
+    { "path": "mic.svg", "sha256": "cc7d43f8135094598784180452862482b69e38dd433f5159373c5b67e4e59448" },
+    { "path": "audio-waveform.svg", "sha256": "70b39eeb81714c5f96e76abbacee12e5e14404d82224096ffc44bbdfcbf1c251" },
+    { "path": "database.svg", "sha256": "372f5f5e015d139d699d40bd2ba61d7554d0924bed04c9f974ca75f8398e9688" },
+    { "path": "key-round.svg", "sha256": "3a035588cd56f706f4d43f822d249c63d2399b33fdcc3c3191473fd24025f0cf" },
+    { "path": "user-round.svg", "sha256": "45e8a6be935ced08ba772ce3e7e3c32df8bd19be786389953cfe422032933915" },
+    { "path": "refresh-cw.svg", "sha256": "84f8ec4a970944e5a89c5001a2c1ec5b5f70cd034cdbf1cbd3fa9b03f75a6e2b" },
+    { "path": "languages.svg", "sha256": "7f8a3e47c7bbcbf1bcfa3250167f68aab8aa7a532e6ce3753c4c12874749464e" },
+    { "path": "wand-sparkles.svg", "sha256": "05bc902f95f0259562c87c126b68d10b9563793ad3fe72fbfef1faf9f74fa069" }
+  ]
+}

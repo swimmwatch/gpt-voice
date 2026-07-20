@@ -1,0 +1,781 @@
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
+import test from 'node:test';
+import { parseMkDocsConfiguration } from '../../scripts/mkdocs-configuration.mjs';
+import { getDocumentationRoute, localeRegistry } from '../../src/landing-page/content/locale-registry';
+
+type MkDocsConfiguration = {
+  docs_dir?: unknown;
+  extra?: unknown;
+  extra_css?: unknown;
+  hooks?: unknown;
+  nav?: unknown;
+  repo_url?: unknown;
+  site_dir?: unknown;
+  site_url?: unknown;
+  theme?: unknown;
+};
+
+const projectRoot = process.cwd();
+const configurationPath = path.join(projectRoot, 'mkdocs.yml');
+const outputDirectory = path.join(projectRoot, 'build', 'github-pages', 'docs');
+const canonicalUrl = 'https://swimmwatch.github.io/gpt-voice/docs/';
+const expectedNavigation = [
+  { Overview: 'index.md' },
+  {
+    Installation: [
+      { Overview: 'install.md' },
+      { Windows: 'install/windows.md' },
+      { Linux: 'install/linux.md' },
+      { macOS: 'install/macos.md' },
+    ],
+  },
+  {
+    'Use GPT-Voice': [
+      { 'First use': 'getting-started.md' },
+      { 'Record and transcribe': 'guides/transcription.md' },
+      { Providers: 'guides/providers.md' },
+      { 'Text actions': 'guides/text-actions.md' },
+      { 'History and tray': 'guides/history-and-tray.md' },
+    ],
+  },
+  {
+    Settings: [
+      { Overview: 'settings/index.md' },
+      { 'Provider settings': 'settings/providers.md' },
+      { 'Shortcut settings': 'settings/shortcuts.md' },
+      { 'Prettify settings': 'settings/prettify.md' },
+      { 'Browser settings': 'settings/browser.md' },
+      { 'Network settings': 'settings/network.md' },
+    ],
+  },
+  {
+    Support: [{ 'Privacy and data': 'privacy.md' }, { Troubleshooting: 'troubleshooting.md' }, { FAQ: 'faq.md' }],
+  },
+];
+const prohibitedPathFragments = [
+  '.agents/',
+  'docs/agent-guides/',
+  'docs/researches/',
+  'docs/specs/',
+  'locales.json',
+  'tasks/handoff.md',
+  'translation-manifest.json',
+  'access-token.json',
+  'chatgpt-session.json',
+  'openai-api-settings.json',
+];
+type PublishedPageContract = {
+  detailMessage?: (detail: string) => string;
+  requiredFragments: readonly string[];
+  route: string;
+};
+type CssBlock = {
+  declarations: string;
+  selector: string;
+};
+const publishedPageContracts: readonly PublishedPageContract[] = [
+  {
+    requiredFragments: [
+      '<title>GPT-Voice Documentation</title>',
+      'assets/generated/icons/gpt-voice.png',
+      'assets/generated/icons/gpt-voice-wordmark.svg',
+      'GPT-Voice wordmark',
+      'class="grid cards"',
+      'Overview',
+      'href=getting-started/ class=md-button',
+    ],
+    route: '',
+  },
+  {
+    requiredFragments: ['href=windows/', 'href=linux/', 'href=macos/', 'href=../getting-started/'],
+    route: 'install',
+  },
+  {
+    requiredFragments: ['GPT-Voice Setup *.exe', '%APPDATA%\\GPT-Voice'],
+    route: 'install/windows',
+  },
+  {
+    requiredFragments: [
+      'sudo apt install ./gpt-voice_*_amd64.deb',
+      'sudo dnf install ./gpt-voice-*.x86_64.rpm',
+      'GPT-Voice-*.AppImage',
+      'href=../../getting-started/',
+    ],
+    route: 'install/linux',
+  },
+  {
+    requiredFragments: ['no supported macOS package in current releases'],
+    route: 'install/macos',
+  },
+  {
+    requiredFragments: ['Copied to clipboard'],
+    route: 'getting-started',
+  },
+  {
+    detailMessage: (detail) => `Transcription guide must cover ${detail}.`,
+    requiredFragments: [
+      'Pause',
+      'Resume',
+      'Cancel',
+      'Transcribing',
+      'Copied to clipboard',
+      'Retry a failed transcription',
+      'kept only in the running application',
+      'local transcription history',
+      'Could not access microphone',
+    ],
+    route: 'guides/transcription',
+  },
+  {
+    detailMessage: (detail) => `Provider guide must cover ${detail}.`,
+    requiredFragments: [
+      'ChatGPT Web',
+      'OpenAI API',
+      'Clear authentication',
+      'whisper-1',
+      'Electron safe storage',
+      'billing, quotas, usage limits',
+    ],
+    route: 'guides/providers',
+  },
+  {
+    detailMessage: (detail) => `Text-actions guide must cover ${detail}.`,
+    requiredFragments: [
+      'Google Translate',
+      'English, Russian, Ukrainian, or Belarusian',
+      'only one selected-text action at a time',
+      '16,000 characters',
+      'user-operated dependencies',
+      'remote endpoint receives the selected text',
+      'restores the clipboard value',
+    ],
+    route: 'guides/text-actions',
+  },
+  {
+    detailMessage: (detail) => `History-and-tray guide must cover ${detail}.`,
+    requiredFragments: [
+      'stored locally with its request time, provider name, and text',
+      'loads progressively as you scroll',
+      "copies that entry's stored text to the system clipboard",
+      'Clear history',
+      'hides it instead of quitting',
+      'Show GPT-Voice',
+      'Settings',
+      'History',
+      'About',
+      'Quit',
+    ],
+    route: 'guides/history-and-tray',
+  },
+  {
+    detailMessage: (detail) => `Settings overview must cover ${detail}.`,
+    requiredFragments: [
+      'Shortcuts',
+      'Prettify',
+      'Browser',
+      'Network',
+      'Unsaved changes',
+      'Save changes',
+      'Keep editing',
+      'Discard changes',
+      'temporarily suspends global shortcuts',
+    ],
+    route: 'settings',
+  },
+  {
+    detailMessage: (detail) => `Provider settings must cover ${detail}.`,
+    requiredFragments: [
+      'ChatGPT Web',
+      'Clear session',
+      'Electron safe storage',
+      'whisper-1',
+      'automatic detection',
+      '0.05 steps',
+      'blank save does not replace that stored key',
+      'Clear API key',
+    ],
+    route: 'settings/providers',
+  },
+  {
+    detailMessage: (detail) => `Shortcut settings must cover ${detail}.`,
+    requiredFragments: [
+      'F9',
+      'F10',
+      'Escape',
+      'F11',
+      'F12',
+      'Ctrl+F8',
+      'temporarily suspends all of its global shortcuts',
+      'F9 with Ctrl+F9',
+      'Both are enabled by default',
+      'Save changes',
+    ],
+    route: 'settings/shortcuts',
+  },
+  {
+    detailMessage: (detail) => `Prettify settings must cover ${detail}.`,
+    requiredFragments: [
+      'Ollama',
+      'vLLM',
+      'http://127.0.0.1:11434',
+      'http://127.0.0.1:8000/v1',
+      'Electron safe storage',
+      'Clear API key',
+      'Load model',
+      'Free model',
+      'Loaded',
+      'Not loaded',
+      'VRAM',
+      'non-loopback endpoint must use HTTPS',
+      'decimal controls use 0.05 increments',
+      'Top P accepts 0.05 through 1',
+      'Repeat penalty accepts 0.8 through 1.5',
+      'Top K accepts whole numbers from 1 through 200',
+      'Maximum output tokens accepts whole numbers from 1 through 8192',
+      '2147483647',
+      '4,000 characters or fewer',
+      'A blank prompt',
+      'selected text and your configured Prettify prompt',
+      'never returned in the settings view',
+    ],
+    route: 'settings/prettify',
+  },
+  {
+    detailMessage: (detail) => `Browser settings must cover ${detail}.`,
+    requiredFragments: [
+      'Humanize input',
+      'Careful',
+      'Background browser',
+      'five-digit numeric seed',
+      'en-US',
+      'valid BCP 47 locale',
+      'valid IANA timezone',
+      'Proxy GeoIP controls locale and timezone',
+      'not sent to a browser context while active proxy GeoIP owns them',
+    ],
+    route: 'settings/browser',
+  },
+  {
+    detailMessage: (detail) => `Network settings must cover ${detail}.`,
+    requiredFragments: [
+      'Proxy enabled',
+      'http://',
+      'https://',
+      'socks5://',
+      'Put credentials in the separate fields instead',
+      'Electron safe storage',
+      'does not support a username or password for a SOCKS5 proxy',
+      'does not pass SOCKS5 credentials',
+      'Proxy GeoIP controls locale and timezone',
+      'does not pass its separately saved locale or timezone',
+    ],
+    route: 'settings/network',
+  },
+  {
+    detailMessage: (detail) => `Privacy guide must cover ${detail}.`,
+    requiredFragments: [
+      'Google Translate',
+      'gpt-voice.sqlite3',
+      '20 results',
+      '60 seconds',
+      'Electron safe storage',
+      'not a blanket encryption claim',
+      '%APPDATA%\\GPT-Voice',
+      '~/.config/GPT-Voice',
+    ],
+    route: 'privacy',
+  },
+  {
+    detailMessage: (detail) => `Troubleshooting guide must cover ${detail}.`,
+    requiredFragments: [
+      'Could not access microphone',
+      'Clear session',
+      'whisper-1',
+      'Load model',
+      'SOCKS5 credentials',
+      'Background browser',
+      'Translation and Prettify cannot run at the same time',
+      '16,000 characters',
+      'SHA-256',
+    ],
+    route: 'troubleshooting',
+  },
+  {
+    detailMessage: (detail) => `FAQ must route ${detail} to authoritative guidance.`,
+    requiredFragments: [
+      'What leaves my computer?',
+      'copied to the system clipboard',
+      'ChatGPT Web',
+      'macOS releases are paused',
+      'SOCKS5 credentials are not supported',
+      'troubleshooting',
+    ],
+    route: 'faq',
+  },
+];
+const expectedPaletteVariables = {
+  '--md-accent-fg-color': '#4a8bff',
+  '--md-code-bg-color': '#181e24',
+  '--md-code-font': "'JetBrains Mono Variable', 'Roboto Mono', monospace",
+  '--md-default-bg-color': '#12171c',
+  '--md-default-bg-color--light': '#181e24',
+  '--md-default-fg-color': '#f6f7f8',
+  '--md-default-fg-color--light': '#a4adb7',
+  '--md-default-fg-color--lighter': '#3c4854',
+  '--md-primary-bg-color': '#f6f7f8',
+  '--md-primary-fg-color': '#172a53',
+  '--md-primary-fg-color--light': '#2b60cb',
+  '--md-text-font':
+    "'Ubuntu Sans Variable', 'Noto Sans SC Variable', 'Noto Sans JP Variable', 'Noto Sans Devanagari Variable', Ubuntu, system-ui, sans-serif",
+  '--md-typeset-a-color': '#4a8bff',
+} as const;
+const expectedFontImports = [
+  "@import url('../generated/fonts/noto-sans-sc-wght.css');",
+  "@import url('../generated/fonts/noto-sans-jp-wght.css');",
+  "@import url('../generated/fonts/noto-sans-devanagari-wght.css');",
+];
+const expectedMaterialFeatures = [
+  'navigation.tracking',
+  'navigation.tabs',
+  'navigation.tabs.sticky',
+  'navigation.footer',
+  'navigation.sections',
+  'navigation.top',
+  'navigation.path',
+  'toc.follow',
+  'search.suggest',
+  'search.highlight',
+  'search.share',
+  'content.code.copy',
+  'content.code.annotate',
+  'content.code.select',
+  'content.tabs.link',
+  'content.tooltips',
+];
+const approvedVisualSelectors = [
+  'html',
+  '.md-typeset .md-button',
+  '.md-typeset .md-button:not(.md-button--primary)',
+  '.md-typeset .md-button:not(.md-button--primary):focus,\n.md-typeset .md-button:not(.md-button--primary):hover',
+  '.md-select__list',
+  '.md-select__list::-webkit-scrollbar',
+  '.md-select__list::-webkit-scrollbar-thumb',
+  '.md-typeset .guide-wordmark',
+  '.md-typeset .guide-wordmark img',
+  '.md-typeset .guide-wordmark .guide-logo',
+  '.md-typeset .guide-actions',
+  '.md-typeset .guide-actions .md-button',
+  '.md-typeset .guide-actions p',
+  '.md-typeset .product-screenshot',
+  '.md-typeset .product-screenshot > a',
+  '.md-typeset .product-screenshot img',
+  '.md-typeset .product-screenshot figcaption',
+  '.md-typeset .grid.cards > ul > li',
+  '.md-typeset .grid.cards > ul > li:focus-within,\n.md-typeset .grid.cards > ul > li:hover',
+  '.md-typeset code',
+].sort();
+
+function normalizeCssValue(value: string): string {
+  return value.replace(/\s+/gu, ' ').trim();
+}
+
+function parseCssDeclarations(block: string): Record<string, string> {
+  return Object.fromEntries(
+    block
+      .split(';')
+      .map((declaration) => declaration.trim())
+      .filter(Boolean)
+      .map((declaration) => {
+        const separatorIndex = declaration.indexOf(':');
+        assert.notEqual(separatorIndex, -1, `Invalid CSS declaration: ${declaration}`);
+        return [declaration.slice(0, separatorIndex).trim(), normalizeCssValue(declaration.slice(separatorIndex + 1))];
+      }),
+  );
+}
+
+function getRequiredCssDeclarations(
+  blocks: readonly CssBlock[],
+  selector: string,
+  missingMessage: string,
+): Record<string, string> {
+  const block = blocks.find((candidate) => candidate.selector === selector);
+  assert.ok(block, missingMessage);
+  return parseCssDeclarations(block.declarations);
+}
+
+function assertMaterialThemeContract(configuration: MkDocsConfiguration, stylesheet: string): void {
+  const theme = configuration.theme as Record<string, unknown>;
+  assert.equal(theme.name, 'material');
+  assert.deepEqual(theme.palette, { accent: 'custom', primary: 'custom', scheme: 'slate' });
+  assert.equal(theme.font, false);
+  assert.equal(theme.logo, 'assets/generated/icons/gpt-voice.png');
+  assert.equal(theme.favicon, 'assets/generated/icons/gpt-voice.png');
+  assert.deepEqual(theme.features, expectedMaterialFeatures);
+
+  const imports = stylesheet.match(/^@import .+;$/gmu) ?? [];
+  assert.deepEqual(imports, expectedFontImports, 'Only the approved local locale-font stylesheets may be imported.');
+
+  const blocks = Array.from(
+    stylesheet.replace(/^@import .+;\n/gmu, '').matchAll(/([^{}]+)\{([^{}]*)\}/gu),
+    ([, selector, declarations]) => ({ declarations, selector: selector.trim() }),
+  );
+  const fontFaces = blocks.filter(({ selector }) => selector === '@font-face');
+  assert.equal(fontFaces.length, 2, 'The palette stylesheet may define only the two approved local font faces.');
+  for (const { declarations } of fontFaces) {
+    const fontFace = parseCssDeclarations(declarations);
+    assert.deepEqual(Object.keys(fontFace).sort(), ['font-display', 'font-family', 'font-style', 'font-weight', 'src']);
+    assert.equal(fontFace['font-display'], 'swap');
+    assert.equal(fontFace['font-style'], 'normal');
+    assert.match(
+      fontFace.src,
+      /^url\('\.\.\/generated\/fonts\/(?:ubuntu-sans|jetbrains-mono)-latin-wght-normal\.woff2'\) format\('woff2'\)$/u,
+    );
+  }
+
+  assert.deepEqual(
+    getRequiredCssDeclarations(blocks, 'html', 'The guide must use the approved globally reduced type scale.'),
+    { 'font-size': '115%' },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      "[data-md-color-scheme='slate']",
+      "The palette must target Material's slate scheme.",
+    ),
+    expectedPaletteVariables,
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .md-button:not(.md-button--primary)',
+      'Secondary Material buttons must use the accessible accent color.',
+    ),
+    {
+      'border-color': 'var(--md-accent-fg-color)',
+      color: 'var(--md-accent-fg-color)',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .md-button:not(.md-button--primary):focus,\n.md-typeset .md-button:not(.md-button--primary):hover',
+      'Secondary Material button focus and hover states must preserve contrast.',
+    ),
+    {
+      'background-color': 'var(--md-primary-fg-color--light)',
+      'border-color': 'var(--md-primary-fg-color--light)',
+      color: 'var(--md-primary-bg-color)',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list',
+      'The language selector must expose an accessible overflow affordance.',
+    ),
+    {
+      'scrollbar-color': 'var(--md-accent-fg-color) var(--md-default-bg-color--light)',
+      'scrollbar-width': 'thin',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list::-webkit-scrollbar',
+      'Chromium language selector scrollbars must remain visible.',
+    ),
+    { width: '0.3rem' },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-select__list::-webkit-scrollbar-thumb',
+      'Chromium language selector scrollbar thumbs must remain visible.',
+    ),
+    {
+      'background-color': 'var(--md-accent-fg-color)',
+      'border-radius': '999px',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .product-screenshot',
+      'The overview screenshot must remain framed as guide content.',
+    ),
+    {
+      margin: '1.25rem 0 0.65rem',
+      'margin-inline': 'auto',
+      'max-width': 'min(100%, 30rem)',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions',
+      'The overview CTAs must remain a Material-native action group.',
+    ),
+    {
+      display: 'flex',
+      'flex-wrap': 'wrap',
+      gap: '1.2rem',
+      'justify-content': 'center',
+      margin: '0 0 2rem',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions .md-button',
+      'Overview CTAs must remain compact without changing Material button structure.',
+    ),
+    {
+      'font-size': '0.75rem',
+      padding: '0.6em 1.5em',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .guide-actions p',
+      'Overview CTA links must retain visible spacing when Markdown groups them in one paragraph.',
+    ),
+    {
+      display: 'flex',
+      'flex-wrap': 'wrap',
+      gap: '1.2rem',
+      'justify-content': 'center',
+      margin: '0',
+    },
+  );
+  assert.deepEqual(
+    getRequiredCssDeclarations(
+      blocks,
+      '.md-typeset .grid.cards > ul > li:focus-within,\n.md-typeset .grid.cards > ul > li:hover',
+      'Overview cards must have a visible hover and keyboard-focus surface.',
+    ),
+    {
+      'background-color': 'var(--md-default-bg-color--light)',
+      'border-color': 'var(--md-accent-fg-color)',
+      'box-shadow': '0 0.35rem 1.1rem rgb(74 139 255 / 18%)',
+    },
+  );
+
+  const visualSelectors = blocks
+    .map(({ selector }) => selector)
+    .filter((selector) => selector !== '@font-face' && selector !== "[data-md-color-scheme='slate']")
+    .sort();
+  assert.deepEqual(
+    visualSelectors,
+    approvedVisualSelectors,
+    'Only the approved reference-derived content selectors may customize Material.',
+  );
+}
+
+function assertPublicGuideConfiguration(configuration: MkDocsConfiguration): void {
+  assert.equal(configuration.docs_dir, 'docs/user-guide', 'MkDocs must read only the public guide source.');
+  assert.equal(configuration.site_dir, 'build/github-pages/docs', 'MkDocs must write only the Pages docs subpath.');
+  assert.equal(configuration.site_url, canonicalUrl, 'MkDocs must use the canonical documentation URL.');
+  assert.deepEqual(configuration.hooks, ['docs/mkdocs_hooks.py']);
+  assert.ok(Array.isArray(configuration.nav), 'MkDocs must use explicit navigation.');
+  assert.deepEqual(configuration.nav, expectedNavigation);
+}
+
+async function listFiles(directory: string, relativeDirectory = ''): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = path.join(relativeDirectory, entry.name);
+      if (entry.isDirectory()) {
+        return listFiles(path.join(directory, entry.name), relativePath);
+      }
+      return [relativePath];
+    }),
+  );
+
+  return files.flat().sort();
+}
+
+async function readPublishedText(files: readonly string[]): Promise<Map<string, string>> {
+  const textFiles = files.filter((file) => /\.(?:html|json|txt|xml)$/u.test(file));
+  const contents = await Promise.all(
+    textFiles.map(async (file) => [file, await readFile(path.join(outputDirectory, file), 'utf8')] as const),
+  );
+
+  return new Map(contents);
+}
+
+test('publishes every localized Material selector at its normalized documentation root', async () => {
+  for (const locale of localeRegistry) {
+    const localeDirectory = locale.routeSlug || '.';
+    const output = await readFile(path.join(outputDirectory, localeDirectory, 'index.html'), 'utf8');
+
+    assert.match(output, new RegExp(`<html lang=${locale.tag}(?=[\\s>])`, 'u'));
+    assert.match(output, /<div class=md-select>/u, `${locale.tag} must render Material's language selector.`);
+    assert.ok(
+      output.includes('assets/generated/icons/gpt-voice-wordmark.svg'),
+      `${locale.tag} overview must render the shared GPT-Voice wordmark.`,
+    );
+    assert.ok(output.includes('class=guide-logo'), `${locale.tag} overview must render the GPT-Voice logo.`);
+    assert.match(
+      output,
+      /class="md-button md-button--primary"/u,
+      `${locale.tag} overview must preserve the primary Material CTA class.`,
+    );
+    assert.match(output, /class=md-button(?:\s|>)/u, `${locale.tag} overview must preserve the Material CTA class.`);
+    for (const candidate of localeRegistry) {
+      assert.ok(
+        output.includes(`href=${getDocumentationRoute(candidate)} hreflang=${candidate.tag} class=md-select__link`),
+        `${locale.tag} selector must link to ${candidate.tag}.`,
+      );
+    }
+
+    if (locale.tag !== 'en') {
+      assert.ok(
+        output.includes('src=/gpt-voice/docs/assets/generated/images/app-main.png'),
+        `${locale.tag} overview must reference the shared screenshot without an invalid locale prefix.`,
+      );
+      assert.ok(
+        !output.includes('src=assets/generated/images/app-main.png'),
+        `${locale.tag} overview must not reference a nonexistent locale-local screenshot.`,
+      );
+    }
+  }
+});
+
+test('publishes page-relative sitemap compatibility copies without changing canonical ownership', async () => {
+  const rootSitemap = await readFile(path.join(outputDirectory, 'sitemap.xml'), 'utf8');
+  const files = await listFiles(outputDirectory);
+
+  for (const locale of localeRegistry) {
+    const canonicalPath = locale.routeSlug ? `${locale.routeSlug}/` : '';
+    assert.ok(
+      rootSitemap.includes(`${canonicalUrl}${canonicalPath}`),
+      `The canonical root sitemap must include the ${locale.tag} guide root.`,
+    );
+  }
+
+  const pageDirectories = [...new Set(files.filter((file) => file.endsWith('index.html')).map(path.dirname))];
+  for (const pageDirectory of pageDirectories) {
+    const sitemapPath = path.join(outputDirectory, pageDirectory, 'sitemap.xml');
+    const sitemapCopy = await readFile(sitemapPath, 'utf8');
+    assert.equal(
+      sitemapCopy,
+      rootSitemap,
+      `${pageDirectory} must receive a compatibility copy of the canonical root sitemap.`,
+    );
+  }
+});
+
+test('restricts MkDocs to the public guide source and Pages docs path', async () => {
+  const configuration = parseMkDocsConfiguration(await readFile(configurationPath, 'utf8')) as MkDocsConfiguration;
+
+  assertPublicGuideConfiguration(configuration);
+  assert.throws(
+    () => assertPublicGuideConfiguration({ ...configuration, docs_dir: 'docs' }),
+    /MkDocs must read only the public guide source/u,
+  );
+});
+
+test('uses Material navigation and approved reference-derived content styling', async () => {
+  const [configurationSource, stylesheet] = await Promise.all([
+    readFile(configurationPath, 'utf8'),
+    readFile(path.join(projectRoot, 'docs', 'user-guide', 'assets', 'stylesheets', 'extra.css'), 'utf8'),
+  ]);
+  const configuration = parseMkDocsConfiguration(configurationSource) as MkDocsConfiguration;
+
+  assertMaterialThemeContract(configuration, stylesheet);
+  assert.throws(
+    () => assertMaterialThemeContract(configuration, `${stylesheet}\n.md-header { border-radius: 1rem; }\n`),
+    /Only the approved reference-derived content selectors/u,
+  );
+});
+
+test('publishes canonical overview metadata without internal engineering artifacts', async () => {
+  const files = await listFiles(outputDirectory);
+  const publishedPages = await Promise.all(
+    publishedPageContracts.map(async (contract) => {
+      const outputPath = contract.route ? `${contract.route}/index.html` : 'index.html';
+      const contents = await readFile(path.join(outputDirectory, outputPath), 'utf8');
+      return { contents, contract, outputPath };
+    }),
+  );
+
+  for (const { outputPath } of publishedPages) {
+    assert.ok(files.includes(outputPath));
+  }
+  assert.ok(files.includes('search/search_index.json'));
+  assert.equal(
+    files.some((file) => file.includes('data/locales.json')),
+    false,
+  );
+  assert.equal(
+    files.some((file) => file.includes('data/translation-manifest.json')),
+    false,
+  );
+
+  for (const { contents, contract } of publishedPages) {
+    const canonicalPath = contract.route ? `${contract.route}/` : '';
+    assert.ok(contents.includes(`<link href=${canonicalUrl}${canonicalPath} rel=canonical>`));
+
+    for (const detail of contract.requiredFragments) {
+      if (contract.detailMessage) {
+        assert.ok(contents.includes(detail), contract.detailMessage(detail));
+      } else {
+        assert.ok(contents.includes(detail));
+      }
+    }
+  }
+
+  for (const [file, contents] of await readPublishedText(files)) {
+    for (const fragment of prohibitedPathFragments) {
+      assert.equal(file.includes(fragment), false, `Published file must not expose ${fragment}: ${file}`);
+      assert.equal(contents.includes(fragment), false, `Published content must not expose ${fragment}: ${file}`);
+    }
+  }
+});
+
+test('uses local product assets and an accessible overview screenshot', async () => {
+  const configuration = parseMkDocsConfiguration(await readFile(configurationPath, 'utf8')) as MkDocsConfiguration;
+  const theme = configuration.theme as Record<string, unknown>;
+  const files = await listFiles(outputDirectory);
+  const index = await readFile(path.join(outputDirectory, 'index.html'), 'utf8');
+  const stylesheetPath = path.join(outputDirectory, 'assets/stylesheets/extra.css');
+
+  assert.equal(theme.font, false);
+  assert.equal(configuration.repo_url, undefined);
+  assert.equal(theme.logo, 'assets/generated/icons/gpt-voice.png');
+  assert.equal(theme.favicon, 'assets/generated/icons/gpt-voice.png');
+  assert.ok(Array.isArray(configuration.extra_css));
+  assert.ok(configuration.extra_css.includes('assets/stylesheets/extra.css'));
+  assert.ok(files.includes('assets/stylesheets/extra.css'));
+  assert.ok(index.includes('assets/generated/images/app-main.avif'));
+  assert.ok(index.includes('assets/generated/images/app-main.webp'));
+  assert.ok(index.includes('assets/generated/images/app-main.png'));
+  assert.ok(index.includes('width=920'));
+  assert.ok(index.includes('height=840'));
+  assert.ok(index.includes('GPT-Voice Command Dock showing ChatGPT Web connected'));
+  assert.ok(index.includes('A ready-to-record Command Dock in GPT-Voice.'));
+  assert.ok(index.includes('href=/gpt-voice/ title="GPT-Voice Documentation" class="md-header__button md-logo"'));
+  assert.ok(index.includes('https://github.com/swimmwatch/gpt-voice'));
+  assert.ok(index.includes('https://github.com/swimmwatch/gpt-voice/releases'));
+
+  const stylesheet = await readFile(stylesheetPath, 'utf8');
+  assert.ok(stylesheet.includes('--md-default-bg-color: #12171c'));
+  assert.ok(stylesheet.includes('--md-primary-fg-color: #172a53'));
+  assert.ok(stylesheet.includes('ubuntu-sans-latin-wght-normal.woff2'));
+  assert.ok(stylesheet.includes('jetbrains-mono-latin-wght-normal.woff2'));
+  assert.ok(stylesheet.includes('noto-sans-sc-wght.css'));
+  assert.ok(stylesheet.includes('noto-sans-jp-wght.css'));
+  assert.ok(stylesheet.includes('noto-sans-devanagari-wght.css'));
+  assert.equal(stylesheet.includes('.md-header'), false);
+  assert.ok(stylesheet.includes('.md-typeset .md-button'));
+  assert.ok(stylesheet.includes('.md-typeset .guide-wordmark'));
+  assert.ok(stylesheet.includes('.md-typeset .product-screenshot img'));
+  assert.ok(stylesheet.includes('.md-typeset .grid.cards > ul > li'));
+  assert.ok(stylesheet.includes('border-radius'));
+  assert.equal(stylesheet.includes('@media'), false);
+  assert.equal(/url\(['"]?https?:/u.test(stylesheet), false);
+});

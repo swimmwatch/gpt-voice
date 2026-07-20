@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "paths": {
+      "@landing/*": ["./src/landing-page/*"]
+    },
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "exclude": ["node_modules", "build", "dist"],
+  "include": [
+    "vite.landing.config.ts",
+    "playwright.landing.config.ts",
+    "playwright.pages.config.ts",
+    "src/landing-page/build/**/*.ts"
+  ]
+}

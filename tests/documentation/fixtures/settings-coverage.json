@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "reviewedRelease": "1.4.0",
+  "settings": [
+    { "id": "form.dirty", "source": "settings/index.md", "evidence": ["Unsaved changes"] },
+    { "id": "form.validation", "source": "settings/index.md", "evidence": ["validation message"] },
+    { "id": "form.save-progress", "source": "settings/index.md", "evidence": ["while GPT-Voice is saving"] },
+    { "id": "form.discard", "source": "settings/index.md", "evidence": ["Keep editing", "Discard changes"] },
+    {
+      "id": "form.shortcut-capture",
+      "source": "settings/index.md",
+      "evidence": ["temporarily suspends global shortcuts"]
+    },
+    { "id": "provider.chatgpt.session", "source": "settings/providers.md", "evidence": ["session is saved"] },
+    { "id": "provider.chatgpt.sign-in", "source": "settings/providers.md", "evidence": ["Log in again"] },
+    { "id": "provider.chatgpt.clear-session", "source": "settings/providers.md", "evidence": ["Clear session"] },
+    { "id": "provider.openai.api-key", "source": "settings/providers.md", "evidence": ["API key"] },
+    {
+      "id": "provider.openai.stored-key",
+      "source": "settings/providers.md",
+      "evidence": ["blank save does not replace that stored key"]
+    },
+    { "id": "provider.openai.model", "source": "settings/providers.md", "evidence": ["whisper-1"] },
+    {
+      "id": "provider.openai.language",
+      "source": "settings/providers.md",
+      "evidence": ["automatic detection (the default)"]
+    },
+    {
+      "id": "provider.openai.prompt",
+      "source": "settings/providers.md",
+      "evidence": ["Optional transcription guidance"]
+    },
+    {
+      "id": "provider.openai.temperature",
+      "source": "settings/providers.md",
+      "evidence": ["control changes in 0.05 steps"]
+    },
+    { "id": "provider.openai.save", "source": "settings/providers.md", "evidence": ["Choose **Save**"] },
+    { "id": "provider.openai.clear-key", "source": "settings/providers.md", "evidence": ["Clear API key"] },
+    {
+      "id": "shortcut.record",
+      "source": "settings/shortcuts.md",
+      "evidence": ["Start, pause, or resume recording", "`F9`"]
+    },
+    { "id": "shortcut.stop", "source": "settings/shortcuts.md", "evidence": ["Stop recording", "`F10`"] },
+    { "id": "shortcut.cancel", "source": "settings/shortcuts.md", "evidence": ["**Cancel**", "`Escape`"] },
+    {
+      "id": "shortcut.translate",
+      "source": "settings/shortcuts.md",
+      "evidence": ["Translate selected text", "`F11`"]
+    },
+    {
+      "id": "shortcut.prettify",
+      "source": "settings/shortcuts.md",
+      "evidence": ["Prettify selected text", "`F12`"]
+    },
+    {
+      "id": "shortcut.retry-transcription",
+      "source": "settings/shortcuts.md",
+      "evidence": ["Retry transcription", "`Ctrl+F8`"]
+    },
+    {
+      "id": "shortcut.conflicts",
+      "source": "settings/shortcuts.md",
+      "evidence": ["GPT-Voice rejects conflicting GPT-Voice assignments"]
+    },
+    {
+      "id": "text-action.translate-enabled",
+      "source": "settings/shortcuts.md",
+      "evidence": ["**Translate** and **Prettify** rows each have an enable switch"]
+    },
+    {
+      "id": "text-action.prettify-enabled",
+      "source": "settings/shortcuts.md",
+      "evidence": ["Both are enabled by default"]
+    },
+    {
+      "id": "prettify.provider",
+      "source": "settings/prettify.md",
+      "evidence": ["Choose **Ollama** or **vLLM** in **Provider**"]
+    },
+    {
+      "id": "prettify.base-url",
+      "source": "settings/prettify.md",
+      "evidence": ["Enter a complete `http` or `https` base URL"]
+    },
+    { "id": "prettify.vllm-api-key", "source": "settings/prettify.md", "evidence": ["vLLM API key"] },
+    { "id": "prettify.model-refresh", "source": "settings/prettify.md", "evidence": ["Refresh models"] },
+    {
+      "id": "prettify.model-selection",
+      "source": "settings/prettify.md",
+      "evidence": ["Select one of the returned models"]
+    },
+    { "id": "prettify.model-state", "source": "settings/prettify.md", "evidence": ["**Loaded** or **Not loaded**"] },
+    { "id": "prettify.model-load", "source": "settings/prettify.md", "evidence": ["**Load model**"] },
+    { "id": "prettify.model-free", "source": "settings/prettify.md", "evidence": ["**Free model**"] },
+    { "id": "prettify.model-vram", "source": "settings/prettify.md", "evidence": ["loaded-VRAM size"] },
+    { "id": "prettify.temperature", "source": "settings/prettify.md", "evidence": ["**Temperature**"] },
+    { "id": "prettify.top-p", "source": "settings/prettify.md", "evidence": ["**Top P**"] },
+    { "id": "prettify.min-p", "source": "settings/prettify.md", "evidence": ["**Min P**"] },
+    { "id": "prettify.repeat-penalty", "source": "settings/prettify.md", "evidence": ["**Repeat penalty**"] },
+    { "id": "prettify.top-k", "source": "settings/prettify.md", "evidence": ["**Top K**"] },
+    {
+      "id": "prettify.max-output-tokens",
+      "source": "settings/prettify.md",
+      "evidence": ["**Maximum output tokens**"]
+    },
+    { "id": "prettify.seed", "source": "settings/prettify.md", "evidence": ["**Seed**"] },
+    { "id": "prettify.prompt", "source": "settings/prettify.md", "evidence": ["## Write the Prettify prompt"] },
+    { "id": "browser.humanize", "source": "settings/browser.md", "evidence": ["**Humanize input**"] },
+    { "id": "browser.human-preset", "source": "settings/browser.md", "evidence": ["**Human preset**"] },
+    { "id": "browser.background", "source": "settings/browser.md", "evidence": ["**Background browser**"] },
+    {
+      "id": "browser.fingerprint-seed",
+      "source": "settings/browser.md",
+      "evidence": ["**Fingerprint seed**", "Choose **Reset**"]
+    },
+    { "id": "browser.locale", "source": "settings/browser.md", "evidence": ["**Locale**"] },
+    { "id": "browser.timezone", "source": "settings/browser.md", "evidence": ["**Timezone**"] },
+    {
+      "id": "browser.proxy-geoip-dependency",
+      "source": "settings/browser.md",
+      "evidence": ["Proxy GeoIP controls locale and timezone"]
+    },
+    { "id": "network.enabled", "source": "settings/network.md", "evidence": ["**Proxy enabled**"] },
+    { "id": "network.server", "source": "settings/network.md", "evidence": ["**Proxy server**"] },
+    { "id": "network.bypass", "source": "settings/network.md", "evidence": ["**Bypass**"] },
+    { "id": "network.username", "source": "settings/network.md", "evidence": ["**Username**"] },
+    { "id": "network.password", "source": "settings/network.md", "evidence": ["**Password**"] },
+    { "id": "network.clear-password", "source": "settings/network.md", "evidence": ["Choose **Clear**"] },
+    { "id": "network.geoip", "source": "settings/network.md", "evidence": ["**GeoIP** is off by default"] },
+    {
+      "id": "network.socks5-auth-warning",
+      "source": "settings/network.md",
+      "evidence": ["SOCKS5 credentials are not supported"]
+    }
+  ]
+}

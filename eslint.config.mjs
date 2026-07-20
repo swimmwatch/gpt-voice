@@ -17,7 +17,20 @@ import unicorn from 'eslint-plugin-unicorn';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
-const tsFiles = ['src/**/*.{ts,tsx}', 'tests/**/*.ts'];
+const tsFiles = [
+  'src/**/*.{ts,tsx}',
+  'tests/**/*.ts',
+  'vite.landing.config.ts',
+  'playwright.landing.config.ts',
+  'playwright.pages.config.ts',
+];
+const landingBrowserFiles = ['src/landing-page/**/*.{ts,tsx}'];
+const landingNodeFiles = [
+  'src/landing-page/build/**/*.ts',
+  'vite.landing.config.ts',
+  'playwright.landing.config.ts',
+  'playwright.pages.config.ts',
+];
 const rendererFiles = ['src/renderer/**/*.{ts,tsx}'];
 const nodeFiles = ['src/main/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs', 'eslint.config.mjs', 'webpack.config.js'];
 const jsFiles = ['scripts/**/*.mjs', 'eslint.config.mjs', 'webpack.config.js'];
@@ -55,7 +68,7 @@ function warnRules(rules = {}) {
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'release/**', 'node_modules/**'],
+    ignores: ['build/github-pages/**', 'dist/**', 'release/**', 'node_modules/**', 'src/landing-page/public/generated/**'],
     linterOptions: {
       reportUnusedDisableDirectives: 'error',
     },
@@ -82,7 +95,7 @@ export default tseslint.config(
         createTypeScriptImportResolver({
           alwaysTryTypes: true,
           noWarnOnMultipleProjects: true,
-          project: ['./tsconfig.json', './tsconfig.test.json'],
+          project: ['./tsconfig.json', './tsconfig.test.json', './tsconfig.landing.json', './tsconfig.landing.node.json'],
         }),
       ],
     },
@@ -147,6 +160,29 @@ export default tseslint.config(
       '@typescript-eslint/unbound-method': 'warn',
       'unused-imports/no-unused-imports': 'warn',
       'unused-imports/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: landingBrowserFiles,
+    ignores: ['src/landing-page/build/**/*.ts'],
+    languageOptions: {
+      globals: browserGlobals,
+      parserOptions: {
+        project: './tsconfig.landing.json',
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: landingNodeFiles,
+    languageOptions: {
+      globals: nodeGlobals,
+      parserOptions: {
+        project: './tsconfig.landing.node.json',
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
   {

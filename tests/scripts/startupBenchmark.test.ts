@@ -17,6 +17,14 @@ interface StartupBenchmarkModule {
   getPackagedStartupExecutableCandidates: (rootDir: string, platform: string, arch: string) => string[];
   getStartupBenchmarkLaunchArguments: (userDataPath: string, platform: string) => string[];
   normalizeRunCount: (value: string | undefined) => number;
+  removeStartupProfile: (
+    userDataPath: string,
+    input: {
+      delay: (delayMs: number) => Promise<void>;
+      platform: string;
+      remove: (path: string, options: { force: boolean; recursive: boolean }) => Promise<void>;
+    },
+  ) => Promise<void>;
   runStartupBenchmark: (input: {
     arch: string;
     measureRun: (runIndex: number) => Promise<number>;
@@ -45,6 +53,7 @@ function isStartupBenchmarkModule(value: unknown): value is StartupBenchmarkModu
     typeof module.getPackagedStartupExecutableCandidates === 'function' &&
     typeof module.getStartupBenchmarkLaunchArguments === 'function' &&
     typeof module.normalizeRunCount === 'function' &&
+    typeof module.removeStartupProfile === 'function' &&
     typeof module.runStartupBenchmark === 'function' &&
     typeof module.waitForChildExit === 'function'
   );
@@ -158,5 +167,88 @@ describe('startup benchmark helpers', () => {
     exitListener();
 
     await waitForExit;
+  });
+
+  it('retries transient Windows profile cleanup locks with bounded backoff', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    const delays: number[] = [];
+    let attempts = 0;
+
+    await importedModule.removeStartupProfile('C:\\temp\\gpt-voice', {
+      delay: async (delayMs) => {
+        delays.push(delayMs);
+      },
+      platform: 'win32',
+      remove: async (_path, options) => {
+        attempts += 1;
+        assert.deepEqual(options, { force: true, recursive: true });
+        if (attempts === 1) throw Object.assign(new Error('profile is busy'), { code: 'EBUSY' });
+        if (attempts === 2) throw Object.assign(new Error('profile is locked'), { code: 'EPERM' });
+      },
+    });
+
+    assert.equal(attempts, 3);
+    assert.deepEqual(delays, [100, 200]);
+  });
+
+  it('does not retry non-Windows or non-transient profile cleanup errors', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    const busyError = Object.assign(new Error('profile is busy'), { code: 'EBUSY' });
+    const deniedError = Object.assign(new Error('access denied'), { code: 'EACCES' });
+    let nonWindowsAttempts = 0;
+    let unexpectedErrorAttempts = 0;
+
+    await assert.rejects(
+      importedModule.removeStartupProfile('/tmp/gpt-voice', {
+        delay: async () => undefined,
+        platform: 'linux',
+        remove: async () => {
+          nonWindowsAttempts += 1;
+          throw busyError;
+        },
+      }),
+      busyError,
+    );
+    await assert.rejects(
+      importedModule.removeStartupProfile('C:\\temp\\gpt-voice', {
+        delay: async () => undefined,
+        platform: 'win32',
+        remove: async () => {
+          unexpectedErrorAttempts += 1;
+          throw deniedError;
+        },
+      }),
+      deniedError,
+    );
+
+    assert.equal(nonWindowsAttempts, 1);
+    assert.equal(unexpectedErrorAttempts, 1);
+  });
+
+  it('stops retrying Windows profile cleanup after the configured maximum', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    const busyError = Object.assign(new Error('profile is busy'), { code: 'EBUSY' });
+    const delays: number[] = [];
+    let attempts = 0;
+
+    await assert.rejects(
+      importedModule.removeStartupProfile('C:\\temp\\gpt-voice', {
+        delay: async (delayMs) => {
+          delays.push(delayMs);
+        },
+        platform: 'win32',
+        remove: async () => {
+          attempts += 1;
+          throw busyError;
+        },
+      }),
+      busyError,
+    );
+
+    assert.equal(attempts, 5);
+    assert.deepEqual(delays, [100, 200, 400, 800]);
   });
 });

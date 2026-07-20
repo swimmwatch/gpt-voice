@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "gpt-voice-github-pages-landing-page-layout",
+  "version": 13,
+  "coordinateSystem": "CSS pixels, origin at top-left, y increases downward",
+  "desktopReference": {
+    "viewportWidth": 1440,
+    "canvasHeight": 5332,
+    "container": {
+      "x": 120,
+      "width": 1200,
+      "columns": 12,
+      "columnWidth": 78,
+      "gutter": 24
+    },
+    "sections": [
+      {
+        "id": "navigation",
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 72,
+        "component": "SiteHeader",
+        "shadcn": ["NavigationMenu", "DropdownMenu", "Button", "Tooltip"]
+      },
+      {
+        "id": "hero",
+        "x": 0,
+        "y": 72,
+        "width": 1440,
+        "height": 780,
+        "component": "HeroSection",
+        "shadcn": ["Badge", "Button", "Kbd", "AspectRatio"]
+      },
+      {
+        "id": "demo",
+        "x": 0,
+        "y": 852,
+        "width": 1440,
+        "height": 840,
+        "component": "DemoSection",
+        "shadcn": ["AspectRatio", "Skeleton", "Accordion"]
+      },
+      {
+        "id": "how-it-works",
+        "x": 0,
+        "y": 1692,
+        "width": 1440,
+        "height": 980,
+        "component": "HowItWorksSection",
+        "shadcn": ["Kbd"]
+      },
+      {
+        "id": "providers",
+        "x": 0,
+        "y": 2672,
+        "width": 1440,
+        "height": 780,
+        "component": "ProviderSection",
+        "shadcn": ["Badge", "Alert", "Card", "Separator"]
+      },
+      {
+        "id": "faq",
+        "x": 0,
+        "y": 3452,
+        "width": 1440,
+        "height": 1240,
+        "component": "FaqSection",
+        "shadcn": ["Accordion"]
+      },
+      {
+        "id": "final-cta",
+        "x": 0,
+        "y": 4692,
+        "width": 1440,
+        "height": 440,
+        "component": "FinalCtaSection",
+        "shadcn": ["Button"]
+      },
+      {
+        "id": "footer",
+        "x": 0,
+        "y": 5132,
+        "width": 1440,
+        "height": 200,
+        "component": "SiteFooter",
+        "shadcn": ["Separator"]
+      }
+    ],
+    "placements": {
+      "navigationInner": { "x": 120, "y": 0, "width": 1200, "height": 72 },
+      "languageSelector": {
+        "x": 995,
+        "y": 14,
+        "width": 82,
+        "height": 44,
+        "component": "DropdownMenu",
+        "state": "closed-en"
+      },
+      "heroCopy": { "x": 120, "y": 176, "width": 588, "height": 528, "columns": "1-6" },
+      "heroScreenshotFrame": {
+        "x": 773,
+        "y": 190,
+        "width": 506,
+        "height": 462,
+        "columns": "7-12",
+        "source": "captures/app-main.png",
+        "fit": "contain"
+      },
+      "heroPrimaryCta": { "x": 120, "y": 584, "width": 218, "height": 48 },
+      "heroSecondaryCta": { "x": 350, "y": 584, "width": 210, "height": 48 },
+      "heroHotkeys": { "x": 120, "y": 668, "width": 564, "height": 40 },
+      "demoHeading": { "x": 324, "y": 944, "width": 792, "height": 128 },
+      "demoVideo": { "x": 240, "y": 1080, "width": 960, "height": 540, "ratio": "16:9" },
+      "workflowHeading": { "x": 120, "y": 1810, "width": 480, "height": 344 },
+      "workflowPath": {
+        "connectorX": 716,
+        "startY": 1788,
+        "endY": 2510,
+        "primaryIconNodeCentersY": [1820, 2276, 2504],
+        "iconNodeDiameter": 68,
+        "copyX": 786,
+        "primaryIcons": ["mic", "languages", "wand-sparkles"],
+        "optionalRetryBranch": {
+          "from": { "x": 716, "y": 2048 },
+          "iconCenter": { "x": 786, "y": 2048 },
+          "iconNodeDiameter": 60,
+          "copyX": 842,
+          "status": "OPTIONAL · PROVIDER ERROR",
+          "connectorStyle": "cyan-dashed"
+        },
+        "layout": "three-step-vertical-path-with-optional-error-branch"
+      },
+      "providerCopy": { "x": 120, "y": 2796, "width": 384, "height": 368 },
+      "providerColumnGap": 48,
+      "providerRouteLegend": { "x": 120, "y": 3108, "width": 300, "height": 68, "items": 2 },
+      "providerAudioInput": { "x": 552, "y": 2892, "width": 144, "height": 176 },
+      "providerAudioWaveform": {
+        "x": 578,
+        "y": 2982,
+        "width": 92,
+        "height": 28,
+        "kind": "deterministic-rounded-bar-waveform",
+        "referenceViewBox": [0, 0, 92, 28],
+        "barCount": 31,
+        "barWidth": 2,
+        "gap": 1,
+        "barRadius": 1,
+        "centerLine": 14,
+        "amplitudes": [
+          6, 8, 7, 10, 12, 9, 14, 18, 13, 20, 16, 22, 18, 24, 21, 28, 24, 19, 23, 17, 21, 15, 18, 13, 15, 10, 12, 9, 10,
+          7, 6
+        ],
+        "fill": {
+          "type": "horizontal-gradient",
+          "edge": "#244E7A",
+          "inner": "#2E679C",
+          "center": "#4A91C3"
+        },
+        "glow": { "stdDeviation": 1.6, "opacity": 0.24 }
+      },
+      "providerActiveConnectors": {
+        "from": { "x": 696, "y": 2978 },
+        "junction": { "x": 720, "y": 2978 },
+        "to": [
+          { "x": 744, "y": 2840, "provider": "chatgpt-web" },
+          { "x": 744, "y": 3094, "provider": "openai-api" }
+        ],
+        "style": "solid-blue"
+      },
+      "providerFutureConnector": {
+        "from": { "x": 696, "y": 3038 },
+        "to": { "x": 744, "y": 3242 },
+        "style": "gray-dashed"
+      },
+      "providerChatGptCard": { "x": 744, "y": 2768, "width": 576, "height": 244 },
+      "providerOpenAiCard": { "x": 744, "y": 3028, "width": 576, "height": 132 },
+      "providerFutureHorizon": { "x": 744, "y": 3176, "width": 576, "height": 148 },
+      "providerPlannedCards": {
+        "x": 768,
+        "y": 3216,
+        "width": 528,
+        "height": 48,
+        "items": 2,
+        "itemWidths": [248, 268],
+        "gap": 12
+      },
+      "providerFutureNote": { "x": 768, "y": 3276, "width": 528, "height": 34 },
+      "providerBrandIcons": {
+        "openai": "provider-icons/openai.svg",
+        "claude": "provider-icons/claude.svg",
+        "gemini": "provider-icons/gemini.svg"
+      },
+      "faqHeading": { "x": 120, "y": 3572, "width": 384, "height": 200 },
+      "faqAccordion": {
+        "x": 528,
+        "y": 3572,
+        "width": 792,
+        "height": 1040,
+        "items": 12,
+        "state": "all-collapsed"
+      },
+      "finalCtaSurface": { "x": 120, "y": 4772, "width": 1200, "height": 300 },
+      "footerInner": { "x": 120, "y": 5132, "width": 1200, "height": 200 }
+    }
+  },
+  "mobileReference": {
+    "viewportWidth": 390,
+    "canvasHeight": 6580,
+    "container": {
+      "x": 16,
+      "width": 358,
+      "columns": 1,
+      "gutter": 0
+    },
+    "sections": [
+      {
+        "id": "navigation",
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "component": "SiteHeader",
+        "shadcn": ["Sheet", "DropdownMenu", "Button", "Tooltip"]
+      },
+      { "id": "hero", "x": 0, "y": 64, "width": 390, "height": 1040, "component": "HeroSection" },
+      { "id": "demo", "x": 0, "y": 1104, "width": 390, "height": 560, "component": "DemoSection" },
+      { "id": "how-it-works", "x": 0, "y": 1664, "width": 390, "height": 1500, "component": "HowItWorksSection" },
+      {
+        "id": "providers",
+        "x": 0,
+        "y": 3164,
+        "width": 390,
+        "height": 1016,
+        "component": "ProviderSection",
+        "shadcn": ["Badge", "Alert", "Card", "Separator"]
+      },
+      { "id": "faq", "x": 0, "y": 4180, "width": 390, "height": 1620, "component": "FaqSection" },
+      { "id": "final-cta", "x": 0, "y": 5800, "width": 390, "height": 520, "component": "FinalCtaSection" },
+      { "id": "footer", "x": 0, "y": 6320, "width": 390, "height": 260, "component": "SiteFooter" }
+    ],
+    "placements": {
+      "navigationInner": { "x": 16, "y": 0, "width": 358, "height": 64 },
+      "languageSelector": {
+        "x": 270,
+        "y": 10,
+        "width": 52,
+        "height": 44,
+        "component": "DropdownMenu",
+        "state": "closed-en"
+      },
+      "heroCopy": { "x": 16, "y": 128, "width": 358, "height": 500 },
+      "heroPrimaryCta": { "x": 16, "y": 476, "width": 358, "height": 48 },
+      "heroSecondaryCta": { "x": 16, "y": 536, "width": 358, "height": 48 },
+      "heroHotkeys": { "x": 16, "y": 614, "width": 358, "height": 88, "columns": 2, "gap": 8 },
+      "heroScreenshotFrame": {
+        "x": 16,
+        "y": 724,
+        "width": 358,
+        "height": 327,
+        "source": "captures/app-main.png",
+        "fit": "contain"
+      },
+      "demoHeading": { "x": 16, "y": 1172, "width": 358, "height": 146 },
+      "demoVideo": { "x": 16, "y": 1344, "width": 358, "height": 201, "ratio": "16:9" },
+      "workflowPath": {
+        "heading": { "x": 16, "y": 1746, "width": 358, "height": 174 },
+        "connectorX": 56,
+        "startY": 1990,
+        "endY": 2750,
+        "primaryIconNodeCentersY": [2010, 2500, 2750],
+        "iconNodeDiameter": 56,
+        "copyX": 104,
+        "primaryIcons": ["mic", "languages", "wand-sparkles"],
+        "optionalRetryBranch": {
+          "from": { "x": 56, "y": 2250 },
+          "iconCenter": { "x": 112, "y": 2250 },
+          "iconNodeDiameter": 52,
+          "copyX": 152,
+          "status": "OPTIONAL · PROVIDER ERROR",
+          "connectorStyle": "cyan-dashed"
+        },
+        "layout": "three-step-vertical-path-with-optional-error-branch"
+      },
+      "providerCopy": { "x": 16, "y": 3238, "width": 358, "height": 238 },
+      "providerRouteLegend": { "x": 16, "y": 3448, "width": 342, "height": 24, "items": 2 },
+      "providerAudioInput": {
+        "x": 16,
+        "y": 3484,
+        "width": 358,
+        "height": 160,
+        "stackOrder": ["microphone", "waveform", "your-voice-label", "audio-input-label"],
+        "alignment": "center"
+      },
+      "providerAudioMicrophone": {
+        "centerX": 195,
+        "centerY": 3520,
+        "circleRadius": 24,
+        "iconX": 181,
+        "iconY": 3506,
+        "iconSize": 28
+      },
+      "providerAudioWaveform": {
+        "x": 149,
+        "y": 3552,
+        "width": 92,
+        "height": 28,
+        "kind": "scaled-deterministic-rounded-bar-waveform",
+        "sourceDefinition": "desktopReference.placements.providerAudioWaveform",
+        "preserveAspectRatio": true,
+        "barCount": 31
+      },
+      "providerAudioLabels": {
+        "centerX": 195,
+        "yourVoiceBaselineY": 3608,
+        "audioInputBaselineY": 3632,
+        "textAlign": "center"
+      },
+      "providerInputArrow": {
+        "centerX": 195,
+        "lineStartY": 3644,
+        "lineEndY": 3656,
+        "tipY": 3658,
+        "shaftColor": "#2B60CB",
+        "headColor": "#43D7FF",
+        "strokeWidth": 2.5,
+        "target": "provider-list",
+        "decorative": true,
+        "futureConnector": false,
+        "sideSpine": false
+      },
+      "providerChatGptCard": { "x": 28, "y": 3660, "width": 346, "height": 212 },
+      "providerOpenAiCard": { "x": 28, "y": 3888, "width": 346, "height": 126 },
+      "providerFutureHorizon": { "x": 28, "y": 4030, "width": 346, "height": 110 },
+      "providerPlannedCards": { "x": 40, "y": 4064, "width": 322, "height": 36, "items": 2, "gap": 8 },
+      "providerFutureNote": { "x": 40, "y": 4110, "width": 322, "height": 28 },
+      "faqAccordion": {
+        "x": 16,
+        "y": 4426,
+        "width": 358,
+        "height": 1284,
+        "items": 12,
+        "state": "all-collapsed"
+      },
+      "finalCtaSurface": { "x": 16, "y": 5888, "width": 358, "height": 360 },
+      "footerInner": { "x": 16, "y": 6320, "width": 358, "height": 260 }
+    }
+  },
+  "breakpoints": [
+    { "name": "mobile", "min": 0, "max": 767, "horizontalPadding": 16, "gridColumns": 1 },
+    { "name": "tablet", "min": 768, "max": 1023, "horizontalPadding": 32, "gridColumns": 6, "gutter": 20 },
+    {
+      "name": "compactDesktop",
+      "min": 1024,
+      "max": 1279,
+      "horizontalPadding": 40,
+      "maxContainer": 1120,
+      "gridColumns": 12,
+      "gutter": 20
+    },
+    {
+      "name": "desktop",
+      "min": 1280,
+      "max": null,
+      "horizontalPadding": "centered",
+      "maxContainer": 1200,
+      "gridColumns": 12,
+      "gutter": 24
+    }
+  ],
+  "globalRules": {
+    "minimumSupportedWidth": 320,
+    "minimumTouchTarget": 44,
+    "stickyHeaderDesktop": 72,
+    "stickyHeaderMobile": 64,
+    "anchorScrollMarginDesktop": 96,
+    "anchorScrollMarginMobile": 80,
+    "horizontalOverflow": "forbidden",
+    "sectionOrderMutable": false,
+    "screenshotSourcesMutable": false,
+    "videoAutoplay": false,
+    "videoDelivery": "progressive-mp4-only",
+    "localeCount": 11,
+    "faqItemCount": 12,
+    "interactionContract": "interaction-contract.json"
+  }
+}

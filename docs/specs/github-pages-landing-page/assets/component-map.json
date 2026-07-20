@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "registry": "https://ui.shadcn.com",
+  "cliVersion": "4.13.0",
+  "interpretation": "All applicable landing-page building blocks use shadcn/ui. Every component in selectedComponents is required and every unrelated component is excluded instead of being added for catalog coverage.",
+  "installCommand": "npx shadcn@4.13.0 add navigation-menu dropdown-menu sheet button badge card aspect-ratio accordion alert separator tooltip kbd skeleton --cwd src/landing-page",
+  "selectedComponents": [
+    {
+      "name": "NavigationMenu",
+      "slug": "navigation-menu",
+      "sections": ["navigation"],
+      "requiredInstances": ["desktop-anchor-navigation"],
+      "states": ["default", "hover", "focus-visible", "current-section"],
+      "responsive": "Visible at 768px and wider; replaced by Sheet below 768px.",
+      "accessibility": "All items are real fragment or external links. Current section uses aria-current=location only while its section is active."
+    },
+    {
+      "name": "DropdownMenu",
+      "slug": "dropdown-menu",
+      "sections": ["navigation"],
+      "requiredInstances": ["locale-selector"],
+      "states": ["closed", "open", "locale-hovered", "locale-focused", "current-locale"],
+      "responsive": "Visible in the header at every width: 82x44 at the desktop reference and 52x44 below 768px.",
+      "accessibility": "Trigger has a localized accessible name. All eleven options are real locale links with native-language labels; active locale has a checkmark and aria-current=page. Enter, Space, Arrow keys, Escape, pointer, and touch retain Radix behavior."
+    },
+    {
+      "name": "Sheet",
+      "slug": "sheet",
+      "sections": ["navigation"],
+      "requiredInstances": ["mobile-navigation"],
+      "states": ["closed", "open"],
+      "responsive": "Right-side sheet below 768px; hidden at 768px and wider.",
+      "accessibility": "Trigger has visible and accessible name, opening moves focus inside, Escape closes, anchor activation closes, and focus returns to trigger."
+    },
+    {
+      "name": "Button",
+      "slug": "button",
+      "sections": ["navigation", "hero", "final-cta"],
+      "requiredInstances": ["download-primary", "github-secondary", "locale-selector-trigger", "mobile-menu-trigger"],
+      "variants": ["default", "outline", "ghost", "icon"],
+      "states": ["default", "hover", "active", "focus-visible"],
+      "accessibility": "External navigation uses asChild with anchor semantics. Icon-only trigger has an accessible name and Tooltip."
+    },
+    {
+      "name": "Badge",
+      "slug": "badge",
+      "sections": ["hero", "providers", "how-it-works"],
+      "requiredInstances": ["platform-badge", "provider-status", "optional-retry-status"],
+      "variants": ["default", "secondary", "outline"],
+      "states": ["static"],
+      "accessibility": "Badges never carry meaning that is absent from adjacent text."
+    },
+    {
+      "name": "Card",
+      "slug": "card",
+      "sections": ["providers"],
+      "requiredInstances": [
+        "voice-input-node",
+        "two-current-provider-cards",
+        "future-horizon-surface",
+        "two-planned-provider-cards"
+      ],
+      "states": ["static", "hover-for-linked-card", "focus-within"],
+      "accessibility": "Static cards are not focusable. Any linked card has one obvious link and no nested interactive target."
+    },
+    {
+      "name": "AspectRatio",
+      "slug": "aspect-ratio",
+      "sections": ["demo", "hero"],
+      "requiredInstances": ["video-16-9", "hero-screenshot"],
+      "ratios": ["16:9", "19:18"],
+      "accessibility": "Child video or image supplies its own accessible name or alt text; wrapper is not independently focusable."
+    },
+    {
+      "name": "Accordion",
+      "slug": "accordion",
+      "sections": ["demo", "faq"],
+      "requiredInstances": ["video-transcript-disclosure", "twelve-faq-items"],
+      "type": "single",
+      "collapsible": true,
+      "defaultValue": null,
+      "accessibility": "Triggers are headings with at least 48px hit height. Focus rings remain visible and content is associated through Radix IDs."
+    },
+    {
+      "name": "Alert",
+      "slug": "alert",
+      "sections": ["providers"],
+      "requiredInstances": ["chatgpt-claim-qualification"],
+      "variants": ["default", "warning"],
+      "accessibility": "Static explanatory alerts do not use role=alert. They use a heading and description so screen readers do not announce them as live changes."
+    },
+    {
+      "name": "Separator",
+      "slug": "separator",
+      "sections": ["providers", "footer"],
+      "requiredInstances": ["chatgpt-claim-qualification-divider", "footer-divider"],
+      "orientation": ["horizontal", "vertical-desktop-only"],
+      "accessibility": "Decorative separators use decorative=true and do not add redundant navigation stops."
+    },
+    {
+      "name": "Tooltip",
+      "slug": "tooltip",
+      "sections": ["navigation", "hero"],
+      "requiredInstances": ["mobile-menu-explanation", "hotkey-context-when-icon-only"],
+      "delayDurationMs": 300,
+      "accessibility": "Tooltip content supplements, never replaces, the trigger accessible name. It opens for keyboard focus and hover."
+    },
+    {
+      "name": "Kbd",
+      "slug": "kbd",
+      "sections": ["hero", "how-it-works"],
+      "requiredInstances": ["hero-shortcut-proof", "workflow-shortcuts"],
+      "states": ["static"],
+      "accessibility": "Each key is inside a phrase or a labelled shortcut group so assistive technology receives both key and action."
+    },
+    {
+      "name": "Skeleton",
+      "slug": "skeleton",
+      "sections": ["demo"],
+      "requiredInstances": ["video-poster-loading-fallback"],
+      "states": ["poster-loading", "removed-after-poster-load"],
+      "accessibility": "Skeleton is aria-hidden. The media frame retains fixed geometry and a nearby status is unnecessary for a decorative loading placeholder."
+    }
+  ],
+  "excludedComponents": [
+    {
+      "names": [
+        "Input",
+        "Textarea",
+        "Checkbox",
+        "RadioGroup",
+        "Select",
+        "NativeSelect",
+        "Switch",
+        "Slider",
+        "Calendar",
+        "DatePicker",
+        "Combobox",
+        "InputOTP",
+        "Field",
+        "Label"
+      ],
+      "reason": "The page has no form, account, filter, preference, or data-entry task."
+    },
+    {
+      "names": ["Dialog", "AlertDialog", "Drawer", "Popover", "HoverCard", "ContextMenu", "Menubar", "Command"],
+      "reason": "Sheet and the selected DropdownMenu cover mobile navigation and locale choice; Plyr/native video controls cover fullscreen. Additional overlays would duplicate behavior."
+    },
+    {
+      "names": ["Sidebar", "Breadcrumb", "Pagination", "ScrollArea", "Resizable", "Collapsible"],
+      "reason": "The product request is a single linear page; these components would add navigation or layout complexity without a user task."
+    },
+    {
+      "names": ["Toast", "Sonner", "Progress", "Spinner", "Empty"],
+      "reason": "The page has no asynchronous mutation, upload, submission, or empty data state. Skeleton alone covers poster loading without live feedback."
+    },
+    {
+      "names": ["Avatar", "Table", "DataTable", "Chart", "Carousel", "Item"],
+      "reason": "There are no people, tabular datasets, metrics, rotators, or generic dynamic lists. Static semantic content is clearer."
+    },
+    {
+      "names": ["Tabs", "Toggle", "ToggleGroup", "ButtonGroup", "Direction"],
+      "reason": "Both current provider routes are deliberately visible at once, so the page has no provider mode switch or other persistent mode choice. CTA buttons remain separate and all eleven launch locales use left-to-right layout."
+    }
+  ],
+  "verification": {
+    "required": [
+      "Every selected component file is generated into src/landing-page/components/ui.",
+      "Every selected component is imported by at least one production section.",
+      "No excluded component is installed unless the specification is updated and approved.",
+      "Keyboard and axe tests cover DropdownMenu, Sheet, Accordion, Tooltip, Plyr/native video, the static provider signal map, and all CTA links in every locale.",
+      "No component ships unused merely to satisfy catalog coverage."
+    ]
+  }
+}

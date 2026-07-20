@@ -1,0 +1,16 @@
+[modern]
+Chrome >= 109
+Edge >= 109
+Firefox >= 115
+Safari >= 15.6
+iOS >= 15.6
+ChromeAndroid >= 109
+Samsung >= 20
+
+[legacy]
+Chrome >= 79
+Edge >= 79
+Firefox >= 78
+Safari >= 13.1
+iOS >= 13.4
+Samsung >= 12

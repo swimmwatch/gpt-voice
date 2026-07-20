@@ -1,0 +1,19 @@
+.product-ui-frame-viewport {
+  overflow: hidden;
+}
+
+.product-ui-frame {
+  pointer-events: none;
+}
+
+.product-ui-frame,
+.product-ui-frame *,
+.product-ui-frame *::before,
+.product-ui-frame *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+.product-ui-frame .animate-spin {
+  rotate: var(--video-spinner-rotation, 0deg);
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "captureSet": "github-pages-landing-page-2026-07-13",
+  "capturedAt": "2026-07-13T14:28:38+03:00",
+  "updatedAt": "2026-07-13T23:16:20+03:00",
+  "sourceCommit": "a4069d439ab27fe040e1a246d036a391e227aae8",
+  "sourceBranch": "feature/video-landing-page",
+  "buildCommand": "npm run build:prod",
+  "captureMethod": "Electron DevTools Protocol Page.captureScreenshot against the rebuilt application, using the real renderer and isolated temporary HOME/XDG_CONFIG_HOME directories. The hero state used a local mock Ollama response and a renderer-only synthetic status string to reproduce the requested screen without a real account or user data.",
+  "privacy": {
+    "isolatedProfile": true,
+    "personalSessionUsed": false,
+    "personalTranscriptUsed": false,
+    "personalAudioUsed": false,
+    "realCredentialUsed": false,
+    "heroFixture": "An inert synthetic ChatGPT cookie caused the isolated renderer to show the saved-session state; local mock Ollama metadata exposed gemma3:4b-it-qat as loaded with 1.4 GB VRAM; the renderer-only status detail was set to Translation copied immediately before capture.",
+    "fixtureCredential": "A deliberately invalid synthetic OpenAI API key was stored only in the temporary profile. The provider capture contains an empty password field and a saved-key notice, never the fixture value.",
+    "reviewResult": "passed"
+  },
+  "rendering": {
+    "deviceScaleFactor": 2,
+    "colorMode": "dark",
+    "locale": "en",
+    "targetLanguage": "English"
+  },
+  "files": [
+    {
+      "path": "captures/app-main.png",
+      "capturedAt": "2026-07-13T16:00:22+03:00",
+      "sha256": "a011bf93e63adbc7fbdd4c0767dafc238b30531899035c6dea15be9661936bb3",
+      "physicalWidth": 920,
+      "physicalHeight": 840,
+      "logicalWidth": 460,
+      "logicalHeight": 420,
+      "state": "ChatGPT Web selected and connected; gemma3:4b-it-qat loaded at 1.4 GB VRAM; recording idle/ready; Translation copied status; English target language.",
+      "approvedUse": "Complete hero application window; no crop; preserve provider, model-memory, status, and language rows."
+    },
+    {
+      "path": "captures/app-provider-settings.png",
+      "sha256": "f7881f55adaf4c3748685b4c26855838482b853bac51a6255df87405d068bbbd",
+      "physicalWidth": 920,
+      "physicalHeight": 840,
+      "logicalWidth": 460,
+      "logicalHeight": 420,
+      "state": "OpenAI API settings dialog with saved-key notice, whisper-1, automatic language, prompt, and temperature controls. Password input is empty and masked.",
+      "approvedUse": "Reference-only factual verification for OpenAI API settings. Do not copy to or render in the public landing-page build."
+    },
+    {
+      "path": "captures/app-hotkeys.png",
+      "sha256": "d649867b02f0610b1d0415e8af9668399090deb47ddd142773bb2dc25608d9be",
+      "physicalWidth": 1520,
+      "physicalHeight": 1440,
+      "logicalWidth": 760,
+      "logicalHeight": 720,
+      "state": "Shortcuts & actions settings with record, stop, cancel, translate, prettify, and resend-transcription shortcuts visible.",
+      "approvedUse": "Reference-only factual verification for shortcut availability, including Ctrl+F8. Do not copy to or render in the public landing-page build."
+    },
+    {
+      "path": "captures/app-prettify.png",
+      "sha256": "e741aff72a35811cc08faaaf2745d8243f0d6b1ad02029646f31b84f11dbfa05",
+      "physicalWidth": 1520,
+      "physicalHeight": 1440,
+      "logicalWidth": 760,
+      "logicalHeight": 720,
+      "state": "Prettify settings with Ollama, localhost base URL, no selected model, temperature 0, advanced generation summary, and the default conservative editing prompt.",
+      "approvedUse": "Reference-only factual verification for Prettify provider, URL, model, temperature, and prompt context. Do not copy to or render in the public landing-page build."
+    },
+    {
+      "path": "captures/app-history.png",
+      "sha256": "b8518327214deca3f1095f8f614dec1d376fb04cd5aab60d402e9fd8722d2698",
+      "physicalWidth": 1520,
+      "physicalHeight": 1440,
+      "logicalWidth": 760,
+      "logicalHeight": 720,
+      "state": "Transcription history with four synthetic entries and ChatGPT Web/OpenAI API provider badges.",
+      "approvedUse": "Reference-only factual verification for history behavior and provider badges. Do not copy to or render in the public landing-page build."
+    }
+  ],
+  "syntheticHistory": [
+    {
+      "provider": "OpenAI API",
+      "text": "Turn scattered thoughts into clean text without leaving your editor."
+    },
+    {
+      "provider": "ChatGPT Web",
+      "text": "If a request fails, retry the same recording without speaking again."
+    },
+    {
+      "provider": "ChatGPT Web",
+      "text": "Translate selected text and copy the result back to your clipboard."
+    },
+    {
+      "provider": "OpenAI API",
+      "text": "Prettify a rough draft locally with Ollama or vLLM."
+    }
+  ],
+  "prohibitedSources": ["assets/readme/**", ".artifacts/**", "docs/specs/ui-redesign/assets/**"]
+}

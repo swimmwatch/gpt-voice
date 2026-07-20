@@ -197,6 +197,66 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  publish-pages:
+    name: Publish GitHub Pages
+    permissions:
+      contents: read
+      id-token: write
+      pages: write
+    needs:
+      - build-linux
+      - build-windows
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ffmpeg
+
+      - name: Install documentation tools
+        run: npm run docs:install
+
+      - name: Sync documentation assets
+        run: npm run docs:sync-assets
+
+      - name: Build combined Pages artifact
+        run: npm run pages:build
+
+      - name: Verify Pages artifact contract
+        run: node --import tsx --test tests/documentation/pagesArtifact.test.ts
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/github-pages
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
   publish:
     name: Publish GitHub Release
     permissions:

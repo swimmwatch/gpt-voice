@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 128" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="footer-signal" x1="0" y1="64" x2="1600" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2b60cb" />
+      <stop offset="0.48" stop-color="#4a8bff" />
+      <stop offset="0.52" stop-color="#43d7ff" />
+      <stop offset="1" stop-color="#43d7ff" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M0 64h1600"
+    fill="none"
+    stroke="url(#footer-signal)"
+    stroke-width="1"
+    vector-effect="non-scaling-stroke"
+  />
+</svg>

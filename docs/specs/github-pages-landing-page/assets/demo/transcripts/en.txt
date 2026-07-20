@@ -1,0 +1,27 @@
+GPT-Voice visual walkthrough
+
+This 60-second English product walkthrough has no spoken audio. These chronological visual descriptions provide the equivalent information.
+
+00:00–00:15 — Prompt problem
+A neutral prompt draft accumulates visible intent, clarity, language, and workflow problems: vague goals, missing context, constraints, examples, success criteria, output format, ambiguity, grammar mistakes, filler, repetition, slow typing, translation detours, and failed recognition.
+
+00:15–00:19 — Product bridge
+GPT-Voice appears beside the prompt with Transcribe, Retry, Translate, and Prettify actions. The product helps remove input friction without inventing the user's intent.
+
+00:19–00:29 — Transcription
+The Command Dock records a spoken prompt with F9, stops with F10, processes the recording, copies the text to the clipboard, and pastes a prompt draft: “Review this pull request and summarize the three most important risks.”
+
+00:29–00:38 — Retry
+Recognition fails while the original audio remains stored. Ctrl+F8 resends that same audio without recording again, then shows the recovered prompt. The comparison is limited to the fact that same-audio retry is not available in ChatGPT Web.
+
+00:38–00:45 — Translate
+A Russian voice input is translated into an English prompt with F11. The source-language reference and result are described in English; no Cyrillic text is displayed.
+
+00:45–00:52 — Prettify
+A rough prompt becomes a clearer instruction. The visual labels show that grammar, repetition, and filler are removed while the required instructions and meaning are preserved.
+
+00:52–00:57 — Providers
+The provider selector shows ChatGPT Web with a saved session and no API key, alongside OpenAI API. The recognition claim remains qualified by ChatGPT plan, availability, fair-use, and provider limits; GPT-Voice does not bypass quotas.
+
+00:57–01:00 — Final poster
+The four actions resolve into the final GPT-Voice poster: Speak, Retry, Translate, Refine, Better prompts, Less effort, and GPT-Voice on GitHub.

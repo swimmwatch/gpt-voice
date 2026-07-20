@@ -28,3 +28,32 @@ test('uses ESM only for the renderer TypeScript compilation', async () => {
     options: { configFile: path.join(rootDirectory, 'tsconfig.renderer.json') },
   });
 });
+
+test('excludes landing-page source from Electron TypeScript compilation', async () => {
+  const rootConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.json'), 'utf8')) as {
+    exclude: string[];
+  };
+  const testConfig = JSON.parse(await readFile(path.join(rootDirectory, 'tsconfig.test.json'), 'utf8')) as {
+    exclude: string[];
+  };
+  const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
+
+  assert.ok(rootConfig.exclude.includes('src/landing-page/**'));
+  assert.ok(testConfig.exclude.includes('src/landing-page/**'));
+
+  for (const webpackConfig of webpackConfigs) {
+    const typeScriptRule = (webpackConfig.module as { rules: Array<Record<string, unknown>> }).rules.find((rule) =>
+      String(rule.test).includes('ts'),
+    );
+    const exclude = typeScriptRule?.exclude as RegExp | undefined;
+
+    assert.ok(exclude?.test(path.join(rootDirectory, 'src', 'landing-page', 'entry-client.tsx')));
+  }
+});
+
+test('limits Electron Tailwind source scanning to the renderer tree', async () => {
+  const rendererStyles = await readFile(path.join(rootDirectory, 'src/renderer/styles/globals.css'), 'utf8');
+
+  assert.match(rendererStyles, /@import 'tailwindcss' source\(none\);/);
+  assert.match(rendererStyles, /@source '\.\.';/);
+});

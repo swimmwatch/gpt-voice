@@ -1,0 +1,806 @@
+# Spec: MkDocs Project Documentation And GitHub Pages Integration
+
+**Status:** Incremental implementation in progress — Tasks 1–17, 6a, and 14a–14f are complete; all eleven guide
+locales publish through Material's native selector. The project owner authorized matching eleven-language landing
+localization and locale-specific English-video subtitle tracks.
+**Global task slug:** `mkdocs-project-documentation`
+**Last updated:** 2026-07-16
+
+The plan is approved. Incremental implementation is authorized one task at a time; dependency installation,
+workflow changes, deployment, release publication, and GitHub Pages configuration changes remain subject to the
+relevant task and their stated approval boundaries.
+
+## Assumptions For Review
+
+1. The canonical public site remains `https://swimmwatch.github.io/gpt-voice/` and documentation is served at
+   `https://swimmwatch.github.io/gpt-voice/docs/`.
+2. The landing page remains the site root. MkDocs is a user-guide subsite, not a replacement landing page.
+3. Landing and documentation are built into one `build/github-pages/` artifact. Implementation adds release-gated
+   Pages jobs to `.github/workflows/release-builds.yml`; the current branch has PR-only landing validation and no
+   active Pages deployment job.
+4. The public guide and landing support the shared locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
+   `ja`, `de`, `fr`, and `hi`. English remains the source language, is served at `/gpt-voice/docs/`, and has no
+   redirect. Each non-English locale has a complete static guide and a matching pre-rendered landing route, local
+   search, localized navigation, a visible language selector, and an English-video subtitle track in that locale.
+5. Public documentation source lives under `docs/user-guide/`; existing `docs/specs/`, `docs/researches/`, and
+   agent guides remain internal engineering artifacts and are excluded from MkDocs.
+6. The documentation UI is Material for MkDocs, following the relevant `swimmwatch/cloakbrowser-mcp` implementation
+   for repository-owned Markdown, strict builds, explicit navigation, local assets, a pinned Python requirements
+   file, and `mkdocs-static-i18n`. Material retains ownership of structural layout and interaction styling; GPT-Voice
+   uses its landing palette and the user-authorized reference-derived content treatment without recreating structural
+   Material components.
+7. The guide documents the latest released application. Pages deployment remains tied to a published release so
+   the deployed landing page, guide, downloads, and application behavior describe the same revision.
+8. Screenshots use synthetic or sanitized product state only. The already approved public `app-main.png` is the
+   minimum visual. The four other landing-spec captures remain reference-only unless a human explicitly approves
+   them for public documentation.
+9. The guide adds no analytics, cookies, comments, search service, remote fonts, authentication, or server runtime.
+10. The desktop application's UI remains localized only in `en`, `ru`, `uk`, and `be`. The eleven-language guide must
+    never claim that the application UI is localized in Spanish, Brazilian Portuguese, Simplified Chinese, Japanese,
+    German, French, or Hindi.
+11. The styling revision is covered by Task 14b's Material baseline and Task 14c's CloakBrowser reference-derived
+    content treatment. The project owner approved all staged localized guide source sets on 2026-07-16; any further
+    theme exception follows the revised ask-first boundary.
+
+## Objective
+
+Add a maintained MkDocs user guide that explains what GPT-Voice does, how to install and operate it, and how every
+user-facing provider and application setting affects behavior. Connect the existing landing page to that guide and
+publish both surfaces as one coherent GitHub Pages project site.
+
+### Users
+
+- A prospective user who needs to understand capabilities, provider choices, platform support, privacy, and limits.
+- A first-time user installing GPT-Voice and configuring ChatGPT Web or OpenAI API.
+- An existing user learning recording, retry, translation, prettification, history, tray, and shortcut workflows.
+- An existing user looking up a setting, default, dependency, limitation, or troubleshooting procedure.
+- A maintainer updating user guidance when released behavior changes.
+
+### Intended Outcomes
+
+- A landing visitor can find the documentation from desktop and mobile navigation and from the footer.
+- A documentation visitor can return to the landing page, repository, issues, and latest release without guessing.
+- A new user can install, configure, record, transcribe, and paste text using only the guide.
+- Every visible setting has a purpose, allowed values or range where relevant, default, dependency, side effect, and
+  privacy note where relevant.
+- Documentation and landing page use the same product name, capability claims, platform status, palette, canonical
+  URLs, and release cadence. Their component systems remain intentionally distinct: Material for MkDocs owns the
+  guide UI, while the landing page keeps its existing frontend design system.
+- Every published guide locale has complete project-owner-approved source text, localized navigation and search, a
+  self-canonical URL, reciprocal language alternates, and an equivalent user journey.
+- A release cannot deploy Pages when the landing build, MkDocs strict build, integration contracts, or required
+  documentation checks fail.
+
+### Non-Goals
+
+- Replacing the repository README, landing page, or in-application help.
+- Documenting internal architecture, IPC, provider implementation details, packaging internals, or contributor
+  workflows in the first user-guide release.
+- Changing the application's desktop-UI locale set or using documentation translation as a claim of application-UI
+  availability.
+- Adding a blog, changelog renderer, version selector, API reference generator, support form, or hosted search.
+- Automating live application screenshots from a real profile or using credentials in documentation CI.
+- Changing application behavior, settings, supported platforms, provider behavior, or release policy.
+- Deploying from every push to `main`; the accepted project decision is release-gated publication.
+
+## Existing State And Reference Decisions
+
+### GPT-Voice State
+
+- The Vite landing source is under `src/landing-page/` and builds with base `/gpt-voice/` into
+  `build/github-pages/`.
+- The current branch validates the landing only for pull requests through `.github/workflows/pr-checks.yml`. The
+  standalone `.github/workflows/pages.yml` is intentionally removed, and `.github/workflows/release-builds.yml`
+  currently has no Pages jobs.
+- The landing registry is the authoritative public locale matrix: `en`, `ru`, `be`, `uk`, `es`, `pt-BR`, `zh-CN`,
+  `ja`, `de`, `fr`, and `hi`. Every locale publishes a typed, pre-rendered landing page at its matching root route;
+  its selector switches between landing routes, while each Documentation link uses the matching MkDocs route. All
+  locale pages retain the same English-language MP4 with their own WebVTT subtitles and transcript.
+- End-user instructions are concentrated in `README.md`, while settings truth is distributed across renderer
+  components and shared settings contracts.
+- `docs/` already contains engineering specifications, so pointing MkDocs at the whole directory would expose
+  internal artifacts and is prohibited.
+
+### Reference Project Decisions
+
+Adopt from `swimmwatch/cloakbrowser-mcp`:
+
+- MkDocs Material with an explicit `mkdocs.yml` navigation tree.
+- A repository-local Python virtual environment and `docs/requirements.txt`.
+- `mkdocs build --strict` as a required gate.
+- Repository-owned branding, a small palette stylesheet, responsive media, canonical metadata, GitHub links, and
+  local search while retaining Material's native component styling.
+- Official GitHub Pages artifact upload and deployment actions.
+
+Do not copy by default:
+
+- Its bounded localization pattern: `mkdocs-static-i18n` with `docs_structure: suffix`, localized navigation/search,
+  and complete localized source sets.
+- Project-specific hooks, macros, generated CLI reference, compatibility tables, IndexNow submission, social-card
+  generation, advanced SEO plugin, or contributor documentation.
+- Its root `docs_dir: docs`, because GPT-Voice has internal artifacts in that namespace.
+- Its standalone `site/` Pages artifact layout, because GPT-Voice must preserve the existing landing page at the
+  project root.
+
+## Localization Contract
+
+The guide's locale matrix is derived from the GPT-Voice landing registry, not from the narrower desktop-UI locale set
+or the reference project's `zh` route. The implementation duplicates the locale metadata only where MkDocs requires
+it and a contract test compares it with `src/landing-page/content/locale-registry.ts` to prevent drift.
+
+| Language             | Landing tag | Localized Markdown suffix | Public guide root        |
+| -------------------- | ----------- | ------------------------- | ------------------------ |
+| English              | `en`        | none                      | `/gpt-voice/docs/`       |
+| Russian              | `ru`        | `.ru.md`                  | `/gpt-voice/docs/ru/`    |
+| Belarusian           | `be`        | `.be.md`                  | `/gpt-voice/docs/be/`    |
+| Ukrainian            | `uk`        | `.uk.md`                  | `/gpt-voice/docs/uk/`    |
+| Spanish              | `es`        | `.es.md`                  | `/gpt-voice/docs/es/`    |
+| Brazilian Portuguese | `pt-BR`     | `.pt-BR.md`               | `/gpt-voice/docs/pt-br/` |
+| Simplified Chinese   | `zh-CN`     | `.zh-CN.md`               | `/gpt-voice/docs/zh-cn/` |
+| Japanese             | `ja`        | `.ja.md`                  | `/gpt-voice/docs/ja/`    |
+| German               | `de`        | `.de.md`                  | `/gpt-voice/docs/de/`    |
+| French               | `fr`        | `.fr.md`                  | `/gpt-voice/docs/fr/`    |
+| Hindi                | `hi`        | `.hi.md`                  | `/gpt-voice/docs/hi/`    |
+
+`mkdocs-static-i18n` is configured for suffix-based source files, Material/search reconfiguration, and only the
+locale routes in this table. Its locale setting controls both suffix recognition and the initial static output
+directory, so a small, tested post-build route adapter normalizes the two BCP 47 output folders and generated path
+segments from `pt-BR`/`zh-CN` to the lowercase public slugs `pt-br`/`zh-cn` and restores their canonical BCP 47 `lang`
+values. The non-public locale map retains the canonical BCP 47 tag. Aliases, guessed browser-language redirects, and a
+`zh` route are prohibited. The default guide never falls back silently for a missing localized page: a locale is
+publishable only when every required source page and its navigation translation are present.
+
+The English source page is authoritative. Localized Markdown preserves code blocks, commands, file names, literal UI
+labels, URLs, version identifiers, keys, and screenshot provenance. A committed, non-published translation manifest
+records the project-owner approval date and scope. It requires every suffix source page and an approved record for each
+locale, but it does not perform linguistic review or call a translation service during builds or browser tests.
+
+## Documentation Information Architecture
+
+The first release uses this explicit navigation. Each page owns one user intent; material should not be copied
+between pages except for a short summary and a descriptive cross-link.
+
+The top-level **Use GPT-Voice** section groups first use, recording, providers, text actions, and history/tray so the
+Material tab navigation presents one operational entry point without changing any child-page route.
+
+| Navigation                            | Source                       | Required content                                                                                                              |
+| ------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Overview                              | `index.md`                   | Product purpose, supported platforms, providers, core workflows, screenshot, quick links, current limitations                 |
+| Install overview                      | `install.md`                 | Release downloads, checksum verification, platform selection, macOS status, and links to the platform-specific guides         |
+| Install on Windows                    | `install/windows.md`         | NSIS download, installation steps, update, removal, and retained `%APPDATA%\GPT-Voice` data                                   |
+| Install on Linux                      | `install/linux.md`           | deb, rpm, and AppImage steps; launch, update, removal, and retained `~/.config/GPT-Voice` data                                |
+| Install on macOS                      | `install/macos.md`           | Explicit current no-package status and the Developer ID signing/notarization constraint                                       |
+| Use GPT-Voice / First use             | `getting-started.md`         | First launch, provider choice, authentication, first recording, clipboard result, next steps                                  |
+| Use GPT-Voice / Record and transcribe | `guides/transcription.md`    | Start, pause, resume, stop, cancel, retry retained audio, provider result, clipboard, notifications, failure states           |
+| Use GPT-Voice / Providers             | `guides/providers.md`        | ChatGPT Web session lifecycle, OpenAI API configuration, provider limits, cost/account ownership, switching and clearing auth |
+| Use GPT-Voice / Text actions          | `guides/text-actions.md`     | Selection requirements, enable switches, target language, clipboard behavior, Ollama/vLLM prerequisites and privacy           |
+| Use GPT-Voice / History and tray      | `guides/history-and-tray.md` | Local history, progressive loading, recopy, clear behavior, tray actions, lifecycle expectations                              |
+| Settings                              | `settings/index.md`          | Saving, validation, unsaved changes, dependencies, and links to all settings sections                                         |
+| Provider Settings                     | `settings/providers.md`      | ChatGPT session controls and every OpenAI transcription field                                                                 |
+| Shortcuts And Actions                 | `settings/shortcuts.md`      | All configurable shortcuts, defaults, conflicts, translation/prettify enable switches                                         |
+| Prettify                              | `settings/prettify.md`       | Provider, endpoint, key, model, model actions, prompt, temperature, and advanced generation fields                            |
+| Browser                               | `settings/browser.md`        | Humanization, preset, background mode, fingerprint, locale, timezone, and proxy GeoIP interaction                             |
+| Network                               | `settings/network.md`        | Proxy enablement, URL, bypass, credentials, GeoIP, SOCKS5 credential limitation, secret storage                               |
+| Privacy And Data                      | `privacy.md`                 | Remote data flows, local files, encryption qualification, history/session sensitivity, retry cache, deletion/reset            |
+| Troubleshooting                       | `troubleshooting.md`         | Microphone, login/session, provider, model, proxy, shortcut, clipboard, package, and browser-runtime diagnostics              |
+| FAQ                                   | `faq.md`                     | Concise answers and routes to the authoritative detail pages                                                                  |
+
+The README remains the concise repository overview and installation/development entry point. It gains one prominent
+link to the public guide after the guide exists, but it does not duplicate the complete settings reference.
+
+## Content Contract
+
+### Functionality And Operation
+
+The guide must accurately describe these released behaviors:
+
+- ChatGPT Web and OpenAI API provider selection and independent authentication storage.
+- Microphone permission and record, pause, resume, stop, cancel, transcription, clipboard, notification, and local
+  history states.
+- Same-audio transcription retry availability and invalidation rules; it must not imply that failed audio is stored
+  permanently.
+- Selected-text translation, target-language selection, enablement, OS-selection behavior, and clipboard output.
+- Selected-text prettification through an already-running Ollama or vLLM endpoint, including remote-endpoint privacy.
+- History window behavior, copying existing results, clearing history, application tray actions, and single-instance
+  lifecycle where useful to users.
+- Installation, update, and uninstall behavior for supported Windows and Linux packages.
+- Current macOS distribution limitation without presenting an unsupported DMG as available.
+- Provider-side quotas, billing, availability, and terms as provider-controlled constraints; no quota-bypass claim.
+
+Instructions use visible UI names and observable outcomes. Internal class names, IPC channel names, file schemas, and
+implementation details appear only when they materially help troubleshooting or data removal.
+
+### Settings Coverage Matrix
+
+Every settings entry documents: UI location, purpose, default, accepted values/range, when it takes effect,
+dependencies/disabled state, validation or failure behavior, persistence, and privacy/security impact where relevant.
+
+| Surface              | Fields and actions that must be covered                                                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ChatGPT Web provider | Session status, sign in/reconnect, clear session, close behavior                                                                                     |
+| OpenAI API provider  | API key, stored-key state, fixed `whisper-1` model, language (`auto`, English, Russian, Ukrainian, Belarusian), prompt, temperature, save, clear key |
+| Shortcuts            | Record, stop, cancel, retry transcription, translate selection, prettify selection; default keys; change flow; conflict/validation feedback          |
+| Action availability  | Translation enabled and Prettify enabled switches and their effect on global actions                                                                 |
+| Prettify connection  | Provider (`ollama` or `vllm`), base URL, vLLM API key stored/clear state, model refresh and selection                                                |
+| Ollama model memory  | Loaded/not-loaded state, approximate VRAM size when known, load and free actions, errors                                                             |
+| Prettify generation  | Temperature, top P, min P, repeat penalty, top K, maximum output tokens, optional seed, prompt                                                       |
+| Browser behavior     | Humanize input, human preset, background mode                                                                                                        |
+| Browser identity     | Fingerprint seed/reset, locale, timezone, and why locale/timezone are disabled when proxy GeoIP owns them                                            |
+| Network              | Proxy enabled, server, bypass, username, password stored/clear state, GeoIP, SOCKS5 authentication warning                                           |
+| Form lifecycle       | Dirty state, validation errors, save progress, close blocking while saving, discard confirmation                                                     |
+
+Defaults and ranges must be read from the released shared settings contracts at implementation time. Documentation
+must not infer defaults from screenshots or copy stale values from the README.
+
+### Terminology And Claims
+
+- Product name is always `GPT-Voice`.
+- Provider names are `ChatGPT Web`, `OpenAI API`, `Ollama`, and `vLLM`.
+- Use `documentation` or `user guide`, not `knowledge base`.
+- Use `Prettify` for the UI action and explain it once as meaning-preserving cleanup.
+- Use `copied to the clipboard`; do not claim automatic insertion into every target application.
+- State that GPT-Voice is independent and not affiliated with OpenAI, Anthropic, or Google.
+- State that the license is PolyForm Noncommercial 1.0.0 and is not an OSI-approved open-source license.
+- Landing and guide must not disagree about platform availability, provider availability, default shortcuts, privacy,
+  licensing, or quota qualifications.
+
+## Screenshot And Media Contract
+
+Screenshots support instructions but never carry the only copy of a setting name, value, sequence, warning, or error.
+
+### Required Baseline
+
+- The overview uses the already public, hash-verified
+  `docs/specs/github-pages-landing-page/assets/captures/app-main.png` through a generated optimized derivative.
+- Every screenshot has descriptive alt text, a short caption naming the visible workflow, explicit dimensions, and a
+  link or nearby text to the corresponding instructions.
+- Images remain readable at narrow widths, open at intrinsic resolution when useful, and do not cause horizontal
+  page overflow.
+
+### Preferred Expanded Set
+
+After explicit public-use approval, add sanitized current captures for:
+
+1. Provider settings.
+2. Shortcuts and action enablement.
+3. Prettify connection/model settings.
+4. History.
+5. Browser identity/behavior.
+6. Network proxy settings.
+
+The four existing reference captures (`app-provider-settings.png`, `app-hotkeys.png`, `app-prettify.png`, and
+`app-history.png`) are candidates, not pre-approved public assets. Browser and Network require fresh candidates.
+
+### Privacy And Provenance
+
+- Captures use deterministic synthetic data and contain no real API key, cookie, account name, proxy credential,
+  session, transcript, selected clipboard text, local path, notification, browser profile, or personal metadata.
+- A manifest records source path, SHA-256, dimensions, capture revision, intended page, alt text, and human privacy
+  approval.
+- Build tooling verifies approved hashes and creates WebP/AVIF or optimized PNG derivatives in an ignored staging
+  directory. Generated derivatives and `build/github-pages/` are not committed.
+- Replacing, cropping, or broadening the approved use of a screenshot requires manifest and spec review before
+  publication.
+
+## Landing Page Integration
+
+The landing page exposes the guide as a first-class destination without competing with the primary download CTA.
+
+### Link Placement
+
+- Add `Documentation` to the desktop navigation after the existing on-page section links.
+- Add the same destination to the mobile sheet and no-JavaScript mobile navigation.
+- Add `Documentation` to the footer link group.
+- Resolve Documentation from the shared locale matrix: English uses `/gpt-voice/docs/`; every non-English landing
+  locale, when separately published, uses its matching localized guide root from the Localization Contract. Do not
+  link a non-English landing page to English documentation, a guessed locale, or an automatic locale redirect. This
+  documentation task does not publish non-English landing pages.
+- Preserve the current primary `Download` and secondary GitHub CTAs.
+- The documentation header exposes a clear `GPT-Voice home` link to `/gpt-voice/`, plus repository, issues, and latest
+  release destinations. Every guide locale returns to this active English landing route until a matching non-English
+  landing page is separately approved and published.
+
+### Typed Content Contract
+
+- Add a centralized locale-aware documentation destination to `LandingLinks` rather than scattering route literals
+  through components.
+- Add a `documentation` navigation label to each published landing content dictionary.
+- Treat the link as a page navigation destination, not an external link that opens a new tab.
+- Render it in pre-generated HTML so it works without hydration.
+- Update component and output-contract tests for the active English desktop, mobile, footer, and no-JavaScript routes,
+  plus a typed matrix contract for all eleven future locale destinations.
+
+## Material Theme And Landing Palette
+
+Material for MkDocs is the documentation UI. The guide uses Material's native header, drawer, navigation, search,
+table of contents, typography scale, buttons, tables, admonitions, tabs, code blocks, footer, spacing, radii,
+elevation, focus behavior, breakpoints, and motion. It does not reproduce the landing page's components or layout.
+
+- Configure `theme.name: material` and the `slate` palette in `mkdocs.yml`.
+- Match the landing page through color variables only, using its raised graphite surface for the documentation
+  background so the standalone local hero logo remains distinct: `#12171C` background, `#181E24` raised/code surface,
+  `#F6F7F8` foreground, `#A4ADB7` muted foreground, `#3C4854` subtle borders, `#172A53` subdued header/primary,
+  `#2B60CB` primary hover, and `#4A8BFF` accent/link.
+- Use local `@font-face` declarations and locale glyph fallbacks because remote fonts are prohibited and all guide
+  locales need reliable glyph coverage; they must not redefine Material's type scale, weights, or line heights.
+- The user-authorized CloakBrowser reference treatment may style only guide content: compact buttons, a centered
+  local product wordmark, responsive hero actions, screenshot framing/caption, Material card rounding, and inline-code
+  rounding. Secondary buttons use the landing ring blue for both their text and border so they remain legible while the
+  Material header stays subdued navy; their focus and hover state uses the landing primary blue with the landing
+  foreground. The exact selector allowlist is enforced in tests.
+- The native Material language selector remains structurally unchanged. Its list may define only a visible, accent-colour
+  scrollbar and thumb so an eleven-language overflow is discoverable by mouse, touchpad, and keyboard users.
+- Do not add visual rules targeting structural Material selectors such as `.md-header`, `.md-tabs`, `.md-sidebar`,
+  `.md-nav`, `.md-search`, `.md-main`, `.md-grid`, or `.md-footer`. Do not replace a Material template. Visual
+  consistency means the shared GPT-Voice palette, icon, naming, claims, and links; it does not mean copying
+  CloakBrowser branding, media, third-party links, or product content.
+- Use Material Markdown extensions and attributes for buttons, admonitions, tabs, code, tables, and content layout
+  instead of custom JavaScript widgets. Material emoji render useful local SVG icons in the overview and actions.
+- Keep the GPT-Voice icon, product name, repository identity, copyright, independence disclaimer, license wording,
+  release-current note, local search, previous/next navigation, and responsive drawer.
+- No remote font, icon, screenshot, CSS, or JavaScript CDN is used at runtime.
+
+Palette override example:
+
+```css
+[data-md-color-scheme='slate'] {
+  --md-default-bg-color: #12171c;
+  --md-default-fg-color: #f6f7f8;
+  --md-default-fg-color--light: #a4adb7;
+  --md-default-fg-color--lighter: #3c4854;
+  --md-code-bg-color: #181e24;
+  --md-primary-fg-color: #172a53;
+  --md-accent-fg-color: #4a8bff;
+  --md-typeset-a-color: #4a8bff;
+}
+```
+
+## Technical Architecture
+
+### Technology Baseline
+
+Versions are the specification baseline researched on 2026-07-15. Implementation pins resolved versions and does
+not silently use `latest`.
+
+| Tool                 | Baseline                                                         | Role                                                                                                  |
+| -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Python               | 3.12.x                                                           | Isolated documentation build runtime in CI and local development                                      |
+| MkDocs               | 1.6.1                                                            | Static documentation generator                                                                        |
+| MkDocs Material      | 9.7.6                                                            | Native documentation UI, local search, navigation, admonitions, tabs, code and accessibility features |
+| mkdocs-minify-plugin | 0.8.0                                                            | Production HTML minification                                                                          |
+| mkdocs-static-i18n   | Pin a tested release compatible with MkDocs 1.6.1/Material 9.7.6 | Static locale routing, localized navigation, language selector, and localized search                  |
+| Node.js / npm        | Existing 24.x / 11.x                                             | Landing build, asset sync, contract tests, and Pages artifact composition                             |
+
+No documentation CMS, JavaScript documentation framework, server-side renderer, database, hosted search, or runtime
+Python process is added.
+
+### Build Composition
+
+1. `npm run landing:build` recreates `build/github-pages/` and emits the root landing page.
+2. `npm run docs:sync-assets` verifies approved screenshot/brand sources and creates ignored MkDocs source staging.
+3. MkDocs builds with `docs_dir: docs/user-guide` and `site_dir: build/github-pages/docs`.
+4. A Pages contract check verifies both `build/github-pages/index.html` and
+   `build/github-pages/docs/index.html`, required assets, internal links, canonical URLs, and absence of internal
+   engineering artifacts.
+5. Planned release Pages jobs upload `build/github-pages/` once and deploy only after release assets and the expanded
+   Pages build succeed.
+
+The order is mandatory because the Vite build empties `build/github-pages/`. Running the landing build after MkDocs
+would delete the documentation.
+
+### MkDocs Configuration
+
+`mkdocs.yml` must define:
+
+- `site_name: GPT-Voice Documentation`.
+- `site_url: https://swimmwatch.github.io/gpt-voice/docs/`.
+- Static repository and release links through public Markdown/footer content. Do not configure Material's repository
+  source integration, because it fetches GitHub API metadata at runtime.
+- `docs_dir: docs/user-guide` and `site_dir: build/github-pages/docs`.
+- `strict: true` behavior through the build command.
+- Explicit navigation matching this specification.
+- `theme.name: material` with the `slate` scheme; Material templates and structural component styles remain the
+  default.
+- Material navigation tracking, tabs, sticky tabs, sections, breadcrumb path, footer/top links, following table of
+  contents, search suggestion/highlight/share, code copy/annotation/select, linked tabs, tooltips, and local emoji
+  icon rendering.
+- A hash-pinned PNG header/favicon and overview-hero logo, plus a local, hash-pinned SVG hero wordmark. `extra_css`
+  contains the exact approved content-style allowlist and locale fonts.
+- `custom_dir` may contain localization compatibility partials required by the locale contract, but no visual theme
+  template replacement without separate approval.
+- Pinned `mkdocs-static-i18n`, `search`, and `minify` plugins. The i18n plugin uses suffix-based source documents,
+  Material/search reconfiguration, translated navigation, no browser-language redirect, and the exact locale matrix.
+- A visible language selector with an accessible localized label; it opens the equivalent localized page when present.
+- `exclude_docs` entries for the translation manifest and locale configuration so neither enters the public site.
+- Markdown extensions for Material emoji/icons, admonitions, attributes, definition lists, keyboard keys, details,
+  tabs, task lists, syntax highlighting, and anchored headings.
+- `extra.homepage` pointing to `/gpt-voice/` and social/repository links using stable public URLs.
+
+### Canonical, Search, And Artifact Behavior
+
+- MkDocs canonical URLs resolve below `/gpt-voice/docs/`; no docs page claims the landing root canonical. Each locale
+  has a self-canonical route from the Localization Contract plus reciprocal `hreflang` alternates and `x-default` for
+  English.
+- The generated docs sitemap remains at `/gpt-voice/docs/sitemap.xml` and contains every published locale route.
+- A low-priority MkDocs post-build hook copies that sitemap beside every generated `index.html` as a non-canonical
+  compatibility response for Material's page-relative language-selector XMLHttpRequests. `robots.txt`, canonical
+  metadata, and crawlers continue to reference only `/gpt-voice/docs/sitemap.xml`.
+- Root `robots.txt` references both the landing sitemap and documentation sitemap.
+- The landing sitemap continues to own landing locale routes; the MkDocs sitemap owns all localized guide pages.
+- The landing `llms.txt` gains a descriptive link to the documentation overview; this task does not introduce a
+  second crawler-specific content corpus.
+- All internal links are relative within MkDocs except intentional root links back to `/gpt-voice/`.
+- A direct load and refresh of every generated docs route returns a usable static page under the GitHub Pages project
+  base.
+- Generated documentation output is excluded from Electron Webpack, `dist/`, installers, and application runtime.
+
+### Release And Pull Request Integration
+
+- PR checks install the pinned documentation environment and run asset sync, strict build, and documentation
+  contracts when documentation, MkDocs configuration, landing links, or relevant source behavior changes.
+- The planned release Pages build uses `actions/setup-python@v6` with Python 3.12 and pip caching keyed by
+  `docs/requirements.txt`.
+- Documentation dependencies install before the combined Pages build; no globally installed MkDocs is assumed.
+- Release publication remains the only automatic deployment trigger.
+- Pages configuration, artifact upload, deployment permissions, environment, and `github-pages` concurrency remain
+  least-privilege and consistent with the approved landing workflow.
+- Workflow tests assert that docs are built before `actions/upload-pages-artifact@v5` and that one combined artifact
+  is uploaded.
+
+## Commands
+
+All commands run from the repository root. These are proposed implementation commands; they are not authorization to
+run dependency-changing commands in this phase.
+
+Create and populate the isolated documentation environment:
+
+```bash
+python3.12 -m venv .venv-docs
+.venv-docs/bin/python -m pip install --requirement docs/requirements.txt
+```
+
+Local authoring and strict build:
+
+```bash
+npm run docs:sync-assets
+.venv-docs/bin/mkdocs serve --config-file mkdocs.yml --dev-addr 127.0.0.1:8000
+.venv-docs/bin/mkdocs build --strict --config-file mkdocs.yml
+```
+
+Proposed root scripts and composed Pages build:
+
+```bash
+npm run docs:install
+npm run docs:sync-assets
+npm run docs:serve
+npm run docs:build
+npm run docs:test
+npm run pages:build
+npm run pages:test:e2e
+```
+
+`pages:build` is an explicit orchestration command equivalent to:
+
+```bash
+npm run landing:build
+npm run docs:sync-assets
+.venv-docs/bin/mkdocs build --strict --config-file mkdocs.yml
+npm run docs:test
+```
+
+Relevant repository checks after implementation:
+
+```bash
+npm run landing:typecheck
+npm run landing:lint
+npm run landing:format:check
+npm run landing:test -- --run
+npm run docs:build
+npm run docs:test
+npm run pages:test:e2e
+npm run typecheck
+npm run test:types
+npm test
+git diff --check
+```
+
+## Project Structure
+
+Planned layout:
+
+```text
+mkdocs.yml                                      # Public guide metadata, navigation, theme and plugins
+docs/
+├── requirements.txt                            # Pinned Python documentation dependencies
+├── user-guide/                                 # MkDocs docs_dir; public user documentation only
+│   ├── index.md                              # English source of truth
+│   ├── index.ru.md                           # One complete suffix variant per non-English locale
+│   ├── install.md
+│   ├── install.ru.md
+│   ├── install/
+│   │   ├── windows.md
+│   │   ├── linux.md
+│   │   ├── macos.md
+│   │   └── windows.ru.md                       # One suffix variant per non-English locale for each platform page
+│   ├── getting-started.md
+│   ├── getting-started.ru.md
+│   ├── privacy.md
+│   ├── troubleshooting.md
+│   ├── faq.md
+│   ├── guides/
+│   │   ├── transcription.md
+│   │   ├── providers.md
+│   │   ├── text-actions.md
+│   │   └── history-and-tray.md
+│   ├── settings/
+│   │   ├── index.md
+│   │   ├── providers.md
+│   │   ├── shortcuts.md
+│   │   ├── prettify.md
+│   │   ├── browser.md
+│   │   └── network.md
+│   └── assets/
+│       ├── stylesheets/extra.css                # Palette, local fonts, and reference-derived content-style allowlist
+│       └── generated/                           # Ignored synced PNG logo, SVG wordmark, fonts, and approved screenshots
+│   └── data/
+│       ├── locales.json                         # Non-public MkDocs route and navigation metadata
+│       └── translation-manifest.json            # Non-public project-owner publication record
+├── specs/                                       # Existing internal specifications; never public MkDocs input
+└── researches/                                  # Existing internal research; never public MkDocs input
+scripts/
+└── sync-docs-assets.mjs                         # Approved-source validation and ignored derivative staging
+└── update-doc-translations.mjs                  # Explicit authoring/manifest refresh; never a build-time network step
+tests/
+├── documentation/                               # MkDocs content, locale, link, asset and output contracts
+└── landing-page/                                # Updated landing link and combined Pages workflow contracts
+src/landing-page/
+├── components/SiteHeader.tsx                    # Desktop/mobile documentation destination
+├── components/SiteFooter.tsx                    # Footer documentation destination
+└── content/                                     # Typed label and centralized URL
+.github/workflows/
+├── pr-checks.yml                                # Non-deploying docs validation
+└── release-builds.yml                           # Combined release-gated Pages build and deploy
+build/github-pages/
+├── index.html                                   # Generated landing root; ignored
+└── docs/index.html                              # Generated MkDocs root; ignored
+```
+
+The Python environment `.venv-docs/`, generated docs assets, MkDocs cache, and all Pages output are ignored.
+
+## Code And Documentation Style
+
+- Repository-authored prose is English, direct, task-oriented, and written in second person where instructional.
+- Headings use sentence case and one H1 per source page.
+- Procedures use ordered lists with prerequisites and observable success/failure outcomes.
+- UI labels use the exact released English label in bold; shortcuts use `pymdownx.keys` syntax.
+- Commands are complete, copyable, and platform-scoped; placeholders are visibly marked.
+- Warnings are used for destructive actions, credentials, remote data transfer, and retained user data—not decoration.
+- Tables are used for settings/value lookup, not long procedural prose.
+- Links use descriptive text and relative paths inside the guide.
+- Every screenshot has alt text and a caption; decorative icons have empty alternatives.
+- Factual claims cite the released UI/settings contract during review, not another documentation paragraph.
+
+Example page style:
+
+```markdown
+# Record and transcribe
+
+1. Press ++f9++ to start recording.
+2. Speak, then press ++f10++ to stop.
+3. Wait for **Copied to clipboard** before pasting into another application.
+
+!!! note "Retry without recording again"
+If the provider returns an error, use the configured **Retry transcription** shortcut before starting a new
+recording. A new recording or application restart removes the retained retry audio.
+```
+
+## Testing Strategy
+
+### Static And Content Tests
+
+- `mkdocs build --strict` fails on invalid configuration, missing nav pages, invalid Markdown references, or warnings.
+- A navigation contract asserts the required page set and prevents `docs/specs`, `docs/researches`, agent guides,
+  private artifacts, or repository-root files from entering the public site.
+- A settings coverage contract maps every released provider/app setting key to one authoritative documentation page.
+- A terminology contract catches obsolete provider names, unsupported platform claims, stale default shortcuts, and
+  prohibited affiliation/quota wording.
+- Asset tests verify manifests, hashes, dimensions, alt text, captions, optimized formats, and size budgets.
+- A theme contract verifies `theme.name: material`, the `slate` scheme, reference-derived Material feature set,
+  approved landing color variables, staged logo paths, and a small content-style selector allowlist. It rejects
+  structural Material selectors, visual template replacements, and unapproved declarations, except the selector-list
+  scrollbar affordance defined above.
+- Locale contracts compare every MkDocs tag, source suffix, public route, label, and font requirement to the landing
+  locale registry. They reject missing or duplicate localized pages, fallback-only output, untranslated navigation,
+  invalid route casing, `zh` aliases, invalid publication-manifest entries, missing local glyph fonts, and inconsistent
+  app-UI language claims.
+- Generated HTML tests verify each locale's title, description, canonical, `lang`, reciprocal `hreflang`, Material
+  language-selector routes, local search, home/repository/release links, heading hierarchy, viewport, and absence of
+  remote runtime assets. They also require the native Material CTA classes in every localized overview and a byte-equal
+  non-canonical sitemap copy beside every generated page route.
+- The combined artifact test verifies landing and MkDocs roots coexist and no build step erases the other.
+- Workflow contracts verify Python setup, pinned requirements, build order, one artifact root, dependencies,
+  permissions, release gate, and official Pages actions.
+
+### Browser And Accessibility Tests
+
+- From the active English landing, follow desktop, mobile, and no-JavaScript Documentation links to the English guide
+  and return to the English landing. Parameterize guide-language selector, direct-load, refresh, and route assertions
+  over all eleven documentation locales; a typed route-matrix contract reserves matching landing destinations for any
+  future separately approved landing locale.
+- Exercise the native language selector at overview and deep-guide routes; its complete locale list must be reachable,
+  every Material page-relative sitemap request must return `200`, and the resulting browser session must have no new
+  console errors.
+- Test 320, 390, 768, and 1440 CSS-pixel widths for overflow and navigation reachability.
+- Verify keyboard navigation, visible focus, skip link, drawer focus behavior, local search, heading landmarks,
+  previous/next navigation, and external-link names.
+- Run axe against at least the guide overview, one procedure, the settings index, and the longest settings reference.
+- Check 200% zoom and 400% text reflow, reduced motion, forced colors, screenshot alternatives, and tables on narrow
+  screens.
+- No browser test uses a provider account, microphone, personal browser profile, network proxy, real clipboard
+  content, or external service assertion.
+
+### Manual Review
+
+- A maintainer follows first launch, provider configuration, one transcription, retry, translation, prettification,
+  history, and relevant settings instructions against the release candidate.
+- A human reviews screenshot privacy and public-use scope before deployment.
+- The project owner approved all ten staged non-English guide source sets for publication on 2026-07-16; no independent
+  linguistic review is required for this work.
+- Compare the active English landing and guide at desktop/mobile widths for product naming, logo, palette, link
+  destinations, disclaimers, and current platform/provider messaging. Confirm the reference-derived wordmark,
+  screenshot framing, icon actions, and card treatment remain responsive while Material retains the structural UI.
+  Confirm every guide locale has glyph coverage and its language-selector/landing-route contract; do not imply a
+  non-English landing is publicly available before its separate approval.
+- After an authorized release deployment, smoke-test root and docs URLs, direct refreshes, sitemaps, robots links,
+  canonical URLs, console errors, response types, and 404 behavior.
+
+## Documentation Maintenance
+
+- User-visible behavior, setup, privacy, provider configuration, packaging, or release-flow changes update the guide
+  in the same pull request.
+- Shared settings types/defaults and visible renderer labels are the behavior source of truth; documentation tests
+  provide a mapping, not a second configuration model.
+- Each settings page includes a `Reviewed against GPT-Voice release` comment or manifest field used by tests but not
+  a user-visible hard-coded version banner.
+- Removed settings are deleted from navigation and prose in the release that removes them; deprecated behavior is
+  labeled with its removal status rather than left as current guidance.
+- README retains brief setup and contributor material and links to the guide for full user instructions.
+- English remains the source of truth. A public behavior change updates English and every affected published locale in
+  the same release change, followed by renewed project-owner approval.
+- The translation manifest and locale registry are build inputs only. They never expose a translation-provider key,
+  reviewer personal data, internal notes, or an unsupported application locale.
+- Public documentation changes are reviewed for accuracy, accessibility, privacy, and landing consistency before a
+  release.
+
+## Specification Incorporation Process
+
+This document is the source of truth for the documentation subsite. The existing landing specification continues to
+own landing design and active PR validation. This specification owns the proposed combined release deployment until
+that contract is cross-referenced from the landing specification. Their overlap is managed explicitly:
+
+| Decision                                                   | Authoritative spec                                           | Required cross-reference after approval                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Guide content, MkDocs, settings coverage, docs screenshots | This specification                                           | None beyond normal links                                                                                  |
+| Landing visual system, locale routes, landing content      | `github-pages-landing-page/spec.md`                          | Use the shared eleven-locale route matrix and reference this spec for matching documentation destinations |
+| Combined Pages artifact and release gate                   | Landing deployment section plus this composition contract    | Both specs must agree on build order, artifact root and trigger                                           |
+| Screenshot public-use approval                             | Original capture manifest/spec plus this screenshot contract | Record expanded intended use before publication                                                           |
+
+Gated process:
+
+1. **Specify:** Human reviews assumptions, information architecture, locale matrix, translation policy, screenshot
+   policy, URL, and release-gated composition in this file.
+2. **Approve:** Human explicitly approves this specification or requests edits. No plan or implementation begins
+   before approval.
+3. **Cross-spec update:** During planning, amend only the relevant sections of
+   `docs/specs/github-pages-landing-page/spec.md`—navigation, Pages composition, commands, structure, tests, and
+   success criteria—to link to this approved spec. Do not duplicate the full guide requirements there.
+4. **Plan:** Create `docs/specs/mkdocs-project-documentation/tasks/plan.md` with dependency order, risks, checkpoints,
+   and the cross-spec amendment as an early task.
+5. **Tasks:** Create `docs/specs/mkdocs-project-documentation/tasks/todo.md`; each task has acceptance criteria,
+   verification, and approximately five or fewer changed files.
+6. **Implement:** After separate plan/task approval, execute one vertical slice at a time: MkDocs skeleton, content
+   groups, Material palette/assets, landing links, combined build, CI/release integration, then production
+   verification.
+7. **Keep alive:** Any URL, locale, translation, screenshot, content scope, dependency, build order, release trigger,
+   or privacy decision updates this specification first. PRs reference the affected section.
+
+The existing landing spec currently has uncommitted PR-validation and no-deployment edits. This task must preserve
+those edits and must not recreate `.github/workflows/pages.yml`; the future deployment belongs in the release
+workflow only after plan and implementation approval.
+
+## Boundaries
+
+### Always Do
+
+- Keep public guide input isolated under `docs/user-guide/` and the output under `build/github-pages/docs/`.
+- Build the landing page before MkDocs and upload one combined artifact.
+- Use exact released UI labels, settings defaults/ranges, and supported platform/provider facts.
+- Keep the documentation static, base-path-safe, privacy-preserving, keyboard accessible, responsive, and usable
+  without application credentials or JavaScript-dependent content.
+- Use local assets, descriptive links, semantic Markdown/HTML, screenshot alternatives, and strict builds.
+- Preserve Material's structural components and customize the documentation only through the approved palette,
+  local-font/glyph declarations, and reference-derived content-style selector allowlist.
+- Privacy-review and hash-verify every public screenshot.
+- Run the smallest relevant checks during implementation and the complete documentation/Pages checks before handoff.
+- Update guide content with user-visible behavior in the same release change.
+
+### Ask First
+
+- Add or change a Python/Node dependency, plugin, hook, generated reference, visual template override, or CSS rule
+  outside the palette/local-font/reference-content-style allowlist.
+- Publish any reference-only screenshot or capture new application UI for public use.
+- Change `/gpt-voice/docs/`, the canonical domain, release-gated trigger, workflow permissions, Pages environment, or
+  artifact layout.
+- Add a locale outside the approved eleven-language matrix, a browser-language redirect, a version selector, blog,
+  analytics, telemetry, cookies, hosted search, comments, forms, third-party embeds, remote fonts, or external asset
+  CDN.
+- Add contributor/internal architecture documentation to the public guide.
+- Change provider, privacy, license, platform, quota, or affiliation wording beyond current released facts.
+
+### Never Do
+
+- Expose `docs/specs/`, `docs/researches/`, agent instructions, handoffs, design QA, or other internal artifacts.
+- Commit `.venv-docs/`, MkDocs cache, generated screenshot/font derivatives, `site/`, or `build/github-pages/`.
+- Publish an API key, token, cookie, session, browser profile, proxy credential, account identifier, real transcript,
+  audio, clipboard content, local path, or personal data.
+- Invoke a translation service during CI/browser tests or publish a locale with a missing source page or without the
+  recorded project-owner approval.
+- Use a real authenticated provider or personal profile to produce or test documentation.
+- Imply official OpenAI affiliation, unlimited/quota-bypassing use, universal platform support, or guaranteed service
+  behavior.
+- Load Google Fonts or runtime CSS/JS/media from an unapproved third-party CDN.
+- Rebuild or restyle Material navigation, search, sidebars, tables, admonitions, tabs, code blocks, footer, layout
+  widths, or motion to imitate the landing page or CloakBrowser. Keep approved content button, wordmark, screenshot,
+  card, and inline-code treatments within their selector allowlist.
+- Deploy, push, publish a release, change Pages settings, or contact external parties without explicit authorization.
+- Let MkDocs replace the landing root or let a later Vite build erase the docs subdirectory.
+
+## Success Criteria
+
+1. This specification is human-reviewed, approved, and remains the source of truth under
+   `docs/specs/mkdocs-project-documentation/` before planning begins.
+2. The public guide builds from `docs/user-guide/` with pinned Python 3.12/MkDocs dependencies and
+   `mkdocs build --strict`; no internal engineering artifact is included.
+3. The English guide is served at `https://swimmwatch.github.io/gpt-voice/docs/`; the ten non-English guides are
+   served at their matching static locale paths; and the landing remains at `https://swimmwatch.github.io/gpt-voice/`.
+4. The required information architecture exists and fully covers application functionality, installation,
+   operation, providers, text actions, history/tray behavior, privacy, troubleshooting, and every setting in the
+   coverage matrix.
+5. A new user can follow the guide to install GPT-Voice, configure either provider, complete a transcription, and
+   understand the clipboard result without consulting source code or the README.
+6. Every released setting has documented purpose, default/range, dependencies, persistence, validation, effect, and
+   relevant privacy consequences, verified by a settings-coverage contract.
+7. The active English landing exposes `/gpt-voice/docs/` in desktop, mobile, no-JavaScript navigation, and footer;
+   every guide locale exposes matching repository/release links and a language-selector path. The shared contract
+   reserves a matching guide destination for each non-English landing locale if that landing work is separately
+   approved and published.
+8. Landing and guide match on product name, approved palette, icon, supported platforms, provider status, shortcuts,
+   privacy, license, independence disclaimer, and release-current messaging. The guide retains Material for MkDocs'
+   structural components, layout, typography scale, and interactions, plus the approved reference-derived wordmark,
+   icon actions, screenshot framing, and cards enforced by the theme contract.
+9. The approved main-product screenshot appears with correct alternatives and provenance. No additional capture is
+   public without manifest-backed privacy and public-use approval.
+10. `pages:build` produces one artifact containing both root landing and `/docs/`, in the required order, without
+    entering Electron output or packaging.
+11. PR validation runs strict docs/content/asset/integration checks; release Pages jobs build both surfaces before
+    one artifact upload and deploy only after the approved release dependencies succeed.
+12. Required static, translation-manifest, browser, accessibility, responsive, base-path, sitemap/robots, link, and
+    workflow checks pass for every locale without credentials, personal data, provider traffic, or external-service
+    assertions.
+13. README links to the public guide and remains a concise repository overview rather than a competing settings
+    manual.
+14. Project-owner content approval, screenshot-privacy, and landing/docs consistency reviews are recorded before an
+    authorized deployment.
+15. No implementation or remote mutation occurs until the specification and subsequent gated artifacts receive
+    their required approvals.
+
+## Open Questions
+
+1. Should the first release publish only the already approved main screenshot, or should the four reference-only
+   provider/hotkey/prettify/history captures be explicitly re-approved for documentation? Default: publish only the
+   main screenshot until each expanded use is approved.
+2. Is `/gpt-voice/docs/` the desired stable route, or is `/gpt-voice/guide/` preferred? Default: `/docs/` because it
+   is conventional, descriptive, and compatible with one Pages artifact.
+3. Should browser/network settings receive new synthetic captures in a later media task? Default: textual settings
+   documentation is complete without them; add captures only after a privacy-reviewed deterministic source exists.
+4. Is a custom Pages domain planned? Default: no; canonical URLs remain under `swimmwatch.github.io/gpt-voice/`.

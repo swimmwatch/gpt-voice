@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 1,
+  "basePath": "/gpt-voice/",
+  "purpose": "Stable plain-text equivalents for humans, command-line tools, accessibility workflows, search systems, and language models without crawler-specific content.",
+  "llmsConvention": {
+    "reference": "https://llmstxt.org/",
+    "status": "emerging voluntary convention",
+    "guaranteesIndexing": false,
+    "isCrawlerDirective": false
+  },
+  "fixedFiles": [
+    {
+      "path": "/gpt-voice/llms.txt",
+      "language": "en",
+      "content": "Concise project and locale-resource index",
+      "format": "One H1, short blockquote, factual paragraphs, and titled lists of absolute links"
+    },
+    {
+      "path": "/gpt-voice/llms-full.txt",
+      "language": "en",
+      "content": "Complete English page content, qualifications, twelve FAQ answers, transcript, and locale links",
+      "format": "Visible DOM heading order"
+    }
+  ],
+  "localizedPageText": {
+    "source": "localization-matrix.json locales[].pageText",
+    "count": 11,
+    "content": "Complete visible localized page content in DOM heading order",
+    "linkedFromHtml": {
+      "rel": "alternate",
+      "type": "text/plain"
+    },
+    "firstFields": ["language tag", "absolute canonical HTML URL"]
+  },
+  "localizedTranscriptText": {
+    "source": "localization-matrix.json locales[].transcriptText",
+    "count": 11,
+    "content": "Chronological localized narration, meaningful sound cues, and meaningful visual-only actions",
+    "cueIdsMatchWebVtt": true
+  },
+  "normalization": {
+    "encoding": "UTF-8",
+    "bom": false,
+    "lineEndings": "LF",
+    "unicode": "NFC",
+    "trailingNewlines": 1,
+    "html": false,
+    "ansi": false,
+    "minified": false
+  },
+  "contentRules": {
+    "typedSourceSharedWithHtml": true,
+    "stableHeadingOrder": true,
+    "absoluteCanonicalLinks": true,
+    "qualificationsAdjacentToClaims": true,
+    "providerStatusExplicit": ["available now", "planned", "future possibility"],
+    "crawlerOnlyClaims": false,
+    "userAgentSpecificContent": false,
+    "keywordStuffing": false,
+    "cloaking": false,
+    "automaticGeneratedClaims": false
+  },
+  "verification": {
+    "expectedFileCount": 24,
+    "expectedLocalizedPageCount": 11,
+    "expectedLocalizedTranscriptCount": 11,
+    "htmlTextLinkCount": 11,
+    "compareOrderedContentIds": true,
+    "compareNormalizedVisibleText": true,
+    "compareCanonicalModelSha256": true,
+    "verifyUtf8Samples": ["Cyrillic", "Latin accents", "Simplified Chinese", "Japanese", "Devanagari"],
+    "deployedContentType": "text/plain; charset=utf-8",
+    "sitemapInclusion": "Canonical HTML URLs only unless separately approved"
+  }
+}

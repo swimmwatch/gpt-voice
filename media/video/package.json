@@ -1,0 +1,38 @@
+{
+  "name": "gpt-voice-demo-video",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "remotion render",
+    "render:representative": "remotion still GptVoiceDemo out/representative-providers.png --frame=3300 --props='{\"debugOverlays\":false,\"effectsMode\":\"fallback\"}'",
+    "still": "remotion still",
+    "studio": "remotion studio",
+    "test:timeline": "node --experimental-strip-types --test src/validation/validateTimeline.test.ts",
+    "test:content": "node --experimental-strip-types --test src/validation/validateContent.test.ts",
+    "test:scenes": "node --experimental-strip-types --test src/GptVoiceDemo.test.ts src/components/KineticBackdrop.test.ts src/components/SceneLightLeak.test.ts src/data/directedFlow.test.ts src/scenes/PromptProblemsScene.test.ts src/scenes/TranscriptionScene.test.ts src/scenes/RetryScene.test.ts src/scenes/TranslationScene.test.ts src/scenes/PrettificationScene.test.ts src/scenes/ProvidersScene.test.ts src/scenes/CtaScene.test.ts",
+    "test:ui": "node --experimental-strip-types --test src/validation/ProductUiFrame.test.ts src/validation/validateProductImports.test.ts src/validation/validateUiFixtures.test.ts",
+    "typecheck": "tsc --noEmit",
+    "validate:timeline": "node --experimental-strip-types src/validation/validateTimeline.ts"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.483",
+    "@remotion/effects": "4.0.483",
+    "@remotion/light-leaks": "4.0.483",
+    "@remotion/media": "4.0.483",
+    "@remotion/media-utils": "4.0.483",
+    "@remotion/motion-blur": "4.0.483",
+    "@remotion/noise": "4.0.483",
+    "@remotion/paths": "4.0.483",
+    "@remotion/shapes": "4.0.483",
+    "@remotion/transitions": "4.0.483",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.483",
+    "typescript": "5.9.3",
+    "zod": "^4.3.6"
+  }
+}

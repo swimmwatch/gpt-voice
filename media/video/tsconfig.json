@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "baseUrl": "../..",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "paths": {
+      "@main/*": ["src/main/*"],
+      "@renderer/hooks/useI18n": ["media/video/src/product-ui/videoI18n.ts"],
+      "@renderer/*": ["src/renderer/*"],
+      "@shared/*": ["src/shared/*"],
+      "react": ["media/video/node_modules/@types/react"],
+      "react/*": ["media/video/node_modules/@types/react/*"],
+      "react-dom": ["media/video/node_modules/@types/react-dom"],
+      "react-dom/*": ["media/video/node_modules/@types/react-dom/*"]
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022"
+  },
+  "include": ["remotion.config.ts", "src/**/*.ts", "src/**/*.tsx", "../../src/renderer/styles.d.ts"]
+}

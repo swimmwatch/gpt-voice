@@ -2,6 +2,8 @@ import path from 'node:path';
 
 export const DEFAULT_STARTUP_BENCHMARK_RUNS = 10;
 export const MAX_STARTUP_BENCHMARK_RUNS = 50;
+export const STARTUP_PROFILE_CLEANUP_MAX_ATTEMPTS = 5;
+export const STARTUP_PROFILE_CLEANUP_RETRY_DELAY_MS = 100;
 
 function assertDuration(durationMs) {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
@@ -83,6 +85,31 @@ export function waitForChildExit(child) {
   return new Promise((resolve) => {
     child.once('exit', resolve);
   });
+}
+
+function isTransientWindowsProfileCleanupError(error) {
+  return (
+    typeof error === 'object' && error !== null && 'code' in error && (error.code === 'EBUSY' || error.code === 'EPERM')
+  );
+}
+
+/** Removes the temporary Chromium profile, retrying only transient Windows file locks. */
+export async function removeStartupProfile(userDataPath, { delay, platform, remove }) {
+  const maxAttempts = platform === 'win32' ? STARTUP_PROFILE_CLEANUP_MAX_ATTEMPTS : 1;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      await remove(userDataPath, { force: true, recursive: true });
+      return;
+    } catch (error) {
+      const isFinalAttempt = attempt === maxAttempts - 1;
+      if (isFinalAttempt || !isTransientWindowsProfileCleanupError(error)) {
+        throw error;
+      }
+
+      await delay(STARTUP_PROFILE_CLEANUP_RETRY_DELAY_MS * 2 ** attempt);
+    }
+  }
 }
 
 export async function runStartupBenchmark({ arch, measureRun, platform, runCount, toolVersions }) {
