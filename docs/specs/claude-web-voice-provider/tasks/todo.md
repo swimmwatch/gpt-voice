@@ -1,11 +1,14 @@
 # Todo: Claude Web Voice and CLI Prettify Providers
 
-Plan gate: Tasks 01-18 are committed and PR #38 was merged into `main` as
-`1f35876b`. Task 19 remains unchecked. The latest authorized matrix restored
+Plan gate: Tasks 01-18 are committed, PR #38 was merged into `main` as
+`1f35876b`, and the failed release evidence was merged through PR #45 as
+`5f833ae4`. Task 19 remains unchecked. The latest authorized matrix restored
 the saved session and reached all six cases, but normal short and paused streams
 returned `empty-result` with zero server events, while the long stream ended
-with `transport-failure` before Stop. No tag or release was created, and Task 20
-has not begun.
+with `transport-failure` before Stop. On 2026-07-20, the release owner
+explicitly accepted this as a disclosed v2.1.0 known issue and directed the
+stable release to continue without another live request or a transport change.
+Task 20 has not begun.
 
 - [x] [01 Auth and organization gate](01_revalidate_auth_and_organization.md)
 - [x] [02 Buffered replay gate](02_prove_buffered_replay_and_lifecycle.md)
