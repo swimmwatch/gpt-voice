@@ -1,226 +1,138 @@
 ---
 name: spec-driven-development
-description: Use only when the user explicitly requests a specification or approves a significant new feature without an existing spec.
+description: Use only when the user explicitly requests a specification or approves a significant feature without an existing implementation contract. Define or revise durable behavior, architecture, constraints, and acceptance requirements; keep delivery order and executable task instructions out of the specification and hand decomposition to the planning workflow.
 ---
 
 # Spec-Driven Development
 
-## Overview
+Write the smallest complete contract that prevents implementation from
+inventing product behavior. Treat specification as contract authoring, not task
+decomposition.
 
-Write a structured specification before writing any code. The spec is the shared source of truth between you and the human engineer — it defines what we're building, why, and how we'll know it's done. Code without a spec is guessing.
+## Gated Workflow
 
-## When to Use
-
-- Starting a new project or feature
-- Requirements are ambiguous or incomplete
-- The change touches multiple files or modules
-- You're about to make an architectural decision
-- The task would take more than 30 minutes to implement
-
-**When NOT to use:** Single-line fixes, typo corrections, or changes where requirements are unambiguous and self-contained.
-
-## The Gated Workflow
-
-Spec-driven development has four phases. Do not advance to the next phase until the current one is validated.
-
-```
-SPECIFY ──→ PLAN ──→ TASKS ──→ IMPLEMENT
-   │          │        │          │
-   ▼          ▼        ▼          ▼
- Human      Human    Human      Human
- reviews    reviews  reviews    reviews
+```text
+SPECIFY -> human review -> PLAN/TASK PACKETS -> human review -> IMPLEMENT ONE PACKET -> human review
 ```
 
-### Phase 1: Specify
+Do not advance through a gate without the required review. Specification work
+does not authorize planning or implementation automatically.
 
-Start with a high-level vision. Ask the human clarifying questions until requirements are concrete.
+## Discover The Requirement
 
-Choose a unique lowercase kebab-case global task slug and save the specification to
-`docs/specs/<global-task-slug>/spec.md`. That scoped directory is the source of truth for all later
-planning and implementation work on the task.
+1. Read applicable `AGENTS.md` files and only the closest relevant project
+   documentation. Inspect headings or search results before opening long files.
+2. Identify the user, problem, current behavior, desired outcome, scope,
+   non-goals, constraints, and unresolved choices.
+3. Surface assumptions before writing and ask only questions whose answers
+   materially change the contract.
+4. Separate implemented behavior from planned technologies, private-provider
+   observations, and unverified assumptions.
+5. Use CodeGraph first when indexed. Inspect only the current code, tests,
+   types, and precedent needed to verify affected boundaries.
 
-**Surface assumptions immediately.** Before writing any spec content, list what you're assuming:
+## Required Specification Content
 
-```
-ASSUMPTIONS I'M MAKING:
-1. This is a web application (not native mobile)
-2. Authentication uses session-based cookies (not JWT)
-3. The database is PostgreSQL (based on existing Prisma schema)
-4. We're targeting modern browsers only (no IE11)
-→ Correct me now or I'll proceed with these.
-```
+### Objective And Behavior
 
-Don't silently fill in ambiguous requirements. The spec's entire purpose is to surface misunderstandings _before_ code gets written — assumptions are the most dangerous form of misunderstanding.
+- primary user flow and observable outcome;
+- validation, edge cases, errors, cancellation, retry, and recovery;
+- manual review, override, permission, and destructive-action behavior.
 
-**Write a spec document covering these six core areas:**
+### Contracts And State
 
-1. **Objective** — What are we building and why? Who is the user? What does success look like?
+- inputs, outputs, schemas, units, ordering, audio/media formats, and file layout;
+- lifecycle states and allowed transitions;
+- provider/model/settings provenance and compatibility;
+- ownership, retention, idempotency, versioning, migration, and cache behavior;
+- safe observability and user-facing diagnostics.
 
-2. **Commands** — Full executable commands with flags, not just tool names.
+### Architecture And Boundaries
 
-   ```
-   Build: npm run build
-   Test: npm test -- --coverage
-   Lint: npm run lint --fix
-   Dev: npm run dev
-   ```
+- renderer, preload, main, provider, browser, filesystem, subprocess, and
+  lifecycle responsibilities when applicable;
+- dependency direction and typed IPC contracts;
+- privacy, security, performance, cost, packaging, and failure-recovery
+  constraints;
+- always-do, ask-first, and never-do boundaries.
 
-3. **Project Structure** — Where source code lives, where tests go, where docs belong.
+### Acceptance
 
-   ```
-   src/           → Application source code
-   src/components → React components
-   src/lib        → Shared utilities
-   tests/         → Unit and integration tests
-   e2e/           → End-to-end tests
-   docs/          → Documentation
-   ```
+- measurable success and explicit non-acceptance cases;
+- focused unit, integration, contract, command, build, and manual/platform
+  verification requirements;
+- deterministic fixtures that do not depend on credentials or personal data.
 
-4. **Code Style** — One real code snippet showing your style beats three paragraphs describing it. Include naming conventions, formatting rules, and examples of good output.
+## Decision Discipline
 
-5. **Testing Strategy** — What framework, where tests live, coverage expectations, which test levels for which concerns.
+Record alternatives and tradeoffs. Do not silently select a provider, private
+contract, migration policy, or user-visible behavior. Keep unresolved choices
+explicit and stop before implementation when they materially change the
+contract.
 
-6. **Boundaries** — Three-tier system:
-   - **Always do:** Run tests before commits, follow naming conventions, validate inputs
-   - **Ask first:** Database schema changes, adding dependencies, changing CI config
-   - **Never do:** Commit secrets, edit vendor directories, remove failing tests without approval
+Reframe vague requests as testable acceptance criteria and ask the human to
+confirm them.
 
-**Spec template:**
+## Specification Boundary
+
+Keep `spec.md` focused on durable behavior, architecture, constraints, and
+acceptance requirements. Use stable requirement and acceptance IDs when they
+make later traceability reliable.
+
+Do not put these planning concerns in `spec.md`:
+
+- delivery order, estimates, task status, or parallelization;
+- task-owned file lists and task-only verification commands;
+- complete executable task descriptions;
+- instructions to read the entire specification before implementation.
+
+When planning is requested after the specification is approved, apply
+[the task packet contract](../../references/task-packets.md) and the
+`planning-and-task-breakdown` skill. Create one self-contained numbered packet
+per executable task. During specification-only work, do not invent that task
+breakdown.
+
+## Specification Outline
 
 ```markdown
-# Spec: [Project/Feature Name]
+# Spec: Feature Name
 
-## Objective
+## Problem, User, And Outcome
 
-[What we're building and why. User stories or acceptance criteria.]
+## Scope And Non-Goals
 
-## Tech Stack
+## Current State And Dependencies
 
-[Framework, language, key dependencies with versions]
+## Behavior And Failure Handling
 
-## Commands
+## Inputs, Outputs, States, And Contracts
 
-[Build, test, lint, dev — full commands]
+## Architecture, Privacy, And Security
 
-## Project Structure
+## Quality And Acceptance Criteria
 
-[Directory layout with descriptions]
+## Rollout, Recovery, And Compatibility
 
-## Code Style
-
-[Example snippet + key conventions]
-
-## Testing Strategy
-
-[Framework, test locations, coverage requirements, test levels]
-
-## Boundaries
-
-- Always: [...]
-- Ask first: [...]
-- Never: [...]
-
-## Success Criteria
-
-[How we'll know this is done — specific, testable conditions]
-
-## Open Questions
-
-[Anything unresolved that needs human input]
+## Alternatives, Decisions, And Open Questions
 ```
 
-**Reframe instructions as success criteria.** When receiving vague requirements, translate them into concrete conditions:
+For a substantial workstream, use `docs/specs/<slug>/`:
 
-```
-REQUIREMENT: "Make the dashboard faster"
+- `spec.md`: durable implementation contract;
+- `tasks/NN_<slug>.md`: execution contracts created only during planning;
+- `tasks/plan.md`: compact ordered task index;
+- `tasks/todo.md`: linked checklist and completion state;
+- `tasks/handoff.md`: completed work, changed files, checks, exact next step,
+  and blockers.
 
-REFRAMED SUCCESS CRITERIA:
-- Dashboard LCP < 2.5s on 4G connection
-- Initial data load completes in < 500ms
-- No layout shift during load (CLS < 0.1)
-→ Are these the right targets?
-```
+If planning has not been requested, keep task-state files as short
+planning-pending stubs. If task packets already exist, identify packets affected
+by a specification revision and mark them for focused replanning.
 
-This lets you loop, retry, and problem-solve toward a clear goal rather than guessing what "faster" means.
+Keep external research in `docs/researches/<slug>/main.md` and link it from the
+specification rather than copying sensitive or volatile evidence into task
+packets.
 
-### Phase 2: Plan
-
-With the validated spec, generate a technical implementation plan:
-
-1. Identify the major components and their dependencies
-2. Determine the implementation order (what must be built first)
-3. Note risks and mitigation strategies
-4. Identify what can be built in parallel vs. what must be sequential
-5. Define verification checkpoints between phases
-
-> Follow `planning-and-task-breakdown` for the dependency-graph mapping and vertical-slicing mechanics behind these steps; it is the canonical source. The bullets above are a lightweight summary; if they ever diverge, `planning-and-task-breakdown` takes precedence.
->
-> **Output convention:** Keep every artifact in the scoped specification directory. Save the plan to
-> `docs/specs/<global-task-slug>/tasks/plan.md` and the task list to
-> `docs/specs/<global-task-slug>/tasks/todo.md`. Create `tasks/` within that specification directory
-> if it does not exist. Downstream planning and implementation work must use the chosen specification
-> directory; do not use a repository-root `tasks/` folder.
-
-The plan should be reviewable: the human should be able to read it and say "yes, that's the right approach" or "no, change X."
-
-### Phase 3: Tasks
-
-Break the plan into discrete, implementable tasks:
-
-- Each task should be completable in a single focused session
-- Each task has explicit acceptance criteria
-- Each task includes a verification step (test, build, manual check)
-- Tasks are ordered by dependency, not by perceived importance
-- No task should require changing more than ~5 files
-
-> Follow `planning-and-task-breakdown` for the full task-sizing and dependency-ordering mechanics; it is the canonical source. The template below is a lightweight inline form; if they ever diverge, `planning-and-task-breakdown` takes precedence.
-
-**Task template:**
-
-```markdown
-- [ ] Task: [Description]
-  - Acceptance: [What must be true when done]
-  - Verify: [How to confirm — test command, build, manual check]
-  - Files: [Which files will be touched]
-```
-
-### Phase 4: Implement
-
-Execute tasks one at a time following `.agents/skills/incremental-implementation/SKILL.md` (`incremental-implementation`) and `.agents/skills/test-driven-development/SKILL.md` (`test-driven-development`). Use `.agents/skills/context-engineering/SKILL.md` (`context-engineering`) to load the right spec sections and source files at each step rather than flooding the agent with the entire spec.
-
-## Keeping the Spec Alive
-
-The spec is a living document, not a one-time artifact:
-
-- **Update when decisions change** — If you discover the data model needs to change, update the spec first, then implement.
-- **Update when scope changes** — Features added or cut should be reflected in the spec.
-- **Commit the spec** — The spec belongs in version control alongside the code.
-- **Reference the spec in PRs** — Link back to the spec section that each PR implements.
-
-## Common Rationalizations
-
-| Rationalization                       | Reality                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| "This is simple, I don't need a spec" | Simple tasks don't need _long_ specs, but they still need acceptance criteria. A two-line spec is fine. |
-| "I'll write the spec after I code it" | That's documentation, not specification. The spec's value is in forcing clarity _before_ code.          |
-| "The spec will slow us down"          | A 15-minute spec prevents hours of rework. Waterfall in 15 minutes beats debugging in 15 hours.         |
-| "Requirements will change anyway"     | That's why the spec is a living document. An outdated spec is still better than no spec.                |
-| "The user knows what they want"       | Even clear requests have implicit assumptions. The spec surfaces those assumptions.                     |
-
-## Red Flags
-
-- Starting to write code without any written requirements
-- Asking "should I just start building?" before clarifying what "done" means
-- Implementing features not mentioned in any spec or task list
-- Making architectural decisions without documenting them
-- Skipping the spec because "it's obvious what to build"
-
-## Verification
-
-Before proceeding to implementation, confirm:
-
-- [ ] The spec covers all six core areas
-- [ ] The human has reviewed and approved the spec
-- [ ] Success criteria are specific and testable
-- [ ] Boundaries (Always/Ask First/Never) are defined
-- [ ] The spec is saved to a file in the repository
+Before handing off to planning, confirm the human approved the specification,
+acceptance criteria are testable, boundaries are explicit, and the contract is
+saved in the scoped bundle.

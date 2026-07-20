@@ -1,11 +1,11 @@
 import { app, globalShortcut, session } from 'electron';
 import log from './logger';
-import { loadConfig, getCurrentLocale } from './config';
+import { loadConfig, getCurrentLocale, hasExplicitLocalePreference, currentProvider } from './config';
 import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
-import { registerIpcHandlers } from './ipc';
+import { registerIpcHandlers, teardownStreamingTranscriptionIpcHandlers } from './ipc';
 import { setLocale, getSupportedLocales } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
@@ -18,6 +18,7 @@ import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
 import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
+import { resolveStartupLocale } from './startupLocale';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
 const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
@@ -122,19 +123,8 @@ app.on('ready', () => {
     return permission === 'media';
   });
 
-  // Detect OS locale and set i18n
-  const osLocale = app.getLocale().split('-')[0];
-  if (getSupportedLocales().includes(osLocale)) {
-    setLocale(osLocale);
-  }
-
   loadConfig();
-
-  // Apply persisted locale override if set
-  const savedLocale = getCurrentLocale();
-  if (savedLocale) {
-    setLocale(savedLocale);
-  }
+  setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
 
   registerIpcHandlers();
   createWindow();
@@ -148,10 +138,11 @@ app.on('ready', () => {
   registerShortcuts();
 
   void initBackgroundBrowser().then((status) => {
+    const providerId = status.providerId || currentProvider;
     if (status.ready) {
-      getMainWindow()?.webContents.send('bg-browser-ready');
+      getMainWindow()?.webContents.send('bg-browser-ready', providerId);
     } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
+      getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
     }
   });
 });
@@ -166,6 +157,7 @@ app.on('activate', () => {
 
 async function runQuitCleanup(): Promise<void> {
   globalShortcut.unregisterAll();
+  await teardownStreamingTranscriptionIpcHandlers();
   try {
     await unloadLoadedOllamaPrettifyModel();
   } catch (error: unknown) {

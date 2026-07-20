@@ -1,13 +1,18 @@
-import type { TRANSCRIPTION_MODEL_WHISPER_1 } from '@shared/transcriptionConstants';
 import type { AppInfo } from '@shared/appInfo';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
+import type { ClaudeWebSettings, ClaudeWebSettingsUpdateInput } from '@shared/claudeWebSettings';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
+import type { OpenAIApiTranscriptionLanguage, OpenAIApiTranscriptionModel } from '@shared/openaiApiTranscription';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
-  PrettifyProviderId,
+  PrettifyCliConnectionResult,
+  PrettifyCliProviderId,
+  KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -19,38 +24,58 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import type { TextActionStatus } from '@shared/textActionStatus';
+import type {
+  CancelStreamingTranscriptionIpcResult,
+  FinishStreamingTranscriptionIpcResult,
+  SendStreamingTranscriptionChunkIpcResult,
+  StartStreamingTranscriptionIpcResult,
+  StreamingTranscriptionOperationId,
+} from '@shared/streamingTranscription';
+import type {
+  RendererSafeVoiceProviderInfo,
+  VoiceProviderAuthType,
+  VoiceProviderCategory,
+} from '@shared/voiceProvider';
 
-export type ProviderAuthType = 'browserSession' | 'apiKey';
+export type ProviderAuthType = VoiceProviderAuthType;
+export type ProviderCategory = VoiceProviderCategory;
 
 export interface BackgroundBrowserStatus {
+  providerId?: string;
   ready: boolean;
   error?: string;
   authExpired?: boolean;
 }
 
-export interface ProviderInfo {
-  id: string;
-  name: string;
-  authType: ProviderAuthType;
-}
+export type ProviderInfo = RendererSafeVoiceProviderInfo;
 
 export interface OpenAIApiProviderSettings {
   providerId: 'openai-api';
   authType: 'apiKey';
   hasApiKey: boolean;
-  model: typeof TRANSCRIPTION_MODEL_WHISPER_1;
-  language: 'auto' | 'en' | 'ru' | 'uk' | 'be';
+  model: OpenAIApiTranscriptionModel;
+  language: OpenAIApiTranscriptionLanguage;
   prompt: string;
   temperature: number;
 }
 
-export interface BrowserSessionProviderSettings {
-  providerId: string;
+export interface ChatGPTWebProviderSettings {
+  providerId: 'chatgpt';
   authType: 'browserSession';
   hasSession: boolean;
 }
 
+export interface ClaudeWebProviderSettings extends ClaudeWebSettings {
+  providerId: 'claude-web';
+  authType: 'browserSession';
+  hasSession: boolean;
+}
+
+export type BrowserSessionProviderSettings = ChatGPTWebProviderSettings | ClaudeWebProviderSettings;
 export type ProviderSettings = OpenAIApiProviderSettings | BrowserSessionProviderSettings;
+export type OpenAIApiProviderSettingsInput = Partial<OpenAIApiProviderSettings> & { apiKey?: string };
+export type ProviderSettingsSaveInput = OpenAIApiProviderSettingsInput | ClaudeWebSettingsUpdateInput;
 
 export interface ElectronAPI {
   onToggleRecording: (callback: (isRecording: boolean) => void) => () => void;
@@ -59,17 +84,21 @@ export interface ElectronAPI {
   onResumeRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
   onRetryTranscription: (callback: () => void) => () => void;
-  onTranslationStatus: (callback: (status: string) => void) => () => void;
+  onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
-  providerLogin: () => Promise<{ success: boolean; error?: string }>;
+  providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
+  openProviderSettings: (providerId: string) => Promise<{ success: boolean; error?: string }>;
+  closeProviderSettings: () => Promise<{ success: boolean }>;
+  onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void) => () => void;
   closeAppSettings: () => Promise<{ success: boolean }>;
   onAppSettingsCloseRequested: (callback: () => void) => () => void;
-  openAppSettings: () => Promise<{ success: boolean }>;
+  onAppSettingsSectionRequested: (callback: (section: AppSettingsSectionId) => void) => () => void;
+  openAppSettings: (section?: AppSettingsSectionId) => Promise<{ success: boolean; error?: string }>;
   openTranscriptionHistory: () => Promise<{ success: boolean }>;
   openAbout: () => Promise<{ success: boolean }>;
   closeAbout: () => Promise<{ success: boolean }>;
@@ -83,7 +112,7 @@ export interface ElectronAPI {
   }>;
   saveProviderSettings: (
     providerId: string,
-    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+    settings: ProviderSettingsSaveInput,
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getActiveProvider: () => Promise<string>;
@@ -93,6 +122,21 @@ export interface ElectronAPI {
     buffer: ArrayBuffer,
     mimeType: string,
   ) => Promise<{ success: boolean; text?: string; error?: string }>;
+  startStreamingTranscription: () => Promise<StartStreamingTranscriptionIpcResult>;
+  sendStreamingTranscriptionChunk: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    chunk: Uint8Array,
+  ) => Promise<SendStreamingTranscriptionChunkIpcResult>;
+  finishStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    finalChunk: Uint8Array,
+    recordingWav: ArrayBuffer,
+  ) => Promise<FinishStreamingTranscriptionIpcResult>;
+  cancelStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+  ) => Promise<CancelStreamingTranscriptionIpcResult>;
   translateText: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
   getTranscriptionHistory: (query?: TranscriptionHistoryQuery) => Promise<TranscriptionHistoryPage>;
   copyTranscriptionHistoryText: (id: number) => Promise<TranscriptionHistoryCopyResult>;
@@ -100,10 +144,11 @@ export interface ElectronAPI {
   showNotification: (title: string, body: string, options?: SystemNotificationOptions) => Promise<void>;
   isBgReady: () => Promise<boolean>;
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
-  onBgBrowserReady: (callback: () => void) => () => void;
-  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => () => void;
+  onBgBrowserReady: (callback: (providerId: string) => void) => () => void;
+  onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => () => void;
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
+  onLocaleChanged: (callback: (locale: AppLocaleId) => void) => () => void;
   getHotkey: () => Promise<HotkeySettings>;
   setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
@@ -114,23 +159,26 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getPrettifySettings: () => Promise<PrettifySettings>;
-  setPrettifySettings: (settings: PrettifySettingsInput) => Promise<{ success: boolean; settings: PrettifySettings }>;
+  checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
+  setPrettifySettings: (
+    settings: PrettifySettingsInput,
+  ) => Promise<{ success: boolean; settings: PrettifySettings; error?: string }>;
   listPrettifyModels: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelListResult>;
   loadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelLoadResult>;
   unloadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ) => Promise<PrettifyModelUnloadResult>;
   getTranslations: () => Promise<Record<string, string>>;
-  getLocale: () => Promise<string>;
-  getSupportedLocales: () => Promise<string[]>;
-  setLocale: (locale: string) => Promise<{ success: boolean }>;
+  getLocale: () => Promise<AppLocaleId>;
+  getSupportedLocales: () => Promise<AppLocaleId[]>;
+  setLocale: (locale: AppLocaleId) => Promise<{ success: boolean; error?: string }>;
   getPlatform: () => Promise<NodeJS.Platform>;
 }
 

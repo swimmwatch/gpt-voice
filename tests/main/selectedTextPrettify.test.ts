@@ -31,6 +31,9 @@ interface TestServiceOptions {
   topK?: number;
   topP?: number;
   selectionText?: string;
+  prepareResult?: { success: false; error: string };
+  prepareWait?: Promise<void>;
+  providerCacheContext?: readonly string[];
   prettifyResult?: { success: boolean; text?: string; error?: string };
   prettifyWait?: Promise<void>;
 }
@@ -72,6 +75,7 @@ function createTestService(options: TestServiceOptions = {}) {
   const notifications: Array<{ title: string; body: string; options?: SystemNotificationOptions }> = [];
   const automationCalls: string[] = [];
   const waitCalls: number[] = [];
+  const prepareCalls: PrettifySettings[] = [];
   const prettifyCalls: Array<{
     text: string;
     providerId: PrettifyProviderId;
@@ -113,26 +117,50 @@ function createTestService(options: TestServiceOptions = {}) {
       notifications.push({ title, body, options });
     },
     platform: options.platform || 'linux',
-    prettify: async (text, settings) => {
-      const typedSettings = settings as PrettifySettings & { signal?: AbortSignal };
+    prepare: async (settings, signal) => {
+      const typedSettings = settings;
+      prepareCalls.push(typedSettings);
+      await options.prepareWait;
+      if (options.prepareResult) return options.prepareResult;
       const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
-      prettifyCalls.push({
-        text,
-        providerId: typedSettings.providerId,
-        prompt: typedSettings.prompt,
-        model: providerSettings.model,
-        baseUrl: providerSettings.baseUrl,
-        maxOutputTokens: typedSettings.maxOutputTokens,
-        minP: typedSettings.minP,
-        repeatPenalty: typedSettings.repeatPenalty,
-        seed: typedSettings.seed,
-        temperature: typedSettings.temperature,
-        topK: typedSettings.topK,
-        topP: typedSettings.topP,
-        signal: typedSettings.signal,
-      });
-      await options.prettifyWait;
-      return options.prettifyResult || { success: true, text: 'prettified text' };
+      return {
+        success: true as const,
+        prepared: {
+          providerId: typedSettings.providerId,
+          cacheContext: options.providerCacheContext ?? [
+            typedSettings.providerId,
+            providerSettings.baseUrl,
+            providerSettings.model,
+            typedSettings.prompt,
+            String(typedSettings.temperature),
+            String(typedSettings.topP),
+            String(typedSettings.topK),
+            String(typedSettings.minP),
+            String(typedSettings.repeatPenalty),
+            String(typedSettings.maxOutputTokens),
+            typedSettings.seed === null ? '' : String(typedSettings.seed),
+          ],
+          execute: async (text: string) => {
+            prettifyCalls.push({
+              text,
+              providerId: typedSettings.providerId,
+              prompt: typedSettings.prompt,
+              model: providerSettings.model,
+              baseUrl: providerSettings.baseUrl,
+              maxOutputTokens: typedSettings.maxOutputTokens,
+              minP: typedSettings.minP,
+              repeatPenalty: typedSettings.repeatPenalty,
+              seed: typedSettings.seed,
+              temperature: typedSettings.temperature,
+              topK: typedSettings.topK,
+              topP: typedSettings.topP,
+              signal,
+            });
+            await options.prettifyWait;
+            return options.prettifyResult || { success: true, text: 'prettified text' };
+          },
+        },
+      };
     },
     wait: async (delayMs) => {
       waitCalls.push(delayMs);
@@ -143,6 +171,7 @@ function createTestService(options: TestServiceOptions = {}) {
     automationCalls,
     clipboard,
     notifications,
+    prepareCalls,
     prettifyCalls,
     service: createSelectedTextPrettifyService(deps),
     waitCalls,
@@ -273,6 +302,24 @@ describe('selectedTextPrettify', () => {
     ]);
   });
 
+  it('restores the clipboard when provider preparation fails before execution', async () => {
+    const { clipboard, notifications, prepareCalls, prettifyCalls, service } = createTestService({
+      selectionText: 'selected text',
+      prepareResult: { success: false, error: 'CLI unavailable' },
+    });
+
+    const result = await service();
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'CLI unavailable');
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.equal(prepareCalls.length, 1);
+    assert.equal(prettifyCalls.length, 0);
+    assert.deepEqual(notifications, [
+      { title: 'Prettify failed', body: 'CLI unavailable', options: { sound: 'error' } },
+    ]);
+  });
+
   it('restores the clipboard and shows provider errors', async () => {
     const cooldownError = 'Failed to connect to Ollama at http://127.0.0.1:11434: fetch failed';
     const { clipboard, notifications, service } = createTestService({
@@ -308,7 +355,7 @@ describe('selectedTextPrettify', () => {
   });
 
   it('copies cached prettified text for repeated selected text and settings', async () => {
-    const { clipboard, notifications, prettifyCalls, service } = createTestService({
+    const { clipboard, notifications, prepareCalls, prettifyCalls, service } = createTestService({
       selectionText: 'selected text',
       prettifyResult: { success: true, text: 'cached prettified text' },
     });
@@ -319,11 +366,37 @@ describe('selectedTextPrettify', () => {
     assert.equal(first.success, true);
     assert.equal(second.success, true);
     assert.equal(clipboard.clipboard, 'cached prettified text');
+    assert.equal(prepareCalls.length, 2);
     assert.equal(prettifyCalls.length, 1);
     assert.deepEqual(notifications, [
       { title: 'Text prettified', body: 'Selection prettified', options: { sound: 'success' } },
       { title: 'Text prettified', body: 'Selection prettified', options: { sound: 'success' } },
     ]);
+  });
+
+  it('misses the cache when the prepared provider capability version changes', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      providerCacheContext: ['claude-cli', '2.1.71', '', '', 'default', 'prompt'],
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'first result' },
+    });
+    const second = createTestService({
+      cache,
+      providerCacheContext: ['claude-cli', '2.1.72', '', '', 'default', 'prompt'],
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'second result' },
+    });
+
+    await first.service();
+    await second.service();
+
+    assert.equal(first.prepareCalls.length, 1);
+    assert.equal(second.prepareCalls.length, 1);
+    assert.equal(first.prettifyCalls.length, 1);
+    assert.equal(second.prettifyCalls.length, 1);
+    assert.equal(second.clipboard.clipboard, 'second result');
   });
 
   it('misses the prettify cache when settings change', async () => {
@@ -506,6 +579,7 @@ describe('selectedTextPrettify', () => {
 
     assert.equal(prettifyCalls.length, 1);
     assert.deepEqual(cancelResult, {
+      cancelled: true,
       success: false,
       status: 'Prettify cancelled',
       error: 'Prettify cancelled',
@@ -518,11 +592,39 @@ describe('selectedTextPrettify', () => {
     const firstResult = await first;
 
     assert.deepEqual(firstResult, {
+      cancelled: true,
       success: false,
       status: 'Prettify cancelled',
       error: 'Prettify cancelled',
     });
     assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(notifications, []);
+  });
+
+  it('cancels during provider preparation without executing generation', async () => {
+    let finishPreparation!: () => void;
+    const prepareWait = new Promise<void>((resolve) => {
+      finishPreparation = resolve;
+    });
+    const { clipboard, notifications, prepareCalls, prettifyCalls, service } = createTestService({
+      selectionText: 'selected text',
+      prepareWait,
+    });
+
+    const active = service();
+    for (let attempts = 0; attempts < 5 && prepareCalls.length === 0; attempts += 1) {
+      await Promise.resolve();
+    }
+    const cancelled = service.cancel();
+    finishPreparation();
+    const result = await active;
+
+    assert.equal(cancelled?.status, 'Prettify cancelled');
+    assert.equal(cancelled?.cancelled, true);
+    assert.equal(result.status, 'Prettify cancelled');
+    assert.equal(result.cancelled, true);
+    assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.equal(prettifyCalls.length, 0);
     assert.deepEqual(notifications, []);
   });
 

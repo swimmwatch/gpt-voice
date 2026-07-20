@@ -78,6 +78,7 @@ module.exports = [
       about: './src/renderer/entries/about.tsx',
       history: './src/renderer/entries/history.tsx',
       main: './src/renderer/entries/main.tsx',
+      providerSettings: './src/renderer/entries/providerSettings.tsx',
       settings: './src/renderer/entries/settings.tsx',
     },
     target: 'web',
@@ -100,6 +101,13 @@ module.exports = [
         {
           test: /\.scss$/,
           use: [styleLoader, 'css-loader', 'postcss-loader', 'sass-loader'],
+        },
+        {
+          test: /\.worklet\.js$/,
+          type: 'asset/resource',
+          generator: {
+            filename: 'renderer/assets/[name][ext]',
+          },
         },
         {
           test: /\.(png|svg)$/,
@@ -142,6 +150,12 @@ module.exports = [
         filename: 'index.html',
         title: 'GPT-Voice',
         chunks: ['main'],
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'provider-settings.html',
+        title: 'Provider settings',
+        chunks: ['providerSettings'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',

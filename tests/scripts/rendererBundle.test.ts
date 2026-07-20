@@ -10,7 +10,9 @@ const rootDirectory = path.resolve(__dirname, '..', '..');
 const require = createRequire(__filename);
 
 interface RendererRule {
+  generator?: { filename?: string };
   test: RegExp;
+  type?: string;
   use: string[];
 }
 
@@ -104,6 +106,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     about: './src/renderer/entries/about.tsx',
     history: './src/renderer/entries/history.tsx',
     main: './src/renderer/entries/main.tsx',
+    providerSettings: './src/renderer/entries/providerSettings.tsx',
     settings: './src/renderer/entries/settings.tsx',
   });
   assert.equal(rendererConfig.output.filename, 'renderer/[name].js');
@@ -112,10 +115,16 @@ test('assigns a dedicated renderer entry to every application window', () => {
   assert.equal(rendererConfig.optimization.runtimeChunk, 'single');
   assert.equal(rendererConfig.optimization.splitChunks.chunks, 'all');
 
+  const workletRule = rendererConfig.module.rules.find((rule) => rule.test.test('livePcmCapture.worklet.js'));
+  assert.ok(workletRule);
+  assert.equal(workletRule.type, 'asset/resource');
+  assert.equal(workletRule.generator?.filename, 'renderer/assets/[name][ext]');
+
   const htmlChunks = new Map(
     rendererConfig.plugins.map((plugin) => [plugin.userOptions?.filename, plugin.userOptions?.chunks]),
   );
   assert.deepEqual(htmlChunks.get('index.html'), ['main']);
+  assert.deepEqual(htmlChunks.get('provider-settings.html'), ['providerSettings']);
   assert.deepEqual(htmlChunks.get('settings.html'), ['settings']);
   assert.deepEqual(htmlChunks.get('history.html'), ['history']);
   assert.deepEqual(htmlChunks.get('about.html'), ['about']);
@@ -130,8 +139,14 @@ test('emits renderer bundles under a separate nested path from Electron main', a
     const outputFiles = await readdir(outputPath);
     assert.ok(!outputFiles.includes('main.js'));
 
+    const workletSource = await readFile(path.join(outputPath, 'renderer/assets/livePcmCapture.worklet.js'), 'utf8');
+    assert.match(workletSource, /gpt-voice-live-pcm-capture/u);
+    assert.match(workletSource, /registerProcessor/u);
+    assert.doesNotMatch(workletSource, /https?:\/\//u);
+
     const windows = [
       ['index.html', 'main'],
+      ['provider-settings.html', 'providerSettings'],
       ['settings.html', 'settings'],
       ['history.html', 'history'],
       ['about.html', 'about'],

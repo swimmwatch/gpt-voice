@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
+import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
+import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import { createTranscriptionService } from '@main/services/transcription';
 import {
   createTranscriptionResultCache,
@@ -8,12 +9,15 @@ import {
 } from '@main/services/transcriptionResultCache';
 import type { TextActionResultCache } from '@main/services/textActionCache';
 
-class TestVoiceProvider extends BaseVoiceProvider {
-  readonly info: VoiceProviderInfo = {
+class TestVoiceProvider extends BatchVoiceProvider {
+  readonly info = {
     id: 'test-provider',
     name: 'Test Provider',
     authType: 'apiKey',
-  };
+    category: 'api',
+    hasSettings: true,
+    transcriptionMode: 'batch',
+  } satisfies VoiceProviderInfo;
 
   transcribeCalls = 0;
   cacheContext: readonly string[] = [];

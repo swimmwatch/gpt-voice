@@ -28,16 +28,16 @@ describe('renderer theme consistency', () => {
     assert.doesNotMatch(commandDock, /--background:/u);
   });
 
-  it('makes the actionable model-memory command visibly interactive', () => {
+  it('makes the actionable Ollama model command visibly interactive', () => {
     const styles = readFileSync(GLOBAL_STYLES_PATH, 'utf8');
-    const memoryAction = getRuleBody(styles, '\\.command-dock \\.command-dock-memory-action');
-    const memoryActionHover = getRuleBody(
+    const modelAction = getRuleBody(styles, '\\.command-dock \\.command-dock-prettify-model-action');
+    const modelActionHover = getRuleBody(
       styles,
-      '\\.command-dock \\.command-dock-memory-action:not\\(:disabled\\):hover',
+      '\\.command-dock \\.command-dock-prettify-model-action:not\\(:disabled\\):hover',
     );
 
-    assert.match(memoryAction, /cursor: pointer;/u);
-    assert.match(memoryActionHover, /background: var\(--surface-raised\);/u);
-    assert.match(memoryActionHover, /border-color: var\(--dock-divider\);/u);
+    assert.match(modelAction, /cursor: pointer;/u);
+    assert.match(modelActionHover, /background: var\(--surface-raised\);/u);
+    assert.match(modelActionHover, /border-color: var\(--dock-divider\);/u);
   });
 });

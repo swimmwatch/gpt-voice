@@ -1,10 +1,7 @@
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+import { PCM16_BYTES_PER_SAMPLE, encodePcm16WavBytes, getPcm16SampleValue } from './audio/pcm16';
 
 const TARGET_TRANSCRIPTION_SAMPLE_RATE = 16000;
-const WAV_HEADER_BYTES = 44;
-const PCM_BYTES_PER_SAMPLE = 2;
-const WAV_FORMAT_PCM = 1;
-const WAV_BITS_PER_SAMPLE = 16;
 
 export interface TranscriptionAudioPayload {
   buffer: ArrayBuffer;
@@ -32,36 +29,17 @@ export function encodePcm16Wav(channelData: Float32Array[], sampleRate: number):
   }
 
   const channelCount = channelData.length;
-  const blockAlign = channelCount * PCM_BYTES_PER_SAMPLE;
-  const byteRate = sampleRate * blockAlign;
-  const dataBytes = frameCount * blockAlign;
-  const buffer = new ArrayBuffer(WAV_HEADER_BYTES + dataBytes);
-  const view = new DataView(buffer);
-
-  writeAscii(view, 0, 'RIFF');
-  view.setUint32(4, 36 + dataBytes, true);
-  writeAscii(view, 8, 'WAVE');
-  writeAscii(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, WAV_FORMAT_PCM, true);
-  view.setUint16(22, channelCount, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, WAV_BITS_PER_SAMPLE, true);
-  writeAscii(view, 36, 'data');
-  view.setUint32(40, dataBytes, true);
-
-  let offset = WAV_HEADER_BYTES;
+  const pcm = new Uint8Array(frameCount * channelCount * PCM16_BYTES_PER_SAMPLE);
+  const view = new DataView(pcm.buffer);
+  let offset = 0;
   for (let frame = 0; frame < frameCount; frame += 1) {
     for (let channel = 0; channel < channelCount; channel += 1) {
-      const sample = Math.max(-1, Math.min(1, channelData[channel][frame] || 0));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += PCM_BYTES_PER_SAMPLE;
+      view.setInt16(offset, getPcm16SampleValue(channelData[channel][frame]), true);
+      offset += PCM16_BYTES_PER_SAMPLE;
     }
   }
 
-  return buffer;
+  return encodePcm16WavBytes(pcm, sampleRate, channelCount);
 }
 
 export async function prepareTranscriptionAudio(blob: Blob): Promise<TranscriptionAudioPayload> {
@@ -130,10 +108,4 @@ async function renderMonoAudio(audioBuffer: AudioBuffer, sampleRate: number): Pr
   source.connect(offlineContext.destination);
   source.start(0);
   return offlineContext.startRendering();
-}
-
-function writeAscii(view: DataView, offset: number, value: string): void {
-  for (let index = 0; index < value.length; index += 1) {
-    view.setUint8(offset + index, value.charCodeAt(index));
-  }
 }

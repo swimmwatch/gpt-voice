@@ -10,6 +10,7 @@ import { createLogger } from '@main/logger';
 import {
   assertValidPrettifySettingsInput,
   getPrettifyBaseUrlValidationError,
+  getPrettifyProviderCapabilities,
   normalizePrettifySettings,
   type PrettifySettings,
   type PrettifySettingsInput,
@@ -61,24 +62,45 @@ function decryptApiKey(encryptedApiKey?: string): string {
   }
 }
 
-function mergePrettifySettings(input: PrettifySettingsInput = {}, hasApiKey = false): PrettifySettings {
+export function mergePrettifySettingsForStorage(
+  currentSettings: PrettifySettings,
+  input: PrettifySettingsInput = {},
+  hasApiKey = false,
+): PrettifySettings {
   return normalizePrettifySettings({
-    ...currentPrettifySettings,
+    ...currentSettings,
     ...input,
+    claudeCli: {
+      ...currentSettings.claudeCli,
+      ...input.claudeCli,
+    },
+    codexCli: {
+      ...currentSettings.codexCli,
+      ...input.codexCli,
+    },
     ollama: {
-      ...currentPrettifySettings.ollama,
+      ...currentSettings.ollama,
       ...input.ollama,
     },
     vllm: {
-      ...currentPrettifySettings.vllm,
+      ...currentSettings.vllm,
       ...input.vllm,
       hasApiKey,
     },
   });
 }
 
+function mergePrettifySettings(input: PrettifySettingsInput = {}, hasApiKey = false): PrettifySettings {
+  return mergePrettifySettingsForStorage(currentPrettifySettings, input, hasApiKey);
+}
+
 function assertValidPrettifyProviderUrls(settings: PrettifySettings): void {
-  for (const baseUrl of [settings.ollama.baseUrl, settings.vllm.baseUrl]) {
+  const baseUrls = [
+    ['ollama', settings.ollama.baseUrl],
+    ['vllm', settings.vllm.baseUrl],
+  ] as const;
+  for (const [providerId, baseUrl] of baseUrls) {
+    if (!getPrettifyProviderCapabilities(providerId).baseUrl) continue;
     const error = getPrettifyBaseUrlValidationError(baseUrl);
     if (error) throw new Error(error);
   }

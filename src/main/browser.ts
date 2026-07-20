@@ -16,6 +16,8 @@ import {
   normalizeGoogleTranslateTargetLang,
 } from '@main/services/translationUtils';
 import { presentNotificationError } from '@shared/notifications';
+import { runBeforeBackgroundBrowserShutdownHooks } from '@main/backgroundBrowserLifecycle';
+import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
 
 const log = createLogger('browser');
 
@@ -26,12 +28,14 @@ let activeProvider: BaseVoiceProvider | null = null;
 let bgReady = false;
 let bgError = '';
 let bgAuthExpired = false;
+const backgroundBrowserOperationQueue = new BackgroundBrowserOperationQueue();
 
 export function isBgReady(): boolean {
   return bgReady;
 }
 
 export interface BackgroundBrowserStatus {
+  providerId?: string;
   ready: boolean;
   error?: string;
   authExpired?: boolean;
@@ -60,8 +64,17 @@ export function getBrowserSessionStartupState({
   return providerReady ? BrowserSessionStartupState.Ready : BrowserSessionStartupState.TemporaryFailure;
 }
 
+export function getBrowserSessionStartupError(providerReadinessError: string | null): string {
+  return providerReadinessError || t('error.noAccessToken');
+}
+
 export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
-  return { ready: bgReady, error: bgError || undefined, authExpired: bgAuthExpired || undefined };
+  return {
+    providerId: currentProvider,
+    ready: bgReady,
+    error: bgError || undefined,
+    authExpired: bgAuthExpired || undefined,
+  };
 }
 
 export function getTranslatePage(): Page | null {
@@ -148,7 +161,7 @@ async function initTranslatePage(context: BrowserContext, targetLang = currentTa
   await navigateTranslatePage(translatePage, targetLang);
 }
 
-export async function initBackgroundBrowser(
+async function initBackgroundBrowserNow(
   options: EnsureBackgroundBrowserOptions = {},
 ): Promise<BackgroundBrowserStatus> {
   const includeTranslate = options.includeTranslate ?? false;
@@ -192,18 +205,18 @@ export async function initBackgroundBrowser(
         bgAuthExpired = true;
         bgError = t('error.noAccessToken');
         activeProvider.clearSession();
-        await shutdownBackgroundBrowser(true);
+        await shutdownBackgroundBrowserNow(true);
         return getBackgroundBrowserStatus();
       }
 
       if (startupState === BrowserSessionStartupState.TemporaryFailure) {
-        throw new Error(t('error.noAccessToken'));
+        throw new Error(getBrowserSessionStartupError(activeProvider.getReadinessError()));
       }
     } else if (!activeProvider.isReady()) {
       throw new Error(t('error.noAccessToken'));
     }
 
-    if (includeTranslate) await ensureTranslateBrowser(translateTargetLang, cloakBrowserSettings);
+    if (includeTranslate) await ensureTranslateBrowserNow(translateTargetLang, cloakBrowserSettings);
 
     bgReady = true;
     log.info('Background browser ready');
@@ -212,12 +225,17 @@ export async function initBackgroundBrowser(
     const presented = presentNotificationError(error, { context: 'generic', t });
     bgError = presented.userMessage;
     log.error('Init error:', presented.safeLogMetadata);
-    await shutdownBackgroundBrowser(true);
+    await shutdownBackgroundBrowserNow(true);
     return getBackgroundBrowserStatus();
   }
 }
 
-export async function shutdownBackgroundBrowser(preserveError = false): Promise<void> {
+export function initBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<BackgroundBrowserStatus> {
+  return backgroundBrowserOperationQueue.run(() => initBackgroundBrowserNow(options));
+}
+
+async function shutdownBackgroundBrowserNow(preserveError = false): Promise<void> {
+  await runBeforeBackgroundBrowserShutdownHooks();
   bgReady = false;
   if (!preserveError) {
     bgError = '';
@@ -240,20 +258,28 @@ export async function shutdownBackgroundBrowser(preserveError = false): Promise<
   }
 }
 
-export async function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
+export function shutdownBackgroundBrowser(preserveError = false): Promise<void> {
+  return backgroundBrowserOperationQueue.run(() => shutdownBackgroundBrowserNow(preserveError));
+}
+
+async function ensureBackgroundBrowserNow(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
   const includeTranslate = options.includeTranslate ?? false;
   const translateTargetLang = options.translateTargetLang ?? currentTargetLang;
   const { cloakBrowserSettings } = options;
 
   if (bgReady && activeProvider?.isReady()) {
     if (!includeTranslate) return;
-    await ensureTranslateBrowser(translateTargetLang, cloakBrowserSettings);
+    await ensureTranslateBrowserNow(translateTargetLang, cloakBrowserSettings);
     return;
   }
-  await initBackgroundBrowser({ includeTranslate, translateTargetLang, cloakBrowserSettings });
+  await initBackgroundBrowserNow({ includeTranslate, translateTargetLang, cloakBrowserSettings });
 }
 
-export async function ensureTranslateBrowser(
+export function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
+  return backgroundBrowserOperationQueue.run(() => ensureBackgroundBrowserNow(options));
+}
+
+async function ensureTranslateBrowserNow(
   targetLang = currentTargetLang,
   settings?: CloakBrowserSettingsWithSecret,
 ): Promise<void> {
@@ -275,9 +301,30 @@ export async function ensureTranslateBrowser(
     .catch(() => {});
 }
 
-export async function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
+export function ensureTranslateBrowser(
+  targetLang = currentTargetLang,
+  settings?: CloakBrowserSettingsWithSecret,
+): Promise<void> {
+  return backgroundBrowserOperationQueue.run(() => ensureTranslateBrowserNow(targetLang, settings));
+}
+
+async function switchProviderNow(providerId: string): Promise<BackgroundBrowserStatus> {
   createProvider(providerId);
+  await shutdownBackgroundBrowserNow();
   setProvider(providerId);
-  await shutdownBackgroundBrowser();
-  return initBackgroundBrowser();
+  return initBackgroundBrowserNow();
+}
+
+/** Atomically tears down and recreates the browser for the current provider. */
+export function restartBackgroundBrowser(
+  options: EnsureBackgroundBrowserOptions = {},
+): Promise<BackgroundBrowserStatus> {
+  return backgroundBrowserOperationQueue.run(async () => {
+    await shutdownBackgroundBrowserNow();
+    return initBackgroundBrowserNow(options);
+  });
+}
+
+export function switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
+  return backgroundBrowserOperationQueue.run(() => switchProviderNow(providerId));
 }

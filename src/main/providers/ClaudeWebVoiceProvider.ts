@@ -1,0 +1,736 @@
+import type { BrowserContext, Page } from 'playwright-core';
+import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+import { StreamingVoiceProvider } from './streamingVoiceProvider';
+import {
+  CLAUDE_WEB_PCM_BITS_PER_SAMPLE,
+  CLAUDE_WEB_PCM_CHANNELS,
+  CLAUDE_WEB_PCM_CHUNK_BYTES,
+  CLAUDE_WEB_PCM_CHUNK_CADENCE_MS,
+  CLAUDE_WEB_PCM_SAMPLE_RATE_HZ,
+  ClaudeWebAudioError,
+  extractClaudeWebPcm,
+} from './claudeWebAudio';
+import {
+  ClaudeWebPageTransportError,
+  ClaudeWebPageTransportErrorCode,
+  createClaudeWebPageTransport,
+  type ClaudeWebPageTransportInput,
+  type ClaudeWebPageTransportOperationId,
+  type ClaudeWebPageTransportStartInput,
+} from './claudeWebPageTransport';
+import {
+  StreamingTranscriptionErrorCode,
+  StreamingTranscriptionLifecycle,
+  type CancelStreamingTranscriptionInput,
+  type FinishStreamingTranscriptionInput,
+  type PushStreamingTranscriptionChunkInput,
+  type StartStreamingTranscriptionInput,
+  type StreamingTranscriptionCancellation,
+  type StreamingTranscriptionChunkAccepted,
+  type StreamingTranscriptionError,
+  type StreamingTranscriptionOperationId,
+  type StreamingTranscriptionResult,
+  type StreamingTranscriptionStarted,
+  type StreamingVoiceProviderOperations,
+} from './streamingVoiceProvider';
+import { StreamingTranscriptionOperationError } from './StreamingTranscriptionOperationError';
+import { CLAUDE_WEB_SPEECH_PROTOCOL_VERSION, ClaudeWebProtocolError } from './claudeWebProtocol';
+import {
+  CLAUDE_WEB_ORIGIN,
+  clearClaudeWebSession,
+  getClaudeWebReadinessFailureCategory,
+  getPlaywrightStorageState,
+  readClaudeWebSession,
+  resolveClaudeWebOrganization,
+  saveClaudeWebSession,
+  type ClaudeWebOrganizationContext,
+  type ClaudeWebOrganizationEvidence,
+  type ClaudeWebSessionReadResult,
+} from './claudeWebSession';
+import { getClaudeWebSettings } from './claudeWebSettings';
+import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
+import { writeClipboardText } from '../electronRuntime';
+import { t } from '../i18n';
+import { createLogger } from '../logger';
+import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
+import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+
+const log = createLogger('claude-web-provider');
+const CLAUDE_WEB_NAVIGATION_TIMEOUT_MS = 30_000;
+const CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS = 10_000;
+const CLAUDE_WEB_READINESS_TIMEOUT_MS = 10_000;
+const CLAUDE_WEB_READINESS_POLL_INTERVAL_MS = 500;
+const CLAUDE_WEB_BOOTSTRAP_PATH =
+  '/edge-api/bootstrap?statsig_hashing_algorithm=djb2&growthbook_format=sdk&include_system_prompts=false';
+const CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME = 'Press and hold to record';
+const BLOCKED_RESOURCE_TYPES = new Set(['font', 'image', 'media']);
+const SUPPORTED_WAV_MIME_TYPES = new Set(['audio/wav', 'audio/wave', 'audio/x-wav']);
+
+type ClaudeWebAuthenticationStatus = 'authenticated' | 'unauthenticated' | 'unavailable';
+
+export enum ClaudeWebVoiceProviderErrorCode {
+  SessionMissing = 'session-missing',
+  SessionExpired = 'session-expired',
+  SessionInvalid = 'session-invalid',
+  FeatureUnavailable = 'feature-unavailable',
+  OrganizationMissing = 'organization-missing',
+  OrganizationAmbiguous = 'organization-ambiguous',
+  InvalidSettings = 'invalid-settings',
+  InvalidAudio = 'invalid-audio',
+  UpgradeOrAuth = 'upgrade-or-auth',
+  ConnectTimeout = 'connect-timeout',
+  ConnectionLoss = 'connection-loss',
+  MalformedEvent = 'malformed-event',
+  RateLimit = 'rate-limit',
+  FirstEventTimeout = 'first-event-timeout',
+  OverallTimeout = 'overall-timeout',
+  DrainTimeout = 'drain-timeout',
+  EmptyResult = 'empty-result',
+  Cancelled = 'cancelled',
+  PageShutdown = 'page-shutdown',
+  UnexpectedFailure = 'unexpected-failure',
+}
+
+const TRANSIENT_STARTUP_READINESS_ERRORS = new Set<ClaudeWebVoiceProviderErrorCode>([
+  ClaudeWebVoiceProviderErrorCode.SessionExpired,
+  ClaudeWebVoiceProviderErrorCode.FeatureUnavailable,
+  ClaudeWebVoiceProviderErrorCode.OrganizationMissing,
+  ClaudeWebVoiceProviderErrorCode.OrganizationAmbiguous,
+  ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
+]);
+
+const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, ClaudeWebVoiceProviderErrorCode>> = {
+  [ClaudeWebPageTransportErrorCode.UpgradeOrAuth]: ClaudeWebVoiceProviderErrorCode.UpgradeOrAuth,
+  [ClaudeWebPageTransportErrorCode.ConnectTimeout]: ClaudeWebVoiceProviderErrorCode.ConnectTimeout,
+  [ClaudeWebPageTransportErrorCode.ConnectionLoss]: ClaudeWebVoiceProviderErrorCode.ConnectionLoss,
+  [ClaudeWebPageTransportErrorCode.MalformedEvent]: ClaudeWebVoiceProviderErrorCode.MalformedEvent,
+  [ClaudeWebPageTransportErrorCode.RateLimit]: ClaudeWebVoiceProviderErrorCode.RateLimit,
+  [ClaudeWebPageTransportErrorCode.FirstEventTimeout]: ClaudeWebVoiceProviderErrorCode.FirstEventTimeout,
+  [ClaudeWebPageTransportErrorCode.OverallTimeout]: ClaudeWebVoiceProviderErrorCode.OverallTimeout,
+  [ClaudeWebPageTransportErrorCode.DrainTimeout]: ClaudeWebVoiceProviderErrorCode.DrainTimeout,
+  [ClaudeWebPageTransportErrorCode.EmptyResult]: ClaudeWebVoiceProviderErrorCode.EmptyResult,
+  [ClaudeWebPageTransportErrorCode.Cancelled]: ClaudeWebVoiceProviderErrorCode.Cancelled,
+  [ClaudeWebPageTransportErrorCode.PageShutdown]: ClaudeWebVoiceProviderErrorCode.PageShutdown,
+};
+
+type ClaudeWebStorageState = ReturnType<typeof getPlaywrightStorageState>;
+
+export interface ClaudeWebReadinessSnapshot {
+  authentication: ClaudeWebAuthenticationStatus;
+  featureAvailable: boolean;
+  organizationEvidence: ClaudeWebOrganizationEvidence;
+}
+
+export interface ClaudeWebPageTransportLike {
+  transcribe(input: ClaudeWebPageTransportInput): Promise<string>;
+  start(input: ClaudeWebPageTransportStartInput): Promise<ClaudeWebPageTransportOperationId>;
+  push(operationId: ClaudeWebPageTransportOperationId, chunk: Uint8Array): Promise<void>;
+  finish(operationId: ClaudeWebPageTransportOperationId, finalChunk?: Uint8Array): Promise<string>;
+  cancel(operationId: ClaudeWebPageTransportOperationId): Promise<void>;
+  cancelAll(): Promise<void>;
+  shutdown(): Promise<void>;
+}
+
+export interface ClaudeWebVoiceProviderDependencies {
+  getSettings(): ClaudeWebSettings;
+  readSession(): ClaudeWebSessionReadResult;
+  saveSession(storageState: ClaudeWebStorageState): unknown;
+  clearSession(): boolean;
+  getStorageState(session: Extract<ClaudeWebSessionReadResult, { status: 'usable' }>['state']): ClaudeWebStorageState;
+  resolveOrganization(evidence: ClaudeWebOrganizationEvidence): ClaudeWebOrganizationContext;
+  inspectReadiness(page: Page, timeoutMs: number): Promise<ClaudeWebReadinessSnapshot>;
+  createTransport(page: Page): ClaudeWebPageTransportLike;
+  writeClipboardText(text: string): void;
+  navigatePage(page: Page): Promise<void>;
+  now(): number;
+  waitForReadinessRetry(delayMs: number): Promise<void>;
+}
+
+interface ClaudeWebReadinessResolution {
+  errorCode: ClaudeWebVoiceProviderErrorCode | null;
+  organization: ClaudeWebOrganizationContext;
+}
+
+async function configureClaudeWebPage(page: Page): Promise<void> {
+  await page.route('**/*', (route) => {
+    if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) return route.abort();
+    return route.continue();
+  });
+}
+
+async function navigateClaudeWebPage(page: Page): Promise<void> {
+  await retryBrowserNavigation(
+    {
+      navigate: () =>
+        page.goto(CLAUDE_WEB_ORIGIN, {
+          waitUntil: 'domcontentloaded',
+          timeout: CLAUDE_WEB_NAVIGATION_TIMEOUT_MS,
+        }),
+      service: BrowserNavigationService.Claude,
+    },
+    {
+      onRetry: (event) => log.warn('Retrying Claude page navigation:', event),
+    },
+  );
+
+  try {
+    await page.waitForLoadState('load', { timeout: CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS });
+  } catch {
+    log.warn('Claude load event did not settle quickly; continuing after DOMContentLoaded');
+  }
+}
+
+/** Reads only the minimum same-origin state needed to prove authenticated Claude routing. */
+export async function inspectClaudeWebReadiness(
+  page: Page,
+  timeoutMs = CLAUDE_WEB_READINESS_TIMEOUT_MS,
+): Promise<ClaudeWebReadinessSnapshot> {
+  const unavailableSnapshot: ClaudeWebReadinessSnapshot = {
+    authentication: 'unavailable',
+    featureAvailable: false,
+    organizationEvidence: { activeOrganizationCandidates: [], eligibleOrganizations: [] },
+  };
+  const inspection = page.evaluate(
+    async ({ bootstrapPath, recordButtonAccessibleName, timeoutMs: inspectionTimeoutMs }) => {
+      const activeOrganizationCandidates = new Set<string>();
+      for (const entry of performance.getEntriesByType('resource')) {
+        try {
+          const path = new URL(entry.name, window.location.href).pathname;
+          const match = /^\/api\/bootstrap\/([^/]+)\/current_user_access$/.exec(path);
+          if (match?.[1]) activeOrganizationCandidates.add(decodeURIComponent(match[1]));
+        } catch {
+          // Ignore malformed or cross-runtime performance entries.
+        }
+      }
+
+      const featureAvailable = Array.from(document.querySelectorAll('button')).some(
+        (button) => button.getAttribute('aria-label') === recordButtonAccessibleName,
+      );
+      const unavailable = {
+        authentication: 'unavailable' as const,
+        featureAvailable,
+        organizationEvidence: {
+          activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
+          eligibleOrganizations: [],
+        },
+      };
+      const abortController = new AbortController();
+      const abortHandle = setTimeout(() => abortController.abort(), inspectionTimeoutMs);
+      try {
+        const response = await fetch(bootstrapPath, {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+          signal: abortController.signal,
+        });
+        if (!response.ok) {
+          return response.status === 401 || response.status === 403
+            ? { ...unavailable, authentication: 'unauthenticated' as const }
+            : unavailable;
+        }
+
+        const value: unknown = await response.json();
+        const account =
+          typeof value === 'object' && value !== null && 'account' in value
+            ? (value as { account?: unknown }).account
+            : null;
+        const memberships =
+          typeof account === 'object' && account !== null && 'memberships' in account
+            ? (account as { memberships?: unknown }).memberships
+            : [];
+        const eligibleOrganizations = Array.isArray(memberships)
+          ? memberships.flatMap((membership) => {
+              if (typeof membership !== 'object' || membership === null || !('organization' in membership)) return [];
+              const organization = (membership as { organization?: unknown }).organization;
+              if (typeof organization !== 'object' || organization === null || !('uuid' in organization)) return [];
+              const uuid = (organization as { uuid?: unknown }).uuid;
+              return typeof uuid === 'string' && uuid.length > 0 ? [{ uuid }] : [];
+            })
+          : [];
+        return {
+          authentication: 'authenticated' as const,
+          featureAvailable,
+          organizationEvidence: {
+            activeOrganizationCandidates: Array.from(activeOrganizationCandidates),
+            eligibleOrganizations,
+          },
+        };
+      } catch {
+        return unavailable;
+      } finally {
+        clearTimeout(abortHandle);
+      }
+    },
+    {
+      bootstrapPath: CLAUDE_WEB_BOOTSTRAP_PATH,
+      recordButtonAccessibleName: CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME,
+      timeoutMs,
+    },
+  );
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<ClaudeWebReadinessSnapshot>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(unavailableSnapshot), timeoutMs);
+  });
+  try {
+    return await Promise.race([inspection, timeout]);
+  } catch {
+    return unavailableSnapshot;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
+const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
+  getSettings: getClaudeWebSettings,
+  readSession: readClaudeWebSession,
+  saveSession: saveClaudeWebSession,
+  clearSession: clearClaudeWebSession,
+  getStorageState: getPlaywrightStorageState,
+  resolveOrganization: resolveClaudeWebOrganization,
+  inspectReadiness: inspectClaudeWebReadiness,
+  createTransport: createClaudeWebPageTransport,
+  writeClipboardText,
+  navigatePage: navigateClaudeWebPage,
+  now: () => Date.now(),
+  waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+};
+
+function getSessionErrorCode(result: ClaudeWebSessionReadResult): ClaudeWebVoiceProviderErrorCode | null {
+  if (result.status === 'usable') return null;
+  if (result.status === 'missing') return ClaudeWebVoiceProviderErrorCode.SessionMissing;
+  if (result.status === 'expired') return ClaudeWebVoiceProviderErrorCode.SessionExpired;
+  return ClaudeWebVoiceProviderErrorCode.SessionInvalid;
+}
+
+function getTranscriptionErrorCode(error: unknown): ClaudeWebVoiceProviderErrorCode {
+  if (error instanceof ClaudeWebAudioError) return ClaudeWebVoiceProviderErrorCode.InvalidAudio;
+  if (error instanceof ClaudeWebProtocolError) {
+    return error.code === 'invalid-language'
+      ? ClaudeWebVoiceProviderErrorCode.InvalidSettings
+      : ClaudeWebVoiceProviderErrorCode.OrganizationMissing;
+  }
+  if (error instanceof ClaudeWebPageTransportError) return TRANSPORT_ERROR_CODES[error.code];
+  return ClaudeWebVoiceProviderErrorCode.UnexpectedFailure;
+}
+
+function getSafeErrorMetadata(error: unknown): Record<string, unknown> {
+  const errorCode = getTranscriptionErrorCode(error);
+  if (!(error instanceof ClaudeWebPageTransportError)) return { errorCode };
+  return { errorCode, ...error.diagnostics };
+}
+
+function isSupportedWavMimeType(mimeType: string): boolean {
+  return SUPPORTED_WAV_MIME_TYPES.has(mimeType.split(';', 1)[0].trim().toLowerCase());
+}
+
+function createStreamingError(code: StreamingTranscriptionErrorCode): StreamingTranscriptionError {
+  if (code === StreamingTranscriptionErrorCode.Cancelled) {
+    return { lifecycle: StreamingTranscriptionLifecycle.Cancelled, code };
+  }
+  return { lifecycle: StreamingTranscriptionLifecycle.Failed, code };
+}
+
+function mapStreamingError(error: unknown): StreamingTranscriptionError {
+  if (error instanceof StreamingTranscriptionOperationError) return error.error;
+  if (error instanceof ClaudeWebPageTransportError && error.code === ClaudeWebPageTransportErrorCode.Cancelled) {
+    return createStreamingError(StreamingTranscriptionErrorCode.Cancelled);
+  }
+  return createStreamingError(StreamingTranscriptionErrorCode.TransportFailure);
+}
+
+function streamingOperationError(code: StreamingTranscriptionErrorCode): StreamingTranscriptionOperationError {
+  return new StreamingTranscriptionOperationError(createStreamingError(code));
+}
+
+function isValidStreamingChunk(chunk: Uint8Array, allowEmpty: boolean): boolean {
+  return (
+    chunk instanceof Uint8Array &&
+    (allowEmpty || chunk.byteLength > 0) &&
+    chunk.byteLength % (CLAUDE_WEB_PCM_BITS_PER_SAMPLE / 8) === 0
+  );
+}
+
+type ClaudeWebTranscriptionContext =
+  | { ready: true; transport: ClaudeWebPageTransportLike; input: ClaudeWebPageTransportStartInput }
+  | { ready: false; errorCode: ClaudeWebVoiceProviderErrorCode };
+
+interface ClaudeWebStreamingOperation {
+  transport: ClaudeWebPageTransportLike;
+  transportOperationId: ClaudeWebPageTransportOperationId;
+}
+
+/** Browser-session Claude provider; organization identity remains operation-local. */
+export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements StreamingVoiceProviderOperations {
+  readonly info = {
+    id: CLAUDE_WEB_PROVIDER_ID,
+    name: 'Claude Web',
+    authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
+    transcriptionMode: 'streaming',
+    loginUrl: CLAUDE_WEB_ORIGIN,
+  } satisfies VoiceProviderInfo;
+
+  private readonly deps: ClaudeWebVoiceProviderDependencies;
+  private transport: ClaudeWebPageTransportLike | null = null;
+  private readonly streamingOperations = new Map<StreamingTranscriptionOperationId, ClaudeWebStreamingOperation>();
+  private ready = false;
+  private readinessErrorCode: ClaudeWebVoiceProviderErrorCode | null = null;
+
+  constructor(dependencies: Partial<ClaudeWebVoiceProviderDependencies> = {}) {
+    super();
+    this.deps = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+  }
+
+  async initPage(context: BrowserContext): Promise<void> {
+    this.context = context;
+    this.page = await context.newPage();
+    await configureClaudeWebPage(this.page);
+    await this.deps.navigatePage(this.page);
+    this.setReadiness(await this.resolveStartupReadiness(this.page));
+    this.transport = this.deps.createTransport(this.page);
+  }
+
+  hasSession(): boolean {
+    try {
+      const result = this.deps.readSession();
+      if (result.status === 'usable') return true;
+      if (result.status !== 'missing') this.deps.clearSession();
+      return false;
+    } catch {
+      this.deps.clearSession();
+      return false;
+    }
+  }
+
+  clearSession(): void {
+    this.ready = false;
+    this.readinessErrorCode = null;
+    this.deps.clearSession();
+  }
+
+  async saveSession(context: BrowserContext): Promise<void> {
+    this.deps.saveSession(await context.storageState());
+    this.ready = false;
+    this.readinessErrorCode = null;
+  }
+
+  async loadSession(context: BrowserContext): Promise<boolean> {
+    const result = this.deps.readSession();
+    if (result.status !== 'usable') {
+      if (result.status !== 'missing') this.deps.clearSession();
+      this.ready = false;
+      this.readinessErrorCode = getSessionErrorCode(result);
+      return false;
+    }
+
+    const storageState = this.deps.getStorageState(result.state);
+    await context.addCookies(storageState.cookies);
+    for (const origin of storageState.origins) {
+      await context.addInitScript(
+        ({ entries, expectedOrigin }) => {
+          if (window.location.origin !== expectedOrigin) return;
+          for (const entry of entries) window.localStorage.setItem(entry.name, entry.value);
+        },
+        { entries: origin.localStorage, expectedOrigin: origin.origin },
+      );
+    }
+    return true;
+  }
+
+  isReady(): boolean {
+    return this.ready && this.page !== null && !this.page.isClosed() && this.transport !== null;
+  }
+
+  getReadinessError(): string | null {
+    return this.readinessErrorCode ? t(`error.claudeWeb.${this.readinessErrorCode}`) : null;
+  }
+
+  getTranscriptionCacheContext(): readonly string[] {
+    const settings = this.deps.getSettings();
+    return [
+      'language',
+      settings.language,
+      'protocol-version',
+      String(CLAUDE_WEB_SPEECH_PROTOCOL_VERSION),
+      'sample-rate-hz',
+      String(CLAUDE_WEB_PCM_SAMPLE_RATE_HZ),
+      'channels',
+      String(CLAUDE_WEB_PCM_CHANNELS),
+      'bits-per-sample',
+      String(CLAUDE_WEB_PCM_BITS_PER_SAMPLE),
+      'chunk-bytes',
+      String(CLAUDE_WEB_PCM_CHUNK_BYTES),
+      'chunk-cadence-ms',
+      String(CLAUDE_WEB_PCM_CHUNK_CADENCE_MS),
+    ];
+  }
+
+  async transcribe(buffer: ArrayBuffer, mimeType = WAV_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
+    try {
+      if (!isSupportedWavMimeType(mimeType)) {
+        return { success: false, error: ClaudeWebVoiceProviderErrorCode.InvalidAudio };
+      }
+
+      const pcm = extractClaudeWebPcm(new Uint8Array(buffer));
+      const context = await this.resolveTranscriptionContext();
+      if (!context.ready) return { success: false, error: context.errorCode };
+
+      const text = await context.transport.transcribe({
+        pcm,
+        ...context.input,
+      });
+      this.deps.writeClipboardText(text);
+      return { success: true, text };
+    } catch (error: unknown) {
+      const errorCode = getTranscriptionErrorCode(error);
+      if (
+        errorCode === ClaudeWebVoiceProviderErrorCode.UpgradeOrAuth ||
+        errorCode === ClaudeWebVoiceProviderErrorCode.PageShutdown
+      ) {
+        this.ready = false;
+      }
+      log.error('Claude transcription failed:', getSafeErrorMetadata(error));
+      return { success: false, error: errorCode };
+    }
+  }
+
+  async startStreamingTranscription(input: StartStreamingTranscriptionInput): Promise<StreamingTranscriptionStarted> {
+    if (this.streamingOperations.has(input.operationId)) {
+      throw streamingOperationError(StreamingTranscriptionErrorCode.OperationConflict);
+    }
+
+    const context = await this.resolveTranscriptionContext();
+    if (!context.ready) throw streamingOperationError(StreamingTranscriptionErrorCode.TransportFailure);
+
+    try {
+      const transportOperationId = await context.transport.start(context.input);
+      this.streamingOperations.set(input.operationId, {
+        transport: context.transport,
+        transportOperationId,
+      });
+      return {
+        operationId: input.operationId,
+        lifecycle: StreamingTranscriptionLifecycle.Starting,
+      };
+    } catch (error: unknown) {
+      throw new StreamingTranscriptionOperationError(mapStreamingError(error));
+    }
+  }
+
+  async pushStreamingTranscriptionChunk(
+    input: PushStreamingTranscriptionChunkInput,
+  ): Promise<StreamingTranscriptionChunkAccepted> {
+    const operation = this.streamingOperations.get(input.operationId);
+    if (!operation) throw streamingOperationError(StreamingTranscriptionErrorCode.InvalidOperation);
+    if (!isValidStreamingChunk(input.chunk, false)) {
+      this.streamingOperations.delete(input.operationId);
+      await operation.transport.cancel(operation.transportOperationId);
+      throw streamingOperationError(StreamingTranscriptionErrorCode.InvalidChunk);
+    }
+
+    try {
+      await operation.transport.push(operation.transportOperationId, input.chunk);
+      return {
+        operationId: input.operationId,
+        lifecycle: StreamingTranscriptionLifecycle.Streaming,
+        acceptedSequence: input.sequence,
+      };
+    } catch (error: unknown) {
+      this.streamingOperations.delete(input.operationId);
+      await operation.transport.cancel(operation.transportOperationId);
+      throw new StreamingTranscriptionOperationError(mapStreamingError(error));
+    }
+  }
+
+  async finishStreamingTranscription(input: FinishStreamingTranscriptionInput): Promise<StreamingTranscriptionResult> {
+    const operation = this.streamingOperations.get(input.operationId);
+    if (!operation) {
+      return {
+        success: false,
+        operationId: input.operationId,
+        error: createStreamingError(StreamingTranscriptionErrorCode.InvalidOperation),
+      };
+    }
+    if (!isValidStreamingChunk(input.finalChunk, true)) {
+      this.streamingOperations.delete(input.operationId);
+      await operation.transport.cancel(operation.transportOperationId);
+      return {
+        success: false,
+        operationId: input.operationId,
+        error: createStreamingError(StreamingTranscriptionErrorCode.InvalidChunk),
+      };
+    }
+
+    try {
+      const text = await operation.transport.finish(operation.transportOperationId, input.finalChunk);
+      return {
+        success: true,
+        operationId: input.operationId,
+        lifecycle: StreamingTranscriptionLifecycle.Completed,
+        text,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        operationId: input.operationId,
+        error: mapStreamingError(error),
+      };
+    } finally {
+      this.streamingOperations.delete(input.operationId);
+      await operation.transport.cancel(operation.transportOperationId);
+    }
+  }
+
+  async cancelStreamingTranscription(
+    input: CancelStreamingTranscriptionInput,
+  ): Promise<StreamingTranscriptionCancellation> {
+    const operation = this.streamingOperations.get(input.operationId);
+    this.streamingOperations.delete(input.operationId);
+    if (operation) await operation.transport.cancel(operation.transportOperationId);
+    return {
+      operationId: input.operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+    };
+  }
+
+  async cancelTranscription(): Promise<void> {
+    this.streamingOperations.clear();
+    await this.transport?.cancelAll();
+  }
+
+  async shutdown(): Promise<void> {
+    this.ready = false;
+    this.readinessErrorCode = null;
+    const transport = this.transport;
+    this.transport = null;
+    this.streamingOperations.clear();
+    try {
+      await transport?.shutdown();
+    } finally {
+      await super.shutdown();
+    }
+  }
+
+  private async resolveTranscriptionContext(): Promise<ClaudeWebTranscriptionContext> {
+    if (!this.page || this.page.isClosed() || !this.transport) {
+      this.ready = false;
+      return { ready: false, errorCode: ClaudeWebVoiceProviderErrorCode.PageShutdown };
+    }
+
+    let settings: ClaudeWebSettings;
+    try {
+      settings = this.deps.getSettings();
+    } catch {
+      return { ready: false, errorCode: ClaudeWebVoiceProviderErrorCode.InvalidSettings };
+    }
+
+    const readiness = await this.resolveReadiness(this.page);
+    this.setReadiness(readiness);
+    if (readiness.errorCode || readiness.organization.routing.status !== 'resolved') {
+      return {
+        ready: false,
+        errorCode: readiness.errorCode ?? ClaudeWebVoiceProviderErrorCode.OrganizationMissing,
+      };
+    }
+
+    return {
+      ready: true,
+      transport: this.transport,
+      input: {
+        language: settings.language,
+        organizationUuid: readiness.organization.routing.organizationUuid,
+      },
+    };
+  }
+
+  private async resolveReadiness(
+    page: Page,
+    timeoutMs = CLAUDE_WEB_READINESS_TIMEOUT_MS,
+  ): Promise<ClaudeWebReadinessResolution> {
+    let session: ClaudeWebSessionReadResult;
+    try {
+      session = this.deps.readSession();
+    } catch {
+      return {
+        errorCode: ClaudeWebVoiceProviderErrorCode.SessionInvalid,
+        organization: this.deps.resolveOrganization({
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [],
+        }),
+      };
+    }
+    const sessionErrorCode = getSessionErrorCode(session);
+    if (sessionErrorCode) {
+      return {
+        errorCode: sessionErrorCode,
+        organization: this.deps.resolveOrganization({
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [],
+        }),
+      };
+    }
+
+    let snapshot: ClaudeWebReadinessSnapshot;
+    try {
+      snapshot = await this.deps.inspectReadiness(page, timeoutMs);
+    } catch {
+      return {
+        errorCode: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
+        organization: this.deps.resolveOrganization({
+          activeOrganizationCandidates: [],
+          eligibleOrganizations: [],
+        }),
+      };
+    }
+    const organization = this.deps.resolveOrganization(snapshot.organizationEvidence);
+    if (snapshot.authentication === 'unauthenticated') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.SessionExpired, organization };
+    }
+    if (snapshot.authentication === 'unavailable') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure, organization };
+    }
+
+    const category = getClaudeWebReadinessFailureCategory(
+      session.status,
+      snapshot.featureAvailable,
+      organization.routing,
+    );
+    if (category === 'feature-unavailable') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.FeatureUnavailable, organization };
+    }
+    if (category === 'ambiguous') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.OrganizationAmbiguous, organization };
+    }
+    if (category === 'missing') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.OrganizationMissing, organization };
+    }
+    if (category === 'expired') {
+      return { errorCode: ClaudeWebVoiceProviderErrorCode.SessionExpired, organization };
+    }
+    return { errorCode: null, organization };
+  }
+
+  private async resolveStartupReadiness(page: Page): Promise<ClaudeWebReadinessResolution> {
+    const deadline = this.deps.now() + CLAUDE_WEB_READINESS_TIMEOUT_MS;
+    let readiness = await this.resolveReadiness(page, Math.max(1, deadline - this.deps.now()));
+
+    while (
+      readiness.errorCode !== null &&
+      TRANSIENT_STARTUP_READINESS_ERRORS.has(readiness.errorCode) &&
+      this.deps.now() < deadline
+    ) {
+      const delayMs = Math.min(CLAUDE_WEB_READINESS_POLL_INTERVAL_MS, deadline - this.deps.now());
+      await this.deps.waitForReadinessRetry(delayMs);
+      const remainingMs = deadline - this.deps.now();
+      if (remainingMs <= 0) break;
+      readiness = await this.resolveReadiness(page, remainingMs);
+    }
+
+    return readiness;
+  }
+
+  private setReadiness(readiness: ClaudeWebReadinessResolution): void {
+    this.ready = readiness.errorCode === null;
+    this.readinessErrorCode = readiness.errorCode;
+  }
+}

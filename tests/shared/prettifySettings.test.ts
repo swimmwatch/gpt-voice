@@ -1,13 +1,23 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  assertValidKnownPrettifySettingsInput,
+  DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
   DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
   DEFAULT_PRETTIFY_REASONING,
   DEFAULT_PRETTIFY_SETTINGS,
   DEFAULT_VLLM_PRETTIFY_BASE_URL,
+  KNOWN_PRETTIFY_PROVIDER_IDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
+  PRETTIFY_PROVIDER_CAPABILITIES,
+  PRETTIFY_CLI_PROVIDER_IDS,
   getPrettifyBaseUrlValidationError,
   getPrettifySettingsInputError,
+  isValidClaudeCliPrettifyModel,
+  isValidCodexCliPrettifyModel,
+  isValidPrettifyCliExecutablePath,
+  isKnownPrettifyProviderId,
+  isPrettifyCliProviderId,
   isPrettifyProviderId,
   isPrettifyProviderBaseUrlLoopback,
   isPrettifyReasoning,
@@ -26,8 +36,42 @@ describe('prettifySettings', () => {
   it('recognizes supported provider values', () => {
     assert.equal(isPrettifyProviderId('ollama'), true);
     assert.equal(isPrettifyProviderId('vllm'), true);
+    assert.equal(isPrettifyProviderId('claude-cli'), true);
+    assert.equal(isPrettifyProviderId('codex-cli'), true);
     assert.equal(isPrettifyProviderId('chatgpt'), false);
     assert.equal(isPrettifyProviderId(null), false);
+    assert.equal(isKnownPrettifyProviderId('claude-cli'), true);
+    assert.equal(isKnownPrettifyProviderId('codex-cli'), true);
+    assert.equal(isKnownPrettifyProviderId('chatgpt'), false);
+    assert.equal(isPrettifyCliProviderId('claude-cli'), true);
+    assert.equal(isPrettifyCliProviderId('codex-cli'), true);
+    assert.equal(isPrettifyCliProviderId('ollama'), false);
+    assert.deepEqual(KNOWN_PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
+    assert.deepEqual(PRETTIFY_CLI_PROVIDER_IDS, ['claude-cli', 'codex-cli']);
+  });
+
+  it('declares complete runtime capabilities for every selectable provider', () => {
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.baseUrl, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.ollama.modelLifecycle, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.apiKey, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES.vllm.httpGenerationControls, true);
+    assert.deepEqual(PRETTIFY_PROVIDER_CAPABILITIES['claude-cli'], {
+      apiKey: false,
+      baseUrl: false,
+      experimental: false,
+      httpGenerationControls: false,
+      modelLifecycle: false,
+      modelListing: true,
+      modelSource: 'known-aliases',
+      privacyNotice: 'cli',
+      reasoningEffort: true,
+      supportsFreeTextModel: true,
+      verbosity: false,
+    });
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].reasoningEffort, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].verbosity, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].modelListing, true);
+    assert.equal(PRETTIFY_PROVIDER_CAPABILITIES['codex-cli'].modelSource, 'catalog');
   });
 
   it('normalizes missing or invalid settings to defaults', () => {
@@ -132,6 +176,116 @@ describe('prettifySettings', () => {
     );
   });
 
+  it('normalizes non-secret CLI settings for selectable providers', () => {
+    const settings = normalizePrettifySettings({
+      providerId: 'claude-cli',
+      claudeCli: {
+        executablePath: ' /Applications/Claude CLI/claude ',
+        model: ' claude-sonnet ',
+        fallbackModel: ' claude-haiku ',
+        effort: 'high',
+        timeoutSeconds: 300.8,
+      },
+      codexCli: {
+        executablePath: ' /Applications/Codex CLI/codex ',
+        model: ' gpt-5.6 ',
+        reasoningEffort: 'xhigh',
+        verbosity: 'high',
+        timeoutSeconds: 14,
+      },
+    });
+
+    assert.equal(settings.providerId, 'claude-cli');
+    assert.deepEqual(settings.claudeCli, {
+      executablePath: '/Applications/Claude CLI/claude',
+      model: 'claude-sonnet',
+      fallbackModel: 'claude-haiku',
+      effort: 'high',
+      timeoutSeconds: 300,
+    });
+    assert.deepEqual(settings.codexCli, {
+      executablePath: '/Applications/Codex CLI/codex',
+      model: 'gpt-5.6',
+      reasoningEffort: 'xhigh',
+      timeoutSeconds: 15,
+      verbosity: 'high',
+    });
+    assert.equal(DEFAULT_PRETTIFY_SETTINGS.claudeCli.timeoutSeconds, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS);
+    assert.equal(DEFAULT_PRETTIFY_SETTINGS.codexCli.timeoutSeconds, DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS);
+  });
+
+  it('rejects malformed CLI settings but accepts empty PATH/model/fallback semantics', () => {
+    assert.equal(
+      getPrettifySettingsInputError({
+        claudeCli: { executablePath: '', model: '', fallbackModel: '', effort: 'default', timeoutSeconds: 120 },
+        codexCli: { executablePath: '', model: '', reasoningEffort: 'default', verbosity: 'low', timeoutSeconds: 120 },
+      }),
+      null,
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { executablePath: 42 } }),
+      'Claude CLI executable path must be a string',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { fallbackModel: 42 } }),
+      'Claude CLI fallback model must be a string',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { effort: 'extended' } }),
+      'Claude CLI effort is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { reasoningEffort: 'ultra' } }),
+      'Codex CLI reasoning effort is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { verbosity: 'verbose' } }),
+      'Codex CLI verbosity is unsupported',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { timeoutSeconds: 14 } }),
+      'Claude CLI timeout seconds must be an integer between 15 and 600',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { timeoutSeconds: 600.5 } }),
+      'Codex CLI timeout seconds must be an integer between 15 and 600',
+    );
+  });
+
+  it('validates reusable CLI path and model draft syntax without filesystem access', () => {
+    assert.equal(isValidPrettifyCliExecutablePath(''), true);
+    assert.equal(isValidPrettifyCliExecutablePath('/Applications/Claude CLI/claude'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('C:\\Program Files\\Codex\\codex.exe'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('\\\\server\\share\\codex.exe'), true);
+    assert.equal(isValidPrettifyCliExecutablePath('bin/claude'), false);
+    assert.equal(isValidPrettifyCliExecutablePath('/usr/bin/claude\0--help'), false);
+
+    for (const model of ['sonnet', 'opus', 'haiku', 'claude-sonnet-4.5']) {
+      assert.equal(isValidClaudeCliPrettifyModel(model), true);
+    }
+    assert.equal(isValidClaudeCliPrettifyModel(''), false);
+    assert.equal(isValidClaudeCliPrettifyModel('custom-model'), false);
+
+    assert.equal(isValidCodexCliPrettifyModel('gpt-5.6-codex'), true);
+    assert.equal(isValidCodexCliPrettifyModel('openai/gpt-5.6:latest'), true);
+    assert.equal(isValidCodexCliPrettifyModel(''), false);
+    assert.equal(isValidCodexCliPrettifyModel('model with spaces'), false);
+  });
+
+  it('validates selectable CLI model-inspection drafts', () => {
+    assert.doesNotThrow(() =>
+      assertValidKnownPrettifySettingsInput({
+        providerId: 'claude-cli',
+        claudeCli: { model: 'sonnet', timeoutSeconds: 120 },
+      }),
+    );
+    assert.throws(
+      () => assertValidKnownPrettifySettingsInput({ providerId: 'unknown-cli' }),
+      /Unsupported prettify provider/u,
+    );
+    assert.equal(isPrettifyProviderId('claude-cli'), true);
+  });
+
   it('uses a bounded output default when a legacy provider-default value is stored', () => {
     assert.ok(DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens > 0);
     assert.equal(
@@ -173,6 +327,32 @@ describe('prettifySettings', () => {
       getPrettifySettingsInputError({ vllm: { clearApiKey: 'yes' } }),
       'vLLM API key clear flag must be a boolean',
     );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { executablePath: 'claude --dangerous-flag' } }),
+      'Claude CLI executable path must be empty or absolute',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { model: 'untrusted-model' } }),
+      'Claude CLI model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ claudeCli: { fallbackModel: 'untrusted-model' } }),
+      'Claude CLI fallback model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({ codexCli: { model: 'codex --dangerous-flag' } }),
+      'Codex CLI model is invalid',
+    );
+    assert.equal(
+      getPrettifySettingsInputError({
+        providerId: 'claude-cli',
+        topP: 0,
+        ollama: { baseUrl: 'invalid', model: 42 },
+        claudeCli: { model: '  sonnet  ' },
+      }),
+      null,
+    );
+    assert.equal(getPrettifySettingsInputError({ providerId: 'ollama', topP: 0 }), 'Top P must be between 0.05 and 1');
   });
 
   it('keeps legacy reasoning helpers available without affecting normalized settings', () => {

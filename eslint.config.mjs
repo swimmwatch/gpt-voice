@@ -23,6 +23,7 @@ const nodeFiles = ['src/main/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs', 'esl
 const jsFiles = ['scripts/**/*.mjs', 'eslint.config.mjs', 'webpack.config.js'];
 const browserGlobals = {
   AudioContext: 'readonly',
+  AudioWorkletNode: 'readonly',
   Blob: 'readonly',
   FileReader: 'readonly',
   MediaRecorder: 'readonly',

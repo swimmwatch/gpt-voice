@@ -16,6 +16,8 @@ export default {
   'status.translationFailed': 'Помилка перекладу',
   'status.prettifyFailed': 'Помилка покращення тексту',
   'status.prettifyCancelled': 'Покращення тексту скасовано',
+  'status.translationCancelled': 'Переклад скасовано',
+  'status.textActionSkipped': 'Інша дія вже виконується',
   'status.transcriptionError': 'Помилка транскрибування',
   'status.recordingCancelled': 'Запис скасовано',
   'status.microphoneError': 'Помилка: немає доступу до мікрофона',
@@ -52,6 +54,7 @@ export default {
   'provider.connected': 'Підключено',
   'provider.connectionReady': 'Готово',
   'provider.connectionSetupRequired': 'Потрібне налаштування',
+  'provider.claudeWeb.name': 'Claude Web',
 
   // Provider settings
   'providerSettings.title': 'Налаштування {provider}',
@@ -62,8 +65,12 @@ export default {
   'providerSettings.relogin': 'Увійти знову',
   'providerSettings.clearSession': 'Очистити сесію',
   'providerSettings.apiKey': 'API key',
+  'providerSettings.apiKeyStatus': 'Статус API key',
+  'providerSettings.apiKeySaved': 'Збережено',
+  'providerSettings.apiKeyMissing': 'Не збережено',
   'providerSettings.apiKeyStored': 'Ключ уже збережено. Залиште поле порожнім, щоб не змінювати його.',
   'providerSettings.apiKeyPlaceholder': 'Вставте OpenAI API key',
+  'providerSettings.apiKeyReplacePlaceholder': 'Введіть новий ключ, щоб замінити збережений',
   'providerSettings.model': 'Модель',
   'providerSettings.language': 'Мова',
   'providerSettings.prompt': 'Prompt',
@@ -74,8 +81,20 @@ export default {
   'providerSettings.clear': 'Очистити',
   'providerSettings.saveFailed': 'Не вдалося зберегти налаштування',
   'providerSettings.clearFailed': 'Не вдалося очистити дані провайдера',
+  'providerSettings.loadFailed': 'Не вдалося завантажити налаштування провайдера',
   'providerSettings.language.auto': 'Авто',
+  'providerSettings.openAIApi.languageSearchPlaceholder': 'Пошук мов',
+  'providerSettings.openAIApi.noLanguageResults': 'Відповідних мов не знайдено',
+  'providerSettings.openAIApi.showLanguageOptions': 'Показати варіанти мов',
   'providerSettings.description': 'Налаштуйте доступ до розпізнавання через {provider}.',
+  'providerSettings.claudeWeb.description': 'Використовуйте збережену сесію браузера Claude для транскрипції.',
+  'providerSettings.claudeWeb.language': 'Мова транскрипції',
+  'providerSettings.claudeWeb.languageDescription':
+    'Знайдіть мову або вкажіть тег BCP 47, який надсилатиметься до Claude Web.',
+  'providerSettings.claudeWeb.languageSearchPlaceholder': 'Знайдіть мову або вкажіть тег BCP 47',
+  'providerSettings.claudeWeb.noLanguageResults': 'Відповідних мов не знайдено',
+  'providerSettings.claudeWeb.showLanguageOptions': 'Показати варіанти мов',
+  'providerSettings.claudeWeb.useLanguageSuggestion': 'Використати {language}',
   'providerSettings.clearSessionConfirmTitle': 'Очистити збережену сесію?',
   'providerSettings.clearKeyConfirmTitle': 'Очистити збережений ключ API?',
   'providerSettings.clearConfirmDescription':
@@ -84,6 +103,11 @@ export default {
   // App settings
   'appSettings.open': 'Налаштування застосунку',
   'appSettings.title': 'Налаштування',
+  'appSettings.system': 'Система',
+  'appSettings.language': 'Мова застосунку',
+  'appSettings.languageHelp': 'Змінює мову в усіх відкритих вікнах GPT-Voice.',
+  'appSettings.languageSaving': 'Зміна мови...',
+  'appSettings.languageSaveFailed': 'Не вдалося змінити мову застосунку',
   'appSettings.hotkeys': 'Гарячі клавіші',
   'appSettings.prettify': 'Покращення тексту',
   'appSettings.cloakBrowser': 'CloakBrowser',
@@ -121,6 +145,20 @@ export default {
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Провайдер розпізнавання',
+  'mainDock.prettifyProviderLabel': 'Покращення',
+  'mainDock.prettifyModelLabel': 'Модель',
+  'mainDock.prettifyNotConfigured': 'Не налаштовано',
+  'mainDock.prettifyConfigured': 'Налаштовано',
+  'mainDock.prettifyChecking': 'Перевірка',
+  'mainDock.prettifySignIn': 'Увійти',
+  'mainDock.prettifySignInHelp': 'Увійдіть у вибраній CLI, потім виберіть її знову.',
+  'mainDock.prettifyUnavailable': 'Недоступно',
+  'mainDock.prettifyEffort': 'Зусилля',
+  'mainDock.prettifyExperimental': 'Експериментальний',
+  'mainDock.openPrettifySettings': 'Відкрити налаштування покращення тексту',
+  'mainDock.prettifySaveFailed': 'Не вдалося змінити провайдера покращення тексту',
+  'mainDock.prettifyLoad': 'Завантажити',
+  'mainDock.prettifyFree': 'Вивільнити',
   'navigation.openHistory': 'Відкрити історію розпізнавання',
   'navigation.openAbout': 'Відкрити відомості про GPT-Voice',
   'navigation.openAppSettings': 'Відкрити налаштування застосунку',
@@ -153,6 +191,7 @@ export default {
   'modelMemory.unknown': 'Стан невідомий',
 
   // Settings sections
+  'settingsSection.system': 'Система',
   'settingsSection.shortcuts': 'Клавіші та дії',
   'settingsSection.prettify': 'Покращення тексту',
   'settingsSection.browser': 'Браузер',
@@ -230,6 +269,48 @@ export default {
   'prettify.provider': 'Провайдер покращення',
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
+  'prettify.provider.claudeCli': 'Claude CLI',
+  'prettify.provider.codexCli': 'Codex CLI',
+  'prettify.cli.executablePath': 'Шлях до виконуваного файлу CLI',
+  'prettify.cli.executablePathHelp':
+    'Залиште поле порожнім для пошуку через PATH або виберіть один абсолютний шлях до виконуваного файлу без аргументів.',
+  'prettify.cli.model': 'Модель CLI',
+  'prettify.cli.modelHelp': 'Залиште поле порожнім, щоб використовувати типову модель CLI.',
+  'prettify.cli.showModelOptions': 'Показати варіанти моделей',
+  'prettify.cli.statusUnchecked': 'Доступність CLI ще не перевірено. Оновіть список, щоб перевірити CLI та моделі.',
+  'prettify.cli.statusChecking': 'Перевірка доступності CLI та моделей...',
+  'prettify.cli.statusAvailable': 'CLI готовий до роботи.',
+  'prettify.cli.statusUnavailable': 'CLI недоступний. Перевірте налаштування та повторіть оновлення.',
+  'prettify.cli.timeout': 'Тайм-аут CLI',
+  'prettify.cli.timeoutHelp': 'Укажіть час роботи процесу CLI від 15 до 600 секунд.',
+  'prettify.claudeCli.fallbackModel': 'Резервна модель',
+  'prettify.claudeCli.fallbackModelHelp':
+    'Залиште поле порожнім, щоб вимкнути резервну модель і використовувати типову поведінку Claude CLI.',
+  'prettify.claudeCli.effort': 'Рівень міркувань',
+  'prettify.claudeCli.effortHelp': 'Керує рівнем міркувань Claude CLI, якщо вибрана модель його підтримує.',
+  'prettify.claudeCli.effort.default': 'Типовий для CLI',
+  'prettify.claudeCli.effort.low': 'Низький',
+  'prettify.claudeCli.effort.medium': 'Середній',
+  'prettify.claudeCli.effort.high': 'Високий',
+  'prettify.claudeCli.privacy':
+    'Виділений текст і захищений запит надсилаються через ваш обліковий запис Anthropic Claude CLI та можуть витрачати квоту підписки або API.',
+  'prettify.codexCli.reasoningEffort': 'Рівень міркувань',
+  'prettify.codexCli.reasoningEffortHelp': 'Керує рівнем міркувань Codex CLI, якщо вибрана модель його підтримує.',
+  'prettify.codexCli.reasoningEffort.default': 'Типовий для CLI',
+  'prettify.codexCli.reasoningEffort.low': 'Низький',
+  'prettify.codexCli.reasoningEffort.medium': 'Середній',
+  'prettify.codexCli.reasoningEffort.high': 'Високий',
+  'prettify.codexCli.reasoningEffort.xhigh': 'Дуже високий',
+  'prettify.codexCli.verbosity': 'Докладність відповіді',
+  'prettify.codexCli.verbosityHelp': 'Керує докладністю відповіді, якщо вибрана модель Codex це підтримує.',
+  'prettify.codexCli.verbosity.low': 'Низька',
+  'prettify.codexCli.verbosity.medium': 'Середня',
+  'prettify.codexCli.verbosity.high': 'Висока',
+  'prettify.codexCli.experimental': 'Експериментальний провайдер',
+  'prettify.codexCli.experimentalHelp':
+    'Codex CLI доступний, лише якщо встановлений CLI підтверджує необхідні обмеження інструментів та ізоляції. Обійти цю перевірку неможливо.',
+  'prettify.codexCli.privacy':
+    'Виділений текст і захищений запит надсилаються через ваш обліковий запис OpenAI Codex CLI та можуть витрачати квоту підписки або API.',
   'prettify.baseUrl': 'Base URL',
   'prettify.model': 'Модель',
   'prettify.refreshModels': 'Оновити',
@@ -271,6 +352,7 @@ export default {
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не зміг обробити записаний звук ({mimeType}). Спробуйте записати ще раз.',
+  'error.chatGptConnectionInterrupted': 'Розпізнавання через ChatGPT було перервано. Повторіть спробу.',
   'error.rateLimited': 'Забагато запитів. Спробуйте пізніше.',
   'error.rateLimitedRetryAfter': 'Забагато запитів. Спробуйте через {seconds} с.',
   'error.prettifyRateLimited': 'Покращення тексту через ChatGPT тимчасово обмежено. Повторіть через {seconds} с.',
@@ -284,6 +366,99 @@ export default {
   'error.noPrettifyResult': 'У відповіді немає покращеного тексту',
   'error.noPrettifyModel': 'Виберіть модель покращення тексту в налаштуваннях застосунку',
   'error.prettifyInProgress': 'Покращення тексту вже виконується',
+  'error.prettify.cli.invalid-executable-path':
+    'Виберіть один виконуваний файл за абсолютним шляхом без аргументів командного рядка.',
+  'error.prettify.cli.output-limit':
+    'CLI повернув забагато даних, тому процес було завершено. Автоматичний повтор не виконувався.',
+  'error.prettify.cli.nonzero-exit':
+    'Процес CLI завершився з помилкою. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.claudeCli.not-installed':
+    'Claude CLI не знайдено. Установіть його або вкажіть шлях до виконуваного файлу та повторіть спробу.',
+  'error.prettify.claudeCli.not-executable':
+    'Claude CLI не вдалося запустити з указаного виконуваного файлу. Перевірте це налаштування.',
+  'error.prettify.claudeCli.not-authenticated':
+    'Claude CLI не авторизовано. Увійдіть через Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.unsupported':
+    'Версія Claude CLI або необхідні засоби ізоляції не підтримуються. Оновіть Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.cancelled':
+    'Процес Claude CLI було завершено після скасування. Автоматичний повтор не виконувався.',
+  'error.prettify.claudeCli.timed-out':
+    'Процес Claude CLI було завершено після завершення часу очікування. Автоматичний повтор не виконувався.',
+  'error.prettify.claudeCli.output-limit':
+    'Claude CLI повернув забагато даних, тому процес було завершено. Автоматичний повтор не виконувався.',
+  'error.prettify.claudeCli.nonzero-exit':
+    'Claude CLI завершився з помилкою. Перевірте авторизацію, модель, квоту й доступ до мережі, потім повторіть спробу.',
+  'error.prettify.claudeCli.process-failed':
+    'Claude CLI не зміг виконати запит. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.claudeCli.empty-output':
+    'Claude CLI не повернув покращений текст. Перевірте налаштування моделі та повторіть спробу.',
+  'error.prettify.claudeCli.malformed-output':
+    'Claude CLI повернув непідтримувану відповідь. Оновіть Claude CLI та повторіть спробу.',
+  'error.prettify.claudeCli.invalid-model':
+    'Виберіть підтримувану модель Claude або залиште поле порожнім для типової моделі CLI.',
+  'error.prettify.codexCli.not-installed':
+    'Codex CLI не знайдено. Установіть його або вкажіть шлях до виконуваного файлу та повторіть спробу.',
+  'error.prettify.codexCli.not-executable':
+    'Codex CLI не вдалося запустити з указаного виконуваного файлу. Перевірте це налаштування.',
+  'error.prettify.codexCli.not-authenticated':
+    'Codex CLI не авторизовано. Увійдіть через Codex CLI та повторіть спробу.',
+  'error.prettify.codexCli.unsupported':
+    'Експериментальний провайдер Codex CLI недоступний: версія або необхідні засоби ізоляції не підтримуються.',
+  'error.prettify.codexCli.cancelled':
+    'Процес Codex CLI було завершено після скасування. Автоматичний повтор не виконувався.',
+  'error.prettify.codexCli.timed-out':
+    'Процес Codex CLI було завершено після завершення часу очікування. Автоматичний повтор не виконувався.',
+  'error.prettify.codexCli.output-limit':
+    'Codex CLI повернув забагато даних, тому процес було завершено. Автоматичний повтор не виконувався.',
+  'error.prettify.codexCli.nonzero-exit':
+    'Codex CLI завершився з помилкою. Перевірте авторизацію, модель, квоту й доступ до мережі, потім повторіть спробу.',
+  'error.prettify.codexCli.process-failed':
+    'Codex CLI не зміг виконати запит. Перевірте налаштування CLI та повторіть спробу.',
+  'error.prettify.codexCli.empty-output':
+    'Codex CLI не повернув покращений текст. Перевірте налаштування моделі та повторіть спробу.',
+  'error.prettify.codexCli.malformed-output':
+    'Codex CLI повернув непідтримувану відповідь. Оновіть Codex CLI та повторіть спробу.',
+  'error.prettify.codexCli.invalid-model':
+    'Виберіть підтримувану модель Codex або залиште поле порожнім для типової моделі CLI.',
+  'error.prettify.codexCli.schema-unavailable':
+    'Вбудована схема відповіді Codex недоступна або пошкоджена. Відновіть застосунок; запуск без обмежень вимкнено.',
+  'error.prettify.codexCli.no-tools-unavailable':
+    'Codex CLI не може підтвердити необхідні обмеження інструментів та ізоляції. Експериментальний провайдер залишиться недоступним; обійти перевірку неможливо.',
+  'error.prettify.codexCli.model-discovery-failed':
+    'Codex CLI не зміг безпечно завантажити каталог моделей. Укажіть підтримувану модель або оновіть Codex CLI.',
+  'error.claudeWeb.session-missing': 'Увійдіть у Claude Web у налаштуваннях провайдера й повторіть спробу.',
+  'error.claudeWeb.session-expired': 'Сесія Claude Web завершилася. Увійдіть знову й повторіть спробу.',
+  'error.claudeWeb.session-invalid':
+    'Збережена сесія Claude Web недійсна. Очистьте її, увійдіть знову й повторіть спробу.',
+  'error.claudeWeb.feature-unavailable':
+    'Голосова транскрипція недоступна в активній сесії Claude. Перевірте доступ до диктування в Claude й повторіть спробу.',
+  'error.claudeWeb.organization-missing':
+    'Claude Web не вдалося визначити активну організацію. Зробіть потрібну організацію активною в Claude й повторіть спробу.',
+  'error.claudeWeb.organization-ambiguous':
+    'Claude Web не вдалося однозначно визначити активну організацію. Зробіть потрібну організацію активною в Claude й повторіть спробу.',
+  'error.claudeWeb.invalid-settings':
+    'Налаштування мови Claude Web недійсне. Укажіть коректний тег BCP 47, наприклад en-US, і повторіть спробу.',
+  'error.claudeWeb.invalid-audio':
+    'Claude Web потребує нестиснений монофонічний звук PCM 16 кГц. Запишіть звук знову; стиснений резервний аудіоформат надіслати не можна.',
+  'error.claudeWeb.upgrade-or-auth':
+    'Claude Web відхилив підключення до розпізнавання. Увійдіть знову; якщо помилка повториться, перевірте приватну інтеграцію.',
+  'error.claudeWeb.connect-timeout':
+    'Підключення до розпізнавання Claude Web не відкрилося вчасно. Перевірте мережу й повторіть спробу.',
+  'error.claudeWeb.connection-loss': 'З’єднання з Claude перервано. Перевірте мережу й повторіть спробу.',
+  'error.claudeWeb.malformed-event':
+    'Claude Web повернув непідтримувану подію розпізнавання. Приватна інтеграція могла змінитися; увійдіть знову й перевірте її перед повтором.',
+  'error.claudeWeb.rate-limit': 'Claude Web тимчасово обмежує частоту транскрипції. Зачекайте й повторіть спробу.',
+  'error.claudeWeb.first-event-timeout':
+    'Claude Web не почав повертати транскрипцію вчасно. Перевірте мережу й повторіть спробу.',
+  'error.claudeWeb.overall-timeout': 'Транскрипція Claude Web тривала надто довго. Повторіть спробу вручну.',
+  'error.claudeWeb.drain-timeout': 'Claude Web не завершив транскрипцію вчасно. Повторіть спробу вручну.',
+  'error.claudeWeb.empty-result':
+    'Claude Web не повернув підсумкову транскрипцію. Запишіть звук знову й повторіть спробу.',
+  'error.claudeWeb.cancelled': 'Транскрипцію Claude Web скасовано.',
+  'error.claudeWeb.page-shutdown':
+    'Авторизовану сторінку Claude закрито. Підключіть Claude Web знову й повторіть спробу.',
+  'error.claudeWeb.unexpected-failure':
+    'Неочікувана помилка транскрипції Claude Web. Підключіть Claude Web знову й повторіть спробу.',
   'error.notificationConnectionFailed':
     'Не вдалося підключитися до {service}. Переконайтеся, що сервіс запущено й адресу вказано правильно.',
   'error.notificationProviderRequestFailed':
@@ -292,7 +467,53 @@ export default {
   'error.notificationOperationTimedOut': 'Операція тривала занадто довго. Повторіть спробу.',
   'error.notificationClipboardUnavailable': 'Не вдалося прочитати виділений текст. Перевірте виділення й повторіть.',
   'error.notificationAudioPreparationFailed': 'Не вдалося підготувати запис. Спробуйте записати ще раз.',
+  'error.streamingRecordingCancelled': 'Запис скасовано.',
+  'error.streamingAudioUnavailable': 'Не вдалося підготувати аудіо. Запишіть ще раз.',
+  'error.streamingRecordingRestart': 'Налаштування запису змінилося. Почніть новий запис.',
+  'error.streamingConnectionFailed':
+    'Не вдалося підтримувати з’єднання під час запису. Перевірте мережу й запишіть ще раз.',
+  'error.streamingQueueOverflow': 'З’єднання не встигає передавати аудіо. Повторіть спробу за стабільної мережі.',
   'error.notificationUnknown': 'Щось пішло не так. Повторіть спробу.',
+
+  // Перевірка налаштувань застосунку
+  'appSettings.validation.temperatureRange': 'Температура має бути від 0 до 1.',
+  'appSettings.validation.topPRange': 'Top P має бути від 0,05 до 1.',
+  'appSettings.validation.topKRange': 'Top K має бути цілим числом від 1 до 200.',
+  'appSettings.validation.minPRange': 'Min P має бути від 0 до 1.',
+  'appSettings.validation.repeatPenaltyRange': 'Штраф за повторення має бути від 0,8 до 1,5.',
+  'appSettings.validation.maxOutputTokensRange': 'Максимум токенів відповіді має бути цілим числом від 1 до 8192.',
+  'appSettings.validation.seedRange': 'Seed має бути порожнім або цілим числом від 0 до 2147483647.',
+  'appSettings.validation.baseUrlRequired': 'Потрібна базова URL-адреса.',
+  'appSettings.validation.baseUrlInvalid': 'Базова URL-адреса має бути коректною адресою HTTP або HTTPS.',
+  'appSettings.validation.baseUrlCredentials': 'Базова URL-адреса не повинна містити облікові дані.',
+  'appSettings.validation.baseUrlInsecureRemote': 'URL-адреси віддалених провайдерів мають використовувати HTTPS.',
+  'appSettings.validation.modelRequired': 'Виберіть модель.',
+  'appSettings.validation.executablePathInvalid': 'Шлях до виконуваного файлу має бути порожнім або абсолютним.',
+  'appSettings.validation.claudeModelInvalid': 'Введіть підтримувану модель Claude CLI.',
+  'appSettings.validation.claudeFallbackModelInvalid': 'Введіть підтримувану резервну модель Claude CLI.',
+  'appSettings.validation.claudeEffortInvalid': 'Виберіть підтримуваний рівень зусиль Claude CLI.',
+  'appSettings.validation.cliTimeoutRange': 'Тайм-аут має бути цілим числом від {min} до {max} секунд.',
+  'appSettings.validation.codexModelInvalid': 'Введіть підтримувану модель Codex CLI.',
+  'appSettings.validation.codexReasoningInvalid': 'Виберіть підтримуваний рівень міркувань Codex CLI.',
+  'appSettings.validation.codexVerbosityInvalid': 'Виберіть підтримувану деталізацію Codex CLI.',
+  'appSettings.validation.promptRequired': 'Потрібна інструкція для покращення тексту.',
+  'appSettings.validation.promptTooLong': 'Інструкція для покращення тексту має містити не більше {max} символів.',
+  'appSettings.validation.providerInvalid': 'Виберіть підтримуваного провайдера.',
+  'appSettings.validation.localeRequired': 'Потрібна локаль.',
+  'appSettings.validation.localeUnsupported': 'Виберіть підтримувану локаль.',
+  'appSettings.validation.timezoneRequired': 'Потрібен часовий пояс.',
+  'appSettings.validation.timezoneUnsupported': 'Виберіть підтримуваний часовий пояс.',
+  'appSettings.validation.proxyServerRequired': 'Коли проксі ввімкнено, потрібна адреса проксі-сервера.',
+  'appSettings.validation.proxyProtocolInvalid': 'Проксі-сервер має використовувати HTTP, HTTPS або SOCKS5.',
+  'appSettings.validation.proxyCredentialsInUrl':
+    'Облікові дані проксі потрібно зберігати в полях імені користувача та пароля.',
+  'appSettings.validation.proxyUrlInvalid': 'Адреса проксі-сервера має бути коректною URL-адресою.',
+  'appSettings.validation.proxySocks5CredentialsUnsupported':
+    'Ім’я користувача та пароль для проксі SOCKS5 не підтримуються.',
+  'appSettings.validation.humanPresetInvalid': 'Виберіть підтримуваний профіль імітації людини.',
+  'appSettings.validation.backgroundModeInvalid': 'Виберіть підтримуваний фоновий режим.',
+  'appSettings.validation.fingerprintSeedRequired': 'Потрібен seed цифрового відбитка.',
+  'appSettings.validation.fingerprintSeedDigits': 'Seed цифрового відбитка має містити лише цифри.',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

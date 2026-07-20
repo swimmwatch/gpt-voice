@@ -1,17 +1,134 @@
 export const PRETTIFY_REASONING_VALUES = ['instant', 'standard', 'extended'] as const;
-export const PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm'] as const;
+export const ENABLED_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
+export const PRETTIFY_PROVIDER_IDS = ENABLED_PRETTIFY_PROVIDER_IDS;
+export const KNOWN_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
+export const PRETTIFY_CLI_PROVIDER_IDS = ['claude-cli', 'codex-cli'] as const;
+export const CLAUDE_CLI_PRETTIFY_EFFORT_VALUES = ['default', 'low', 'medium', 'high'] as const;
+export const CLAUDE_CLI_PRETTIFY_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
+export const CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES = ['default', 'low', 'medium', 'high', 'xhigh'] as const;
+export const CODEX_CLI_PRETTIFY_VERBOSITY_VALUES = ['low', 'medium', 'high'] as const;
 export const MAX_PRETTIFY_PROMPT_LENGTH = 4_000;
+export const MIN_PRETTIFY_CLI_TIMEOUT_SECONDS = 15;
+export const MAX_PRETTIFY_CLI_TIMEOUT_SECONDS = 600;
 
 export type PrettifyReasoning = (typeof PRETTIFY_REASONING_VALUES)[number];
 export type PrettifyProviderId = (typeof PRETTIFY_PROVIDER_IDS)[number];
+export type KnownPrettifyProviderId = (typeof KNOWN_PRETTIFY_PROVIDER_IDS)[number];
+export type PrettifyCliProviderId = (typeof PRETTIFY_CLI_PROVIDER_IDS)[number];
+export type ClaudeCliPrettifyEffort = (typeof CLAUDE_CLI_PRETTIFY_EFFORT_VALUES)[number];
+export type CodexCliPrettifyReasoningEffort = (typeof CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES)[number];
+export type CodexCliPrettifyVerbosity = (typeof CODEX_CLI_PRETTIFY_VERBOSITY_VALUES)[number];
+
+export type PrettifyModelSource = 'http' | 'known-aliases' | 'catalog' | 'bundled' | 'configured-model';
+export type PrettifyProviderPrivacyNotice = 'local' | 'remote' | 'cli';
+export type PrettifyCliRuntimeErrorCode =
+  | 'not-installed'
+  | 'not-executable'
+  | 'not-authenticated'
+  | 'unsupported'
+  | 'cancelled'
+  | 'timed-out'
+  | 'output-limit'
+  | 'nonzero-exit'
+  | 'process-failed'
+  | 'empty-output'
+  | 'malformed-output'
+  | 'invalid-model'
+  | 'schema-unavailable'
+  | 'no-tools-unavailable'
+  | 'model-discovery-failed';
+
+export type PrettifyCliConnectionResult =
+  | { providerId: PrettifyCliProviderId; status: 'connected' }
+  | { providerId: PrettifyCliProviderId; status: 'login-required' }
+  | {
+      errorCode: PrettifyCliRuntimeErrorCode;
+      providerId: PrettifyCliProviderId;
+      status: 'unavailable';
+    };
+
+export interface PrettifyProviderCapabilities {
+  apiKey: boolean;
+  baseUrl: boolean;
+  experimental: boolean;
+  httpGenerationControls: boolean;
+  modelLifecycle: boolean;
+  modelListing: boolean;
+  modelSource: PrettifyModelSource;
+  privacyNotice: PrettifyProviderPrivacyNotice;
+  reasoningEffort: boolean;
+  supportsFreeTextModel: boolean;
+  verbosity: boolean;
+}
+
+export const PRETTIFY_PROVIDER_CAPABILITIES: Record<KnownPrettifyProviderId, PrettifyProviderCapabilities> = {
+  ollama: {
+    apiKey: false,
+    baseUrl: true,
+    experimental: false,
+    httpGenerationControls: true,
+    modelLifecycle: true,
+    modelListing: true,
+    modelSource: 'http',
+    privacyNotice: 'local',
+    reasoningEffort: false,
+    supportsFreeTextModel: true,
+    verbosity: false,
+  },
+  vllm: {
+    apiKey: true,
+    baseUrl: true,
+    experimental: false,
+    httpGenerationControls: true,
+    modelLifecycle: false,
+    modelListing: true,
+    modelSource: 'http',
+    privacyNotice: 'remote',
+    reasoningEffort: false,
+    supportsFreeTextModel: true,
+    verbosity: false,
+  },
+  'claude-cli': {
+    apiKey: false,
+    baseUrl: false,
+    experimental: false,
+    httpGenerationControls: false,
+    modelLifecycle: false,
+    modelListing: true,
+    modelSource: 'known-aliases',
+    privacyNotice: 'cli',
+    reasoningEffort: true,
+    supportsFreeTextModel: true,
+    verbosity: false,
+  },
+  'codex-cli': {
+    apiKey: false,
+    baseUrl: false,
+    experimental: true,
+    httpGenerationControls: false,
+    modelLifecycle: false,
+    modelListing: true,
+    modelSource: 'catalog',
+    privacyNotice: 'cli',
+    reasoningEffort: true,
+    supportsFreeTextModel: true,
+    verbosity: true,
+  },
+};
 
 export interface PrettifyModelOption {
   id: string;
   isLoaded?: boolean;
   name: string;
+  reasoningEfforts?: readonly CodexCliPrettifyReasoningEffort[];
   sizeBytes?: number;
+  verbosity?: readonly CodexCliPrettifyVerbosity[];
   vramSizeBytes?: number;
 }
+
+export type PrettifyProviderAvailability =
+  | { status: 'available'; capabilityVersion?: string }
+  | { status: 'unavailable'; errorCode?: PrettifyCliRuntimeErrorCode };
 
 export interface OllamaPrettifySettings {
   baseUrl: string;
@@ -26,6 +143,22 @@ export interface VllmPrettifySettings {
   clearApiKey?: boolean;
 }
 
+export interface ClaudeCliPrettifySettings {
+  effort: ClaudeCliPrettifyEffort;
+  executablePath: string;
+  fallbackModel: string;
+  model: string;
+  timeoutSeconds: number;
+}
+
+export interface CodexCliPrettifySettings {
+  executablePath: string;
+  model: string;
+  reasoningEffort: CodexCliPrettifyReasoningEffort;
+  timeoutSeconds: number;
+  verbosity: CodexCliPrettifyVerbosity;
+}
+
 export interface PrettifySettings {
   maxOutputTokens: number;
   minP: number;
@@ -36,6 +169,8 @@ export interface PrettifySettings {
   temperature: number;
   topK: number;
   topP: number;
+  claudeCli: ClaudeCliPrettifySettings;
+  codexCli: CodexCliPrettifySettings;
   ollama: OllamaPrettifySettings;
   vllm: VllmPrettifySettings;
 }
@@ -51,6 +186,8 @@ export interface PrettifySettingsInput {
   temperature?: unknown;
   topK?: unknown;
   topP?: unknown;
+  claudeCli?: Partial<ClaudeCliPrettifySettings>;
+  codexCli?: Partial<CodexCliPrettifySettings>;
   ollama?: Partial<OllamaPrettifySettings>;
   vllm?: Partial<VllmPrettifySettings> & {
     apiKey?: unknown;
@@ -59,15 +196,17 @@ export interface PrettifySettingsInput {
 }
 
 export interface PrettifyModelListResult {
-  success: boolean;
-  providerId: PrettifyProviderId;
-  models: PrettifyModelOption[];
+  availability: PrettifyProviderAvailability;
   error?: string;
+  models: PrettifyModelOption[];
+  success: boolean;
+  providerId: KnownPrettifyProviderId;
+  source: PrettifyModelSource;
 }
 
 export interface PrettifyModelLoadResult {
   success: boolean;
-  providerId: PrettifyProviderId;
+  providerId: KnownPrettifyProviderId;
   model?: string;
   vramSizeBytes?: number;
   error?: string;
@@ -75,7 +214,7 @@ export interface PrettifyModelLoadResult {
 
 export interface PrettifyModelUnloadResult {
   success: boolean;
-  providerId: PrettifyProviderId;
+  providerId: KnownPrettifyProviderId;
   model?: string;
   error?: string;
 }
@@ -101,6 +240,10 @@ export const DEFAULT_PRETTIFY_SEED = null;
 export const DEFAULT_PRETTIFY_TEMPERATURE = 0;
 export const DEFAULT_PRETTIFY_TOP_K = 40;
 export const DEFAULT_PRETTIFY_TOP_P = 0.9;
+export const DEFAULT_CLAUDE_CLI_PRETTIFY_EFFORT: ClaudeCliPrettifyEffort = 'default';
+export const DEFAULT_CODEX_CLI_PRETTIFY_REASONING_EFFORT: CodexCliPrettifyReasoningEffort = 'default';
+export const DEFAULT_CODEX_CLI_PRETTIFY_VERBOSITY: CodexCliPrettifyVerbosity = 'low';
+export const DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS = 120;
 
 export const DEFAULT_PRETTIFY_SETTINGS: PrettifySettings = {
   maxOutputTokens: DEFAULT_PRETTIFY_MAX_OUTPUT_TOKENS,
@@ -112,6 +255,20 @@ export const DEFAULT_PRETTIFY_SETTINGS: PrettifySettings = {
   temperature: DEFAULT_PRETTIFY_TEMPERATURE,
   topK: DEFAULT_PRETTIFY_TOP_K,
   topP: DEFAULT_PRETTIFY_TOP_P,
+  claudeCli: {
+    effort: DEFAULT_CLAUDE_CLI_PRETTIFY_EFFORT,
+    executablePath: '',
+    fallbackModel: '',
+    model: '',
+    timeoutSeconds: DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  },
+  codexCli: {
+    executablePath: '',
+    model: '',
+    reasoningEffort: DEFAULT_CODEX_CLI_PRETTIFY_REASONING_EFFORT,
+    timeoutSeconds: DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
+    verbosity: DEFAULT_CODEX_CLI_PRETTIFY_VERBOSITY,
+  },
   ollama: {
     baseUrl: DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
     model: '',
@@ -129,6 +286,57 @@ export function isPrettifyReasoning(value: unknown): value is PrettifyReasoning 
 
 export function isPrettifyProviderId(value: unknown): value is PrettifyProviderId {
   return typeof value === 'string' && PRETTIFY_PROVIDER_IDS.includes(value as PrettifyProviderId);
+}
+
+export function isPrettifyProviderEnabled(value: unknown): value is PrettifyProviderId {
+  return isPrettifyProviderId(value);
+}
+
+export function isKnownPrettifyProviderId(value: unknown): value is KnownPrettifyProviderId {
+  return typeof value === 'string' && KNOWN_PRETTIFY_PROVIDER_IDS.includes(value as KnownPrettifyProviderId);
+}
+
+export function isPrettifyCliProviderId(value: unknown): value is PrettifyCliProviderId {
+  return typeof value === 'string' && PRETTIFY_CLI_PROVIDER_IDS.includes(value as PrettifyCliProviderId);
+}
+
+export function getPrettifyProviderCapabilities(providerId: KnownPrettifyProviderId): PrettifyProviderCapabilities {
+  return PRETTIFY_PROVIDER_CAPABILITIES[providerId];
+}
+
+export function isClaudeCliPrettifyEffort(value: unknown): value is ClaudeCliPrettifyEffort {
+  return typeof value === 'string' && CLAUDE_CLI_PRETTIFY_EFFORT_VALUES.includes(value as ClaudeCliPrettifyEffort);
+}
+
+export function isCodexCliPrettifyReasoningEffort(value: unknown): value is CodexCliPrettifyReasoningEffort {
+  return (
+    typeof value === 'string' &&
+    CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES.includes(value as CodexCliPrettifyReasoningEffort)
+  );
+}
+
+export function isCodexCliPrettifyVerbosity(value: unknown): value is CodexCliPrettifyVerbosity {
+  return typeof value === 'string' && CODEX_CLI_PRETTIFY_VERBOSITY_VALUES.includes(value as CodexCliPrettifyVerbosity);
+}
+
+/** Accepts an empty PATH-discovered executable or an absolute POSIX/Windows path. */
+export function isValidPrettifyCliExecutablePath(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (trimmed.includes('\0')) return false;
+  return trimmed.startsWith('/') || /^[a-z]:[\\/]/iu.test(trimmed) || /^\\\\[^\\/]+[\\/][^\\/]+/u.test(trimmed);
+}
+
+export function isValidClaudeCliPrettifyModel(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  if ((CLAUDE_CLI_PRETTIFY_MODEL_ALIASES as readonly string[]).includes(value)) return true;
+  const suffix = value.startsWith('claude-') ? value.slice('claude-'.length) : '';
+  return Boolean(suffix) && /^[a-z0-9._-]+$/u.test(suffix);
+}
+
+export function isValidCodexCliPrettifyModel(value: unknown): value is string {
+  return typeof value === 'string' && /^\w[\w.:/-]{0,127}$/u.test(value);
 }
 
 function isLoopbackHost(hostname: string): boolean {
@@ -154,18 +362,34 @@ export function isPrettifyProviderBaseUrlLoopback(value: unknown): boolean {
   return Boolean(url && isLoopbackHost(url.hostname));
 }
 
-export function getPrettifyBaseUrlValidationError(value: unknown): string | null {
+export type PrettifyBaseUrlValidationErrorCode =
+  'prettify-base-url-invalid' | 'prettify-base-url-credentials' | 'prettify-base-url-insecure-remote';
+
+export function getPrettifyBaseUrlValidationErrorCode(value: unknown): PrettifyBaseUrlValidationErrorCode | null {
   const url = parsePrettifyProviderBaseUrl(value);
   if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:')) {
-    return 'Base URL must be a valid http or https URL';
+    return 'prettify-base-url-invalid';
   }
   if (url.username || url.password) {
-    return 'Base URL must not include credentials';
+    return 'prettify-base-url-credentials';
   }
   if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
-    return 'Non-local provider URLs must use HTTPS';
+    return 'prettify-base-url-insecure-remote';
   }
   return null;
+}
+
+export function getPrettifyBaseUrlValidationError(value: unknown): string | null {
+  switch (getPrettifyBaseUrlValidationErrorCode(value)) {
+    case 'prettify-base-url-invalid':
+      return 'Base URL must be a valid http or https URL';
+    case 'prettify-base-url-credentials':
+      return 'Base URL must not include credentials';
+    case 'prettify-base-url-insecure-remote':
+      return 'Non-local provider URLs must use HTTPS';
+    case null:
+      return null;
+  }
 }
 
 function isSettingsInput(value: unknown): value is Record<string, unknown> {
@@ -212,6 +436,125 @@ function getPrettifyProviderInputError(
   return null;
 }
 
+interface CliSettingsValidationRules {
+  effortField: 'effort' | 'reasoningEffort';
+  isValidEffort: (value: unknown) => boolean;
+  isValidModel: (value: unknown) => boolean;
+  providerName: string;
+  supportsFallbackModel: boolean;
+  supportsVerbosity: boolean;
+}
+
+function getCliSettingsInputError(input: Record<string, unknown>, rules: CliSettingsValidationRules): string | null {
+  const { effortField, isValidEffort, isValidModel, providerName, supportsFallbackModel, supportsVerbosity } = rules;
+  for (const field of ['executablePath', 'model'] as const) {
+    if (input[field] !== undefined && typeof input[field] !== 'string') {
+      return `${providerName} ${field === 'executablePath' ? 'executable path' : 'model'} must be a string`;
+    }
+  }
+  if (input.executablePath !== undefined && !isValidPrettifyCliExecutablePath(input.executablePath)) {
+    return `${providerName} executable path must be empty or absolute`;
+  }
+  if (typeof input.model === 'string' && input.model.trim() !== '' && !isValidModel(input.model.trim())) {
+    return `${providerName} model is invalid`;
+  }
+  if (supportsFallbackModel && input.fallbackModel !== undefined && typeof input.fallbackModel !== 'string') {
+    return `${providerName} fallback model must be a string`;
+  }
+  if (
+    supportsFallbackModel &&
+    typeof input.fallbackModel === 'string' &&
+    input.fallbackModel.trim() !== '' &&
+    !isValidModel(input.fallbackModel.trim())
+  ) {
+    return `${providerName} fallback model is invalid`;
+  }
+  if (input[effortField] !== undefined && !isValidEffort(input[effortField])) {
+    return `${providerName} ${effortField === 'effort' ? 'effort' : 'reasoning effort'} is unsupported`;
+  }
+  if (supportsVerbosity && input.verbosity !== undefined && !isCodexCliPrettifyVerbosity(input.verbosity)) {
+    return `${providerName} verbosity is unsupported`;
+  }
+  if (input.timeoutSeconds !== undefined) {
+    return getNumberRangeError(
+      input.timeoutSeconds,
+      `${providerName} timeout seconds`,
+      MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+      MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+      true,
+    );
+  }
+  return null;
+}
+
+function getHttpGenerationSettingsInputError(input: Record<string, unknown>): string | null {
+  if (input.providerId !== undefined && input.providerId !== 'ollama' && input.providerId !== 'vllm') return null;
+
+  const numberFields: Array<[unknown, string, number, number, boolean?]> = [
+    [input.temperature, 'Temperature', 0, 1],
+    [input.topP, 'Top P', 0.05, 1],
+    [input.topK, 'Top K', 1, 200, true],
+    [input.minP, 'Min P', 0, 1],
+    [input.repeatPenalty, 'Repeat penalty', 0.8, 1.5],
+    [input.maxOutputTokens, 'Max output tokens', 1, 8192, true],
+  ];
+  for (const [value, label, min, max, integer] of numberFields) {
+    if (value === undefined) continue;
+    const error = getNumberRangeError(value, label, min, max, integer);
+    if (error) return error;
+  }
+  if (input.seed === undefined || input.seed === null) return null;
+  return getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true);
+}
+
+function getHttpProviderSettingsInputError(input: Record<string, unknown>): string | null {
+  for (const [providerId, value, providerName, isVllmProvider] of [
+    ['ollama', input.ollama, 'Ollama', false],
+    ['vllm', input.vllm, 'vLLM', true],
+  ] as const) {
+    if (input.providerId !== undefined && input.providerId !== providerId) continue;
+    if (value === undefined) continue;
+    if (!isSettingsInput(value)) return `${providerName} settings must be an object`;
+    const error = getPrettifyProviderInputError(value, providerName, isVllmProvider);
+    if (error) return error;
+  }
+  return null;
+}
+
+function getCliProviderSettingsInputError(input: Record<string, unknown>): string | null {
+  const providers: Array<CliSettingsValidationRules & { providerId: 'claude-cli' | 'codex-cli'; value: unknown }> = [
+    {
+      effortField: 'effort',
+      isValidEffort: isClaudeCliPrettifyEffort,
+      isValidModel: isValidClaudeCliPrettifyModel,
+      providerId: 'claude-cli',
+      providerName: 'Claude CLI',
+      supportsFallbackModel: true,
+      supportsVerbosity: false,
+      value: input.claudeCli,
+    },
+    {
+      effortField: 'reasoningEffort',
+      isValidEffort: isCodexCliPrettifyReasoningEffort,
+      isValidModel: isValidCodexCliPrettifyModel,
+      providerId: 'codex-cli',
+      providerName: 'Codex CLI',
+      supportsFallbackModel: false,
+      supportsVerbosity: true,
+      value: input.codexCli,
+    },
+  ];
+  for (const provider of providers) {
+    if (input.providerId !== undefined && input.providerId !== provider.providerId) continue;
+    if (provider.value === undefined) continue;
+    if (!isSettingsInput(provider.value)) return `${provider.providerName} settings must be an object`;
+    const error = getCliSettingsInputError(provider.value, provider);
+    if (error) return error;
+  }
+  return null;
+}
+
+/** Returns the safe validation message for untrusted prettify settings input. */
 export function getPrettifySettingsInputError(input: unknown = {}): string | null {
   if (!isSettingsInput(input)) {
     return 'Prettify settings must be an object';
@@ -227,46 +570,26 @@ export function getPrettifySettingsInputError(input: unknown = {}): string | nul
     return 'Unsupported prettify provider';
   }
 
-  const numberErrors: Array<[unknown, string, number, number, boolean?]> = [
-    [input.temperature, 'Temperature', 0, 1],
-    [input.topP, 'Top P', 0.05, 1],
-    [input.topK, 'Top K', 1, 200, true],
-    [input.minP, 'Min P', 0, 1],
-    [input.repeatPenalty, 'Repeat penalty', 0.8, 1.5],
-    [input.maxOutputTokens, 'Max output tokens', 1, 8192, true],
-  ];
-  for (const [value, label, min, max, integer] of numberErrors) {
-    if (value === undefined) continue;
-    const error = getNumberRangeError(value, label, min, max, integer);
-    if (error) return error;
-  }
-
-  if (
-    input.seed !== undefined &&
-    input.seed !== null &&
-    getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true)
-  ) {
-    return getNumberRangeError(input.seed, 'Seed', 0, 2_147_483_647, true);
-  }
-
-  for (const [value, providerName, isVllmProvider] of [
-    [input.ollama, 'Ollama', false],
-    [input.vllm, 'vLLM', true],
-  ] as const) {
-    if (value === undefined) continue;
-    if (!isSettingsInput(value)) {
-      return `${providerName} settings must be an object`;
-    }
-    const error = getPrettifyProviderInputError(value, providerName, isVllmProvider);
-    if (error) return error;
-  }
-
-  return null;
+  return (
+    getHttpGenerationSettingsInputError(input) ??
+    getHttpProviderSettingsInputError(input) ??
+    getCliProviderSettingsInputError(input)
+  );
 }
 
 export function assertValidPrettifySettingsInput(input: unknown = {}): asserts input is PrettifySettingsInput {
   const error = getPrettifySettingsInputError(input);
   if (error) throw new Error(error);
+}
+
+/** Validates model-inspection drafts for all known providers without enabling their persistence or selection. */
+export function assertValidKnownPrettifySettingsInput(input: unknown = {}): asserts input is PrettifySettingsInput {
+  if (!isSettingsInput(input)) throw new Error('Prettify settings must be an object');
+  if (input.providerId !== undefined && !isKnownPrettifyProviderId(input.providerId)) {
+    throw new Error('Unsupported prettify provider');
+  }
+  const { providerId, ...settingsWithoutProvider } = input;
+  assertValidPrettifySettingsInput(isPrettifyProviderId(providerId) ? input : settingsWithoutProvider);
 }
 
 export function normalizePrettifyTemperature(value: unknown): number {
@@ -305,6 +628,18 @@ function normalizeModel(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeClaudeCliEffort(value: unknown): ClaudeCliPrettifyEffort {
+  return isClaudeCliPrettifyEffort(value) ? value : DEFAULT_CLAUDE_CLI_PRETTIFY_EFFORT;
+}
+
+function normalizeCodexCliReasoningEffort(value: unknown): CodexCliPrettifyReasoningEffort {
+  return isCodexCliPrettifyReasoningEffort(value) ? value : DEFAULT_CODEX_CLI_PRETTIFY_REASONING_EFFORT;
+}
+
+function normalizeCodexCliVerbosity(value: unknown): CodexCliPrettifyVerbosity {
+  return isCodexCliPrettifyVerbosity(value) ? value : DEFAULT_CODEX_CLI_PRETTIFY_VERBOSITY;
+}
+
 export function normalizePrettifySettings(input: PrettifySettingsInput = {}): PrettifySettings {
   const inputPrompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
   const prompt =
@@ -314,6 +649,8 @@ export function normalizePrettifySettings(input: PrettifySettingsInput = {}): Pr
       ? inputPrompt
       : DEFAULT_PRETTIFY_PROMPT;
   const providerId = isPrettifyProviderId(input.providerId) ? input.providerId : DEFAULT_PRETTIFY_PROVIDER_ID;
+  const claudeCliInput = input.claudeCli || {};
+  const codexCliInput = input.codexCli || {};
   const ollamaInput = input.ollama || {};
   const vllmInput = input.vllm || {};
 
@@ -327,6 +664,30 @@ export function normalizePrettifySettings(input: PrettifySettingsInput = {}): Pr
     temperature: normalizePrettifyTemperature(input.temperature),
     topK: normalizeInteger(input.topK, DEFAULT_PRETTIFY_TOP_K, 1, 200),
     topP: normalizeFloat(input.topP, DEFAULT_PRETTIFY_TOP_P, 0.05, 1),
+    claudeCli: {
+      effort: normalizeClaudeCliEffort(claudeCliInput.effort),
+      executablePath: normalizeModel(claudeCliInput.executablePath),
+      fallbackModel: normalizeModel(claudeCliInput.fallbackModel),
+      model: normalizeModel(claudeCliInput.model),
+      timeoutSeconds: normalizeInteger(
+        claudeCliInput.timeoutSeconds,
+        DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+      ),
+    },
+    codexCli: {
+      executablePath: normalizeModel(codexCliInput.executablePath),
+      model: normalizeModel(codexCliInput.model),
+      reasoningEffort: normalizeCodexCliReasoningEffort(codexCliInput.reasoningEffort),
+      timeoutSeconds: normalizeInteger(
+        codexCliInput.timeoutSeconds,
+        DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+        MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
+      ),
+      verbosity: normalizeCodexCliVerbosity(codexCliInput.verbosity),
+    },
     ollama: {
       baseUrl: normalizeBaseUrl(ollamaInput.baseUrl, DEFAULT_OLLAMA_PRETTIFY_BASE_URL),
       model: normalizeModel(ollamaInput.model),

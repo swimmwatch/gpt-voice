@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
-import { execFile as execFileCallback } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
 import { createPackage } from '@electron/asar';
 
 interface SizeMetric {
@@ -48,7 +47,6 @@ interface BuildSizeCliModule {
   validateSizeReport: (report: unknown) => asserts report is SizeReport;
 }
 
-const execFile = promisify(execFileCallback);
 const projectRoot = path.resolve(__dirname, '..', '..');
 const scriptPath = path.join(projectRoot, 'scripts', 'build-size-cli.mjs');
 let buildSizeCli: BuildSizeCliModule;
@@ -57,6 +55,33 @@ function createCliEnvironment(): NodeJS.ProcessEnv {
   const environment = { ...process.env };
   delete environment.NODE_TEST_CONTEXT;
   return environment;
+}
+
+async function runBuildSizeCli(cwd: string, args: string[]): Promise<{ stderr: string; stdout: string }> {
+  const stdoutPath = path.join(cwd, '.build-size-cli.stdout');
+  const stderrPath = path.join(cwd, '.build-size-cli.stderr');
+  const stdoutFile = await open(stdoutPath, 'w');
+  const stderrFile = await open(stderrPath, 'w');
+
+  try {
+    const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+      const child = spawn(process.execPath, [scriptPath, ...args], {
+        cwd,
+        env: createCliEnvironment(),
+        stdio: ['ignore', stdoutFile.fd, stderrFile.fd],
+      });
+      child.once('error', reject);
+      child.once('exit', (code, signal) => resolve({ code, signal }));
+    });
+    if (exit.code !== 0) {
+      throw new Error(`Build-size CLI failed with code ${String(exit.code)} and signal ${String(exit.signal)}`);
+    }
+  } finally {
+    await Promise.all([stdoutFile.close(), stderrFile.close()]);
+  }
+
+  const [stdout, stderr] = await Promise.all([readFile(stdoutPath, 'utf8'), readFile(stderrPath, 'utf8')]);
+  return { stderr, stdout };
 }
 
 function getMetric(report: SizeReport, id: string): number | null {
@@ -250,11 +275,12 @@ describe('build size CLI', () => {
     try {
       await writeFixturePackage(temporaryDirectory);
       const outputPath = path.join(temporaryDirectory, 'reports', 'size.json');
-      const { stdout } = await execFile(
-        process.execPath,
-        [scriptPath, 'measure', '--platform=linux', '--arch=x64', `--output=${outputPath}`],
-        { cwd: temporaryDirectory, env: createCliEnvironment() },
-      );
+      const { stderr, stdout } = await runBuildSizeCli(temporaryDirectory, [
+        'measure',
+        '--platform=linux',
+        '--arch=x64',
+        `--output=${outputPath}`,
+      ]);
       const report = JSON.parse(await readFile(outputPath, 'utf8')) as SizeReport;
 
       assert.equal(report.metadata.platform, 'linux');
@@ -262,6 +288,7 @@ describe('build size CLI', () => {
       assert.equal(getMetric(report, 'installer.rpm'), null);
       assert.match(stdout, /Size report: linux\/x64/);
       assert.equal(stdout.includes(temporaryDirectory), false);
+      assert.equal(stderr, '');
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }
@@ -291,18 +318,16 @@ describe('build size CLI', () => {
       await writeFile(reportPath, JSON.stringify(report));
       await writeFile(baselinePath, JSON.stringify(baseline));
 
-      const { stdout } = await execFile(
-        process.execPath,
-        [scriptPath, 'verify', `--report=${reportPath}`, `--baseline=${baselinePath}`],
-        {
-          cwd: temporaryDirectory,
-          env: createCliEnvironment(),
-        },
-      );
+      const { stderr, stdout } = await runBuildSizeCli(temporaryDirectory, [
+        'verify',
+        `--report=${reportPath}`,
+        `--baseline=${baselinePath}`,
+      ]);
 
       assert.match(stdout, /Size verification: linux\/x64/);
       assert.match(stdout, /No size regressions detected/);
       assert.equal(stdout.includes(temporaryDirectory), false);
+      assert.equal(stderr, '');
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }

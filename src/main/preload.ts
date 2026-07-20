@@ -1,19 +1,23 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type {
   BackgroundBrowserStatus,
-  OpenAIApiProviderSettings,
   ProviderInfo,
   ProviderSettings,
+  ProviderSettingsSaveInput,
 } from '../renderer/types';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
 import type { AppInfo } from '@shared/appInfo';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
-  PrettifyProviderId,
+  PrettifyCliConnectionResult,
+  PrettifyCliProviderId,
+  KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -25,6 +29,15 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import { sanitizeTextActionStatus, type TextActionStatus } from '@shared/textActionStatus';
+import {
+  STREAMING_TRANSCRIPTION_IPC_CHANNELS,
+  type CancelStreamingTranscriptionIpcResult,
+  type FinishStreamingTranscriptionIpcResult,
+  type SendStreamingTranscriptionChunkIpcResult,
+  type StartStreamingTranscriptionIpcResult,
+  type StreamingTranscriptionOperationId,
+} from '@shared/streamingTranscription';
 
 type Unsubscribe = () => void;
 
@@ -56,8 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onRetryTranscription: (callback: () => void) => {
     return onMainEvent('retry-transcription', callback);
   },
-  onTranslationStatus: (callback: (status: string) => void) => {
-    return onMainEvent<[string]>('translation-status', (status) => callback(String(status)));
+  onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => {
+    return onMainEvent<[unknown]>('translation-status', (status) => callback(sanitizeTextActionStatus(status)));
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');
@@ -71,14 +84,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getRecordingStatus: (): Promise<boolean> => {
     return ipcRenderer.invoke('get-recording-status');
   },
-  providerLogin: (): Promise<{ success: boolean; error?: string }> => {
-    return ipcRenderer.invoke('provider-login');
+  providerLogin: (providerId: string): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
+    return ipcRenderer.invoke('provider-login', providerId);
   },
   getProviders: (): Promise<ProviderInfo[]> => {
     return ipcRenderer.invoke('get-providers');
   },
   getProviderSettings: (providerId: string): Promise<ProviderSettings> => {
     return ipcRenderer.invoke('get-provider-settings', providerId);
+  },
+  openProviderSettings: (providerId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('open-provider-settings', providerId);
+  },
+  closeProviderSettings: (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('close-provider-settings');
+  },
+  onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void): (() => void) => {
+    return onMainEvent<[ProviderSettings]>('provider-settings-changed', callback);
   },
   closeAppSettings: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('close-app-settings');
@@ -88,8 +110,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app-settings-close-requested', listener);
     return () => ipcRenderer.removeListener('app-settings-close-requested', listener);
   },
-  openAppSettings: (): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('open-app-settings');
+  onAppSettingsSectionRequested: (callback: (section: AppSettingsSectionId) => void): (() => void) => {
+    return onMainEvent<[AppSettingsSectionId]>('app-settings-section-requested', callback);
+  },
+  openAppSettings: (section?: AppSettingsSectionId): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('open-app-settings', section);
   },
   openTranscriptionHistory: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('open-transcription-history');
@@ -118,7 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   saveProviderSettings: (
     providerId: string,
-    settings: Partial<OpenAIApiProviderSettings> & { apiKey?: string },
+    settings: ProviderSettingsSaveInput,
   ): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
     return ipcRenderer.invoke('save-provider-settings', providerId, settings);
   },
@@ -142,6 +167,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('transcribe-audio', buffer, mimeType);
   },
+  startStreamingTranscription: (): Promise<StartStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.start);
+  },
+  sendStreamingTranscriptionChunk: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    chunk: Uint8Array,
+  ): Promise<SendStreamingTranscriptionChunkIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.sendChunk, operationId, sequence, chunk);
+  },
+  finishStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+    sequence: number,
+    finalChunk: Uint8Array,
+    recordingWav: ArrayBuffer,
+  ): Promise<FinishStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(
+      STREAMING_TRANSCRIPTION_IPC_CHANNELS.finish,
+      operationId,
+      sequence,
+      finalChunk,
+      recordingWav,
+    );
+  },
+  cancelStreamingTranscription: (
+    operationId: StreamingTranscriptionOperationId,
+  ): Promise<CancelStreamingTranscriptionIpcResult> => {
+    return ipcRenderer.invoke(STREAMING_TRANSCRIPTION_IPC_CHANNELS.cancel, operationId);
+  },
   translateText: (text: string, targetLang: string): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('translate-text', text, targetLang);
   },
@@ -163,12 +217,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBgBrowserStatus: (): Promise<BackgroundBrowserStatus> => {
     return ipcRenderer.invoke('get-bg-browser-status');
   },
-  onBgBrowserReady: (callback: () => void) => {
-    return onMainEvent('bg-browser-ready', callback);
+  onBgBrowserReady: (callback: (providerId: string) => void) => {
+    return onMainEvent<[string]>('bg-browser-ready', (providerId) => callback(String(providerId)));
   },
-  onBgBrowserError: (callback: (error: string, authExpired: boolean) => void) => {
-    return onMainEvent<[string, boolean]>('bg-browser-error', (error, authExpired) =>
-      callback(String(error), Boolean(authExpired)),
+  onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => {
+    return onMainEvent<[string, string, boolean]>('bg-browser-error', (providerId, error, authExpired) =>
+      callback(String(providerId), String(error), Boolean(authExpired)),
     );
   },
   onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
@@ -176,6 +230,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
     return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
+  },
+  onLocaleChanged: (callback: (locale: AppLocaleId) => void): (() => void) => {
+    return onMainEvent<[AppLocaleId]>('locale-changed', callback);
   },
   getHotkey: (): Promise<HotkeySettings> => {
     return ipcRenderer.invoke('get-hotkey');
@@ -211,23 +268,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPrettifySettings: (): Promise<PrettifySettings> => {
     return ipcRenderer.invoke('get-prettify-settings');
   },
-  setPrettifySettings: (settings: PrettifySettingsInput): Promise<{ success: boolean; settings: PrettifySettings }> => {
+  checkPrettifyCliConnection: (providerId: PrettifyCliProviderId): Promise<PrettifyCliConnectionResult> => {
+    return ipcRenderer.invoke('check-prettify-cli-connection', providerId);
+  },
+  setPrettifySettings: (
+    settings: PrettifySettingsInput,
+  ): Promise<{ success: boolean; settings: PrettifySettings; error?: string }> => {
     return ipcRenderer.invoke('set-prettify-settings', settings);
   },
   listPrettifyModels: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelListResult> => {
     return ipcRenderer.invoke('list-prettify-models', providerId, settings);
   },
   loadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelLoadResult> => {
     return ipcRenderer.invoke('load-prettify-model', providerId, settings);
   },
   unloadPrettifyModel: (
-    providerId: PrettifyProviderId,
+    providerId: KnownPrettifyProviderId,
     settings: PrettifySettingsInput,
   ): Promise<PrettifyModelUnloadResult> => {
     return ipcRenderer.invoke('unload-prettify-model', providerId, settings);
@@ -235,13 +297,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTranslations: (): Promise<Record<string, string>> => {
     return ipcRenderer.invoke('get-translations');
   },
-  getLocale: (): Promise<string> => {
+  getLocale: (): Promise<AppLocaleId> => {
     return ipcRenderer.invoke('get-locale');
   },
-  getSupportedLocales: (): Promise<string[]> => {
+  getSupportedLocales: (): Promise<AppLocaleId[]> => {
     return ipcRenderer.invoke('get-supported-locales');
   },
-  setLocale: (locale: string): Promise<{ success: boolean }> => {
+  setLocale: (locale: AppLocaleId): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('set-locale', locale);
   },
   getPlatform: (): Promise<NodeJS.Platform> => {

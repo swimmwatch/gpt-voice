@@ -1,4 +1,4 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import {
   currentHotkey,
@@ -18,22 +18,25 @@ import {
   saveConfig,
 } from './config';
 import {
-  initBackgroundBrowser,
-  shutdownBackgroundBrowser,
   isBgReady,
   getBackgroundBrowserStatus,
   getActiveProvider,
   launchLoginContext,
+  restartBackgroundBrowser,
   switchProvider,
 } from './browser';
 import { createProvider, getAvailableProviders } from './providers';
 import {
   closeAboutWindow,
+  closeProviderSettingsWindow,
   closeSettingsWindow,
+  broadcastLocaleChanged,
   getMainWindow,
+  getSettingsWindow,
   isTrustedAppWindow,
   showAboutWindow,
   showHistoryWindow,
+  showProviderSettingsWindow,
   showSettingsWindow,
 } from './window';
 import { getAppInfo } from './appMetadata';
@@ -48,8 +51,9 @@ import {
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
 import { isGoogleTranslateTargetLanguage } from './services/translationUtils';
-import { getAllTranslations, getLocale, setLocale, getSupportedLocales } from './i18n';
+import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
+import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
 import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
 import {
   assertValidOpenAIApiSettingsInput,
@@ -59,6 +63,7 @@ import {
 import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
+import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import {
   getHotkeyConflict,
@@ -69,11 +74,15 @@ import {
 } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
-  isPrettifyProviderId,
+  assertValidKnownPrettifySettingsInput,
+  getPrettifyProviderCapabilities,
+  isPrettifyCliProviderId,
+  isKnownPrettifyProviderId,
+  type KnownPrettifyProviderId,
+  type PrettifyCliConnectionResult,
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
-  type PrettifyProviderId,
   type PrettifySettingsInput,
   assertValidPrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -86,9 +95,22 @@ import {
   getTranscriptionHistoryText,
 } from './services/transcriptionHistoryStorage';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import { listPrettifyModels, loadPrettifyModel, unloadPrettifyModel } from './services/prettifyProviders';
+import {
+  checkPrettifyCliConnection,
+  listPrettifyModels,
+  loadPrettifyModel,
+  unloadPrettifyModel,
+} from './services/prettifyProviders';
+import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
+import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
+import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
+import { streamingTranscriptionService } from './services/streamingTranscription';
+import { isAppSettingsSectionId } from '@shared/appSettings';
+import { isAppLocaleId } from '@shared/appLocale';
 
 const log = createLogger('ipc');
+let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
+const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -138,13 +160,27 @@ function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
     providerId: settings.providerId,
     promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : undefined,
     temperature: settings.temperature,
+    claudeCli: {
+      hasExecutablePath: Boolean(settings.claudeCli?.executablePath?.trim()),
+      modelLength: settings.claudeCli?.model?.length,
+      fallbackModelLength: settings.claudeCli?.fallbackModel?.length,
+      effort: settings.claudeCli?.effort,
+      timeoutSeconds: settings.claudeCli?.timeoutSeconds,
+    },
+    codexCli: {
+      hasExecutablePath: Boolean(settings.codexCli?.executablePath?.trim()),
+      modelLength: settings.codexCli?.model?.length,
+      reasoningEffort: settings.codexCli?.reasoningEffort,
+      timeoutSeconds: settings.codexCli?.timeoutSeconds,
+      verbosity: settings.codexCli?.verbosity,
+    },
     ollama: {
       baseUrlLength: typeof settings.ollama?.baseUrl === 'string' ? settings.ollama.baseUrl.length : undefined,
-      model: settings.ollama?.model,
+      modelLength: settings.ollama?.model?.length,
     },
     vllm: {
       baseUrlLength: typeof settings.vllm?.baseUrl === 'string' ? settings.vllm.baseUrl.length : undefined,
-      model: settings.vllm?.model,
+      modelLength: settings.vllm?.model?.length,
       apiKeyUpdated: typeof settings.vllm?.apiKey === 'string' && settings.vllm.apiKey.trim().length > 0,
       clearApiKey: Boolean(settings.vllm?.clearApiKey),
     },
@@ -181,12 +217,60 @@ function handle<Args extends unknown[]>(
   });
 }
 
-function sendBackgroundStatus(status: { ready: boolean; error?: string; authExpired?: boolean }): void {
-  if (status.ready) {
-    getMainWindow()?.webContents.send('bg-browser-ready');
-  } else if (status.error) {
-    getMainWindow()?.webContents.send('bg-browser-error', status.error, Boolean(status.authExpired));
+function registerStreamingTranscriptionIpcHandlers(): void {
+  if (streamingTranscriptionIpcController) {
+    throw new Error('Streaming transcription IPC handlers are already registered');
   }
+
+  streamingTranscriptionIpcController = new StreamingTranscriptionIpcController<WebContents>({
+    addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
+    getMainWindowSender: () => {
+      const mainWindow = getMainWindow();
+      return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+    },
+    isSenderDestroyed: (sender) => sender.isDestroyed(),
+    registerBeforeBrowserShutdownHook: registerBeforeBackgroundBrowserShutdownHook,
+    registerHandler: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        assertTrustedSender(event);
+        return listener(event.sender, ...(args as unknown[]));
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+    removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
+    service: streamingTranscriptionService,
+  });
+}
+
+export async function teardownStreamingTranscriptionIpcHandlers(): Promise<void> {
+  const controller = streamingTranscriptionIpcController;
+  streamingTranscriptionIpcController = null;
+  await controller?.dispose();
+}
+
+function sendBackgroundStatus(status: {
+  providerId?: string;
+  ready: boolean;
+  error?: string;
+  authExpired?: boolean;
+}): void {
+  const providerId = status.providerId || currentProvider;
+  if (status.ready) {
+    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
+  } else if (status.error) {
+    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
+  }
+}
+
+function sendProviderSettingsChanged(settings: unknown, source: IpcMainInvokeEvent['sender']): void {
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.webContents.id === source.id) return;
+  mainWindow.webContents.send('provider-settings-changed', settings);
+}
+
+function sendPrettifySettingsChanged(settings: ReturnType<typeof getPrettifySettingsSnapshot>): void {
+  getMainWindow()?.webContents.send('prettify-settings-changed', settings);
+  getSettingsWindow()?.webContents.send('prettify-settings-changed', settings);
 }
 
 function getHotkeySettingsSnapshot(): HotkeySettings {
@@ -210,6 +294,14 @@ function getProviderSettingsSnapshot(providerId: string) {
   }
 
   const provider = createProvider(providerId);
+  if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+    return {
+      providerId,
+      authType: 'browserSession',
+      hasSession: provider.hasSession(),
+      ...getClaudeWebSettings(),
+    };
+  }
   return {
     providerId,
     authType: provider.info.authType,
@@ -217,15 +309,17 @@ function getProviderSettingsSnapshot(providerId: string) {
   };
 }
 
-async function refreshActiveProvider(providerId: string): Promise<void> {
-  if (providerId !== currentProvider) return;
-  await shutdownBackgroundBrowser();
-  const status = await initBackgroundBrowser();
+async function refreshActiveProvider(providerId: string) {
+  if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
+  const status = await restartBackgroundBrowser();
   sendBackgroundStatus(status);
+  return status;
 }
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(): void {
+  registerStreamingTranscriptionIpcHandlers();
+
   handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return transcribeAudio(buffer, mimeType);
   });
@@ -281,10 +375,13 @@ export function registerIpcHandlers(): void {
     return { success: true };
   });
 
-  handle('provider-login', async () => {
+  handle('provider-login', async (event, providerId: unknown) => {
     let provider;
     try {
-      provider = getActiveProvider() ?? createProvider(currentProvider);
+      if (typeof providerId !== 'string') {
+        return { success: false, error: 'Unsupported provider' };
+      }
+      provider = createProvider(providerId);
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
@@ -327,17 +424,17 @@ export function registerIpcHandlers(): void {
         return { success: false, error: 'Login window closed before session was saved' };
       }
 
-      await shutdownBackgroundBrowser();
-      const status = await initBackgroundBrowser();
-      sendBackgroundStatus(status);
-      if (status.error) {
+      const status = await refreshActiveProvider(provider.info.id);
+      const settings = getProviderSettingsSnapshot(provider.info.id);
+      sendProviderSettingsChanged(settings, event.sender);
+      if (status?.error) {
         return { success: false, error: status.error };
       }
-      if (!status.ready) {
+      if (status && !status.ready) {
         return { success: false, error: 'Login did not produce a valid provider session' };
       }
 
-      return { success: true };
+      return { success: true, settings };
     } catch (error: unknown) {
       if (context) {
         try {
@@ -376,13 +473,32 @@ export function registerIpcHandlers(): void {
     return getProviderSettingsSnapshot(providerId);
   });
 
+  handle('open-provider-settings', (_event, providerId: unknown) => {
+    if (typeof providerId !== 'string') {
+      return { success: false, error: 'Unsupported provider' };
+    }
+    const provider = getAvailableProviders().find((candidate) => candidate.id === providerId);
+    if (!provider?.hasSettings) {
+      return { success: false, error: 'Provider settings are not available' };
+    }
+    showProviderSettingsWindow(provider.id, t('providerSettings.title', { provider: provider.name }));
+    return { success: true };
+  });
+
+  handle('close-provider-settings', (event) => {
+    return { success: closeProviderSettingsWindow(event.sender) };
+  });
+
   handle('close-app-settings', () => {
     closeSettingsWindow();
     return { success: true };
   });
 
-  handle('open-app-settings', () => {
-    showSettingsWindow();
+  handle('open-app-settings', (_event, section: unknown) => {
+    if (section !== undefined && !isAppSettingsSectionId(section)) {
+      return { success: false, error: 'Unsupported settings section' };
+    }
+    showSettingsWindow(section);
     return { success: true };
   });
 
@@ -414,8 +530,7 @@ export function registerIpcHandlers(): void {
       assertValidCloakBrowserSettingsInput(settings);
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
       const preparedSettings = prepareCloakBrowserSettings(settings);
-      await shutdownBackgroundBrowser();
-      const backgroundStatus = await initBackgroundBrowser({
+      const backgroundStatus = await restartBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
       });
       sendBackgroundStatus(backgroundStatus);
@@ -439,15 +554,38 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('save-provider-settings', async (_event, providerId: unknown, settings: unknown) => {
+  handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
         return { success: false, error: 'Unsupported provider' };
       }
+      if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+        try {
+          assertValidClaudeWebSettingsUpdateInput(settings);
+        } catch {
+          log.warn('Claude Web provider settings rejected:', { providerId });
+          return { success: false, error: t('error.claudeWeb.invalid-settings') };
+        }
+
+        log.info('Saving provider settings:', { providerId });
+        const savedSettings = saveClaudeWebSettings(settings);
+        await refreshActiveProvider(providerId);
+        log.info('Provider settings saved:', { providerId });
+        const nextSettings = {
+          providerId,
+          authType: 'browserSession' as const,
+          hasSession: createProvider(providerId).hasSession(),
+          language: savedSettings.language,
+        };
+        sendProviderSettingsChanged(nextSettings, event.sender);
+        return { success: true, settings: nextSettings };
+      }
       if (providerId !== OPENAI_API_PROVIDER_ID) {
         log.info('Saving provider settings:', { providerId });
         log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
-        return { success: true, settings: getProviderSettingsSnapshot(providerId) };
+        const nextSettings = getProviderSettingsSnapshot(providerId);
+        sendProviderSettingsChanged(nextSettings, event.sender);
+        return { success: true, settings: nextSettings };
       }
 
       assertValidOpenAIApiSettingsInput(settings);
@@ -462,21 +600,20 @@ export function registerIpcHandlers(): void {
         promptLength: savedSettings.prompt.length,
         temperature: savedSettings.temperature,
       });
-      return {
-        success: true,
-        settings: {
-          providerId,
-          authType: 'apiKey',
-          ...savedSettings,
-        },
+      const nextSettings = {
+        providerId,
+        authType: 'apiKey' as const,
+        ...savedSettings,
       };
+      sendProviderSettingsChanged(nextSettings, event.sender);
+      return { success: true, settings: nextSettings };
     } catch (error: unknown) {
       log.error('Provider settings save error:', getErrorMessage(error));
       return { success: false, error: getErrorMessage(error) };
     }
   });
 
-  handle('clear-provider-auth', async (_event, providerId: string) => {
+  handle('clear-provider-auth', async (event, providerId: string) => {
     try {
       log.info('Clearing provider auth:', { providerId });
       if (providerId === OPENAI_API_PROVIDER_ID) {
@@ -486,7 +623,9 @@ export function registerIpcHandlers(): void {
       }
       await refreshActiveProvider(providerId);
       log.info('Provider auth cleared:', { providerId });
-      return { success: true, settings: getProviderSettingsSnapshot(providerId) };
+      const settings = getProviderSettingsSnapshot(providerId);
+      sendProviderSettingsChanged(settings, event.sender);
+      return { success: true, settings };
     } catch (error: unknown) {
       log.error('Provider auth clear error:', getErrorMessage(error));
       return { success: false, error: getErrorMessage(error) };
@@ -646,6 +785,35 @@ export function registerIpcHandlers(): void {
     return getPrettifySettingsSnapshot();
   });
 
+  handle('check-prettify-cli-connection', async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
+    if (!isPrettifyCliProviderId(providerId)) {
+      throw new Error('Unsupported Prettify CLI provider');
+    }
+
+    prettifyCliConnectionChecks.get(event.sender)?.abort();
+    const controller = new AbortController();
+    const handleSenderDestroyed = (): void => controller.abort();
+    prettifyCliConnectionChecks.set(event.sender, controller);
+    event.sender.once('destroyed', handleSenderDestroyed);
+
+    try {
+      const result = await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
+        signal: controller.signal,
+      });
+      log.info('Prettify CLI connection checked:', {
+        providerId,
+        status: result.status,
+        ...(result.status === 'unavailable' ? { errorCode: result.errorCode } : {}),
+      });
+      return result;
+    } finally {
+      if (prettifyCliConnectionChecks.get(event.sender) === controller) {
+        prettifyCliConnectionChecks.delete(event.sender);
+      }
+      event.sender.removeListener('destroyed', handleSenderDestroyed);
+    }
+  });
+
   handle('set-prettify-settings', (_event, settings: unknown = {}) => {
     try {
       assertValidPrettifySettingsInput(settings);
@@ -657,11 +825,11 @@ export function registerIpcHandlers(): void {
         providerChanged: savedSettings.providerId !== previous.providerId,
         promptLength: savedSettings.prompt.length,
         temperature: savedSettings.temperature,
-        ollamaModel: savedSettings.ollama.model,
-        vllmModel: savedSettings.vllm.model,
+        ollamaModelLength: savedSettings.ollama.model.length,
+        vllmModelLength: savedSettings.vllm.model.length,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
-      getMainWindow()?.webContents.send('prettify-settings-changed', savedSettings);
+      sendPrettifySettingsChanged(savedSettings);
       return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
@@ -671,39 +839,69 @@ export function registerIpcHandlers(): void {
 
   handle(
     'list-prettify-models',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelListResult> => {
-      if (!isPrettifyProviderId(providerId)) {
-        return { success: false, providerId: 'ollama', models: [], error: 'Unsupported prettify provider' };
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelListResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
+        return {
+          availability: { status: 'unavailable' },
+          success: false,
+          providerId: 'ollama',
+          source: 'http',
+          models: [],
+          error: 'Unsupported prettify provider',
+        };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Listing Prettify models:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
         });
-        const models = await listPrettifyModels(providerId, draftSettings);
-        log.info('Prettify models listed:', { providerId, modelCount: models.length });
-        return { success: true, providerId, models };
+        const result = await listPrettifyModels(providerId, draftSettings);
+        log.info('Prettify models listed:', {
+          providerId,
+          modelCount: result.models.length,
+          source: result.source,
+          availability: result.availability.status,
+          ...(result.availability.status === 'unavailable'
+            ? { errorCode: result.availability.errorCode }
+            : { hasCapabilityVersion: Boolean(result.availability.capabilityVersion) }),
+        });
+        return result;
       } catch (error: unknown) {
         log.warn('Prettify model listing failed:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, models: [], error: getErrorMessage(error) };
+        return {
+          availability: { status: 'unavailable' },
+          success: false,
+          providerId,
+          source: getPrettifyProviderCapabilities(providerId).modelSource,
+          models: [],
+          error: t('status.prettifyFailed'),
+        };
       }
     },
   );
 
   handle(
     'load-prettify-model',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelLoadResult> => {
-      if (!isPrettifyProviderId(providerId)) {
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelLoadResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Loading Prettify model:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
@@ -712,13 +910,13 @@ export function registerIpcHandlers(): void {
         if (!result.success) {
           log.warn('Prettify model load failed:', {
             providerId,
-            model: result.model,
-            error: result.error,
+            hasModel: Boolean(result.model),
+            hasError: Boolean(result.error),
           });
         } else {
           log.info('Prettify model loaded:', {
             providerId,
-            model: result.model,
+            hasModel: Boolean(result.model),
             hasVramSize: typeof result.vramSizeBytes === 'number',
           });
         }
@@ -726,22 +924,26 @@ export function registerIpcHandlers(): void {
       } catch (error: unknown) {
         log.warn('Prettify model load error:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, error: getErrorMessage(error) };
+        return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },
   );
 
   handle(
     'unload-prettify-model',
-    async (_event, providerId: PrettifyProviderId, draftSettings: unknown = {}): Promise<PrettifyModelUnloadResult> => {
-      if (!isPrettifyProviderId(providerId)) {
+    async (
+      _event,
+      providerId: KnownPrettifyProviderId,
+      draftSettings: unknown = {},
+    ): Promise<PrettifyModelUnloadResult> => {
+      if (!isKnownPrettifyProviderId(providerId)) {
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
-        assertValidPrettifySettingsInput(draftSettings);
+        assertValidKnownPrettifySettingsInput(draftSettings);
         log.info('Unloading Prettify model:', {
           providerId,
           draft: summarizePrettifySettingsInput(draftSettings),
@@ -750,22 +952,22 @@ export function registerIpcHandlers(): void {
         if (!result.success) {
           log.warn('Prettify model unload failed:', {
             providerId,
-            model: result.model,
-            error: result.error,
+            hasModel: Boolean(result.model),
+            hasError: Boolean(result.error),
           });
         } else {
           log.info('Prettify model unloaded:', {
             providerId,
-            model: result.model,
+            hasModel: Boolean(result.model),
           });
         }
         return result;
       } catch (error: unknown) {
         log.warn('Prettify model unload error:', {
           providerId,
-          error: getErrorMessage(error),
+          errorName: error instanceof Error ? error.name : 'unknown',
         });
-        return { success: false, providerId, error: getErrorMessage(error) };
+        return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },
   );
@@ -788,13 +990,14 @@ export function registerIpcHandlers(): void {
 
   handle('set-locale', (_event, locale: unknown) => {
     try {
-      if (typeof locale !== 'string' || !getSupportedLocales().includes(locale)) {
+      if (!isAppLocaleId(locale)) {
         return { success: false, error: 'Select a supported locale' };
       }
       log.info('Saving locale:', { from: getLocale(), to: locale });
       setLocale(locale);
       setCurrentLocale(locale);
       saveConfig();
+      broadcastLocaleChanged(locale);
       log.info('Locale saved:', { locale: getLocale() });
       return { success: true };
     } catch (error: unknown) {

@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
-import { BaseVoiceProvider, type TranscriptionResult, type VoiceProviderInfo } from './BaseVoiceProvider';
+import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+import { BatchVoiceProvider } from './BatchVoiceProvider';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -23,6 +24,7 @@ import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavi
 import { APP_DIR } from '../config';
 import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
+import { getTranscriptionRetryAfterSeconds } from './transcriptionErrors';
 
 const log = createLogger('chatgpt-provider');
 
@@ -31,6 +33,11 @@ const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
+const TRANSCRIPTION_MAX_ATTEMPTS = 2;
+const TRANSCRIPTION_REQUEST_TIMEOUT_MS = 20000;
+const TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS = 15000;
+const TRANSCRIPTION_RATE_LIMIT_FALLBACK_SECONDS = 60;
+const TRANSCRIPTION_RATE_LIMIT_MAX_SECONDS = 10 * 60;
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -55,16 +62,69 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+interface ChatGptTranscribeResponse {
+  status: number;
+  body: string;
+  retryAfter?: string;
+}
+
+type ChatGptPageTranscriptionResult =
+  ({ kind: 'response' } & ChatGptTranscribeResponse) | { kind: 'request-failed'; failure: 'network' | 'timeout' };
+
+type ChatGptTranscriptionAttempt =
+  | ({ page: Page } & Extract<ChatGptPageTranscriptionResult, { kind: 'response' }>)
+  | {
+      failure: 'network' | 'timeout';
+      kind: 'request-failed';
+      page: Page;
+      pageClosed: boolean;
+      pageCurrent: boolean;
+    }
+  | {
+      kind: 'page-failed';
+      page: Page | null;
+      pageClosed: boolean;
+      pageCurrent: boolean;
+    };
+
+interface ChatGPTVoiceProviderDependencies {
+  now(): number;
+  reloadPage(page: Page, timeoutMs: number): Promise<void>;
+  writeClipboardText(text: string): void;
+}
+
 /** Browser-session provider for ChatGPT's transcription endpoint. */
-export class ChatGPTVoiceProvider extends BaseVoiceProvider {
-  readonly info: VoiceProviderInfo = {
+export class ChatGPTVoiceProvider extends BatchVoiceProvider {
+  private readonly deps: ChatGPTVoiceProviderDependencies;
+  private transcriptionPageRecovery: Promise<void> | null = null;
+  private transcriptionRateLimitUntil = 0;
+
+  constructor(deps: Partial<ChatGPTVoiceProviderDependencies> = {}) {
+    super();
+    this.deps = {
+      now: deps.now || Date.now,
+      reloadPage:
+        deps.reloadPage ||
+        (async (page, timeoutMs) => {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
+        }),
+      writeClipboardText: deps.writeClipboardText || writeClipboardText,
+    };
+  }
+
+  readonly info = {
     id: 'chatgpt',
     name: 'ChatGPT Web',
     authType: 'browserSession',
+    category: 'web',
+    hasSettings: true,
+    transcriptionMode: 'batch',
     loginUrl: 'https://chatgpt.com',
-  };
+  } satisfies VoiceProviderInfo;
 
   async initPage(context: BrowserContext): Promise<void> {
+    this.transcriptionPageRecovery = null;
+    this.transcriptionRateLimitUntil = 0;
     this.context = context;
     this.page = await context.newPage();
 
@@ -100,6 +160,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     } catch {
       /* ignore */
     }
+    this.transcriptionRateLimitUntil = 0;
     this.clearCachedToken();
   }
 
@@ -150,6 +211,16 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     try {
       log.info('Transcribing, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType);
 
+      const rateLimitFailure = this.getActiveRateLimitFailure();
+      if (rateLimitFailure) {
+        log.info('ChatGPT transcription skipped during rate-limit cooldown:', {
+          remainingSeconds: this.getRateLimitRemainingSeconds(),
+        });
+        return rateLimitFailure;
+      }
+
+      await this.transcriptionPageRecovery;
+
       if (!this.page) {
         return { success: false, error: t('error.notLoggedIn') };
       }
@@ -162,35 +233,16 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         return { success: false, error: t('error.noAccessToken') };
       }
 
-      const audioBase64 = Buffer.from(buffer).toString('base64');
-      const resp = await this.transcribeViaPage(audioBase64, token, mimeType);
-
-      log.info('Transcribe response status:', resp.status);
-      if (resp.status !== Number(StatusCodes.OK)) {
-        log.error('Transcribe response failed:', { bodyLength: resp.body.length, status: resp.status });
-      }
-
-      if (shouldRefreshTranscribeToken(resp.status)) {
-        log.info('Access token may have expired (status', resp.status, '), refreshing...');
-        token = await this.refreshAccessToken();
-        if (token) {
-          const retryResp = await this.transcribeViaPage(audioBase64, token, mimeType);
-          log.info('Retry response status:', retryResp.status);
-          if (retryResp.status !== Number(StatusCodes.OK)) {
-            log.error('Retry response failed:', { bodyLength: retryResp.body.length, status: retryResp.status });
-          }
-          return this.parseTranscribeResponse(retryResp, mimeType);
-        }
-      }
-
-      return this.parseTranscribeResponse(resp, mimeType);
+      return await this.transcribeWithRecovery(Buffer.from(buffer).toString('base64'), token, mimeType);
     } catch (error: unknown) {
       log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      return { success: false, error: t('error.notificationUnknown') };
     }
   }
 
   async shutdown(): Promise<void> {
+    this.transcriptionPageRecovery = null;
+    this.transcriptionRateLimitUntil = 0;
     this.clearCachedToken();
     await super.shutdown();
   }
@@ -265,8 +317,147 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
     return typeof token === 'string' ? token : '';
   }
 
-  private async transcribeViaPage(audioBase64: string, accessToken: string, mimeType: string) {
-    return this.page!.evaluate(
+  private async transcribeWithRecovery(
+    audioBase64: string,
+    initialAccessToken: string,
+    mimeType: string,
+  ): Promise<TranscriptionResult> {
+    let accessToken = initialAccessToken;
+
+    for (let attemptNumber = 1; attemptNumber <= TRANSCRIPTION_MAX_ATTEMPTS; attemptNumber += 1) {
+      const attempt = await this.runTranscriptionAttempt(audioBase64, accessToken, mimeType);
+      if (attempt.kind !== 'response') {
+        this.startTranscriptionPageRecovery(attempt.page);
+        log.warn('ChatGPT transcription transport failed:', {
+          attempt: attemptNumber,
+          audioReplaySuppressed: true,
+          cause:
+            attempt.kind === 'request-failed'
+              ? attempt.failure === 'timeout'
+                ? 'page-timeout'
+                : 'page-request'
+              : 'page-context',
+          pageClosed: attempt.pageClosed,
+          pageCurrent: attempt.pageCurrent,
+          recoveryScheduled: this.transcriptionPageRecovery !== null,
+        });
+        return this.createConnectionFailure();
+      }
+
+      this.logTranscribeResponse(attempt, attemptNumber);
+      if (shouldRefreshTranscribeToken(attempt.status)) {
+        if (attemptNumber >= TRANSCRIPTION_MAX_ATTEMPTS) {
+          return { success: false, error: t('error.noAccessToken') };
+        }
+
+        log.info('Access token may have expired; refreshing before one retry:', { status: attempt.status });
+        accessToken = await this.refreshAccessToken();
+        if (!accessToken) {
+          return { success: false, error: t('error.noAccessToken') };
+        }
+        continue;
+      }
+
+      if (attempt.status === Number(StatusCodes.TOO_MANY_REQUESTS)) {
+        return this.applyRateLimitCooldown(attempt);
+      }
+
+      return this.parseTranscribeResponse(attempt, mimeType);
+    }
+
+    return this.createConnectionFailure();
+  }
+
+  private async runTranscriptionAttempt(
+    audioBase64: string,
+    accessToken: string,
+    mimeType: string,
+  ): Promise<ChatGptTranscriptionAttempt> {
+    const page = this.page;
+    if (!page) {
+      return { kind: 'page-failed', page: null, pageClosed: true, pageCurrent: false };
+    }
+
+    try {
+      const result = await this.transcribeViaPage(page, audioBase64, accessToken, mimeType);
+      return result.kind === 'response'
+        ? { ...result, page }
+        : {
+            ...result,
+            page,
+            pageClosed: page.isClosed(),
+            pageCurrent: this.page === page,
+          };
+    } catch {
+      return {
+        kind: 'page-failed',
+        page,
+        pageClosed: page.isClosed(),
+        pageCurrent: this.page === page,
+      };
+    }
+  }
+
+  private startTranscriptionPageRecovery(page: Page | null): void {
+    if (!page || this.page !== page || page.isClosed() || this.transcriptionPageRecovery) return;
+
+    const startedAt = this.deps.now();
+    const recovery = this.recoverTranscriptionPage(page, startedAt);
+    this.transcriptionPageRecovery = recovery;
+    void recovery.then(() => {
+      if (this.transcriptionPageRecovery === recovery) this.transcriptionPageRecovery = null;
+    });
+  }
+
+  private async recoverTranscriptionPage(page: Page, startedAt: number): Promise<void> {
+    let recovered: boolean;
+    try {
+      await this.deps.reloadPage(page, TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS);
+      recovered = this.page === page && !page.isClosed();
+    } catch {
+      recovered = false;
+    }
+    log.info('ChatGPT transcription page recovery completed:', {
+      durationMs: Math.max(0, this.deps.now() - startedAt),
+      pageCurrent: this.page === page,
+      recovered,
+    });
+  }
+
+  private applyRateLimitCooldown(resp: ChatGptTranscribeResponse): TranscriptionResult {
+    const retryAfterSeconds = Math.min(
+      TRANSCRIPTION_RATE_LIMIT_MAX_SECONDS,
+      getTranscriptionRetryAfterSeconds(resp, this.deps.now()) ?? TRANSCRIPTION_RATE_LIMIT_FALLBACK_SECONDS,
+    );
+    this.transcriptionRateLimitUntil = Math.max(
+      this.transcriptionRateLimitUntil,
+      this.deps.now() + retryAfterSeconds * 1000,
+    );
+    log.warn('ChatGPT transcription rate limited:', { retryAfterSeconds });
+    return this.getActiveRateLimitFailure() ?? { success: false, error: t('error.rateLimited') };
+  }
+
+  private getRateLimitRemainingSeconds(): number {
+    return Math.max(0, Math.ceil((this.transcriptionRateLimitUntil - this.deps.now()) / 1000));
+  }
+
+  private getActiveRateLimitFailure(): TranscriptionResult | null {
+    const remainingSeconds = this.getRateLimitRemainingSeconds();
+    return remainingSeconds > 0
+      ? {
+          success: false,
+          error: t('error.rateLimitedRetryAfter', { seconds: String(remainingSeconds) }),
+        }
+      : null;
+  }
+
+  private async transcribeViaPage(
+    page: Page,
+    audioBase64: string,
+    accessToken: string,
+    mimeType: string,
+  ): Promise<ChatGptPageTranscriptionResult> {
+    return page.evaluate(
       async ({
         audioBase64: b64,
         accessToken: token,
@@ -275,6 +466,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         defaultMimeType,
         uploadFileBasename,
         transcriptionModel,
+        requestTimeoutMs,
       }: {
         audioBase64: string;
         accessToken: string;
@@ -283,6 +475,7 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         defaultMimeType: string;
         uploadFileBasename: string;
         transcriptionModel: string;
+        requestTimeoutMs: number;
       }) => {
         const binaryStr = atob(b64);
         const bytes = new Uint8Array(binaryStr.length);
@@ -294,17 +487,35 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         formData.append('file', blob, `${uploadFileBasename}.${uploadExtension}`);
         formData.append('model', transcriptionModel);
 
-        const res = await fetch('/backend-api/transcribe', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: '*/*',
-            'OAI-Language': navigator.language || 'en-US',
-          },
-          body: formData,
-        });
-        const text = await res.text();
-        return { status: res.status, body: text };
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+        try {
+          const res = await fetch('/backend-api/transcribe', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: '*/*',
+              'OAI-Language': navigator.language || 'en-US',
+            },
+            body: formData,
+            signal: controller.signal,
+          });
+          const text = await res.text();
+          const retryAfter = res.headers.get('retry-after')?.trim();
+          return {
+            kind: 'response' as const,
+            status: res.status,
+            body: text,
+            ...(retryAfter && retryAfter.length <= 128 ? { retryAfter } : {}),
+          };
+        } catch {
+          return {
+            kind: 'request-failed' as const,
+            failure: controller.signal.aborted ? ('timeout' as const) : ('network' as const),
+          };
+        } finally {
+          window.clearTimeout(timer);
+        }
       },
       {
         audioBase64,
@@ -314,15 +525,30 @@ export class ChatGPTVoiceProvider extends BaseVoiceProvider {
         defaultMimeType: DEFAULT_TRANSCRIPTION_MIME_TYPE,
         uploadFileBasename: TRANSCRIPTION_UPLOAD_FILE_BASENAME,
         transcriptionModel: TRANSCRIPTION_MODEL_WHISPER_1,
+        requestTimeoutMs: TRANSCRIPTION_REQUEST_TIMEOUT_MS,
       },
     );
   }
 
-  private parseTranscribeResponse(resp: { status: number; body: string }, mimeType: string): TranscriptionResult {
+  private logTranscribeResponse(resp: ChatGptTranscribeResponse, attemptNumber: number): void {
+    log.info('Transcribe response status:', { attempt: attemptNumber, status: resp.status });
+    if (resp.status !== Number(StatusCodes.OK)) {
+      log.error('Transcribe response failed:', { bodyLength: resp.body.length, status: resp.status });
+    }
+  }
+
+  private createConnectionFailure(): TranscriptionResult {
+    return {
+      success: false,
+      error: t('error.chatGptConnectionInterrupted'),
+    };
+  }
+
+  private parseTranscribeResponse(resp: ChatGptTranscribeResponse, mimeType: string): TranscriptionResult {
     const parsed = parseChatGptTranscribeResponse(resp, mimeType);
     if (parsed.success && parsed.text) {
       log.info('Transcription success, text length:', parsed.text.length);
-      writeClipboardText(parsed.text);
+      this.deps.writeClipboardText(parsed.text);
     }
     return parsed;
   }

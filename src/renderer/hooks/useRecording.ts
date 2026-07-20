@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import rendererLog from 'electron-log/renderer';
 import { prepareTranscriptionAudio, type TranscriptionAudioPayload } from '../audioEncoding';
 import {
@@ -10,7 +10,10 @@ import {
   storeRetryableTranscriptionAudio,
 } from '../recordingRetryState';
 import { showTranscriptionFailureNotification, showTranscriptionSuccessNotification } from '../recordingNotifications';
+import { translatedStatus, type RendererStatus } from '../statusPresentation';
+import { useStreamingRecordingController } from './useStreamingRecordingController';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE, PREFERRED_RECORDING_MIME_TYPES } from '@shared/transcriptionConstants';
+import type { VoiceTranscriptionMode } from '@shared/voiceProvider';
 import {
   getNotificationErrorMessage,
   type PresentedNotificationError,
@@ -28,19 +31,28 @@ import {
 const log = rendererLog.scope('recording');
 
 interface UseRecordingOptions {
-  notifyStatus?: (status: string) => void;
+  notifyStatus?: (status: RendererStatus) => void;
   setRecordingState: (state: RecordingLifecycleState) => void;
-  setStatus: (status: string) => void;
+  setStatus: (status: RendererStatus) => void;
   t: (key: string, params?: Record<string, string>) => string;
+  transcriptionMode: VoiceTranscriptionMode;
 }
 
 /** Coordinates audio capture, shortcut state, retry behavior, and recording notifications. */
-export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: UseRecordingOptions) {
+export function useRecording({
+  setStatus,
+  setRecordingState,
+  notifyStatus,
+  t,
+  transcriptionMode,
+}: UseRecordingOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const retryStateRef = useRef(createRecordingRetryState());
   const recordingLifecycleStateRef = useRef<RecordingLifecycleState>('idle');
+  const recordingModeRef = useRef<VoiceTranscriptionMode | null>(null);
+  const recordingGenerationRef = useRef(0);
 
   const getSupportedRecordingMimeType = useCallback(() => {
     return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
@@ -89,9 +101,18 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
     [reportRetryableTranscriptionAudio],
   );
 
+  const showSuccessfulTranscription = useCallback(
+    (text: string) => {
+      log.info('Copied transcription to clipboard, text length:', text.length);
+      setStatus(translatedStatus('status.copiedToClipboard'));
+      showTranscriptionSuccessNotification(window.electronAPI, t, text);
+    },
+    [setStatus, t],
+  );
+
   const submitTranscriptionAudio = useCallback(
     async (audio: TranscriptionAudioPayload, retry: boolean) => {
-      setStatus(t(retry ? 'status.resendingTranscription' : 'status.transcribing'));
+      setStatus(translatedStatus(retry ? 'status.resendingTranscription' : 'status.transcribing'));
 
       try {
         const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
@@ -100,9 +121,7 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
           textLength: result.text?.length ?? 0,
         });
         if (result.success && result.text) {
-          log.info('Copied transcription to clipboard, text length:', result.text.length);
-          setStatus(t('status.copiedToClipboard'));
-          showTranscriptionSuccessNotification(window.electronAPI, t, result.text);
+          showSuccessfulTranscription(result.text);
           return;
         }
 
@@ -113,32 +132,54 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
           ...presented.safeLogMetadata,
           hasRawResponse: Boolean((result as Record<string, unknown>).raw),
         });
-        setStatus(presented.userMessage);
+        setStatus(translatedStatus('status.transcriptionFailed'));
       } catch (error) {
         const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'), { sound: 'error' });
-        setStatus(presented.userMessage);
+        setStatus(translatedStatus('status.transcriptionError'));
         log.error('Transcribe error:', presented.safeLogMetadata);
       }
     },
-    [setStatus, showRecognitionErrorNotification, t],
+    [setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
   );
 
-  const startRecording = useCallback(async () => {
-    if (!canStartRecording(recordingLifecycleStateRef.current)) {
-      return;
-    }
+  const streamingRecording = useStreamingRecordingController({
+    clearRetryAudio: clearLastTranscriptionAudio,
+    notifyStatus,
+    recordingGenerationRef,
+    recordingLifecycleStateRef,
+    recordingModeRef,
+    rememberRetryAudio: rememberLastTranscriptionAudio,
+    reportRetryableAudio: reportRetryableTranscriptionAudio,
+    setRecordingLifecycle,
+    setStatus,
+    showRecognitionError: showRecognitionErrorNotification,
+    showSuccessfulTranscription,
+    streamRef,
+    t,
+  });
 
+  const startRecording = useCallback(async () => {
+    if (!canStartRecording(recordingLifecycleStateRef.current)) return;
+
+    const generation = recordingGenerationRef.current + 1;
+    recordingGenerationRef.current = generation;
+    recordingModeRef.current = transcriptionMode;
     setRecordingLifecycle('starting');
     try {
       clearLastTranscriptionAudio();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (recordingLifecycleStateRef.current !== 'starting') {
+      if (recordingGenerationRef.current !== generation || recordingLifecycleStateRef.current !== 'starting') {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
-
       streamRef.current = stream;
 
+      if (transcriptionMode === 'streaming') {
+        await streamingRecording.start(stream, generation);
+        return;
+      }
+
+      recordingModeRef.current = 'batch';
       const selectedMimeType = getSupportedRecordingMimeType();
       const mediaRecorder = selectedMimeType
         ? new MediaRecorder(stream, { mimeType: selectedMimeType })
@@ -147,9 +188,7 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) chunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
@@ -157,7 +196,7 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
         const mimeType = mediaRecorder.mimeType || selectedMimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
         const blob = new Blob(chunksRef.current, { type: mimeType });
 
-        setStatus(t('status.transcribing'));
+        setStatus(translatedStatus('status.transcribing'));
         try {
           const audio = await prepareTranscriptionAudio(blob);
           log.info('Prepared transcription audio:', {
@@ -168,12 +207,11 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
             transcoded: audio.transcoded,
             fallbackReason: audio.fallbackReason,
           });
-
           rememberLastTranscriptionAudio(audio);
           await submitTranscriptionAudio(audio, false);
         } catch (error) {
           const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'));
-          setStatus(presented.userMessage);
+          setStatus(translatedStatus('status.transcriptionError'));
           log.error('Transcription audio preparation error:', presented.safeLogMetadata);
         } finally {
           if (streamRef.current) {
@@ -181,6 +219,7 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
             streamRef.current = null;
           }
           mediaRecorderRef.current = null;
+          recordingModeRef.current = null;
           setRecordingLifecycle('idle');
           reportRetryableTranscriptionAudio();
         }
@@ -188,21 +227,21 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
 
       mediaRecorder.start();
       setRecordingLifecycle('recording');
-      setStatus(t('status.recording'));
+      setStatus(translatedStatus('status.recording'));
     } catch (error) {
+      if (recordingGenerationRef.current !== generation) return;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
       mediaRecorderRef.current = null;
-      if (recordingLifecycleStateRef.current !== 'starting') {
-        return;
-      }
+      recordingModeRef.current = null;
+      if (recordingLifecycleStateRef.current !== 'starting') return;
 
       setRecordingLifecycle('idle');
       void window.electronAPI.recordingStartFailed();
       const presented = showRecognitionErrorNotification(error, t('status.microphoneError'));
-      setStatus(presented.userMessage);
+      setStatus(translatedStatus('status.microphoneError'));
       log.error('Microphone error:', presented.safeLogMetadata);
     }
   }, [
@@ -213,15 +252,15 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
     setRecordingLifecycle,
     setStatus,
     showRecognitionErrorNotification,
+    streamingRecording,
     submitTranscriptionAudio,
     t,
+    transcriptionMode,
   ]);
 
   const resendLastTranscription = useCallback(async () => {
     const retry = beginRetryTranscription(retryStateRef.current, recordingLifecycleStateRef.current);
-    if (!retry) {
-      return;
-    }
+    if (!retry) return;
 
     retryStateRef.current = retry.state;
     reportRetryableTranscriptionAudio();
@@ -236,7 +275,10 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
   }, [reportRetryableTranscriptionAudio, setRecordingLifecycle, submitTranscriptionAudio]);
 
   const stopRecording = useCallback(() => {
-    if (!canStopRecording(recordingLifecycleStateRef.current)) {
+    if (!canStopRecording(recordingLifecycleStateRef.current)) return;
+
+    if (recordingModeRef.current === 'streaming') {
+      streamingRecording.stop();
       return;
     }
 
@@ -246,40 +288,50 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
     ) {
       setRecordingLifecycle('stopping');
       mediaRecorderRef.current.stop();
-      setStatus(t('status.stopping'));
+      setStatus(translatedStatus('status.stopping'));
     }
-  }, [setRecordingLifecycle, setStatus, t]);
+  }, [setRecordingLifecycle, setStatus, streamingRecording]);
 
   const pauseRecording = useCallback(() => {
-    if (!canPauseRecording(recordingLifecycleStateRef.current)) {
+    if (!canPauseRecording(recordingLifecycleStateRef.current)) return;
+
+    if (recordingModeRef.current === 'streaming') {
+      streamingRecording.pause();
       return;
     }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.pause();
       setRecordingLifecycle('paused');
-      setStatus(t('status.paused'));
+      setStatus(translatedStatus('status.paused'));
       log.info('Paused');
     }
-  }, [setRecordingLifecycle, setStatus, t]);
+  }, [setRecordingLifecycle, setStatus, streamingRecording]);
 
   const resumeRecording = useCallback(() => {
-    if (!canResumeRecording(recordingLifecycleStateRef.current)) {
+    if (!canResumeRecording(recordingLifecycleStateRef.current)) return;
+
+    if (recordingModeRef.current === 'streaming') {
+      streamingRecording.resume();
       return;
     }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+    if (mediaRecorderRef.current?.state === 'paused') {
       mediaRecorderRef.current.resume();
       setRecordingLifecycle('recording');
-      setStatus(t('status.recording'));
+      setStatus(translatedStatus('status.recording'));
       log.info('Resumed');
     }
-  }, [setRecordingLifecycle, setStatus, t]);
+  }, [setRecordingLifecycle, setStatus, streamingRecording]);
 
   const cancelRecording = useCallback(() => {
-    if (!canCancelRecording(recordingLifecycleStateRef.current)) {
+    if (!canCancelRecording(recordingLifecycleStateRef.current)) return;
+    if (recordingModeRef.current === 'streaming') {
+      streamingRecording.cancel(true);
       return;
     }
+
+    recordingGenerationRef.current += 1;
 
     if (
       mediaRecorderRef.current &&
@@ -293,12 +345,30 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
       streamRef.current = null;
     }
     mediaRecorderRef.current = null;
+    recordingModeRef.current = null;
     setRecordingLifecycle('idle');
-    const status = t('status.recordingCancelled');
+    const status = translatedStatus('status.recordingCancelled');
     setStatus(status);
     notifyStatus?.(status);
     log.info('Cancelled by user');
-  }, [notifyStatus, setRecordingLifecycle, setStatus, t]);
+  }, [notifyStatus, setRecordingLifecycle, setStatus, streamingRecording]);
+
+  const cancelStreamingForProviderChange = useCallback(() => {
+    streamingRecording.cancelForProviderChange();
+  }, [streamingRecording]);
+
+  useEffect(() => {
+    return () => {
+      recordingGenerationRef.current += 1;
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.onstop = null;
+        if (mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current = null;
+      streamRef.current = null;
+    };
+  }, []);
 
   return {
     startRecording,
@@ -306,6 +376,7 @@ export function useRecording({ setStatus, setRecordingState, notifyStatus, t }: 
     pauseRecording,
     resumeRecording,
     cancelRecording,
+    cancelStreamingForProviderChange,
     resendLastTranscription,
   };
 }

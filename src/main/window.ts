@@ -1,9 +1,12 @@
 import { BrowserWindow, shell, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
 import * as path from 'node:path';
 import { createAboutWindowController, isTrustedWindow } from './aboutWindowController';
+import { createProviderSettingsWindowController } from './providerSettingsWindowController';
 import { createLogger } from './logger';
 import { getAppIcon, getAppIconPath } from './assets';
 import { getAppUrl } from './appProtocol';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { AppLocaleId } from '@shared/appLocale';
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
@@ -11,9 +14,10 @@ let historyWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let isSettingsWindowCloseConfirmed = false;
 const log = createLogger('window');
-const MAIN_WINDOW_CONTENT_WIDTH = 460;
+const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
+const providerSettingsWindowController = createProviderSettingsWindowController<BrowserWindow>();
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
@@ -27,12 +31,67 @@ export function getHistoryWindow(): BrowserWindow | null {
   return historyWindow;
 }
 
+export function broadcastLocaleChanged(locale: AppLocaleId): void {
+  const windows = [
+    mainWindow,
+    settingsWindow,
+    historyWindow,
+    aboutWindowController.getWindow(),
+    ...providerSettingsWindowController.getWindows(),
+  ];
+  for (const window of new Set(windows)) {
+    if (window && !window.isDestroyed()) window.webContents.send('locale-changed', locale);
+  }
+}
+
 export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
   return isTrustedWindow(
-    [mainWindow, settingsWindow, historyWindow, aboutWindowController.getWindow()],
+    [
+      mainWindow,
+      settingsWindow,
+      historyWindow,
+      aboutWindowController.getWindow(),
+      ...providerSettingsWindowController.getWindows(),
+    ],
     webContents,
     senderUrl,
   );
+}
+
+export function showProviderSettingsWindow(providerId: string, title: string): void {
+  providerSettingsWindowController.show(providerId, () => {
+    const providerSettingsUrl = new URL(getAppUrl('provider-settings.html'));
+    providerSettingsUrl.searchParams.set('providerId', providerId);
+    const providerWindow = new BrowserWindow({
+      width: 560,
+      height: 680,
+      minWidth: 440,
+      minHeight: 520,
+      useContentSize: true,
+      autoHideMenuBar: true,
+      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+      resizable: true,
+      show: true,
+      title,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
+        navigateOnDragDrop: false,
+      },
+      icon: getAppIconPath(),
+    });
+    providerWindow.setMenuBarVisibility(false);
+    applyNavigationGuards(providerWindow);
+    void providerWindow.loadURL(providerSettingsUrl.toString());
+    return providerWindow;
+  });
+}
+
+export function closeProviderSettingsWindow(webContents: WebContents): boolean {
+  return providerSettingsWindowController.closeForWebContents(webContents);
 }
 
 export function setQuitting(value: boolean): void {
@@ -82,13 +141,14 @@ function applyNavigationGuards(win: BrowserWindow): void {
   });
 }
 
-export function showSettingsWindow(): void {
+export function showSettingsWindow(section?: AppSettingsSectionId): void {
   if (settingsWindow) {
     if (settingsWindow.isMinimized()) {
       settingsWindow.restore();
     }
     settingsWindow.show();
     settingsWindow.focus();
+    if (section) settingsWindow.webContents.send('app-settings-section-requested', section);
     return;
   }
 
@@ -116,7 +176,9 @@ export function showSettingsWindow(): void {
   settingsWindow = new BrowserWindow(options);
   settingsWindow.setMenuBarVisibility(false);
   applyNavigationGuards(settingsWindow);
-  void settingsWindow.loadURL(getAppUrl('settings.html'));
+  const settingsUrl = new URL(getAppUrl('settings.html'));
+  if (section) settingsUrl.searchParams.set('section', section);
+  void settingsWindow.loadURL(settingsUrl.toString());
 
   settingsWindow.on('close', (event) => {
     if (isQuitting || isSettingsWindowCloseConfirmed) {

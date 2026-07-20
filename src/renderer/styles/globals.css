@@ -2,8 +2,7 @@
 
 :root {
   color-scheme: dark;
-  --font-sans-system:
-    'Ubuntu Sans', Ubuntu, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-sans-system: 'Ubuntu Sans', Ubuntu, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
   --background: #181a1b;
   --surface: #202223;
   --surface-muted: #1b1d1e;
@@ -167,7 +166,8 @@
   min-height: 0;
   flex-direction: column;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   border: 1px solid var(--dock-border);
   background: var(--dock-background);
   color: var(--dock-foreground);
@@ -185,7 +185,7 @@
 
 .command-dock-header-band,
 .command-dock-provider-band,
-.command-dock-model-band,
+.command-dock-prettify-band,
 .command-dock-record-command-band,
 .command-dock-status-band {
   border-bottom: 1px solid var(--dock-border);
@@ -263,7 +263,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 11px 0 16px;
 }
 
 .command-dock-section-icon {
@@ -273,6 +273,7 @@
 
 .command-dock-provider-field {
   display: grid;
+  position: relative;
   width: 139px;
   min-width: 0;
   margin-left: 16px;
@@ -310,22 +311,26 @@
 .command-dock .command-dock-provider-trigger svg {
   width: 17px;
   height: 17px;
+  position: absolute;
+  top: 50%;
+  right: 0;
   color: var(--dock-icon);
+  transform: translateY(-50%);
 }
 
 .command-dock-provider-state {
   display: inline-flex;
   min-width: 0;
-  margin-left: auto;
   align-items: center;
   gap: 7px;
   padding: 5px 0;
   border: 0;
   background: transparent;
   color: var(--dock-muted);
-  cursor: pointer;
   font-size: 11.92px;
   font-weight: 500;
+  grid-column: 1;
+  grid-row: 1;
   line-height: 1.2;
 }
 
@@ -342,13 +347,14 @@
 .command-dock .command-dock-provider-action {
   max-width: 104px;
   height: 28px;
-  margin-left: auto;
   padding: 0 9px;
   overflow: hidden;
   border-color: var(--dock-control-border);
   border-radius: 3.5px;
   color: var(--dock-foreground);
   font-size: 10.51px;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .command-dock .command-dock-provider-action span {
@@ -357,142 +363,186 @@
   white-space: nowrap;
 }
 
+.command-dock-provider-controls {
+  display: grid;
+  width: 125px;
+  min-width: 0;
+  margin-left: auto;
+  align-items: center;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) 37px;
+}
+
+.command-dock-provider-controls[data-has-settings='false'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .command-dock-provider-settings-shortcut {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: 37px;
+  height: 34px;
   flex: none;
-  margin-left: 6px;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 1px solid var(--dock-control-border);
   border-radius: 3.5px;
-  background: transparent;
+  background: var(--dock-surface);
   color: var(--dock-icon);
   cursor: pointer;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .command-dock-provider-settings-shortcut svg {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
 }
 
-.command-dock-model-band {
-  position: relative;
+.command-dock-prettify-band {
   min-width: 0;
   min-height: 60px;
   flex: 0 0 60px;
 }
 
-.command-dock-model-layout {
+.command-dock-prettify-layout {
   display: grid;
   height: 59px;
   min-width: 0;
   align-items: center;
   padding: 0 11px 0 16px;
-  grid-template-columns: 23px 148px 1px 86px 1px 79px 92px;
+  gap: 8px;
+  grid-template-columns: 22px 147px minmax(0, 1fr) 125px;
 }
 
-.command-dock-model-layout[data-model-loaded='false'] {
-  grid-template-columns: 23px 148px 1px minmax(0, 1fr) 92px;
-}
-
-.command-dock-model-summary {
-  display: grid;
-  min-width: 0;
-  padding-left: 15px;
-  gap: 2px;
-  line-height: 1.2;
-}
-
-.command-dock-model-label {
-  font-size: 10.86px;
-}
-
-.command-dock-model-summary strong {
-  overflow: hidden;
-  color: var(--dock-foreground);
-  font-size: 13.32px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-dock-strong-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--dock-divider);
-}
-
-.command-dock-vram-summary {
-  display: grid;
-  min-width: 0;
-  align-items: center;
-  padding-left: 10px;
-  grid-template-columns: 25px minmax(0, 1fr);
-}
-
-.command-dock-vram-summary > svg {
-  width: 19px;
-  height: 19px;
-  color: var(--dock-icon);
-}
-
-.command-dock-vram-summary > span {
+.command-dock-prettify-provider-field,
+.command-dock-prettify-summary {
   display: grid;
   min-width: 0;
   gap: 1px;
   line-height: 1.2;
 }
 
-.command-dock-vram-summary small {
-  color: var(--dock-muted);
-  font-size: 10.86px;
-  font-weight: 400;
+.command-dock-prettify-provider-field {
+  position: relative;
+  padding-left: 8px;
 }
 
-.command-dock-vram-summary strong {
-  overflow: hidden;
+.command-dock .command-dock-prettify-provider-trigger {
+  width: 139px;
+  height: auto;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   color: var(--dock-foreground);
   font-size: 13.32px;
-  font-weight: 500;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.command-dock-prettify-provider-field > .command-dock-field-label,
+.command-dock .command-dock-prettify-provider-trigger > span {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.command-dock-memory-state {
+.command-dock .command-dock-prettify-provider-trigger:hover {
+  color: #fff;
+}
+
+.command-dock .command-dock-prettify-provider-trigger svg {
+  width: 17px;
+  height: 17px;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  color: var(--dock-icon);
+  transform: translateY(-50%);
+}
+
+.command-dock-model-label {
+  font-size: 10.51px;
+}
+
+.command-dock-prettify-summary strong {
+  overflow: hidden;
+  color: var(--dock-foreground);
+  font-size: 12.61px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-dock-prettify-state {
   display: inline-flex;
   min-width: 0;
   align-items: center;
   gap: 5px;
-  padding-left: 9px;
   color: var(--dock-muted);
-  font-size: 10.51px;
+  font-size: 9.81px;
   font-weight: 500;
   line-height: 1.2;
 }
 
-.command-dock-memory-state svg {
-  width: 16px;
-  height: 16px;
+.command-dock-prettify-state > svg {
+  width: 7px;
+  height: 7px;
   flex: none;
 }
 
-.command-dock-memory-state span {
+.command-dock-prettify-state > span {
   overflow: hidden;
+  min-width: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.command-dock-memory-state.is-loaded {
+.command-dock-prettify-state.is-success {
   color: var(--dock-success);
 }
 
-.command-dock .command-dock-memory-action {
-  width: 92px;
+.command-dock-prettify-state.is-warning {
+  color: var(--warning);
+}
+
+.command-dock-prettify-state.is-error {
+  color: var(--destructive);
+}
+
+.command-dock-prettify-controls {
+  display: grid;
+  width: 125px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) 37px;
+}
+
+.command-dock-prettify-connection {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.command-dock-prettify-connection.is-success {
+  color: var(--dock-success);
+}
+
+.command-dock-prettify-connection.is-warning {
+  color: var(--warning);
+}
+
+.command-dock-prettify-connection.is-error {
+  color: var(--destructive);
+}
+
+.command-dock .command-dock-prettify-model-action {
+  width: 68px;
   height: 27px;
-  gap: 6px;
+  gap: 5px;
   padding: 0 4px;
   border-color: var(--dock-control-border);
   border-radius: 3.5px;
@@ -501,55 +551,52 @@
   cursor: pointer;
   font-size: 10.51px;
   font-weight: 500;
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.command-dock .command-dock-memory-action:not(:disabled):hover {
+.command-dock .command-dock-prettify-model-action:not(:disabled):hover {
   border-color: var(--dock-divider);
   background: var(--surface-raised);
 }
 
-.command-dock .command-dock-memory-action svg {
+.command-dock .command-dock-prettify-model-action svg {
   width: 14px;
   height: 14px;
 }
 
-.command-dock .command-dock-memory-action span {
+.command-dock .command-dock-prettify-model-action span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.command-dock-model-band[data-has-feedback='true'] {
-  min-height: 60px;
-  flex-basis: 60px;
+.command-dock .command-dock-prettify-settings-shortcut {
+  width: 37px;
+  height: 34px;
+  padding: 0;
+  border-color: var(--dock-control-border);
+  border-radius: 3.5px;
+  background: var(--dock-surface);
+  color: var(--dock-icon);
 }
 
-.command-dock-model-band[data-has-feedback='true'] .command-dock-model-layout {
-  height: 42px;
+.command-dock .command-dock-prettify-settings-shortcut:hover {
+  background: var(--surface-raised);
+  color: var(--dock-foreground);
 }
 
-.command-dock-model-feedback {
-  position: absolute;
-  right: 16px;
-  bottom: 3px;
-  left: 55px;
-  overflow: hidden;
-  color: var(--dock-success);
-  font-size: 9px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-dock-model-feedback.is-error {
-  color: var(--destructive);
+.command-dock-prettify-settings-shortcut svg {
+  width: 22px;
+  height: 22px;
 }
 
 .command-dock-recording {
   display: grid;
   min-width: 0;
-  flex: 0 0 142px;
-  grid-template-rows: 93px 49px;
+  min-height: 142px;
+  flex: 0 0 auto;
+  grid-template-rows: 93px minmax(49px, max-content);
 }
 
 .command-dock-record-command-band {
@@ -623,29 +670,31 @@
 }
 
 .command-dock-status-band {
-  display: flex;
-  position: relative;
+  display: grid;
   min-width: 0;
+  min-height: 49px;
   align-items: center;
-  padding: 0 16px;
+  padding: 6px 16px;
+  column-gap: 14px;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
 }
 
 .command-dock-recording-state {
   display: inline-flex;
   min-width: 0;
-  flex: none;
   align-items: center;
   gap: 14px;
   color: var(--dock-foreground);
   font-size: 12.27px;
   font-weight: 650;
+  grid-column: 1;
   line-height: 1.2;
 }
 
 .command-dock-recording-state svg {
   width: 24px;
   height: 24px;
-  color: var(--dock-inactive-ring);
+  color: var(--dock-icon);
 }
 
 .command-dock-recording-state.is-recording {
@@ -667,27 +716,25 @@
 }
 
 .command-dock-status-detail {
-  position: absolute;
-  right: 80px;
-  left: 140px;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--dock-muted);
   font-size: 13px;
   font-weight: 600;
+  grid-column: 2;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: balance;
+  white-space: normal;
 }
 
 .command-dock-recording-actions {
   display: flex;
-  flex: none;
-  margin-left: auto;
   align-items: center;
   gap: 5px;
+  grid-column: 3;
+  justify-self: end;
 }
 
 .command-dock .command-dock-recording-secondary-action {
@@ -772,52 +819,18 @@
     width: 136px;
   }
 
-  .command-dock-model-band {
-    min-height: 78px;
-    flex-basis: 78px;
+  .command-dock-prettify-layout,
+  .command-dock-prettify-layout[data-has-model-action='false'] {
+    grid-template-columns: 22px minmax(0, 1fr) 125px;
   }
 
-  .command-dock-model-layout {
-    height: 77px;
-    padding-right: 16px;
-    grid-template-columns: 23px minmax(0, 1fr) 92px;
-    grid-template-rows: 39px 28px;
-  }
-
-  .command-dock-model-layout > .command-dock-section-icon {
-    grid-row: 1 / span 2;
-  }
-
-  .command-dock-model-summary {
-    padding-left: 12px;
-  }
-
-  .command-dock-model-layout > .command-dock-strong-divider {
+  .command-dock-prettify-summary,
+  .command-dock .command-dock-prettify-model-action {
     display: none;
   }
 
-  .command-dock-vram-summary {
-    grid-column: 2;
-    grid-row: 2;
-    padding-left: 12px;
-  }
-
-  .command-dock-memory-state {
-    display: none;
-  }
-
-  .command-dock .command-dock-memory-action {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-  }
-
-  .command-dock-model-band[data-has-feedback='true'] {
-    min-height: 78px;
-    flex-basis: 78px;
-  }
-
-  .command-dock-model-band[data-has-feedback='true'] .command-dock-model-layout {
-    height: 58px;
+  .command-dock .command-dock-prettify-provider-trigger {
+    width: 100%;
   }
 
   .command-dock-record-button-main {

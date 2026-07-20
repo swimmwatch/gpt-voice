@@ -1,0 +1,32 @@
+{
+  "capabilityVersion": "0.144.3",
+  "completion": true,
+  "envelopeShape": {
+    "keys": {
+      "text": { "type": "string", "value": "synthetic-placeholder" }
+    },
+    "type": "object"
+  },
+  "gates": {
+    "auth": true,
+    "execHelp": true,
+    "featureRegistry": true,
+    "isolatedExec": true,
+    "modelDiscovery": true,
+    "modelHelp": true,
+    "version": true
+  },
+  "modelShape": {
+    "keys": {
+      "models": {
+        "keys": {
+          "[redacted-model-field]": { "type": "string" },
+          "support_verbosity": { "type": "boolean" },
+          "supported_reasoning_levels": { "type": "array" }
+        },
+        "type": "array"
+      }
+    },
+    "type": "object"
+  }
+}

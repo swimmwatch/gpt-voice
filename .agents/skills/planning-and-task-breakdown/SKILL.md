@@ -1,257 +1,130 @@
 ---
 name: planning-and-task-breakdown
-description: Use only when the user explicitly requests task decomposition, estimates, or an implementation plan.
+description: Use only when the user explicitly requests an implementation plan, task decomposition, estimate, dependency map, or delivery sequence. For specification workstreams, create a compact plan index plus one separate self-contained Markdown task packet for every executable task so implementation does not preload the full specification; do not invoke automatically for routine coding.
 ---
 
-# Planning and Task Breakdown
+# Planning And Task Breakdown
 
-## Overview
+Plan from a measurable user outcome to independently verifiable delivery
+slices. Treat planning as decomposition: task packets are the executable
+artifacts, while `plan.md` is only their ordered index.
 
-Decompose work into small, verifiable tasks with explicit acceptance criteria. Good task breakdown is the difference between an agent that completes work reliably and one that produces a tangled mess. Every task should be small enough to implement, test, and verify in a single focused session.
+## Required Context
 
-## When to Use
+1. Read applicable `AGENTS.md` files and
+   [the task packet contract](../../references/task-packets.md).
+2. Resolve the selected `docs/specs/<slug>/` bundle. Ask when more than one
+   specification could own the work.
+3. Inspect the specification outline, size, requirement IDs, and acceptance IDs
+   before reading prose. Read targeted sections while writing each packet.
+4. Use CodeGraph first when the repository is indexed. Inspect only the code,
+   focused tests, types, one local precedent, and relevant project-conventions
+   sections needed to distinguish current behavior from planned work.
+5. Identify user, provider, privacy, packaging, or architecture decisions that
+   cannot be inferred safely.
 
-- You have a spec and need to break it into implementable units
-- A task feels too large or vague to start
-- Work needs to be parallelized across multiple agents or sessions
-- You need to communicate scope to a human
-- The implementation order isn't obvious
+Do not write production code during planning.
 
-**When NOT to use:** Single-file changes with obvious scope, or when the spec already contains well-defined tasks.
+## Define The Plan Boundary
 
-## The Planning Process
+State:
 
-### Step 1: Enter Plan Mode
+- goal and observable success;
+- user and affected workflow;
+- scope and non-goals;
+- assumptions and settled decisions;
+- unresolved decisions and blockers;
+- affected contracts and components;
+- quality, privacy, security, compatibility, packaging, and human-review
+  constraints.
 
-Before writing any code, operate in read-only mode:
+## Dependency And Slice Order
 
-- Read the spec and relevant codebase sections
-- Identify existing patterns and conventions
-- Map dependencies between components
-- Note risks and unknowns
+Prefer this order when applicable:
 
-**Do NOT write code during planning.** Start from the selected scoped specification at
-`docs/specs/<global-task-slug>/spec.md`. The output is a plan document saved to
-`docs/specs/<global-task-slug>/tasks/plan.md` and a task list saved to
-`docs/specs/<global-task-slug>/tasks/todo.md`, not implementation. If the applicable specification
-directory is ambiguous, ask the human before creating or updating task artifacts.
+1. User/provider decision and high-risk feasibility canary.
+2. Shared types, protocol, settings, lifecycle states, and validation.
+3. Pure transformation with focused tests.
+4. Browser, provider, filesystem, subprocess, or persistence adapter.
+5. Main service orchestration and typed IPC boundary.
+6. Renderer settings, state, and user workflow.
+7. Documentation, migration, accessibility, privacy, and platform verification.
 
-### Step 2: Identify the Dependency Graph
+Do not schedule downstream UI or orchestration against an undefined contract.
+Slice vertically when a small end-to-end behavior can be independently verified.
+Use contract-first or risk-first slices when shared contracts or private-provider
+uncertainty would otherwise invalidate later work.
 
-Map what depends on what:
+## Task Standard
 
-```
-Database schema
-    │
-    ├── API models/types
-    │       │
-    │       ├── API endpoints
-    │       │       │
-    │       │       └── Frontend API client
-    │       │               │
-    │       │               └── UI components
-    │       │
-    │       └── Validation logic
-    │
-    └── Seed data / migrations
-```
+Create one `docs/specs/<slug>/tasks/NN_<slug>.md` file for every executable
+task. Make each packet self-contained according to the task packet contract.
+Every packet must include:
 
-Implementation order follows the dependency graph bottom-up: build foundations first.
+- outcome rather than activity;
+- prerequisites, dependencies, and owned files or boundary;
+- in-scope behavior and explicit non-goals;
+- task-local architecture, privacy, security, compatibility, and recovery rules;
+- specific acceptance criteria;
+- smallest automated verification and required manual/platform verification;
+- exact scoped references and specification traceability;
+- completion instructions for `todo.md` and `handoff.md`;
+- explicit blocker when a decision remains unresolved.
 
-### Step 3: Slice Vertically
+Keep a packet small enough for one focused implementation session and normally
+no more than about five changed files. Split work that crosses independent
+subsystems, has more than one separately observable outcome, or cannot be
+verified independently. Use estimate ranges and state uncertainty drivers
+instead of false precision.
 
-Instead of building all the database, then all the API, then all the UI — build one complete feature path at a time:
+Each packet is an implementation invocation boundary. Completing it requires a
+review or preview pause. Do not plan automatic progression into the next packet.
 
-**Bad (horizontal slicing):**
+Include every task-local requirement directly in the packet. Link exact
+specification headings and acceptance IDs for traceability, but do not require
+the implementer to read `spec.md` before starting.
 
-```
-Task 1: Build entire database schema
-Task 2: Build all API endpoints
-Task 3: Build all UI components
-Task 4: Connect everything
-```
+## Coverage And Coordination
 
-**Good (vertical slicing):**
+After writing the packets:
 
-```
-Task 1: User can create an account (schema + API + UI for registration)
-Task 2: User can log in (auth schema + API + UI for login)
-Task 3: User can create a task (task schema + API + UI for creation)
-Task 4: User can view task list (query + API + UI for list view)
-```
+1. Map every applicable specification heading and requirement/acceptance ID to
+   at least one packet.
+2. Order packets by dependency and risk.
+3. Mark safe parallel work only after shared contracts are fixed. Keep shared
+   state, migrations, provider lifecycle, and IPC changes sequential when they
+   overlap.
+4. Add review checkpoints after high-risk canaries and major user-visible flows.
+5. Put only the compact coverage map in `plan.md`, links/state in `todo.md`, and
+   current continuation context in `handoff.md`.
 
-Each vertical slice delivers working, testable functionality.
-
-### Step 4: Write Tasks
-
-Each task follows this structure:
-
-```markdown
-## Task [N]: [Short descriptive title]
-
-**Description:** One paragraph explaining what this task accomplishes.
-
-**Acceptance criteria:**
-
-- [ ] [Specific, testable condition]
-- [ ] [Specific, testable condition]
-
-**Verification:**
-
-- [ ] Tests pass: `npm test -- --grep "feature-name"`
-- [ ] Build succeeds: `npm run build`
-- [ ] Manual check: [description of what to verify]
-
-**Dependencies:** [Task numbers this depends on, or "None"]
-
-**Files likely touched:**
-
-- `src/path/to/file.ts`
-- `tests/path/to/test.ts`
-
-**Estimated scope:** [Small: 1-2 files | Medium: 3-5 files | Large: 5+ files]
-```
-
-### Step 5: Order and Checkpoint
-
-Arrange tasks so that:
-
-1. Dependencies are satisfied (build foundation first)
-2. Each task leaves the system in a working state
-3. Verification checkpoints occur after every 2-3 tasks
-4. High-risk tasks are early (fail fast)
-
-Add explicit checkpoints:
+## Output
 
 ```markdown
-## Checkpoint: After Tasks 1-3
+# Implementation Plan: Feature Name
 
-- [ ] All tests pass
-- [ ] Application builds without errors
-- [ ] Core user flow works end-to-end
-- [ ] Review with human before proceeding
+## Goal And Success Measure
+
+## Ordered Task Index
+
+| Task                  | Outcome            | Dependencies | Coverage      |
+| --------------------- | ------------------ | ------------ | ------------- |
+| [01 Task](01_task.md) | Observable outcome | None         | REQ-01, AC-01 |
+
+## Cross-Task Risks And Blockers
+
+## Parallelization And Checkpoints
+
+## Final Verification
 ```
 
-## Task Sizing Guidelines
+Create or update together:
 
-| Size   | Files | Scope                                 | Example                              |
-| ------ | ----- | ------------------------------------- | ------------------------------------ |
-| **XS** | 1     | Single function or config change      | Add a validation rule                |
-| **S**  | 1-2   | One component or endpoint             | Add a new API endpoint               |
-| **M**  | 3-5   | One feature slice                     | User registration flow               |
-| **L**  | 5-8   | Multi-component feature               | Search with filtering and pagination |
-| **XL** | 8+    | **Too large — break it down further** | —                                    |
+- `docs/specs/<slug>/tasks/plan.md`;
+- `docs/specs/<slug>/tasks/todo.md`;
+- `docs/specs/<slug>/tasks/handoff.md`;
+- one numbered task packet per executable task.
 
-If a task is L or larger, it should be broken into smaller tasks. An agent performs best on S and M tasks.
-
-**When to break a task down further:**
-
-- It would take more than one focused session (roughly 2+ hours of agent work)
-- You cannot describe the acceptance criteria in 3 or fewer bullet points
-- It touches two or more independent subsystems (e.g., auth and billing)
-- You find yourself writing "and" in the task title (a sign it is two tasks)
-
-## Output Files
-
-- **Plan document:** Save the implementation plan to `docs/specs/<global-task-slug>/tasks/plan.md`.
-- **Task list:** Save the checklist-style task list to `docs/specs/<global-task-slug>/tasks/todo.md`.
-
-Create the `tasks/` directory within the selected specification directory if it does not exist. Planning
-and implementation work must resolve the relevant specification directory first; never write these
-artifacts to a repository-root `tasks/` folder.
-
-## Plan Document Template
-
-```markdown
-# Implementation Plan: [Feature/Project Name]
-
-## Overview
-
-[One paragraph summary of what we're building]
-
-## Architecture Decisions
-
-- [Key decision 1 and rationale]
-- [Key decision 2 and rationale]
-
-## Task List
-
-### Phase 1: Foundation
-
-- [ ] Task 1: ...
-- [ ] Task 2: ...
-
-### Checkpoint: Foundation
-
-- [ ] Tests pass, builds clean
-
-### Phase 2: Core Features
-
-- [ ] Task 3: ...
-- [ ] Task 4: ...
-
-### Checkpoint: Core Features
-
-- [ ] End-to-end flow works
-
-### Phase 3: Polish
-
-- [ ] Task 5: ...
-- [ ] Task 6: ...
-
-### Checkpoint: Complete
-
-- [ ] All acceptance criteria met
-- [ ] Ready for review
-
-## Risks and Mitigations
-
-| Risk   | Impact         | Mitigation |
-| ------ | -------------- | ---------- |
-| [Risk] | [High/Med/Low] | [Strategy] |
-
-## Open Questions
-
-- [Question needing human input]
-```
-
-## Parallelization Opportunities
-
-When multiple agents or sessions are available:
-
-- **Safe to parallelize:** Independent feature slices, tests for already-implemented features, documentation
-- **Must be sequential:** Database migrations, shared state changes, dependency chains
-- **Needs coordination:** Features that share an API contract (define the contract first, then parallelize)
-
-## Common Rationalizations
-
-| Rationalization                | Reality                                                                                      |
-| ------------------------------ | -------------------------------------------------------------------------------------------- |
-| "I'll figure it out as I go"   | That's how you end up with a tangled mess and rework. 10 minutes of planning saves hours.    |
-| "The tasks are obvious"        | Write them down anyway. Explicit tasks surface hidden dependencies and forgotten edge cases. |
-| "Planning is overhead"         | Planning is the task. Implementation without a plan is just typing.                          |
-| "I can hold it all in my head" | Context windows are finite. Written plans survive session boundaries and compaction.         |
-
-## Red Flags
-
-- Starting implementation without a written task list
-- Tasks that say "implement the feature" without acceptance criteria
-- No verification steps in the plan
-- All tasks are XL-sized
-- No checkpoints between tasks
-- Dependency order isn't considered
-
-## Verification
-
-Before starting implementation, confirm:
-
-- [ ] Every task has acceptance criteria
-- [ ] Every task has a verification step
-- [ ] Task dependencies are identified and ordered correctly
-- [ ] No task touches more than ~5 files
-- [ ] Checkpoints exist between major phases
-- [ ] The human has reviewed and approved the plan
-
-## See Also
-
-Acceptance criteria are per-task and answer "did we build the right thing?". They sit on top of the project-wide Definition of Done, the standing bar every task clears before it counts as done. See `.agents/references/definition-of-done.md`.
+Apply `.agents/references/definition-of-done.md`. Before implementation, confirm
+that every packet is independently verifiable, dependencies are ordered,
+coverage is complete, and the human has approved the plan.

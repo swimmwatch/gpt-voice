@@ -83,6 +83,31 @@ describe('browser navigation retry', () => {
     assert.deepEqual(delays, [500, 1000, 2000]);
   });
 
+  it('classifies Claude navigation retries independently', async () => {
+    const events: BrowserNavigationRetryEvent[] = [];
+    let attempts = 0;
+
+    await retryBrowserNavigation(
+      {
+        navigate: async () => {
+          attempts += 1;
+          if (attempts === 1) throw new Error('page.goto: net::ERR_CONNECTION_RESET');
+        },
+        service: BrowserNavigationService.Claude,
+      },
+      {
+        onRetry: (event) => events.push(event),
+        random: () => 0.5,
+        sleep: async () => undefined,
+      },
+    );
+
+    assert.equal(attempts, 2);
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.service, BrowserNavigationService.Claude);
+    assert.equal(events[0]?.error.wasSanitized, true);
+  });
+
   it('does not retry non-network navigation failures', async () => {
     let attempts = 0;
 

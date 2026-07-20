@@ -7,11 +7,25 @@ import {
   type CloakBrowserSettingsView,
 } from '@shared/cloakBrowserSettings';
 import {
+  MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
-  getPrettifyBaseUrlValidationError,
-  isPrettifyProviderId,
+  MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  getPrettifyBaseUrlValidationErrorCode,
+  getPrettifyProviderCapabilities,
+  isClaudeCliPrettifyEffort,
+  isCodexCliPrettifyReasoningEffort,
+  isCodexCliPrettifyVerbosity,
+  isKnownPrettifyProviderId,
+  isValidClaudeCliPrettifyModel,
+  isValidCodexCliPrettifyModel,
+  isValidPrettifyCliExecutablePath,
+  type ClaudeCliPrettifyEffort,
+  type CodexCliPrettifyReasoningEffort,
+  type CodexCliPrettifyVerbosity,
+  type KnownPrettifyProviderId,
   type PrettifySettings,
   type PrettifySettingsInput,
+  type PrettifyBaseUrlValidationErrorCode,
 } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
@@ -41,6 +55,12 @@ export type AppSettingsFieldKey =
   | 'prettifyMaxOutputTokens'
   | 'prettifySeed'
   | 'prettifyApiKey'
+  | 'prettifyExecutablePath'
+  | 'prettifyFallbackModel'
+  | 'prettifyEffort'
+  | 'prettifyReasoningEffort'
+  | 'prettifyVerbosity'
+  | 'prettifyTimeout'
   | 'humanPreset'
   | 'backgroundMode'
   | 'fingerprintSeed'
@@ -51,7 +71,125 @@ export type AppSettingsFieldKey =
   | 'proxyUsername'
   | 'proxyPassword';
 
-export type AppSettingsFieldErrors = Partial<Record<AppSettingsFieldKey, string>>;
+export type AppSettingsValidationErrorCode =
+  | PrettifyBaseUrlValidationErrorCode
+  | 'prettify-temperature-range'
+  | 'prettify-top-p-range'
+  | 'prettify-top-k-range'
+  | 'prettify-min-p-range'
+  | 'prettify-repeat-penalty-range'
+  | 'prettify-max-output-tokens-range'
+  | 'prettify-seed-range'
+  | 'prettify-base-url-required'
+  | 'prettify-model-required'
+  | 'prettify-model-unavailable'
+  | 'prettify-executable-path-invalid'
+  | 'prettify-claude-model-invalid'
+  | 'prettify-claude-fallback-model-invalid'
+  | 'prettify-claude-effort-invalid'
+  | 'prettify-cli-timeout-range'
+  | 'prettify-codex-model-invalid'
+  | 'prettify-codex-reasoning-invalid'
+  | 'prettify-codex-verbosity-invalid'
+  | 'prettify-prompt-required'
+  | 'prettify-prompt-too-long'
+  | 'prettify-provider-invalid'
+  | 'locale-required'
+  | 'locale-unsupported'
+  | 'timezone-required'
+  | 'timezone-unsupported'
+  | 'proxy-server-required'
+  | 'proxy-protocol-invalid'
+  | 'proxy-credentials-in-url'
+  | 'proxy-url-invalid'
+  | 'proxy-socks5-credentials-unsupported'
+  | 'human-preset-invalid'
+  | 'background-mode-invalid'
+  | 'fingerprint-seed-required'
+  | 'fingerprint-seed-digits';
+
+export const APP_SETTINGS_VALIDATION_ERROR_CODES = [
+  'prettify-temperature-range',
+  'prettify-top-p-range',
+  'prettify-top-k-range',
+  'prettify-min-p-range',
+  'prettify-repeat-penalty-range',
+  'prettify-max-output-tokens-range',
+  'prettify-seed-range',
+  'prettify-base-url-required',
+  'prettify-base-url-invalid',
+  'prettify-base-url-credentials',
+  'prettify-base-url-insecure-remote',
+  'prettify-model-required',
+  'prettify-model-unavailable',
+  'prettify-executable-path-invalid',
+  'prettify-claude-model-invalid',
+  'prettify-claude-fallback-model-invalid',
+  'prettify-claude-effort-invalid',
+  'prettify-cli-timeout-range',
+  'prettify-codex-model-invalid',
+  'prettify-codex-reasoning-invalid',
+  'prettify-codex-verbosity-invalid',
+  'prettify-prompt-required',
+  'prettify-prompt-too-long',
+  'prettify-provider-invalid',
+  'locale-required',
+  'locale-unsupported',
+  'timezone-required',
+  'timezone-unsupported',
+  'proxy-server-required',
+  'proxy-protocol-invalid',
+  'proxy-credentials-in-url',
+  'proxy-url-invalid',
+  'proxy-socks5-credentials-unsupported',
+  'human-preset-invalid',
+  'background-mode-invalid',
+  'fingerprint-seed-required',
+  'fingerprint-seed-digits',
+] as const satisfies readonly AppSettingsValidationErrorCode[];
+
+export interface AppSettingsValidationError {
+  code: AppSettingsValidationErrorCode;
+  params?: Record<string, string>;
+}
+
+export type AppSettingsFieldErrors = Partial<Record<AppSettingsFieldKey, AppSettingsValidationError>>;
+
+export function createAppSettingsValidationError(
+  code: AppSettingsValidationErrorCode,
+  params?: Record<string, string>,
+): AppSettingsValidationError {
+  return params ? { code, params } : { code };
+}
+
+export type PrettifySettingsDraft = Omit<PrettifySettings, 'providerId'> & {
+  providerId: KnownPrettifyProviderId;
+};
+
+export const PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS = [
+  'prettifyBaseUrl',
+  'prettifyModel',
+  'prettifyTemperature',
+  'prettifyTopP',
+  'prettifyTopK',
+  'prettifyMinP',
+  'prettifyRepeatPenalty',
+  'prettifyMaxOutputTokens',
+  'prettifySeed',
+  'prettifyApiKey',
+  'prettifyExecutablePath',
+  'prettifyFallbackModel',
+  'prettifyEffort',
+  'prettifyReasoningEffort',
+  'prettifyVerbosity',
+  'prettifyTimeout',
+] as const satisfies readonly AppSettingsFieldKey[];
+
+export interface PrettifyProviderTransitionState {
+  clearFieldErrors: readonly AppSettingsFieldKey[];
+  resetModelState: true;
+  settings: PrettifySettingsDraft;
+}
 
 export interface EditableCloakBrowserSettings extends Omit<CloakBrowserSettingsView, 'proxy'> {
   proxy: CloakBrowserSettingsView['proxy'] & {
@@ -73,11 +211,11 @@ export interface AppSettingsSaveDependencies {
 }
 
 export interface AppSettingsSaveInput {
-  initialPrettifySettings: PrettifySettings;
+  initialPrettifySettings: PrettifySettingsDraft;
   initialSettings: EditableCloakBrowserSettings;
   initialTextActionSettings: TextActionSettings;
   localeValues?: readonly string[];
-  prettifySettings: PrettifySettings;
+  prettifySettings: PrettifySettingsDraft;
   settings: EditableCloakBrowserSettings;
   textActionSettings: TextActionSettings;
   timezoneValues?: readonly string[];
@@ -120,23 +258,31 @@ export interface SanitizedCloakBrowserSettingsSummary {
   clearProxyPassword: boolean;
 }
 
-export interface AppSettingsLogSummary {
+export interface SanitizedPrettifyProviderSummary {
+  prettifyModelLength: number;
+  prettifyFallbackModelLength?: number;
+  prettifyHasExecutablePath?: boolean;
+  prettifyEffort?: ClaudeCliPrettifyEffort | CodexCliPrettifyReasoningEffort;
+  prettifyVerbosity?: CodexCliPrettifyVerbosity;
+  prettifyTimeoutSeconds?: number;
+  prettifyTemperature?: number;
+  prettifyTopP?: number;
+  prettifyTopK?: number;
+  prettifyMinP?: number;
+  prettifyRepeatPenalty?: number;
+  prettifyMaxOutputTokens?: number;
+  prettifyHasSeed?: boolean;
+  prettifyHasVllmApiKey?: boolean;
+  prettifyVllmApiKeyUpdated?: boolean;
+  prettifyVllmApiKeyCleared?: boolean;
+}
+
+export interface AppSettingsLogSummary extends SanitizedPrettifyProviderSummary {
   changedGroups: AppSettingsChangedGroup[];
   changedFields: string[];
   prettifyPromptChanged: boolean;
   prettifyPromptLength: number;
-  prettifyProviderId: PrettifySettings['providerId'];
-  prettifyModel: string;
-  prettifyTemperature: number;
-  prettifyTopP: number;
-  prettifyTopK: number;
-  prettifyMinP: number;
-  prettifyRepeatPenalty: number;
-  prettifyMaxOutputTokens: number;
-  prettifyHasSeed: boolean;
-  prettifyHasVllmApiKey: boolean;
-  prettifyVllmApiKeyUpdated: boolean;
-  prettifyVllmApiKeyCleared: boolean;
+  prettifyProviderId: KnownPrettifyProviderId;
   textActions: TextActionSettings;
   cloakBrowser: SanitizedCloakBrowserSettingsSummary;
 }
@@ -173,15 +319,30 @@ export function createSanitizedCloakBrowserSettingsSummary(
   };
 }
 
-function getActivePrettifyProviderSettings(settings: PrettifySettings) {
-  return settings.providerId === 'vllm' ? settings.vllm : settings.ollama;
+export function createPrettifyProviderTransitionState(
+  settings: PrettifySettingsDraft,
+  providerId: KnownPrettifyProviderId,
+): PrettifyProviderTransitionState {
+  return {
+    clearFieldErrors: PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS,
+    resetModelState: true,
+    settings: { ...settings, providerId },
+  };
 }
 
-function hasVllmApiKeyUpdate(settings: PrettifySettings): boolean {
+/** Applies an externally persisted provider choice without replacing any unsaved provider drafts. */
+export function applyExternalPrettifyProviderSelection(
+  settings: PrettifySettingsDraft,
+  providerId: KnownPrettifyProviderId,
+): PrettifySettingsDraft {
+  return settings.providerId === providerId ? settings : { ...settings, providerId };
+}
+
+function hasVllmApiKeyUpdate(settings: PrettifySettingsDraft): boolean {
   return Boolean(settings.vllm.apiKey?.trim());
 }
 
-function hasVllmApiKeyChange(settings: PrettifySettings, initialSettings: PrettifySettings): boolean {
+function hasVllmApiKeyChange(settings: PrettifySettingsDraft, initialSettings: PrettifySettingsDraft): boolean {
   return (
     settings.vllm.hasApiKey !== initialSettings.vllm.hasApiKey ||
     hasVllmApiKeyUpdate(settings) ||
@@ -195,22 +356,65 @@ function collectChangedFields(changes: ReadonlyArray<readonly [boolean, string]>
 
 function collectPrettifyChangedFields(input: AppSettingsSaveInput): string[] {
   const { initialPrettifySettings: initial, prettifySettings: current } = input;
-  return collectChangedFields([
+  const commonChanges = collectChangedFields([
     [current.prompt !== initial.prompt, 'prettifyPrompt'],
     [current.providerId !== initial.providerId, 'prettifyProvider'],
-    [current.temperature !== initial.temperature, 'prettifyTemperature'],
-    [current.topP !== initial.topP, 'prettifyTopP'],
-    [current.topK !== initial.topK, 'prettifyTopK'],
-    [current.minP !== initial.minP, 'prettifyMinP'],
-    [current.repeatPenalty !== initial.repeatPenalty, 'prettifyRepeatPenalty'],
-    [current.maxOutputTokens !== initial.maxOutputTokens, 'prettifyMaxOutputTokens'],
-    [current.seed !== initial.seed, 'prettifySeed'],
-    [current.ollama.baseUrl !== initial.ollama.baseUrl, 'prettifyBaseUrl'],
-    [current.ollama.model !== initial.ollama.model, 'prettifyModel'],
-    [current.vllm.baseUrl !== initial.vllm.baseUrl, 'prettifyBaseUrl'],
-    [current.vllm.model !== initial.vllm.model, 'prettifyModel'],
-    [hasVllmApiKeyChange(current, initial), 'prettifyApiKey'],
   ]);
+
+  const httpGenerationChanges = (): string[] =>
+    collectChangedFields([
+      [current.temperature !== initial.temperature, 'prettifyTemperature'],
+      [current.topP !== initial.topP, 'prettifyTopP'],
+      [current.topK !== initial.topK, 'prettifyTopK'],
+      [current.minP !== initial.minP, 'prettifyMinP'],
+      [current.repeatPenalty !== initial.repeatPenalty, 'prettifyRepeatPenalty'],
+      [current.maxOutputTokens !== initial.maxOutputTokens, 'prettifyMaxOutputTokens'],
+      [current.seed !== initial.seed, 'prettifySeed'],
+    ]);
+
+  switch (current.providerId) {
+    case 'ollama':
+      return [
+        ...commonChanges,
+        ...httpGenerationChanges(),
+        ...collectChangedFields([
+          [current.ollama.baseUrl !== initial.ollama.baseUrl, 'prettifyBaseUrl'],
+          [current.ollama.model !== initial.ollama.model, 'prettifyModel'],
+        ]),
+      ];
+    case 'vllm':
+      return [
+        ...commonChanges,
+        ...httpGenerationChanges(),
+        ...collectChangedFields([
+          [current.vllm.baseUrl !== initial.vllm.baseUrl, 'prettifyBaseUrl'],
+          [current.vllm.model !== initial.vllm.model, 'prettifyModel'],
+          [hasVllmApiKeyChange(current, initial), 'prettifyApiKey'],
+        ]),
+      ];
+    case 'claude-cli':
+      return [
+        ...commonChanges,
+        ...collectChangedFields([
+          [current.claudeCli.executablePath !== initial.claudeCli.executablePath, 'prettifyExecutablePath'],
+          [current.claudeCli.model !== initial.claudeCli.model, 'prettifyModel'],
+          [current.claudeCli.fallbackModel !== initial.claudeCli.fallbackModel, 'prettifyFallbackModel'],
+          [current.claudeCli.effort !== initial.claudeCli.effort, 'prettifyEffort'],
+          [current.claudeCli.timeoutSeconds !== initial.claudeCli.timeoutSeconds, 'prettifyTimeout'],
+        ]),
+      ];
+    case 'codex-cli':
+      return [
+        ...commonChanges,
+        ...collectChangedFields([
+          [current.codexCli.executablePath !== initial.codexCli.executablePath, 'prettifyExecutablePath'],
+          [current.codexCli.model !== initial.codexCli.model, 'prettifyModel'],
+          [current.codexCli.reasoningEffort !== initial.codexCli.reasoningEffort, 'prettifyReasoningEffort'],
+          [current.codexCli.verbosity !== initial.codexCli.verbosity, 'prettifyVerbosity'],
+          [current.codexCli.timeoutSeconds !== initial.codexCli.timeoutSeconds, 'prettifyTimeout'],
+        ]),
+      ];
+  }
 }
 
 function collectTextActionChangedFields(input: AppSettingsSaveInput): string[] {
@@ -257,31 +461,72 @@ function appendChangedGroup(
   changedFields.push(...fields);
 }
 
+function getHttpGenerationLogSummary(settings: PrettifySettingsDraft): SanitizedPrettifyProviderSummary {
+  return {
+    prettifyModelLength: 0,
+    prettifyTemperature: settings.temperature,
+    prettifyTopP: settings.topP,
+    prettifyTopK: settings.topK,
+    prettifyMinP: settings.minP,
+    prettifyRepeatPenalty: settings.repeatPenalty,
+    prettifyMaxOutputTokens: settings.maxOutputTokens,
+    prettifyHasSeed: settings.seed !== null,
+  };
+}
+
+function createSanitizedPrettifyProviderSummary(settings: PrettifySettingsDraft): SanitizedPrettifyProviderSummary {
+  switch (settings.providerId) {
+    case 'ollama':
+      return {
+        ...getHttpGenerationLogSummary(settings),
+        prettifyModelLength: settings.ollama.model.length,
+      };
+    case 'vllm':
+      return {
+        ...getHttpGenerationLogSummary(settings),
+        prettifyModelLength: settings.vllm.model.length,
+        prettifyHasVllmApiKey: settings.vllm.hasApiKey,
+        prettifyVllmApiKeyUpdated: hasVllmApiKeyUpdate(settings),
+        prettifyVllmApiKeyCleared: Boolean(settings.vllm.clearApiKey),
+      };
+    case 'claude-cli':
+      return {
+        prettifyModelLength: settings.claudeCli.model.length,
+        prettifyFallbackModelLength: settings.claudeCli.fallbackModel.length,
+        prettifyHasExecutablePath: Boolean(settings.claudeCli.executablePath.trim()),
+        prettifyEffort: settings.claudeCli.effort,
+        prettifyTimeoutSeconds: settings.claudeCli.timeoutSeconds,
+      };
+    case 'codex-cli':
+      return {
+        prettifyModelLength: settings.codexCli.model.length,
+        prettifyHasExecutablePath: Boolean(settings.codexCli.executablePath.trim()),
+        prettifyEffort: settings.codexCli.reasoningEffort,
+        prettifyVerbosity: settings.codexCli.verbosity,
+        prettifyTimeoutSeconds: settings.codexCli.timeoutSeconds,
+      };
+  }
+}
+
 // Logging each setting explicitly keeps secrets excluded while preserving an auditable list of user-visible changes.
 export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSettingsLogSummary {
   const changedGroups: AppSettingsChangedGroup[] = [];
   const changedFields: string[] = [];
-  appendChangedGroup(changedGroups, changedFields, 'prettify', collectPrettifyChangedFields(input));
+  const prettifyChangedFields = collectPrettifyChangedFields(input);
+  if (!arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings)) {
+    changedGroups.push('prettify');
+    changedFields.push(...prettifyChangedFields);
+  }
   appendChangedGroup(changedGroups, changedFields, 'textActions', collectTextActionChangedFields(input));
   appendChangedGroup(changedGroups, changedFields, 'cloakBrowser', collectCloakBrowserChangedFields(input));
 
   return {
+    ...createSanitizedPrettifyProviderSummary(input.prettifySettings),
     changedGroups,
     changedFields,
     prettifyPromptChanged: input.prettifySettings.prompt !== input.initialPrettifySettings.prompt,
     prettifyPromptLength: input.prettifySettings.prompt.length,
     prettifyProviderId: input.prettifySettings.providerId,
-    prettifyModel: getActivePrettifyProviderSettings(input.prettifySettings).model,
-    prettifyTemperature: input.prettifySettings.temperature,
-    prettifyTopP: input.prettifySettings.topP,
-    prettifyTopK: input.prettifySettings.topK,
-    prettifyMinP: input.prettifySettings.minP,
-    prettifyRepeatPenalty: input.prettifySettings.repeatPenalty,
-    prettifyMaxOutputTokens: input.prettifySettings.maxOutputTokens,
-    prettifyHasSeed: input.prettifySettings.seed !== null,
-    prettifyHasVllmApiKey: input.prettifySettings.vllm.hasApiKey,
-    prettifyVllmApiKeyUpdated: hasVllmApiKeyUpdate(input.prettifySettings),
-    prettifyVllmApiKeyCleared: Boolean(input.prettifySettings.vllm.clearApiKey),
     textActions: input.textActionSettings,
     cloakBrowser: createSanitizedCloakBrowserSettingsSummary(input.settings),
   };
@@ -374,71 +619,158 @@ export function hasAppSettingsFieldErrors(fieldErrors: AppSettingsFieldErrors): 
 
 export interface ValidateAppSettingsInput {
   localeValues?: readonly string[];
-  prettifySettings: PrettifySettings;
+  prettifySettings: PrettifySettingsDraft;
   settings: EditableCloakBrowserSettings;
   timezoneValues?: readonly string[];
 }
 
-function addNumericPrettifyErrors(settings: PrettifySettings, errors: AppSettingsFieldErrors): void {
-  const numericRules: Array<[AppSettingsFieldKey, boolean, string]> = [
+function addNumericPrettifyErrors(settings: PrettifySettingsDraft, errors: AppSettingsFieldErrors): void {
+  const numericRules: Array<[AppSettingsFieldKey, boolean, AppSettingsValidationErrorCode]> = [
     [
       'prettifyTemperature',
       Number.isFinite(settings.temperature) && settings.temperature >= 0 && settings.temperature <= 1,
-      'Temperature must be between 0 and 1',
+      'prettify-temperature-range',
     ],
     [
       'prettifyTopP',
       Number.isFinite(settings.topP) && settings.topP >= 0.05 && settings.topP <= 1,
-      'Top P must be between 0.05 and 1',
+      'prettify-top-p-range',
     ],
     [
       'prettifyTopK',
       Number.isInteger(settings.topK) && settings.topK >= 1 && settings.topK <= 200,
-      'Top K must be an integer between 1 and 200',
+      'prettify-top-k-range',
     ],
     [
       'prettifyMinP',
       Number.isFinite(settings.minP) && settings.minP >= 0 && settings.minP <= 1,
-      'Min P must be between 0 and 1',
+      'prettify-min-p-range',
     ],
     [
       'prettifyRepeatPenalty',
       Number.isFinite(settings.repeatPenalty) && settings.repeatPenalty >= 0.8 && settings.repeatPenalty <= 1.5,
-      'Repeat penalty must be between 0.8 and 1.5',
+      'prettify-repeat-penalty-range',
     ],
     [
       'prettifyMaxOutputTokens',
       Number.isInteger(settings.maxOutputTokens) && settings.maxOutputTokens >= 1 && settings.maxOutputTokens <= 8192,
-      'Max output tokens must be an integer between 1 and 8192',
+      'prettify-max-output-tokens-range',
     ],
     [
       'prettifySeed',
       settings.seed === null ||
         (Number.isInteger(settings.seed) && settings.seed >= 0 && settings.seed <= 2_147_483_647),
-      'Seed must be empty or an integer between 0 and 2147483647',
+      'prettify-seed-range',
     ],
   ];
-  for (const [field, valid, message] of numericRules) {
-    if (!valid) errors[field] = message;
+  for (const [field, valid, code] of numericRules) {
+    if (!valid) errors[field] = createAppSettingsValidationError(code);
   }
 }
 
-function validatePrettifySettings(settings: PrettifySettings, errors: AppSettingsFieldErrors): void {
-  const prompt = settings.prompt.trim();
-  if (!prompt) errors.prettifyPrompt = 'Prettify prompt is required';
-  else if (prompt.length > MAX_PRETTIFY_PROMPT_LENGTH) {
-    errors.prettifyPrompt = `Prettify prompt must be at most ${MAX_PRETTIFY_PROMPT_LENGTH} characters`;
-  }
-  if (!isPrettifyProviderId(settings.providerId)) errors.prettifyProvider = 'Select a supported provider';
-  addNumericPrettifyErrors(settings, errors);
+function isValidCliTimeout(timeoutSeconds: number): boolean {
+  return (
+    Number.isInteger(timeoutSeconds) &&
+    timeoutSeconds >= MIN_PRETTIFY_CLI_TIMEOUT_SECONDS &&
+    timeoutSeconds <= MAX_PRETTIFY_CLI_TIMEOUT_SECONDS
+  );
+}
 
-  const provider = getActivePrettifyProviderSettings(settings);
-  if (!provider.baseUrl.trim()) errors.prettifyBaseUrl = 'Base URL is required';
+function validateHttpPrettifyProvider(
+  provider: PrettifySettingsDraft['ollama'] | PrettifySettingsDraft['vllm'],
+  errors: AppSettingsFieldErrors,
+): void {
+  if (!provider.baseUrl.trim()) errors.prettifyBaseUrl = createAppSettingsValidationError('prettify-base-url-required');
   else {
-    const baseUrlError = getPrettifyBaseUrlValidationError(provider.baseUrl);
-    if (baseUrlError) errors.prettifyBaseUrl = baseUrlError;
+    const baseUrlErrorCode = getPrettifyBaseUrlValidationErrorCode(provider.baseUrl);
+    if (baseUrlErrorCode) errors.prettifyBaseUrl = createAppSettingsValidationError(baseUrlErrorCode);
   }
-  if (!provider.model.trim()) errors.prettifyModel = 'Select a model';
+  if (!provider.model.trim()) errors.prettifyModel = createAppSettingsValidationError('prettify-model-required');
+}
+
+function validateClaudeCliPrettifyProvider(
+  settings: PrettifySettingsDraft['claudeCli'],
+  errors: AppSettingsFieldErrors,
+): void {
+  if (!isValidPrettifyCliExecutablePath(settings.executablePath)) {
+    errors.prettifyExecutablePath = createAppSettingsValidationError('prettify-executable-path-invalid');
+  }
+  const model = settings.model.trim();
+  if (model && !isValidClaudeCliPrettifyModel(model)) {
+    errors.prettifyModel = createAppSettingsValidationError('prettify-claude-model-invalid');
+  }
+  const fallbackModel = settings.fallbackModel.trim();
+  if (fallbackModel && !isValidClaudeCliPrettifyModel(fallbackModel)) {
+    errors.prettifyFallbackModel = createAppSettingsValidationError('prettify-claude-fallback-model-invalid');
+  }
+  if (!isClaudeCliPrettifyEffort(settings.effort)) {
+    errors.prettifyEffort = createAppSettingsValidationError('prettify-claude-effort-invalid');
+  }
+  if (!isValidCliTimeout(settings.timeoutSeconds)) {
+    errors.prettifyTimeout = createAppSettingsValidationError('prettify-cli-timeout-range', {
+      min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+    });
+  }
+}
+
+function validateCodexCliPrettifyProvider(
+  settings: PrettifySettingsDraft['codexCli'],
+  errors: AppSettingsFieldErrors,
+): void {
+  if (!isValidPrettifyCliExecutablePath(settings.executablePath)) {
+    errors.prettifyExecutablePath = createAppSettingsValidationError('prettify-executable-path-invalid');
+  }
+  const model = settings.model.trim();
+  if (model && !isValidCodexCliPrettifyModel(model)) {
+    errors.prettifyModel = createAppSettingsValidationError('prettify-codex-model-invalid');
+  }
+  if (!isCodexCliPrettifyReasoningEffort(settings.reasoningEffort)) {
+    errors.prettifyReasoningEffort = createAppSettingsValidationError('prettify-codex-reasoning-invalid');
+  }
+  if (!isCodexCliPrettifyVerbosity(settings.verbosity)) {
+    errors.prettifyVerbosity = createAppSettingsValidationError('prettify-codex-verbosity-invalid');
+  }
+  if (!isValidCliTimeout(settings.timeoutSeconds)) {
+    errors.prettifyTimeout = createAppSettingsValidationError('prettify-cli-timeout-range', {
+      min: String(MIN_PRETTIFY_CLI_TIMEOUT_SECONDS),
+      max: String(MAX_PRETTIFY_CLI_TIMEOUT_SECONDS),
+    });
+  }
+}
+
+function validatePrettifySettings(settings: PrettifySettingsDraft, errors: AppSettingsFieldErrors): void {
+  const prompt = settings.prompt.trim();
+  if (!prompt) errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-required');
+  else if (prompt.length > MAX_PRETTIFY_PROMPT_LENGTH) {
+    errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-too-long', {
+      max: String(MAX_PRETTIFY_PROMPT_LENGTH),
+    });
+  }
+  if (!isKnownPrettifyProviderId(settings.providerId)) {
+    errors.prettifyProvider = createAppSettingsValidationError('prettify-provider-invalid');
+    return;
+  }
+
+  const capabilities = getPrettifyProviderCapabilities(settings.providerId);
+  if (capabilities.httpGenerationControls) {
+    addNumericPrettifyErrors(settings, errors);
+  }
+
+  switch (settings.providerId) {
+    case 'ollama':
+      validateHttpPrettifyProvider(settings.ollama, errors);
+      return;
+    case 'vllm':
+      validateHttpPrettifyProvider(settings.vllm, errors);
+      return;
+    case 'claude-cli':
+      validateClaudeCliPrettifyProvider(settings.claudeCli, errors);
+      return;
+    case 'codex-cli':
+      validateCodexCliPrettifyProvider(settings.codexCli, errors);
+      return;
+  }
 }
 
 function validateLocaleAndTimezone(
@@ -450,33 +782,34 @@ function validateLocaleAndTimezone(
   if (settings.proxy.enabled && settings.proxy.geoip) return;
   const locale = settings.locale.trim();
   const timezone = settings.timezone.trim();
-  if (!locale) errors.locale = 'Locale is required';
-  else if (!localeValues.includes(locale)) errors.locale = 'Select a supported locale';
-  if (!timezone) errors.timezone = 'Timezone is required';
-  else if (!timezoneValues.includes(timezone)) errors.timezone = 'Select a supported timezone';
+  if (!locale) errors.locale = createAppSettingsValidationError('locale-required');
+  else if (!localeValues.includes(locale)) errors.locale = createAppSettingsValidationError('locale-unsupported');
+  if (!timezone) errors.timezone = createAppSettingsValidationError('timezone-required');
+  else if (!timezoneValues.includes(timezone))
+    errors.timezone = createAppSettingsValidationError('timezone-unsupported');
 }
 
 function validateProxy(settings: EditableCloakBrowserSettings, errors: AppSettingsFieldErrors): void {
   if (!settings.proxy.enabled) return;
   const server = settings.proxy.server.trim();
   if (!server) {
-    errors.proxyServer = 'Proxy server is required when proxy is enabled';
+    errors.proxyServer = createAppSettingsValidationError('proxy-server-required');
     return;
   }
 
   try {
     const proxyUrl = new URL(server);
     if (!SUPPORTED_PROXY_PROTOCOLS.has(proxyUrl.protocol)) {
-      errors.proxyServer = 'Proxy server must use http, https, or socks5';
+      errors.proxyServer = createAppSettingsValidationError('proxy-protocol-invalid');
     } else if (proxyUrl.username || proxyUrl.password) {
-      errors.proxyServer = 'Proxy credentials must be stored in username and password fields';
+      errors.proxyServer = createAppSettingsValidationError('proxy-credentials-in-url');
     }
   } catch {
-    errors.proxyServer = 'Proxy server must be a valid URL';
+    errors.proxyServer = createAppSettingsValidationError('proxy-url-invalid');
   }
 
   if (!isSocks5ProxyServer(server)) return;
-  const socks5Error = 'SOCKS5 proxy username/password is not supported';
+  const socks5Error = createAppSettingsValidationError('proxy-socks5-credentials-unsupported');
   if (settings.proxy.username.trim()) errors.proxyUsername = socks5Error;
   if (settings.proxy.password.trim() || (settings.proxy.hasPassword && !settings.proxy.clearPassword)) {
     errors.proxyPassword = socks5Error;
@@ -490,15 +823,15 @@ function validateCloakBrowserSettings(
   errors: AppSettingsFieldErrors,
 ): void {
   if (!CLOAK_BROWSER_HUMAN_PRESETS.includes(settings.humanPreset)) {
-    errors.humanPreset = 'Select a supported human preset';
+    errors.humanPreset = createAppSettingsValidationError('human-preset-invalid');
   }
   if (!CLOAK_BROWSER_BACKGROUND_MODES.includes(settings.backgroundMode)) {
-    errors.backgroundMode = 'Select a supported background mode';
+    errors.backgroundMode = createAppSettingsValidationError('background-mode-invalid');
   }
   const fingerprintSeed = settings.fingerprintSeed.trim();
-  if (!fingerprintSeed) errors.fingerprintSeed = 'Fingerprint seed is required';
+  if (!fingerprintSeed) errors.fingerprintSeed = createAppSettingsValidationError('fingerprint-seed-required');
   else if (!FINGERPRINT_SEED_PATTERN.test(fingerprintSeed))
-    errors.fingerprintSeed = 'Fingerprint seed must contain digits only';
+    errors.fingerprintSeed = createAppSettingsValidationError('fingerprint-seed-digits');
   validateLocaleAndTimezone(settings, localeValues, timezoneValues, errors);
   validateProxy(settings, errors);
 }
@@ -522,13 +855,16 @@ export function getAppSettingsFormState(input: AppSettingsSaveInput): AppSetting
   });
 
   return {
-    isDirty: createAppSettingsLogSummary(input).changedGroups.length > 0,
+    isDirty:
+      !arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings) ||
+      !areTextActionSettingsEqual(input.textActionSettings, input.initialTextActionSettings) ||
+      !areCloakBrowserSettingsEqual(input.settings, input.initialSettings),
     isValid: !hasAppSettingsFieldErrors(validationErrors),
     validationErrors,
   };
 }
 
-export function arePrettifySettingsEqual(left: PrettifySettings, right: PrettifySettings): boolean {
+export function arePrettifySettingsEqual(left: PrettifySettingsDraft, right: PrettifySettingsDraft): boolean {
   return (
     left.prompt === right.prompt &&
     left.providerId === right.providerId &&
@@ -539,6 +875,16 @@ export function arePrettifySettingsEqual(left: PrettifySettings, right: Prettify
     left.repeatPenalty === right.repeatPenalty &&
     left.maxOutputTokens === right.maxOutputTokens &&
     left.seed === right.seed &&
+    left.claudeCli.executablePath === right.claudeCli.executablePath &&
+    left.claudeCli.model === right.claudeCli.model &&
+    left.claudeCli.fallbackModel === right.claudeCli.fallbackModel &&
+    left.claudeCli.effort === right.claudeCli.effort &&
+    left.claudeCli.timeoutSeconds === right.claudeCli.timeoutSeconds &&
+    left.codexCli.executablePath === right.codexCli.executablePath &&
+    left.codexCli.model === right.codexCli.model &&
+    left.codexCli.reasoningEffort === right.codexCli.reasoningEffort &&
+    left.codexCli.verbosity === right.codexCli.verbosity &&
+    left.codexCli.timeoutSeconds === right.codexCli.timeoutSeconds &&
     left.ollama.baseUrl === right.ollama.baseUrl &&
     left.ollama.model === right.ollama.model &&
     left.vllm.baseUrl === right.vllm.baseUrl &&

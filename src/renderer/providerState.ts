@@ -1,4 +1,4 @@
-import type { BackgroundBrowserStatus, ProviderSettings } from './types';
+import type { BackgroundBrowserStatus, ProviderAuthType, ProviderSettings } from './types';
 
 export interface ProviderLoginState {
   isLoggedIn: boolean;
@@ -7,9 +7,14 @@ export interface ProviderLoginState {
 }
 
 export function getProviderLoginState(
+  authType: ProviderAuthType,
   hasSession: boolean,
   backgroundStatus?: BackgroundBrowserStatus,
 ): ProviderLoginState {
+  if (authType === 'apiKey') {
+    return { isLoggedIn: hasSession, isLoading: false, sessionExpired: false };
+  }
+
   if (backgroundStatus?.authExpired) {
     return { isLoggedIn: false, isLoading: false, sessionExpired: true };
   }
@@ -19,10 +24,18 @@ export function getProviderLoginState(
   }
 
   if (backgroundStatus?.error) {
-    return { isLoggedIn: hasSession, isLoading: false, sessionExpired: false };
+    return { isLoggedIn: false, isLoading: false, sessionExpired: false };
   }
 
-  return { isLoggedIn: hasSession, isLoading: hasSession, sessionExpired: false };
+  return { isLoggedIn: false, isLoading: hasSession, sessionExpired: false };
+}
+
+export function isProviderConfigured(settings: ProviderSettings): boolean {
+  return settings.authType === 'apiKey' ? settings.hasApiKey : settings.hasSession;
+}
+
+export function isActiveProviderSettingsChange(settings: ProviderSettings, activeProviderId: string): boolean {
+  return settings.providerId === activeProviderId;
 }
 
 export function expireBrowserSessionSettings(settings: ProviderSettings | null): ProviderSettings | null {

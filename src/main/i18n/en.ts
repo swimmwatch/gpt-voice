@@ -16,6 +16,8 @@ export default {
   'status.translationFailed': 'Translation failed',
   'status.prettifyFailed': 'Prettify failed',
   'status.prettifyCancelled': 'Prettify cancelled',
+  'status.translationCancelled': 'Translation cancelled',
+  'status.textActionSkipped': 'Another action is already in progress',
   'status.transcriptionError': 'Transcription error',
   'status.recordingCancelled': 'Recording cancelled',
   'status.microphoneError': 'Error: Could not access microphone',
@@ -52,6 +54,7 @@ export default {
   'provider.connected': 'Connected',
   'provider.connectionReady': 'Ready',
   'provider.connectionSetupRequired': 'Setup required',
+  'provider.claudeWeb.name': 'Claude Web',
 
   // Provider settings
   'providerSettings.title': '{provider} settings',
@@ -62,8 +65,12 @@ export default {
   'providerSettings.relogin': 'Re-login',
   'providerSettings.clearSession': 'Clear session',
   'providerSettings.apiKey': 'API key',
+  'providerSettings.apiKeyStatus': 'API key status',
+  'providerSettings.apiKeySaved': 'Saved',
+  'providerSettings.apiKeyMissing': 'Not saved',
   'providerSettings.apiKeyStored': 'A key is already saved. Leave this field empty to keep it.',
   'providerSettings.apiKeyPlaceholder': 'Paste OpenAI API key',
+  'providerSettings.apiKeyReplacePlaceholder': 'Enter a new key to replace the saved key',
   'providerSettings.model': 'Model',
   'providerSettings.language': 'Language',
   'providerSettings.prompt': 'Prompt',
@@ -74,8 +81,19 @@ export default {
   'providerSettings.clear': 'Clear',
   'providerSettings.saveFailed': 'Could not save settings',
   'providerSettings.clearFailed': 'Could not clear provider data',
+  'providerSettings.loadFailed': 'Could not load provider settings',
   'providerSettings.language.auto': 'Auto',
+  'providerSettings.openAIApi.languageSearchPlaceholder': 'Search languages',
+  'providerSettings.openAIApi.noLanguageResults': 'No matching languages',
+  'providerSettings.openAIApi.showLanguageOptions': 'Show language options',
   'providerSettings.description': 'Configure transcription access for {provider}.',
+  'providerSettings.claudeWeb.description': 'Use a saved Claude browser session for transcription.',
+  'providerSettings.claudeWeb.language': 'Transcription language',
+  'providerSettings.claudeWeb.languageDescription': 'Search for a language or enter the BCP 47 tag sent to Claude Web.',
+  'providerSettings.claudeWeb.languageSearchPlaceholder': 'Search languages or enter a BCP 47 tag',
+  'providerSettings.claudeWeb.noLanguageResults': 'No matching languages',
+  'providerSettings.claudeWeb.showLanguageOptions': 'Show language options',
+  'providerSettings.claudeWeb.useLanguageSuggestion': 'Use {language}',
   'providerSettings.clearSessionConfirmTitle': 'Clear saved session?',
   'providerSettings.clearKeyConfirmTitle': 'Clear saved API key?',
   'providerSettings.clearConfirmDescription': 'You will need to sign in or enter a key again to use this provider.',
@@ -83,6 +101,11 @@ export default {
   // App settings
   'appSettings.open': 'App settings',
   'appSettings.title': 'Settings',
+  'appSettings.system': 'System',
+  'appSettings.language': 'Application language',
+  'appSettings.languageHelp': 'Changes the language in every open GPT-Voice window.',
+  'appSettings.languageSaving': 'Changing language...',
+  'appSettings.languageSaveFailed': 'Could not change the application language',
   'appSettings.hotkeys': 'Hotkeys',
   'appSettings.prettify': 'Prettify Text',
   'appSettings.cloakBrowser': 'CloakBrowser',
@@ -120,6 +143,20 @@ export default {
   'mainDock.title': 'Command Dock',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Voice provider',
+  'mainDock.prettifyProviderLabel': 'Prettify',
+  'mainDock.prettifyModelLabel': 'Model',
+  'mainDock.prettifyNotConfigured': 'Not configured',
+  'mainDock.prettifyConfigured': 'Configured',
+  'mainDock.prettifyChecking': 'Checking',
+  'mainDock.prettifySignIn': 'Sign in',
+  'mainDock.prettifySignInHelp': 'Sign in with the selected CLI, then select it again.',
+  'mainDock.prettifyUnavailable': 'Unavailable',
+  'mainDock.prettifyEffort': 'Effort',
+  'mainDock.prettifyExperimental': 'Experimental',
+  'mainDock.openPrettifySettings': 'Open Prettify settings',
+  'mainDock.prettifySaveFailed': 'Could not change Prettify provider',
+  'mainDock.prettifyLoad': 'Load',
+  'mainDock.prettifyFree': 'Free',
   'navigation.openHistory': 'Open transcription history',
   'navigation.openAbout': 'Open about GPT-Voice',
   'navigation.openAppSettings': 'Open app settings',
@@ -152,6 +189,7 @@ export default {
   'modelMemory.unknown': 'State unknown',
 
   // Settings sections
+  'settingsSection.system': 'System',
   'settingsSection.shortcuts': 'Shortcuts & actions',
   'settingsSection.prettify': 'Prettify',
   'settingsSection.browser': 'Browser',
@@ -229,6 +267,48 @@ export default {
   'prettify.provider': 'Prettify provider',
   'prettify.provider.ollama': 'Ollama',
   'prettify.provider.vllm': 'vLLM',
+  'prettify.provider.claudeCli': 'Claude CLI',
+  'prettify.provider.codexCli': 'Codex CLI',
+  'prettify.cli.executablePath': 'CLI executable path',
+  'prettify.cli.executablePathHelp':
+    'Leave empty to use PATH, or select one absolute executable file without arguments.',
+  'prettify.cli.model': 'CLI model',
+  'prettify.cli.modelHelp': 'Leave empty to use the CLI default model.',
+  'prettify.cli.showModelOptions': 'Show model options',
+  'prettify.cli.statusUnchecked': 'Availability has not been checked. Refresh to verify the CLI and models.',
+  'prettify.cli.statusChecking': 'Checking CLI availability and models...',
+  'prettify.cli.statusAvailable': 'CLI is ready.',
+  'prettify.cli.statusUnavailable': 'CLI is unavailable. Review its setup and refresh again.',
+  'prettify.cli.timeout': 'CLI timeout',
+  'prettify.cli.timeoutHelp': 'Set how long the CLI process may run, from 15 to 600 seconds.',
+  'prettify.claudeCli.fallbackModel': 'Fallback model',
+  'prettify.claudeCli.fallbackModelHelp':
+    'Leave empty to disable the fallback model and use the Claude CLI default behavior.',
+  'prettify.claudeCli.effort': 'Reasoning effort',
+  'prettify.claudeCli.effortHelp': 'Controls Claude CLI reasoning effort when the selected model supports it.',
+  'prettify.claudeCli.effort.default': 'CLI default',
+  'prettify.claudeCli.effort.low': 'Low',
+  'prettify.claudeCli.effort.medium': 'Medium',
+  'prettify.claudeCli.effort.high': 'High',
+  'prettify.claudeCli.privacy':
+    'Selected text and the protected prompt are sent through your Anthropic Claude CLI account and may consume subscription or API quota.',
+  'prettify.codexCli.reasoningEffort': 'Reasoning effort',
+  'prettify.codexCli.reasoningEffortHelp': 'Controls Codex CLI reasoning effort when the selected model supports it.',
+  'prettify.codexCli.reasoningEffort.default': 'CLI default',
+  'prettify.codexCli.reasoningEffort.low': 'Low',
+  'prettify.codexCli.reasoningEffort.medium': 'Medium',
+  'prettify.codexCli.reasoningEffort.high': 'High',
+  'prettify.codexCli.reasoningEffort.xhigh': 'Extra high',
+  'prettify.codexCli.verbosity': 'Response verbosity',
+  'prettify.codexCli.verbosityHelp': 'Controls response detail when the selected Codex model supports it.',
+  'prettify.codexCli.verbosity.low': 'Low',
+  'prettify.codexCli.verbosity.medium': 'Medium',
+  'prettify.codexCli.verbosity.high': 'High',
+  'prettify.codexCli.experimental': 'Experimental provider',
+  'prettify.codexCli.experimentalHelp':
+    'Codex CLI is available only when the installed CLI proves the required no-tools and isolation controls. There is no bypass.',
+  'prettify.codexCli.privacy':
+    'Selected text and the protected prompt are sent through your OpenAI Codex CLI account and may consume subscription or API quota.',
   'prettify.baseUrl': 'Base URL',
   'prettify.model': 'Model',
   'prettify.refreshModels': 'Refresh',
@@ -270,6 +350,7 @@ export default {
   'error.notLoggedIn': 'Not logged in. Please login first.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
   'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
+  'error.chatGptConnectionInterrupted': 'ChatGPT transcription was interrupted. Try again.',
   'error.rateLimited': 'Too many requests. Try again later.',
   'error.rateLimitedRetryAfter': 'Too many requests. Try again in {seconds}s.',
   'error.prettifyRateLimited': 'ChatGPT prettify is temporarily rate-limited. Try again in {seconds}s.',
@@ -283,6 +364,93 @@ export default {
   'error.noPrettifyResult': 'No prettified text in response',
   'error.noPrettifyModel': 'Select a prettify model in App Settings',
   'error.prettifyInProgress': 'Prettify already in progress',
+  'error.prettify.cli.invalid-executable-path': 'Select one absolute executable file without command-line arguments.',
+  'error.prettify.cli.output-limit':
+    'The CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.cli.nonzero-exit': 'The CLI process exited unsuccessfully. Check the CLI setup and try again.',
+  'error.prettify.claudeCli.not-installed':
+    'Claude CLI was not found. Install it or configure its executable path, then try again.',
+  'error.prettify.claudeCli.not-executable':
+    'Claude CLI could not start from the configured executable. Check the executable setting.',
+  'error.prettify.claudeCli.not-authenticated':
+    'Claude CLI is not authenticated. Sign in through Claude CLI, then try again.',
+  'error.prettify.claudeCli.unsupported':
+    'The installed Claude CLI version or required isolation controls are unsupported. Update Claude CLI and try again.',
+  'error.prettify.claudeCli.cancelled':
+    'The Claude CLI process was terminated after cancellation. No automatic retry occurred.',
+  'error.prettify.claudeCli.timed-out':
+    'The Claude CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.claudeCli.output-limit':
+    'Claude CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.claudeCli.nonzero-exit':
+    'Claude CLI exited unsuccessfully. Check its authentication, model, quota, and network access, then try again.',
+  'error.prettify.claudeCli.process-failed':
+    'Claude CLI could not complete the request. Check the CLI setup and try again.',
+  'error.prettify.claudeCli.empty-output':
+    'Claude CLI returned no edited text. Review the model setting and try again.',
+  'error.prettify.claudeCli.malformed-output':
+    'Claude CLI returned an unsupported response. Update Claude CLI and try again.',
+  'error.prettify.claudeCli.invalid-model':
+    'Choose a supported Claude model or leave the field empty to use the CLI default.',
+  'error.prettify.codexCli.not-installed':
+    'Codex CLI was not found. Install it or configure its executable path, then try again.',
+  'error.prettify.codexCli.not-executable':
+    'Codex CLI could not start from the configured executable. Check the executable setting.',
+  'error.prettify.codexCli.not-authenticated':
+    'Codex CLI is not authenticated. Sign in through Codex CLI, then try again.',
+  'error.prettify.codexCli.unsupported':
+    'The experimental Codex CLI provider is unavailable because its version or required isolation controls are unsupported.',
+  'error.prettify.codexCli.cancelled':
+    'The Codex CLI process was terminated after cancellation. No automatic retry occurred.',
+  'error.prettify.codexCli.timed-out':
+    'The Codex CLI process was terminated after reaching the timeout. No automatic retry occurred.',
+  'error.prettify.codexCli.output-limit':
+    'Codex CLI produced too much output, so the process was terminated. No automatic retry occurred.',
+  'error.prettify.codexCli.nonzero-exit':
+    'Codex CLI exited unsuccessfully. Check its authentication, model, quota, and network access, then try again.',
+  'error.prettify.codexCli.process-failed':
+    'Codex CLI could not complete the request. Check the CLI setup and try again.',
+  'error.prettify.codexCli.empty-output': 'Codex CLI returned no edited text. Review the model setting and try again.',
+  'error.prettify.codexCli.malformed-output':
+    'Codex CLI returned an unsupported response. Update Codex CLI and try again.',
+  'error.prettify.codexCli.invalid-model':
+    'Choose a supported Codex model or leave the field empty to use the CLI default.',
+  'error.prettify.codexCli.schema-unavailable':
+    'The packaged Codex output schema is unavailable or invalid. Repair the app before trying again; unconstrained execution is disabled.',
+  'error.prettify.codexCli.no-tools-unavailable':
+    'Codex CLI cannot prove the required no-tools and isolation controls. The experimental provider remains unavailable; there is no bypass.',
+  'error.prettify.codexCli.model-discovery-failed':
+    'Codex CLI could not safely load its model catalog. Enter a supported model or update Codex CLI.',
+  'error.claudeWeb.session-missing': 'Sign in to Claude Web in Provider Settings, then try again.',
+  'error.claudeWeb.session-expired': 'Your Claude Web session expired. Sign in again, then retry.',
+  'error.claudeWeb.session-invalid': 'The saved Claude Web session is invalid. Clear it, sign in again, then retry.',
+  'error.claudeWeb.feature-unavailable':
+    'Voice transcription is unavailable in the active Claude session. Check dictation access in Claude, then retry.',
+  'error.claudeWeb.organization-missing':
+    'Claude Web could not determine the active organization. Make the intended organization active in Claude, then retry.',
+  'error.claudeWeb.organization-ambiguous':
+    'Claude Web could not identify one active organization. Make the intended organization active in Claude, then retry.',
+  'error.claudeWeb.invalid-settings':
+    'The Claude Web language setting is invalid. Enter a valid BCP 47 tag such as en-US, then retry.',
+  'error.claudeWeb.invalid-audio':
+    'Claude Web requires uncompressed 16 kHz mono PCM audio. Record again; compressed fallback audio cannot be sent.',
+  'error.claudeWeb.upgrade-or-auth':
+    'Claude Web rejected the speech connection. Sign in again; if it continues, revalidate the private integration.',
+  'error.claudeWeb.connect-timeout':
+    'The Claude Web speech connection did not open in time. Check the network, then retry.',
+  'error.claudeWeb.connection-loss': 'Claude connection lost. Check your network and try again.',
+  'error.claudeWeb.malformed-event':
+    'Claude Web returned an unsupported speech event. This private integration may have changed; sign in again and revalidate it before retrying.',
+  'error.claudeWeb.rate-limit': 'Claude Web is temporarily limiting transcription. Wait, then retry.',
+  'error.claudeWeb.first-event-timeout':
+    'Claude Web did not start returning transcription in time. Check the network, then retry.',
+  'error.claudeWeb.overall-timeout': 'Claude Web transcription took too long. Retry manually.',
+  'error.claudeWeb.drain-timeout': 'Claude Web did not finish the transcription in time. Retry manually.',
+  'error.claudeWeb.empty-result': 'Claude Web returned no final transcription. Record again, then retry.',
+  'error.claudeWeb.cancelled': 'Claude Web transcription was cancelled.',
+  'error.claudeWeb.page-shutdown': 'The authenticated Claude page closed. Connect Claude Web again, then retry.',
+  'error.claudeWeb.unexpected-failure':
+    'Claude Web transcription failed unexpectedly. Connect Claude Web again, then retry.',
   'error.notificationConnectionFailed':
     'Could not connect to {service}. Make sure it is running and the URL is correct.',
   'error.notificationProviderRequestFailed':
@@ -291,7 +459,51 @@ export default {
   'error.notificationOperationTimedOut': 'The operation timed out. Try again.',
   'error.notificationClipboardUnavailable': 'Could not read the selected text. Check the selection and try again.',
   'error.notificationAudioPreparationFailed': 'Could not prepare the recording. Try recording again.',
+  'error.streamingRecordingCancelled': 'Recording was cancelled.',
+  'error.streamingAudioUnavailable': 'Audio could not be prepared. Record again.',
+  'error.streamingRecordingRestart': 'Recording setup changed. Start a new recording.',
+  'error.streamingConnectionFailed': 'The live connection failed. Check your network and record again.',
+  'error.streamingQueueOverflow': 'The connection could not keep up with live audio. Retry when it is stable.',
   'error.notificationUnknown': 'Something went wrong. Try again.',
+
+  // App Settings validation
+  'appSettings.validation.temperatureRange': 'Temperature must be between 0 and 1.',
+  'appSettings.validation.topPRange': 'Top P must be between 0.05 and 1.',
+  'appSettings.validation.topKRange': 'Top K must be an integer between 1 and 200.',
+  'appSettings.validation.minPRange': 'Min P must be between 0 and 1.',
+  'appSettings.validation.repeatPenaltyRange': 'Repeat penalty must be between 0.8 and 1.5.',
+  'appSettings.validation.maxOutputTokensRange': 'Max output tokens must be an integer between 1 and 8192.',
+  'appSettings.validation.seedRange': 'Seed must be empty or an integer between 0 and 2147483647.',
+  'appSettings.validation.baseUrlRequired': 'Base URL is required.',
+  'appSettings.validation.baseUrlInvalid': 'Base URL must be a valid HTTP or HTTPS URL.',
+  'appSettings.validation.baseUrlCredentials': 'Base URL must not include credentials.',
+  'appSettings.validation.baseUrlInsecureRemote': 'Non-local provider URLs must use HTTPS.',
+  'appSettings.validation.modelRequired': 'Select a model.',
+  'appSettings.validation.executablePathInvalid': 'Executable path must be empty or absolute.',
+  'appSettings.validation.claudeModelInvalid': 'Enter a supported Claude CLI model.',
+  'appSettings.validation.claudeFallbackModelInvalid': 'Enter a supported Claude CLI fallback model.',
+  'appSettings.validation.claudeEffortInvalid': 'Select a supported Claude CLI effort.',
+  'appSettings.validation.cliTimeoutRange': 'Timeout must be an integer between {min} and {max} seconds.',
+  'appSettings.validation.codexModelInvalid': 'Enter a supported Codex CLI model.',
+  'appSettings.validation.codexReasoningInvalid': 'Select a supported Codex CLI reasoning effort.',
+  'appSettings.validation.codexVerbosityInvalid': 'Select a supported Codex CLI verbosity.',
+  'appSettings.validation.promptRequired': 'Prettify prompt is required.',
+  'appSettings.validation.promptTooLong': 'Prettify prompt must be at most {max} characters.',
+  'appSettings.validation.providerInvalid': 'Select a supported provider.',
+  'appSettings.validation.localeRequired': 'Locale is required.',
+  'appSettings.validation.localeUnsupported': 'Select a supported locale.',
+  'appSettings.validation.timezoneRequired': 'Timezone is required.',
+  'appSettings.validation.timezoneUnsupported': 'Select a supported timezone.',
+  'appSettings.validation.proxyServerRequired': 'Proxy server is required when proxy is enabled.',
+  'appSettings.validation.proxyProtocolInvalid': 'Proxy server must use HTTP, HTTPS, or SOCKS5.',
+  'appSettings.validation.proxyCredentialsInUrl':
+    'Proxy credentials must be stored in the username and password fields.',
+  'appSettings.validation.proxyUrlInvalid': 'Proxy server must be a valid URL.',
+  'appSettings.validation.proxySocks5CredentialsUnsupported': 'SOCKS5 proxy username/password is not supported.',
+  'appSettings.validation.humanPresetInvalid': 'Select a supported human preset.',
+  'appSettings.validation.backgroundModeInvalid': 'Select a supported background mode.',
+  'appSettings.validation.fingerprintSeedRequired': 'Fingerprint seed is required.',
+  'appSettings.validation.fingerprintSeedDigits': 'Fingerprint seed must contain digits only.',
 
   // Tray
   'tray.tooltip': 'GPT-Voice',

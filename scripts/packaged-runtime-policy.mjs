@@ -4,14 +4,19 @@ const REQUIRED_PATHS = [
   'dist/index.html',
   'dist/main.js',
   'dist/preload.js',
+  'dist/provider-settings.html',
   'dist/renderer/about.js',
   'dist/renderer/history.js',
   'dist/renderer/main.js',
+  'dist/renderer/providerSettings.js',
   'dist/renderer/runtime.js',
   'dist/renderer/settings.js',
+  'dist/renderer/assets/livePcmCapture.worklet.js',
   'dist/settings.html',
   'package.json',
 ];
+
+const LIVE_PCM_WORKLET_RUNTIME_PATH = 'dist/renderer/assets/livePcmCapture.worklet.js';
 
 const LINUX_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
 
@@ -23,6 +28,7 @@ export const RUNTIME_ASSET_PATHS = [
   'tray-icon-prettifying.png',
   'tray-icon-processing.png',
   'tray-icon-recording.png',
+  'prettify/codex-output.schema.json',
 ];
 
 export const ELECTRON_LOCALE_FILENAMES = ['en-GB.pak', 'en-US.pak', 'ru.pak', 'uk.pak'];
@@ -152,6 +158,11 @@ export function getPackagedRuntimeViolations(filePaths) {
     if (!normalizedPaths.includes(requiredPath)) {
       violations.push(`missing required path: ${requiredPath}`);
     }
+  }
+
+  const workletPathCount = normalizedPaths.filter((filePath) => filePath === LIVE_PCM_WORKLET_RUNTIME_PATH).length;
+  if (workletPathCount > 1) {
+    violations.push(`duplicate renderer worklet asset: ${LIVE_PCM_WORKLET_RUNTIME_PATH}`);
   }
 
   for (const filePath of normalizedPaths) {

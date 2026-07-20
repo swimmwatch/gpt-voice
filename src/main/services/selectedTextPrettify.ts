@@ -6,7 +6,7 @@ import {
 } from '@main/electronRuntime';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { prettifyText, type PrettifyTextSettings } from '@main/services/prettify';
+import { preparePrettifyExecution, type PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
 import { getPrettifySettingsView } from '@main/services/prettifySettingsStorage';
 import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import {
@@ -30,6 +30,7 @@ export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS = 60_000;
 export const MAX_PRETTIFY_SELECTED_TEXT_LENGTH = 16_000;
 
 export interface SelectedTextPrettifyResult {
+  cancelled?: true;
   success: boolean;
   status: string;
   error?: string;
@@ -50,10 +51,7 @@ export interface SelectedTextPrettifyDependencies {
   getPrettifySettings: () => PrettifySettings;
   notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   platform: NodeJS.Platform;
-  prettify: (
-    text: string,
-    settings: PrettifyTextSettings,
-  ) => Promise<{ success: boolean; text?: string; error?: string }>;
+  prepare: (settings: PrettifySettings, signal: AbortSignal) => Promise<PreparePrettifyExecutionResult>;
   wait: (delayMs: number) => Promise<void>;
 }
 
@@ -137,6 +135,7 @@ function createFailureResult(error: string): SelectedTextPrettifyResult {
 function createCancelledResult(): SelectedTextPrettifyResult {
   const status = t('status.prettifyCancelled');
   return {
+    cancelled: true,
     success: false,
     status,
     error: status,
@@ -160,22 +159,6 @@ function createSuccessResult(): SelectedTextPrettifyResult {
 
 function getPrettifyCacheContext(): readonly string[] {
   return [];
-}
-
-function getPrettifyProviderCacheContext(settings: PrettifySettings): readonly string[] {
-  const providerSettings = settings.providerId === 'ollama' ? settings.ollama : settings.vllm;
-  return [
-    settings.providerId,
-    providerSettings.baseUrl,
-    providerSettings.model,
-    String(settings.temperature),
-    String(settings.topP),
-    String(settings.topK),
-    String(settings.minP),
-    String(settings.repeatPenalty),
-    String(settings.maxOutputTokens),
-    settings.seed === null ? '' : String(settings.seed),
-  ];
 }
 
 /** Creates the single-flight selected-text prettify action and its cancellation lifecycle. */
@@ -230,11 +213,22 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       }
 
       const settings = deps.getPrettifySettings();
+      const preparation = await deps.prepare(settings, run.abortController.signal);
+      if (run.cancelled || run.abortController.signal.aborted) {
+        restoreClipboard(deps, run.previousClipboardText);
+        return createCancelledResult();
+      }
+      if (!preparation.success) {
+        restoreClipboard(deps, run.previousClipboardText);
+        const presented = notifyPrettifyFailure(deps, preparation.error);
+        log.warn('Selected-text prettify preparation failed:', presented.safeLogMetadata);
+        return createFailureResult(presented.userMessage);
+      }
+
       const cacheKey = createTextActionCacheKey([
         'prettify',
         selectedText,
-        settings.prompt,
-        ...getPrettifyProviderCacheContext(settings),
+        ...preparation.prepared.cacheContext,
         ...deps.getCacheContext(),
       ]);
       const cachedPrettified = deps.cache.get(cacheKey);
@@ -249,10 +243,7 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       }
 
       log.info('Prettifying selected text:', { textLength: selectedText.length, providerId: settings.providerId });
-      const prettified = await deps.prettify(selectedText, {
-        ...settings,
-        signal: run.abortController.signal,
-      });
+      const prettified = await preparation.prepared.execute(selectedText);
       if (run.cancelled || run.abortController.signal.aborted) {
         restoreClipboard(deps, run.previousClipboardText);
         return createCancelledResult();
@@ -325,7 +316,7 @@ const selectedTextPrettifyService = createSelectedTextPrettifyService({
   }),
   notify: showSystemNotification,
   platform: process.platform,
-  prettify: prettifyText,
+  prepare: (settings, signal) => preparePrettifyExecution(settings, signal),
   wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
 });
 
