@@ -9,6 +9,7 @@ import {
 import { Button } from '@renderer/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { cn } from '@renderer/lib/cn';
+import { getRendererStatusDetail, renderRendererStatus, type RendererStatus } from '@renderer/statusPresentation';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 interface RecordingControlsProps {
@@ -19,7 +20,7 @@ interface RecordingControlsProps {
   onStop: () => void;
   recordHotkey: string;
   state: RecordingLifecycleState;
-  status: string;
+  status: RendererStatus | null;
 }
 
 interface SecondaryActionConfig {
@@ -86,9 +87,8 @@ function RecordingControls({
   const { t } = useI18n();
   const viewState = getRecordingWorkspaceViewState(state);
   const isPrimaryStop = viewState.primary.action === RecordingWorkspacePrimaryAction.Stop;
-  const defaultIdleStatus = t('status.pressToRecord', { hotkey: recordHotkey });
   const translatedState = t(viewState.status.labelKey);
-  const statusDetail = status && status !== defaultIdleStatus && status !== translatedState ? status : '';
+  const statusDetail = getRendererStatusDetail(status, state);
 
   const handlePrimaryAction = (): void => {
     if (viewState.primary.action === RecordingWorkspacePrimaryAction.Record) {
@@ -138,18 +138,16 @@ function RecordingControls({
 
       <div className="command-dock-status-band" data-slot="recording-state-row">
         <div
-          aria-live="polite"
           className={cn('command-dock-recording-state', getStatusClassName(viewState.status.kind))}
           data-slot="recording-state"
-          role="status"
         >
           <RecordingStatusIcon status={viewState.status.kind} />
           <span>{translatedState}</span>
         </div>
 
         {statusDetail && (
-          <p className="command-dock-status-detail" data-slot="recording-status" role="status" title={statusDetail}>
-            {statusDetail}
+          <p aria-live="polite" className="command-dock-status-detail" data-slot="recording-status" role="status">
+            {renderRendererStatus(statusDetail, t)}
           </p>
         )}
 

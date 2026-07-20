@@ -13,7 +13,6 @@ import { updateTrayIcon } from './tray';
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import { getMainWindow } from './window';
 import { createLogger } from './logger';
-import { t } from './i18n';
 import { getActiveSelectedTextAction } from './services/selectedTextActionState';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
@@ -33,6 +32,8 @@ import {
   isRecordingLifecycleBusy,
   type RecordingLifecycleState,
 } from '@shared/recordingLifecycle';
+import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
+import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
 
 const log = createLogger('shortcuts');
 
@@ -45,9 +46,19 @@ let shortcutsSuspended = false;
 let conflictingHotkeyTargets = new Set<HotkeyTarget>();
 
 interface CancelShortcutActions {
-  cancelPrettify: () => { status: string } | null;
+  cancelPrettify: () => boolean;
   cancelRecording: () => void;
-  sendTextStatus: (status: string) => void;
+}
+
+export interface TextActionResultForStatus {
+  cancelled?: true;
+  skipped?: true;
+  success: boolean;
+}
+
+export interface TextActionStatusResolution {
+  failureLogMetadata?: NotificationErrorLogMetadata & { action: TextActionStatusAction };
+  status: TextActionStatus;
 }
 
 export function getRecordingState() {
@@ -117,13 +128,48 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
     return true;
   }
 
-  const prettifyCancelResult = actions.cancelPrettify();
-  if (prettifyCancelResult) {
-    actions.sendTextStatus(prettifyCancelResult.status);
+  if (actions.cancelPrettify()) {
     return true;
   }
 
   return false;
+}
+
+export function getTextActionStatus(
+  action: TextActionStatusAction,
+  result: TextActionResultForStatus,
+): TextActionStatus {
+  if (result.skipped) return { action, phase: 'skipped' };
+  if (result.cancelled) return { action, phase: 'cancelled' };
+  return { action, phase: result.success ? 'completed' : 'failed' };
+}
+
+/** Settles an action to one renderer-safe terminal status while retaining only safe failure diagnostics. */
+export async function resolveTextActionStatus(
+  action: TextActionStatusAction,
+  resultPromise: Promise<TextActionResultForStatus>,
+): Promise<TextActionStatusResolution> {
+  try {
+    return { status: getTextActionStatus(action, await resultPromise) };
+  } catch (error: unknown) {
+    return {
+      failureLogMetadata: {
+        action,
+        ...presentNotificationError(error, { context: action }).safeLogMetadata,
+      },
+      status: { action, phase: 'failed' },
+    };
+  }
+}
+
+function sendTextActionStatus(status: TextActionStatus): void {
+  getMainWindow()?.webContents.send('translation-status', status);
+}
+
+function reportTextActionFailure(failureLogMetadata: TextActionStatusResolution['failureLogMetadata']): void {
+  if (failureLogMetadata) {
+    log.warn('Selected-text action shortcut failed:', failureLogMetadata);
+  }
 }
 
 function isRecordingBusy(state: RecordingLifecycleState | boolean): boolean {
@@ -268,14 +314,13 @@ export function registerShortcuts(): void {
           log.info(`${cancelHotkey} pressed, cancelling prettify`);
           updateTrayIconForRecordingLifecycle();
         }
-        return result;
+        return Boolean(result);
       },
       cancelRecording: () => {
         log.info(`${cancelHotkey} pressed, cancelling recording`);
         setRecordingLifecycleState('idle');
         win?.webContents.send('cancel-recording');
       },
-      sendTextStatus: (status) => win?.webContents.send('translation-status', status),
     });
   });
   log.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
@@ -296,12 +341,10 @@ export function registerShortcuts(): void {
 
     log.info(`${translateHotkey} pressed, translating selected text`);
     const resultPromise = translateSelectedTextToClipboard();
-    const win = getMainWindow();
-    win?.webContents.send('translation-status', t('status.translatingSelection'));
-    void resultPromise.then((result) => {
-      if (!result.skipped) {
-        getMainWindow()?.webContents.send('translation-status', result.status);
-      }
+    sendTextActionStatus({ action: 'translation', phase: 'working' });
+    void resolveTextActionStatus('translation', resultPromise).then((resolution) => {
+      reportTextActionFailure(resolution.failureLogMetadata);
+      sendTextActionStatus(resolution.status);
     });
   });
   log.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
@@ -323,18 +366,12 @@ export function registerShortcuts(): void {
     log.info(`${prettifyHotkey} pressed, prettifying selected text`);
     const resultPromise = prettifySelectedText();
     updateTrayIcon('prettifying');
-    const win = getMainWindow();
-    win?.webContents.send('translation-status', t('status.prettifyingSelection'));
-    void resultPromise
-      .then((result) => {
-        if (!result.skipped) {
-          getMainWindow()?.webContents.send('translation-status', result.status);
-        }
-      })
-      .catch((error: unknown) => {
-        log.warn(`${prettifyHotkey} prettify shortcut failed:`, error instanceof Error ? error.message : String(error));
-      })
-      .finally(updateTrayIconForRecordingLifecycle);
+    sendTextActionStatus({ action: 'prettify', phase: 'working' });
+    void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
+      reportTextActionFailure(resolution.failureLogMetadata);
+      sendTextActionStatus(resolution.status);
+      updateTrayIconForRecordingLifecycle();
+    });
   });
   log.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
 

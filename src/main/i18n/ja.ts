@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': '翻訳に失敗しました',
   'status.prettifyFailed': '整形に失敗しました',
   'status.prettifyCancelled': '文章の整形をキャンセルしました',
+  'status.translationCancelled': '翻訳をキャンセルしました',
+  'status.textActionSkipped': '別の操作がすでに進行中です',
   'status.transcriptionError': '文字起こしエラー',
   'status.recordingCancelled': '録音をキャンセルしました',
   'status.microphoneError': 'エラー: マイクにアクセスできません',

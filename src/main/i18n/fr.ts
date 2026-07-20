@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': 'Traduction échouée',
   'status.prettifyFailed': 'Amélioration échouée',
   'status.prettifyCancelled': 'Amélioration annulée',
+  'status.translationCancelled': 'Traduction annulée',
+  'status.textActionSkipped': 'Une autre action est déjà en cours',
   'status.transcriptionError': 'Erreur de transcription',
   'status.recordingCancelled': 'Enregistrement annulé',
   'status.microphoneError': "Erreur : Impossible d'accéder au microphone",

@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': '翻译失败',
   'status.prettifyFailed': '润色失败',
   'status.prettifyCancelled': '润色已取消',
+  'status.translationCancelled': '翻译已取消',
+  'status.textActionSkipped': '另一项操作正在进行',
   'status.transcriptionError': '转录错误',
   'status.recordingCancelled': '录音已取消',
   'status.microphoneError': '错误：无法访问麦克风',

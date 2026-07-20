@@ -16,6 +16,8 @@ export default {
   'status.translationFailed': 'Памылка перакладу',
   'status.prettifyFailed': 'Памылка паляпшэння тэксту',
   'status.prettifyCancelled': 'Паляпшэнне тэксту скасавана',
+  'status.translationCancelled': 'Пераклад скасаваны',
+  'status.textActionSkipped': 'Іншае дзеянне ўжо выконваецца',
   'status.transcriptionError': 'Памылка транскрыбавання',
   'status.recordingCancelled': 'Запіс скасаваны',
   'status.microphoneError': 'Памылка: няма доступу да мікрафона',

@@ -4,7 +4,9 @@ import {
   canRunPrettifyShortcut,
   canRunRetryTranscriptionShortcut,
   canRunTranslateShortcut,
+  getTextActionStatus,
   handleCancelShortcut,
+  resolveTextActionStatus,
 } from '@main/shortcuts';
 
 describe('shortcuts', () => {
@@ -14,13 +16,10 @@ describe('shortcuts', () => {
     const handled = handleCancelShortcut(true, {
       cancelPrettify: () => {
         events.push('cancel-prettify');
-        return { status: 'Prettify cancelled' };
+        return true;
       },
       cancelRecording: () => {
         events.push('cancel-recording');
-      },
-      sendTextStatus: (status) => {
-        events.push(`status:${status}`);
       },
     });
 
@@ -34,30 +33,24 @@ describe('shortcuts', () => {
     const handled = handleCancelShortcut(false, {
       cancelPrettify: () => {
         events.push('cancel-prettify');
-        return { status: 'Prettify cancelled' };
+        return true;
       },
       cancelRecording: () => {
         events.push('cancel-recording');
       },
-      sendTextStatus: (status) => {
-        events.push(`status:${status}`);
-      },
     });
 
     assert.equal(handled, true);
-    assert.deepEqual(events, ['cancel-prettify', 'status:Prettify cancelled']);
+    assert.deepEqual(events, ['cancel-prettify']);
   });
 
   it('does nothing for Escape when recording and prettify are idle', () => {
     const events: string[] = [];
 
     const handled = handleCancelShortcut(false, {
-      cancelPrettify: () => null,
+      cancelPrettify: () => false,
       cancelRecording: () => {
         events.push('cancel-recording');
-      },
-      sendTextStatus: (status) => {
-        events.push(`status:${status}`);
       },
     });
 
@@ -90,5 +83,46 @@ describe('shortcuts', () => {
     assert.equal(canRunRetryTranscriptionShortcut('idle', true), true);
     assert.equal(canRunRetryTranscriptionShortcut('transcribing', true), false);
     assert.equal(canRunRetryTranscriptionShortcut('retrying', true), false);
+  });
+
+  it('maps text-action results to finite safe status events', () => {
+    assert.deepEqual(getTextActionStatus('translation', { success: true }), {
+      action: 'translation',
+      phase: 'completed',
+    });
+    assert.deepEqual(getTextActionStatus('prettify', { success: false }), {
+      action: 'prettify',
+      phase: 'failed',
+    });
+    assert.deepEqual(getTextActionStatus('prettify', { cancelled: true, success: false }), {
+      action: 'prettify',
+      phase: 'cancelled',
+    });
+    assert.deepEqual(getTextActionStatus('translation', { skipped: true, success: false }), {
+      action: 'translation',
+      phase: 'skipped',
+    });
+  });
+
+  it('settles each terminal action outcome and retains only safe rejection metadata', async () => {
+    for (const [action, result, phase] of [
+      ['translation', { success: true }, 'completed'],
+      ['translation', { success: false }, 'failed'],
+      ['prettify', { cancelled: true, success: false }, 'cancelled'],
+      ['prettify', { skipped: true, success: false }, 'skipped'],
+    ] as const) {
+      const resolution = await resolveTextActionStatus(action, Promise.resolve(result));
+      assert.deepEqual(resolution, { status: { action, phase } });
+    }
+
+    const unsafeError = new Error('https://provider.example/v1 HTTP 500 /tmp/private-output\n at privateHandler');
+    const rejected = await resolveTextActionStatus('prettify', Promise.reject(unsafeError));
+
+    assert.deepEqual(rejected.status, { action: 'prettify', phase: 'failed' });
+    assert.equal(rejected.failureLogMetadata?.action, 'prettify');
+    assert.equal(rejected.failureLogMetadata?.hasStackTrace, true);
+    assert.equal(rejected.failureLogMetadata?.hasUrl, true);
+    assert.equal(rejected.failureLogMetadata?.hasFilePath, true);
+    assert.doesNotMatch(JSON.stringify(rejected.failureLogMetadata), /Traceback|https?:\/\/|\/tmp\/private-output/u);
   });
 });

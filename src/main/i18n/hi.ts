@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': 'अनुवाद विफल रहा',
   'status.prettifyFailed': 'सुधार विफल रहा',
   'status.prettifyCancelled': 'सुधार रद्द किया गया',
+  'status.translationCancelled': 'अनुवाद रद्द किया गया',
+  'status.textActionSkipped': 'कोई अन्य कार्रवाई पहले से चल रही है',
   'status.transcriptionError': 'प्रतिलेखन त्रुटि',
   'status.recordingCancelled': 'रिकॉर्डिंग रद्द कर दी गई',
   'status.microphoneError': 'त्रुटि: माइक्रोफ़ोन तक नहीं पहुँचा जा सका',

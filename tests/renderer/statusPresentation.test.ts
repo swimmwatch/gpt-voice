@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  literalStatus,
+  getRendererStatusDetail,
   notificationErrorStatus,
   renderRendererStatus,
   shouldPresentIdleHotkeyStatus,
+  textActionStatusToRendererStatus,
   translatedStatus,
 } from '@renderer/statusPresentation';
 import { NotificationErrorCode, presentNotificationError } from '@shared/notifications';
@@ -19,13 +20,27 @@ describe('renderer status presentation', () => {
     assert.equal(renderRendererStatus(status, spanish), 'Grabar: F9');
   });
 
-  it('keeps external literal status unchanged across locale renderers', () => {
-    const status = literalStatus('External status');
+  it('maps finite text-action events and malformed payloads to safe semantic status', () => {
+    const translated = (key: string) => key;
 
-    assert.equal(
-      renderRendererStatus(status, () => 'translated'),
-      'External status',
-    );
+    const cases = [
+      ['translation', 'working', 'status.translatingSelection'],
+      ['translation', 'completed', 'status.translationCopied'],
+      ['translation', 'failed', 'status.translationFailed'],
+      ['translation', 'cancelled', 'status.translationCancelled'],
+      ['translation', 'skipped', 'status.textActionSkipped'],
+      ['prettify', 'working', 'status.prettifyingSelection'],
+      ['prettify', 'completed', 'status.prettifiedSelection'],
+      ['prettify', 'failed', 'status.prettifyFailed'],
+      ['prettify', 'cancelled', 'status.prettifyCancelled'],
+      ['prettify', 'skipped', 'status.textActionSkipped'],
+    ] as const;
+
+    for (const [action, phase, expected] of cases) {
+      assert.equal(renderRendererStatus(textActionStatusToRendererStatus({ action, phase }), translated), expected);
+    }
+
+    assert.equal(renderRendererStatus(textActionStatusToRendererStatus(null), translated), 'error.notificationUnknown');
   });
 
   it('translates nested semantic parameters with the current locale', () => {
@@ -49,9 +64,39 @@ describe('renderer status presentation', () => {
     assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
 
     const status = notificationErrorStatus(presented);
-    const translator = (key: string, params?: Record<string, string>) => `${key}:${params?.service ?? ''}`;
+    const translator = (key: string) => key;
 
-    assert.equal(renderRendererStatus(status, translator), 'error.notificationConnectionFailed:Ollama');
+    assert.equal(renderRendererStatus(status, translator), 'error.notificationUnknown');
+  });
+
+  it('maps every classified central-status failure to a concise safe translation key', () => {
+    const expectedKeys = {
+      [NotificationErrorCode.AudioPreparationFailed]: 'error.notificationAudioPreparationFailed',
+      [NotificationErrorCode.ClipboardUnavailable]: 'error.notificationClipboardUnavailable',
+      [NotificationErrorCode.ConnectionFailed]: 'error.notificationUnknown',
+      [NotificationErrorCode.HumanReadable]: 'error.notificationUnknown',
+      [NotificationErrorCode.NotConfigured]: 'error.notificationUnknown',
+      [NotificationErrorCode.OperationTimedOut]: 'error.notificationOperationTimedOut',
+      [NotificationErrorCode.ProviderRequestFailed]: 'error.notificationUnknown',
+      [NotificationErrorCode.RateLimited]: 'error.notificationUnknown',
+      [NotificationErrorCode.UnexpectedProviderResponse]: 'error.notificationUnexpectedProviderResponse',
+      [NotificationErrorCode.Unknown]: 'error.notificationUnknown',
+    } as const;
+
+    for (const code of Object.values(NotificationErrorCode)) {
+      assert.equal(notificationErrorStatus({ code }).key, expectedKeys[code]);
+    }
+  });
+
+  it('keeps only non-duplicate semantic status in the central detail area', () => {
+    assert.equal(getRendererStatusDetail(translatedStatus('status.pressToRecord'), 'idle'), null);
+    assert.equal(getRendererStatusDetail(translatedStatus('status.recording'), 'recording'), null);
+    assert.equal(getRendererStatusDetail(translatedStatus('status.paused'), 'paused'), null);
+    assert.equal(getRendererStatusDetail(translatedStatus('status.transcribing'), 'transcribing'), null);
+    assert.deepEqual(getRendererStatusDetail(translatedStatus('status.recordingCancelled'), 'idle'), {
+      kind: 'translation',
+      key: 'status.recordingCancelled',
+    });
   });
 
   it('does not replace active or preserved status with the idle hotkey prompt', () => {

@@ -24,6 +24,7 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import type { TextActionStatus } from '@shared/textActionStatus';
 import type {
   CancelStreamingTranscriptionIpcResult,
   FinishStreamingTranscriptionIpcResult,
@@ -83,7 +84,7 @@ export interface ElectronAPI {
   onResumeRecording: (callback: () => void) => () => void;
   onStopRecording: (callback: () => void) => () => void;
   onRetryTranscription: (callback: () => void) => () => void;
-  onTranslationStatus: (callback: (status: string) => void) => () => void;
+  onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;

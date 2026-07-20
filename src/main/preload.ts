@@ -29,6 +29,7 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import { sanitizeTextActionStatus, type TextActionStatus } from '@shared/textActionStatus';
 import {
   STREAMING_TRANSCRIPTION_IPC_CHANNELS,
   type CancelStreamingTranscriptionIpcResult,
@@ -68,8 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onRetryTranscription: (callback: () => void) => {
     return onMainEvent('retry-transcription', callback);
   },
-  onTranslationStatus: (callback: (status: string) => void) => {
-    return onMainEvent<[string]>('translation-status', (status) => callback(String(status)));
+  onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => {
+    return onMainEvent<[unknown]>('translation-status', (status) => callback(sanitizeTextActionStatus(status)));
   },
   recordingStartFailed: (): Promise<{ success: boolean }> => {
     return ipcRenderer.invoke('recording-start-failed');

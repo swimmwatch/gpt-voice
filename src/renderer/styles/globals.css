@@ -594,8 +594,9 @@
 .command-dock-recording {
   display: grid;
   min-width: 0;
-  flex: 0 0 142px;
-  grid-template-rows: 93px 49px;
+  min-height: 142px;
+  flex: 0 0 auto;
+  grid-template-rows: 93px minmax(49px, max-content);
 }
 
 .command-dock-record-command-band {
@@ -669,22 +670,24 @@
 }
 
 .command-dock-status-band {
-  display: flex;
-  position: relative;
+  display: grid;
   min-width: 0;
+  min-height: 49px;
   align-items: center;
-  padding: 0 16px;
+  padding: 6px 16px;
+  column-gap: 14px;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
 }
 
 .command-dock-recording-state {
   display: inline-flex;
   min-width: 0;
-  flex: none;
   align-items: center;
   gap: 14px;
   color: var(--dock-foreground);
   font-size: 12.27px;
   font-weight: 650;
+  grid-column: 1;
   line-height: 1.2;
 }
 
@@ -713,27 +716,25 @@
 }
 
 .command-dock-status-detail {
-  position: absolute;
-  right: 80px;
-  left: 140px;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--dock-muted);
   font-size: 13px;
   font-weight: 600;
+  grid-column: 2;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: balance;
+  white-space: normal;
 }
 
 .command-dock-recording-actions {
   display: flex;
-  flex: none;
-  margin-left: auto;
   align-items: center;
   gap: 5px;
+  grid-column: 3;
+  justify-self: end;
 }
 
 .command-dock .command-dock-recording-secondary-action {

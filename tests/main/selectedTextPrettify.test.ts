@@ -579,6 +579,7 @@ describe('selectedTextPrettify', () => {
 
     assert.equal(prettifyCalls.length, 1);
     assert.deepEqual(cancelResult, {
+      cancelled: true,
       success: false,
       status: 'Prettify cancelled',
       error: 'Prettify cancelled',
@@ -591,6 +592,7 @@ describe('selectedTextPrettify', () => {
     const firstResult = await first;
 
     assert.deepEqual(firstResult, {
+      cancelled: true,
       success: false,
       status: 'Prettify cancelled',
       error: 'Prettify cancelled',
@@ -618,7 +620,9 @@ describe('selectedTextPrettify', () => {
     const result = await active;
 
     assert.equal(cancelled?.status, 'Prettify cancelled');
+    assert.equal(cancelled?.cancelled, true);
     assert.equal(result.status, 'Prettify cancelled');
+    assert.equal(result.cancelled, true);
     assert.equal(clipboard.clipboard, 'previous clipboard');
     assert.equal(prettifyCalls.length, 0);
     assert.deepEqual(notifications, []);

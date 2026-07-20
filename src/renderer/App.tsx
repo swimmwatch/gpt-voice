@@ -26,10 +26,10 @@ import {
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
 import {
-  literalStatus,
   notificationErrorStatus,
   renderRendererStatus,
   shouldPresentIdleHotkeyStatus,
+  textActionStatusToRendererStatus,
   translatedStatus,
   type RendererStatus,
 } from './statusPresentation';
@@ -322,7 +322,7 @@ const App: React.FC = () => {
         if (!disposed) void recordingActionsRef.current.resendLastTranscription();
       }),
       window.electronAPI.onTranslationStatus((nextStatus) => {
-        if (!disposed) setStatus(literalStatus(nextStatus));
+        if (!disposed) setStatus(textActionStatusToRendererStatus(nextStatus));
       }),
       window.electronAPI.onBgBrowserReady((providerId) => {
         if (
@@ -634,7 +634,7 @@ const App: React.FC = () => {
         onStop={stopRecording}
         recordHotkey={recordHotkey}
         state={recordingState}
-        status={renderRendererStatus(status, t)}
+        status={status}
       />
       <TranslateSection
         targetLang={targetLang}

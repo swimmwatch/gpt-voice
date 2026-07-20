@@ -30,6 +30,7 @@ export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS = 60_000;
 export const MAX_PRETTIFY_SELECTED_TEXT_LENGTH = 16_000;
 
 export interface SelectedTextPrettifyResult {
+  cancelled?: true;
   success: boolean;
   status: string;
   error?: string;
@@ -134,6 +135,7 @@ function createFailureResult(error: string): SelectedTextPrettifyResult {
 function createCancelledResult(): SelectedTextPrettifyResult {
   const status = t('status.prettifyCancelled');
   return {
+    cancelled: true,
     success: false,
     status,
     error: status,

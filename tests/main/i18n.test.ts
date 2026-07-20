@@ -130,6 +130,22 @@ const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.languageSaveFailed',
   'settingsSection.system',
 ] as const;
+const REQUIRED_CENTRAL_STATUS_KEYS = [
+  'status.translatingSelection',
+  'status.translationCopied',
+  'status.translationFailed',
+  'status.translationCancelled',
+  'status.prettifyingSelection',
+  'status.prettifiedSelection',
+  'status.prettifyFailed',
+  'status.prettifyCancelled',
+  'status.textActionSkipped',
+  'error.notificationAudioPreparationFailed',
+  'error.notificationClipboardUnavailable',
+  'error.notificationOperationTimedOut',
+  'error.notificationUnexpectedProviderResponse',
+  'error.notificationUnknown',
+] as const;
 
 function getPlaceholders(message: string): string[] {
   return Array.from(message.matchAll(/\{([a-z][a-zA-Z0-9]*)\}/g), (match) => match[1]).sort();
@@ -187,6 +203,23 @@ describe('i18n', () => {
         const message = dictionary[key];
         assert.equal(Boolean(message?.trim()), true, `${locale}:${key}`);
         assert.deepEqual(getPlaceholders(message ?? ''), [], `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('keeps every central text-action and error status concise and free of technical details', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_CENTRAL_STATUS_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
+        assert.equal(message.length <= 96, true, `${locale}:${key}`);
+        assert.doesNotMatch(
+          message,
+          /(https?:\/\/|\n|\/tmp\/|Traceback|TimeoutError|HTTP\s*\d|\/home\/|[A-Z]:\\)/u,
+          `${locale}:${key}`,
+        );
       }
     }
   });

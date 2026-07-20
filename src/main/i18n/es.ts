@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': 'Traducción fallida',
   'status.prettifyFailed': 'No se pudo mejorar el texto',
   'status.prettifyCancelled': 'Mejora cancelada',
+  'status.translationCancelled': 'Traducción cancelada',
+  'status.textActionSkipped': 'Ya se está ejecutando otra acción',
   'status.transcriptionError': 'Error de transcripción',
   'status.recordingCancelled': 'Grabación cancelada',
   'status.microphoneError': 'Error: No se pudo acceder al micrófono',

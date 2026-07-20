@@ -91,3 +91,30 @@ Dirty-tree boundary:
 - Whole-branch review fixes and structural extractions are also uncommitted.
   Existing background-browser queue and other provider-switching changes remain
   preserved; no broad staging, commit, push, or release action was performed.
+
+Safe two-line main-status follow-up (uncommitted):
+
+- The central recording status now uses a three-column grid for the lifecycle
+  label, a wrapping two-line status message, and actions. It no longer uses
+  absolute positioning, ellipsis, or a single-line overflow rule.
+- Main-to-renderer selected-text status updates use the finite shared
+  `TextActionStatus` contract only. Preload rejects malformed payloads, and the
+  renderer maps them to a generic localized failure rather than displaying
+  caller-provided text. All working, completed, failed, cancelled, and skipped
+  translation/Prettify outcomes are emitted as typed events. Rejected actions
+  now settle to one failed event, and cancellation waits for its terminal
+  result so the live region does not announce it twice.
+- Recording statuses remain semantic translation descriptors until render, so a
+  locale change re-renders an active or retained status without replacing it.
+  Lifecycle-equivalent descriptors are suppressed by state/key mapping.
+  Connection and provider-request details map to concise generic messages in
+  the central block; rejected action diagnostics retain only classified safe
+  metadata. Existing native notifications are unchanged.
+- Focused status/IPC/i18n/selected-text tests, both TypeScript checks, ESLint,
+  Prettier, the full 114-file unit suite, production build, and `git diff
+  --check` passed. The IPC tests exercise every typed event and route
+  traceback/URL/HTTP/path/provider-output-like payloads through sanitization
+  to the generic display. The production build has only existing bundle-size
+  warnings. A manual Electron visual pass remains for English plus a long
+  locale, two-line wrapping, and recording/text-action states. This follow-up
+  does not change Task 19's blocked Claude Web runtime gate or its checkbox.

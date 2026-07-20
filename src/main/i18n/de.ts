@@ -15,6 +15,8 @@ export default {
   'status.translationFailed': 'Übersetzung fehlgeschlagen',
   'status.prettifyFailed': 'Verbesserung fehlgeschlagen',
   'status.prettifyCancelled': 'Verbesserung abgebrochen',
+  'status.translationCancelled': 'Übersetzung abgebrochen',
+  'status.textActionSkipped': 'Eine andere Aktion wird bereits ausgeführt',
   'status.transcriptionError': 'Transkriptionsfehler',
   'status.recordingCancelled': 'Aufnahme abgebrochen',
   'status.microphoneError': 'Fehler: Mikrofon nicht zugänglich',
@@ -447,8 +449,7 @@ export default {
   'error.notificationUnexpectedProviderResponse':
     'Der Dienst hat eine unerwartete Antwort zurückgegeben. Versuchen Sie es erneut.',
   'error.notificationOperationTimedOut': 'Die Operation ist abgelaufen. Versuchen Sie es erneut.',
-  'error.notificationClipboardUnavailable':
-    'Der ausgewählte Text konnte nicht gelesen werden. Überprüfen Sie die Auswahl und versuchen Sie es erneut.',
+  'error.notificationClipboardUnavailable': 'Text nicht lesbar. Auswahl prüfen und erneut versuchen.',
   'error.notificationAudioPreparationFailed':
     'Die Aufnahme konnte nicht vorbereitet werden. Versuchen Sie das Aufnehmen erneut.',
   'error.streamingRecordingCancelled': 'Die Aufnahme wurde abgebrochen.',
