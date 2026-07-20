@@ -322,6 +322,7 @@ export default {
   'error.noAccessToken': 'कोई एक्सेस टोकन या API कुंजी नहीं है। प्रदाता कॉन्फ़िगर करें और पुनः प्रयास करें।',
   'error.chatGptAsrFailure':
     'ChatGPT रिकॉर्ड किए गए ऑडियो को संसाधित नहीं कर सका ({mimeType})। फिर से रिकॉर्ड करने का प्रयास करें।',
+  'error.chatGptConnectionInterrupted': 'ChatGPT ट्रांसक्रिप्शन बाधित हो गया। फिर से प्रयास करें।',
   'error.rateLimited': 'बहुत अधिक अनुरोध। बाद में पुनः प्रयास करें।',
   'error.rateLimitedRetryAfter': 'बहुत अधिक अनुरोध। {seconds}s में बाद में पुनः प्रयास करें।',
   'error.prettifyRateLimited': 'ChatGPT सुधार सुविधा पर अस्थायी सीमा है। {seconds}s में पुनः प्रयास करें।',

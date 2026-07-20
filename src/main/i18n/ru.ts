@@ -354,6 +354,7 @@ export default {
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
   'error.noAccessToken': 'Нет токена доступа или API key. Настройте провайдера и повторите попытку.',
   'error.chatGptAsrFailure': 'ChatGPT не смог обработать записанный звук ({mimeType}). Попробуйте записать снова.',
+  'error.chatGptConnectionInterrupted': 'Распознавание через ChatGPT было прервано. Повторите попытку.',
   'error.rateLimited': 'Слишком много запросов. Попробуйте позже.',
   'error.rateLimitedRetryAfter': 'Слишком много запросов. Попробуйте через {seconds} с.',
   'error.prettifyRateLimited': 'Улучшение текста через ChatGPT временно ограничено. Повторите через {seconds} с.',

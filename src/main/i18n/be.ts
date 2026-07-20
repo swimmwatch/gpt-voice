@@ -353,6 +353,7 @@ export default {
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
+  'error.chatGptConnectionInterrupted': 'Распазнаванне праз ChatGPT было перапынена. Паўтарыце спробу.',
   'error.rateLimited': 'Зашмат запытаў. Паспрабуйце пазней.',
   'error.rateLimitedRetryAfter': 'Зашмат запытаў. Паспрабуйце праз {seconds} с.',
   'error.prettifyRateLimited': 'Паляпшэнне тэксту праз ChatGPT часова абмежавана. Паўтарыце праз {seconds} с.',

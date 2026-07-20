@@ -312,6 +312,7 @@ export default {
   'error.notLoggedIn': '未登录。请先登录。',
   'error.noAccessToken': '没有访问令牌或API密钥。请配置提供商并重试。',
   'error.chatGptAsrFailure': 'ChatGPT 无法处理录制的音频 ({mimeType})。请重试录音。',
+  'error.chatGptConnectionInterrupted': 'ChatGPT 转写已中断。请重试。',
   'error.rateLimited': '请求过多。请稍后再试。',
   'error.rateLimitedRetryAfter': '请求过多。请在 {seconds}s 中稍后重试。',
   'error.prettifyRateLimited': 'ChatGPT 润色功能暂时受限。请在 {seconds}s 中重试。',

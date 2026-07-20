@@ -350,6 +350,7 @@ export default {
   'error.notLoggedIn': 'Not logged in. Please login first.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
   'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
+  'error.chatGptConnectionInterrupted': 'ChatGPT transcription was interrupted. Try again.',
   'error.rateLimited': 'Too many requests. Try again later.',
   'error.rateLimitedRetryAfter': 'Too many requests. Try again in {seconds}s.',
   'error.prettifyRateLimited': 'ChatGPT prettify is temporarily rate-limited. Try again in {seconds}s.',

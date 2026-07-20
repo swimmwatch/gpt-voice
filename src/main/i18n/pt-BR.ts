@@ -320,6 +320,7 @@ export default {
   'error.notLoggedIn': 'Não está logado. Faça login primeiro.',
   'error.noAccessToken': 'Nenhum token de acesso ou chave de API. Configure o provedor e tente novamente.',
   'error.chatGptAsrFailure': 'O ChatGPT não conseguiu processar o áudio gravado ({mimeType}). Tente gravar novamente.',
+  'error.chatGptConnectionInterrupted': 'A transcrição do ChatGPT foi interrompida. Tente novamente.',
   'error.rateLimited': 'Muitas requisições. Tente novamente mais tarde.',
   'error.rateLimitedRetryAfter': 'Muitas requisições. Tente novamente em {seconds}s.',
   'error.prettifyRateLimited':

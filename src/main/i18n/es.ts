@@ -325,6 +325,7 @@ export default {
   'error.notLoggedIn': 'No ha iniciado sesión. Por favor, inicie sesión primero.',
   'error.noAccessToken': 'No hay token de acceso o clave API. Configure el proveedor e inténtelo de nuevo.',
   'error.chatGptAsrFailure': 'ChatGPT no pudo procesar el audio grabado ({mimeType}). Intente grabar de nuevo.',
+  'error.chatGptConnectionInterrupted': 'La transcripción de ChatGPT se interrumpió. Inténtelo de nuevo.',
   'error.rateLimited': 'Demasiadas solicitudes. Inténtelo más tarde.',
   'error.rateLimitedRetryAfter': 'Demasiadas solicitudes. Inténtelo de nuevo en {seconds}s.',
   'error.prettifyRateLimited':

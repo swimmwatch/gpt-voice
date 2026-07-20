@@ -352,6 +352,7 @@ export default {
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не зміг обробити записаний звук ({mimeType}). Спробуйте записати ще раз.',
+  'error.chatGptConnectionInterrupted': 'Розпізнавання через ChatGPT було перервано. Повторіть спробу.',
   'error.rateLimited': 'Забагато запитів. Спробуйте пізніше.',
   'error.rateLimitedRetryAfter': 'Забагато запитів. Спробуйте через {seconds} с.',
   'error.prettifyRateLimited': 'Покращення тексту через ChatGPT тимчасово обмежено. Повторіть через {seconds} с.',

@@ -319,6 +319,7 @@ export default {
   'error.notLoggedIn': 'ログインしていません。先にログインしてください。',
   'error.noAccessToken': 'アクセストークンまたはAPIキーがありません。プロバイダーを設定して再試行してください。',
   'error.chatGptAsrFailure': 'ChatGPTが録音された音声（{mimeType}）を処理できませんでした。再度録音を試してください。',
+  'error.chatGptConnectionInterrupted': 'ChatGPT の文字起こしが中断されました。もう一度お試しください。',
   'error.rateLimited': 'リクエストが多すぎます。後でもう一度お試しください。',
   'error.rateLimitedRetryAfter': 'リクエストが多すぎます。{seconds}sで後でもう一度お試しください。',
   'error.prettifyRateLimited':

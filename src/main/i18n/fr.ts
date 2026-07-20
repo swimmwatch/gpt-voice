@@ -326,6 +326,7 @@ export default {
   'error.noAccessToken': "Aucun jeton d'accès ou clé API. Configurez le fournisseur et réessayez.",
   'error.chatGptAsrFailure':
     "ChatGPT n'a pas pu traiter l'audio enregistré ({mimeType}). Essayez de recommencer l'enregistrement.",
+  'error.chatGptConnectionInterrupted': 'La transcription ChatGPT a été interrompue. Réessayez.',
   'error.rateLimited': 'Trop de requêtes. Réessayez plus tard.',
   'error.rateLimitedRetryAfter': 'Trop de requêtes. Réessayez dans {seconds}s.',
   'error.prettifyRateLimited': 'L’amélioration via ChatGPT est temporairement limitée. Réessayez dans {seconds}s.',

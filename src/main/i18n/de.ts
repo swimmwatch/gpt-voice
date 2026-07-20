@@ -328,6 +328,7 @@ export default {
     'Kein Zugriffstoken oder API-Schlüssel vorhanden. Konfigurieren Sie den Anbieter und versuchen Sie es erneut.',
   'error.chatGptAsrFailure':
     'ChatGPT konnte die aufgezeichnete Audioaufnahme ({mimeType}) nicht verarbeiten. Versuchen Sie die Aufnahme erneut.',
+  'error.chatGptConnectionInterrupted': 'Die ChatGPT-Transkription wurde unterbrochen. Versuchen Sie es erneut.',
   'error.rateLimited': 'Zu viele Anfragen. Versuchen Sie es später erneut.',
   'error.rateLimitedRetryAfter': 'Zu viele Anfragen. Versuchen Sie es in {seconds}s später erneut.',
   'error.prettifyRateLimited':
