@@ -22,6 +22,12 @@ describe('main window iconography', () => {
     assert.doesNotMatch(prettifyBand, /\bBox\b/u);
   });
 
+  it('uses the shared dock icon color for the idle recording status', () => {
+    const styles = readRendererSource('styles/globals.css');
+
+    assert.match(styles, /\.command-dock-recording-state svg \{[\s\S]*?color: var\(--dock-icon\);/u);
+  });
+
   it('renders provider settings as a conditional gear and connected state as passive status', () => {
     const toolbar = readRendererSource('components/MainToolbar.tsx');
     const styles = readRendererSource('styles/globals.css');

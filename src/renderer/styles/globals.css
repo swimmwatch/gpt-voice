@@ -694,7 +694,7 @@
 .command-dock-recording-state svg {
   width: 24px;
   height: 24px;
-  color: var(--dock-inactive-ring);
+  color: var(--dock-icon);
 }
 
 .command-dock-recording-state.is-recording {
