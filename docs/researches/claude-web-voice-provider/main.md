@@ -486,3 +486,58 @@ Claude Web short and pause cases returned `empty-result`, and the long case
 missed the three-second post-Stop requirement. These failures are recorded for
 their owning follow-up work and are not repaired inside the documentation and
 verification packet.
+
+## v2.1.0 Release Runtime Gate Revalidation
+
+Evidence date: 2026-07-20
+
+PR #38 was rechecked at reviewed head `904d5c4b`, with all four required checks
+successful, and merged into `main` with merge commit `1f35876b`. Before any
+release tag or GitHub Release was created, one newly authorized Claude Web
+runtime-matrix attempt was made from that exact merged commit.
+
+The first disposable runner passed its local output-sanitization check but
+failed during module loading because a temporary ESM entry point could not
+resolve the repository-local CloakBrowser package. The failure occurred before
+fixture retrieval, browser launch, saved-session restoration, or a Claude
+speech connection. It therefore provided no evidence of a Claude or product
+startup failure.
+
+After fresh explicit authorization, the runner was executed from the repository
+module context. Nine production-module imports passed, as did the public-fixture
+setup. A separate no-speech preflight then passed browser launch, saved-session
+restoration, Claude readiness, and final cleanup.
+
+After another explicit release continuation, a rebuilt runner emitted one
+sanitized terminal record per case. Its local dry run, bounded public-fixture
+setup, saved-session restoration, Claude readiness, and cleanup preflights all
+passed before the live matrix.
+
+| Case                     | Safe outcome          | Permitted metadata                                                                                         |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| First short stream       | `empty-result`        | 68 frames; zero events/endpoints; queue high-water 12; post-Stop 3,200-3,299 ms; close `1000`              |
+| Second short stream      | `empty-result`        | 68 frames; zero events/endpoints; queue high-water 12; post-Stop 3,500-3,599 ms; close `1000`              |
+| Pause and resume         | `empty-result`        | 68 frames; KeepAlive observed; zero events/endpoints; queue high-water 12; post-Stop 2,200-2,299 ms        |
+| Immediate Stop           | Expected empty result | Zero complete frames/events/endpoints; post-Stop 3,200-3,299 ms; close `1000`                              |
+| Cancellation             | Completed safely      | Five frames; cleanup passed; close code was not observed                                                   |
+| Approximately 30 seconds | `transport-failure`   | Enqueue rejected at frame 192 after 176 sends; zero events/endpoints; queue high-water 17; no finalization |
+
+Every emitted fragment was valid, the minimum send cadence passed, each queue
+remained below its 64-frame bound, no malformed or unknown event was observed,
+and all operation/final cleanup checks passed. The long failure was not a queue
+overflow: the queue rejected further input after a typed transport failure. The
+runner did not retain the more specific page-transport subtype, so no
+first-event timeout, connection, authentication, endpoint, or rate-limit cause
+is asserted. Long finalization and duration independence were not reached.
+
+All disposable runners, inspectors, and their identified generated cache were
+removed. Audio, reference or recognized text, socket URLs, raw events,
+session/account/organization data, browser state, and provider output were not
+printed or persisted. No automatic retry, reconnect, buffered fallback,
+transport change, tag, or release followed.
+
+**The v2.1.0 runtime gate remains failed closed and Task 19 remains unchecked.**
+Normal short and paused streams produced no server events or final transcript,
+and the long stream terminated before Stop. The authorized live attempt is
+consumed. Diagnose the missing server events and preserve the specific safe
+page-transport subtype before requesting any further live matrix.
