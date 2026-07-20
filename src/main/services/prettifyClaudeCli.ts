@@ -214,7 +214,7 @@ function appendModelArguments(args: string[], settings: ClaudeCliPrettifySetting
     if (!isValidClaudeCliModel(settings.model)) return false;
     args.push('--model', settings.model);
   }
-  if (settings.fallbackModel) {
+  if (settings.fallbackModel && settings.fallbackModel !== settings.model) {
     if (!isValidClaudeCliModel(settings.fallbackModel)) return false;
     args.push('--fallback-model', settings.fallbackModel);
   }

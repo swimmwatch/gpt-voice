@@ -7,6 +7,7 @@ import {
   KNOWN_PRETTIFY_PROVIDERS,
   OllamaPrettifyProvider,
   VllmPrettifyProvider,
+  checkPrettifyCliConnection,
   listPrettifyModels,
   loadPrettifyModel,
   preparePrettifyExecution,
@@ -107,6 +108,56 @@ describe('prettifyProviders', () => {
     });
     assert.deepEqual(PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
     assert.equal(fetchCalls, 0);
+  });
+
+  it('checks CLI connection without model discovery, generation, or HTTP requests', async () => {
+    let claudeChecks = 0;
+    let codexChecks = 0;
+    let unrelatedCalls = 0;
+    const deps = {
+      claudeCliAdapter: {
+        checkAvailability: async ({ settings }: { settings: { executablePath: string } }) => {
+          claudeChecks += 1;
+          assert.equal(settings.executablePath, '/opt/Claude CLI');
+          return { capabilityVersion: '2.1.71', success: true as const };
+        },
+        prepare: async () => {
+          unrelatedCalls += 1;
+          return { error: ClaudeCliPrettifyErrorCode.ProcessFailed, success: false as const };
+        },
+      },
+      codexCliAdapter: {
+        checkAvailability: async ({ settings }: { settings: { executablePath: string } }) => {
+          codexChecks += 1;
+          assert.equal(settings.executablePath, '/opt/Codex CLI');
+          return { error: CodexCliPrettifyErrorCode.NotAuthenticated, success: false as const };
+        },
+        listModels: async () => {
+          unrelatedCalls += 1;
+          return { error: CodexCliPrettifyErrorCode.ModelDiscoveryFailed, success: false as const };
+        },
+        prepare: async () => {
+          unrelatedCalls += 1;
+          return { error: CodexCliPrettifyErrorCode.ProcessFailed, success: false as const };
+        },
+      },
+      fetch: async () => {
+        unrelatedCalls += 1;
+        return response(200, {});
+      },
+    };
+
+    assert.deepEqual(
+      await checkPrettifyCliConnection('claude-cli', { claudeCli: { executablePath: '/opt/Claude CLI' } }, { deps }),
+      { providerId: 'claude-cli', status: 'connected' },
+    );
+    assert.deepEqual(
+      await checkPrettifyCliConnection('codex-cli', { codexCli: { executablePath: '/opt/Codex CLI' } }, { deps }),
+      { providerId: 'codex-cli', status: 'login-required' },
+    );
+    assert.equal(claudeChecks, 1);
+    assert.equal(codexChecks, 1);
+    assert.equal(unrelatedCalls, 0);
   });
 
   it('prepares one-shot Claude CLI execution with an empty default model and no HTTP fallthrough', async () => {

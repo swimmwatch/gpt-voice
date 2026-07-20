@@ -10,12 +10,14 @@ import {
   KNOWN_PRETTIFY_PROVIDER_IDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
   PRETTIFY_PROVIDER_CAPABILITIES,
+  PRETTIFY_CLI_PROVIDER_IDS,
   getPrettifyBaseUrlValidationError,
   getPrettifySettingsInputError,
   isValidClaudeCliPrettifyModel,
   isValidCodexCliPrettifyModel,
   isValidPrettifyCliExecutablePath,
   isKnownPrettifyProviderId,
+  isPrettifyCliProviderId,
   isPrettifyProviderId,
   isPrettifyProviderBaseUrlLoopback,
   isPrettifyReasoning,
@@ -41,7 +43,11 @@ describe('prettifySettings', () => {
     assert.equal(isKnownPrettifyProviderId('claude-cli'), true);
     assert.equal(isKnownPrettifyProviderId('codex-cli'), true);
     assert.equal(isKnownPrettifyProviderId('chatgpt'), false);
+    assert.equal(isPrettifyCliProviderId('claude-cli'), true);
+    assert.equal(isPrettifyCliProviderId('codex-cli'), true);
+    assert.equal(isPrettifyCliProviderId('ollama'), false);
     assert.deepEqual(KNOWN_PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
+    assert.deepEqual(PRETTIFY_CLI_PROVIDER_IDS, ['claude-cli', 'codex-cli']);
   });
 
   it('declares complete runtime capabilities for every selectable provider', () => {

@@ -283,6 +283,13 @@ describe('ClaudeCliPrettifyAdapter', () => {
       ),
       true,
     );
+    assert.equal(
+      buildClaudeCliPrettifyArguments(
+        PROTECTED_PROMPT,
+        getSettings({ fallbackModel: 'sonnet', model: 'sonnet' }),
+      )?.includes('--fallback-model'),
+      false,
+    );
     assert.equal(buildClaudeCliPrettifyArguments(PROTECTED_PROMPT, getSettings({ model: 'invalid model' })), null);
     assert.equal(
       buildClaudeCliPrettifyArguments(PROTECTED_PROMPT, getSettings({ fallbackModel: 'other-cli-model' })),

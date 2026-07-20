@@ -11,6 +11,7 @@ import {
   type PrettifyModelSource,
   type PrettifyModelUnloadResult,
   type PrettifyProviderCapabilities,
+  type PrettifyProviderAvailability,
 } from '@shared/prettifySettings';
 
 export const PRETTIFY_PROVIDER_UNAVAILABLE_ERROR = 'Prettify provider is unavailable';
@@ -28,8 +29,10 @@ interface FetchResponseLike {
 }
 
 export interface PrettifyProviderDependencies {
-  claudeCliAdapter?: Pick<ClaudeCliPrettifyAdapter, 'prepare'>;
-  codexCliAdapter?: Pick<CodexCliPrettifyAdapter, 'listModels' | 'prepare'>;
+  claudeCliAdapter?: Pick<ClaudeCliPrettifyAdapter, 'prepare'> &
+    Partial<Pick<ClaudeCliPrettifyAdapter, 'checkAvailability'>>;
+  codexCliAdapter?: Pick<CodexCliPrettifyAdapter, 'listModels' | 'prepare'> &
+    Partial<Pick<CodexCliPrettifyAdapter, 'checkAvailability'>>;
   fetch: (url: string, init?: RequestInit) => Promise<FetchResponseLike>;
 }
 
@@ -93,6 +96,14 @@ export abstract class BasePrettifyProvider {
       source: this.capabilities.modelSource,
       usesDefaultModel: !model,
     };
+  }
+
+  public checkAvailability(
+    _settings: PrettifySettingsWithSecret,
+    _signal: AbortSignal,
+    _deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyProviderAvailability> {
+    return Promise.resolve({ status: 'unavailable' });
   }
 
   public listModels(

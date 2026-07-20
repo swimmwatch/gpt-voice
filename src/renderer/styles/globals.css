@@ -273,6 +273,7 @@
 
 .command-dock-provider-field {
   display: grid;
+  position: relative;
   width: 139px;
   min-width: 0;
   margin-left: 16px;
@@ -310,7 +311,11 @@
 .command-dock .command-dock-provider-trigger svg {
   width: 17px;
   height: 17px;
+  position: absolute;
+  top: 50%;
+  right: 0;
   color: var(--dock-icon);
+  transform: translateY(-50%);
 }
 
 .command-dock-provider-state {
@@ -407,11 +412,7 @@
   align-items: center;
   padding: 0 11px 0 16px;
   gap: 8px;
-  grid-template-columns: 22px 147px minmax(0, 1fr) 68px 37px;
-}
-
-.command-dock-prettify-layout[data-has-model-action='false'] {
-  grid-template-columns: 22px 147px minmax(0, 1fr) 37px;
+  grid-template-columns: 22px 147px minmax(0, 1fr) 125px;
 }
 
 .command-dock-prettify-provider-field,
@@ -423,6 +424,7 @@
 }
 
 .command-dock-prettify-provider-field {
+  position: relative;
   padding-left: 8px;
 }
 
@@ -455,7 +457,11 @@
 .command-dock .command-dock-prettify-provider-trigger svg {
   width: 17px;
   height: 17px;
+  position: absolute;
+  top: 50%;
+  right: 0;
   color: var(--dock-icon);
+  transform: translateY(-50%);
 }
 
 .command-dock-model-label {
@@ -507,6 +513,32 @@
   color: var(--destructive);
 }
 
+.command-dock-prettify-controls {
+  display: grid;
+  width: 125px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) 37px;
+}
+
+.command-dock-prettify-connection {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.command-dock-prettify-connection.is-success {
+  color: var(--dock-success);
+}
+
+.command-dock-prettify-connection.is-warning {
+  color: var(--warning);
+}
+
+.command-dock-prettify-connection.is-error {
+  color: var(--destructive);
+}
+
 .command-dock .command-dock-prettify-model-action {
   width: 68px;
   height: 27px;
@@ -519,6 +551,8 @@
   cursor: pointer;
   font-size: 10.51px;
   font-weight: 500;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .command-dock .command-dock-prettify-model-action:not(:disabled):hover {
@@ -786,7 +820,7 @@
 
   .command-dock-prettify-layout,
   .command-dock-prettify-layout[data-has-model-action='false'] {
-    grid-template-columns: 22px minmax(0, 1fr) 37px;
+    grid-template-columns: 22px minmax(0, 1fr) 125px;
   }
 
   .command-dock-prettify-summary,

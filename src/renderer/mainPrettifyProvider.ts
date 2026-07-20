@@ -1,4 +1,5 @@
 import { getOllamaModelControl, type OllamaModelControl } from '@renderer/prettifyModelControl';
+import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
 import type { PrettifyModelOption, PrettifyProviderId, PrettifySettings } from '@shared/prettifySettings';
 
 export const MAIN_PRETTIFY_PROVIDER_LABEL_KEYS: Record<PrettifyProviderId, string> = {
@@ -8,7 +9,7 @@ export const MAIN_PRETTIFY_PROVIDER_LABEL_KEYS: Record<PrettifyProviderId, strin
   'codex-cli': 'prettify.provider.codexCli',
 };
 
-export type MainPrettifyProviderStatusTone = 'neutral' | 'success' | 'warning';
+export type MainPrettifyProviderStatusTone = 'error' | 'neutral' | 'success' | 'warning';
 
 export interface MainPrettifyProviderStatus {
   labelKey: string;
@@ -17,12 +18,13 @@ export interface MainPrettifyProviderStatus {
 }
 
 export interface MainPrettifyProviderViewState {
+  connection: MainPrettifyProviderStatus | null;
   model: string;
   modelFallbackKey: string;
   ollamaControl: OllamaModelControl | null;
   providerId: PrettifyProviderId;
   providerLabelKey: string;
-  status: MainPrettifyProviderStatus;
+  status: MainPrettifyProviderStatus | null;
 }
 
 export interface MainPrettifyProviderSelectionState {
@@ -53,7 +55,7 @@ function getActiveModel(settings: PrettifySettings): string {
 function getProviderStatus(
   settings: PrettifySettings,
   ollamaControl: OllamaModelControl | null,
-): MainPrettifyProviderStatus {
+): MainPrettifyProviderStatus | null {
   switch (settings.providerId) {
     case 'ollama':
       if (!settings.ollama.model) {
@@ -67,23 +69,39 @@ function getProviderStatus(
         ? { labelKey: 'mainDock.prettifyConfigured', tone: 'success' }
         : { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' };
     case 'claude-cli':
-      return {
-        labelKey: 'mainDock.prettifyEffort',
-        tone: 'neutral',
-        valueKey: `prettify.claudeCli.effort.${settings.claudeCli.effort}`,
-      };
+      return null;
     case 'codex-cli':
-      return { labelKey: 'mainDock.prettifyExperimental', tone: 'warning' };
+      return null;
+  }
+}
+
+export function getMainPrettifyCliConnectionViewState(
+  providerId: PrettifyProviderId,
+  connection: MainPrettifyCliConnectionState | null,
+): MainPrettifyProviderStatus | null {
+  if (providerId !== 'claude-cli' && providerId !== 'codex-cli') return null;
+  if (!connection || connection.providerId !== providerId || connection.status === 'checking') {
+    return { labelKey: 'mainDock.prettifyChecking', tone: 'neutral', valueKey: 'prettify.cli.statusChecking' };
+  }
+  switch (connection.status) {
+    case 'connected':
+      return { labelKey: 'provider.connected', tone: 'success', valueKey: 'prettify.cli.statusAvailable' };
+    case 'login-required':
+      return { labelKey: 'mainDock.prettifySignIn', tone: 'warning', valueKey: 'mainDock.prettifySignInHelp' };
+    case 'unavailable':
+      return { labelKey: 'mainDock.prettifyUnavailable', tone: 'error', valueKey: 'prettify.cli.statusUnavailable' };
   }
 }
 
 export function getMainPrettifyProviderViewState(
   settings: PrettifySettings,
   ollamaModels: readonly PrettifyModelOption[],
+  cliConnection: MainPrettifyCliConnectionState | null = null,
 ): MainPrettifyProviderViewState {
   const ollamaControl = getOllamaModelControl(settings, ollamaModels);
   const isCliProvider = settings.providerId === 'claude-cli' || settings.providerId === 'codex-cli';
   return {
+    connection: getMainPrettifyCliConnectionViewState(settings.providerId, cliConnection),
     model: getActiveModel(settings),
     modelFallbackKey: isCliProvider ? 'prettify.providerDefault' : 'prettify.noModels',
     ollamaControl,

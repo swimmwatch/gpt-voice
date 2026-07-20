@@ -15,6 +15,8 @@ import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
+  PrettifyCliConnectionResult,
+  PrettifyCliProviderId,
   KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -264,6 +266,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getPrettifySettings: (): Promise<PrettifySettings> => {
     return ipcRenderer.invoke('get-prettify-settings');
+  },
+  checkPrettifyCliConnection: (providerId: PrettifyCliProviderId): Promise<PrettifyCliConnectionResult> => {
+    return ipcRenderer.invoke('check-prettify-cli-connection', providerId);
   },
   setPrettifySettings: (
     settings: PrettifySettingsInput,

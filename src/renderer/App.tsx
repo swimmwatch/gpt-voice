@@ -10,6 +10,11 @@ import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
 import { reduceMainPrettifyProviderSelection } from './mainPrettifyProvider';
 import {
+  createMainPrettifyCliConnectionCoordinator,
+  getActivePrettifyCliProviderId,
+  type MainPrettifyCliConnectionState,
+} from './mainPrettifyCliConnection';
+import {
   getProviderLoginState,
   isActiveProviderSettingsChange,
   isProviderConfigured,
@@ -61,6 +66,13 @@ const App: React.FC = () => {
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
+  const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
+  const [prettifyCliConnectionCoordinator] = useState(() =>
+    createMainPrettifyCliConnectionCoordinator({
+      check: (providerId) => window.electronAPI.checkPrettifyCliConnection(providerId),
+      update: setPrettifyCliConnection,
+    }),
+  );
 
   const { t, isReady: isI18nReady } = useI18n();
   const activeProvider = providers.find((provider) => provider.id === activeProviderId);
@@ -82,6 +94,27 @@ const App: React.FC = () => {
     recordingStateRef.current = nextState;
     setRecordingState(nextState);
   }, []);
+
+  useEffect(() => {
+    prettifyCliConnectionCoordinator.refresh(
+      getActivePrettifyCliProviderId(prettifySettings.providerId, prettifyProviderSelection.pendingRequestId !== null),
+    );
+  }, [
+    prettifySettings.providerId,
+    prettifySettings.claudeCli.executablePath,
+    prettifySettings.claudeCli.timeoutSeconds,
+    prettifySettings.codexCli.executablePath,
+    prettifySettings.codexCli.timeoutSeconds,
+    prettifyProviderSelection.pendingRequestId,
+    prettifyCliConnectionCoordinator,
+  ]);
+
+  useEffect(
+    () => () => {
+      prettifyCliConnectionCoordinator.dispose();
+    },
+    [prettifyCliConnectionCoordinator],
+  );
 
   const showStatusNotification = useCallback(
     (nextStatus: RendererStatus) => {
@@ -583,6 +616,7 @@ const App: React.FC = () => {
         providers={providers}
       />
       <MainPrettifyProviderBand
+        cliConnection={prettifyCliConnection}
         error={prettifyProviderSelection.error || prettifyModelActionError}
         isModelActionRunning={isPrettifyModelActionRunning}
         isProviderChangeSaving={prettifyProviderSelection.pendingRequestId !== null}

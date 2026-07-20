@@ -10,6 +10,25 @@ function readProjectFile(relativePath: string): string {
 }
 
 describe('Prettify IPC privacy contract', () => {
+  it('exposes a dedicated trusted CLI connection check without renderer settings', () => {
+    const ipc = readProjectFile('src/main/ipc.ts');
+    const preload = readProjectFile('src/main/preload.ts');
+    const rendererTypes = readProjectFile('src/renderer/types.d.ts');
+    const settings = readProjectFile('src/shared/prettifySettings.ts');
+    const handler = ipc.slice(
+      ipc.indexOf("'check-prettify-cli-connection'"),
+      ipc.indexOf("handle('set-prettify-settings'"),
+    );
+
+    assert.match(settings, /PrettifyCliConnectionResult/u);
+    assert.match(preload, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
+    assert.match(rendererTypes, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
+    assert.match(handler, /isPrettifyCliProviderId\(providerId\)/u);
+    assert.match(handler, /getPrettifySettingsSnapshot\(\)/u);
+    assert.match(handler, /event\.sender\.once\('destroyed'/u);
+    assert.doesNotMatch(handler, /executablePath|stdout|stderr|account|authStatus/u);
+  });
+
   it('accepts every selectable provider for model inspection', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const preload = readProjectFile('src/main/preload.ts');

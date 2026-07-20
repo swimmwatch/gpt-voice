@@ -10,6 +10,8 @@ import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
   PrettifyModelUnloadResult,
+  PrettifyCliConnectionResult,
+  PrettifyCliProviderId,
   KnownPrettifyProviderId,
   PrettifySettings,
   PrettifySettingsInput,
@@ -156,6 +158,7 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;
   setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
   getPrettifySettings: () => Promise<PrettifySettings>;
+  checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
   setPrettifySettings: (
     settings: PrettifySettingsInput,
   ) => Promise<{ success: boolean; settings: PrettifySettings; error?: string }>;

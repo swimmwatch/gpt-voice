@@ -21,7 +21,7 @@ import {
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
-import type { PrettifyModelOption } from '@shared/prettifySettings';
+import type { PrettifyModelOption, PrettifyProviderAvailability } from '@shared/prettifySettings';
 
 const CLAUDE_CLI_ERROR_KEYS: Record<ClaudeCliPrettifyErrorCode, TranslationKey> = {
   [ClaudeCliPrettifyErrorCode.NotInstalled]: 'error.prettify.claudeCli.not-installed',
@@ -88,6 +88,21 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
     super('claude-cli');
   }
 
+  public async checkAvailability(
+    settings: PrettifySettingsWithSecret,
+    signal: AbortSignal,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyProviderAvailability> {
+    const adapter = deps.claudeCliAdapter;
+    const input = { settings: settings.claudeCli, signal };
+    const result = adapter?.checkAvailability
+      ? await adapter.checkAvailability(input)
+      : await defaultClaudeCliAdapter.checkAvailability(input);
+    return result.success
+      ? { status: 'available', capabilityVersion: result.capabilityVersion }
+      : { status: 'unavailable', errorCode: result.error };
+  }
+
   public async listModels(
     settings: PrettifySettingsWithSecret,
     deps: PrettifyProviderDependencies,
@@ -149,6 +164,21 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 export class CodexCliPrettifyProvider extends BasePrettifyProvider {
   public constructor() {
     super('codex-cli');
+  }
+
+  public async checkAvailability(
+    settings: PrettifySettingsWithSecret,
+    signal: AbortSignal,
+    deps: PrettifyProviderDependencies,
+  ): Promise<PrettifyProviderAvailability> {
+    const adapter = deps.codexCliAdapter;
+    const input = { settings: settings.codexCli, signal };
+    const result = adapter?.checkAvailability
+      ? await adapter.checkAvailability(input)
+      : await defaultCodexCliAdapter.checkAvailability(input);
+    return result.success
+      ? { status: 'available', capabilityVersion: result.capabilityVersion }
+      : { status: 'unavailable', errorCode: result.error };
   }
 
   public async listModels(

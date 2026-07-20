@@ -117,6 +117,8 @@ Use this provider when you want the official API path and predictable API-accoun
 
 Prettify Text is configured independently from transcription providers. Its provider selector is always visible in the main window, while complete settings are under **App settings → Prettify**.
 
+When Claude CLI or Codex CLI is selected, the main window checks compatibility and CLI-owned authentication at startup and after provider selection. The compact status shows **Connected**, **Sign in**, or **Unavailable** without exposing executable paths, account details, or command output. Model discovery and text generation are not part of this status check.
+
 - **Ollama** is the default prettify provider and uses `http://127.0.0.1:11434`.
 - **vLLM** uses an OpenAI-compatible API base URL, defaulting to `http://127.0.0.1:8000/v1`.
 - **Claude CLI** uses an installed Claude Code CLI. GPT-Voice requires a compatible CLI, but authentication remains owned by the CLI. The model and fallback model are optional; blank values use CLI defaults. Effort can be left at the default or set to low, medium, or high.

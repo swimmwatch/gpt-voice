@@ -17,6 +17,7 @@ function createSettings(overrides: Partial<PrettifySettings> = {}): PrettifySett
 describe('main Prettify provider view state', () => {
   it('shows Ollama model memory without hiding an unconfigured provider', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(createSettings(), []), {
+      connection: null,
       model: '',
       modelFallbackKey: 'prettify.noModels',
       ollamaControl: null,
@@ -28,7 +29,7 @@ describe('main Prettify provider view state', () => {
     const configured = createSettings({ ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'gemma3:1b' } });
     assert.equal(
       getMainPrettifyProviderViewState(configured, [{ id: 'gemma3:1b', isLoaded: true, name: 'Gemma' }]).status
-        .labelKey,
+        ?.labelKey,
       'modelMemory.loaded',
     );
   });
@@ -41,18 +42,53 @@ describe('main Prettify provider view state', () => {
     assert.equal(vllm.model, 'qwen');
     assert.deepEqual(vllm.status, { labelKey: 'mainDock.prettifyConfigured', tone: 'success' });
 
-    const claude = getMainPrettifyProviderViewState(
-      createSettings({
-        providerId: 'claude-cli',
-        claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, effort: 'high' },
-      }),
-      [],
-    );
+    const claudeSettings = createSettings({
+      providerId: 'claude-cli',
+      claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, effort: 'high' },
+    });
+    const claude = getMainPrettifyProviderViewState(claudeSettings, [], {
+      providerId: 'claude-cli',
+      status: 'connected',
+    });
     assert.equal(claude.modelFallbackKey, 'prettify.providerDefault');
-    assert.equal(claude.status.valueKey, 'prettify.claudeCli.effort.high');
+    assert.equal(claude.status, null);
+    assert.deepEqual(claude.connection, {
+      labelKey: 'provider.connected',
+      tone: 'success',
+      valueKey: 'prettify.cli.statusAvailable',
+    });
 
-    const codex = getMainPrettifyProviderViewState(createSettings({ providerId: 'codex-cli' }), []);
-    assert.deepEqual(codex.status, { labelKey: 'mainDock.prettifyExperimental', tone: 'warning' });
+    const codex = getMainPrettifyProviderViewState(createSettings({ providerId: 'codex-cli' }), [], {
+      providerId: 'codex-cli',
+      status: 'login-required',
+    });
+    assert.equal(codex.status, null);
+    assert.deepEqual(codex.connection, {
+      labelKey: 'mainDock.prettifySignIn',
+      tone: 'warning',
+      valueKey: 'mainDock.prettifySignInHelp',
+    });
+  });
+
+  it('shows checking for a missing or stale CLI result and unavailable for safe failures', () => {
+    const settings = createSettings({ providerId: 'claude-cli' });
+    assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      valueKey: 'prettify.cli.statusChecking',
+    });
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(settings, [], {
+        errorCode: 'not-installed',
+        providerId: 'claude-cli',
+        status: 'unavailable',
+      }).connection,
+      {
+        labelKey: 'mainDock.prettifyUnavailable',
+        tone: 'error',
+        valueKey: 'prettify.cli.statusUnavailable',
+      },
+    );
   });
 });
 

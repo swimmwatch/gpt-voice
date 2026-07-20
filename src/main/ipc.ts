@@ -76,8 +76,10 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   assertValidKnownPrettifySettingsInput,
   getPrettifyProviderCapabilities,
+  isPrettifyCliProviderId,
   isKnownPrettifyProviderId,
   type KnownPrettifyProviderId,
+  type PrettifyCliConnectionResult,
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
@@ -93,7 +95,12 @@ import {
   getTranscriptionHistoryText,
 } from './services/transcriptionHistoryStorage';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import { listPrettifyModels, loadPrettifyModel, unloadPrettifyModel } from './services/prettifyProviders';
+import {
+  checkPrettifyCliConnection,
+  listPrettifyModels,
+  loadPrettifyModel,
+  unloadPrettifyModel,
+} from './services/prettifyProviders';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
@@ -103,6 +110,7 @@ import { isAppLocaleId } from '@shared/appLocale';
 
 const log = createLogger('ipc');
 let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
+const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -775,6 +783,35 @@ export function registerIpcHandlers(): void {
 
   handle('get-prettify-settings', () => {
     return getPrettifySettingsSnapshot();
+  });
+
+  handle('check-prettify-cli-connection', async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
+    if (!isPrettifyCliProviderId(providerId)) {
+      throw new Error('Unsupported Prettify CLI provider');
+    }
+
+    prettifyCliConnectionChecks.get(event.sender)?.abort();
+    const controller = new AbortController();
+    const handleSenderDestroyed = (): void => controller.abort();
+    prettifyCliConnectionChecks.set(event.sender, controller);
+    event.sender.once('destroyed', handleSenderDestroyed);
+
+    try {
+      const result = await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
+        signal: controller.signal,
+      });
+      log.info('Prettify CLI connection checked:', {
+        providerId,
+        status: result.status,
+        ...(result.status === 'unavailable' ? { errorCode: result.errorCode } : {}),
+      });
+      return result;
+    } finally {
+      if (prettifyCliConnectionChecks.get(event.sender) === controller) {
+        prettifyCliConnectionChecks.delete(event.sender);
+      }
+      event.sender.removeListener('destroyed', handleSenderDestroyed);
+    }
   });
 
   handle('set-prettify-settings', (_event, settings: unknown = {}) => {

@@ -29,7 +29,7 @@ describe('main Prettify provider band contract', () => {
     assert.match(styles, /\.command-dock \{[\s\S]*?overflow-y: auto;/u);
   });
 
-  it('persists only the provider ID and keeps non-Ollama selection free of availability probes', () => {
+  it('persists only the provider ID before checking the authoritative active provider', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const refresh = app.slice(
       app.indexOf('const refreshOllamaModelState'),
@@ -58,11 +58,11 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /onClick=\{onModelAction\}/u);
   });
 
-  it('keeps the band at 60 pixels inside the fixed 460 by 420 main window', () => {
+  it('keeps the band at 60 pixels inside the fixed 520 by 420 main window', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
     const windowSource = readProjectFile('src/main/window.ts');
 
-    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 460/u);
+    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 420/u);
     assert.match(windowSource, /resizable: false/u);
     assert.doesNotMatch(styles, /command-dock-prettify-band[\s\S]{0,120}(?:min-height|flex-basis): 78px/u);
@@ -95,5 +95,40 @@ describe('main Prettify provider band contract', () => {
     assert.match(styles, /\.command-dock-prettify-provider-field \{[\s\S]*?padding-left: 8px;/u);
     assert.match(styles, /\.command-dock \.command-dock-provider-trigger \{[\s\S]*?width: 139px;/u);
     assert.match(styles, /\.command-dock \.command-dock-prettify-provider-trigger \{[\s\S]*?width: 139px;/u);
+    assert.match(styles, /\.command-dock-provider-field \{[\s\S]*?position: relative;/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-provider-trigger svg \{[\s\S]*?position: absolute;[\s\S]*?top: 50%;[\s\S]*?right: 0;[\s\S]*?transform: translateY\(-50%\);/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock-prettify-provider-field \{[\s\S]*?position: relative;[\s\S]*?padding-left: 8px;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-prettify-provider-trigger svg \{[\s\S]*?position: absolute;[\s\S]*?top: 50%;[\s\S]*?right: 0;[\s\S]*?transform: translateY\(-50%\);/u,
+    );
+  });
+
+  it('places an untruncated CLI status in the Voice-aligned right-side controls', () => {
+    const app = readProjectFile('src/renderer/App.tsx');
+    const band = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
+    const styles = readProjectFile('src/renderer/styles/globals.css');
+
+    assert.match(app, /checkPrettifyCliConnection\(providerId\)/u);
+    assert.match(band, /className="command-dock-prettify-controls"/u);
+    assert.match(band, /data-slot="prettify-cli-connection"/u);
+    assert.match(band, /command-dock-provider-state command-dock-prettify-connection/u);
+    assert.match(band, /aria-label=\{t\(viewState\.connection\.valueKey/u);
+    assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: 125px;/u);
+    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: 125px;/u);
+    assert.match(
+      styles,
+      /\.command-dock-prettify-layout \{[\s\S]*?grid-template-columns: 22px 147px minmax\(0, 1fr\) 125px;/u,
+    );
+    assert.match(styles, /\.command-dock-prettify-connection \{[^}]*white-space: nowrap;/u);
+    assert.doesNotMatch(styles, /\.command-dock-prettify-connection \{[^}]*font-size:/u);
+    assert.doesNotMatch(styles, /\.command-dock-prettify-connection > svg/u);
+    assert.doesNotMatch(styles, /\.command-dock-prettify-connection(?:\s|>)[\s\S]{0,180}text-overflow:\s*ellipsis/u);
   });
 });

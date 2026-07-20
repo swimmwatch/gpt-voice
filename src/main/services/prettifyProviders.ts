@@ -25,6 +25,8 @@ import {
 import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import {
   isKnownPrettifyProviderId,
+  type PrettifyCliConnectionResult,
+  type PrettifyCliProviderId,
   isPrettifyProviderId,
   type KnownPrettifyProviderId,
   type PrettifyCliRuntimeErrorCode,
@@ -69,6 +71,29 @@ export function getKnownPrettifyProvider(providerId: KnownPrettifyProviderId): B
       return KNOWN_PRETTIFY_PROVIDERS['claude-cli'];
     case 'codex-cli':
       return KNOWN_PRETTIFY_PROVIDERS['codex-cli'];
+  }
+}
+
+export async function checkPrettifyCliConnection(
+  providerId: PrettifyCliProviderId,
+  draftSettings: PrettifySettingsInput = {},
+  options: { deps?: PrettifyProviderDependencies; signal?: AbortSignal } = {},
+): Promise<PrettifyCliConnectionResult> {
+  const provider = getKnownPrettifyProvider(providerId);
+  const settings = getSettingsForKnownProvider(providerId, draftSettings);
+  try {
+    const availability = await provider.checkAvailability(
+      settings,
+      options.signal ?? new AbortController().signal,
+      options.deps ?? DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
+    );
+    if (availability.status === 'available') return { providerId, status: 'connected' };
+    const errorCode = availability.errorCode ?? 'process-failed';
+    return errorCode === 'not-authenticated'
+      ? { providerId, status: 'login-required' }
+      : { errorCode, providerId, status: 'unavailable' };
+  } catch {
+    return { errorCode: 'process-failed', providerId, status: 'unavailable' };
   }
 }
 

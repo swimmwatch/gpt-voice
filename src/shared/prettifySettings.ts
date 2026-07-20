@@ -2,6 +2,7 @@ export const PRETTIFY_REASONING_VALUES = ['instant', 'standard', 'extended'] as 
 export const ENABLED_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
 export const PRETTIFY_PROVIDER_IDS = ENABLED_PRETTIFY_PROVIDER_IDS;
 export const KNOWN_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'codex-cli'] as const;
+export const PRETTIFY_CLI_PROVIDER_IDS = ['claude-cli', 'codex-cli'] as const;
 export const CLAUDE_CLI_PRETTIFY_EFFORT_VALUES = ['default', 'low', 'medium', 'high'] as const;
 export const CLAUDE_CLI_PRETTIFY_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
 export const CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES = ['default', 'low', 'medium', 'high', 'xhigh'] as const;
@@ -13,6 +14,7 @@ export const MAX_PRETTIFY_CLI_TIMEOUT_SECONDS = 600;
 export type PrettifyReasoning = (typeof PRETTIFY_REASONING_VALUES)[number];
 export type PrettifyProviderId = (typeof PRETTIFY_PROVIDER_IDS)[number];
 export type KnownPrettifyProviderId = (typeof KNOWN_PRETTIFY_PROVIDER_IDS)[number];
+export type PrettifyCliProviderId = (typeof PRETTIFY_CLI_PROVIDER_IDS)[number];
 export type ClaudeCliPrettifyEffort = (typeof CLAUDE_CLI_PRETTIFY_EFFORT_VALUES)[number];
 export type CodexCliPrettifyReasoningEffort = (typeof CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES)[number];
 export type CodexCliPrettifyVerbosity = (typeof CODEX_CLI_PRETTIFY_VERBOSITY_VALUES)[number];
@@ -35,6 +37,15 @@ export type PrettifyCliRuntimeErrorCode =
   | 'schema-unavailable'
   | 'no-tools-unavailable'
   | 'model-discovery-failed';
+
+export type PrettifyCliConnectionResult =
+  | { providerId: PrettifyCliProviderId; status: 'connected' }
+  | { providerId: PrettifyCliProviderId; status: 'login-required' }
+  | {
+      errorCode: PrettifyCliRuntimeErrorCode;
+      providerId: PrettifyCliProviderId;
+      status: 'unavailable';
+    };
 
 export interface PrettifyProviderCapabilities {
   apiKey: boolean;
@@ -283,6 +294,10 @@ export function isPrettifyProviderEnabled(value: unknown): value is PrettifyProv
 
 export function isKnownPrettifyProviderId(value: unknown): value is KnownPrettifyProviderId {
   return typeof value === 'string' && KNOWN_PRETTIFY_PROVIDER_IDS.includes(value as KnownPrettifyProviderId);
+}
+
+export function isPrettifyCliProviderId(value: unknown): value is PrettifyCliProviderId {
+  return typeof value === 'string' && PRETTIFY_CLI_PROVIDER_IDS.includes(value as PrettifyCliProviderId);
 }
 
 export function getPrettifyProviderCapabilities(providerId: KnownPrettifyProviderId): PrettifyProviderCapabilities {
