@@ -16,6 +16,13 @@ interface StartupBenchmarkModule {
   calculateMedian: (durationsMs: readonly number[]) => number;
   getPackagedStartupExecutableCandidates: (rootDir: string, platform: string, arch: string) => string[];
   getStartupBenchmarkLaunchArguments: (userDataPath: string, platform: string) => string[];
+  getStartupBenchmarkSpawnOptions: (input: { cwd: string; env: NodeJS.ProcessEnv; platform: string }) => {
+    cwd: string;
+    detached: boolean;
+    env: NodeJS.ProcessEnv;
+    stdio: ['ignore', 'pipe', 'ignore'];
+    windowsHide: boolean;
+  };
   normalizeRunCount: (value: string | undefined) => number;
   runStartupBenchmark: (input: {
     arch: string;
@@ -29,6 +36,31 @@ interface StartupBenchmarkModule {
     signalCode: string | null;
     once: (event: 'exit', listener: () => void) => void;
   }) => Promise<void>;
+  waitForChildExitWithin: (
+    child: {
+      exitCode: number | null;
+      signalCode: string | null;
+      once: (event: 'exit', listener: () => void) => void;
+      off?: (event: 'exit', listener: () => void) => void;
+    },
+    timeoutMs: number,
+  ) => Promise<boolean>;
+  terminateStartupBenchmarkChild: (
+    child: {
+      exitCode: number | null;
+      signalCode: string | null;
+      pid?: number;
+      kill: (signal: NodeJS.Signals) => void;
+      once: (event: 'exit', listener: () => void) => void;
+      off?: (event: 'exit', listener: () => void) => void;
+    },
+    platform: string,
+    options?: {
+      forceWaitMs?: number;
+      graceMs?: number;
+      killProcess?: (pid: number, signal: NodeJS.Signals) => void;
+    },
+  ) => Promise<{ exited: boolean; forced: boolean }>;
 }
 
 const projectRoot = path.resolve(__dirname, '..', '..');
@@ -44,9 +76,12 @@ function isStartupBenchmarkModule(value: unknown): value is StartupBenchmarkModu
     typeof module.calculateMedian === 'function' &&
     typeof module.getPackagedStartupExecutableCandidates === 'function' &&
     typeof module.getStartupBenchmarkLaunchArguments === 'function' &&
+    typeof module.getStartupBenchmarkSpawnOptions === 'function' &&
     typeof module.normalizeRunCount === 'function' &&
     typeof module.runStartupBenchmark === 'function' &&
-    typeof module.waitForChildExit === 'function'
+    typeof module.waitForChildExit === 'function' &&
+    typeof module.waitForChildExitWithin === 'function' &&
+    typeof module.terminateStartupBenchmarkChild === 'function'
   );
 }
 
@@ -131,6 +166,35 @@ describe('startup benchmark helpers', () => {
     ]);
   });
 
+  it('discards Electron stderr and detaches only Unix startup benchmark process groups', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    const environment = { PATH: '/bin' };
+
+    assert.deepEqual(
+      importedModule.getStartupBenchmarkSpawnOptions({
+        cwd: '/project',
+        env: environment,
+        platform: 'linux',
+      }),
+      {
+        cwd: '/project',
+        detached: true,
+        env: environment,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      },
+    );
+    assert.equal(
+      importedModule.getStartupBenchmarkSpawnOptions({
+        cwd: 'C:\\project',
+        env: environment,
+        platform: 'win32',
+      }).detached,
+      false,
+    );
+  });
+
   it('does not wait for an exit event that has already occurred', async () => {
     const importedModule: unknown = await import(pathToFileURL(modulePath).href);
     assert.ok(isStartupBenchmarkModule(importedModule));
@@ -158,5 +222,76 @@ describe('startup benchmark helpers', () => {
     exitListener();
 
     await waitForExit;
+  });
+
+  it('bounds exit waits and removes timeout listeners', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    let registeredListener: (() => void) | undefined;
+    let removedListener: (() => void) | undefined;
+    const child: {
+      exitCode: number | null;
+      signalCode: string | null;
+      once: (event: 'exit', listener: () => void) => void;
+      off: (event: 'exit', listener: () => void) => void;
+    } = {
+      exitCode: null,
+      signalCode: null,
+      once: (_event: 'exit', listener: () => void) => {
+        registeredListener = listener;
+      },
+      off: (_event: 'exit', listener: () => void) => {
+        removedListener = listener;
+      },
+    };
+
+    assert.equal(await importedModule.waitForChildExitWithin(child, 1), false);
+    assert.ok(registeredListener);
+    assert.equal(removedListener, registeredListener);
+    assert.throws(() => importedModule.waitForChildExitWithin(child, -1), /non-negative integer/i);
+  });
+
+  it('escalates Unix benchmark cleanup from the process group to SIGKILL', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isStartupBenchmarkModule(importedModule));
+    let exitListener: (() => void) | undefined;
+    const signals: Array<{ pid: number; signal: NodeJS.Signals }> = [];
+    const child: {
+      exitCode: number | null;
+      signalCode: string | null;
+      pid: number;
+      kill: (signal: NodeJS.Signals) => void;
+      once: (event: 'exit', listener: () => void) => void;
+      off: (event: 'exit', listener: () => void) => void;
+    } = {
+      exitCode: null,
+      signalCode: null,
+      pid: 42,
+      kill: () => {
+        throw new Error('Unix cleanup must target the detached process group');
+      },
+      once: (_event: 'exit', listener: () => void) => {
+        exitListener = listener;
+      },
+      off: () => undefined,
+    };
+
+    const result = await importedModule.terminateStartupBenchmarkChild(child, 'linux', {
+      forceWaitMs: 20,
+      graceMs: 1,
+      killProcess: (pid, signal) => {
+        signals.push({ pid, signal });
+        if (signal === 'SIGKILL') {
+          child.signalCode = 'SIGKILL';
+          exitListener?.();
+        }
+      },
+    });
+
+    assert.deepEqual(signals, [
+      { pid: -42, signal: 'SIGTERM' },
+      { pid: -42, signal: 'SIGKILL' },
+    ]);
+    assert.deepEqual(result, { exited: true, forced: true });
   });
 });
