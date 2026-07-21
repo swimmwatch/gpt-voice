@@ -6,9 +6,10 @@ import { fileURLToPath } from 'node:url';
 import {
   getPackagedStartupExecutableCandidates,
   getStartupBenchmarkLaunchArguments,
+  getStartupBenchmarkSpawnOptions,
   normalizeRunCount,
   runStartupBenchmark,
-  waitForChildExit,
+  terminateStartupBenchmarkChild,
 } from './startup-benchmark.mjs';
 
 const STARTUP_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
@@ -93,38 +94,63 @@ async function measureStartupRun(executablePath) {
     Object.entries(process.env).filter(([name]) => name !== 'ELECTRON_RUN_AS_NODE'),
   );
   let child;
+  let durationMs;
+  let primaryError;
+  let cleanupError;
 
   try {
     const startedAt = process.hrtime.bigint();
-    child = spawn(executablePath, getStartupBenchmarkLaunchArguments(userDataPath, process.platform), {
-      cwd: rootDir,
-      env: {
-        ...environment,
-        APPDATA: userDataPath,
-        HOME: userDataPath,
-        USERPROFILE: userDataPath,
-        XDG_CONFIG_HOME: userDataPath,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    child = spawn(
+      executablePath,
+      getStartupBenchmarkLaunchArguments(userDataPath, process.platform),
+      getStartupBenchmarkSpawnOptions({
+        cwd: rootDir,
+        env: {
+          ...environment,
+          APPDATA: userDataPath,
+          HOME: userDataPath,
+          USERPROFILE: userDataPath,
+          XDG_CONFIG_HOME: userDataPath,
+        },
+        platform: process.platform,
+      }),
+    );
     await waitForStartupReady(child);
-    return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-  } finally {
-    if (child && child.exitCode === null) {
-      const exitPromise = waitForChildExit(child);
-      if (!child.killed) {
-        child.kill();
-      }
-      await exitPromise;
-    }
+    durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+  } catch (error) {
+    primaryError = error;
+  }
 
+  try {
+    if (child && child.exitCode === null) {
+      const termination = await terminateStartupBenchmarkChild(child, process.platform);
+      if (!termination.exited) {
+        throw new Error('Startup benchmark child did not exit after forced termination');
+      }
+    }
+  } catch (error) {
+    cleanupError = error;
+  }
+
+  try {
     await rm(userDataPath, {
       force: true,
       maxRetries: STARTUP_PROFILE_CLEANUP_RETRIES,
       recursive: true,
       retryDelay: STARTUP_PROFILE_CLEANUP_RETRY_DELAY_MS,
     });
+  } catch (error) {
+    cleanupError ??= error;
   }
+
+  if (primaryError) {
+    throw primaryError;
+  }
+  if (cleanupError) {
+    throw cleanupError;
+  }
+
+  return durationMs;
 }
 
 const { output, runCount } = parseArguments(process.argv.slice(2));

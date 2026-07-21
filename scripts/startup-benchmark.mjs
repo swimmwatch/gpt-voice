@@ -2,6 +2,8 @@ import path from 'node:path';
 
 export const DEFAULT_STARTUP_BENCHMARK_RUNS = 10;
 export const MAX_STARTUP_BENCHMARK_RUNS = 50;
+export const STARTUP_BENCHMARK_TERMINATION_GRACE_MS = 1_000;
+export const STARTUP_BENCHMARK_FORCE_TERMINATION_WAIT_MS = 1_000;
 
 function assertDuration(durationMs) {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
@@ -53,10 +55,7 @@ export function getPackagedStartupExecutableCandidates(rootDir, platform, arch) 
   }
 
   if (platform === 'darwin') {
-    const appDirectories =
-      arch === 'arm64'
-        ? ['mac-arm64', 'mac-universal']
-        : ['mac', 'mac-universal'];
+    const appDirectories = arch === 'arm64' ? ['mac-arm64', 'mac-universal'] : ['mac', 'mac-universal'];
     return appDirectories.map((directory) =>
       path.join(releaseDir, directory, 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
     );
@@ -74,15 +73,113 @@ export function getStartupBenchmarkLaunchArguments(userDataPath, platform) {
   return argumentsList;
 }
 
+/**
+ * Keeps benchmark output bounded and lets Unix cleanup address Electron's whole
+ * process tree. Electron can emit native diagnostics before the renderer is ready;
+ * retaining that output is both unnecessary and capable of blocking the child.
+ */
+export function getStartupBenchmarkSpawnOptions({ cwd, env, platform }) {
+  return {
+    cwd,
+    detached: platform !== 'win32',
+    env,
+    stdio: ['ignore', 'pipe', 'ignore'],
+    windowsHide: true,
+  };
+}
+
+function hasExited(child) {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
 /** Waits for a child only when it has not already exited. */
 export function waitForChildExit(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (hasExited(child)) {
     return Promise.resolve();
   }
 
   return new Promise((resolve) => {
     child.once('exit', resolve);
   });
+}
+
+/** Waits for an exit event for a bounded period and removes its listener on timeout. */
+export function waitForChildExitWithin(child, timeoutMs) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 0) {
+    throw new TypeError('Startup benchmark exit timeout must be a non-negative integer');
+  }
+
+  if (hasExited(child)) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (exited) => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timeout);
+      child.off?.('exit', onExit);
+      resolve(exited);
+    };
+    const onExit = () => finish(true);
+    const timeout = globalThis.setTimeout(() => finish(false), timeoutMs);
+
+    child.once('exit', onExit);
+    if (hasExited(child)) {
+      finish(true);
+    }
+  });
+}
+
+function signalStartupBenchmarkChild(child, platform, signal, killProcess) {
+  if (hasExited(child)) {
+    return;
+  }
+
+  if (platform === 'win32' || !Number.isSafeInteger(child.pid) || child.pid <= 0) {
+    child.kill(signal);
+    return;
+  }
+
+  try {
+    killProcess(-child.pid, signal);
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ESRCH') {
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Stops an Electron benchmark child without allowing a missing exit event to
+ * stall the surrounding release job. Unix runs are detached, so signals target
+ * the complete process group rather than only Electron's launcher process.
+ */
+export async function terminateStartupBenchmarkChild(
+  child,
+  platform,
+  {
+    forceWaitMs = STARTUP_BENCHMARK_FORCE_TERMINATION_WAIT_MS,
+    graceMs = STARTUP_BENCHMARK_TERMINATION_GRACE_MS,
+    killProcess = process.kill,
+  } = {},
+) {
+  if (hasExited(child)) {
+    return { exited: true, forced: false };
+  }
+
+  signalStartupBenchmarkChild(child, platform, 'SIGTERM', killProcess);
+  if (await waitForChildExitWithin(child, graceMs)) {
+    return { exited: true, forced: false };
+  }
+
+  signalStartupBenchmarkChild(child, platform, 'SIGKILL', killProcess);
+  return {
+    exited: await waitForChildExitWithin(child, forceWaitMs),
+    forced: true,
+  };
 }
 
 export async function runStartupBenchmark({ arch, measureRun, platform, runCount, toolVersions }) {
