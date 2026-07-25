@@ -324,8 +324,9 @@ responses never cross IPC or enter logs.
   code-to-label entries from the 2026-07-25 baseline.
 - **BING-002:** Runtime uses only `https://www.bing.com/translator`. Source and
   target languages use the native public selects, source uses `auto-detect`,
-  source text is replaced in one Playwright fill of the visible contenteditable
-  input, and result text uses the public output control.
+  source text is replaced in one page evaluation that dispatches one bubbling
+  `beforeinput`, assigns `textContent` once, and dispatches one bubbling
+  `input`; result text uses the public output control.
 - **BING-003:** Language selection uses exact provider values, never labels.
   Dynamic Recently used duplicates and source-only auto detection are excluded
   from inventory and runtime target validation.
@@ -339,6 +340,9 @@ responses never cross IPC or enter logs.
   page/context recovery. It never permits post-submission replay.
 - **BING-007:** The public clear control must remove source and result state and
   reset result readiness before the context is reused.
+- **BING-008:** The public `...`/`…` loading sentinel is never a result. Bing
+  `div.infobubble` help surfaces are not consent or challenge dialogs; other
+  visible dialogs and challenge or CAPTCHA frames continue to fail closed.
 
 ### Yandex
 

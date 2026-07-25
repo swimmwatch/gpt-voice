@@ -72,19 +72,22 @@ target-consistent results, and confirmed clearing.
    Classify a bounded failure of the positive gate as the one allowed clean
    pre-submission recovery. The base may recreate/reload once while the source
    is still empty and must rerun the entire gate. A second failure, an
-   unexpected origin, or a blocking dialog/challenge fails closed. If controls
+   unexpected origin, or a blocking dialog/challenge fails closed. Bing's
+   nonmodal `div.infobubble` help surface is not a blocking dialog. If controls
    were ready and a later result times out, the operation is terminal and must
-   not replay the filled source.
+   not replay the submitted source.
 7. Remove stale state before submission and capture the normalized prior
    output marker. Visible counters and diagnostic-script nodes are neither
    readiness nor failure signals.
-8. Insert the complete source exactly once using Playwright `fill()` on the
-   visible contenteditable. Do not type per-character, navigate with text, or
-   dispatch a second fill.
+8. Insert the complete source exactly once in one page evaluation on the
+   visible contenteditable: dispatch one bubbling `beforeinput`, assign
+   `textContent` once, then dispatch one bubbling `input`. Do not type
+   per-character, navigate with text, or dispatch a second insertion.
 9. Read only the visible public output control. A valid result is nonempty,
    differs from the prior marker, passes the base two-read 500 ms stability
    rule, retains the exact requested target-select value, and retains the
-   matching output `lang` value.
+   matching output `lang` value. Exact `...` and `…` loading sentinels are
+   treated as empty reads and remain under the base timeout policy.
 10. Locate exactly one visible
     `#tta_clear[role="button"][aria-label="Click to Clear"]`, activate it once,
     and confirm:
@@ -108,8 +111,8 @@ target-consistent results, and confirmed clearing.
   failures unless a required public control/result contract fails.
 - Raw errors, current URL, page text, source, and result never cross the safe
   failure/log boundary.
-- Recovery is strictly pre-submission. The first `fill()` permanently disables
-  automatic reload/recreation for that operation.
+- Recovery is strictly pre-submission. The first insertion permanently
+  disables automatic reload/recreation for that operation.
 - Fixture values are inert and sanitized; no live network is used.
 
 ## Expected Files Or Components
