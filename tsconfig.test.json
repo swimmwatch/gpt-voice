@@ -5,6 +5,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "tests/**/*.ts"],
+  "include": ["src/**/*", "tests/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "release"]
 }

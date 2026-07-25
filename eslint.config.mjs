@@ -17,9 +17,15 @@ import unicorn from 'eslint-plugin-unicorn';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
-const tsFiles = ['src/**/*.{ts,tsx}', 'tests/**/*.ts'];
+const tsFiles = ['src/**/*.{ts,tsx}', 'tests/**/*.ts', 'scripts/**/*.ts'];
 const rendererFiles = ['src/renderer/**/*.{ts,tsx}'];
-const nodeFiles = ['src/main/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs', 'eslint.config.mjs', 'webpack.config.js'];
+const nodeFiles = [
+  'src/main/**/*.ts',
+  'tests/**/*.ts',
+  'scripts/**/*.{mjs,ts}',
+  'eslint.config.mjs',
+  'webpack.config.js',
+];
 const jsFiles = ['scripts/**/*.mjs', 'eslint.config.mjs', 'webpack.config.js'];
 const browserGlobals = {
   AudioContext: 'readonly',

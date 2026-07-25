@@ -19,7 +19,9 @@ Task 07 execution gate: authorized through persistent Prompt MCP question
 `execution.task-07` revision 1 on 2026-07-25 and completed in this packet.
 Task 08 execution gate: authorized through persistent Prompt MCP question
 `execution.task-08` revision 1 on 2026-07-25 and completed in this packet.
-Tasks 09–11 remain unauthorized.
+Task 09 execution gate: authorized through persistent Prompt MCP question
+`execution.task-09` revision 1 on 2026-07-26 and completed in this packet.
+Tasks 10–11 remain unauthorized.
 
 - [x] [01 Shared contracts and inventories](01_define_translation_contracts_and_inventories.md)
 - [x] [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md)
@@ -29,6 +31,6 @@ Tasks 09–11 remain unauthorized.
 - [x] [06 Registry, settings, and IPC](06_add_translation_registry_settings_and_ipc.md)
 - [x] [07 Selected-text runtime integration](07_integrate_selected_text_translation_runtime.md)
 - [x] [08 Main-screen Select controls](08_expose_translation_select_controls.md)
-- [ ] [09 Inventory probe engine](09_build_translation_language_probe.md)
+- [x] [09 Inventory probe engine](09_build_translation_language_probe.md)
 - [ ] [10 Issue workflow and operator guidance](10_schedule_translation_language_monitor.md)
 - [ ] [11 Documentation and feature gate](11_document_and_verify_translation_providers.md)

@@ -1,9 +1,9 @@
-# Handoff: Translation Providers Task 08 Complete
+# Handoff: Translation Providers Task 09 Complete
 
 ## Status
 
-Tasks 01–07 are committed through `3a09594`. Task 08 is implemented and
-verified but remains uncommitted. Tasks 09–11 are not authorized.
+Tasks 01–08 are committed through `0b4d761f`. Task 09 is implemented and
+verified but remains uncommitted. Tasks 10–11 are not authorized.
 
 ## Completed Packets
 
@@ -15,44 +15,45 @@ verified but remains uncommitted. Tasks 09–11 are not authorized.
 - [06 Registry, settings, and IPC](06_add_translation_registry_settings_and_ipc.md)
 - [07 Selected-text runtime integration](07_integrate_selected_text_translation_runtime.md)
 - [08 Main-screen Select controls](08_expose_translation_select_controls.md)
+- [09 Inventory probe engine](09_build_translation_language_probe.md)
 
-## Control And State Behavior
+## Probe And Report Contract
 
-- The main translation band exposes exactly Google, Bing, and Yandex plus
-  their complete reviewed inventories of 249, 179, and 118 targets.
-- Provider and target values remain exact shared-metadata codes. Provider
-  changes restore the remembered target and preserve every other provider's
-  target.
-- Settings changes show one optimistic controlled value, disable both Selects,
-  and adopt only the authoritative successful snapshot. Returned failures,
-  thrown IPC errors, stale completions, and unmount disposal retain or restore
-  the last confirmed snapshot.
-- Selection calls only `setTranslateSettings`; it does not translate, create a
-  provider, navigate, authenticate, clear, or probe.
-
-## Labels And Layout
-
-- Language labels use `Intl.DisplayNames` for the application locale, fall back
-  to checked-in provider labels for construction/lookup/blank/code-echo
-  failures, and sort through `Intl.Collator` with exact-code tie breaking.
-- The two text-only Radix Selects have localized accessible labels and
-  typeahead item text. Flag images and DeepL/Yandex-specific UI are absent.
-- Full inventories use a bounded scroll viewport. The translation band stacks
-  below 439 px and preserves the existing 520×420 main-window geometry.
-- Locale dictionaries have parity for provider, saving, and save-failure copy.
+- The standalone monitor reads but never mutates the three schema-version-1
+  YAML baselines. It validates the provider, date, count, languages,
+  source-only entries, reviewed extraction fields, and bounded public metadata.
+- Google, Bing, and Yandex use fixed target-only adapters in fresh headless
+  nonpersistent CloakBrowser contexts. The live command uses `en-US`, UTC,
+  careful humanization, a fixed non-secret fingerprint, and disabled
+  auto-update; tests inject sessions and never launch CloakBrowser.
+- Google requires the visible chooser/search/listbox/group contract, terminal
+  `End`/`Home` traversal, complete document state, mutation quietness, and a
+  stable option map. Bing uses only direct enabled options under the canonical
+  all-language optgroup. Yandex accepts the researched `/en/translator` to
+  `/en/` normalization and ignores inactive chooser copies.
+- Hydration allows 30 seconds, each provider operation allows 60 seconds, and
+  successful extraction requires two identical canonical reads one second
+  apart. Provider failures do not prevent later providers from running.
+- The schema-version-1 JSON report contains only provider ID, baseline date,
+  fixed status, sorted public drift plus a canonical SHA-256 fingerprint, or a
+  closed sanitized failure code. Drift exits successfully; any probe failure
+  exits nonzero. Page and context cleanup is attempted on every owned session,
+  and cleanup failure withholds drift or success.
 
 ## Changed Files
 
-- Updated the main renderer, translation band, translation settings state
-  helper, global dock styles, and locale dictionaries.
-- Added the pure translation language-option helper and focused renderer tests.
+- Added the monitor core, fixed Playwright adapters, CLI, script TypeScript
+  project, and deterministic monitor tests under `scripts/` and
+  `tests/scripts/`.
+- Updated package scripts, test TypeScript coverage, ESLint TypeScript/Node
+  scope, Prettier scope, this checklist, and this handoff.
 - Preserved the unrelated uncommitted
-  `.agents/references/specification-interview.md` edit.
+  `.agents/references/specification-interview.md` edit and all baseline bytes.
 
 ## Checks
 
-- Focused Task 08 renderer and i18n tests passed: 5 test files.
-- Full `npm test` passed: 130 tests.
+- Focused translation-language monitor test passed: 20 tests.
+- Full `npm test` passed: 131 tests.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed without warnings.
@@ -61,16 +62,18 @@ verified but remains uncommitted. Tasks 09–11 are not authorized.
 
 ## Exact Next Packet
 
-- Review Task 08. The next ordered packet is
-  [09 Inventory probe engine](09_build_translation_language_probe.md), but it
-  has no execution authorization.
+- Review Task 09. The next ordered packet is
+  [10 Issue workflow and operator guidance](10_schedule_translation_language_monitor.md),
+  but it has no execution authorization.
 
 ## Blockers
 
-- Task 08 commit and Task 09 execution are not authorized.
+- Task 09 commit and Task 10 execution are not authorized.
 
 ## Remaining Risks
 
+- The live monitor, provider network access, and CloakBrowser preparation were
+  intentionally not run. Selector revalidation and GitHub issue workflow
+  integration remain deferred to Task 10 or Task 11.
 - Mouse, keyboard, and narrow-window verification in the packaged application
   remains deferred to Task 11.
-- Live Google, Bing, and Yandex canaries remain deferred to Task 11.
