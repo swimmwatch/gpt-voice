@@ -1389,3 +1389,67 @@ decisions:
     rationale: The user explicitly authorized Task 03 after the Task 02 commit and no later packet.
     supersedes_revision: null
     requirement_ids: [GOOG-001, AC-AUTO-002]
+
+  - id: commit.task-03
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 is implemented, its Google provider, legacy utility, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Google provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-03-commit through persistent Prompt MCP question commit.task-03 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      question_id: commit.task-03
+      idempotency_key: commit.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 03 Google provider checkpoint be handled before Task 04?
+      kind: single
+      options:
+        - id: authorize-task-03-commit
+          label: Authorize Task 03 commit (Recommended)
+          description: Allow a later execution-capable invocation to commit only the verified Task 03 Google provider, tests, todo, and handoff, while excluding the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 03 uncommitted
+          description: Leave Task 03 uncommitted; no later provider packet can begin.
+    answer:
+      selected_ids: [authorize-task-03-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 03 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [GOOG-001, AC-AUTO-002]
+
+  - id: execution.task-04
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 is the ordered next packet and owns only the unregistered Bing Translate subclass and deterministic public-page contract fixtures.
+      - The Task 04 packet is self-contained and excludes live provider access, registry activation, settings, IPC, UI, dependency, and later-packet work.
+      - The user committed authorize-task-04 through persistent Prompt MCP question execution.task-04 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      question_id: execution.task-04
+      idempotency_key: execution.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the authorized Task 03 commit, should the next execution-capable incremental-implementation invocation execute Task 04, “Implement The Bing Translate Provider”?
+      kind: single
+      options:
+        - id: authorize-task-04
+          label: Authorize Task 04 (Recommended)
+          description: After the Task 03 commit, execute only the unregistered deterministic Bing provider packet, verify it, update todo/handoff, and stop uncommitted.
+        - id: defer-task-04
+          label: Defer Task 04
+          description: Create only the authorized Task 03 commit and leave Bing implementation gated.
+    answer:
+      selected_ids: [authorize-task-04]
+      text: ''
+    rationale: The user explicitly authorized Task 04 after the Task 03 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [BING-001, AC-AUTO-002]

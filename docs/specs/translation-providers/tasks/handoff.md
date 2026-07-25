@@ -1,9 +1,9 @@
-# Handoff: Translation Providers Task 02 Complete
+# Handoff: Translation Providers Task 03 Complete
 
-Status: Task 01 was committed as the green foundation at `e0d13bfa`. Task 02
-is implemented and verified, and its scoped commit is authorized after the
-target-aware navigation seam check. Task 03 is authorized but has not started;
-Tasks 04–11 are not authorized.
+Status: Task 01 is committed at `e0d13bfa`, and Task 02 is committed at
+`1be624c6`. Task 03 is implemented, verified, and authorized for a scoped
+commit. Task 04 is authorized but has not started; Tasks 05–11 are not
+authorized.
 
 ## Completed Packets
 
@@ -23,60 +23,69 @@ Tasks 04–11 are not authorized.
     shutdown.
   - Added nonpersistent translation launch options and explicit
     Google/Bing/Yandex navigation-service identities.
+- [03 Google provider](03_migrate_google_translate_provider.md)
+  - Added an unregistered `GoogleTranslateProvider` bound to shared Google
+    metadata and the target-aware base lifecycle.
+  - Added source-free `.ru` navigation, matching `.ru`/`.com` translator and
+    consent allowlists, exact Reject-all handling, route-state verification,
+    one native textarea insertion, and shared pre/post clear confirmation.
+  - Added sanitized public-control fixtures and pure readiness/result
+    classifiers for ambiguity, branch, alternative, timeout, target, and
+    cleanup behavior.
 
-## Lifecycle State Machine
+## Google Public Controls
 
-- Validate canonical provider, exact target, nonblank source, and length before
-  touching a browser.
-- Lazily create or reuse one provider-owned page; prepare it in one pass or one
-  explicitly recoverable clean second pass.
-- Begin the irreversible submission phase immediately before the single
-  full-string insertion hook; never recreate, navigate, or replay afterward.
-- Accept only a nonblank new result that matches across two reads 500 ms apart
-  and still passes target verification.
-- Return success only after confirmed visible clearing or confirmed context
-  closure. Retain failed resources for a later shutdown retry.
-- Discard cancelled, superseded, shutdown, or otherwise stale generations
-  without exposing source/result data.
+- Source: `textarea[role="combobox"][aria-label="Source text"]`, exactly one
+  visible editable control.
+- Result: exactly one visible `Translation results` region; visible `.ryNqvb`
+  fragments outside `[role="listitem"]` must share one top-level branch.
+- Consent:
+  `button[jsname="tWT92d"][aria-label="Reject all"]`, exactly one visible
+  control on matching `consent.google.ru` or `consent.google.com`.
+- Clear: `button[aria-label="Clear source text"]`, exactly one visible enabled
+  control in nonempty state and hidden after confirmed clearing.
+- Allowed translator origins are `translate.google.ru` and
+  `translate.google.com`; login, challenge, unexpected, and cross-family
+  routes fail closed.
 
 ## Changed Files
 
-- Added `src/main/translateProviders/BaseTranslateProvider.ts` and
-  `translationProviderContracts.ts`.
-- Updated `src/main/cloakBrowserLaunchOptions.ts` and
-  `src/main/browserNavigationRetry.ts`.
-- Added `tests/main/translateProviders/BaseTranslateProvider.test.ts`.
-- Updated the focused launch-option and navigation-retry tests.
+- Added `src/main/translateProviders/GoogleTranslateProvider.ts`.
+- Added `tests/main/translateProviders/GoogleTranslateProvider.test.ts`.
 - Updated `tasks/todo.md` and this handoff.
 - Preserved the unrelated uncommitted
   `.agents/references/specification-interview.md` edit.
 
 ## Checks
 
-- `node --import tsx --test tests/main/translateProviders/BaseTranslateProvider.test.ts tests/main/cloakBrowserLaunchOptions.test.ts tests/main/browserNavigationRetry.test.ts`
+- `node --import tsx --test tests/main/translateProviders/GoogleTranslateProvider.test.ts tests/main/translationUtils.test.ts tests/main/translateProviders/BaseTranslateProvider.test.ts`
   passed.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
-- `npx eslint src/main/translateProviders src/main/cloakBrowserLaunchOptions.ts src/main/browserNavigationRetry.ts tests/main/translateProviders tests/main/cloakBrowserLaunchOptions.test.ts tests/main/browserNavigationRetry.test.ts`
+- `npx eslint src/main/translateProviders/GoogleTranslateProvider.ts tests/main/translateProviders/GoogleTranslateProvider.test.ts`
   passed.
-- `npx prettier --check "src/main/translateProviders/**/*.ts" "src/main/cloakBrowserLaunchOptions.ts" "src/main/browserNavigationRetry.ts" "tests/main/translateProviders/**/*.ts" "tests/main/cloakBrowserLaunchOptions.test.ts" "tests/main/browserNavigationRetry.test.ts"`
+- `npx prettier --check "src/main/translateProviders/GoogleTranslateProvider.ts" "tests/main/translateProviders/GoogleTranslateProvider.test.ts"`
   passed.
-- Static inspection found no provider-specific selectors or origins in the
-  base and no persistent translation launch path.
+- Static inspection found no registry or legacy-path import of the new class.
+- Fixtures cover `.ru`/`.com` no-consent and reject-consent flows, missing,
+  ambiguous, cross-family, unexpected, login/challenge, source/region
+  ambiguity, listitem exclusion, ordered fragments, branch ambiguity, wrong
+  target, empty timeout, stale clearing, retained-region cleanup, and context
+  closure after clear failure.
 
 ## Exact Next Packet
 
-- Pass the validated target into the base navigation hook, rerun Task 02
-  checks, create the authorized Task 02 commit, then execute
-  [03 Google provider](03_migrate_google_translate_provider.md).
+- Review Task 03. The next ordered packet is
+  [04 Bing provider](04_implement_bing_translate_provider.md), and its
+  execution is authorized after the Task 03 commit.
 
 ## Blockers
 
-- None for Task 03. Tasks 04–11 have no execution authorization.
+- None for Task 04. Tasks 05–11 have no execution authorization.
 
 ## Remaining Risks
 
-- No real provider subclass is implemented or registered yet; production
-  Google translation remains on the legacy path.
-- Live provider behavior and selectors remain intentionally untested until
-  their provider packets.
+- The new Google subclass remains intentionally unregistered; production uses
+  the legacy Google path until Task 07.
+- No live Google page was opened, so the 2026-07-25 researched controls still
+  require their later manual canary before activation.
