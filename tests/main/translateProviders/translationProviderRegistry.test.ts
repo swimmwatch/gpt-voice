@@ -3,7 +3,11 @@ import { describe, it } from 'node:test';
 
 import { BaseTranslateProvider } from '@main/translateProviders/BaseTranslateProvider';
 import { TRANSLATION_PROVIDER_DEFINITIONS, TranslationProviderRegistry } from '@main/translateProviders';
-import { TRANSLATION_PROVIDER_IDS, TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
+import {
+  TRANSLATION_PROVIDER_IDS,
+  TRANSLATION_PROVIDER_INFO,
+  type TranslationProviderId,
+} from '@shared/translationProvider';
 
 describe('translation provider registry', () => {
   it('is exhaustive and exposes shared metadata without constructing providers', () => {
@@ -49,5 +53,43 @@ describe('translation provider registry', () => {
     for (const providerId of ['deepl', 'experimental', '', null]) {
       assert.throws(() => registry.getProvider(providerId), /Unknown translation provider/u);
     }
+  });
+
+  it('attempts every shutdown and retains only failed provider ownership for retry', async () => {
+    const registry = new TranslationProviderRegistry();
+    const instances = (
+      registry as unknown as {
+        instances: Map<TranslationProviderId, BaseTranslateProvider>;
+      }
+    ).instances;
+    let bingFails = true;
+    const google = {
+      shutdown: async () => {},
+    } as unknown as BaseTranslateProvider;
+    const bing = {
+      shutdown: async () => {
+        if (bingFails) throw new Error('synthetic close failure');
+      },
+    } as unknown as BaseTranslateProvider;
+    instances.set('google', google);
+    instances.set('bing', bing);
+
+    const failed = await registry.shutdown();
+
+    assert.deepEqual(failed, {
+      success: false,
+      failedProviderIds: ['bing'],
+    });
+    assert.equal(instances.has('google'), false);
+    assert.equal(instances.get('bing'), bing);
+
+    bingFails = false;
+    const retried = await registry.shutdown();
+
+    assert.deepEqual(retried, {
+      success: true,
+      failedProviderIds: [],
+    });
+    assert.equal(instances.size, 0);
   });
 });

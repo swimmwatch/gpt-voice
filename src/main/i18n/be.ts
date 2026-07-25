@@ -41,6 +41,13 @@ export default {
   'notification.translationSettingsRepaired': 'Налады перакладу абноўлены',
   'notification.translationSettingsRepairedBody':
     'Няправільныя або састарэлыя налады перакладу заменены бяспечнымі значэннямі.',
+  'error.translationUnsupportedSelection': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
+  'error.translationTextTooLong': 'Выбраны тэкст занадта доўгі для {provider}: {actual} сімвалаў, максімум {max}.',
+  'error.translationConnectionFailed': 'Не ўдалося падключыцца да сэрвісу перакладу. Паўтарыце спробу.',
+  'error.translationConsentOrChallenge': 'Сэрвіс перакладу патрабуе згоды або праверкі. Паўтарыце спробу пазней.',
+  'error.translationPageChanged': 'Старонка сэрвісу перакладу змянілася. Паўтарыце спробу пазней.',
+  'error.translationResultUnavailable': 'Вынік перакладу не быў атрыманы да заканчэння часу чакання.',
+  'error.translationCleanupFailed': 'Не ўдалося ачысціць даныя перакладу. Вынік не скапіраваны.',
   'error.translationSettingsInvalid': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
   'error.translationSettingsSaveFailed': 'Не ўдалося захаваць налады перакладу. Папярэдні выбар застаецца актыўным.',
 

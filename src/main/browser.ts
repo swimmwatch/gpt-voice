@@ -1,20 +1,14 @@
-import type { BrowserContext, Page } from 'playwright-core';
+import type { BrowserContext } from 'playwright-core';
 import {
   createCloakBrowserLoginContextOptions,
   createCloakBrowserPersistentContextOptions,
 } from '@main/cloakBrowserLaunchOptions';
 import type { CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import { launchCloakContext, launchCloakPersistentContext } from '@main/cloakbrowser';
-import { currentProvider, currentTargetLang, setProvider } from '@main/config';
+import { currentProvider, setProvider } from '@main/config';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { BrowserNavigationService, retryBrowserNavigation } from '@main/browserNavigationRetry';
 import { createProvider, type BaseVoiceProvider } from '@main/providers';
-import {
-  buildGoogleTranslateUrl,
-  GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-  normalizeGoogleTranslateTargetLang,
-} from '@main/services/translationUtils';
 import { presentNotificationError } from '@shared/notifications';
 import { runBeforeBackgroundBrowserShutdownHooks } from '@main/backgroundBrowserLifecycle';
 import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
@@ -22,8 +16,6 @@ import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperatio
 const log = createLogger('browser');
 
 let bgContext: BrowserContext | null = null;
-let translatePage: Page | null = null;
-let translatePageTargetLang = '';
 let activeProvider: BaseVoiceProvider | null = null;
 let bgReady = false;
 let bgError = '';
@@ -48,8 +40,6 @@ export enum BrowserSessionStartupState {
 }
 
 interface EnsureBackgroundBrowserOptions {
-  includeTranslate?: boolean;
-  translateTargetLang?: string;
   cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
 }
 
@@ -77,19 +67,6 @@ export function getBackgroundBrowserStatus(): BackgroundBrowserStatus {
   };
 }
 
-export function getTranslatePage(): Page | null {
-  return translatePage;
-}
-
-export function getTranslatePageTargetLang(): string | null {
-  if (!translatePage || translatePage.isClosed()) return null;
-  return translatePageTargetLang || null;
-}
-
-export function setTranslatePageTargetLang(targetLang: string): void {
-  translatePageTargetLang = normalizeGoogleTranslateTargetLang(targetLang);
-}
-
 export function getActiveProvider(): BaseVoiceProvider | null {
   return activeProvider;
 }
@@ -98,7 +75,7 @@ export function launchLoginContext(): Promise<BrowserContext> {
   return launchCloakContext(createCloakBrowserLoginContextOptions());
 }
 
-async function ensureTranslateContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
+async function ensureBackgroundContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
   if (bgContext) return bgContext;
 
   log.info('Launching persistent background browser...');
@@ -106,66 +83,9 @@ async function ensureTranslateContext(settings?: CloakBrowserSettingsWithSecret)
   return bgContext;
 }
 
-async function navigateTranslatePage(page: Page, targetLang: string): Promise<void> {
-  const normalizedTargetLang = normalizeGoogleTranslateTargetLang(targetLang);
-  const url = buildGoogleTranslateUrl(normalizedTargetLang);
-
-  log.info('Navigating to Google Translate:', { targetLang: normalizedTargetLang });
-  await retryBrowserNavigation(
-    {
-      navigate: () =>
-        page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-        }),
-      service: BrowserNavigationService.GoogleTranslate,
-    },
-    {
-      onRetry: (event) => log.warn('Retrying Google Translate page navigation:', event),
-    },
-  );
-
-  // Handle Google cookie consent if redirected
-  if (page.url().includes('consent.google')) {
-    log.info('Cookie consent detected, accepting...');
-    const acceptBtn = page.locator(
-      'button:has-text("Accept all"), button:has-text("Принять все"), button:has-text("Alle akzeptieren")',
-    );
-    try {
-      await acceptBtn.first().click({ timeout: 5000 });
-      await page.waitForURL('**/translate.google.*', { timeout: 10000 });
-      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
-    } catch {
-      log.warn('Could not auto-accept consent, retrying navigation...');
-      await retryBrowserNavigation(
-        {
-          navigate: () =>
-            page.goto(url, {
-              waitUntil: 'domcontentloaded',
-              timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-            }),
-          service: BrowserNavigationService.GoogleTranslate,
-        },
-        {
-          onRetry: (event) => log.warn('Retrying Google Translate page navigation:', event),
-        },
-      );
-    }
-  }
-  translatePageTargetLang = normalizedTargetLang;
-  log.info('Google Translate page loaded');
-}
-
-async function initTranslatePage(context: BrowserContext, targetLang = currentTargetLang): Promise<void> {
-  translatePage = await context.newPage();
-  await navigateTranslatePage(translatePage, targetLang);
-}
-
 async function initBackgroundBrowserNow(
   options: EnsureBackgroundBrowserOptions = {},
 ): Promise<BackgroundBrowserStatus> {
-  const includeTranslate = options.includeTranslate ?? false;
-  const translateTargetLang = options.translateTargetLang ?? currentTargetLang;
   const { cloakBrowserSettings } = options;
 
   bgReady = false;
@@ -189,7 +109,7 @@ async function initBackgroundBrowserNow(
   try {
     if (activeProvider.requiresBrowserSession()) {
       log.info('Ensuring persistent background browser...');
-      bgContext = await ensureTranslateContext(cloakBrowserSettings);
+      bgContext = await ensureBackgroundContext(cloakBrowserSettings);
 
       // Load session cookies and initialize the provider page.
       const sessionLoaded = await activeProvider.loadSession(bgContext);
@@ -215,8 +135,6 @@ async function initBackgroundBrowserNow(
     } else if (!activeProvider.isReady()) {
       throw new Error(t('error.noAccessToken'));
     }
-
-    if (includeTranslate) await ensureTranslateBrowserNow(translateTargetLang, cloakBrowserSettings);
 
     bgReady = true;
     log.info('Background browser ready');
@@ -244,8 +162,6 @@ async function shutdownBackgroundBrowserNow(preserveError = false): Promise<void
   if (activeProvider) {
     await activeProvider.shutdown();
   }
-  translatePage = null;
-  translatePageTargetLang = '';
   if (bgContext) {
     try {
       log.info('Shutting down background browser...');
@@ -263,49 +179,14 @@ export function shutdownBackgroundBrowser(preserveError = false): Promise<void> 
 }
 
 async function ensureBackgroundBrowserNow(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
-  const includeTranslate = options.includeTranslate ?? false;
-  const translateTargetLang = options.translateTargetLang ?? currentTargetLang;
-  const { cloakBrowserSettings } = options;
-
   if (bgReady && activeProvider?.isReady()) {
-    if (!includeTranslate) return;
-    await ensureTranslateBrowserNow(translateTargetLang, cloakBrowserSettings);
     return;
   }
-  await initBackgroundBrowserNow({ includeTranslate, translateTargetLang, cloakBrowserSettings });
+  await initBackgroundBrowserNow(options);
 }
 
 export function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions = {}): Promise<void> {
   return backgroundBrowserOperationQueue.run(() => ensureBackgroundBrowserNow(options));
-}
-
-async function ensureTranslateBrowserNow(
-  targetLang = currentTargetLang,
-  settings?: CloakBrowserSettingsWithSecret,
-): Promise<void> {
-  const normalizedTargetLang = normalizeGoogleTranslateTargetLang(targetLang);
-  const context = await ensureTranslateContext(settings);
-
-  if (!translatePage || translatePage.isClosed()) {
-    await initTranslatePage(context, normalizedTargetLang);
-    return;
-  }
-
-  if (translatePageTargetLang !== normalizedTargetLang) {
-    await navigateTranslatePage(translatePage, normalizedTargetLang);
-    return;
-  }
-
-  await translatePage
-    .waitForLoadState('domcontentloaded', { timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS })
-    .catch(() => {});
-}
-
-export function ensureTranslateBrowser(
-  targetLang = currentTargetLang,
-  settings?: CloakBrowserSettingsWithSecret,
-): Promise<void> {
-  return backgroundBrowserOperationQueue.run(() => ensureTranslateBrowserNow(targetLang, settings));
 }
 
 async function switchProviderNow(providerId: string): Promise<BackgroundBrowserStatus> {

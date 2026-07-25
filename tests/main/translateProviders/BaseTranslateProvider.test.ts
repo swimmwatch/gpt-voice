@@ -410,10 +410,11 @@ describe('BaseTranslateProvider', () => {
     assert.equal('text' in failureOutcome, false);
     assert.equal(failureOutcome.metadata.resultLength, 'translated'.length);
 
+    await assert.rejects(failureHarness.provider.shutdown(), /Translation provider cleanup failed/u);
     failedContext.page.closeFails = false;
     failedContext.closeFails = false;
     await failureHarness.provider.shutdown();
-    assert.equal(failedContext.closeCalls, 2);
+    assert.equal(failedContext.closeCalls, 3);
   });
 
   it('maps raw hook errors to sanitized diagnostics and keeps final entrypoints fixed', async () => {

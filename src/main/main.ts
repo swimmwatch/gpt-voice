@@ -24,6 +24,7 @@ import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
 import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
+import { shutdownAllTranslationProviders } from './services/translation';
 import { resolveStartupLocale } from './startupLocale';
 import { showSystemNotification } from './electronRuntime';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
@@ -177,6 +178,12 @@ async function runQuitCleanup(): Promise<void> {
     log.warn('Failed to unload Ollama prettify model during quit:', error instanceof Error ? error.message : error);
   }
   closeTranscriptionHistoryStore();
+  const translationShutdown = await shutdownAllTranslationProviders();
+  if (!translationShutdown.success) {
+    log.warn('Translation provider cleanup incomplete during quit:', {
+      failedProviderIds: translationShutdown.failedProviderIds,
+    });
+  }
   await shutdownBackgroundBrowser();
 }
 

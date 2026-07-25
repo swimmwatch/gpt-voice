@@ -49,7 +49,7 @@ import {
   setShortcutsSuspended,
 } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
-import { translateText } from './services/translation';
+import { shutdownAllTranslationProviders, translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
 import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
@@ -530,6 +530,17 @@ export function registerIpcHandlers(): void {
       assertValidCloakBrowserSettingsInput(settings);
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
       const preparedSettings = prepareCloakBrowserSettings(settings);
+      const translationShutdown = await shutdownAllTranslationProviders();
+      if (!translationShutdown.success) {
+        log.warn('CloakBrowser settings save blocked by translation cleanup:', {
+          failedProviderIds: translationShutdown.failedProviderIds,
+        });
+        return {
+          success: false,
+          settings: getCloakBrowserSettingsView(),
+          error: t('error.translationCleanupFailed'),
+        };
+      }
       const backgroundStatus = await restartBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
       });

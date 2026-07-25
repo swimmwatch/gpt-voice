@@ -112,7 +112,6 @@ export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
 export let currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
 export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
 export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
-export let currentTargetLang = 'en';
 export let currentProvider = 'chatgpt';
 export let currentLocale: AppLocaleId = DEFAULT_APP_LOCALE;
 let currentLocaleWasExplicitlySelected = false;
@@ -233,10 +232,6 @@ export function consumePendingTranslationSettingsRepairNotice(): TranslationSett
   return translationSettingsState.consumeRepairNotice();
 }
 
-function synchronizeLegacyTranslationTarget(): void {
-  currentTargetLang = translationSettingsState.getLegacyGoogleTarget();
-}
-
 function createConfigSnapshot(translationSettings = translationSettingsState.getSnapshot()): Record<string, unknown> {
   return {
     hotkey: currentHotkey,
@@ -263,9 +258,7 @@ function persistConfigSnapshot(translationSettings = translationSettingsState.ge
 }
 
 export function saveTranslationSettings(candidate: unknown): TranslationSettings {
-  const settings = translationSettingsState.save(candidate, persistConfigSnapshot);
-  synchronizeLegacyTranslationTarget();
-  return settings;
+  return translationSettingsState.save(candidate, persistConfigSnapshot);
 }
 
 // Configuration loading validates each persisted field independently to isolate corrupt legacy values.
@@ -315,7 +308,6 @@ export function loadConfig(): void {
       }
 
       translationSettingsState.load(config.translationSettings, targetLang, persistConfigSnapshot);
-      synchronizeLegacyTranslationTarget();
       if (shouldSaveConfig) saveConfig();
     }
     if (!isValidFingerprintSeed(currentFingerprintSeed)) {

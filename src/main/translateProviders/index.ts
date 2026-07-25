@@ -17,6 +17,11 @@ export interface TranslationProviderDefinition {
 
 export type TranslationProviderDefinitions = Readonly<Record<TranslationProviderId, TranslationProviderDefinition>>;
 
+export interface TranslationProviderShutdownResult {
+  readonly failedProviderIds: readonly TranslationProviderId[];
+  readonly success: boolean;
+}
+
 export const TRANSLATION_PROVIDER_DEFINITIONS: TranslationProviderDefinitions = Object.freeze({
   google: Object.freeze({
     factory: () => new GoogleTranslateProvider(),
@@ -62,10 +67,26 @@ export class TranslationProviderRegistry {
     return provider;
   }
 
-  async shutdown(): Promise<void> {
-    const providers = [...this.instances.values()];
-    this.instances.clear();
-    await Promise.all(providers.map(async (provider) => provider.shutdown()));
+  async shutdown(): Promise<TranslationProviderShutdownResult> {
+    const providers = [...this.instances.entries()];
+    const failedProviderIds = (
+      await Promise.all(
+        providers.map(async ([providerId, provider]) => {
+          try {
+            await provider.shutdown();
+            this.instances.delete(providerId);
+            return null;
+          } catch {
+            return providerId;
+          }
+        }),
+      )
+    ).filter((providerId): providerId is TranslationProviderId => providerId !== null);
+
+    return Object.freeze({
+      failedProviderIds: Object.freeze(failedProviderIds),
+      success: failedProviderIds.length === 0,
+    });
   }
 }
 

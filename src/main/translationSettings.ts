@@ -182,10 +182,6 @@ export class TranslationSettingsState {
   private pendingRepairNotice: TranslationSettingsRepairNotice | null = null;
   private settings = DEFAULT_TRANSLATION_SETTINGS;
 
-  getLegacyGoogleTarget(): string {
-    return this.settings.targetLanguageByProvider.google;
-  }
-
   getSnapshot(): TranslationSettings {
     return createImmutableTranslationSettings(this.settings);
   }

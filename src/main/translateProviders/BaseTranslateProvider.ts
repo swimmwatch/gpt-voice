@@ -579,6 +579,9 @@ export abstract class BaseTranslateProvider {
   private async shutdownProvider(): Promise<void> {
     this.shutDown = true;
     this.generation += 1;
-    await this.closeOwnedResources();
+    const closed = await this.closeOwnedResources();
+    if (!closed) {
+      throw new Error('Translation provider cleanup failed');
+    }
   }
 }

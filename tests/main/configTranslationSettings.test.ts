@@ -109,18 +109,14 @@ describe('config translation settings', () => {
     }
   });
 
-  it('applies the legacy Google compatibility target only after persistence succeeds', () => {
+  it('removes the temporary legacy Google target compatibility mirror', () => {
     const config = readProjectFile('src/main/config.ts');
     const save = config.slice(
       config.indexOf('export function saveTranslationSettings'),
       config.indexOf('// Configuration loading'),
     );
 
-    assert.match(save, /translationSettingsState\.save\(candidate, persistConfigSnapshot\)/u);
-    assert.match(save, /synchronizeLegacyTranslationTarget\(\)/u);
-    assert.equal(
-      save.indexOf('translationSettingsState.save') < save.indexOf('synchronizeLegacyTranslationTarget'),
-      true,
-    );
+    assert.match(save, /return translationSettingsState\.save\(candidate, persistConfigSnapshot\)/u);
+    assert.doesNotMatch(config, /currentTargetLang|getLegacyGoogleTarget|synchronizeLegacy/u);
   });
 });

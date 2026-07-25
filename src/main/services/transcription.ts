@@ -79,7 +79,7 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
 
 export const transcribeAudio = createTranscriptionService({
   ...defaultTranscriptionCompletionDependencies,
-  ensureBackgroundBrowser: () => ensureBackgroundBrowser({ includeTranslate: false }),
+  ensureBackgroundBrowser: () => ensureBackgroundBrowser(),
   getActiveProvider,
   getRequestedAt: () => new Date().toISOString(),
   isBackgroundReady: isBgReady,

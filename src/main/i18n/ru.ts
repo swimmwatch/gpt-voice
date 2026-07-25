@@ -41,6 +41,14 @@ export default {
   'notification.translationSettingsRepaired': 'Настройки перевода обновлены',
   'notification.translationSettingsRepairedBody':
     'Недопустимые или устаревшие настройки перевода заменены безопасными значениями.',
+  'error.translationUnsupportedSelection': 'Выберите поддерживаемый сервис и язык перевода.',
+  'error.translationTextTooLong':
+    'Выделенный текст слишком длинный для {provider}: {actual} символов при максимуме {max}.',
+  'error.translationConnectionFailed': 'Не удалось подключиться к сервису перевода. Повторите попытку.',
+  'error.translationConsentOrChallenge': 'Сервис перевода требует согласия или проверки. Повторите попытку позже.',
+  'error.translationPageChanged': 'Страница сервиса перевода изменилась. Повторите попытку позже.',
+  'error.translationResultUnavailable': 'Результат перевода не был получен до истечения времени ожидания.',
+  'error.translationCleanupFailed': 'Не удалось очистить данные перевода. Результат не скопирован.',
   'error.translationSettingsInvalid': 'Выберите поддерживаемый сервис и язык перевода.',
   'error.translationSettingsSaveFailed': 'Не удалось сохранить настройки перевода. Предыдущий выбор остаётся активным.',
 

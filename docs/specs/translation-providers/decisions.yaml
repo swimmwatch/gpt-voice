@@ -1651,3 +1651,69 @@ decisions:
   rationale: The user explicitly authorized Task 07 after the scoped Task 06 commit and no later packet.
   supersedes_revision: null
   requirement_ids: [RUN-001, ARCH-005, RUN-005, SEC-001, COMP-001, AC-AUTO-006]
+
+- id: commit.task-07
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 07 implementation and deterministic verification are complete and remain uncommitted.
+    - The scoped checkpoint contains only selected-text runtime integration, lifecycle cleanup, tests, checklist, handoff, and durable decisions.
+    - The user committed `authorize-task-07-commit` through persistent Prompt MCP question `commit.task-07` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-08-gates-v1
+    question_id: commit.task-07
+    idempotency_key: commit.task-07:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 07 selected-text runtime checkpoint be handled?
+    kind: single
+    options:
+      - id: authorize-task-07-commit
+        label: Commit Task 07
+        description: After reverifying the Task 07 scope and required checks, create only the scoped runtime commit and keep the unrelated agent-reference edit uncommitted.
+      - id: keep-task-07-uncommitted
+        label: Keep uncommitted
+        description: Do not create a commit and do not begin Task 08.
+  answer:
+    selected_ids: [authorize-task-07-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 07 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [RUN-001, ARCH-005, RUN-005, SEC-001, COMP-001, AC-AUTO-006]
+
+- id: execution.task-08
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 08 is the next ordered packet and owns only the main-screen translation provider and language Select controls.
+    - Task 08 excludes live provider access, dependencies, window resizing, later packets, publishing, and release work.
+    - The user committed `authorize-task-08` through persistent Prompt MCP question `execution.task-08` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-08-gates-v1
+    question_id: execution.task-08
+    idempotency_key: execution.task-08:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 07 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 08, “Expose Translation Provider and Language Select Controls”?
+    kind: single
+    options:
+      - id: authorize-task-08
+        label: Authorize Task 08
+        description: After the authorized Task 07 commit, implement only the main-screen provider and full-language Select controls, verify them, update todo/handoff, and leave Task 08 uncommitted.
+      - id: defer-task-08
+        label: Defer Task 08
+        description: Stop after the Task 07 checkpoint; make no Task 08 implementation changes.
+  answer:
+    selected_ids: [authorize-task-08]
+    text: ''
+  rationale: The user explicitly authorized Task 08 after the scoped Task 07 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-007, UI-008, UI-009, AC-AUTO-007]

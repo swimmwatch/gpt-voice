@@ -123,7 +123,7 @@ describe('translation settings', () => {
     assert.doesNotThrow(() => assertValidTranslationSettings(createSettings()));
   });
 
-  it('updates the legacy Google target only after successful durable state changes', () => {
+  it('publishes settings only after successful durable state changes', () => {
     const state = new TranslationSettingsState();
     state.load(
       createSettings({
@@ -134,7 +134,7 @@ describe('translation settings', () => {
         throw new Error('valid persisted values must not be rewritten');
       },
     );
-    assert.equal(state.getLegacyGoogleTarget(), 'ru');
+    assert.equal(state.getSnapshot().targetLanguageByProvider.google, 'ru');
 
     const providerOnly = createSettings({
       providerId: 'yandex',
@@ -142,7 +142,7 @@ describe('translation settings', () => {
     });
     state.save(providerOnly, () => {});
     assert.equal(state.getSnapshot().providerId, 'yandex');
-    assert.equal(state.getLegacyGoogleTarget(), 'ru');
+    assert.equal(state.getSnapshot().targetLanguageByProvider.google, 'ru');
 
     const previous = state.getSnapshot();
     assert.throws(
@@ -159,7 +159,7 @@ describe('translation settings', () => {
       /rename failed/u,
     );
     assert.deepEqual(state.getSnapshot(), previous);
-    assert.equal(state.getLegacyGoogleTarget(), 'ru');
+    assert.equal(state.getSnapshot().targetLanguageByProvider.google, 'ru');
   });
 
   it('persists removed-target repair and exposes one aggregate notice per load', () => {

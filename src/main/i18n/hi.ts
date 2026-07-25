@@ -38,6 +38,13 @@ export default {
   'notification.translationSettingsRepaired': 'अनुवाद सेटिंग अपडेट की गईं',
   'notification.translationSettingsRepairedBody':
     'अमान्य या पुरानी अनुवाद सेटिंग को सुरक्षित डिफ़ॉल्ट से बदल दिया गया है।',
+  'error.translationUnsupportedSelection': 'समर्थित अनुवाद प्रदाता और भाषा चुनें।',
+  'error.translationTextTooLong': 'चुना गया टेक्स्ट {provider} के लिए बहुत लंबा है: {actual} अक्षर; अधिकतम {max}।',
+  'error.translationConnectionFailed': 'अनुवाद प्रदाता से कनेक्ट नहीं हो सका। फिर से प्रयास करें।',
+  'error.translationConsentOrChallenge': 'अनुवाद प्रदाता को सहमति या सत्यापन चाहिए। बाद में फिर से प्रयास करें।',
+  'error.translationPageChanged': 'अनुवाद प्रदाता का पेज बदल गया है। बाद में फिर से प्रयास करें।',
+  'error.translationResultUnavailable': 'समय समाप्त होने से पहले अनुवाद परिणाम उपलब्ध नहीं हुआ।',
+  'error.translationCleanupFailed': 'अनुवाद डेटा साफ़ नहीं हो सका। कोई परिणाम कॉपी नहीं किया गया।',
   'error.translationSettingsInvalid': 'समर्थित अनुवाद प्रदाता और भाषा चुनें।',
   'error.translationSettingsSaveFailed': 'अनुवाद सेटिंग सहेजी नहीं जा सकीं। आपका पिछला चयन अभी भी सक्रिय है।',
   'login.loggingIn': 'लॉग इन कर रहे हैं...',

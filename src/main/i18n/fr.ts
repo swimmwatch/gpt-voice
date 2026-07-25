@@ -38,6 +38,15 @@ export default {
   'notification.translationSettingsRepaired': 'Paramètres de traduction mis à jour',
   'notification.translationSettingsRepairedBody':
     'Les paramètres de traduction invalides ou obsolètes ont été remplacés par des valeurs sûres.',
+  'error.translationUnsupportedSelection': 'Sélectionnez un fournisseur et une langue de traduction compatibles.',
+  'error.translationTextTooLong':
+    'Le texte sélectionné est trop long pour {provider} : {actual} caractères, maximum {max}.',
+  'error.translationConnectionFailed': 'Connexion au fournisseur de traduction impossible. Réessayez.',
+  'error.translationConsentOrChallenge':
+    'Le fournisseur de traduction exige un consentement ou une vérification. Réessayez plus tard.',
+  'error.translationPageChanged': 'La page du fournisseur de traduction a changé. Réessayez plus tard.',
+  'error.translationResultUnavailable': "Aucun résultat de traduction n'était disponible avant l'expiration du délai.",
+  'error.translationCleanupFailed': "Le nettoyage des données de traduction a échoué. Aucun résultat n'a été copié.",
   'error.translationSettingsInvalid': 'Sélectionnez un fournisseur et une langue de traduction compatibles.',
   'error.translationSettingsSaveFailed':
     "Impossible d'enregistrer les paramètres de traduction. La sélection précédente reste active.",

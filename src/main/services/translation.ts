@@ -1,154 +1,302 @@
-import type { Locator, Page } from 'playwright-core';
-import {
-  ensureTranslateBrowser,
-  getTranslatePage,
-  getTranslatePageTargetLang,
-  setTranslatePageTargetLang,
-} from '@main/browser';
+import { getTranslationSettingsSnapshot } from '@main/config';
+import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { presentNotificationError } from '@shared/notifications';
+import { translationProviderRegistry, type TranslationProviderShutdownResult } from '@main/translateProviders';
+import type { BaseTranslateProvider } from '@main/translateProviders/BaseTranslateProvider';
+import type {
+  TranslationProviderFailure,
+  TranslationProviderFailureCode,
+  TranslationProviderOperationMetadata,
+  TranslationProviderOutcome,
+  TranslationProviderPhase,
+} from '@main/translateProviders/translationProviderContracts';
 import {
-  buildGoogleTranslateUrl,
-  createTranslationLogMetadata,
-  GOOGLE_TRANSLATE_CLEAR_RESULT_TIMEOUT_MS,
-  GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-  GOOGLE_TRANSLATE_RESULT_SELECTOR,
-  GOOGLE_TRANSLATE_RESULT_TIMEOUT_MS,
-  GOOGLE_TRANSLATE_SOURCE_SELECTOR,
-  GOOGLE_TRANSLATE_SOURCE_TIMEOUT_MS,
-  shouldNavigateGoogleTranslate,
-  type TranslationLogMetadata,
-} from '@main/services/translationUtils';
+  getTranslationLanguage,
+  getTranslationProviderInfo,
+  type TranslationProviderId,
+  type TranslationProviderName,
+  type TranslationSettings,
+} from '@shared/translationProvider';
 
 const log = createLogger('translate');
 
-async function measureTranslationStep<T>(
-  step: string,
-  metadata: TranslationLogMetadata,
-  run: () => Promise<T>,
-): Promise<T> {
-  const startedAt = Date.now();
-  try {
-    return await run();
-  } finally {
-    log.info('Translation step completed:', {
-      step,
-      elapsedMs: Date.now() - startedAt,
+export interface TranslationExecutionSnapshot {
+  readonly contractVersion: string;
+  readonly generation: number;
+  readonly maxInputCharacters: number;
+  readonly providerId: TranslationProviderId;
+  readonly providerName: TranslationProviderName;
+  readonly targetLanguage: string;
+}
+
+export type TranslationExecutionSnapshotResult =
+  | {
+      readonly success: true;
+      readonly snapshot: TranslationExecutionSnapshot;
+    }
+  | TranslationProviderFailure;
+
+export interface TranslationTextResult {
+  readonly error?: string;
+  readonly success: boolean;
+  readonly text?: string;
+}
+
+export interface TranslationRuntimeRegistry {
+  getProvider(providerId: unknown): Pick<BaseTranslateProvider, 'translate'>;
+  shutdown(): Promise<TranslationProviderShutdownResult>;
+}
+
+export interface TranslationRuntimeDependencies {
+  readonly getSettings: () => TranslationSettings;
+  readonly now: () => number;
+  readonly registry: TranslationRuntimeRegistry;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function createFailure(
+  code: TranslationProviderFailureCode,
+  phase: TranslationProviderPhase,
+  startedAt: number,
+  now: () => number,
+  metadata: Partial<Omit<TranslationProviderOperationMetadata, 'attemptCount' | 'durationMs' | 'phase'>> = {},
+  discard = code === 'cancelledOrStaleOperation',
+): TranslationProviderFailure {
+  return {
+    success: false,
+    code,
+    discard,
+    metadata: {
       ...metadata,
-    });
-  }
-}
-
-async function setGoogleTranslateSourceText(sourceArea: Locator, text: string): Promise<void> {
-  await sourceArea.evaluate((element, value) => {
-    const textarea = element as HTMLTextAreaElement;
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- Reflect.apply supplies the textarea receiver below.
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-
-    textarea.focus();
-    if (valueSetter) {
-      Reflect.apply(valueSetter, textarea, [value]);
-    } else {
-      textarea.value = value;
-    }
-
-    const inputType = value ? 'insertText' : 'deleteContentBackward';
-    try {
-      textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType }));
-    } catch {
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }, text);
-}
-
-async function clearPreviousGoogleTranslateResult(page: Page, sourceArea: Locator): Promise<void> {
-  await setGoogleTranslateSourceText(sourceArea, '');
-  await page
-    .waitForFunction(
-      (selector) => {
-        const translatedText = Array.from(document.querySelectorAll(selector))
-          .map((element) => element.textContent || '')
-          .join('')
-          .trim();
-        return translatedText.length === 0;
-      },
-      GOOGLE_TRANSLATE_RESULT_SELECTOR,
-      { timeout: GOOGLE_TRANSLATE_CLEAR_RESULT_TIMEOUT_MS },
-    )
-    .catch(() => {});
-}
-
-async function readGoogleTranslateResult(page: Page): Promise<string> {
-  return page.evaluate((selector) => {
-    return Array.from(document.querySelectorAll(selector))
-      .map((element) => element.textContent || '')
-      .join('');
-  }, GOOGLE_TRANSLATE_RESULT_SELECTOR);
-}
-
-async function waitForGoogleTranslateResult(page: Page): Promise<string> {
-  await page.waitForFunction(
-    (selector) => {
-      const translatedText = Array.from(document.querySelectorAll(selector))
-        .map((element) => element.textContent || '')
-        .join('')
-        .trim();
-      return translatedText.length > 0;
+      attemptCount: 0,
+      durationMs: Math.max(0, now() - startedAt),
+      phase,
     },
-    GOOGLE_TRANSLATE_RESULT_SELECTOR,
-    { timeout: GOOGLE_TRANSLATE_RESULT_TIMEOUT_MS },
-  );
-  return readGoogleTranslateResult(page);
+  };
 }
 
-export async function translateText(
-  text: string,
-  targetLang: string,
-): Promise<{ success: boolean; text?: string; error?: string }> {
-  const metadata = createTranslationLogMetadata(text, targetLang);
-
-  try {
-    log.info('Starting translation:', metadata);
-
-    await measureTranslationStep('backgroundReady', metadata, () => ensureTranslateBrowser(metadata.targetLang));
-    const translatePage = getTranslatePage();
-    if (!translatePage || translatePage.isClosed()) {
-      return { success: false, error: 'Translation browser not available' };
-    }
-
-    if (shouldNavigateGoogleTranslate(getTranslatePageTargetLang(), metadata.targetLang)) {
-      await measureTranslationStep('languageNavigation', metadata, async () => {
-        await translatePage.goto(buildGoogleTranslateUrl(metadata.targetLang), {
-          waitUntil: 'domcontentloaded',
-          timeout: GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS,
-        });
-        setTranslatePageTargetLang(metadata.targetLang);
+export function getTranslationFailureMessage(failure: TranslationProviderFailure): string {
+  switch (failure.code) {
+    case 'unsupportedProvider':
+    case 'unsupportedTargetLanguage':
+      return t('error.translationUnsupportedSelection');
+    case 'emptyInput':
+      return t('error.noTextSelectedToTranslate');
+    case 'inputTooLong': {
+      const provider = getTranslationProviderInfo(failure.metadata.providerId);
+      return t('error.translationTextTooLong', {
+        actual: String(failure.metadata.sourceLength ?? 0),
+        max: String(provider?.maxInputCharacters ?? 0),
+        provider: provider?.name ?? 'Translation provider',
       });
-      log.info('Google Translate language changed:', { targetLang: metadata.targetLang });
     }
-
-    const sourceArea = translatePage.locator(GOOGLE_TRANSLATE_SOURCE_SELECTOR);
-    await measureTranslationStep('sourceReady', metadata, () =>
-      sourceArea.waitFor({ timeout: GOOGLE_TRANSLATE_SOURCE_TIMEOUT_MS }),
-    );
-    await measureTranslationStep('textInsertion', metadata, async () => {
-      await clearPreviousGoogleTranslateResult(translatePage, sourceArea);
-      await setGoogleTranslateSourceText(sourceArea, text);
-    });
-    log.info('Text entered, waiting for translation:', metadata);
-
-    const translated = await measureTranslationStep('resultReady', metadata, () =>
-      waitForGoogleTranslateResult(translatePage),
-    );
-
-    log.info('Translation result length:', translated.length);
-
-    if (translated) {
-      return { success: true, text: translated };
-    }
-    return { success: false, error: 'No translation result found on page' };
-  } catch (error: unknown) {
-    log.error('Translation error:', presentNotificationError(error, { context: 'translation' }).safeLogMetadata);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    case 'navigationFailure':
+      return t('error.translationConnectionFailed');
+    case 'consentOrChallenge':
+      return t('error.translationConsentOrChallenge');
+    case 'pageContractFailure':
+      return t('error.translationPageChanged');
+    case 'resultTimeoutOrEmpty':
+      return t('error.translationResultUnavailable');
+    case 'cancelledOrStaleOperation':
+      return t('status.translationCancelled');
+    case 'cleanupFailure':
+      return t('error.translationCleanupFailed');
   }
+}
+
+/** Owns authoritative translation snapshots, cancellation generations, and provider routing. */
+export class TranslationRuntime {
+  private generation = 0;
+  private readonly activeControllers = new Set<AbortController>();
+
+  constructor(private readonly dependencies: TranslationRuntimeDependencies) {}
+
+  getSnapshot(): TranslationExecutionSnapshotResult {
+    const startedAt = this.dependencies.now();
+    const candidate = this.dependencies.getSettings() as unknown;
+    if (!isRecord(candidate)) {
+      return createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+    }
+
+    const provider = getTranslationProviderInfo(candidate.providerId);
+    if (!provider) {
+      return createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+    }
+
+    const targets = candidate.targetLanguageByProvider;
+    const targetLanguage = isRecord(targets) ? targets[provider.id] : undefined;
+    if (typeof targetLanguage !== 'string' || !getTranslationLanguage(provider.id, targetLanguage)) {
+      return createFailure('unsupportedTargetLanguage', 'validation', startedAt, this.dependencies.now, {
+        providerId: provider.id,
+        contractVersion: provider.contractVersion,
+      });
+    }
+
+    return {
+      success: true,
+      snapshot: Object.freeze({
+        contractVersion: provider.contractVersion,
+        generation: this.generation,
+        maxInputCharacters: provider.maxInputCharacters,
+        providerId: provider.id,
+        providerName: provider.name,
+        targetLanguage,
+      }),
+    };
+  }
+
+  isCurrent(snapshot: TranslationExecutionSnapshot): boolean {
+    return snapshot.generation === this.generation;
+  }
+
+  validateInput(sourceText: unknown, snapshot: TranslationExecutionSnapshot): TranslationProviderFailure | null {
+    const startedAt = this.dependencies.now();
+    const metadata = {
+      providerId: snapshot.providerId,
+      targetLanguage: snapshot.targetLanguage,
+      contractVersion: snapshot.contractVersion,
+      ...(typeof sourceText === 'string' ? { sourceLength: sourceText.length } : {}),
+    };
+
+    if (typeof sourceText !== 'string' || !sourceText.trim()) {
+      return createFailure('emptyInput', 'validation', startedAt, this.dependencies.now, metadata);
+    }
+    if (sourceText.length > snapshot.maxInputCharacters) {
+      return createFailure('inputTooLong', 'validation', startedAt, this.dependencies.now, metadata);
+    }
+    if (!this.isCurrent(snapshot)) {
+      return createFailure('cancelledOrStaleOperation', 'validation', startedAt, this.dependencies.now, metadata, true);
+    }
+    return null;
+  }
+
+  async translateWithSnapshot(
+    sourceText: unknown,
+    snapshot: TranslationExecutionSnapshot,
+  ): Promise<TranslationProviderOutcome> {
+    const validationFailure = this.validateInput(sourceText, snapshot);
+    if (validationFailure) return validationFailure;
+
+    const startedAt = this.dependencies.now();
+    const controller = new AbortController();
+    this.activeControllers.add(controller);
+    try {
+      const provider = this.dependencies.registry.getProvider(snapshot.providerId);
+      const outcome = await provider.translate({
+        providerId: snapshot.providerId,
+        targetLanguage: snapshot.targetLanguage,
+        sourceText: sourceText as string,
+        signal: controller.signal,
+      });
+
+      if (!this.isCurrent(snapshot) || controller.signal.aborted) {
+        return createFailure(
+          'cancelledOrStaleOperation',
+          'shutdown',
+          startedAt,
+          this.dependencies.now,
+          {
+            providerId: snapshot.providerId,
+            targetLanguage: snapshot.targetLanguage,
+            contractVersion: snapshot.contractVersion,
+            sourceLength: (sourceText as string).length,
+            ...(outcome.success ? { resultLength: outcome.text.length } : {}),
+          },
+          true,
+        );
+      }
+      return outcome;
+    } catch {
+      return createFailure('pageContractFailure', 'result', startedAt, this.dependencies.now, {
+        providerId: snapshot.providerId,
+        targetLanguage: snapshot.targetLanguage,
+        contractVersion: snapshot.contractVersion,
+        sourceLength: (sourceText as string).length,
+      });
+    } finally {
+      this.activeControllers.delete(controller);
+    }
+  }
+
+  async translateText(sourceText: unknown, targetLanguage: unknown): Promise<TranslationTextResult> {
+    const snapshotResult = this.getSnapshot();
+    if (!snapshotResult.success) {
+      return { success: false, error: getTranslationFailureMessage(snapshotResult) };
+    }
+
+    const { snapshot } = snapshotResult;
+    if (targetLanguage !== snapshot.targetLanguage) {
+      const failure = createFailure(
+        'unsupportedTargetLanguage',
+        'validation',
+        this.dependencies.now(),
+        this.dependencies.now,
+        {
+          providerId: snapshot.providerId,
+          contractVersion: snapshot.contractVersion,
+          ...(typeof sourceText === 'string' ? { sourceLength: sourceText.length } : {}),
+        },
+      );
+      return { success: false, error: getTranslationFailureMessage(failure) };
+    }
+
+    const outcome = await this.translateWithSnapshot(sourceText, snapshot);
+    if (outcome.success) {
+      return { success: true, text: outcome.text };
+    }
+    return { success: false, error: getTranslationFailureMessage(outcome) };
+  }
+
+  async shutdown(): Promise<TranslationProviderShutdownResult> {
+    this.generation += 1;
+    for (const controller of this.activeControllers) controller.abort();
+
+    const result = await this.dependencies.registry.shutdown();
+    if (!result.success) {
+      log.warn('Translation provider shutdown incomplete:', {
+        failedProviderIds: result.failedProviderIds,
+      });
+    }
+    return result;
+  }
+}
+
+export const translationRuntime = new TranslationRuntime({
+  getSettings: getTranslationSettingsSnapshot,
+  now: Date.now,
+  registry: translationProviderRegistry,
+});
+
+export function getTranslationExecutionSnapshot(): TranslationExecutionSnapshotResult {
+  return translationRuntime.getSnapshot();
+}
+
+export function isTranslationExecutionCurrent(snapshot: TranslationExecutionSnapshot): boolean {
+  return translationRuntime.isCurrent(snapshot);
+}
+
+export function validateTranslationInput(
+  sourceText: unknown,
+  snapshot: TranslationExecutionSnapshot,
+): TranslationProviderFailure | null {
+  return translationRuntime.validateInput(sourceText, snapshot);
+}
+
+export function translateWithSnapshot(
+  sourceText: unknown,
+  snapshot: TranslationExecutionSnapshot,
+): Promise<TranslationProviderOutcome> {
+  return translationRuntime.translateWithSnapshot(sourceText, snapshot);
+}
+
+export function translateText(sourceText: unknown, targetLanguage: unknown): Promise<TranslationTextResult> {
+  return translationRuntime.translateText(sourceText, targetLanguage);
+}
+
+export function shutdownAllTranslationProviders(): Promise<TranslationProviderShutdownResult> {
+  return translationRuntime.shutdown();
 }

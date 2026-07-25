@@ -41,6 +41,13 @@ export default {
   'notification.translationSettingsRepaired': 'Translation settings updated',
   'notification.translationSettingsRepairedBody':
     'Invalid or outdated translation settings were replaced with safe defaults.',
+  'error.translationUnsupportedSelection': 'Select a supported translation provider and language.',
+  'error.translationTextTooLong': 'Selected text is too long for {provider}: {actual} characters; maximum {max}.',
+  'error.translationConnectionFailed': 'Could not connect to the translation provider. Try again.',
+  'error.translationConsentOrChallenge': 'The translation provider requires consent or verification. Try again later.',
+  'error.translationPageChanged': 'The translation provider page has changed. Try again later.',
+  'error.translationResultUnavailable': 'No translation result was available before the operation timed out.',
+  'error.translationCleanupFailed': 'Translation cleanup failed. No result was copied.',
   'error.translationSettingsInvalid': 'Select a supported translation provider and language.',
   'error.translationSettingsSaveFailed':
     'Could not save translation settings. Your previous selection is still active.',

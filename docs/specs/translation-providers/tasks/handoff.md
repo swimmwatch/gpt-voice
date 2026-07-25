@@ -1,90 +1,74 @@
-# Handoff: Translation Providers Task 06 Complete
+# Handoff: Translation Providers Task 07 Complete
 
-Status: Tasks 01–05 are committed through `93281d0`. Task 06 is implemented
-and verified but remains uncommitted. Tasks 07–11 are not authorized.
+Status: Tasks 01–06 are committed through `8026a240`. Task 07 is implemented
+and verified but remains uncommitted. Tasks 08–11 are not authorized.
 
 ## Completed Packets
 
 - [01 Shared contracts and inventories](01_define_translation_contracts_and_inventories.md)
-  - Added closed Google, Bing, and Yandex metadata with exact checked-in target
-    inventories.
 - [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md)
-  - Added the isolated reusable provider lifecycle, bounded pre-submit
-    recovery, stable results, sanitized outcomes, and clear-or-close cleanup.
-- [03 Google provider](03_migrate_google_translate_provider.md),
-  [04 Bing provider](04_implement_bing_translate_provider.md), and
-  [05 Yandex provider](05_implement_yandex_translate_provider.md)
-  - Added deterministic unregistered public-page subclasses for all enabled
-    providers.
+- [03 Google provider](03_migrate_google_translate_provider.md)
+- [04 Bing provider](04_implement_bing_translate_provider.md)
+- [05 Yandex provider](05_implement_yandex_translate_provider.md)
 - [06 Registry, settings, and IPC](06_add_translation_registry_settings_and_ipc.md)
-  - Added exhaustive lazy provider ownership, authoritative per-provider
-    settings, legacy migration, persisted repair, atomic saving, trusted typed
-    IPC, a one-shot localized repair notice, and the interim renderer bridge.
+- [07 Selected-text runtime integration](07_integrate_selected_text_translation_runtime.md)
 
-## Registry And Stored Shape
+## Runtime And Cache
 
-- The exhaustive registry contains exactly Google, Bing, and Yandex, reuses
-  the Task 01 metadata objects, creates at most one instance per ID, and has no
-  unknown-ID fallback.
-- Metadata listing and all settings operations create zero provider or browser
-  instances.
-- `config.json` now stores:
+- Selected-text translation captures one immutable provider, target, contract
+  version, input-limit, and lifecycle-generation snapshot after the action
+  gate and before clipboard automation.
+- Provider/target validity, blank input, and provider length limits are
+  checked before lazy registry access or browser creation.
+- Successful cache identity is exactly provider ID, contract version, target
+  code, and source text through the existing SHA-256 cache-key helper.
+- Provider, target, or contract changes cannot cross-satisfy cache entries.
+  Failed, empty, stale, cancelled, and cleanup-failed outcomes are not cached.
+- Existing action serialization, Linux selection fallback, clipboard
+  restoration for actionable failures, copy behavior, and notifications are
+  preserved.
+- Direct `translate-text(text, targetLang)` IPC remains compatible but rejects
+  any target different from the authoritative selected provider target.
 
-  ```json
-  {
-    "translationSettings": {
-      "providerId": "google",
-      "targetLanguageByProvider": {
-        "google": "en",
-        "bing": "en",
-        "yandex": "en"
-      }
-    }
-  }
-  ```
+## Lifecycle And Privacy
 
-- When the new key is absent, legacy `targetLang` seeds each provider only
-  when that exact code is supported. Persisted provider and target fields are
-  repaired independently to checked-in defaults.
-- The legacy in-memory target always mirrors Google's remembered target and is
-  updated only after normalized load/migration or a successful durable save.
-  The legacy `targetLang` key is no longer written.
-
-## Atomic Persistence, Notice, And IPC
-
-- Complete config bytes are written to a same-directory mode-`0600` temporary
-  file and renamed over `config.json`. Write or rename failures preserve the
-  previous file and in-memory settings and remove the temporary file.
-- Repair metadata contains only closed categories and known provider IDs. One
-  localized generic notice is consumed after locale setup and before IPC,
-  windows, or background-provider initialization.
-- `get-translate-settings` returns an immutable authoritative
-  `TranslationSettings` snapshot.
-- `set-translate-settings` accepts one exact complete candidate and always
-  returns `{ success, settings, error? }`; invalid or failed writes return the
-  previous authoritative snapshot with a localized safe error.
-- Preload and renderer declarations use the shared settings/result types. The
-  existing language control changes only the selected provider target and
-  retains its last confirmed snapshot on rejected or thrown IPC failures.
+- The legacy Google translation page, target globals, translator startup
+  options, and Google-specific translation utilities were removed from the
+  persistent voice-provider browser.
+- Translation runtime shutdown increments its generation, aborts active
+  requests, and prevents late results from reaching cache, clipboard, or
+  notifications.
+- Registry shutdown attempts every instantiated provider, removes successful
+  closures, and retains failed ownership for a later cleanup retry.
+- Application quit closes translation providers before the persistent voice
+  browser. Validated CloakBrowser settings changes close translation providers
+  before restart or persistence; cleanup failure preserves prior settings.
+- Runtime logs and returned failures contain only closed failure codes,
+  validated provider/target/contract metadata, lengths, phase, duration, and
+  attempt count. No source/result text, raw URL, DOM, or provider exception is
+  logged or returned.
+- Added locale-parity messages for unsupported selection, provider limits,
+  connection, consent/challenge, page contract, result timeout, and cleanup
+  failures.
 
 ## Changed Files
 
-- Added the translation registry, settings state/atomic writer, and renderer
-  compatibility helper.
-- Updated shared translation contracts, config, IPC, startup, preload,
-  renderer declarations, and the minimal main-screen settings state.
-- Added repair/save/validation keys to every locale dictionary and parity
-  coverage.
-- Added focused registry, settings, config, IPC, startup-notice, and renderer
-  tests.
-- Preserved the unrelated uncommitted
+- Refactored translation orchestration, selected-text flow, provider registry,
+  and base shutdown behavior.
+- Removed legacy translator ownership from browser/config/transcription paths
+  and deleted obsolete Google-only translation utilities.
+- Integrated translation shutdown with trusted CloakBrowser-settings IPC and
+  application quit cleanup.
+- Updated all locale dictionaries and deterministic runtime, lifecycle,
+  selected-text, settings, registry, and base-provider tests.
+- Preserved unrelated uncommitted
   `.agents/references/specification-interview.md` edit.
 
 ## Checks
 
-- Focused Task 06 main and renderer tests passed.
-- Existing `configPrettifySettings`, trusted IPC/preload contract, and
-  `selectedTextTranslation` tests passed.
+- Focused selected-text, runtime, registry, base-provider, browser navigation,
+  browser startup, IPC, settings, lifecycle, and i18n tests passed.
+- Full `npm test` passed: 128 tests.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed without warnings.
@@ -93,20 +77,16 @@ and verified but remains uncommitted. Tasks 07–11 are not authorized.
 
 ## Exact Next Packet
 
-- Review Task 06. The next ordered packet is
-  [07 Selected-text runtime integration](07_integrate_selected_text_translation_runtime.md),
-  authorized through persistent Prompt MCP question `execution.task-07`
-  revision 1.
+- Review Task 07. The next ordered packet is
+  [08 Main-screen Select controls](08_expose_translation_select_controls.md),
+  but it has no execution authorization.
 
 ## Blockers
 
-- None. The Task 06 commit and Task 07 execution are authorized.
+- Task 07 commit and Task 08 execution are not authorized.
 
 ## Remaining Risks
 
-- The new registry is intentionally not used by selected-text translation
-  until Task 07; legacy runtime translation still uses Google and its
-  remembered target.
-- The legacy persistent Google translation page remains until the Task 07
-  lifecycle migration.
-- No live provider or real user configuration was accessed.
+- Main-screen provider and full-language selection remain Task 08.
+- Live Google, Bing, and Yandex canaries remain deferred to Task 11.
+- No live provider, real selected text, or real user configuration was used.

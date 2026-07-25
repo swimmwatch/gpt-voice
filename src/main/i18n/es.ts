@@ -38,6 +38,15 @@ export default {
   'notification.translationSettingsRepaired': 'Configuración de traducción actualizada',
   'notification.translationSettingsRepairedBody':
     'La configuración de traducción no válida u obsoleta se reemplazó por valores seguros.',
+  'error.translationUnsupportedSelection': 'Seleccione un proveedor y un idioma de traducción compatibles.',
+  'error.translationTextTooLong':
+    'El texto seleccionado es demasiado largo para {provider}: {actual} caracteres; máximo {max}.',
+  'error.translationConnectionFailed': 'No se pudo conectar con el proveedor de traducción. Inténtelo de nuevo.',
+  'error.translationConsentOrChallenge':
+    'El proveedor de traducción requiere consentimiento o verificación. Inténtelo más tarde.',
+  'error.translationPageChanged': 'La página del proveedor de traducción ha cambiado. Inténtelo más tarde.',
+  'error.translationResultUnavailable': 'No hubo ningún resultado de traducción antes de agotarse el tiempo.',
+  'error.translationCleanupFailed': 'No se pudieron limpiar los datos de traducción. No se copió ningún resultado.',
   'error.translationSettingsInvalid': 'Seleccione un proveedor y un idioma de traducción compatibles.',
   'error.translationSettingsSaveFailed':
     'No se pudo guardar la configuración de traducción. La selección anterior sigue activa.',
