@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': '翻译提供商',
+  'translate.saving': '正在保存...',
+  'translate.settingsSaveFailed': '无法保存翻译设置',
+
   'status.pressToRecord': '按 {hotkey} 开始录音',
   'status.recording': '正在录音...',
   'status.paused': '已暂停',

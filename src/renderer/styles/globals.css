@@ -751,26 +751,37 @@
   flex: 1 0 99px;
   align-items: start;
   padding: 14px 16px;
-  column-gap: 0;
-  grid-template-columns: 22px 105px 134px;
+  column-gap: 10px;
+  grid-template-columns: 22px minmax(0, 150px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(16px, auto);
 }
 
 .command-dock-language-band > .command-dock-section-icon {
-  margin-top: 3px;
+  margin-top: 19px;
+}
+
+.command-dock-language-field {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
 }
 
 .command-dock-language-label {
   display: flex;
-  height: 29px;
+  min-width: 0;
+  height: 14px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: 0;
+  color: var(--dock-muted);
   font-size: 11.92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .command-dock .command-dock-language-trigger {
-  width: 134px;
+  width: 100%;
   height: 29px;
   padding: 0 10px 0 12px;
   border-color: var(--dock-control-border);
@@ -787,27 +798,35 @@
   color: var(--dock-muted);
 }
 
-.command-dock-language-value,
-.command-dock-language-option {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-}
-
-.command-dock-language-value img,
-.command-dock-language-option img {
-  width: 17px;
-  height: 11px;
-  flex: none;
-  object-fit: cover;
-}
-
-.command-dock-language-value > span,
-.command-dock-language-option > span {
+.command-dock .command-dock-language-trigger > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.command-dock-language-state {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dock-muted);
+  font-size: 10.5px;
+  grid-column: 2 / -1;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-dock-language-state.is-error {
+  color: var(--destructive);
+}
+
+.command-dock-translation-select-content {
+  max-height: min(var(--radix-select-content-available-height), 240px);
+}
+
+.command-dock-translation-select-content [data-slot='select-viewport'] {
+  max-height: 214px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 439px) {
@@ -831,6 +850,23 @@
 
   .command-dock .command-dock-prettify-provider-trigger {
     width: 100%;
+  }
+
+  .command-dock-language-band {
+    min-height: 134px;
+    flex-basis: 134px;
+    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-rows: repeat(2, auto) minmax(16px, auto);
+  }
+
+  .command-dock-language-band > .command-dock-section-icon {
+    margin-top: 19px;
+    grid-row: 1 / span 2;
+  }
+
+  .command-dock-language-field,
+  .command-dock-language-state {
+    grid-column: 2;
   }
 
   .command-dock-record-button-main {

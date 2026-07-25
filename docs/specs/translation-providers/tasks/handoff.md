@@ -1,7 +1,9 @@
-# Handoff: Translation Providers Task 07 Complete
+# Handoff: Translation Providers Task 08 Complete
 
-Status: Tasks 01–06 are committed through `8026a240`. Task 07 is implemented
-and verified but remains uncommitted. Tasks 08–11 are not authorized.
+## Status
+
+Tasks 01–07 are committed through `3a09594`. Task 08 is implemented and
+verified but remains uncommitted. Tasks 09–11 are not authorized.
 
 ## Completed Packets
 
@@ -12,63 +14,45 @@ and verified but remains uncommitted. Tasks 08–11 are not authorized.
 - [05 Yandex provider](05_implement_yandex_translate_provider.md)
 - [06 Registry, settings, and IPC](06_add_translation_registry_settings_and_ipc.md)
 - [07 Selected-text runtime integration](07_integrate_selected_text_translation_runtime.md)
+- [08 Main-screen Select controls](08_expose_translation_select_controls.md)
 
-## Runtime And Cache
+## Control And State Behavior
 
-- Selected-text translation captures one immutable provider, target, contract
-  version, input-limit, and lifecycle-generation snapshot after the action
-  gate and before clipboard automation.
-- Provider/target validity, blank input, and provider length limits are
-  checked before lazy registry access or browser creation.
-- Successful cache identity is exactly provider ID, contract version, target
-  code, and source text through the existing SHA-256 cache-key helper.
-- Provider, target, or contract changes cannot cross-satisfy cache entries.
-  Failed, empty, stale, cancelled, and cleanup-failed outcomes are not cached.
-- Existing action serialization, Linux selection fallback, clipboard
-  restoration for actionable failures, copy behavior, and notifications are
-  preserved.
-- Direct `translate-text(text, targetLang)` IPC remains compatible but rejects
-  any target different from the authoritative selected provider target.
+- The main translation band exposes exactly Google, Bing, and Yandex plus
+  their complete reviewed inventories of 249, 179, and 118 targets.
+- Provider and target values remain exact shared-metadata codes. Provider
+  changes restore the remembered target and preserve every other provider's
+  target.
+- Settings changes show one optimistic controlled value, disable both Selects,
+  and adopt only the authoritative successful snapshot. Returned failures,
+  thrown IPC errors, stale completions, and unmount disposal retain or restore
+  the last confirmed snapshot.
+- Selection calls only `setTranslateSettings`; it does not translate, create a
+  provider, navigate, authenticate, clear, or probe.
 
-## Lifecycle And Privacy
+## Labels And Layout
 
-- The legacy Google translation page, target globals, translator startup
-  options, and Google-specific translation utilities were removed from the
-  persistent voice-provider browser.
-- Translation runtime shutdown increments its generation, aborts active
-  requests, and prevents late results from reaching cache, clipboard, or
-  notifications.
-- Registry shutdown attempts every instantiated provider, removes successful
-  closures, and retains failed ownership for a later cleanup retry.
-- Application quit closes translation providers before the persistent voice
-  browser. Validated CloakBrowser settings changes close translation providers
-  before restart or persistence; cleanup failure preserves prior settings.
-- Runtime logs and returned failures contain only closed failure codes,
-  validated provider/target/contract metadata, lengths, phase, duration, and
-  attempt count. No source/result text, raw URL, DOM, or provider exception is
-  logged or returned.
-- Added locale-parity messages for unsupported selection, provider limits,
-  connection, consent/challenge, page contract, result timeout, and cleanup
-  failures.
+- Language labels use `Intl.DisplayNames` for the application locale, fall back
+  to checked-in provider labels for construction/lookup/blank/code-echo
+  failures, and sort through `Intl.Collator` with exact-code tie breaking.
+- The two text-only Radix Selects have localized accessible labels and
+  typeahead item text. Flag images and DeepL/Yandex-specific UI are absent.
+- Full inventories use a bounded scroll viewport. The translation band stacks
+  below 439 px and preserves the existing 520×420 main-window geometry.
+- Locale dictionaries have parity for provider, saving, and save-failure copy.
 
 ## Changed Files
 
-- Refactored translation orchestration, selected-text flow, provider registry,
-  and base shutdown behavior.
-- Removed legacy translator ownership from browser/config/transcription paths
-  and deleted obsolete Google-only translation utilities.
-- Integrated translation shutdown with trusted CloakBrowser-settings IPC and
-  application quit cleanup.
-- Updated all locale dictionaries and deterministic runtime, lifecycle,
-  selected-text, settings, registry, and base-provider tests.
-- Preserved unrelated uncommitted
+- Updated the main renderer, translation band, translation settings state
+  helper, global dock styles, and locale dictionaries.
+- Added the pure translation language-option helper and focused renderer tests.
+- Preserved the unrelated uncommitted
   `.agents/references/specification-interview.md` edit.
 
 ## Checks
 
-- Focused selected-text, runtime, registry, base-provider, browser navigation,
-  browser startup, IPC, settings, lifecycle, and i18n tests passed.
-- Full `npm test` passed: 128 tests.
+- Focused Task 08 renderer and i18n tests passed: 5 test files.
+- Full `npm test` passed: 130 tests.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed without warnings.
@@ -77,16 +61,16 @@ and verified but remains uncommitted. Tasks 08–11 are not authorized.
 
 ## Exact Next Packet
 
-- Review Task 07. The next ordered packet is
-  [08 Main-screen Select controls](08_expose_translation_select_controls.md),
-  but it has no execution authorization.
+- Review Task 08. The next ordered packet is
+  [09 Inventory probe engine](09_build_translation_language_probe.md), but it
+  has no execution authorization.
 
 ## Blockers
 
-- Task 07 commit and Task 08 execution are not authorized.
+- Task 08 commit and Task 09 execution are not authorized.
 
 ## Remaining Risks
 
-- Main-screen provider and full-language selection remain Task 08.
+- Mouse, keyboard, and narrow-window verification in the packaged application
+  remains deferred to Task 11.
 - Live Google, Bing, and Yandex canaries remain deferred to Task 11.
-- No live provider, real selected text, or real user configuration was used.

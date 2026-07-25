@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Пастаўшчык перакладу',
+  'translate.saving': 'Захаванне...',
+  'translate.settingsSaveFailed': 'Не ўдалося захаваць налады перакладу',
+
   // Status messages
   'status.pressToRecord': 'Націсніце {hotkey} для пачатку запісу',
   'status.recording': 'Запіс...',

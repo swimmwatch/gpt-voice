@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'अनुवाद प्रदाता',
+  'translate.saving': 'सहेजा जा रहा है...',
+  'translate.settingsSaveFailed': 'अनुवाद सेटिंग सहेजी नहीं जा सकीं',
+
   'status.pressToRecord': 'रिकॉर्डिंग शुरू करने के लिए {hotkey} दबाएँ',
   'status.recording': 'रिकॉर्ड कर रहा है...',
   'status.paused': 'रोक दिया गया',

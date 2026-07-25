@@ -1717,3 +1717,69 @@ decisions:
   rationale: The user explicitly authorized Task 08 after the scoped Task 07 commit and no later packet.
   supersedes_revision: null
   requirement_ids: [UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-007, UI-008, UI-009, AC-AUTO-007]
+
+- id: commit.task-08
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 08 implementation and deterministic verification are complete and remain uncommitted.
+    - The scoped checkpoint contains only main-screen translation controls, locale parity, renderer tests, checklist, handoff, and durable decisions.
+    - The user committed `authorize-task-08-commit` through persistent Prompt MCP question `commit.task-08` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-09-gates-v1
+    question_id: commit.task-08
+    idempotency_key: commit.task-08:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 08 main-screen translation-controls checkpoint be handled?
+    kind: single
+    options:
+      - id: authorize-task-08-commit
+        label: Commit Task 08
+        description: After reverifying Task 08, create only its scoped main-screen translation-controls commit and keep the unrelated agent-reference edit uncommitted.
+      - id: keep-task-08-uncommitted
+        label: Keep uncommitted
+        description: Do not create a Task 08 commit and do not begin Task 09.
+  answer:
+    selected_ids: [authorize-task-08-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 08 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-007, UI-008, UI-009, AC-AUTO-007]
+
+- id: execution.task-09
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 09 is the next ordered packet and owns only the deterministic no-text translation-language inventory probe.
+    - Task 09 excludes live provider access, baseline mutation, GitHub issue work, dependencies, later packets, publishing, and release work.
+    - The user committed `authorize-task-09` through persistent Prompt MCP question `execution.task-09` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-09-gates-v1
+    question_id: execution.task-09
+    idempotency_key: execution.task-09:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 08 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 09, “Build Translation Language Inventory Probe”?
+    kind: single
+    options:
+      - id: authorize-task-09
+        label: Authorize Task 09
+        description: After the authorized Task 08 commit, implement only the deterministic no-text translation-language inventory probe engine, verify it without live provider access, update todo/handoff, and leave Task 09 uncommitted.
+      - id: defer-task-09
+        label: Defer Task 09
+        description: Stop after the Task 08 checkpoint; make no Task 09 implementation changes.
+  answer:
+    selected_ids: [authorize-task-09]
+    text: ''
+  rationale: The user explicitly authorized Task 09 after the scoped Task 08 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [OPS-002, OPS-003, OPS-004, OPS-005, OPS-006, OPS-007, OPS-009, OPS-012, AC-AUTO-008]

@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': '翻訳プロバイダー',
+  'translate.saving': '保存中...',
+  'translate.settingsSaveFailed': '翻訳設定を保存できませんでした',
+
   'status.pressToRecord': '{hotkey}を押して録音を開始します',
   'status.recording': '録音中...',
   'status.paused': '一時停止中',

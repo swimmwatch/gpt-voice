@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Translation provider',
+  'translate.saving': 'Saving...',
+  'translate.settingsSaveFailed': 'Failed to save translation settings',
+
   // Status messages
   'status.pressToRecord': 'Press {hotkey} to start recording',
   'status.recording': 'Recording...',

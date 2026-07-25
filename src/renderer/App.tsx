@@ -44,9 +44,10 @@ import {
 import { DEFAULT_TRANSLATION_SETTINGS, type TranslationSettings } from '@shared/translationProvider';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import {
+  createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
-  getSelectedTranslationTarget,
-  resolveTranslationSettingsSave,
+  createTranslationSettingsViewState,
+  reduceTranslationSettingsViewState,
 } from './translationSettingsViewState';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
@@ -57,8 +58,11 @@ const App: React.FC = () => {
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [translationSettings, setTranslationSettings] = useState<TranslationSettings>(DEFAULT_TRANSLATION_SETTINGS);
-  const targetLang = getSelectedTranslationTarget(translationSettings);
+  const [translationSettingsSelection, dispatchTranslationSettingsSelection] = useReducer(
+    reduceTranslationSettingsViewState,
+    createTranslationSettingsViewState(DEFAULT_TRANSLATION_SETTINGS),
+  );
+  const translationSettings = translationSettingsSelection.settings;
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -96,6 +100,8 @@ const App: React.FC = () => {
   const providerSelectionCoordinatorRef = useRef<ProviderSelectionCoordinator | null>(null);
   const prettifyModelRefreshIdRef = useRef(0);
   const prettifyProviderChangeRequestRef = useRef(0);
+  const translationSettingsRequestRef = useRef(0);
+  const translationSettingsSavePendingRef = useRef(false);
 
   const updateRecordingState = useCallback((nextState: RecordingLifecycleState): void => {
     recordingStateRef.current = nextState;
@@ -385,11 +391,12 @@ const App: React.FC = () => {
       }
     });
 
+    const translationSettingsRequestId = ++translationSettingsRequestRef.current;
     void window.electronAPI
       .getTranslateSettings()
       .then((settings) => {
-        if (disposed) return;
-        setTranslationSettings(settings);
+        if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
+        dispatchTranslationSettingsSelection({ settings, type: 'snapshot' });
       })
       .catch(() => {
         // Keep the last confirmed in-memory snapshot when IPC is unavailable.
@@ -397,6 +404,8 @@ const App: React.FC = () => {
 
     return () => {
       disposed = true;
+      translationSettingsRequestRef.current += 1;
+      translationSettingsSavePendingRef.current = false;
       providerSelectionCoordinator.dispose();
       if (providerSelectionCoordinatorRef.current === providerSelectionCoordinator) {
         providerSelectionCoordinatorRef.current = null;
@@ -608,6 +617,39 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const saveTranslationSettings = async (candidate: TranslationSettings): Promise<void> => {
+    if (translationSettingsSavePendingRef.current) return;
+    translationSettingsSavePendingRef.current = true;
+
+    const requestId = ++translationSettingsRequestRef.current;
+    const fallbackError = t('translate.settingsSaveFailed');
+    dispatchTranslationSettingsSelection({
+      candidate,
+      requestId,
+      type: 'save-started',
+    });
+
+    try {
+      const result = await window.electronAPI.setTranslateSettings(candidate);
+      if (requestId !== translationSettingsRequestRef.current) return;
+      translationSettingsSavePendingRef.current = false;
+      dispatchTranslationSettingsSelection({
+        error: fallbackError,
+        requestId,
+        result,
+        type: 'save-completed',
+      });
+    } catch {
+      if (requestId !== translationSettingsRequestRef.current) return;
+      translationSettingsSavePendingRef.current = false;
+      dispatchTranslationSettingsSelection({
+        error: fallbackError,
+        requestId,
+        type: 'save-failed',
+      });
+    }
+  };
+
   if (!isI18nReady || isLoading) return <LoadingScreen />;
 
   return (
@@ -649,19 +691,23 @@ const App: React.FC = () => {
         status={status}
       />
       <TranslateSection
-        targetLang={targetLang}
-        onLangChange={(lang) => {
-          const confirmed = translationSettings;
-          const candidate = createTranslationSettingsCandidate(confirmed, lang);
-          void window.electronAPI
-            .setTranslateSettings(candidate)
-            .then((result) => {
-              setTranslationSettings((current) => resolveTranslationSettingsSave(current, result));
-            })
-            .catch(() => {
-              // Keep the last confirmed snapshot on a thrown IPC failure.
-            });
+        error={translationSettingsSelection.error}
+        isSaving={translationSettingsSelection.pendingRequestId !== null}
+        onProviderChange={(providerId) => {
+          const candidate = createTranslationProviderCandidate(
+            translationSettingsSelection.confirmedSettings,
+            providerId,
+          );
+          void saveTranslationSettings(candidate);
         }}
+        onTargetLanguageChange={(targetLanguage) => {
+          const candidate = createTranslationSettingsCandidate(
+            translationSettingsSelection.confirmedSettings,
+            targetLanguage,
+          );
+          void saveTranslationSettings(candidate);
+        }}
+        settings={translationSettings}
       />
     </main>
   );

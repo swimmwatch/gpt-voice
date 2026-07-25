@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Übersetzungsanbieter',
+  'translate.saving': 'Wird gespeichert...',
+  'translate.settingsSaveFailed': 'Übersetzungseinstellungen konnten nicht gespeichert werden',
+
   'status.pressToRecord': 'Drücken Sie {hotkey}, um die Aufnahme zu starten',
   'status.recording': 'Aufnahme läuft...',
   'status.paused': 'Pause',

@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Provedor de tradução',
+  'translate.saving': 'Salvando...',
+  'translate.settingsSaveFailed': 'Não foi possível salvar as configurações de tradução',
+
   'status.pressToRecord': 'Pressione {hotkey} para iniciar a gravação',
   'status.recording': 'Gravando...',
   'status.paused': 'Pausado',

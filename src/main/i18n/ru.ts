@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Провайдер перевода',
+  'translate.saving': 'Сохранение...',
+  'translate.settingsSaveFailed': 'Не удалось сохранить настройки перевода',
+
   // Status messages
   'status.pressToRecord': 'Нажмите {hotkey} для начала записи',
   'status.recording': 'Запись...',
