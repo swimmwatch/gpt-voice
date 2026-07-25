@@ -153,7 +153,7 @@ export default {
   'mainDock.title': 'Befehlsdock',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Sprachanbieter',
-  'mainDock.prettifyProviderLabel': 'Verbessern',
+  'mainDock.prettifyProviderLabel': 'Verbesserungsanbieter',
   'mainDock.prettifyModelLabel': 'Modell',
   'mainDock.prettifyNotConfigured': 'Nicht konfiguriert',
   'mainDock.prettifyConfigured': 'Konfiguriert',

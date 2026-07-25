@@ -148,7 +148,7 @@ export default {
   'mainDock.title': 'कमांड डॉक',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'वॉयस प्रदाता',
-  'mainDock.prettifyProviderLabel': 'सुधारें',
+  'mainDock.prettifyProviderLabel': 'सुधार प्रदाता',
   'mainDock.prettifyModelLabel': 'मॉडल',
   'mainDock.prettifyNotConfigured': 'कॉन्फ़िगर नहीं किया गया',
   'mainDock.prettifyConfigured': 'कॉन्फ़िगर किया गया',

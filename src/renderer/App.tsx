@@ -680,16 +680,6 @@ const App: React.FC = () => {
         onProviderChange={(providerId) => void handlePrettifyProviderChange(providerId)}
         settings={prettifySettings}
       />
-      <RecordingControls
-        onCancel={cancelRecording}
-        onPause={pauseRecording}
-        onResume={resumeRecording}
-        onStart={startRecording}
-        onStop={stopRecording}
-        recordHotkey={recordHotkey}
-        state={recordingState}
-        status={status}
-      />
       <TranslateSection
         error={translationSettingsSelection.error}
         isSaving={translationSettingsSelection.pendingRequestId !== null}
@@ -708,6 +698,16 @@ const App: React.FC = () => {
           void saveTranslationSettings(candidate);
         }}
         settings={translationSettings}
+      />
+      <RecordingControls
+        onCancel={cancelRecording}
+        onPause={pauseRecording}
+        onResume={resumeRecording}
+        onStart={startRecording}
+        onStop={stopRecording}
+        recordHotkey={recordHotkey}
+        state={recordingState}
+        status={status}
       />
     </main>
   );

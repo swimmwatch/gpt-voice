@@ -188,7 +188,7 @@ describe('i18n', () => {
 
   it('uses distinct Command Dock labels for transcription and prettification', () => {
     assert.equal(en['mainDock.providerLabel'], 'Voice provider');
-    assert.equal(en['mainDock.prettifyProviderLabel'], 'Prettify');
+    assert.equal(en['mainDock.prettifyProviderLabel'], 'Prettify provider');
   });
 
   it('renders every main Prettify band message in each explicitly selected locale', () => {

@@ -160,7 +160,7 @@ export default {
   'mainDock.title': 'Command Dock',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Voice provider',
-  'mainDock.prettifyProviderLabel': 'Prettify',
+  'mainDock.prettifyProviderLabel': 'Prettify provider',
   'mainDock.prettifyModelLabel': 'Model',
   'mainDock.prettifyNotConfigured': 'Not configured',
   'mainDock.prettifyConfigured': 'Configured',

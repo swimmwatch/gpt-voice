@@ -25,6 +25,10 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /aria-label=\{t\('prettify\.provider'\)\}/u);
     assert.match(band, /aria-label=\{providerSettingsLabel\}/u);
     assert.match(band, /<Settings aria-hidden="true"/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-prettify-settings-shortcut \{[^}]*grid-column: 2;[^}]*grid-row: 1;[^}]*justify-self: end;/u,
+    );
     assert.match(styles, /\.command-dock-prettify-band \{[\s\S]*?min-height: 60px;[\s\S]*?flex: 0 0 60px;/u);
     assert.match(styles, /\.command-dock \{[\s\S]*?overflow-y: auto;/u);
   });
@@ -73,7 +77,7 @@ describe('main Prettify provider band contract', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
     const english = readProjectFile('src/main/i18n/en.ts');
 
-    assert.match(english, /'mainDock\.prettifyProviderLabel': 'Prettify'/u);
+    assert.match(english, /'mainDock\.prettifyProviderLabel': 'Prettify provider'/u);
     assert.match(english, /'prettify\.provider\.codexCli': 'Codex CLI'/u);
     assert.doesNotMatch(english, /'prettify\.provider\.codexCli':[^\n]*Experimental/u);
     assert.match(styles, /\.command-dock \.command-dock-prettify-provider-trigger \{[\s\S]*?white-space: nowrap;/u);

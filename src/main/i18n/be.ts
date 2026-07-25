@@ -161,7 +161,7 @@ export default {
   'mainDock.title': 'Панэль каманд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Правайдар распазнавання',
-  'mainDock.prettifyProviderLabel': 'Паляпшэнне',
+  'mainDock.prettifyProviderLabel': 'Правайдар паляпшэння',
   'mainDock.prettifyModelLabel': 'Мадэль',
   'mainDock.prettifyNotConfigured': 'Не наладжана',
   'mainDock.prettifyConfigured': 'Наладжана',

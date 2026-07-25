@@ -153,7 +153,7 @@ export default {
   'mainDock.title': 'Bandeja de Comandos',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Proveedor de voz',
-  'mainDock.prettifyProviderLabel': 'Mejorar',
+  'mainDock.prettifyProviderLabel': 'Proveedor de mejora',
   'mainDock.prettifyModelLabel': 'Modelo',
   'mainDock.prettifyNotConfigured': 'No configurado',
   'mainDock.prettifyConfigured': 'Configurado',

@@ -145,7 +145,7 @@ export default {
   'mainDock.title': '命令坞',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': '语音提供商',
-  'mainDock.prettifyProviderLabel': '润色',
+  'mainDock.prettifyProviderLabel': '润色提供商',
   'mainDock.prettifyModelLabel': '模型',
   'mainDock.prettifyNotConfigured': '未配置',
   'mainDock.prettifyConfigured': '已配置',

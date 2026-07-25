@@ -150,7 +150,7 @@ export default {
   'mainDock.title': 'Dock de Comando',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Provedor de Voz',
-  'mainDock.prettifyProviderLabel': 'Aprimorar',
+  'mainDock.prettifyProviderLabel': 'Provedor de aprimoramento',
   'mainDock.prettifyModelLabel': 'Modelo',
   'mainDock.prettifyNotConfigured': 'Não configurado',
   'mainDock.prettifyConfigured': 'Configurado',

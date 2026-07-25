@@ -61,4 +61,42 @@ describe('main translation Select controls', () => {
     assert.match(sectionUsage, /createTranslationSettingsCandidate/u);
     assert.match(sectionUsage, /confirmedSettings/u);
   });
+
+  it('places a compact shared-style translation band directly after prettify', () => {
+    const app = readProjectFile('src/renderer/App.tsx');
+    const section = readProjectFile('src/renderer/components/TranslateSection.tsx');
+    const styles = readProjectFile('src/renderer/styles/globals.css');
+    const prettifyIndex = app.indexOf('<MainPrettifyProviderBand');
+    const translationIndex = app.indexOf('<TranslateSection');
+    const recordingIndex = app.indexOf('<RecordingControls');
+
+    assert.ok(prettifyIndex >= 0);
+    assert.ok(translationIndex > prettifyIndex);
+    assert.ok(recordingIndex > translationIndex);
+    assert.match(
+      styles,
+      /\.command-dock-language-band > \.command-dock-section-icon \{[^}]*align-self: center;[^}]*grid-row: 1;/u,
+    );
+    assert.equal((section.match(/className="command-dock-field-label"/gu) ?? []).length, 2);
+    assert.equal(
+      (section.match(/className="command-dock-provider-trigger command-dock-translation-trigger"/gu) ?? []).length,
+      2,
+    );
+    assert.doesNotMatch(section, /data-has-state/u);
+    assert.doesNotMatch(styles, /\.command-dock-language-band\[data-has-state/u);
+    assert.doesNotMatch(section, /command-dock-language-(?:label|trigger)/u);
+    assert.match(styles, /\.command-dock-language-band \{[^}]*flex: 0 0 60px;/u);
+    assert.match(
+      styles,
+      /\.command-dock-language-band > \.command-dock-language-field:first-of-type \{[^}]*padding-left: 8px;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-language-field:last-of-type \.command-dock-translation-trigger > svg \{[^}]*right: 10px;/u,
+    );
+    assert.match(styles, /\.command-dock-language-state \{[^}]*position: absolute;[^}]*bottom: 1px;/u);
+    assert.match(styles, /\.command-dock-recording \{[^}]*flex: 1 0 142px;/u);
+    assert.match(styles, /\.command-dock-language-band,\n\.command-dock-record-command-band,/u);
+    assert.doesNotMatch(styles, /\.command-dock-language-band > \.command-dock-section-icon \{[^}]*margin-top:/u);
+  });
 });

@@ -147,7 +147,7 @@ export default {
   'mainDock.title': 'コマンドドック',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': '音声プロバイダー',
-  'mainDock.prettifyProviderLabel': '整えるプロバイダー',
+  'mainDock.prettifyProviderLabel': '文章改善プロバイダー',
   'mainDock.prettifyModelLabel': 'モデル',
   'mainDock.prettifyNotConfigured': '未設定',
   'mainDock.prettifyConfigured': '設定済み',

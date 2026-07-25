@@ -162,7 +162,7 @@ export default {
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Провайдер розпізнавання',
-  'mainDock.prettifyProviderLabel': 'Покращення',
+  'mainDock.prettifyProviderLabel': 'Провайдер покращення',
   'mainDock.prettifyModelLabel': 'Модель',
   'mainDock.prettifyNotConfigured': 'Не налаштовано',
   'mainDock.prettifyConfigured': 'Налаштовано',

@@ -13,6 +13,7 @@ interface Props {
   settings: TranslationSettings;
 }
 
+/** Renders the compact main-window translation provider and target selectors. */
 const TranslateSection = ({
   error,
   isSaving,
@@ -32,7 +33,7 @@ const TranslateSection = ({
       <Globe aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
 
       <div className="command-dock-language-field">
-        <span className="command-dock-language-label">{t('translate.provider')}</span>
+        <span className="command-dock-field-label">{t('translate.provider')}</span>
         <Select
           disabled={isSaving}
           onValueChange={(providerId) => {
@@ -42,7 +43,10 @@ const TranslateSection = ({
           }}
           value={settings.providerId}
         >
-          <SelectTrigger aria-label={t('translate.provider')} className="command-dock-language-trigger">
+          <SelectTrigger
+            aria-label={t('translate.provider')}
+            className="command-dock-provider-trigger command-dock-translation-trigger"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="command-dock-translation-select-content">
@@ -56,13 +60,16 @@ const TranslateSection = ({
       </div>
 
       <div className="command-dock-language-field">
-        <span className="command-dock-language-label">{t('translate.targetLanguage')}</span>
+        <span className="command-dock-field-label">{t('translate.targetLanguage')}</span>
         <Select
           disabled={isSaving}
           onValueChange={onTargetLanguageChange}
           value={settings.targetLanguageByProvider[settings.providerId]}
         >
-          <SelectTrigger aria-label={t('translate.targetLanguage')} className="command-dock-language-trigger">
+          <SelectTrigger
+            aria-label={t('translate.targetLanguage')}
+            className="command-dock-provider-trigger command-dock-translation-trigger"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="command-dock-translation-select-content">
