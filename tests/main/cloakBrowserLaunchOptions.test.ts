@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCloakBrowserContextOptions } from '@main/cloakBrowserLaunchOptions';
+import {
+  buildCloakBrowserContextOptions,
+  createCloakBrowserTranslationContextOptions,
+} from '@main/cloakBrowserLaunchOptions';
 import type { CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 
 const baseSettings: CloakBrowserSettingsWithSecret = {
@@ -43,6 +46,23 @@ describe('cloakBrowserLaunchOptions', () => {
     const options = buildCloakBrowserContextOptions({ ...baseSettings, backgroundMode: 'visible' }, 'background');
 
     assert.equal(options.headless, false);
+  });
+
+  it('builds a nonpersistent translation context using background visibility settings', () => {
+    const hidden = createCloakBrowserTranslationContextOptions(baseSettings);
+    const visible = createCloakBrowserTranslationContextOptions({
+      ...baseSettings,
+      backgroundMode: 'visible',
+    });
+
+    assert.equal(hidden.headless, true);
+    assert.equal(visible.headless, false);
+    assert.equal(hidden.humanize, true);
+    assert.equal(hidden.humanPreset, 'careful');
+    assert.deepEqual(hidden.args, ['--fingerprint=12345', '--log-level=3']);
+    assert.equal(hidden.locale, 'en-US');
+    assert.equal(hidden.timezone, 'Europe/Moscow');
+    assert.equal('userDataDir' in hidden, false);
   });
 
   it('passes proxy credentials separately and lets GeoIP own locale and timezone', () => {

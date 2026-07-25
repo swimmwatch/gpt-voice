@@ -1,8 +1,9 @@
-# Handoff: Translation Providers Task 01 Complete
+# Handoff: Translation Providers Task 02 Complete
 
-Status: Task 01 is implemented and verified. Its green foundation commit is
-authorized. Task 02 is authorized but has not started; Tasks 03–11 are not
-authorized.
+Status: Task 01 was committed as the green foundation at `e0d13bfa`. Task 02
+is implemented and verified, and its scoped commit is authorized after the
+target-aware navigation seam check. Task 03 is authorized but has not started;
+Tasks 04–11 are not authorized.
 
 ## Completed Packets
 
@@ -13,40 +14,69 @@ authorized.
     2026-07-25 baselines: Google 249, Bing 179, and Yandex 118.
   - Added deterministic schema, invariant, source-only exclusion, DeepL
     absence, opaque-code, and TypeScript/YAML parity tests.
+- [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md)
+  - Added the abstract, main-only translation lifecycle and closed safe
+    request/outcome, phase, failure, diagnostic, and hook contracts.
+  - Added lazy isolated context/page ownership, serialized generation
+    suppression, one pre-submit recovery, single insertion, stable-result
+    acceptance, clear-or-close cleanup, retained cleanup ownership, and
+    shutdown.
+  - Added nonpersistent translation launch options and explicit
+    Google/Bing/Yandex navigation-service identities.
+
+## Lifecycle State Machine
+
+- Validate canonical provider, exact target, nonblank source, and length before
+  touching a browser.
+- Lazily create or reuse one provider-owned page; prepare it in one pass or one
+  explicitly recoverable clean second pass.
+- Begin the irreversible submission phase immediately before the single
+  full-string insertion hook; never recreate, navigate, or replay afterward.
+- Accept only a nonblank new result that matches across two reads 500 ms apart
+  and still passes target verification.
+- Return success only after confirmed visible clearing or confirmed context
+  closure. Retain failed resources for a later shutdown retry.
+- Discard cancelled, superseded, shutdown, or otherwise stale generations
+  without exposing source/result data.
 
 ## Changed Files
 
-- Added `src/shared/translationProvider.ts`.
-- Added `src/shared/translationLanguages/google.ts`,
-  `src/shared/translationLanguages/bing.ts`, and
-  `src/shared/translationLanguages/yandex.ts`.
-- Added `tests/shared/translationProvider.test.ts` and
-  `tests/shared/translationLanguageBaselines.test.ts`.
-- Updated `docs/specs/translation-providers/decisions.yaml`, `tasks/todo.md`,
-  and this handoff for the Task 01 authorization and completion state.
-- Preserved the pre-existing uncommitted specification, research baseline, and
-  agent-reference changes.
+- Added `src/main/translateProviders/BaseTranslateProvider.ts` and
+  `translationProviderContracts.ts`.
+- Updated `src/main/cloakBrowserLaunchOptions.ts` and
+  `src/main/browserNavigationRetry.ts`.
+- Added `tests/main/translateProviders/BaseTranslateProvider.test.ts`.
+- Updated the focused launch-option and navigation-retry tests.
+- Updated `tasks/todo.md` and this handoff.
+- Preserved the unrelated uncommitted
+  `.agents/references/specification-interview.md` edit.
 
 ## Checks
 
-- `node --import tsx --test tests/shared/translationProvider.test.ts tests/shared/translationLanguageBaselines.test.ts`
+- `node --import tsx --test tests/main/translateProviders/BaseTranslateProvider.test.ts tests/main/cloakBrowserLaunchOptions.test.ts tests/main/browserNavigationRetry.test.ts`
   passed.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
-- `npx eslint src/shared/translationProvider.ts src/shared/translationLanguages tests/shared`
+- `npx eslint src/main/translateProviders src/main/cloakBrowserLaunchOptions.ts src/main/browserNavigationRetry.ts tests/main/translateProviders tests/main/cloakBrowserLaunchOptions.test.ts tests/main/browserNavigationRetry.test.ts`
   passed.
-- `npx prettier --check "src/shared/translationProvider.ts" "src/shared/translationLanguages/**/*.ts" "tests/shared/**/*.ts"`
+- `npx prettier --check "src/main/translateProviders/**/*.ts" "src/main/cloakBrowserLaunchOptions.ts" "src/main/browserNavigationRetry.ts" "tests/main/translateProviders/**/*.ts" "tests/main/cloakBrowserLaunchOptions.test.ts" "tests/main/browserNavigationRetry.test.ts"`
   passed.
-- Production import inspection found no YAML parser or `docs/` import.
-- `decisions.yaml` parses successfully and its latest
-  `execution.task-01` decision is revision 3.
+- Static inspection found no provider-specific selectors or origins in the
+  base and no persistent translation launch path.
 
 ## Exact Next Packet
 
-- Create the authorized Task 01 foundation commit, excluding the unrelated
-  `.agents/references/specification-interview.md` edit, then execute
-  [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md).
+- Pass the validated target into the base navigation hook, rerun Task 02
+  checks, create the authorized Task 02 commit, then execute
+  [03 Google provider](03_migrate_google_translate_provider.md).
 
 ## Blockers
 
-- None.
+- None for Task 03. Tasks 04–11 have no execution authorization.
+
+## Remaining Risks
+
+- No real provider subclass is implemented or registered yet; production
+  Google translation remains on the legacy path.
+- Live provider behavior and selectors remain intentionally untested until
+  their provider packets.

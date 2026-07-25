@@ -4,7 +4,7 @@ import { getCloakBrowserSettingsWithSecret, type CloakBrowserSettingsWithSecret 
 import { DEFAULT_CLOAK_BROWSER_LOCALE, getSystemTimezone } from '@main/cloakBrowserSettingsUtils';
 import { isSocks5ProxyServer } from '@shared/cloakBrowserSettings';
 
-type CloakBrowserContextKind = 'login' | 'background';
+type CloakBrowserContextKind = 'login' | 'background' | 'translation';
 
 const VIEWPORT = { width: 1366, height: 768 };
 const CHROMIUM_FATAL_LOG_LEVEL_ARG = '--log-level=3';
@@ -32,7 +32,7 @@ export function buildCloakBrowserContextOptions(
   const proxy = buildProxyOption(settings);
   const useProxyGeoip = Boolean(proxy && settings.proxy.geoip);
   const options: LaunchContextOptions = {
-    headless: kind === 'background' ? settings.backgroundMode !== 'visible' : false,
+    headless: kind === 'login' ? false : settings.backgroundMode !== 'visible',
     viewport: VIEWPORT,
     humanize: settings.humanize,
     humanPreset: settings.humanPreset,
@@ -65,4 +65,10 @@ export function createCloakBrowserPersistentContextOptions(
     userDataDir: BROWSER_CACHE_DIR,
     ...buildCloakBrowserContextOptions(settings, 'background'),
   };
+}
+
+export function createCloakBrowserTranslationContextOptions(
+  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
+): LaunchContextOptions {
+  return buildCloakBrowserContextOptions(settings, 'translation');
 }

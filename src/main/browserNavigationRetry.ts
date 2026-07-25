@@ -13,6 +13,8 @@ export enum BrowserNavigationService {
   ChatGPT = 'ChatGPT Web',
   Claude = 'Claude Web',
   GoogleTranslate = 'Google Translate',
+  BingTranslate = 'Bing Translator',
+  YandexTranslate = 'Yandex Translate',
 }
 
 export interface BrowserNavigationRetryEvent {

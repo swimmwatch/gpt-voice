@@ -1323,3 +1323,69 @@ decisions:
     rationale: The user explicitly authorized Task 02 after the Task 01 foundation commit and no later packet.
     supersedes_revision: null
     requirement_ids: [ARCH-001, AC-AUTO-001]
+
+  - id: commit.task-02
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 02 is implemented, its focused lifecycle, launch-option, navigation, type, lint, and formatting checks pass, and it remains uncommitted.
+      - Task 03 requires the already-validated target code at the base navigation hook so Google can navigate once to the exact target without hidden mutable state.
+      - The user committed authorize-task-02-commit through persistent Prompt MCP question commit.task-02 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: commit-round-02
+      question_id: commit.task-02
+      idempotency_key: commit.task-02:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 02 checkpoint be handled before Task 03?
+      kind: single
+      options:
+        - id: authorize-task-02-commit
+          label: Authorize Task 02 commit (Recommended)
+          description: Authorize a scoped Task 02 commit after passing the validated target into the navigation hook and rerunning Task 02 checks; exclude the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep uncommitted
+          description: Keep Task 02 uncommitted and leave Task 03 blocked.
+    answer:
+      selected_ids: [authorize-task-02-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 02 commit after its target-aware navigation seam is verified.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-003, RUN-007]
+
+  - id: execution.task-03
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 is the ordered next packet and owns only the unregistered Google Translate subclass and deterministic public-page contract fixtures.
+      - The legacy Google route remains active and no live provider access, registry change, or later packet is included.
+      - The user committed authorize-task-03 through persistent Prompt MCP question execution.task-03 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: execution-round-05
+      question_id: execution.task-03
+      idempotency_key: execution.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 02 commit, should the next execution-capable incremental-implementation invocation execute Task 03, “Migrate Google Translate To The Shared Provider”?
+      kind: single
+      options:
+        - id: authorize-task-03
+          label: Authorize Task 03 (Recommended)
+          description: After the authorized Task 02 commit, execute only the unregistered deterministic Google provider packet, update todo/handoff, and stop uncommitted.
+        - id: defer-task-03
+          label: Defer Task 03
+          description: Create only the authorized Task 02 commit and leave Google provider work gated.
+    answer:
+      selected_ids: [authorize-task-03]
+      text: ''
+    rationale: The user explicitly authorized Task 03 after the Task 02 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [GOOG-001, AC-AUTO-002]

@@ -6,10 +6,12 @@ revision 1 on 2026-07-25.
 Task 01 execution gate: authorized through persistent Prompt MCP question
 `execution.task-01` revision 3 on 2026-07-25 and completed in this packet.
 Task 02 execution gate: authorized through persistent Prompt MCP question
-`execution.task-02` revision 1 on 2026-07-25. Tasks 03–11 remain unauthorized.
+`execution.task-02` revision 1 on 2026-07-25 and completed in this packet.
+Task 03 execution gate: authorized through persistent Prompt MCP question
+`execution.task-03` revision 1 on 2026-07-25. Tasks 04–11 remain unauthorized.
 
 - [x] [01 Shared contracts and inventories](01_define_translation_contracts_and_inventories.md)
-- [ ] [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md)
+- [x] [02 Base provider lifecycle](02_build_base_translate_provider_lifecycle.md)
 - [ ] [03 Google provider](03_migrate_google_translate_provider.md)
 - [ ] [04 Bing provider](04_implement_bing_translate_provider.md)
 - [ ] [05 Yandex provider](05_implement_yandex_translate_provider.md)
