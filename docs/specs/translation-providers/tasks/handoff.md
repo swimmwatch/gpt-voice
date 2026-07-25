@@ -2,8 +2,10 @@
 
 ## Status
 
-Tasks 01–08 are committed through `0b4d761f`. Task 09 is implemented and
-verified but remains uncommitted. Tasks 10–11 are not authorized.
+Tasks 01–09 are committed through `d014f333`. Post-packet provider reliability
+and latency fixes are committed in `169417f4`; main-screen translation and
+Prettify layout polish is committed in `6ac3bd24`. Tasks 10–11 are not
+authorized.
 
 ## Completed Packets
 
@@ -40,6 +42,24 @@ verified but remains uncommitted. Tasks 10–11 are not authorized.
   exits nonzero. Page and context cleanup is attempted on every owned session,
   and cleanup failure withholds drift or success.
 
+## Post-Packet Corrections
+
+- Google, Bing, and Yandex reuse confirmed cleared pages instead of repeating
+  avoidable navigation and preparation work.
+- Live CloakBrowser revalidation corrected the current Yandex chooser/editor
+  contracts and the Bing loading, insertion, selection, cleanup, and
+  nonblocking-infobubble behavior.
+- Bing no longer accepts `...` or `…` as a translation result. One final
+  five-request live canary completed without replay, timeout, false challenge,
+  or cleanup failure: the cold request took 4,202 ms and four warm/target-switch
+  requests took 2,607–3,151 ms on the 2026-07-26 Linux test host. The original
+  faulty baseline was 21,494 ms cold and 18,728 ms warm and returned only the
+  loading sentinel.
+- The translation band follows the Prettify band, uses the shared compact
+  provider controls and spacing, retains its separator, centers the globe icon,
+  and keeps the target chevron aligned below the Prettify settings shortcut.
+  Locale labels now identify the Prettify provider explicitly.
+
 ## Changed Files
 
 - Added the monitor core, fixed Playwright adapters, CLI, script TypeScript
@@ -59,21 +79,28 @@ verified but remains uncommitted. Tasks 10–11 are not authorized.
 - `npm run lint` passed without warnings.
 - `npm run format:check` passed.
 - `git diff --check` passed.
+- Post-packet full `npm test` passed: 131 tests.
+- Post-packet `npm run typecheck`, `npm run test:types`, `npm run lint`, and
+  `npm run format:check` passed.
+- Post-packet `npm run build:prod` completed successfully; only the existing
+  Webpack asset/entrypoint size recommendations were reported.
+- The final five-request live Bing canary passed with the timings recorded
+  above; the temporary smoke harness was removed.
 
 ## Exact Next Packet
 
-- Review Task 09. The next ordered packet is
+- Review the post-packet provider and main-screen corrections. The next ordered packet is
   [10 Issue workflow and operator guidance](10_schedule_translation_language_monitor.md),
   but it has no execution authorization.
 
 ## Blockers
 
-- Task 09 commit and Task 10 execution are not authorized.
+- Task 10 execution is not authorized.
 
 ## Remaining Risks
 
-- The live monitor, provider network access, and CloakBrowser preparation were
-  intentionally not run. Selector revalidation and GitHub issue workflow
-  integration remain deferred to Task 10 or Task 11.
+- The live inventory monitor and GitHub issue workflow were not run. Their
+  provider-isolated operational verification remains deferred to Task 10 or
+  Task 11.
 - Mouse, keyboard, and narrow-window verification in the packaged application
   remains deferred to Task 11.
