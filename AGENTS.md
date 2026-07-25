@@ -39,6 +39,24 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Convert a legacy bundle without numbered packets through planning before resuming implementation; do not execute a monolithic task list directly.
 - When switching major workstreams or context becomes stale, update `handoff.md` and begin a fresh session from it.
 
+## Prompt MCP Workflow Decisions
+
+- `/spec` routes to `spec-driven-development`; `/plan` routes to
+  `planning-and-task-breakdown`. Do not create parallel implementations.
+- For substantial specifications, add `docs/specs/<slug>/decisions.yaml`
+  before the first material question. It owns normalized, non-sensitive
+  decisions and revision history; Prompt MCP persistence provides recovery.
+- Use the globally configured Prompt MCP for every material user decision in
+  migrated workflows. Inspect the live tool schemas, use the repository's
+  absolute path as `workspace_path`, and prefer `workspace` persistence with
+  stable semantic interview, question, and idempotency identifiers.
+- Do not substitute a plain-chat multiple-choice question while Prompt MCP is
+  callable. Only a committed answer is a decision; cancellation, timeout,
+  unavailability, invalid input, conflict, failure, pause, and pending state
+  are not answers.
+- Never request credentials, tokens, passwords, session data, private audio or
+  transcripts, or unrelated personal information.
+
 ## Verification
 
 - Run the smallest relevant check after a change; run the project quality set only when the completed task warrants it.

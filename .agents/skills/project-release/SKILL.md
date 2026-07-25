@@ -1,46 +1,56 @@
 ---
 name: project-release
-description: Use only when the user explicitly requests GPT-Voice release preparation, recovery, packaging, or publishing.
+description: Use only to prepare, publish, verify, or recover a GPT-Voice release only when the user explicitly requests release work and confirms a SemVer version. Follow the repository's tag-derived versioning, Linux and Windows artifact workflows, checksums, GitHub Release automation, and paused macOS policy; never change versions, tag, publish, upload, or delete a release without explicit authorization.
 ---
 
-# GPT-Voice Release
+# Project Release
 
-Use this workflow only for a confirmed `vMAJOR.MINOR.PATCH` release target. Do not change the app version without an explicit user request.
+Require a confirmed `vMAJOR.MINOR.PATCH` or valid SemVer prerelease tag and a
+stable-versus-prerelease decision before changing release state. Use the global
+Prompt MCP for any missing material release decision, with a persistent
+workspace interview and stable IDs.
 
-## Preparation
+## Evidence And Preconditions
 
-- Start from a clean worktree and current `main`.
-- Inspect tags, commits, and any changelog before proposing a version. Ask the user to confirm the target version and whether it is a prerelease.
-- Read the SemVer 2.0.0 and Keep a Changelog 1.1.0 specifications before editing release metadata.
-- Generate package metadata with the existing scripts; do not hand-edit generated release files.
+1. Read `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+   `package.json`, `.github/workflows/release-builds.yml`, relevant release
+   scripts, and the complete unreleased diff.
+2. Confirm the target commit, tag, release state, intended assets, supported
+   platforms, and rollback/recovery plan. Check that the tag and GitHub Release
+   do not already conflict with the requested version.
+3. Determine SemVer impact from user-visible behavior, IPC/provider contracts,
+   settings and data compatibility, installers, and supported platforms. Do
+   not infer or silently bump a version.
+4. Scan the pinned SemVer, Keep a Changelog, and Conventional Commits
+   specifications before applying them. Do not create a changelog or release
+   notes mechanism if the repository still has none; ask before expanding
+   scope.
 
-## Validation
+## Preparation, Publishing, And Verification
 
-Run the standard PR checks, then the affected packaging checks:
+1. Run the CI-equivalent quality set from `AGENTS.md`. For release artifacts,
+   also run the applicable CloakBrowser, Fedora Linux, Windows, packaged
+   runtime, and installer checks.
+2. Preserve the repository's version flow: release jobs derive
+   `package.json` and `package-lock.json` versions from the confirmed tag via
+   `npm run apply:release-version`; generated metadata under `build/generated/`
+   and files under `release/` or `release-artifacts/` are not committed.
+3. Linux release output is AppImage, deb, rpm, and
+   `SHA256SUMS-linux.txt`; Windows output is the NSIS installer and
+   `SHA256SUMS-win32.txt`. macOS publishing remains paused until signing and
+   notarization are configured.
+4. `.github/workflows/release-builds.yml` supports manual artifact builds and
+   builds/uploads supported installers when a GitHub Release is published.
+   Publishing the release is therefore a consequential manual gate.
+5. Obtain explicit authorization immediately before each commit, tag, push,
+   GitHub Release publish, asset upload, overwrite, or other external mutation.
+   Approval to prepare is not approval to publish.
+6. After publication, verify workflow completion, attached filenames,
+   checksums, install/uninstall behavior on supported platforms, bundled
+   CloakBrowser, Electron fuses, license/metadata, and documented availability.
 
-```bash
-npm run prepare:cloakbrowser
-npm run smoke:cloakbrowser
-npm run generate:package-metadata
-npm run pack
-npm run verify:packaged
-```
-
-For release artifacts, use the matching target command. Linux releases should prefer the reproducible Fedora path:
-
-```bash
-npm run dist:fedora
-```
-
-Windows and macOS require their corresponding supported environments. macOS packaging remains blocked until signing and notarization are configured.
-
-## Publish
-
-1. Open and merge a release PR following `project-pull-request`.
-2. Create an annotated `vMAJOR.MINOR.PATCH` tag from the merged `main` commit.
-3. Publish the GitHub Release with platform artifacts and checksums from the release workflow.
-4. Verify artifacts, signatures/checksums, desktop metadata, bundled CloakBrowser runtime, app icon, and license files.
-
-## Safety
-
-Never commit release artifacts, local app data, session files, logs, browser profiles, or credentials. Treat signed artifacts and release credentials as sensitive. If any artifact has already been published with a defect, publish a follow-up patch rather than moving or replacing the release tag.
+Never delete, retag, or overwrite an already consumed release as routine
+recovery. Report published state and prepare a follow-up release unless the
+user explicitly chooses another safe recovery. Finish with version, tag,
+commit, release URL, assets, checksums, checks run, skipped platform checks, and
+residual risks.

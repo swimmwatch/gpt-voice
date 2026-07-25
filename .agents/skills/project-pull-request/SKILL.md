@@ -1,55 +1,34 @@
 ---
 name: project-pull-request
-description: Use only when the user asks to create, update, or review a GPT-Voice pull request.
+description: Use only to prepare, create, update, or assess a GPT-Voice GitHub pull request only when the user explicitly requests PR work. Follow the repository's main-branch, template, checks, desktop-impact, privacy, and review conventions; verify base and head, and never commit, push, or open or modify a PR without explicit authorization for that action.
 ---
 
-# GPT-Voice Pull Request
+# Project Pull Request
 
-Use this workflow for pull requests in `swimmwatch/gpt-voice`.
+1. Read `AGENTS.md`, `CONTRIBUTING.md`,
+   `.github/PULL_REQUEST_TEMPLATE.md`, the intended issue or specification, and
+   the complete branch diff.
+2. Inspect worktree status, current branch, upstream tracking, and available
+   remotes. Confirm the intended base and head; the repository convention is a
+   focused feature branch into `main`, but do not assume a different requested
+   target is wrong.
+3. Use the globally configured Prompt MCP for unresolved material choices such
+   as base/head, draft state, included scope, compatibility posture, or a
+   security-sensitive disclosure. Do not ask for credentials or infer a choice
+   from a non-answered result.
+4. Before proposing publication, run or accurately report the applicable
+   checks from `AGENTS.md`. Include the matching CloakBrowser, Fedora/Windows
+   package, installer, or manual desktop verification for affected surfaces.
+   Never claim a platform check passed when it was skipped or unavailable.
+5. Use the PR template. Explain motivation, user or developer impact, desktop
+   areas affected, security/privacy implications, compatibility, documentation,
+   tests, platforms, skipped checks, manual gates, and screenshots for UI
+   changes.
+6. Verify there is no existing PR for the same head branch before creating a
+   duplicate. Use a concise Conventional-style title and keep one logical
+   change per PR.
 
-## Before Staging
-
-- Inspect `git status -sb`, the current branch, its upstream, and the diff against `origin/main`.
-- Do not open a PR from `main`. Target `main` unless the user specifies another base.
-- If the working tree contains unrelated changes, ask which files belong in the PR. Do not use `git add -A` without that confirmation.
-- Read `.github/PULL_REQUEST_TEMPLATE.md` and `CONTRIBUTING.md` before drafting the body.
-- Use Conventional Commit subjects. Keep one logical change per PR.
-
-## Required Checks
-
-Run after final edits and before the commit:
-
-```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm run test:types
-npm test
-npm run validate:dependabot
-npm run audit:prod
-npm run build:prod
-```
-
-For CloakBrowser, ChatGPT Web, or Google Translate changes, also run:
-
-```bash
-npm run prepare:cloakbrowser
-npm run smoke:cloakbrowser
-```
-
-Record existing warnings separately from errors. Do not claim a skipped check passed.
-
-## Security Review
-
-State whether the PR changes Electron IPC, session/cookie handling, browser automation, local storage, clipboard/audio behavior, logging, or packaging. Confirm that no credentials, tokens, browser data, transcripts, prompts, audio, or generated artifacts are staged.
-
-## Create Or Update
-
-1. Stage only the confirmed files and inspect `git diff --staged`.
-2. Commit with a Conventional Commit message.
-3. Push the branch with tracking.
-4. Create or update the PR through `gh`. If an open PR already uses the branch, update it instead of creating a duplicate.
-5. Use the repository pull-request template without placeholder comments. Include the user-facing behavior, root cause where relevant, desktop impact, security notes, validation commands, and screenshots for UI changes when available.
-6. Assign the authenticated GitHub user unless the user asks otherwise.
-
-Create a ready-for-review PR by default. Use a draft only when the user requests one.
+Committing, pushing, and opening or updating a PR are separate external-state
+actions and each requires explicit authorization. Report the confirmed base,
+head, title, draft state, URL if created, checks, skipped checks, and remaining
+review risks.

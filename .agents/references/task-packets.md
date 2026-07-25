@@ -7,6 +7,7 @@ their entire specification into one implementation session.
 
 ```text
 docs/specs/<slug>/
+  decisions.yaml
   spec.md
   tasks/
     plan.md
@@ -16,6 +17,7 @@ docs/specs/<slug>/
     02_<slug>.md
 ```
 
+- `decisions.yaml` owns normalized material decisions and revision history.
 - `spec.md` owns durable behavior, architecture, constraints, and acceptance
   requirements. Do not put delivery steps or task execution instructions in it.
 - `plan.md` is a compact ordered index. Link each task packet and record only
@@ -60,17 +62,25 @@ Each task packet must contain:
 
 ## Prerequisites
 
+## Owned Requirements
+
 ## In Scope
 
 ## Out Of Scope
 
 ## Task Contract
 
-## Architecture And File Boundaries
+## Contracts And Boundaries
+
+## Expected Files Or Components
 
 ## Acceptance Criteria
 
 ## Verification
+
+## Failure And Rollback
+
+## Manual Gates
 
 ## References
 
@@ -84,11 +94,25 @@ Make the packet self-contained:
 - include failure, security, migration, compatibility, and recovery behavior
   that applies to this task;
 - include concrete tests, acceptance IDs, commands, and manual checks;
+- mark credentials, private data, external systems, destructive actions,
+  commits, pushes, pull requests, tags, publishing, installers, and
+  platform-only checks as manual gates when they require human action;
 - distinguish mandatory references from optional background;
 - require updates to `todo.md` and `handoff.md` after verification.
 
 Do not copy unrelated specification prose, history, completed discovery, or
 requirements assigned to other packets.
+
+## Prompt MCP Decisions And Approval
+
+- Use the globally configured Prompt MCP for unresolved material planning
+  choices. Return contract-changing questions to `/spec`.
+- Reuse the specification interview and stable decision identifiers when
+  possible; persist new planning decisions in the repository decision ledger.
+- Obtain explicit plan approval through Prompt MCP when the workflow requires
+  that gate. Treat execution authorization as a separate decision.
+- A cancellation, timeout, conflict, failure, pause, or pending answer is not an
+  approval.
 
 ## Review And Commit Boundary
 
