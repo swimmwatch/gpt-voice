@@ -38,6 +38,12 @@ export default {
   'notification.translationCopied': 'Translation copied',
   'notification.prettifyFailed': 'Prettify failed',
   'notification.textPrettified': 'Text prettified',
+  'notification.translationSettingsRepaired': 'Translation settings updated',
+  'notification.translationSettingsRepairedBody':
+    'Invalid or outdated translation settings were replaced with safe defaults.',
+  'error.translationSettingsInvalid': 'Select a supported translation provider and language.',
+  'error.translationSettingsSaveFailed':
+    'Could not save translation settings. Your previous selection is still active.',
 
   // Login button
   'login.loggingIn': 'Logging in...',

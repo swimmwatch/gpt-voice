@@ -25,6 +25,7 @@ import type {
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import type { TextActionStatus } from '@shared/textActionStatus';
+import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
 import type {
   CancelStreamingTranscriptionIpcResult,
   FinishStreamingTranscriptionIpcResult,
@@ -152,12 +153,12 @@ export interface ElectronAPI {
   getHotkey: () => Promise<HotkeySettings>;
   setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
-  getTranslateSettings: () => Promise<{ targetLang: string }>;
+  getTranslateSettings: () => Promise<TranslationSettings>;
   getTextActionSettings: () => Promise<TextActionSettings>;
   setTextActionSettings: (
     settings: TextActionSettingsInput,
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;
-  setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
+  setTranslateSettings: (settings: TranslationSettings) => Promise<TranslationSettingsSaveResult>;
   getPrettifySettings: () => Promise<PrettifySettings>;
   checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
   setPrettifySettings: (

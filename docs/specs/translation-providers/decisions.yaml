@@ -1553,8 +1553,8 @@ decisions:
     supersedes_revision: null
     requirement_ids: [YNDX-001, AC-AUTO-002]
 
-  - id: execution.task-06
-    revision: 1
+- id: execution.task-06
+  revision: 1
     category: execution
     state: answered
     provenance: user
@@ -1583,5 +1583,71 @@ decisions:
       selected_ids: [authorize-task-06]
       text: ''
     rationale: The user explicitly authorized Task 06 after the Task 05 commit and no later packet.
-    supersedes_revision: null
-    requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
+  supersedes_revision: null
+  requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
+
+- id: commit.task-06
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 06 implemented, registry, settings, IPC, type, lint, and formatting checks pass, and remains uncommitted.
+    - The scoped checkpoint contains only Task 06 implementation, deterministic tests, checklist and handoff updates, and durable decisions.
+    - The user committed `authorize-task-06-commit` through persistent Prompt MCP question `commit.task-06` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-07-gates-v1
+    question_id: commit.task-06
+    idempotency_key: commit.task-06:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 06 registry, settings, and IPC checkpoint be handled before Task 07?
+    kind: single
+    options:
+      - id: authorize-task-06-commit
+        label: Authorize Task 06 commit (Recommended)
+        description: Allow the next execution-capable invocation to commit only the verified registry/settings/IPC implementation, tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+      - id: keep-task-06-uncommitted
+        label: Keep Task 06 uncommitted
+        description: Leave Task 06 uncommitted; Task 07 cannot start.
+  answer:
+    selected_ids: [authorize-task-06-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 06 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
+
+- id: execution.task-07
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 07 is the next ordered packet and owns selected-text registry routing, cache identity, runtime lifecycle integration, and removal of the legacy Google translation page.
+    - Task 07 is self-contained and excludes final Select controls, live canaries, monitoring, documentation, dependencies, and later-packet work.
+    - The user committed `authorize-task-07` through persistent Prompt MCP question `execution.task-07` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-07-gates-v1
+    question_id: execution.task-07
+    idempotency_key: execution.task-07:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 06 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 07, “Integrate Selected-Text Translation Runtime”?
+    kind: single
+    options:
+      - id: authorize-task-07
+        label: Authorize Task 07 (Recommended)
+        description: After the scoped Task 06 commit, execute only Task 07 selected-text runtime integration, verify it, update todo/handoff, and leave Task 07 uncommitted.
+      - id: defer-task-07
+        label: Defer Task 07
+        description: Create only the authorized Task 06 commit and leave selected-text runtime integration gated.
+  answer:
+    selected_ids: [authorize-task-07]
+    text: ''
+  rationale: The user explicitly authorized Task 07 after the scoped Task 06 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [RUN-001, ARCH-005, RUN-005, SEC-001, COMP-001, AC-AUTO-006]

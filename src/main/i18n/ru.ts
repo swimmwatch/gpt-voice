@@ -38,6 +38,11 @@ export default {
   'notification.translationCopied': 'Перевод скопирован',
   'notification.prettifyFailed': 'Не удалось улучшить текст',
   'notification.textPrettified': 'Текст улучшен',
+  'notification.translationSettingsRepaired': 'Настройки перевода обновлены',
+  'notification.translationSettingsRepairedBody':
+    'Недопустимые или устаревшие настройки перевода заменены безопасными значениями.',
+  'error.translationSettingsInvalid': 'Выберите поддерживаемый сервис и язык перевода.',
+  'error.translationSettingsSaveFailed': 'Не удалось сохранить настройки перевода. Предыдущий выбор остаётся активным.',
 
   // Login button
   'login.loggingIn': 'Вход...',

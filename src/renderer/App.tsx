@@ -41,7 +41,13 @@ import {
   type PrettifyProviderId,
   type PrettifySettings,
 } from '@shared/prettifySettings';
+import { DEFAULT_TRANSLATION_SETTINGS, type TranslationSettings } from '@shared/translationProvider';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import {
+  createTranslationSettingsCandidate,
+  getSelectedTranslationTarget,
+  resolveTranslationSettingsSave,
+} from './translationSettingsViewState';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
@@ -51,7 +57,8 @@ const App: React.FC = () => {
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [targetLang, setTargetLang] = useState('en');
+  const [translationSettings, setTranslationSettings] = useState<TranslationSettings>(DEFAULT_TRANSLATION_SETTINGS);
+  const targetLang = getSelectedTranslationTarget(translationSettings);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -378,10 +385,15 @@ const App: React.FC = () => {
       }
     });
 
-    void window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
-      if (disposed) return;
-      setTargetLang(tl);
-    });
+    void window.electronAPI
+      .getTranslateSettings()
+      .then((settings) => {
+        if (disposed) return;
+        setTranslationSettings(settings);
+      })
+      .catch(() => {
+        // Keep the last confirmed in-memory snapshot when IPC is unavailable.
+      });
 
     return () => {
       disposed = true;
@@ -639,8 +651,16 @@ const App: React.FC = () => {
       <TranslateSection
         targetLang={targetLang}
         onLangChange={(lang) => {
-          setTargetLang(lang);
-          void window.electronAPI.setTranslateSettings(lang);
+          const confirmed = translationSettings;
+          const candidate = createTranslationSettingsCandidate(confirmed, lang);
+          void window.electronAPI
+            .setTranslateSettings(candidate)
+            .then((result) => {
+              setTranslationSettings((current) => resolveTranslationSettingsSave(current, result));
+            })
+            .catch(() => {
+              // Keep the last confirmed snapshot on a thrown IPC failure.
+            });
         }}
       />
     </main>

@@ -38,6 +38,11 @@ export default {
   'notification.translationCopied': 'Пераклад скапіяваны',
   'notification.prettifyFailed': 'Не ўдалося палепшыць тэкст',
   'notification.textPrettified': 'Тэкст палепшаны',
+  'notification.translationSettingsRepaired': 'Налады перакладу абноўлены',
+  'notification.translationSettingsRepairedBody':
+    'Няправільныя або састарэлыя налады перакладу заменены бяспечнымі значэннямі.',
+  'error.translationSettingsInvalid': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
+  'error.translationSettingsSaveFailed': 'Не ўдалося захаваць налады перакладу. Папярэдні выбар застаецца актыўным.',
 
   // Login button
   'login.loggingIn': 'Уваход...',

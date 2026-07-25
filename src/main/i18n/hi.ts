@@ -35,6 +35,11 @@ export default {
   'notification.translationCopied': 'अनुवाद कॉपी किया गया',
   'notification.prettifyFailed': 'सुधार करने में विफल रहा',
   'notification.textPrettified': 'टेक्स्ट सुधारा गया',
+  'notification.translationSettingsRepaired': 'अनुवाद सेटिंग अपडेट की गईं',
+  'notification.translationSettingsRepairedBody':
+    'अमान्य या पुरानी अनुवाद सेटिंग को सुरक्षित डिफ़ॉल्ट से बदल दिया गया है।',
+  'error.translationSettingsInvalid': 'समर्थित अनुवाद प्रदाता और भाषा चुनें।',
+  'error.translationSettingsSaveFailed': 'अनुवाद सेटिंग सहेजी नहीं जा सकीं। आपका पिछला चयन अभी भी सक्रिय है।',
   'login.loggingIn': 'लॉग इन कर रहे हैं...',
   'login.connected': '{provider}: कनेक्टेड',
   'login.configured': '{provider}: कॉन्फ़िगर किया गया',

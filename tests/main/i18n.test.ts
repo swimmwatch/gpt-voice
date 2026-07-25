@@ -130,6 +130,12 @@ const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.languageSaveFailed',
   'settingsSection.system',
 ] as const;
+const REQUIRED_TRANSLATION_SETTINGS_KEYS = [
+  'notification.translationSettingsRepaired',
+  'notification.translationSettingsRepairedBody',
+  'error.translationSettingsInvalid',
+  'error.translationSettingsSaveFailed',
+] as const;
 const REQUIRED_CENTRAL_STATUS_KEYS = [
   'status.translatingSelection',
   'status.translationCopied',
@@ -203,6 +209,18 @@ describe('i18n', () => {
         const message = dictionary[key];
         assert.equal(Boolean(message?.trim()), true, `${locale}:${key}`);
         assert.deepEqual(getPlaceholders(message ?? ''), [], `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('localizes translation settings repair and failure messages without rejected-value placeholders', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_TRANSLATION_SETTINGS_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
+        assert.doesNotMatch(message, /deepl-private|secret-target|https?:\/\/|\/home\//iu, `${locale}:${key}`);
       }
     }
   });

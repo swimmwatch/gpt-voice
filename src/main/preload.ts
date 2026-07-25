@@ -30,6 +30,7 @@ import type {
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import { sanitizeTextActionStatus, type TextActionStatus } from '@shared/textActionStatus';
+import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
 import {
   STREAMING_TRANSCRIPTION_IPC_CHANNELS,
   type CancelStreamingTranscriptionIpcResult,
@@ -251,7 +252,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   > => {
     return ipcRenderer.invoke('set-hotkey', key, hotkey);
   },
-  getTranslateSettings: (): Promise<{ targetLang: string }> => {
+  getTranslateSettings: (): Promise<TranslationSettings> => {
     return ipcRenderer.invoke('get-translate-settings');
   },
   getTextActionSettings: (): Promise<TextActionSettings> => {
@@ -262,8 +263,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<{ success: boolean; settings: TextActionSettings }> => {
     return ipcRenderer.invoke('set-text-action-settings', settings);
   },
-  setTranslateSettings: (targetLang: string): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('set-translate-settings', targetLang);
+  setTranslateSettings: (settings: TranslationSettings): Promise<TranslationSettingsSaveResult> => {
+    return ipcRenderer.invoke('set-translate-settings', settings);
   },
   getPrettifySettings: (): Promise<PrettifySettings> => {
     return ipcRenderer.invoke('get-prettify-settings');

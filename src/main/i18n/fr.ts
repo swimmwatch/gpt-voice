@@ -35,6 +35,12 @@ export default {
   'notification.translationCopied': 'Traduction copiée',
   'notification.prettifyFailed': 'Amélioration échouée',
   'notification.textPrettified': 'Texte amélioré',
+  'notification.translationSettingsRepaired': 'Paramètres de traduction mis à jour',
+  'notification.translationSettingsRepairedBody':
+    'Les paramètres de traduction invalides ou obsolètes ont été remplacés par des valeurs sûres.',
+  'error.translationSettingsInvalid': 'Sélectionnez un fournisseur et une langue de traduction compatibles.',
+  'error.translationSettingsSaveFailed':
+    "Impossible d'enregistrer les paramètres de traduction. La sélection précédente reste active.",
   'login.loggingIn': 'Connexion en cours...',
   'login.connected': '{provider} : Connecté',
   'login.configured': '{provider} : Configuré',

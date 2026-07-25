@@ -1,12 +1,18 @@
 import { app, globalShortcut, session } from 'electron';
 import log from './logger';
-import { loadConfig, getCurrentLocale, hasExplicitLocalePreference, currentProvider } from './config';
+import {
+  consumePendingTranslationSettingsRepairNotice,
+  currentProvider,
+  getCurrentLocale,
+  hasExplicitLocalePreference,
+  loadConfig,
+} from './config';
 import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
 import { registerIpcHandlers, teardownStreamingTranscriptionIpcHandlers } from './ipc';
-import { setLocale, getSupportedLocales } from './i18n';
+import { getSupportedLocales, setLocale, t } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
 import {
@@ -19,6 +25,8 @@ import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata'
 import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
 import { resolveStartupLocale } from './startupLocale';
+import { showSystemNotification } from './electronRuntime';
+import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
 const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
@@ -125,6 +133,11 @@ app.on('ready', () => {
 
   loadConfig();
   setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
+  presentPendingTranslationSettingsRepairNotice({
+    consume: consumePendingTranslationSettingsRepairNotice,
+    notify: showSystemNotification,
+    translate: t,
+  });
 
   registerIpcHandlers();
   createWindow();

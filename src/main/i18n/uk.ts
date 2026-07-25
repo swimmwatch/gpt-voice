@@ -38,6 +38,12 @@ export default {
   'notification.translationCopied': 'Переклад скопійовано',
   'notification.prettifyFailed': 'Не вдалося покращити текст',
   'notification.textPrettified': 'Текст покращено',
+  'notification.translationSettingsRepaired': 'Налаштування перекладу оновлено',
+  'notification.translationSettingsRepairedBody':
+    'Недійсні або застарілі налаштування перекладу замінено безпечними значеннями.',
+  'error.translationSettingsInvalid': 'Виберіть підтримуваний сервіс і мову перекладу.',
+  'error.translationSettingsSaveFailed':
+    'Не вдалося зберегти налаштування перекладу. Попередній вибір залишається активним.',
 
   // Login button
   'login.loggingIn': 'Вхід...',

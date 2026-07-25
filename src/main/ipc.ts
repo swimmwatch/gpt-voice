@@ -9,12 +9,12 @@ import {
   currentRetryTranscriptionHotkey,
   currentTranslateEnabled,
   currentPrettifyEnabled,
-  currentTargetLang,
   currentProvider,
   setHotkeys,
-  setTranslateSettings,
   setTextActionSettings,
   setCurrentLocale,
+  getTranslationSettingsSnapshot,
+  saveTranslationSettings,
   saveConfig,
 } from './config';
 import {
@@ -50,7 +50,6 @@ import {
 } from './shortcuts';
 import { transcribeAudio } from './services/transcription';
 import { translateText } from './services/translation';
-import { isGoogleTranslateTargetLanguage } from './services/translationUtils';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
 import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
@@ -107,6 +106,7 @@ import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpc
 import { streamingTranscriptionService } from './services/streamingTranscription';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
+import { TranslationSettingsValidationError } from './translationSettings';
 
 const log = createLogger('ipc');
 let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
@@ -737,7 +737,7 @@ export function registerIpcHandlers(): void {
   });
 
   handle('get-translate-settings', () => {
-    return { targetLang: currentTargetLang };
+    return getTranslationSettingsSnapshot();
   });
 
   handle('get-text-action-settings', () => {
@@ -765,19 +765,22 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  handle('set-translate-settings', (_event, targetLang: unknown) => {
+  handle('set-translate-settings', (_event, candidate: unknown) => {
     try {
-      if (!isGoogleTranslateTargetLanguage(targetLang)) {
-        return { success: false, error: 'Select a supported translation language' };
-      }
-      log.info('Saving translate settings:', { from: currentTargetLang, to: targetLang });
-      setTranslateSettings(targetLang);
-      saveConfig();
-      log.info('Translate settings saved:', { targetLang: currentTargetLang });
-      return { success: true };
+      const settings = saveTranslationSettings(candidate);
+      log.info('Translation settings saved', { providerId: settings.providerId });
+      return { success: true, settings };
     } catch (error: unknown) {
-      log.error('Translate settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
+      const validationFailure = error instanceof TranslationSettingsValidationError;
+      log.warn('Translation settings update rejected', {
+        errorName: error instanceof Error ? error.name : 'unknown',
+        validationFailure,
+      });
+      return {
+        success: false,
+        settings: getTranslationSettingsSnapshot(),
+        error: t(validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed'),
+      };
     }
   });
 

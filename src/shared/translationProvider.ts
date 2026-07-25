@@ -26,6 +26,12 @@ export interface TranslationSettings {
   readonly targetLanguageByProvider: Record<TranslationProviderId, string>;
 }
 
+export interface TranslationSettingsSaveResult {
+  readonly error?: string;
+  readonly settings: TranslationSettings;
+  readonly success: boolean;
+}
+
 export const TRANSLATION_PROVIDER_INFO = Object.freeze({
   google: {
     id: 'google',
@@ -52,6 +58,15 @@ export const TRANSLATION_PROVIDER_INFO = Object.freeze({
     targetLanguages: YANDEX_TRANSLATION_LANGUAGES,
   },
 } as const satisfies Readonly<Record<TranslationProviderId, TranslationProviderInfo>>);
+
+export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = Object.freeze({
+  providerId: 'google',
+  targetLanguageByProvider: Object.freeze({
+    google: TRANSLATION_PROVIDER_INFO.google.defaultTargetLanguage,
+    bing: TRANSLATION_PROVIDER_INFO.bing.defaultTargetLanguage,
+    yandex: TRANSLATION_PROVIDER_INFO.yandex.defaultTargetLanguage,
+  }),
+});
 
 export function isTranslationProviderId(value: unknown): value is TranslationProviderId {
   return typeof value === 'string' && TRANSLATION_PROVIDER_IDS.some((providerId) => providerId === value);

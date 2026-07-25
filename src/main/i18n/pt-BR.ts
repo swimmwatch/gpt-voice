@@ -35,6 +35,12 @@ export default {
   'notification.translationCopied': 'Tradução copiada',
   'notification.prettifyFailed': 'Aprimoramento falhou',
   'notification.textPrettified': 'Texto aprimorado',
+  'notification.translationSettingsRepaired': 'Configurações de tradução atualizadas',
+  'notification.translationSettingsRepairedBody':
+    'Configurações de tradução inválidas ou antigas foram substituídas por valores seguros.',
+  'error.translationSettingsInvalid': 'Selecione um provedor e um idioma de tradução compatíveis.',
+  'error.translationSettingsSaveFailed':
+    'Não foi possível salvar as configurações de tradução. A seleção anterior continua ativa.',
   'login.loggingIn': 'Fazendo login...',
   'login.connected': '{provider}: Conectado',
   'login.configured': '{provider}: Configurado',
