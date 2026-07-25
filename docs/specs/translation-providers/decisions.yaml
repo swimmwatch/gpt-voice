@@ -1519,3 +1519,69 @@ decisions:
     rationale: The user explicitly authorized Task 05 after the Task 04 commit and no later packet.
     supersedes_revision: null
     requirement_ids: [YNDX-001, AC-AUTO-002]
+
+  - id: commit.task-05
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is implemented, its Yandex provider, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Yandex provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-05-commit through persistent Prompt MCP question commit.task-05 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-06-gates-v1
+      question_id: commit.task-05
+      idempotency_key: commit.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 05 Yandex provider checkpoint be handled before Task 06?
+      kind: single
+      options:
+        - id: authorize-task-05-commit
+          label: Authorize Task 05 commit (Recommended)
+          description: Allow the next execution-capable invocation to commit only the verified Yandex provider, its tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 05 uncommitted
+          description: Keep Task 05 uncommitted; Task 06 remains blocked.
+    answer:
+      selected_ids: [authorize-task-05-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 05 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [YNDX-001, AC-AUTO-002]
+
+  - id: execution.task-06
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 06 is the ordered next packet and owns only the translation registry, settings migration and atomic persistence, typed IPC, startup repair notice, and minimal renderer compatibility bridge.
+      - The Task 06 packet is self-contained and excludes selected-text routing, final dual-Select controls, live provider access, dependencies, and later-packet work.
+      - The user committed authorize-task-06 through persistent Prompt MCP question execution.task-06 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-06-gates-v1
+      question_id: execution.task-06
+      idempotency_key: execution.task-06:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 05 commit, should the next execution-capable incremental-implementation invocation execute Task 06, “Add The Translation Registry, Settings, And IPC”?
+      kind: single
+      options:
+        - id: authorize-task-06
+          label: Authorize Task 06 (Recommended)
+          description: After the authorized Task 05 commit, execute only the registry, settings migration, atomic persistence, typed IPC, startup notice, and minimal renderer compatibility packet; verify it and stop uncommitted.
+        - id: defer-task-06
+          label: Defer Task 06
+          description: Create only the authorized Task 05 commit and leave registry/settings/IPC integration gated.
+    answer:
+      selected_ids: [authorize-task-06]
+      text: ''
+    rationale: The user explicitly authorized Task 06 after the Task 05 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
