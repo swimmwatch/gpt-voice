@@ -21,12 +21,14 @@ const YANDEX_TRANSLATE_URL = 'https://translate.yandex.com/en/translator';
 const YANDEX_TRANSLATE_ORIGIN = 'https://translate.yandex.com';
 const YANDEX_NAVIGATION_TIMEOUT_MS = 60_000;
 const YANDEX_CONSENT_TIMEOUT_MS = 10_000;
+const YANDEX_CHOOSER_TIMEOUT_MS = 5_000;
 const YANDEX_CLEAR_TIMEOUT_MS = 1_500;
 const YANDEX_CLEAR_POLL_INTERVAL_MS = 50;
 
 const YANDEX_ESSENTIAL_CONSENT_NAME = 'Allow essential cookies';
 const YANDEX_AUTO_DETECT_LABEL = 'Auto detect';
 const YANDEX_AUTO_DETECT_SWITCH_SELECTOR = 'input[type="checkbox"][role="switch"]';
+const YANDEX_SOURCE_OPENER_SELECTOR = 'button[aria-label^="Choose source language"]';
 const YANDEX_SOURCE_PRIMARY_SELECTOR = '#fakeArea[role="textbox"][contenteditable="plaintext-only"]';
 const YANDEX_SOURCE_FALLBACK_SELECTOR = '[role="textbox"][aria-labelledby="srcLabel"]';
 const YANDEX_SOURCE_CANDIDATE_SELECTOR = `${YANDEX_SOURCE_PRIMARY_SELECTOR}, ${YANDEX_SOURCE_FALLBACK_SELECTOR}`;
@@ -35,6 +37,7 @@ const YANDEX_DESTINATION_PANEL_SELECTOR = '[data-tracking-data*="box-dst"]';
 const YANDEX_DESTINATION_PRIMARY_SELECTOR = '[data-lexical-editor="true"][role="textbox"]';
 const YANDEX_DESTINATION_FALLBACK_SELECTOR = '#translation';
 const YANDEX_TARGET_OPENER_SELECTOR = 'button[aria-label^="Choose target language"]';
+const YANDEX_TARGET_SEARCH_SELECTOR = 'input[placeholder="Search languages"]';
 const YANDEX_TARGET_OPTION_SELECTOR = '[data-lang-element="true"][data-value][role="checkbox"][aria-label]:visible';
 const YANDEX_CLEAR_SELECTOR = 'button[aria-label="Clear"]';
 const YANDEX_BLOCKING_SURFACE_SELECTOR =
@@ -58,9 +61,10 @@ export interface YandexConsentSnapshot {
 
 export interface YandexAutomaticSourceSnapshot {
   readonly checked: boolean | null;
-  readonly visibleEnabledSwitches: number;
-  readonly visibleLabels: number;
-  readonly visibleSwitches: number;
+  readonly chooserOpen: boolean;
+  readonly enabledSwitches: number;
+  readonly exactLabels: number;
+  readonly switches: number;
 }
 
 export interface YandexTargetSnapshot {
@@ -99,9 +103,12 @@ export interface YandexClearSnapshot {
 export interface YandexTranslatePageAdapter {
   clickClear(): Promise<boolean>;
   clickEssentialConsent(): Promise<boolean>;
+  closeAutomaticSourceChooser(): Promise<boolean>;
   enableAutomaticSourceDetection(): Promise<boolean>;
   insertSourceText(sourceText: string): Promise<boolean>;
   navigate(): Promise<void>;
+  openAutomaticSourceChooser(): Promise<boolean>;
+  openTargetChooser(): Promise<boolean>;
   readAutomaticSourceSnapshot(): Promise<YandexAutomaticSourceSnapshot>;
   readClearSnapshot(): Promise<YandexClearSnapshot>;
   readConsentSnapshot(): Promise<YandexConsentSnapshot>;
@@ -203,9 +210,9 @@ export function createYandexRouteSnapshot(rawUrl: string): YandexRouteSnapshot {
 
 export function classifyYandexAutomaticSource(snapshot: YandexAutomaticSourceSnapshot): TranslationProviderHookResult {
   if (
-    snapshot.visibleLabels !== 1 ||
-    snapshot.visibleSwitches !== 1 ||
-    snapshot.visibleEnabledSwitches !== 1 ||
+    snapshot.exactLabels !== 1 ||
+    snapshot.switches !== 1 ||
+    snapshot.enabledSwitches !== 1 ||
     snapshot.checked === null
   ) {
     return translationHookFailure('pageContractFailure');
@@ -215,7 +222,8 @@ export function classifyYandexAutomaticSource(snapshot: YandexAutomaticSourceSna
 
 export function classifyYandexEditors(snapshot: YandexEditorSnapshot): TranslationProviderHookResult {
   if (
-    snapshot.visibleDestinationPanels !== 1 ||
+    snapshot.visibleDestinationPanels > 1 ||
+    (snapshot.destinationVisible && snapshot.visibleDestinationPanels !== 1) ||
     snapshot.destinationEditors !== 1 ||
     snapshot.destinationResolution === 'invalid' ||
     snapshot.sourceEditors !== 1 ||
@@ -253,10 +261,10 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 
   async readConsentSnapshot(): Promise<YandexConsentSnapshot> {
-    const essentialControls = await getVisibleLocators(
-      this.page.getByRole('button', { exact: true, name: YANDEX_ESSENTIAL_CONSENT_NAME }),
-    );
-    const dialogs = await getVisibleLocators(this.page.locator('[role="dialog"]'));
+    const [essentialControls, dialogs] = await Promise.all([
+      getVisibleLocators(this.page.getByRole('button', { exact: true, name: YANDEX_ESSENTIAL_CONSENT_NAME })),
+      getVisibleLocators(this.page.locator('[role="dialog"]')),
+    ]);
     return {
       visibleConsentSurfaces: dialogs.length > 0 ? dialogs.length : essentialControls.length > 0 ? 1 : 0,
       visibleEnabledEssentialControls: essentialControls.filter((control) => control.enabled).length,
@@ -275,32 +283,65 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 
   async readAutomaticSourceSnapshot(): Promise<YandexAutomaticSourceSnapshot> {
-    const labels = await this.getAutomaticSourceLabels();
+    const labels = await this.getExactAutomaticSourceLabels();
     if (labels.length !== 1 || !labels[0]) {
       return {
         checked: null,
-        visibleEnabledSwitches: 0,
-        visibleLabels: labels.length,
-        visibleSwitches: 0,
+        chooserOpen: false,
+        enabledSwitches: 0,
+        exactLabels: labels.length,
+        switches: 0,
       };
     }
-    const switches = await getVisibleLocators(labels[0].locator.locator(YANDEX_AUTO_DETECT_SWITCH_SELECTOR));
+    const switches = labels[0].locator(YANDEX_AUTO_DETECT_SWITCH_SELECTOR);
+    const switchCount = await switches.count();
     return {
-      checked: switches.length === 1 ? await switches[0]?.locator.isChecked().catch(() => null) : null,
-      visibleEnabledSwitches: switches.filter((control) => control.enabled).length,
-      visibleLabels: 1,
-      visibleSwitches: switches.length,
+      checked: switchCount === 1 ? await switches.isChecked().catch(() => null) : null,
+      chooserOpen: await labels[0].isVisible().catch(() => false),
+      enabledSwitches: switchCount === 1 && (await switches.isEnabled().catch(() => false)) ? 1 : 0,
+      exactLabels: 1,
+      switches: switchCount,
     };
   }
 
-  async enableAutomaticSourceDetection(): Promise<boolean> {
-    const labels = await this.getAutomaticSourceLabels();
+  async openAutomaticSourceChooser(): Promise<boolean> {
+    const initial = await this.readAutomaticSourceSnapshot();
+    if (initial.chooserOpen) return classifyYandexAutomaticSource(initial).success;
+
+    const openers = await getVisibleLocators(this.page.locator(YANDEX_SOURCE_OPENER_SELECTOR));
+    if (openers.length !== 1 || !openers[0]?.enabled) return false;
+    await openers[0].locator.click();
+
+    const labels = await this.getExactAutomaticSourceLabels();
     if (labels.length !== 1 || !labels[0]) return false;
-    const switches = await getVisibleLocators(labels[0].locator.locator(YANDEX_AUTO_DETECT_SWITCH_SELECTOR));
-    if (switches.length !== 1 || !switches[0]?.enabled) return false;
-    if (await switches[0].locator.isChecked()) return true;
-    await labels[0].locator.click();
-    return switches[0].locator.isChecked().catch(() => false);
+    await labels[0].waitFor({ state: 'visible', timeout: YANDEX_CHOOSER_TIMEOUT_MS }).catch(() => {});
+    const opened = await this.readAutomaticSourceSnapshot();
+    return opened.chooserOpen && classifyYandexAutomaticSource(opened).success;
+  }
+
+  async closeAutomaticSourceChooser(): Promise<boolean> {
+    const initial = await this.readAutomaticSourceSnapshot();
+    if (!initial.chooserOpen) return classifyYandexAutomaticSource(initial).success;
+
+    const openers = await getVisibleLocators(this.page.locator(YANDEX_SOURCE_OPENER_SELECTOR));
+    if (openers.length !== 1 || !openers[0]?.enabled) return false;
+    await openers[0].locator.click();
+    const labels = await this.getExactAutomaticSourceLabels();
+    if (labels.length === 1 && labels[0]) {
+      await labels[0].waitFor({ state: 'hidden', timeout: YANDEX_CHOOSER_TIMEOUT_MS }).catch(() => {});
+    }
+    const closed = await this.readAutomaticSourceSnapshot();
+    return !closed.chooserOpen && classifyYandexAutomaticSource(closed).success;
+  }
+
+  async enableAutomaticSourceDetection(): Promise<boolean> {
+    const labels = await this.getExactAutomaticSourceLabels();
+    if (labels.length !== 1 || !labels[0] || !(await labels[0].isVisible())) return false;
+    const switches = labels[0].locator(YANDEX_AUTO_DETECT_SWITCH_SELECTOR);
+    if ((await switches.count()) !== 1 || !(await switches.isEnabled().catch(() => false))) return false;
+    if (await switches.isChecked()) return true;
+    await labels[0].click();
+    return switches.isChecked().catch(() => false);
   }
 
   async readTargetSnapshot(): Promise<YandexTargetSnapshot> {
@@ -312,34 +353,47 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
     };
   }
 
-  async selectTargetLanguage(targetLanguage: string): Promise<boolean> {
+  async openTargetChooser(): Promise<boolean> {
     const openers = await getVisibleLocators(this.page.locator(YANDEX_TARGET_OPENER_SELECTOR));
     if (openers.length !== 1 || !openers[0]?.enabled) return false;
     await openers[0].locator.click();
 
-    const visibleOptions = await getVisibleLocators(this.page.locator(YANDEX_TARGET_OPTION_SELECTOR));
-    const matchingOptions: VisibleLocatorSnapshot[] = [];
-    for (const option of visibleOptions) {
-      if ((await option.locator.getAttribute('data-value')) === targetLanguage) {
-        matchingOptions.push(option);
-      }
-    }
-    if (matchingOptions.length !== 1 || !matchingOptions[0]?.enabled) return false;
-    await matchingOptions[0].locator.click();
+    await this.page
+      .locator(`${YANDEX_TARGET_SEARCH_SELECTOR}:visible`)
+      .waitFor({ state: 'visible', timeout: YANDEX_CHOOSER_TIMEOUT_MS })
+      .catch(() => {});
+    const searchInputs = await getVisibleLocators(this.page.locator(YANDEX_TARGET_SEARCH_SELECTOR));
+    return searchInputs.length === 1 && searchInputs[0]?.enabled === true;
+  }
+
+  async selectTargetLanguage(targetLanguage: string): Promise<boolean> {
+    const visibleOptions = this.page.locator(YANDEX_TARGET_OPTION_SELECTOR);
+    const matchingIndexes = await visibleOptions.evaluateAll(
+      (elements, expectedValue) =>
+        elements.flatMap((element, index) => (element.getAttribute('data-value') === expectedValue ? [index] : [])),
+      targetLanguage,
+    );
+    if (matchingIndexes.length !== 1 || matchingIndexes[0] === undefined) return false;
+    const matchingOption = visibleOptions.nth(matchingIndexes[0]);
+    if (!(await matchingOption.isEnabled().catch(() => false))) return false;
+    await matchingOption.click();
     return true;
   }
 
   async readEditorSnapshot(): Promise<YandexEditorSnapshot> {
-    const sourceEditors = await getVisibleLocators(this.page.locator(YANDEX_SOURCE_CANDIDATE_SELECTOR));
-    const primarySourceEditors = await getVisibleLocators(this.page.locator(YANDEX_SOURCE_PRIMARY_SELECTOR));
-    const forbiddenTextareas = await getVisibleLocators(this.page.locator(YANDEX_FORBIDDEN_TEXTAREA_SELECTOR));
-    const destination = await this.getDestinationLocator();
-    const destinationVisible = destination.locator ? await destination.locator.isVisible().catch(() => false) : false;
-    const destinationText = destination.locator
-      ? ((await destination.locator.textContent().catch(() => null)) ?? '')
-      : '';
-    const sourceText =
-      sourceEditors.length === 1 ? await sourceEditors[0]?.locator.textContent().catch(() => null) : null;
+    const [sourceEditors, primarySourceEditors, forbiddenTextareas, destination] = await Promise.all([
+      getVisibleLocators(this.page.locator(YANDEX_SOURCE_CANDIDATE_SELECTOR)),
+      getVisibleLocators(this.page.locator(YANDEX_SOURCE_PRIMARY_SELECTOR)),
+      getVisibleLocators(this.page.locator(YANDEX_FORBIDDEN_TEXTAREA_SELECTOR)),
+      this.getDestinationLocator(),
+    ]);
+    const [destinationVisible, destinationText, sourceText] = await Promise.all([
+      destination.locator ? destination.locator.isVisible().catch(() => false) : Promise.resolve(false),
+      destination.locator ? destination.locator.textContent().catch(() => null) : Promise.resolve<string | null>(null),
+      sourceEditors.length === 1
+        ? (sourceEditors[0]?.locator.textContent().catch(() => null) ?? Promise.resolve(null))
+        : Promise.resolve(null),
+    ]);
     const sourceResolution: YandexEditorResolution =
       sourceEditors.length !== 1
         ? 'invalid'
@@ -352,7 +406,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
     return {
       destinationEditors: destination.count,
       destinationResolution: destination.resolution,
-      destinationText,
+      destinationText: destinationText ?? '',
       destinationVisible,
       editableSourceEditors: sourceEditors.filter((control) => control.enabled && control.editable).length,
       sourceEditors: sourceEditors.length,
@@ -364,11 +418,15 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 
   async readReadinessSnapshot(): Promise<YandexReadinessSnapshot> {
-    const blockingSurfaces = await getVisibleLocators(this.page.locator(YANDEX_BLOCKING_SURFACE_SELECTOR));
+    const [blockingSurfaces, editors, target] = await Promise.all([
+      getVisibleLocators(this.page.locator(YANDEX_BLOCKING_SURFACE_SELECTOR)),
+      this.readEditorSnapshot(),
+      this.readTargetSnapshot(),
+    ]);
     return {
       blockingSurfaces: blockingSurfaces.length,
-      editors: await this.readEditorSnapshot(),
-      target: await this.readTargetSnapshot(),
+      editors,
+      target,
     };
   }
 
@@ -396,13 +454,19 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 
   async readClearSnapshot(): Promise<YandexClearSnapshot> {
-    const clearControls = await getVisibleLocators(this.page.locator(YANDEX_CLEAR_SELECTOR));
+    const [clearControls, automaticSource, editors, route, target] = await Promise.all([
+      getVisibleLocators(this.page.locator(YANDEX_CLEAR_SELECTOR)),
+      this.readAutomaticSourceSnapshot(),
+      this.readEditorSnapshot(),
+      this.readRouteSnapshot(),
+      this.readTargetSnapshot(),
+    ]);
     return {
-      automaticSource: await this.readAutomaticSourceSnapshot(),
+      automaticSource,
       clearControlEnabled: clearControls.length === 1 && clearControls[0]?.enabled === true,
-      editors: await this.readEditorSnapshot(),
-      route: await this.readRouteSnapshot(),
-      target: await this.readTargetSnapshot(),
+      editors,
+      route,
+      target,
       visibleClearControls: clearControls.length,
     };
   }
@@ -414,11 +478,13 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
     return true;
   }
 
-  private async getAutomaticSourceLabels(): Promise<VisibleLocatorSnapshot[]> {
-    const labels = await getVisibleLocators(this.page.locator(`label:has(${YANDEX_AUTO_DETECT_SWITCH_SELECTOR})`));
-    const exactLabels: VisibleLocatorSnapshot[] = [];
-    for (const label of labels) {
-      if (((await label.locator.textContent()) ?? '').trim() === YANDEX_AUTO_DETECT_LABEL) {
+  private async getExactAutomaticSourceLabels(): Promise<Locator[]> {
+    const labels = this.page.locator(`label:has(${YANDEX_AUTO_DETECT_SWITCH_SELECTOR})`);
+    const exactLabels: Locator[] = [];
+    const labelCount = await labels.count();
+    for (let index = 0; index < labelCount; index += 1) {
+      const label = labels.nth(index);
+      if (((await label.textContent()) ?? '').trim() === YANDEX_AUTO_DETECT_LABEL) {
         exactLabels.push(label);
       }
     }
@@ -426,27 +492,41 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 
   private async getDestinationLocator(): Promise<DestinationLocatorSnapshot> {
-    const panels = await getVisibleLocators(this.page.locator(YANDEX_DESTINATION_PANEL_SELECTOR));
-    if (panels.length !== 1 || !panels[0]) {
-      return { count: 0, resolution: 'invalid', visiblePanels: panels.length };
+    const panels = this.page.locator(YANDEX_DESTINATION_PANEL_SELECTOR);
+    const panelCount = await panels.count();
+    const visiblePanels = await getVisibleLocators(panels);
+    const primary: Locator[] = [];
+    const fallback: Locator[] = [];
+
+    for (let panelIndex = 0; panelIndex < panelCount; panelIndex += 1) {
+      const panel = panels.nth(panelIndex);
+      const primaryMatches = panel.locator(YANDEX_DESTINATION_PRIMARY_SELECTOR);
+      for (let index = 0; index < (await primaryMatches.count()); index += 1) {
+        primary.push(primaryMatches.nth(index));
+      }
+      const fallbackMatches = panel.locator(YANDEX_DESTINATION_FALLBACK_SELECTOR);
+      for (let index = 0; index < (await fallbackMatches.count()); index += 1) {
+        fallback.push(fallbackMatches.nth(index));
+      }
     }
 
-    const primary = panels[0].locator.locator(YANDEX_DESTINATION_PRIMARY_SELECTOR);
-    const primaryCount = await primary.count();
-    if (primaryCount === 1) {
-      return { count: 1, locator: primary, resolution: 'primary', visiblePanels: 1 };
+    if (primary.length === 1 && primary[0]) {
+      return {
+        count: 1,
+        locator: primary[0],
+        resolution: 'primary',
+        visiblePanels: visiblePanels.length,
+      };
     }
-    if (primaryCount > 1) {
-      return { count: primaryCount, resolution: 'invalid', visiblePanels: 1 };
+    if (primary.length > 1) {
+      return { count: primary.length, resolution: 'invalid', visiblePanels: visiblePanels.length };
     }
 
-    const fallback = panels[0].locator.locator(YANDEX_DESTINATION_FALLBACK_SELECTOR);
-    const fallbackCount = await fallback.count();
     return {
-      count: fallbackCount,
-      ...(fallbackCount === 1 ? { locator: fallback } : {}),
-      resolution: fallbackCount === 1 ? 'fallback' : 'invalid',
-      visiblePanels: 1,
+      count: fallback.length,
+      ...(fallback.length === 1 && fallback[0] ? { locator: fallback[0] } : {}),
+      resolution: fallback.length === 1 ? 'fallback' : 'invalid',
+      visiblePanels: visiblePanels.length,
     };
   }
 }
@@ -458,10 +538,12 @@ function createPlaywrightYandexTranslatePageAdapter(page: Page): YandexTranslate
 /** Unregistered Yandex public-page implementation of the shared translation lifecycle. */
 export class YandexTranslateProvider extends BaseTranslateProvider {
   private readonly adapters = new WeakMap<Page, YandexTranslatePageAdapter>();
+  private readonly automaticSourceDetectionPages = new WeakSet<Page>();
   private readonly clearPollIntervalMs: number;
   private readonly clearTimeoutMs: number;
   private readonly createPageAdapter: YandexTranslatePageAdapterFactory;
   private readonly expectedTargets = new WeakMap<Page, string>();
+  private readonly preparedPages = new WeakSet<Page>();
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
@@ -479,25 +561,25 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
     _targetLanguage: string,
   ): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
-    await retryBrowserNavigation(
-      {
-        navigate: () => adapter.navigate(),
-        service: BrowserNavigationService.YandexTranslate,
-      },
-      { onRetry: this.onNavigationRetry },
-    );
+    if (!this.preparedPages.has(page)) {
+      this.automaticSourceDetectionPages.delete(page);
+      await retryBrowserNavigation(
+        {
+          navigate: () => adapter.navigate(),
+          service: BrowserNavigationService.YandexTranslate,
+        },
+        { onRetry: this.onNavigationRetry },
+      );
+    }
 
     const route = await adapter.readRouteSnapshot();
     if (route.route !== 'translator' || route.hasTextParameter) {
       return translationHookFailure('consentOrChallenge');
     }
-    const readiness = await adapter.readReadinessSnapshot();
-    if (readiness.blockingSurfaces > 0) {
-      return translationHookFailure('consentOrChallenge');
-    }
 
     const consent = await adapter.readConsentSnapshot();
     if (consent.visibleConsentSurfaces === 0 && consent.visibleEssentialControls === 0) {
+      this.preparedPages.add(page);
       return translationHookSuccess();
     }
     if (
@@ -513,14 +595,16 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
 
     const returnRoute = await adapter.readRouteSnapshot();
     const remainingConsent = await adapter.readConsentSnapshot();
-    const returnReadiness = await adapter.readReadinessSnapshot();
-    return returnRoute.route === 'translator' &&
+    if (
+      returnRoute.route === 'translator' &&
       !returnRoute.hasTextParameter &&
       remainingConsent.visibleConsentSurfaces === 0 &&
-      remainingConsent.visibleEssentialControls === 0 &&
-      returnReadiness.blockingSurfaces === 0
-      ? translationHookSuccess()
-      : translationHookFailure('consentOrChallenge');
+      remainingConsent.visibleEssentialControls === 0
+    ) {
+      this.preparedPages.add(page);
+      return translationHookSuccess();
+    }
+    return translationHookFailure('consentOrChallenge');
   }
 
   protected async inspectReadiness(page: Page): Promise<TranslationProviderHookResult> {
@@ -541,26 +625,53 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
   }
 
   protected async enableAutomaticSourceDetection(page: Page): Promise<TranslationProviderHookResult> {
+    if (this.automaticSourceDetectionPages.has(page)) {
+      return translationHookSuccess();
+    }
     const adapter = this.getAdapter(page);
+    if (!(await adapter.openAutomaticSourceChooser())) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
     let automaticSource = await adapter.readAutomaticSourceSnapshot();
     const classified = classifyYandexAutomaticSource(automaticSource);
-    if (!classified.success) {
-      return translationHookFailure(classified.code, { recoverableBeforeSubmission: true });
+    if (!classified.success || !automaticSource.chooserOpen) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
     }
-    if (automaticSource.checked === true) return translationHookSuccess();
-    if (!(await adapter.enableAutomaticSourceDetection())) {
+    if (automaticSource.checked !== true && !(await adapter.enableAutomaticSourceDetection())) {
       return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
     }
     automaticSource = await adapter.readAutomaticSourceSnapshot();
-    return classifyYandexAutomaticSource(automaticSource).success && automaticSource.checked === true
-      ? translationHookSuccess()
-      : translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    if (
+      !classifyYandexAutomaticSource(automaticSource).success ||
+      !automaticSource.chooserOpen ||
+      automaticSource.checked !== true ||
+      !(await adapter.closeAutomaticSourceChooser())
+    ) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    this.automaticSourceDetectionPages.add(page);
+    return translationHookSuccess();
   }
 
   protected async selectAndVerifyTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
     const initial = await adapter.readTargetSnapshot();
-    if (initial.visibleOpeners !== 1 || !(await adapter.selectTargetLanguage(targetLanguage))) {
+    const initialRoute = await adapter.readRouteSnapshot();
+    if (
+      initial.visibleOpeners === 1 &&
+      initial.selectedTargetCode === targetLanguage &&
+      initialRoute.route === 'translator' &&
+      !initialRoute.hasTextParameter &&
+      initialRoute.targetLanguage === targetLanguage
+    ) {
+      this.expectedTargets.set(page, targetLanguage);
+      return translationHookSuccess();
+    }
+    if (
+      initial.visibleOpeners !== 1 ||
+      !(await adapter.openTargetChooser()) ||
+      !(await adapter.selectTargetLanguage(targetLanguage))
+    ) {
       return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
     }
     const route = await adapter.readRouteSnapshot();

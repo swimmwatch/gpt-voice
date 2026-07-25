@@ -5,10 +5,12 @@ import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext, Page } from 'playwright-core';
 
 import {
+  BING_BLOCKING_SURFACE_SELECTOR,
   BING_CATALOG_STABILITY_DELAY_MS,
   BING_READINESS_TIMEOUT_MS,
   BingTranslateProvider,
   classifyBingCanonicalCatalog,
+  classifyBingResultSnapshot,
   createBingRouteSnapshot,
   type BingCanonicalCatalogSnapshot,
   type BingCanonicalOptionSnapshot,
@@ -89,6 +91,7 @@ class FakeContext {
 
 class FixtureBingPageAdapter implements BingTranslatePageAdapter {
   afterInsertionSelection: BingSelectionSnapshot | null = null;
+  canonicalReadCalls = 0;
   canonicalReads: BingCanonicalCatalogSnapshot[] = [createCatalog(), createCatalog()];
   clearClicks = 0;
   clearControlEnabled = false;
@@ -129,6 +132,7 @@ class FixtureBingPageAdapter implements BingTranslatePageAdapter {
   }
 
   async readCanonicalCatalogSnapshot(): Promise<BingCanonicalCatalogSnapshot> {
+    this.canonicalReadCalls += 1;
     this.lastCatalog = this.canonicalReads.shift() ?? this.lastCatalog;
     return this.lastCatalog;
   }
@@ -215,7 +219,7 @@ interface Harness {
 
 function createHarness(
   adapters: readonly FixtureBingPageAdapter[] = [new FixtureBingPageAdapter()],
-  resultTimeoutMs = 4,
+  resultTimeoutMs: number | null = 4,
 ): Harness {
   const contexts: FakeContext[] = [];
   let adapterIndex = 0;
@@ -236,7 +240,7 @@ function createHarness(
     readinessTimeoutMs: 2,
     resultPollIntervalMs: 1,
     resultStabilityDelayMs: 0,
-    resultTimeoutMs,
+    ...(resultTimeoutMs === null ? {} : { resultTimeoutMs }),
     sleep: async () => {},
     waitForCatalogStability: async () => {},
     waitForClearPoll: async () => {},
@@ -261,6 +265,34 @@ describe('BingTranslateProvider', () => {
   it('uses the approved bounded production readiness window', () => {
     assert.equal(BING_CATALOG_STABILITY_DELAY_MS, 250);
     assert.equal(BING_READINESS_TIMEOUT_MS, 5_000);
+    assert.match(BING_BLOCKING_SURFACE_SELECTOR, /\[role="dialog"\]:not\(\.infobubble\)/u);
+    assert.match(BING_BLOCKING_SURFACE_SELECTOR, /iframe\[title\*="challenge" i\]/u);
+    assert.match(BING_BLOCKING_SURFACE_SELECTOR, /iframe\[title\*="captcha" i\]/u);
+  });
+
+  it('keeps loading sentinels inside one insertion result window', async () => {
+    const adapter = new FixtureBingPageAdapter();
+    adapter.resultReadsAfterInsertion = [
+      ...Array.from({ length: 80 }, () => createResult('...')),
+      ...Array.from({ length: 80 }, () => createResult('…')),
+      createResult('translated'),
+      createResult('translated'),
+    ];
+    const harness = createHarness([adapter], null);
+
+    const outcome = await harness.provider.translate(createRequest());
+
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+    assert.deepEqual(adapter.fillCalls, ['synthetic source']);
+  });
+
+  it('keeps Bing loading sentinels inside the base timeout loop', () => {
+    assert.deepEqual(classifyBingResultSnapshot(createResult('...')), { success: true, value: '' });
+    assert.deepEqual(classifyBingResultSnapshot(createResult(' … ')), { success: true, value: '' });
+    assert.deepEqual(classifyBingResultSnapshot(createResult('translated')), {
+      success: true,
+      value: 'translated',
+    });
   });
 
   it('binds shared Bing metadata and validates target and length before browser creation', async () => {
@@ -465,6 +497,22 @@ describe('BingTranslateProvider', () => {
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
+  });
+
+  it('reuses one prepared page and its validated canonical catalog', async () => {
+    const adapter = new FixtureBingPageAdapter();
+    const harness = createHarness([adapter]);
+
+    const first = await harness.provider.translate(createRequest({ sourceText: 'first source' }));
+    adapter.resultReadsAfterInsertion = [createResult('second'), createResult('second')];
+    const second = await harness.provider.translate(createRequest({ sourceText: 'second source' }));
+
+    assert.equal(first.success, true);
+    assert.equal(second.success ? second.text : null, 'second');
+    assert.equal(adapter.navigationCalls, 1);
+    assert.equal(adapter.canonicalReadCalls, 2);
+    assert.deepEqual(adapter.fillCalls, ['first source', 'second source']);
+    assert.equal(harness.contexts.length, 1);
   });
 
   it('requires target-select and output-language agreement when accepting a result', async () => {

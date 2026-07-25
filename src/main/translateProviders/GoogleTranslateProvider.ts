@@ -359,6 +359,7 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
   private readonly clearTimeoutMs: number;
   private readonly createPageAdapter: GoogleTranslatePageAdapterFactory;
   private readonly expectedTargets = new WeakMap<Page, string>();
+  private readonly preparedPages = new WeakSet<Page>();
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
@@ -373,6 +374,17 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
 
   protected async navigateAndHandleConsent(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
+    if (this.preparedPages.has(page)) {
+      const route = await adapter.readRouteSnapshot();
+      if (routeMatchesTranslationState(route, targetLanguage) && !route.hasTextParameter) {
+        this.expectedTargets.set(page, targetLanguage);
+        return translationHookSuccess();
+      }
+      if (route.origin !== 'translator' || route.route !== 'translator') {
+        return translationHookFailure('consentOrChallenge');
+      }
+    }
+
     const navigationUrl = buildGoogleTranslateProviderUrl(targetLanguage);
     await retryBrowserNavigation(
       {
@@ -384,6 +396,7 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
 
     const initialRoute = await adapter.readRouteSnapshot();
     if (initialRoute.route === 'translator' && initialRoute.origin === 'translator') {
+      this.preparedPages.add(page);
       this.expectedTargets.set(page, targetLanguage);
       return translationHookSuccess();
     }
@@ -411,6 +424,7 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
     ) {
       return translationHookFailure('consentOrChallenge');
     }
+    this.preparedPages.add(page);
     this.expectedTargets.set(page, targetLanguage);
     return translationHookSuccess();
   }

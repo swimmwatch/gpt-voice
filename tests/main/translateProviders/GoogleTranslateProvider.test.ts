@@ -484,6 +484,21 @@ describe('GoogleTranslateProvider', () => {
     assert.equal(harness.contexts[0]?.closeCalls, 1);
   });
 
+  it('reuses a confirmed cleared page without repeating provider navigation', async () => {
+    const harness = createHarness();
+
+    const first = await harness.provider.translate(createRequest());
+    const secondResult = createResult([createFragment('second translated')]);
+    harness.adapter.resultReadsAfterInsertion = [secondResult, secondResult];
+    const second = await harness.provider.translate(createRequest({ sourceText: 'second synthetic source' }));
+
+    assert.equal(first.success, true);
+    assert.equal(second.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.adapter.navigatedUrls.length, 1);
+    assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source', 'second synthetic source']);
+  });
+
   it('keeps the standalone URL builder free of source state', () => {
     const url = new URL(buildGoogleTranslateProviderUrl('be'));
     assert.equal(url.origin, 'https://translate.google.ru');

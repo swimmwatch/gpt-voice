@@ -32,7 +32,8 @@ const BING_CANONICAL_GROUP_SELECTOR = ':scope > optgroup#t_tgtAllLang';
 const BING_CANONICAL_OPTION_SELECTOR = ':scope > option';
 const BING_CLEAR_SELECTOR = '#tta_clear[role="button"][aria-label="Click to Clear"]';
 const BING_CLEAR_WRAPPER_SELECTOR = '#tta_clear_cnt';
-const BING_BLOCKING_SURFACE_SELECTOR = '[role="dialog"], iframe[title*="challenge" i], iframe[title*="captcha" i]';
+export const BING_BLOCKING_SURFACE_SELECTOR =
+  '[role="dialog"]:not(.infobubble), iframe[title*="challenge" i], iframe[title*="captcha" i]';
 const BING_AUTOMATIC_SOURCE_VALUE = 'auto-detect';
 
 export type BingRouteKind = 'loginOrChallenge' | 'translator' | 'unexpected';
@@ -241,7 +242,8 @@ export function classifyBingResultSnapshot(snapshot: BingResultSnapshot): Transl
   if (snapshot.visibleOutputControls !== 1 || snapshot.visibleEnabledOutputControls !== 1) {
     return translationHookFailure('pageContractFailure');
   }
-  return translationHookSuccess(snapshot.text.trim());
+  const normalizedText = snapshot.text.trim();
+  return translationHookSuccess(normalizedText === '...' || normalizedText === '…' ? '' : normalizedText);
 }
 
 /** Restricts Playwright access to the researched public Bing controls. */
@@ -260,11 +262,13 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   }
 
   async readPublicControlsSnapshot(): Promise<BingPublicControlsSnapshot> {
-    const sourceSelect = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR));
-    const targetSelect = await getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR));
-    const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
-    const outputs = await getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR));
-    const blockingSurfaces = await getVisibleLocators(this.page.locator(BING_BLOCKING_SURFACE_SELECTOR));
+    const [sourceSelect, targetSelect, sourceEditors, outputs, blockingSurfaces] = await Promise.all([
+      getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_BLOCKING_SURFACE_SELECTOR)),
+    ]);
     const sourceText =
       sourceEditors.length === 1 ? await sourceEditors[0]?.locator.textContent().catch(() => null) : null;
     return {
@@ -287,26 +291,32 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
     }
     const groups = targetSelects[0].locator.locator(BING_CANONICAL_GROUP_SELECTOR);
     const options = groups.locator(BING_CANONICAL_OPTION_SELECTOR);
-    const optionSnapshots: BingCanonicalOptionSnapshot[] = [];
-    const optionCount = await options.count();
-    for (let index = 0; index < optionCount; index += 1) {
-      const option = options.nth(index);
-      optionSnapshots.push({
-        enabled: await option.isEnabled().catch(() => false),
-        label: (await option.textContent()) ?? '',
-        value: (await option.getAttribute('value')) ?? '',
-      });
-    }
+    const [canonicalGroups, optionSnapshots] = await Promise.all([
+      groups.count(),
+      options.evaluateAll((elements) =>
+        elements.map((element) => {
+          const option = element as HTMLOptionElement;
+          const parentGroup = option.parentElement as HTMLOptGroupElement | null;
+          return {
+            enabled: !option.disabled && parentGroup?.disabled !== true,
+            label: option.textContent ?? '',
+            value: option.value,
+          };
+        }),
+      ),
+    ]);
     return {
-      canonicalGroups: await groups.count(),
+      canonicalGroups,
       options: optionSnapshots,
     };
   }
 
   async readSelectionSnapshot(): Promise<BingSelectionSnapshot> {
-    const sourceSelect = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR));
-    const targetSelect = await getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR));
-    const outputs = await getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR));
+    const [sourceSelect, targetSelect, outputs] = await Promise.all([
+      getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR)),
+      getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR)),
+    ]);
     return {
       outputLanguage: outputs.length === 1 ? await outputs[0]?.locator.getAttribute('lang').catch(() => null) : null,
       sourceLanguage: sourceSelect.length === 1 ? await sourceSelect[0]?.locator.inputValue().catch(() => null) : null,
@@ -325,8 +335,27 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   async fillSourceText(sourceText: string): Promise<boolean> {
     const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
     if (sourceEditors.length !== 1 || !sourceEditors[0]?.enabled || !sourceEditors[0].editable) return false;
-    await sourceEditors[0].locator.fill(sourceText);
-    return true;
+    return sourceEditors[0].locator.evaluate((element, value) => {
+      const editor = element as HTMLElement;
+      const beforeInputAccepted = editor.dispatchEvent(
+        new InputEvent('beforeinput', {
+          bubbles: true,
+          cancelable: true,
+          data: value,
+          inputType: 'insertText',
+        }),
+      );
+      if (!beforeInputAccepted) return false;
+      editor.textContent = value;
+      editor.dispatchEvent(
+        new InputEvent('input', {
+          bubbles: true,
+          data: value,
+          inputType: 'insertText',
+        }),
+      );
+      return editor.textContent === value;
+    }, sourceText);
   }
 
   async readResultSnapshot(): Promise<BingResultSnapshot> {
@@ -371,15 +400,29 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   async clickClear(): Promise<boolean> {
     const clearControls = await getVisibleLocators(this.page.locator(BING_CLEAR_SELECTOR));
     if (clearControls.length !== 1 || !clearControls[0]?.enabled) return false;
-    await clearControls[0].locator.click();
-    return true;
+    return clearControls[0].locator.evaluate((element) => {
+      (element as HTMLElement).click();
+      return true;
+    });
   }
 
   private async selectExactValue(selector: string, value: string): Promise<boolean> {
     const controls = await getVisibleLocators(this.page.locator(selector));
     if (controls.length !== 1 || !controls[0]?.enabled) return false;
-    const selected = await controls[0].locator.selectOption({ value });
-    return selected.length === 1 && selected[0] === value;
+    return controls[0].locator.evaluate((element, exactValue) => {
+      const select = element as HTMLSelectElement;
+      const option = Array.from(select.options).find(
+        (candidate) =>
+          candidate.value === exactValue &&
+          !candidate.disabled &&
+          !(candidate.parentElement instanceof HTMLOptGroupElement && candidate.parentElement.disabled),
+      );
+      if (!option) return false;
+      select.value = exactValue;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return select.value === exactValue;
+    }, value);
   }
 }
 
@@ -395,8 +438,10 @@ export class BingTranslateProvider extends BaseTranslateProvider {
   private readonly clearTimeoutMs: number;
   private readonly createPageAdapter: BingTranslatePageAdapterFactory;
   private readonly expectedTargets = new WeakMap<Page, string>();
+  private readonly preparedPages = new WeakSet<Page>();
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   private readonly readinessTimeoutMs: number;
+  private readonly validatedCatalogTargets = new WeakMap<Page, ReadonlySet<string>>();
   private readonly waitForCatalogStability: (delayMs: number) => Promise<void>;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
@@ -417,6 +462,16 @@ export class BingTranslateProvider extends BaseTranslateProvider {
     _targetLanguage: string,
   ): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
+    if (this.preparedPages.has(page)) {
+      const route = await adapter.readRouteSnapshot();
+      if (route.route !== 'translator') {
+        return translationHookFailure('consentOrChallenge');
+      }
+      const controls = await adapter.readPublicControlsSnapshot();
+      return controls.blockingSurfaces === 0 ? translationHookSuccess() : translationHookFailure('consentOrChallenge');
+    }
+
+    this.validatedCatalogTargets.delete(page);
     await retryBrowserNavigation(
       {
         navigate: () => adapter.navigate(),
@@ -430,11 +485,24 @@ export class BingTranslateProvider extends BaseTranslateProvider {
       return translationHookFailure('consentOrChallenge');
     }
     const controls = await adapter.readPublicControlsSnapshot();
-    return controls.blockingSurfaces === 0 ? translationHookSuccess() : translationHookFailure('consentOrChallenge');
+    if (controls.blockingSurfaces > 0) {
+      return translationHookFailure('consentOrChallenge');
+    }
+    this.preparedPages.add(page);
+    return translationHookSuccess();
   }
 
   protected async inspectReadiness(page: Page): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
+    if (this.validatedCatalogTargets.has(page)) {
+      const controlsSnapshot = await adapter.readPublicControlsSnapshot();
+      const controls = classifyBingPublicControls(controlsSnapshot);
+      if (!controls.success && controls.code === 'consentOrChallenge') return controls;
+      return controls.success && controlsSnapshot.sourceTextLength === 0
+        ? translationHookSuccess()
+        : translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+
     const stabilityDelayMs = Math.max(1, this.catalogStabilityDelayMs);
     const maximumReads = Math.max(2, Math.floor(this.readinessTimeoutMs / stabilityDelayMs) + 1);
     let previousSignature: string | null = null;
@@ -448,9 +516,16 @@ export class BingTranslateProvider extends BaseTranslateProvider {
       const controlsSnapshot = await adapter.readPublicControlsSnapshot();
       const controls = classifyBingPublicControls(controlsSnapshot);
       if (!controls.success && controls.code === 'consentOrChallenge') return controls;
-      const catalog = classifyBingCanonicalCatalog(await adapter.readCanonicalCatalogSnapshot());
+      const catalogSnapshot = await adapter.readCanonicalCatalogSnapshot();
+      const catalog = classifyBingCanonicalCatalog(catalogSnapshot);
       if (controls.success && controlsSnapshot.sourceTextLength === 0 && catalog.success) {
-        if (previousSignature === catalog.value) return translationHookSuccess();
+        if (previousSignature === catalog.value) {
+          this.validatedCatalogTargets.set(
+            page,
+            new Set(catalogSnapshot.options.filter((option) => option.enabled).map((option) => option.value)),
+          );
+          return translationHookSuccess();
+        }
         previousSignature = catalog.value;
       } else {
         previousSignature = null;
@@ -466,6 +541,10 @@ export class BingTranslateProvider extends BaseTranslateProvider {
 
   protected async enableAutomaticSourceDetection(page: Page): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
+    const currentSelection = await adapter.readSelectionSnapshot();
+    if (currentSelection.sourceLanguage === BING_AUTOMATIC_SOURCE_VALUE) {
+      return translationHookSuccess();
+    }
     if (!(await adapter.selectSourceLanguage(BING_AUTOMATIC_SOURCE_VALUE))) {
       return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
     }
@@ -477,13 +556,14 @@ export class BingTranslateProvider extends BaseTranslateProvider {
 
   protected async selectAndVerifyTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
-    const catalogSnapshot = await adapter.readCanonicalCatalogSnapshot();
-    const catalog = classifyBingCanonicalCatalog(catalogSnapshot);
-    if (
-      !catalog.success ||
-      !catalogSnapshot.options.some((option) => option.enabled && option.value === targetLanguage)
-    ) {
+    const validatedTargets = this.validatedCatalogTargets.get(page);
+    if (!validatedTargets?.has(targetLanguage)) {
       return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    const currentSelection = await adapter.readSelectionSnapshot();
+    if (this.selectionMatches(currentSelection, targetLanguage)) {
+      this.expectedTargets.set(page, targetLanguage);
+      return translationHookSuccess();
     }
     if (!(await adapter.selectTargetLanguage(targetLanguage))) {
       return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
@@ -520,7 +600,8 @@ export class BingTranslateProvider extends BaseTranslateProvider {
     if (route.route !== 'translator') {
       return translationHookFailure('consentOrChallenge');
     }
-    const controls = classifyBingPublicControls(await adapter.readPublicControlsSnapshot());
+    const controlsSnapshot = await adapter.readPublicControlsSnapshot();
+    const controls = classifyBingPublicControls(controlsSnapshot);
     if (!controls.success) return controls;
     return classifyBingResultSnapshot(await adapter.readResultSnapshot());
   }

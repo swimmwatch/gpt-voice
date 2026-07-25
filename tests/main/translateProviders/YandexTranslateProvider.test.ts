@@ -35,16 +35,17 @@ function createRoute(
 }
 
 function createEditors(overrides: Partial<YandexEditorSnapshot> = {}): YandexEditorSnapshot {
+  const destinationVisible = overrides.destinationVisible ?? false;
   return {
     destinationEditors: 1,
     destinationResolution: 'primary',
     destinationText: '',
-    destinationVisible: false,
+    destinationVisible,
     editableSourceEditors: 1,
     sourceEditors: 1,
     sourceResolution: 'primary',
     sourceTextLength: 0,
-    visibleDestinationPanels: 1,
+    visibleDestinationPanels: destinationVisible ? 1 : 0,
     visibleForbiddenTextareas: 0,
     ...overrides,
   };
@@ -53,9 +54,10 @@ function createEditors(overrides: Partial<YandexEditorSnapshot> = {}): YandexEdi
 function createAutomaticSource(overrides: Partial<YandexAutomaticSourceSnapshot> = {}): YandexAutomaticSourceSnapshot {
   return {
     checked: true,
-    visibleEnabledSwitches: 1,
-    visibleLabels: 1,
-    visibleSwitches: 1,
+    chooserOpen: false,
+    enabledSwitches: 1,
+    exactLabels: 1,
+    switches: 1,
     ...overrides,
   };
 }
@@ -91,6 +93,8 @@ class FakeContext {
 class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
   automaticSource = createAutomaticSource();
   automaticSourceClicks = 0;
+  automaticSourceChooserCloses = 0;
+  automaticSourceChooserOpens = 0;
   blockingSurfaces = 0;
   clearClicks = 0;
   clearControlEnabled = false;
@@ -125,6 +129,9 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
   selectedTargetCodes: string[] = [];
   sourceUpdates = 0;
   targetAfterInsertion: string | null = null;
+  targetChooserHydrates = true;
+  targetChooserOpen = false;
+  targetChooserOpens = 0;
   targetSnapshot: YandexTargetSnapshot = {
     selectedTargetCode: null,
     visibleOpeners: 1,
@@ -135,6 +142,7 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
 
   async navigate(): Promise<void> {
     this.navigatedUrls.push('https://translate.yandex.com/en/translator');
+    this.targetChooserOpen = false;
     this.route = this.navigationRoute ?? createRoute();
     this.targetSnapshot = {
       ...this.targetSnapshot,
@@ -179,11 +187,32 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
     return this.automaticSource;
   }
 
+  async openAutomaticSourceChooser(): Promise<boolean> {
+    if (
+      this.automaticSource.exactLabels !== 1 ||
+      this.automaticSource.switches !== 1 ||
+      this.automaticSource.enabledSwitches !== 1
+    ) {
+      return false;
+    }
+    this.automaticSourceChooserOpens += 1;
+    this.automaticSource = { ...this.automaticSource, chooserOpen: true };
+    return true;
+  }
+
+  async closeAutomaticSourceChooser(): Promise<boolean> {
+    if (!this.automaticSource.chooserOpen) return false;
+    this.automaticSourceChooserCloses += 1;
+    this.automaticSource = { ...this.automaticSource, chooserOpen: false };
+    return true;
+  }
+
   async enableAutomaticSourceDetection(): Promise<boolean> {
     if (
-      this.automaticSource.visibleLabels !== 1 ||
-      this.automaticSource.visibleSwitches !== 1 ||
-      this.automaticSource.visibleEnabledSwitches !== 1
+      !this.automaticSource.chooserOpen ||
+      this.automaticSource.exactLabels !== 1 ||
+      this.automaticSource.switches !== 1 ||
+      this.automaticSource.enabledSwitches !== 1
     ) {
       return false;
     }
@@ -202,8 +231,16 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
     return this.targetSnapshot;
   }
 
+  async openTargetChooser(): Promise<boolean> {
+    if (this.targetSnapshot.visibleOpeners !== 1 || !this.targetChooserHydrates) return false;
+    this.targetChooserOpens += 1;
+    this.targetChooserOpen = true;
+    return true;
+  }
+
   async selectTargetLanguage(targetLanguage: string): Promise<boolean> {
     if (
+      !this.targetChooserOpen ||
       this.targetSnapshot.visibleOpeners !== 1 ||
       this.visibleTargetOptionMatches !== 1 ||
       !YANDEX_TRANSLATION_LANGUAGES.some((language) => language.code === targetLanguage)
@@ -211,6 +248,7 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
       return false;
     }
     this.selectedTargetCodes.push(targetLanguage);
+    this.targetChooserOpen = false;
     this.targetSnapshot = { ...this.targetSnapshot, selectedTargetCode: targetLanguage };
     this.route = {
       ...this.route,
@@ -282,6 +320,7 @@ class FixtureYandexPageAdapter implements YandexTranslatePageAdapter {
       destinationText: '',
       destinationVisible: false,
       sourceTextLength: 0,
+      visibleDestinationPanels: 0,
     };
     this.route = {
       ...this.route,
@@ -434,7 +473,7 @@ describe('YandexTranslateProvider', () => {
     }
   });
 
-  it('enables automatic source detection through one visible label and rejects ambiguous switches', async () => {
+  it('opens the source chooser, enables automatic detection through its exact label, and closes it', async () => {
     const unchecked = createHarness();
     unchecked.adapter.automaticSource = createAutomaticSource({ checked: false });
 
@@ -442,19 +481,34 @@ describe('YandexTranslateProvider', () => {
 
     assert.equal(enabled.success, true);
     assert.equal(unchecked.adapter.automaticSourceClicks, 1);
+    assert.equal(unchecked.adapter.automaticSourceChooserOpens, 1);
+    assert.equal(unchecked.adapter.automaticSourceChooserCloses, 1);
+    assert.equal(unchecked.adapter.automaticSource.chooserOpen, false);
 
     const ambiguous = createHarness();
     ambiguous.adapter.automaticSource = createAutomaticSource({
       checked: null,
-      visibleEnabledSwitches: 2,
-      visibleLabels: 2,
-      visibleSwitches: 2,
+      enabledSwitches: 2,
+      exactLabels: 2,
+      switches: 2,
     });
     const rejected = await ambiguous.provider.translate(createRequest());
     assert.equal(rejected.success, false);
     assert.equal(rejected.success ? null : rejected.code, 'pageContractFailure');
     assert.equal(ambiguous.adapter.insertedTexts.length, 0);
     assert.equal(ambiguous.contexts.length, 2);
+  });
+
+  it('accepts one attached hidden destination editor before submission and after clearing', async () => {
+    const harness = createHarness();
+
+    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+    assert.equal(harness.adapter.currentEditors.destinationEditors, 1);
+    assert.equal(harness.adapter.currentEditors.destinationVisible, false);
+    assert.equal(harness.adapter.currentEditors.visibleDestinationPanels, 0);
+    assert.equal(harness.adapter.clearClicks, 1);
   });
 
   it('selects every shared target by its exact opaque code and ignores hidden duplicate options', async () => {
@@ -467,6 +521,7 @@ describe('YandexTranslateProvider', () => {
 
       assert.equal(outcome.success, true, language.code);
       assert.deepEqual(harness.adapter.selectedTargetCodes, [language.code]);
+      assert.equal(harness.adapter.targetChooserOpens, 1);
     }
 
     for (const code of ['pt-BR', 'sr-Latn', 'kazlat', 'uzbcyr']) {
@@ -486,6 +541,19 @@ describe('YandexTranslateProvider', () => {
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
     assert.equal(harness.contexts.length, 2);
+    assert.equal(harness.adapter.insertedTexts.length, 0);
+  });
+
+  it('waits for target-chooser hydration and recovers only before submission', async () => {
+    const harness = createHarness();
+    harness.adapter.targetChooserHydrates = false;
+
+    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
+    assert.equal(harness.contexts.length, 2);
+    assert.equal(harness.adapter.targetChooserOpens, 0);
     assert.equal(harness.adapter.insertedTexts.length, 0);
   });
 
@@ -516,6 +584,7 @@ describe('YandexTranslateProvider', () => {
       createEditors({ editableSourceEditors: 2, sourceEditors: 2, sourceResolution: 'invalid' }),
       createEditors({ destinationEditors: 2, destinationResolution: 'invalid' }),
       createEditors({ visibleDestinationPanels: 2 }),
+      createEditors({ destinationVisible: true, visibleDestinationPanels: 0 }),
       createEditors({ visibleForbiddenTextareas: 1 }),
     ]) {
       const ambiguous = createHarness();
@@ -539,6 +608,26 @@ describe('YandexTranslateProvider', () => {
       ['beforeinput:insertText', 'textContent', 'input:insertText'],
     ]);
     assert.equal(harness.adapter.forbiddenTextareaUpdates, 0);
+  });
+
+  it('reuses one prepared page without reopening either language chooser', async () => {
+    const harness = createHarness();
+
+    const first = await harness.provider.translate(createRequest({ sourceText: 'first source' }));
+    harness.adapter.resultReadsAfterInsertion = [
+      createEditors({ destinationText: 'second', destinationVisible: true }),
+      createEditors({ destinationText: 'second', destinationVisible: true }),
+    ];
+    const second = await harness.provider.translate(createRequest({ sourceText: 'second source' }));
+
+    assert.equal(first.success, true);
+    assert.equal(second.success ? second.text : null, 'second');
+    assert.equal(harness.adapter.navigatedUrls.length, 1);
+    assert.equal(harness.adapter.automaticSourceChooserOpens, 1);
+    assert.equal(harness.adapter.targetChooserOpens, 1);
+    assert.deepEqual(harness.adapter.selectedTargetCodes, ['en']);
+    assert.deepEqual(harness.adapter.insertedTexts, ['first source', 'second source']);
+    assert.equal(harness.contexts.length, 1);
   });
 
   it('accepts only a visible normalized result and rejects hidden nonempty or ambiguous destinations', async () => {
