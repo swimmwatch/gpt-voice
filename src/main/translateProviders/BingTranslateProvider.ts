@@ -1,0 +1,610 @@
+/* eslint-disable max-classes-per-file -- the private Playwright adapter is colocated with its provider contract. */
+import type { Locator, Page } from 'playwright-core';
+
+import {
+  BrowserNavigationService,
+  retryBrowserNavigation,
+  type BrowserNavigationRetryEvent,
+} from '@main/browserNavigationRetry';
+import {
+  BaseTranslateProvider,
+  type BaseTranslateProviderDependencies,
+} from '@main/translateProviders/BaseTranslateProvider';
+import {
+  translationHookFailure,
+  translationHookSuccess,
+  type TranslationProviderHookResult,
+} from '@main/translateProviders/translationProviderContracts';
+import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
+
+const BING_TRANSLATE_URL = 'https://www.bing.com/translator';
+const BING_NAVIGATION_TIMEOUT_MS = 60_000;
+export const BING_READINESS_TIMEOUT_MS = 5_000;
+export const BING_CATALOG_STABILITY_DELAY_MS = 250;
+const BING_CLEAR_TIMEOUT_MS = 1_500;
+const BING_CLEAR_POLL_INTERVAL_MS = 50;
+
+const BING_SOURCE_SELECT_SELECTOR = 'select#tta_srcsl[aria-label="Input Language Selection Dropdown"]';
+const BING_TARGET_SELECT_SELECTOR = 'select#tta_tgtsl[aria-label="Output Language Selection Dropdown"]';
+const BING_SOURCE_SELECTOR = 'div#tta_input_ta[role="textbox"][aria-label="Input text area"][contenteditable="true"]';
+const BING_RESULT_SELECTOR = 'div#tta_output_ta[data-placeholder="Translation"]';
+const BING_CANONICAL_GROUP_SELECTOR = ':scope > optgroup#t_tgtAllLang';
+const BING_CANONICAL_OPTION_SELECTOR = ':scope > option';
+const BING_CLEAR_SELECTOR = '#tta_clear[role="button"][aria-label="Click to Clear"]';
+const BING_CLEAR_WRAPPER_SELECTOR = '#tta_clear_cnt';
+const BING_BLOCKING_SURFACE_SELECTOR = '[role="dialog"], iframe[title*="challenge" i], iframe[title*="captcha" i]';
+const BING_AUTOMATIC_SOURCE_VALUE = 'auto-detect';
+
+export type BingRouteKind = 'loginOrChallenge' | 'translator' | 'unexpected';
+
+export interface BingRouteSnapshot {
+  readonly route: BingRouteKind;
+}
+
+export interface BingControlCountSnapshot {
+  readonly visible: number;
+  readonly visibleEnabled: number;
+}
+
+export interface BingPublicControlsSnapshot {
+  readonly blockingSurfaces: number;
+  readonly output: BingControlCountSnapshot;
+  readonly sourceEditor: BingControlCountSnapshot;
+  readonly sourceSelect: BingControlCountSnapshot;
+  readonly sourceTextLength: number | null;
+  readonly targetSelect: BingControlCountSnapshot;
+}
+
+export interface BingCanonicalOptionSnapshot {
+  readonly enabled: boolean;
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface BingCanonicalCatalogSnapshot {
+  readonly canonicalGroups: number;
+  readonly options: readonly BingCanonicalOptionSnapshot[];
+}
+
+export interface BingSelectionSnapshot {
+  readonly outputLanguage: string | null;
+  readonly sourceLanguage: string | null;
+  readonly targetLanguage: string | null;
+}
+
+export interface BingResultSnapshot {
+  readonly outputLanguage: string | null;
+  readonly text: string;
+  readonly visibleEnabledOutputControls: number;
+  readonly visibleOutputControls: number;
+}
+
+export interface BingClearSnapshot {
+  readonly clearControlEnabled: boolean;
+  readonly clearWrapperVisible: boolean;
+  readonly controls: BingPublicControlsSnapshot;
+  readonly result: BingResultSnapshot;
+  readonly selection: BingSelectionSnapshot;
+  readonly sourceFocused: boolean;
+  readonly visibleClearControls: number;
+  readonly visibleClearWrappers: number;
+}
+
+export interface BingTranslatePageAdapter {
+  clickClear(): Promise<boolean>;
+  fillSourceText(sourceText: string): Promise<boolean>;
+  navigate(): Promise<void>;
+  readCanonicalCatalogSnapshot(): Promise<BingCanonicalCatalogSnapshot>;
+  readClearSnapshot(): Promise<BingClearSnapshot>;
+  readPublicControlsSnapshot(): Promise<BingPublicControlsSnapshot>;
+  readResultSnapshot(): Promise<BingResultSnapshot>;
+  readRouteSnapshot(): Promise<BingRouteSnapshot>;
+  readSelectionSnapshot(): Promise<BingSelectionSnapshot>;
+  selectSourceLanguage(value: string): Promise<boolean>;
+  selectTargetLanguage(value: string): Promise<boolean>;
+}
+
+export type BingTranslatePageAdapterFactory = (page: Page) => BingTranslatePageAdapter;
+
+export interface BingTranslateProviderDependencies extends Partial<BaseTranslateProviderDependencies> {
+  readonly catalogStabilityDelayMs?: number;
+  readonly clearPollIntervalMs?: number;
+  readonly clearTimeoutMs?: number;
+  readonly createPageAdapter?: BingTranslatePageAdapterFactory;
+  readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
+  readonly readinessTimeoutMs?: number;
+  readonly waitForCatalogStability?: (delayMs: number) => Promise<void>;
+  readonly waitForClearPoll?: (delayMs: number) => Promise<void>;
+}
+
+interface VisibleLocatorSnapshot {
+  readonly editable: boolean;
+  readonly enabled: boolean;
+  readonly locator: Locator;
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+function createControlCountSnapshot(controls: readonly VisibleLocatorSnapshot[]): BingControlCountSnapshot {
+  return {
+    visible: controls.length,
+    visibleEnabled: controls.filter((control) => control.enabled).length,
+  };
+}
+
+async function getVisibleLocators(locator: Locator): Promise<VisibleLocatorSnapshot[]> {
+  const visible: VisibleLocatorSnapshot[] = [];
+  const count = await locator.count();
+  for (let index = 0; index < count; index += 1) {
+    const candidate = locator.nth(index);
+    if (!(await candidate.isVisible())) continue;
+    visible.push({
+      editable: await candidate.isEditable().catch(() => false),
+      enabled: await candidate.isEnabled().catch(() => false),
+      locator: candidate,
+    });
+  }
+  return visible;
+}
+
+function isSingleEnabledControl(snapshot: BingControlCountSnapshot): boolean {
+  return snapshot.visible === 1 && snapshot.visibleEnabled === 1;
+}
+
+export function createBingRouteSnapshot(rawUrl: string): BingRouteSnapshot {
+  try {
+    const url = new URL(rawUrl);
+    const normalizedPath = url.pathname.toLowerCase();
+    if (
+      normalizedPath.includes('challenge') ||
+      normalizedPath.includes('login') ||
+      normalizedPath.includes('signin') ||
+      normalizedPath.includes('sorry')
+    ) {
+      return { route: 'loginOrChallenge' };
+    }
+    if (
+      url.origin === 'https://www.bing.com' &&
+      (url.pathname === '/translator' || url.pathname === '/translator/') &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    ) {
+      return { route: 'translator' };
+    }
+  } catch {
+    return { route: 'unexpected' };
+  }
+  return { route: 'unexpected' };
+}
+
+export function classifyBingPublicControls(snapshot: BingPublicControlsSnapshot): TranslationProviderHookResult {
+  if (snapshot.blockingSurfaces > 0) {
+    return translationHookFailure('consentOrChallenge');
+  }
+  if (
+    !isSingleEnabledControl(snapshot.sourceSelect) ||
+    !isSingleEnabledControl(snapshot.targetSelect) ||
+    !isSingleEnabledControl(snapshot.sourceEditor) ||
+    !isSingleEnabledControl(snapshot.output)
+  ) {
+    return translationHookFailure('pageContractFailure');
+  }
+  return translationHookSuccess();
+}
+
+function compareCatalogOptions(
+  left: Pick<BingCanonicalOptionSnapshot, 'label' | 'value'>,
+  right: Pick<BingCanonicalOptionSnapshot, 'label' | 'value'>,
+): number {
+  if (left.value < right.value) return -1;
+  if (left.value > right.value) return 1;
+  if (left.label < right.label) return -1;
+  if (left.label > right.label) return 1;
+  return 0;
+}
+
+export function classifyBingCanonicalCatalog(
+  snapshot: BingCanonicalCatalogSnapshot,
+): TranslationProviderHookResult<string> {
+  if (snapshot.canonicalGroups !== 1 || snapshot.options.length === 0) {
+    return translationHookFailure('pageContractFailure');
+  }
+
+  const normalized = snapshot.options.map((option) => ({
+    enabled: option.enabled,
+    label: option.label.trim(),
+    value: option.value,
+  }));
+  const seenValues = new Set<string>();
+  for (const option of normalized) {
+    if (
+      !option.enabled ||
+      option.value.trim().length === 0 ||
+      option.label.length === 0 ||
+      seenValues.has(option.value)
+    ) {
+      return translationHookFailure('pageContractFailure');
+    }
+    seenValues.add(option.value);
+  }
+
+  return translationHookSuccess(
+    JSON.stringify(normalized.map(({ label, value }) => ({ label, value })).sort(compareCatalogOptions)),
+  );
+}
+
+export function classifyBingResultSnapshot(snapshot: BingResultSnapshot): TranslationProviderHookResult<string> {
+  if (snapshot.visibleOutputControls !== 1 || snapshot.visibleEnabledOutputControls !== 1) {
+    return translationHookFailure('pageContractFailure');
+  }
+  return translationHookSuccess(snapshot.text.trim());
+}
+
+/** Restricts Playwright access to the researched public Bing controls. */
+class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
+  constructor(private readonly page: Page) {}
+
+  async navigate(): Promise<void> {
+    await this.page.goto(BING_TRANSLATE_URL, {
+      timeout: BING_NAVIGATION_TIMEOUT_MS,
+      waitUntil: 'domcontentloaded',
+    });
+  }
+
+  readRouteSnapshot(): Promise<BingRouteSnapshot> {
+    return Promise.resolve(createBingRouteSnapshot(this.page.url()));
+  }
+
+  async readPublicControlsSnapshot(): Promise<BingPublicControlsSnapshot> {
+    const sourceSelect = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR));
+    const targetSelect = await getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR));
+    const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
+    const outputs = await getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR));
+    const blockingSurfaces = await getVisibleLocators(this.page.locator(BING_BLOCKING_SURFACE_SELECTOR));
+    const sourceText =
+      sourceEditors.length === 1 ? await sourceEditors[0]?.locator.textContent().catch(() => null) : null;
+    return {
+      blockingSurfaces: blockingSurfaces.length,
+      output: createControlCountSnapshot(outputs),
+      sourceEditor: {
+        visible: sourceEditors.length,
+        visibleEnabled: sourceEditors.filter((control) => control.enabled && control.editable).length,
+      },
+      sourceSelect: createControlCountSnapshot(sourceSelect),
+      sourceTextLength: sourceText?.length ?? null,
+      targetSelect: createControlCountSnapshot(targetSelect),
+    };
+  }
+
+  async readCanonicalCatalogSnapshot(): Promise<BingCanonicalCatalogSnapshot> {
+    const targetSelects = await getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR));
+    if (targetSelects.length !== 1 || !targetSelects[0]) {
+      return { canonicalGroups: 0, options: [] };
+    }
+    const groups = targetSelects[0].locator.locator(BING_CANONICAL_GROUP_SELECTOR);
+    const options = groups.locator(BING_CANONICAL_OPTION_SELECTOR);
+    const optionSnapshots: BingCanonicalOptionSnapshot[] = [];
+    const optionCount = await options.count();
+    for (let index = 0; index < optionCount; index += 1) {
+      const option = options.nth(index);
+      optionSnapshots.push({
+        enabled: await option.isEnabled().catch(() => false),
+        label: (await option.textContent()) ?? '',
+        value: (await option.getAttribute('value')) ?? '',
+      });
+    }
+    return {
+      canonicalGroups: await groups.count(),
+      options: optionSnapshots,
+    };
+  }
+
+  async readSelectionSnapshot(): Promise<BingSelectionSnapshot> {
+    const sourceSelect = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECT_SELECTOR));
+    const targetSelect = await getVisibleLocators(this.page.locator(BING_TARGET_SELECT_SELECTOR));
+    const outputs = await getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR));
+    return {
+      outputLanguage: outputs.length === 1 ? await outputs[0]?.locator.getAttribute('lang').catch(() => null) : null,
+      sourceLanguage: sourceSelect.length === 1 ? await sourceSelect[0]?.locator.inputValue().catch(() => null) : null,
+      targetLanguage: targetSelect.length === 1 ? await targetSelect[0]?.locator.inputValue().catch(() => null) : null,
+    };
+  }
+
+  async selectSourceLanguage(value: string): Promise<boolean> {
+    return this.selectExactValue(BING_SOURCE_SELECT_SELECTOR, value);
+  }
+
+  async selectTargetLanguage(value: string): Promise<boolean> {
+    return this.selectExactValue(BING_TARGET_SELECT_SELECTOR, value);
+  }
+
+  async fillSourceText(sourceText: string): Promise<boolean> {
+    const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
+    if (sourceEditors.length !== 1 || !sourceEditors[0]?.enabled || !sourceEditors[0].editable) return false;
+    await sourceEditors[0].locator.fill(sourceText);
+    return true;
+  }
+
+  async readResultSnapshot(): Promise<BingResultSnapshot> {
+    const outputs = await getVisibleLocators(this.page.locator(BING_RESULT_SELECTOR));
+    if (outputs.length !== 1 || !outputs[0]) {
+      return {
+        outputLanguage: null,
+        text: '',
+        visibleEnabledOutputControls: outputs.filter((control) => control.enabled).length,
+        visibleOutputControls: outputs.length,
+      };
+    }
+    return {
+      outputLanguage: await outputs[0].locator.getAttribute('lang'),
+      text: (await outputs[0].locator.textContent()) ?? '',
+      visibleEnabledOutputControls: outputs[0].enabled ? 1 : 0,
+      visibleOutputControls: 1,
+    };
+  }
+
+  async readClearSnapshot(): Promise<BingClearSnapshot> {
+    const clearControls = await getVisibleLocators(this.page.locator(BING_CLEAR_SELECTOR));
+    const clearWrappers = this.page.locator(BING_CLEAR_WRAPPER_SELECTOR);
+    const visibleClearWrappers = await getVisibleLocators(clearWrappers);
+    const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
+    const sourceFocused =
+      sourceEditors.length === 1
+        ? await sourceEditors[0]?.locator.evaluate((element) => document.activeElement === element)
+        : false;
+    return {
+      clearControlEnabled: clearControls.length === 1 && clearControls[0]?.enabled === true,
+      clearWrapperVisible: visibleClearWrappers.length === 1,
+      controls: await this.readPublicControlsSnapshot(),
+      result: await this.readResultSnapshot(),
+      selection: await this.readSelectionSnapshot(),
+      sourceFocused: sourceFocused === true,
+      visibleClearControls: clearControls.length,
+      visibleClearWrappers: await clearWrappers.count(),
+    };
+  }
+
+  async clickClear(): Promise<boolean> {
+    const clearControls = await getVisibleLocators(this.page.locator(BING_CLEAR_SELECTOR));
+    if (clearControls.length !== 1 || !clearControls[0]?.enabled) return false;
+    await clearControls[0].locator.click();
+    return true;
+  }
+
+  private async selectExactValue(selector: string, value: string): Promise<boolean> {
+    const controls = await getVisibleLocators(this.page.locator(selector));
+    if (controls.length !== 1 || !controls[0]?.enabled) return false;
+    const selected = await controls[0].locator.selectOption({ value });
+    return selected.length === 1 && selected[0] === value;
+  }
+}
+
+function createPlaywrightBingTranslatePageAdapter(page: Page): BingTranslatePageAdapter {
+  return new PlaywrightBingTranslatePageAdapter(page);
+}
+
+/** Unregistered Bing public-page implementation of the shared translation lifecycle. */
+export class BingTranslateProvider extends BaseTranslateProvider {
+  private readonly adapters = new WeakMap<Page, BingTranslatePageAdapter>();
+  private readonly catalogStabilityDelayMs: number;
+  private readonly clearPollIntervalMs: number;
+  private readonly clearTimeoutMs: number;
+  private readonly createPageAdapter: BingTranslatePageAdapterFactory;
+  private readonly expectedTargets = new WeakMap<Page, string>();
+  private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
+  private readonly readinessTimeoutMs: number;
+  private readonly waitForCatalogStability: (delayMs: number) => Promise<void>;
+  private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
+
+  constructor(dependencies: BingTranslateProviderDependencies = {}) {
+    super(TRANSLATION_PROVIDER_INFO.bing, dependencies);
+    this.catalogStabilityDelayMs = dependencies.catalogStabilityDelayMs ?? BING_CATALOG_STABILITY_DELAY_MS;
+    this.clearPollIntervalMs = dependencies.clearPollIntervalMs ?? BING_CLEAR_POLL_INTERVAL_MS;
+    this.clearTimeoutMs = dependencies.clearTimeoutMs ?? BING_CLEAR_TIMEOUT_MS;
+    this.createPageAdapter = dependencies.createPageAdapter ?? createPlaywrightBingTranslatePageAdapter;
+    this.onNavigationRetry = dependencies.onNavigationRetry;
+    this.readinessTimeoutMs = dependencies.readinessTimeoutMs ?? BING_READINESS_TIMEOUT_MS;
+    this.waitForCatalogStability = dependencies.waitForCatalogStability ?? wait;
+    this.waitForClearPoll = dependencies.waitForClearPoll ?? wait;
+  }
+
+  protected async navigateAndHandleConsent(
+    page: Page,
+    _targetLanguage: string,
+  ): Promise<TranslationProviderHookResult> {
+    const adapter = this.getAdapter(page);
+    await retryBrowserNavigation(
+      {
+        navigate: () => adapter.navigate(),
+        service: BrowserNavigationService.BingTranslate,
+      },
+      { onRetry: this.onNavigationRetry },
+    );
+
+    const route = await adapter.readRouteSnapshot();
+    if (route.route !== 'translator') {
+      return translationHookFailure('consentOrChallenge');
+    }
+    const controls = await adapter.readPublicControlsSnapshot();
+    return controls.blockingSurfaces === 0 ? translationHookSuccess() : translationHookFailure('consentOrChallenge');
+  }
+
+  protected async inspectReadiness(page: Page): Promise<TranslationProviderHookResult> {
+    const adapter = this.getAdapter(page);
+    const stabilityDelayMs = Math.max(1, this.catalogStabilityDelayMs);
+    const maximumReads = Math.max(2, Math.floor(this.readinessTimeoutMs / stabilityDelayMs) + 1);
+    let previousSignature: string | null = null;
+
+    for (let read = 0; read < maximumReads; read += 1) {
+      const route = await adapter.readRouteSnapshot();
+      if (route.route !== 'translator') {
+        return translationHookFailure('consentOrChallenge');
+      }
+
+      const controlsSnapshot = await adapter.readPublicControlsSnapshot();
+      const controls = classifyBingPublicControls(controlsSnapshot);
+      if (!controls.success && controls.code === 'consentOrChallenge') return controls;
+      const catalog = classifyBingCanonicalCatalog(await adapter.readCanonicalCatalogSnapshot());
+      if (controls.success && controlsSnapshot.sourceTextLength === 0 && catalog.success) {
+        if (previousSignature === catalog.value) return translationHookSuccess();
+        previousSignature = catalog.value;
+      } else {
+        previousSignature = null;
+      }
+
+      if (read + 1 < maximumReads) {
+        await this.waitForCatalogStability(this.catalogStabilityDelayMs);
+      }
+    }
+
+    return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+  }
+
+  protected async enableAutomaticSourceDetection(page: Page): Promise<TranslationProviderHookResult> {
+    const adapter = this.getAdapter(page);
+    if (!(await adapter.selectSourceLanguage(BING_AUTOMATIC_SOURCE_VALUE))) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    const selection = await adapter.readSelectionSnapshot();
+    return selection.sourceLanguage === BING_AUTOMATIC_SOURCE_VALUE
+      ? translationHookSuccess()
+      : translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+  }
+
+  protected async selectAndVerifyTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
+    const adapter = this.getAdapter(page);
+    const catalogSnapshot = await adapter.readCanonicalCatalogSnapshot();
+    const catalog = classifyBingCanonicalCatalog(catalogSnapshot);
+    if (
+      !catalog.success ||
+      !catalogSnapshot.options.some((option) => option.enabled && option.value === targetLanguage)
+    ) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    if (!(await adapter.selectTargetLanguage(targetLanguage))) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    const selection = await adapter.readSelectionSnapshot();
+    if (!this.selectionMatches(selection, targetLanguage)) {
+      return translationHookFailure('pageContractFailure', { recoverableBeforeSubmission: true });
+    }
+    this.expectedTargets.set(page, targetLanguage);
+    return translationHookSuccess();
+  }
+
+  protected async clearStaleState(page: Page): Promise<TranslationProviderHookResult<string>> {
+    const previousResult = await this.readNormalizedResult(page);
+    if (!previousResult.success) {
+      return translationHookFailure(previousResult.code, { recoverableBeforeSubmission: true });
+    }
+    const clear = await this.clearAndConfirm(page);
+    if (!clear.success) {
+      return translationHookFailure(clear.code, { recoverableBeforeSubmission: true });
+    }
+    return translationHookSuccess(previousResult.value);
+  }
+
+  protected async insertSourceText(page: Page, sourceText: string): Promise<TranslationProviderHookResult> {
+    return (await this.getAdapter(page).fillSourceText(sourceText))
+      ? translationHookSuccess()
+      : translationHookFailure('pageContractFailure');
+  }
+
+  protected async readNormalizedResult(page: Page): Promise<TranslationProviderHookResult<string>> {
+    const adapter = this.getAdapter(page);
+    const route = await adapter.readRouteSnapshot();
+    if (route.route !== 'translator') {
+      return translationHookFailure('consentOrChallenge');
+    }
+    const controls = classifyBingPublicControls(await adapter.readPublicControlsSnapshot());
+    if (!controls.success) return controls;
+    return classifyBingResultSnapshot(await adapter.readResultSnapshot());
+  }
+
+  protected async verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
+    const route = await this.getAdapter(page).readRouteSnapshot();
+    if (route.route !== 'translator') {
+      return translationHookFailure('consentOrChallenge');
+    }
+    return this.selectionMatches(await this.getAdapter(page).readSelectionSnapshot(), targetLanguage)
+      ? translationHookSuccess()
+      : translationHookFailure('pageContractFailure');
+  }
+
+  protected async clearVisibleState(page: Page): Promise<TranslationProviderHookResult> {
+    const clear = await this.clearAndConfirm(page);
+    return clear.success ? clear : translationHookFailure('cleanupFailure');
+  }
+
+  private getAdapter(page: Page): BingTranslatePageAdapter {
+    const current = this.adapters.get(page);
+    if (current) return current;
+    const adapter = this.createPageAdapter(page);
+    this.adapters.set(page, adapter);
+    return adapter;
+  }
+
+  private selectionMatches(selection: BingSelectionSnapshot, targetLanguage: string): boolean {
+    return (
+      selection.sourceLanguage === BING_AUTOMATIC_SOURCE_VALUE &&
+      selection.targetLanguage === targetLanguage &&
+      selection.outputLanguage === targetLanguage
+    );
+  }
+
+  private isCleared(snapshot: BingClearSnapshot, targetLanguage: string, requireFocus: boolean): boolean {
+    const controls = classifyBingPublicControls(snapshot.controls);
+    const result = classifyBingResultSnapshot(snapshot.result);
+    return (
+      controls.success &&
+      result.success &&
+      snapshot.controls.sourceTextLength === 0 &&
+      result.value.length === 0 &&
+      this.selectionMatches(snapshot.selection, targetLanguage) &&
+      snapshot.visibleClearControls === 0 &&
+      snapshot.visibleClearWrappers === 1 &&
+      !snapshot.clearWrapperVisible &&
+      (!requireFocus || snapshot.sourceFocused)
+    );
+  }
+
+  private async clearAndConfirm(page: Page): Promise<TranslationProviderHookResult> {
+    const targetLanguage = this.expectedTargets.get(page);
+    if (!targetLanguage) return translationHookFailure('pageContractFailure');
+
+    const initial = await this.getAdapter(page).readClearSnapshot();
+    if (this.isCleared(initial, targetLanguage, false)) return translationHookSuccess();
+    const controls = classifyBingPublicControls(initial.controls);
+    const result = classifyBingResultSnapshot(initial.result);
+    if (
+      !controls.success ||
+      !result.success ||
+      !this.selectionMatches(initial.selection, targetLanguage) ||
+      initial.visibleClearControls !== 1 ||
+      !initial.clearControlEnabled ||
+      initial.visibleClearWrappers !== 1 ||
+      !initial.clearWrapperVisible
+    ) {
+      return translationHookFailure('pageContractFailure');
+    }
+    if (!(await this.getAdapter(page).clickClear())) {
+      return translationHookFailure('pageContractFailure');
+    }
+
+    const clearPollIntervalMs = Math.max(1, this.clearPollIntervalMs);
+    const readAttempts = Math.max(1, Math.ceil(this.clearTimeoutMs / clearPollIntervalMs));
+    for (let attempt = 0; attempt < readAttempts; attempt += 1) {
+      if (this.isCleared(await this.getAdapter(page).readClearSnapshot(), targetLanguage, true)) {
+        return translationHookSuccess();
+      }
+      if (attempt + 1 < readAttempts) {
+        await this.waitForClearPoll(this.clearPollIntervalMs);
+      }
+    }
+    return translationHookFailure('pageContractFailure');
+  }
+}

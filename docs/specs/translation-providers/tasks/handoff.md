@@ -1,9 +1,8 @@
-# Handoff: Translation Providers Task 03 Complete
+# Handoff: Translation Providers Task 04 Complete
 
-Status: Task 01 is committed at `e0d13bfa`, and Task 02 is committed at
-`1be624c6`. Task 03 is implemented, verified, and authorized for a scoped
-commit. Task 04 is authorized but has not started; Tasks 05–11 are not
-authorized.
+Status: Tasks 01–03 are committed through `e60cd0b`. Task 04 is implemented,
+verified, and authorized for a scoped commit. Task 05 is authorized after that
+commit. Tasks 06–11 are not authorized.
 
 ## Completed Packets
 
@@ -32,60 +31,68 @@ authorized.
   - Added sanitized public-control fixtures and pure readiness/result
     classifiers for ambiguity, branch, alternative, timeout, target, and
     cleanup behavior.
+- [04 Bing provider](04_implement_bing_translate_provider.md)
+  - Added an unregistered `BingTranslateProvider` bound to shared Bing
+    metadata and the base lifecycle.
+  - Added exact public-route, native-select, contenteditable fill, output
+    language, stable-catalog, and clear-state contracts.
+  - Added deterministic fixtures for bounded readiness recovery, single fill,
+    stable results, target agreement, and cleanup.
 
-## Google Public Controls
+## Bing Public Controls And Recovery
 
-- Source: `textarea[role="combobox"][aria-label="Source text"]`, exactly one
-  visible editable control.
-- Result: exactly one visible `Translation results` region; visible `.ryNqvb`
-  fragments outside `[role="listitem"]` must share one top-level branch.
-- Consent:
-  `button[jsname="tWT92d"][aria-label="Reject all"]`, exactly one visible
-  control on matching `consent.google.ru` or `consent.google.com`.
-- Clear: `button[aria-label="Clear source text"]`, exactly one visible enabled
-  control in nonempty state and hidden after confirmed clearing.
-- Allowed translator origins are `translate.google.ru` and
-  `translate.google.com`; login, challenge, unexpected, and cross-family
-  routes fail closed.
+- Source/target selects:
+  `select#tta_srcsl[aria-label="Input Language Selection Dropdown"]` and
+  `select#tta_tgtsl[aria-label="Output Language Selection Dropdown"]`.
+- Source/output:
+  `div#tta_input_ta[role="textbox"][aria-label="Input text area"][contenteditable="true"]`
+  and `div#tta_output_ta[data-placeholder="Translation"]`.
+- Canonical targets are enabled direct options under
+  `optgroup#t_tgtAllLang` inside the unique visible target select; Recently
+  used siblings are excluded.
+- Readiness requires two equal order-independent signatures 250 ms apart
+  within 5 seconds. Only the first pre-fill failure may recover.
+- Clear uses `#tta_clear[role="button"][aria-label="Click to Clear"]` and
+  confirms empty source/output, `auto-detect`, preserved target, hidden
+  `#tta_clear_cnt`, and source focus.
 
 ## Changed Files
 
-- Added `src/main/translateProviders/GoogleTranslateProvider.ts`.
-- Added `tests/main/translateProviders/GoogleTranslateProvider.test.ts`.
+- Added `src/main/translateProviders/BingTranslateProvider.ts`.
+- Added `tests/main/translateProviders/BingTranslateProvider.test.ts`.
 - Updated `tasks/todo.md` and this handoff.
 - Preserved the unrelated uncommitted
   `.agents/references/specification-interview.md` edit.
 
 ## Checks
 
-- `node --import tsx --test tests/main/translateProviders/GoogleTranslateProvider.test.ts tests/main/translationUtils.test.ts tests/main/translateProviders/BaseTranslateProvider.test.ts`
+- `node --import tsx --test tests/main/translateProviders/BingTranslateProvider.test.ts tests/main/translateProviders/BaseTranslateProvider.test.ts`
   passed.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
-- `npx eslint src/main/translateProviders/GoogleTranslateProvider.ts tests/main/translateProviders/GoogleTranslateProvider.test.ts`
+- `npx eslint src/main/translateProviders/BingTranslateProvider.ts tests/main/translateProviders/BingTranslateProvider.test.ts`
   passed.
-- `npx prettier --check "src/main/translateProviders/GoogleTranslateProvider.ts" "tests/main/translateProviders/GoogleTranslateProvider.test.ts"`
+- `npx prettier --check "src/main/translateProviders/BingTranslateProvider.ts" "tests/main/translateProviders/BingTranslateProvider.test.ts"`
   passed.
-- Static inspection found no registry or legacy-path import of the new class.
-- Fixtures cover `.ru`/`.com` no-consent and reject-consent flows, missing,
-  ambiguous, cross-family, unexpected, login/challenge, source/region
-  ambiguity, listitem exclusion, ordered fragments, branch ambiguity, wrong
-  target, empty timeout, stale clearing, retained-region cleanup, and context
-  closure after clear failure.
+- Static inspection found no registry import of the new class.
+- Fixtures cover metadata and limits, exact routes and values, blocking,
+  missing/duplicate/disabled controls, catalog validity and stability,
+  Recently used exclusion, one recovery, second failure, value/target drift,
+  one fill, empty timeout, stale output, exact clearing, and context closure
+  after clear failure.
 
 ## Exact Next Packet
 
-- Review Task 03. The next ordered packet is
-  [04 Bing provider](04_implement_bing_translate_provider.md), and its
-  execution is authorized after the Task 03 commit.
+- Commit the verified Task 04 checkpoint as
+  `feat(translation): add bing translate provider`, then execute
+  [05 Yandex provider](05_implement_yandex_translate_provider.md).
 
 ## Blockers
 
-- None for Task 04. Tasks 05–11 have no execution authorization.
+- None.
 
 ## Remaining Risks
 
-- The new Google subclass remains intentionally unregistered; production uses
-  the legacy Google path until Task 07.
-- No live Google page was opened, so the 2026-07-25 researched controls still
-  require their later manual canary before activation.
+- The new Bing subclass remains intentionally unregistered until Task 06.
+- No live Bing page was opened; the deterministic implementation relies on the
+  reviewed 2026-07-25 public-page contract.

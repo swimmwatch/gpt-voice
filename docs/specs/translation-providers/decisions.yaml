@@ -1453,3 +1453,69 @@ decisions:
     rationale: The user explicitly authorized Task 04 after the Task 03 commit and no later packet.
     supersedes_revision: null
     requirement_ids: [BING-001, AC-AUTO-002]
+
+  - id: commit.task-04
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 is implemented, its Bing provider, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Bing provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-04-commit through persistent Prompt MCP question commit.task-04 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-05-gates-v1
+      question_id: commit.task-04
+      idempotency_key: commit.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 04 Bing provider checkpoint be handled before Task 05?
+      kind: single
+      options:
+        - id: authorize-task-04-commit
+          label: Authorize Task 04 commit (Recommended)
+          description: Allow the next execution-capable invocation to commit only the verified Bing provider, its tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 04 uncommitted
+          description: Keep Task 04 uncommitted; Task 05 remains blocked.
+    answer:
+      selected_ids: [authorize-task-04-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 04 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [BING-001, AC-AUTO-002]
+
+  - id: execution.task-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is the ordered next packet and owns only the unregistered Yandex Translate subclass and deterministic public-page contract fixtures.
+      - The Task 05 packet is self-contained and excludes live provider access, registry activation, settings, IPC, UI, dependency, and later-packet work.
+      - The user committed authorize-task-05 through persistent Prompt MCP question execution.task-05 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-05-gates-v1
+      question_id: execution.task-05
+      idempotency_key: execution.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 04 commit, should the next execution-capable incremental-implementation invocation execute Task 05, “Implement The Yandex Translate Provider”?
+      kind: single
+      options:
+        - id: authorize-task-05
+          label: Authorize Task 05 (Recommended)
+          description: After the authorized Task 04 commit, execute only the unregistered deterministic Yandex provider packet, verify it, update todo/handoff, and stop uncommitted.
+        - id: defer-task-05
+          label: Defer Task 05
+          description: Create only the authorized Task 04 commit and leave Yandex implementation gated.
+    answer:
+      selected_ids: [authorize-task-05]
+      text: ''
+    rationale: The user explicitly authorized Task 05 after the Task 04 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [YNDX-001, AC-AUTO-002]
