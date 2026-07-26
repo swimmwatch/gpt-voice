@@ -1,0 +1,1660 @@
+schema_version: 1
+spec_slug: provider-audit-logging
+interview_id: spec:provider-audit-logging
+updated_at: '2026-07-26'
+decisions:
+  - id: outcome.debuggable-provider-failures
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requested audit logging to determine provider failure causes and fix errors quickly.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Add audit logging that makes provider failures accurately diagnosable.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: scope.provider-families
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly named voice, prettify, and translation providers.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [voice, prettify, translation]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001]
+
+  - id: architecture.current-logger
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/main/logger.ts provides scoped electron-log loggers with file level info and console level debug.'
+      - 'electron-log 5.4.4 is already a production dependency.'
+      - 'The logger degrades to a no-op when electron-log cannot be loaded.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scoped-electron-log]
+      text: ''
+    rationale: 'This is the existing main-process logging substrate.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-001]
+
+  - id: architecture.process-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'AGENTS.md and project conventions assign providers and privileged logging to the Electron main process.'
+      - 'Renderer desktop access remains behind typed window.electronAPI contracts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [main-process]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-002]
+
+  - id: baseline.current-provider-diagnostics
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - 'Voice providers and transcription services emit fragmented scoped logs without one shared audit schema.'
+      - 'Prettify services emit safe error-presentation metadata, but provider and phase context is not consistently present.'
+      - 'BaseTranslateProvider already emits typed success/failure diagnostics with provider, phase, duration, attempt, and length metadata.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [uneven-existing-coverage]
+      text: ''
+    rationale: 'The change must normalize and complete coverage rather than introduce a parallel translation-only mechanism.'
+    supersedes_revision: null
+    requirement_ids: [BASE-001]
+
+  - id: security.sensitive-log-data
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'Project conventions prohibit logging API keys, tokens, cookies, prompts, transcripts, raw audio, account data, and full provider responses.'
+      - 'Approved translation specification SEC-001 and SEC-002 limit diagnostics to allowlisted metadata and prohibit source/result text and source-bearing URLs.'
+      - 'Approved Claude provider specification prohibits account IDs, session details, audio, selected text, transcripts, stdout, and raw provider responses in logs.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [metadata-only-allowlist]
+      text: ''
+    rationale: 'The audit contract cannot weaken existing privacy and trust-boundary requirements.'
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002]
+
+  - id: security.external-observability
+    revision: 1
+    category: security
+    state: not_applicable
+    provenance: authoritative-doc
+    evidence:
+      - 'The request is for local desktop audit logging, and project guidance forbids expanding external actions without explicit scope.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-remote-telemetry]
+      text: ''
+    rationale: 'Remote telemetry, issue creation, and third-party log shipping are outside the requested scope.'
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-001]
+
+  - id: scope.event-coverage
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current translation diagnostics record terminal success and failure.'
+      - 'Current voice and prettify logs include a mixture of starts, retries, successes, and failures.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: scope-round-01
+      question_id: scope.event-coverage
+      idempotency_key: scope.event-coverage:v1
+      last_status: answered
+    question:
+      text: 'Which events should the provider audit trail record?'
+      kind: single
+      options:
+        - id: terminal-and-causal
+          label: 'Terminal + causal events (Recommended)'
+          description: 'Record one terminal event for every operation and additional retry, recovery, cancellation, or cleanup events only when they explain the outcome.'
+        - id: failures-only
+          label: 'Failures only'
+          description: 'Record only failed provider operations, minimizing volume but omitting successful-operation baselines.'
+        - id: full-lifecycle
+          label: 'Full lifecycle'
+          description: 'Record start, phase transitions, retries, completion, cancellation, and failure for every operation.'
+    answer:
+      selected_ids: [full-lifecycle]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUD-001]
+
+  - id: scope.operation-surfaces
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Provider failures also occur during voice authentication/readiness, prettify availability/model lifecycle, and provider shutdown.'
+      - 'Limiting coverage to transcribe/prettify/translate would leave several existing provider-error paths outside the audit contract.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: scope-round-01
+      question_id: scope.operation-surfaces
+      idempotency_key: scope.operation-surfaces:v1
+      last_status: answered
+    question:
+      text: 'Which provider-owned operations should be covered?'
+      kind: single
+      options:
+        - id: execution-plus-support-failures
+          label: 'Execution + support failures (Recommended)'
+          description: 'Audit transcribe, prettify, and translate operations, plus failures in provider readiness/auth, availability/model lifecycle, recovery, and shutdown.'
+        - id: execution-only
+          label: 'Execution only'
+          description: 'Audit only transcribe, prettify, and translate calls.'
+        - id: all-provider-operations
+          label: 'All provider operations'
+          description: 'Audit successful and failed execution, readiness/auth, discovery, model lifecycle, recovery, and shutdown operations.'
+    answer:
+      selected_ids: [all-provider-operations]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-002]
+
+  - id: operations.destination
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The app already persists scoped electron-log output.'
+      - 'A dedicated audit file would introduce a second storage, retention, and cleanup contract.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: scope-round-01
+      question_id: operations.destination
+      idempotency_key: operations.destination:v1
+      last_status: answered
+    question:
+      text: 'Where should provider audit events be stored?'
+      kind: single
+      options:
+        - id: existing-electron-log
+          label: 'Existing app log (Recommended)'
+          description: 'Write structured family-scoped events through the existing electron-log file transport without a new file format or UI.'
+        - id: dedicated-audit-file
+          label: 'Dedicated audit file'
+          description: 'Write a separate locally rotated provider-audit file with its own retention and cleanup rules.'
+        - id: existing-log-and-export
+          label: 'App log + export'
+          description: 'Use the existing log and add a user-facing sanitized diagnostics export workflow.'
+    answer:
+      selected_ids: [existing-electron-log]
+      text: ''
+    rationale: 'Superseded by revision 2 after draft review added a local diagnostics archive.'
+    supersedes_revision: null
+    requirement_ids: [OPS-001]
+
+  - id: architecture.error-contract
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'Translation already has typed internal failure codes.'
+      - 'Voice and prettify public outcomes currently expose different error shapes.'
+      - 'Changing renderer-visible provider results would broaden compatibility and IPC scope.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: scope-round-01
+      question_id: architecture.error-contract
+      idempotency_key: architecture.error-contract:v1
+      last_status: answered
+    question:
+      text: 'Should audit normalization change existing provider result contracts?'
+      kind: single
+      options:
+        - id: additive-internal-schema
+          label: 'Additive internal schema (Recommended)'
+          description: 'Normalize provider errors only into a main-process audit-event schema while preserving current user-visible and IPC results.'
+        - id: shared-provider-errors
+          label: 'Shared typed errors'
+          description: 'Also migrate voice, prettify, and translation results to one shared typed error contract.'
+        - id: family-specific-errors
+          label: 'Family typed errors'
+          description: 'Add or extend typed error contracts separately for each provider family and expose them through existing flows.'
+    answer:
+      selected_ids: [additive-internal-schema]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, COMP-001]
+
+  - id: operations.retention
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected the existing electron-log destination rather than a dedicated audit file or export.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing-log-lifecycle]
+      text: ''
+    rationale: 'Audit events inherit the existing app-log location, rotation, retention, and deletion behavior; no second persistence policy is introduced.'
+    supersedes_revision: null
+    requirement_ids: [OPS-002]
+
+  - id: security.tamper-evidence
+    revision: 1
+    category: security
+    state: not_applicable
+    provenance: user
+    evidence:
+      - 'The requested outcome is local debugging, and the selected destination is the existing application log.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-compliance-ledger]
+      text: ''
+    rationale: 'Cryptographic signing, append-only guarantees, remote collection, and compliance access controls are outside this debugging audit scope.'
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-002]
+
+  - id: operations.high-frequency-events
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'Voice streaming accepts many PCM chunks per recording.'
+      - 'Translation result acquisition polls repeatedly, and provider automation can perform repeated low-level reads.'
+      - 'Logging every loop iteration can generate large logs and create timing noise.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: diagnostics-round-01
+      question_id: operations.high-frequency-events
+      idempotency_key: operations.high-frequency-events:v1
+      last_status: answered
+    question:
+      text: 'How should full-lifecycle auditing handle high-frequency chunks and polling loops?'
+      kind: single
+      options:
+        - id: semantic-phases
+          label: 'Semantic phases (Recommended)'
+          description: 'Log phase boundaries and terminal counters, plus retry/backpressure/anomaly events; do not log every audio chunk, poll, DOM read, or token.'
+        - id: sampled-progress
+          label: 'Sampled progress'
+          description: 'Also emit rate-limited progress summaries during long-running streaming and polling operations.'
+        - id: every-boundary-call
+          label: 'Every boundary call'
+          description: 'Log each accepted chunk, poll, and provider hook invocation, producing the most detail and highest volume.'
+    answer:
+      selected_ids: [semantic-phases]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUD-002, PERF-001]
+
+  - id: operations.severity-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'The existing file transport persists info and higher levels.'
+      - 'Provider outcomes include expected cancellations and validation failures as well as unexpected exceptions and infrastructure failures.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: diagnostics-round-01
+      question_id: operations.severity-policy
+      idempotency_key: operations.severity-policy:v1
+      last_status: answered
+    question:
+      text: 'How should audit-event severity distinguish failures?'
+      kind: single
+      options:
+        - id: outcome-based-severity
+          label: 'Outcome-based severity (Recommended)'
+          description: 'Use info for lifecycle/success/cancellation, warn for typed provider or validation failures, and error for unexpected exceptions, corrupted contracts, or cleanup failures.'
+        - id: all-failures-error
+          label: 'All failures are errors'
+          description: 'Use error for every unsuccessful outcome, including cancellation, stale work, validation, and expected provider rejection.'
+        - id: audit-info-only
+          label: 'Audit events are info'
+          description: 'Emit the normalized audit stream at info and retain separate warn/error logs for failures.'
+    answer:
+      selected_ids: [outcome-based-severity]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUD-003]
+
+  - id: interfaces.correlation
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'Batch voice, prettify, and translation operations do not share one correlation identifier today.'
+      - 'Streaming voice already has an operation identifier, while retries and recovery events need to remain attributable to the originating operation.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: diagnostics-round-01
+      question_id: interfaces.correlation
+      idempotency_key: interfaces.correlation:v1
+      last_status: answered
+    question:
+      text: 'How should audit events from one provider operation be correlated?'
+      kind: single
+      options:
+        - id: opaque-operation-id
+          label: 'Opaque operation ID (Recommended)'
+          description: 'Assign a non-content-derived per-operation ID in main and carry it across phases, attempts, recovery, and terminal events.'
+        - id: timestamp-and-provider
+          label: 'Timestamp + provider'
+          description: 'Correlate approximately using log timestamps, provider ID, and operation name without adding an identifier.'
+        - id: family-specific-ids
+          label: 'Family-specific IDs'
+          description: 'Use existing streaming IDs where available and separate ad hoc identifiers for other provider families.'
+    answer:
+      selected_ids: [opaque-operation-id]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUD-004]
+
+  - id: security.error-detail
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'Raw provider messages, stacks, URLs, response bodies, stdout, selected text, transcripts, audio, and credentials can contain sensitive data.'
+      - 'Existing safe presentation metadata exposes classification, error name, status, length, and flags without retaining the raw message.'
+      - 'Translation already uses typed failure codes and safe phase metadata.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: diagnostics-round-01
+      question_id: security.error-detail
+      idempotency_key: security.error-detail:v1
+      last_status: answered
+    question:
+      text: 'What error detail should normalized audit events retain?'
+      kind: single
+      options:
+        - id: strict-allowlist
+          label: 'Strict allowlist (Recommended)'
+          description: 'Retain typed cause code, safe phase, status code, error class/name, attempt, duration, lengths, and boolean diagnostics only; never retain raw messages, stacks, URLs, bodies, stdout, or content.'
+        - id: generated-summary
+          label: 'Generated safe summary'
+          description: 'Also retain a bounded application-generated summary assembled only from allowlisted enums and numeric fields.'
+        - id: redacted-raw-excerpt
+          label: 'Redacted raw excerpt'
+          description: 'Attempt to redact and retain a bounded excerpt of raw provider or exception text, accepting residual disclosure risk.'
+    answer:
+      selected_ids: [strict-allowlist]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-003, AUD-005]
+
+  - id: compatibility.existing-provider-logs
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current provider paths already emit overlapping free-form start, retry, success, and failure messages.'
+      - 'Adding a full audit event beside every existing message would duplicate persisted output.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: diagnostics-round-01
+      question_id: compatibility.existing-provider-logs
+      idempotency_key: compatibility.existing-provider-logs:v1
+      last_status: answered
+    question:
+      text: 'How should normalized audit events interact with existing provider-operation log messages?'
+      kind: single
+      options:
+        - id: consolidate-overlaps
+          label: 'Consolidate overlaps (Recommended)'
+          description: 'Replace operation logs covered by the audit schema, while retaining distinct infrastructure, settings, and application-lifecycle logs.'
+        - id: append-alongside
+          label: 'Append alongside'
+          description: 'Keep every existing provider log and add normalized audit events, accepting duplicate entries.'
+        - id: fill-gaps-only
+          label: 'Fill gaps only'
+          description: 'Keep existing messages and add audit events only where no comparable log exists.'
+    answer:
+      selected_ids: [consolidate-overlaps]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-002]
+
+  - id: failure.audit-sink-unavailable
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'src/main/logger.ts already degrades to a no-op when electron-log is unavailable.'
+      - 'BaseTranslateProvider catches diagnostic-sink exceptions so diagnostics cannot change provider outcomes.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [fail-open]
+      text: ''
+    rationale: 'Audit emission must never block, retry, cancel, or change a provider operation; a throwing sink is ignored without recursive logging.'
+    supersedes_revision: null
+    requirement_ids: [FAIL-001]
+
+  - id: compatibility.persistence-migration
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - 'The selected existing-log destination introduces no new user data store or result contract.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-data-migration]
+      text: ''
+    rationale: 'No settings, history, session, cache, IPC, or provider-result migration is required.'
+    supersedes_revision: null
+    requirement_ids: [COMP-003]
+
+  - id: configuration.enablement
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'The existing app log is always available when electron-log loads.'
+      - 'A toggle or developer-only mode would add settings and make post-failure evidence conditional.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: operations-round-01
+      question_id: configuration.enablement
+      idempotency_key: configuration.enablement:v1
+      last_status: answered
+    question:
+      text: 'When should provider audit events be emitted?'
+      kind: single
+      options:
+        - id: always-on
+          label: 'Always on (Recommended)'
+          description: 'Emit the safe audit stream whenever normal file logging is active, with no new user setting.'
+        - id: user-toggle
+          label: 'User setting'
+          description: 'Add an application setting that enables or disables provider audit events.'
+        - id: developer-only
+          label: 'Developer mode only'
+          description: 'Emit provider audit events only when a development flag or environment option is active.'
+    answer:
+      selected_ids: [always-on]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CFG-001]
+
+  - id: interfaces.audit-scope
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'All events share one schema and destination.'
+      - 'Family and concrete provider IDs are non-sensitive mandatory audit fields.'
+      - 'electron-log scopes are searchable labels inside the same application log.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: operations-round-01
+      question_id: interfaces.audit-scope
+      idempotency_key: interfaces.audit-scope:v1
+      last_status: answered
+    question:
+      text: 'How should the normalized audit stream be scoped inside electron-log?'
+      kind: single
+      options:
+        - id: unified-scope
+          label: 'Unified provider-audit scope (Recommended)'
+          description: 'Use one provider-audit scope with mandatory family and concrete provider ID fields for consistent search and schema validation.'
+        - id: family-scopes
+          label: 'Three family scopes'
+          description: 'Use separate voice-audit, prettify-audit, and translation-audit scopes with the same payload schema.'
+        - id: existing-scopes
+          label: 'Existing provider scopes'
+          description: 'Emit normalized payloads through each current provider or service scope.'
+    answer:
+      selected_ids: [unified-scope]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUD-006]
+
+  - id: interfaces.schema-versioning
+    revision: 1
+    category: interfaces
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'The selected unified stream needs a stable machine-searchable contract.'
+      - 'Existing provider log messages are free-form and unversioned.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [schema-version-1]
+      text: ''
+    rationale: 'Every event carries schemaVersion 1. Additive optional fields may remain v1; removing, renaming, or changing field semantics requires a new version.'
+    supersedes_revision: null
+    requirement_ids: [AUD-007]
+
+  - id: scope.non-provider-effects
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The request targets provider auditing, and the additive internal error contract preserves existing application behavior.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [provider-boundaries-only]
+      text: ''
+    rationale: 'Superseded after draft review added other diagnostic information and an About-window export workflow.'
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-003]
+
+  - id: quality.verification
+    revision: 1
+    category: acceptance
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'Provider tests use deterministic node:test fixtures and injected dependencies.'
+      - 'Project conventions prohibit credentials, private audio, personal profiles, and live-provider assertions in automated tests.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deterministic-family-and-privacy-tests]
+      text: ''
+    rationale: 'Automated acceptance covers schema, ordering, severity, family mappings, bounded event volume, sink failure, and privacy canaries; manual verification inspects sanitized local logs without private content.'
+    supersedes_revision: null
+    requirement_ids: [AC-AUTO-001, AC-MAN-001]
+
+  - id: operations.rollback
+    revision: 1
+    category: operations
+    state: not_applicable
+    provenance: user
+    evidence:
+      - 'No new data store, setting, IPC contract, or provider result format is introduced.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [code-only-rollback]
+      text: ''
+    rationale: 'Rollback is a normal code rollback; previously written audit lines remain ordinary rotated application-log entries and require no migration.'
+    supersedes_revision: null
+    requirement_ids: [OPS-003]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-audit-logging/spec.md is an inspectable Draft with all active decisions mapped to requirements.'
+      - 'The decision ledger is valid YAML with no unresolved material decision.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the Provider Audit Logging draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve draft (Recommended)'
+          description: 'Set the specification to Approved and stop before planning or implementation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the specification in Draft and reopen the affected decisions.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Keep the current draft without approval and stop.'
+    answer:
+      selected_ids: []
+      text: 'Add a locally saved diagnostics archive containing audit logs and other diagnostic information, expose it from About with a unique default filename, and create a skill that accepts and analyzes the archive.'
+    rationale: 'Custom approval text requested changes and was superseded by revision 2 after the draft was revised.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: operations.destination
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'During draft approval, the user requested a local diagnostics archive in addition to the existing application log.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [existing-log-and-local-archive]
+      text: ''
+    rationale: 'Provider audit events remain in electron-log and can be collected into an explicitly user-saved diagnostics archive.'
+    supersedes_revision: 1
+    requirement_ids: [OPS-001, EXPORT-001]
+
+  - id: scope.diagnostics-archive
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requested an archive containing provider audit logs and other diagnostic information for rapid problem analysis.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [local-diagnostics-archive]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003, EXPORT-001]
+
+  - id: interfaces.about-export
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requested an About-section button that opens a file chooser for destination and filename with a suitable unique default.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [about-save-dialog]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-002]
+
+  - id: scope.archive-analysis-skill
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requested a skill that accepts the archive, analyzes its files, and reports findings.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [archive-analysis-skill]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SKILL-001]
+
+  - id: scope.archive-content
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Provider-audit records can be extracted from the existing log without including unrelated free-form log lines.'
+      - 'A generated manifest can add app/runtime versions and provider status without copying settings or provider content.'
+      - 'Including non-provider failures would require a second normalized diagnostic-event contract because existing free-form logs cannot be safely redacted after the fact.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-round-01
+      question_id: scope.archive-content
+      idempotency_key: scope.archive-content:v1
+      last_status: answered
+    question:
+      text: 'Which privacy-safe content profile should the diagnostics archive use?'
+      kind: single
+      options:
+        - id: provider-safe-bundle
+          label: 'Provider-safe bundle (Recommended)'
+          description: 'Include canonical provider-audit events, archive/app/runtime schema versions, platform family and architecture, registered/selected provider IDs, safe capability/readiness booleans, and extraction counts; exclude unrelated app logs.'
+        - id: provider-audit-only
+          label: 'Provider audit only'
+          description: 'Include only canonical provider-audit events and the minimum archive schema manifest.'
+        - id: broader-safe-errors
+          label: 'Broader safe diagnostics'
+          description: 'Also introduce and include a new normalized non-provider application-error stream, expanding instrumentation beyond provider operations.'
+    answer:
+      selected_ids: []
+      text: 'All archive data must be confidential; tokens, keys, and similar sensitive information must be masked.'
+    rationale: 'Superseded by revision 2 to separate archive breadth from the unresolved meaning of masked sensitive values.'
+    supersedes_revision: null
+    requirement_ids: [EXPORT-002, SEC-004]
+
+  - id: operations.archive-history
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'Existing electron-log rotation already bounds retained file volume.'
+      - 'A problem may have happened before the current application session.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-round-01
+      question_id: operations.archive-history
+      idempotency_key: operations.archive-history:v1
+      last_status: answered
+    question:
+      text: 'How much retained provider-audit history should an archive collect?'
+      kind: single
+      options:
+        - id: all-retained
+          label: 'All retained events (Recommended)'
+          description: 'Collect every valid provider-audit event still present in the current and rotated application logs.'
+        - id: current-session
+          label: 'Current session'
+          description: 'Collect only events emitted since the current app launch.'
+        - id: recent-24-hours
+          label: 'Last 24 hours'
+          description: 'Collect valid events whose log timestamp is within the previous 24 hours.'
+    answer:
+      selected_ids: [all-retained]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [EXPORT-003]
+
+  - id: interfaces.archive-format
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The archive must be convenient to save on Windows and Linux and easy for the analysis skill to validate.'
+      - 'The selected strict content allowlist reduces the need for an application-managed archive password.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-round-01
+      question_id: interfaces.archive-format
+      idempotency_key: interfaces.archive-format:v1
+      last_status: answered
+    question:
+      text: 'Which portable archive format should the export use?'
+      kind: single
+      options:
+        - id: zip
+          label: 'ZIP (Recommended)'
+          description: 'Create one unencrypted .zip file with deterministic internal paths and a versioned manifest.'
+        - id: tar-gzip
+          label: 'tar.gz'
+          description: 'Create one gzip-compressed tar archive with deterministic internal paths and a versioned manifest.'
+        - id: platform-native
+          label: 'Platform-specific'
+          description: 'Use ZIP on Windows and tar.gz on Linux, requiring the analysis skill to support two formats.'
+    answer:
+      selected_ids: [platform-native]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [EXPORT-004]
+
+  - id: interfaces.archive-completion
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The About window currently remains open until explicitly closed.'
+      - 'Electron can show an OS-native save dialog and reveal a saved file separately.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-round-01
+      question_id: interfaces.archive-completion
+      idempotency_key: interfaces.archive-completion:v1
+      last_status: answered
+    question:
+      text: 'What should happen after the archive is saved?'
+      kind: single
+      options:
+        - id: inline-result-with-reveal
+          label: 'Inline result + reveal (Recommended)'
+          description: 'Keep About open, show success or safe failure inline, and offer a separate Show in folder action after success.'
+        - id: reveal-automatically
+          label: 'Reveal automatically'
+          description: 'Keep About open and automatically reveal the saved archive in the OS file manager.'
+        - id: notify-and-close
+          label: 'Notify and close'
+          description: 'Close About after saving and report success or failure through a system notification.'
+    answer:
+      selected_ids: [notify-and-close]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-003]
+
+  - id: scope.archive-content
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revision 1 established that archive contents must be confidential but did not resolve which diagnostic categories are included.'
+      - 'Existing unrelated app logs cannot be safely included by masking arbitrary free-form text after the fact.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-security-round-01
+      question_id: scope.archive-content
+      idempotency_key: scope.archive-content:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Beyond canonical provider-audit events, which confidential diagnostic scope should the archive include?'
+      kind: single
+      options:
+        - id: provider-safe-bundle
+          label: 'Provider-safe bundle (Recommended)'
+          description: 'Add a generated manifest with app/runtime schema versions, platform family/architecture, registered and selected provider IDs, safe capability/readiness booleans, and extraction counts; exclude unrelated app logs.'
+        - id: provider-audit-only
+          label: 'Provider audit only'
+          description: 'Include only canonical provider-audit events and the minimum archive schema manifest.'
+        - id: broader-safe-errors
+          label: 'Broader safe diagnostics'
+          description: 'Also add a new normalized non-provider application-error stream and include it, expanding instrumentation beyond provider operations.'
+    answer:
+      selected_ids: [provider-safe-bundle]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [EXPORT-002, SEC-004]
+
+  - id: security.archive-sensitive-values
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Existing project contracts prohibit tokens, keys, cookies, sessions, audio, prompts, selected text, transcripts, provider output, and raw provider responses from logs.'
+      - 'Partial masking can still disclose length, prefix, suffix, format, or stable identity.'
+      - 'Presence/configured/readiness booleans can provide diagnostic value without reading or copying secret values.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-security-round-01
+      question_id: security.archive-sensitive-values
+      idempotency_key: security.archive-sensitive-values:v1
+      last_status: answered
+    question:
+      text: 'How should the archive handle credentials and provider content?'
+      kind: single
+      options:
+        - id: omit-values
+          label: 'Omit values entirely (Recommended)'
+          description: 'Never read or export tokens, keys, cookies, sessions, audio, prompts, selected text, transcripts, outputs, or bodies; include only safe presence/status booleans where useful.'
+        - id: masked-values
+          label: 'Include masked values'
+          description: 'Export bounded masked representations, retaining some format or length information and increasing disclosure risk.'
+        - id: encrypted-values
+          label: 'Include encrypted values'
+          description: 'Copy full sensitive values into an encrypted archive, requiring password/key management and expanding the trust boundary.'
+    answer:
+      selected_ids: []
+      text: 'Tokens, authorization keys, and similar sensitive values must be masked. Completed translations, translation text, and provider output, including Prettify output, should remain only in debug information.'
+    rationale: 'Superseded by revision 2 because credential masking and provider-content retention require separate security contracts.'
+    supersedes_revision: null
+    requirement_ids: [SEC-005]
+
+  - id: interfaces.skill-location
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The analysis workflow is specific to GPT-Voice archive and audit schema versions.'
+      - 'Repository-local skills can evolve with the archive format and be reviewed with the project.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-security-round-01
+      question_id: interfaces.skill-location
+      idempotency_key: interfaces.skill-location:v1
+      last_status: answered
+    question:
+      text: 'Where should the diagnostics-analysis skill live?'
+      kind: single
+      options:
+        - id: repository-local
+          label: 'Repository-local skill (Recommended)'
+          description: 'Create a versioned project skill under .agents/skills so its parser contract evolves with GPT-Voice.'
+        - id: personal-skill
+          label: 'Personal Codex skill'
+          description: "Install the skill only in the developer's personal Codex skills directory."
+        - id: both
+          label: 'Repository + personal'
+          description: 'Maintain a repository source and also install a personal copy, adding synchronization requirements.'
+    answer:
+      selected_ids: [repository-local]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SKILL-002]
+
+  - id: interfaces.skill-report
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The requested skill must analyze an archive and report findings.'
+      - 'A durable structured report supports handoff and comparison without modifying application code.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: archive-security-round-01
+      question_id: interfaces.skill-report
+      idempotency_key: interfaces.skill-report:v1
+      last_status: answered
+    question:
+      text: 'What should the analysis skill produce by default?'
+      kind: single
+      options:
+        - id: markdown-incident-report
+          label: 'Markdown incident report (Recommended)'
+          description: 'Produce a concise report with archive validation, environment summary, correlated timeline, likely root cause, evidence references, uncertainty, and recommended next checks.'
+        - id: chat-summary
+          label: 'Chat summary only'
+          description: 'Return findings only in the current conversation without a structured report artifact.'
+        - id: markdown-and-json
+          label: 'Markdown + JSON'
+          description: 'Produce both a human-readable report and a machine-readable derived findings file.'
+    answer:
+      selected_ids: [markdown-incident-report]
+      text: 'Require an issue description and problem summary as analysis inputs so the agent evaluates the audit trail against the reported symptom.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SKILL-003]
+
+  - id: security.archive-sensitive-values
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revision 1 requires credential masking but does not define whether masking reveals prefixes, suffixes, or lengths.'
+      - 'Constant replacement can prove a value exists without reading or disclosing any portion of it.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: sensitive-content-round-01
+      question_id: security.archive-sensitive-values
+      idempotency_key: security.archive-sensitive-values:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'What should masking mean for tokens, authorization keys, cookies, and similar credentials?'
+      kind: single
+      options:
+        - id: constant-redaction
+          label: 'Constant redaction (Recommended)'
+          description: 'Represent only known presence with a fixed [REDACTED] marker or boolean; never read, copy, hash, or reveal any original characters or length.'
+        - id: partial-mask
+          label: 'Partial mask'
+          description: 'Retain a bounded prefix/suffix or original length, which can help identification but leaks credential structure.'
+        - id: encrypted-exact-value
+          label: 'Encrypted exact value'
+          description: 'Copy the full credential into protected diagnostic data, adding key management and a larger trust boundary.'
+    answer:
+      selected_ids: [constant-redaction]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [SEC-005]
+
+  - id: security.provider-content-retention
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'Translation and Prettify source/result text are intentionally transient and are not available for a later export.'
+      - 'Successful transcription history exists, but provider response bodies and transient Translation/Prettify content are not retained.'
+      - 'Capturing content for later analysis would create a new sensitive data store with retention, deletion, encryption, consent, and archive-protection requirements.'
+      - 'The selected platform-native archive format is not encrypted.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: sensitive-content-round-01
+      question_id: security.provider-content-retention
+      idempotency_key: security.provider-content-retention:v1
+      last_status: answered
+    question:
+      text: 'How should Translation/Prettify text and provider output be available to later diagnostics analysis?'
+      kind: single
+      options:
+        - id: no-content-retention
+          label: 'No content retention (Recommended)'
+          description: 'Keep the archive metadata-only and use the required issue description/problem summary to provide symptom context to the analysis skill.'
+        - id: available-at-export
+          label: 'Only if already available'
+          description: 'Include sensitive content only when it is already held by an existing product store or current memory at export time; do not add persistent capture, so coverage is incomplete.'
+        - id: new-sensitive-debug-store
+          label: 'New protected debug store'
+          description: 'Persist provider source/results in a new bounded encrypted-at-rest store so later exports can include them, requiring additional retention, consent, deletion, and archive-protection decisions.'
+    answer:
+      selected_ids: [new-sensitive-debug-store]
+      text: 'Persist Translation and Prettify results in SQLite for later analysis. Add separate Translation and Prettify capture settings under a new Audit Log section in System Settings; both settings default to disabled.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-006, DATA-001]
+
+  - id: data.result-content
+    revision: 1
+    category: data
+    state: answered
+    provenance: user
+    evidence:
+      - 'Diagnosing transformation quality requires comparing the selected source with the provider result.'
+      - 'Provider audit events already carry failure causes, so the SQLite content store is needed only for successful text transformations.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-01
+      question_id: data.result-content
+      idempotency_key: data.result-content:v1
+      last_status: answered
+    question:
+      text: 'What text should each enabled Translation or Prettify diagnostic row store?'
+      kind: single
+      options:
+        - id: source-and-result
+          label: 'Source + result (Recommended)'
+          description: 'Store the selected source text and successful provider result with operation ID, provider ID, timestamp, action type, and safe contract metadata.'
+        - id: result-only
+          label: 'Result only'
+          description: 'Store only the successful translated or prettified result and safe metadata.'
+        - id: source-only
+          label: 'Source only'
+          description: 'Store only the selected source text and safe metadata, leaving output-quality comparison unavailable.'
+    answer:
+      selected_ids: [source-and-result]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-002]
+
+  - id: security.result-storage-encryption
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The existing transcription history table stores text in plaintext.'
+      - 'Electron safeStorage is already used for provider secrets and can encrypt strings before SQLite persistence.'
+      - 'Confidential capture should fail closed when secure encryption is unavailable.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-01
+      question_id: security.result-storage-encryption
+      idempotency_key: security.result-storage-encryption:v1
+      last_status: answered
+    question:
+      text: 'How should captured Translation and Prettify text be protected at rest?'
+      kind: single
+      options:
+        - id: safe-storage-fields
+          label: 'Encrypt every text field (Recommended)'
+          description: 'Encrypt source/result strings with Electron safeStorage before SQLite writes; if secure encryption is unavailable or fails, skip capture without affecting the user operation.'
+        - id: plaintext-file-permissions
+          label: 'Plaintext + file permissions'
+          description: 'Store text as plaintext and rely on per-user app-data permissions and SQLite file mode.'
+        - id: sqlcipher
+          label: 'Encrypt the whole database'
+          description: 'Add SQLCipher or an equivalent encrypted SQLite dependency and migration path.'
+    answer:
+      selected_ids: [plaintext-file-permissions]
+      text: ''
+    rationale: 'Superseded by revision 2 because arbitrary source/result text can contain credentials that cannot be reliably detected or masked in plaintext.'
+    supersedes_revision: null
+    requirement_ids: [SEC-007, FAIL-002]
+
+  - id: operations.result-retention
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Translation and Prettify text is more sensitive than metadata-only audit events.'
+      - 'A bounded policy prevents indefinite growth and limits exposure while preserving later analysis.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-01
+      question_id: operations.result-retention
+      idempotency_key: operations.result-retention:v1
+      last_status: answered
+    question:
+      text: 'How long should enabled diagnostic result capture retain rows?'
+      kind: single
+      options:
+        - id: thirty-days-500
+          label: '30 days / 500 each (Recommended)'
+          description: 'Prune rows older than 30 days and keep at most 500 Translation plus 500 Prettify rows, deleting oldest first.'
+        - id: seven-days-100
+          label: '7 days / 100 each'
+          description: 'Use a smaller privacy-first window and lower row cap.'
+        - id: manual-clear-only
+          label: 'Until manually cleared'
+          description: 'Retain rows indefinitely until the user clears them, with no age or count cap.'
+    answer:
+      selected_ids: []
+      text: 'Retain all records for 60 days, with a clear storage limit that prevents the database from becoming large enough to harm the computer.'
+    rationale: 'Superseded by revision 2 to choose the exact size cap and overflow behavior.'
+    supersedes_revision: null
+    requirement_ids: [DATA-003, OPS-004]
+
+  - id: operations.disable-capture
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'Separate default-off toggles can be disabled after rows already exist.'
+      - 'Deleting captured text is destructive and should not occur through an ambiguous settings save.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-01
+      question_id: operations.disable-capture
+      idempotency_key: operations.disable-capture:v1
+      last_status: answered
+    question:
+      text: 'What should disabling a Translation or Prettify capture toggle do to existing rows?'
+      kind: single
+      options:
+        - id: confirm-and-purge
+          label: 'Confirm and purge (Recommended)'
+          description: 'Require explicit confirmation, then disable capture and permanently delete existing rows for that category.'
+        - id: stop-and-retain
+          label: 'Stop and retain'
+          description: 'Stop new capture but retain existing rows until a separate Clear action.'
+        - id: purge-without-confirmation
+          label: 'Purge immediately'
+          description: 'Disable capture and permanently delete existing rows without a second confirmation.'
+    answer:
+      selected_ids: [confirm-and-purge]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-004, DATA-004]
+
+  - id: security.archive-result-content
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected platform-native ZIP/tar.gz archive is not encrypted.'
+      - 'The analysis skill can only inspect captured source/results if export decrypts them into the archive.'
+      - 'A per-export confirmation can keep sensitive content out of archives by default while allowing deliberate issue analysis.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-01
+      question_id: security.archive-result-content
+      idempotency_key: security.archive-result-content:v1
+      last_status: answered
+    question:
+      text: 'How should saved Translation/Prettify text enter the unencrypted diagnostics archive?'
+      kind: single
+      options:
+        - id: explicit-export-confirmation
+          label: 'Explicit per-export consent (Recommended)'
+          description: 'Default to excluding content; before the save dialog, let the user explicitly include decrypted captured text with a clear warning that the archive will contain private text.'
+        - id: always-when-enabled
+          label: 'Always when capture enabled'
+          description: 'Automatically include decrypted captured text whenever its category toggle is enabled.'
+        - id: never-export-content
+          label: 'Never export content'
+          description: 'Keep captured text only in local encrypted SQLite; archives and the analysis skill remain metadata-only.'
+    answer:
+      selected_ids: [always-when-enabled]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-008, EXPORT-005]
+
+  - id: security.result-storage-encryption
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'Selected text and provider output are arbitrary and may contain credentials that no deterministic masker can identify reliably.'
+      - 'Plaintext storage can preserve exact text or apply best-effort masking, but cannot guarantee both exact diagnostic fidelity and complete credential masking.'
+      - 'Per-field safeStorage encryption preserves exact text while protecting it at rest when secure encryption is available.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-02
+      question_id: security.result-storage-encryption
+      idempotency_key: security.result-storage-encryption:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Given that arbitrary source/result text may contain undetectable credentials, which at-rest policy should take precedence?'
+      kind: single
+      options:
+        - id: safe-storage-fields
+          label: 'Encrypt exact text (Recommended)'
+          description: 'Encrypt every source/result field with Electron safeStorage and skip capture if secure encryption is unavailable; known credential settings still use constant redaction in manifests.'
+        - id: plaintext-explicit-risk
+          label: 'Plaintext exact text'
+          description: 'Store exact source/results in plaintext under per-user file permissions, explicitly accepting that embedded credentials cannot be guaranteed masked.'
+        - id: best-effort-redaction
+          label: 'Plaintext best-effort mask'
+          description: 'Redact recognized secret patterns before plaintext storage, accepting missed secrets and altered diagnostic text.'
+    answer:
+      selected_ids: [best-effort-redaction]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [SEC-007, FAIL-002]
+
+  - id: operations.result-retention
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revision 1 fixed retention at 60 days and requested a protective size limit.'
+      - 'When the size limit is reached, preserving computer health requires deleting oldest diagnostic rows even if they are younger than 60 days.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-02
+      question_id: operations.result-retention
+      idempotency_key: operations.result-retention:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'What total size cap should apply to the combined Translation and Prettify diagnostic rows?'
+      kind: single
+      options:
+        - id: cap-100-mib
+          label: '100 MiB (Recommended)'
+          description: 'Retain all rows for up to 60 days while under 100 MiB; prune oldest rows first when the cap is exceeded.'
+        - id: cap-250-mib
+          label: '250 MiB'
+          description: 'Allow a larger diagnostic history before pruning oldest rows.'
+        - id: configurable-cap
+          label: 'User-configurable cap'
+          description: 'Add a third Audit Log setting with a bounded size selector, increasing settings and validation scope.'
+    answer:
+      selected_ids: [cap-100-mib]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [DATA-003, OPS-004]
+
+  - id: operations.manual-clear
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'Users may need to delete stored diagnostic text while keeping future capture enabled.'
+      - 'Disabling a category already has a separate confirm-and-purge contract.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-02
+      question_id: operations.manual-clear
+      idempotency_key: operations.manual-clear:v1
+      last_status: answered
+    question:
+      text: 'Which manual deletion controls should the Audit Log settings section provide?'
+      kind: single
+      options:
+        - id: per-category-and-all
+          label: 'Per category + Clear all (Recommended)'
+          description: 'Provide confirmed Clear Translation, Clear Prettify, and Clear all actions while leaving capture toggles unchanged.'
+        - id: clear-all-only
+          label: 'Clear all only'
+          description: 'Provide one confirmed action that deletes both categories.'
+        - id: disable-only
+          label: 'Only through disabling'
+          description: 'Do not add separate clear controls; users must disable and purge a category.'
+    answer:
+      selected_ids: [per-category-and-all]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-005, DATA-005]
+
+  - id: data.cache-hit-capture
+    revision: 1
+    category: data
+    state: answered
+    provenance: user
+    evidence:
+      - 'Translation and Prettify may return a successful cached result without dispatching a new provider operation.'
+      - 'Capturing every displayed result preserves a complete user-action record but some rows cannot link to a new provider audit operation.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-02
+      question_id: data.cache-hit-capture
+      idempotency_key: data.cache-hit-capture:v1
+      last_status: answered
+    question:
+      text: 'Should enabled result capture store successful cache-hit actions?'
+      kind: single
+      options:
+        - id: every-successful-action
+          label: 'Every successful action (Recommended)'
+          description: 'Store provider and cache-hit successes with a unique action ID, source kind, and optional provider operation ID.'
+        - id: provider-dispatch-only
+          label: 'Provider calls only'
+          description: 'Store only results produced by a new provider dispatch so every row correlates to a provider audit operation.'
+        - id: deduplicate-content
+          label: 'Deduplicate repeats'
+          description: 'Store provider and cache-hit successes but suppress identical source/result/provider rows within a bounded interval.'
+    answer:
+      selected_ids: [every-successful-action]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-006]
+
+  - id: interfaces.skill-report-location
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - 'The skill produces a durable Markdown incident report.'
+      - 'The archive may be outside the repository, while repository-local artifacts are easier to review without writing beside user files.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: result-storage-round-02
+      question_id: interfaces.skill-report-location
+      idempotency_key: interfaces.skill-report-location:v1
+      last_status: answered
+    question:
+      text: 'Where should the analysis skill write its Markdown report by default?'
+      kind: single
+      options:
+        - id: workspace-artifacts
+          label: 'Workspace artifacts (Recommended)'
+          description: 'Write to .artifacts/diagnostics/<archive-id>/report.md inside the GPT-Voice workspace unless the user supplies another path.'
+        - id: beside-archive
+          label: 'Beside the archive'
+          description: 'Write a uniquely named Markdown report next to the diagnostics archive.'
+        - id: ask-every-time
+          label: 'Require output path'
+          description: 'Do not choose a default; require the user to provide a report path for every analysis.'
+    answer:
+      selected_ids: [workspace-artifacts]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SKILL-004]
+
+  - id: architecture.diagnostic-database
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'gpt-voice.sqlite3 currently stores transcription history with no 100 MiB total-file cap.'
+      - 'A separate diagnostics SQLite file can enforce the requested cap, permissions, purge, archive snapshot, and lifecycle without deleting or measuring unrelated history.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: data-boundaries-round-01
+      question_id: architecture.diagnostic-database
+      idempotency_key: architecture.diagnostic-database:v1
+      last_status: answered
+    question:
+      text: 'Where should the optional Translation/Prettify diagnostic rows live?'
+      kind: single
+      options:
+        - id: separate-sqlite
+          label: 'Separate diagnostics SQLite (Recommended)'
+          description: 'Use a dedicated gpt-voice-diagnostics.sqlite3 file so the 100 MiB cap and deletion lifecycle are isolated from transcription history.'
+        - id: shared-sqlite
+          label: 'Existing app SQLite'
+          description: 'Add tables to gpt-voice.sqlite3; the 100 MiB cap applies only to diagnostic payload accounting, not the whole database file.'
+        - id: per-category-sqlite
+          label: 'Two SQLite files'
+          description: 'Use separate Translation and Prettify database files, increasing migration and lifecycle complexity.'
+    answer:
+      selected_ids: [shared-sqlite]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-007, ARCH-004]
+
+  - id: operations.result-row-limit
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - 'A single unexpected provider result must not consume the entire 100 MiB budget.'
+      - 'Normal selected-text inputs and bounded Prettify outputs are far below 1 MiB.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: data-boundaries-round-01
+      question_id: operations.result-row-limit
+      idempotency_key: operations.result-row-limit:v1
+      last_status: answered
+    question:
+      text: 'What maximum combined UTF-8 size should one captured source/result row allow?'
+      kind: single
+      options:
+        - id: one-mib
+          label: '1 MiB (Recommended)'
+          description: 'Skip diagnostic capture for an oversized row, emit a safe audit cause, and preserve the successful user action.'
+        - id: two-hundred-fifty-six-kib
+          label: '256 KiB'
+          description: 'Use a tighter per-row limit that may exclude unusually large but valid Prettify results.'
+        - id: no-row-limit
+          label: 'No per-row limit'
+          description: 'Rely only on the 100 MiB database cap, allowing one row to consume most of it.'
+    answer:
+      selected_ids: [one-mib]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-008, FAIL-003]
+
+  - id: security.skill-report-content
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'The archive may contain redacted but still private Translation/Prettify source and result text.'
+      - 'The report is written to an ignored workspace artifact, but repeating full text creates another sensitive copy.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: data-boundaries-round-01
+      question_id: security.skill-report-content
+      idempotency_key: security.skill-report-content:v1
+      last_status: answered
+    question:
+      text: 'How much captured Translation/Prettify text may the Markdown report repeat?'
+      kind: single
+      options:
+        - id: references-and-short-excerpts
+          label: 'References + short excerpts (Recommended)'
+          description: 'Cite row/event IDs and include only the minimum redacted excerpt needed to explain a finding; never reproduce full source or result by default.'
+        - id: no-text-excerpts
+          label: 'No text excerpts'
+          description: 'Use row/event references and derived observations only, without quoting captured text.'
+        - id: full-relevant-text
+          label: 'Full relevant text'
+          description: 'Allow the report to reproduce complete source/result text whenever the agent considers it relevant.'
+    answer:
+      selected_ids: [references-and-short-excerpts]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SKILL-005, SEC-009]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-audit-logging/spec.md is an inspectable revised Draft covering provider audit, result capture, archive export, and the analysis skill.'
+      - 'The formatted decision ledger is valid YAML with no unresolved material decisions and all active requirement mappings present.'
+    prompt_mcp:
+      interview_id: spec:provider-audit-logging
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Do you approve the revised Provider Audit Logging and Diagnostics Archive specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve revised draft (Recommended)'
+          description: 'Set the specification to Approved and stop before planning or implementation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the specification in Draft and reopen the affected decisions.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Keep the current revised draft without approval and stop.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: architecture.archive-writer
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'The approved archive contract requires ZIP on Windows and gzip-compressed tar on Linux/macOS.'
+      - 'Node and Electron do not provide one built-in streaming writer for both required outer formats.'
+      - 'Archive creation must not use a shell, external process, network request, or native postinstall.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: architecture.archive-writer
+      idempotency_key: architecture.archive-writer:v1
+      last_status: answered
+    question:
+      text: 'Which archive-writer strategy should the implementation plan require for diagnostics ZIP and tar.gz creation?'
+      kind: single
+      options:
+        - id: archiver
+          label: 'One streaming library (Recommended)'
+          description: 'Add the pure-JavaScript archiver production dependency and use its streaming ZIP and tar.gz writers behind a narrow injected adapter.'
+        - id: tar-plus-zip
+          label: 'Two focused libraries'
+          description: 'Declare tar directly for tar.gz and add a small streaming ZIP library, reducing each package scope but adding two runtime APIs.'
+        - id: custom-writers
+          label: 'Custom format writers'
+          description: 'Use Node zlib plus project-owned ZIP/tar serialization, avoiding new dependencies but increasing format, security, and maintenance risk.'
+    answer:
+      selected_ids: [archiver]
+      text: ''
+    rationale: 'One streaming adapter keeps archive-format behavior behind a single main-process boundary while satisfying the no-shell and no-native constraints.'
+    supersedes_revision: null
+    requirement_ids: [EXPORT-004]
+
+  - id: security.archive-inspection-bounds
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'The approved skill contract requires rejection of pathological compression and bounded JSONL line and record parsing.'
+      - 'The approved archive limits already cap one member at 128 MiB and total uncompressed content at 256 MiB.'
+      - 'A 1 MiB retained source/result row can expand to more than 6 MiB when JSON escaping is required.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: security.archive-inspection-bounds
+      idempotency_key: security.archive-inspection-bounds:v1
+      last_status: answered
+    question:
+      text: 'Which bounded archive-inspection profile should the implementation plan require?'
+      kind: single
+      options:
+        - id: balanced-bounds
+          label: 'Balanced bounds (Recommended)'
+          description: 'For members at least 1 MiB, reject compression above 1000:1; cap each JSONL line at 8 MiB and each JSONL member at 1,000,000 records, in addition to the approved 128/256 MiB limits.'
+        - id: strict-bounds
+          label: 'Strict bounds'
+          description: 'For members at least 1 MiB, reject compression above 100:1; cap each JSONL line at 4 MiB and each member at 250,000 records, with higher risk of rejecting highly compressible valid diagnostics.'
+        - id: size-only-ratio
+          label: 'Size-led bounds'
+          description: 'Use the approved streamed 128/256 MiB limits as the primary bomb defense, reject only ratios above 10,000:1, and keep 8 MiB lines plus 1,000,000 records.'
+    answer:
+      selected_ids: [balanced-bounds]
+      text: ''
+    rationale: 'The balanced profile preserves the approved 1 MiB diagnostic-row contract after worst-case JSON escaping while adding finite CPU, memory, and compression-bomb bounds.'
+    supersedes_revision: null
+    requirement_ids: [SKILL-003, SEC-009]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The plan contains fourteen independently executable task packets with explicit dependencies, ownership, failure behavior, verification, rollback, manual gates, and handoff instructions.'
+      - 'All 80 active requirement and acceptance IDs map to at least one task packet.'
+      - 'The planning interview has no unresolved choices, every local link resolves, the decision ledger is valid YAML, and formatting and whitespace checks pass.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the Provider Audit Logging and Diagnostics implementation plan and its fourteen task packets?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan (Recommended)'
+          description: 'Mark the plan Approved and stop; Task 01 remains unauthorized until a separate incremental-implementation request.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan in Draft and return the affected packets for revision.'
+        - id: leave-unapproved
+          label: 'Leave unapproved'
+          description: 'Keep the current audited plan in Draft without requesting changes or authorizing implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
