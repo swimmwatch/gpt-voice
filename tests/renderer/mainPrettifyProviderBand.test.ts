@@ -114,6 +114,24 @@ describe('main Prettify provider band contract', () => {
     );
   });
 
+  it('uses one value text size across Voice, Prettify, model, and Translation columns', () => {
+    const styles = readProjectFile('src/renderer/styles/globals.css');
+
+    assert.match(styles, /--dock-field-value-font-size: 14\.37px;/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-provider-trigger \{[\s\S]*?font-size: var\(--dock-field-value-font-size\);/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-prettify-provider-trigger \{[\s\S]*?font-size: var\(--dock-field-value-font-size\);/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock-prettify-summary strong \{[\s\S]*?font-size: var\(--dock-field-value-font-size\);/u,
+    );
+  });
+
   it('places an untruncated CLI status in the Voice-aligned right-side controls', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const band = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
