@@ -29,6 +29,12 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Do not add dependencies, alter releases, package targets, or generated artifacts without explicit scope.
 - Use non-destructive git commands. Do not push, publish, or contact external parties without authorization.
 
+## Code Style
+
+- Prefer class-based OOP for business logic and stateful orchestration whenever practical. Classes should own related state, invariants, lifecycle behavior, and dependency injection; keep truly stateless transformations as pure functions when a class would add no meaningful ownership.
+- Use functional components, hooks, and composition for React and other UI or interface-layer code.
+- Do not hardcode reusable or domain-significant constants inline. Define them at the narrowest shared owner as named `const` values or enums, and reuse the canonical definition.
+
 ## State And Handoffs
 
 - For a global task, use one `docs/specs/<slug>/` directory with `spec.md`, `tasks/plan.md`, `tasks/todo.md`, `tasks/handoff.md`, and one `tasks/NN_<slug>.md` packet per executable task.
