@@ -132,7 +132,7 @@ describe('CLI prettify model controls', () => {
       {
         id: 'gpt-5.6',
         name: 'GPT-5.6',
-        reasoningEfforts: ['low', 'high'] as const,
+        reasoningEfforts: ['low', 'high', 'max', 'ultra'] as const,
         verbosity: ['low', 'medium'] as const,
       },
     ];
@@ -142,7 +142,7 @@ describe('CLI prettify model controls', () => {
       verbosity: ['low'],
     });
     assert.deepEqual(getCodexCliModelControls('gpt-5.6', models, true), {
-      reasoningEfforts: ['default', 'low', 'high'],
+      reasoningEfforts: ['default', 'low', 'high', 'max', 'ultra'],
       verbosity: ['low', 'medium'],
     });
     assert.deepEqual(getCodexCliModelControls('custom-model', models, true), {

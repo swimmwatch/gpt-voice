@@ -318,6 +318,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Сярэдні',
   'prettify.codexCli.reasoningEffort.high': 'Высокі',
   'prettify.codexCli.reasoningEffort.xhigh': 'Вельмі высокі',
+  'prettify.codexCli.reasoningEffort.max': 'Максімальны',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Падрабязнасць адказу',
   'prettify.codexCli.verbosityHelp': 'Кіруе падрабязнасцю адказу, калі выбраная мадэль Codex гэта падтрымлівае.',
   'prettify.codexCli.verbosity.low': 'Нізкая',

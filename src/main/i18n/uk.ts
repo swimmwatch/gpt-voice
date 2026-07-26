@@ -318,6 +318,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Середній',
   'prettify.codexCli.reasoningEffort.high': 'Високий',
   'prettify.codexCli.reasoningEffort.xhigh': 'Дуже високий',
+  'prettify.codexCli.reasoningEffort.max': 'Максимальний',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Докладність відповіді',
   'prettify.codexCli.verbosityHelp': 'Керує докладністю відповіді, якщо вибрана модель Codex це підтримує.',
   'prettify.codexCli.verbosity.low': 'Низька',

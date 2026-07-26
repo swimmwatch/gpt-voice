@@ -286,6 +286,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'मध्यम',
   'prettify.codexCli.reasoningEffort.high': 'उच्च',
   'prettify.codexCli.reasoningEffort.xhigh': 'अति उच्च',
+  'prettify.codexCli.reasoningEffort.max': 'अधिकतम',
+  'prettify.codexCli.reasoningEffort.ultra': 'अल्ट्रा',
   'prettify.codexCli.verbosity': 'प्रतिक्रिया की विस्तारता',
   'prettify.codexCli.verbosityHelp':
     'जब चयनित Codex मॉडल इसका समर्थन करता है तो प्रतिक्रिया विवरण को नियंत्रित करता है।',

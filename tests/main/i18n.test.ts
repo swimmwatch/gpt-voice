@@ -49,6 +49,7 @@ const ALLOWED_IDENTICAL_TRANSLATION_KEYS = new Set<TranslationKey>([
   'prettify.provider.vllm',
   'prettify.provider.claudeCli',
   'prettify.provider.codexCli',
+  'prettify.codexCli.reasoningEffort.ultra',
   'prettify.topP',
   'prettify.topK',
   'prettify.minP',

@@ -543,7 +543,7 @@ describe('appSettingsUtils', () => {
       codexCli: {
         executablePath: 'codex --ephemeral',
         model: 'model with spaces',
-        reasoningEffort: 'ultra' as unknown as PrettifySettingsDraft['codexCli']['reasoningEffort'],
+        reasoningEffort: 'extreme' as unknown as PrettifySettingsDraft['codexCli']['reasoningEffort'],
         timeoutSeconds: MIN_PRETTIFY_CLI_TIMEOUT_SECONDS - 1,
         verbosity: 'verbose' as unknown as PrettifySettingsDraft['codexCli']['verbosity'],
       },

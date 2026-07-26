@@ -326,7 +326,7 @@ Verified against Codex CLI `0.144.3`; implementation must capability-check becau
 - Execution isolation: `--sandbox read-only`, `approval_policy="never"`, disabled shell/unified-exec/apps/hooks/multi-agent/plugins/remote-plugin features, and disabled web search. The exact accepted switches must be verified for the installed version before enabling the provider.
 - Structured output: a packaged, non-secret JSON schema file and schema-constrained final stdout. JSONL is reserved for future progress/error needs.
 - Model discovery: try `codex debug models`, fall back to `codex debug models --bundled`, then retain the configured free-text model if the catalog contract changes.
-- Use catalog `slug`, display name, supported reasoning levels, default effort, verbosity support, and default verbosity. Initially expose only verified `low`, `medium`, `high`, and `xhigh`; gate catalog-only `max`/`ultra` values behind a live compatibility canary.
+- Use catalog `slug`, display name, supported reasoning levels, default effort, verbosity support, and default verbosity. Expose only values reported for the selected model by the capability-checked catalog; audited Codex CLI `0.144.3` additionally permits `max` and `ultra`.
 - Model unset means the Codex default. Reasoning summary is forced to `none`; verbosity defaults to `low` and may be configured as `low`, `medium`, or `high` when supported.
 - Authentication preflight: `codex login status`; rely on exit code, not localized output.
 - Codex may emit benign stderr on exit `0`; the adapter must not misclassify this as failure.

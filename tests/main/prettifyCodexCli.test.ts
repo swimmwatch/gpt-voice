@@ -72,7 +72,8 @@ const MODEL_CATALOG = {
         { description: 'Synthetic medium', effort: 'medium' },
         { description: 'Synthetic high', effort: 'high' },
         { description: 'Synthetic extra high', effort: 'xhigh' },
-        { description: 'Unverified future value', effort: 'max' },
+        { description: 'Synthetic maximum', effort: 'max' },
+        { description: 'Synthetic ultra', effort: 'ultra' },
       ],
     },
   ],
@@ -477,7 +478,7 @@ describe('CodexCliPrettifyAdapter', () => {
         {
           id: 'gpt-synthetic-codex',
           name: 'Synthetic Codex',
-          reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
           verbosity: ['low', 'medium', 'high'],
         },
       ],
@@ -538,6 +539,61 @@ describe('CodexCliPrettifyAdapter', () => {
         success: true,
       },
     );
+  });
+
+  it('preserves audited GPT-5.6 models and their extended reasoning options', async () => {
+    const catalog = {
+      models: [
+        {
+          display_name: 'GPT-5.6-Sol',
+          slug: 'gpt-5.6-sol',
+          support_verbosity: true,
+          supported_reasoning_levels: [
+            { effort: 'low' },
+            { effort: 'medium' },
+            { effort: 'high' },
+            { effort: 'xhigh' },
+            { effort: 'max' },
+            { effort: 'ultra' },
+          ],
+        },
+        {
+          display_name: 'GPT-5.6-Terra',
+          slug: 'gpt-5.6-terra',
+          support_verbosity: true,
+          supported_reasoning_levels: [
+            { effort: 'low' },
+            { effort: 'medium' },
+            { effort: 'high' },
+            { effort: 'xhigh' },
+            { effort: 'max' },
+            { effort: 'ultra' },
+          ],
+        },
+      ],
+    };
+    const adapter = new CodexCliPrettifyAdapter({
+      runner: new FakeRunner([success(catalog)]),
+    });
+
+    assert.deepEqual(await adapter.discoverModels(getSettings(), new AbortController().signal), {
+      models: [
+        {
+          id: 'gpt-5.6-sol',
+          name: 'GPT-5.6-Sol',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+        {
+          id: 'gpt-5.6-terra',
+          name: 'GPT-5.6-Terra',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+      ],
+      source: 'catalog',
+      success: true,
+    });
   });
 
   it('serializes the audited Spark reasoning and verbosity capabilities when an older catalog omits it', async () => {
@@ -615,18 +671,26 @@ describe('CodexCliPrettifyAdapter', () => {
     const model = {
       id: 'gpt-synthetic-codex',
       name: 'Synthetic Codex',
-      reasoningEfforts: ['low', 'high'] as const,
+      reasoningEfforts: ['low', 'high', 'max', 'ultra'] as const,
       verbosity: ['low', 'high'] as const,
     };
     const supported = buildCodexCliPrettifyArguments(
       PROTECTED_PROMPT,
       OUTPUT_SCHEMA_PATH,
-      getSettings({ model: model.id, reasoningEffort: 'high', verbosity: 'high' }),
+      getSettings({ model: model.id, reasoningEffort: 'max', verbosity: 'high' }),
       model,
     );
     assert.ok(supported);
-    assert.equal(supported.includes('model_reasoning_effort="high"'), true);
+    assert.equal(supported.includes('model_reasoning_effort="max"'), true);
     assert.equal(supported.includes('model_verbosity="high"'), true);
+    const ultra = buildCodexCliPrettifyArguments(
+      PROTECTED_PROMPT,
+      OUTPUT_SCHEMA_PATH,
+      getSettings({ model: model.id, reasoningEffort: 'ultra' }),
+      model,
+    );
+    assert.ok(ultra);
+    assert.equal(ultra.includes('model_reasoning_effort="ultra"'), true);
     assert.equal(
       buildCodexCliPrettifyArguments(
         PROTECTED_PROMPT,

@@ -320,6 +320,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Средний',
   'prettify.codexCli.reasoningEffort.high': 'Высокий',
   'prettify.codexCli.reasoningEffort.xhigh': 'Очень высокий',
+  'prettify.codexCli.reasoningEffort.max': 'Максимальный',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Подробность ответа',
   'prettify.codexCli.verbosityHelp': 'Управляет подробностью ответа, если выбранная модель Codex это поддерживает.',
   'prettify.codexCli.verbosity.low': 'Низкая',

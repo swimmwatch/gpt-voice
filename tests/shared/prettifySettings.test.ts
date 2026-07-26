@@ -189,7 +189,7 @@ describe('prettifySettings', () => {
       codexCli: {
         executablePath: ' /Applications/Codex CLI/codex ',
         model: ' gpt-5.6 ',
-        reasoningEffort: 'xhigh',
+        reasoningEffort: 'ultra',
         verbosity: 'high',
         timeoutSeconds: 14,
       },
@@ -206,7 +206,7 @@ describe('prettifySettings', () => {
     assert.deepEqual(settings.codexCli, {
       executablePath: '/Applications/Codex CLI/codex',
       model: 'gpt-5.6',
-      reasoningEffort: 'xhigh',
+      reasoningEffort: 'ultra',
       timeoutSeconds: 15,
       verbosity: 'high',
     });
@@ -235,7 +235,7 @@ describe('prettifySettings', () => {
       'Claude CLI effort is unsupported',
     );
     assert.equal(
-      getPrettifySettingsInputError({ codexCli: { reasoningEffort: 'ultra' } }),
+      getPrettifySettingsInputError({ codexCli: { reasoningEffort: 'extreme' } }),
       'Codex CLI reasoning effort is unsupported',
     );
     assert.equal(

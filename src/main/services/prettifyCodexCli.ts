@@ -31,12 +31,13 @@ const REQUIRED_CODEX_CLI_EXEC_HELP_FLAGS = [
   '--strict-config',
 ] as const;
 const REQUIRED_CODEX_CLI_MODEL_HELP_FLAGS = ['--bundled'] as const;
-const SUPPORTED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const;
+const SUPPORTED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
+const AUDITED_SPARK_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const;
 const SUPPORTED_VERBOSITIES = ['low', 'medium', 'high'] as const;
 const GPT_5_3_CODEX_SPARK_CAPABILITY = {
   id: 'gpt-5.3-codex-spark',
   name: 'GPT-5.3-Codex-Spark',
-  reasoningEfforts: SUPPORTED_REASONING_EFFORTS,
+  reasoningEfforts: AUDITED_SPARK_REASONING_EFFORTS,
   verbosity: SUPPORTED_VERBOSITIES,
 } as const satisfies CodexCliModelCapability;
 const REQUIRED_DISABLED_FEATURES = [

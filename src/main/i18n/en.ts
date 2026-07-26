@@ -316,6 +316,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Medium',
   'prettify.codexCli.reasoningEffort.high': 'High',
   'prettify.codexCli.reasoningEffort.xhigh': 'Extra high',
+  'prettify.codexCli.reasoningEffort.max': 'Maximum',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ultra',
   'prettify.codexCli.verbosity': 'Response verbosity',
   'prettify.codexCli.verbosityHelp': 'Controls response detail when the selected Codex model supports it.',
   'prettify.codexCli.verbosity.low': 'Low',
