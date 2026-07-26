@@ -17,7 +17,6 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
-import { presentNotificationError } from '@shared/notifications';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
@@ -25,6 +24,13 @@ import { APP_DIR } from '../config';
 import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
 import { getTranscriptionRetryAfterSeconds } from './transcriptionErrors';
+import {
+  voiceProviderAudit,
+  type VoiceProviderAudit,
+  type VoiceAuditOperationContext,
+  type VoiceBatchAuditContext,
+} from './voiceProviderAudit';
+import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
 
 const log = createLogger('chatgpt-provider');
 
@@ -79,15 +85,18 @@ type ChatGptTranscriptionAttempt =
       page: Page;
       pageClosed: boolean;
       pageCurrent: boolean;
+      exceptionType?: ProviderAuditExceptionType;
     }
   | {
       kind: 'page-failed';
       page: Page | null;
       pageClosed: boolean;
       pageCurrent: boolean;
+      exceptionType?: ProviderAuditExceptionType;
     };
 
 interface ChatGPTVoiceProviderDependencies {
+  audit: VoiceProviderAudit;
   now(): number;
   reloadPage(page: Page, timeoutMs: number): Promise<void>;
   writeClipboardText(text: string): void;
@@ -102,6 +111,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   constructor(deps: Partial<ChatGPTVoiceProviderDependencies> = {}) {
     super();
     this.deps = {
+      audit: deps.audit || voiceProviderAudit,
       now: deps.now || Date.now,
       reloadPage:
         deps.reloadPage ||
@@ -137,7 +147,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     if (!this.accessToken) {
       this.accessToken = await this.fetchAccessToken();
     }
-    log.info('Access token ready, length:', this.accessToken.length);
   }
 
   getLoginUrl(): string {
@@ -167,7 +176,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   async saveSession(context: BrowserContext): Promise<void> {
     const state = await context.storageState();
     fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2));
-    log.info('Session saved');
   }
 
   async loadSession(context: BrowserContext): Promise<boolean> {
@@ -186,7 +194,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
 
   async fetchAccessToken(): Promise<string> {
     if (!this.page) return '';
-    log.info('Fetching access token from page...');
     const token = await this.fetchAccessTokenFromPage();
     if (token) {
       this.accessToken = token;
@@ -198,7 +205,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   async refreshAccessToken(): Promise<string> {
     if (!this.page) return '';
     this.accessToken = await this.fetchAccessTokenFromPage();
-    log.info('Access token refreshed, length:', this.accessToken.length);
     if (this.accessToken) {
       this.saveCachedToken(this.accessToken);
     } else {
@@ -207,35 +213,66 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     return this.accessToken;
   }
 
-  async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
-    try {
-      log.info('Transcribing, audio size:', buffer.byteLength, 'bytes', 'mime:', mimeType);
+  async transcribe(
+    buffer: ArrayBuffer,
+    mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+    auditContext?: VoiceBatchAuditContext,
+  ): Promise<TranscriptionResult> {
+    const audit =
+      auditContext ??
+      this.deps.audit.startBatch(this.info.id, buffer, mimeType);
+    const auditMetadata = () => this.deps.audit.createBatchMetadata(audit);
+    audit.lifecycle.phaseCompleted('dispatch', auditMetadata());
+    audit.lifecycle.phaseEntered('validation', auditMetadata());
 
+    try {
       const rateLimitFailure = this.getActiveRateLimitFailure();
       if (rateLimitFailure) {
-        log.info('ChatGPT transcription skipped during rate-limit cooldown:', {
-          remainingSeconds: this.getRateLimitRemainingSeconds(),
+        this.deps.audit.terminalBatch(audit, 'validation', 'failure', {
+          attemptCount: 0,
+          causeCode: 'rate-limited',
         });
         return rateLimitFailure;
       }
 
-      await this.transcriptionPageRecovery;
+      audit.lifecycle.phaseCompleted('validation', auditMetadata());
+      if (this.transcriptionPageRecovery) {
+        audit.lifecycle.phaseEntered('recovery', auditMetadata());
+        await this.transcriptionPageRecovery;
+        audit.lifecycle.phaseCompleted('recovery', auditMetadata());
+      }
 
       if (!this.page) {
+        this.deps.audit.terminalBatch(audit, 'readiness', 'failure', {
+          attemptCount: 0,
+          causeCode: 'not-authenticated',
+          pageClosed: true,
+        });
         return { success: false, error: t('error.notLoggedIn') };
       }
 
       let token = this.accessToken;
       if (!token) {
+        audit.lifecycle.phaseEntered('configuration', auditMetadata());
         token = await this.refreshAccessToken();
+        audit.lifecycle.phaseCompleted('configuration', auditMetadata());
       }
       if (!token) {
+        this.deps.audit.terminalBatch(audit, 'configuration', 'failure', {
+          attemptCount: 0,
+          causeCode: 'not-authenticated',
+        });
         return { success: false, error: t('error.noAccessToken') };
       }
 
-      return await this.transcribeWithRecovery(Buffer.from(buffer).toString('base64'), token, mimeType);
+      audit.lifecycle.phaseEntered('readiness', auditMetadata());
+      audit.lifecycle.phaseCompleted('readiness', auditMetadata());
+      return await this.transcribeWithRecovery(Buffer.from(buffer).toString('base64'), token, mimeType, audit);
     } catch (error: unknown) {
-      log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
+      this.deps.audit.terminalBatch(audit, 'result', 'failure', {
+        causeCode: 'unknown',
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
       return { success: false, error: t('error.notificationUnknown') };
     }
   }
@@ -317,54 +354,123 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     return typeof token === 'string' ? token : '';
   }
 
+  /** Runs the existing bounded authentication retry under one audit operation. */
   private async transcribeWithRecovery(
     audioBase64: string,
     initialAccessToken: string,
     mimeType: string,
+    audit: VoiceBatchAuditContext,
   ): Promise<TranscriptionResult> {
     let accessToken = initialAccessToken;
 
     for (let attemptNumber = 1; attemptNumber <= TRANSCRIPTION_MAX_ATTEMPTS; attemptNumber += 1) {
+      audit.lifecycle.phaseEntered(
+        'submission',
+        this.deps.audit.createBatchMetadata(audit, {
+          attemptCount: attemptNumber,
+        }),
+      );
       const attempt = await this.runTranscriptionAttempt(audioBase64, accessToken, mimeType);
       if (attempt.kind !== 'response') {
         this.startTranscriptionPageRecovery(attempt.page);
-        log.warn('ChatGPT transcription transport failed:', {
-          attempt: attemptNumber,
-          audioReplaySuppressed: true,
-          cause:
-            attempt.kind === 'request-failed'
-              ? attempt.failure === 'timeout'
-                ? 'page-timeout'
-                : 'page-request'
-              : 'page-context',
+        this.deps.audit.terminalBatch(audit, 'submission', 'failure', {
+          attemptCount: attemptNumber,
+          causeCode: 'connection-failed',
+          exceptionType: attempt.exceptionType,
           pageClosed: attempt.pageClosed,
-          pageCurrent: attempt.pageCurrent,
           recoveryScheduled: this.transcriptionPageRecovery !== null,
         });
         return this.createConnectionFailure();
       }
 
-      this.logTranscribeResponse(attempt, attemptNumber);
+      audit.lifecycle.phaseCompleted(
+        'submission',
+        this.deps.audit.createBatchMetadata(audit, {
+          attemptCount: attemptNumber,
+          httpStatus: attempt.status,
+        }),
+      );
       if (shouldRefreshTranscribeToken(attempt.status)) {
         if (attemptNumber >= TRANSCRIPTION_MAX_ATTEMPTS) {
+          this.deps.audit.terminalBatch(audit, 'configuration', 'failure', {
+            attemptCount: attemptNumber,
+            causeCode: 'not-authenticated',
+            httpStatus: attempt.status,
+          });
           return { success: false, error: t('error.noAccessToken') };
         }
 
-        log.info('Access token may have expired; refreshing before one retry:', { status: attempt.status });
+        audit.lifecycle.retry(
+          'configuration',
+          this.deps.audit.createBatchMetadata(audit, {
+            attemptCount: attemptNumber + 1,
+            httpStatus: attempt.status,
+            retryScheduled: true,
+          }),
+        );
+        audit.lifecycle.phaseEntered(
+          'configuration',
+          this.deps.audit.createBatchMetadata(audit, {
+            attemptCount: attemptNumber + 1,
+          }),
+        );
         accessToken = await this.refreshAccessToken();
+        audit.lifecycle.phaseCompleted(
+          'configuration',
+          this.deps.audit.createBatchMetadata(audit, {
+            attemptCount: attemptNumber + 1,
+          }),
+        );
         if (!accessToken) {
+          this.deps.audit.terminalBatch(audit, 'configuration', 'failure', {
+            attemptCount: attemptNumber,
+            causeCode: 'not-authenticated',
+            httpStatus: attempt.status,
+          });
           return { success: false, error: t('error.noAccessToken') };
         }
         continue;
       }
 
       if (attempt.status === Number(StatusCodes.TOO_MANY_REQUESTS)) {
-        return this.applyRateLimitCooldown(attempt);
+        const result = this.applyRateLimitCooldown(attempt);
+        this.deps.audit.terminalBatch(audit, 'result', 'failure', {
+          attemptCount: attemptNumber,
+          causeCode: 'rate-limited',
+          httpStatus: attempt.status,
+        });
+        return result;
       }
 
-      return this.parseTranscribeResponse(attempt, mimeType);
+      audit.lifecycle.phaseEntered(
+        'result',
+        this.deps.audit.createBatchMetadata(audit, {
+          attemptCount: attemptNumber,
+          httpStatus: attempt.status,
+        }),
+      );
+      const result = this.parseTranscribeResponse(attempt, mimeType);
+      if (result.success && result.text) {
+        this.deps.audit.terminalBatch(audit, 'result', 'success', {
+          attemptCount: attemptNumber,
+          httpStatus: attempt.status,
+          resultLength: result.text.length,
+        });
+        return result;
+      }
+
+      this.deps.audit.terminalBatch(audit, 'result', 'failure', {
+        attemptCount: attemptNumber,
+        causeCode: this.classifyTranscriptionFailure(attempt),
+        httpStatus: attempt.status,
+      });
+      return result;
     }
 
+    this.deps.audit.terminalBatch(audit, 'submission', 'failure', {
+      attemptCount: TRANSCRIPTION_MAX_ATTEMPTS,
+      causeCode: 'connection-failed',
+    });
     return this.createConnectionFailure();
   }
 
@@ -388,8 +494,9 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
             pageClosed: page.isClosed(),
             pageCurrent: this.page === page,
           };
-    } catch {
+    } catch (error: unknown) {
       return {
+        exceptionType: normalizeProviderAuditExceptionType(error),
         kind: 'page-failed',
         page,
         pageClosed: page.isClosed(),
@@ -401,27 +508,58 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private startTranscriptionPageRecovery(page: Page | null): void {
     if (!page || this.page !== page || page.isClosed() || this.transcriptionPageRecovery) return;
 
-    const startedAt = this.deps.now();
-    const recovery = this.recoverTranscriptionPage(page, startedAt);
+    const audit = this.deps.audit.startOperation(
+      this.info.id,
+      'recovery',
+      'recovery',
+      this.deps.audit.createMetadata({ pageClosed: false, recoveryScheduled: true }),
+    );
+    const recovery = this.recoverTranscriptionPage(page, audit);
     this.transcriptionPageRecovery = recovery;
     void recovery.then(() => {
       if (this.transcriptionPageRecovery === recovery) this.transcriptionPageRecovery = null;
     });
   }
 
-  private async recoverTranscriptionPage(page: Page, startedAt: number): Promise<void> {
+  private async recoverTranscriptionPage(
+    page: Page,
+    audit: VoiceAuditOperationContext,
+  ): Promise<void> {
     let recovered: boolean;
     try {
       await this.deps.reloadPage(page, TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS);
       recovered = this.page === page && !page.isClosed();
-    } catch {
-      recovered = false;
+    } catch (error: unknown) {
+      this.deps.audit.terminalException(
+        audit,
+        'recovery',
+        error,
+        {
+          causeCode: 'connection-failed',
+          pageClosed: page.isClosed(),
+          recoveryScheduled: false,
+        },
+      );
+      return;
     }
-    log.info('ChatGPT transcription page recovery completed:', {
-      durationMs: Math.max(0, this.deps.now() - startedAt),
-      pageCurrent: this.page === page,
-      recovered,
-    });
+    audit.lifecycle.phaseCompleted(
+      'recovery',
+      this.deps.audit.createMetadata({
+        durationMs: this.deps.audit.durationMs(audit),
+        pageClosed: page.isClosed(),
+        recoveryScheduled: false,
+      }),
+    );
+    audit.lifecycle.terminal(
+      'recovery',
+      recovered ? 'success' : 'failure',
+      this.deps.audit.createMetadata({
+        ...(recovered ? {} : { causeCode: 'connection-failed' as const }),
+        durationMs: this.deps.audit.durationMs(audit),
+        pageClosed: page.isClosed(),
+        recoveryScheduled: false,
+      }),
+    );
   }
 
   private applyRateLimitCooldown(resp: ChatGptTranscribeResponse): TranscriptionResult {
@@ -433,7 +571,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
       this.transcriptionRateLimitUntil,
       this.deps.now() + retryAfterSeconds * 1000,
     );
-    log.warn('ChatGPT transcription rate limited:', { retryAfterSeconds });
     return this.getActiveRateLimitFailure() ?? { success: false, error: t('error.rateLimited') };
   }
 
@@ -530,13 +667,6 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     );
   }
 
-  private logTranscribeResponse(resp: ChatGptTranscribeResponse, attemptNumber: number): void {
-    log.info('Transcribe response status:', { attempt: attemptNumber, status: resp.status });
-    if (resp.status !== Number(StatusCodes.OK)) {
-      log.error('Transcribe response failed:', { bodyLength: resp.body.length, status: resp.status });
-    }
-  }
-
   private createConnectionFailure(): TranscriptionResult {
     return {
       success: false,
@@ -547,10 +677,24 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private parseTranscribeResponse(resp: ChatGptTranscribeResponse, mimeType: string): TranscriptionResult {
     const parsed = parseChatGptTranscribeResponse(resp, mimeType);
     if (parsed.success && parsed.text) {
-      log.info('Transcription success, text length:', parsed.text.length);
       this.deps.writeClipboardText(parsed.text);
     }
     return parsed;
+  }
+
+  private classifyTranscriptionFailure(
+    resp: ChatGptTranscribeResponse,
+  ): 'request-failed' | 'provider-contract-changed' | 'unexpected-response' | 'empty-result' {
+    if (resp.status !== Number(StatusCodes.OK)) return 'request-failed';
+
+    try {
+      const result: unknown = JSON.parse(resp.body);
+      if (!isRecord(result)) return 'provider-contract-changed';
+      if ('error' in result || 'detail' in result || 'message' in result) return 'unexpected-response';
+      return 'empty-result';
+    } catch {
+      return 'provider-contract-changed';
+    }
   }
 
   private loadCachedToken(): string {

@@ -25,7 +25,11 @@ import {
   restartBackgroundBrowser,
   switchProvider,
 } from './browser';
-import { createProvider, getAvailableProviders } from './providers';
+import {
+  createProvider,
+  getAvailableProviders,
+  voiceProviderAudit,
+} from './providers';
 import {
   closeAboutWindow,
   closeProviderSettingsWindow,
@@ -285,28 +289,63 @@ function getHotkeySettingsSnapshot(): HotkeySettings {
 }
 
 function getProviderSettingsSnapshot(providerId: string) {
-  if (providerId === OPENAI_API_PROVIDER_ID) {
-    return {
-      providerId,
-      authType: 'apiKey',
-      ...getOpenAIApiSettingsView(),
-    };
+  if (!voiceProviderAudit.isKnownProviderId(providerId)) {
+    createProvider(providerId);
   }
-
-  const provider = createProvider(providerId);
-  if (providerId === CLAUDE_WEB_PROVIDER_ID) {
-    return {
-      providerId,
-      authType: 'browserSession',
-      hasSession: provider.hasSession(),
-      ...getClaudeWebSettings(),
-    };
-  }
-  return {
+  const audit = voiceProviderAudit.startOperation(
     providerId,
-    authType: provider.info.authType,
-    hasSession: provider.hasSession(),
-  };
+    'settings-readiness',
+    'configuration',
+  );
+
+  try {
+    if (providerId === OPENAI_API_PROVIDER_ID) {
+      const settings = {
+        providerId,
+        authType: 'apiKey',
+        ...getOpenAIApiSettingsView(),
+      };
+      audit.lifecycle.phaseCompleted('configuration');
+      audit.lifecycle.terminal(
+        'configuration',
+        settings.hasApiKey ? 'success' : 'failure',
+        settings.hasApiKey ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+      );
+      return settings;
+    }
+
+    const provider = createProvider(providerId);
+    if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+      const settings = {
+        providerId,
+        authType: 'browserSession',
+        hasSession: provider.hasSession(),
+        ...getClaudeWebSettings(),
+      };
+      audit.lifecycle.phaseCompleted('configuration');
+      audit.lifecycle.terminal(
+        'configuration',
+        settings.hasSession ? 'success' : 'failure',
+        settings.hasSession ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-authenticated' }),
+      );
+      return settings;
+    }
+    const settings = {
+      providerId,
+      authType: provider.info.authType,
+      hasSession: provider.hasSession(),
+    };
+    audit.lifecycle.phaseCompleted('configuration');
+    audit.lifecycle.terminal(
+      'configuration',
+      settings.hasSession ? 'success' : 'failure',
+      settings.hasSession ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-authenticated' }),
+    );
+    return settings;
+  } catch (error: unknown) {
+    voiceProviderAudit.terminalException(audit, 'configuration', error);
+    throw error;
+  }
 }
 
 async function refreshActiveProvider(providerId: string) {
@@ -403,7 +442,19 @@ export function registerIpcHandlers(): void {
           done = true;
           try {
             if (saveSession) {
-              await provider.saveSession(context!);
+              const saveAudit = voiceProviderAudit.startOperation(
+                provider.info.id,
+                'session-save',
+                'session',
+              );
+              try {
+                await provider.saveSession(context!);
+                saveAudit.lifecycle.phaseCompleted('session');
+                saveAudit.lifecycle.terminal('session', 'success');
+              } catch (error: unknown) {
+                voiceProviderAudit.terminalException(saveAudit, 'session', error, { causeCode: 'cleanup-failed' });
+                throw error;
+              }
               sessionSaved = true;
             }
           } finally {
@@ -450,9 +501,29 @@ export function registerIpcHandlers(): void {
   handle('check-session', () => {
     try {
       const provider = getActiveProvider() ?? createProvider(currentProvider);
-      return provider.hasSession();
-    } catch (error: unknown) {
-      log.warn('Failed to check provider session:', error instanceof Error ? error.message : error);
+      const audit = voiceProviderAudit.startOperation(
+        provider.info.id,
+        'settings-readiness',
+        'configuration',
+      );
+      try {
+        const hasSession = provider.hasSession();
+        audit.lifecycle.phaseCompleted('configuration');
+        audit.lifecycle.terminal(
+          'configuration',
+          hasSession ? 'success' : 'failure',
+          hasSession
+            ? undefined
+            : voiceProviderAudit.createMetadata({
+                causeCode: provider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured',
+              }),
+        );
+        return hasSession;
+      } catch (error: unknown) {
+        voiceProviderAudit.terminalException(audit, 'configuration', error);
+        throw error;
+      }
+    } catch {
       return false;
     }
   });
@@ -568,19 +639,46 @@ export function registerIpcHandlers(): void {
   handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
+        const audit = voiceProviderAudit.startOperation(
+          providerId,
+          'settings-readiness',
+          'validation',
+        );
+        audit.lifecycle.terminal(
+          'validation',
+          'failure',
+          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        );
         return { success: false, error: 'Unsupported provider' };
       }
       if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+        const audit = voiceProviderAudit.startOperation(
+          providerId,
+          'settings-readiness',
+          'validation',
+        );
         try {
           assertValidClaudeWebSettingsUpdateInput(settings);
         } catch {
-          log.warn('Claude Web provider settings rejected:', { providerId });
+          audit.lifecycle.terminal(
+            'validation',
+            'failure',
+            voiceProviderAudit.createMetadata({ causeCode: 'invalid-settings' }),
+          );
           return { success: false, error: t('error.claudeWeb.invalid-settings') };
         }
 
+        audit.lifecycle.phaseCompleted('validation');
+        audit.lifecycle.phaseEntered('configuration');
         log.info('Saving provider settings:', { providerId });
-        const savedSettings = saveClaudeWebSettings(settings);
-        await refreshActiveProvider(providerId);
+        let savedSettings: ReturnType<typeof saveClaudeWebSettings>;
+        try {
+          savedSettings = saveClaudeWebSettings(settings);
+          await refreshActiveProvider(providerId);
+        } catch (error: unknown) {
+          voiceProviderAudit.terminalException(audit, 'configuration', error);
+          throw error;
+        }
         log.info('Provider settings saved:', { providerId });
         const nextSettings = {
           providerId,
@@ -588,6 +686,8 @@ export function registerIpcHandlers(): void {
           hasSession: createProvider(providerId).hasSession(),
           language: savedSettings.language,
         };
+        audit.lifecycle.phaseCompleted('configuration');
+        audit.lifecycle.terminal('configuration', 'success');
         sendProviderSettingsChanged(nextSettings, event.sender);
         return { success: true, settings: nextSettings };
       }
@@ -599,10 +699,32 @@ export function registerIpcHandlers(): void {
         return { success: true, settings: nextSettings };
       }
 
-      assertValidOpenAIApiSettingsInput(settings);
+      const audit = voiceProviderAudit.startOperation(
+        providerId,
+        'settings-readiness',
+        'validation',
+      );
+      try {
+        assertValidOpenAIApiSettingsInput(settings);
+      } catch (error: unknown) {
+        audit.lifecycle.terminal(
+          'validation',
+          'failure',
+          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        );
+        throw error;
+      }
+      audit.lifecycle.phaseCompleted('validation');
+      audit.lifecycle.phaseEntered('configuration');
       log.info('Saving provider settings:', { providerId, ...summarizeOpenAIApiSettingsInput(settings) });
-      const savedSettings = saveOpenAIApiSettings(settings);
-      await refreshActiveProvider(providerId);
+      let savedSettings: ReturnType<typeof saveOpenAIApiSettings>;
+      try {
+        savedSettings = saveOpenAIApiSettings(settings);
+        await refreshActiveProvider(providerId);
+      } catch (error: unknown) {
+        voiceProviderAudit.terminalException(audit, 'configuration', error);
+        throw error;
+      }
       log.info('Provider settings saved:', {
         providerId,
         hasApiKey: savedSettings.hasApiKey,
@@ -616,6 +738,14 @@ export function registerIpcHandlers(): void {
         authType: 'apiKey' as const,
         ...savedSettings,
       };
+      audit.lifecycle.phaseCompleted('configuration');
+      audit.lifecycle.terminal(
+        'configuration',
+        savedSettings.hasApiKey ? 'success' : 'failure',
+        savedSettings.hasApiKey
+          ? undefined
+          : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+      );
       sendProviderSettingsChanged(nextSettings, event.sender);
       return { success: true, settings: nextSettings };
     } catch (error: unknown) {
@@ -625,20 +755,33 @@ export function registerIpcHandlers(): void {
   });
 
   handle('clear-provider-auth', async (event, providerId: string) => {
+    const audit = voiceProviderAudit.startOperation(
+      providerId,
+      'session-clear',
+      'session',
+    );
     try {
-      log.info('Clearing provider auth:', { providerId });
+      if (!voiceProviderAudit.isKnownProviderId(providerId)) {
+        audit.lifecycle.terminal(
+          'session',
+          'failure',
+          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        );
+        throw new Error(`Unknown voice provider: ${providerId}`);
+      }
       if (providerId === OPENAI_API_PROVIDER_ID) {
         clearOpenAIApiKey();
       } else {
         createProvider(providerId).clearSession();
       }
+      audit.lifecycle.phaseCompleted('session');
+      audit.lifecycle.terminal('session', 'success');
       await refreshActiveProvider(providerId);
-      log.info('Provider auth cleared:', { providerId });
       const settings = getProviderSettingsSnapshot(providerId);
       sendProviderSettingsChanged(settings, event.sender);
       return { success: true, settings };
     } catch (error: unknown) {
-      log.error('Provider auth clear error:', getErrorMessage(error));
+      voiceProviderAudit.terminalException(audit, 'session', error, { causeCode: 'cleanup-failed' });
       return { success: false, error: getErrorMessage(error) };
     }
   });
@@ -649,27 +792,11 @@ export function registerIpcHandlers(): void {
 
   handle('set-active-provider', async (_event, providerId: string) => {
     try {
-      const previousProvider = currentProvider;
-      log.info('Changing active provider:', { from: previousProvider, to: providerId });
       const status = await switchProvider(providerId);
       saveConfig();
       sendBackgroundStatus(status);
-      if (status.error) {
-        log.warn('Active provider change failed:', {
-          from: previousProvider,
-          to: providerId,
-          status: summarizeBackgroundStatus(status),
-        });
-      } else {
-        log.info('Active provider changed:', {
-          from: previousProvider,
-          to: providerId,
-          status: summarizeBackgroundStatus(status),
-        });
-      }
       return { success: !status.error, error: status.error };
     } catch (error: unknown) {
-      log.error('Active provider change error:', getErrorMessage(error));
       return { success: false, error: getErrorMessage(error) };
     }
   });

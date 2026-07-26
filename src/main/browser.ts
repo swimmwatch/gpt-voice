@@ -8,7 +8,12 @@ import { launchCloakContext, launchCloakPersistentContext } from '@main/cloakbro
 import { currentProvider, setProvider } from '@main/config';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import { createProvider, type BaseVoiceProvider } from '@main/providers';
+import {
+  createProvider,
+  voiceProviderAudit,
+  type BaseVoiceProvider,
+  type VoiceProviderAudit,
+} from '@main/providers';
 import { presentNotificationError } from '@shared/notifications';
 import { runBeforeBackgroundBrowserShutdownHooks } from '@main/backgroundBrowserLifecycle';
 import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
@@ -20,6 +25,7 @@ let activeProvider: BaseVoiceProvider | null = null;
 let bgReady = false;
 let bgError = '';
 let bgAuthExpired = false;
+let activeProviderAudit: VoiceProviderAudit = voiceProviderAudit;
 const backgroundBrowserOperationQueue = new BackgroundBrowserOperationQueue();
 
 export function isBgReady(): boolean {
@@ -39,8 +45,12 @@ export enum BrowserSessionStartupState {
   TemporaryFailure = 'temporaryFailure',
 }
 
-interface EnsureBackgroundBrowserOptions {
+/** Testable main-only dependencies for serialized background-provider startup. */
+export interface EnsureBackgroundBrowserOptions {
+  audit?: VoiceProviderAudit;
+  backgroundContextFactory?: (settings?: CloakBrowserSettingsWithSecret) => Promise<BrowserContext>;
   cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
+  providerFactory?: (providerId: string, audit: VoiceProviderAudit) => BaseVoiceProvider;
 }
 
 export function getBrowserSessionStartupState({
@@ -83,66 +93,167 @@ async function ensureBackgroundContext(settings?: CloakBrowserSettingsWithSecret
   return bgContext;
 }
 
+/** Initializes the configured provider and its owned readiness/session state. */
 async function initBackgroundBrowserNow(
   options: EnsureBackgroundBrowserOptions = {},
 ): Promise<BackgroundBrowserStatus> {
-  const { cloakBrowserSettings } = options;
+  const {
+    audit = voiceProviderAudit,
+    backgroundContextFactory = ensureBackgroundContext,
+    cloakBrowserSettings,
+    providerFactory = createProvider,
+  } = options;
 
+  if (activeProvider) {
+    await shutdownBackgroundBrowserNow();
+  }
   bgReady = false;
   bgError = '';
   bgAuthExpired = false;
 
   try {
-    activeProvider = createProvider(currentProvider);
+    activeProvider = providerFactory(currentProvider, audit);
+    activeProviderAudit = audit;
   } catch (error: unknown) {
     const presented = presentNotificationError(error, { context: 'generic', t });
     bgError = presented.userMessage;
-    log.error('Provider init error:', presented.safeLogMetadata);
     return getBackgroundBrowserStatus();
   }
 
-  if (!activeProvider.hasSession()) {
-    log.info('No provider session/settings, skipping background browser init');
+  const settingsAudit = audit.startOperation(
+    activeProvider.info.id,
+    'settings-readiness',
+    'configuration',
+  );
+  let hasSession: boolean;
+  try {
+    hasSession = activeProvider.hasSession();
+  } catch (error: unknown) {
+    audit.terminalException(settingsAudit, 'configuration', error);
+    throw error;
+  }
+  if (!hasSession) {
+    settingsAudit.lifecycle.terminal(
+      'configuration',
+      'failure',
+      audit.createMetadata({
+        causeCode: activeProvider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured',
+      }),
+    );
     return getBackgroundBrowserStatus();
   }
+  settingsAudit.lifecycle.phaseCompleted('configuration');
+  settingsAudit.lifecycle.terminal('configuration', 'success');
 
   try {
     if (activeProvider.requiresBrowserSession()) {
-      log.info('Ensuring persistent background browser...');
-      bgContext = await ensureBackgroundContext(cloakBrowserSettings);
-
-      // Load session cookies and initialize the provider page.
-      const sessionLoaded = await activeProvider.loadSession(bgContext);
-      if (sessionLoaded) {
-        await activeProvider.initPage(bgContext);
+      const readinessAudit = audit.startOperation(
+        activeProvider.info.id,
+        'readiness',
+        'context',
+      );
+      try {
+        bgContext = await backgroundContextFactory(cloakBrowserSettings);
+        readinessAudit.lifecycle.phaseCompleted('context');
+      } catch (error: unknown) {
+        audit.terminalException(readinessAudit, 'context', error, { causeCode: 'connection-failed' });
+        throw error;
       }
 
+      // Load session cookies and initialize the provider page.
+      const sessionAudit = audit.startOperation(
+        activeProvider.info.id,
+        'session-load',
+        'session',
+      );
+      let sessionLoaded: boolean;
+      try {
+        sessionLoaded = await activeProvider.loadSession(bgContext);
+      } catch (error: unknown) {
+        audit.terminalException(sessionAudit, 'session', error, { causeCode: 'not-authenticated' });
+        audit.terminalException(readinessAudit, 'session', error, { causeCode: 'not-authenticated' });
+        throw error;
+      }
+      sessionAudit.lifecycle.phaseCompleted('session');
+      sessionAudit.lifecycle.terminal(
+        'session',
+        sessionLoaded ? 'success' : 'failure',
+        sessionLoaded ? undefined : audit.createMetadata({ causeCode: 'not-authenticated' }),
+      );
+      if (sessionLoaded) {
+        readinessAudit.lifecycle.phaseEntered('navigation');
+        try {
+          await activeProvider.initPage(bgContext);
+          readinessAudit.lifecycle.phaseCompleted('navigation');
+        } catch (error: unknown) {
+          audit.terminalException(readinessAudit, 'navigation', error, { causeCode: 'connection-failed' });
+          throw error;
+        }
+      }
+
+      readinessAudit.lifecycle.phaseEntered('readiness');
       const startupState = getBrowserSessionStartupState({
         providerReady: activeProvider.isReady(),
         sessionLoaded,
       });
       if (startupState === BrowserSessionStartupState.Expired) {
+        readinessAudit.lifecycle.terminal(
+          'readiness',
+          'failure',
+          audit.createMetadata({ causeCode: 'not-authenticated' }),
+        );
         bgAuthExpired = true;
         bgError = t('error.noAccessToken');
-        activeProvider.clearSession();
+        const clearAudit = audit.startOperation(
+          activeProvider.info.id,
+          'session-clear',
+          'session',
+        );
+        try {
+          activeProvider.clearSession();
+          clearAudit.lifecycle.phaseCompleted('session');
+          clearAudit.lifecycle.terminal('session', 'success');
+        } catch (error: unknown) {
+          audit.terminalException(clearAudit, 'session', error, { causeCode: 'cleanup-failed' });
+          throw error;
+        }
         await shutdownBackgroundBrowserNow(true);
         return getBackgroundBrowserStatus();
       }
 
       if (startupState === BrowserSessionStartupState.TemporaryFailure) {
+        readinessAudit.lifecycle.terminal(
+          'readiness',
+          'failure',
+          audit.createMetadata({ causeCode: 'not-authenticated' }),
+        );
         throw new Error(getBrowserSessionStartupError(activeProvider.getReadinessError()));
       }
-    } else if (!activeProvider.isReady()) {
-      throw new Error(t('error.noAccessToken'));
+      readinessAudit.lifecycle.phaseCompleted('readiness');
+      readinessAudit.lifecycle.terminal('readiness', 'success');
+    } else {
+      const readinessAudit = audit.startOperation(
+        activeProvider.info.id,
+        'readiness',
+        'readiness',
+      );
+      if (!activeProvider.isReady()) {
+        readinessAudit.lifecycle.terminal(
+          'readiness',
+          'failure',
+          audit.createMetadata({ causeCode: 'not-configured' }),
+        );
+        throw new Error(t('error.noAccessToken'));
+      }
+      readinessAudit.lifecycle.phaseCompleted('readiness');
+      readinessAudit.lifecycle.terminal('readiness', 'success');
     }
 
     bgReady = true;
-    log.info('Background browser ready');
     return getBackgroundBrowserStatus();
   } catch (error: unknown) {
     const presented = presentNotificationError(error, { context: 'generic', t });
     bgError = presented.userMessage;
-    log.error('Init error:', presented.safeLogMetadata);
     await shutdownBackgroundBrowserNow(true);
     return getBackgroundBrowserStatus();
   }
@@ -153,14 +264,34 @@ export function initBackgroundBrowser(options: EnsureBackgroundBrowserOptions = 
 }
 
 async function shutdownBackgroundBrowserNow(preserveError = false): Promise<void> {
-  await runBeforeBackgroundBrowserShutdownHooks();
+  const provider = activeProvider;
+  const shutdownAudit = provider
+    ? activeProviderAudit.startOperation(provider.info.id, 'shutdown', 'shutdown')
+    : null;
+  let cleanupFailed = false;
+  try {
+    await runBeforeBackgroundBrowserShutdownHooks();
+  } catch (error: unknown) {
+    if (shutdownAudit) {
+      activeProviderAudit.terminalException(shutdownAudit, 'shutdown', error, { causeCode: 'cleanup-failed' });
+    }
+    throw error;
+  }
   bgReady = false;
   if (!preserveError) {
     bgError = '';
     bgAuthExpired = false;
   }
-  if (activeProvider) {
-    await activeProvider.shutdown();
+  if (provider) {
+    try {
+      await provider.shutdown();
+      if (activeProvider === provider) {
+        activeProvider = null;
+      }
+    } catch (error: unknown) {
+      activeProviderAudit.terminalException(shutdownAudit!, 'shutdown', error, { causeCode: 'cleanup-failed' });
+      throw error;
+    }
   }
   if (bgContext) {
     try {
@@ -168,9 +299,17 @@ async function shutdownBackgroundBrowserNow(preserveError = false): Promise<void
       await bgContext.close();
       log.info('Background browser closed');
     } catch {
-      /* ignore */
+      cleanupFailed = true;
     }
     bgContext = null;
+  }
+  if (shutdownAudit) {
+    shutdownAudit.lifecycle.phaseCompleted('shutdown');
+    shutdownAudit.lifecycle.terminal(
+      'shutdown',
+      cleanupFailed ? 'failure' : 'success',
+      cleanupFailed ? activeProviderAudit.createMetadata({ causeCode: 'cleanup-failed' }) : undefined,
+    );
   }
 }
 
@@ -190,7 +329,9 @@ export function ensureBackgroundBrowser(options: EnsureBackgroundBrowserOptions 
 }
 
 async function switchProviderNow(providerId: string): Promise<BackgroundBrowserStatus> {
-  createProvider(providerId);
+  if (!voiceProviderAudit.isKnownProviderId(providerId)) {
+    createProvider(providerId);
+  }
   await shutdownBackgroundBrowserNow();
   setProvider(providerId);
   return initBackgroundBrowserNow();

@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the batch fixture and failing audit subclass share one service suite. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
@@ -8,6 +9,15 @@ import {
   createTranscriptionResultCacheKey,
 } from '@main/services/transcriptionResultCache';
 import type { TextActionResultCache } from '@main/services/textActionCache';
+import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
+import type { ProviderAuditLifecycle } from '@main/providerAudit';
+import { createVoiceAuditRecorder, getTerminalEvents } from './providers/voiceAuditTestUtils';
+
+class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
+  protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
+    throw new Error('synthetic audit sink failure with private transcript');
+  }
+}
 
 class TestVoiceProvider extends BatchVoiceProvider {
   readonly info = {
@@ -53,6 +63,7 @@ class TestVoiceProvider extends BatchVoiceProvider {
 }
 
 interface TestServiceOptions {
+  audit?: VoiceProviderAudit;
   backgroundReady?: boolean;
   cache?: TextActionResultCache;
   provider?: TestVoiceProvider | null;
@@ -60,6 +71,7 @@ interface TestServiceOptions {
 }
 
 function createTestService(options: TestServiceOptions = {}) {
+  const audit = createVoiceAuditRecorder();
   const defaultProvider = new TestVoiceProvider();
   let activeProvider = options.provider === undefined ? defaultProvider : options.provider;
   let backgroundReady = options.backgroundReady ?? true;
@@ -69,6 +81,7 @@ function createTestService(options: TestServiceOptions = {}) {
   let ensureCalls = 0;
 
   const service = createTranscriptionService({
+    audit: options.audit ?? audit.audit,
     addHistoryEntry: (entry) => {
       history.push(entry);
     },
@@ -86,7 +99,15 @@ function createTestService(options: TestServiceOptions = {}) {
     },
   });
 
-  return { cache, clipboard, ensureCalls: () => ensureCalls, history, provider: defaultProvider, service };
+  return {
+    auditOperations: audit.operations,
+    cache,
+    clipboard,
+    ensureCalls: () => ensureCalls,
+    history,
+    provider: defaultProvider,
+    service,
+  };
 }
 
 function createAudioBuffer(): ArrayBuffer {
@@ -107,6 +128,11 @@ describe('transcription service', () => {
     assert.equal(testService.provider.transcribeCalls, 1);
     assert.deepEqual(testService.clipboard, ['transcribed text']);
     assert.equal(testService.history.length, 2);
+    assert.equal(testService.auditOperations.length, 1);
+    assert.deepEqual(
+      getTerminalEvents(testService.auditOperations[0]).map((event) => event.outcome),
+      ['success'],
+    );
   });
 
   it('does not cache failed, thrown, or empty transcription results', async () => {
@@ -163,6 +189,7 @@ describe('transcription service', () => {
     assert.equal(provider.transcribeCalls, 0);
     assert.deepEqual(testService.clipboard, ['cached text']);
     assert.equal(testService.history.length, 1);
+    assert.equal(testService.auditOperations.length, 0);
   });
 
   it('falls back to the provider when cache operations fail', async () => {
@@ -193,5 +220,18 @@ describe('transcription service', () => {
     assert.deepEqual(result, { success: true, text: 'transcribed text' });
     assert.equal(testService.ensureCalls(), 1);
     assert.equal(provider.transcribeCalls, 1);
+  });
+
+  it('keeps provider behavior unchanged when the audit lifecycle construction throws', async () => {
+    const testService = createTestService({
+      audit: new ThrowingVoiceProviderAudit(),
+    });
+
+    const result = await testService.service(createAudioBuffer(), 'audio/webm');
+
+    assert.deepEqual(result, { success: true, text: 'transcribed text' });
+    assert.equal(testService.provider.transcribeCalls, 1);
+    assert.deepEqual(testService.clipboard, []);
+    assert.equal(testService.history.length, 1);
   });
 });
