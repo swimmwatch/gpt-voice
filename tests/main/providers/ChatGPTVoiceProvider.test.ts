@@ -6,7 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { setLocale, t } from '@main/i18n';
 import { ChatGPTVoiceProvider } from '@main/providers/ChatGPTVoiceProvider';
 import {
-  createVoiceAuditRecorder,
+  RecordingVoiceProviderAudit,
   getTerminalEvents,
   type RecordedVoiceAuditOperation,
 } from './voiceAuditTestUtils';
@@ -80,14 +80,12 @@ interface ProviderHarnessOptions {
 }
 
 function createHarness(evaluationResults: unknown[], options: ProviderHarnessOptions = {}): ProviderHarness {
-  const audit = createVoiceAuditRecorder(
-    options.now === undefined ? {} : { elapsedNow: options.now },
-  );
+  const audit = new RecordingVoiceProviderAudit(options.now === undefined ? {} : { elapsedNow: options.now });
   const clipboardWrites: string[] = [];
   const recoveryTimeouts: number[] = [];
   const page = createFakePage(evaluationResults);
   const provider = new TestChatGPTVoiceProvider({
-    audit: audit.audit,
+    audit: audit,
     now: options.now,
     reloadPage: async (_page, timeoutMs) => {
       recoveryTimeouts.push(timeoutMs);

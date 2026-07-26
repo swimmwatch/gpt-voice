@@ -13,11 +13,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
-import {
-  voiceProviderAudit,
-  type VoiceProviderAudit,
-  type VoiceBatchAuditContext,
-} from './voiceProviderAudit';
+import { voiceProviderAudit, type VoiceProviderAudit, type VoiceBatchAuditContext } from './voiceProviderAudit';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -91,12 +87,9 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
     auditContext?: VoiceBatchAuditContext,
   ): Promise<TranscriptionResult> {
-    const audit =
-      auditContext ??
-      this.deps.audit.startBatch(this.info.id, buffer, mimeType);
-    const auditMetadata = () => this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 });
-    audit.lifecycle.phaseCompleted('dispatch', auditMetadata());
-    audit.lifecycle.phaseEntered('configuration', auditMetadata());
+    const audit = auditContext ?? this.deps.audit.startBatch(this.info.id, buffer, mimeType);
+    audit.lifecycle.phaseCompleted('dispatch', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+    audit.lifecycle.phaseEntered('configuration', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
 
     try {
       const settings = this.deps.getSettings();
@@ -107,8 +100,8 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
         });
         return { success: false, error: t('error.noAccessToken') };
       }
-      audit.lifecycle.phaseCompleted('configuration', auditMetadata());
-      audit.lifecycle.phaseEntered('validation', auditMetadata());
+      audit.lifecycle.phaseCompleted('configuration', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+      audit.lifecycle.phaseEntered('validation', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
 
       const formData = new FormData();
       const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE });
@@ -123,8 +116,8 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
       if (settings.prompt) {
         formData.append('prompt', settings.prompt);
       }
-      audit.lifecycle.phaseCompleted('validation', auditMetadata());
-      audit.lifecycle.phaseEntered('submission', auditMetadata());
+      audit.lifecycle.phaseCompleted('validation', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+      audit.lifecycle.phaseEntered('submission', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
 
       const response = await this.deps.fetch(TRANSCRIPTIONS_URL, {
         method: 'POST',

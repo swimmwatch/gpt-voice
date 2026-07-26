@@ -8,10 +8,7 @@ import {
   TRANSLATION_PROVIDER_INFO,
   type TranslationProviderId,
 } from '@shared/translationProvider';
-import {
-  createTranslationAuditRecorder,
-  noopTranslationProviderAudit,
-} from './translationAuditTestUtils';
+import { noopTranslationProviderAudit, RecordingTranslationProviderAudit } from './translationAuditTestUtils';
 
 const NOOP_AUDIT_DEPENDENCIES = {
   audit: noopTranslationProviderAudit,
@@ -65,10 +62,10 @@ describe('translation provider registry', () => {
   });
 
   it('attempts every shutdown and retains only failed provider ownership for retry', async () => {
-    const recorder = createTranslationAuditRecorder();
+    const recorder = new RecordingTranslationProviderAudit();
     let now = 1_000;
     const registry = new TranslationProviderRegistry(TRANSLATION_PROVIDER_DEFINITIONS, {
-      audit: recorder.audit,
+      audit: recorder,
       now: () => {
         now += 1;
         return now;
@@ -115,18 +112,13 @@ describe('translation provider registry', () => {
       ['google', 'bing', 'bing'],
     );
     assert.deepEqual(
-      recorder.operations.map(
-        (operation) => operation.events.filter((event) => event.event === 'terminal').length,
-      ),
+      recorder.operations.map((operation) => operation.events.filter((event) => event.event === 'terminal').length),
       [1, 1, 1],
     );
     const [googleOperation, firstBingOperation, secondBingOperation] = recorder.operations;
     assert.equal(googleOperation?.events[googleOperation.events.length - 1]?.outcome, 'success');
     assert.equal(firstBingOperation?.events[firstBingOperation.events.length - 1]?.outcome, 'failure');
-    assert.equal(
-      firstBingOperation?.events[firstBingOperation.events.length - 1]?.metadata?.errorClass,
-      'cleanup',
-    );
+    assert.equal(firstBingOperation?.events[firstBingOperation.events.length - 1]?.metadata?.errorClass, 'cleanup');
     assert.equal(secondBingOperation?.events[secondBingOperation.events.length - 1]?.outcome, 'success');
   });
 });

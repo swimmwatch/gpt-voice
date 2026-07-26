@@ -68,34 +68,33 @@ interface CapturedAuditEntry {
   readonly serialized: string;
 }
 
-function createCoreAuditCapture(): {
-  readonly audit: TranslationProviderAudit;
-  readonly entries: CapturedAuditEntry[];
-} {
-  const entries: CapturedAuditEntry[] = [];
-  let operationIdCounter = 0;
-  let timestamp = Date.parse('2026-07-26T12:00:00.000Z');
-  const capture =
-    (level: CapturedAuditEntry['level']) =>
-    (...args: unknown[]): void => {
-      assert.equal(args[0], 'Provider audit event');
-      assert.equal(typeof args[1], 'string');
-      assert.equal(args.length, 2);
-      const serialized = args[1] as string;
-      entries.push({
-        level,
-        record: JSON.parse(serialized) as CapturedAuditEntry['record'],
-        serialized,
-      });
-    };
-  const sink = {
-    info: capture('info'),
-    warn: capture('warn'),
-    error: capture('error'),
-  };
+class CapturingTranslationProviderAudit extends TranslationProviderAudit {
+  public readonly entries: CapturedAuditEntry[];
 
-  return {
-    audit: new TranslationProviderAudit({
+  public constructor() {
+    const entries: CapturedAuditEntry[] = [];
+    let operationIdCounter = 0;
+    let timestamp = Date.parse('2026-07-26T12:00:00.000Z');
+    const capture =
+      (level: CapturedAuditEntry['level']) =>
+      (...args: unknown[]): void => {
+        assert.equal(args[0], 'Provider audit event');
+        assert.equal(typeof args[1], 'string');
+        assert.equal(args.length, 2);
+        const serialized = args[1] as string;
+        entries.push({
+          level,
+          record: JSON.parse(serialized) as CapturedAuditEntry['record'],
+          serialized,
+        });
+      };
+    const sink = {
+      info: capture('info'),
+      warn: capture('warn'),
+      error: capture('error'),
+    };
+
+    super({
       getSink: () => sink,
       now: () => {
         timestamp += 1;
@@ -105,9 +104,9 @@ function createCoreAuditCapture(): {
         operationIdCounter += 1;
         return `00000000-0000-4000-8000-${String(operationIdCounter).padStart(12, '0')}`;
       },
-    }),
-    entries,
-  };
+    });
+    this.entries = entries;
+  }
 }
 
 class ThrowingConstructionTranslationProviderAudit extends TranslationProviderAudit {
@@ -208,17 +207,17 @@ describe('TranslationRuntime', () => {
   });
 
   it('fails closed for unsupported provider and target settings without registry access', () => {
-    const providerAudit = createCoreAuditCapture();
-    const targetAudit = createCoreAuditCapture();
+    const providerAudit = new CapturingTranslationProviderAudit();
+    const targetAudit = new CapturingTranslationProviderAudit();
     const invalidProvider = createRuntimeHarness({
-      audit: providerAudit.audit,
+      audit: providerAudit,
       settings: {
         providerId: 'deepl-private-provider-canary',
         targetLanguageByProvider: {},
       } as unknown as TranslationSettings,
     });
     const invalidTarget = createRuntimeHarness({
-      audit: targetAudit.audit,
+      audit: targetAudit,
       settings: {
         ...DEFAULT_SETTINGS,
         targetLanguageByProvider: {
@@ -253,10 +252,10 @@ describe('TranslationRuntime', () => {
   });
 
   it('audits settings snapshot exceptions without changing the thrown error', () => {
-    const audit = createCoreAuditCapture();
+    const audit = new CapturingTranslationProviderAudit();
     const settingsError = new Error('settings-session-private-canary');
     const runtime = new TranslationRuntime({
-      audit: audit.audit,
+      audit: audit,
       getSettings: () => {
         throw settingsError;
       },
@@ -280,9 +279,9 @@ describe('TranslationRuntime', () => {
   });
 
   it('rejects empty and over-limit text before provider creation', async () => {
-    const audit = createCoreAuditCapture();
+    const audit = new CapturingTranslationProviderAudit();
     const harness = createRuntimeHarness({
-      audit: audit.audit,
+      audit: audit,
       settings: {
         ...DEFAULT_SETTINGS,
         providerId: 'bing',
@@ -309,11 +308,11 @@ describe('TranslationRuntime', () => {
   });
 
   it('submits the original complete source once through the selected provider', async () => {
-    const audit = createCoreAuditCapture();
+    const audit = new CapturingTranslationProviderAudit();
     const sourceCanary = 'source-private-canary';
     const resultCanary = 'result-private-canary';
     const harness = createRuntimeHarness({
-      audit: audit.audit,
+      audit: audit,
       translate: async (request) => createSuccess(request, resultCanary),
     });
     const snapshot = getSnapshot(harness.runtime);
@@ -371,10 +370,10 @@ describe('TranslationRuntime', () => {
   });
 
   it('normalizes unexpected provider exceptions without exposing their details', async () => {
-    const audit = createCoreAuditCapture();
+    const audit = new CapturingTranslationProviderAudit();
     const exceptionCanary = 'https://private.invalid/session/account?token=credential-private-canary';
     const harness = createRuntimeHarness({
-      audit: audit.audit,
+      audit: audit,
       translate: async () => {
         throw new Error(exceptionCanary);
       },
@@ -421,13 +420,13 @@ describe('TranslationRuntime', () => {
   });
 
   it('invalidates in-flight results and aborts their provider request during shutdown', async () => {
-    const audit = createCoreAuditCapture();
+    const audit = new CapturingTranslationProviderAudit();
     let finishTranslation!: (outcome: TranslationProviderOutcome) => void;
     const pending = new Promise<TranslationProviderOutcome>((resolve) => {
       finishTranslation = resolve;
     });
     const harness = createRuntimeHarness({
-      audit: audit.audit,
+      audit,
       translate: async (request) => {
         request.auditContext.lifecycle.terminal('cleanup', 'success', {
           attemptCount: 1,
@@ -441,6 +440,11 @@ describe('TranslationRuntime', () => {
     const snapshot = getSnapshot(harness.runtime);
     const operation = harness.runtime.translateWithSnapshot('selected text', snapshot);
     await Promise.resolve();
+    assert.equal(
+      audit.entries.filter((entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal')
+        .length,
+      0,
+    );
 
     const shutdown = await harness.runtime.shutdown();
     assert.equal(shutdown.success, true);

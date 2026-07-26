@@ -1,12 +1,18 @@
+/* eslint-disable max-classes-per-file -- runtime and its stateful deferred audit lifecycle form one service. */
 import { getTranslationSettingsSnapshot } from '@main/config';
 import { t } from '@main/i18n';
-import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
+import {
+  normalizeProviderAuditExceptionType,
+  type ProviderAuditPhase,
+  type ProviderAuditTerminalOutcome,
+} from '@main/providerAudit';
 import { translationProviderRegistry, type TranslationProviderShutdownResult } from '@main/translateProviders';
 import type { BaseTranslateProvider } from '@main/translateProviders/BaseTranslateProvider';
 import {
   translationProviderAudit,
   type TranslationProviderAudit,
   type TranslationProviderAuditLifecycle,
+  type TranslationProviderAuditMetadata,
 } from '@main/translateProviders/translationProviderAudit';
 import type {
   TranslationProviderFailure,
@@ -58,8 +64,53 @@ export interface TranslationRuntimeDependencies {
 }
 
 interface DeferredTranslationAuditTerminal {
-  readonly lifecycle: TranslationProviderAuditLifecycle;
-  readonly flushTerminal: () => boolean;
+  readonly metadata?: TranslationProviderAuditMetadata;
+  readonly outcome: ProviderAuditTerminalOutcome;
+  readonly phase: ProviderAuditPhase;
+}
+
+/** Defers one provider terminal until the runtime accepts the provider outcome. */
+class DeferredTranslationAuditLifecycle implements TranslationProviderAuditLifecycle {
+  private deferredTerminal: DeferredTranslationAuditTerminal | null = null;
+
+  public constructor(private readonly lifecycle: TranslationProviderAuditLifecycle) {}
+
+  public started(metadata?: TranslationProviderAuditMetadata): void {
+    this.lifecycle.started(metadata);
+  }
+
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseEntered(phase, metadata);
+  }
+
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseCompleted(phase, metadata);
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.retry(phase, metadata);
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.recovery(phase, metadata);
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: TranslationProviderAuditMetadata,
+  ): void {
+    if (this.deferredTerminal !== null) return;
+    this.deferredTerminal = { phase, outcome, ...(metadata === undefined ? {} : { metadata }) };
+  }
+
+  public flushTerminal(): boolean {
+    if (this.deferredTerminal === null) return false;
+    const { metadata, outcome, phase } = this.deferredTerminal;
+    this.deferredTerminal = null;
+    this.lifecycle.terminal(phase, outcome, metadata);
+    return true;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,59 +178,6 @@ export class TranslationRuntime {
     this.audit = dependencies.audit ?? translationProviderAudit;
   }
 
-  private completeAuditFailure(
-    auditLifecycle: TranslationProviderAuditLifecycle,
-    failure: TranslationProviderFailure,
-    options: {
-      readonly exceptionType?: ProviderAuditExceptionType;
-      readonly signalAborted?: boolean;
-    } = {},
-  ): void {
-    this.audit.terminalFailure(auditLifecycle, failure, {
-      exceptionType: options.exceptionType,
-      postSubmission:
-        failure.metadata.phase === 'submission' ||
-        failure.metadata.phase === 'result' ||
-        failure.metadata.phase === 'cleanup',
-      signalAborted: options.signalAborted,
-    });
-  }
-
-  private deferProviderAuditTerminal(
-    auditLifecycle: TranslationProviderAuditLifecycle,
-  ): DeferredTranslationAuditTerminal {
-    let deferredTerminal: (() => void) | null = null;
-    const lifecycle: TranslationProviderAuditLifecycle = {
-      started: (metadata) => auditLifecycle.started(metadata),
-      phaseEntered: (phase, metadata) => {
-        if (deferredTerminal === null) auditLifecycle.phaseEntered(phase, metadata);
-      },
-      phaseCompleted: (phase, metadata) => {
-        if (deferredTerminal === null) auditLifecycle.phaseCompleted(phase, metadata);
-      },
-      retry: (phase, metadata) => {
-        if (deferredTerminal === null) auditLifecycle.retry(phase, metadata);
-      },
-      recovery: (phase, metadata) => {
-        if (deferredTerminal === null) auditLifecycle.recovery(phase, metadata);
-      },
-      terminal: (phase, outcome, metadata) => {
-        if (deferredTerminal !== null) return;
-        deferredTerminal = () => auditLifecycle.terminal(phase, outcome, metadata);
-      },
-    };
-    return {
-      lifecycle,
-      flushTerminal: () => {
-        if (deferredTerminal === null) return false;
-        const terminal = deferredTerminal;
-        deferredTerminal = null;
-        terminal();
-        return true;
-      },
-    };
-  }
-
   /** Captures and audits one validated immutable Translation settings snapshot. */
   getSnapshot(): TranslationExecutionSnapshotResult {
     const startedAt = this.dependencies.now();
@@ -187,14 +185,11 @@ export class TranslationRuntime {
     try {
       candidate = this.dependencies.getSettings();
     } catch (error: unknown) {
-      const auditLifecycle = this.audit.startOperation(
-        undefined,
-        'settings-readiness',
-        'validation',
-        { attemptCount: 0 },
-      ).lifecycle;
+      const auditLifecycle = this.audit.startOperation(undefined, 'settings-readiness', 'validation', {
+        attemptCount: 0,
+      }).lifecycle;
       const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
-      this.completeAuditFailure(auditLifecycle, failure, {
+      this.audit.terminalFailure(auditLifecycle, failure, {
         exceptionType: normalizeProviderAuditExceptionType(error),
       });
       throw error;
@@ -219,13 +214,13 @@ export class TranslationRuntime {
 
     if (!isRecord(candidate)) {
       const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
-      this.completeAuditFailure(auditLifecycle, failure);
+      this.audit.terminalFailure(auditLifecycle, failure);
       return failure;
     }
 
     if (!provider) {
       const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
-      this.completeAuditFailure(auditLifecycle, failure);
+      this.audit.terminalFailure(auditLifecycle, failure);
       return failure;
     }
 
@@ -236,7 +231,7 @@ export class TranslationRuntime {
         providerId: provider.id,
         contractVersion: provider.contractVersion,
       });
-      this.completeAuditFailure(auditLifecycle, failure);
+      this.audit.terminalFailure(auditLifecycle, failure);
       return failure;
     }
 
@@ -297,13 +292,8 @@ export class TranslationRuntime {
     if (!failure) return null;
 
     const auditMetadata = this.audit.createMetadata(failure.metadata);
-    const auditLifecycle = this.audit.startOperation(
-      snapshot.providerId,
-      'translate',
-      'validation',
-      auditMetadata,
-    ).lifecycle;
-    this.completeAuditFailure(auditLifecycle, failure);
+    const auditLifecycle = this.audit.startTranslate(snapshot.providerId, auditMetadata).lifecycle;
+    this.audit.terminalFailure(auditLifecycle, failure);
     return failure;
   }
 
@@ -323,17 +313,12 @@ export class TranslationRuntime {
       attemptCount: 0,
       phase: 'validation',
     });
-    const auditContext = this.audit.startOperation(
-      snapshot.providerId,
-      'translate',
-      'validation',
-      startMetadata,
-    );
+    const auditContext = this.audit.startTranslate(snapshot.providerId, startMetadata);
     const { lifecycle: auditLifecycle } = auditContext;
 
     const validationFailure = this.validateInputWithoutAudit(sourceText, snapshot, startedAt);
     if (validationFailure) {
-      this.completeAuditFailure(auditLifecycle, validationFailure);
+      this.audit.terminalFailure(auditLifecycle, validationFailure);
       return validationFailure;
     }
     auditLifecycle.phaseCompleted('validation', startMetadata);
@@ -344,12 +329,12 @@ export class TranslationRuntime {
       auditLifecycle.phaseEntered('dispatch', startMetadata);
       const provider = this.dependencies.registry.getProvider(snapshot.providerId);
       auditLifecycle.phaseCompleted('dispatch', startMetadata);
-      const deferredAuditTerminal = this.deferProviderAuditTerminal(auditLifecycle);
+      const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(auditLifecycle);
       const outcome = await provider.translate({
         audit: this.audit,
         auditContext: Object.freeze({
           ...auditContext,
-          lifecycle: deferredAuditTerminal.lifecycle,
+          lifecycle: deferredAuditTerminal,
         }),
         providerId: snapshot.providerId,
         targetLanguage: snapshot.targetLanguage,
@@ -372,7 +357,7 @@ export class TranslationRuntime {
           },
           true,
         );
-        this.completeAuditFailure(auditLifecycle, failure, {
+        this.audit.terminalFailure(auditLifecycle, failure, {
           signalAborted: controller.signal.aborted,
         });
         return failure;
@@ -388,7 +373,7 @@ export class TranslationRuntime {
           }),
         );
       } else {
-        this.completeAuditFailure(auditLifecycle, outcome, {
+        this.audit.terminalFailure(auditLifecycle, outcome, {
           signalAborted: controller.signal.aborted,
         });
       }
@@ -400,7 +385,7 @@ export class TranslationRuntime {
         contractVersion: snapshot.contractVersion,
         sourceLength: (sourceText as string).length,
       });
-      this.completeAuditFailure(auditLifecycle, failure, {
+      this.audit.terminalFailure(auditLifecycle, failure, {
         exceptionType: normalizeProviderAuditExceptionType(error),
       });
       return failure;
@@ -429,13 +414,8 @@ export class TranslationRuntime {
         },
       );
       const auditMetadata = this.audit.createMetadata(failure.metadata);
-      const auditLifecycle = this.audit.startOperation(
-        snapshot.providerId,
-        'translate',
-        'validation',
-        auditMetadata,
-      ).lifecycle;
-      this.completeAuditFailure(auditLifecycle, failure);
+      const auditLifecycle = this.audit.startTranslate(snapshot.providerId, auditMetadata).lifecycle;
+      this.audit.terminalFailure(auditLifecycle, failure);
       return { success: false, error: getTranslationFailureMessage(failure) };
     }
 

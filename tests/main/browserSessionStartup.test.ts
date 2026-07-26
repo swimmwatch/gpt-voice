@@ -11,7 +11,7 @@ import {
 import { t } from '@main/i18n';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
-import { createVoiceAuditRecorder, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
 
 class TestBrowserAuditProvider extends BatchVoiceProvider {
   readonly info: VoiceProviderInfo & { readonly transcriptionMode: 'batch' };
@@ -111,11 +111,11 @@ describe('browser session startup state', () => {
 
   it('audits settings readiness, provider readiness, and shutdown without a live browser', async () => {
     const provider = new TestBrowserAuditProvider();
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
 
     try {
       const status = await initBackgroundBrowser({
-        audit: audit.audit,
+        audit: audit,
         providerFactory: () => provider,
       });
 
@@ -137,7 +137,7 @@ describe('browser session startup state', () => {
 
   it('audits browser session loading with bounded semantic phases', async () => {
     const provider = new TestBrowserAuditProvider(true);
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     let contextCloseCalls = 0;
     const context = {
       close: async () => {
@@ -147,7 +147,7 @@ describe('browser session startup state', () => {
 
     try {
       const status = await initBackgroundBrowser({
-        audit: audit.audit,
+        audit: audit,
         backgroundContextFactory: async () => context,
         providerFactory: () => provider,
       });
@@ -174,7 +174,7 @@ describe('browser session startup state', () => {
   it('reports uncertain browser cleanup ownership without changing swallowed close behavior', async () => {
     const privacyCanary = 'private browser path /home/private https://private.invalid stack-private';
     const provider = new TestBrowserAuditProvider(true);
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     const context = {
       close: async () => {
         throw new TypeError(privacyCanary);
@@ -182,7 +182,7 @@ describe('browser session startup state', () => {
     } as unknown as BrowserContext;
 
     await initBackgroundBrowser({
-      audit: audit.audit,
+      audit: audit,
       backgroundContextFactory: async () => context,
       providerFactory: () => provider,
     });
@@ -198,13 +198,13 @@ describe('browser session startup state', () => {
 
   it('audits expired-session clearing and preserves the auth-expired status', async () => {
     const provider = new TestBrowserAuditProvider(true, false);
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     const context = {
       close: async () => undefined,
     } as unknown as BrowserContext;
 
     const status = await initBackgroundBrowser({
-      audit: audit.audit,
+      audit: audit,
       backgroundContextFactory: async () => context,
       providerFactory: () => provider,
     });
@@ -223,9 +223,9 @@ describe('browser session startup state', () => {
   it('retains a failed provider shutdown for the existing retry path', async () => {
     const provider = new TestBrowserAuditProvider();
     provider.shutdownFailures = 1;
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     await initBackgroundBrowser({
-      audit: audit.audit,
+      audit: audit,
       providerFactory: () => provider,
     });
 

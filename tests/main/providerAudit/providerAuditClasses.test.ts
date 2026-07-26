@@ -9,6 +9,7 @@ import * as prettifyAuditModule from '@main/services/prettifyProviderAudit';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import * as translationAuditModule from '@main/translateProviders/translationProviderAudit';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
+import { RecordingTranslationProviderAudit } from '../translateProviders/translationAuditTestUtils';
 
 function createCapture() {
   const serializedEvents: string[] = [];
@@ -38,9 +39,7 @@ describe('provider audit class hierarchy', () => {
       [true, true, true],
     );
     assert.deepEqual(
-      ['ollama', 'vllm', 'claude-cli', 'codex-cli'].map((providerId) =>
-        prettify.isKnownProviderId(providerId),
-      ),
+      ['ollama', 'vllm', 'claude-cli', 'codex-cli'].map((providerId) => prettify.isKnownProviderId(providerId)),
       [true, true, true, true],
     );
     assert.deepEqual(
@@ -78,13 +77,38 @@ describe('provider audit class hierarchy', () => {
       ),
     );
 
-    const records = capture.serializedEvents.map(
-      (serialized) => JSON.parse(serialized) as Record<string, unknown>,
-    );
+    const records = capture.serializedEvents.map((serialized) => JSON.parse(serialized) as Record<string, unknown>);
     assert.equal(capture.serializedEvents.join('').includes(canary), false);
     assert.equal(records.length, 3);
-    assert.equal(records.every((record) => record.providerKnown === false), true);
-    assert.equal(records.every((record) => record.providerId === undefined), true);
+    assert.equal(
+      records.every((record) => record.providerKnown === false),
+      true,
+    );
+    assert.equal(
+      records.every((record) => record.providerId === undefined),
+      true,
+    );
+  });
+
+  it('owns Translation operation defaults and recorder state per audit instance', () => {
+    const first = new RecordingTranslationProviderAudit();
+    const second = new RecordingTranslationProviderAudit();
+
+    const context = first.startTranslate('google', { attemptCount: 1 });
+    context.lifecycle.terminal('result', 'success', { resultLength: 12 });
+
+    assert.equal(first.operations.length, 1);
+    assert.equal(first.operations[0]?.input.operation, 'translate');
+    assert.deepEqual(
+      first.operations[0]?.events.map((event) => [event.event, event.phase]),
+      [
+        ['started', 'dispatch'],
+        ['phase-entered', 'validation'],
+        ['terminal', 'result'],
+      ],
+    );
+    assert.deepEqual(second.events, []);
+    assert.deepEqual(second.operations, []);
   });
 
   it('keeps the Prettify stub inert until a lifecycle is explicitly requested', () => {
@@ -127,9 +151,6 @@ describe('provider audit class hierarchy', () => {
     ]) {
       assert.equal(translationExports[obsoleteExport], undefined);
     }
-    assert.deepEqual(Object.keys(prettifyExports).sort(), [
-      'PrettifyProviderAudit',
-      'prettifyProviderAudit',
-    ]);
+    assert.deepEqual(Object.keys(prettifyExports).sort(), ['PrettifyProviderAudit', 'prettifyProviderAudit']);
   });
 });

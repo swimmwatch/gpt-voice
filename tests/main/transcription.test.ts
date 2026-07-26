@@ -11,7 +11,7 @@ import {
 import type { TextActionResultCache } from '@main/services/textActionCache';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
-import { createVoiceAuditRecorder, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -71,7 +71,7 @@ interface TestServiceOptions {
 }
 
 function createTestService(options: TestServiceOptions = {}) {
-  const audit = createVoiceAuditRecorder();
+  const audit = new RecordingVoiceProviderAudit();
   const defaultProvider = new TestVoiceProvider();
   let activeProvider = options.provider === undefined ? defaultProvider : options.provider;
   let backgroundReady = options.backgroundReady ?? true;
@@ -81,7 +81,7 @@ function createTestService(options: TestServiceOptions = {}) {
   let ensureCalls = 0;
 
   const service = createTranscriptionService({
-    audit: options.audit ?? audit.audit,
+    audit: options.audit ?? audit,
     addHistoryEntry: (entry) => {
       history.push(entry);
     },

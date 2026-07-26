@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the recorder audit and lifecycle form one deterministic test seam. */
 import type {
   ProviderAuditDependencies,
   ProviderAuditLifecycle,
@@ -10,8 +11,7 @@ import type {
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 
 export type VoiceAuditLifecycleInput =
-  | ProviderAuditLifecycleInput<'voice'>
-  | UnknownProviderAuditLifecycleInput<'voice'>;
+  ProviderAuditLifecycleInput<'voice'> | UnknownProviderAuditLifecycleInput<'voice'>;
 
 export interface RecordedVoiceAuditEvent {
   readonly event: 'started' | 'phase-entered' | 'phase-completed' | 'retry' | 'recovery' | 'terminal';
@@ -25,56 +25,55 @@ export interface RecordedVoiceAuditOperation {
   readonly input: VoiceAuditLifecycleInput;
 }
 
-class RecordingVoiceProviderAudit extends VoiceProviderAudit {
-  public constructor(
-    private readonly operations: RecordedVoiceAuditOperation[],
-    dependencies: Partial<ProviderAuditDependencies>,
-  ) {
+class RecordingVoiceAuditLifecycle implements ProviderAuditLifecycle<'voice'> {
+  public constructor(private readonly events: RecordedVoiceAuditEvent[]) {}
+
+  public started(metadata?: ProviderAuditMetadataForFamily<'voice'>): void {
+    this.events.push({ event: 'started', phase: 'dispatch', ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'voice'>): void {
+    this.events.push({ event: 'phase-entered', phase, ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'voice'>): void {
+    this.events.push({ event: 'phase-completed', phase, ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'voice'>): void {
+    this.events.push({ event: 'retry', phase, ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'voice'>): void {
+    this.events.push({ event: 'recovery', phase, ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: ProviderAuditMetadataForFamily<'voice'>,
+  ): void {
+    this.events.push({
+      event: 'terminal',
+      phase,
+      outcome,
+      ...(metadata === undefined ? {} : { metadata }),
+    });
+  }
+}
+
+export class RecordingVoiceProviderAudit extends VoiceProviderAudit {
+  public readonly operations: RecordedVoiceAuditOperation[] = [];
+
+  public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
     super(dependencies);
   }
 
   protected override buildLifecycle(input: VoiceAuditLifecycleInput): ProviderAuditLifecycle<'voice'> {
     const events: RecordedVoiceAuditEvent[] = [];
     this.operations.push({ events, input });
-    return {
-      started: (metadata) => {
-        events.push({ event: 'started', phase: 'dispatch', ...(metadata === undefined ? {} : { metadata }) });
-      },
-      phaseEntered: (phase, metadata) => {
-        events.push({ event: 'phase-entered', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      phaseCompleted: (phase, metadata) => {
-        events.push({ event: 'phase-completed', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      retry: (phase, metadata) => {
-        events.push({ event: 'retry', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      recovery: (phase, metadata) => {
-        events.push({ event: 'recovery', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      terminal: (phase, outcome, metadata) => {
-        events.push({
-          event: 'terminal',
-          phase,
-          outcome,
-          ...(metadata === undefined ? {} : { metadata }),
-        });
-      },
-    };
+    return new RecordingVoiceAuditLifecycle(events);
   }
-}
-
-export function createVoiceAuditRecorder(
-  dependencies: Partial<ProviderAuditDependencies> = {},
-): {
-  readonly audit: VoiceProviderAudit;
-  readonly operations: RecordedVoiceAuditOperation[];
-} {
-  const operations: RecordedVoiceAuditOperation[] = [];
-  return {
-    audit: new RecordingVoiceProviderAudit(operations, dependencies),
-    operations,
-  };
 }
 
 export function getTerminalEvents(operation: RecordedVoiceAuditOperation): RecordedVoiceAuditEvent[] {

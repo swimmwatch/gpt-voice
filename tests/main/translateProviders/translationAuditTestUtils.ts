@@ -9,11 +9,10 @@ import type {
   UnknownProviderAuditLifecycleInput,
 } from '@main/providerAudit';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
-import type { TranslationProviderId } from '@shared/translationProvider';
+import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 
 export type TranslationAuditLifecycleInput =
-  | ProviderAuditLifecycleInput<'translation'>
-  | UnknownProviderAuditLifecycleInput<'translation'>;
+  ProviderAuditLifecycleInput<'translation'> | UnknownProviderAuditLifecycleInput<'translation'>;
 
 export interface RecordedTranslationAuditEvent {
   readonly event: 'started' | 'phase-entered' | 'phase-completed' | 'retry' | 'recovery' | 'terminal';
@@ -42,17 +41,11 @@ class RecordingTranslationAuditLifecycle implements ProviderAuditLifecycle<'tran
     this.record({ event: 'started', phase: 'dispatch', ...(metadata === undefined ? {} : { metadata }) });
   }
 
-  public phaseEntered(
-    phase: ProviderAuditPhase,
-    metadata?: ProviderAuditMetadataForFamily<'translation'>,
-  ): void {
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'translation'>): void {
     this.recordProgress('phase-entered', phase, metadata);
   }
 
-  public phaseCompleted(
-    phase: ProviderAuditPhase,
-    metadata?: ProviderAuditMetadataForFamily<'translation'>,
-  ): void {
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'translation'>): void {
     this.recordProgress('phase-completed', phase, metadata);
   }
 
@@ -94,13 +87,12 @@ class RecordingTranslationAuditLifecycle implements ProviderAuditLifecycle<'tran
   }
 }
 
-class RecordingTranslationProviderAudit extends TranslationProviderAudit {
-  public constructor(
-    private readonly operations: RecordedTranslationAuditOperation[],
-    private readonly events: RecordedTranslationAuditEvent[],
-    dependencies: Partial<ProviderAuditDependencies>,
-  ) {
-    super(dependencies);
+export class RecordingTranslationProviderAudit extends TranslationProviderAudit {
+  public readonly events: RecordedTranslationAuditEvent[] = [];
+  public readonly operations: RecordedTranslationAuditOperation[] = [];
+
+  public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
+    super({ elapsedNow: () => 1_000, ...dependencies });
   }
 
   protected override buildLifecycle(input: TranslationAuditLifecycleInput): ProviderAuditLifecycle<'translation'> {
@@ -110,33 +102,27 @@ class RecordingTranslationProviderAudit extends TranslationProviderAudit {
   }
 }
 
-export function createTranslationAuditRecorder(): {
-  readonly audit: TranslationProviderAudit;
-  readonly events: RecordedTranslationAuditEvent[];
-  readonly operations: RecordedTranslationAuditOperation[];
-} {
-  const events: RecordedTranslationAuditEvent[] = [];
-  const operations: RecordedTranslationAuditOperation[] = [];
-  return {
-    audit: new RecordingTranslationProviderAudit(operations, events, {
-      elapsedNow: () => 1_000,
-    }),
-    events,
-    operations,
-  };
-}
-
 export const noopTranslationProviderAudit = new TranslationProviderAudit({
   elapsedNow: () => 1_000,
   getSink: () => null,
 });
 
-export function createTranslationAuditRequestFields(
-  providerId: TranslationProviderId,
-  audit: TranslationProviderAudit = noopTranslationProviderAudit,
-) {
-  return {
-    audit,
-    auditContext: audit.startOperation(providerId, 'translate', 'validation'),
-  };
+type TranslationProviderRequestDefaults = Omit<TranslationProviderRequest, 'audit' | 'auditContext'>;
+type TranslationProviderRequestOverrides = Partial<TranslationProviderRequestDefaults>;
+
+/** Builds provider requests around one constructor-injected audit dependency. */
+export class TranslationProviderRequestFixture {
+  public constructor(
+    public readonly defaults: TranslationProviderRequestDefaults,
+    private readonly audit: TranslationProviderAudit = noopTranslationProviderAudit,
+  ) {}
+
+  public create(overrides: TranslationProviderRequestOverrides = {}): TranslationProviderRequest {
+    return {
+      audit: this.audit,
+      auditContext: this.audit.startTranslate(this.defaults.providerId),
+      ...this.defaults,
+      ...overrides,
+    };
+  }
 }

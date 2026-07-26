@@ -18,13 +18,8 @@ import {
   type GoogleRouteSnapshot,
   type GoogleTranslatePageAdapter,
 } from '@main/translateProviders/GoogleTranslateProvider';
-import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
-import {
-  createTranslationAuditRecorder,
-  createTranslationAuditRequestFields,
-  noopTranslationProviderAudit,
-} from './translationAuditTestUtils';
+import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
 
 function createTranslatorRoute(
   targetLanguage = 'en',
@@ -238,18 +233,11 @@ function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs
   return { adapter, contexts, provider };
 }
 
-function createRequest(
-  overrides: Partial<TranslationProviderRequest> = {},
-  audit = noopTranslationProviderAudit,
-): TranslationProviderRequest {
-  return {
-    ...createTranslationAuditRequestFields('google', audit),
-    providerId: 'google',
-    sourceText: 'synthetic source',
-    targetLanguage: 'en',
-    ...overrides,
-  };
-}
+const requestFixture = new TranslationProviderRequestFixture({
+  providerId: 'google',
+  sourceText: 'synthetic source',
+  targetLanguage: 'en',
+});
 
 describe('GoogleTranslateProvider', () => {
   it('binds only the shared Google metadata and rejects source-only auto before browser creation', async () => {
@@ -263,15 +251,15 @@ describe('GoogleTranslateProvider', () => {
       false,
     );
 
-    const automaticTarget = await harness.provider.translate(createRequest({ targetLanguage: 'auto' }));
-    const overLimit = await harness.provider.translate(createRequest({ sourceText: 'x'.repeat(5_001) }));
+    const automaticTarget = await harness.provider.translate(requestFixture.create({ targetLanguage: 'auto' }));
+    const overLimit = await harness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(5_001) }));
 
     assert.equal(automaticTarget.success ? null : automaticTarget.code, 'unsupportedTargetLanguage');
     assert.equal(overLimit.success ? null : overLimit.code, 'inputTooLong');
     assert.equal(harness.contexts.length, 0);
 
     const atLimitHarness = createHarness();
-    const atLimit = await atLimitHarness.provider.translate(createRequest({ sourceText: 'x'.repeat(5_000) }));
+    const atLimit = await atLimitHarness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(5_000) }));
     assert.equal(atLimit.success, true);
     assert.equal(atLimitHarness.adapter.insertedTexts[0]?.length, 5_000);
   });
@@ -281,7 +269,7 @@ describe('GoogleTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.navigationRoute = createTranslatorRoute('uk', family);
 
-      const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'uk' }));
+      const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'uk' }));
 
       assert.equal(outcome.success, true);
       assert.equal(harness.adapter.navigatedUrls.length, 1);
@@ -306,7 +294,7 @@ describe('GoogleTranslateProvider', () => {
       harness.adapter.consent = { visibleRejectAllControls: 1 };
       harness.adapter.consentReturnRoute = createTranslatorRoute('en', family);
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, true);
       assert.deepEqual(harness.adapter.rejectAllClicks, ['Reject all']);
@@ -325,7 +313,7 @@ describe('GoogleTranslateProvider', () => {
       harness.adapter.consent = { visibleRejectAllControls: fixture.count };
       harness.adapter.consentReturnRoute = createTranslatorRoute('en', fixture.returnFamily);
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'consentOrChallenge');
@@ -338,7 +326,7 @@ describe('GoogleTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.navigationRoute = route;
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'consentOrChallenge');
@@ -375,7 +363,7 @@ describe('GoogleTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.readiness = readiness;
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -385,7 +373,7 @@ describe('GoogleTranslateProvider', () => {
   });
 
   it('excludes listitem alternatives and concatenates one primary branch in DOM order', async () => {
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     const classified = classifyGoogleResultSnapshot(
       createResult([
         createFragment('First '),
@@ -403,7 +391,9 @@ describe('GoogleTranslateProvider', () => {
       createResult([createFragment('First '), createFragment(' second')]),
       createResult([createFragment('First '), createFragment(' second')]),
     ];
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
     assert.equal(outcome.success ? outcome.text : null, 'Firstsecond');
     assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
     assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
@@ -417,7 +407,7 @@ describe('GoogleTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.resultReadsAfterInsertion = [result];
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -431,7 +421,7 @@ describe('GoogleTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.afterInsertionRoute = createTranslatorRoute('ru', 'ru', true);
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'en' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'en' }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -442,7 +432,7 @@ describe('GoogleTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.navigationRoute = createTranslatorRoute('ru');
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'en' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'en' }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -453,7 +443,7 @@ describe('GoogleTranslateProvider', () => {
     const harness = createHarness(new FixtureGooglePageAdapter(), 2);
     harness.adapter.resultReadsAfterInsertion = [createResult(), createResult()];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'resultTimeoutOrEmpty');
@@ -473,7 +463,7 @@ describe('GoogleTranslateProvider', () => {
       createResult([createFragment('fresh')]),
     ];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
     assert.equal(harness.adapter.clearClicks, 2);
@@ -488,7 +478,7 @@ describe('GoogleTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.clearDoesNotComplete = true;
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.equal(harness.adapter.clearClicks, 1);
@@ -498,10 +488,10 @@ describe('GoogleTranslateProvider', () => {
   it('reuses a confirmed cleared page without repeating provider navigation', async () => {
     const harness = createHarness();
 
-    const first = await harness.provider.translate(createRequest());
+    const first = await harness.provider.translate(requestFixture.create());
     const secondResult = createResult([createFragment('second translated')]);
     harness.adapter.resultReadsAfterInsertion = [secondResult, secondResult];
-    const second = await harness.provider.translate(createRequest({ sourceText: 'second synthetic source' }));
+    const second = await harness.provider.translate(requestFixture.create({ sourceText: 'second synthetic source' }));
 
     assert.equal(first.success, true);
     assert.equal(second.success, true);

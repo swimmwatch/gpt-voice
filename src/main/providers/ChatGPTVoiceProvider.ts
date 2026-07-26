@@ -218,12 +218,9 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
     auditContext?: VoiceBatchAuditContext,
   ): Promise<TranscriptionResult> {
-    const audit =
-      auditContext ??
-      this.deps.audit.startBatch(this.info.id, buffer, mimeType);
-    const auditMetadata = () => this.deps.audit.createBatchMetadata(audit);
-    audit.lifecycle.phaseCompleted('dispatch', auditMetadata());
-    audit.lifecycle.phaseEntered('validation', auditMetadata());
+    const audit = auditContext ?? this.deps.audit.startBatch(this.info.id, buffer, mimeType);
+    audit.lifecycle.phaseCompleted('dispatch', this.deps.audit.createBatchMetadata(audit));
+    audit.lifecycle.phaseEntered('validation', this.deps.audit.createBatchMetadata(audit));
 
     try {
       const rateLimitFailure = this.getActiveRateLimitFailure();
@@ -235,11 +232,11 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         return rateLimitFailure;
       }
 
-      audit.lifecycle.phaseCompleted('validation', auditMetadata());
+      audit.lifecycle.phaseCompleted('validation', this.deps.audit.createBatchMetadata(audit));
       if (this.transcriptionPageRecovery) {
-        audit.lifecycle.phaseEntered('recovery', auditMetadata());
+        audit.lifecycle.phaseEntered('recovery', this.deps.audit.createBatchMetadata(audit));
         await this.transcriptionPageRecovery;
-        audit.lifecycle.phaseCompleted('recovery', auditMetadata());
+        audit.lifecycle.phaseCompleted('recovery', this.deps.audit.createBatchMetadata(audit));
       }
 
       if (!this.page) {
@@ -253,9 +250,9 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
 
       let token = this.accessToken;
       if (!token) {
-        audit.lifecycle.phaseEntered('configuration', auditMetadata());
+        audit.lifecycle.phaseEntered('configuration', this.deps.audit.createBatchMetadata(audit));
         token = await this.refreshAccessToken();
-        audit.lifecycle.phaseCompleted('configuration', auditMetadata());
+        audit.lifecycle.phaseCompleted('configuration', this.deps.audit.createBatchMetadata(audit));
       }
       if (!token) {
         this.deps.audit.terminalBatch(audit, 'configuration', 'failure', {
@@ -265,8 +262,8 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         return { success: false, error: t('error.noAccessToken') };
       }
 
-      audit.lifecycle.phaseEntered('readiness', auditMetadata());
-      audit.lifecycle.phaseCompleted('readiness', auditMetadata());
+      audit.lifecycle.phaseEntered('readiness', this.deps.audit.createBatchMetadata(audit));
+      audit.lifecycle.phaseCompleted('readiness', this.deps.audit.createBatchMetadata(audit));
       return await this.transcribeWithRecovery(Buffer.from(buffer).toString('base64'), token, mimeType, audit);
     } catch (error: unknown) {
       this.deps.audit.terminalBatch(audit, 'result', 'failure', {
@@ -521,25 +518,17 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     });
   }
 
-  private async recoverTranscriptionPage(
-    page: Page,
-    audit: VoiceAuditOperationContext,
-  ): Promise<void> {
+  private async recoverTranscriptionPage(page: Page, audit: VoiceAuditOperationContext): Promise<void> {
     let recovered: boolean;
     try {
       await this.deps.reloadPage(page, TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS);
       recovered = this.page === page && !page.isClosed();
     } catch (error: unknown) {
-      this.deps.audit.terminalException(
-        audit,
-        'recovery',
-        error,
-        {
-          causeCode: 'connection-failed',
-          pageClosed: page.isClosed(),
-          recoveryScheduled: false,
-        },
-      );
+      this.deps.audit.terminalException(audit, 'recovery', error, {
+        causeCode: 'connection-failed',
+        pageClosed: page.isClosed(),
+        recoveryScheduled: false,
+      });
       return;
     }
     audit.lifecycle.phaseCompleted(

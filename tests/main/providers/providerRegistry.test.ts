@@ -19,7 +19,7 @@ import {
 } from '@shared/voiceProvider';
 import { PROVIDER_AUDIT_PROVIDER_MAPPINGS } from '@main/providerAudit/mappings';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
-import { createVoiceAuditRecorder, getTerminalEvents } from './voiceAuditTestUtils';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -98,8 +98,8 @@ describe('provider registry', () => {
 
   it('rejects unknown providers explicitly', () => {
     for (const providerId of ['missing-provider', 'constructor', 'toString', '__proto__']) {
-      const audit = createVoiceAuditRecorder();
-      assert.throws(() => createProvider(providerId, audit.audit), {
+      const audit = new RecordingVoiceProviderAudit();
+      assert.throws(() => createProvider(providerId, audit), {
         message: `Unknown voice provider: ${providerId}`,
       });
       assert.equal(audit.operations.length, 1);
@@ -113,9 +113,9 @@ describe('provider registry', () => {
   });
 
   it('emits one initialize lifecycle for an explicit provider creation', () => {
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
 
-    const provider = createProvider('openai-api', audit.audit);
+    const provider = createProvider('openai-api', audit);
 
     assert.equal(provider.info.id, 'openai-api');
     assert.equal(audit.operations.length, 1);

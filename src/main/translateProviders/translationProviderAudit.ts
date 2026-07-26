@@ -39,10 +39,24 @@ export interface TranslationProviderAuditFailureOptions extends TranslationProvi
 
 /** Translation-specific audit mapping and metadata behavior over the shared lifecycle core. */
 export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
+  private static readonly POST_SUBMISSION_PHASES: ReadonlySet<TranslationProviderPhase> = new Set([
+    'submission',
+    'result',
+    'cleanup',
+  ]);
+
   public readonly family = 'translation' as const;
 
   public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
     super(dependencies);
+  }
+
+  public startTranslate(
+    providerId: unknown,
+    metadata: TranslationProviderAuditMetadata = {},
+    operationId?: string,
+  ): TranslationProviderAuditOperationContext {
+    return this.startOperation(providerId, 'translate', 'validation', metadata, operationId);
   }
 
   public toPhase(phase: TranslationProviderPhase): ProviderAuditPhase {
@@ -142,7 +156,8 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
         durationMs: options.durationMs,
         exceptionType: options.exceptionType,
         pageClosed: options.pageClosed,
-        postSubmission: options.postSubmission,
+        postSubmission:
+          options.postSubmission ?? TranslationProviderAudit.POST_SUBMISSION_PHASES.has(failure.metadata.phase),
         recoveryScheduled: options.recoveryScheduled,
         retryScheduled: options.retryScheduled,
       }),

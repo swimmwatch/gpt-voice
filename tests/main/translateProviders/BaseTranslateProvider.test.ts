@@ -13,14 +13,9 @@ import {
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
-  type TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
-import {
-  createTranslationAuditRecorder,
-  createTranslationAuditRequestFields,
-  noopTranslationProviderAudit,
-} from './translationAuditTestUtils';
+import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -202,18 +197,11 @@ function createHarness(): Harness {
   return { contexts, options, provider, sleeps };
 }
 
-function createRequest(
-  overrides: Partial<TranslationProviderRequest> = {},
-  audit = noopTranslationProviderAudit,
-): TranslationProviderRequest {
-  return {
-    ...createTranslationAuditRequestFields('google', audit),
-    providerId: 'google',
-    sourceText: 'source text',
-    targetLanguage: 'en',
-    ...overrides,
-  };
-}
+const requestFixture = new TranslationProviderRequestFixture({
+  providerId: 'google',
+  sourceText: 'source text',
+  targetLanguage: 'en',
+});
 
 async function waitUntil(predicate: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -233,9 +221,9 @@ describe('BaseTranslateProvider', () => {
     const second = createHarness();
 
     assert.equal(first.contexts.length, 0);
-    assert.equal((await first.provider.translate(createRequest())).success, true);
-    assert.equal((await first.provider.translate(createRequest())).success, true);
-    assert.equal((await second.provider.translate(createRequest())).success, true);
+    assert.equal((await first.provider.translate(requestFixture.create())).success, true);
+    assert.equal((await first.provider.translate(requestFixture.create())).success, true);
+    assert.equal((await second.provider.translate(requestFixture.create())).success, true);
 
     assert.equal(first.contexts.length, 1);
     assert.equal(first.contexts[0]?.newPageCalls, 1);
@@ -249,12 +237,12 @@ describe('BaseTranslateProvider', () => {
 
   it('invalidates an unexpectedly closed page before creating a replacement context', async () => {
     const harness = createHarness();
-    assert.equal((await harness.provider.translate(createRequest())).success, true);
+    assert.equal((await harness.provider.translate(requestFixture.create())).success, true);
     const firstContext = harness.contexts[0];
     assert.ok(firstContext);
     firstContext.page.closed = true;
 
-    assert.equal((await harness.provider.translate(createRequest())).success, true);
+    assert.equal((await harness.provider.translate(requestFixture.create())).success, true);
 
     assert.equal(firstContext.closeCalls, 1);
     assert.equal(harness.contexts.length, 2);
@@ -263,14 +251,16 @@ describe('BaseTranslateProvider', () => {
   it('rejects unsupported, empty, and over-limit requests before context creation', async () => {
     const harness = createHarness();
     const unsupportedProvider = await harness.provider.translate(
-      createRequest({
+      requestFixture.create({
         providerId: 'private-provider' as TranslationProviderId,
         targetLanguage: 'private-target',
       }),
     );
-    const unsupportedTarget = await harness.provider.translate(createRequest({ targetLanguage: 'private-target' }));
-    const empty = await harness.provider.translate(createRequest({ sourceText: ' \n ' }));
-    const overLimit = await harness.provider.translate(createRequest({ sourceText: 'x'.repeat(5_001) }));
+    const unsupportedTarget = await harness.provider.translate(
+      requestFixture.create({ targetLanguage: 'private-target' }),
+    );
+    const empty = await harness.provider.translate(requestFixture.create({ sourceText: ' \n ' }));
+    const overLimit = await harness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(5_001) }));
 
     assert.equal(unsupportedProvider.success, false);
     assert.equal(unsupportedProvider.success ? null : unsupportedProvider.code, 'unsupportedProvider');
@@ -289,7 +279,7 @@ describe('BaseTranslateProvider', () => {
 
   it('performs one clean pre-submission recovery without replaying source text', async () => {
     const harness = createHarness();
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     harness.provider.readinessResults = [
       translationHookFailure('pageContractFailure', {
         recoverableBeforeSubmission: true,
@@ -297,7 +287,9 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess(),
     ];
 
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.metadata.attemptCount, 2);
@@ -319,7 +311,7 @@ describe('BaseTranslateProvider', () => {
       }),
     ];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -330,7 +322,7 @@ describe('BaseTranslateProvider', () => {
 
   it('rejects stale and changing results until two normalized reads agree', async () => {
     const harness = createHarness();
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     harness.provider.previousResult = 'stale';
     harness.provider.readResults = [
       translationHookSuccess('stale'),
@@ -340,7 +332,9 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess('stable'),
     ];
 
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.success ? outcome.text : null, 'stable');
@@ -353,7 +347,7 @@ describe('BaseTranslateProvider', () => {
     const harness = createHarness();
     harness.provider.readResults = [translationHookSuccess(''), translationHookSuccess(''), translationHookSuccess('')];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'resultTimeoutOrEmpty');
@@ -366,7 +360,7 @@ describe('BaseTranslateProvider', () => {
     const harness = createHarness();
     const deferred = createDeferred<TranslationProviderHookResult<string>>();
     harness.provider.readDeferred = deferred;
-    const operation = harness.provider.translate(createRequest());
+    const operation = harness.provider.translate(requestFixture.create());
     await waitUntil(() => harness.provider.calls.read === 1);
 
     await harness.provider.shutdown();
@@ -385,7 +379,7 @@ describe('BaseTranslateProvider', () => {
     const abortController = new AbortController();
     abortController.abort();
 
-    const outcome = await harness.provider.translate(createRequest({ signal: abortController.signal }));
+    const outcome = await harness.provider.translate(requestFixture.create({ signal: abortController.signal }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'cancelledOrStaleOperation');
@@ -395,21 +389,23 @@ describe('BaseTranslateProvider', () => {
 
   it('returns success after clear or confirmed close, but never after cleanup failure', async () => {
     const clearHarness = createHarness();
-    const clearOutcome = await clearHarness.provider.translate(createRequest());
+    const clearOutcome = await clearHarness.provider.translate(requestFixture.create());
     assert.equal(clearOutcome.success, true);
     assert.equal(clearHarness.contexts[0]?.closeCalls, 0);
 
     const closeHarness = createHarness();
     closeHarness.provider.clearResult = translationHookFailure('cleanupFailure');
-    const closeOutcome = await closeHarness.provider.translate(createRequest());
+    const closeOutcome = await closeHarness.provider.translate(requestFixture.create());
     assert.equal(closeOutcome.success, true);
     assert.equal(closeHarness.contexts[0]?.closeCalls, 1);
 
     const failureHarness = createHarness();
-    const failureAudit = createTranslationAuditRecorder();
+    const failureAudit = new RecordingTranslationProviderAudit();
     failureHarness.provider.clearResult = translationHookFailure('cleanupFailure');
     const failedContextPromise = waitUntil(() => failureHarness.contexts.length === 1);
-    const operation = failureHarness.provider.translate(createRequest({}, failureAudit.audit));
+    const operation = failureHarness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, failureAudit).create(),
+    );
     await failedContextPromise;
     const failedContext = failureHarness.contexts[0];
     assert.ok(failedContext);
@@ -433,10 +429,12 @@ describe('BaseTranslateProvider', () => {
 
   it('maps raw hook errors to sanitized audit metadata and keeps final entrypoints fixed', async () => {
     const harness = createHarness();
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     harness.provider.navigationError = new Error('https://private.invalid/?text=private-source raw response');
 
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
     const serialized = JSON.stringify({
       auditEvents: audit.events,
       outcome,

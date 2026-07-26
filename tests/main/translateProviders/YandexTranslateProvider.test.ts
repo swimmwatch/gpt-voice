@@ -17,14 +17,9 @@ import {
   type YandexTargetSnapshot,
   type YandexTranslatePageAdapter,
 } from '@main/translateProviders/YandexTranslateProvider';
-import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { YANDEX_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/yandex';
-import {
-  createTranslationAuditRecorder,
-  createTranslationAuditRequestFields,
-  noopTranslationProviderAudit,
-} from './translationAuditTestUtils';
+import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
 
 function createRoute(
   targetLanguage: string | null = null,
@@ -365,18 +360,11 @@ function createHarness(adapter = new FixtureYandexPageAdapter(), resultTimeoutMs
   return { adapter, contexts, provider };
 }
 
-function createRequest(
-  overrides: Partial<TranslationProviderRequest> = {},
-  audit = noopTranslationProviderAudit,
-): TranslationProviderRequest {
-  return {
-    ...createTranslationAuditRequestFields('yandex', audit),
-    providerId: 'yandex',
-    sourceText: 'synthetic source',
-    targetLanguage: 'en',
-    ...overrides,
-  };
-}
+const requestFixture = new TranslationProviderRequestFixture({
+  providerId: 'yandex',
+  sourceText: 'synthetic source',
+  targetLanguage: 'en',
+});
 
 describe('YandexTranslateProvider', () => {
   it('binds only shared Yandex metadata and enforces the 10,000-character limit before browser creation', async () => {
@@ -390,14 +378,14 @@ describe('YandexTranslateProvider', () => {
       false,
     );
 
-    const automaticTarget = await harness.provider.translate(createRequest({ targetLanguage: 'auto' }));
-    const overLimit = await harness.provider.translate(createRequest({ sourceText: 'x'.repeat(10_001) }));
+    const automaticTarget = await harness.provider.translate(requestFixture.create({ targetLanguage: 'auto' }));
+    const overLimit = await harness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(10_001) }));
     assert.equal(automaticTarget.success ? null : automaticTarget.code, 'unsupportedTargetLanguage');
     assert.equal(overLimit.success ? null : overLimit.code, 'inputTooLong');
     assert.equal(harness.contexts.length, 0);
 
     const atLimitHarness = createHarness();
-    const atLimit = await atLimitHarness.provider.translate(createRequest({ sourceText: 'x'.repeat(10_000) }));
+    const atLimit = await atLimitHarness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(10_000) }));
     assert.equal(atLimit.success, true);
     assert.equal(atLimitHarness.adapter.insertedTexts[0]?.length, 10_000);
   });
@@ -407,7 +395,7 @@ describe('YandexTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.navigationRoute = navigationRoute;
 
-      const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+      const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
       assert.equal(outcome.success, true);
       assert.deepEqual(harness.adapter.navigatedUrls, ['https://translate.yandex.com/en/translator']);
@@ -424,7 +412,7 @@ describe('YandexTranslateProvider', () => {
 
   it('uses exactly Allow essential cookies and accepts the no-consent state', async () => {
     const noConsent = createHarness();
-    assert.equal((await noConsent.provider.translate(createRequest())).success, true);
+    assert.equal((await noConsent.provider.translate(requestFixture.create())).success, true);
     assert.deepEqual(noConsent.adapter.essentialConsentClicks, []);
 
     const consent = createHarness();
@@ -435,7 +423,7 @@ describe('YandexTranslateProvider', () => {
     };
     consent.adapter.consentReturnRoute = createRoute();
 
-    const outcome = await consent.provider.translate(createRequest());
+    const outcome = await consent.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, true);
     assert.deepEqual(consent.adapter.essentialConsentClicks, ['Allow essential cookies']);
@@ -473,7 +461,7 @@ describe('YandexTranslateProvider', () => {
       if (fixture.blockingSurfaces) harness.adapter.blockingSurfaces = fixture.blockingSurfaces;
       if (fixture.route) harness.adapter.navigationRoute = fixture.route;
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'consentOrChallenge');
@@ -485,7 +473,7 @@ describe('YandexTranslateProvider', () => {
     const unchecked = createHarness();
     unchecked.adapter.automaticSource = createAutomaticSource({ checked: false });
 
-    const enabled = await unchecked.provider.translate(createRequest());
+    const enabled = await unchecked.provider.translate(requestFixture.create());
 
     assert.equal(enabled.success, true);
     assert.equal(unchecked.adapter.automaticSourceClicks, 1);
@@ -500,7 +488,7 @@ describe('YandexTranslateProvider', () => {
       exactLabels: 2,
       switches: 2,
     });
-    const rejected = await ambiguous.provider.translate(createRequest());
+    const rejected = await ambiguous.provider.translate(requestFixture.create());
     assert.equal(rejected.success, false);
     assert.equal(rejected.success ? null : rejected.code, 'pageContractFailure');
     assert.equal(ambiguous.adapter.insertedTexts.length, 0);
@@ -510,7 +498,7 @@ describe('YandexTranslateProvider', () => {
   it('accepts one attached hidden destination editor before submission and after clearing', async () => {
     const harness = createHarness();
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.equal(harness.adapter.currentEditors.destinationEditors, 1);
@@ -525,7 +513,7 @@ describe('YandexTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.hiddenTargetOptionMatches = 2;
 
-      const outcome = await harness.provider.translate(createRequest({ targetLanguage: language.code }));
+      const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: language.code }));
 
       assert.equal(outcome.success, true, language.code);
       assert.deepEqual(harness.adapter.selectedTargetCodes, [language.code]);
@@ -544,7 +532,7 @@ describe('YandexTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.visibleTargetOptionMatches = 0;
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -556,7 +544,7 @@ describe('YandexTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.targetChooserHydrates = false;
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -586,7 +574,7 @@ describe('YandexTranslateProvider', () => {
       }),
     ];
 
-    assert.equal((await fallback.provider.translate(createRequest())).success, true);
+    assert.equal((await fallback.provider.translate(requestFixture.create())).success, true);
 
     for (const editors of [
       createEditors({ editableSourceEditors: 2, sourceEditors: 2, sourceResolution: 'invalid' }),
@@ -597,7 +585,7 @@ describe('YandexTranslateProvider', () => {
     ]) {
       const ambiguous = createHarness();
       ambiguous.adapter.currentEditors = editors;
-      const outcome = await ambiguous.provider.translate(createRequest());
+      const outcome = await ambiguous.provider.translate(requestFixture.create());
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
       assert.equal(ambiguous.adapter.insertedTexts.length, 0);
@@ -605,10 +593,12 @@ describe('YandexTranslateProvider', () => {
   });
 
   it('performs one full-string source update with the exact three-step event sequence', async () => {
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     const harness = createHarness();
 
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
 
     assert.equal(outcome.success, true);
     assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source']);
@@ -624,12 +614,12 @@ describe('YandexTranslateProvider', () => {
   it('reuses one prepared page without reopening either language chooser', async () => {
     const harness = createHarness();
 
-    const first = await harness.provider.translate(createRequest({ sourceText: 'first source' }));
+    const first = await harness.provider.translate(requestFixture.create({ sourceText: 'first source' }));
     harness.adapter.resultReadsAfterInsertion = [
       createEditors({ destinationText: 'second', destinationVisible: true }),
       createEditors({ destinationText: 'second', destinationVisible: true }),
     ];
-    const second = await harness.provider.translate(createRequest({ sourceText: 'second source' }));
+    const second = await harness.provider.translate(requestFixture.create({ sourceText: 'second source' }));
 
     assert.equal(first.success, true);
     assert.equal(second.success ? second.text : null, 'second');
@@ -658,7 +648,7 @@ describe('YandexTranslateProvider', () => {
       const harness = createHarness();
       harness.adapter.resultReadsAfterInsertion = [result];
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(outcome.success, false);
       assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -671,7 +661,7 @@ describe('YandexTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.targetAfterInsertion = 'ru';
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
@@ -683,7 +673,7 @@ describe('YandexTranslateProvider', () => {
     const harness = createHarness(new FixtureYandexPageAdapter(), 2);
     harness.adapter.resultReadsAfterInsertion = [createEditors(), createEditors()];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'resultTimeoutOrEmpty');
@@ -717,7 +707,7 @@ describe('YandexTranslateProvider', () => {
       }),
     ];
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'be' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'be' }));
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
     assert.equal(harness.adapter.clearClicks, 2);
@@ -733,7 +723,7 @@ describe('YandexTranslateProvider', () => {
     const harness = createHarness();
     harness.adapter.clearDoesNotComplete = true;
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.equal(harness.adapter.clearClicks, 1);

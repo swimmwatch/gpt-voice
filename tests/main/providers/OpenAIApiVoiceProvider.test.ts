@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { StatusCodes } from 'http-status-codes';
 import { OpenAIApiVoiceProvider } from '@main/providers/OpenAIApiVoiceProvider';
 import { DEFAULT_OPENAI_API_SETTINGS, type OpenAIApiSettingsWithSecret } from '@main/providers/openaiApiSettingsUtils';
-import { createVoiceAuditRecorder, getTerminalEvents } from './voiceAuditTestUtils';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 
 function createSettings(overrides: Partial<OpenAIApiSettingsWithSecret> = {}): OpenAIApiSettingsWithSecret {
   return {
@@ -45,10 +45,10 @@ describe('OpenAIApiVoiceProvider', () => {
   });
 
   it('sends the selected compatible model and language to OpenAI', async () => {
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     let request: RequestInit | undefined;
     const provider = new OpenAIApiVoiceProvider({
-      audit: audit.audit,
+      audit: audit,
       fetch: async (_url, init) => {
         request = init;
         return {
@@ -79,9 +79,9 @@ describe('OpenAIApiVoiceProvider', () => {
   });
 
   it('audits configuration absence without retaining credential values', async () => {
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     const provider = new OpenAIApiVoiceProvider({
-      audit: audit.audit,
+      audit: audit,
       getSettings: () => createSettings({ apiKey: '' }),
     });
 
@@ -95,10 +95,10 @@ describe('OpenAIApiVoiceProvider', () => {
   });
 
   it('audits success with safe lengths and exactly one terminal', async () => {
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     const clipboard: string[] = [];
     const provider = new OpenAIApiVoiceProvider({
-      audit: audit.audit,
+      audit: audit,
       fetch: async () => ({
         status: Number(StatusCodes.OK),
         text: async () => JSON.stringify({ text: 'synthetic transcript' }),
@@ -143,9 +143,9 @@ describe('OpenAIApiVoiceProvider', () => {
     ] as const;
 
     for (const testCase of cases) {
-      const audit = createVoiceAuditRecorder();
+      const audit = new RecordingVoiceProviderAudit();
       const provider = new OpenAIApiVoiceProvider({
-        audit: audit.audit,
+        audit: audit,
         fetch: async () => ({
           status: testCase.status,
           text: async () => testCase.body,
@@ -167,9 +167,9 @@ describe('OpenAIApiVoiceProvider', () => {
 
   it('normalizes transport exceptions and keeps request privacy canaries out of audit metadata', async () => {
     const canary = 'private-key private prompt https://private.invalid /home/private stack-private';
-    const audit = createVoiceAuditRecorder();
+    const audit = new RecordingVoiceProviderAudit();
     const provider = new OpenAIApiVoiceProvider({
-      audit: audit.audit,
+      audit: audit,
       fetch: async () => {
         throw new TypeError(canary);
       },

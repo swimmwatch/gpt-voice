@@ -22,13 +22,8 @@ import {
   type BingSelectionSnapshot,
   type BingTranslatePageAdapter,
 } from '@main/translateProviders/BingTranslateProvider';
-import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
-import {
-  createTranslationAuditRecorder,
-  createTranslationAuditRequestFields,
-  noopTranslationProviderAudit,
-} from './translationAuditTestUtils';
+import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
 
 function createControl(visible = 1, visibleEnabled = visible): BingControlCountSnapshot {
   return { visible, visibleEnabled };
@@ -252,18 +247,11 @@ function createHarness(
   return { adapters, contexts, provider };
 }
 
-function createRequest(
-  overrides: Partial<TranslationProviderRequest> = {},
-  audit = noopTranslationProviderAudit,
-): TranslationProviderRequest {
-  return {
-    ...createTranslationAuditRequestFields('bing', audit),
-    providerId: 'bing',
-    sourceText: 'synthetic source',
-    targetLanguage: 'en',
-    ...overrides,
-  };
-}
+const requestFixture = new TranslationProviderRequestFixture({
+  providerId: 'bing',
+  sourceText: 'synthetic source',
+  targetLanguage: 'en',
+});
 
 function failureCode(outcome: Awaited<ReturnType<BingTranslateProvider['translate']>>): string | null {
   return outcome.success ? null : outcome.code;
@@ -279,7 +267,7 @@ describe('BingTranslateProvider', () => {
   });
 
   it('keeps loading sentinels inside one insertion result window', async () => {
-    const audit = createTranslationAuditRecorder();
+    const audit = new RecordingTranslationProviderAudit();
     const adapter = new FixtureBingPageAdapter();
     adapter.resultReadsAfterInsertion = [
       ...Array.from({ length: 80 }, () => createResult('...')),
@@ -289,7 +277,9 @@ describe('BingTranslateProvider', () => {
     ];
     const harness = createHarness([adapter], null);
 
-    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
+    const outcome = await harness.provider.translate(
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+    );
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
@@ -317,14 +307,14 @@ describe('BingTranslateProvider', () => {
       false,
     );
 
-    const automaticTarget = await harness.provider.translate(createRequest({ targetLanguage: 'auto-detect' }));
-    const overLimit = await harness.provider.translate(createRequest({ sourceText: 'x'.repeat(1_001) }));
+    const automaticTarget = await harness.provider.translate(requestFixture.create({ targetLanguage: 'auto-detect' }));
+    const overLimit = await harness.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(1_001) }));
     assert.equal(failureCode(automaticTarget), 'unsupportedTargetLanguage');
     assert.equal(failureCode(overLimit), 'inputTooLong');
     assert.equal(harness.contexts.length, 0);
 
     const atLimit = createHarness();
-    const outcome = await atLimit.provider.translate(createRequest({ sourceText: 'x'.repeat(1_000) }));
+    const outcome = await atLimit.provider.translate(requestFixture.create({ sourceText: 'x'.repeat(1_000) }));
     assert.equal(outcome.success, true);
     assert.equal(atLimit.adapters[0]?.fillCalls[0]?.length, 1_000);
   });
@@ -332,7 +322,7 @@ describe('BingTranslateProvider', () => {
   it('navigates once and selects exact current target values with automatic source detection', async () => {
     for (const targetLanguage of ['en', 'ru', 'uk', 'be'] as const) {
       const harness = createHarness();
-      const outcome = await harness.provider.translate(createRequest({ targetLanguage }));
+      const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage }));
 
       assert.equal(outcome.success, true);
       assert.equal(harness.adapters[0]?.navigationCalls, 1);
@@ -363,7 +353,7 @@ describe('BingTranslateProvider', () => {
 
     for (const adapter of [unexpected, blocked]) {
       const harness = createHarness([adapter]);
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
       assert.equal(failureCode(outcome), 'consentOrChallenge');
       assert.equal(adapter.fillCalls.length, 0);
     }
@@ -380,7 +370,7 @@ describe('BingTranslateProvider', () => {
       adapter.controls = controls;
       const harness = createHarness([adapter, adapter]);
 
-      const outcome = await harness.provider.translate(createRequest());
+      const outcome = await harness.provider.translate(requestFixture.create());
 
       assert.equal(failureCode(outcome), 'pageContractFailure');
       assert.equal(adapter.fillCalls.length, 0);
@@ -424,7 +414,7 @@ describe('BingTranslateProvider', () => {
     adapter.recentlyUsedOptions.push({ enabled: true, label: 'English', value: 'en' });
     adapter.scriptConsoleFailures = 3;
 
-    const outcome = await createHarness([adapter]).provider.translate(createRequest());
+    const outcome = await createHarness([adapter]).provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, true);
     assert.equal(adapter.recentlyUsedOptions.length, 1);
@@ -437,7 +427,7 @@ describe('BingTranslateProvider', () => {
     ];
     recentOnly.recentlyUsedOptions.push({ enabled: true, label: 'Russian', value: 'ru' });
     const recentOnlyOutcome = await createHarness([recentOnly, recentOnly]).provider.translate(
-      createRequest({ targetLanguage: 'ru' }),
+      requestFixture.create({ targetLanguage: 'ru' }),
     );
     assert.equal(failureCode(recentOnlyOutcome), 'pageContractFailure');
     assert.equal(recentOnly.fillCalls.length, 0);
@@ -453,7 +443,7 @@ describe('BingTranslateProvider', () => {
     const second = new FixtureBingPageAdapter();
     const harness = createHarness([first, second]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success, true);
     assert.equal(harness.contexts.length, 2);
@@ -477,7 +467,7 @@ describe('BingTranslateProvider', () => {
     const second = createUnstable();
     const harness = createHarness([first, second]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(failureCode(outcome), 'pageContractFailure');
     assert.equal(harness.contexts.length, 2);
@@ -493,7 +483,7 @@ describe('BingTranslateProvider', () => {
 
     for (const adapter of [source, target]) {
       const harness = createHarness([adapter, adapter]);
-      const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'ru' }));
+      const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'ru' }));
       assert.equal(failureCode(outcome), 'pageContractFailure');
       assert.equal(adapter.fillCalls.length, 0);
     }
@@ -504,7 +494,7 @@ describe('BingTranslateProvider', () => {
     adapter.resultReadsAfterInsertion = [createResult('fresh'), createResult('fresh')];
     const harness = createHarness([adapter]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
@@ -514,9 +504,9 @@ describe('BingTranslateProvider', () => {
     const adapter = new FixtureBingPageAdapter();
     const harness = createHarness([adapter]);
 
-    const first = await harness.provider.translate(createRequest({ sourceText: 'first source' }));
+    const first = await harness.provider.translate(requestFixture.create({ sourceText: 'first source' }));
     adapter.resultReadsAfterInsertion = [createResult('second'), createResult('second')];
-    const second = await harness.provider.translate(createRequest({ sourceText: 'second source' }));
+    const second = await harness.provider.translate(requestFixture.create({ sourceText: 'second source' }));
 
     assert.equal(first.success, true);
     assert.equal(second.success ? second.text : null, 'second');
@@ -531,7 +521,7 @@ describe('BingTranslateProvider', () => {
     adapter.outputLanguageFollowsTarget = false;
     const harness = createHarness([adapter, adapter]);
 
-    const outcome = await harness.provider.translate(createRequest({ targetLanguage: 'ru' }));
+    const outcome = await harness.provider.translate(requestFixture.create({ targetLanguage: 'ru' }));
 
     assert.equal(failureCode(outcome), 'pageContractFailure');
     assert.equal(adapter.fillCalls.length, 0);
@@ -546,7 +536,7 @@ describe('BingTranslateProvider', () => {
     };
     const harness = createHarness([adapter]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(failureCode(outcome), 'pageContractFailure');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
@@ -557,7 +547,7 @@ describe('BingTranslateProvider', () => {
     adapter.resultReadsAfterInsertion = [createResult(), createResult()];
     const harness = createHarness([adapter], 2);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(failureCode(outcome), 'resultTimeoutOrEmpty');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
@@ -572,7 +562,7 @@ describe('BingTranslateProvider', () => {
     adapter.resultReadsAfterInsertion = [createResult('stale'), createResult('fresh'), createResult('fresh')];
     const harness = createHarness([adapter]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
     assert.equal(adapter.clearClicks, 2);
@@ -591,7 +581,7 @@ describe('BingTranslateProvider', () => {
     adapter.clearDoesNotComplete = true;
     const harness = createHarness([adapter]);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(requestFixture.create());
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.equal(adapter.clearClicks, 1);
