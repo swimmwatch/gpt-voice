@@ -6,11 +6,14 @@ import {
   type TranslationExecutionSnapshot,
   type TranslationRuntimeRegistry,
 } from '@main/services/translation';
+import { createProviderAuditLifecycle } from '@main/providerAudit';
 import type {
   TranslationProviderOutcome,
   TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
+import type { TranslationProviderAuditLifecycleFactory } from '@main/translateProviders/translationProviderAudit';
 import type { TranslationProviderId, TranslationSettings } from '@shared/translationProvider';
+import { createNoopTranslationAuditLifecycle } from './translateProviders/translationAuditTestUtils';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -39,10 +42,72 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
 }
 
 interface RuntimeHarnessOptions {
+  auditFactory?: TranslationProviderAuditLifecycleFactory;
   outcome?: TranslationProviderOutcome;
   settings?: TranslationSettings;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
   translate?: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
+}
+
+interface CapturedAuditEntry {
+  readonly level: 'info' | 'warn' | 'error';
+  readonly record: {
+    readonly causeCode?: string;
+    readonly discarded?: boolean;
+    readonly errorClass?: string;
+    readonly event: string;
+    readonly exceptionType?: string;
+    readonly operation: string;
+    readonly operationId: string;
+    readonly outcome: string;
+    readonly providerId?: string;
+    readonly providerKnown?: boolean;
+    readonly sequence: number;
+  };
+  readonly serialized: string;
+}
+
+function createCoreAuditCapture(): {
+  readonly entries: CapturedAuditEntry[];
+  readonly factory: TranslationProviderAuditLifecycleFactory;
+} {
+  const entries: CapturedAuditEntry[] = [];
+  let operationIdCounter = 0;
+  let timestamp = Date.parse('2026-07-26T12:00:00.000Z');
+  const capture =
+    (level: CapturedAuditEntry['level']) =>
+    (...args: unknown[]): void => {
+      assert.equal(args[0], 'Provider audit event');
+      assert.equal(typeof args[1], 'string');
+      assert.equal(args.length, 2);
+      const serialized = args[1] as string;
+      entries.push({
+        level,
+        record: JSON.parse(serialized) as CapturedAuditEntry['record'],
+        serialized,
+      });
+    };
+  const sink = {
+    info: capture('info'),
+    warn: capture('warn'),
+    error: capture('error'),
+  };
+
+  return {
+    entries,
+    factory: (input) =>
+      createProviderAuditLifecycle<'translation'>(input, {
+        getSink: () => sink,
+        now: () => {
+          timestamp += 1;
+          return new Date(timestamp);
+        },
+        randomUUID: () => {
+          operationIdCounter += 1;
+          return `00000000-0000-4000-8000-${String(operationIdCounter).padStart(12, '0')}`;
+        },
+      }),
+  };
 }
 
 function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
@@ -73,6 +138,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     },
   };
   const runtime = new TranslationRuntime({
+    createAuditLifecycle: options.auditFactory ?? (() => createNoopTranslationAuditLifecycle()),
     getSettings: () => settings,
     now: () => {
       now += 1;
@@ -120,13 +186,17 @@ describe('TranslationRuntime', () => {
   });
 
   it('fails closed for unsupported provider and target settings without registry access', () => {
+    const providerAudit = createCoreAuditCapture();
+    const targetAudit = createCoreAuditCapture();
     const invalidProvider = createRuntimeHarness({
+      auditFactory: providerAudit.factory,
       settings: {
-        providerId: 'deepl',
+        providerId: 'deepl-private-provider-canary',
         targetLanguageByProvider: {},
       } as unknown as TranslationSettings,
     });
     const invalidTarget = createRuntimeHarness({
+      auditFactory: targetAudit.factory,
       settings: {
         ...DEFAULT_SETTINGS,
         targetLanguageByProvider: {
@@ -145,10 +215,52 @@ describe('TranslationRuntime', () => {
     assert.equal(targetFailure.success ? null : targetFailure.code, 'unsupportedTargetLanguage');
     assert.deepEqual(invalidProvider.getProviderCalls, []);
     assert.deepEqual(invalidTarget.getProviderCalls, []);
+    assert.equal(JSON.stringify(providerAudit.entries).includes('deepl-private-provider-canary'), false);
+    assert.equal(
+      providerAudit.entries.every((entry) => entry.record.providerId === undefined),
+      true,
+    );
+    assert.equal(
+      providerAudit.entries.every((entry) => entry.record.providerKnown === false),
+      true,
+    );
+    assert.equal(providerAudit.entries.filter((entry) => entry.record.event === 'terminal').length, 1);
+    assert.equal(providerAudit.entries[providerAudit.entries.length - 1]?.level, 'warn');
+    assert.equal(targetAudit.entries[targetAudit.entries.length - 1]?.record.causeCode, 'unsupportedTargetLanguage');
+    assert.equal(targetAudit.entries[targetAudit.entries.length - 1]?.level, 'warn');
+  });
+
+  it('audits settings snapshot exceptions without changing the thrown error', () => {
+    const audit = createCoreAuditCapture();
+    const settingsError = new Error('settings-session-private-canary');
+    const runtime = new TranslationRuntime({
+      createAuditLifecycle: audit.factory,
+      getSettings: () => {
+        throw settingsError;
+      },
+      now: () => 100,
+      registry: {
+        getProvider: () => {
+          throw new Error('provider must not be created');
+        },
+        shutdown: async () => ({ success: true, failedProviderIds: [] }),
+      },
+    });
+
+    assert.throws(
+      () => runtime.getSnapshot(),
+      (error: unknown) => error === settingsError,
+    );
+    assert.equal(audit.entries.filter((entry) => entry.record.event === 'terminal').length, 1);
+    assert.equal(audit.entries[audit.entries.length - 1]?.level, 'error');
+    assert.equal(audit.entries[audit.entries.length - 1]?.record.exceptionType, 'Error');
+    assert.equal(JSON.stringify(audit.entries).includes('settings-session-private-canary'), false);
   });
 
   it('rejects empty and over-limit text before provider creation', async () => {
+    const audit = createCoreAuditCapture();
     const harness = createRuntimeHarness({
+      auditFactory: audit.factory,
       settings: {
         ...DEFAULT_SETTINGS,
         providerId: 'bing',
@@ -162,12 +274,28 @@ describe('TranslationRuntime', () => {
     assert.equal(empty.success ? null : empty.code, 'emptyInput');
     assert.equal(tooLong.success ? null : tooLong.code, 'inputTooLong');
     assert.deepEqual(harness.getProviderCalls, []);
+    const translateTerminals = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.deepEqual(
+      translateTerminals.map((entry) => [entry.record.causeCode, entry.level]),
+      [
+        ['emptyInput', 'warn'],
+        ['inputTooLong', 'warn'],
+      ],
+    );
   });
 
   it('submits the original complete source once through the selected provider', async () => {
-    const harness = createRuntimeHarness();
+    const audit = createCoreAuditCapture();
+    const sourceCanary = 'source-private-canary';
+    const resultCanary = 'result-private-canary';
+    const harness = createRuntimeHarness({
+      auditFactory: audit.factory,
+      translate: async (request) => createSuccess(request, resultCanary),
+    });
     const snapshot = getSnapshot(harness.runtime);
-    const sourceText = '  keep surrounding whitespace  ';
+    const sourceText = `  ${sourceCanary}  `;
 
     const outcome = await harness.runtime.translateWithSnapshot(sourceText, snapshot);
 
@@ -176,6 +304,17 @@ describe('TranslationRuntime', () => {
     assert.equal(harness.requests.length, 1);
     assert.equal(harness.requests[0]?.sourceText, sourceText);
     assert.equal(harness.requests[0]?.targetLanguage, 'uk');
+    const translateEntries = audit.entries.filter((entry) => entry.record.operation === 'translate');
+    assert.equal(new Set(translateEntries.map((entry) => entry.record.operationId)).size, 1);
+    assert.deepEqual(
+      translateEntries.map((entry) => entry.record.sequence),
+      translateEntries.map((_entry, index) => index + 1),
+    );
+    assert.equal(translateEntries.filter((entry) => entry.record.event === 'terminal').length, 1);
+    assert.equal(translateEntries[translateEntries.length - 1]?.level, 'info');
+    const serializedAudit = JSON.stringify(translateEntries);
+    assert.equal(serializedAudit.includes(sourceCanary), false);
+    assert.equal(serializedAudit.includes(resultCanary), false);
   });
 
   it('does not let direct IPC compatibility override the authoritative target', async () => {
@@ -209,13 +348,85 @@ describe('TranslationRuntime', () => {
     assert.equal(harness.requests[0]?.targetLanguage, 'uk');
   });
 
+  it('normalizes unexpected provider exceptions without exposing their details', async () => {
+    const audit = createCoreAuditCapture();
+    const exceptionCanary = 'https://private.invalid/session/account?token=credential-private-canary';
+    const harness = createRuntimeHarness({
+      auditFactory: audit.factory,
+      translate: async () => {
+        throw new Error(exceptionCanary);
+      },
+    });
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('source-private-exception-canary', snapshot);
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'pageContractFailure');
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.level, 'error');
+    assert.equal(terminal[0]?.record.errorClass, 'internal');
+    assert.equal(terminal[0]?.record.exceptionType, 'Error');
+    assert.equal(JSON.stringify(audit.entries).includes(exceptionCanary), false);
+    assert.equal(JSON.stringify(audit.entries).includes('source-private-exception-canary'), false);
+  });
+
+  it('keeps outcomes unchanged when the injected audit factory throws', async () => {
+    const harness = createRuntimeHarness({
+      auditFactory: () => {
+        throw new Error('audit-factory-private-canary');
+      },
+    });
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('selected text', snapshot);
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+  });
+
+  it('keeps outcomes unchanged when the injected audit lifecycle throws', async () => {
+    const throwAuditError = (): never => {
+      throw new Error('audit-lifecycle-private-canary');
+    };
+    const harness = createRuntimeHarness({
+      auditFactory: () => ({
+        started: throwAuditError,
+        phaseEntered: throwAuditError,
+        phaseCompleted: throwAuditError,
+        retry: throwAuditError,
+        recovery: throwAuditError,
+        terminal: throwAuditError,
+      }),
+    });
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('selected text', snapshot);
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+  });
+
   it('invalidates in-flight results and aborts their provider request during shutdown', async () => {
+    const audit = createCoreAuditCapture();
     let finishTranslation!: (outcome: TranslationProviderOutcome) => void;
     const pending = new Promise<TranslationProviderOutcome>((resolve) => {
       finishTranslation = resolve;
     });
     const harness = createRuntimeHarness({
-      translate: async () => pending,
+      auditFactory: audit.factory,
+      translate: async (request) => {
+        request.auditLifecycle.terminal('cleanup', 'success', {
+          attemptCount: 1,
+          durationMs: 1,
+          resultLength: 'translated'.length,
+          sourceLength: request.sourceText.length,
+        });
+        return pending;
+      },
     });
     const snapshot = getSnapshot(harness.runtime);
     const operation = harness.runtime.translateWithSnapshot('selected text', snapshot);
@@ -231,6 +442,13 @@ describe('TranslationRuntime', () => {
     assert.equal(outcome.success, false);
     assert.equal(outcome.success ? null : outcome.code, 'cancelledOrStaleOperation');
     assert.equal(outcome.success ? false : outcome.discard, true);
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.level, 'info');
+    assert.equal(terminal[0]?.record.outcome, 'cancelled');
+    assert.equal(terminal[0]?.record.discarded, true);
   });
 
   it('surfaces sanitized shutdown failure identities for retry', async () => {

@@ -1,4 +1,5 @@
 import type { TranslationProviderId } from '@shared/translationProvider';
+import type { ProviderAuditExceptionType, ProviderAuditLifecycle } from '@main/providerAudit';
 
 export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'unsupportedProvider',
@@ -31,6 +32,8 @@ export type TranslationProviderFailureCode = (typeof TRANSLATION_PROVIDER_FAILUR
 export type TranslationProviderPhase = (typeof TRANSLATION_PROVIDER_PHASES)[number];
 
 export interface TranslationProviderRequest {
+  readonly auditLifecycle: ProviderAuditLifecycle<'translation'>;
+  readonly auditStartedAt: number;
   readonly providerId: TranslationProviderId;
   readonly targetLanguage: string;
   readonly sourceText: string;
@@ -70,11 +73,6 @@ export interface TranslationProviderFailure {
 
 export type TranslationProviderOutcome = TranslationProviderSuccess | TranslationProviderFailure;
 
-export interface TranslationProviderDiagnostic extends TranslationProviderOperationMetadata {
-  readonly outcome: 'success' | 'failure';
-  readonly failureCode?: TranslationProviderFailureCode;
-}
-
 export interface TranslationProviderHookSuccess<T> {
   readonly success: true;
   readonly value: T;
@@ -83,6 +81,7 @@ export interface TranslationProviderHookSuccess<T> {
 export interface TranslationProviderHookFailure {
   readonly success: false;
   readonly code: TranslationProviderFailureCode;
+  readonly exceptionType?: ProviderAuditExceptionType;
   readonly recoverableBeforeSubmission?: boolean;
 }
 
@@ -97,11 +96,15 @@ export function translationHookSuccess<T>(value?: T): TranslationProviderHookSuc
 
 export function translationHookFailure(
   code: TranslationProviderFailureCode,
-  options: { readonly recoverableBeforeSubmission?: boolean } = {},
+  options: {
+    readonly exceptionType?: ProviderAuditExceptionType;
+    readonly recoverableBeforeSubmission?: boolean;
+  } = {},
 ): TranslationProviderHookFailure {
   return {
     success: false,
     code,
+    ...(options.exceptionType === undefined ? {} : { exceptionType: options.exceptionType }),
     ...(options.recoverableBeforeSubmission === undefined
       ? {}
       : {

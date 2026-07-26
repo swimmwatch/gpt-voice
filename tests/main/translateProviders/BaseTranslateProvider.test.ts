@@ -12,11 +12,11 @@ import {
 import {
   translationHookFailure,
   translationHookSuccess,
-  type TranslationProviderDiagnostic,
   type TranslationProviderHookResult,
   type TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
+import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -163,7 +163,6 @@ class FakeTranslateProvider extends BaseTranslateProvider {
 
 interface Harness {
   readonly contexts: FakeContext[];
-  readonly diagnostics: TranslationProviderDiagnostic[];
   readonly options: LaunchContextOptions[];
   readonly provider: FakeTranslateProvider;
   readonly sleeps: number[];
@@ -171,7 +170,6 @@ interface Harness {
 
 function createHarness(): Harness {
   const contexts: FakeContext[] = [];
-  const diagnostics: TranslationProviderDiagnostic[] = [];
   const options: LaunchContextOptions[] = [];
   const sleeps: number[] = [];
   let now = 1_000;
@@ -188,7 +186,6 @@ function createHarness(): Harness {
       locale: 'en-US',
       timezone: 'Europe/Moscow',
     }),
-    emitDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
     now: () => now,
     resultPollIntervalMs: 10,
     resultStabilityDelayMs: 5,
@@ -198,11 +195,13 @@ function createHarness(): Harness {
       now += delayMs;
     },
   });
-  return { contexts, diagnostics, options, provider, sleeps };
+  return { contexts, options, provider, sleeps };
 }
 
 function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
   return {
+    auditLifecycle: createNoopTranslationAuditLifecycle(),
+    auditStartedAt: 1_000,
     providerId: 'google',
     sourceText: 'source text',
     targetLanguage: 'en',
@@ -276,7 +275,6 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts.length, 0);
 
     const serialized = JSON.stringify({
-      diagnostics: harness.diagnostics,
       outcomes: [unsupportedProvider, unsupportedTarget],
     });
     assert.equal(serialized.includes('private-provider'), false);
@@ -285,6 +283,7 @@ describe('BaseTranslateProvider', () => {
 
   it('performs one clean pre-submission recovery without replaying source text', async () => {
     const harness = createHarness();
+    const audit = createTranslationAuditRecorder();
     harness.provider.readinessResults = [
       translationHookFailure('pageContractFailure', {
         recoverableBeforeSubmission: true,
@@ -292,7 +291,7 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess(),
     ];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.metadata.attemptCount, 2);
@@ -300,6 +299,10 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts[0]?.closeCalls, 1);
     assert.equal(harness.provider.calls.insert, 1);
     assert.deepEqual(harness.provider.insertedTexts, ['source text']);
+    assert.equal(audit.events.filter((event) => event.event === 'retry').length, 1);
+    assert.equal(audit.events.filter((event) => event.event === 'recovery').length, 1);
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.event, 'terminal');
   });
 
   it('never recreates or reinserts after the submission boundary', async () => {
@@ -321,6 +324,7 @@ describe('BaseTranslateProvider', () => {
 
   it('rejects stale and changing results until two normalized reads agree', async () => {
     const harness = createHarness();
+    const audit = createTranslationAuditRecorder();
     harness.provider.previousResult = 'stale';
     harness.provider.readResults = [
       translationHookSuccess('stale'),
@@ -330,12 +334,13 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess('stable'),
     ];
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.success ? outcome.text : null, 'stable');
     assert.deepEqual(harness.sleeps, [10, 5, 10, 5]);
     assert.equal(harness.provider.calls.targetVerification, 1);
+    assert.equal(audit.events.filter((event) => event.phase === 'result').length, 2);
   });
 
   it('returns a terminal timeout for an empty result without replaying insertion', async () => {
@@ -395,9 +400,10 @@ describe('BaseTranslateProvider', () => {
     assert.equal(closeHarness.contexts[0]?.closeCalls, 1);
 
     const failureHarness = createHarness();
+    const failureAudit = createTranslationAuditRecorder();
     failureHarness.provider.clearResult = translationHookFailure('cleanupFailure');
     const failedContextPromise = waitUntil(() => failureHarness.contexts.length === 1);
-    const operation = failureHarness.provider.translate(createRequest());
+    const operation = failureHarness.provider.translate(createRequest({ auditLifecycle: failureAudit.lifecycle }));
     await failedContextPromise;
     const failedContext = failureHarness.contexts[0];
     assert.ok(failedContext);
@@ -409,6 +415,8 @@ describe('BaseTranslateProvider', () => {
     assert.equal(failureOutcome.success ? null : failureOutcome.code, 'cleanupFailure');
     assert.equal('text' in failureOutcome, false);
     assert.equal(failureOutcome.metadata.resultLength, 'translated'.length);
+    assert.equal(failureAudit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(failureAudit.events[failureAudit.events.length - 1]?.metadata?.errorClass, 'cleanup');
 
     await assert.rejects(failureHarness.provider.shutdown(), /Translation provider cleanup failed/u);
     failedContext.page.closeFails = false;
@@ -417,13 +425,14 @@ describe('BaseTranslateProvider', () => {
     assert.equal(failedContext.closeCalls, 3);
   });
 
-  it('maps raw hook errors to sanitized diagnostics and keeps final entrypoints fixed', async () => {
+  it('maps raw hook errors to sanitized audit metadata and keeps final entrypoints fixed', async () => {
     const harness = createHarness();
+    const audit = createTranslationAuditRecorder();
     harness.provider.navigationError = new Error('https://private.invalid/?text=private-source raw response');
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
     const serialized = JSON.stringify({
-      diagnostics: harness.diagnostics,
+      auditEvents: audit.events,
       outcome,
     });
 
@@ -431,6 +440,9 @@ describe('BaseTranslateProvider', () => {
     assert.equal(outcome.success ? null : outcome.code, 'navigationFailure');
     assert.equal(serialized.includes('private.invalid'), false);
     assert.equal(serialized.includes('private-source'), false);
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.metadata?.exceptionType, 'Error');
+    assert.equal(audit.events[audit.events.length - 1]?.metadata?.errorClass, 'internal');
     assert.equal(Object.getOwnPropertyDescriptor(harness.provider, 'translate')?.writable, false);
     assert.equal(Object.getOwnPropertyDescriptor(harness.provider, 'shutdown')?.writable, false);
   });

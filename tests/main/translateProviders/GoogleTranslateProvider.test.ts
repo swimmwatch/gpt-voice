@@ -20,6 +20,7 @@ import {
 } from '@main/translateProviders/GoogleTranslateProvider';
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
+import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
 
 function createTranslatorRoute(
   targetLanguage = 'en',
@@ -223,7 +224,6 @@ function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs
     },
     createContextOptions: () => ({ headless: true }),
     createPageAdapter: () => adapter,
-    emitDiagnostic: () => {},
     now: () => 1_000,
     resultPollIntervalMs: 1,
     resultStabilityDelayMs: 0,
@@ -236,6 +236,8 @@ function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs
 
 function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
   return {
+    auditLifecycle: createNoopTranslationAuditLifecycle(),
+    auditStartedAt: 1_000,
     providerId: 'google',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -377,6 +379,7 @@ describe('GoogleTranslateProvider', () => {
   });
 
   it('excludes listitem alternatives and concatenates one primary branch in DOM order', async () => {
+    const audit = createTranslationAuditRecorder();
     const classified = classifyGoogleResultSnapshot(
       createResult([
         createFragment('First '),
@@ -394,8 +397,10 @@ describe('GoogleTranslateProvider', () => {
       createResult([createFragment('First '), createFragment(' second')]),
       createResult([createFragment('First '), createFragment(' second')]),
     ];
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
     assert.equal(outcome.success ? outcome.text : null, 'Firstsecond');
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
   });
 
   it('rejects multiple primary branches and named-region ambiguity after submission without reinsertion', async () => {

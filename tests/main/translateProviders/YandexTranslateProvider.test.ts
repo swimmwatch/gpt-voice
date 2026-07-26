@@ -20,6 +20,7 @@ import {
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { YANDEX_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/yandex';
+import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
 
 function createRoute(
   targetLanguage: string | null = null,
@@ -350,7 +351,6 @@ function createHarness(adapter = new FixtureYandexPageAdapter(), resultTimeoutMs
     },
     createContextOptions: () => ({ headless: true }),
     createPageAdapter: () => adapter,
-    emitDiagnostic: () => {},
     now: () => 1_000,
     resultPollIntervalMs: 1,
     resultStabilityDelayMs: 0,
@@ -363,6 +363,8 @@ function createHarness(adapter = new FixtureYandexPageAdapter(), resultTimeoutMs
 
 function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
   return {
+    auditLifecycle: createNoopTranslationAuditLifecycle(),
+    auditStartedAt: 1_000,
     providerId: 'yandex',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -597,9 +599,10 @@ describe('YandexTranslateProvider', () => {
   });
 
   it('performs one full-string source update with the exact three-step event sequence', async () => {
+    const audit = createTranslationAuditRecorder();
     const harness = createHarness();
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
 
     assert.equal(outcome.success, true);
     assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source']);
@@ -608,6 +611,8 @@ describe('YandexTranslateProvider', () => {
       ['beforeinput:insertText', 'textContent', 'input:insertText'],
     ]);
     assert.equal(harness.adapter.forbiddenTextareaUpdates, 0);
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
   });
 
   it('reuses one prepared page without reopening either language chooser', async () => {

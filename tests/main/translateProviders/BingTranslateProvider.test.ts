@@ -24,6 +24,7 @@ import {
 } from '@main/translateProviders/BingTranslateProvider';
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
+import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
 
 function createControl(visible = 1, visibleEnabled = visible): BingControlCountSnapshot {
   return { visible, visibleEnabled };
@@ -235,7 +236,6 @@ function createHarness(
     },
     createContextOptions: () => ({ headless: true }),
     createPageAdapter: () => adapters[Math.min(adapterIndex++, adapters.length - 1)] ?? fallbackAdapter,
-    emitDiagnostic: () => {},
     now: () => 1_000,
     readinessTimeoutMs: 2,
     resultPollIntervalMs: 1,
@@ -250,6 +250,8 @@ function createHarness(
 
 function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
   return {
+    auditLifecycle: createNoopTranslationAuditLifecycle(),
+    auditStartedAt: 1_000,
     providerId: 'bing',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -271,6 +273,7 @@ describe('BingTranslateProvider', () => {
   });
 
   it('keeps loading sentinels inside one insertion result window', async () => {
+    const audit = createTranslationAuditRecorder();
     const adapter = new FixtureBingPageAdapter();
     adapter.resultReadsAfterInsertion = [
       ...Array.from({ length: 80 }, () => createResult('...')),
@@ -280,10 +283,12 @@ describe('BingTranslateProvider', () => {
     ];
     const harness = createHarness([adapter], null);
 
-    const outcome = await harness.provider.translate(createRequest());
+    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
   });
 
   it('keeps Bing loading sentinels inside the base timeout loop', () => {

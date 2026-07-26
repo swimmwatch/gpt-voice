@@ -2,6 +2,13 @@ import { BaseTranslateProvider } from '@main/translateProviders/BaseTranslatePro
 import { BingTranslateProvider } from '@main/translateProviders/BingTranslateProvider';
 import { GoogleTranslateProvider } from '@main/translateProviders/GoogleTranslateProvider';
 import { YandexTranslateProvider } from '@main/translateProviders/YandexTranslateProvider';
+import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
+import {
+  createTranslationProviderAuditLifecycleSafely,
+  createTranslationProviderAuditMetadata,
+  defaultTranslationProviderAuditLifecycleFactory,
+  type TranslationProviderAuditLifecycleFactory,
+} from '@main/translateProviders/translationProviderAudit';
 import {
   TRANSLATION_PROVIDER_IDS,
   TRANSLATION_PROVIDER_INFO,
@@ -22,6 +29,16 @@ export interface TranslationProviderShutdownResult {
   readonly success: boolean;
 }
 
+export interface TranslationProviderRegistryDependencies {
+  readonly createAuditLifecycle: TranslationProviderAuditLifecycleFactory;
+  readonly now: () => number;
+}
+
+const DEFAULT_REGISTRY_DEPENDENCIES: TranslationProviderRegistryDependencies = {
+  createAuditLifecycle: defaultTranslationProviderAuditLifecycleFactory,
+  now: Date.now,
+};
+
 export const TRANSLATION_PROVIDER_DEFINITIONS: TranslationProviderDefinitions = Object.freeze({
   google: Object.freeze({
     factory: () => new GoogleTranslateProvider(),
@@ -40,8 +57,14 @@ export const TRANSLATION_PROVIDER_DEFINITIONS: TranslationProviderDefinitions = 
 /** Exhaustive lazy owner for one reusable translation provider instance per provider ID. */
 export class TranslationProviderRegistry {
   private readonly instances = new Map<TranslationProviderId, BaseTranslateProvider>();
+  private readonly dependencies: TranslationProviderRegistryDependencies;
 
-  constructor(private readonly definitions: TranslationProviderDefinitions = TRANSLATION_PROVIDER_DEFINITIONS) {}
+  constructor(
+    private readonly definitions: TranslationProviderDefinitions = TRANSLATION_PROVIDER_DEFINITIONS,
+    dependencies: Partial<TranslationProviderRegistryDependencies> = {},
+  ) {
+    this.dependencies = { ...DEFAULT_REGISTRY_DEPENDENCIES, ...dependencies };
+  }
 
   getAvailableProviderInfo(): readonly TranslationProviderInfo[] {
     return Object.freeze(TRANSLATION_PROVIDER_IDS.map((providerId) => this.definitions[providerId].info));
@@ -72,11 +95,53 @@ export class TranslationProviderRegistry {
     const failedProviderIds = (
       await Promise.all(
         providers.map(async ([providerId, provider]) => {
+          const startedAt = this.dependencies.now();
+          const auditLifecycle = createTranslationProviderAuditLifecycleSafely(this.dependencies.createAuditLifecycle, {
+            family: 'translation',
+            operation: 'shutdown',
+            providerId,
+          });
+          const startMetadata = createTranslationProviderAuditMetadata({
+            providerId,
+            contractVersion: this.definitions[providerId].info.contractVersion,
+            durationMs: 0,
+            attemptCount: 1,
+            phase: 'shutdown',
+          });
+          auditLifecycle.started(startMetadata);
+          auditLifecycle.phaseEntered('shutdown', startMetadata);
           try {
             await provider.shutdown();
             this.instances.delete(providerId);
+            const terminalMetadata = createTranslationProviderAuditMetadata({
+              providerId,
+              contractVersion: this.definitions[providerId].info.contractVersion,
+              durationMs: Math.max(0, this.dependencies.now() - startedAt),
+              attemptCount: 1,
+              phase: 'shutdown',
+            });
+            auditLifecycle.phaseCompleted('shutdown', terminalMetadata);
+            auditLifecycle.terminal('shutdown', 'success', terminalMetadata);
             return null;
-          } catch {
+          } catch (error: unknown) {
+            auditLifecycle.terminal(
+              'shutdown',
+              'failure',
+              createTranslationProviderAuditMetadata(
+                {
+                  providerId,
+                  contractVersion: this.definitions[providerId].info.contractVersion,
+                  durationMs: Math.max(0, this.dependencies.now() - startedAt),
+                  attemptCount: 1,
+                  phase: 'shutdown',
+                },
+                {
+                  causeCode: 'cleanupFailure',
+                  exceptionType: normalizeProviderAuditExceptionType(error),
+                  pageClosed: false,
+                },
+              ),
+            );
             return providerId;
           }
         }),

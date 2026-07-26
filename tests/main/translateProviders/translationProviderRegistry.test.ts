@@ -8,6 +8,16 @@ import {
   TRANSLATION_PROVIDER_INFO,
   type TranslationProviderId,
 } from '@shared/translationProvider';
+import {
+  createNoopTranslationAuditLifecycle,
+  createTranslationAuditRecorder,
+  type RecordedTranslationAuditEvent,
+} from './translationAuditTestUtils';
+
+const NOOP_AUDIT_DEPENDENCIES = {
+  createAuditLifecycle: () => createNoopTranslationAuditLifecycle(),
+  now: () => 1_000,
+};
 
 describe('translation provider registry', () => {
   it('is exhaustive and exposes shared metadata without constructing providers', () => {
@@ -21,7 +31,7 @@ describe('translation provider registry', () => {
       bing: { factory: createFactory('bing'), info: TRANSLATION_PROVIDER_INFO.bing },
       yandex: { factory: createFactory('yandex'), info: TRANSLATION_PROVIDER_INFO.yandex },
     };
-    const registry = new TranslationProviderRegistry(definitions);
+    const registry = new TranslationProviderRegistry(definitions, NOOP_AUDIT_DEPENDENCIES);
 
     assert.deepEqual(Object.keys(TRANSLATION_PROVIDER_DEFINITIONS), ['google', 'bing', 'yandex']);
     assert.deepEqual(registry.getAvailableProviderInfo(), [
@@ -33,7 +43,7 @@ describe('translation provider registry', () => {
   });
 
   it('constructs at most one valid provider per exact ID', async () => {
-    const registry = new TranslationProviderRegistry();
+    const registry = new TranslationProviderRegistry(TRANSLATION_PROVIDER_DEFINITIONS, NOOP_AUDIT_DEPENDENCIES);
 
     for (const providerId of TRANSLATION_PROVIDER_IDS) {
       const first = registry.getProvider(providerId);
@@ -48,7 +58,7 @@ describe('translation provider registry', () => {
   });
 
   it('fails closed for DeepL and unknown or blank identifiers', () => {
-    const registry = new TranslationProviderRegistry();
+    const registry = new TranslationProviderRegistry(TRANSLATION_PROVIDER_DEFINITIONS, NOOP_AUDIT_DEPENDENCIES);
 
     for (const providerId of ['deepl', 'experimental', '', null]) {
       assert.throws(() => registry.getProvider(providerId), /Unknown translation provider/u);
@@ -56,7 +66,26 @@ describe('translation provider registry', () => {
   });
 
   it('attempts every shutdown and retains only failed provider ownership for retry', async () => {
-    const registry = new TranslationProviderRegistry();
+    const auditCalls: Array<{
+      readonly events: RecordedTranslationAuditEvent[];
+      readonly providerId: TranslationProviderId;
+    }> = [];
+    let now = 1_000;
+    const registry = new TranslationProviderRegistry(TRANSLATION_PROVIDER_DEFINITIONS, {
+      createAuditLifecycle: (input) => {
+        assert.equal('providerKnown' in input ? input.providerKnown : undefined, undefined);
+        const recorder = createTranslationAuditRecorder();
+        auditCalls.push({
+          events: recorder.events,
+          providerId: input.providerId as TranslationProviderId,
+        });
+        return recorder.lifecycle;
+      },
+      now: () => {
+        now += 1;
+        return now;
+      },
+    });
     const instances = (
       registry as unknown as {
         instances: Map<TranslationProviderId, BaseTranslateProvider>;
@@ -91,5 +120,17 @@ describe('translation provider registry', () => {
       failedProviderIds: [],
     });
     assert.equal(instances.size, 0);
+    assert.deepEqual(
+      auditCalls.map((call) => call.providerId),
+      ['google', 'bing', 'bing'],
+    );
+    assert.deepEqual(
+      auditCalls.map((call) => call.events.filter((event) => event.event === 'terminal').length),
+      [1, 1, 1],
+    );
+    assert.equal(auditCalls[0]?.events[auditCalls[0].events.length - 1]?.outcome, 'success');
+    assert.equal(auditCalls[1]?.events[auditCalls[1].events.length - 1]?.outcome, 'failure');
+    assert.equal(auditCalls[1]?.events[auditCalls[1].events.length - 1]?.metadata?.errorClass, 'cleanup');
+    assert.equal(auditCalls[2]?.events[auditCalls[2].events.length - 1]?.outcome, 'success');
   });
 });

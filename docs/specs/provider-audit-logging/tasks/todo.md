@@ -6,8 +6,11 @@ revision 1 on 2026-07-26.
 Task 01 execution was authorized through persistent Prompt MCP question
 `execution.task-01` revision 1.
 
+Task 02 execution was authorized through persistent Prompt MCP question
+`execution.task-02` revision 1.
+
 - [x] [01 Provider audit core](01_define_provider_audit_core.md)
-- [ ] [02 Translation audit lifecycle](02_migrate_translation_audit_lifecycle.md)
+- [x] [02 Translation audit lifecycle](02_migrate_translation_audit_lifecycle.md)
 - [ ] [03 Voice batch and browser lifecycle](03_audit_voice_batch_and_browser_lifecycle.md)
 - [ ] [04 Claude buffered and streaming voice](04_audit_claude_streaming_voice.md)
 - [ ] [05 Prettify HTTP lifecycle](05_audit_prettify_http_lifecycle.md)

@@ -139,13 +139,6 @@ function createSuccessResult(): SelectedTextTranslationResult {
   return { success: true, status: t('status.translationCopied') };
 }
 
-function logProviderFailure(failure: TranslationProviderFailure): void {
-  log.warn('Selected-text translation failed:', {
-    code: failure.code,
-    ...failure.metadata,
-  });
-}
-
 /** Builds the serialized selected-text workflow around an injectable translation runtime. */
 export function createSelectedTextTranslationService(deps: SelectedTextTranslationDependencies) {
   return async function translateSelectedTextToClipboard(): Promise<SelectedTextTranslationResult> {
@@ -161,7 +154,6 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
       if (!snapshotResult.success) {
         const message = deps.getFailureMessage(snapshotResult);
         const presented = notifyTranslationFailure(deps, message);
-        logProviderFailure(snapshotResult);
         return createFailureResult(presented.userMessage);
       }
       snapshot = snapshotResult.snapshot;
@@ -184,7 +176,6 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
         restoreClipboard(deps, previousClipboardText);
         const message = deps.getFailureMessage(validationFailure);
         const presented = notifyTranslationFailure(deps, message);
-        logProviderFailure(validationFailure);
         return createFailureResult(presented.userMessage);
       }
 
@@ -210,12 +201,6 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
         return createSuccessResult();
       }
 
-      log.info('Translating selected text:', {
-        providerId: snapshot.providerId,
-        contractVersion: snapshot.contractVersion,
-        targetLanguage: snapshot.targetLanguage,
-        sourceLength: selectedText.length,
-      });
       const outcome = await deps.translate(selectedText, snapshot);
       if (!outcome.success) {
         if (outcome.discard || !deps.isCurrent(snapshot)) {
@@ -224,7 +209,6 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
         restoreClipboard(deps, previousClipboardText);
         const message = deps.getFailureMessage(outcome);
         const presented = notifyTranslationFailure(deps, message);
-        logProviderFailure(outcome);
         return createFailureResult(presented.userMessage);
       }
       if (!deps.isCurrent(snapshot)) return createSkippedResult();
@@ -232,9 +216,6 @@ export function createSelectedTextTranslationService(deps: SelectedTextTranslati
       deps.cache.set(cacheKey, outcome.text);
       deps.clipboard.writeText(outcome.text);
       notifyTranslationCopied(deps, outcome.text);
-      log.info('Translated selected text copied:', {
-        ...outcome.metadata,
-      });
       return createSuccessResult();
     } catch (error: unknown) {
       if (snapshot && !deps.isCurrent(snapshot)) return createSkippedResult();

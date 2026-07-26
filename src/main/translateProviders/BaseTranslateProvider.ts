@@ -3,7 +3,7 @@ import type { BrowserContext, Page } from 'playwright-core';
 
 import { createCloakBrowserTranslationContextOptions } from '@main/cloakBrowserLaunchOptions';
 import { launchCloakContext } from '@main/cloakbrowser';
-import { createLogger } from '@main/logger';
+import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
 import {
   getTranslationLanguage,
   getTranslationProviderInfo,
@@ -11,7 +11,6 @@ import {
 } from '@shared/translationProvider';
 import {
   translationHookFailure,
-  type TranslationProviderDiagnostic,
   type TranslationProviderFailure,
   type TranslationProviderFailureCode,
   type TranslationProviderHookResult,
@@ -20,17 +19,21 @@ import {
   type TranslationProviderPhase,
   type TranslationProviderRequest,
 } from './translationProviderContracts';
+import {
+  createTranslationProviderAuditMetadata,
+  getTranslationProviderAuditTerminalOutcome,
+  makeTranslationProviderAuditLifecycleFailOpen,
+  toProviderAuditPhase,
+  type TranslationProviderAuditLifecycle,
+} from './translationProviderAudit';
 
 const DEFAULT_RESULT_TIMEOUT_MS = 15_000;
 const DEFAULT_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 
-const log = createLogger('translation-provider');
-
 export interface BaseTranslateProviderDependencies {
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
   readonly createContextOptions: () => LaunchContextOptions;
-  readonly emitDiagnostic: (diagnostic: TranslationProviderDiagnostic) => void;
   readonly now: () => number;
   readonly resultPollIntervalMs: number;
   readonly resultStabilityDelayMs: number;
@@ -39,6 +42,8 @@ export interface BaseTranslateProviderDependencies {
 }
 
 interface OperationState {
+  readonly auditLifecycle: TranslationProviderAuditLifecycle;
+  readonly auditStartedAt: number;
   readonly attemptCount: number;
   readonly generation: number;
   readonly signal?: AbortSignal;
@@ -65,16 +70,35 @@ interface PreparationFailure {
 
 type PreparationResult = PreparationSuccess | PreparationFailure;
 
+type PreparationStepsResult =
+  | {
+      readonly success: true;
+      readonly recover: boolean;
+    }
+  | PreparationFailure;
+
+type StaleStatePreparationResult =
+  | {
+      readonly status: 'success';
+      readonly previousResult: string;
+    }
+  | {
+      readonly status: 'recover';
+    }
+  | {
+      readonly status: 'failure';
+      readonly outcome: TranslationProviderFailure;
+    };
+
+interface FailureAuditOptions {
+  readonly auditPhase?: 'consent-or-challenge';
+  readonly exceptionType?: ProviderAuditExceptionType;
+  readonly pageClosed?: boolean;
+}
+
 const DEFAULT_DEPENDENCIES: BaseTranslateProviderDependencies = {
   createContext: launchCloakContext,
   createContextOptions: createCloakBrowserTranslationContextOptions,
-  emitDiagnostic: (diagnostic) => {
-    if (diagnostic.outcome === 'success') {
-      log.info('Translation provider operation completed', diagnostic);
-      return;
-    }
-    log.warn('Translation provider operation failed', diagnostic);
-  },
   now: () => Date.now(),
   resultPollIntervalMs: DEFAULT_RESULT_POLL_INTERVAL_MS,
   resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
@@ -149,13 +173,20 @@ export abstract class BaseTranslateProvider {
     const startedAt = this.dependencies.now();
     const rawSourceText: unknown = request.sourceText;
     const sourceLength = typeof rawSourceText === 'string' ? rawSourceText.length : 0;
+    const auditLifecycle = makeTranslationProviderAuditLifecycleFailOpen(request.auditLifecycle);
     const initialState: OperationState = {
+      auditLifecycle,
+      auditStartedAt: request.auditStartedAt,
       attemptCount: 1,
       generation,
       signal: request.signal,
       sourceLength,
       startedAt,
     };
+    auditLifecycle.started({
+      attemptCount: 1,
+      sourceLength,
+    });
     const canonicalInfo = getTranslationProviderInfo(this.info.id);
 
     if (!this.isOperationActive(initialState)) {
@@ -195,21 +226,32 @@ export abstract class BaseTranslateProvider {
       return this.createStaleFailure('submission', activeState);
     }
 
+    this.phaseEntered('submission', activeState);
     const insertion = await this.invokeHook(
       () => this.insertSourceText(preparation.page, rawSourceText),
       'pageContractFailure',
     );
     if (!insertion.success) {
-      return this.createTerminalFailure(insertion.code, 'submission', activeState);
+      return this.createTerminalFailure(insertion.code, 'submission', activeState, insertion.exceptionType);
     }
     if (!this.isOperationActive(activeState)) {
       await this.closeOwnedResources();
       return this.createStaleFailure('submission', activeState);
     }
+    this.phaseCompleted('submission', activeState, { postSubmission: true });
 
+    this.phaseEntered('result', activeState, { postSubmission: true });
     const result = await this.awaitStableResult(preparation.page, preparation.previousResult, activeState);
     if (!result.success) return result;
+    this.phaseCompleted('result', activeState, {
+      postSubmission: true,
+      resultLength: result.text.length,
+    });
 
+    this.phaseEntered('cleanup', activeState, {
+      postSubmission: true,
+      resultLength: result.text.length,
+    });
     const clear = await this.invokeHook(() => this.clearVisibleState(preparation.page), 'cleanupFailure');
     if (!this.isOperationActive(activeState)) {
       await this.closeOwnedResources();
@@ -218,11 +260,19 @@ export abstract class BaseTranslateProvider {
     if (!clear.success) {
       const closed = await this.closeOwnedResources();
       if (!closed) {
-        return this.createFailure('cleanupFailure', 'cleanup', activeState, result.text.length);
+        return this.createFailure('cleanupFailure', 'cleanup', activeState, result.text.length, {
+          exceptionType: clear.exceptionType,
+          pageClosed: false,
+        });
       }
     }
+    this.phaseCompleted('cleanup', activeState, {
+      pageClosed: !clear.success,
+      postSubmission: true,
+      resultLength: result.text.length,
+    });
 
-    return this.createSuccess(result.text, activeState);
+    return this.createSuccess(result.text, activeState, !clear.success);
   }
 
   /** Runs the bounded pre-submission page preparation and recovery sequence. */
@@ -232,97 +282,34 @@ export abstract class BaseTranslateProvider {
         ...state,
         attemptCount,
       };
+      this.phaseEntered('context', activeState);
       const pageResult = await this.ensurePage(activeState);
       if (!pageResult.success) return pageResult;
       const page = pageResult.page;
+      this.phaseCompleted('context', activeState);
 
-      const steps: ReadonlyArray<{
-        phase: TranslationProviderPhase;
-        fallbackCode: TranslationProviderFailureCode;
-        run: () => Promise<TranslationProviderHookResult>;
-      }> = [
-        {
-          phase: 'navigation',
-          fallbackCode: 'navigationFailure',
-          run: () => this.navigateAndHandleConsent(page, state.targetLanguage),
-        },
-        {
-          phase: 'readiness',
-          fallbackCode: 'pageContractFailure',
-          run: () => this.inspectReadiness(page),
-        },
-        {
-          phase: 'sourceDetection',
-          fallbackCode: 'pageContractFailure',
-          run: () => this.enableAutomaticSourceDetection(page),
-        },
-        {
-          phase: 'targetSelection',
-          fallbackCode: 'pageContractFailure',
-          run: () => this.selectAndVerifyTarget(page, state.targetLanguage),
-        },
-      ];
-
-      let recover = false;
-      for (const step of steps) {
-        const hookResult = await this.invokeHook(step.run, step.fallbackCode);
-        if (!this.isOperationActive(activeState)) {
-          return {
-            success: false,
-            outcome: this.createStaleFailure(step.phase, activeState),
-          };
-        }
-        if (!hookResult.success) {
-          if (attemptCount === 1 && hookResult.recoverableBeforeSubmission === true) {
-            recover = true;
-            break;
-          }
-          return {
-            success: false,
-            outcome: await this.createTerminalFailure(hookResult.code, step.phase, activeState),
-          };
-        }
-      }
-
-      if (recover) {
-        const closed = await this.closeOwnedResources();
-        if (!closed) {
-          return {
-            success: false,
-            outcome: this.createFailure('cleanupFailure', 'cleanup', activeState),
-          };
-        }
+      const preparationSteps = await this.runPreparationSteps(page, activeState);
+      if (!preparationSteps.success) return preparationSteps;
+      if (preparationSteps.recover) {
+        const recoveryFailure = await this.recoverPreparation(activeState);
+        if (recoveryFailure) return recoveryFailure;
         continue;
       }
 
-      const staleState = await this.invokeHook(() => this.clearStaleState(page), 'pageContractFailure');
-      if (!this.isOperationActive(activeState)) {
-        return {
-          success: false,
-          outcome: this.createStaleFailure('staleState', activeState),
-        };
+      const staleState = await this.prepareStaleState(page, activeState);
+      if (staleState.status === 'failure') {
+        return { success: false, outcome: staleState.outcome };
       }
-      if (!staleState.success) {
-        if (attemptCount === 1 && staleState.recoverableBeforeSubmission === true) {
-          const closed = await this.closeOwnedResources();
-          if (!closed) {
-            return {
-              success: false,
-              outcome: this.createFailure('cleanupFailure', 'cleanup', activeState),
-            };
-          }
-          continue;
-        }
-        return {
-          success: false,
-          outcome: await this.createTerminalFailure(staleState.code, 'staleState', activeState),
-        };
+      if (staleState.status === 'recover') {
+        const recoveryFailure = await this.recoverPreparation(activeState);
+        if (recoveryFailure) return recoveryFailure;
+        continue;
       }
 
       return {
         success: true,
         page,
-        previousResult: staleState.value,
+        previousResult: staleState.previousResult,
         attemptCount,
       };
     }
@@ -331,6 +318,116 @@ export abstract class BaseTranslateProvider {
       success: false,
       outcome: await this.createTerminalFailure('pageContractFailure', 'readiness', { ...state, attemptCount: 2 }),
     };
+  }
+
+  private async runPreparationSteps(page: Page, state: ValidatedOperationState): Promise<PreparationStepsResult> {
+    const steps: ReadonlyArray<{
+      phase: TranslationProviderPhase;
+      fallbackCode: TranslationProviderFailureCode;
+      run: () => Promise<TranslationProviderHookResult>;
+    }> = [
+      {
+        phase: 'navigation',
+        fallbackCode: 'navigationFailure',
+        run: () => this.navigateAndHandleConsent(page, state.targetLanguage),
+      },
+      {
+        phase: 'readiness',
+        fallbackCode: 'pageContractFailure',
+        run: () => this.inspectReadiness(page),
+      },
+      {
+        phase: 'sourceDetection',
+        fallbackCode: 'pageContractFailure',
+        run: () => this.enableAutomaticSourceDetection(page),
+      },
+      {
+        phase: 'targetSelection',
+        fallbackCode: 'pageContractFailure',
+        run: () => this.selectAndVerifyTarget(page, state.targetLanguage),
+      },
+    ];
+
+    for (const step of steps) {
+      this.phaseEntered(step.phase, state);
+      const hookResult = await this.invokeHook(step.run, step.fallbackCode);
+      if (!this.isOperationActive(state)) {
+        return {
+          success: false,
+          outcome: this.createStaleFailure(step.phase, state),
+        };
+      }
+      if (!hookResult.success) {
+        if (state.attemptCount === 1 && hookResult.recoverableBeforeSubmission === true) {
+          this.retry(step.phase, state);
+          return { success: true, recover: true };
+        }
+        const auditPhase = hookResult.code === 'consentOrChallenge' ? 'consent-or-challenge' : undefined;
+        if (auditPhase !== undefined) {
+          this.phaseCompleted('navigation', state);
+          state.auditLifecycle.phaseEntered(auditPhase, this.createAuditMetadata(state));
+        }
+        return {
+          success: false,
+          outcome: await this.createTerminalFailure(
+            hookResult.code,
+            step.phase,
+            state,
+            hookResult.exceptionType,
+            auditPhase,
+          ),
+        };
+      }
+      this.phaseCompleted(step.phase, state);
+      if (step.phase === 'navigation') this.completeConsentOrChallengePhase(state);
+    }
+
+    return { success: true, recover: false };
+  }
+
+  private completeConsentOrChallengePhase(state: OperationState): void {
+    const metadata = this.createAuditMetadata(state);
+    state.auditLifecycle.phaseEntered('consent-or-challenge', metadata);
+    state.auditLifecycle.phaseCompleted('consent-or-challenge', metadata);
+  }
+
+  private async prepareStaleState(page: Page, state: ValidatedOperationState): Promise<StaleStatePreparationResult> {
+    this.phaseEntered('staleState', state);
+    const staleState = await this.invokeHook(() => this.clearStaleState(page), 'pageContractFailure');
+    if (!this.isOperationActive(state)) {
+      return {
+        status: 'failure',
+        outcome: this.createStaleFailure('staleState', state),
+      };
+    }
+    if (!staleState.success) {
+      if (state.attemptCount === 1 && staleState.recoverableBeforeSubmission === true) {
+        this.retry('staleState', state);
+        return { status: 'recover' };
+      }
+      return {
+        status: 'failure',
+        outcome: await this.createTerminalFailure(staleState.code, 'staleState', state, staleState.exceptionType),
+      };
+    }
+
+    this.phaseCompleted('staleState', state);
+    return {
+      status: 'success',
+      previousResult: staleState.value,
+    };
+  }
+
+  private async recoverPreparation(state: OperationState): Promise<PreparationFailure | null> {
+    const closed = await this.closeOwnedResources();
+    if (!closed) {
+      return {
+        success: false,
+        outcome: this.createFailure('cleanupFailure', 'cleanup', state),
+      };
+    }
+    this.recovery(state);
+    return null;
   }
 
   private async ensurePage(
@@ -376,10 +473,15 @@ export abstract class BaseTranslateProvider {
       const page = await ownedBrowser.newPage();
       this.page = page;
       return { success: true, page };
-    } catch {
+    } catch (error: unknown) {
       return {
         success: false,
-        outcome: await this.createTerminalFailure('navigationFailure', 'context', state),
+        outcome: await this.createTerminalFailure(
+          'navigationFailure',
+          'context',
+          state,
+          normalizeProviderAuditExceptionType(error),
+        ),
       };
     }
   }
@@ -402,7 +504,7 @@ export abstract class BaseTranslateProvider {
 
       const firstRead = await this.invokeHook(() => this.readNormalizedResult(page), 'pageContractFailure');
       if (!firstRead.success) {
-        return this.createTerminalFailure(firstRead.code, 'result', state);
+        return this.createTerminalFailure(firstRead.code, 'result', state, firstRead.exceptionType);
       }
 
       const candidate = firstRead.value;
@@ -415,7 +517,7 @@ export abstract class BaseTranslateProvider {
 
         const secondRead = await this.invokeHook(() => this.readNormalizedResult(page), 'pageContractFailure');
         if (!secondRead.success) {
-          return this.createTerminalFailure(secondRead.code, 'result', state);
+          return this.createTerminalFailure(secondRead.code, 'result', state, secondRead.exceptionType);
         }
         if (candidate === secondRead.value) {
           const target = await this.invokeHook(
@@ -423,7 +525,7 @@ export abstract class BaseTranslateProvider {
             'pageContractFailure',
           );
           if (!target.success) {
-            return this.createTerminalFailure(target.code, 'result', state);
+            return this.createTerminalFailure(target.code, 'result', state, target.exceptionType);
           }
           return { success: true, text: candidate };
         }
@@ -441,9 +543,15 @@ export abstract class BaseTranslateProvider {
     code: TranslationProviderFailureCode,
     phase: TranslationProviderPhase,
     state: OperationState,
+    exceptionType?: ProviderAuditExceptionType,
+    auditPhase?: 'consent-or-challenge',
   ): Promise<TranslationProviderFailure> {
     const closed = await this.closeOwnedResources();
-    return this.createFailure(closed ? code : 'cleanupFailure', closed ? phase : 'cleanup', state);
+    return this.createFailure(closed ? code : 'cleanupFailure', closed ? phase : 'cleanup', state, undefined, {
+      auditPhase,
+      exceptionType,
+      pageClosed: closed,
+    });
   }
 
   private async invokeHook<T>(
@@ -452,8 +560,10 @@ export abstract class BaseTranslateProvider {
   ): Promise<TranslationProviderHookResult<T>> {
     try {
       return await hook();
-    } catch {
-      return translationHookFailure(fallbackCode);
+    } catch (error: unknown) {
+      return translationHookFailure(fallbackCode, {
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
     }
   }
 
@@ -461,7 +571,7 @@ export abstract class BaseTranslateProvider {
     return !this.shutDown && state.generation === this.generation && state.signal?.aborted !== true;
   }
 
-  private createSuccess(text: string, state: ValidatedOperationState): TranslationProviderOutcome {
+  private createSuccess(text: string, state: ValidatedOperationState, pageClosed: boolean): TranslationProviderOutcome {
     const metadata = {
       ...this.createMetadata('cleanup', state, text.length),
       providerId: this.info.id,
@@ -475,7 +585,15 @@ export abstract class BaseTranslateProvider {
       text,
       metadata,
     };
-    this.emitDiagnostic(outcome);
+    state.auditLifecycle.terminal(
+      'cleanup',
+      'success',
+      createTranslationProviderAuditMetadata(metadata, {
+        durationMs: this.createAuditDuration(state),
+        pageClosed,
+        postSubmission: true,
+      }),
+    );
     return outcome;
   }
 
@@ -488,6 +606,7 @@ export abstract class BaseTranslateProvider {
     phase: TranslationProviderPhase,
     state: OperationState,
     resultLength?: number,
+    auditOptions: FailureAuditOptions = {},
   ): TranslationProviderFailure {
     const outcome: TranslationProviderFailure = {
       success: false,
@@ -495,7 +614,18 @@ export abstract class BaseTranslateProvider {
       discard: code === 'cancelledOrStaleOperation',
       metadata: this.createMetadata(phase, state, resultLength),
     };
-    this.emitDiagnostic(outcome);
+    state.auditLifecycle.terminal(
+      auditOptions.auditPhase ?? toProviderAuditPhase(phase),
+      getTranslationProviderAuditTerminalOutcome(code, state.signal?.aborted === true),
+      createTranslationProviderAuditMetadata(outcome.metadata, {
+        causeCode: code,
+        discarded: outcome.discard,
+        durationMs: this.createAuditDuration(state),
+        exceptionType: auditOptions.exceptionType,
+        pageClosed: auditOptions.pageClosed,
+        postSubmission: this.isPostSubmissionPhase(phase),
+      }),
+    );
     return outcome;
   }
 
@@ -522,17 +652,82 @@ export abstract class BaseTranslateProvider {
     };
   }
 
-  private emitDiagnostic(outcome: TranslationProviderOutcome): void {
-    const diagnostic: TranslationProviderDiagnostic = {
-      ...outcome.metadata,
-      outcome: outcome.success ? 'success' : 'failure',
-      ...(outcome.success ? {} : { failureCode: outcome.code }),
-    };
-    try {
-      this.dependencies.emitDiagnostic(diagnostic);
-    } catch {
-      // Diagnostics must never change the operation outcome.
-    }
+  private createAuditDuration(state: OperationState): number {
+    return Math.max(0, this.dependencies.now() - state.auditStartedAt);
+  }
+
+  private createAuditMetadata(
+    state: OperationState,
+    options: {
+      readonly pageClosed?: boolean;
+      readonly postSubmission?: boolean;
+      readonly resultLength?: number;
+      readonly retryScheduled?: boolean;
+      readonly recoveryScheduled?: boolean;
+    } = {},
+  ) {
+    return createTranslationProviderAuditMetadata(this.createMetadata('validation', state, options.resultLength), {
+      durationMs: this.createAuditDuration(state),
+      pageClosed: options.pageClosed,
+      postSubmission: options.postSubmission,
+      recoveryScheduled: options.recoveryScheduled,
+      retryScheduled: options.retryScheduled,
+    });
+  }
+
+  private phaseEntered(
+    phase: TranslationProviderPhase,
+    state: OperationState,
+    options: {
+      readonly pageClosed?: boolean;
+      readonly postSubmission?: boolean;
+      readonly resultLength?: number;
+    } = {},
+  ): void {
+    state.auditLifecycle.phaseEntered(toProviderAuditPhase(phase), this.createAuditMetadata(state, options));
+  }
+
+  private phaseCompleted(
+    phase: TranslationProviderPhase,
+    state: OperationState,
+    options: {
+      readonly pageClosed?: boolean;
+      readonly postSubmission?: boolean;
+      readonly resultLength?: number;
+    } = {},
+  ): void {
+    state.auditLifecycle.phaseCompleted(toProviderAuditPhase(phase), this.createAuditMetadata(state, options));
+  }
+
+  private retry(phase: TranslationProviderPhase, state: OperationState): void {
+    state.auditLifecycle.retry(
+      toProviderAuditPhase(phase),
+      this.createAuditMetadata(state, {
+        recoveryScheduled: true,
+        retryScheduled: true,
+      }),
+    );
+  }
+
+  private recovery(state: OperationState): void {
+    state.auditLifecycle.recovery(
+      'recovery',
+      this.createAuditMetadata(
+        {
+          ...state,
+          attemptCount: state.attemptCount + 1,
+        },
+        {
+          pageClosed: true,
+          recoveryScheduled: false,
+          retryScheduled: false,
+        },
+      ),
+    );
+  }
+
+  private isPostSubmissionPhase(phase: TranslationProviderPhase): boolean {
+    return phase === 'submission' || phase === 'result' || phase === 'cleanup';
   }
 
   private async closeOwnedResources(): Promise<boolean> {

@@ -1,8 +1,18 @@
 import { getTranslationSettingsSnapshot } from '@main/config';
 import { t } from '@main/i18n';
-import { createLogger } from '@main/logger';
+import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
 import { translationProviderRegistry, type TranslationProviderShutdownResult } from '@main/translateProviders';
 import type { BaseTranslateProvider } from '@main/translateProviders/BaseTranslateProvider';
+import {
+  createTranslationProviderAuditLifecycleSafely,
+  createTranslationProviderAuditMetadata,
+  defaultTranslationProviderAuditLifecycleFactory,
+  getTranslationProviderAuditTerminalOutcome,
+  toProviderAuditPhase,
+  type TranslationProviderAuditLifecycle,
+  type TranslationProviderAuditLifecycleFactory,
+  type TranslationProviderAuditLifecycleInput,
+} from '@main/translateProviders/translationProviderAudit';
 import type {
   TranslationProviderFailure,
   TranslationProviderFailureCode,
@@ -17,8 +27,6 @@ import {
   type TranslationProviderName,
   type TranslationSettings,
 } from '@shared/translationProvider';
-
-const log = createLogger('translate');
 
 export interface TranslationExecutionSnapshot {
   readonly contractVersion: string;
@@ -48,9 +56,15 @@ export interface TranslationRuntimeRegistry {
 }
 
 export interface TranslationRuntimeDependencies {
+  readonly createAuditLifecycle?: TranslationProviderAuditLifecycleFactory;
   readonly getSettings: () => TranslationSettings;
   readonly now: () => number;
   readonly registry: TranslationRuntimeRegistry;
+}
+
+interface DeferredTranslationAuditTerminal {
+  readonly lifecycle: TranslationProviderAuditLifecycle;
+  readonly flushTerminal: () => boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -115,27 +129,157 @@ export class TranslationRuntime {
 
   constructor(private readonly dependencies: TranslationRuntimeDependencies) {}
 
+  private createAuditLifecycle(input: TranslationProviderAuditLifecycleInput): TranslationProviderAuditLifecycle {
+    return createTranslationProviderAuditLifecycleSafely(
+      this.dependencies.createAuditLifecycle ?? defaultTranslationProviderAuditLifecycleFactory,
+      input,
+    );
+  }
+
+  private completeAuditFailure(
+    auditLifecycle: TranslationProviderAuditLifecycle,
+    failure: TranslationProviderFailure,
+    options: {
+      readonly exceptionType?: ProviderAuditExceptionType;
+      readonly signalAborted?: boolean;
+    } = {},
+  ): void {
+    auditLifecycle.terminal(
+      toProviderAuditPhase(failure.metadata.phase),
+      getTranslationProviderAuditTerminalOutcome(failure.code, options.signalAborted === true),
+      createTranslationProviderAuditMetadata(failure.metadata, {
+        causeCode: failure.code,
+        discarded: failure.discard,
+        exceptionType: options.exceptionType,
+        postSubmission:
+          failure.metadata.phase === 'submission' ||
+          failure.metadata.phase === 'result' ||
+          failure.metadata.phase === 'cleanup',
+      }),
+    );
+  }
+
+  private createKnownAuditLifecycle(
+    operation: 'settings-readiness' | 'translate',
+    providerId: TranslationProviderId,
+  ): TranslationProviderAuditLifecycle {
+    return this.createAuditLifecycle({
+      family: 'translation',
+      operation,
+      providerId,
+    });
+  }
+
+  private createUnknownSettingsAuditLifecycle(): TranslationProviderAuditLifecycle {
+    return this.createAuditLifecycle({
+      family: 'translation',
+      operation: 'settings-readiness',
+      providerId: undefined,
+      providerKnown: false,
+    });
+  }
+
+  private deferProviderAuditTerminal(
+    auditLifecycle: TranslationProviderAuditLifecycle,
+  ): DeferredTranslationAuditTerminal {
+    let deferredTerminal: (() => void) | null = null;
+    const lifecycle: TranslationProviderAuditLifecycle = {
+      started: (metadata) => auditLifecycle.started(metadata),
+      phaseEntered: (phase, metadata) => {
+        if (deferredTerminal === null) auditLifecycle.phaseEntered(phase, metadata);
+      },
+      phaseCompleted: (phase, metadata) => {
+        if (deferredTerminal === null) auditLifecycle.phaseCompleted(phase, metadata);
+      },
+      retry: (phase, metadata) => {
+        if (deferredTerminal === null) auditLifecycle.retry(phase, metadata);
+      },
+      recovery: (phase, metadata) => {
+        if (deferredTerminal === null) auditLifecycle.recovery(phase, metadata);
+      },
+      terminal: (phase, outcome, metadata) => {
+        if (deferredTerminal !== null) return;
+        deferredTerminal = () => auditLifecycle.terminal(phase, outcome, metadata);
+      },
+    };
+    return {
+      lifecycle,
+      flushTerminal: () => {
+        if (deferredTerminal === null) return false;
+        const terminal = deferredTerminal;
+        deferredTerminal = null;
+        terminal();
+        return true;
+      },
+    };
+  }
+
+  /** Captures and audits one validated immutable Translation settings snapshot. */
   getSnapshot(): TranslationExecutionSnapshotResult {
     const startedAt = this.dependencies.now();
-    const candidate = this.dependencies.getSettings() as unknown;
-    if (!isRecord(candidate)) {
-      return createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+    let candidate: unknown;
+    try {
+      candidate = this.dependencies.getSettings();
+    } catch (error: unknown) {
+      const auditLifecycle = this.createUnknownSettingsAuditLifecycle();
+      auditLifecycle.started({ attemptCount: 0 });
+      auditLifecycle.phaseEntered('validation', { attemptCount: 0 });
+      const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+      this.completeAuditFailure(auditLifecycle, failure, {
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
+      throw error;
     }
 
-    const provider = getTranslationProviderInfo(candidate.providerId);
+    const provider = isRecord(candidate) ? getTranslationProviderInfo(candidate.providerId) : undefined;
+    const auditLifecycle = provider
+      ? this.createKnownAuditLifecycle('settings-readiness', provider.id)
+      : this.createUnknownSettingsAuditLifecycle();
+    const initialAuditMetadata = provider
+      ? createTranslationProviderAuditMetadata({
+          providerId: provider.id,
+          contractVersion: provider.contractVersion,
+          durationMs: 0,
+          attemptCount: 0,
+          phase: 'validation',
+        })
+      : { attemptCount: 0, providerKnown: false };
+    auditLifecycle.started(initialAuditMetadata);
+    auditLifecycle.phaseEntered('validation', initialAuditMetadata);
+
+    if (!isRecord(candidate)) {
+      const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+      this.completeAuditFailure(auditLifecycle, failure);
+      return failure;
+    }
+
     if (!provider) {
-      return createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+      const failure = createFailure('unsupportedProvider', 'validation', startedAt, this.dependencies.now);
+      this.completeAuditFailure(auditLifecycle, failure);
+      return failure;
     }
 
     const targets = candidate.targetLanguageByProvider;
     const targetLanguage = isRecord(targets) ? targets[provider.id] : undefined;
     if (typeof targetLanguage !== 'string' || !getTranslationLanguage(provider.id, targetLanguage)) {
-      return createFailure('unsupportedTargetLanguage', 'validation', startedAt, this.dependencies.now, {
+      const failure = createFailure('unsupportedTargetLanguage', 'validation', startedAt, this.dependencies.now, {
         providerId: provider.id,
         contractVersion: provider.contractVersion,
       });
+      this.completeAuditFailure(auditLifecycle, failure);
+      return failure;
     }
 
+    const terminalMetadata = createTranslationProviderAuditMetadata({
+      providerId: provider.id,
+      targetLanguage,
+      contractVersion: provider.contractVersion,
+      durationMs: Math.max(0, this.dependencies.now() - startedAt),
+      attemptCount: 0,
+      phase: 'validation',
+    });
+    auditLifecycle.phaseCompleted('validation', terminalMetadata);
+    auditLifecycle.terminal('validation', 'success', terminalMetadata);
     return {
       success: true,
       snapshot: Object.freeze({
@@ -153,8 +297,11 @@ export class TranslationRuntime {
     return snapshot.generation === this.generation;
   }
 
-  validateInput(sourceText: unknown, snapshot: TranslationExecutionSnapshot): TranslationProviderFailure | null {
-    const startedAt = this.dependencies.now();
+  private validateInputWithoutAudit(
+    sourceText: unknown,
+    snapshot: TranslationExecutionSnapshot,
+    startedAt: number,
+  ): TranslationProviderFailure | null {
     const metadata = {
       providerId: snapshot.providerId,
       targetLanguage: snapshot.targetLanguage,
@@ -174,19 +321,56 @@ export class TranslationRuntime {
     return null;
   }
 
+  validateInput(sourceText: unknown, snapshot: TranslationExecutionSnapshot): TranslationProviderFailure | null {
+    const startedAt = this.dependencies.now();
+    const failure = this.validateInputWithoutAudit(sourceText, snapshot, startedAt);
+    if (!failure) return null;
+
+    const auditLifecycle = this.createKnownAuditLifecycle('translate', snapshot.providerId);
+    const auditMetadata = createTranslationProviderAuditMetadata(failure.metadata);
+    auditLifecycle.started(auditMetadata);
+    auditLifecycle.phaseEntered('validation', auditMetadata);
+    this.completeAuditFailure(auditLifecycle, failure);
+    return failure;
+  }
+
+  /** Validates and dispatches one non-cache Translation provider operation. */
   async translateWithSnapshot(
     sourceText: unknown,
     snapshot: TranslationExecutionSnapshot,
   ): Promise<TranslationProviderOutcome> {
-    const validationFailure = this.validateInput(sourceText, snapshot);
-    if (validationFailure) return validationFailure;
-
     const startedAt = this.dependencies.now();
+    const auditLifecycle = this.createKnownAuditLifecycle('translate', snapshot.providerId);
+    const sourceLength = typeof sourceText === 'string' ? sourceText.length : undefined;
+    const startMetadata = createTranslationProviderAuditMetadata({
+      providerId: snapshot.providerId,
+      targetLanguage: snapshot.targetLanguage,
+      contractVersion: snapshot.contractVersion,
+      ...(sourceLength === undefined ? {} : { sourceLength }),
+      durationMs: 0,
+      attemptCount: 0,
+      phase: 'validation',
+    });
+    auditLifecycle.started(startMetadata);
+    auditLifecycle.phaseEntered('validation', startMetadata);
+
+    const validationFailure = this.validateInputWithoutAudit(sourceText, snapshot, startedAt);
+    if (validationFailure) {
+      this.completeAuditFailure(auditLifecycle, validationFailure);
+      return validationFailure;
+    }
+    auditLifecycle.phaseCompleted('validation', startMetadata);
+
     const controller = new AbortController();
     this.activeControllers.add(controller);
     try {
+      auditLifecycle.phaseEntered('dispatch', startMetadata);
       const provider = this.dependencies.registry.getProvider(snapshot.providerId);
+      auditLifecycle.phaseCompleted('dispatch', startMetadata);
+      const deferredAuditTerminal = this.deferProviderAuditTerminal(auditLifecycle);
       const outcome = await provider.translate({
+        auditLifecycle: deferredAuditTerminal.lifecycle,
+        auditStartedAt: startedAt,
         providerId: snapshot.providerId,
         targetLanguage: snapshot.targetLanguage,
         sourceText: sourceText as string,
@@ -194,7 +378,7 @@ export class TranslationRuntime {
       });
 
       if (!this.isCurrent(snapshot) || controller.signal.aborted) {
-        return createFailure(
+        const failure = createFailure(
           'cancelledOrStaleOperation',
           'shutdown',
           startedAt,
@@ -208,15 +392,38 @@ export class TranslationRuntime {
           },
           true,
         );
+        this.completeAuditFailure(auditLifecycle, failure, {
+          signalAborted: controller.signal.aborted,
+        });
+        return failure;
+      }
+      deferredAuditTerminal.flushTerminal();
+      if (outcome.success) {
+        auditLifecycle.terminal(
+          'cleanup',
+          'success',
+          createTranslationProviderAuditMetadata(outcome.metadata, {
+            durationMs: Math.max(0, this.dependencies.now() - startedAt),
+            postSubmission: true,
+          }),
+        );
+      } else {
+        this.completeAuditFailure(auditLifecycle, outcome, {
+          signalAborted: controller.signal.aborted,
+        });
       }
       return outcome;
-    } catch {
-      return createFailure('pageContractFailure', 'result', startedAt, this.dependencies.now, {
+    } catch (error: unknown) {
+      const failure = createFailure('pageContractFailure', 'result', startedAt, this.dependencies.now, {
         providerId: snapshot.providerId,
         targetLanguage: snapshot.targetLanguage,
         contractVersion: snapshot.contractVersion,
         sourceLength: (sourceText as string).length,
       });
+      this.completeAuditFailure(auditLifecycle, failure, {
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
+      return failure;
     } finally {
       this.activeControllers.delete(controller);
     }
@@ -241,6 +448,11 @@ export class TranslationRuntime {
           ...(typeof sourceText === 'string' ? { sourceLength: sourceText.length } : {}),
         },
       );
+      const auditLifecycle = this.createKnownAuditLifecycle('translate', snapshot.providerId);
+      const auditMetadata = createTranslationProviderAuditMetadata(failure.metadata);
+      auditLifecycle.started(auditMetadata);
+      auditLifecycle.phaseEntered('validation', auditMetadata);
+      this.completeAuditFailure(auditLifecycle, failure);
       return { success: false, error: getTranslationFailureMessage(failure) };
     }
 
@@ -255,13 +467,7 @@ export class TranslationRuntime {
     this.generation += 1;
     for (const controller of this.activeControllers) controller.abort();
 
-    const result = await this.dependencies.registry.shutdown();
-    if (!result.success) {
-      log.warn('Translation provider shutdown incomplete:', {
-        failedProviderIds: result.failedProviderIds,
-      });
-    }
-    return result;
+    return this.dependencies.registry.shutdown();
   }
 }
 
