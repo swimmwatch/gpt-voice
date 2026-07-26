@@ -16,7 +16,11 @@ import {
   type TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
-import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
+import {
+  createTranslationAuditRecorder,
+  createTranslationAuditRequestFields,
+  noopTranslationProviderAudit,
+} from './translationAuditTestUtils';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -198,10 +202,12 @@ function createHarness(): Harness {
   return { contexts, options, provider, sleeps };
 }
 
-function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
+function createRequest(
+  overrides: Partial<TranslationProviderRequest> = {},
+  audit = noopTranslationProviderAudit,
+): TranslationProviderRequest {
   return {
-    auditLifecycle: createNoopTranslationAuditLifecycle(),
-    auditStartedAt: 1_000,
+    ...createTranslationAuditRequestFields('google', audit),
     providerId: 'google',
     sourceText: 'source text',
     targetLanguage: 'en',
@@ -291,7 +297,7 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess(),
     ];
 
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.metadata.attemptCount, 2);
@@ -334,7 +340,7 @@ describe('BaseTranslateProvider', () => {
       translationHookSuccess('stable'),
     ];
 
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
 
     assert.equal(outcome.success, true);
     assert.equal(outcome.success ? outcome.text : null, 'stable');
@@ -403,7 +409,7 @@ describe('BaseTranslateProvider', () => {
     const failureAudit = createTranslationAuditRecorder();
     failureHarness.provider.clearResult = translationHookFailure('cleanupFailure');
     const failedContextPromise = waitUntil(() => failureHarness.contexts.length === 1);
-    const operation = failureHarness.provider.translate(createRequest({ auditLifecycle: failureAudit.lifecycle }));
+    const operation = failureHarness.provider.translate(createRequest({}, failureAudit.audit));
     await failedContextPromise;
     const failedContext = failureHarness.contexts[0];
     assert.ok(failedContext);
@@ -430,7 +436,7 @@ describe('BaseTranslateProvider', () => {
     const audit = createTranslationAuditRecorder();
     harness.provider.navigationError = new Error('https://private.invalid/?text=private-source raw response');
 
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
     const serialized = JSON.stringify({
       auditEvents: audit.events,
       outcome,

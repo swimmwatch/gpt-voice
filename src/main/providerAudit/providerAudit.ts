@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the public base and private lifecycle implementations form one audit core. */
 import { randomUUID } from 'node:crypto';
 
 import { createLogger } from '@main/logger';
@@ -11,11 +12,13 @@ import {
   type ProviderAuditOutcome,
   type ProviderAuditPhase,
   type ProviderAuditRecord,
+  type ProviderAuditExceptionType,
   type ProviderAuditSeverity,
   type ProviderAuditTerminalOutcome,
   isProviderAuditFamily,
   isProviderAuditPhase,
   isProviderAuditTerminalOutcome,
+  normalizeProviderAuditExceptionType,
   validateProviderAuditMetadata,
 } from './contracts';
 import {
@@ -63,7 +66,6 @@ export interface UnknownProviderAuditLifecycleInput<Family extends ProviderAudit
   readonly family: Family;
   readonly operation: ProviderAuditOperation<Family>;
   readonly operationId?: string;
-  readonly providerId: unknown;
   readonly providerKnown: false;
 }
 
@@ -87,25 +89,93 @@ export interface ProviderAuditSink {
 }
 
 export interface ProviderAuditDependencies {
+  readonly elapsedNow: () => number;
   readonly getSink: () => ProviderAuditSink | null | undefined;
   readonly now: () => Date;
   readonly randomUUID: () => string;
 }
 
 const DEFAULT_DEPENDENCIES: ProviderAuditDependencies = {
+  elapsedNow: Date.now,
   getSink: () => createLogger('provider-audit'),
   now: () => new Date(),
   randomUUID,
 };
 
-const NOOP_LIFECYCLE: ProviderAuditLifecycle<ProviderAuditFamily> = {
-  started: () => undefined,
-  phaseEntered: () => undefined,
-  phaseCompleted: () => undefined,
-  retry: () => undefined,
-  recovery: () => undefined,
-  terminal: () => undefined,
-};
+export interface ProviderAuditOperationContext<Family extends ProviderAuditFamily> {
+  readonly lifecycle: ProviderAuditLifecycle<Family>;
+  readonly now: () => number;
+  readonly startedAt: number;
+}
+
+/** Stateless fallback used when an audit lifecycle cannot be constructed safely. */
+class NoopProviderAuditLifecycle<Family extends ProviderAuditFamily> implements ProviderAuditLifecycle<Family> {
+  public started(): void {}
+
+  public phaseEntered(): void {}
+
+  public phaseCompleted(): void {}
+
+  public retry(): void {}
+
+  public recovery(): void {}
+
+  public terminal(): void {}
+}
+
+/** Prevents injected lifecycle failures or post-terminal calls from reaching provider behavior. */
+class FailOpenProviderAuditLifecycle<Family extends ProviderAuditFamily> implements ProviderAuditLifecycle<Family> {
+  private terminalEventAccepted = false;
+
+  public constructor(private readonly lifecycle: ProviderAuditLifecycle<Family>) {}
+
+  public started(metadata?: ProviderAuditMetadataForFamily<Family>): void {
+    this.runProgress(() => this.lifecycle.started(metadata));
+  }
+
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void {
+    this.runProgress(() => this.lifecycle.phaseEntered(phase, metadata));
+  }
+
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void {
+    this.runProgress(() => this.lifecycle.phaseCompleted(phase, metadata));
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void {
+    this.runProgress(() => this.lifecycle.retry(phase, metadata));
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void {
+    this.runProgress(() => this.lifecycle.recovery(phase, metadata));
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: ProviderAuditMetadataForFamily<Family>,
+  ): void {
+    if (this.terminalEventAccepted) return;
+    this.terminalEventAccepted = true;
+    this.callSafely(() => this.lifecycle.terminal(phase, outcome, metadata));
+  }
+
+  private runProgress(run: () => void): void {
+    if (this.terminalEventAccepted) return;
+    this.callSafely(run);
+  }
+
+  private callSafely(run: () => void): void {
+    try {
+      run();
+    } catch {
+      // Provider audit is diagnostic-only and cannot alter provider behavior.
+    }
+  }
+}
+
+const NOOP_LIFECYCLE = Object.freeze(
+  new NoopProviderAuditLifecycle<ProviderAuditFamily>(),
+) as ProviderAuditLifecycle<ProviderAuditFamily>;
 
 function isCanonicalOperationId(value: unknown): value is string {
   return typeof value === 'string' && CANONICAL_UUID_PATTERN.test(value);
@@ -269,11 +339,66 @@ class ProviderAuditLifecycleState<Family extends ProviderAuditFamily> implements
   }
 }
 
-export function createProviderAuditLifecycle<Family extends ProviderAuditFamily>(
-  input: ProviderAuditLifecycleInput<Family> | UnknownProviderAuditLifecycleInput<Family>,
-  dependencies: Partial<ProviderAuditDependencies> = {},
-): ProviderAuditLifecycle<Family> {
-  try {
+/** Main-process orchestration shared by every closed provider audit family. */
+export abstract class BaseProviderAudit<Family extends ProviderAuditFamily> {
+  public abstract readonly family: Family;
+
+  private readonly dependencies: ProviderAuditDependencies;
+
+  protected constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
+    this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+  }
+
+  public isKnownProviderId(providerId: unknown): providerId is ProviderAuditProviderId<Family> {
+    return isProviderAuditProviderId(this.family, providerId);
+  }
+
+  public createLifecycle(
+    providerId: unknown,
+    operation: ProviderAuditOperation<Family>,
+    operationId?: string,
+  ): ProviderAuditLifecycle<Family> {
+    const input: ProviderAuditLifecycleInput<Family> | UnknownProviderAuditLifecycleInput<Family> =
+      this.isKnownProviderId(providerId)
+        ? { family: this.family, operation, operationId, providerId }
+        : { family: this.family, operation, operationId, providerKnown: false };
+    try {
+      return new FailOpenProviderAuditLifecycle(this.buildLifecycle(input));
+    } catch {
+      return NOOP_LIFECYCLE;
+    }
+  }
+
+  public startOperation(
+    providerId: unknown,
+    operation: ProviderAuditOperation<Family>,
+    phase: ProviderAuditPhase,
+    metadata: ProviderAuditMetadataForFamily<Family> = {},
+    operationId?: string,
+  ): ProviderAuditOperationContext<Family> {
+    const lifecycle = this.createLifecycle(providerId, operation, operationId);
+    const context = Object.freeze({
+      lifecycle,
+      now: this.dependencies.elapsedNow,
+      startedAt: this.safeElapsedNow(this.dependencies.elapsedNow),
+    });
+    lifecycle.started(metadata);
+    lifecycle.phaseEntered(phase, metadata);
+    return context;
+  }
+
+  public durationMs(context: ProviderAuditOperationContext<Family>): number {
+    return Math.max(0, this.safeElapsedNow(context.now) - context.startedAt);
+  }
+
+  protected normalizeException(error: unknown): ProviderAuditExceptionType {
+    return normalizeProviderAuditExceptionType(error);
+  }
+
+  /** Test seam for deterministic or deliberately failing lifecycle implementations. */
+  protected buildLifecycle(
+    input: ProviderAuditLifecycleInput<Family> | UnknownProviderAuditLifecycleInput<Family>,
+  ): ProviderAuditLifecycle<Family> {
     if (!isProviderAuditFamily(input.family)) {
       return NOOP_LIFECYCLE;
     }
@@ -281,28 +406,38 @@ export function createProviderAuditLifecycle<Family extends ProviderAuditFamily>
       return NOOP_LIFECYCLE;
     }
 
-    const idGenerator = dependencies.randomUUID ?? DEFAULT_DEPENDENCIES.randomUUID;
-    const operationId = input.operationId ?? idGenerator();
+    const operationId = input.operationId ?? this.dependencies.randomUUID();
     if (!isCanonicalOperationId(operationId)) {
       return NOOP_LIFECYCLE;
     }
 
     const providerId =
-      'providerKnown' in input && input.providerKnown === false
-        ? undefined
-        : isProviderAuditProviderId(input.family, input.providerId)
-          ? input.providerId
-          : undefined;
-    const now = dependencies.now ?? DEFAULT_DEPENDENCIES.now;
+      'providerId' in input && isProviderAuditProviderId(input.family, input.providerId)
+        ? input.providerId
+        : undefined;
     let sink: ProviderAuditSink | null | undefined;
     try {
-      sink = (dependencies.getSink ?? DEFAULT_DEPENDENCIES.getSink)();
+      sink = this.dependencies.getSink();
     } catch {
       sink = undefined;
     }
 
-    return new ProviderAuditLifecycleState(input.family, providerId, input.operation, operationId, now, sink);
-  } catch {
-    return NOOP_LIFECYCLE;
+    return new ProviderAuditLifecycleState(
+      input.family,
+      providerId,
+      input.operation,
+      operationId,
+      this.dependencies.now,
+      sink,
+    );
+  }
+
+  private safeElapsedNow(now: () => number): number {
+    try {
+      const value = now();
+      return Number.isFinite(value) ? value : 0;
+    } catch {
+      return 0;
+    }
   }
 }

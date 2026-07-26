@@ -4,10 +4,8 @@ import { GoogleTranslateProvider } from '@main/translateProviders/GoogleTranslat
 import { YandexTranslateProvider } from '@main/translateProviders/YandexTranslateProvider';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 import {
-  createTranslationProviderAuditLifecycleSafely,
-  createTranslationProviderAuditMetadata,
-  defaultTranslationProviderAuditLifecycleFactory,
-  type TranslationProviderAuditLifecycleFactory,
+  translationProviderAudit,
+  type TranslationProviderAudit,
 } from '@main/translateProviders/translationProviderAudit';
 import {
   TRANSLATION_PROVIDER_IDS,
@@ -30,12 +28,12 @@ export interface TranslationProviderShutdownResult {
 }
 
 export interface TranslationProviderRegistryDependencies {
-  readonly createAuditLifecycle: TranslationProviderAuditLifecycleFactory;
+  readonly audit: TranslationProviderAudit;
   readonly now: () => number;
 }
 
 const DEFAULT_REGISTRY_DEPENDENCIES: TranslationProviderRegistryDependencies = {
-  createAuditLifecycle: defaultTranslationProviderAuditLifecycleFactory,
+  audit: translationProviderAudit,
   now: Date.now,
 };
 
@@ -96,24 +94,23 @@ export class TranslationProviderRegistry {
       await Promise.all(
         providers.map(async ([providerId, provider]) => {
           const startedAt = this.dependencies.now();
-          const auditLifecycle = createTranslationProviderAuditLifecycleSafely(this.dependencies.createAuditLifecycle, {
-            family: 'translation',
-            operation: 'shutdown',
-            providerId,
-          });
-          const startMetadata = createTranslationProviderAuditMetadata({
+          const startMetadata = this.dependencies.audit.createMetadata({
             providerId,
             contractVersion: this.definitions[providerId].info.contractVersion,
             durationMs: 0,
             attemptCount: 1,
             phase: 'shutdown',
           });
-          auditLifecycle.started(startMetadata);
-          auditLifecycle.phaseEntered('shutdown', startMetadata);
+          const auditLifecycle = this.dependencies.audit.startOperation(
+            providerId,
+            'shutdown',
+            'shutdown',
+            startMetadata,
+          ).lifecycle;
           try {
             await provider.shutdown();
             this.instances.delete(providerId);
-            const terminalMetadata = createTranslationProviderAuditMetadata({
+            const terminalMetadata = this.dependencies.audit.createMetadata({
               providerId,
               contractVersion: this.definitions[providerId].info.contractVersion,
               durationMs: Math.max(0, this.dependencies.now() - startedAt),
@@ -127,7 +124,7 @@ export class TranslationProviderRegistry {
             auditLifecycle.terminal(
               'shutdown',
               'failure',
-              createTranslationProviderAuditMetadata(
+              this.dependencies.audit.createMetadata(
                 {
                   providerId,
                   contractVersion: this.definitions[providerId].info.contractVersion,

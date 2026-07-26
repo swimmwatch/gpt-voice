@@ -24,7 +24,11 @@ import {
 } from '@main/translateProviders/BingTranslateProvider';
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
-import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
+import {
+  createTranslationAuditRecorder,
+  createTranslationAuditRequestFields,
+  noopTranslationProviderAudit,
+} from './translationAuditTestUtils';
 
 function createControl(visible = 1, visibleEnabled = visible): BingControlCountSnapshot {
   return { visible, visibleEnabled };
@@ -248,10 +252,12 @@ function createHarness(
   return { adapters, contexts, provider };
 }
 
-function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
+function createRequest(
+  overrides: Partial<TranslationProviderRequest> = {},
+  audit = noopTranslationProviderAudit,
+): TranslationProviderRequest {
   return {
-    auditLifecycle: createNoopTranslationAuditLifecycle(),
-    auditStartedAt: 1_000,
+    ...createTranslationAuditRequestFields('bing', audit),
     providerId: 'bing',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -283,7 +289,7 @@ describe('BingTranslateProvider', () => {
     ];
     const harness = createHarness([adapter], null);
 
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
     assert.deepEqual(adapter.fillCalls, ['synthetic source']);

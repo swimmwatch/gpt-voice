@@ -1,5 +1,9 @@
 import type { TranslationProviderId } from '@shared/translationProvider';
-import type { ProviderAuditExceptionType, ProviderAuditLifecycle } from '@main/providerAudit';
+import type { ProviderAuditExceptionType } from '@main/providerAudit';
+import type {
+  TranslationProviderAudit,
+  TranslationProviderAuditOperationContext,
+} from './translationProviderAudit';
 
 export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'unsupportedProvider',
@@ -32,8 +36,8 @@ export type TranslationProviderFailureCode = (typeof TRANSLATION_PROVIDER_FAILUR
 export type TranslationProviderPhase = (typeof TRANSLATION_PROVIDER_PHASES)[number];
 
 export interface TranslationProviderRequest {
-  readonly auditLifecycle: ProviderAuditLifecycle<'translation'>;
-  readonly auditStartedAt: number;
+  readonly audit: TranslationProviderAudit;
+  readonly auditContext: TranslationProviderAuditOperationContext;
   readonly providerId: TranslationProviderId;
   readonly targetLanguage: string;
   readonly sourceText: string;

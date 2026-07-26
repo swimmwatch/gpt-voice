@@ -7,10 +7,13 @@ export {
   type ProviderAuditTerminalOutcome,
 } from './contracts';
 export {
-  createProviderAuditLifecycle,
+  BaseProviderAudit,
   deriveProviderAuditSeverity,
+  type ProviderAuditDependencies,
   type ProviderAuditLifecycle,
   type ProviderAuditLifecycleInput,
   type ProviderAuditMetadataForFamily,
+  type ProviderAuditOperationContext,
+  type ProviderAuditSink,
   type UnknownProviderAuditLifecycleInput,
 } from './providerAudit';

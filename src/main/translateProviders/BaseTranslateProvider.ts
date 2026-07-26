@@ -20,11 +20,8 @@ import {
   type TranslationProviderRequest,
 } from './translationProviderContracts';
 import {
-  createTranslationProviderAuditMetadata,
-  getTranslationProviderAuditTerminalOutcome,
-  makeTranslationProviderAuditLifecycleFailOpen,
-  toProviderAuditPhase,
-  type TranslationProviderAuditLifecycle,
+  type TranslationProviderAudit,
+  type TranslationProviderAuditOperationContext,
 } from './translationProviderAudit';
 
 const DEFAULT_RESULT_TIMEOUT_MS = 15_000;
@@ -42,8 +39,8 @@ export interface BaseTranslateProviderDependencies {
 }
 
 interface OperationState {
-  readonly auditLifecycle: TranslationProviderAuditLifecycle;
-  readonly auditStartedAt: number;
+  readonly audit: TranslationProviderAudit;
+  readonly auditContext: TranslationProviderAuditOperationContext;
   readonly attemptCount: number;
   readonly generation: number;
   readonly signal?: AbortSignal;
@@ -173,17 +170,16 @@ export abstract class BaseTranslateProvider {
     const startedAt = this.dependencies.now();
     const rawSourceText: unknown = request.sourceText;
     const sourceLength = typeof rawSourceText === 'string' ? rawSourceText.length : 0;
-    const auditLifecycle = makeTranslationProviderAuditLifecycleFailOpen(request.auditLifecycle);
     const initialState: OperationState = {
-      auditLifecycle,
-      auditStartedAt: request.auditStartedAt,
+      audit: request.audit,
+      auditContext: request.auditContext,
       attemptCount: 1,
       generation,
       signal: request.signal,
       sourceLength,
       startedAt,
     };
-    auditLifecycle.started({
+    request.auditContext.lifecycle.started({
       attemptCount: 1,
       sourceLength,
     });
@@ -365,7 +361,7 @@ export abstract class BaseTranslateProvider {
         const auditPhase = hookResult.code === 'consentOrChallenge' ? 'consent-or-challenge' : undefined;
         if (auditPhase !== undefined) {
           this.phaseCompleted('navigation', state);
-          state.auditLifecycle.phaseEntered(auditPhase, this.createAuditMetadata(state));
+          state.auditContext.lifecycle.phaseEntered(auditPhase, this.createAuditMetadata(state));
         }
         return {
           success: false,
@@ -387,8 +383,8 @@ export abstract class BaseTranslateProvider {
 
   private completeConsentOrChallengePhase(state: OperationState): void {
     const metadata = this.createAuditMetadata(state);
-    state.auditLifecycle.phaseEntered('consent-or-challenge', metadata);
-    state.auditLifecycle.phaseCompleted('consent-or-challenge', metadata);
+    state.auditContext.lifecycle.phaseEntered('consent-or-challenge', metadata);
+    state.auditContext.lifecycle.phaseCompleted('consent-or-challenge', metadata);
   }
 
   private async prepareStaleState(page: Page, state: ValidatedOperationState): Promise<StaleStatePreparationResult> {
@@ -585,10 +581,10 @@ export abstract class BaseTranslateProvider {
       text,
       metadata,
     };
-    state.auditLifecycle.terminal(
+    state.auditContext.lifecycle.terminal(
       'cleanup',
       'success',
-      createTranslationProviderAuditMetadata(metadata, {
+      state.audit.createMetadata(metadata, {
         durationMs: this.createAuditDuration(state),
         pageClosed,
         postSubmission: true,
@@ -614,18 +610,14 @@ export abstract class BaseTranslateProvider {
       discard: code === 'cancelledOrStaleOperation',
       metadata: this.createMetadata(phase, state, resultLength),
     };
-    state.auditLifecycle.terminal(
-      auditOptions.auditPhase ?? toProviderAuditPhase(phase),
-      getTranslationProviderAuditTerminalOutcome(code, state.signal?.aborted === true),
-      createTranslationProviderAuditMetadata(outcome.metadata, {
-        causeCode: code,
-        discarded: outcome.discard,
-        durationMs: this.createAuditDuration(state),
-        exceptionType: auditOptions.exceptionType,
-        pageClosed: auditOptions.pageClosed,
-        postSubmission: this.isPostSubmissionPhase(phase),
-      }),
-    );
+    state.audit.terminalFailure(state.auditContext.lifecycle, outcome, {
+      durationMs: this.createAuditDuration(state),
+      exceptionType: auditOptions.exceptionType,
+      pageClosed: auditOptions.pageClosed,
+      phase: auditOptions.auditPhase ?? state.audit.toPhase(phase),
+      postSubmission: this.isPostSubmissionPhase(phase),
+      signalAborted: state.signal?.aborted === true,
+    });
     return outcome;
   }
 
@@ -653,7 +645,7 @@ export abstract class BaseTranslateProvider {
   }
 
   private createAuditDuration(state: OperationState): number {
-    return Math.max(0, this.dependencies.now() - state.auditStartedAt);
+    return state.audit.durationMs(state.auditContext);
   }
 
   private createAuditMetadata(
@@ -666,7 +658,7 @@ export abstract class BaseTranslateProvider {
       readonly recoveryScheduled?: boolean;
     } = {},
   ) {
-    return createTranslationProviderAuditMetadata(this.createMetadata('validation', state, options.resultLength), {
+    return state.audit.createMetadata(this.createMetadata('validation', state, options.resultLength), {
       durationMs: this.createAuditDuration(state),
       pageClosed: options.pageClosed,
       postSubmission: options.postSubmission,
@@ -684,7 +676,7 @@ export abstract class BaseTranslateProvider {
       readonly resultLength?: number;
     } = {},
   ): void {
-    state.auditLifecycle.phaseEntered(toProviderAuditPhase(phase), this.createAuditMetadata(state, options));
+    state.auditContext.lifecycle.phaseEntered(state.audit.toPhase(phase), this.createAuditMetadata(state, options));
   }
 
   private phaseCompleted(
@@ -696,12 +688,12 @@ export abstract class BaseTranslateProvider {
       readonly resultLength?: number;
     } = {},
   ): void {
-    state.auditLifecycle.phaseCompleted(toProviderAuditPhase(phase), this.createAuditMetadata(state, options));
+    state.auditContext.lifecycle.phaseCompleted(state.audit.toPhase(phase), this.createAuditMetadata(state, options));
   }
 
   private retry(phase: TranslationProviderPhase, state: OperationState): void {
-    state.auditLifecycle.retry(
-      toProviderAuditPhase(phase),
+    state.auditContext.lifecycle.retry(
+      state.audit.toPhase(phase),
       this.createAuditMetadata(state, {
         recoveryScheduled: true,
         retryScheduled: true,
@@ -710,7 +702,7 @@ export abstract class BaseTranslateProvider {
   }
 
   private recovery(state: OperationState): void {
-    state.auditLifecycle.recovery(
+    state.auditContext.lifecycle.recovery(
       'recovery',
       this.createAuditMetadata(
         {

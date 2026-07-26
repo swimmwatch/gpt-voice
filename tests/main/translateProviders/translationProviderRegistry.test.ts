@@ -9,13 +9,12 @@ import {
   type TranslationProviderId,
 } from '@shared/translationProvider';
 import {
-  createNoopTranslationAuditLifecycle,
   createTranslationAuditRecorder,
-  type RecordedTranslationAuditEvent,
+  noopTranslationProviderAudit,
 } from './translationAuditTestUtils';
 
 const NOOP_AUDIT_DEPENDENCIES = {
-  createAuditLifecycle: () => createNoopTranslationAuditLifecycle(),
+  audit: noopTranslationProviderAudit,
   now: () => 1_000,
 };
 
@@ -66,21 +65,10 @@ describe('translation provider registry', () => {
   });
 
   it('attempts every shutdown and retains only failed provider ownership for retry', async () => {
-    const auditCalls: Array<{
-      readonly events: RecordedTranslationAuditEvent[];
-      readonly providerId: TranslationProviderId;
-    }> = [];
+    const recorder = createTranslationAuditRecorder();
     let now = 1_000;
     const registry = new TranslationProviderRegistry(TRANSLATION_PROVIDER_DEFINITIONS, {
-      createAuditLifecycle: (input) => {
-        assert.equal('providerKnown' in input ? input.providerKnown : undefined, undefined);
-        const recorder = createTranslationAuditRecorder();
-        auditCalls.push({
-          events: recorder.events,
-          providerId: input.providerId as TranslationProviderId,
-        });
-        return recorder.lifecycle;
-      },
+      audit: recorder.audit,
       now: () => {
         now += 1;
         return now;
@@ -121,16 +109,24 @@ describe('translation provider registry', () => {
     });
     assert.equal(instances.size, 0);
     assert.deepEqual(
-      auditCalls.map((call) => call.providerId),
+      recorder.operations.map((operation) =>
+        'providerId' in operation.input ? operation.input.providerId : undefined,
+      ),
       ['google', 'bing', 'bing'],
     );
     assert.deepEqual(
-      auditCalls.map((call) => call.events.filter((event) => event.event === 'terminal').length),
+      recorder.operations.map(
+        (operation) => operation.events.filter((event) => event.event === 'terminal').length,
+      ),
       [1, 1, 1],
     );
-    assert.equal(auditCalls[0]?.events[auditCalls[0].events.length - 1]?.outcome, 'success');
-    assert.equal(auditCalls[1]?.events[auditCalls[1].events.length - 1]?.outcome, 'failure');
-    assert.equal(auditCalls[1]?.events[auditCalls[1].events.length - 1]?.metadata?.errorClass, 'cleanup');
-    assert.equal(auditCalls[2]?.events[auditCalls[2].events.length - 1]?.outcome, 'success');
+    const [googleOperation, firstBingOperation, secondBingOperation] = recorder.operations;
+    assert.equal(googleOperation?.events[googleOperation.events.length - 1]?.outcome, 'success');
+    assert.equal(firstBingOperation?.events[firstBingOperation.events.length - 1]?.outcome, 'failure');
+    assert.equal(
+      firstBingOperation?.events[firstBingOperation.events.length - 1]?.metadata?.errorClass,
+      'cleanup',
+    );
+    assert.equal(secondBingOperation?.events[secondBingOperation.events.length - 1]?.outcome, 'success');
   });
 });

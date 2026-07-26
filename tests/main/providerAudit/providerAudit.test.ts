@@ -5,13 +5,16 @@ import {
   PROVIDER_AUDIT_LABEL,
   PROVIDER_AUDIT_METADATA_KEYS,
   normalizeProviderAuditExceptionType,
+  type ProviderAuditFamily,
 } from '@main/providerAudit/contracts';
 import {
-  createProviderAuditLifecycle,
+  BaseProviderAudit,
   deriveProviderAuditSeverity,
   type ProviderAuditDependencies,
+  type ProviderAuditLifecycle,
   type ProviderAuditSink,
 } from '@main/providerAudit/providerAudit';
+import type { ProviderAuditOperation } from '@main/providerAudit/mappings';
 
 const GENERATED_OPERATION_ID = '123e4567-e89b-42d3-a456-426614174000';
 const STREAMING_OPERATION_ID = '4c4d8c57-0b93-4f26-a405-a1dd5e253e39';
@@ -39,10 +42,30 @@ function createCapture(): {
 
 function createDependencies(sink: ProviderAuditSink | null | undefined): ProviderAuditDependencies {
   return {
+    elapsedNow: () => 0,
     getSink: () => sink,
     now: () => new Date(OCCURRED_AT),
     randomUUID: () => GENERATED_OPERATION_ID,
   };
+}
+
+class TestProviderAudit<Family extends ProviderAuditFamily> extends BaseProviderAudit<Family> {
+  public constructor(
+    public readonly family: Family,
+    dependencies: Partial<ProviderAuditDependencies> = {},
+  ) {
+    super(dependencies);
+  }
+}
+
+function createLifecycle<Family extends ProviderAuditFamily>(
+  family: Family,
+  providerId: unknown,
+  operation: ProviderAuditOperation<Family>,
+  dependencies: Partial<ProviderAuditDependencies>,
+  operationId?: string,
+): ProviderAuditLifecycle<Family> {
+  return new TestProviderAudit(family, dependencies).createLifecycle(providerId, operation, operationId);
 }
 
 function parseAuditCall(call: CapturedAuditCall): Record<string, unknown> {
@@ -55,12 +78,10 @@ function parseAuditCall(call: CapturedAuditCall): Record<string, unknown> {
 function createVoiceLifecycle(capture = createCapture()) {
   return {
     capture,
-    lifecycle: createProviderAuditLifecycle(
-      {
-        family: 'voice',
-        operation: 'transcribe-batch',
-        providerId: 'chatgpt',
-      },
+    lifecycle: createLifecycle(
+      'voice',
+      'chatgpt',
+      'transcribe-batch',
       createDependencies(capture.sink),
     ),
   };
@@ -114,15 +135,12 @@ describe('provider audit lifecycle', () => {
   it('accepts a validated opaque streaming ID and removes an unknown provider value', () => {
     const rawUnknownProvider = 'private-provider-value-must-not-appear';
     const capture = createCapture();
-    const lifecycle = createProviderAuditLifecycle(
-      {
-        family: 'translation',
-        operation: 'translate',
-        operationId: STREAMING_OPERATION_ID,
-        providerId: rawUnknownProvider,
-        providerKnown: false,
-      },
+    const lifecycle = createLifecycle(
+      'translation',
+      rawUnknownProvider,
+      'translate',
       createDependencies(capture.sink),
+      STREAMING_OPERATION_ID,
     );
 
     lifecycle.started();
@@ -307,12 +325,10 @@ describe('provider audit lifecycle', () => {
         throw new Error('private-sink-failure');
       },
     };
-    const lifecycle = createProviderAuditLifecycle(
-      {
-        family: 'prettify',
-        operation: 'prettify',
-        providerId: 'ollama',
-      },
+    const lifecycle = createLifecycle(
+      'prettify',
+      'ollama',
+      'prettify',
       createDependencies(throwingSink),
     );
     const syntheticProviderCall = (): { readonly success: true } => {
@@ -326,12 +342,10 @@ describe('provider audit lifecycle', () => {
     assert.deepEqual(sinkCalls, ['info', 'info']);
 
     assert.doesNotThrow(() => {
-      const missingSinkLifecycle = createProviderAuditLifecycle(
-        {
-          family: 'voice',
-          operation: 'initialize',
-          providerId: 'chatgpt',
-        },
+      const missingSinkLifecycle = createLifecycle(
+        'voice',
+        'chatgpt',
+        'initialize',
         createDependencies(undefined),
       );
       missingSinkLifecycle.started();
@@ -339,13 +353,12 @@ describe('provider audit lifecycle', () => {
     });
 
     assert.doesNotThrow(() => {
-      const unavailableLoggerLifecycle = createProviderAuditLifecycle(
+      const unavailableLoggerLifecycle = createLifecycle(
+        'translation',
+        'google',
+        'translate',
         {
-          family: 'translation',
-          operation: 'translate',
-          providerId: 'google',
-        },
-        {
+          elapsedNow: () => 0,
           getSink: () => {
             throw new Error('private-logger-lookup');
           },
@@ -357,12 +370,10 @@ describe('provider audit lifecycle', () => {
     });
 
     assert.doesNotThrow(() => {
-      const invalidClockLifecycle = createProviderAuditLifecycle(
-        {
-          family: 'voice',
-          operation: 'initialize',
-          providerId: 'chatgpt',
-        },
+      const invalidClockLifecycle = createLifecycle(
+        'voice',
+        'chatgpt',
+        'initialize',
         {
           ...createDependencies(throwingSink),
           now: () => {
@@ -374,12 +385,10 @@ describe('provider audit lifecycle', () => {
     });
 
     assert.doesNotThrow(() => {
-      const invalidIdLifecycle = createProviderAuditLifecycle(
-        {
-          family: 'voice',
-          operation: 'initialize',
-          providerId: 'chatgpt',
-        },
+      const invalidIdLifecycle = createLifecycle(
+        'voice',
+        'chatgpt',
+        'initialize',
         {
           ...createDependencies(throwingSink),
           randomUUID: () => {
@@ -443,13 +452,10 @@ describe('provider audit lifecycle', () => {
     }
 
     const unknownCapture = createCapture();
-    const unknownLifecycle = createProviderAuditLifecycle(
-      {
-        family: 'voice',
-        operation: 'settings-readiness',
-        providerId: marker,
-        providerKnown: false,
-      },
+    const unknownLifecycle = createLifecycle(
+      'voice',
+      marker,
+      'settings-readiness',
       createDependencies(unknownCapture.sink),
     );
     unknownLifecycle.started();

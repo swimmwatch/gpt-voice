@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- construction and invocation failures require distinct audit subclasses. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
@@ -6,14 +7,14 @@ import {
   type TranslationExecutionSnapshot,
   type TranslationRuntimeRegistry,
 } from '@main/services/translation';
-import { createProviderAuditLifecycle } from '@main/providerAudit';
+import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import type {
   TranslationProviderOutcome,
   TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
-import type { TranslationProviderAuditLifecycleFactory } from '@main/translateProviders/translationProviderAudit';
+import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
 import type { TranslationProviderId, TranslationSettings } from '@shared/translationProvider';
-import { createNoopTranslationAuditLifecycle } from './translateProviders/translationAuditTestUtils';
+import { noopTranslationProviderAudit } from './translateProviders/translationAuditTestUtils';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -42,7 +43,7 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
 }
 
 interface RuntimeHarnessOptions {
-  auditFactory?: TranslationProviderAuditLifecycleFactory;
+  audit?: TranslationProviderAudit;
   outcome?: TranslationProviderOutcome;
   settings?: TranslationSettings;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
@@ -68,8 +69,8 @@ interface CapturedAuditEntry {
 }
 
 function createCoreAuditCapture(): {
+  readonly audit: TranslationProviderAudit;
   readonly entries: CapturedAuditEntry[];
-  readonly factory: TranslationProviderAuditLifecycleFactory;
 } {
   const entries: CapturedAuditEntry[] = [];
   let operationIdCounter = 0;
@@ -94,20 +95,41 @@ function createCoreAuditCapture(): {
   };
 
   return {
+    audit: new TranslationProviderAudit({
+      getSink: () => sink,
+      now: () => {
+        timestamp += 1;
+        return new Date(timestamp);
+      },
+      randomUUID: () => {
+        operationIdCounter += 1;
+        return `00000000-0000-4000-8000-${String(operationIdCounter).padStart(12, '0')}`;
+      },
+    }),
     entries,
-    factory: (input) =>
-      createProviderAuditLifecycle<'translation'>(input, {
-        getSink: () => sink,
-        now: () => {
-          timestamp += 1;
-          return new Date(timestamp);
-        },
-        randomUUID: () => {
-          operationIdCounter += 1;
-          return `00000000-0000-4000-8000-${String(operationIdCounter).padStart(12, '0')}`;
-        },
-      }),
   };
+}
+
+class ThrowingConstructionTranslationProviderAudit extends TranslationProviderAudit {
+  protected override buildLifecycle(): ProviderAuditLifecycle<'translation'> {
+    throw new Error('audit-construction-private-canary');
+  }
+}
+
+class ThrowingLifecycleTranslationProviderAudit extends TranslationProviderAudit {
+  protected override buildLifecycle(): ProviderAuditLifecycle<'translation'> {
+    const throwAuditError = (): never => {
+      throw new Error('audit-lifecycle-private-canary');
+    };
+    return {
+      started: throwAuditError,
+      phaseEntered: throwAuditError,
+      phaseCompleted: throwAuditError,
+      retry: throwAuditError,
+      recovery: throwAuditError,
+      terminal: throwAuditError,
+    };
+  }
 }
 
 function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
@@ -138,7 +160,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     },
   };
   const runtime = new TranslationRuntime({
-    createAuditLifecycle: options.auditFactory ?? (() => createNoopTranslationAuditLifecycle()),
+    audit: options.audit ?? noopTranslationProviderAudit,
     getSettings: () => settings,
     now: () => {
       now += 1;
@@ -189,14 +211,14 @@ describe('TranslationRuntime', () => {
     const providerAudit = createCoreAuditCapture();
     const targetAudit = createCoreAuditCapture();
     const invalidProvider = createRuntimeHarness({
-      auditFactory: providerAudit.factory,
+      audit: providerAudit.audit,
       settings: {
         providerId: 'deepl-private-provider-canary',
         targetLanguageByProvider: {},
       } as unknown as TranslationSettings,
     });
     const invalidTarget = createRuntimeHarness({
-      auditFactory: targetAudit.factory,
+      audit: targetAudit.audit,
       settings: {
         ...DEFAULT_SETTINGS,
         targetLanguageByProvider: {
@@ -234,7 +256,7 @@ describe('TranslationRuntime', () => {
     const audit = createCoreAuditCapture();
     const settingsError = new Error('settings-session-private-canary');
     const runtime = new TranslationRuntime({
-      createAuditLifecycle: audit.factory,
+      audit: audit.audit,
       getSettings: () => {
         throw settingsError;
       },
@@ -260,7 +282,7 @@ describe('TranslationRuntime', () => {
   it('rejects empty and over-limit text before provider creation', async () => {
     const audit = createCoreAuditCapture();
     const harness = createRuntimeHarness({
-      auditFactory: audit.factory,
+      audit: audit.audit,
       settings: {
         ...DEFAULT_SETTINGS,
         providerId: 'bing',
@@ -291,7 +313,7 @@ describe('TranslationRuntime', () => {
     const sourceCanary = 'source-private-canary';
     const resultCanary = 'result-private-canary';
     const harness = createRuntimeHarness({
-      auditFactory: audit.factory,
+      audit: audit.audit,
       translate: async (request) => createSuccess(request, resultCanary),
     });
     const snapshot = getSnapshot(harness.runtime);
@@ -352,7 +374,7 @@ describe('TranslationRuntime', () => {
     const audit = createCoreAuditCapture();
     const exceptionCanary = 'https://private.invalid/session/account?token=credential-private-canary';
     const harness = createRuntimeHarness({
-      auditFactory: audit.factory,
+      audit: audit.audit,
       translate: async () => {
         throw new Error(exceptionCanary);
       },
@@ -374,11 +396,9 @@ describe('TranslationRuntime', () => {
     assert.equal(JSON.stringify(audit.entries).includes('source-private-exception-canary'), false);
   });
 
-  it('keeps outcomes unchanged when the injected audit factory throws', async () => {
+  it('keeps outcomes unchanged when injected audit lifecycle construction throws', async () => {
     const harness = createRuntimeHarness({
-      auditFactory: () => {
-        throw new Error('audit-factory-private-canary');
-      },
+      audit: new ThrowingConstructionTranslationProviderAudit(),
     });
     const snapshot = getSnapshot(harness.runtime);
 
@@ -389,18 +409,8 @@ describe('TranslationRuntime', () => {
   });
 
   it('keeps outcomes unchanged when the injected audit lifecycle throws', async () => {
-    const throwAuditError = (): never => {
-      throw new Error('audit-lifecycle-private-canary');
-    };
     const harness = createRuntimeHarness({
-      auditFactory: () => ({
-        started: throwAuditError,
-        phaseEntered: throwAuditError,
-        phaseCompleted: throwAuditError,
-        retry: throwAuditError,
-        recovery: throwAuditError,
-        terminal: throwAuditError,
-      }),
+      audit: new ThrowingLifecycleTranslationProviderAudit(),
     });
     const snapshot = getSnapshot(harness.runtime);
 
@@ -417,9 +427,9 @@ describe('TranslationRuntime', () => {
       finishTranslation = resolve;
     });
     const harness = createRuntimeHarness({
-      auditFactory: audit.factory,
+      audit: audit.audit,
       translate: async (request) => {
-        request.auditLifecycle.terminal('cleanup', 'success', {
+        request.auditContext.lifecycle.terminal('cleanup', 'success', {
           attemptCount: 1,
           durationMs: 1,
           resultLength: 'translated'.length,

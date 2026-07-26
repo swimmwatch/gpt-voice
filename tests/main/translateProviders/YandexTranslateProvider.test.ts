@@ -20,7 +20,11 @@ import {
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { YANDEX_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/yandex';
-import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
+import {
+  createTranslationAuditRecorder,
+  createTranslationAuditRequestFields,
+  noopTranslationProviderAudit,
+} from './translationAuditTestUtils';
 
 function createRoute(
   targetLanguage: string | null = null,
@@ -361,10 +365,12 @@ function createHarness(adapter = new FixtureYandexPageAdapter(), resultTimeoutMs
   return { adapter, contexts, provider };
 }
 
-function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
+function createRequest(
+  overrides: Partial<TranslationProviderRequest> = {},
+  audit = noopTranslationProviderAudit,
+): TranslationProviderRequest {
   return {
-    auditLifecycle: createNoopTranslationAuditLifecycle(),
-    auditStartedAt: 1_000,
+    ...createTranslationAuditRequestFields('yandex', audit),
     providerId: 'yandex',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -602,7 +608,7 @@ describe('YandexTranslateProvider', () => {
     const audit = createTranslationAuditRecorder();
     const harness = createHarness();
 
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
 
     assert.equal(outcome.success, true);
     assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source']);

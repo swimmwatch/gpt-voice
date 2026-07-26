@@ -20,7 +20,11 @@ import {
 } from '@main/translateProviders/GoogleTranslateProvider';
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
-import { createNoopTranslationAuditLifecycle, createTranslationAuditRecorder } from './translationAuditTestUtils';
+import {
+  createTranslationAuditRecorder,
+  createTranslationAuditRequestFields,
+  noopTranslationProviderAudit,
+} from './translationAuditTestUtils';
 
 function createTranslatorRoute(
   targetLanguage = 'en',
@@ -234,10 +238,12 @@ function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs
   return { adapter, contexts, provider };
 }
 
-function createRequest(overrides: Partial<TranslationProviderRequest> = {}): TranslationProviderRequest {
+function createRequest(
+  overrides: Partial<TranslationProviderRequest> = {},
+  audit = noopTranslationProviderAudit,
+): TranslationProviderRequest {
   return {
-    auditLifecycle: createNoopTranslationAuditLifecycle(),
-    auditStartedAt: 1_000,
+    ...createTranslationAuditRequestFields('google', audit),
     providerId: 'google',
     sourceText: 'synthetic source',
     targetLanguage: 'en',
@@ -397,7 +403,7 @@ describe('GoogleTranslateProvider', () => {
       createResult([createFragment('First '), createFragment(' second')]),
       createResult([createFragment('First '), createFragment(' second')]),
     ];
-    const outcome = await harness.provider.translate(createRequest({ auditLifecycle: audit.lifecycle }));
+    const outcome = await harness.provider.translate(createRequest({}, audit.audit));
     assert.equal(outcome.success ? outcome.text : null, 'Firstsecond');
     assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
     assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');

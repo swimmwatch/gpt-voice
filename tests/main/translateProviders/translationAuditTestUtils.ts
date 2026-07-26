@@ -1,9 +1,19 @@
+/* eslint-disable max-classes-per-file -- the recorder audit and lifecycle are one deterministic test seam. */
 import type {
+  ProviderAuditDependencies,
   ProviderAuditLifecycle,
+  ProviderAuditLifecycleInput,
   ProviderAuditMetadataForFamily,
   ProviderAuditPhase,
   ProviderAuditTerminalOutcome,
+  UnknownProviderAuditLifecycleInput,
 } from '@main/providerAudit';
+import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
+import type { TranslationProviderId } from '@shared/translationProvider';
+
+export type TranslationAuditLifecycleInput =
+  | ProviderAuditLifecycleInput<'translation'>
+  | UnknownProviderAuditLifecycleInput<'translation'>;
 
 export interface RecordedTranslationAuditEvent {
   readonly event: 'started' | 'phase-entered' | 'phase-completed' | 'retry' | 'recovery' | 'terminal';
@@ -12,48 +22,121 @@ export interface RecordedTranslationAuditEvent {
   readonly phase: ProviderAuditPhase;
 }
 
-export function createTranslationAuditRecorder(): {
+export interface RecordedTranslationAuditOperation {
   readonly events: RecordedTranslationAuditEvent[];
-  readonly lifecycle: ProviderAuditLifecycle<'translation'>;
+  readonly input: TranslationAuditLifecycleInput;
+}
+
+class RecordingTranslationAuditLifecycle implements ProviderAuditLifecycle<'translation'> {
+  private startedAccepted = false;
+  private terminalAccepted = false;
+
+  public constructor(
+    private readonly operationEvents: RecordedTranslationAuditEvent[],
+    private readonly allEvents: RecordedTranslationAuditEvent[],
+  ) {}
+
+  public started(metadata?: ProviderAuditMetadataForFamily<'translation'>): void {
+    if (this.startedAccepted || this.terminalAccepted) return;
+    this.startedAccepted = true;
+    this.record({ event: 'started', phase: 'dispatch', ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  public phaseEntered(
+    phase: ProviderAuditPhase,
+    metadata?: ProviderAuditMetadataForFamily<'translation'>,
+  ): void {
+    this.recordProgress('phase-entered', phase, metadata);
+  }
+
+  public phaseCompleted(
+    phase: ProviderAuditPhase,
+    metadata?: ProviderAuditMetadataForFamily<'translation'>,
+  ): void {
+    this.recordProgress('phase-completed', phase, metadata);
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'translation'>): void {
+    this.recordProgress('retry', phase, metadata);
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<'translation'>): void {
+    this.recordProgress('recovery', phase, metadata);
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: ProviderAuditMetadataForFamily<'translation'>,
+  ): void {
+    if (!this.startedAccepted || this.terminalAccepted) return;
+    this.terminalAccepted = true;
+    this.record({
+      event: 'terminal',
+      phase,
+      outcome,
+      ...(metadata === undefined ? {} : { metadata }),
+    });
+  }
+
+  private recordProgress(
+    event: Exclude<RecordedTranslationAuditEvent['event'], 'started' | 'terminal'>,
+    phase: ProviderAuditPhase,
+    metadata?: ProviderAuditMetadataForFamily<'translation'>,
+  ): void {
+    if (!this.startedAccepted || this.terminalAccepted) return;
+    this.record({ event, phase, ...(metadata === undefined ? {} : { metadata }) });
+  }
+
+  private record(event: RecordedTranslationAuditEvent): void {
+    this.operationEvents.push(event);
+    this.allEvents.push(event);
+  }
+}
+
+class RecordingTranslationProviderAudit extends TranslationProviderAudit {
+  public constructor(
+    private readonly operations: RecordedTranslationAuditOperation[],
+    private readonly events: RecordedTranslationAuditEvent[],
+    dependencies: Partial<ProviderAuditDependencies>,
+  ) {
+    super(dependencies);
+  }
+
+  protected override buildLifecycle(input: TranslationAuditLifecycleInput): ProviderAuditLifecycle<'translation'> {
+    const operationEvents: RecordedTranslationAuditEvent[] = [];
+    this.operations.push({ events: operationEvents, input });
+    return new RecordingTranslationAuditLifecycle(operationEvents, this.events);
+  }
+}
+
+export function createTranslationAuditRecorder(): {
+  readonly audit: TranslationProviderAudit;
+  readonly events: RecordedTranslationAuditEvent[];
+  readonly operations: RecordedTranslationAuditOperation[];
 } {
   const events: RecordedTranslationAuditEvent[] = [];
+  const operations: RecordedTranslationAuditOperation[] = [];
   return {
+    audit: new RecordingTranslationProviderAudit(operations, events, {
+      elapsedNow: () => 1_000,
+    }),
     events,
-    lifecycle: {
-      started: (metadata) => {
-        events.push({ event: 'started', phase: 'dispatch', ...(metadata === undefined ? {} : { metadata }) });
-      },
-      phaseEntered: (phase, metadata) => {
-        events.push({ event: 'phase-entered', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      phaseCompleted: (phase, metadata) => {
-        events.push({ event: 'phase-completed', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      retry: (phase, metadata) => {
-        events.push({ event: 'retry', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      recovery: (phase, metadata) => {
-        events.push({ event: 'recovery', phase, ...(metadata === undefined ? {} : { metadata }) });
-      },
-      terminal: (phase, outcome, metadata) => {
-        events.push({
-          event: 'terminal',
-          phase,
-          outcome,
-          ...(metadata === undefined ? {} : { metadata }),
-        });
-      },
-    },
+    operations,
   };
 }
 
-export function createNoopTranslationAuditLifecycle(): ProviderAuditLifecycle<'translation'> {
+export const noopTranslationProviderAudit = new TranslationProviderAudit({
+  elapsedNow: () => 1_000,
+  getSink: () => null,
+});
+
+export function createTranslationAuditRequestFields(
+  providerId: TranslationProviderId,
+  audit: TranslationProviderAudit = noopTranslationProviderAudit,
+) {
   return {
-    started: () => undefined,
-    phaseEntered: () => undefined,
-    phaseCompleted: () => undefined,
-    retry: () => undefined,
-    recovery: () => undefined,
-    terminal: () => undefined,
+    audit,
+    auditContext: audit.startOperation(providerId, 'translate', 'validation'),
   };
 }
