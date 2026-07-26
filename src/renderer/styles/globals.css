@@ -820,6 +820,7 @@
   max-height: 214px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 @media (max-width: 439px) {

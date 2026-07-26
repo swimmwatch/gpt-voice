@@ -89,12 +89,19 @@ function SelectScrollDownButton({
   );
 }
 
+interface SelectContentProps extends ComponentProps<typeof SelectPrimitive.Content> {
+  showScrollButtons?: boolean;
+  viewportClassName?: string;
+}
+
 function SelectContent({
   children,
   className,
   position = 'popper',
+  showScrollButtons = true,
+  viewportClassName,
   ...props
-}: ComponentProps<typeof SelectPrimitive.Content>): React.JSX.Element {
+}: SelectContentProps): React.JSX.Element {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -107,11 +114,11 @@ function SelectContent({
         position={position}
         {...props}
       >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport className="p-1" data-slot="select-viewport">
+        {showScrollButtons && <SelectScrollUpButton />}
+        <SelectPrimitive.Viewport className={cn('p-1', viewportClassName)} data-slot="select-viewport">
           {children}
         </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
+        {showScrollButtons && <SelectScrollDownButton />}
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

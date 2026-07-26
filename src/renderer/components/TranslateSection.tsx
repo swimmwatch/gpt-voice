@@ -26,7 +26,6 @@ const TranslateSection = ({
     () => getTranslationLanguageOptions(settings.providerId, locale),
     [locale, settings.providerId],
   );
-  const stateMessage = error || (isSaving ? t('translate.saving') : '');
 
   return (
     <section className="command-dock-language-band" data-slot="translate-section">
@@ -72,7 +71,11 @@ const TranslateSection = ({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="command-dock-translation-select-content">
+          <SelectContent
+            className="command-dock-translation-select-content"
+            showScrollButtons={false}
+            viewportClassName="command-dock-translation-select-viewport"
+          >
             {languageOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -82,13 +85,9 @@ const TranslateSection = ({
         </Select>
       </div>
 
-      {stateMessage && (
-        <span
-          className={`command-dock-language-state ${error ? 'is-error' : 'is-saving'}`}
-          data-slot="translation-settings-state"
-          role={error ? 'alert' : 'status'}
-        >
-          {stateMessage}
+      {error && (
+        <span className="command-dock-language-state is-error" data-slot="translation-settings-state" role="alert">
+          {error}
         </span>
       )}
     </section>

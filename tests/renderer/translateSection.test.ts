@@ -20,21 +20,29 @@ describe('main translation Select controls', () => {
     assert.match(section, /aria-label=\{t\('translate\.targetLanguage'\)\}/u);
     assert.match(section, /<SelectValue \/>/u);
     assert.match(section, /disabled=\{isSaving\}/u);
-    assert.match(section, /role=\{error \? 'alert' : 'status'\}/u);
+    assert.match(section, /role="alert"/u);
+    assert.doesNotMatch(section, /translate\.saving|is-saving|role="status"/u);
     assert.doesNotMatch(section, /assets\/flags|<img|deepl|Yandex.*warning/iu);
   });
 
   it('bounds the full inventories and preserves fixed main-window geometry', () => {
+    const section = readProjectFile('src/renderer/components/TranslateSection.tsx');
+    const selectPrimitive = readProjectFile('src/renderer/components/ui/select.tsx');
     const styles = readProjectFile('src/renderer/styles/globals.css');
     const windowSource = readProjectFile('src/main/window.ts');
 
+    assert.equal((section.match(/showScrollButtons=\{false\}/gu) ?? []).length, 1);
+    assert.match(section, /viewportClassName="command-dock-translation-select-viewport"/u);
+    assert.match(selectPrimitive, /showScrollButtons = true/u);
+    assert.match(selectPrimitive, /\{showScrollButtons && <SelectScrollUpButton \/>\}/u);
+    assert.match(selectPrimitive, /\{showScrollButtons && <SelectScrollDownButton \/>\}/u);
     assert.match(
       styles,
       /\.command-dock-translation-select-content \{[\s\S]*?max-height: min\(var\(--radix-select-content-available-height\), 240px\);/u,
     );
     assert.match(
       styles,
-      /\.command-dock-translation-select-content \[data-slot='select-viewport'\] \{[\s\S]*?overflow-y: auto;/u,
+      /\.command-dock-translation-select-content \[data-slot='select-viewport'\] \{[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
     );
     assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?\.command-dock-language-band \{/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
