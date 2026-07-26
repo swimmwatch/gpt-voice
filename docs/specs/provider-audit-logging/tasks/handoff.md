@@ -1,103 +1,67 @@
-# Handoff: Provider Audit Logging Task 03 And OOP Refactor Complete
+# Handoff: Provider Audit Tasks 01–03 Wrapper Cleanup Complete
 
 ## Status
 
-Task 01 was committed as `c77c86f` (`feat(audit): add provider audit core`)
-under persistent Prompt MCP authorization `commit.task-01` revision 1. Task 02
-was committed as `f3f2e91c` (`feat(audit): add translation audit lifecycle`)
-under authorization `commit.task-02` revision 1. Task 03 was authorized through
-`execution.task-03` revision 1, implemented, and verified on 2026-07-26. Task
-03 remains unstaged and uncommitted for review. The authorized cross-packet
-refactor of Tasks 01–03 from function factories/helpers to an OOP audit
-hierarchy is also implemented, verified, unstaged, and uncommitted.
+- Task 01 is committed as `c77c86f6` (`feat(audit): add provider audit core`).
+- Task 02 is committed as `f3f2e91c` (`feat(audit): add translation audit lifecycle`).
+- The Tasks 01–03 OOP foundation is committed as `b158f9b2` (`refactor(audit): introduce provider audit classes`).
+- Task 03 is committed as `e8b818a4` (`feat(audit): add voice batch browser lifecycle`).
+- The initial project style rules are committed as `4fb0245c` (`docs(agents): codify project code style`).
+- Audit lifecycle formatting is committed as `8214cb8` (`style(audit): format provider audit lifecycle code`).
+- The authorized pass-through-wrapper cleanup is committed as `ef82296` (`refactor(audit): remove pass-through wrappers`).
+- The business-logic wrapper policy is committed as `148c5c3` (`docs(agents): prohibit business logic pass-throughs`).
+- The cleanup was verified on 2026-07-26.
 
-## Completed Packets
+## Completed Work
 
-- [01 Provider audit core](01_define_provider_audit_core.md): schema-v1
-  contracts, mappings, fail-open lifecycle state, canonical sink, and privacy
-  tests.
-- [02 Translation audit lifecycle](02_migrate_translation_audit_lifecycle.md):
-  settings readiness, validation/dispatch, bounded browser phases and
-  recovery, normalized terminals, and retryable per-instance shutdown for
-  Google, Bing, and Yandex.
-- [03 Voice batch and browser lifecycle](03_audit_voice_batch_and_browser_lifecycle.md):
-  fail-open Voice audit adapter, exhaustive registry mapping, browser/session
-  ownership lifecycles, post-cache-miss batch context, bounded ChatGPT
-  authentication retry and independent recovery, and OpenAI API request
-  lifecycle.
-- Cross-packet OOP refactor: `BaseProviderAudit<Family>` now owns lifecycle
-  construction and shared dependencies; `VoiceProviderAudit` and
-  `TranslationProviderAudit` own family behavior; `PrettifyProviderAudit` is
-  an intentionally unused family stub for Packets 05–06. Obsolete callable
-  factories and helper exports were removed without compatibility wrappers.
+- `TranslationProviderAudit.startTranslate(...)` now owns the fixed `translate` operation and initial `validation` phase.
+- `DeferredTranslationAuditLifecycle` owns deferred terminal state through constructor injection.
+- `TranslationProviderRequestFixture` replaces free Translation request helpers.
+- `RecordingTranslationProviderAudit`, `CapturingTranslationProviderAudit`, and `RecordingVoiceProviderAudit` own recorded test state and operations.
+- Provider-audit core tests use state-owning subclasses or harnesses instead of lifecycle pass-through factories.
+- ChatGPT and OpenAI providers call audit-class metadata methods directly; local `auditMetadata` closures were removed.
+- `AGENTS.md` prohibits free pass-through wrappers in business logic, directs dependencies through constructors or state-owning class methods, and keeps React/UI/front-end logic functional.
+- Removed helper names and obsolete function-style seams have no compatibility aliases.
 
 ## Changed Files
 
-- Updated `src/main/providerAudit/providerAudit.ts` and `index.ts`; added
-  `src/main/services/prettifyProviderAudit.ts`.
-- Replaced Translation function helpers and callable factory dependencies in
-  `src/main/translateProviders/translationProviderAudit.ts`,
-  `translationProviderContracts.ts`, `BaseTranslateProvider.ts`, the
-  Translation registry `index.ts`, and `src/main/services/translation.ts`.
-- Added `src/main/providers/voiceProviderAudit.ts`; updated
-  `BatchVoiceProvider.ts`, `ChatGPTVoiceProvider.ts`,
-  `OpenAIApiVoiceProvider.ts`, and the Voice registry `index.ts`.
-- Updated `src/main/browser.ts`, `src/main/ipc.ts`, and
-  `src/main/services/transcription.ts`.
-- Added `tests/main/providers/voiceAuditTestUtils.ts` and
-  `voiceProviderAudit.test.ts`; updated focused browser, registry, ChatGPT,
-  OpenAI, transcription, and streaming IPC source-contract tests.
-- Added `tests/main/providerAudit/providerAuditClasses.test.ts`; updated the
-  provider-audit core tests, all Translation lifecycle/provider/runtime tests,
-  and their class-based recorders.
-- Updated `tasks/todo.md` and this handoff.
+- `AGENTS.md`
+- `src/main/providers/ChatGPTVoiceProvider.ts`
+- `src/main/providers/OpenAIApiVoiceProvider.ts`
+- `src/main/services/translation.ts`
+- `src/main/translateProviders/translationProviderAudit.ts`
+- Provider-audit, Translation, Voice, browser, IPC, and transcription tests under `tests/main/`
 
-## Delivered Audit Coverage
+## Preserved Contracts
 
-- Operations: `initialize`, `settings-readiness`, `session-load`,
-  `session-save`, `session-clear`, `readiness`, `credential-refresh`,
-  `transcribe-batch`, `recovery`, and `shutdown`.
-- Closed causes: `not-configured`, `not-authenticated`, `rate-limited`,
-  `connection-failed`, `request-failed`, `unexpected-response`,
-  `empty-result`, `cancelled`, `provider-contract-changed`, `cleanup-failed`,
-  and `unknown`.
-- Known and unknown registry dispatch, browser/session startup and cleanup,
-  ChatGPT two-attempt authentication recovery and independent page recovery,
-  OpenAI transport/status/contract outcomes, post-cache-miss batch dispatch,
-  severity, terminal invariants, fail-open sinks, and privacy canaries are
-  covered by deterministic tests.
-- All three concrete audit family classes, exact provider mappings,
-  unknown-provider sanitization, the inert Prettify stub, removed legacy
-  exports, class dependency injection, and per-operation state isolation are
-  covered without changing schema-v1 records or provider behavior.
+- Schema-v1 records, canonical serialization, severity, semantic phases, operation ordering, exactly-one-terminal enforcement, and post-terminal suppression.
+- Privacy guarantees and fail-open behavior.
+- Provider results, retries, cleanup, cache behavior, browser ownership, settings, IPC, preload, and renderer contracts.
+- Pure query and transformation helpers that are not class pass-through wrappers.
+- Prettify instrumentation remains outside Tasks 01–03.
 
 ## Checks
 
-- Focused provider-audit core/mapping/class Node tests: 15 passed.
-- Focused Translation lifecycle/provider/runtime Node tests: 81 passed.
-- Focused Voice/browser Node tests: 63 passed.
-- Full unit suite: 828 passed.
+- Focused provider-audit and Translation tests passed.
+- Focused Voice, browser, provider, IPC, and transcription tests passed.
+- Full unit suite passed: 829 tests across 149 suites.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed.
 - `npm run format:check` passed.
+- Static searches confirmed removed wrapper/helper names and local audit-metadata closures are absent.
 - `git diff --check` passed.
 
 ## Remaining Risks
 
-- Live ChatGPT/OpenAI provider paths, credentials, browser profiles, and real
-  audio were not exercised. The packet's manual gate still requires separate
-  authorization and synthetic non-private data.
-- Claude Web provider-specific buffered and streaming instrumentation remains
-  intentionally deferred to Packet 04.
-- Prettify has a family-bound class and singleton only; no Prettify operation
-  is instrumented before Packets 05–06.
+- Live provider pages, credentials, browser profiles, accounts, real audio, and private content were not exercised.
+- Claude Web buffered/streaming instrumentation remains intentionally deferred to Task 04.
+- Prettify has only its family audit class; provider instrumentation remains deferred to Tasks 05–06.
 
 ## Exact Next Packet
 
-- [04 Claude buffered and streaming voice](04_audit_claude_streaming_voice.md)
-  is the next ordered unchecked packet.
+- [04 Claude buffered streaming voice](04_audit_claude_streaming_voice.md) is the next ordered unchecked packet.
 
 ## Blockers
 
-- Task 03 and the OOP refactor have no remaining implementation blocker.
+- None for the completed Tasks 01–03 wrapper cleanup.
