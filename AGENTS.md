@@ -32,7 +32,8 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 ## Code Style
 
 - Prefer class-based OOP for business logic and stateful orchestration whenever practical. Classes should own related state, invariants, lifecycle behavior, and dependency injection; keep truly stateless transformations as pure functions when a class would add no meaningful ownership.
-- Use functional components, hooks, and composition for React and other UI or interface-layer code.
+- Do not add free pass-through wrappers that accept or capture a class or service instance only to call one of its methods or repackage its result. Call the method directly, add behavior to the state-owning class, or introduce a class with constructor-injected dependencies.
+- Use functional components, hooks, composition, and functional state updates for React and other UI, interface-layer, or front-end code.
 - Do not hardcode reusable or domain-significant constants inline. Define them at the narrowest shared owner as named `const` values or enums, and reuse the canonical definition.
 
 ## State And Handoffs
