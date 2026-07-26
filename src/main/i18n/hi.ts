@@ -198,7 +198,6 @@ export default {
   'about.license': 'लाइसेंस',
   'about.copyright': 'कॉपीराइट',
   'about.project': 'प्रोजेक्ट',
-  'about.github': 'GitHub',
   'about.loading': 'एप्लिकेशन की जानकारी लोड हो रही है...',
   'about.loadFailed': 'एप्लिकेशन की जानकारी लोड नहीं हो सकी।',
   'history.open': 'इतिहास',

@@ -195,7 +195,6 @@ export default {
   'about.license': '许可证',
   'about.copyright': '版权',
   'about.project': '项目',
-  'about.github': 'GitHub',
   'about.loading': '正在加载应用程序信息...',
   'about.loadFailed': '无法加载应用程序信息。',
   'history.open': '历史记录',

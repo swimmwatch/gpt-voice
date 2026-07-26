@@ -77,11 +77,11 @@ describe('main window iconography', () => {
     assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
   });
 
-  it('renders guarded external links for the project and GitHub profile', () => {
+  it('renders guarded external links for the project and license', () => {
     const aboutWindow = readRendererSource('AboutWindow.tsx');
 
     assert.match(aboutWindow, /href=\{appInfo\.projectUrl\}/u);
-    assert.match(aboutWindow, /href=\{appInfo\.githubUrl\}/u);
+    assert.match(aboutWindow, /href=\{appInfo\.licenseUrl\}/u);
     assert.equal((aboutWindow.match(/rel="noreferrer"/gu) ?? []).length, 2);
     assert.equal((aboutWindow.match(/target="_blank"/gu) ?? []).length, 2);
   });

@@ -219,7 +219,6 @@ export default {
   'about.license': 'Ліцэнзія',
   'about.copyright': 'Аўтарскія правы',
   'about.project': 'Праект',
-  'about.github': 'GitHub',
   'about.loading': 'Загрузка звестак пра праграму...',
   'about.loadFailed': 'Не ўдалося загрузіць звесткі пра праграму.',
 

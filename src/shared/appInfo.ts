@@ -1,7 +1,7 @@
 export interface AppInfo {
   copyright: string;
-  githubUrl: string;
   license: string;
+  licenseUrl: string;
   name: string;
   projectUrl: string;
   version: string;

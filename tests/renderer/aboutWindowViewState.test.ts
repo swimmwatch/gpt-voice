@@ -16,8 +16,8 @@ describe('aboutWindowViewState', () => {
       getAboutWindowInfoState(
         {
           copyright: 'Copyright',
-          githubUrl: 'https://github.com/example',
           license: 'License',
+          licenseUrl: 'https://example.com/license',
           name: 'GPT-Voice',
           projectUrl: 'https://example.com/project',
           version: '1.4.0',

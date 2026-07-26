@@ -1,4 +1,4 @@
-import { ExternalLink, GitFork } from 'lucide-react';
+import { ExternalLink, Scale } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { Button, buttonVariants } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
@@ -113,12 +113,12 @@ function AboutWindow(): JSX.Element {
             </a>
             <a
               className={buttonVariants({ variant: 'outline' })}
-              href={appInfo.githubUrl}
+              href={appInfo.licenseUrl}
               rel="noreferrer"
               target="_blank"
             >
-              <GitFork aria-hidden="true" />
-              {t('about.github')}
+              <Scale aria-hidden="true" />
+              {t('about.license')}
             </a>
           </>
         )}

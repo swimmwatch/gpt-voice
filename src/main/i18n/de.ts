@@ -203,7 +203,6 @@ export default {
   'about.license': 'Lizenz',
   'about.copyright': 'Copyright',
   'about.project': 'Projekt',
-  'about.github': 'GitHub',
   'about.loading': 'Lade Anwendungsinformationen...',
   'about.loadFailed': 'Konnte Anwendungsinformationen nicht laden.',
   'history.open': 'Verlauf',
