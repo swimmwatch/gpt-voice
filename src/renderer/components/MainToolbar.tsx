@@ -58,8 +58,8 @@ function MainToolbar({
       <div className="command-dock-header-band">
         <AudioLines aria-hidden="true" className="command-dock-brand-icon" strokeWidth={1.75} />
         <div className="command-dock-brand">
-          <strong>{t('mainDock.title')}</strong>
-          <span>{t('mainDock.subtitle')}</span>
+          <strong>{t('mainDock.subtitle')}</strong>
+          <span>{t('mainDock.title')}</span>
         </div>
         <div className="command-dock-header-actions" data-slot="main-toolbar-actions">
           <Tooltip>

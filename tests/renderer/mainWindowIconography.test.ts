@@ -10,6 +10,13 @@ function readRendererSource(filename: string): string {
 }
 
 describe('main window iconography', () => {
+  it('renders GPT-Voice as the primary brand and Command Dock as the subtitle', () => {
+    const toolbar = readRendererSource('components/MainToolbar.tsx');
+
+    assert.match(toolbar, /<strong>\{t\('mainDock\.subtitle'\)\}<\/strong>/u);
+    assert.match(toolbar, /<span>\{t\('mainDock\.title'\)\}<\/span>/u);
+  });
+
   it('uses a microphone for the voice provider and a brain circuit for the Prettify provider', () => {
     const toolbar = readRendererSource('components/MainToolbar.tsx');
     const prettifyBand = readRendererSource('components/MainPrettifyProviderBand.tsx');
