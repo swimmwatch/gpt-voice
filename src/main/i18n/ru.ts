@@ -219,6 +219,8 @@ export default {
   'about.version': 'Версия {version}',
   'about.license': 'Лицензия',
   'about.copyright': 'Авторские права',
+  'about.project': 'Проект',
+  'about.github': 'GitHub',
   'about.loading': 'Загрузка информации о программе...',
   'about.loadFailed': 'Не удалось загрузить информацию о программе.',
 

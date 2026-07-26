@@ -202,6 +202,8 @@ export default {
   'about.version': 'Versión {version}',
   'about.license': 'Licencia',
   'about.copyright': 'Copyright',
+  'about.project': 'Proyecto',
+  'about.github': 'GitHub',
   'about.loading': 'Cargando información de la aplicación...',
   'about.loadFailed': 'No se pudo cargar la información de la aplicación.',
   'history.open': 'Historial',

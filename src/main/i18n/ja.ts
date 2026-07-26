@@ -196,6 +196,8 @@ export default {
   'about.version': '{version} バージョン',
   'about.license': 'ライセンス',
   'about.copyright': '著作権',
+  'about.project': 'プロジェクト',
+  'about.github': 'GitHub',
   'about.loading': 'アプリケーション情報を読み込み中...',
   'about.loadFailed': 'アプリケーション情報の読み込みに失敗しました。',
   'history.open': '履歴',

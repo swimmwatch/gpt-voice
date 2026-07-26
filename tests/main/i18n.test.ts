@@ -44,6 +44,7 @@ const ALLOWED_IDENTICAL_TRANSLATION_KEYS = new Set<TranslationKey>([
   'settingsSection.browser',
   'about.version',
   'about.copyright',
+  'about.github',
   'prettify.reasoning.standard',
   'prettify.provider.ollama',
   'prettify.provider.vllm',

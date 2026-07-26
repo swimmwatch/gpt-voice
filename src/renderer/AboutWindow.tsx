@@ -1,5 +1,6 @@
+import { ExternalLink, GitFork } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import { Button } from '@renderer/components/ui/button';
+import { Button, buttonVariants } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 import { getAboutWindowInfoState } from '@renderer/aboutWindowViewState';
@@ -98,9 +99,33 @@ function AboutWindow(): JSX.Element {
         <div aria-live="polite" className="h-24" role="status" />
       )}
 
-      <Button onClick={closeWindow} ref={closeButtonRef} variant="outline">
-        {t('common.close')}
-      </Button>
+      <div className="flex items-center justify-center gap-2">
+        {appInfo && (
+          <>
+            <a
+              className={buttonVariants({ variant: 'outline' })}
+              href={appInfo.projectUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink aria-hidden="true" />
+              {t('about.project')}
+            </a>
+            <a
+              className={buttonVariants({ variant: 'outline' })}
+              href={appInfo.githubUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <GitFork aria-hidden="true" />
+              {t('about.github')}
+            </a>
+          </>
+        )}
+        <Button onClick={closeWindow} ref={closeButtonRef} variant="outline">
+          {t('common.close')}
+        </Button>
+      </div>
     </main>
   );
 }

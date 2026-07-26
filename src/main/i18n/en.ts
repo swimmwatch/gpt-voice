@@ -217,6 +217,8 @@ export default {
   'about.version': 'Version {version}',
   'about.license': 'License',
   'about.copyright': 'Copyright',
+  'about.project': 'Project',
+  'about.github': 'GitHub',
   'about.loading': 'Loading application information...',
   'about.loadFailed': 'Could not load application information.',
 

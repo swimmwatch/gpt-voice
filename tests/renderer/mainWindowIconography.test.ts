@@ -76,4 +76,13 @@ describe('main window iconography', () => {
     assert.match(aboutWindow, /APP_ICON_ASSET_PATH/u);
     assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
   });
+
+  it('renders guarded external links for the project and GitHub profile', () => {
+    const aboutWindow = readRendererSource('AboutWindow.tsx');
+
+    assert.match(aboutWindow, /href=\{appInfo\.projectUrl\}/u);
+    assert.match(aboutWindow, /href=\{appInfo\.githubUrl\}/u);
+    assert.equal((aboutWindow.match(/rel="noreferrer"/gu) ?? []).length, 2);
+    assert.equal((aboutWindow.match(/target="_blank"/gu) ?? []).length, 2);
+  });
 });
