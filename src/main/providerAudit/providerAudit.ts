@@ -412,9 +412,7 @@ export abstract class BaseProviderAudit<Family extends ProviderAuditFamily> {
     }
 
     const providerId =
-      'providerId' in input && isProviderAuditProviderId(input.family, input.providerId)
-        ? input.providerId
-        : undefined;
+      'providerId' in input && isProviderAuditProviderId(input.family, input.providerId) ? input.providerId : undefined;
     let sink: ProviderAuditSink | null | undefined;
     try {
       sink = this.dependencies.getSink();

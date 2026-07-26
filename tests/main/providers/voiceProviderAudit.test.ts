@@ -54,17 +54,9 @@ describe('Voice provider audit adapter', () => {
     });
 
     const expected = audit.startOperation('openai-api', 'settings-readiness', 'configuration');
-    expected.lifecycle.terminal(
-      'configuration',
-      'failure',
-      audit.createMetadata({ causeCode: 'not-configured' }),
-    );
+    expected.lifecycle.terminal('configuration', 'failure', audit.createMetadata({ causeCode: 'not-configured' }));
     const contract = audit.startOperation('openai-api', 'transcribe-batch', 'result');
-    contract.lifecycle.terminal(
-      'result',
-      'failure',
-      audit.createMetadata({ causeCode: 'provider-contract-changed' }),
-    );
+    contract.lifecycle.terminal('result', 'failure', audit.createMetadata({ causeCode: 'provider-contract-changed' }));
 
     assert.deepEqual(levels, ['info', 'info', 'warn', 'info', 'info', 'error']);
   });

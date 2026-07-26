@@ -1,9 +1,6 @@
 import type { TranslationProviderId } from '@shared/translationProvider';
 import type { ProviderAuditExceptionType } from '@main/providerAudit';
-import type {
-  TranslationProviderAudit,
-  TranslationProviderAuditOperationContext,
-} from './translationProviderAudit';
+import type { TranslationProviderAudit, TranslationProviderAuditOperationContext } from './translationProviderAudit';
 
 export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'unsupportedProvider',

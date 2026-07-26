@@ -108,11 +108,7 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
     };
   }
 
-  public startBatch(
-    providerId: unknown,
-    buffer: ArrayBuffer,
-    mimeType: string,
-  ): VoiceBatchAuditContext {
+  public startBatch(providerId: unknown, buffer: ArrayBuffer, mimeType: string): VoiceBatchAuditContext {
     const metadata = this.createMetadata({
       hasMimeType: Boolean(mimeType),
       inputByteLength: buffer.byteLength,

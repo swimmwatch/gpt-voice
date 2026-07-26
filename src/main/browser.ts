@@ -8,12 +8,7 @@ import { launchCloakContext, launchCloakPersistentContext } from '@main/cloakbro
 import { currentProvider, setProvider } from '@main/config';
 import { t } from '@main/i18n';
 import { createLogger } from '@main/logger';
-import {
-  createProvider,
-  voiceProviderAudit,
-  type BaseVoiceProvider,
-  type VoiceProviderAudit,
-} from '@main/providers';
+import { createProvider, voiceProviderAudit, type BaseVoiceProvider, type VoiceProviderAudit } from '@main/providers';
 import { presentNotificationError } from '@shared/notifications';
 import { runBeforeBackgroundBrowserShutdownHooks } from '@main/backgroundBrowserLifecycle';
 import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
@@ -120,11 +115,7 @@ async function initBackgroundBrowserNow(
     return getBackgroundBrowserStatus();
   }
 
-  const settingsAudit = audit.startOperation(
-    activeProvider.info.id,
-    'settings-readiness',
-    'configuration',
-  );
+  const settingsAudit = audit.startOperation(activeProvider.info.id, 'settings-readiness', 'configuration');
   let hasSession: boolean;
   try {
     hasSession = activeProvider.hasSession();
@@ -147,11 +138,7 @@ async function initBackgroundBrowserNow(
 
   try {
     if (activeProvider.requiresBrowserSession()) {
-      const readinessAudit = audit.startOperation(
-        activeProvider.info.id,
-        'readiness',
-        'context',
-      );
+      const readinessAudit = audit.startOperation(activeProvider.info.id, 'readiness', 'context');
       try {
         bgContext = await backgroundContextFactory(cloakBrowserSettings);
         readinessAudit.lifecycle.phaseCompleted('context');
@@ -161,11 +148,7 @@ async function initBackgroundBrowserNow(
       }
 
       // Load session cookies and initialize the provider page.
-      const sessionAudit = audit.startOperation(
-        activeProvider.info.id,
-        'session-load',
-        'session',
-      );
+      const sessionAudit = audit.startOperation(activeProvider.info.id, 'session-load', 'session');
       let sessionLoaded: boolean;
       try {
         sessionLoaded = await activeProvider.loadSession(bgContext);
@@ -204,11 +187,7 @@ async function initBackgroundBrowserNow(
         );
         bgAuthExpired = true;
         bgError = t('error.noAccessToken');
-        const clearAudit = audit.startOperation(
-          activeProvider.info.id,
-          'session-clear',
-          'session',
-        );
+        const clearAudit = audit.startOperation(activeProvider.info.id, 'session-clear', 'session');
         try {
           activeProvider.clearSession();
           clearAudit.lifecycle.phaseCompleted('session');
@@ -232,11 +211,7 @@ async function initBackgroundBrowserNow(
       readinessAudit.lifecycle.phaseCompleted('readiness');
       readinessAudit.lifecycle.terminal('readiness', 'success');
     } else {
-      const readinessAudit = audit.startOperation(
-        activeProvider.info.id,
-        'readiness',
-        'readiness',
-      );
+      const readinessAudit = audit.startOperation(activeProvider.info.id, 'readiness', 'readiness');
       if (!activeProvider.isReady()) {
         readinessAudit.lifecycle.terminal(
           'readiness',
@@ -265,9 +240,7 @@ export function initBackgroundBrowser(options: EnsureBackgroundBrowserOptions = 
 
 async function shutdownBackgroundBrowserNow(preserveError = false): Promise<void> {
   const provider = activeProvider;
-  const shutdownAudit = provider
-    ? activeProviderAudit.startOperation(provider.info.id, 'shutdown', 'shutdown')
-    : null;
+  const shutdownAudit = provider ? activeProviderAudit.startOperation(provider.info.id, 'shutdown', 'shutdown') : null;
   let cleanupFailed = false;
   try {
     await runBeforeBackgroundBrowserShutdownHooks();

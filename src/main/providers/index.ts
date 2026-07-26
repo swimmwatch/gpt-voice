@@ -5,10 +5,7 @@ import { OpenAIApiVoiceProvider } from './OpenAIApiVoiceProvider';
 import { isBatchVoiceProvider, isStreamingVoiceProvider } from './voiceProviderGuards';
 import { CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import { isRendererSafeVoiceProviderInfo, type RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
-import {
-  voiceProviderAudit,
-  type VoiceProviderAudit,
-} from './voiceProviderAudit';
+import { voiceProviderAudit, type VoiceProviderAudit } from './voiceProviderAudit';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 
 export type {
@@ -46,10 +43,7 @@ export type {
   StreamingVoiceProviderOperations,
 } from './streamingVoiceProvider';
 export { resolveStreamingVoiceProviderCapability } from './streamingVoiceProviderCapability';
-export {
-  VoiceProviderAudit,
-  voiceProviderAudit,
-} from './voiceProviderAudit';
+export { VoiceProviderAudit, voiceProviderAudit } from './voiceProviderAudit';
 export type {
   VoiceAuditLifecycle,
   VoiceAuditMetadata,
@@ -92,10 +86,7 @@ export function getAvailableProviders(): RendererSafeVoiceProviderInfo[] {
   );
 }
 
-export function createProvider(
-  id: string,
-  audit: VoiceProviderAudit = voiceProviderAudit,
-): BaseVoiceProvider {
+export function createProvider(id: string, audit: VoiceProviderAudit = voiceProviderAudit): BaseVoiceProvider {
   const auditContext = audit.startOperation(id, 'initialize', 'validation');
   if (!audit.isKnownProviderId(id)) {
     auditContext.lifecycle.terminal(

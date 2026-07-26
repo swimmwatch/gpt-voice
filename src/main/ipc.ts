@@ -25,11 +25,7 @@ import {
   restartBackgroundBrowser,
   switchProvider,
 } from './browser';
-import {
-  createProvider,
-  getAvailableProviders,
-  voiceProviderAudit,
-} from './providers';
+import { createProvider, getAvailableProviders, voiceProviderAudit } from './providers';
 import {
   closeAboutWindow,
   closeProviderSettingsWindow,
@@ -292,11 +288,7 @@ function getProviderSettingsSnapshot(providerId: string) {
   if (!voiceProviderAudit.isKnownProviderId(providerId)) {
     createProvider(providerId);
   }
-  const audit = voiceProviderAudit.startOperation(
-    providerId,
-    'settings-readiness',
-    'configuration',
-  );
+  const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'configuration');
 
   try {
     if (providerId === OPENAI_API_PROVIDER_ID) {
@@ -442,11 +434,7 @@ export function registerIpcHandlers(): void {
           done = true;
           try {
             if (saveSession) {
-              const saveAudit = voiceProviderAudit.startOperation(
-                provider.info.id,
-                'session-save',
-                'session',
-              );
+              const saveAudit = voiceProviderAudit.startOperation(provider.info.id, 'session-save', 'session');
               try {
                 await provider.saveSession(context!);
                 saveAudit.lifecycle.phaseCompleted('session');
@@ -501,11 +489,7 @@ export function registerIpcHandlers(): void {
   handle('check-session', () => {
     try {
       const provider = getActiveProvider() ?? createProvider(currentProvider);
-      const audit = voiceProviderAudit.startOperation(
-        provider.info.id,
-        'settings-readiness',
-        'configuration',
-      );
+      const audit = voiceProviderAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
       try {
         const hasSession = provider.hasSession();
         audit.lifecycle.phaseCompleted('configuration');
@@ -639,11 +623,7 @@ export function registerIpcHandlers(): void {
   handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
-        const audit = voiceProviderAudit.startOperation(
-          providerId,
-          'settings-readiness',
-          'validation',
-        );
+        const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
         audit.lifecycle.terminal(
           'validation',
           'failure',
@@ -652,11 +632,7 @@ export function registerIpcHandlers(): void {
         return { success: false, error: 'Unsupported provider' };
       }
       if (providerId === CLAUDE_WEB_PROVIDER_ID) {
-        const audit = voiceProviderAudit.startOperation(
-          providerId,
-          'settings-readiness',
-          'validation',
-        );
+        const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
         try {
           assertValidClaudeWebSettingsUpdateInput(settings);
         } catch {
@@ -699,11 +675,7 @@ export function registerIpcHandlers(): void {
         return { success: true, settings: nextSettings };
       }
 
-      const audit = voiceProviderAudit.startOperation(
-        providerId,
-        'settings-readiness',
-        'validation',
-      );
+      const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
       try {
         assertValidOpenAIApiSettingsInput(settings);
       } catch (error: unknown) {
@@ -742,9 +714,7 @@ export function registerIpcHandlers(): void {
       audit.lifecycle.terminal(
         'configuration',
         savedSettings.hasApiKey ? 'success' : 'failure',
-        savedSettings.hasApiKey
-          ? undefined
-          : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        savedSettings.hasApiKey ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
       );
       sendProviderSettingsChanged(nextSettings, event.sender);
       return { success: true, settings: nextSettings };
@@ -755,11 +725,7 @@ export function registerIpcHandlers(): void {
   });
 
   handle('clear-provider-auth', async (event, providerId: string) => {
-    const audit = voiceProviderAudit.startOperation(
-      providerId,
-      'session-clear',
-      'session',
-    );
+    const audit = voiceProviderAudit.startOperation(providerId, 'session-clear', 'session');
     try {
       if (!voiceProviderAudit.isKnownProviderId(providerId)) {
         audit.lifecycle.terminal(
