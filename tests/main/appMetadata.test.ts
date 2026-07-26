@@ -4,6 +4,7 @@ import { APP_COPYRIGHT, APP_LICENSE, APP_LICENSE_URL, APP_NAME, APP_WEBSITE, cre
 
 describe('appMetadata', () => {
   it('creates renderer-safe application information from the running version', () => {
+    assert.equal(APP_LICENSE_URL, `${APP_WEBSITE}/blob/main/LICENSE`);
     assert.deepEqual(createAppInfo('1.4.0'), {
       copyright: APP_COPYRIGHT,
       license: APP_LICENSE,
