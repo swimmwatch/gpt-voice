@@ -9,6 +9,7 @@ import type {
   UnknownProviderAuditLifecycleInput,
 } from '@main/providerAudit';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 
 export type PrettifyAuditLifecycleInput =
   ProviderAuditLifecycleInput<'prettify'> | UnknownProviderAuditLifecycleInput<'prettify'>;
@@ -91,7 +92,7 @@ export class RecordingPrettifyProviderAudit extends PrettifyProviderAudit {
   public readonly operations: RecordedPrettifyAuditOperation[] = [];
 
   public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
-    super({ elapsedNow: () => 1_000, ...dependencies });
+    super({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, ...dependencies });
   }
 
   protected override buildLifecycle(input: PrettifyAuditLifecycleInput): ProviderAuditLifecycle<'prettify'> {

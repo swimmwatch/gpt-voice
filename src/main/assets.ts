@@ -1,16 +1,26 @@
-import { app, nativeImage } from 'electron';
 import * as path from 'node:path';
 
-export function getAssetPath(filename: string): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'assets', filename)
-    : path.join(__dirname, '..', 'assets', filename);
+const APP_ICON_FILE_NAME = 'icon.png';
+
+export interface AssetPathResolverDependencies {
+  readonly isPackaged: boolean;
+  readonly mainDirectory: string;
+  readonly resourcesPath: string;
 }
 
-export function getAppIconPath(): string {
-  return getAssetPath('icon.png');
-}
+/** Resolves immutable application asset paths for one main-process graph. */
+export class AssetPathResolver {
+  public constructor(private readonly dependencies: AssetPathResolverDependencies) {}
 
-export function getAppIcon(): Electron.NativeImage {
-  return nativeImage.createFromPath(getAppIconPath());
+  public readonly getAssetPath = (filename: string): string => {
+    return this.dependencies.isPackaged
+      ? path.join(this.dependencies.resourcesPath, 'assets', filename)
+      : path.join(this.dependencies.mainDirectory, '..', 'assets', filename);
+  };
+
+  public readonly getAppIconPath = (): string => this.getAssetPath(APP_ICON_FILE_NAME);
+
+  public getApplicationRoot(): string {
+    return path.resolve(this.dependencies.mainDirectory);
+  }
 }

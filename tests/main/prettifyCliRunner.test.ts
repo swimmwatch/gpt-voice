@@ -173,6 +173,7 @@ function createHarness(
         }),
     fileSystem,
     getTemporaryDirectory: () => path.join(path.sep, 'isolated'),
+    killProcessGroup: () => undefined,
     platform: options.platform ?? 'linux',
     spawn: (executable, args, spawnOptions) => {
       spawnCalls.push({ args, executable, options: spawnOptions });
@@ -542,6 +543,7 @@ describe('CliProcessRunner', () => {
         executableResolver: async () => ({ executable: 'resolved-cli.exe', status: 'resolved' }),
         fileSystem,
         getTemporaryDirectory: () => 'C:\\isolated',
+        killProcessGroup: () => undefined,
         platform: 'win32',
         spawn: (executable, args, options) => {
           spawnCalls.push({ args, executable, options });

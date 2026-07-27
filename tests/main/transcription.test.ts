@@ -14,8 +14,13 @@ import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import { I18nService } from '@main/i18n';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
+  public constructor() {
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+  }
+
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
     throw new Error('synthetic audit sink failure with private transcript');
   }

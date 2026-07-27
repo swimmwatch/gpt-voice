@@ -5,8 +5,13 @@ import { describe, it } from 'node:test';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { StreamingTranscriptionOperationId } from '@shared/streamingTranscription';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
+  public constructor() {
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+  }
+
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
     throw new Error('private exception https://private.invalid /home/private stack-private');
   }
@@ -14,7 +19,7 @@ class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
 
 class InjectedLifecycleVoiceProviderAudit extends VoiceProviderAudit {
   public constructor(private readonly injectedLifecycle: ProviderAuditLifecycle<'voice'>) {
-    super();
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
   }
 
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -24,7 +29,7 @@ class InjectedLifecycleVoiceProviderAudit extends VoiceProviderAudit {
 
 describe('Voice provider audit adapter', () => {
   it('maps expected and unexpected Voice causes to central severity classes', () => {
-    const audit = new VoiceProviderAudit();
+    const audit = new VoiceProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
 
     assert.equal(audit.getErrorClass('not-configured'), 'configuration');
     assert.equal(audit.getErrorClass('not-authenticated'), 'authentication');
@@ -52,6 +57,7 @@ describe('Voice provider audit adapter', () => {
     let elapsedMs = 100;
     const operationId = '11111111-2222-4333-8444-000000000004';
     const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       elapsedNow: () => elapsedMs,
       getSink: () => ({
         error: (_label, serialized) => {

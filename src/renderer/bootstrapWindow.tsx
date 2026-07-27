@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
+import rendererLog from 'electron-log/renderer';
 import { DesktopApiProvider } from '@renderer/DesktopApiProvider';
+import { RendererLoggerProvider } from '@renderer/RendererLoggerProvider';
 import WindowStartupGate from '@renderer/WindowStartupGate';
 import { Toaster } from '@renderer/components/ui/sonner';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
@@ -16,15 +18,17 @@ export function bootstrapWindow(RootComponent: ComponentType, desktopApi: Electr
   }
 
   createRoot(container).render(
-    <DesktopApiProvider api={desktopApi}>
-      <I18nProvider>
-        <TooltipProvider>
-          <WindowStartupGate>
-            <RootComponent />
-            <Toaster />
-          </WindowStartupGate>
-        </TooltipProvider>
-      </I18nProvider>
-    </DesktopApiProvider>,
+    <RendererLoggerProvider factory={rendererLog}>
+      <DesktopApiProvider api={desktopApi}>
+        <I18nProvider>
+          <TooltipProvider>
+            <WindowStartupGate>
+              <RootComponent />
+              <Toaster />
+            </WindowStartupGate>
+          </TooltipProvider>
+        </I18nProvider>
+      </DesktopApiProvider>
+    </RendererLoggerProvider>,
   );
 }

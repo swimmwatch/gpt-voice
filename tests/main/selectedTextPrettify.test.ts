@@ -108,15 +108,6 @@ function createTestService(options: TestServiceOptions = {}) {
 
   const deps: SelectedTextPrettifyDependencies = {
     actionGate: options.actionGate || new SelectedTextActionGate(),
-    automateTextAction: async (action) => {
-      automationCalls.push(action);
-      if (options.copyError) {
-        throw options.copyError;
-      }
-      if (options.copiedText !== undefined) {
-        clipboard.clipboard = options.copiedText;
-      }
-    },
     clipboard: {
       readText: (type?: ClipboardType) => clipboard[type || 'clipboard'],
       writeText: (text: string, type?: ClipboardType) => {
@@ -182,6 +173,18 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     settings: new TestPrettifySettingsStorage(prettifySettings),
+    textAutomation: {
+      run: async (action) => {
+        automationCalls.push(action);
+        if (options.copyError) {
+          throw options.copyError;
+        }
+        if (options.copiedText !== undefined) {
+          clipboard.clipboard = options.copiedText;
+        }
+        return { args: [], command: 'test', requiredExecutable: 'test', strategy: 'linux-x11' };
+      },
+    },
     wait: async (delayMs) => {
       waitCalls.push(delayMs);
     },

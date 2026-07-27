@@ -6,6 +6,7 @@ import { afterEach, describe, it } from 'node:test';
 import type { DiagnosticActionType, DiagnosticCaptureRecord } from '@main/repositories/diagnosticCaptureRepository';
 import { REPOSITORY_ERROR_CODES, RepositoryError } from '@main/repositories/repositoryErrors';
 import { AppDatabaseCoordinator } from '@main/repositories/sqlite/appDatabase';
+import { AppDatabaseTestDependencies } from './appDatabaseTestDependencies';
 import { SqliteDiagnosticCaptureRepository } from '@main/repositories/sqlite/sqliteDiagnosticCaptureRepository';
 import { SqliteTranscriptionHistoryRepository } from '@main/repositories/sqlite/sqliteTranscriptionHistoryRepository';
 import { registerDiagnosticCaptureRepositoryContract } from './contracts/diagnosticCaptureRepositoryContract';
@@ -23,7 +24,10 @@ class DiagnosticRepositoryHarness {
 
   public constructor() {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-diagnostic-repository-'));
-    this.coordinator = new AppDatabaseCoordinator(path.join(this.temporaryDirectory, 'diagnostics.sqlite3'));
+    this.coordinator = new AppDatabaseCoordinator(
+      path.join(this.temporaryDirectory, 'diagnostics.sqlite3'),
+      new AppDatabaseTestDependencies(),
+    );
     this.repository = new SqliteDiagnosticCaptureRepository(this.coordinator);
   }
 

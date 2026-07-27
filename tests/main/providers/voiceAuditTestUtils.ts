@@ -9,6 +9,7 @@ import type {
   UnknownProviderAuditLifecycleInput,
 } from '@main/providerAudit';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
 
 export type VoiceAuditLifecycleInput =
   ProviderAuditLifecycleInput<'voice'> | UnknownProviderAuditLifecycleInput<'voice'>;
@@ -66,7 +67,7 @@ export class RecordingVoiceProviderAudit extends VoiceProviderAudit {
   public readonly operations: RecordedVoiceAuditOperation[] = [];
 
   public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
-    super(dependencies);
+    super({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, ...dependencies });
   }
 
   protected override buildLifecycle(input: VoiceAuditLifecycleInput): ProviderAuditLifecycle<'voice'> {

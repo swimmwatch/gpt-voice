@@ -11,6 +11,7 @@ import * as translationAuditModule from '@main/translateProviders/translationPro
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
 import { RecordingPrettifyProviderAudit } from '../prettifyAuditTestUtils';
 import { RecordingTranslationProviderAudit } from '../translateProviders/translationAuditTestUtils';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAuditTestDependencies';
 
 function createCapture() {
   const serializedEvents: string[] = [];
@@ -24,9 +25,9 @@ function createCapture() {
 
 describe('provider audit class hierarchy', () => {
   it('binds every concrete family class to its exhaustive provider mapping', () => {
-    const voice = new VoiceProviderAudit();
-    const prettify = new PrettifyProviderAudit();
-    const translation = new TranslationProviderAudit();
+    const voice = new VoiceProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+    const prettify = new PrettifyProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+    const translation = new TranslationProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
 
     assert.equal(voice instanceof BaseProviderAudit, true);
     assert.equal(prettify instanceof BaseProviderAudit, true);
@@ -59,6 +60,7 @@ describe('provider audit class hierarchy', () => {
     const canary = 'https://private.invalid/account?token=provider-private-canary';
     const capture = createCapture();
     const audit = new TranslationProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       getSink: () => capture.sink,
       now: () => new Date('2026-07-26T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
@@ -116,6 +118,7 @@ describe('provider audit class hierarchy', () => {
     const capture = createCapture();
 
     const audit = new PrettifyProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       getSink: () => capture.sink,
     });
 

@@ -9,7 +9,6 @@ import {
   ClaudeWebVoiceProvider,
   type ClaudeWebVoiceProviderDependencies,
 } from './ClaudeWebVoiceProvider';
-import { ClaudeWebNavigationService, type ClaudeWebNavigationLogger } from './claudeWebNavigationService';
 import {
   OPENAI_API_RENDERER_PROVIDER_INFO,
   OpenAIApiVoiceProvider,
@@ -26,20 +25,14 @@ import type { I18nService } from '@main/i18n';
 export interface VoiceProviderFactoryDependencies {
   readonly audit: VoiceProviderAudit;
   readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'localization'>;
-  readonly claudeWeb: Omit<ClaudeWebVoiceProviderDependencies, 'audit' | 'localization' | 'navigationService'> & {
-    readonly navigationLogger: ClaudeWebNavigationLogger;
-  };
+  readonly claudeWeb: Omit<ClaudeWebVoiceProviderDependencies, 'audit' | 'localization'>;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly openAIApi: Omit<OpenAIApiVoiceProviderDependencies, 'audit' | 'localization'>;
 }
 
 /** Explicit construction boundary for fresh Voice provider instances. */
 export class VoiceProviderFactory {
-  private readonly claudeWebNavigationService: ClaudeWebNavigationService;
-
-  public constructor(private readonly dependencies: VoiceProviderFactoryDependencies) {
-    this.claudeWebNavigationService = new ClaudeWebNavigationService(dependencies.claudeWeb.navigationLogger);
-  }
+  public constructor(private readonly dependencies: VoiceProviderFactoryDependencies) {}
 
   public create(providerId: VoiceProviderAuditId): BaseVoiceProvider {
     switch (providerId) {
@@ -60,7 +53,7 @@ export class VoiceProviderFactory {
           ...this.dependencies.claudeWeb,
           audit: this.dependencies.audit,
           localization: this.dependencies.localization,
-          navigationService: this.claudeWebNavigationService,
+          navigationService: this.dependencies.claudeWeb.navigationService,
         });
     }
   }

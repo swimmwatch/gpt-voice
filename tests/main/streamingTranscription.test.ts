@@ -24,6 +24,7 @@ import {
 import { StreamingTranscriptionOperationError } from '@main/providers/StreamingTranscriptionOperationError';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 import { VoiceProviderRegistryFixture } from './providers/voiceProviderRegistryFixture';
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import {
@@ -333,6 +334,7 @@ describe('main streaming transcription service', () => {
     const serializedEvents: string[] = [];
     const internalRejectionId = '99999999-8888-4777-8666-000000000004';
     const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       getSink: () => ({
         error: (_label, serialized) => serializedEvents.push(serialized as string),
         info: (_label, serialized) => serializedEvents.push(serialized as string),
@@ -415,6 +417,7 @@ describe('main streaming transcription service', () => {
   it('keeps provider behavior fail-open when every audit sink invocation throws', async () => {
     const privacyCanary = 'private sink https://private.invalid stack-private';
     const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       getSink: () => ({
         error: () => {
           throw new Error(privacyCanary);

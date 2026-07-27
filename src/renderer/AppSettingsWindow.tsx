@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react';
-import rendererLog from 'electron-log/renderer';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
+import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
 import BrowserSection from '@renderer/components/settings/BrowserSection';
 import NetworkSection from '@renderer/components/settings/NetworkSection';
@@ -44,8 +44,6 @@ import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 
-const log = rendererLog.scope('app-settings');
-
 function getInitialSettingsSection(): SettingsSectionId {
   const section = new URLSearchParams(window.location.search).get('section');
   return isAppSettingsSectionId(section) ? section : 'shortcuts';
@@ -62,6 +60,7 @@ function generateFingerprintSeed(): string {
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
   const desktopApi = useDesktopApi();
+  const log = useRendererLogger('app-settings');
   const { isReady: isI18nReady, locale, setLocale, supportedLocales, t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);

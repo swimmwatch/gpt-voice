@@ -87,7 +87,7 @@ const PRETTIFY_AUDIT_ERROR_CLASS_BY_CAUSE = {
 export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
   public readonly family = 'prettify' as const;
 
-  public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
+  public constructor(dependencies: ProviderAuditDependencies) {
     super(dependencies);
   }
 

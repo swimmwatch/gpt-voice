@@ -16,6 +16,7 @@ export interface WindowManagerLogger {
 }
 
 export interface WindowManagerDependencies {
+  readonly createAboutWindowController: (createWindow: () => BrowserWindow) => AboutWindowController<BrowserWindow>;
   readonly createBrowserWindow: (options: BrowserWindowConstructorOptions) => BrowserWindow;
   readonly getAppIcon: () => NativeImage;
   readonly getAppIconPath: () => string;
@@ -24,6 +25,7 @@ export interface WindowManagerDependencies {
   readonly openExternal: (url: string) => Promise<void>;
   readonly platform: NodeJS.Platform;
   readonly preloadPath: string;
+  readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
 }
 
 export interface BackgroundBrowserStatus {
@@ -38,13 +40,14 @@ export class WindowManager {
   private readonly aboutWindowController: AboutWindowController<BrowserWindow>;
   private historyWindow: BrowserWindow | null = null;
   private mainWindow: BrowserWindow | null = null;
-  private readonly providerSettingsWindowController = new ProviderSettingsWindowController<BrowserWindow>();
+  private readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
   private quitting = false;
   private settingsCloseConfirmed = false;
   private settingsWindow: BrowserWindow | null = null;
 
   public constructor(private readonly dependencies: WindowManagerDependencies) {
-    this.aboutWindowController = new AboutWindowController(this.createAboutWindow);
+    this.aboutWindowController = dependencies.createAboutWindowController(this.createAboutWindow);
+    this.providerSettingsWindowController = dependencies.providerSettingsWindowController;
   }
 
   public getMainWindow(): BrowserWindow | null {

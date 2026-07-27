@@ -1,4 +1,4 @@
-import { MainIpcController, type MainIpcControllerDependencies } from '../ipc';
+import { MainIpcController, TrustedIpcRegistrar, type MainIpcControllerDependencies } from '../ipc';
 import type {
   MainProcessOwnedRuntime,
   MainProcessRuntimeFactory as MainProcessRuntimeFactoryContract,
@@ -28,6 +28,9 @@ import type { TranslationRuntime } from '../services/translation';
 import type { PrettifyRuntime } from '../services/prettifyProviders';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
 import type { I18nService } from '../i18n';
+import type { WebContents } from 'electron';
+import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
+import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIpcController';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -36,6 +39,8 @@ type StreamingRuntimeDependencies = Omit<
 
 type RuntimeOwnedMainIpcDependencyKeys =
   | 'backgroundBrowserService'
+  | 'createPrettifyConnectionCoordinator'
+  | 'createStreamingTranscriptionController'
   | 'desktopRuntimeController'
   | 'historyController'
   | 'prettifyRuntime'
@@ -43,13 +48,14 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'streamingTranscriptionService'
   | 'transcriptionService'
   | 'translationRuntime'
+  | 'trustedIpc'
   | 'voiceAudit'
   | 'voiceProviderRegistry'
   | 'windowManager';
 
 export interface MainProcessRuntimeFactoryDependencies {
   readonly cacheNow: () => number;
-  readonly databaseDependencies?: Partial<AppDatabaseDependencies>;
+  readonly databaseDependencies: AppDatabaseDependencies;
   readonly databasePath: string;
   readonly diagnosticLogger: {
     warn(...args: unknown[]): void;
@@ -125,9 +131,17 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       logger: this.dependencies.historyLogger,
       writeClipboardText: this.dependencies.writeClipboardText,
     });
+    const trustedIpc = new TrustedIpcRegistrar(
+      this.dependencies.ipc.ipc,
+      this.dependencies.ipc.logger,
+      this.controllers.windowManager,
+    );
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
+      createPrettifyConnectionCoordinator: (runtime) => new PrettifyConnectionCheckCoordinator<WebContents>(runtime),
+      createStreamingTranscriptionController: (dependencies) =>
+        new StreamingTranscriptionIpcController<WebContents>(dependencies),
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       historyController,
       prettifyRuntime: this.controllers.prettifyRuntime,
@@ -135,6 +149,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       streamingTranscriptionService,
       transcriptionService,
       translationRuntime: this.controllers.translationRuntime,
+      trustedIpc,
       voiceAudit: this.controllers.voiceProviderAudit,
       voiceProviderRegistry: this.controllers.voiceProviderRegistry,
       windowManager: this.controllers.windowManager,

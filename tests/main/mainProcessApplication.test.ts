@@ -1,6 +1,8 @@
 /* eslint-disable max-classes-per-file -- lifecycle fakes own distinct controller resources. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import type { BrowserWindow } from 'electron';
+import { AboutWindowController } from '@main/aboutWindowController';
 import { AppProtocolController } from '@main/appProtocol';
 import { DesktopRuntimeController } from '@main/desktopRuntimeController';
 import { LinuxDesktopIntegrationController } from '@main/linuxDesktopIntegration';
@@ -15,6 +17,7 @@ import {
 import { ShortcutController } from '@main/shortcuts';
 import { TrayController } from '@main/tray';
 import { WindowManager } from '@main/window';
+import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { BackgroundBrowserService } from '@main/browser';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
@@ -142,6 +145,7 @@ class RecordingAppProtocolController extends AppProtocolController {
 class RecordingWindowManager extends WindowManager {
   public constructor(private readonly events: string[]) {
     super({
+      createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
       createBrowserWindow: () => {
         throw new Error('unexpected-window-construction');
       },
@@ -154,6 +158,7 @@ class RecordingWindowManager extends WindowManager {
       openExternal: async () => undefined,
       platform: 'linux',
       preloadPath: '/app/preload.js',
+      providerSettingsWindowController: new ProviderSettingsWindowController<BrowserWindow>(),
     });
   }
 
@@ -265,7 +270,6 @@ class RecordingLinuxDesktopIntegrationController extends LinuxDesktopIntegration
         once: () => undefined,
         unref: () => undefined,
       }),
-      syncDesktopIcons: () => undefined,
     });
   }
 

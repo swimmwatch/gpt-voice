@@ -4,7 +4,7 @@ import type { PrettifySettingsStorage } from '@main/services/prettifySettingsSto
 import type { PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
-import type { TextAutomationAction } from '@main/services/textAutomation';
+import type { TextAutomationService } from '@main/services/textAutomation';
 import {
   formatNotificationBody,
   presentNotificationError,
@@ -37,7 +37,6 @@ export interface SelectedTextPrettifyRuntime {
 
 export interface SelectedTextPrettifyDependencies {
   readonly actionGate: SelectedTextActionGate;
-  readonly automateTextAction: (action: TextAutomationAction) => Promise<void>;
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextPrettifyClipboard;
   readonly getCacheContext: () => readonly string[];
@@ -50,6 +49,7 @@ export interface SelectedTextPrettifyDependencies {
   readonly platform: NodeJS.Platform;
   readonly runtime: SelectedTextPrettifyRuntime;
   readonly settings: Pick<PrettifySettingsStorage, 'getView'>;
+  readonly textAutomation: Pick<TextAutomationService, 'run'>;
   readonly wait: (delayMs: number) => Promise<void>;
 }
 
@@ -224,7 +224,7 @@ export class SelectedTextPrettifyService {
   private async readSelectedText(): Promise<{ selectedText: string; copyError?: unknown }> {
     let copyError: unknown;
     try {
-      await this.dependencies.automateTextAction('copy');
+      await this.dependencies.textAutomation.run('copy');
       await this.dependencies.wait(COPY_SETTLE_DELAY_MS);
     } catch (error: unknown) {
       copyError = error;

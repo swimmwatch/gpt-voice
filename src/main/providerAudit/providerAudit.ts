@@ -1,5 +1,4 @@
 /* eslint-disable max-classes-per-file -- the public base and private lifecycle implementations form one audit core. */
-import { randomUUID } from 'node:crypto';
 
 import {
   PROVIDER_AUDIT_LABEL,
@@ -92,13 +91,6 @@ export interface ProviderAuditDependencies {
   readonly now: () => Date;
   readonly randomUUID: () => string;
 }
-
-const DEFAULT_DEPENDENCIES: ProviderAuditDependencies = {
-  elapsedNow: Date.now,
-  getSink: () => undefined,
-  now: () => new Date(),
-  randomUUID,
-};
 
 export interface ProviderAuditOperationContext<Family extends ProviderAuditFamily> {
   readonly lifecycle: ProviderAuditLifecycle<Family>;
@@ -343,8 +335,8 @@ export abstract class BaseProviderAudit<Family extends ProviderAuditFamily> {
 
   private readonly dependencies: ProviderAuditDependencies;
 
-  protected constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
-    this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+  protected constructor(dependencies: ProviderAuditDependencies) {
+    this.dependencies = dependencies;
   }
 
   public isKnownProviderId(providerId: unknown): providerId is ProviderAuditProviderId<Family> {

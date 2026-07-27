@@ -12,6 +12,7 @@ import {
   APP_DATABASE_TIMEOUT_MS,
   AppDatabaseCoordinator,
 } from '@main/repositories/sqlite/appDatabase';
+import { AppDatabaseTestDependencies } from './appDatabaseTestDependencies';
 
 const temporaryDirectories: string[] = [];
 
@@ -31,7 +32,10 @@ function createDatabasePath(prefix = 'gpt-voice-app-database-'): string {
 describe('application SQLite coordinator', () => {
   it('applies ordered migrations and configures the shared connection', () => {
     const databasePath = createDatabasePath();
-    const coordinator = new AppDatabaseCoordinator(databasePath, { now: () => new Date('2026-07-27T12:00:00Z') });
+    const coordinator = new AppDatabaseCoordinator(
+      databasePath,
+      new AppDatabaseTestDependencies({ now: () => new Date('2026-07-27T12:00:00Z') }),
+    );
 
     const state = coordinator.run((database) => {
       const migrations = database.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as Array<{
@@ -92,7 +96,7 @@ describe('application SQLite coordinator', () => {
     `);
     fixture.close();
 
-    const coordinator = new AppDatabaseCoordinator(databasePath);
+    const coordinator = new AppDatabaseCoordinator(databasePath, new AppDatabaseTestDependencies());
     const state = coordinator.run((database) => ({
       history: database.prepare('SELECT text FROM transcription_history').get() as { text: string },
       migrations: database.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as Array<{
@@ -131,7 +135,7 @@ describe('application SQLite coordinator', () => {
     `);
     fixture.close();
 
-    const coordinator = new AppDatabaseCoordinator(databasePath);
+    const coordinator = new AppDatabaseCoordinator(databasePath, new AppDatabaseTestDependencies());
     assert.throws(
       () => coordinator.run(() => undefined),
       (error: unknown) => error instanceof RepositoryError && error.code === REPOSITORY_ERROR_CODES.Unavailable,
@@ -159,7 +163,7 @@ describe('application SQLite coordinator', () => {
       return;
     }
     const databasePath = createDatabasePath();
-    const coordinator = new AppDatabaseCoordinator(databasePath);
+    const coordinator = new AppDatabaseCoordinator(databasePath, new AppDatabaseTestDependencies());
 
     coordinator.run((database) => database.prepare('SELECT 1').get());
 
@@ -175,20 +179,23 @@ describe('application SQLite coordinator', () => {
     const changedPaths: string[] = [];
     let closeCount = 0;
     let createCount = 0;
-    const coordinator = new AppDatabaseCoordinator(databasePath, {
-      closeDatabase(database): void {
-        closeCount += 1;
-        database.close();
-      },
-      createDatabase(filePath): DatabaseSync {
-        createCount += 1;
-        return new DatabaseSync(filePath, { timeout: APP_DATABASE_TIMEOUT_MS });
-      },
-      platform: 'win32',
-      setFileMode(filePath): void {
-        changedPaths.push(filePath);
-      },
-    });
+    const coordinator = new AppDatabaseCoordinator(
+      databasePath,
+      new AppDatabaseTestDependencies({
+        closeDatabase(database): void {
+          closeCount += 1;
+          database.close();
+        },
+        createDatabase(filePath): DatabaseSync {
+          createCount += 1;
+          return new DatabaseSync(filePath, { timeout: APP_DATABASE_TIMEOUT_MS });
+        },
+        platform: 'win32',
+        setFileMode(filePath): void {
+          changedPaths.push(filePath);
+        },
+      }),
+    );
 
     coordinator.run((database) => database.prepare('SELECT 1').get());
     coordinator.run((database) => database.prepare('SELECT 2').get());
@@ -206,13 +213,16 @@ describe('application SQLite coordinator', () => {
 
   it('hides permission paths behind the safe unavailable marker', () => {
     const databasePath = createDatabasePath('gpt-voice-private-database-');
-    const coordinator = new AppDatabaseCoordinator(databasePath, {
-      fileExists: () => true,
-      platform: 'linux',
-      setFileMode(): never {
-        throw new Error(`permission failed for ${databasePath}`);
-      },
-    });
+    const coordinator = new AppDatabaseCoordinator(
+      databasePath,
+      new AppDatabaseTestDependencies({
+        fileExists: () => true,
+        platform: 'linux',
+        setFileMode(): never {
+          throw new Error(`permission failed for ${databasePath}`);
+        },
+      }),
+    );
 
     assert.throws(
       () => coordinator.run(() => undefined),

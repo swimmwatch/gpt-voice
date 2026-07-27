@@ -1,6 +1,5 @@
-import * as fs from 'node:fs';
 // eslint-disable-next-line n/no-unsupported-features/node-builtins -- SQLite is required by the project's Node 24 runtime.
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
 import { REPOSITORY_ERROR_CODES, RepositoryError } from '../repositoryErrors';
 import type { SqliteDataSource } from './abstractSqliteRepository';
 
@@ -23,15 +22,6 @@ export interface AppDatabaseDependencies {
   readonly platform: NodeJS.Platform;
   readonly setFileMode: (filePath: string, mode: number) => void;
 }
-
-const DEFAULT_DEPENDENCIES: AppDatabaseDependencies = {
-  closeDatabase: (database) => database.close(),
-  createDatabase: (databasePath) => new DatabaseSync(databasePath, { timeout: APP_DATABASE_TIMEOUT_MS }),
-  fileExists: fs.existsSync,
-  now: () => new Date(),
-  platform: process.platform,
-  setFileMode: fs.chmodSync,
-};
 
 const APP_DATABASE_MIGRATIONS: readonly AppDatabaseMigration[] = [
   {
@@ -95,9 +85,9 @@ export class AppDatabaseCoordinator implements SqliteDataSource {
 
   public constructor(
     private readonly databasePath: string,
-    dependencies: Partial<AppDatabaseDependencies> = {},
+    dependencies: AppDatabaseDependencies,
   ) {
-    this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+    this.dependencies = dependencies;
   }
 
   public run<T>(operation: (database: DatabaseSync) => T): T {

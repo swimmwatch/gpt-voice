@@ -19,8 +19,13 @@ import { PROVIDER_AUDIT_PROVIDER_MAPPINGS } from '@main/providerAudit/mappings';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 import { VoiceProviderRegistryFixture } from './voiceProviderRegistryFixture';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
+  public constructor() {
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+  }
+
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
     throw new Error('synthetic audit failure');
   }

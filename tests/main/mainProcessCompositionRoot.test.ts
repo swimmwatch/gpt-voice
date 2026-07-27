@@ -174,6 +174,11 @@ class MainProcessCompositionHarness {
     });
     this.databasePath = configPaths.databaseFile;
     this.compositionEnvironment = {
+      assetPaths: {
+        isPackaged: false,
+        mainDirectory: this.temporaryDirectory,
+        resourcesPath: this.temporaryDirectory,
+      },
       cacheNow: () => 0,
       cloakBrowserRuntime: {
         environment: {},
@@ -276,6 +281,11 @@ class MainProcessCompositionHarness {
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
       reportStreamingDiagnostic: () => undefined,
       resolveStreamingCapability: () => null,
+      textAutomation: {
+        environment: {},
+        platform: 'linux',
+        runner: async () => undefined,
+      },
       prettify: {
         audit: {
           elapsedNow: () => 0,
@@ -296,6 +306,7 @@ class MainProcessCompositionHarness {
             stat: async () => ({ isFile: () => true }),
           },
           getTemporaryDirectory: () => this.temporaryDirectory,
+          killProcessGroup: () => undefined,
           platform: 'linux',
           spawn: () => {
             throw new Error('unexpected Prettify process');
@@ -314,7 +325,6 @@ class MainProcessCompositionHarness {
           fileSystem: fs,
         },
         selectedText: {
-          automateTextAction: async () => undefined,
           getCacheContext: () => [],
           platform: 'linux',
           wait: async () => undefined,
@@ -335,7 +345,6 @@ class MainProcessCompositionHarness {
           sleep: async () => undefined,
         },
         selectedText: {
-          automateTextAction: async () => undefined,
           platform: 'linux',
           wait: async () => undefined,
         },
@@ -381,8 +390,6 @@ class MainProcessCompositionHarness {
       app: this.app,
       desktopControllers: {
         appProtocol: {
-          appIconPath: '/app/icon.png',
-          appRoot: '/app',
           protocol: {
             handle: () => undefined,
             registerSchemesAsPrivileged: () => undefined,
@@ -397,7 +404,6 @@ class MainProcessCompositionHarness {
           electronVersion: '39.0.0',
           environment: {},
           exit: () => undefined,
-          getAppIconPath: () => '/app/icon.png',
           platform: 'linux',
           schedule: () => undefined,
           session: {
@@ -418,15 +424,12 @@ class MainProcessCompositionHarness {
             rmSync: () => undefined,
             writeFileSync: () => undefined,
           },
-          getAppIconPath: () => '/app/icon.png',
-          getAssetPath: () => '/app/icon.png',
           homeDirectory: () => '/home/test',
           platform: 'win32',
           spawn: () => ({
             once: () => undefined,
             unref: () => undefined,
           }),
-          syncDesktopIcons: () => undefined,
         },
         shortcuts: {
           globalShortcut: {
@@ -441,7 +444,6 @@ class MainProcessCompositionHarness {
           buildMenu: () => ({}) as Menu,
           createNativeImage: () => new TestNativeImage() as unknown as NativeImage,
           createTray: () => new TestTray() as unknown as Tray,
-          getAssetPath: () => '/app/icon.png',
           platform: 'linux',
         },
         window: {
@@ -450,8 +452,6 @@ class MainProcessCompositionHarness {
             this.state.window = window;
             return window as unknown as BrowserWindow;
           },
-          getAppIcon: () => new TestNativeImage() as unknown as NativeImage,
-          getAppIconPath: () => '/app/icon.png',
           getAppUrl: () => 'app://gpt-voice/index.html',
           platform: 'linux',
           preloadPath: '/app/preload.js',
@@ -765,6 +765,8 @@ describe('main process composition root', () => {
 
     second.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();
+    assert.equal(second.state.ipcHandlers.size, 0);
+    assert.equal(second.state.closeCount, 1);
   });
 
   it('does not create or open the graph for the Linux integration-removal mode', async () => {

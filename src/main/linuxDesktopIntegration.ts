@@ -6,6 +6,7 @@ const ICON_THEME_NAME = 'hicolor';
 const ICON_CACHE_COMMAND = 'gtk-update-icon-cache';
 const APP_DISPLAY_NAME = 'GPT-Voice';
 const DESKTOP_ICON_NAME = 'gpt-voice';
+const LINUX_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512] as const;
 
 interface SpawnedProcess {
   once(event: 'error', listener: (error: NodeJS.ErrnoException) => void): void;
@@ -35,7 +36,6 @@ export interface LinuxDesktopIntegrationControllerDependencies {
   };
   readonly platform: NodeJS.Platform;
   readonly spawn: (command: string, args: readonly string[], options: { readonly stdio: 'ignore' }) => SpawnedProcess;
-  readonly syncDesktopIcons: (dataHome: string, getAssetPath: (filename: string) => string) => void;
 }
 
 /** Owns AppImage launcher files, icon refreshes, and their injected OS adapters. */
@@ -47,7 +47,7 @@ export class LinuxDesktopIntegrationController {
 
     try {
       const dataHome = this.getXdgDataHome();
-      this.dependencies.syncDesktopIcons(dataHome, this.dependencies.getAssetPath);
+      this.syncDesktopIcons(dataHome);
       this.refreshIconCache(dataHome);
       this.dependencies.logger.info('Updated Linux desktop icon theme');
     } catch (error: unknown) {
@@ -112,6 +112,17 @@ export class LinuxDesktopIntegrationController {
     return (
       this.dependencies.environment.XDG_DATA_HOME || path.join(this.dependencies.homeDirectory(), '.local', 'share')
     );
+  }
+
+  private syncDesktopIcons(dataHome: string): void {
+    for (const size of LINUX_ICON_SIZES) {
+      const iconDirectory = path.join(dataHome, 'icons', ICON_THEME_NAME, `${size}x${size}`, 'apps');
+      this.dependencies.fileSystem.mkdirSync(iconDirectory, { recursive: true });
+      this.dependencies.fileSystem.copyFileSync(
+        this.dependencies.getAssetPath(`icons/${size}x${size}.png`),
+        path.join(iconDirectory, ICON_FILE_NAME),
+      );
+    }
   }
 
   private getIntegrationPaths(): { readonly desktopFile: string; readonly iconFile: string } {

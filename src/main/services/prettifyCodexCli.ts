@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
-import { constants, promises as fs } from 'node:fs';
+import { constants } from 'node:fs';
 import path from 'node:path';
-import { app } from 'electron';
 import { CliProcessFailureCode, type CliProcessResult } from '@main/services/prettifyCliRunner';
 import { PrettifyProviderAudit, type PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import {
@@ -197,9 +196,9 @@ export interface CodexCliOutputSchemaPathContext {
 
 export interface CodexCliPrettifyAdapterDependencies {
   readonly audit: PrettifyProviderAudit;
-  outputSchemaPathResolver?: () => string;
+  readonly outputSchemaPathResolver: () => string;
   readonly runner: CodexCliProcessRunner;
-  schemaFileSystem?: CodexCliSchemaFileSystem;
+  readonly schemaFileSystem: CodexCliSchemaFileSystem;
 }
 
 interface CodexCliRunOptions {
@@ -218,25 +217,11 @@ interface ParsedModelCatalog {
   models: readonly CodexCliModelCapability[];
 }
 
-const systemSchemaFileSystem: CodexCliSchemaFileSystem = {
-  access: (filePath, mode) => fs.access(filePath, mode),
-  readFile: (filePath) => fs.readFile(filePath),
-  stat: (filePath) => fs.stat(filePath),
-};
-
 export function resolveCodexCliOutputSchemaPath(context: CodexCliOutputSchemaPathContext): string {
   const assetsDirectory = context.isPackaged
     ? path.join(context.resourcesPath, 'assets')
     : path.join(context.mainDirectory, '..', 'assets');
   return path.join(assetsDirectory, CODEX_CLI_OUTPUT_SCHEMA_RELATIVE_PATH);
-}
-
-function resolveDefaultCodexCliOutputSchemaPath(): string {
-  return resolveCodexCliOutputSchemaPath({
-    isPackaged: app.isPackaged,
-    mainDirectory: __dirname,
-    resourcesPath: process.resourcesPath,
-  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -469,9 +454,9 @@ export class CodexCliPrettifyAdapter {
 
   constructor(dependencies: CodexCliPrettifyAdapterDependencies) {
     this.audit = dependencies.audit;
-    this.outputSchemaPathResolver = dependencies.outputSchemaPathResolver ?? resolveDefaultCodexCliOutputSchemaPath;
+    this.outputSchemaPathResolver = dependencies.outputSchemaPathResolver;
     this.runner = dependencies.runner;
-    this.schemaFileSystem = dependencies.schemaFileSystem ?? systemSchemaFileSystem;
+    this.schemaFileSystem = dependencies.schemaFileSystem;
   }
 
   public async checkAvailability(input: CodexCliAvailabilityInput): Promise<CodexCliAvailabilityResult> {

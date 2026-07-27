@@ -96,7 +96,7 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
 
   public readonly family = 'voice' as const;
 
-  public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
+  public constructor(dependencies: ProviderAuditDependencies) {
     super(dependencies);
   }
 

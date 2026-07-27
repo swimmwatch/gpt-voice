@@ -4,7 +4,15 @@ import {
   showTranscriptionFailureNotification,
   showTranscriptionSuccessNotification,
 } from '@renderer/recordingNotifications';
+import type { RendererLogger } from '@renderer/RendererLoggerProvider';
 import type { SystemNotificationOptions } from '@shared/notifications';
+
+const logger: RendererLogger = {
+  debug: () => undefined,
+  error: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+};
 
 const translations: Record<string, string> = {
   'error.claudeWeb.connection-loss': 'Claude connection lost. Check your network and try again.',
@@ -45,7 +53,7 @@ describe('recordingNotifications', () => {
   it('uses a success sound for completed transcription notifications', () => {
     const { api, notifications } = createNotificationApi();
 
-    showTranscriptionSuccessNotification(api, t, 'recognized text');
+    showTranscriptionSuccessNotification(api, logger, t, 'recognized text');
 
     assert.deepEqual(notifications, [{ title: 'Text copied', body: 'recognized text', options: { sound: 'success' } }]);
   });
@@ -53,7 +61,7 @@ describe('recordingNotifications', () => {
   it('uses an error sound for transcription failure notifications when requested', () => {
     const { api, notifications } = createNotificationApi();
 
-    showTranscriptionFailureNotification(api, t, new Error('provider\nfailed'), 'Transcription failed', {
+    showTranscriptionFailureNotification(api, logger, t, new Error('provider\nfailed'), 'Transcription failed', {
       sound: 'error',
     });
 
@@ -65,7 +73,7 @@ describe('recordingNotifications', () => {
   it('displays a localized message instead of a Claude provider error status', () => {
     const { api, notifications } = createNotificationApi();
 
-    const presented = showTranscriptionFailureNotification(api, t, 'connection-loss', 'Transcription failed', {
+    const presented = showTranscriptionFailureNotification(api, logger, t, 'connection-loss', 'Transcription failed', {
       sound: 'error',
     });
 
@@ -84,6 +92,7 @@ describe('recordingNotifications', () => {
 
     showTranscriptionFailureNotification(
       api,
+      logger,
       t,
       new Error('Error: provider failed\n    at /home/user/project/src/main/provider.ts:10:1'),
       'Transcription failed',
@@ -100,7 +109,7 @@ describe('recordingNotifications', () => {
   it('can show transcription failure notifications without sound for unrelated failures', () => {
     const { api, notifications } = createNotificationApi();
 
-    showTranscriptionFailureNotification(api, t, '', 'Microphone error');
+    showTranscriptionFailureNotification(api, logger, t, '', 'Microphone error');
 
     assert.deepEqual(notifications, [{ title: 'Recognition failed', body: 'Microphone error', options: undefined }]);
   });
@@ -112,8 +121,8 @@ describe('recordingNotifications', () => {
       },
     };
 
-    showTranscriptionSuccessNotification(api, t, 'recognized text');
-    showTranscriptionFailureNotification(api, t, new Error('provider failed'), 'Transcription failed', {
+    showTranscriptionSuccessNotification(api, logger, t, 'recognized text');
+    showTranscriptionFailureNotification(api, logger, t, new Error('provider failed'), 'Transcription failed', {
       sound: 'error',
     });
 

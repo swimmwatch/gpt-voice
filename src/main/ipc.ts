@@ -49,6 +49,7 @@ import { PrettifyConnectionCheckCoordinator } from './services/prettifyConnectio
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import {
   StreamingTranscriptionIpcController,
+  type StreamingTranscriptionIpcControllerDependencies,
   type StreamingTranscriptionIpcHandler,
 } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
@@ -105,6 +106,12 @@ export interface MainIpcControllerDependencies {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly cloakBrowserSettings: MainIpcCloakBrowserSettingsRepository;
   readonly config: MainIpcConfigRepository;
+  readonly createPrettifyConnectionCoordinator: (
+    runtime: PrettifyRuntime,
+  ) => PrettifyConnectionCheckCoordinator<WebContents>;
+  readonly createStreamingTranscriptionController: (
+    dependencies: StreamingTranscriptionIpcControllerDependencies<WebContents>,
+  ) => StreamingTranscriptionIpcController<WebContents>;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
@@ -120,6 +127,7 @@ export interface MainIpcControllerDependencies {
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
   readonly translationRuntime: Pick<TranslationRuntime, 'shutdown' | 'translateText'>;
+  readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
   readonly voiceSettings: MainIpcVoiceSettingsRepository;
@@ -129,7 +137,7 @@ export interface MainIpcControllerDependencies {
 type TrustedIpcListener<Args extends unknown[]> = (event: IpcMainInvokeEvent, ...args: Args) => unknown;
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
-class TrustedIpcRegistrar {
+export class TrustedIpcRegistrar {
   private readonly channels = new Set<string>();
   private disposed = false;
 
@@ -261,7 +269,7 @@ export class MainIpcController {
   private readonly trustedIpc: TrustedIpcRegistrar;
 
   public constructor(private readonly dependencies: MainIpcControllerDependencies) {
-    this.trustedIpc = new TrustedIpcRegistrar(dependencies.ipc, dependencies.logger, dependencies.windowManager);
+    this.trustedIpc = dependencies.trustedIpc;
   }
 
   /** Registers every main-process handler once for this controller. */
@@ -273,11 +281,11 @@ export class MainIpcController {
     const dependencies = this.dependencies;
     const historyController = dependencies.historyController;
     const log = dependencies.logger;
-    const prettifyConnectionCoordinator = new PrettifyConnectionCheckCoordinator<WebContents>(
+    const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
       dependencies.prettifyRuntime,
     );
     this.prettifyConnectionCoordinator = prettifyConnectionCoordinator;
-    this.streamingTranscriptionController = new StreamingTranscriptionIpcController<WebContents>({
+    this.streamingTranscriptionController = dependencies.createStreamingTranscriptionController({
       addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
       getMainWindowSender: () => {
         const mainWindow = dependencies.windowManager.getMainWindow();

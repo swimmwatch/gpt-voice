@@ -3,7 +3,7 @@ import type { I18nService } from '@main/i18n';
 import type { TranslationExecutionSnapshot, TranslationRuntime } from '@main/services/translation';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
-import type { TextAutomationAction } from '@main/services/textAutomation';
+import type { TextAutomationService } from '@main/services/textAutomation';
 import {
   formatNotificationBody,
   presentNotificationError,
@@ -38,7 +38,6 @@ export type SelectedTextTranslationRuntime = Pick<
 
 export interface SelectedTextTranslationDependencies {
   readonly actionGate: SelectedTextActionGate;
-  readonly automateTextAction: (action: TextAutomationAction) => Promise<void>;
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextTranslationClipboard;
   readonly logger: SelectedTextTranslationLogger;
@@ -46,6 +45,7 @@ export interface SelectedTextTranslationDependencies {
   readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   readonly platform: NodeJS.Platform;
   readonly runtime: SelectedTextTranslationRuntime;
+  readonly textAutomation: Pick<TextAutomationService, 'run'>;
   readonly wait: (delayMs: number) => Promise<void>;
 }
 
@@ -173,7 +173,7 @@ export class SelectedTextTranslationService {
   private async readSelectedText(): Promise<{ selectedText: string; copyError?: unknown }> {
     let copyError: unknown;
     try {
-      await this.dependencies.automateTextAction('copy');
+      await this.dependencies.textAutomation.run('copy');
       await this.dependencies.wait(COPY_SETTLE_DELAY_MS);
     } catch (error: unknown) {
       copyError = error;

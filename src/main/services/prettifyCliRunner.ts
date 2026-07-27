@@ -1,6 +1,5 @@
-import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
-import { constants, promises as fs } from 'node:fs';
-import os from 'node:os';
+import type { ChildProcess, SpawnOptions } from 'node:child_process';
+import { constants } from 'node:fs';
 import path from 'node:path';
 
 export const CLI_PROCESS_GRACE_PERIOD_MS = 1_000;
@@ -128,14 +127,15 @@ export interface CliProcessTreeTerminator {
 }
 
 export interface CliProcessRunnerDependencies {
-  clock?: CliProcessClock;
-  environment?: NodeJS.ProcessEnv;
-  executableResolver?: CliExecutableResolver;
-  fileSystem?: CliProcessFileSystem;
-  getTemporaryDirectory?: () => string;
-  platform?: NodeJS.Platform;
-  spawn?: (executable: string, args: string[], options: SpawnOptions) => ChildProcess;
-  treeTerminator?: CliProcessTreeTerminator;
+  readonly clock: CliProcessClock;
+  readonly environment: NodeJS.ProcessEnv;
+  readonly executableResolver?: CliExecutableResolver;
+  readonly fileSystem: CliProcessFileSystem;
+  readonly getTemporaryDirectory: () => string;
+  readonly killProcessGroup: (processId: number, signal: NodeJS.Signals) => void;
+  readonly platform: NodeJS.Platform;
+  readonly spawn: (executable: string, args: string[], options: SpawnOptions) => ChildProcess;
+  readonly treeTerminator?: CliProcessTreeTerminator;
 }
 
 interface ExecutionOutcome {
@@ -155,19 +155,6 @@ interface FailureDetails {
   stderrExcerpt?: string;
   stdoutBytes?: number;
 }
-
-const systemClock: CliProcessClock = {
-  clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
-  now: () => Date.now(),
-  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
-};
-
-const systemFileSystem: CliProcessFileSystem = {
-  access: (filePath, mode) => fs.access(filePath, mode),
-  mkdtemp: (prefix) => fs.mkdtemp(prefix),
-  removeDirectory: (directory) => fs.rm(directory, { force: true, recursive: true }),
-  stat: (filePath) => fs.stat(filePath),
-};
 
 function isSafeOperationLabel(value: string): boolean {
   return /^[a-z][a-z0-9-]{0,63}$/u.test(value);
@@ -212,8 +199,8 @@ function getEnvironmentKeys(platform: NodeJS.Platform): readonly string[] {
 }
 
 export function createCliProcessEnvironment(
-  environment: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform,
+  environment: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
 ): NodeJS.ProcessEnv {
   const sanitized: NodeJS.ProcessEnv = {};
   for (const key of getEnvironmentKeys(platform)) {
@@ -356,11 +343,12 @@ function isEpipe(error: unknown): boolean {
 function defaultTreeTerminator(
   platform: NodeJS.Platform,
   spawnProcess: (executable: string, args: string[], options: SpawnOptions) => ChildProcess,
+  killProcessGroup: (processId: number, signal: NodeJS.Signals) => void,
 ): CliProcessTreeTerminator {
   const terminateUnixGroup = (child: ChildProcess, signal: NodeJS.Signals): void => {
     if (typeof child.pid === 'number') {
       try {
-        process.kill(-child.pid, signal);
+        killProcessGroup(-child.pid, signal);
         return;
       } catch {
         // A child may exit between its close event and termination request.
@@ -418,15 +406,16 @@ export class CliProcessRunner {
   private readonly spawn: (executable: string, args: string[], options: SpawnOptions) => ChildProcess;
   private readonly treeTerminator: CliProcessTreeTerminator;
 
-  constructor(dependencies: CliProcessRunnerDependencies = {}) {
-    this.clock = dependencies.clock ?? systemClock;
-    this.environment = dependencies.environment ?? process.env;
-    this.fileSystem = dependencies.fileSystem ?? systemFileSystem;
+  constructor(dependencies: CliProcessRunnerDependencies) {
+    this.clock = dependencies.clock;
+    this.environment = dependencies.environment;
+    this.fileSystem = dependencies.fileSystem;
     this.executableResolver = dependencies.executableResolver ?? createDefaultExecutableResolver(this.fileSystem);
-    this.getTemporaryDirectory = dependencies.getTemporaryDirectory ?? os.tmpdir;
-    this.platform = dependencies.platform ?? process.platform;
-    this.spawn = dependencies.spawn ?? ((executable, args, options) => nodeSpawn(executable, args, options));
-    this.treeTerminator = dependencies.treeTerminator ?? defaultTreeTerminator(this.platform, this.spawn);
+    this.getTemporaryDirectory = dependencies.getTemporaryDirectory;
+    this.platform = dependencies.platform;
+    this.spawn = dependencies.spawn;
+    this.treeTerminator =
+      dependencies.treeTerminator ?? defaultTreeTerminator(this.platform, this.spawn, dependencies.killProcessGroup);
   }
 
   /** Runs one isolated CLI process operation. */

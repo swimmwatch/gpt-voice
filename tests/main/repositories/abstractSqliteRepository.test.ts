@@ -8,6 +8,7 @@ import { afterEach, describe, it } from 'node:test';
 import type { DatabaseSync } from 'node:sqlite';
 import { REPOSITORY_ERROR_CODES, RepositoryError } from '@main/repositories/repositoryErrors';
 import { AppDatabaseCoordinator } from '@main/repositories/sqlite/appDatabase';
+import { AppDatabaseTestDependencies } from './appDatabaseTestDependencies';
 import { AbstractSqliteRepository, type SqliteDataSource } from '@main/repositories/sqlite/abstractSqliteRepository';
 
 class TestSqliteRepository extends AbstractSqliteRepository {
@@ -33,7 +34,7 @@ class SqliteRepositoryHarness {
   public constructor() {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-sqlite-repository-'));
     this.databasePath = path.join(this.temporaryDirectory, 'test.sqlite3');
-    this.coordinator = new AppDatabaseCoordinator(this.databasePath);
+    this.coordinator = new AppDatabaseCoordinator(this.databasePath, new AppDatabaseTestDependencies());
     this.repository = new TestSqliteRepository(this.coordinator);
   }
 

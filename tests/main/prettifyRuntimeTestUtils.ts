@@ -8,6 +8,7 @@ import {
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 import {
   createPrettifySettingsWithSecret,
   type PrettifySettingsStorage,
@@ -52,7 +53,7 @@ export class PrettifyRuntimeFixture {
   public readonly runtime: PrettifyRuntime;
 
   public constructor(options: PrettifyRuntimeFixtureOptions = {}) {
-    this.audit = options.audit ?? new PrettifyProviderAudit();
+    this.audit = options.audit ?? new PrettifyProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
     const settings = options.settings ?? new TestPrettifySettingsStorage();
     const localization = new I18nService();
     const claudeCliAdapter: PrettifyProviderFactoryDependencies['claudeCliAdapter'] = {

@@ -1,4 +1,6 @@
+import { AboutWindowController } from '../aboutWindowController';
 import { AppProtocolController, type AppProtocolControllerDependencies } from '../appProtocol';
+import { AssetPathResolver, type AssetPathResolverDependencies } from '../assets';
 import { DesktopRuntimeController, type DesktopRuntimeControllerDependencies } from '../desktopRuntimeController';
 import {
   LinuxDesktopIntegrationController,
@@ -7,10 +9,12 @@ import {
 import { ShortcutController, type ShortcutControllerDependencies } from '../shortcuts';
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
+import { ProviderSettingsWindowController } from '../providerSettingsWindowController';
 import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } from '../browser';
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import type { ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
 import type { ChatGPTVoiceProviderDependencies } from '../providers/ChatGPTVoiceProvider';
@@ -44,6 +48,7 @@ import {
 import { ClaudeCliPrettifyAdapter } from '../services/prettifyClaudeCli';
 import { CodexCliPrettifyAdapter, type CodexCliPrettifyAdapterDependencies } from '../services/prettifyCodexCli';
 import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services/prettifyCliRunner';
+import { TextAutomationService, type TextAutomationServiceDependencies } from '../services/textAutomation';
 import { AppConfigStore, type AppConfigStoreDependencies } from '../config';
 import { I18nService } from '../i18n';
 import {
@@ -88,7 +93,7 @@ export type MainProcessVoiceProviderEnvironment = Omit<
     | 'clearSession'
     | 'getSettings'
     | 'getStorageState'
-    | 'navigationLogger'
+    | 'navigationService'
     | 'readSession'
     | 'resolveOrganization'
     | 'saveSession'
@@ -125,7 +130,7 @@ export interface MainProcessTranslationEnvironment {
   readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
   readonly selectedText: Omit<
     SelectedTextTranslationDependencies,
-    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime'
+    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime' | 'textAutomation'
   >;
 }
 
@@ -140,7 +145,15 @@ export interface MainProcessPrettifyEnvironment {
   >;
   readonly selectedText: Omit<
     SelectedTextPrettifyDependencies,
-    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime' | 'settings'
+    | 'actionGate'
+    | 'cache'
+    | 'clipboard'
+    | 'localization'
+    | 'logger'
+    | 'notify'
+    | 'runtime'
+    | 'settings'
+    | 'textAutomation'
   >;
 }
 
@@ -157,6 +170,7 @@ export type MainProcessCompositionEnvironment = Omit<
   MainProcessRuntimeFactoryDependencies,
   RootOwnedRuntimeDependencyKeys
 > & {
+  readonly assetPaths: AssetPathResolverDependencies;
   readonly cloakBrowserRuntime: Omit<CloakBrowserRuntimeLoaderDependencies, 'logger'>;
   readonly cloakBrowserSettings: Omit<
     CloakBrowserSettingsRepositoryDependencies,
@@ -180,14 +194,21 @@ export type MainProcessCompositionEnvironment = Omit<
   >;
   readonly logger: LoggerFactoryDependencies;
   readonly prettify: MainProcessPrettifyEnvironment;
+  readonly textAutomation: TextAutomationServiceDependencies;
   readonly translation: MainProcessTranslationEnvironment;
   readonly voice: MainProcessVoiceEnvironment;
 };
 
 export interface MainProcessDesktopControllerEnvironment {
-  readonly appProtocol: Omit<AppProtocolControllerDependencies, 'logger'>;
-  readonly desktopRuntime: Omit<DesktopRuntimeControllerDependencies, 'openExternal' | 'windowManager'>;
-  readonly linuxDesktopIntegration: Omit<LinuxDesktopIntegrationControllerDependencies, 'logger'>;
+  readonly appProtocol: Omit<AppProtocolControllerDependencies, 'appIconPath' | 'appRoot' | 'logger'>;
+  readonly desktopRuntime: Omit<
+    DesktopRuntimeControllerDependencies,
+    'getAppIconPath' | 'openExternal' | 'windowManager'
+  >;
+  readonly linuxDesktopIntegration: Omit<
+    LinuxDesktopIntegrationControllerDependencies,
+    'getAppIconPath' | 'getAssetPath' | 'logger'
+  >;
   readonly shortcuts: Omit<
     ShortcutControllerDependencies,
     | 'selectedTextActionGate'
@@ -198,8 +219,16 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'config'
     | 'logger'
   >;
-  readonly tray: Omit<TrayControllerDependencies, 'localization' | 'windowManager'>;
-  readonly window: Omit<WindowManagerDependencies, 'logger' | 'openExternal'>;
+  readonly tray: Omit<TrayControllerDependencies, 'getAssetPath' | 'localization' | 'windowManager'>;
+  readonly window: Omit<
+    WindowManagerDependencies,
+    | 'createAboutWindowController'
+    | 'getAppIcon'
+    | 'getAppIconPath'
+    | 'logger'
+    | 'openExternal'
+    | 'providerSettingsWindowController'
+  >;
 }
 
 type ConstructedDesktopDependencyKeys =
@@ -240,6 +269,7 @@ export class MainProcessCompositionRoot {
   /** Constructs one isolated application graph from the injected process environment. */
   public createApplication(environment: MainProcessApplicationEnvironment): MainProcessApplication {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
+    const assetPaths = new AssetPathResolver(this.environment.assetPaths);
     const loggerFactory = new LoggerFactory(this.environment.logger);
     const electronRuntime = new ElectronRuntimeLoader({
       ...this.environment.electronRuntime,
@@ -294,6 +324,7 @@ export class MainProcessCompositionRoot {
       ...this.environment.voice.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const claudeWebNavigationService = new ClaudeWebNavigationService(loggerFactory.getLogger('claude-web-provider'));
     const { chatGPT, claudeWeb, openAIApi, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
       ...otherVoiceProviders,
@@ -314,7 +345,7 @@ export class MainProcessCompositionRoot {
         clearSession: claudeWebSession.clearSession,
         getSettings: claudeWebSettings.getSettings,
         getStorageState: getPlaywrightStorageState,
-        navigationLogger: loggerFactory.getLogger('claude-web-provider'),
+        navigationService: claudeWebNavigationService,
         readSession: claudeWebSession.readSession,
         resolveOrganization: resolveClaudeWebOrganization,
         saveSession: claudeWebSession.saveSession,
@@ -348,6 +379,7 @@ export class MainProcessCompositionRoot {
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
     const selectedTextActionGate = new SelectedTextActionGate();
+    const textAutomation = new TextAutomationService(this.environment.textAutomation);
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
       cloakBrowserSettings,
@@ -380,6 +412,7 @@ export class MainProcessCompositionRoot {
       localization,
       notify: electronRuntime.showSystemNotification,
       runtime: translationRuntime,
+      textAutomation,
     });
     const prettifyProviderAudit = new PrettifyProviderAudit({
       ...this.environment.prettify.audit,
@@ -426,14 +459,20 @@ export class MainProcessCompositionRoot {
       notify: electronRuntime.showSystemNotification,
       runtime: prettifyRuntime,
       settings: prettifySettingsStorage,
+      textAutomation,
     });
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
+      createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
+      getAppIcon: () => desktopEnvironment.tray.createNativeImage(assetPaths.getAppIconPath()),
+      getAppIconPath: assetPaths.getAppIconPath,
       logger: loggerFactory.getLogger('window'),
       openExternal: electronRuntime.openExternal,
+      providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
+      getAssetPath: assetPaths.getAssetPath,
       localization,
       windowManager,
     });
@@ -450,16 +489,21 @@ export class MainProcessCompositionRoot {
     const controllers: ConstructedControllers = {
       appProtocolController: new AppProtocolController({
         ...desktopEnvironment.appProtocol,
+        appIconPath: assetPaths.getAppIconPath(),
+        appRoot: assetPaths.getApplicationRoot(),
         logger: loggerFactory.getLogger('app-protocol'),
       }),
       backgroundBrowserService,
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
+        getAppIconPath: assetPaths.getAppIconPath,
         openExternal: electronRuntime.openExternal,
         windowManager,
       }),
       linuxDesktopIntegrationController: new LinuxDesktopIntegrationController({
         ...desktopEnvironment.linuxDesktopIntegration,
+        getAppIconPath: assetPaths.getAppIconPath,
+        getAssetPath: assetPaths.getAssetPath,
         logger: loggerFactory.getLogger('desktop-integration'),
       }),
       prettifyRuntime,

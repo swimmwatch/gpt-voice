@@ -47,7 +47,7 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
 
   public readonly family = 'translation' as const;
 
-  public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
+  public constructor(dependencies: ProviderAuditDependencies) {
     super(dependencies);
   }
 

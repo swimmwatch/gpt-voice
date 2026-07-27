@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import rendererLog from 'electron-log/renderer';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
+import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import { prepareTranscriptionAudio, type TranscriptionAudioPayload } from '../audioEncoding';
 import {
   beginRetryTranscription,
@@ -29,8 +29,6 @@ import {
   type RecordingLifecycleState,
 } from '@shared/recordingLifecycle';
 
-const log = rendererLog.scope('recording');
-
 interface UseRecordingOptions {
   notifyStatus?: (status: RendererStatus) => void;
   setRecordingState: (state: RecordingLifecycleState) => void;
@@ -48,6 +46,8 @@ export function useRecording({
   transcriptionMode,
 }: UseRecordingOptions) {
   const desktopApi = useDesktopApi();
+  const log = useRendererLogger('recording');
+  const notificationLogger = useRendererLogger('recording-notifications');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,9 +62,9 @@ export function useRecording({
 
   const showRecognitionErrorNotification = useCallback(
     (error: unknown, fallback: string, options?: SystemNotificationOptions): PresentedNotificationError => {
-      return showTranscriptionFailureNotification(desktopApi, t, error, fallback, options);
+      return showTranscriptionFailureNotification(desktopApi, notificationLogger, t, error, fallback, options);
     },
-    [desktopApi, t],
+    [desktopApi, notificationLogger, t],
   );
 
   const reportRetryTranscriptionAvailability = useCallback(
@@ -73,7 +73,7 @@ export function useRecording({
         log.warn('Failed to update retry transcription availability:', getNotificationErrorMessage(error));
       });
     },
-    [desktopApi],
+    [desktopApi, log],
   );
 
   const setRecordingLifecycle = useCallback(
@@ -84,7 +84,7 @@ export function useRecording({
         log.warn('Failed to update recording lifecycle state:', getNotificationErrorMessage(error));
       });
     },
-    [desktopApi, setRecordingState],
+    [desktopApi, log, setRecordingState],
   );
 
   const reportRetryableTranscriptionAudio = useCallback(() => {
@@ -110,9 +110,9 @@ export function useRecording({
     (text: string) => {
       log.info('Copied transcription to clipboard, text length:', text.length);
       setStatus(translatedStatus('status.copiedToClipboard'));
-      showTranscriptionSuccessNotification(desktopApi, t, text);
+      showTranscriptionSuccessNotification(desktopApi, notificationLogger, t, text);
     },
-    [desktopApi, setStatus, t],
+    [desktopApi, log, notificationLogger, setStatus, t],
   );
 
   const submitTranscriptionAudio = useCallback(
@@ -144,7 +144,7 @@ export function useRecording({
         log.error('Transcribe error:', presented.safeLogMetadata);
       }
     },
-    [desktopApi, setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
+    [desktopApi, log, setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
   );
 
   const streamingRecording = useStreamingRecordingController({
@@ -253,6 +253,7 @@ export function useRecording({
     clearLastTranscriptionAudio,
     desktopApi,
     getSupportedRecordingMimeType,
+    log,
     rememberLastTranscriptionAudio,
     reportRetryableTranscriptionAudio,
     setRecordingLifecycle,
@@ -312,7 +313,7 @@ export function useRecording({
       setStatus(translatedStatus('status.paused'));
       log.info('Paused');
     }
-  }, [setRecordingLifecycle, setStatus, streamingRecording]);
+  }, [log, setRecordingLifecycle, setStatus, streamingRecording]);
 
   const resumeRecording = useCallback(() => {
     if (!canResumeRecording(recordingLifecycleStateRef.current)) return;
@@ -328,7 +329,7 @@ export function useRecording({
       setStatus(translatedStatus('status.recording'));
       log.info('Resumed');
     }
-  }, [setRecordingLifecycle, setStatus, streamingRecording]);
+  }, [log, setRecordingLifecycle, setStatus, streamingRecording]);
 
   const cancelRecording = useCallback(() => {
     if (!canCancelRecording(recordingLifecycleStateRef.current)) return;
@@ -357,7 +358,7 @@ export function useRecording({
     setStatus(status);
     notifyStatus?.(status);
     log.info('Cancelled by user');
-  }, [notifyStatus, setRecordingLifecycle, setStatus, streamingRecording]);
+  }, [log, notifyStatus, setRecordingLifecycle, setStatus, streamingRecording]);
 
   const cancelStreamingForProviderChange = useCallback(() => {
     streamingRecording.cancelForProviderChange();

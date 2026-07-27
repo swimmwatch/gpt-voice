@@ -19,6 +19,7 @@ test('uses a shared renderer bootstrap for every window entry', async () => {
   const bootstrap = await readFile(path.join(rendererDirectory, 'bootstrapWindow.tsx'), 'utf8');
 
   assert.match(bootstrap, /function bootstrapWindow\(/);
+  assert.match(bootstrap, /<RendererLoggerProvider factory=\{rendererLog\}>/);
   assert.match(bootstrap, /<DesktopApiProvider api=\{desktopApi\}>/);
   assert.match(bootstrap, /<I18nProvider>/);
   assert.match(bootstrap, /<TooltipProvider>/);
@@ -31,7 +32,10 @@ test('uses a shared renderer bootstrap for every window entry', async () => {
     assert.match(source, /bootstrapWindow\(/);
     assert.ok(source.includes(`bootstrapWindow(${componentName}, window.electronAPI)`));
     assert.doesNotMatch(source, /pathname|window\.location/);
-    assert.doesNotMatch(source, /DesktopApiProvider|I18nProvider|TooltipProvider|WindowStartupGate|Toaster/);
+    assert.doesNotMatch(
+      source,
+      /DesktopApiProvider|RendererLoggerProvider|I18nProvider|TooltipProvider|WindowStartupGate|Toaster/,
+    );
   }
 });
 

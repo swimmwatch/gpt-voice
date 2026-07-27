@@ -5,6 +5,7 @@ import type { SessionState } from '@main/providers/chatgptUtils';
 import type { ClaudeWebPageTransportLike, ClaudeWebReadinessSnapshot } from '@main/providers/ClaudeWebVoiceProvider';
 import type { ClaudeWebOrganizationEvidence, ClaudeWebSessionReadResult } from '@main/providers/claudeWebSession';
 import { resolveClaudeWebOrganization } from '@main/providers/claudeWebSession';
+import { ClaudeWebNavigationService } from '@main/providers/claudeWebNavigationService';
 import type { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import { VoiceProviderFactory } from '@main/providers/voiceProviderFactory';
 import { I18nService } from '@main/i18n';
@@ -82,7 +83,7 @@ export class VoiceProviderRegistryFixture {
         getSettings: () => ({ language: 'en-US' }),
         getStorageState: (session) => ({ cookies: session.cookies, origins: session.origins }),
         inspectReadiness: async (_page: Page) => INERT_CLAUDE_READINESS,
-        navigationLogger: { warn: () => undefined },
+        navigationService: new ClaudeWebNavigationService({ warn: () => undefined }),
         now: () => 0,
         readSession: (): ClaudeWebSessionReadResult => ({ status: 'missing' }),
         resolveOrganization: (evidence: ClaudeWebOrganizationEvidence) => resolveClaudeWebOrganization(evidence),

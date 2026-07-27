@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
-import rendererLog from 'electron-log/renderer';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
+import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import { startLivePcmCapture } from '@renderer/audio/livePcmCaptureBrowser';
 import type { LivePcmCaptureSession } from '@renderer/audio/livePcmCaptureSession';
 import {
@@ -16,8 +16,6 @@ import type { PresentedNotificationError, SystemNotificationOptions } from '@sha
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 import type { VoiceTranscriptionMode } from '@shared/voiceProvider';
-
-const log = rendererLog.scope('recording');
 
 interface UseStreamingRecordingControllerOptions {
   clearRetryAudio: () => void;
@@ -64,6 +62,7 @@ export function useStreamingRecordingController({
   t,
 }: UseStreamingRecordingControllerOptions) {
   const desktopApi = useDesktopApi();
+  const log = useRendererLogger('recording');
   const captureRef = useRef<LivePcmCaptureSession | null>(null);
   const capturePromiseRef = useRef<Promise<LivePcmCaptureSession> | null>(null);
   const finalizingRef = useRef(false);
@@ -93,7 +92,7 @@ export function useStreamingRecordingController({
       });
       setStatus(translatedStatus(translationKey));
     },
-    [setStatus, showRecognitionError, t],
+    [log, setStatus, showRecognitionError, t],
   );
 
   const finalizeFailure = useCallback(
@@ -196,6 +195,7 @@ export function useStreamingRecordingController({
       clearOperation,
       desktopApi,
       finalizeFailure,
+      log,
       recordingGenerationRef,
       recordingLifecycleStateRef,
       recordingModeRef,
@@ -261,6 +261,7 @@ export function useStreamingRecordingController({
     [
       clearOperation,
       clearRetryAudio,
+      log,
       recordingGenerationRef,
       rememberRetryAudio,
       reportRetryableAudio,
@@ -286,14 +287,14 @@ export function useStreamingRecordingController({
     setRecordingLifecycle('paused');
     setStatus(translatedStatus('status.paused'));
     log.info('Paused');
-  }, [setRecordingLifecycle, setStatus]);
+  }, [log, setRecordingLifecycle, setStatus]);
 
   const resume = useCallback((): void => {
     captureRef.current?.resume();
     setRecordingLifecycle('recording');
     setStatus(translatedStatus('status.recording'));
     log.info('Resumed');
-  }, [setRecordingLifecycle, setStatus]);
+  }, [log, setRecordingLifecycle, setStatus]);
 
   const cancel = useCallback(
     (notifyUser: boolean): void => {
@@ -325,6 +326,7 @@ export function useStreamingRecordingController({
     [
       clearOperation,
       clearRetryAudio,
+      log,
       notifyStatus,
       recordingGenerationRef,
       recordingModeRef,

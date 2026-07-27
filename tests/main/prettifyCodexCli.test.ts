@@ -103,6 +103,15 @@ class FakeRunner implements CodexCliProcessRunner {
     if (!result) throw new Error('Missing synthetic runner result');
     return result;
   }
+
+  public createAdapter(): CodexCliPrettifyAdapter {
+    return new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
+      outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
+      runner: this,
+      schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
+    });
+  }
 }
 
 interface FakeSchemaFileSystemState {
@@ -439,10 +448,7 @@ describe('CodexCliPrettifyAdapter', () => {
         CodexCliPrettifyErrorCode.NotAuthenticated,
       ],
     ] as const) {
-      const adapter = new CodexCliPrettifyAdapter({
-        audit: new RecordingPrettifyProviderAudit(),
-        runner: new FakeRunner([...results]),
-      });
+      const adapter = new FakeRunner([...results]).createAdapter();
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -467,10 +473,7 @@ describe('CodexCliPrettifyAdapter', () => {
       [CliProcessFailureCode.CleanupFailure, CodexCliPrettifyErrorCode.ProcessFailed],
     ];
     for (const [runnerFailure, expected] of cases) {
-      const adapter = new CodexCliPrettifyAdapter({
-        audit: new RecordingPrettifyProviderAudit(),
-        runner: new FakeRunner([failure(runnerFailure)]),
-      });
+      const adapter = new FakeRunner([failure(runnerFailure)]).createAdapter();
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -481,10 +484,7 @@ describe('CodexCliPrettifyAdapter', () => {
   it('uses the bundled model catalog after primary failure and retains valid configured free-text models on catalog drift', async () => {
     const controller = new AbortController();
     const bundledRunner = new FakeRunner([failure(CliProcessFailureCode.SpawnError), success(MODEL_CATALOG)]);
-    const bundledAdapter = new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: bundledRunner,
-    });
+    const bundledAdapter = bundledRunner.createAdapter();
     assert.deepEqual(await bundledAdapter.discoverModels(getSettings(), controller.signal), {
       models: [
         {
@@ -502,10 +502,10 @@ describe('CodexCliPrettifyAdapter', () => {
       [512 * 1024, 512 * 1024],
     );
 
-    const configuredAdapter = new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: new FakeRunner([success({ changed: 'shape' }), success({ still: 'changed' })]),
-    });
+    const configuredAdapter = new FakeRunner([
+      success({ changed: 'shape' }),
+      success({ still: 'changed' }),
+    ]).createAdapter();
     assert.deepEqual(
       await configuredAdapter.discoverModels(getSettings({ model: 'gpt-free-text-model' }), controller.signal),
       {
@@ -586,10 +586,7 @@ describe('CodexCliPrettifyAdapter', () => {
         },
       ],
     };
-    const adapter = new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: new FakeRunner([success(catalog)]),
-    });
+    const adapter = new FakeRunner([success(catalog)]).createAdapter();
 
     assert.deepEqual(await adapter.discoverModels(getSettings(), new AbortController().signal), {
       models: [
@@ -644,10 +641,9 @@ describe('CodexCliPrettifyAdapter', () => {
     assert.equal(executionArguments.includes('model_reasoning_effort="xhigh"'), true);
     assert.equal(executionArguments.includes('model_verbosity="high"'), true);
 
-    const discovery = await new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: new FakeRunner([success(MODEL_CATALOG)]),
-    }).discoverModels(settings, new AbortController().signal);
+    const discovery = await new FakeRunner([success(MODEL_CATALOG)])
+      .createAdapter()
+      .discoverModels(settings, new AbortController().signal);
     assert.equal(discovery.success, true);
     if (discovery.success) {
       assert.deepEqual(
@@ -664,10 +660,7 @@ describe('CodexCliPrettifyAdapter', () => {
 
   it('maps invalid models and unavailable model discovery precisely', async () => {
     const invalidRunner = new FakeRunner(getAvailabilityResults());
-    const invalidAdapter = new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: invalidRunner,
-    });
+    const invalidAdapter = invalidRunner.createAdapter();
     assert.deepEqual(
       await invalidAdapter.prepare({
         prompt: PROTECTED_PROMPT,
@@ -678,10 +671,10 @@ describe('CodexCliPrettifyAdapter', () => {
     );
     assert.equal(invalidRunner.calls.length, 5);
 
-    const discoveryAdapter = new CodexCliPrettifyAdapter({
-      audit: new RecordingPrettifyProviderAudit(),
-      runner: new FakeRunner([failure(CliProcessFailureCode.SpawnError), success({ unsupported: 'catalog shape' })]),
-    });
+    const discoveryAdapter = new FakeRunner([
+      failure(CliProcessFailureCode.SpawnError),
+      success({ unsupported: 'catalog shape' }),
+    ]).createAdapter();
     assert.deepEqual(await discoveryAdapter.discoverModels(getSettings(), new AbortController().signal), {
       error: CodexCliPrettifyErrorCode.ModelDiscoveryFailed,
       success: false,

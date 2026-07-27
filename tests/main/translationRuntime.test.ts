@@ -16,6 +16,7 @@ import { TranslationProviderAudit } from '@main/translateProviders/translationPr
 import type { TranslationProviderId, TranslationSettings } from '@shared/translationProvider';
 import { noopTranslationProviderAudit } from './translateProviders/translationAuditTestUtils';
 import { I18nService } from '@main/i18n';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -113,6 +114,7 @@ class CapturingTranslationProviderAudit extends TranslationProviderAudit {
     };
 
     super({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       getSink: () => sink,
       now: () => {
         timestamp += 1;
@@ -128,12 +130,20 @@ class CapturingTranslationProviderAudit extends TranslationProviderAudit {
 }
 
 class ThrowingConstructionTranslationProviderAudit extends TranslationProviderAudit {
+  public constructor() {
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+  }
+
   protected override buildLifecycle(): ProviderAuditLifecycle<'translation'> {
     throw new Error('audit-construction-private-canary');
   }
 }
 
 class ThrowingLifecycleTranslationProviderAudit extends TranslationProviderAudit {
+  public constructor() {
+    super(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+  }
+
   protected override buildLifecycle(): ProviderAuditLifecycle<'translation'> {
     const throwAuditError = (): never => {
       throw new Error('audit-lifecycle-private-canary');

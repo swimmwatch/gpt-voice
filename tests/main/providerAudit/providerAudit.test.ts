@@ -14,6 +14,7 @@ import {
   type ProviderAuditDependencies,
   type ProviderAuditSink,
 } from '@main/providerAudit/providerAudit';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAuditTestDependencies';
 
 const GENERATED_OPERATION_ID = '123e4567-e89b-42d3-a456-426614174000';
 const STREAMING_OPERATION_ID = '4c4d8c57-0b93-4f26-a405-a1dd5e253e39';
@@ -53,7 +54,7 @@ class TestProviderAudit<Family extends ProviderAuditFamily> extends BaseProvider
     public readonly family: Family,
     dependencies: Partial<ProviderAuditDependencies> = {},
   ) {
-    super(dependencies);
+    super({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, ...dependencies });
   }
 }
 

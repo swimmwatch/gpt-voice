@@ -190,12 +190,6 @@ function createTestService(options: TestServiceOptions = {}) {
 
   const dependencies: SelectedTextTranslationDependencies = {
     actionGate: options.actionGate ?? new SelectedTextActionGate(),
-    automateTextAction: async (action) => {
-      actions.push(action);
-      options.onCopy?.();
-      if (options.copyFails) throw new Error('synthetic copy failure');
-      if (options.copyText !== undefined) clipboard.clipboard = options.copyText;
-    },
     cache: options.cache ?? createTextActionResultCache(20),
     clipboard: {
       readText: (type?: ClipboardType) => (type === 'selection' ? clipboard.selection : clipboard.clipboard),
@@ -211,6 +205,15 @@ function createTestService(options: TestServiceOptions = {}) {
     },
     platform: 'linux',
     runtime,
+    textAutomation: {
+      run: async (action) => {
+        actions.push(action);
+        options.onCopy?.();
+        if (options.copyFails) throw new Error('synthetic copy failure');
+        if (options.copyText !== undefined) clipboard.clipboard = options.copyText;
+        return { args: [], command: 'test', requiredExecutable: 'test', strategy: 'linux-x11' };
+      },
+    },
     wait: async () => {},
   };
 

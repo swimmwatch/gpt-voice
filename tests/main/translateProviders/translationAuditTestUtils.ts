@@ -10,6 +10,7 @@ import type {
 } from '@main/providerAudit';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
 import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
 
 export type TranslationAuditLifecycleInput =
   ProviderAuditLifecycleInput<'translation'> | UnknownProviderAuditLifecycleInput<'translation'>;
@@ -92,7 +93,7 @@ export class RecordingTranslationProviderAudit extends TranslationProviderAudit 
   public readonly operations: RecordedTranslationAuditOperation[] = [];
 
   public constructor(dependencies: Partial<ProviderAuditDependencies> = {}) {
-    super({ elapsedNow: () => 1_000, ...dependencies });
+    super({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, ...dependencies });
   }
 
   protected override buildLifecycle(input: TranslationAuditLifecycleInput): ProviderAuditLifecycle<'translation'> {
@@ -103,8 +104,7 @@ export class RecordingTranslationProviderAudit extends TranslationProviderAudit 
 }
 
 export const noopTranslationProviderAudit = new TranslationProviderAudit({
-  elapsedNow: () => 1_000,
-  getSink: () => null,
+  ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
 });
 
 type TranslationProviderRequestDefaults = Omit<TranslationProviderRequest, 'audit' | 'auditContext'>;

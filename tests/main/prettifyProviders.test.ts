@@ -20,6 +20,7 @@ import {
   type RecordedPrettifyAuditOperation,
 } from './prettifyAuditTestUtils';
 import { PrettifyRuntimeFixture, TestPrettifySettingsStorage } from './prettifyRuntimeTestUtils';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 
 interface FetchCall {
   url: string;
@@ -883,7 +884,7 @@ describe('Prettify CLI audit lifecycle', () => {
       },
     };
     const result = await new PrettifyRuntimeFixture({
-      audit: new PrettifyProviderAudit({ getSink: () => throwingSink }),
+      audit: new PrettifyProviderAudit({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, getSink: () => throwingSink }),
       claudeCliAdapter: {
         prepare: async () => ({
           prepared: {
@@ -1219,7 +1220,7 @@ describe('Prettify HTTP audit lifecycle', () => {
       },
     };
     const result = await new PrettifyRuntimeFixture({
-      audit: new PrettifyProviderAudit({ getSink: () => throwingSink }),
+      audit: new PrettifyProviderAudit({ ...TEST_PROVIDER_AUDIT_DEPENDENCIES, getSink: () => throwingSink }),
       fetch: async () => response(200, { message: { content: 'result' } }),
     }).runtime.run('source', {
       providerId: 'ollama',
@@ -1237,6 +1238,7 @@ describe('Prettify HTTP audit lifecycle', () => {
     };
     let uuidSequence = 0;
     const audit = new PrettifyProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
       elapsedNow: () => 1_000,
       getSink: () => sink,
       now: () => new Date('2026-07-27T00:00:00.000Z'),

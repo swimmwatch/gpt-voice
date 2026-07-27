@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import { AboutWindowController } from '@main/aboutWindowController';
+import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { WindowManager } from '@main/window';
 
 type WindowListener = (...args: unknown[]) => void;
@@ -124,6 +126,7 @@ class RecordingBrowserWindow {
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
   public readonly manager = new WindowManager({
+    createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
     createBrowserWindow: (options) => {
       const window = new RecordingBrowserWindow(this.created.length + 1, options);
       this.created.push(window);
@@ -140,6 +143,7 @@ class WindowManagerHarness {
     openExternal: async () => undefined,
     platform: 'linux',
     preloadPath: '/dist/preload.js',
+    providerSettingsWindowController: new ProviderSettingsWindowController<BrowserWindow>(),
   });
 }
 

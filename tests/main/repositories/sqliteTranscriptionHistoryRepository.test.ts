@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { AppDatabaseCoordinator } from '@main/repositories/sqlite/appDatabase';
+import { AppDatabaseTestDependencies } from './appDatabaseTestDependencies';
 import { SqliteTranscriptionHistoryRepository } from '@main/repositories/sqlite/sqliteTranscriptionHistoryRepository';
 import { registerTranscriptionHistoryRepositoryContract } from './contracts/transcriptionHistoryRepositoryContract';
 
@@ -14,7 +15,10 @@ class TranscriptionHistoryRepositoryHarness {
 
   public constructor() {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-history-repository-'));
-    this.coordinator = new AppDatabaseCoordinator(path.join(this.temporaryDirectory, 'history.sqlite3'));
+    this.coordinator = new AppDatabaseCoordinator(
+      path.join(this.temporaryDirectory, 'history.sqlite3'),
+      new AppDatabaseTestDependencies(),
+    );
     this.repository = new SqliteTranscriptionHistoryRepository(this.coordinator);
   }
 
