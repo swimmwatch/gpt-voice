@@ -1,4 +1,10 @@
 import type { DiagnosticCaptureMaintenanceResult } from './services/diagnosticCaptureStorage';
+import type { AppProtocolController } from './appProtocol';
+import type { DesktopRuntimeController } from './desktopRuntimeController';
+import type { LinuxDesktopIntegrationController } from './linuxDesktopIntegration';
+import type { ShortcutController } from './shortcuts';
+import type { TrayController } from './tray';
+import type { WindowManager } from './window';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -8,6 +14,7 @@ const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed dur
 const BROWSER_CLEANUP_FAILURE_LOG = 'Background browser cleanup incomplete during quit';
 const DATABASE_CLEANUP_FAILURE_LOG = 'Application database cleanup incomplete during quit';
 const QUIT_CLEANUP_FAILURE_LOG = 'Quit cleanup failed';
+const DESKTOP_CLEANUP_FAILURE_LOG = 'Desktop resource cleanup incomplete during quit';
 
 export interface MainProcessPreventableEvent {
   preventDefault(): void;
@@ -43,10 +50,6 @@ export interface MainProcessTranslationShutdownResult {
   readonly success: boolean;
 }
 
-export interface MainProcessGlobalShortcuts {
-  unregisterAll(): void;
-}
-
 export interface MainProcessIpcRegistration {
   dispose(): Promise<void>;
 }
@@ -59,35 +62,29 @@ export interface MainProcessOwnedRuntime {
   shutdownDiagnostics(): Promise<DiagnosticCaptureMaintenanceResult>;
 }
 
+export interface MainProcessRuntimeFactory {
+  create(): MainProcessOwnedRuntime;
+}
+
 export interface MainProcessApplicationDependencies {
   readonly app: MainProcessElectronApplication;
+  readonly appProtocolController: AppProtocolController;
   readonly configureCloakBrowserRuntime: () => void;
-  readonly configureDockIcon: () => void;
-  readonly configureNativeAppMetadata: () => void;
-  readonly configureSessionPermissions: () => void;
-  readonly createRuntime: () => MainProcessOwnedRuntime;
-  readonly createTray: () => void;
-  readonly createWindow: () => void;
-  readonly globalShortcuts: MainProcessGlobalShortcuts;
+  readonly desktopRuntimeController: DesktopRuntimeController;
+  readonly getCurrentVoiceProviderId: () => string;
   readonly initializeBackgroundBrowser: () => Promise<MainProcessBackgroundStatus>;
   readonly initializeLocale: () => void;
-  readonly isRemovingLinuxDesktopIntegration: boolean;
-  readonly isStartupBenchmark: boolean;
+  readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly loadConfig: () => void;
   readonly logger: MainProcessLogger;
   readonly presentTranslationSettingsRepairNotice: () => void;
-  readonly publishBackgroundStatus: (status: MainProcessBackgroundStatus) => void;
-  readonly refreshLinuxDesktopIcons: () => void;
-  readonly registerAppProtocol: () => void;
-  readonly registerLinuxDesktopIntegration: () => void;
-  readonly registerShortcuts: () => void;
-  readonly removeLinuxDesktopIntegration: () => void;
-  readonly setQuitting: (quitting: boolean) => void;
-  readonly showMainWindow: () => void;
+  readonly runtimeFactory: MainProcessRuntimeFactory;
+  readonly shortcutController: ShortcutController;
   readonly shutdownBackgroundBrowser: () => Promise<void>;
   readonly shutdownTranslationProviders: () => Promise<MainProcessTranslationShutdownResult>;
+  readonly trayController: TrayController;
   readonly unloadPrettifyModel: () => Promise<void>;
-  readonly waitForStartupBenchmarkReady: () => void;
+  readonly windowManager: WindowManager;
 }
 
 /**
@@ -95,6 +92,7 @@ export interface MainProcessApplicationDependencies {
  * idempotent quit lifecycle without publishing a global application instance.
  */
 export class MainProcessApplication {
+  private bootstrapped = false;
   private ipcRegistration: MainProcessIpcRegistration | null = null;
   private quitCleanupComplete = false;
   private quitCleanupPromise: Promise<void> | null = null;
@@ -103,7 +101,16 @@ export class MainProcessApplication {
 
   public constructor(private readonly dependencies: MainProcessApplicationDependencies) {}
 
-  public register(): void {
+  public bootstrap(): void {
+    if (this.bootstrapped) return;
+    this.bootstrapped = true;
+    this.dependencies.desktopRuntimeController.configureBeforeReady();
+    this.dependencies.appProtocolController.registerScheme();
+    if (!this.dependencies.desktopRuntimeController.acquireSingleInstanceLock()) return;
+    this.register();
+  }
+
+  private register(): void {
     if (this.registered) return;
     this.registered = true;
     const { app } = this.dependencies;
@@ -117,7 +124,7 @@ export class MainProcessApplication {
 
   private readonly onSecondInstance = (): void => {
     if (this.dependencies.app.isReady()) {
-      this.dependencies.showMainWindow();
+      this.dependencies.windowManager.showMainWindow();
     }
   };
 
@@ -126,27 +133,27 @@ export class MainProcessApplication {
     dependencies.logger.initialize();
     dependencies.logger.errorHandler.startCatching();
 
-    if (dependencies.isRemovingLinuxDesktopIntegration) {
-      dependencies.removeLinuxDesktopIntegration();
+    const desktopRuntime = dependencies.desktopRuntimeController;
+    if (desktopRuntime.isRemovingLinuxDesktopIntegration) {
+      dependencies.linuxDesktopIntegrationController.removeAppImage();
       dependencies.app.quit();
       return;
     }
 
-    if (!dependencies.isStartupBenchmark) {
+    if (!desktopRuntime.isStartupBenchmark) {
       dependencies.configureCloakBrowserRuntime();
-      dependencies.configureNativeAppMetadata();
-      dependencies.refreshLinuxDesktopIcons();
-      dependencies.registerLinuxDesktopIntegration();
+      desktopRuntime.configureNativeMetadata();
+      dependencies.linuxDesktopIntegrationController.refreshIcons();
+      dependencies.linuxDesktopIntegrationController.registerAppImage();
     }
-    dependencies.registerAppProtocol();
-    dependencies.configureDockIcon();
-    dependencies.configureSessionPermissions();
+    dependencies.appProtocolController.registerHandler();
+    desktopRuntime.configureApplicationReady();
     dependencies.loadConfig();
     dependencies.initializeLocale();
     dependencies.presentTranslationSettingsRepairNotice();
 
     try {
-      this.runtime = dependencies.createRuntime();
+      this.runtime = dependencies.runtimeFactory.create();
       void this.startRuntime(this.runtime).catch(() => {
         dependencies.logger.warn(STARTUP_FAILURE_LOG);
       });
@@ -160,17 +167,17 @@ export class MainProcessApplication {
     if (this.quitCleanupPromise) return;
 
     this.ipcRegistration = runtime.registerIpc();
-    this.dependencies.createWindow();
+    this.dependencies.windowManager.createMainWindow();
 
-    if (this.dependencies.isStartupBenchmark) {
-      this.dependencies.waitForStartupBenchmarkReady();
+    if (this.dependencies.desktopRuntimeController.isStartupBenchmark) {
+      this.dependencies.desktopRuntimeController.waitForStartupBenchmarkReady();
       return;
     }
 
-    this.dependencies.createTray();
-    this.dependencies.registerShortcuts();
+    this.dependencies.trayController.create();
+    this.dependencies.shortcutController.register();
     const status = await this.dependencies.initializeBackgroundBrowser();
-    this.dependencies.publishBackgroundStatus(status);
+    this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.getCurrentVoiceProviderId());
   }
 
   private readonly onWindowAllClosed = (): void => {
@@ -178,11 +185,11 @@ export class MainProcessApplication {
   };
 
   private readonly onActivate = (): void => {
-    this.dependencies.showMainWindow();
+    this.dependencies.windowManager.showMainWindow();
   };
 
   private readonly onBeforeQuit = (): void => {
-    this.dependencies.setQuitting(true);
+    this.dependencies.windowManager.setQuitting(true);
   };
 
   private readonly onWillQuit = (event: MainProcessPreventableEvent): void => {
@@ -201,7 +208,7 @@ export class MainProcessApplication {
 
   private async runQuitCleanup(): Promise<void> {
     try {
-      this.dependencies.globalShortcuts.unregisterAll();
+      this.dependencies.shortcutController.dispose();
     } catch {
       this.dependencies.logger.warn(QUIT_CLEANUP_FAILURE_LOG);
     }
@@ -236,23 +243,43 @@ export class MainProcessApplication {
     }
 
     const runtime = this.runtime;
-    if (!runtime) return;
-
-    try {
-      const storageShutdown = await runtime.shutdownDiagnostics();
-      if (storageShutdown.status === 'failure') {
-        this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG, {
-          causeCode: storageShutdown.causeCode,
-        });
+    if (runtime) {
+      try {
+        const storageShutdown = await runtime.shutdownDiagnostics();
+        if (storageShutdown.status === 'failure') {
+          this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG, {
+            causeCode: storageShutdown.causeCode,
+          });
+        }
+      } catch {
+        this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG);
       }
-    } catch {
-      this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG);
+
+      try {
+        runtime.closeDatabase();
+      } catch {
+        this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG);
+      }
     }
 
+    this.disposeDesktopResources();
+  }
+
+  private disposeDesktopResources(): void {
     try {
-      runtime.closeDatabase();
+      this.dependencies.trayController.dispose();
     } catch {
-      this.dependencies.logger.warn(DATABASE_CLEANUP_FAILURE_LOG);
+      this.dependencies.logger.warn(DESKTOP_CLEANUP_FAILURE_LOG);
+    }
+    try {
+      this.dependencies.windowManager.dispose();
+    } catch {
+      this.dependencies.logger.warn(DESKTOP_CLEANUP_FAILURE_LOG);
+    }
+    try {
+      this.dependencies.appProtocolController.dispose();
+    } catch {
+      this.dependencies.logger.warn(DESKTOP_CLEANUP_FAILURE_LOG);
     }
   }
 }

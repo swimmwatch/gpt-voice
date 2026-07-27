@@ -1,4 +1,4 @@
-# 20 Create Diagnostics Analysis Skill
+# 22 Create Diagnostics Analysis Skill
 
 ## Outcome
 
@@ -13,7 +13,7 @@ normal write is the requested report.
 
 ## Prerequisites
 
-- Packet 18 is complete and the archive schema-v1 manifest, fixed members,
+- Packet 20 is complete and the archive schema-v1 manifest, fixed members,
   audit event schema, text-action row schema, hashes, and producer limits are
   stable.
 - Synthetic schema-v1 ZIP and tar.gz fixtures can be generated without
@@ -179,7 +179,7 @@ normal write is the requested report.
 - Validate every diagnostic action row against the packet-07 exported-row
   schema. Never reinterpret a raw provider body or unknown field as evidence.
 - Detect duplicate `(operationId, sequence)` events and duplicate action IDs as
-  integrity contradictions, even though packet 18 normally deduplicates audit
+  integrity contradictions, even though packet 20 normally deduplicates audit
   output.
 - On any structural, size, ratio, hash, JSON, JSONL, or version failure, do not
   continue with partially trusted evidence.
@@ -232,7 +232,7 @@ to app data.
 
 - The analysis skill is a repository agent asset, not Electron production
   runtime code and not a production dependency.
-- `archiver` from packet 18 is creation-only and must not validate or extract
+- `archiver` from packet 20 is creation-only and must not validate or extract
   untrusted input here.
 - The inspector must use a deterministic standard-library implementation
   suitable for both ZIP and tar.gz; document its Python 3 runtime prerequisite
@@ -357,7 +357,7 @@ evidence links, excerpt bounds, and cleanup without authorizing a fix.
   - `# Failure Behavior`
   - `# Compatibility`
   - `# Acceptance Criteria > Analysis Skill`
-- Packet 18 archive schema and synthetic fixture builders.
+- Packet 20 archive schema and synthetic fixture builders.
 - Installed skill-creator:
   - `/home/dmitry-vasiliev/.codex/skills/.system/skill-creator/SKILL.md`
   - `scripts/init_skill.py`
@@ -368,7 +368,7 @@ evidence links, excerpt bounds, and cleanup without authorizing a fix.
 
 ## Completion And Handoff
 
-1. Check only packet 20 in `tasks/todo.md`.
+1. Check only packet 22 in `tasks/todo.md`.
 2. Update `tasks/handoff.md` with:
    - exact skill package/test files;
    - inspector runtime and approved bounds;

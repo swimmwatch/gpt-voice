@@ -6,11 +6,14 @@ import type { TranscriptionHistoryIpcController } from '../services/transcriptio
 
 export interface MainProcessRuntimeGraphDependencies {
   readonly database: AppDatabaseCoordinator;
+  readonly desktopRuntimeController: MainIpcDependencies['desktopRuntimeController'];
   readonly diagnosticStorage: DiagnosticCaptureStorage;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly registerIpcHandlers: (dependencies: MainIpcDependencies) => MainProcessIpcRegistration;
+  readonly shortcutController: MainIpcDependencies['shortcutController'];
   readonly streamingTranscriptionService: MainIpcDependencies['streamingTranscriptionService'];
   readonly transcribeAudio: MainIpcDependencies['transcribeAudio'];
+  readonly windowManager: MainIpcDependencies['windowManager'];
 }
 
 /** Owns the private Task 07 runtime graph after composition. */
@@ -30,9 +33,12 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
     }
     this.ipcRegistered = true;
     return this.dependencies.registerIpcHandlers({
+      desktopRuntimeController: this.dependencies.desktopRuntimeController,
       historyController: this.dependencies.historyController,
+      shortcutController: this.dependencies.shortcutController,
       streamingTranscriptionService: this.dependencies.streamingTranscriptionService,
       transcribeAudio: this.dependencies.transcribeAudio,
+      windowManager: this.dependencies.windowManager,
     });
   }
 

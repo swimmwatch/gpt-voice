@@ -1,4 +1,4 @@
-# 15 Enforce Project DI Boundaries
+# 17 Enforce Project DI Boundaries
 
 ## Outcome
 
@@ -7,7 +7,7 @@ architecture before provider-audit feature work resumes.
 
 ## Prerequisites
 
-- Tasks 08–14 are complete.
+- Tasks 08–16 are complete.
 
 ## Owned Requirements
 
@@ -55,7 +55,7 @@ architecture before provider-audit feature work resumes.
 
 - Static scans report no prohibited stateful singleton/global pattern.
 - All focused suites and the complete project quality/build set pass.
-- Provider-audit Task 16 can consume injected services without reintroducing
+- Provider-audit Task 18 can consume injected services without reintroducing
   globals.
 
 ## Verification
@@ -82,9 +82,9 @@ rtk git diff --check
 
 ## References
 
-- `AGENTS.md`, project conventions, and Tasks 08–14 handoffs.
+- `AGENTS.md`, project conventions, and Tasks 08–16 handoffs.
 
 ## Completion And Handoff
 
-- Mark only Task 15 complete.
-- Hand off to renumbered Task 16 and stop.
+- Mark only Task 17 complete.
+- Hand off to renumbered Task 18 and stop.

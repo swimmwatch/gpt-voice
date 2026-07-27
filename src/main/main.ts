@@ -1,9 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { app, globalShortcut, session } from 'electron';
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, protocol, session, shell, Tray } from 'electron';
 import log, { createLogger } from './logger';
 import {
   consumePendingTranslationSettingsRepairNotice,
+  currentCancelHotkey,
+  currentHotkey,
+  currentPrettifyEnabled,
+  currentPrettifyHotkey,
   currentProvider,
+  currentRetryTranscriptionHotkey,
+  currentStopHotkey,
+  currentTranslateEnabled,
+  currentTranslateHotkey,
   getCurrentLocale,
   hasExplicitLocalePreference,
   loadConfig,
@@ -15,20 +28,12 @@ import {
   isBgReady,
   shutdownBackgroundBrowser,
 } from './browser';
-import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
-import { createTray } from './tray';
-import { registerShortcuts } from './shortcuts';
 import { registerIpcHandlers } from './ipc';
 import { getSupportedLocales, setLocale, t } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
-import { getAppIconPath } from './assets';
-import {
-  refreshLinuxDesktopIcons,
-  registerLinuxAppImageDesktopIntegration,
-  removeLinuxAppImageDesktopIntegration,
-} from './linuxDesktopIntegration';
-import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
-import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
+import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
+import { getAppUrl } from './appProtocol';
+import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
 import { shutdownAllTranslationProviders } from './services/translation';
 import { resolveStartupLocale } from './startupLocale';
@@ -38,69 +43,9 @@ import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
 import { voiceProviderAudit } from './providers';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
-
-const CHROMIUM_FATAL_LOG_LEVEL = '3';
-const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
-const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
-const STARTUP_BENCHMARK_ARGUMENT = '--startup-benchmark';
-const REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT = '--remove-linux-appimage-desktop-integration';
-
-configureAppIdentity();
-app.disableHardwareAcceleration();
-registerAppProtocolScheme();
-
-const isStartupBenchmark = process.argv.includes(STARTUP_BENCHMARK_ARGUMENT);
-const isRemovingLinuxAppImageDesktopIntegration =
-  process.platform === 'linux' && process.argv.includes(REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT);
-
-if (!isRemovingLinuxAppImageDesktopIntegration && !app.requestSingleInstanceLock()) {
-  app.quit();
-  process.exit(0);
-}
-
-function waitForStartupBenchmarkReady(): void {
-  const mainWindow = getMainWindow();
-  if (!mainWindow) return;
-
-  const checkWindowStartupState = async (): Promise<void> => {
-    if (mainWindow.isDestroyed()) return;
-
-    try {
-      const isReady: unknown = await mainWindow.webContents.executeJavaScript(
-        "document.body?.dataset.windowStartup === 'ready'",
-        true,
-      );
-      if (isReady === true) {
-        process.stdout.write(`${STARTUP_BENCHMARK_READY_MARKER}\n`);
-        app.quit();
-        return;
-      }
-    } catch {
-      // The renderer can briefly be unavailable while its document is being replaced.
-    }
-
-    setTimeout(() => {
-      void checkWindowStartupState();
-    }, STARTUP_BENCHMARK_POLL_INTERVAL_MS);
-  };
-
-  void checkWindowStartupState();
-}
-
-function configureDockIcon(): void {
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(getAppIconPath());
-  }
-}
-
-function configureSessionPermissions(): void {
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === 'media');
-  });
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media';
-  });
-}
+import { getActiveSelectedTextAction } from './services/selectedTextActionState';
+import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
+import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
 
 function initializeLocale(): void {
   setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
@@ -112,20 +57,6 @@ function presentTranslationSettingsRepairNotice(): void {
     notify: showSystemNotification,
     translate: t,
   });
-}
-
-function publishBackgroundStatus(status: {
-  readonly authExpired?: boolean;
-  readonly error?: string;
-  readonly providerId?: string;
-  readonly ready: boolean;
-}): void {
-  const providerId = status.providerId || currentProvider;
-  if (status.ready) {
-    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-  } else if (status.error) {
-    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-  }
 }
 
 function getCurrentDate(): Date {
@@ -144,21 +75,7 @@ function ignoreStreamingDiagnostic(): void {
   // Task 08 preserves the existing no-op diagnostic callback.
 }
 
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('class', 'gpt-voice');
-  app.commandLine.appendSwitch('disable-gpu');
-  app.commandLine.appendSwitch('disable-dev-shm-usage');
-  // Chromium can print non-actionable X11 clipboard atom cache messages as ERROR.
-  // Keep native Chromium stderr quiet while preserving app logs and fatal Chromium logs.
-  app.commandLine.appendSwitch('log-level', CHROMIUM_FATAL_LOG_LEVEL);
-}
-
-if (app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE) {
-  process.env.ELECTRON_DISABLE_SANDBOX = '1';
-  app.commandLine.appendSwitch('no-sandbox');
-}
-
-new MainProcessCompositionRoot({
+const application = new MainProcessCompositionRoot({
   cacheNow: Date.now,
   databasePath: APP_DATABASE_FILE,
   diagnosticLogger: createLogger('diagnostic-capture'),
@@ -175,34 +92,92 @@ new MainProcessCompositionRoot({
   resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
   voiceAudit: voiceProviderAudit,
   writeClipboardText,
-})
-  .createApplication({
-    app,
-    configureCloakBrowserRuntime,
-    configureDockIcon,
-    configureNativeAppMetadata,
-    configureSessionPermissions,
-    createTray,
-    createWindow,
-    globalShortcuts: globalShortcut,
-    initializeBackgroundBrowser: initBackgroundBrowser,
-    initializeLocale,
-    isRemovingLinuxDesktopIntegration: isRemovingLinuxAppImageDesktopIntegration,
-    isStartupBenchmark,
-    loadConfig,
-    logger: log,
-    presentTranslationSettingsRepairNotice,
-    publishBackgroundStatus,
-    refreshLinuxDesktopIcons,
-    registerAppProtocol,
-    registerLinuxDesktopIntegration: registerLinuxAppImageDesktopIntegration,
-    registerShortcuts,
-    removeLinuxDesktopIntegration: removeLinuxAppImageDesktopIntegration,
-    setQuitting,
-    showMainWindow,
-    shutdownBackgroundBrowser,
-    shutdownTranslationProviders: shutdownAllTranslationProviders,
-    unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
-    waitForStartupBenchmarkReady,
-  })
-  .register();
+}).createApplication({
+  app,
+  configureCloakBrowserRuntime,
+  desktopControllers: {
+    appProtocol: {
+      appIconPath: getAppIconPath(),
+      appRoot: path.resolve(__dirname),
+      logger: createLogger('app-protocol'),
+      protocol,
+      readFile,
+    },
+    desktopRuntime: {
+      app,
+      arguments: process.argv,
+      buildMenu: (template) => Menu.buildFromTemplate(template),
+      electronVersion: process.versions.electron,
+      environment: process.env,
+      exit: (code) => process.exit(code),
+      getAppIconPath,
+      openExternal: (url) => shell.openExternal(url),
+      platform: process.platform,
+      schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+      session,
+      setApplicationMenu: (menu) => Menu.setApplicationMenu(menu),
+      writeStandardOutput: (value) => process.stdout.write(value),
+    },
+    linuxDesktopIntegration: {
+      app,
+      environment: process.env,
+      fileSystem: fs,
+      getAppIconPath,
+      getAssetPath,
+      homeDirectory: os.homedir,
+      logger: createLogger('desktop-integration'),
+      platform: process.platform,
+      spawn: (command, args, options) => spawn(command, [...args], options),
+      syncDesktopIcons: syncLinuxDesktopIcons,
+    },
+    shortcuts: {
+      cancelSelectedTextPrettify,
+      getActiveSelectedTextAction,
+      getSettings: () => ({
+        cancelHotkey: currentCancelHotkey,
+        hotkey: currentHotkey,
+        prettifyEnabled: currentPrettifyEnabled,
+        prettifyHotkey: currentPrettifyHotkey,
+        retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
+        stopHotkey: currentStopHotkey,
+        translateEnabled: currentTranslateEnabled,
+        translateHotkey: currentTranslateHotkey,
+      }),
+      globalShortcut,
+      logger: createLogger('shortcuts'),
+      platform: process.platform,
+      prettifySelectedText,
+      translateSelectedTextToClipboard,
+    },
+    tray: {
+      application: app,
+      buildMenu: (template) => Menu.buildFromTemplate(template),
+      createNativeImage: (iconPath) => nativeImage.createFromPath(iconPath),
+      createTray: (icon) => new Tray(icon),
+      getAssetPath,
+      platform: process.platform,
+      translate: t,
+    },
+    window: {
+      createBrowserWindow: (options) => new BrowserWindow(options),
+      getAppIcon,
+      getAppIconPath,
+      getAppUrl,
+      logger: createLogger('window'),
+      openExternal: (url) => shell.openExternal(url),
+      platform: process.platform,
+      preloadPath: path.join(__dirname, 'preload.js'),
+    },
+  },
+  getCurrentVoiceProviderId: () => currentProvider,
+  initializeBackgroundBrowser: initBackgroundBrowser,
+  initializeLocale,
+  loadConfig,
+  logger: log,
+  presentTranslationSettingsRepairNotice,
+  shutdownBackgroundBrowser,
+  shutdownTranslationProviders: shutdownAllTranslationProviders,
+  unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
+});
+
+application.bootstrap();

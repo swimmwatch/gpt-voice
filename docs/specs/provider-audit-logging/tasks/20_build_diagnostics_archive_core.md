@@ -1,4 +1,4 @@
-# 18 Build Diagnostics Archive Core
+# 20 Build Diagnostics Archive Core
 
 ## Outcome
 
@@ -10,7 +10,7 @@ sibling temporary file before atomically replacing the caller-approved
 destination.
 
 This packet does not expose the service to a renderer or add the About-window
-button. Packet 19 owns that trusted UI and IPC integration.
+button. Packet 21 owns that trusted UI and IPC integration.
 
 ## Prerequisites
 
@@ -19,12 +19,12 @@ button. Packet 19 owns that trusted UI and IPC integration.
   correlation rules are stable.
 - Packet 07 is complete: diagnostic text rows, redaction metadata, limits,
   retention, pruning, query APIs, and shared-SQLite lifecycle are implemented.
-- Packet 16 is complete: persisted capture settings and safe category snapshots
+- Packet 18 is complete: persisted capture settings and safe category snapshots
   are available without exposing retained text to renderer code.
 - The approved archive dependency choice is final: use `archiver` as a direct
   production dependency for creation of both supported outer formats.
 - Run this packet only through an explicit
-  `incremental-implementation` invocation. Do not begin packet 19 in the same
+  `incremental-implementation` invocation. Do not begin packet 21 in the same
   invocation.
 
 ## Owned Requirements
@@ -62,8 +62,8 @@ button. Packet 19 owns that trusted UI and IPC integration.
 ## Out Of Scope
 
 - About-window renderer UI, save dialog, trusted About-only IPC, localized
-  notifications, and duplicate-click suppression; packet 19 owns them.
-- Analysis of an exported archive; packet 20 owns the repository-local skill.
+  notifications, and duplicate-click suppression; packet 21 owns them.
+- Analysis of an exported archive; packet 22 owns the repository-local skill.
 - Remote telemetry, upload, issue creation, support-server integration, or any
   network request.
 - A general log export, raw log export, live-database copy, configuration
@@ -194,7 +194,7 @@ existing view currently decrypts a value.
   fail the whole export; never silently omit otherwise valid retained records.
 - The archive-analysis compression-ratio rejection is a consumer-side
   untrusted-input rule. The producer still uses ordinary bounded compression
-  and must produce fixtures accepted by packet 20.
+  and must produce fixtures accepted by packet 22.
 
 ### Safe archive creation
 
@@ -226,7 +226,7 @@ existing view currently decrypts a value.
 - Optional text capture remains the sole approved default-off plaintext
   exception. The archive is unencrypted and sensitive whenever text rows are
   included.
-- `archiver` is creation-only. Do not reuse it in packet 20 to trust or extract
+- `archiver` is creation-only. Do not reuse it in packet 22 to trust or extract
   untrusted input.
 - Canonical schema validators reject unknown fields and unsupported versions;
   rejection never falls back to raw logging or raw serialization.
@@ -371,7 +371,7 @@ Record but do not bypass any platform-only packaging failure.
 
 ## Completion And Handoff
 
-1. Check only packet 18 in `tasks/todo.md`.
+1. Check only packet 20 in `tasks/todo.md`.
 2. Update `tasks/handoff.md` with:
    - archive contracts and dependency version;
    - exact changed files;
@@ -379,5 +379,5 @@ Record but do not bypass any platform-only packaging failure.
    - packaging/manual checks still outstanding;
    - any compatibility or privacy blocker.
 3. Set the exact next packet to
-   `19_integrate_about_diagnostics_export.md`.
-4. Stop for review. Do not commit, start packet 19, push, or publish.
+   `21_integrate_about_diagnostics_export.md`.
+4. Stop for review. Do not commit, start packet 21, push, or publish.

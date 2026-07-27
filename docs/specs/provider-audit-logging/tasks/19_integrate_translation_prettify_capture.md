@@ -1,4 +1,4 @@
-# 17 Integrate Translation And Prettify Capture
+# 19 Integrate Translation And Prettify Capture
 
 ## Outcome
 
@@ -9,7 +9,7 @@ Capture every enabled successful Translation and Prettify provider or cache-hit 
 - Packets 02, 05, and 06 are complete, including audited Translation and Prettify dispatch paths for all registered providers.
 - Packet 01’s audit operation context exposes the current opaque operation ID and a pre-terminal integration point.
 - Packet 07’s redaction/storage API and separate metadata-only `diagnostic-capture` warning reporter are complete.
-- Packet 16’s main-owned capture settings snapshot is complete.
+- Packet 18’s main-owned capture settings snapshot is complete.
 - The approved specification remains `Status: Approved`.
 
 ## Owned Requirements
@@ -46,7 +46,7 @@ Capture every enabled successful Translation and Prettify provider or cache-hit 
 
 1. Add a main-process capture orchestrator in `src/main/services/diagnosticCapture.ts`.
 
-- Read the authoritative Packet 16 settings snapshot at action-completion time.
+- Read the authoritative Packet 18 settings snapshot at action-completion time.
   - Return immediately without redaction, UUID creation, or SQLite access when the applicable toggle is false.
   - Accept only normalized source/result text and safe typed metadata.
   - Invoke Packet 07 redaction and storage exactly once for each eligible success.
@@ -162,7 +162,7 @@ Record sanitized manual provider/cache checks as manual gates, not as live-provi
 
 ## Failure And Rollback
 
-- Roll back capture adapters without removing Packet 01 audit instrumentation, Packet 07’s additive schema, or Packet 16’s confirmed deletion controls.
+- Roll back capture adapters without removing Packet 01 audit instrumentation, Packet 07’s additive schema, or Packet 18’s confirmed deletion controls.
 - A rollback must leave provider/cache/action results unchanged and may leave already retained redacted plaintext rows for explicit user purge.
 - Do not preserve a passing test by moving capture after provider terminal, inventing cache-hit provider operations, suppressing storage failures without a closed warning, or weakening privacy canaries.
 - If prohibited content reaches a logger or renderer, stop the packet and remove the affected capture call through normal rollback.
@@ -181,14 +181,14 @@ Record sanitized manual provider/cache checks as manual gates, not as live-provi
 - Packet 02 audited Translation top-level operation contract.
 - Packets 05 and 06 audited HTTP and CLI Prettify operation contracts.
 - Packet 07 storage/redactor APIs.
-- Packet 16 settings snapshot contract.
+- Packet 18 settings snapshot contract.
 - `AGENTS.md`.
 - `.agents/references/task-packets.md`.
 - `docs/agent-guides/project-conventions.md` sections “Code And Logging”, “Electron And Providers”, and “Tests And Documentation”.
 
 ## Completion And Handoff
 
-- After verification, update only Packet 17’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
+- After verification, update only Packet 19’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
 - Record exact capture hook locations, exactly-once ownership, changed files, checks, privacy-canary results, and blockers.
-- Hand off the tested settings snapshots and redacted-row read API to the diagnostics archive packet.
+- Hand off the tested settings snapshots and redacted-row read API to Packet 20.
 - Stop for review; do not begin archive work, commit, push, or open a pull request.

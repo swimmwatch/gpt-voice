@@ -18,7 +18,7 @@ describe('App Settings section IPC contract', () => {
 
     assert.match(handler, /isAppSettingsSectionId\(section\)/u);
     assert.match(handler, /showSettingsWindow\(section\)/u);
-    assert.match(ipc, /assertTrustedSender\(event\)/u);
+    assert.match(ipc, /assertTrustedSender\(event, this\.windowManager\)/u);
     assert.match(preload, /openAppSettings: \(section\?: AppSettingsSectionId\)/u);
     assert.match(preload, /ipcRenderer\.invoke\('open-app-settings', section\)/u);
     assert.match(preload, /onMainEvent<\[AppSettingsSectionId\]>\('app-settings-section-requested'/u);
@@ -29,20 +29,18 @@ describe('App Settings section IPC contract', () => {
   it('opens a new window at the requested section and switches an existing window', () => {
     const windowSource = readProjectFile('src/main/window.ts');
 
-    assert.match(windowSource, /settingsWindow\.webContents\.send\('app-settings-section-requested', section\)/u);
+    assert.match(windowSource, /existing\.webContents\.send\('app-settings-section-requested', section\)/u);
     assert.match(windowSource, /settingsUrl\.searchParams\.set\('section', section\)/u);
   });
 
   it('broadcasts saved Prettify snapshots to the main and open Settings windows', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const broadcaster = ipc.slice(
-      ipc.indexOf('function sendPrettifySettingsChanged'),
-      ipc.indexOf('function getHotkeySettingsSnapshot'),
-    );
+    const windowSource = readProjectFile('src/main/window.ts');
     const prettifyController = readProjectFile('src/renderer/hooks/usePrettifySettingsController.ts');
 
-    assert.match(broadcaster, /getMainWindow\(\)\?\.webContents\.send\('prettify-settings-changed'/u);
-    assert.match(broadcaster, /getSettingsWindow\(\)\?\.webContents\.send\('prettify-settings-changed'/u);
+    assert.match(ipc, /dependencies\.windowManager\.publishPrettifySettingsChanged\(savedSettings\)/u);
+    assert.match(windowSource, /this\.mainWindow\?\.webContents\.send\('prettify-settings-changed'/u);
+    assert.match(windowSource, /this\.settingsWindow\?\.webContents\.send\('prettify-settings-changed'/u);
     assert.match(prettifyController, /onPrettifySettingsChanged\(\(snapshot\)/u);
     assert.match(prettifyController, /applyExternalPrettifyProviderSelection\(current, snapshot\.providerId\)/u);
   });

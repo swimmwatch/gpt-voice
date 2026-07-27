@@ -1,22 +1,22 @@
-# 19 Integrate About Diagnostics Export
+# 21 Integrate About Diagnostics Export
 
 ## Outcome
 
-Expose packet 18's archive service through a typed, About-only trusted IPC
+Expose packet 20's archive service through a typed, About-only trusted IPC
 operation and an accessible **Export diagnostics** button. Main owns the
 parented save dialog, filename and extension, filesystem authority, archive
 invocation, About-window lifecycle, and localized system notifications.
 
 ## Prerequisites
 
-- Packet 18 is complete and provides a verified main-process archive service
+- Packet 20 is complete and provides a verified main-process archive service
   supporting ZIP on Windows and tar.gz on Linux/macOS.
-- Packet 18 exposes no renderer path authority and cleans every partial
+- Packet 20 exposes no renderer path authority and cleans every partial
   temporary output on failure.
 - Existing About controller, preload API, renderer global types, and
   localization tests pass before changes.
 - Run this packet only through an explicit
-  `incremental-implementation` invocation. Do not begin packet 20 in the same
+  `incremental-implementation` invocation. Do not begin packet 22 in the same
   invocation.
 
 ## Owned Requirements
@@ -48,8 +48,8 @@ the approved IPC contract.
 ## Out Of Scope
 
 - Archive extraction, manifest, hashing, formats, or diagnostic database
-  behavior; packet 18 owns those contracts.
-- Archive analysis or report generation; packet 20 owns it.
+  behavior; packet 20 owns those contracts.
+- Archive analysis or report generation; packet 22 owns it.
 - A renderer file chooser, renderer-provided path, filesystem API, log API,
   database API, or retained-row API.
 - Automatic upload, opening/revealing the archive, copying its path, issue
@@ -101,7 +101,7 @@ the approved IPC contract.
   path. If suffix appending changes the path and that final path already
   exists, do not overwrite it without obtaining native confirmation for that
   exact path.
-- Pass the final dialog-approved path directly to packet 18. Never send it to
+- Pass the final dialog-approved path directly to packet 20. Never send it to
   renderer code or include it in logs/notifications.
 
 ### Concurrency and renderer state
@@ -129,13 +129,13 @@ the approved IPC contract.
   - create no archive or temporary output;
   - show no notification or error;
   - leave About open and retryable.
-- Success, only after packet 18 has atomically installed and verified the
+- Success, only after packet 20 has atomically installed and verified the
   archive:
   - return `{ status: 'saved' }`;
   - close the current About window;
   - show a localized success system notification from main.
 - Failure:
-- packet 18 removes partial temporary output;
+- packet 20 removes partial temporary output;
   - return `{ status: 'failed' }`;
   - keep About open and retryable;
   - show a localized, safe failure system notification from main;
@@ -302,11 +302,11 @@ branches are covered on any development host.
 - `src/main/preload.ts`
 - `src/renderer/types.d.ts`
 - `src/renderer/AboutWindow.tsx`
-- Packet 18 archive service contract.
+- Packet 20 archive service contract.
 
 ## Completion And Handoff
 
-1. Check only packet 19 in `tasks/todo.md`.
+1. Check only packet 21 in `tasks/todo.md`.
 2. Update `tasks/handoff.md` with:
    - the exact IPC result/channel and About-only guard;
    - changed files and localization coverage;
@@ -314,5 +314,5 @@ branches are covered on any development host.
    - native platform checks still outstanding;
    - any dialog, overwrite, cleanup, or notification blocker.
 3. Set the exact next packet to
-   `20_create_diagnostics_analysis_skill.md`.
-4. Stop for review. Do not commit, start packet 20, push, or publish.
+   `22_create_diagnostics_analysis_skill.md`.
+4. Stop for review. Do not commit, start packet 22, push, or publish.

@@ -1,4 +1,4 @@
-# 22 Complete Sanitized Manual Verification
+# 24 Complete Sanitized Manual Verification
 
 ## Outcome
 
@@ -10,8 +10,8 @@ unavailable platform/provider gate without copying private diagnostic data.
 
 ## Prerequisites
 
-- Task 21 is complete and approved.
-- Task 22 has separate execution authorization.
+- Task 23 is complete and approved.
+- Task 24 has separate execution authorization.
 - A human operator controls the test machines and any locally configured
   provider accounts; no credentials or private app data are shared with the
   agent.
@@ -193,7 +193,7 @@ without pasting logs.
 ## References
 
 - Mandatory:
-- Task 21 handoff and exact completed checks;
+- Task 23 handoff and exact completed checks;
   - the installed application’s About and App Settings flows;
   - `.agents/skills/analyze-diagnostics-archive/SKILL.md`;
   - `docs/agent-guides/project-conventions.md`, “Desktop, Browser, And
@@ -204,7 +204,7 @@ without pasting logs.
 
 ## Completion And Handoff
 
-- Mark Task 22 complete only when every required Windows/Linux/provider gate
+- Mark Task 24 complete only when every required Windows/Linux/provider gate
   has explicit sanitized evidence. Otherwise leave it unchecked and list the
   unavailable gate.
 - Update `handoff.md` with completed platforms, sanitized result summary, final

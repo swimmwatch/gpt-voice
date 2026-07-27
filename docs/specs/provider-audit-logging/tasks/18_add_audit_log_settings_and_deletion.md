@@ -1,4 +1,4 @@
-# 16 Add Audit Log Settings And Deletion
+# 18 Add Audit Log Settings And Deletion
 
 ## Outcome
 
@@ -204,7 +204,7 @@ Record any sanitized keyboard/focus manual check in `tasks/handoff.md`.
 
 ## Completion And Handoff
 
-- After verification, update only Packet 16’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
+- After verification, update only Packet 18’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
 - Record exact IPC names, settings service API, confirmation request shape, changed files, checks, and blockers.
-- Hand off to Packet 17 with the authoritative main settings snapshot and best-effort storage API.
-- Stop for review; do not begin Packet 17, commit, push, or open a pull request.
+- Hand off to Packet 19 with the authoritative main settings snapshot and best-effort storage API.
+- Stop for review; do not begin Packet 19, commit, push, or open a pull request.

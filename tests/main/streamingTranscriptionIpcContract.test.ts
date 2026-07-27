@@ -45,7 +45,7 @@ describe('trusted streaming transcription IPC integration', () => {
 
     assert.match(
       ipc,
-      /ipcMain\.handle\(channel, \(event, \.\.\.args\) => \{\s*assertTrustedSender\(event\);\s*return listener\(event\.sender, \.\.\.\(args as unknown\[\]\)\);/u,
+      /ipcMain\.handle\(channel, \(event, \.\.\.args\) => \{\s*assertTrustedSender\(event, windowManager\);\s*return listener\(event\.sender, \.\.\.\(args as unknown\[\]\)\);/u,
     );
     assert.match(ipc, /return mainWindow && !mainWindow\.isDestroyed\(\) \? mainWindow\.webContents : null;/u);
     assert.match(ipc, /removeHandler: \(channel\) => ipcMain\.removeHandler\(channel\)/u);

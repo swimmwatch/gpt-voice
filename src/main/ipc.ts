@@ -26,28 +26,9 @@ import {
   switchProvider,
 } from './browser';
 import { createProvider, getAvailableProviders, voiceProviderAudit } from './providers';
-import {
-  closeAboutWindow,
-  closeProviderSettingsWindow,
-  closeSettingsWindow,
-  broadcastLocaleChanged,
-  getMainWindow,
-  getSettingsWindow,
-  isTrustedAppWindow,
-  showAboutWindow,
-  showHistoryWindow,
-  showProviderSettingsWindow,
-  showSettingsWindow,
-} from './window';
-import { getAppInfo } from './appMetadata';
-import {
-  registerShortcuts,
-  getRecordingState,
-  resetRecordingState,
-  setRecordingLifecycleState,
-  setRetryTranscriptionAvailable,
-  setShortcutsSuspended,
-} from './shortcuts';
+import { type WindowManager } from './window';
+import type { DesktopRuntimeController } from './desktopRuntimeController';
+import type { ShortcutController } from './shortcuts';
 import type { TranscriptionService } from './services/transcription';
 import { shutdownAllTranslationProviders, translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
@@ -109,9 +90,12 @@ const log = createLogger('ipc');
 const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
 
 export interface MainIpcDependencies {
+  readonly desktopRuntimeController: DesktopRuntimeController;
   readonly historyController: TranscriptionHistoryIpcController;
+  readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcribeAudio: TranscriptionService;
+  readonly windowManager: WindowManager;
 }
 
 /** Owns the stateful IPC controllers created by one main-process registration. */
@@ -122,6 +106,7 @@ export class MainIpcRegistration {
 
   public constructor(
     private readonly streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents>,
+    private readonly windowManager: WindowManager,
   ) {}
 
   public handle<Args extends unknown[]>(
@@ -130,7 +115,7 @@ export class MainIpcRegistration {
   ): void {
     if (this.disposed) throw new Error('Main IPC registration is disposed');
     ipcMain.handle(channel, (event, ...args) => {
-      assertTrustedSender(event);
+      assertTrustedSender(event, this.windowManager);
       return listener(event, ...(args as Args));
     });
     this.channels.add(channel);
@@ -232,10 +217,10 @@ function getPrettifySettingsSnapshot() {
   return getPrettifySettingsView();
 }
 
-function assertTrustedSender(event: IpcMainInvokeEvent): void {
+function assertTrustedSender(event: IpcMainInvokeEvent, windowManager: WindowManager): void {
   const senderUrl = event.senderFrame?.url || event.sender.getURL();
 
-  if (!isTrustedAppWindow(event.sender, senderUrl)) {
+  if (!windowManager.isTrustedAppWindow(event.sender, senderUrl)) {
     log.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
     throw new Error('Rejected IPC from untrusted sender');
   }
@@ -243,18 +228,19 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 
 function registerStreamingTranscriptionIpcHandlers(
   service: MainStreamingTranscriptionService,
+  windowManager: WindowManager,
 ): StreamingTranscriptionIpcController<WebContents> {
   return new StreamingTranscriptionIpcController<WebContents>({
     addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
     getMainWindowSender: () => {
-      const mainWindow = getMainWindow();
+      const mainWindow = windowManager.getMainWindow();
       return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
     },
     isSenderDestroyed: (sender) => sender.isDestroyed(),
     registerBeforeBrowserShutdownHook: registerBeforeBackgroundBrowserShutdownHook,
     registerHandler: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
-        assertTrustedSender(event);
+        assertTrustedSender(event, windowManager);
         return listener(event.sender, ...(args as unknown[]));
       });
     },
@@ -262,31 +248,6 @@ function registerStreamingTranscriptionIpcHandlers(
     removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
     service,
   });
-}
-
-function sendBackgroundStatus(status: {
-  providerId?: string;
-  ready: boolean;
-  error?: string;
-  authExpired?: boolean;
-}): void {
-  const providerId = status.providerId || currentProvider;
-  if (status.ready) {
-    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-  } else if (status.error) {
-    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-  }
-}
-
-function sendProviderSettingsChanged(settings: unknown, source: IpcMainInvokeEvent['sender']): void {
-  const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.webContents.id === source.id) return;
-  mainWindow.webContents.send('provider-settings-changed', settings);
-}
-
-function sendPrettifySettingsChanged(settings: ReturnType<typeof getPrettifySettingsSnapshot>): void {
-  getMainWindow()?.webContents.send('prettify-settings-changed', settings);
-  getSettingsWindow()?.webContents.send('prettify-settings-changed', settings);
 }
 
 function getHotkeySettingsSnapshot(): HotkeySettings {
@@ -356,17 +317,18 @@ function getProviderSettingsSnapshot(providerId: string) {
   }
 }
 
-async function refreshActiveProvider(providerId: string) {
+async function refreshActiveProvider(providerId: string, windowManager: WindowManager) {
   if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
   const status = await restartBackgroundBrowser();
-  sendBackgroundStatus(status);
+  windowManager.publishBackgroundStatus(status, currentProvider);
   return status;
 }
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcRegistration {
   const registration = new MainIpcRegistration(
-    registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService),
+    registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService, dependencies.windowManager),
+    dependencies.windowManager,
   );
   const historyController = dependencies.historyController;
 
@@ -391,11 +353,11 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
   });
 
   registration.handle('get-recording-status', () => {
-    return getRecordingState().isRecording;
+    return dependencies.shortcutController.getRecordingState().isRecording;
   });
 
   registration.handle('recording-start-failed', () => {
-    resetRecordingState();
+    dependencies.shortcutController.resetRecordingState();
     return { success: true };
   });
 
@@ -403,12 +365,12 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     if (!isRecordingLifecycleState(state)) {
       return { success: false };
     }
-    setRecordingLifecycleState(state);
+    dependencies.shortcutController.setRecordingLifecycleState(state);
     return { success: true };
   });
 
   registration.handle('set-retry-transcription-available', (_event, available: boolean) => {
-    setRetryTranscriptionAvailable(Boolean(available));
+    dependencies.shortcutController.setRetryTranscriptionAvailable(Boolean(available));
     return { success: true };
   });
 
@@ -469,9 +431,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         return { success: false, error: 'Login window closed before session was saved' };
       }
 
-      const status = await refreshActiveProvider(provider.info.id);
+      const status = await refreshActiveProvider(provider.info.id, dependencies.windowManager);
       const settings = getProviderSettingsSnapshot(provider.info.id);
-      sendProviderSettingsChanged(settings, event.sender);
+      dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
       if (status?.error) {
         return { success: false, error: status.error };
       }
@@ -542,16 +504,19 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     if (!provider?.hasSettings) {
       return { success: false, error: 'Provider settings are not available' };
     }
-    showProviderSettingsWindow(provider.id, t('providerSettings.title', { provider: provider.name }));
+    dependencies.windowManager.showProviderSettingsWindow(
+      provider.id,
+      t('providerSettings.title', { provider: provider.name }),
+    );
     return { success: true };
   });
 
   registration.handle('close-provider-settings', (event) => {
-    return { success: closeProviderSettingsWindow(event.sender) };
+    return { success: dependencies.windowManager.closeProviderSettingsWindow(event.sender) };
   });
 
   registration.handle('close-app-settings', () => {
-    closeSettingsWindow();
+    dependencies.windowManager.closeSettingsWindow();
     return { success: true };
   });
 
@@ -559,27 +524,27 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     if (section !== undefined && !isAppSettingsSectionId(section)) {
       return { success: false, error: 'Unsupported settings section' };
     }
-    showSettingsWindow(section);
+    dependencies.windowManager.showSettingsWindow(section);
     return { success: true };
   });
 
   registration.handle('open-transcription-history', () => {
-    showHistoryWindow();
+    dependencies.windowManager.showHistoryWindow();
     return { success: true };
   });
 
   registration.handle('open-about', () => {
-    showAboutWindow();
+    dependencies.windowManager.showAboutWindow();
     return { success: true };
   });
 
   registration.handle('close-about', () => {
-    closeAboutWindow();
+    dependencies.windowManager.closeAboutWindow();
     return { success: true };
   });
 
   registration.handle('get-app-info', () => {
-    return getAppInfo();
+    return dependencies.desktopRuntimeController.getAppInfo();
   });
 
   registration.handle('get-cloakbrowser-settings', () => {
@@ -605,7 +570,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       const backgroundStatus = await restartBackgroundBrowser({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
       });
-      sendBackgroundStatus(backgroundStatus);
+      dependencies.windowManager.publishBackgroundStatus(backgroundStatus, currentProvider);
       log.info('CloakBrowser settings restart result:', summarizeBackgroundStatus(backgroundStatus));
       if (backgroundStatus.error) {
         log.warn('CloakBrowser settings save failed during restart:', summarizeBackgroundStatus(backgroundStatus));
@@ -656,7 +621,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         let savedSettings: ReturnType<typeof saveClaudeWebSettings>;
         try {
           savedSettings = saveClaudeWebSettings(settings);
-          await refreshActiveProvider(providerId);
+          await refreshActiveProvider(providerId, dependencies.windowManager);
         } catch (error: unknown) {
           voiceProviderAudit.terminalException(audit, 'configuration', error);
           throw error;
@@ -670,14 +635,14 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         };
         audit.lifecycle.phaseCompleted('configuration');
         audit.lifecycle.terminal('configuration', 'success');
-        sendProviderSettingsChanged(nextSettings, event.sender);
+        dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
         return { success: true, settings: nextSettings };
       }
       if (providerId !== OPENAI_API_PROVIDER_ID) {
         log.info('Saving provider settings:', { providerId });
         log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
         const nextSettings = getProviderSettingsSnapshot(providerId);
-        sendProviderSettingsChanged(nextSettings, event.sender);
+        dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
         return { success: true, settings: nextSettings };
       }
 
@@ -698,7 +663,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       let savedSettings: ReturnType<typeof saveOpenAIApiSettings>;
       try {
         savedSettings = saveOpenAIApiSettings(settings);
-        await refreshActiveProvider(providerId);
+        await refreshActiveProvider(providerId, dependencies.windowManager);
       } catch (error: unknown) {
         voiceProviderAudit.terminalException(audit, 'configuration', error);
         throw error;
@@ -722,7 +687,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         savedSettings.hasApiKey ? 'success' : 'failure',
         savedSettings.hasApiKey ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
       );
-      sendProviderSettingsChanged(nextSettings, event.sender);
+      dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
       return { success: true, settings: nextSettings };
     } catch (error: unknown) {
       log.error('Provider settings save error:', getErrorMessage(error));
@@ -748,9 +713,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       }
       audit.lifecycle.phaseCompleted('session');
       audit.lifecycle.terminal('session', 'success');
-      await refreshActiveProvider(providerId);
+      await refreshActiveProvider(providerId, dependencies.windowManager);
       const settings = getProviderSettingsSnapshot(providerId);
-      sendProviderSettingsChanged(settings, event.sender);
+      dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
       return { success: true, settings };
     } catch (error: unknown) {
       voiceProviderAudit.terminalException(audit, 'session', error, { causeCode: 'cleanup-failed' });
@@ -766,7 +731,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     try {
       const status = await switchProvider(providerId);
       saveConfig();
-      sendBackgroundStatus(status);
+      dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
       return { success: !status.error, error: status.error };
     } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) };
@@ -782,7 +747,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       return { success: false };
     }
 
-    setShortcutsSuspended(active);
+    dependencies.shortcutController.setSuspended(active);
     return { success: true };
   });
 
@@ -840,9 +805,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       setHotkeys(normalizedHotkey, undefined, undefined, undefined, undefined, undefined);
     }
     saveConfig();
-    registerShortcuts();
+    dependencies.shortcutController.register();
     const hotkeySettings = getHotkeySettingsSnapshot();
-    getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
+    dependencies.windowManager.getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
     return { success: true, ...hotkeySettings };
   });
 
@@ -940,7 +905,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         vllmModelLength: savedSettings.vllm.model.length,
         vllmHasApiKey: savedSettings.vllm.hasApiKey,
       });
-      sendPrettifySettingsChanged(savedSettings);
+      dependencies.windowManager.publishPrettifySettingsChanged(savedSettings);
       return { success: true, settings: savedSettings };
     } catch (error: unknown) {
       log.error('Prettify settings save error:', getErrorMessage(error));
@@ -1053,7 +1018,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       setLocale(locale);
       setCurrentLocale(locale);
       saveConfig();
-      broadcastLocaleChanged(locale);
+      dependencies.windowManager.broadcastLocaleChanged(locale);
       log.info('Locale saved:', { locale: getLocale() });
       return { success: true };
     } catch (error: unknown) {

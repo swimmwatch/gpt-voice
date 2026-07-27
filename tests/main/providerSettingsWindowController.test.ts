@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createProviderSettingsWindowController,
+  ProviderSettingsWindowController,
   type ProviderSettingsWindowLike,
 } from '@main/providerSettingsWindowController';
 
@@ -47,7 +47,7 @@ class TestProviderSettingsWindow implements ProviderSettingsWindowLike {
 
 describe('provider settings window controller', () => {
   it('reuses and focuses a provider window while keeping other providers independent', () => {
-    const controller = createProviderSettingsWindowController<TestProviderSettingsWindow>();
+    const controller = new ProviderSettingsWindowController<TestProviderSettingsWindow>();
     const claude = new TestProviderSettingsWindow(1);
     const openai = new TestProviderSettingsWindow(2);
 
@@ -63,7 +63,7 @@ describe('provider settings window controller', () => {
   });
 
   it('closes by sender and removes only the matching provider window', () => {
-    const controller = createProviderSettingsWindowController<TestProviderSettingsWindow>();
+    const controller = new ProviderSettingsWindowController<TestProviderSettingsWindow>();
     const claude = new TestProviderSettingsWindow(1);
     const openai = new TestProviderSettingsWindow(2);
     controller.show('claude-web', () => claude);

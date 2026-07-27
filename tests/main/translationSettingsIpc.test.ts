@@ -14,7 +14,7 @@ describe('translation settings IPC', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const wrapper = ipc.slice(ipc.indexOf('public handle<'), ipc.indexOf('public dispose()'));
 
-    assert.match(wrapper, /assertTrustedSender\(event\)/u);
+    assert.match(wrapper, /assertTrustedSender\(event, this\.windowManager\)/u);
     assert.match(ipc, /registration\.handle\('get-translate-settings'/u);
     assert.match(ipc, /registration\.handle\('set-translate-settings'/u);
     assert.doesNotMatch(ipc, /ipcMain\.handle\('get-translate-settings'/u);

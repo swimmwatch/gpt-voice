@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createAboutWindowController, isTrustedWindow, type AboutWindowLike } from '@main/aboutWindowController';
+import { AboutWindowController, isTrustedWindow, type AboutWindowLike } from '@main/aboutWindowController';
 
 class TestAboutWindow implements AboutWindowLike {
   readonly webContents;
@@ -55,7 +55,7 @@ class TestAboutWindow implements AboutWindowLike {
 describe('aboutWindowController', () => {
   it('reuses and focuses the existing About window', () => {
     const windows: TestAboutWindow[] = [];
-    const controller = createAboutWindowController(() => {
+    const controller = new AboutWindowController(() => {
       const window = new TestAboutWindow(1, 'app://gpt-voice/about.html', true);
       windows.push(window);
       return window;
@@ -72,7 +72,7 @@ describe('aboutWindowController', () => {
 
   it('creates a replacement after the About window closes', () => {
     const windows: TestAboutWindow[] = [];
-    const controller = createAboutWindowController(() => {
+    const controller = new AboutWindowController(() => {
       const window = new TestAboutWindow(windows.length + 1, 'app://gpt-voice/about.html');
       windows.push(window);
       return window;
@@ -88,7 +88,7 @@ describe('aboutWindowController', () => {
 
   it('closes the current About window when requested', () => {
     const window = new TestAboutWindow(1, 'app://gpt-voice/about.html');
-    const controller = createAboutWindowController(() => window);
+    const controller = new AboutWindowController(() => window);
 
     controller.show();
     controller.close();

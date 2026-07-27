@@ -2221,3 +2221,335 @@ decisions:
     rationale: 'Task 08 is authorized as the sole implementation packet for this invocation.'
     supersedes_revision: null
     requirement_ids: [ARCH-004, COMP-003]
+
+  - id: commit.task-08
+    revision: 1
+    category: commit-authorization
+    state: timed_out
+    provenance: user
+    evidence:
+      - 'The verified Task 08 boundary remained uncommitted while its commit dialog timed out.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: commit.task-08
+      idempotency_key: commit.task-08:v1
+      last_status: timed_out
+    question:
+      text: 'Authorize one atomic commit containing only the verified Task 08 boundary with message `refactor(di): add main process composition root` before Task 09 begins?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Commit Task 08'
+          description: 'Create the verified atomic Task 08 commit when execution mode resumes, then evaluate the separate Task 09 execution gate.'
+        - id: leave-uncommitted
+          label: 'Leave uncommitted'
+          description: 'Keep Task 08 in the worktree and block Task 09 under the incremental workflow.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Do not commit; return Task 08 for revision.'
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: dependency-injection.task-09-boundary
+    revision: 1
+    category: planning
+    state: timed_out
+    provenance: user
+    evidence:
+      - 'Repository inspection found that the original Task 09 could not remove runtime/config/locale/desktop globals while excluding their consumers.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.task-09-boundary
+      idempotency_key: dependency-injection.task-09-boundary:v1
+      last_status: timed_out
+    question:
+      text: 'How should the conflicting Task 09 boundary be repaired so mutable runtime globals can be removed without compatibility singletons?'
+      kind: single
+      options:
+        - id: split-task-09
+          label: 'Split Task 09'
+          description: 'Create separate atomic packets for runtime loaders/loggers, config and localization, and desktop controllers, then renumber later packets.'
+        - id: broaden-task-09
+          label: 'Broaden Task 09'
+          description: 'Keep one large Task 09 and allow dependency-seam edits across every affected consumer.'
+        - id: temporary-compatibility
+          label: 'Temporary compatibility'
+          description: 'Retain temporary module-global adapters until later packets remove them.'
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: commit.task-08
+    revision: 2
+    category: commit-authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Task 08 was implemented, fully verified, and isolated as the main composition-root boundary.'
+      - 'The next DI packet requires Task 08 to be an atomic committed prerequisite.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: commit.task-08
+      idempotency_key: commit.task-08:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize one atomic commit containing only the verified Task 08 boundary with message `refactor(di): add main process composition root` before the next DI packet begins?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Commit Task 08'
+          description: 'Create the verified atomic Task 08 commit, then proceed only after the next packet is execution-authorized.'
+        - id: leave-uncommitted
+          label: 'Leave uncommitted'
+          description: 'Keep Task 08 in the worktree and block later packets.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Do not commit; return Task 08 for revision.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'Task 08 is committed as e737420c before planning or executing Task 09.'
+    supersedes_revision: 1
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: dependency-injection.task-09-boundary
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - 'Config, i18n, logger/Electron/CloakBrowser loaders, windows, and shortcuts have consumers across later provider and IPC ownership packets.'
+      - 'Deleting the targeted globals without compatibility singletons requires narrower cross-cutting migration packets.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.task-09-boundary
+      idempotency_key: dependency-injection.task-09-boundary:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'How should the conflicting Task 09 boundary be repaired so mutable runtime globals can be removed without compatibility singletons?'
+      kind: single
+      options:
+        - id: split-task-09
+          label: 'Split Task 09'
+          description: 'Create separate atomic packets for runtime loaders/loggers, config and localization, and desktop controllers, then renumber later packets.'
+        - id: broaden-task-09
+          label: 'Broaden Task 09'
+          description: 'Keep one large Task 09 and allow dependency-seam edits across every affected consumer.'
+        - id: temporary-compatibility
+          label: 'Temporary compatibility'
+          description: 'Retain temporary module-global adapters until later packets remove them.'
+    answer:
+      selected_ids: [split-task-09]
+      text: ''
+    rationale: 'Separate runtime, config/i18n, and desktop packets make each boundary independently reviewable without temporary globals.'
+    supersedes_revision: 1
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The repaired plan replaces the conflicting Task 09 with runtime-adapter, config/localization, and desktop-controller packets.'
+      - 'Existing provider, IPC, preload/renderer, enforcement, and diagnostics packets shift to Tasks 12–24 without changing their ownership goals.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: provider-audit-di-split-plan-r5
+      supersedes_revision: 4
+      last_status: answered
+    question:
+      text: 'Approve the repaired DI delivery plan that replaces the conflicting Task 09 with three atomic packets—runtime adapters, config/localization, and desktop controllers—and renumbers the remaining packets?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve repaired plan'
+          description: 'Adopt Tasks 09–11 as the three split migrations, shift existing Tasks 10–22 to 12–24, and preserve later ownership goals.'
+        - id: revise
+          label: 'Revise plan'
+          description: 'Keep the current plan unapproved and change the split, class boundaries, or sequencing.'
+        - id: defer
+          label: 'Defer'
+          description: 'Retain the existing conflicting Task 09 and authorize no further implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The split preserves atomic commits, OOP ownership, and the prohibition on compatibility singletons.'
+    supersedes_revision: 4
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: execution.task-09
+    revision: 1
+    category: execution-authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The revision-5 runtime-adapter packet was authorized before implementation inspection exposed that its consumers were not yet application-owned.'
+      - 'No Task 09 runtime code was changed under this authorization.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: execution.task-09
+      idempotency_key: provider-audit-execution-task-09-r1
+      last_status: answered
+    question:
+      text: 'Authorize execution of only Task 09, Migrate Runtime Adapters, using the synchronized revision-5 packet and leaving Task 09 uncommitted for review?'
+      kind: single
+      options:
+        - id: authorize
+          label: 'Authorize Task 09'
+          description: 'Implement and verify the revision-5 runtime-adapter packet and stop uncommitted.'
+        - id: revise
+          label: 'Revise Task 09'
+          description: 'Pause before runtime code changes and revise the packet contract.'
+        - id: defer
+          label: 'Defer execution'
+          description: 'Keep only planning changes and authorize no Task 09 implementation.'
+    answer:
+      selected_ids: [authorize]
+      text: ''
+    rationale: 'Superseded before code changes by the approved owner-first sequence.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: dependency-injection.adapter-order
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - 'Logger is consumed by 21 modules, Electron runtime by 14, and CloakBrowser by browser and Translation modules assigned to later ownership packets.'
+      - 'Application-owned adapters cannot replace those globals atomically until their consumers have injectable owners.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.adapter-order
+      idempotency_key: dependency-injection.adapter-order:v1
+      last_status: answered
+    question:
+      text: 'How should the DI sequence handle runtime adapters whose current consumers are not application-owned yet?'
+      kind: single
+      options:
+        - id: owners-before-adapters
+          label: 'Owners before adapters'
+          description: 'Migrate consumer ownership first, then atomically replace cross-cutting globals.'
+        - id: single-cross-cutting-packet
+          label: 'One cross-cutting packet'
+          description: 'Expand Task 09 to migrate adapters plus every current consumer owner.'
+        - id: temporary-compatibility
+          label: 'Temporary compatibility'
+          description: 'Retain temporary global forwarding APIs until later packets remove them.'
+    answer:
+      selected_ids: [owners-before-adapters]
+      text: ''
+    rationale: 'Owner-first sequencing preserves atomic packets without compatibility forwarding APIs.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'Tasks 09–14 migrate stateful desktop, provider, IPC, preload, and renderer owners before cross-cutting dependencies.'
+      - 'Tasks 15–16 then replace config/i18n and runtime globals after every consumer has an injectable owner; Task 17 enforces the final boundary.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: provider-audit-di-owner-first-plan-r6
+      supersedes_revision: 5
+      last_status: answered
+    question:
+      text: 'Approve the owner-first DI sequence: desktop, Voice/browser, Translation, Prettify, main IPC, preload/renderer, config/localization, runtime adapters, then enforcement?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve owner-first plan'
+          description: 'Adopt Tasks 09–17 in dependency-owner-first order.'
+        - id: revise
+          label: 'Revise plan'
+          description: 'Pause execution and change packet scope or ordering.'
+        - id: defer
+          label: 'Defer'
+          description: 'Authorize no further DI implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The sequence eliminates cross-cutting globals without hidden singletons, compatibility wrappers, or a big-bang packet.'
+    supersedes_revision: 5
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: execution.task-09
+    revision: 2
+    category: execution-authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The owner-first revision-6 Task 09 packet is self-contained and leaves future provider/config/runtime ownership to later packets.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: execution.task-09
+      idempotency_key: provider-audit-execution-task-09-r2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize execution of only the revision-6 Task 09, Desktop Controllers DI, leaving its implementation and synchronized planning changes uncommitted for review?'
+      kind: single
+      options:
+        - id: authorize
+          label: 'Authorize Task 09'
+          description: 'Implement and verify only the desktop-controller packet, then stop uncommitted.'
+        - id: revise
+          label: 'Revise Task 09'
+          description: 'Pause before desktop runtime code changes and revise the packet.'
+        - id: defer
+          label: 'Defer execution'
+          description: 'Keep the planning changes and authorize no Task 09 implementation.'
+    answer:
+      selected_ids: [authorize]
+      text: ''
+    rationale: 'Task 09 desktop-controller execution is authorized as the sole implementation packet.'
+    supersedes_revision: 1
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: workspace.runtime-adapter-overlap
+    revision: 1
+    category: workspace-recovery
+    state: answered
+    provenance: user
+    evidence:
+      - 'Concurrent partial Task 16 runtime-adapter changes appeared after Task 09 authorization and caused 43 production TypeScript errors.'
+      - 'The conflicting tracked files were restored to Task 08 and the two untracked tests were moved to a recoverable temporary directory.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: workspace.runtime-adapter-overlap
+      idempotency_key: workspace.runtime-adapter-overlap:v1
+      last_status: answered
+    question:
+      text: 'How should the incomplete concurrent runtime-adapter changes be handled before owner-first Task 09 continues?'
+      kind: single
+      options:
+        - id: discard-partial-runtime
+          label: 'Discard partial runtime work'
+          description: 'Restore the exact partial runtime files to Task 08 and preserve planning changes.'
+        - id: keep-and-pause
+          label: 'Keep and pause'
+          description: 'Leave the incomplete runtime changes untouched and stop Task 09.'
+        - id: revise-to-runtime-first
+          label: 'Finish runtime first'
+          description: 'Return to planning and complete the cross-cutting runtime migration first.'
+    answer:
+      selected_ids: [discard-partial-runtime]
+      text: ''
+    rationale: 'The untracked tests remain recoverable at /tmp/chatgpt-web-voice-runtime-overlap.31bF3o/.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]

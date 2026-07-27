@@ -13,43 +13,44 @@ export interface AboutWindowLike {
   webContents: AboutWindowWebContents;
 }
 
-export interface AboutWindowController<TWindow extends AboutWindowLike> {
-  close(): void;
-  getWindow(): TWindow | null;
-  show(): void;
-}
+/** Owns the optional About window without coupling its lifecycle to Electron. */
+export class AboutWindowController<TWindow extends AboutWindowLike> {
+  private window: TWindow | null = null;
 
-export function createAboutWindowController<TWindow extends AboutWindowLike>(
-  createWindow: () => TWindow,
-): AboutWindowController<TWindow> {
-  let aboutWindow: TWindow | null = null;
+  public constructor(private readonly createWindow: () => TWindow) {}
 
-  return {
-    close(): void {
-      aboutWindow?.close();
-    },
-    getWindow(): TWindow | null {
-      return aboutWindow;
-    },
-    show(): void {
-      if (aboutWindow) {
-        if (aboutWindow.isMinimized()) {
-          aboutWindow.restore();
-        }
-        aboutWindow.show();
-        aboutWindow.focus();
-        return;
+  public close(): void {
+    this.window?.close();
+  }
+
+  public dispose(): void {
+    const window = this.window;
+    this.window = null;
+    window?.close();
+  }
+
+  public getWindow(): TWindow | null {
+    return this.window;
+  }
+
+  public show(): void {
+    if (this.window) {
+      if (this.window.isMinimized()) {
+        this.window.restore();
       }
+      this.window.show();
+      this.window.focus();
+      return;
+    }
 
-      const createdWindow = createWindow();
-      aboutWindow = createdWindow;
-      createdWindow.on('closed', () => {
-        if (aboutWindow === createdWindow) {
-          aboutWindow = null;
-        }
-      });
-    },
-  };
+    const createdWindow = this.createWindow();
+    this.window = createdWindow;
+    createdWindow.on('closed', () => {
+      if (this.window === createdWindow) {
+        this.window = null;
+      }
+    });
+  }
 }
 
 export function isTrustedWindow(

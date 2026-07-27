@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
+import type { BrowserWindow, Menu, NativeImage, Tray } from 'electron';
 // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Tests exercise the Node 24 SQLite implementation.
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -22,6 +23,10 @@ import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
+  public readonly commandLine = {
+    appendSwitch: () => undefined,
+  };
+  public readonly isPackaged = false;
   public quitCount = 0;
   public ready = false;
   private readonly listeners = new Map<string, unknown>();
@@ -29,6 +34,24 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
   public isReady(): boolean {
     return this.ready;
   }
+
+  public disableHardwareAcceleration(): void {}
+
+  public getVersion(): string {
+    return '1.0.0';
+  }
+
+  public requestSingleInstanceLock(): boolean {
+    return true;
+  }
+
+  public setAboutPanelOptions(): void {}
+
+  public setAppUserModelId(): void {}
+
+  public setName(): void {}
+
+  public showAboutPanel(): void {}
 
   public on(
     event: 'activate' | 'before-quit' | 'ready' | 'second-instance' | 'window-all-closed',
@@ -54,6 +77,63 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
       ((preventableEvent: MainProcessPreventableEvent) => void) | undefined;
     listener?.(event);
   }
+}
+
+class TestDesktopWindow {
+  public readonly webContents = {
+    executeJavaScript: async () => true,
+    getURL: () => 'app://gpt-voice/index.html',
+    id: 1,
+    isDestroyed: () => false,
+    on: () => undefined,
+    once: () => undefined,
+    send: () => undefined,
+    setWindowOpenHandler: () => undefined,
+  };
+
+  public close(): void {}
+  public focus(): void {}
+  public hide(): void {}
+  public isDestroyed(): boolean {
+    return false;
+  }
+  public isMinimized(): boolean {
+    return false;
+  }
+  public isVisible(): boolean {
+    return true;
+  }
+  public async loadURL(): Promise<void> {}
+  public on(): void {}
+  public once(): void {}
+  public restore(): void {}
+  public setIcon(): void {}
+  public setMenuBarVisibility(): void {}
+  public show(): void {}
+}
+
+class TestNativeImage {
+  public getSize(): { readonly height: number; readonly width: number } {
+    return { height: 22, width: 22 };
+  }
+  public isEmpty(): boolean {
+    return false;
+  }
+  public resize(): this {
+    return this;
+  }
+  public setTemplateImage(): void {}
+}
+
+class TestTray {
+  public destroy(): void {}
+  public isDestroyed(): boolean {
+    return false;
+  }
+  public on(): void {}
+  public setContextMenu(): void {}
+  public setImage(): void {}
+  public setToolTip(): void {}
 }
 
 class RecordingIpcRegistration implements MainProcessIpcRegistration {
@@ -127,16 +207,108 @@ class MainProcessCompositionHarness {
     this.applicationEnvironment = {
       app: this.app,
       configureCloakBrowserRuntime: () => undefined,
-      configureDockIcon: () => undefined,
-      configureNativeAppMetadata: () => undefined,
-      configureSessionPermissions: () => undefined,
-      createTray: () => undefined,
-      createWindow: () => undefined,
-      globalShortcuts: { unregisterAll: () => undefined },
+      desktopControllers: {
+        appProtocol: {
+          appIconPath: '/app/icon.png',
+          appRoot: '/app',
+          logger: { warn: () => undefined },
+          protocol: {
+            handle: () => undefined,
+            registerSchemesAsPrivileged: () => undefined,
+            unhandle: () => undefined,
+          },
+          readFile: async () => Buffer.alloc(0),
+        },
+        desktopRuntime: {
+          app: this.app,
+          arguments: isRemovingLinuxDesktopIntegration ? ['--remove-linux-appimage-desktop-integration'] : [],
+          buildMenu: () => ({}) as Menu,
+          electronVersion: '39.0.0',
+          environment: {},
+          exit: () => undefined,
+          getAppIconPath: () => '/app/icon.png',
+          openExternal: async () => undefined,
+          platform: 'linux',
+          schedule: () => undefined,
+          session: {
+            defaultSession: {
+              setPermissionCheckHandler: () => undefined,
+              setPermissionRequestHandler: () => undefined,
+            },
+          },
+          setApplicationMenu: () => undefined,
+          writeStandardOutput: () => undefined,
+        },
+        linuxDesktopIntegration: {
+          app: this.app,
+          environment: {},
+          fileSystem: {
+            copyFileSync: () => undefined,
+            mkdirSync: () => undefined,
+            rmSync: () => undefined,
+            writeFileSync: () => undefined,
+          },
+          getAppIconPath: () => '/app/icon.png',
+          getAssetPath: () => '/app/icon.png',
+          homeDirectory: () => '/home/test',
+          logger: {
+            debug: () => undefined,
+            info: () => undefined,
+            warn: () => undefined,
+          },
+          platform: 'win32',
+          spawn: () => ({
+            once: () => undefined,
+            unref: () => undefined,
+          }),
+          syncDesktopIcons: () => undefined,
+        },
+        shortcuts: {
+          cancelSelectedTextPrettify: () => false,
+          getActiveSelectedTextAction: () => null,
+          getSettings: () => ({
+            cancelHotkey: 'Escape',
+            hotkey: 'Super+Shift+Space',
+            prettifyEnabled: true,
+            prettifyHotkey: 'Super+Shift+P',
+            retryTranscriptionHotkey: 'Super+Shift+R',
+            stopHotkey: 'Super+Shift+S',
+            translateEnabled: true,
+            translateHotkey: 'Super+Shift+T',
+          }),
+          globalShortcut: {
+            register: () => true,
+            unregister: () => undefined,
+            unregisterAll: () => undefined,
+          },
+          logger: { info: () => undefined, warn: () => undefined },
+          platform: 'linux',
+          prettifySelectedText: async () => ({ success: true }),
+          translateSelectedTextToClipboard: async () => ({ success: true }),
+        },
+        tray: {
+          application: this.app,
+          buildMenu: () => ({}) as Menu,
+          createNativeImage: () => new TestNativeImage() as unknown as NativeImage,
+          createTray: () => new TestTray() as unknown as Tray,
+          getAssetPath: () => '/app/icon.png',
+          platform: 'linux',
+          translate: () => '',
+        },
+        window: {
+          createBrowserWindow: () => new TestDesktopWindow() as unknown as BrowserWindow,
+          getAppIcon: () => new TestNativeImage() as unknown as NativeImage,
+          getAppIconPath: () => '/app/icon.png',
+          getAppUrl: () => 'app://gpt-voice/index.html',
+          logger: { debug: () => undefined, warn: () => undefined },
+          openExternal: async () => undefined,
+          platform: 'linux',
+          preloadPath: '/app/preload.js',
+        },
+      },
+      getCurrentVoiceProviderId: () => 'chatgpt',
       initializeBackgroundBrowser: async () => ({ ready: true }),
       initializeLocale: () => undefined,
-      isRemovingLinuxDesktopIntegration,
-      isStartupBenchmark: false,
       loadConfig: () => undefined,
       logger: {
         errorHandler: { startCatching: () => undefined },
@@ -144,18 +316,9 @@ class MainProcessCompositionHarness {
         warn: () => undefined,
       },
       presentTranslationSettingsRepairNotice: () => undefined,
-      publishBackgroundStatus: () => undefined,
-      refreshLinuxDesktopIcons: () => undefined,
-      registerAppProtocol: () => undefined,
-      registerLinuxDesktopIntegration: () => undefined,
-      registerShortcuts: () => undefined,
-      removeLinuxDesktopIntegration: () => undefined,
-      setQuitting: () => undefined,
-      showMainWindow: () => undefined,
       shutdownBackgroundBrowser: async () => undefined,
       shutdownTranslationProviders: async () => ({ failedProviderIds: [], success: true }),
       unloadPrettifyModel: async () => undefined,
-      waitForStartupBenchmarkReady: () => undefined,
     };
   }
 
@@ -195,6 +358,9 @@ describe('main process composition root', () => {
     );
     const transcription = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/transcription.ts'), 'utf8');
     const streaming = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/streamingTranscription.ts'), 'utf8');
+    const windowManager = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/window.ts'), 'utf8');
+    const trayController = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/tray.ts'), 'utf8');
+    const shortcutController = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/shortcuts.ts'), 'utf8');
 
     assert.doesNotMatch(
       main,
@@ -209,6 +375,12 @@ describe('main process composition root', () => {
     assert.doesNotMatch(diagnosticRedactor, /export const diagnosticTextRedactor/u);
     assert.doesNotMatch(transcription, /\bimport\s*\{\s*voiceProviderAudit\b|\baudit\?:/u);
     assert.doesNotMatch(streaming, /\bcreateMainStreamingTranscriptionService\b|\bimport\s*\{\s*voiceProviderAudit\b/u);
+    assert.match(windowManager, /export class WindowManager/u);
+    assert.match(trayController, /export class TrayController/u);
+    assert.match(shortcutController, /export class ShortcutController/u);
+    assert.doesNotMatch(windowManager, /^let\s+/mu);
+    assert.doesNotMatch(trayController, /^let\s+/mu);
+    assert.doesNotMatch(shortcutController, /^let\s+/mu);
   });
 
   it('defers database and service construction until normal application startup', async () => {
@@ -216,7 +388,7 @@ describe('main process composition root', () => {
     const application = new MainProcessCompositionRoot(harness.compositionEnvironment).createApplication(
       harness.applicationEnvironment,
     );
-    application.register();
+    application.bootstrap();
 
     assert.equal(harness.state.createCount, 0);
     assert.equal(harness.state.ipcDependencies.length, 0);
@@ -237,10 +409,10 @@ describe('main process composition root', () => {
     const second = createHarness();
     new MainProcessCompositionRoot(first.compositionEnvironment)
       .createApplication(first.applicationEnvironment)
-      .register();
+      .bootstrap();
     new MainProcessCompositionRoot(second.compositionEnvironment)
       .createApplication(second.applicationEnvironment)
-      .register();
+      .bootstrap();
 
     first.app.emitReady();
     second.app.emitReady();
@@ -249,8 +421,11 @@ describe('main process composition root', () => {
     const firstDependencies = first.state.ipcDependencies[0];
     const secondDependencies = second.state.ipcDependencies[0];
     assert.notEqual(firstDependencies.historyController, secondDependencies.historyController);
+    assert.notEqual(firstDependencies.desktopRuntimeController, secondDependencies.desktopRuntimeController);
+    assert.notEqual(firstDependencies.shortcutController, secondDependencies.shortcutController);
     assert.notEqual(firstDependencies.streamingTranscriptionService, secondDependencies.streamingTranscriptionService);
     assert.notEqual(firstDependencies.transcribeAudio, secondDependencies.transcribeAudio);
+    assert.notEqual(firstDependencies.windowManager, secondDependencies.windowManager);
     assert.notEqual(first.state.ipcRegistrations[0], second.state.ipcRegistrations[0]);
 
     first.app.emitWillQuit({ preventDefault: () => undefined });
@@ -269,7 +444,7 @@ describe('main process composition root', () => {
     const harness = createHarness(true);
     new MainProcessCompositionRoot(harness.compositionEnvironment)
       .createApplication(harness.applicationEnvironment)
-      .register();
+      .bootstrap();
 
     harness.app.emitReady();
     await flushAsyncWork();

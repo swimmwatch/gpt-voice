@@ -69,7 +69,7 @@ describe('translation settings startup notice', () => {
     const localeIndex = application.indexOf('dependencies.initializeLocale();', loadIndex);
     const noticeIndex = application.indexOf('dependencies.presentTranslationSettingsRepairNotice();', localeIndex);
     const ipcIndex = application.indexOf('runtime.registerIpc();', noticeIndex);
-    const windowIndex = application.indexOf('this.dependencies.createWindow();', noticeIndex);
+    const windowIndex = application.indexOf('this.dependencies.windowManager.createMainWindow();', noticeIndex);
     const backgroundIndex = application.indexOf('this.dependencies.initializeBackgroundBrowser()', noticeIndex);
 
     assert.equal(loadIndex >= 0, true);

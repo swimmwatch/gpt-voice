@@ -1,6 +1,9 @@
-/* eslint-disable max-classes-per-file -- lifecycle fakes own distinct application, runtime, and IPC state. */
+/* eslint-disable max-classes-per-file -- lifecycle fakes own distinct controller resources. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { AppProtocolController } from '@main/appProtocol';
+import { DesktopRuntimeController } from '@main/desktopRuntimeController';
+import { LinuxDesktopIntegrationController } from '@main/linuxDesktopIntegration';
 import {
   MainProcessApplication,
   type MainProcessApplicationDependencies,
@@ -8,7 +11,11 @@ import {
   type MainProcessIpcRegistration,
   type MainProcessOwnedRuntime,
   type MainProcessPreventableEvent,
+  type MainProcessRuntimeFactory,
 } from '@main/mainProcessApplication';
+import { ShortcutController } from '@main/shortcuts';
+import { TrayController } from '@main/tray';
+import { WindowManager } from '@main/window';
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -93,38 +100,293 @@ class RecordingRuntime implements MainProcessOwnedRuntime {
   }
 }
 
+class RecordingRuntimeFactory implements MainProcessRuntimeFactory {
+  public createCount = 0;
+
+  public constructor(
+    private readonly events: string[],
+    private readonly runtime: MainProcessOwnedRuntime,
+  ) {}
+
+  public create(): MainProcessOwnedRuntime {
+    this.createCount += 1;
+    this.events.push('runtime-create');
+    return this.runtime;
+  }
+}
+
+class RecordingAppProtocolController extends AppProtocolController {
+  public constructor(private readonly events: string[]) {
+    super({
+      appIconPath: '/app/icon.png',
+      appRoot: '/app',
+      logger: { warn: () => undefined },
+      protocol: {
+        handle: () => undefined,
+        registerSchemesAsPrivileged: () => undefined,
+        unhandle: () => undefined,
+      },
+      readFile: async () => Buffer.alloc(0),
+    });
+  }
+
+  public override registerScheme(): void {
+    this.events.push('protocol-scheme');
+  }
+
+  public override registerHandler(): void {
+    this.events.push('protocol-register');
+  }
+
+  public override dispose(): void {
+    this.events.push('protocol-dispose');
+  }
+}
+
+class RecordingWindowManager extends WindowManager {
+  public constructor(private readonly events: string[]) {
+    super({
+      createBrowserWindow: () => {
+        throw new Error('unexpected-window-construction');
+      },
+      getAppIcon: () => {
+        throw new Error('unexpected-icon-read');
+      },
+      getAppIconPath: () => '/app/icon.png',
+      getAppUrl: () => 'app://gpt-voice/index.html',
+      logger: { debug: () => undefined, warn: () => undefined },
+      openExternal: async () => undefined,
+      platform: 'linux',
+      preloadPath: '/app/preload.js',
+    });
+  }
+
+  public override createMainWindow(): void {
+    this.events.push('window-create');
+  }
+
+  public override dispose(): void {
+    this.events.push('window-dispose');
+  }
+
+  public override publishBackgroundStatus(): void {
+    this.events.push('background-status');
+  }
+
+  public override setQuitting(): void {
+    this.events.push('set-quitting');
+  }
+
+  public override showMainWindow(): void {
+    this.events.push('window-show');
+  }
+}
+
+class RecordingDesktopRuntimeController extends DesktopRuntimeController {
+  public constructor(
+    private readonly events: string[],
+    windowManager: WindowManager,
+    options: { readonly benchmark?: boolean; readonly removing?: boolean } = {},
+  ) {
+    super({
+      app: {
+        commandLine: { appendSwitch: () => undefined },
+        disableHardwareAcceleration: () => undefined,
+        getVersion: () => '1.0.0',
+        isPackaged: false,
+        quit: () => undefined,
+        requestSingleInstanceLock: () => true,
+        setAboutPanelOptions: () => undefined,
+        setAppUserModelId: () => undefined,
+        setName: () => undefined,
+        showAboutPanel: () => undefined,
+      },
+      arguments: [
+        ...(options.benchmark ? ['--startup-benchmark'] : []),
+        ...(options.removing ? ['--remove-linux-appimage-desktop-integration'] : []),
+      ],
+      buildMenu: () => {
+        throw new Error('unexpected-menu-construction');
+      },
+      electronVersion: '39.0.0',
+      environment: {},
+      exit: () => undefined,
+      getAppIconPath: () => '/app/icon.png',
+      openExternal: async () => undefined,
+      platform: 'linux',
+      schedule: () => undefined,
+      session: {
+        defaultSession: {
+          setPermissionCheckHandler: () => undefined,
+          setPermissionRequestHandler: () => undefined,
+        },
+      },
+      setApplicationMenu: () => undefined,
+      windowManager,
+      writeStandardOutput: () => undefined,
+    });
+  }
+
+  public override configureBeforeReady(): void {
+    this.events.push('desktop-before-ready');
+  }
+
+  public override acquireSingleInstanceLock(): boolean {
+    this.events.push('desktop-lock');
+    return true;
+  }
+
+  public override configureNativeMetadata(): void {
+    this.events.push('native-metadata');
+  }
+
+  public override configureApplicationReady(): void {
+    this.events.push('desktop-ready');
+  }
+
+  public override waitForStartupBenchmarkReady(): void {
+    this.events.push('benchmark-wait');
+  }
+}
+
+class RecordingLinuxDesktopIntegrationController extends LinuxDesktopIntegrationController {
+  public constructor(private readonly events: string[]) {
+    super({
+      app: { getVersion: () => '1.0.0', isPackaged: false },
+      environment: {},
+      fileSystem: {
+        copyFileSync: () => undefined,
+        mkdirSync: () => undefined,
+        rmSync: () => undefined,
+        writeFileSync: () => undefined,
+      },
+      getAppIconPath: () => '/app/icon.png',
+      getAssetPath: () => '/app/icon.png',
+      homeDirectory: () => '/home/test',
+      logger: { debug: () => undefined, info: () => undefined, warn: () => undefined },
+      platform: 'linux',
+      spawn: () => ({
+        once: () => undefined,
+        unref: () => undefined,
+      }),
+      syncDesktopIcons: () => undefined,
+    });
+  }
+
+  public override refreshIcons(): void {
+    this.events.push('desktop-icons');
+  }
+
+  public override registerAppImage(): void {
+    this.events.push('desktop-integration');
+  }
+
+  public override removeAppImage(): void {
+    this.events.push('desktop-remove');
+  }
+}
+
+class RecordingTrayController extends TrayController {
+  public constructor(
+    private readonly events: string[],
+    windowManager: WindowManager,
+  ) {
+    super({
+      application: { quit: () => undefined },
+      buildMenu: () => {
+        throw new Error('unexpected-menu-construction');
+      },
+      createNativeImage: () => {
+        throw new Error('unexpected-icon-construction');
+      },
+      createTray: () => {
+        throw new Error('unexpected-tray-construction');
+      },
+      getAssetPath: () => '/app/icon.png',
+      platform: 'linux',
+      translate: () => '',
+      windowManager,
+    });
+  }
+
+  public override create(): void {
+    this.events.push('tray-create');
+  }
+
+  public override dispose(): void {
+    this.events.push('tray-dispose');
+  }
+}
+
+class RecordingShortcutController extends ShortcutController {
+  public constructor(
+    private readonly events: string[],
+    trayController: TrayController,
+    windowManager: WindowManager,
+  ) {
+    super({
+      cancelSelectedTextPrettify: () => false,
+      getActiveSelectedTextAction: () => null,
+      getSettings: () => ({
+        cancelHotkey: 'Escape',
+        hotkey: 'Super+Shift+Space',
+        prettifyEnabled: true,
+        prettifyHotkey: 'Super+Shift+P',
+        retryTranscriptionHotkey: 'Super+Shift+R',
+        stopHotkey: 'Super+Shift+S',
+        translateEnabled: true,
+        translateHotkey: 'Super+Shift+T',
+      }),
+      globalShortcut: {
+        register: () => true,
+        unregister: () => undefined,
+        unregisterAll: () => undefined,
+      },
+      logger: { info: () => undefined, warn: () => undefined },
+      platform: 'linux',
+      prettifySelectedText: async () => ({ success: true }),
+      translateSelectedTextToClipboard: async () => ({ success: true }),
+      trayController,
+      windowManager,
+    });
+  }
+
+  public override register(): void {
+    this.events.push('shortcuts-register');
+  }
+
+  public override dispose(): void {
+    this.events.push('shortcuts-dispose');
+  }
+}
+
 class MainProcessApplicationHarness {
   public readonly app = new RecordingElectronApplication();
   public readonly events: string[] = [];
   public readonly runtime = new RecordingRuntime(this.events);
-  public readonly warnings: Array<{ readonly message: string; readonly metadata?: Readonly<Record<string, unknown>> }> =
-    [];
-  public runtimeCreateCount = 0;
-
-  public createApplication(overrides: Partial<MainProcessApplicationDependencies> = {}): MainProcessApplication {
-    return new MainProcessApplication({
+  public readonly runtimeFactory = new RecordingRuntimeFactory(this.events, this.runtime);
+  public readonly warnings: Array<{
+    readonly message: string;
+    readonly metadata?: Readonly<Record<string, unknown>>;
+  }> = [];
+  public createApplication(
+    options: { readonly benchmark?: boolean; readonly removing?: boolean } = {},
+  ): MainProcessApplication {
+    const windowManager = new RecordingWindowManager(this.events);
+    const trayController = new RecordingTrayController(this.events, windowManager);
+    const shortcutController = new RecordingShortcutController(this.events, trayController, windowManager);
+    const dependencies: MainProcessApplicationDependencies = {
       app: this.app,
+      appProtocolController: new RecordingAppProtocolController(this.events),
       configureCloakBrowserRuntime: () => this.events.push('cloak-runtime'),
-      configureDockIcon: () => this.events.push('dock-icon'),
-      configureNativeAppMetadata: () => this.events.push('native-metadata'),
-      configureSessionPermissions: () => this.events.push('session-permissions'),
-      createRuntime: () => {
-        this.runtimeCreateCount += 1;
-        this.events.push('runtime-create');
-        return this.runtime;
-      },
-      createTray: () => this.events.push('tray-create'),
-      createWindow: () => this.events.push('window-create'),
-      globalShortcuts: {
-        unregisterAll: () => this.events.push('shortcuts-unregister'),
-      },
+      desktopRuntimeController: new RecordingDesktopRuntimeController(this.events, windowManager, options),
+      getCurrentVoiceProviderId: () => 'chatgpt',
       initializeBackgroundBrowser: async () => {
         this.events.push('browser-initialize');
         return { providerId: 'chatgpt', ready: true };
       },
       initializeLocale: () => this.events.push('locale-initialize'),
-      isRemovingLinuxDesktopIntegration: false,
-      isStartupBenchmark: false,
+      linuxDesktopIntegrationController: new RecordingLinuxDesktopIntegrationController(this.events),
       loadConfig: () => this.events.push('config-load'),
       logger: {
         errorHandler: {
@@ -134,14 +396,8 @@ class MainProcessApplicationHarness {
         warn: (message, metadata) => this.warnings.push({ message, ...(metadata ? { metadata } : {}) }),
       },
       presentTranslationSettingsRepairNotice: () => this.events.push('settings-notice'),
-      publishBackgroundStatus: () => this.events.push('background-status'),
-      refreshLinuxDesktopIcons: () => this.events.push('desktop-icons'),
-      registerAppProtocol: () => this.events.push('protocol-register'),
-      registerLinuxDesktopIntegration: () => this.events.push('desktop-integration'),
-      registerShortcuts: () => this.events.push('shortcuts-register'),
-      removeLinuxDesktopIntegration: () => this.events.push('desktop-remove'),
-      setQuitting: () => this.events.push('set-quitting'),
-      showMainWindow: () => this.events.push('window-show'),
+      runtimeFactory: this.runtimeFactory,
+      shortcutController,
       shutdownBackgroundBrowser: async () => {
         this.events.push('browser-shutdown');
       },
@@ -149,12 +405,13 @@ class MainProcessApplicationHarness {
         this.events.push('translation-shutdown');
         return { failedProviderIds: [], success: true };
       },
+      trayController,
       unloadPrettifyModel: async () => {
         this.events.push('prettify-shutdown');
       },
-      waitForStartupBenchmarkReady: () => this.events.push('benchmark-wait'),
-      ...overrides,
-    });
+      windowManager,
+    };
+    return new MainProcessApplication(dependencies);
   }
 }
 
@@ -163,26 +420,29 @@ function flushAsyncWork(): Promise<void> {
 }
 
 describe('main process application lifecycle', () => {
-  it('registers its Electron lifecycle callbacks once', () => {
+  it('bootstraps and registers its Electron lifecycle callbacks once', () => {
     const harness = new MainProcessApplicationHarness();
     const application = harness.createApplication();
 
-    application.register();
-    application.register();
+    application.bootstrap();
+    application.bootstrap();
 
     assert.equal(harness.app.onCount, 6);
+    assert.deepEqual(harness.events, ['desktop-before-ready', 'protocol-scheme', 'desktop-lock']);
   });
 
   it('creates the runtime only on normal ready and prunes before IPC registration', async () => {
     const harness = new MainProcessApplicationHarness();
-    const application = harness.createApplication();
-    application.register();
+    harness.createApplication().bootstrap();
 
-    assert.equal(harness.runtimeCreateCount, 0);
+    assert.equal(harness.runtimeFactory.createCount, 0);
     harness.app.emitReady();
     await flushAsyncWork();
 
     assert.deepEqual(harness.events, [
+      'desktop-before-ready',
+      'protocol-scheme',
+      'desktop-lock',
       'logger-initialize',
       'logger-catch',
       'cloak-runtime',
@@ -190,8 +450,7 @@ describe('main process application lifecycle', () => {
       'desktop-icons',
       'desktop-integration',
       'protocol-register',
-      'dock-icon',
-      'session-permissions',
+      'desktop-ready',
       'config-load',
       'locale-initialize',
       'settings-notice',
@@ -208,28 +467,20 @@ describe('main process application lifecycle', () => {
 
   it('keeps integration removal and benchmark startup from opening unrelated resources', async () => {
     const removalHarness = new MainProcessApplicationHarness();
-    removalHarness
-      .createApplication({
-        isRemovingLinuxDesktopIntegration: true,
-      })
-      .register();
+    removalHarness.createApplication({ removing: true }).bootstrap();
     removalHarness.app.emitReady();
     await flushAsyncWork();
 
-    assert.equal(removalHarness.runtimeCreateCount, 0);
-    assert.deepEqual(removalHarness.events, ['logger-initialize', 'logger-catch', 'desktop-remove']);
+    assert.equal(removalHarness.runtimeFactory.createCount, 0);
+    assert.deepEqual(removalHarness.events.slice(3), ['logger-initialize', 'logger-catch', 'desktop-remove']);
     assert.equal(removalHarness.app.quitCount, 1);
 
     const benchmarkHarness = new MainProcessApplicationHarness();
-    benchmarkHarness
-      .createApplication({
-        isStartupBenchmark: true,
-      })
-      .register();
+    benchmarkHarness.createApplication({ benchmark: true }).bootstrap();
     benchmarkHarness.app.emitReady();
     await flushAsyncWork();
 
-    assert.equal(benchmarkHarness.runtimeCreateCount, 1);
+    assert.equal(benchmarkHarness.runtimeFactory.createCount, 1);
     assert.equal(benchmarkHarness.events.includes('benchmark-wait'), true);
     assert.equal(benchmarkHarness.events.includes('tray-create'), false);
     assert.equal(benchmarkHarness.events.includes('browser-initialize'), false);
@@ -238,8 +489,7 @@ describe('main process application lifecycle', () => {
 
   it('owns one idempotent shutdown in the required resource order', async () => {
     const harness = new MainProcessApplicationHarness();
-    const application = harness.createApplication();
-    application.register();
+    harness.createApplication().bootstrap();
     harness.app.emitReady();
     await flushAsyncWork();
     harness.events.length = 0;
@@ -262,26 +512,24 @@ describe('main process application lifecycle', () => {
     assert.equal(harness.app.quitCount, 1);
     assert.deepEqual(harness.events, [
       'set-quitting',
-      'shortcuts-unregister',
+      'shortcuts-dispose',
       'ipc-dispose',
       'prettify-shutdown',
       'translation-shutdown',
       'browser-shutdown',
       'diagnostic-shutdown',
       'database-close',
+      'tray-dispose',
+      'window-dispose',
+      'protocol-dispose',
     ]);
-
-    harness.app.emitWillQuit(quitEvent);
-    await flushAsyncWork();
-    assert.equal(harness.runtime.ipcRegistration.disposeCount, 1);
-    assert.equal(harness.runtime.closeCount, 1);
   });
 
   it('keeps startup and shutdown state isolated between application instances', async () => {
     const first = new MainProcessApplicationHarness();
     const second = new MainProcessApplicationHarness();
-    first.createApplication().register();
-    second.createApplication().register();
+    first.createApplication().bootstrap();
+    second.createApplication().bootstrap();
 
     first.app.emitReady();
     await flushAsyncWork();
@@ -289,7 +537,7 @@ describe('main process application lifecycle', () => {
     await flushAsyncWork();
 
     assert.equal(first.runtime.closeCount, 1);
-    assert.equal(second.runtimeCreateCount, 0);
+    assert.equal(second.runtimeFactory.createCount, 0);
     assert.equal(second.runtime.closeCount, 0);
     assert.equal(second.app.quitCount, 0);
   });

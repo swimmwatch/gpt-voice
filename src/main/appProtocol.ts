@@ -1,15 +1,15 @@
-import { protocol } from 'electron';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { getAppIconPath } from './assets';
-import { createLogger } from './logger';
+import type { Protocol } from 'electron';
 import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 
 const APP_PROTOCOL = 'app';
 const APP_HOST = 'gpt-voice';
-const log = createLogger('app-protocol');
+const DEFAULT_APP_PATH = 'index.html';
+const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
+const NOT_FOUND_RESPONSE = 'Not found';
+const FORBIDDEN_RESPONSE = 'Forbidden';
 
-const mimeTypes = new Map<string, string>([
+const MIME_TYPES = new Map<string, string>([
   ['.html', 'text/html; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
@@ -19,20 +19,77 @@ const mimeTypes = new Map<string, string>([
   ['.svg', 'image/svg+xml'],
 ]);
 
-export function registerAppProtocolScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: APP_PROTOCOL,
-      privileges: {
-        standard: true,
-        secure: true,
-        supportFetchAPI: true,
-      },
-    },
-  ]);
+export interface AppProtocolControllerDependencies {
+  readonly appIconPath: string;
+  readonly appRoot: string;
+  readonly logger: {
+    warn(...args: unknown[]): void;
+  };
+  readonly protocol: Pick<Protocol, 'handle' | 'registerSchemesAsPrivileged' | 'unhandle'>;
+  readonly readFile: (filePath: string) => Promise<Uint8Array>;
 }
 
-export function getAppUrl(pathname = 'index.html'): string {
+/** Owns registration and teardown of the privileged app:// renderer protocol. */
+export class AppProtocolController {
+  private handlerRegistered = false;
+  private schemeRegistered = false;
+
+  public constructor(private readonly dependencies: AppProtocolControllerDependencies) {}
+
+  public registerScheme(): void {
+    if (this.schemeRegistered) return;
+    this.dependencies.protocol.registerSchemesAsPrivileged([
+      {
+        scheme: APP_PROTOCOL,
+        privileges: {
+          standard: true,
+          secure: true,
+          supportFetchAPI: true,
+        },
+      },
+    ]);
+    this.schemeRegistered = true;
+  }
+
+  public registerHandler(): void {
+    if (this.handlerRegistered) return;
+    this.dependencies.protocol.handle(APP_PROTOCOL, async (request) => {
+      try {
+        const url = new URL(request.url);
+        if (url.host !== APP_HOST) {
+          return new Response(NOT_FOUND_RESPONSE, { status: 404 });
+        }
+
+        const relativePath = path.normalize(decodeURIComponent(url.pathname).replace(/^\/+/, '') || DEFAULT_APP_PATH);
+        const bundledFilePath = path.resolve(this.dependencies.appRoot, relativePath);
+        const isInsideAppRoot =
+          bundledFilePath === this.dependencies.appRoot ||
+          bundledFilePath.startsWith(`${this.dependencies.appRoot}${path.sep}`);
+        if (!isInsideAppRoot) {
+          return new Response(FORBIDDEN_RESPONSE, { status: 403 });
+        }
+
+        const filePath = getAppProtocolFilePath(relativePath, this.dependencies.appRoot, this.dependencies.appIconPath);
+        const body = await this.dependencies.readFile(filePath);
+        return new Response(Uint8Array.from(body).buffer, {
+          headers: { 'content-type': getAppProtocolContentType(filePath) },
+        });
+      } catch (error: unknown) {
+        this.dependencies.logger.warn('Failed to serve app protocol request:', request.url, error);
+        return new Response(NOT_FOUND_RESPONSE, { status: 404 });
+      }
+    });
+    this.handlerRegistered = true;
+  }
+
+  public dispose(): void {
+    if (!this.handlerRegistered) return;
+    this.dependencies.protocol.unhandle(APP_PROTOCOL);
+    this.handlerRegistered = false;
+  }
+}
+
+export function getAppUrl(pathname = DEFAULT_APP_PATH): string {
   return `${APP_PROTOCOL}://${APP_HOST}/${pathname.replace(/^\/+/, '')}`;
 }
 
@@ -41,32 +98,5 @@ export function getAppProtocolFilePath(relativePath: string, appRoot: string, ap
 }
 
 export function getAppProtocolContentType(filePath: string): string {
-  return mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream';
-}
-
-export function registerAppProtocol(): void {
-  protocol.handle(APP_PROTOCOL, async (request) => {
-    try {
-      const url = new URL(request.url);
-      if (url.host !== APP_HOST) {
-        return new Response('Not found', { status: 404 });
-      }
-
-      const appRoot = path.resolve(__dirname);
-      const relativePath = path.normalize(decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html');
-      const bundledFilePath = path.resolve(appRoot, relativePath);
-      const isInsideAppRoot = bundledFilePath === appRoot || bundledFilePath.startsWith(`${appRoot}${path.sep}`);
-
-      if (!isInsideAppRoot) {
-        return new Response('Forbidden', { status: 403 });
-      }
-
-      const filePath = getAppProtocolFilePath(relativePath, appRoot, getAppIconPath());
-      const body = await fs.readFile(filePath);
-      return new Response(body, { headers: { 'content-type': getAppProtocolContentType(filePath) } });
-    } catch (error) {
-      log.warn('Failed to serve app protocol request:', request.url, error);
-      return new Response('Not found', { status: 404 });
-    }
-  });
+  return MIME_TYPES.get(path.extname(filePath).toLowerCase()) || DEFAULT_CONTENT_TYPE;
 }

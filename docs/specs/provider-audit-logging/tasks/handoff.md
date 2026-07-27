@@ -1,50 +1,52 @@
-# Handoff: Provider Audit Task 08 Complete
+# Handoff: Provider Audit Task 09 Complete
 
 ## Status
 
-- Tasks 01–07 are committed; Task 07 is `982b49a5 feat(audit): add diagnostic capture repositories`.
-- The expanded Tasks 08–22 plan is approved through `approval.plan` revision 4.
-- Task 08 was authorized through `execution.task-08` revision 1.
-- Task 08 is implemented and verified, unstaged and uncommitted for review.
+- Tasks 01–08 are committed; Task 08 is
+  `e737420c refactor(di): add main process composition root`.
+- Task 09 execution was authorized through `execution.task-09` revision 2.
+- Task 09 is implemented and verified, with its code, tests, and owner-first
+  planning revisions left unstaged and uncommitted for review.
+- The earlier runtime-adapter overlap is resolved; there is no active
+  concurrent-writer blocker.
 
 ## Completed Work
 
-- Added `MainProcessCompositionRoot`, `MainProcessRuntimeGraph`, and `MainProcessApplication`.
-- Deferred construction of the Task 07 database/repository/redactor/cache/transcription graph until normal Electron
-  startup; single-instance rejection and Linux integration removal open no database.
-- Constructed one shared database coordinator, both concrete repositories, one diagnostic storage/redactor, one
-  history IPC controller, one transcription cache, and batch/streaming services per application instance.
-- Made diagnostic storage, batch audit, and streaming service dependencies explicit; removed the exported redactor
-  instance and default streaming factory.
-- Replaced the global streaming IPC controller with a state-owning `MainIpcRegistration` that removes every
-  registered handler and disposes streaming ownership idempotently.
-- Moved quit state and ordered cleanup into the application instance: IPC, Prettify, Translation, browser,
-  diagnostic drain, then shared SQLite close.
-- Added the module-level mutable-runtime prohibition to `AGENTS.md`.
+- Added application-owned `WindowManager`, `TrayController`,
+  `ShortcutController`, `AppProtocolController`,
+  `LinuxDesktopIntegrationController`, and `DesktopRuntimeController`
+  instances with idempotent cleanup.
+- Converted About and provider-settings window orchestration to class-owned
+  state and moved all renderer-window ownership, trust checks, broadcasts,
+  quitting state, and settings-close state into `WindowManager`.
+- Made `MainProcessCompositionRoot` construct isolated desktop-controller
+  graphs and extracted the deferred database/service construction into
+  `MainProcessRuntimeFactory`.
+- Replaced `MainProcessApplication` callback bags with direct controller
+  dependencies and passed the required window, shortcut, and runtime
+  controllers into IPC registration.
+- Removed the migrated desktop module state and free stateful APIs while
+  preserving window security, trusted IPC, hotkeys, tray behavior, protocols,
+  startup modes, and platform integration.
 
-## Changed Files
+## Task 09 Boundary
 
-- `AGENTS.md`
-- `src/main/di/mainProcessCompositionRoot.ts`
-- `src/main/di/mainProcessRuntimeGraph.ts`
-- `src/main/mainProcessApplication.ts`
-- `src/main/main.ts`
-- `src/main/ipc.ts`
-- `src/main/services/diagnosticCaptureStorage.ts`
-- `src/main/services/diagnosticTextRedactor.ts`
-- `src/main/services/transcription.ts`
-- `src/main/services/streamingTranscription.ts`
-- `tests/main/mainProcessCompositionRoot.test.ts`
-- `tests/main/mainProcessApplication.test.ts`
-- Directly affected diagnostic, streaming IPC, Translation lifecycle/settings, Prettify privacy, and agent-policy
-  contract tests
-- Expanded DI planning, decision, checklist, and renumbered packet artifacts
+- Owner-first decision, plan, checklist, handoff, and numbered-packet revisions
+- Desktop source: `window.ts`, `tray.ts`, `shortcuts.ts`, `appProtocol.ts`,
+  `appMetadata.ts`, `linuxDesktopIntegration.ts`,
+  `desktopRuntimeController.ts`, `aboutWindowController.ts`, and
+  `providerSettingsWindowController.ts`
+- Wiring: `main.ts`, `mainProcessApplication.ts`, `ipc.ts`,
+  `di/mainProcessCompositionRoot.ts`, `di/mainProcessRuntimeFactory.ts`, and
+  `di/mainProcessRuntimeGraph.ts`
+- Focused controller, composition, lifecycle, appearance, hotkey, protocol,
+  metadata, Linux integration, and trusted-IPC tests under `tests/main/`
 
 ## Checks
 
-- Task 08 focused composition, lifecycle, repository, diagnostic, history IPC, transcription, streaming, and startup
-  tests passed across 12 entrypoints.
-- Full unit suite passed: 897 tests in 143 entrypoints.
+- Focused desktop, composition, and affected IPC suite passed: 23/23
+  entrypoints.
+- Full unit suite passed: 149/149 entrypoints.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed with no warnings.
@@ -53,12 +55,16 @@
 
 ## Risks And Platform Gaps
 
-- Synthetic temporary SQLite databases cover construction, isolation, pruning, disposal, and close ordering.
-- No real application-data database, Electron window, browser, provider, credential, or private content was used.
-- Packaged/native lifecycle verification remains deferred to its later manual gate.
-- Unrelated main runtime, provider-family, IPC, preload, and renderer globals intentionally remain for Tasks 09–15.
+- Electron GUI, packaged AppImage/Windows, and native desktop verification
+  remain deferred manual gates.
+- No live browser, provider, credential, private content, packaging, or
+  external process was used.
+- Provider, browser, IPC, preload, renderer, config, localization, and runtime
+  adapter ownership not assigned to Task 09 remains intentionally deferred to
+  Tasks 10–17.
 
 ## Next Packet
 
-- [09 Runtime and desktop DI](09_migrate_runtime_and_desktop_di.md)
-- Task 09 requires separate review, commit authorization for Task 08, and execution authorization.
+- [10 Voice and browser DI](10_migrate_voice_browser_di.md)
+- Review and commit authorization for Task 09 are required before Task 10
+  begins.

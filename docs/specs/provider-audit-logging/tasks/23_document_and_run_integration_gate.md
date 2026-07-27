@@ -1,4 +1,4 @@
-# 21 Document The Feature And Run The Integration Gate
+# 23 Document The Feature And Run The Integration Gate
 
 ## Outcome
 
@@ -10,8 +10,8 @@ build pass without credentials, live providers, or private fixtures.
 
 ## Prerequisites
 
-- Tasks 02–20 are complete and approved.
-- Task 21 has separate execution authorization.
+- Tasks 02–22 are complete and approved.
+- Task 23 has separate execution authorization.
 - The final archive, settings, IPC, and skill contracts are stable.
 
 ## Owned Requirements
@@ -41,8 +41,8 @@ build pass without credentials, live providers, or private fixtures.
   version changes, installers, signing, publishing, or manual live-provider
   exercise.
 - New translations invented by the agent. Locale implementation remains owned
-  by Tasks 16 and 19.
-- Completion of Windows/Linux packaged manual acceptance; Task 22 owns it.
+  by Tasks 18 and 21.
+- Completion of Windows/Linux packaged manual acceptance; Task 24 owns it.
 
 ## Task Contract
 
@@ -175,7 +175,7 @@ manual environment gate rather than changing package or release scope.
 
 - `npm run verify:packaged` is a manual environment gate when no prepared
   unpacked application exists.
-- Dependency installation and lockfile update occurred in Task 18; no new
+- Dependency installation and lockfile update occurred in Task 20; no new
   install is authorized here.
 - Do not run live providers, open user logs/data, request credentials, package
   installers, sign, commit, push, open a PR, or publish.
@@ -196,8 +196,8 @@ manual environment gate rather than changing package or release scope.
 
 ## Completion And Handoff
 
-- Mark Task 21 complete only after every automated check passes.
+- Mark Task 23 complete only after every automated check passes.
 - Update `handoff.md` with documentation files, privacy-canary coverage,
-  dependency/build evidence, exact checks, and Task 22 as the only next packet.
+  dependency/build evidence, exact checks, and Task 24 as the only next packet.
 - Present evidence and stop. Do not begin manual/platform verification in the
   same invocation.
