@@ -84,8 +84,8 @@ describe('config translation settings', () => {
   it('serializes the complete new shape without a legacy targetLang mirror', () => {
     const config = readProjectFile('src/main/config.ts');
     const serializer = config.slice(
-      config.indexOf('function createConfigSnapshot'),
-      config.indexOf('function persistConfigSnapshot'),
+      config.indexOf('private createPersistedSnapshot('),
+      config.indexOf('private persistSnapshot('),
     );
 
     assert.match(serializer, /translationSettings,/u);
@@ -111,12 +111,24 @@ describe('config translation settings', () => {
 
   it('removes the temporary legacy Google target compatibility mirror', () => {
     const config = readProjectFile('src/main/config.ts');
-    const save = config.slice(
-      config.indexOf('export function saveTranslationSettings'),
-      config.indexOf('// Configuration loading'),
-    );
+    const save = config.slice(config.indexOf('public saveTranslationSettings('), config.indexOf('public load(): void'));
 
-    assert.match(save, /return translationSettingsState\.save\(candidate, persistConfigSnapshot\)/u);
+    assert.match(
+      save,
+      /return this\.translationSettingsState\.save\(candidate, \(settings\) => this\.persistSnapshot\(settings\)\)/u,
+    );
     assert.doesNotMatch(config, /currentTargetLang|getLegacyGoogleTarget|synchronizeLegacy/u);
+  });
+
+  it('keeps mutable configuration behind the application-owned store', () => {
+    const config = readProjectFile('src/main/config.ts');
+
+    assert.match(config, /export class AppConfigStore/u);
+    assert.doesNotMatch(config, /\bexport let\b/u);
+    assert.doesNotMatch(
+      config,
+      /\bexport function (?:loadConfig|saveConfig|setHotkeys|setTextActionSettings|setProvider|setCurrentLocale)\b/u,
+    );
+    assert.doesNotMatch(config, /^migrateLegacyAppDir\(\);/mu);
   });
 });

@@ -20,7 +20,7 @@ import {
   type TranslationProviderFactoryDependencies,
 } from '../translateProviders';
 import { TranslationProviderAudit } from '../translateProviders/translationProviderAudit';
-import { TranslationRuntime, type TranslationRuntimeDependencies } from '../services/translation';
+import { TranslationRuntime } from '../services/translation';
 import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
@@ -44,9 +44,19 @@ import {
 import { ClaudeCliPrettifyAdapter } from '../services/prettifyClaudeCli';
 import { CodexCliPrettifyAdapter, type CodexCliPrettifyAdapterDependencies } from '../services/prettifyCodexCli';
 import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services/prettifyCliRunner';
+import { AppConfigStore, type AppConfigStoreDependencies } from '../config';
+import { I18nService } from '../i18n';
+import {
+  CloakBrowserSettingsRepository,
+  type CloakBrowserSettingsRepositoryDependencies,
+} from '../cloakBrowserSettings';
+import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } from '../services/prettifySettingsStorage';
 
-export type MainProcessVoiceProviderEnvironment = Omit<VoiceProviderFactoryDependencies, 'audit' | 'chatGPT'> & {
-  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'sessionStore'> & {
+export type MainProcessVoiceProviderEnvironment = Omit<
+  VoiceProviderFactoryDependencies,
+  'audit' | 'chatGPT' | 'localization'
+> & {
+  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'localization' | 'sessionStore'> & {
     readonly sessionStore: FileChatGPTSessionStoreDependencies;
   };
 };
@@ -59,16 +69,18 @@ import {
 
 export interface MainProcessVoiceEnvironment {
   readonly audit: ProviderAuditDependencies;
-  readonly browser: Omit<BackgroundBrowserServiceDependencies, 'audit' | 'providerRegistry'>;
+  readonly browser: Omit<
+    BackgroundBrowserServiceDependencies,
+    'audit' | 'cloakBrowserSettings' | 'config' | 'localization' | 'providerRegistry'
+  >;
   readonly providers: MainProcessVoiceProviderEnvironment;
 }
 
 export interface MainProcessTranslationEnvironment {
   readonly audit: ProviderAuditDependencies;
-  readonly getSettings: TranslationRuntimeDependencies['getSettings'];
   readonly now: () => number;
-  readonly providers: Omit<TranslationProviderFactoryDependencies, 'now'>;
-  readonly selectedText: Omit<SelectedTextTranslationDependencies, 'actionGate' | 'cache' | 'runtime'>;
+  readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'now'>;
+  readonly selectedText: Omit<SelectedTextTranslationDependencies, 'actionGate' | 'cache' | 'localization' | 'runtime'>;
 }
 
 export interface MainProcessPrettifyEnvironment {
@@ -76,11 +88,25 @@ export interface MainProcessPrettifyEnvironment {
   readonly cliRunner: CliProcessRunnerDependencies;
   readonly codexCli: Omit<CodexCliPrettifyAdapterDependencies, 'audit' | 'runner'>;
   readonly fetch: PrettifyProviderFactoryDependencies['fetch'];
-  readonly getSettingsWithSecret: PrettifyProviderFactoryDependencies['getSettingsWithSecret'];
-  readonly selectedText: Omit<SelectedTextPrettifyDependencies, 'actionGate' | 'cache' | 'runtime'>;
+  readonly settingsStorage: Omit<PrettifySettingsStorageDependencies, 'config' | 'settingsFile'>;
+  readonly selectedText: Omit<
+    SelectedTextPrettifyDependencies,
+    'actionGate' | 'cache' | 'localization' | 'runtime' | 'settings'
+  >;
 }
 
-export type MainProcessCompositionEnvironment = MainProcessRuntimeFactoryDependencies & {
+type RootOwnedRuntimeDependencyKeys = 'databasePath' | 'ipc' | 'localization';
+
+export type MainProcessCompositionEnvironment = Omit<
+  MainProcessRuntimeFactoryDependencies,
+  RootOwnedRuntimeDependencyKeys
+> & {
+  readonly cloakBrowserSettings: Omit<CloakBrowserSettingsRepositoryDependencies, 'config' | 'settingsFile'>;
+  readonly config: AppConfigStoreDependencies;
+  readonly ipc: Omit<
+    MainProcessRuntimeFactoryDependencies['ipc'],
+    'cloakBrowserSettings' | 'config' | 'localization' | 'prettifySettings'
+  >;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly translation: MainProcessTranslationEnvironment;
   readonly voice: MainProcessVoiceEnvironment;
@@ -97,8 +123,9 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'selectedTextTranslationService'
     | 'trayController'
     | 'windowManager'
+    | 'config'
   >;
-  readonly tray: Omit<TrayControllerDependencies, 'windowManager'>;
+  readonly tray: Omit<TrayControllerDependencies, 'localization' | 'windowManager'>;
   readonly window: WindowManagerDependencies;
 }
 
@@ -114,9 +141,11 @@ type ConstructedDesktopDependencyKeys =
   | 'trayController'
   | 'windowManager';
 
+type RootOwnedApplicationDependencyKeys = 'config' | 'localization' | 'notify';
+
 export type MainProcessApplicationEnvironment = Omit<
   MainProcessApplicationDependencies,
-  ConstructedDesktopDependencyKeys
+  ConstructedDesktopDependencyKeys | RootOwnedApplicationDependencyKeys
 > & {
   readonly desktopControllers: MainProcessDesktopControllerEnvironment;
 };
@@ -137,6 +166,18 @@ export class MainProcessCompositionRoot {
   /** Constructs one isolated application graph from the injected process environment. */
   public createApplication(environment: MainProcessApplicationEnvironment): MainProcessApplication {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
+    const configStore = new AppConfigStore(this.environment.config);
+    const localization = new I18nService();
+    const cloakBrowserSettings = new CloakBrowserSettingsRepository({
+      ...this.environment.cloakBrowserSettings,
+      config: configStore,
+      settingsFile: configStore.paths.cloakBrowserSettingsFile,
+    });
+    const prettifySettingsStorage = new PrettifySettingsStorage({
+      ...this.environment.prettify.settingsStorage,
+      config: configStore,
+      settingsFile: configStore.paths.prettifySettingsFile,
+    });
     const voiceProviderAudit = new VoiceProviderAudit(this.environment.voice.audit);
     const { chatGPT, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
@@ -146,17 +187,22 @@ export class MainProcessCompositionRoot {
         ...chatGPT,
         sessionStore: new FileChatGPTSessionStore(chatGPT.sessionStore),
       },
+      localization,
     });
     const voiceProviderRegistry = new VoiceProviderRegistry(voiceProviderFactory, voiceProviderAudit);
     const backgroundBrowserService = new BackgroundBrowserService({
       ...this.environment.voice.browser,
       audit: voiceProviderAudit,
+      cloakBrowserSettings,
+      config: configStore,
+      localization,
       providerRegistry: voiceProviderRegistry,
     });
     const translationProviderAudit = new TranslationProviderAudit(this.environment.translation.audit);
     const selectedTextActionGate = new SelectedTextActionGate();
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
+      cloakBrowserSettings,
       now: this.environment.translation.now,
     });
     const translationProviderRegistry = new TranslationProviderRegistry(
@@ -166,7 +212,8 @@ export class MainProcessCompositionRoot {
     );
     const translationRuntime = new TranslationRuntime({
       audit: translationProviderAudit,
-      getSettings: this.environment.translation.getSettings,
+      config: configStore,
+      localization,
       now: this.environment.translation.now,
       registry: translationProviderRegistry,
     });
@@ -176,6 +223,7 @@ export class MainProcessCompositionRoot {
       cache: createTextActionResultCache(SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES, {
         now: this.environment.cacheNow,
       }),
+      localization,
       runtime: translationRuntime,
     });
     const prettifyProviderAudit = new PrettifyProviderAudit(this.environment.prettify.audit);
@@ -194,13 +242,15 @@ export class MainProcessCompositionRoot {
       claudeCliAdapter,
       codexCliAdapter,
       fetch: this.environment.prettify.fetch,
-      getSettingsWithSecret: this.environment.prettify.getSettingsWithSecret,
+      localization,
+      settings: prettifySettingsStorage,
     });
     const prettifyProviderRegistry = new PrettifyProviderRegistry(prettifyProviderFactory);
     const prettifyRuntime = new PrettifyRuntime({
       audit: prettifyProviderAudit,
-      getSettingsWithSecret: this.environment.prettify.getSettingsWithSecret,
+      localization,
       registry: prettifyProviderRegistry,
+      settings: prettifySettingsStorage,
     });
     const selectedTextPrettifyService = new SelectedTextPrettifyService({
       ...this.environment.prettify.selectedText,
@@ -209,15 +259,19 @@ export class MainProcessCompositionRoot {
         maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
         now: this.environment.cacheNow,
       }),
+      localization,
       runtime: prettifyRuntime,
+      settings: prettifySettingsStorage,
     });
     const windowManager = new WindowManager(desktopEnvironment.window);
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
+      localization,
       windowManager,
     });
     const shortcutController = new ShortcutController({
       ...desktopEnvironment.shortcuts,
+      config: configStore,
       selectedTextActionGate,
       selectedTextPrettifyService,
       selectedTextTranslationService,
@@ -246,7 +300,24 @@ export class MainProcessCompositionRoot {
     return new MainProcessApplication({
       ...applicationEnvironment,
       ...controllers,
-      runtimeFactory: new MainProcessRuntimeFactory(this.environment, controllers),
+      config: configStore,
+      localization,
+      notify: this.environment.ipc.notification.show.bind(this.environment.ipc.notification),
+      runtimeFactory: new MainProcessRuntimeFactory(
+        {
+          ...this.environment,
+          databasePath: configStore.paths.databaseFile,
+          ipc: {
+            ...this.environment.ipc,
+            cloakBrowserSettings,
+            config: configStore,
+            localization,
+            prettifySettings: prettifySettingsStorage,
+          },
+          localization,
+        },
+        controllers,
+      ),
     });
   }
 }

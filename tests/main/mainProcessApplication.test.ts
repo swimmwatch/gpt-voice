@@ -18,6 +18,9 @@ import { WindowManager } from '@main/window';
 import { BackgroundBrowserService } from '@main/browser';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
+import { I18nService } from '@main/i18n';
+import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
+import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -296,8 +299,8 @@ class RecordingTrayController extends TrayController {
         throw new Error('unexpected-tray-construction');
       },
       getAssetPath: () => '/app/icon.png',
+      localization: new I18nService(),
       platform: 'linux',
-      translate: () => '',
       windowManager,
     });
   }
@@ -318,16 +321,7 @@ class RecordingShortcutController extends ShortcutController {
     windowManager: WindowManager,
   ) {
     super({
-      getSettings: () => ({
-        cancelHotkey: 'Escape',
-        hotkey: 'Super+Shift+Space',
-        prettifyEnabled: true,
-        prettifyHotkey: 'Super+Shift+P',
-        retryTranscriptionHotkey: 'Super+Shift+R',
-        stopHotkey: 'Super+Shift+S',
-        translateEnabled: true,
-        translateHotkey: 'Super+Shift+T',
-      }),
+      config: new TestAppConfigStore(),
       globalShortcut: {
         register: () => true,
         unregister: () => undefined,
@@ -363,23 +357,22 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
   public constructor(private readonly events: string[]) {
     super({
       audit: new RecordingVoiceProviderAudit(),
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      config: new TestAppConfigStore('openai-api'),
       createBackgroundContext: async () => {
         throw new Error('unexpected background context');
       },
       createLoginContext: async () => {
         throw new Error('unexpected login context');
       },
-      getCurrentProviderId: () => 'openai-api',
-      getNotAuthenticatedError: () => 'not authenticated',
+      localization: new I18nService(),
       logger: { info: () => undefined },
-      presentError: () => 'provider unavailable',
       providerRegistry: {
         createProvider: () => {
           throw new Error('unexpected provider construction');
         },
         isKnownProviderId: (_providerId): _providerId is VoiceProviderAuditId => false,
       },
-      setCurrentProviderId: () => undefined,
     });
   }
 
@@ -391,6 +384,31 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
   public override shutdown(): Promise<void> {
     this.events.push('browser-shutdown');
     return Promise.resolve();
+  }
+}
+
+class RecordingConfigStore extends TestAppConfigStore {
+  public constructor(private readonly events: string[]) {
+    super('chatgpt');
+  }
+
+  public override load(): void {
+    this.events.push('config-load');
+  }
+
+  public override consumePendingTranslationSettingsRepairNotice(): TranslationSettingsRepairNotice {
+    return { categories: ['shape'], providers: [] };
+  }
+}
+
+class RecordingI18nService extends I18nService {
+  public constructor(private readonly events: string[]) {
+    super();
+  }
+
+  public override setLocale(locale: Parameters<I18nService['setLocale']>[0]): void {
+    super.setLocale(locale);
+    this.events.push('locale-initialize');
   }
 }
 
@@ -414,12 +432,11 @@ class MainProcessApplicationHarness {
       app: this.app,
       appProtocolController: new RecordingAppProtocolController(this.events),
       backgroundBrowserService,
+      config: new RecordingConfigStore(this.events),
       configureCloakBrowserRuntime: () => this.events.push('cloak-runtime'),
       desktopRuntimeController: new RecordingDesktopRuntimeController(this.events, windowManager, options),
-      getCurrentVoiceProviderId: () => 'chatgpt',
-      initializeLocale: () => this.events.push('locale-initialize'),
+      localization: new RecordingI18nService(this.events),
       linuxDesktopIntegrationController: new RecordingLinuxDesktopIntegrationController(this.events),
-      loadConfig: () => this.events.push('config-load'),
       logger: {
         errorHandler: {
           startCatching: () => this.events.push('logger-catch'),
@@ -432,7 +449,7 @@ class MainProcessApplicationHarness {
           this.events.push('prettify-shutdown');
         },
       },
-      presentTranslationSettingsRepairNotice: () => this.events.push('settings-notice'),
+      notify: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
       shortcutController,
       translationRuntime: {

@@ -8,10 +8,13 @@ import {
   getBrowserSessionStartupError,
   getBrowserSessionStartupState,
 } from '@main/browser';
-import { t } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
+
+const localization = new I18nService();
 
 class TestBrowserAuditProvider extends BatchVoiceProvider {
   readonly info: VoiceProviderInfo & { readonly transcriptionMode: 'batch' };
@@ -75,7 +78,7 @@ class TestBrowserAuditProvider extends BatchVoiceProvider {
 class BackgroundBrowserServiceFixture {
   readonly audit = new RecordingVoiceProviderAudit();
   readonly service: BackgroundBrowserService;
-  currentProviderId: string;
+  readonly config: TestAppConfigStore;
 
   constructor(
     readonly provider: TestBrowserAuditProvider,
@@ -83,22 +86,19 @@ class BackgroundBrowserServiceFixture {
       close: async () => undefined,
     } as unknown as BrowserContext,
   ) {
-    this.currentProviderId = provider.info.id;
+    this.config = new TestAppConfigStore(provider.info.id);
     this.service = new BackgroundBrowserService({
       audit: this.audit,
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      config: this.config,
       createBackgroundContext: async () => context,
       createLoginContext: async () => context,
-      getCurrentProviderId: () => this.currentProviderId,
-      getNotAuthenticatedError: () => t('error.noAccessToken'),
+      localization,
       logger: { info: () => {} },
-      presentError: (error) => (error instanceof Error ? error.message : String(error)),
       providerRegistry: {
         createProvider: () => provider,
         isKnownProviderId: (providerId): providerId is 'chatgpt' | 'openai-api' | 'claude-web' =>
           providerId === 'chatgpt' || providerId === 'openai-api' || providerId === 'claude-web',
-      },
-      setCurrentProviderId: (providerId) => {
-        this.currentProviderId = providerId;
       },
     });
   }
@@ -122,7 +122,7 @@ describe('browser session startup state', () => {
 
   it('preserves a provider-specific readiness failure and accepts an injected fallback', () => {
     const providerError = 'Claude readiness failed safely';
-    const fallback = t('error.noAccessToken');
+    const fallback = localization.translate('error.noAccessToken');
 
     assert.equal(getBrowserSessionStartupError(providerError, fallback), providerError);
     assert.equal(getBrowserSessionStartupError(null, fallback), fallback);

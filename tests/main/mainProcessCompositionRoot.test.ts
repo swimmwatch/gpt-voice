@@ -13,10 +13,10 @@ import {
   type MainProcessApplicationEnvironment,
   type MainProcessCompositionEnvironment,
 } from '@main/di/mainProcessCompositionRoot';
+import { resolveAppConfigPaths } from '@main/config';
 import type { MainIpcTransport } from '@main/ipc';
 import { type MainProcessElectronApplication, type MainProcessPreventableEvent } from '@main/mainProcessApplication';
-import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
-import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from '@main/i18n';
+import { writeTextFileAtomically } from '@main/translationSettings';
 import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProviders/BingTranslateProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
@@ -167,9 +167,40 @@ class MainProcessCompositionHarness {
 
   public constructor(isRemovingLinuxDesktopIntegration = false) {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-main-composition-'));
-    this.databasePath = path.join(this.temporaryDirectory, 'application.sqlite3');
+    const configPaths = resolveAppConfigPaths({
+      environment: { XDG_CONFIG_HOME: this.temporaryDirectory },
+      homeDirectory: () => this.temporaryDirectory,
+      platform: 'linux',
+    });
+    const logger = {
+      error: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+    };
+    const secureStorage = {
+      decrypt: (value: Buffer) => value.toString('utf8'),
+      encrypt: (value: string) => Buffer.from(value, 'utf8'),
+      isEncryptionAvailable: () => true,
+    };
+    this.databasePath = configPaths.databaseFile;
     this.compositionEnvironment = {
       cacheNow: () => 0,
+      cloakBrowserSettings: {
+        fileSystem: fs,
+        logger,
+        secureStorage,
+      },
+      config: {
+        fileSystem: fs,
+        generateFingerprintSeed: () => '12345',
+        logger,
+        paths: configPaths,
+        writeFileAtomically: (filePath, contents) =>
+          writeTextFileAtomically(filePath, contents, {
+            createTemporaryPath: (target) => `${target}.tmp`,
+            fileSystem: fs,
+          }),
+      },
       databaseDependencies: {
         closeDatabase: (database) => {
           this.state.closeCount += 1;
@@ -184,94 +215,11 @@ class MainProcessCompositionHarness {
         platform: 'win32',
         setFileMode: fs.chmodSync,
       },
-      databasePath: this.databasePath,
       diagnosticLogger: { warn: () => undefined },
       getMonotonicTimeMs: () => 0,
       getRequestedAt: () => '2026-07-27T12:00:00.000Z',
       historyLogger: { warn: () => undefined },
       ipc: {
-        cloakBrowserSettings: {
-          getView: () => ({
-            backgroundMode: 'hidden',
-            fingerprintSeed: '12345',
-            humanPreset: 'careful',
-            humanize: true,
-            locale: '',
-            proxy: {
-              bypass: '',
-              enabled: false,
-              geoip: true,
-              hasPassword: false,
-              server: '',
-              username: '',
-            },
-            timezone: '',
-          }),
-          prepare: () => {
-            const settings = {
-              backgroundMode: 'hidden' as const,
-              fingerprintSeed: '12345',
-              humanPreset: 'careful' as const,
-              humanize: true,
-              locale: '',
-              proxy: {
-                bypass: '',
-                enabled: false,
-                geoip: true,
-                hasPassword: false,
-                server: '',
-                username: '',
-              },
-              timezone: '',
-            };
-            return {
-              persist: () => settings,
-              settings,
-              settingsWithSecret: {
-                ...settings,
-                proxy: {
-                  ...settings.proxy,
-                  password: '',
-                },
-              },
-            };
-          },
-        },
-        config: {
-          getCurrentProvider: () => 'openai-api',
-          getHotkeySettings: () => ({
-            cancelHotkey: 'Escape',
-            hotkey: 'Super+Shift+Space',
-            prettifyHotkey: 'Super+Shift+P',
-            retryTranscriptionHotkey: 'Super+Shift+R',
-            stopHotkey: 'Super+Shift+S',
-            translateHotkey: 'Super+Shift+T',
-          }),
-          getTextActionSettings: () => ({
-            prettifyEnabled: true,
-            translateEnabled: true,
-          }),
-          getTranslationSettings: () => ({
-            providerId: 'google',
-            targetLanguageByProvider: {
-              bing: 'ru',
-              google: 'uk',
-              yandex: 'be',
-            },
-          }),
-          save: () => undefined,
-          saveTranslationSettings: () => ({
-            providerId: 'google',
-            targetLanguageByProvider: {
-              bing: 'ru',
-              google: 'uk',
-              yandex: 'be',
-            },
-          }),
-          setCurrentLocale: () => undefined,
-          setHotkeys: () => undefined,
-          setTextActionSettings: () => undefined,
-        },
         ipc: {
           handle: (channel, listener) => {
             this.state.ipcHandlers.set(channel, listener);
@@ -281,26 +229,11 @@ class MainProcessCompositionHarness {
             this.state.ipcHandlers.delete(channel);
           },
         },
-        localization: {
-          getAllTranslations,
-          getLocale,
-          getSupportedLocales,
-          setLocale,
-          translate: t,
-        },
-        logger: {
-          error: () => undefined,
-          info: () => undefined,
-          warn: () => undefined,
-        },
+        logger,
         notification: {
           show: () => undefined,
         },
         platform: 'linux',
-        prettifySettings: {
-          getView: () => getPrettifySettingsWithSecret(),
-          save: () => getPrettifySettingsWithSecret(),
-        },
         voiceSettings: {
           clearOpenAIApiKey: () => ({
             hasApiKey: false,
@@ -376,7 +309,11 @@ class MainProcessCompositionHarness {
           },
         },
         fetch: async () => ({ status: 200, text: async () => '{}' }),
-        getSettingsWithSecret: getPrettifySettingsWithSecret,
+        settingsStorage: {
+          fileSystem: fs,
+          logger,
+          secureStorage,
+        },
         selectedText: {
           automateTextAction: async () => undefined,
           clipboard: {
@@ -384,7 +321,6 @@ class MainProcessCompositionHarness {
             writeText: () => undefined,
           },
           getCacheContext: () => [],
-          getPrettifySettings: () => getPrettifySettingsWithSecret(),
           logger: { info: () => undefined, warn: () => undefined },
           notify: () => undefined,
           platform: 'linux',
@@ -408,14 +344,6 @@ class MainProcessCompositionHarness {
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000003',
         },
-        getSettings: () => ({
-          providerId: 'google',
-          targetLanguageByProvider: {
-            bing: 'ru',
-            google: 'uk',
-            yandex: 'be',
-          },
-        }),
         now: () => 0,
         providers: {
           createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
@@ -447,11 +375,7 @@ class MainProcessCompositionHarness {
         browser: {
           createBackgroundContext: async () => ({ close: async () => undefined }) as BrowserContext,
           createLoginContext: async () => ({ close: async () => undefined }) as BrowserContext,
-          getCurrentProviderId: () => 'openai-api',
-          getNotAuthenticatedError: () => 'not authenticated',
           logger: { info: () => undefined },
-          presentError: () => 'provider unavailable',
-          setCurrentProviderId: () => undefined,
         },
         providers: {
           chatGPT: {
@@ -568,16 +492,6 @@ class MainProcessCompositionHarness {
           syncDesktopIcons: () => undefined,
         },
         shortcuts: {
-          getSettings: () => ({
-            cancelHotkey: 'Escape',
-            hotkey: 'Super+Shift+Space',
-            prettifyEnabled: true,
-            prettifyHotkey: 'Super+Shift+P',
-            retryTranscriptionHotkey: 'Super+Shift+R',
-            stopHotkey: 'Super+Shift+S',
-            translateEnabled: true,
-            translateHotkey: 'Super+Shift+T',
-          }),
           globalShortcut: {
             register: () => true,
             unregister: () => undefined,
@@ -593,7 +507,6 @@ class MainProcessCompositionHarness {
           createTray: () => new TestTray() as unknown as Tray,
           getAssetPath: () => '/app/icon.png',
           platform: 'linux',
-          translate: () => '',
         },
         window: {
           createBrowserWindow: () => {
@@ -610,15 +523,11 @@ class MainProcessCompositionHarness {
           preloadPath: '/app/preload.js',
         },
       },
-      getCurrentVoiceProviderId: () => 'chatgpt',
-      initializeLocale: () => undefined,
-      loadConfig: () => undefined,
       logger: {
         errorHandler: { startCatching: () => undefined },
         initialize: () => undefined,
         warn: () => undefined,
       },
-      presentTranslationSettingsRepairNotice: () => undefined,
     };
   }
 
@@ -792,6 +701,34 @@ describe('main process composition root', () => {
       /\bcreateSelectedTextActionGate\b|\bdefaultSelectedTextActionGate\b|\bselectedTextActionGate\b/u,
     );
     assert.doesNotMatch(ipc, /\bprettifyCliConnectionChecks\b|\bprettifyProviderAudit\b/u);
+  });
+
+  it('removes migrated config, localization, and settings-storage singleton seams', () => {
+    const config = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/config.ts'), 'utf8');
+    const localization = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/i18n/index.ts'), 'utf8');
+    const cloakBrowserSettings = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/cloakBrowserSettings.ts'), 'utf8');
+    const prettifySettings = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/services/prettifySettingsStorage.ts'),
+      'utf8',
+    );
+
+    assert.match(config, /export class AppConfigStore/u);
+    assert.doesNotMatch(config, /\bexport let\b|\bloadConfig\b|\bsaveConfig\b/u);
+    assert.match(localization, /export class I18nService/u);
+    assert.doesNotMatch(
+      localization,
+      /\blet currentLocale\b|\bexport function (?:getAllTranslations|getLocale|getSupportedLocales|setLocale|t)\b/u,
+    );
+    assert.match(cloakBrowserSettings, /export class CloakBrowserSettingsRepository/u);
+    assert.doesNotMatch(
+      cloakBrowserSettings,
+      /\bexport function (?:getCloakBrowserSettingsView|getCloakBrowserSettingsWithSecret|prepareCloakBrowserSettings|saveCloakBrowserSettings)\b/u,
+    );
+    assert.match(prettifySettings, /export class PrettifySettingsStorage/u);
+    assert.doesNotMatch(
+      prettifySettings,
+      /\bexport function (?:getPrettifySettings|getPrettifySettingsWithSecret|savePrettifySettings)\b/u,
+    );
   });
 
   it('defers database and service construction until normal application startup', async () => {

@@ -237,7 +237,7 @@ export function writeTextFileAtomically(
 }
 
 export interface TranslationSettingsRepairNoticeDependencies {
-  readonly consume: () => TranslationSettingsRepairNotice | null;
+  readonly notice: TranslationSettingsRepairNotice | null;
   readonly notify: (title: string, body: string) => void;
   readonly translate: (
     key:
@@ -247,11 +247,11 @@ export interface TranslationSettingsRepairNoticeDependencies {
 }
 
 export function presentPendingTranslationSettingsRepairNotice({
-  consume,
+  notice,
   notify,
   translate,
 }: TranslationSettingsRepairNoticeDependencies): boolean {
-  if (!consume()) return false;
+  if (!notice) return false;
   try {
     notify(
       translate(TRANSLATION_SETTINGS_REPAIR_NOTIFICATION_KEYS.title),

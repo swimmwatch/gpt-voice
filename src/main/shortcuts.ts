@@ -21,6 +21,7 @@ import type { SelectedTextPrettifyService } from './services/selectedTextPrettif
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
+import type { AppConfigStore } from './config';
 
 interface CancelShortcutActions {
   cancelPrettify: () => boolean;
@@ -48,7 +49,7 @@ export interface ShortcutSettingsSnapshot extends HotkeySettings {
 }
 
 export interface ShortcutControllerDependencies {
-  readonly getSettings: () => ShortcutSettingsSnapshot;
+  readonly config: Pick<AppConfigStore, 'getSnapshot'>;
   readonly globalShortcut: {
     register(accelerator: string, callback: () => void): boolean;
     unregister(accelerator: string): void;
@@ -122,7 +123,7 @@ export class ShortcutController {
   /** Registers the current non-conflicting global shortcut set. */
   public register(): void {
     if (this.disposed) return;
-    const settings = this.dependencies.getSettings();
+    const settings = this.dependencies.config.getSnapshot();
     this.dependencies.globalShortcut.unregisterAll();
     this.registeredRetryTranscriptionHotkey = null;
     this.conflictingHotkeyTargets = new Set(getConflictingHotkeyTargets(settings));
@@ -197,7 +198,7 @@ export class ShortcutController {
 
     const translateRegistered = this.registerConfiguredShortcut('translate', translateHotkey, () => {
       const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-      const currentSettings = this.dependencies.getSettings();
+      const currentSettings = this.dependencies.config.getSnapshot();
       if (!canRunTranslateShortcut(this.recordingLifecycleState, currentSettings.translateEnabled, selectedTextBusy)) {
         if (currentSettings.translateEnabled) {
           this.dependencies.logger.info(`${translateHotkey} pressed while translation cannot run`, {
@@ -222,7 +223,7 @@ export class ShortcutController {
 
     const prettifyRegistered = this.registerConfiguredShortcut('prettify', prettifyHotkey, () => {
       const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-      const currentSettings = this.dependencies.getSettings();
+      const currentSettings = this.dependencies.config.getSnapshot();
       if (!canRunPrettifyShortcut(this.recordingLifecycleState, currentSettings.prettifyEnabled, selectedTextBusy)) {
         if (currentSettings.prettifyEnabled) {
           this.dependencies.logger.info(`${prettifyHotkey} pressed while prettify cannot run`, {
@@ -291,7 +292,9 @@ export class ShortcutController {
       return;
     }
 
-    const retryHotkey = this.normalizeHotkeyForPlatform(this.dependencies.getSettings().retryTranscriptionHotkey);
+    const retryHotkey = this.normalizeHotkeyForPlatform(
+      this.dependencies.config.getSnapshot().retryTranscriptionHotkey,
+    );
     if (!canRunRetryTranscriptionShortcut(this.recordingLifecycleState, this.retryTranscriptionAvailable)) {
       this.unregisterRetryTranscriptionShortcut();
       return;

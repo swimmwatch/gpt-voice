@@ -2,7 +2,7 @@ import type { Menu, MenuItemConstructorOptions, NativeImage, Tray } from 'electr
 import type { TrayIconState } from './trayIconState';
 import { getTrayIconFilename } from './trayIconState';
 import type { WindowManager } from './window';
-import type { TranslationKey } from './i18n';
+import type { I18nService } from './i18n';
 
 const TRAY_ICON_SIZE = 22;
 
@@ -14,8 +14,8 @@ export interface TrayControllerDependencies {
   readonly createNativeImage: (path: string) => NativeImage;
   readonly createTray: (icon: NativeImage) => Tray;
   readonly getAssetPath: (filename: string) => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly platform: NodeJS.Platform;
-  readonly translate: (key: TranslationKey) => string;
   readonly windowManager: WindowManager;
 }
 
@@ -30,28 +30,28 @@ export class TrayController {
 
     const tray = this.dependencies.createTray(this.createIcon('idle'));
     this.tray = tray;
-    tray.setToolTip(this.dependencies.translate('tray.tooltip'));
+    tray.setToolTip(this.dependencies.localization.translate('tray.tooltip'));
     tray.setContextMenu(
       this.dependencies.buildMenu([
         {
-          label: this.dependencies.translate('tray.show'),
+          label: this.dependencies.localization.translate('tray.show'),
           click: () => this.showFromMenu(),
         },
         {
-          label: this.dependencies.translate('appSettings.open'),
+          label: this.dependencies.localization.translate('appSettings.open'),
           click: () => this.dependencies.windowManager.showSettingsWindow(),
         },
         {
-          label: this.dependencies.translate('history.open'),
+          label: this.dependencies.localization.translate('history.open'),
           click: () => this.dependencies.windowManager.showHistoryWindow(),
         },
         {
-          label: this.dependencies.translate('about.open'),
+          label: this.dependencies.localization.translate('about.open'),
           click: () => this.dependencies.windowManager.showAboutWindow(),
         },
         { type: 'separator' },
         {
-          label: this.dependencies.translate('tray.quit'),
+          label: this.dependencies.localization.translate('tray.quit'),
           click: () => {
             this.dependencies.windowManager.setQuitting(true);
             this.dependencies.application.quit();

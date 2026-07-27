@@ -21,14 +21,16 @@ import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
+import type { I18nService } from '@main/i18n';
 
 export interface VoiceProviderFactoryDependencies {
   readonly audit: VoiceProviderAudit;
-  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit'>;
-  readonly claudeWeb: Omit<ClaudeWebVoiceProviderDependencies, 'audit' | 'navigationService'> & {
+  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'localization'>;
+  readonly claudeWeb: Omit<ClaudeWebVoiceProviderDependencies, 'audit' | 'localization' | 'navigationService'> & {
     readonly navigationLogger: ClaudeWebNavigationLogger;
   };
-  readonly openAIApi: Omit<OpenAIApiVoiceProviderDependencies, 'audit'>;
+  readonly localization: Pick<I18nService, 'translate'>;
+  readonly openAIApi: Omit<OpenAIApiVoiceProviderDependencies, 'audit' | 'localization'>;
 }
 
 /** Explicit construction boundary for fresh Voice provider instances. */
@@ -45,16 +47,19 @@ export class VoiceProviderFactory {
         return new ChatGPTVoiceProvider({
           ...this.dependencies.chatGPT,
           audit: this.dependencies.audit,
+          localization: this.dependencies.localization,
         });
       case OPENAI_API_PROVIDER_ID:
         return new OpenAIApiVoiceProvider({
           ...this.dependencies.openAIApi,
           audit: this.dependencies.audit,
+          localization: this.dependencies.localization,
         });
       case CLAUDE_WEB_PROVIDER_ID:
         return new ClaudeWebVoiceProvider({
           ...this.dependencies.claudeWeb,
           audit: this.dependencies.audit,
+          localization: this.dependencies.localization,
           navigationService: this.claudeWebNavigationService,
         });
     }

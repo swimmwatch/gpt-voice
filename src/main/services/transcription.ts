@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 import { createLogger } from '../logger';
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
 import { isBatchVoiceProvider } from '../providers/voiceProviderGuards';
@@ -25,6 +25,7 @@ export interface TranscriptionServiceDependencies extends TranscriptionCompletio
   audit: VoiceProviderAudit;
   backgroundBrowserService: TranscriptionBackgroundBrowser;
   getRequestedAt: () => string;
+  localization: Pick<I18nService, 'translate'>;
 }
 
 /** Owns one main-process batch transcription flow and its injected completion state. */
@@ -48,7 +49,7 @@ export class TranscriptionService {
       await this.dependencies.backgroundBrowserService.ensure();
       const provider = this.dependencies.backgroundBrowserService.getActiveProvider();
       if (!provider) {
-        return { success: false, error: t('error.notLoggedIn') };
+        return { success: false, error: this.dependencies.localization.translate('error.notLoggedIn') };
       }
 
       if (provider !== providerBeforeEnsure) {
@@ -60,7 +61,7 @@ export class TranscriptionService {
       }
 
       if (!this.dependencies.backgroundBrowserService.isReady() || !provider.isReady()) {
-        return { success: false, error: t('error.notLoggedIn') };
+        return { success: false, error: this.dependencies.localization.translate('error.notLoggedIn') };
       }
 
       const batchProvider = isBatchVoiceProvider(provider) ? provider : null;

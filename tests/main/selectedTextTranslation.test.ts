@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
 import type { ClipboardType } from '@main/electronRuntime';
-import { setLocale } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import {
   SelectedTextTranslationService,
   type SelectedTextTranslationDependencies,
@@ -19,6 +19,8 @@ import type {
 } from '@main/translateProviders/translationProviderContracts';
 import type { TranslationProviderId, TranslationProviderName } from '@shared/translationProvider';
 import type { SystemNotificationOptions } from '@shared/notifications';
+
+const localization = new I18nService();
 
 interface TestServiceOptions {
   actionGate?: SelectedTextActionGate;
@@ -105,6 +107,34 @@ class TestTranslationRuntime implements SelectedTextTranslationRuntime {
     return { success: true as const, snapshot: this.snapshot };
   }
 
+  public getFailureMessage(failure: TranslationProviderFailure): string {
+    switch (failure.code) {
+      case 'unsupportedProvider':
+      case 'unsupportedTargetLanguage':
+        return localization.translate('error.translationUnsupportedSelection');
+      case 'emptyInput':
+        return localization.translate('error.noTextSelectedToTranslate');
+      case 'inputTooLong':
+        return localization.translate('error.translationTextTooLong', {
+          actual: String(failure.metadata.sourceLength ?? 0),
+          max: String(this.snapshot.maxInputCharacters),
+          provider: this.snapshot.providerName,
+        });
+      case 'navigationFailure':
+        return localization.translate('error.translationConnectionFailed');
+      case 'consentOrChallenge':
+        return localization.translate('error.translationConsentOrChallenge');
+      case 'pageContractFailure':
+        return localization.translate('error.translationPageChanged');
+      case 'resultTimeoutOrEmpty':
+        return localization.translate('error.translationResultUnavailable');
+      case 'cancelledOrStaleOperation':
+        return localization.translate('status.translationCancelled');
+      case 'cleanupFailure':
+        return localization.translate('error.translationCleanupFailed');
+    }
+  }
+
   public invalidate(): void {
     this.currentGeneration += 1;
   }
@@ -175,6 +205,7 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     logger: { info: () => undefined, warn: () => undefined },
+    localization,
     notify: (title, body, notificationOptions) => {
       notifications.push({ title, body, options: notificationOptions });
     },
@@ -207,7 +238,7 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 }
 
 afterEach(() => {
-  setLocale('en');
+  localization.setLocale('en');
 });
 
 describe('selected-text translation', () => {

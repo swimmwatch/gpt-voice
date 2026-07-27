@@ -12,35 +12,54 @@ import hi from './hi';
 import { APP_LOCALE_IDS, DEFAULT_APP_LOCALE, isAppLocaleId, type AppLocaleId } from '@shared/appLocale';
 
 export type TranslationKey = keyof typeof en;
-export type Translations = Record<TranslationKey, string>;
+export type Translations = Readonly<Record<TranslationKey, string>>;
 
-const locales: Record<AppLocaleId, Translations> = { en, ru, be, uk, es, 'pt-BR': ptBr, zh, ja, de, fr, hi };
+export const LOCALE_CATALOGS: Readonly<Record<AppLocaleId, Translations>> = Object.freeze({
+  en: Object.freeze({ ...en }),
+  ru: Object.freeze({ ...ru }),
+  be: Object.freeze({ ...be }),
+  uk: Object.freeze({ ...uk }),
+  es: Object.freeze({ ...es }),
+  'pt-BR': Object.freeze({ ...ptBr }),
+  zh: Object.freeze({ ...zh }),
+  ja: Object.freeze({ ...ja }),
+  de: Object.freeze({ ...de }),
+  fr: Object.freeze({ ...fr }),
+  hi: Object.freeze({ ...hi }),
+});
 
-let currentLocale: AppLocaleId = DEFAULT_APP_LOCALE;
+/** Owns locale selection for one isolated application graph. */
+export class I18nService {
+  private locale: AppLocaleId;
 
-export function setLocale(locale: AppLocaleId): void {
-  currentLocale = isAppLocaleId(locale) ? locale : DEFAULT_APP_LOCALE;
-}
-
-export function getLocale(): AppLocaleId {
-  return currentLocale;
-}
-
-export function getSupportedLocales(): AppLocaleId[] {
-  return [...APP_LOCALE_IDS];
-}
-
-export function t(key: TranslationKey, params?: Record<string, string>): string {
-  const translations = locales[currentLocale] ?? locales.en;
-  let text = translations[key] || locales.en[key] || key;
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      text = text.replace(`{${k}}`, v);
-    }
+  public constructor(initialLocale: AppLocaleId = DEFAULT_APP_LOCALE) {
+    this.locale = isAppLocaleId(initialLocale) ? initialLocale : DEFAULT_APP_LOCALE;
   }
-  return text;
-}
 
-export function getAllTranslations(): Translations {
-  return locales[currentLocale] ?? locales.en;
+  public setLocale(locale: AppLocaleId): void {
+    this.locale = isAppLocaleId(locale) ? locale : DEFAULT_APP_LOCALE;
+  }
+
+  public getLocale(): AppLocaleId {
+    return this.locale;
+  }
+
+  public getSupportedLocales(): AppLocaleId[] {
+    return [...APP_LOCALE_IDS];
+  }
+
+  public readonly translate = (key: TranslationKey, params?: Readonly<Record<string, string>>): string => {
+    const translations = LOCALE_CATALOGS[this.locale] ?? LOCALE_CATALOGS.en;
+    let text = translations[key] || LOCALE_CATALOGS.en[key] || key;
+    if (params) {
+      for (const [name, value] of Object.entries(params)) {
+        text = text.replace(`{${name}}`, value);
+      }
+    }
+    return text;
+  };
+
+  public getCurrentCatalog(): Translations {
+    return LOCALE_CATALOGS[this.locale] ?? LOCALE_CATALOGS.en;
+  }
 }

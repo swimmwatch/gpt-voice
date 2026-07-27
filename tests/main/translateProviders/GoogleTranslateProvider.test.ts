@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext, Page } from 'playwright-core';
+import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 import {
   buildGoogleTranslateProviderUrl,
@@ -214,6 +215,7 @@ interface Harness {
 function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs = 4): Harness {
   const contexts: FakeContext[] = [];
   const provider = new GoogleTranslateProvider({
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
     clearPollIntervalMs: 1,
     clearTimeoutMs: 2,
     createContext: async (_options: LaunchContextOptions) => {

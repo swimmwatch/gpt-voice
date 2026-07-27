@@ -7,6 +7,7 @@ import type { ClaudeWebOrganizationEvidence, ClaudeWebSessionReadResult } from '
 import { resolveClaudeWebOrganization } from '@main/providers/claudeWebSession';
 import type { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import { VoiceProviderFactory } from '@main/providers/voiceProviderFactory';
+import { I18nService } from '@main/i18n';
 import { VoiceProviderRegistry } from '@main/providers/voiceProviderRegistry';
 import { DEFAULT_OPENAI_API_SETTINGS } from '@main/providers/openaiApiSettingsUtils';
 import { RecordingVoiceProviderAudit } from './voiceAuditTestUtils';
@@ -67,6 +68,7 @@ export class VoiceProviderRegistryFixture {
     this.audit = audit;
     this.factory = new VoiceProviderFactory({
       audit,
+      localization: new I18nService(),
       chatGPT: {
         logger: { info: () => undefined, warn: () => undefined },
         now: () => 0,

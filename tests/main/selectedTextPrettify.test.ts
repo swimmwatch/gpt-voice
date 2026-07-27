@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { setLocale } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import {
   MAX_PRETTIFY_SELECTED_TEXT_LENGTH,
   SelectedTextPrettifyService,
@@ -13,6 +13,16 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
 import { RecordingPrettifyProviderAudit } from './prettifyAuditTestUtils';
 import { PrettifyRuntimeFixture } from './prettifyRuntimeTestUtils';
+
+const localization = new I18nService();
+
+class TestPrettifySettingsStorage {
+  public constructor(private readonly settings: PrettifySettings) {}
+
+  public getView(): PrettifySettings {
+    return this.settings;
+  }
+}
 
 interface TestServiceOptions {
   actionGate?: SelectedTextActionGate;
@@ -115,11 +125,11 @@ function createTestService(options: TestServiceOptions = {}) {
     },
     cache: options.cache || createTextActionResultCache(20),
     getCacheContext: () => options.cacheContext || [],
-    getPrettifySettings: () => prettifySettings,
     logger: {
       info: () => {},
       warn: () => {},
     },
+    localization,
     notify: (title, body, options) => {
       notifications.push({ title, body, options });
     },
@@ -171,6 +181,7 @@ function createTestService(options: TestServiceOptions = {}) {
         };
       },
     },
+    settings: new TestPrettifySettingsStorage(prettifySettings),
     wait: async (delayMs) => {
       waitCalls.push(delayMs);
     },
@@ -189,7 +200,7 @@ function createTestService(options: TestServiceOptions = {}) {
 
 describe('selectedTextPrettify', () => {
   afterEach(() => {
-    setLocale('en');
+    localization.setLocale('en');
   });
 
   it('keeps the clipboard and fails clearly when no text is selected', async () => {

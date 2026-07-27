@@ -310,7 +310,7 @@ describe('diagnostic capture storage service', () => {
 
   it('keeps startup prune before IPC and closes the database after draining diagnostics', () => {
     const source = fs.readFileSync(MAIN_APPLICATION_SOURCE_PATH, 'utf8');
-    const configIndex = source.indexOf('dependencies.loadConfig();');
+    const configIndex = source.indexOf('dependencies.config.load();');
     const pruneIndex = source.indexOf('await runtime.pruneDiagnostics();');
     const ipcIndex = source.indexOf('runtime.registerIpc();');
     const browserShutdownIndex = source.indexOf('await this.dependencies.backgroundBrowserService.shutdown();');

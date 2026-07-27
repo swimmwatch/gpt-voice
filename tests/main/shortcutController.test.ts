@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow } from 'electron';
 import { ShortcutController, type ShortcutSettingsSnapshot } from '@main/shortcuts';
+import { TestAppConfigStore } from './appConfigTestUtils';
 
 const DEFAULT_SETTINGS: ShortcutSettingsSnapshot = {
   cancelHotkey: 'Escape',
@@ -37,12 +38,12 @@ class RecordingGlobalShortcuts {
 }
 
 class ShortcutControllerHarness {
+  public readonly config = new TestAppConfigStore();
   public readonly globalShortcuts = new RecordingGlobalShortcuts();
   public readonly sent: Array<readonly unknown[]> = [];
-  public settings: ShortcutSettingsSnapshot = DEFAULT_SETTINGS;
   public readonly trayStates: string[] = [];
   public readonly controller = new ShortcutController({
-    getSettings: () => this.settings,
+    config: this.config,
     globalShortcut: this.globalShortcuts,
     logger: { info: () => undefined, warn: () => undefined },
     platform: 'linux',
@@ -66,6 +67,11 @@ class ShortcutControllerHarness {
         }) as unknown as BrowserWindow,
     },
   });
+
+  public constructor() {
+    this.config.setHotkeys(DEFAULT_SETTINGS);
+    this.config.setTextActionSettings(DEFAULT_SETTINGS);
+  }
 }
 
 describe('ShortcutController', () => {

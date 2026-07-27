@@ -13,6 +13,7 @@ import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
+import { I18nService } from '@main/i18n';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -95,6 +96,7 @@ function createTestService(options: TestServiceOptions = {}) {
     cache,
     getRequestedAt: () => '2026-07-12T00:00:00.000Z',
     historyRepository,
+    localization: new I18nService(),
     writeClipboardText: (text) => {
       clipboard.push(text);
     },

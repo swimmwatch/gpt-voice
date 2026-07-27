@@ -1,9 +1,12 @@
 import type { BrowserContext } from 'playwright-core';
-import type { CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
+import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import type { BaseVoiceProvider } from '@main/providers/BaseVoiceProvider';
 import type { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '@main/providers/voiceProviderRegistry';
 import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
+import type { AppConfigStore } from '@main/config';
+import type { I18nService } from '@main/i18n';
+import { presentNotificationError } from '@shared/notifications';
 
 export interface BackgroundBrowserStatus {
   readonly providerId?: string;
@@ -26,14 +29,13 @@ export interface BackgroundBrowserLogger {
 
 export interface BackgroundBrowserServiceDependencies {
   readonly audit: VoiceProviderAudit;
-  readonly createBackgroundContext: (settings?: CloakBrowserSettingsWithSecret) => Promise<BrowserContext>;
-  readonly createLoginContext: () => Promise<BrowserContext>;
-  readonly getCurrentProviderId: () => string;
-  readonly getNotAuthenticatedError: () => string;
+  readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
+  readonly config: Pick<AppConfigStore, 'getSnapshot' | 'setProvider'>;
+  readonly createBackgroundContext: (settings: CloakBrowserSettingsWithSecret) => Promise<BrowserContext>;
+  readonly createLoginContext: (settings: CloakBrowserSettingsWithSecret) => Promise<BrowserContext>;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: BackgroundBrowserLogger;
-  readonly presentError: (error: unknown) => string;
   readonly providerRegistry: Pick<VoiceProviderRegistry, 'createProvider' | 'isKnownProviderId'>;
-  readonly setCurrentProviderId: (providerId: string) => void;
 }
 
 export interface BackgroundBrowserLaunchOptions {
@@ -77,7 +79,7 @@ export class BackgroundBrowserService {
 
   public getStatus(): BackgroundBrowserStatus {
     return {
-      providerId: this.dependencies.getCurrentProviderId(),
+      providerId: this.dependencies.config.getSnapshot().provider,
       ready: this.ready,
       error: this.error || undefined,
       authExpired: this.authExpired || undefined,
@@ -85,7 +87,7 @@ export class BackgroundBrowserService {
   }
 
   public launchLoginContext(): Promise<BrowserContext> {
-    return this.dependencies.createLoginContext();
+    return this.dependencies.createLoginContext(this.dependencies.cloakBrowserSettings.getWithSecret());
   }
 
   public registerBeforeShutdownHook(hook: BeforeBackgroundBrowserShutdownHook): () => void {
@@ -119,7 +121,7 @@ export class BackgroundBrowserService {
         this.dependencies.providerRegistry.createProvider(providerId);
       }
       await this.shutdownNow();
-      this.dependencies.setCurrentProviderId(providerId);
+      this.dependencies.config.setProvider(providerId);
       return this.initializeNow();
     });
   }
@@ -131,7 +133,9 @@ export class BackgroundBrowserService {
   private async ensureBackgroundContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
     if (this.backgroundContext) return this.backgroundContext;
     this.dependencies.logger.info('Launching persistent background browser...');
-    this.backgroundContext = await this.dependencies.createBackgroundContext(settings);
+    this.backgroundContext = await this.dependencies.createBackgroundContext(
+      settings ?? this.dependencies.cloakBrowserSettings.getWithSecret(),
+    );
     return this.backgroundContext;
   }
 
@@ -144,9 +148,11 @@ export class BackgroundBrowserService {
     this.authExpired = false;
 
     try {
-      this.activeProvider = this.dependencies.providerRegistry.createProvider(this.dependencies.getCurrentProviderId());
+      this.activeProvider = this.dependencies.providerRegistry.createProvider(
+        this.dependencies.config.getSnapshot().provider,
+      );
     } catch (error: unknown) {
-      this.error = this.dependencies.presentError(error);
+      this.error = this.presentError(error);
       return this.getStatus();
     }
 
@@ -183,7 +189,7 @@ export class BackgroundBrowserService {
       this.ready = true;
       return this.getStatus();
     } catch (error: unknown) {
-      this.error = this.dependencies.presentError(error);
+      this.error = this.presentError(error);
       await this.shutdownNow(true);
       return this.getStatus();
     }
@@ -242,7 +248,7 @@ export class BackgroundBrowserService {
         audit.createMetadata({ causeCode: 'not-authenticated' }),
       );
       this.authExpired = true;
-      this.error = this.dependencies.getNotAuthenticatedError();
+      this.error = this.getNotAuthenticatedError();
       const clearAudit = audit.startOperation(provider.info.id, 'session-clear', 'session');
       try {
         provider.clearSession();
@@ -262,9 +268,7 @@ export class BackgroundBrowserService {
         'failure',
         audit.createMetadata({ causeCode: 'not-authenticated' }),
       );
-      throw new Error(
-        getBrowserSessionStartupError(provider.getReadinessError(), this.dependencies.getNotAuthenticatedError()),
-      );
+      throw new Error(getBrowserSessionStartupError(provider.getReadinessError(), this.getNotAuthenticatedError()));
     }
     readinessAudit.lifecycle.phaseCompleted('readiness');
     readinessAudit.lifecycle.terminal('readiness', 'success');
@@ -276,7 +280,7 @@ export class BackgroundBrowserService {
     const readinessAudit = audit.startOperation(provider.info.id, 'readiness', 'readiness');
     if (!provider.isReady()) {
       readinessAudit.lifecycle.terminal('readiness', 'failure', audit.createMetadata({ causeCode: 'not-configured' }));
-      throw new Error(this.dependencies.getNotAuthenticatedError());
+      throw new Error(this.getNotAuthenticatedError());
     }
     readinessAudit.lifecycle.phaseCompleted('readiness');
     readinessAudit.lifecycle.terminal('readiness', 'success');
@@ -335,5 +339,16 @@ export class BackgroundBrowserService {
         // Browser teardown must continue when an optional lifecycle hook fails.
       }
     }
+  }
+
+  private getNotAuthenticatedError(): string {
+    return this.dependencies.localization.translate('error.noAccessToken');
+  }
+
+  private presentError(error: unknown): string {
+    return presentNotificationError(error, {
+      context: 'generic',
+      t: this.dependencies.localization.translate,
+    }).userMessage;
   }
 }

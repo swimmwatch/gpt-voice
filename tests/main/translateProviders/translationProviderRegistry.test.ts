@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserContext } from 'playwright-core';
+import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 import {
   TranslationProviderFactory,
@@ -72,6 +73,7 @@ class TestTranslationProviderFactory implements TranslationProviderFactoryContra
 
 function createProductionFactory(): TranslationProviderFactory {
   return new TranslationProviderFactory({
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
     createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
     createContext: async () => ({ close: async () => undefined }) as BrowserContext,
     createContextOptions: () => ({ headless: true }),

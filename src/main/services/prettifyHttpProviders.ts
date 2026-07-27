@@ -1,6 +1,5 @@
 /* eslint-disable max-classes-per-file -- The HTTP provider module keeps its two sibling implementations together. */
 import { StatusCodes } from 'http-status-codes';
-import { t } from '@main/i18n';
 import {
   BasePrettifyProvider,
   type PreparePrettifyExecutionResult,
@@ -12,7 +11,7 @@ import {
 } from '@main/services/prettifyProviderBase';
 import { OneShotPrettifyExecution } from '@main/services/prettifyOneShotExecution';
 import type { PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
-import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import type { PrettifySettingsStorage, PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type {
   KnownPrettifyProviderId,
   PrettifyModelLoadResult,
@@ -46,7 +45,7 @@ export type HttpPrettifyProviderId = 'ollama' | 'vllm';
 
 export interface HttpPrettifyProviderDependencies extends PrettifyProviderDependencies {
   readonly fetch: PrettifyFetch;
-  readonly getSettingsWithSecret: (input?: PrettifySettingsInput) => PrettifySettingsWithSecret;
+  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -433,7 +432,10 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     if (!settings.ollama.model) {
       audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
       audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
-      return Promise.resolve({ success: false, error: t('error.noPrettifyModel') });
+      return Promise.resolve({
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      });
     }
     audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
     context.lifecycle.phaseCompleted('configuration', modelMetadata);
@@ -447,7 +449,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
           return {
             success: false,
             error: signal.aborted
-              ? t('status.prettifyCancelled')
+              ? this.dependencies.localization.translate('status.prettifyCancelled')
               : createConnectionError('Ollama', settings.ollama.baseUrl, error),
           };
         }
@@ -512,11 +514,17 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     const result = extractOllamaText(body);
     if (!result.contractValid) {
       audit.terminalFailure(context, 'result', 'unexpected-response', { sourceLength: text.length });
-      return { success: false, error: t('error.noPrettifyResult') };
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
     }
     if (!result.text) {
       audit.terminalFailure(context, 'result', 'empty-result', { sourceLength: text.length });
-      return { success: false, error: t('error.noPrettifyResult') };
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
     }
     audit.terminalSuccess(context, 'result', {
       resultLength: result.text.length,
@@ -543,7 +551,11 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     if (!settings.ollama.model) {
       audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
       audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
-      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+      return {
+        success: false,
+        providerId: this.id,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      };
     }
     audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
     context.lifecycle.phaseCompleted('configuration', modelMetadata);
@@ -634,7 +646,11 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     if (!settings.ollama.model) {
       audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
       audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
-      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+      return {
+        success: false,
+        providerId: this.id,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      };
     }
     audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
     context.lifecycle.phaseCompleted('configuration', modelMetadata);
@@ -673,7 +689,10 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     context.lifecycle.phaseEntered('configuration');
     let savedSettings: PrettifySettingsWithSecret;
     try {
-      savedSettings = this.dependencies.getSettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
+      savedSettings = this.dependencies.settings.getWithSecret({
+        ...fallbackSettings,
+        providerId: 'ollama',
+      });
     } catch (error: unknown) {
       audit.terminalException(context, 'configuration', error, { cleanupFailure: true });
       throw error;
@@ -824,7 +843,10 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     if (!settings.vllm.model) {
       audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
       audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
-      return Promise.resolve({ success: false, error: t('error.noPrettifyModel') });
+      return Promise.resolve({
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      });
     }
     audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
     context.lifecycle.phaseCompleted('configuration', modelMetadata);
@@ -838,7 +860,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
           return {
             success: false,
             error: signal.aborted
-              ? t('status.prettifyCancelled')
+              ? this.dependencies.localization.translate('status.prettifyCancelled')
               : createConnectionError('vLLM', settings.vllm.baseUrl, error),
           };
         }
@@ -897,11 +919,17 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     const result = extractVllmText(body);
     if (!result.contractValid) {
       audit.terminalFailure(context, 'result', 'unexpected-response', { sourceLength: text.length });
-      return { success: false, error: t('error.noPrettifyResult') };
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
     }
     if (!result.text) {
       audit.terminalFailure(context, 'result', 'empty-result', { sourceLength: text.length });
-      return { success: false, error: t('error.noPrettifyResult') };
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
     }
     audit.terminalSuccess(context, 'result', {
       resultLength: result.text.length,

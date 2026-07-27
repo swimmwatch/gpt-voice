@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the graph fixture owns its isolated settings adapter. */
 import {
   PrettifyProviderFactory,
   PrettifyProviderRegistry,
@@ -7,15 +8,41 @@ import {
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
-import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import {
+  createPrettifySettingsWithSecret,
+  type PrettifySettingsStorage,
+  type PrettifySettingsWithSecret,
+} from '@main/services/prettifySettingsStorage';
+import { getPrettifyBaseUrlValidationError, type PrettifySettingsInput } from '@shared/prettifySettings';
+import { I18nService } from '@main/i18n';
 
 type PrettifyRuntimeFixtureOptions = {
   readonly audit?: PrettifyProviderAudit;
   readonly claudeCliAdapter?: Partial<PrettifyProviderFactoryDependencies['claudeCliAdapter']>;
   readonly codexCliAdapter?: Partial<PrettifyProviderFactoryDependencies['codexCliAdapter']>;
   readonly fetch?: PrettifyProviderFactoryDependencies['fetch'];
-  readonly getSettingsWithSecret?: PrettifyProviderFactoryDependencies['getSettingsWithSecret'];
+  readonly settings?: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 };
+
+export class TestPrettifySettingsStorage {
+  public constructor(private readonly storedSettings: PrettifySettingsInput = {}) {}
+
+  public getWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+    const settings = createPrettifySettingsWithSecret({
+      ...this.storedSettings,
+      ...input,
+      claudeCli: { ...this.storedSettings.claudeCli, ...input.claudeCli },
+      codexCli: { ...this.storedSettings.codexCli, ...input.codexCli },
+      ollama: { ...this.storedSettings.ollama, ...input.ollama },
+      vllm: { ...this.storedSettings.vllm, ...input.vllm },
+    });
+    for (const baseUrl of [settings.ollama.baseUrl, settings.vllm.baseUrl]) {
+      const error = getPrettifyBaseUrlValidationError(baseUrl);
+      if (error) throw new Error(error);
+    }
+    return settings;
+  }
+}
 
 /** Owns one isolated Prettify graph for provider and orchestration tests. */
 export class PrettifyRuntimeFixture {
@@ -26,7 +53,8 @@ export class PrettifyRuntimeFixture {
 
   public constructor(options: PrettifyRuntimeFixtureOptions = {}) {
     this.audit = options.audit ?? new PrettifyProviderAudit();
-    const getSettings = options.getSettingsWithSecret ?? getPrettifySettingsWithSecret;
+    const settings = options.settings ?? new TestPrettifySettingsStorage();
+    const localization = new I18nService();
     const claudeCliAdapter: PrettifyProviderFactoryDependencies['claudeCliAdapter'] = {
       checkAvailability: async () => ({
         error: ClaudeCliPrettifyErrorCode.ProcessFailed,
@@ -62,13 +90,15 @@ export class PrettifyRuntimeFixture {
         (async () => {
           throw new Error('Unexpected Prettify HTTP request');
         }),
-      getSettingsWithSecret: getSettings,
+      localization,
+      settings,
     });
     this.registry = new PrettifyProviderRegistry(this.factory);
     this.runtime = new PrettifyRuntime({
       audit: this.audit,
-      getSettingsWithSecret: getSettings,
+      localization,
       registry: this.registry,
+      settings,
     });
   }
 }

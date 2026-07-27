@@ -16,6 +16,7 @@ import {
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -173,6 +174,7 @@ function createHarness(): Harness {
   const sleeps: number[] = [];
   let now = 1_000;
   const provider = new FakeTranslateProvider({
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
     createContext: async (contextOptions) => {
       options.push(contextOptions);
       const context = new FakeContext();

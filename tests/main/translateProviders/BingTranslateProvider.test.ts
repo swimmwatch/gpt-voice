@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext, Page } from 'playwright-core';
+import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 import {
   BING_BLOCKING_SURFACE_SELECTOR,
@@ -226,6 +227,7 @@ function createHarness(
   let adapterIndex = 0;
   const fallbackAdapter = adapters[0] ?? new FixtureBingPageAdapter();
   const provider = new BingTranslateProvider({
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
     catalogStabilityDelayMs: 1,
     clearPollIntervalMs: 1,
     clearTimeoutMs: 2,

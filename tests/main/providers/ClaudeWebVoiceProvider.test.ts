@@ -38,11 +38,12 @@ import { CLAUDE_WEB_SPEECH_PROTOCOL_VERSION } from '@main/providers/claudeWebPro
 import { CLAUDE_WEB_PCM_CHUNK_BYTES, CLAUDE_WEB_PCM_SAMPLE_RATE_HZ } from '@main/providers/claudeWebAudio';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE, WEBM_OPUS_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
-import { t } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 
 const SYNTHETIC_ORGANIZATION_UUID = '11111111-2222-4333-8444-555555555555';
 const SYNTHETIC_ORIGIN_STORAGE = [{ name: 'synthetic-state', value: 'synthetic-value' }];
+const localization = new I18nService();
 
 const USABLE_SESSION: Extract<ClaudeWebSessionReadResult, { status: 'usable' }> = {
   status: 'usable',
@@ -257,6 +258,7 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
       state.readinessTimeMs += delayMs;
     },
     ...overrides,
+    localization: overrides.localization ?? localization,
   };
   return {
     audit,
@@ -490,7 +492,7 @@ describe('ClaudeWebVoiceProvider', () => {
     await initialize(harness);
 
     assert.equal(harness.provider.isReady(), false);
-    assert.equal(harness.provider.getReadinessError(), t('error.claudeWeb.feature-unavailable'));
+    assert.equal(harness.provider.getReadinessError(), localization.translate('error.claudeWeb.feature-unavailable'));
     assert.equal(harness.state.readinessRetryDelays.length, 20);
     assert.equal(
       harness.state.readinessRetryDelays.reduce((total, delayMs) => total + delayMs, 0),

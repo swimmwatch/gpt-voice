@@ -5,7 +5,7 @@ import { getAudioFileExtension } from './chatgptUtils';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { OpenAIApiSettingsWithSecret } from './openaiApiSettingsUtils';
 import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
@@ -25,6 +25,7 @@ export interface FetchResponseLike {
 export interface OpenAIApiVoiceProviderDependencies {
   audit: VoiceProviderAudit;
   fetch: (url: string, init: RequestInit) => Promise<FetchResponseLike>;
+  localization: Pick<I18nService, 'translate'>;
   getSettings: () => OpenAIApiSettingsWithSecret;
   writeClipboardText: (text: string) => void;
 }
@@ -95,7 +96,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
           attemptCount: 0,
           causeCode: 'not-configured',
         });
-        return { success: false, error: t('error.noAccessToken') };
+        return { success: false, error: this.deps.localization.translate('error.noAccessToken') };
       }
       audit.lifecycle.phaseCompleted('configuration', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
       audit.lifecycle.phaseEntered('validation', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
@@ -182,7 +183,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', {
+        error: this.deps.localization.translate('error.nonJsonResponse', {
           status: String(StatusCodes.OK),
           body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
         }),
@@ -191,7 +192,11 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
 
     const text = typeof result.text === 'string' ? result.text : '';
     if (!text) {
-      return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
+      return {
+        success: false,
+        error: this.deps.localization.translate('error.noTranscription'),
+        raw: JSON.stringify(result),
+      };
     }
 
     this.deps.writeClipboardText(text);
@@ -199,7 +204,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
   }
 
   private parseErrorResponse(status: number, body: string): TranscriptionResult {
-    const rateLimited = parseRateLimitedTranscribeResponse({ status, body });
+    const rateLimited = parseRateLimitedTranscribeResponse({ status, body }, this.deps.localization);
     if (rateLimited) {
       return rateLimited;
     }
@@ -214,7 +219,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', {
+        error: this.deps.localization.translate('error.nonJsonResponse', {
           status: String(status),
           body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
         }),

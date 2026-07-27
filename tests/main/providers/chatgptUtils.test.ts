@@ -1,7 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { StatusCodes } from 'http-status-codes';
-import { setLocale } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -22,6 +22,7 @@ import {
 } from '@shared/transcriptionConstants';
 
 const CHATGPT_ASR_ERROR_RESPONSE = JSON.stringify({ detail: 'Error in ASR API' });
+const localization = new I18nService();
 
 function cookie(overrides: Partial<StorageCookie>): StorageCookie {
   return {
@@ -36,7 +37,7 @@ function cookie(overrides: Partial<StorageCookie>): StorageCookie {
 
 describe('chatgptUtils', () => {
   afterEach(() => {
-    setLocale('en');
+    localization.setLocale('en');
   });
 
   describe('getAudioFileExtension', () => {
@@ -132,6 +133,7 @@ describe('chatgptUtils', () => {
             body: CHATGPT_ASR_ERROR_RESPONSE,
           },
           WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+          localization,
         ),
         {
           success: false,
@@ -149,6 +151,7 @@ describe('chatgptUtils', () => {
             body: JSON.stringify({ detail: 'Temporary provider failure' }),
           },
           WAV_TRANSCRIPTION_MIME_TYPE,
+          localization,
         ),
         {
           success: false,
@@ -173,6 +176,7 @@ describe('chatgptUtils', () => {
             body,
           },
           WAV_TRANSCRIPTION_MIME_TYPE,
+          localization,
         ),
         {
           success: false,
@@ -185,23 +189,29 @@ describe('chatgptUtils', () => {
 
   describe('parseTranscribeResponseBody', () => {
     it('returns text from a successful text response', () => {
-      assert.deepEqual(parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ text: 'hello' }) }), {
-        success: true,
-        text: 'hello',
-      });
+      assert.deepEqual(
+        parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ text: 'hello' }) }, localization),
+        {
+          success: true,
+          text: 'hello',
+        },
+      );
     });
 
     it('returns text from a successful transcript response', () => {
-      assert.deepEqual(parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ transcript: 'hello' }) }), {
-        success: true,
-        text: 'hello',
-      });
+      assert.deepEqual(
+        parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ transcript: 'hello' }) }, localization),
+        {
+          success: true,
+          text: 'hello',
+        },
+      );
     });
 
     it('returns a localized error for non-JSON responses', () => {
-      setLocale('en');
+      localization.setLocale('en');
 
-      assert.deepEqual(parseTranscribeResponseBody({ status: 502, body: 'bad gateway' }), {
+      assert.deepEqual(parseTranscribeResponseBody({ status: 502, body: 'bad gateway' }, localization), {
         success: false,
         error: 'Transcribe endpoint returned non-JSON (status 502): bad gateway',
       });
@@ -209,7 +219,7 @@ describe('chatgptUtils', () => {
 
     it('truncates non-JSON response bodies in errors', () => {
       const body = 'x'.repeat(400);
-      const result = parseTranscribeResponseBody({ status: 500, body });
+      const result = parseTranscribeResponseBody({ status: 500, body }, localization);
 
       assert.equal(result.success, false);
       assert.equal(result.error?.endsWith('x'.repeat(300)), true);
@@ -217,7 +227,7 @@ describe('chatgptUtils', () => {
     });
 
     it('returns raw JSON when the response does not contain transcription text', () => {
-      assert.deepEqual(parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ ok: true }) }), {
+      assert.deepEqual(parseTranscribeResponseBody({ status: 200, body: JSON.stringify({ ok: true }) }, localization), {
         success: false,
         error: 'No transcription in response',
         raw: '{"ok":true}',
@@ -226,10 +236,13 @@ describe('chatgptUtils', () => {
 
     it('returns provider detail errors from failed JSON responses', () => {
       assert.deepEqual(
-        parseTranscribeResponseBody({
-          status: 500,
-          body: CHATGPT_ASR_ERROR_RESPONSE,
-        }),
+        parseTranscribeResponseBody(
+          {
+            status: 500,
+            body: CHATGPT_ASR_ERROR_RESPONSE,
+          },
+          localization,
+        ),
         {
           success: false,
           error: 'Error in ASR API',
@@ -240,15 +253,18 @@ describe('chatgptUtils', () => {
 
     it('returns nested provider detail errors from failed JSON responses', () => {
       assert.deepEqual(
-        parseTranscribeResponseBody({
-          status: 503,
-          body: JSON.stringify({
-            detail: {
-              detail: 'Transcription is temporarily unavailable. Please try again shortly.',
-              retry_after_seconds: 30,
-            },
-          }),
-        }),
+        parseTranscribeResponseBody(
+          {
+            status: 503,
+            body: JSON.stringify({
+              detail: {
+                detail: 'Transcription is temporarily unavailable. Please try again shortly.',
+                retry_after_seconds: 30,
+              },
+            }),
+          },
+          localization,
+        ),
         {
           success: false,
           error: 'Transcription is temporarily unavailable. Please try again shortly.',

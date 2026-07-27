@@ -1,5 +1,6 @@
 import type { ClipboardType } from '@main/electronRuntime';
-import { t } from '@main/i18n';
+import type { I18nService } from '@main/i18n';
+import type { PrettifySettingsStorage } from '@main/services/prettifySettingsStorage';
 import type { PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
@@ -40,14 +41,15 @@ export interface SelectedTextPrettifyDependencies {
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextPrettifyClipboard;
   readonly getCacheContext: () => readonly string[];
-  readonly getPrettifySettings: () => PrettifySettings;
   readonly logger: {
     info(...args: unknown[]): void;
     warn(...args: unknown[]): void;
   };
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   readonly platform: NodeJS.Platform;
   readonly runtime: SelectedTextPrettifyRuntime;
+  readonly settings: Pick<PrettifySettingsStorage, 'getView'>;
   readonly wait: (delayMs: number) => Promise<void>;
 }
 
@@ -61,8 +63,7 @@ function createFailureResult(error: string): SelectedTextPrettifyResult {
   return { success: false, status: error, error };
 }
 
-function createCancelledResult(): SelectedTextPrettifyResult {
-  const status = t('status.prettifyCancelled');
+function createCancelledResult(status: string): SelectedTextPrettifyResult {
   return { cancelled: true, success: false, status, error: status };
 }
 
@@ -70,8 +71,8 @@ function createSkippedResult(): SelectedTextPrettifyResult {
   return { success: false, status: '', skipped: true };
 }
 
-function createSuccessResult(): SelectedTextPrettifyResult {
-  return { success: true, status: t('status.prettifiedSelection') };
+function createSuccessResult(status: string): SelectedTextPrettifyResult {
+  return { success: true, status };
 }
 
 /** Owns one cancellable selected-text Prettify workflow and its cache. */
@@ -105,7 +106,7 @@ export class SelectedTextPrettifyService {
       const { selectedText, copyError } = await this.readSelectedText();
       if (run.cancelled || run.abortController.signal.aborted) {
         this.restoreClipboard(run.previousClipboardText);
-        return createCancelledResult();
+        return this.createCancelledResult();
       }
 
       if (!selectedText.trim()) {
@@ -115,24 +116,26 @@ export class SelectedTextPrettifyService {
             this.presentPrettifyError(copyError).safeLogMetadata,
           );
         }
-        const error = t('error.noTextSelectedToPrettify');
+        const error = this.dependencies.localization.translate('error.noTextSelectedToPrettify');
         this.restoreClipboard(run.previousClipboardText);
         const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
       }
 
       if (selectedText.length > MAX_PRETTIFY_SELECTED_TEXT_LENGTH) {
-        const error = t('error.prettifyTextTooLong', { max: String(MAX_PRETTIFY_SELECTED_TEXT_LENGTH) });
+        const error = this.dependencies.localization.translate('error.prettifyTextTooLong', {
+          max: String(MAX_PRETTIFY_SELECTED_TEXT_LENGTH),
+        });
         this.restoreClipboard(run.previousClipboardText);
         const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
       }
 
-      const settings = this.dependencies.getPrettifySettings();
+      const settings = this.dependencies.settings.getView();
       const preparation = await this.dependencies.runtime.prepare(settings, run.abortController.signal);
       if (run.cancelled || run.abortController.signal.aborted) {
         this.restoreClipboard(run.previousClipboardText);
-        return createCancelledResult();
+        return this.createCancelledResult();
       }
       if (!preparation.success) {
         this.restoreClipboard(run.previousClipboardText);
@@ -154,16 +157,16 @@ export class SelectedTextPrettifyService {
           sourceLength: selectedText.length,
           prettifiedLength: cachedPrettified.length,
         });
-        return createSuccessResult();
+        return this.createSuccessResult();
       }
 
       const prettified = await preparation.prepared.execute(selectedText);
       if (run.cancelled || run.abortController.signal.aborted) {
         this.restoreClipboard(run.previousClipboardText);
-        return createCancelledResult();
+        return this.createCancelledResult();
       }
       if (!prettified.success || !prettified.text?.trim()) {
-        const error = prettified.error || t('error.noPrettifyResult');
+        const error = prettified.error || this.dependencies.localization.translate('error.noPrettifyResult');
         this.restoreClipboard(run.previousClipboardText);
         const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
@@ -176,11 +179,11 @@ export class SelectedTextPrettifyService {
         sourceLength: selectedText.length,
         prettifiedLength: prettified.text.length,
       });
-      return createSuccessResult();
+      return this.createSuccessResult();
     } catch (error: unknown) {
       if (run.cancelled || run.abortController.signal.aborted) {
         this.restoreClipboard(run.previousClipboardText);
-        return createCancelledResult();
+        return this.createCancelledResult();
       }
       this.restoreClipboard(run.previousClipboardText);
       const presented = this.notifyPrettifyFailure(error);
@@ -200,11 +203,18 @@ export class SelectedTextPrettifyService {
     run.abortController.abort();
     this.restoreClipboard(run.previousClipboardText);
     this.dependencies.logger.info('Selected-text prettify cancelled');
-    return createCancelledResult();
+    return this.createCancelledResult();
   }
 
-  private presentPrettifyError(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
-    return presentNotificationError(error, { context: 'prettify', fallback, t });
+  private presentPrettifyError(
+    error: unknown,
+    fallback = this.dependencies.localization.translate('status.prettifyFailed'),
+  ): PresentedNotificationError {
+    return presentNotificationError(error, {
+      context: 'prettify',
+      fallback,
+      t: this.dependencies.localization.translate,
+    });
   }
 
   private restoreClipboard(previousClipboardText: string | null): void {
@@ -236,11 +246,14 @@ export class SelectedTextPrettifyService {
     return { selectedText, copyError };
   }
 
-  private notifyPrettifyFailure(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
+  private notifyPrettifyFailure(
+    error: unknown,
+    fallback = this.dependencies.localization.translate('status.prettifyFailed'),
+  ): PresentedNotificationError {
     const presented = this.presentPrettifyError(error, fallback);
     try {
       this.dependencies.notify(
-        t('notification.prettifyFailed'),
+        this.dependencies.localization.translate('notification.prettifyFailed'),
         formatNotificationBody(presented.userMessage, fallback),
         { sound: 'error' },
       );
@@ -255,14 +268,24 @@ export class SelectedTextPrettifyService {
 
   private notifyPrettifySuccess(): void {
     try {
-      this.dependencies.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), {
-        sound: 'success',
-      });
+      this.dependencies.notify(
+        this.dependencies.localization.translate('notification.textPrettified'),
+        this.dependencies.localization.translate('status.prettifiedSelection'),
+        { sound: 'success' },
+      );
     } catch (error: unknown) {
       this.dependencies.logger.warn(
         'Could not show prettify success notification:',
         this.presentPrettifyError(error).safeLogMetadata,
       );
     }
+  }
+
+  private createCancelledResult(): SelectedTextPrettifyResult {
+    return createCancelledResult(this.dependencies.localization.translate('status.prettifyCancelled'));
+  }
+
+  private createSuccessResult(): SelectedTextPrettifyResult {
+    return createSuccessResult(this.dependencies.localization.translate('status.prettifiedSelection'));
   }
 }

@@ -1,5 +1,6 @@
 import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext, Page } from 'playwright-core';
+import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 
 import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
 import {
@@ -27,8 +28,9 @@ export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 
 export interface BaseTranslateProviderDependencies {
+  readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
-  readonly createContextOptions: () => LaunchContextOptions;
+  readonly createContextOptions: (settings: CloakBrowserSettingsWithSecret) => LaunchContextOptions;
   readonly now: () => number;
   readonly resultPollIntervalMs: number;
   readonly resultStabilityDelayMs: number;
@@ -436,7 +438,7 @@ export abstract class BaseTranslateProvider {
     }
 
     try {
-      const options = this.dependencies.createContextOptions();
+      const options = this.dependencies.createContextOptions(this.dependencies.cloakBrowserSettings.getWithSecret());
       // eslint-disable-next-line @eslint-react/naming-convention-context-name -- this is a Playwright browser context.
       const ownedBrowser = await this.dependencies.createContext(options);
       if (!this.isOperationActive(state)) {

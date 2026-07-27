@@ -4,6 +4,13 @@ import { describe, it } from 'node:test';
 import type { BrowserWindow, Menu, MenuItemConstructorOptions, NativeImage, Tray } from 'electron';
 import { TrayController } from '@main/tray';
 import type { WindowManager } from '@main/window';
+import type { TranslationKey } from '@main/i18n';
+
+class PrefixLocalization {
+  public translate(key: TranslationKey): string {
+    return `translated:${key}`;
+  }
+}
 
 class RecordingTray {
   public destroyCount = 0;
@@ -106,8 +113,8 @@ class TrayControllerHarness {
       return tray as unknown as Tray;
     },
     getAssetPath: (filename) => `/assets/${filename}`,
+    localization: new PrefixLocalization(),
     platform: 'linux',
-    translate: (key) => `translated:${key}`,
     windowManager: this.windowManager as unknown as WindowManager,
   });
 }

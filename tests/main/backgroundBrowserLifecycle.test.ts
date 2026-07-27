@@ -7,6 +7,8 @@ import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
+import { I18nService } from '@main/i18n';
+import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 
 class Deferred {
   public readonly promise: Promise<void>;
@@ -63,12 +65,12 @@ function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserServ
   const context = { close: async () => undefined } as unknown as BrowserContext;
   return new BackgroundBrowserService({
     audit: new RecordingVoiceProviderAudit(),
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+    config: new TestAppConfigStore('openai-api'),
     createBackgroundContext: async () => context,
     createLoginContext: async () => context,
-    getCurrentProviderId: () => 'openai-api',
-    getNotAuthenticatedError: () => 'not authenticated',
+    localization: new I18nService(),
     logger: { info: () => {} },
-    presentError: () => 'provider unavailable',
     providerRegistry: {
       createProvider: () => {
         if (provider) return provider;
@@ -76,7 +78,6 @@ function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserServ
       },
       isKnownProviderId: (providerId): providerId is VoiceProviderAuditId => providerId === 'openai-api',
     },
-    setCurrentProviderId: () => {},
   });
 }
 

@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file -- runtime and its stateful deferred audit lifecycle form one service. */
-import { t } from '@main/i18n';
+import type { I18nService } from '@main/i18n';
+import type { AppConfigStore } from '@main/config';
 import {
   normalizeProviderAuditExceptionType,
   type ProviderAuditPhase,
@@ -23,7 +24,6 @@ import {
   getTranslationProviderInfo,
   type TranslationProviderId,
   type TranslationProviderName,
-  type TranslationSettings,
 } from '@shared/translationProvider';
 
 export interface TranslationExecutionSnapshot {
@@ -55,7 +55,8 @@ export interface TranslationRuntimeRegistry {
 
 export interface TranslationRuntimeDependencies {
   readonly audit: TranslationProviderAudit;
-  readonly getSettings: () => TranslationSettings;
+  readonly config: Pick<AppConfigStore, 'getTranslationSettings'>;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly now: () => number;
   readonly registry: TranslationRuntimeRegistry;
 }
@@ -135,36 +136,6 @@ function createFailure(
   };
 }
 
-export function getTranslationFailureMessage(failure: TranslationProviderFailure): string {
-  switch (failure.code) {
-    case 'unsupportedProvider':
-    case 'unsupportedTargetLanguage':
-      return t('error.translationUnsupportedSelection');
-    case 'emptyInput':
-      return t('error.noTextSelectedToTranslate');
-    case 'inputTooLong': {
-      const provider = getTranslationProviderInfo(failure.metadata.providerId);
-      return t('error.translationTextTooLong', {
-        actual: String(failure.metadata.sourceLength ?? 0),
-        max: String(provider?.maxInputCharacters ?? 0),
-        provider: provider?.name ?? 'Translation provider',
-      });
-    }
-    case 'navigationFailure':
-      return t('error.translationConnectionFailed');
-    case 'consentOrChallenge':
-      return t('error.translationConsentOrChallenge');
-    case 'pageContractFailure':
-      return t('error.translationPageChanged');
-    case 'resultTimeoutOrEmpty':
-      return t('error.translationResultUnavailable');
-    case 'cancelledOrStaleOperation':
-      return t('status.translationCancelled');
-    case 'cleanupFailure':
-      return t('error.translationCleanupFailed');
-  }
-}
-
 /** Owns authoritative translation snapshots, cancellation generations, and provider routing. */
 export class TranslationRuntime {
   private generation = 0;
@@ -172,12 +143,43 @@ export class TranslationRuntime {
 
   constructor(private readonly dependencies: TranslationRuntimeDependencies) {}
 
+  getFailureMessage(failure: TranslationProviderFailure): string {
+    const { translate } = this.dependencies.localization;
+    switch (failure.code) {
+      case 'unsupportedProvider':
+      case 'unsupportedTargetLanguage':
+        return translate('error.translationUnsupportedSelection');
+      case 'emptyInput':
+        return translate('error.noTextSelectedToTranslate');
+      case 'inputTooLong': {
+        const provider = getTranslationProviderInfo(failure.metadata.providerId);
+        return translate('error.translationTextTooLong', {
+          actual: String(failure.metadata.sourceLength ?? 0),
+          max: String(provider?.maxInputCharacters ?? 0),
+          provider: provider?.name ?? 'Translation provider',
+        });
+      }
+      case 'navigationFailure':
+        return translate('error.translationConnectionFailed');
+      case 'consentOrChallenge':
+        return translate('error.translationConsentOrChallenge');
+      case 'pageContractFailure':
+        return translate('error.translationPageChanged');
+      case 'resultTimeoutOrEmpty':
+        return translate('error.translationResultUnavailable');
+      case 'cancelledOrStaleOperation':
+        return translate('status.translationCancelled');
+      case 'cleanupFailure':
+        return translate('error.translationCleanupFailed');
+    }
+  }
+
   /** Captures and audits one validated immutable Translation settings snapshot. */
   getSnapshot(): TranslationExecutionSnapshotResult {
     const startedAt = this.dependencies.now();
     let candidate: unknown;
     try {
-      candidate = this.dependencies.getSettings();
+      candidate = this.dependencies.config.getTranslationSettings();
     } catch (error: unknown) {
       const auditLifecycle = this.dependencies.audit.startOperation(undefined, 'settings-readiness', 'validation', {
         attemptCount: 0,
@@ -391,7 +393,7 @@ export class TranslationRuntime {
   async translateText(sourceText: unknown, targetLanguage: unknown): Promise<TranslationTextResult> {
     const snapshotResult = this.getSnapshot();
     if (!snapshotResult.success) {
-      return { success: false, error: getTranslationFailureMessage(snapshotResult) };
+      return { success: false, error: this.getFailureMessage(snapshotResult) };
     }
 
     const { snapshot } = snapshotResult;
@@ -410,14 +412,14 @@ export class TranslationRuntime {
       const auditMetadata = this.dependencies.audit.createMetadata(failure.metadata);
       const auditLifecycle = this.dependencies.audit.startTranslate(snapshot.providerId, auditMetadata).lifecycle;
       this.dependencies.audit.terminalFailure(auditLifecycle, failure);
-      return { success: false, error: getTranslationFailureMessage(failure) };
+      return { success: false, error: this.getFailureMessage(failure) };
     }
 
     const outcome = await this.translateWithSnapshot(sourceText, snapshot);
     if (outcome.success) {
       return { success: true, text: outcome.text };
     }
-    return { success: false, error: getTranslationFailureMessage(outcome) };
+    return { success: false, error: this.getFailureMessage(outcome) };
   }
 
   async shutdown(): Promise<TranslationProviderShutdownResult> {

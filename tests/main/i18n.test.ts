@@ -11,7 +11,7 @@ import ja from '@main/i18n/ja';
 import de from '@main/i18n/de';
 import fr from '@main/i18n/fr';
 import hi from '@main/i18n/hi';
-import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t, type TranslationKey } from '@main/i18n';
+import { I18nService, type TranslationKey } from '@main/i18n';
 import { ClaudeWebVoiceProviderErrorCode } from '@main/providers/ClaudeWebVoiceProvider';
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
@@ -153,6 +153,7 @@ const REQUIRED_CENTRAL_STATUS_KEYS = [
   'error.notificationUnexpectedProviderResponse',
   'error.notificationUnknown',
 ] as const;
+const i18n = new I18nService();
 
 function getPlaceholders(message: string): string[] {
   return Array.from(message.matchAll(/\{([a-z][a-zA-Z0-9]*)\}/g), (match) => match[1]).sort();
@@ -160,31 +161,48 @@ function getPlaceholders(message: string): string[] {
 
 describe('i18n', () => {
   afterEach(() => {
-    setLocale('en');
+    i18n.setLocale('en');
   });
 
   it('lists the supported locales in registry order', () => {
-    assert.deepEqual(getSupportedLocales(), APP_LOCALE_IDS);
+    assert.deepEqual(i18n.getSupportedLocales(), APP_LOCALE_IDS);
+  });
+
+  it('keeps locale state isolated between services and catalogs immutable', () => {
+    const first = new I18nService('ru');
+    const second = new I18nService('uk');
+    const supportedLocales = first.getSupportedLocales();
+
+    supportedLocales.pop();
+    first.setLocale('be');
+
+    assert.equal(first.getLocale(), 'be');
+    assert.equal(first.translate('status.recording'), be['status.recording']);
+    assert.equal(second.getLocale(), 'uk');
+    assert.equal(second.translate('status.recording'), uk['status.recording']);
+    assert.deepEqual(second.getSupportedLocales(), APP_LOCALE_IDS);
+    assert.equal(Object.isFrozen(first.getCurrentCatalog()), true);
+    assert.equal(Object.isFrozen(second.getCurrentCatalog()), true);
   });
 
   it('falls back to English for an unsupported locale', () => {
-    setLocale('missing' as AppLocaleId);
+    i18n.setLocale('missing' as AppLocaleId);
 
-    assert.equal(getLocale(), 'en');
-    assert.equal(t('status.recording'), en['status.recording']);
+    assert.equal(i18n.getLocale(), 'en');
+    assert.equal(i18n.translate('status.recording'), en['status.recording']);
   });
 
   it('returns translations from the active locale', () => {
-    setLocale('ru');
+    i18n.setLocale('ru');
 
-    assert.equal(getLocale(), 'ru');
-    assert.equal(t('status.recording'), ru['status.recording']);
+    assert.equal(i18n.getLocale(), 'ru');
+    assert.equal(i18n.translate('status.recording'), ru['status.recording']);
   });
 
   it('replaces named parameters in translated strings', () => {
-    setLocale('en');
+    i18n.setLocale('en');
 
-    assert.equal(t('status.pressToRecord', { hotkey: 'F9' }), 'Press F9 to start recording');
+    assert.equal(i18n.translate('status.pressToRecord', { hotkey: 'F9' }), 'Press F9 to start recording');
   });
 
   it('uses distinct Command Dock labels for transcription and prettification', () => {
@@ -194,9 +212,9 @@ describe('i18n', () => {
 
   it('renders every main Prettify band message in each explicitly selected locale', () => {
     for (const locale of APP_LOCALE_IDS) {
-      setLocale(locale);
+      i18n.setLocale(locale);
       for (const key of REQUIRED_MAIN_PRETTIFY_BAND_KEYS) {
-        const message = t(key);
+        const message = i18n.translate(key);
         assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
         assert.notEqual(message, key, `${locale}:${key}`);
       }
@@ -244,15 +262,15 @@ describe('i18n', () => {
   });
 
   it('keeps unresolved placeholders when a parameter is not provided', () => {
-    setLocale('en');
+    i18n.setLocale('en');
 
-    assert.equal(t('status.pressToRecord'), 'Press {hotkey} to start recording');
+    assert.equal(i18n.translate('status.pressToRecord'), 'Press {hotkey} to start recording');
   });
 
   it('returns all translations for the current locale', () => {
-    setLocale('uk');
+    i18n.setLocale('uk');
 
-    assert.deepEqual(getAllTranslations(), uk);
+    assert.deepEqual(i18n.getCurrentCatalog(), uk);
   });
 
   it('keeps every locale aligned with the English translation keys', () => {
@@ -380,14 +398,14 @@ describe('i18n', () => {
 
     for (const locale of APP_LOCALE_IDS) {
       const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
-      setLocale(locale);
+      i18n.setLocale(locale);
       for (const errorCode of errorCodes) {
         const key = `${CLAUDE_WEB_ERROR_KEY_PREFIX}${errorCode}`;
         const message = dictionary[key];
         assert.equal(typeof message, 'string', `${locale}:${key}`);
         assert.equal(Boolean(message?.trim()), true, `${locale}:${key}`);
         assert.deepEqual(getPlaceholders(message ?? ''), [], `${locale}:${key}`);
-        assert.equal(t(key as TranslationKey), message, `${locale}:${key}`);
+        assert.equal(i18n.translate(key as TranslationKey), message, `${locale}:${key}`);
       }
     }
   });
@@ -406,7 +424,7 @@ describe('i18n', () => {
 
     for (const locale of APP_LOCALE_IDS) {
       const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
-      setLocale(locale);
+      i18n.setLocale(locale);
       for (const { codes, prefix } of providerErrors) {
         for (const errorCode of codes) {
           const key = `${prefix}${errorCode}`;
@@ -414,7 +432,7 @@ describe('i18n', () => {
           assert.equal(typeof message, 'string', `${locale}:${key}`);
           assert.equal(Boolean(message?.trim()), true, `${locale}:${key}`);
           assert.deepEqual(getPlaceholders(message ?? ''), [], `${locale}:${key}`);
-          assert.equal(t(key as TranslationKey), message, `${locale}:${key}`);
+          assert.equal(i18n.translate(key as TranslationKey), message, `${locale}:${key}`);
         }
       }
     }

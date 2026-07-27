@@ -7,6 +7,9 @@ import {
 } from '@main/providers/OpenAIApiVoiceProvider';
 import { DEFAULT_OPENAI_API_SETTINGS, type OpenAIApiSettingsWithSecret } from '@main/providers/openaiApiSettingsUtils';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
+import { I18nService } from '@main/i18n';
+
+const localization = new I18nService();
 
 function createSettings(overrides: Partial<OpenAIApiSettingsWithSecret> = {}): OpenAIApiSettingsWithSecret {
   return {
@@ -25,6 +28,7 @@ function createProvider(overrides: Partial<OpenAIApiVoiceProviderDependencies>):
     getSettings: createSettings,
     writeClipboardText: () => undefined,
     ...overrides,
+    localization: overrides.localization ?? localization,
   });
 }
 

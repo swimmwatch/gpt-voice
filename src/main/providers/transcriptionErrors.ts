@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 
 interface TranscribeHttpResponse {
   status: number;
@@ -8,7 +8,10 @@ interface TranscribeHttpResponse {
   retryAfter?: string;
 }
 
-export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse): TranscriptionResult | null {
+export function parseRateLimitedTranscribeResponse(
+  resp: TranscribeHttpResponse,
+  localization: Pick<I18nService, 'translate'>,
+): TranscriptionResult | null {
   if (resp.status !== Number(StatusCodes.TOO_MANY_REQUESTS)) {
     return null;
   }
@@ -17,8 +20,8 @@ export function parseRateLimitedTranscribeResponse(resp: TranscribeHttpResponse)
   return {
     success: false,
     error: retryAfterSeconds
-      ? t('error.rateLimitedRetryAfter', { seconds: String(retryAfterSeconds) })
-      : t('error.rateLimited'),
+      ? localization.translate('error.rateLimitedRetryAfter', { seconds: String(retryAfterSeconds) })
+      : localization.translate('error.rateLimited'),
     raw: resp.body,
   };
 }

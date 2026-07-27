@@ -53,44 +53,37 @@ import type { MainStreamingTranscriptionService } from './services/streamingTran
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
+import type { AppConfigStore } from './config';
+import type { I18nService } from './i18n';
+import type { CloakBrowserSettingsRepository } from './cloakBrowserSettings';
+import type { PrettifySettingsStorage } from './services/prettifySettingsStorage';
 
 export interface MainIpcTransport {
   handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
   removeHandler(channel: string): void;
 }
 
-export interface MainIpcConfigRepository {
-  readonly getCurrentProvider: () => string;
-  readonly getHotkeySettings: () => HotkeySettings;
-  readonly getTextActionSettings: () => {
-    readonly prettifyEnabled: boolean;
-    readonly translateEnabled: boolean;
-  };
-  readonly getTranslationSettings: typeof import('./config').getTranslationSettingsSnapshot;
-  readonly save: typeof import('./config').saveConfig;
-  readonly saveTranslationSettings: typeof import('./config').saveTranslationSettings;
-  readonly setCurrentLocale: typeof import('./config').setCurrentLocale;
-  readonly setHotkeys: typeof import('./config').setHotkeys;
-  readonly setTextActionSettings: typeof import('./config').setTextActionSettings;
-}
+export type MainIpcConfigRepository = Pick<
+  AppConfigStore,
+  | 'getHotkeySettings'
+  | 'getSnapshot'
+  | 'getTextActionSettings'
+  | 'getTranslationSettings'
+  | 'save'
+  | 'saveTranslationSettings'
+  | 'setHotkeys'
+  | 'setLocalePreference'
+  | 'setTextActionSettings'
+>;
 
-export interface MainIpcLocalization {
-  readonly getAllTranslations: typeof import('./i18n').getAllTranslations;
-  readonly getLocale: typeof import('./i18n').getLocale;
-  readonly getSupportedLocales: typeof import('./i18n').getSupportedLocales;
-  readonly setLocale: typeof import('./i18n').setLocale;
-  readonly translate: typeof import('./i18n').t;
-}
+export type MainIpcLocalization = Pick<
+  I18nService,
+  'getCurrentCatalog' | 'getLocale' | 'getSupportedLocales' | 'setLocale' | 'translate'
+>;
 
-export interface MainIpcCloakBrowserSettingsRepository {
-  readonly getView: typeof import('./cloakBrowserSettings').getCloakBrowserSettingsView;
-  readonly prepare: typeof import('./cloakBrowserSettings').prepareCloakBrowserSettings;
-}
+export type MainIpcCloakBrowserSettingsRepository = Pick<CloakBrowserSettingsRepository, 'getView' | 'prepare'>;
 
-export interface MainIpcPrettifySettingsRepository {
-  readonly getView: typeof import('./services/prettifySettingsStorage').getPrettifySettingsView;
-  readonly save: typeof import('./services/prettifySettingsStorage').savePrettifySettings;
-}
+export type MainIpcPrettifySettingsRepository = Pick<PrettifySettingsStorage, 'getView' | 'save'>;
 
 export interface MainIpcVoiceSettingsRepository {
   readonly clearOpenAIApiKey: typeof import('./providers/openaiApiSettings').clearOpenAIApiKey;
@@ -425,7 +418,7 @@ export class MainIpcController {
       try {
         const provider =
           dependencies.backgroundBrowserService.getActiveProvider() ??
-          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getCurrentProvider());
+          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getSnapshot().provider);
         const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
         try {
           const hasSession = provider.hasSession();
@@ -541,7 +534,10 @@ export class MainIpcController {
         const backgroundStatus = await dependencies.backgroundBrowserService.restart({
           cloakBrowserSettings: preparedSettings.settingsWithSecret,
         });
-        dependencies.windowManager.publishBackgroundStatus(backgroundStatus, dependencies.config.getCurrentProvider());
+        dependencies.windowManager.publishBackgroundStatus(
+          backgroundStatus,
+          dependencies.config.getSnapshot().provider,
+        );
         log.info('CloakBrowser settings restart result:', summarizeBackgroundStatus(backgroundStatus));
         if (backgroundStatus.error) {
           log.warn('CloakBrowser settings save failed during restart:', summarizeBackgroundStatus(backgroundStatus));
@@ -697,14 +693,14 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('get-active-provider', () => {
-      return dependencies.config.getCurrentProvider();
+      return dependencies.config.getSnapshot().provider;
     });
 
     this.trustedIpc.handle('set-active-provider', async (_event, providerId: string) => {
       try {
         const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
         dependencies.config.save();
-        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getCurrentProvider());
+        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getSnapshot().provider);
         return { success: !status.error, error: status.error };
       } catch (error: unknown) {
         return { success: false, error: getErrorMessage(error) };
@@ -765,7 +761,7 @@ export class MainIpcController {
           'to',
           normalizedHotkey,
         );
-        dependencies.config.setHotkeys(undefined, normalizedHotkey, undefined, undefined, undefined);
+        dependencies.config.setHotkeys({ cancelHotkey: normalizedHotkey });
       } else if (key === 'stop') {
         log.info(
           'Changing stop hotkey from',
@@ -773,7 +769,7 @@ export class MainIpcController {
           'to',
           normalizedHotkey,
         );
-        dependencies.config.setHotkeys(undefined, undefined, normalizedHotkey, undefined, undefined);
+        dependencies.config.setHotkeys({ stopHotkey: normalizedHotkey });
       } else if (target === 'translate') {
         log.info(
           'Changing translate hotkey from',
@@ -781,7 +777,7 @@ export class MainIpcController {
           'to',
           normalizedHotkey,
         );
-        dependencies.config.setHotkeys(undefined, undefined, undefined, normalizedHotkey, undefined);
+        dependencies.config.setHotkeys({ translateHotkey: normalizedHotkey });
       } else if (target === 'prettify') {
         log.info(
           'Changing prettify hotkey from',
@@ -789,7 +785,7 @@ export class MainIpcController {
           'to',
           normalizedHotkey,
         );
-        dependencies.config.setHotkeys(undefined, undefined, undefined, undefined, normalizedHotkey, undefined);
+        dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
       } else if (target === 'retryTranscription') {
         log.info(
           'Changing retry transcription hotkey from',
@@ -797,10 +793,10 @@ export class MainIpcController {
           'to',
           normalizedHotkey,
         );
-        dependencies.config.setHotkeys(undefined, undefined, undefined, undefined, undefined, normalizedHotkey);
+        dependencies.config.setHotkeys({ retryTranscriptionHotkey: normalizedHotkey });
       } else {
         log.info('Changing hotkey from', dependencies.config.getHotkeySettings().hotkey, 'to', normalizedHotkey);
-        dependencies.config.setHotkeys(normalizedHotkey, undefined, undefined, undefined, undefined, undefined);
+        dependencies.config.setHotkeys({ hotkey: normalizedHotkey });
       }
       dependencies.config.save();
       dependencies.shortcutController.register();
@@ -828,7 +824,7 @@ export class MainIpcController {
           },
           to: normalized,
         });
-        dependencies.config.setTextActionSettings(normalized.translateEnabled, normalized.prettifyEnabled);
+        dependencies.config.setTextActionSettings(normalized);
         dependencies.config.save();
         log.info('Text action settings saved:', normalized);
         return { success: true, settings: normalized };
@@ -977,7 +973,7 @@ export class MainIpcController {
     );
 
     this.trustedIpc.handle('get-translations', () => {
-      return dependencies.localization.getAllTranslations();
+      return dependencies.localization.getCurrentCatalog();
     });
 
     this.trustedIpc.handle('get-locale', () => {
@@ -995,7 +991,7 @@ export class MainIpcController {
         }
         log.info('Saving locale:', { from: dependencies.localization.getLocale(), to: locale });
         dependencies.localization.setLocale(locale);
-        dependencies.config.setCurrentLocale(locale);
+        dependencies.config.setLocalePreference(locale);
         dependencies.config.save();
         dependencies.windowManager.broadcastLocaleChanged(locale);
         log.info('Locale saved:', { locale: dependencies.localization.getLocale() });
@@ -1079,7 +1075,7 @@ export class MainIpcController {
   }
 
   private async refreshActiveProvider(providerId: string) {
-    const currentProvider = this.dependencies.config.getCurrentProvider();
+    const currentProvider = this.dependencies.config.getSnapshot().provider;
     if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
     const status = await this.dependencies.backgroundBrowserService.restart();
     this.dependencies.windowManager.publishBackgroundStatus(status, currentProvider);

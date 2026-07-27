@@ -29,11 +29,12 @@ describe('startup locale resolution', () => {
 
   it('persists only locales marked by an explicit renderer choice', () => {
     const config = readFileSync(path.join(PROJECT_ROOT, 'src/main/config.ts'), 'utf8');
-    const main = readFileSync(path.join(PROJECT_ROOT, 'src/main/main.ts'), 'utf8');
+    const application = readFileSync(path.join(PROJECT_ROOT, 'src/main/mainProcessApplication.ts'), 'utf8');
 
-    assert.match(config, /localeExplicit: currentLocaleWasExplicitlySelected/u);
+    assert.match(config, /localeExplicit: this\.localeWasExplicitlySelected/u);
     assert.match(config, /locale && localeExplicit === true/u);
-    assert.match(config, /currentLocaleWasExplicitlySelected = true/u);
-    assert.match(main, /hasExplicitLocalePreference\(\)/u);
+    assert.match(config, /this\.localeWasExplicitlySelected = true/u);
+    assert.match(application, /config\.localeExplicit/u);
+    assert.doesNotMatch(config, /\bexport let currentLocale\b|\bhasExplicitLocalePreference\b/u);
   });
 });

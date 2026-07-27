@@ -27,6 +27,7 @@ import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import type { TranslationRuntime } from '../services/translation';
 import type { PrettifyRuntime } from '../services/prettifyProviders';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
+import type { I18nService } from '../i18n';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -59,6 +60,7 @@ export interface MainProcessRuntimeFactoryDependencies {
     warn(message: string, metadata: Readonly<Record<string, unknown>>): void;
   };
   readonly ipc: Omit<MainIpcControllerDependencies, RuntimeOwnedMainIpcDependencyKeys>;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly now: () => Date;
   readonly randomUUID: () => string;
   readonly reportStreamingDiagnostic: StreamingRuntimeDependencies['reportDiagnostic'];
@@ -105,6 +107,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       audit: this.controllers.voiceProviderAudit,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
       getRequestedAt: this.dependencies.getRequestedAt,
+      localization: this.dependencies.localization,
     });
     const streamingTranscriptionService = new StreamingTranscriptionService({
       ...completionDependencies,

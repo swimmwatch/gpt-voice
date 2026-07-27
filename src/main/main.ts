@@ -17,50 +17,22 @@ import {
   Tray,
 } from 'electron';
 import log, { createLogger } from './logger';
-import {
-  consumePendingTranslationSettingsRepairNotice,
-  APP_DIR,
-  currentCancelHotkey,
-  currentHotkey,
-  currentPrettifyEnabled,
-  currentPrettifyHotkey,
-  currentProvider,
-  currentRetryTranscriptionHotkey,
-  currentStopHotkey,
-  currentTranslateEnabled,
-  currentTranslateHotkey,
-  getCurrentLocale,
-  getTranslationSettingsSnapshot,
-  hasExplicitLocalePreference,
-  loadConfig,
-  saveConfig,
-  saveTranslationSettings,
-  setCurrentLocale,
-  setHotkeys,
-  setProvider,
-  setTextActionSettings,
-} from './config';
-import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from './i18n';
+import { resolveAppConfigPaths } from './config';
 import { configureCloakBrowserRuntime, launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
-import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
-import {
-  getPrettifySettingsView,
-  getPrettifySettingsWithSecret,
-  savePrettifySettings,
-} from './services/prettifySettingsStorage';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
-import { resolveStartupLocale } from './startupLocale';
 import {
+  decryptSafeStorageString,
+  encryptSafeStorageString,
+  isSafeStorageEncryptionAvailable,
   readClipboardText,
   showSystemNotification,
   writeClipboardText,
   writeTypedClipboardText,
 } from './electronRuntime';
-import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
-import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
+import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { runTextAutomationAction } from './services/textAutomation';
@@ -69,7 +41,6 @@ import {
   createCloakBrowserPersistentContextOptions,
   createCloakBrowserTranslationContextOptions,
 } from './cloakBrowserLaunchOptions';
-import { presentNotificationError } from '@shared/notifications';
 import {
   clearOpenAIApiKey,
   getOpenAIApiSettingsView,
@@ -90,18 +61,6 @@ import { createPlaywrightGoogleTranslatePageAdapter } from './translateProviders
 import { createPlaywrightBingTranslatePageAdapter } from './translateProviders/BingTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from './translateProviders/YandexTranslateProvider';
 
-function initializeLocale(): void {
-  setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
-}
-
-function presentTranslationSettingsRepairNotice(): void {
-  presentPendingTranslationSettingsRepairNotice({
-    consume: consumePendingTranslationSettingsRepairNotice,
-    notify: showSystemNotification,
-    translate: t,
-  });
-}
-
 function getCurrentDate(): Date {
   return new Date();
 }
@@ -118,59 +77,52 @@ function ignoreStreamingDiagnostic(): void {
   // Task 08 preserves the existing no-op diagnostic callback.
 }
 
+function generateFingerprintSeed(): string {
+  return String(Math.floor(Math.random() * 90_000) + 10_000);
+}
+
+const appConfigPaths = resolveAppConfigPaths({
+  environment: process.env,
+  homeDirectory: os.homedir,
+  platform: process.platform,
+});
+
 const application = new MainProcessCompositionRoot({
   cacheNow: Date.now,
-  databasePath: APP_DATABASE_FILE,
+  cloakBrowserSettings: {
+    fileSystem: fs,
+    logger: createLogger('cloakbrowser-settings'),
+    secureStorage: {
+      decrypt: decryptSafeStorageString,
+      encrypt: encryptSafeStorageString,
+      isEncryptionAvailable: isSafeStorageEncryptionAvailable,
+    },
+  },
+  config: {
+    fileSystem: fs,
+    generateFingerprintSeed,
+    logger: createLogger('config'),
+    paths: appConfigPaths,
+    writeFileAtomically: (filePath, contents) =>
+      writeTextFileAtomically(filePath, contents, {
+        createTemporaryPath: (target) => `${target}.${randomUUID()}.tmp`,
+        fileSystem: fs,
+      }),
+  },
   diagnosticLogger: createLogger('diagnostic-capture'),
   getMonotonicTimeMs,
   getRequestedAt,
   historyLogger: createLogger('ipc'),
   ipc: {
-    cloakBrowserSettings: {
-      getView: getCloakBrowserSettingsView,
-      prepare: prepareCloakBrowserSettings,
-    },
-    config: {
-      getCurrentProvider: () => currentProvider,
-      getHotkeySettings: () => ({
-        cancelHotkey: currentCancelHotkey,
-        hotkey: currentHotkey,
-        prettifyHotkey: currentPrettifyHotkey,
-        retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
-        stopHotkey: currentStopHotkey,
-        translateHotkey: currentTranslateHotkey,
-      }),
-      getTextActionSettings: () => ({
-        prettifyEnabled: currentPrettifyEnabled,
-        translateEnabled: currentTranslateEnabled,
-      }),
-      getTranslationSettings: getTranslationSettingsSnapshot,
-      save: saveConfig,
-      saveTranslationSettings,
-      setCurrentLocale,
-      setHotkeys,
-      setTextActionSettings,
-    },
     ipc: {
       handle: (channel, listener) => ipcMain.handle(channel, listener),
       removeHandler: (channel) => ipcMain.removeHandler(channel),
-    },
-    localization: {
-      getAllTranslations,
-      getLocale,
-      getSupportedLocales,
-      setLocale,
-      translate: t,
     },
     logger: createLogger('ipc'),
     notification: {
       show: showSystemNotification,
     },
     platform: process.platform,
-    prettifySettings: {
-      getView: getPrettifySettingsView,
-      save: savePrettifySettings,
-    },
     voiceSettings: {
       clearOpenAIApiKey,
       getClaudeWebSettings,
@@ -221,7 +173,6 @@ const application = new MainProcessCompositionRoot({
       },
     },
     fetch,
-    getSettingsWithSecret: getPrettifySettingsWithSecret,
     selectedText: {
       automateTextAction: async (action) => {
         await runTextAutomationAction(action);
@@ -231,11 +182,19 @@ const application = new MainProcessCompositionRoot({
         writeText: writeTypedClipboardText,
       },
       getCacheContext: () => [],
-      getPrettifySettings: getPrettifySettingsView,
       logger: createLogger('selection-prettify'),
       notify: showSystemNotification,
       platform: process.platform,
       wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+    },
+    settingsStorage: {
+      fileSystem: fs,
+      logger: createLogger('prettify-settings'),
+      secureStorage: {
+        decrypt: decryptSafeStorageString,
+        encrypt: encryptSafeStorageString,
+        isEncryptionAvailable: isSafeStorageEncryptionAvailable,
+      },
     },
   },
   translation: {
@@ -245,7 +204,6 @@ const application = new MainProcessCompositionRoot({
       now: getCurrentDate,
       randomUUID,
     },
-    getSettings: getTranslationSettingsSnapshot,
     now: Date.now,
     providers: {
       createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
@@ -278,13 +236,11 @@ const application = new MainProcessCompositionRoot({
     },
     browser: {
       createBackgroundContext: (settings) =>
-        launchCloakPersistentContext(createCloakBrowserPersistentContextOptions(settings)),
-      createLoginContext: () => launchCloakContext(createCloakBrowserLoginContextOptions()),
-      getCurrentProviderId: () => currentProvider,
-      getNotAuthenticatedError: () => t('error.noAccessToken'),
+        launchCloakPersistentContext(
+          createCloakBrowserPersistentContextOptions(settings, appConfigPaths.browserCacheDirectory),
+        ),
+      createLoginContext: (settings) => launchCloakContext(createCloakBrowserLoginContextOptions(settings)),
       logger: createLogger('browser'),
-      presentError: (error) => presentNotificationError(error, { context: 'generic', t }).userMessage,
-      setCurrentProviderId: setProvider,
     },
     providers: {
       chatGPT: {
@@ -297,8 +253,8 @@ const application = new MainProcessCompositionRoot({
           fileSystem: fs,
           logger: createLogger('chatgpt-provider'),
           now: Date.now,
-          sessionFile: path.join(APP_DIR, 'chatgpt-session.json'),
-          tokenFile: path.join(APP_DIR, 'access-token.json'),
+          sessionFile: appConfigPaths.chatGPTSessionFile,
+          tokenFile: appConfigPaths.chatGPTTokenFile,
         },
         writeClipboardText,
       },
@@ -363,16 +319,6 @@ const application = new MainProcessCompositionRoot({
       syncDesktopIcons: syncLinuxDesktopIcons,
     },
     shortcuts: {
-      getSettings: () => ({
-        cancelHotkey: currentCancelHotkey,
-        hotkey: currentHotkey,
-        prettifyEnabled: currentPrettifyEnabled,
-        prettifyHotkey: currentPrettifyHotkey,
-        retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
-        stopHotkey: currentStopHotkey,
-        translateEnabled: currentTranslateEnabled,
-        translateHotkey: currentTranslateHotkey,
-      }),
       globalShortcut,
       logger: createLogger('shortcuts'),
       platform: process.platform,
@@ -384,7 +330,6 @@ const application = new MainProcessCompositionRoot({
       createTray: (icon) => new Tray(icon),
       getAssetPath,
       platform: process.platform,
-      translate: t,
     },
     window: {
       createBrowserWindow: (options) => new BrowserWindow(options),
@@ -397,11 +342,7 @@ const application = new MainProcessCompositionRoot({
       preloadPath: path.join(__dirname, 'preload.js'),
     },
   },
-  getCurrentVoiceProviderId: () => currentProvider,
-  initializeLocale,
-  loadConfig,
   logger: log,
-  presentTranslationSettingsRepairNotice,
 });
 
 application.bootstrap();

@@ -1,13 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { APP_DIR, currentPrettifySettings, saveConfig, setPrettifySettings } from '@main/config';
+import type * as fs from 'node:fs';
+import type { AppConfigStore } from '@main/config';
 import {
-  decryptSafeStorageString,
-  encryptSafeStorageString,
-  isSafeStorageEncryptionAvailable,
-} from '@main/electronRuntime';
-import { createLogger } from '@main/logger';
-import {
+  DEFAULT_PRETTIFY_SETTINGS,
   assertValidPrettifySettingsInput,
   getPrettifyBaseUrlValidationError,
   getPrettifyProviderCapabilities,
@@ -15,9 +9,6 @@ import {
   type PrettifySettings,
   type PrettifySettingsInput,
 } from '@shared/prettifySettings';
-
-const log = createLogger('prettify-settings');
-const SETTINGS_FILE = path.join(APP_DIR, 'prettify-provider-settings.json');
 
 interface StoredPrettifyProviderSettings {
   encryptedVllmApiKey?: string;
@@ -29,37 +20,22 @@ export interface PrettifySettingsWithSecret extends PrettifySettings {
   };
 }
 
-function readStoredSettings(): StoredPrettifyProviderSettings {
-  try {
-    if (!fs.existsSync(SETTINGS_FILE)) return {};
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) as StoredPrettifyProviderSettings;
-  } catch (error: unknown) {
-    log.warn('Failed to read prettify provider settings:', error instanceof Error ? error.message : error);
-    return {};
-  }
-}
-
-function writeStoredSettings(settings: StoredPrettifyProviderSettings): void {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), { mode: 0o600 });
-}
-
-function encryptApiKey(apiKey: string): string {
-  if (!isSafeStorageEncryptionAvailable()) {
-    throw new Error('Secure storage is not available on this system');
-  }
-  return encryptSafeStorageString(apiKey).toString('base64');
-}
-
-function decryptApiKey(encryptedApiKey?: string): string {
-  if (!encryptedApiKey) return '';
-  if (!isSafeStorageEncryptionAvailable()) return '';
-
-  try {
-    return decryptSafeStorageString(Buffer.from(encryptedApiKey, 'base64'));
-  } catch (error: unknown) {
-    log.warn('Failed to decrypt vLLM API key:', error instanceof Error ? error.message : error);
-    return '';
-  }
+export interface PrettifySettingsStorageDependencies {
+  readonly config: Pick<AppConfigStore, 'getSnapshot' | 'save' | 'setPrettifySettings'>;
+  readonly fileSystem: {
+    existsSync(path: fs.PathLike): boolean;
+    readFileSync(path: fs.PathOrFileDescriptor, encoding: BufferEncoding): string;
+    writeFileSync(path: fs.PathOrFileDescriptor, data: string, options?: fs.WriteFileOptions): void;
+  };
+  readonly logger: {
+    warn(...args: unknown[]): void;
+  };
+  readonly secureStorage: {
+    decrypt(value: Buffer): string;
+    encrypt(value: string): Buffer;
+    isEncryptionAvailable(): boolean;
+  };
+  readonly settingsFile: string;
 }
 
 export function mergePrettifySettingsForStorage(
@@ -90,36 +66,9 @@ export function mergePrettifySettingsForStorage(
   });
 }
 
-function mergePrettifySettings(input: PrettifySettingsInput = {}, hasApiKey = false): PrettifySettings {
-  return mergePrettifySettingsForStorage(currentPrettifySettings, input, hasApiKey);
-}
-
-function assertValidPrettifyProviderUrls(settings: PrettifySettings): void {
-  const baseUrls = [
-    ['ollama', settings.ollama.baseUrl],
-    ['vllm', settings.vllm.baseUrl],
-  ] as const;
-  for (const [providerId, baseUrl] of baseUrls) {
-    if (!getPrettifyProviderCapabilities(providerId).baseUrl) continue;
-    const error = getPrettifyBaseUrlValidationError(baseUrl);
-    if (error) throw new Error(error);
-  }
-}
-
-export function getPrettifySettingsView(): PrettifySettings {
-  const stored = readStoredSettings();
-  return mergePrettifySettings({}, Boolean(decryptApiKey(stored.encryptedVllmApiKey)));
-}
-
-export function getPrettifySettingsWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
-  assertValidPrettifySettingsInput(input);
-  const stored = readStoredSettings();
-  const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
-  const savedApiKey = input.vllm?.clearApiKey ? '' : decryptApiKey(stored.encryptedVllmApiKey);
-  const apiKey = draftApiKey || savedApiKey;
-  const settings = mergePrettifySettings(input, Boolean(apiKey));
-  assertValidPrettifyProviderUrls(settings);
-
+export function createPrettifySettingsWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+  const apiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
+  const settings = mergePrettifySettingsForStorage(DEFAULT_PRETTIFY_SETTINGS, input, Boolean(apiKey));
   return {
     ...settings,
     vllm: {
@@ -129,24 +78,107 @@ export function getPrettifySettingsWithSecret(input: PrettifySettingsInput = {})
   };
 }
 
-export function savePrettifySettings(input: PrettifySettingsInput = {}): PrettifySettings {
-  assertValidPrettifySettingsInput(input);
-  const stored = readStoredSettings();
-  const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
-  const nextStored: StoredPrettifyProviderSettings = { ...stored };
+/** Owns encrypted Prettify provider settings for one application graph. */
+export class PrettifySettingsStorage {
+  public constructor(private readonly dependencies: PrettifySettingsStorageDependencies) {}
 
-  if (input.vllm?.clearApiKey) {
-    delete nextStored.encryptedVllmApiKey;
-  }
-  if (draftApiKey) {
-    nextStored.encryptedVllmApiKey = encryptApiKey(draftApiKey);
+  public getView(): PrettifySettings {
+    const stored = this.readStoredSettings();
+    return this.mergeSettings({}, Boolean(this.decryptApiKey(stored.encryptedVllmApiKey)));
   }
 
-  const hasApiKey = Boolean(decryptApiKey(nextStored.encryptedVllmApiKey));
-  const settings = mergePrettifySettings(input, hasApiKey);
-  assertValidPrettifyProviderUrls(settings);
-  writeStoredSettings(nextStored);
-  setPrettifySettings(settings);
-  saveConfig();
-  return getPrettifySettingsView();
+  public getWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+    assertValidPrettifySettingsInput(input);
+    const stored = this.readStoredSettings();
+    const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
+    const savedApiKey = input.vllm?.clearApiKey ? '' : this.decryptApiKey(stored.encryptedVllmApiKey);
+    const apiKey = draftApiKey || savedApiKey;
+    const settings = this.mergeSettings(input, Boolean(apiKey));
+    this.assertValidProviderUrls(settings);
+
+    return {
+      ...settings,
+      vllm: {
+        ...settings.vllm,
+        apiKey,
+      },
+    };
+  }
+
+  public save(input: PrettifySettingsInput = {}): PrettifySettings {
+    assertValidPrettifySettingsInput(input);
+    const stored = this.readStoredSettings();
+    const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
+    const nextStored: StoredPrettifyProviderSettings = { ...stored };
+
+    if (input.vllm?.clearApiKey) {
+      delete nextStored.encryptedVllmApiKey;
+    }
+    if (draftApiKey) {
+      nextStored.encryptedVllmApiKey = this.encryptApiKey(draftApiKey);
+    }
+
+    const hasApiKey = Boolean(this.decryptApiKey(nextStored.encryptedVllmApiKey));
+    const settings = this.mergeSettings(input, hasApiKey);
+    this.assertValidProviderUrls(settings);
+    this.writeStoredSettings(nextStored);
+    this.dependencies.config.setPrettifySettings(settings);
+    this.dependencies.config.save();
+    return this.getView();
+  }
+
+  private mergeSettings(input: PrettifySettingsInput = {}, hasApiKey = false): PrettifySettings {
+    return mergePrettifySettingsForStorage(this.dependencies.config.getSnapshot().prettifySettings, input, hasApiKey);
+  }
+
+  private readStoredSettings(): StoredPrettifyProviderSettings {
+    try {
+      if (!this.dependencies.fileSystem.existsSync(this.dependencies.settingsFile)) return {};
+      return JSON.parse(
+        this.dependencies.fileSystem.readFileSync(this.dependencies.settingsFile, 'utf8'),
+      ) as StoredPrettifyProviderSettings;
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Failed to read prettify provider settings:',
+        error instanceof Error ? error.message : error,
+      );
+      return {};
+    }
+  }
+
+  private writeStoredSettings(settings: StoredPrettifyProviderSettings): void {
+    this.dependencies.fileSystem.writeFileSync(this.dependencies.settingsFile, JSON.stringify(settings, null, 2), {
+      mode: 0o600,
+    });
+  }
+
+  private encryptApiKey(apiKey: string): string {
+    if (!this.dependencies.secureStorage.isEncryptionAvailable()) {
+      throw new Error('Secure storage is not available on this system');
+    }
+    return this.dependencies.secureStorage.encrypt(apiKey).toString('base64');
+  }
+
+  private decryptApiKey(encryptedApiKey?: string): string {
+    if (!encryptedApiKey || !this.dependencies.secureStorage.isEncryptionAvailable()) return '';
+
+    try {
+      return this.dependencies.secureStorage.decrypt(Buffer.from(encryptedApiKey, 'base64'));
+    } catch (error: unknown) {
+      this.dependencies.logger.warn('Failed to decrypt vLLM API key:', error instanceof Error ? error.message : error);
+      return '';
+    }
+  }
+
+  private assertValidProviderUrls(settings: PrettifySettings): void {
+    const baseUrls = [
+      ['ollama', settings.ollama.baseUrl],
+      ['vllm', settings.vllm.baseUrl],
+    ] as const;
+    for (const [providerId, baseUrl] of baseUrls) {
+      if (!getPrettifyProviderCapabilities(providerId).baseUrl) continue;
+      const error = getPrettifyBaseUrlValidationError(baseUrl);
+      if (error) throw new Error(error);
+    }
+  }
 }

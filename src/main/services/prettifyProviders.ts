@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file -- Factory, registry, and runtime form one Prettify ownership boundary. */
-import { t } from '@main/i18n';
+import type { I18nService } from '@main/i18n';
 import {
   ClaudeCliPrettifyProvider,
   CodexCliPrettifyProvider,
@@ -25,7 +25,7 @@ import {
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
-import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import type { PrettifySettingsStorage, PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import {
   isKnownPrettifyProviderId,
   isPrettifyCliProviderId,
@@ -59,7 +59,8 @@ export interface PrettifyProviderFactoryDependencies {
   readonly claudeCliAdapter: Pick<ClaudeCliPrettifyAdapter, 'checkAvailability' | 'prepare'>;
   readonly codexCliAdapter: Pick<CodexCliPrettifyAdapter, 'checkAvailability' | 'listModels' | 'prepare'>;
   readonly fetch: PrettifyFetch;
-  readonly getSettingsWithSecret: (input?: PrettifySettingsInput) => PrettifySettingsWithSecret;
+  readonly localization: Pick<I18nService, 'translate'>;
+  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 }
 
 /** Exhaustively constructs graph-owned Prettify providers and their stateful adapters. */
@@ -72,23 +73,27 @@ export class PrettifyProviderFactory {
         return new OllamaPrettifyProvider({
           audit: this.dependencies.audit,
           fetch: this.dependencies.fetch,
-          getSettingsWithSecret: this.dependencies.getSettingsWithSecret,
+          localization: this.dependencies.localization,
+          settings: this.dependencies.settings,
         });
       case 'vllm':
         return new VllmPrettifyProvider({
           audit: this.dependencies.audit,
           fetch: this.dependencies.fetch,
-          getSettingsWithSecret: this.dependencies.getSettingsWithSecret,
+          localization: this.dependencies.localization,
+          settings: this.dependencies.settings,
         });
       case 'claude-cli':
         return new ClaudeCliPrettifyProvider({
           adapter: this.dependencies.claudeCliAdapter,
           audit: this.dependencies.audit,
+          localization: this.dependencies.localization,
         });
       case 'codex-cli':
         return new CodexCliPrettifyProvider({
           adapter: this.dependencies.codexCliAdapter,
           audit: this.dependencies.audit,
+          localization: this.dependencies.localization,
         });
     }
   }
@@ -121,8 +126,9 @@ export class PrettifyProviderRegistry {
 
 export interface PrettifyRuntimeDependencies {
   readonly audit: PrettifyProviderAudit;
-  readonly getSettingsWithSecret: (input?: PrettifySettingsInput) => PrettifySettingsWithSecret;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly registry: PrettifyProviderRegistry;
+  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 }
 
 /** Owns Prettify dispatch, settings resolution, audit correlation, and model shutdown. */
@@ -283,7 +289,7 @@ export class PrettifyRuntime {
     try {
       settings = isKnownPrettifyProviderId(requestedProvider)
         ? this.getSettingsForKnownProvider(requestedProvider, draftSettings)
-        : this.dependencies.getSettingsWithSecret(draftSettings);
+        : this.dependencies.settings.getWithSecret(draftSettings);
     } catch (error: unknown) {
       if (isKnownPrettifyProviderId(requestedProvider)) {
         const context = audit.startPrepare(requestedProvider);
@@ -310,7 +316,10 @@ export class PrettifyRuntime {
     } catch (error: unknown) {
       if (signal.aborted) {
         audit.terminalCancelled(auditContext, 'cleanup');
-        return { success: false, error: t('status.prettifyCancelled') };
+        return {
+          success: false,
+          error: this.dependencies.localization.translate('status.prettifyCancelled'),
+        };
       }
       if (!isHttpPrettifyProviderId(providerId)) {
         audit.terminalException(auditContext, 'process', error);
@@ -342,10 +351,10 @@ export class PrettifyRuntime {
     draftSettings: PrettifySettingsInput,
   ): PrettifySettingsWithSecret {
     if (isPrettifyProviderId(providerId)) {
-      return this.dependencies.getSettingsWithSecret({ ...draftSettings, providerId });
+      return this.dependencies.settings.getWithSecret({ ...draftSettings, providerId });
     }
     const { providerId: _ignoredProviderId, ...settingsWithoutProvider } = draftSettings;
-    return this.dependencies.getSettingsWithSecret(settingsWithoutProvider);
+    return this.dependencies.settings.getWithSecret(settingsWithoutProvider);
   }
 
   private getModelListFailureMessage(
@@ -353,10 +362,11 @@ export class PrettifyRuntime {
     errorCode?: PrettifyCliRuntimeErrorCode,
   ): string {
     if (providerId === 'claude-cli' && errorCode) {
-      return createCliFailure(providerId, errorCode as ClaudeCliPrettifyErrorCode).error;
+      return createCliFailure(providerId, errorCode as ClaudeCliPrettifyErrorCode, this.dependencies.localization)
+        .error;
     }
     if (providerId === 'codex-cli' && errorCode) {
-      return createCliFailure(providerId, errorCode as CodexCliPrettifyErrorCode).error;
+      return createCliFailure(providerId, errorCode as CodexCliPrettifyErrorCode, this.dependencies.localization).error;
     }
     return PRETTIFY_PROVIDER_UNAVAILABLE_ERROR;
   }

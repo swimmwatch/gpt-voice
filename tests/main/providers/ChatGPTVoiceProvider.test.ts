@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from 'node:test';
 import type { Page } from 'playwright-core';
 import { StatusCodes } from 'http-status-codes';
 
-import { setLocale, t } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import { ChatGPTVoiceProvider } from '@main/providers/ChatGPTVoiceProvider';
 import type { ChatGPTSessionStore } from '@main/providers/chatgptSessionStore';
 import type { SessionState } from '@main/providers/chatgptUtils';
@@ -90,6 +90,8 @@ interface ProviderHarness {
   recoveryTimeouts: number[];
 }
 
+const localization = new I18nService();
+
 interface ProviderHarnessOptions {
   now?: () => number;
   reloadPage?: () => Promise<void>;
@@ -102,6 +104,7 @@ function createHarness(evaluationResults: unknown[], options: ProviderHarnessOpt
   const page = createFakePage(evaluationResults);
   const provider = new TestChatGPTVoiceProvider({
     audit: audit,
+    localization,
     logger: { info: () => undefined, warn: () => undefined },
     now: options.now ?? (() => 0),
     reloadPage: async (_page, timeoutMs) => {
@@ -117,7 +120,7 @@ function createHarness(evaluationResults: unknown[], options: ProviderHarnessOpt
 
 describe('ChatGPTVoiceProvider transcription recovery', () => {
   beforeEach(() => {
-    setLocale('en');
+    localization.setLocale('en');
   });
 
   it('does not automatically replay an ambiguous page-side request failure', async () => {
@@ -331,7 +334,10 @@ describe('ChatGPTVoiceProvider transcription recovery', () => {
 
     const result = await harness.provider.transcribe(new Uint8Array([25]).buffer, 'audio/wav');
 
-    assert.deepEqual(result, { success: false, error: t('error.noAccessToken') });
+    assert.deepEqual(result, {
+      success: false,
+      error: localization.translate('error.noAccessToken'),
+    });
     const terminal = getTerminalEvents(harness.auditOperations[0])[0];
     assert.equal(terminal?.metadata?.causeCode, 'not-authenticated');
     assert.equal(terminal?.outcome, 'failure');

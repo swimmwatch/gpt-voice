@@ -15,6 +15,7 @@ import type {
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
 import type { TranslationProviderId, TranslationSettings } from '@shared/translationProvider';
 import { noopTranslationProviderAudit } from './translateProviders/translationAuditTestUtils';
+import { I18nService } from '@main/i18n';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -24,6 +25,23 @@ const DEFAULT_SETTINGS: TranslationSettings = {
     yandex: 'be',
   },
 };
+const localization = new I18nService();
+
+class MutableTranslationConfig {
+  public constructor(
+    private settings: TranslationSettings,
+    private readonly error?: Error,
+  ) {}
+
+  public getTranslationSettings(): TranslationSettings {
+    if (this.error) throw this.error;
+    return this.settings;
+  }
+
+  public setSettings(settings: TranslationSettings): void {
+    this.settings = settings;
+  }
+}
 
 function createSuccess(request: TranslationProviderRequest, text = 'translated'): TranslationProviderOutcome {
   return {
@@ -133,7 +151,7 @@ class ThrowingLifecycleTranslationProviderAudit extends TranslationProviderAudit
 
 function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   let now = 100;
-  let settings = options.settings ?? DEFAULT_SETTINGS;
+  const config = new MutableTranslationConfig(options.settings ?? DEFAULT_SETTINGS);
   const getProviderCalls: unknown[] = [];
   const requests: TranslationProviderRequest[] = [];
   let shutdownCalls = 0;
@@ -160,7 +178,8 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   };
   const runtime = new TranslationRuntime({
     audit: options.audit ?? noopTranslationProviderAudit,
-    getSettings: () => settings,
+    config,
+    localization,
     now: () => {
       now += 1;
       return now;
@@ -173,7 +192,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     requests,
     runtime,
     setSettings: (next: TranslationSettings) => {
-      settings = next;
+      config.setSettings(next);
     },
     get shutdownCalls() {
       return shutdownCalls;
@@ -256,9 +275,8 @@ describe('TranslationRuntime', () => {
     const settingsError = new Error('settings-session-private-canary');
     const runtime = new TranslationRuntime({
       audit: audit,
-      getSettings: () => {
-        throw settingsError;
-      },
+      config: new MutableTranslationConfig(DEFAULT_SETTINGS, settingsError),
+      localization,
       now: () => 100,
       registry: {
         getProvider: () => {

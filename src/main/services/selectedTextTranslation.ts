@@ -1,10 +1,6 @@
 import type { ClipboardType } from '@main/electronRuntime';
-import { t } from '@main/i18n';
-import {
-  getTranslationFailureMessage,
-  type TranslationExecutionSnapshot,
-  type TranslationRuntime,
-} from '@main/services/translation';
+import type { I18nService } from '@main/i18n';
+import type { TranslationExecutionSnapshot, TranslationRuntime } from '@main/services/translation';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationAction } from '@main/services/textAutomation';
@@ -37,7 +33,7 @@ export interface SelectedTextTranslationLogger {
 
 export type SelectedTextTranslationRuntime = Pick<
   TranslationRuntime,
-  'getSnapshot' | 'isCurrent' | 'translateWithSnapshot' | 'validateInput'
+  'getFailureMessage' | 'getSnapshot' | 'isCurrent' | 'translateWithSnapshot' | 'validateInput'
 >;
 
 export interface SelectedTextTranslationDependencies {
@@ -46,6 +42,7 @@ export interface SelectedTextTranslationDependencies {
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextTranslationClipboard;
   readonly logger: SelectedTextTranslationLogger;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   readonly platform: NodeJS.Platform;
   readonly runtime: SelectedTextTranslationRuntime;
@@ -60,8 +57,8 @@ function createSkippedResult(): SelectedTextTranslationResult {
   return { success: false, status: '', skipped: true };
 }
 
-function createSuccessResult(): SelectedTextTranslationResult {
-  return { success: true, status: t('status.translationCopied') };
+function createSuccessResult(status: string): SelectedTextTranslationResult {
+  return { success: true, status };
 }
 
 /** Owns one serialized selected-text Translation workflow and its cache. */
@@ -80,7 +77,7 @@ export class SelectedTextTranslationService {
     try {
       const snapshotResult = this.dependencies.runtime.getSnapshot();
       if (!snapshotResult.success) {
-        const message = getTranslationFailureMessage(snapshotResult);
+        const message = this.dependencies.runtime.getFailureMessage(snapshotResult);
         const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
       }
@@ -102,7 +99,7 @@ export class SelectedTextTranslationService {
           );
         }
         this.restoreClipboard(previousClipboardText);
-        const message = getTranslationFailureMessage(validationFailure);
+        const message = this.dependencies.runtime.getFailureMessage(validationFailure);
         const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
       }
@@ -126,7 +123,7 @@ export class SelectedTextTranslationService {
           sourceLength: selectedText.length,
           resultLength: cachedTranslation.length,
         });
-        return createSuccessResult();
+        return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
       }
 
       const outcome = await this.dependencies.runtime.translateWithSnapshot(selectedText, snapshot);
@@ -135,7 +132,7 @@ export class SelectedTextTranslationService {
           return createSkippedResult();
         }
         this.restoreClipboard(previousClipboardText);
-        const message = getTranslationFailureMessage(outcome);
+        const message = this.dependencies.runtime.getFailureMessage(outcome);
         const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
       }
@@ -144,7 +141,7 @@ export class SelectedTextTranslationService {
       this.dependencies.cache.set(cacheKey, outcome.text);
       this.dependencies.clipboard.writeText(outcome.text);
       this.notifyTranslationCopied(outcome.text);
-      return createSuccessResult();
+      return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
     } catch (error: unknown) {
       if (snapshot && !this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
       this.restoreClipboard(previousClipboardText);
@@ -158,9 +155,13 @@ export class SelectedTextTranslationService {
 
   private presentTranslationError(
     error: unknown,
-    fallback = t('status.translationFailed'),
+    fallback = this.dependencies.localization.translate('status.translationFailed'),
   ): PresentedNotificationError {
-    return presentNotificationError(error, { context: 'translation', fallback, t });
+    return presentNotificationError(error, {
+      context: 'translation',
+      fallback,
+      t: this.dependencies.localization.translate,
+    });
   }
 
   private restoreClipboard(previousClipboardText: string | null): void {
@@ -196,12 +197,12 @@ export class SelectedTextTranslationService {
 
   private notifyTranslationFailure(
     error: unknown,
-    fallback = t('status.translationFailed'),
+    fallback = this.dependencies.localization.translate('status.translationFailed'),
   ): PresentedNotificationError {
     const presented = this.presentTranslationError(error, fallback);
     try {
       this.dependencies.notify(
-        t('notification.translationFailed'),
+        this.dependencies.localization.translate('notification.translationFailed'),
         formatNotificationBody(presented.userMessage, fallback),
         {
           sound: 'error',
@@ -219,8 +220,8 @@ export class SelectedTextTranslationService {
   private notifyTranslationCopied(body: string): void {
     try {
       this.dependencies.notify(
-        t('notification.translationCopied'),
-        formatNotificationBody(body, t('status.translationCopied')),
+        this.dependencies.localization.translate('notification.translationCopied'),
+        formatNotificationBody(body, this.dependencies.localization.translate('status.translationCopied')),
         {
           sound: 'success',
         },

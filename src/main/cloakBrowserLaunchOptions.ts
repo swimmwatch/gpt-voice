@@ -1,6 +1,5 @@
 import type { LaunchContextOptions, LaunchPersistentContextOptions } from 'cloakbrowser';
-import { BROWSER_CACHE_DIR } from '@main/config';
-import { getCloakBrowserSettingsWithSecret, type CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
+import type { CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import { DEFAULT_CLOAK_BROWSER_LOCALE, getSystemTimezone } from '@main/cloakBrowserSettingsUtils';
 import { isSocks5ProxyServer } from '@shared/cloakBrowserSettings';
 
@@ -52,23 +51,22 @@ export function buildCloakBrowserContextOptions(
   return options;
 }
 
-export function createCloakBrowserLoginContextOptions(
-  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
-): LaunchContextOptions {
+export function createCloakBrowserLoginContextOptions(settings: CloakBrowserSettingsWithSecret): LaunchContextOptions {
   return buildCloakBrowserContextOptions(settings, 'login');
 }
 
 export function createCloakBrowserPersistentContextOptions(
-  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
+  settings: CloakBrowserSettingsWithSecret,
+  browserCacheDirectory: string,
 ): LaunchPersistentContextOptions {
   return {
-    userDataDir: BROWSER_CACHE_DIR,
+    userDataDir: browserCacheDirectory,
     ...buildCloakBrowserContextOptions(settings, 'background'),
   };
 }
 
 export function createCloakBrowserTranslationContextOptions(
-  settings: CloakBrowserSettingsWithSecret = getCloakBrowserSettingsWithSecret(),
+  settings: CloakBrowserSettingsWithSecret,
 ): LaunchContextOptions {
   return buildCloakBrowserContextOptions(settings, 'translation');
 }

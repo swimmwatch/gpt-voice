@@ -16,7 +16,7 @@ import {
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
 import { StatusCodes } from 'http-status-codes';
 import { getTranscriptionRetryAfterSeconds } from './transcriptionErrors';
@@ -95,6 +95,7 @@ export interface ChatGPTVoiceProviderLogger {
 
 export interface ChatGPTVoiceProviderDependencies {
   audit: VoiceProviderAudit;
+  localization: Pick<I18nService, 'translate'>;
   logger: ChatGPTVoiceProviderLogger;
   now(): number;
   reloadPage(page: Page, timeoutMs: number): Promise<void>;
@@ -247,7 +248,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
           causeCode: 'not-authenticated',
           pageClosed: true,
         });
-        return { success: false, error: t('error.notLoggedIn') };
+        return { success: false, error: this.deps.localization.translate('error.notLoggedIn') };
       }
 
       let token = this.accessToken;
@@ -261,7 +262,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
           attemptCount: 0,
           causeCode: 'not-authenticated',
         });
-        return { success: false, error: t('error.noAccessToken') };
+        return { success: false, error: this.deps.localization.translate('error.noAccessToken') };
       }
 
       audit.lifecycle.phaseEntered('readiness', this.deps.audit.createBatchMetadata(audit));
@@ -272,7 +273,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         causeCode: 'unknown',
         exceptionType: normalizeProviderAuditExceptionType(error),
       });
-      return { success: false, error: t('error.notificationUnknown') };
+      return { success: false, error: this.deps.localization.translate('error.notificationUnknown') };
     }
   }
 
@@ -396,7 +397,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
             causeCode: 'not-authenticated',
             httpStatus: attempt.status,
           });
-          return { success: false, error: t('error.noAccessToken') };
+          return { success: false, error: this.deps.localization.translate('error.noAccessToken') };
         }
 
         audit.lifecycle.retry(
@@ -426,7 +427,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
             causeCode: 'not-authenticated',
             httpStatus: attempt.status,
           });
-          return { success: false, error: t('error.noAccessToken') };
+          return { success: false, error: this.deps.localization.translate('error.noAccessToken') };
         }
         continue;
       }
@@ -562,7 +563,12 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
       this.transcriptionRateLimitUntil,
       this.deps.now() + retryAfterSeconds * 1000,
     );
-    return this.getActiveRateLimitFailure() ?? { success: false, error: t('error.rateLimited') };
+    return (
+      this.getActiveRateLimitFailure() ?? {
+        success: false,
+        error: this.deps.localization.translate('error.rateLimited'),
+      }
+    );
   }
 
   private getRateLimitRemainingSeconds(): number {
@@ -574,7 +580,9 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     return remainingSeconds > 0
       ? {
           success: false,
-          error: t('error.rateLimitedRetryAfter', { seconds: String(remainingSeconds) }),
+          error: this.deps.localization.translate('error.rateLimitedRetryAfter', {
+            seconds: String(remainingSeconds),
+          }),
         }
       : null;
   }
@@ -661,12 +669,12 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private createConnectionFailure(): TranscriptionResult {
     return {
       success: false,
-      error: t('error.chatGptConnectionInterrupted'),
+      error: this.deps.localization.translate('error.chatGptConnectionInterrupted'),
     };
   }
 
   private parseTranscribeResponse(resp: ChatGptTranscribeResponse, mimeType: string): TranscriptionResult {
-    const parsed = parseChatGptTranscribeResponse(resp, mimeType);
+    const parsed = parseChatGptTranscribeResponse(resp, mimeType, this.deps.localization);
     if (parsed.success && parsed.text) {
       this.deps.writeClipboardText(parsed.text);
     }

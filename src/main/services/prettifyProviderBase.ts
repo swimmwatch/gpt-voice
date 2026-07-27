@@ -1,5 +1,6 @@
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import type { I18nService } from '@main/i18n';
 import {
   getPrettifyProviderCapabilities,
   type KnownPrettifyProviderId,
@@ -31,6 +32,7 @@ export type PrettifyFetch = (url: string, init?: RequestInit) => Promise<Prettif
 
 export interface PrettifyProviderDependencies {
   readonly audit: PrettifyProviderAudit;
+  readonly localization: Pick<I18nService, 'translate'>;
 }
 
 export interface PrettifyProviderRequest {

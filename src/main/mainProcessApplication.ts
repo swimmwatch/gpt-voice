@@ -8,6 +8,10 @@ import type { WindowManager } from './window';
 import type { BackgroundBrowserService } from './browser';
 import type { TranslationRuntime } from './services/translation';
 import type { PrettifyRuntime } from './services/prettifyProviders';
+import type { AppConfigStore } from './config';
+import type { I18nService } from './i18n';
+import { resolveStartupLocale } from './startupLocale';
+import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -65,14 +69,13 @@ export interface MainProcessApplicationDependencies {
   readonly app: MainProcessElectronApplication;
   readonly appProtocolController: AppProtocolController;
   readonly backgroundBrowserService: BackgroundBrowserService;
+  readonly config: Pick<AppConfigStore, 'consumePendingTranslationSettingsRepairNotice' | 'getSnapshot' | 'load'>;
   readonly configureCloakBrowserRuntime: () => void;
   readonly desktopRuntimeController: DesktopRuntimeController;
-  readonly getCurrentVoiceProviderId: () => string;
-  readonly initializeLocale: () => void;
+  readonly localization: I18nService;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
-  readonly loadConfig: () => void;
   readonly logger: MainProcessLogger;
-  readonly presentTranslationSettingsRepairNotice: () => void;
+  readonly notify: (title: string, body: string) => void;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'shutdown'>;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly shortcutController: ShortcutController;
@@ -141,9 +144,16 @@ export class MainProcessApplication {
     }
     dependencies.appProtocolController.registerHandler();
     desktopRuntime.configureApplicationReady();
-    dependencies.loadConfig();
-    dependencies.initializeLocale();
-    dependencies.presentTranslationSettingsRepairNotice();
+    dependencies.config.load();
+    const config = dependencies.config.getSnapshot();
+    dependencies.localization.setLocale(
+      resolveStartupLocale(config.locale, config.localeExplicit, dependencies.localization.getSupportedLocales()),
+    );
+    presentPendingTranslationSettingsRepairNotice({
+      notice: dependencies.config.consumePendingTranslationSettingsRepairNotice(),
+      notify: dependencies.notify,
+      translate: dependencies.localization.translate,
+    });
 
     try {
       this.runtime = dependencies.runtimeFactory.create();
@@ -170,7 +180,7 @@ export class MainProcessApplication {
     this.dependencies.trayController.create();
     this.dependencies.shortcutController.register();
     const status = await this.dependencies.backgroundBrowserService.initialize();
-    this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.getCurrentVoiceProviderId());
+    this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.config.getSnapshot().provider);
   }
 
   private readonly onWindowAllClosed = (): void => {

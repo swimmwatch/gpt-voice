@@ -47,7 +47,7 @@ import {
   type ClaudeWebOrganizationEvidence,
   type ClaudeWebSessionReadResult,
 } from './claudeWebSession';
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 import type { ProviderAuditPhase } from '@main/providerAudit';
@@ -134,6 +134,7 @@ export interface ClaudeWebPageTransportLike {
 
 export interface ClaudeWebVoiceProviderDependencies {
   audit: VoiceProviderAudit;
+  localization: Pick<I18nService, 'translate'>;
   getSettings(): ClaudeWebSettings;
   readSession(): ClaudeWebSessionReadResult;
   saveSession(storageState: ClaudeWebStorageState): unknown;
@@ -415,7 +416,9 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   }
 
   getReadinessError(): string | null {
-    return this.readinessErrorCode ? t(`error.claudeWeb.${this.readinessErrorCode}`) : null;
+    return this.readinessErrorCode
+      ? this.deps.localization.translate(`error.claudeWeb.${this.readinessErrorCode}`)
+      : null;
   }
 
   getTranscriptionCacheContext(): readonly string[] {

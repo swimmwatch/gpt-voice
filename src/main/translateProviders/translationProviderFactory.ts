@@ -1,5 +1,6 @@
 import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext } from 'playwright-core';
+import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 
 import {
   BaseTranslateProvider,
@@ -18,9 +19,10 @@ import {
 } from '@shared/translationProvider';
 
 export interface TranslationProviderFactoryDependencies {
+  readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
   readonly createBingPageAdapter: BingTranslatePageAdapterFactory;
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
-  readonly createContextOptions: () => LaunchContextOptions;
+  readonly createContextOptions: (settings: CloakBrowserSettingsWithSecret) => LaunchContextOptions;
   readonly createGooglePageAdapter: GoogleTranslatePageAdapterFactory;
   readonly createYandexPageAdapter: YandexTranslatePageAdapterFactory;
   readonly now: () => number;
@@ -58,6 +60,7 @@ export class TranslationProviderFactory {
 
   private createBaseDependencies(): BaseTranslateProviderDependencies {
     return {
+      cloakBrowserSettings: this.dependencies.cloakBrowserSettings,
       createContext: this.dependencies.createContext,
       createContextOptions: this.dependencies.createContextOptions,
       now: this.dependencies.now,

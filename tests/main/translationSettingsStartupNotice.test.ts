@@ -28,7 +28,7 @@ describe('translation settings startup notice', () => {
     const notifications: Array<{ body: string; title: string }> = [];
     const present = (): boolean =>
       presentPendingTranslationSettingsRepairNotice({
-        consume: () => state.consumeRepairNotice(),
+        notice: state.consumeRepairNotice(),
         notify: (title, body) => notifications.push({ body, title }),
         translate: (key) => `localized:${key}`,
       });
@@ -51,7 +51,7 @@ describe('translation settings startup notice', () => {
     assert.doesNotThrow(() => {
       assert.equal(
         presentPendingTranslationSettingsRepairNotice({
-          consume: () => state.consumeRepairNotice(),
+          notice: state.consumeRepairNotice(),
           notify: () => {
             throw new Error('notifications unavailable');
           },
@@ -65,9 +65,9 @@ describe('translation settings startup notice', () => {
 
   it('runs after locale setup and before IPC, windows, or background providers', () => {
     const application = readProjectFile('src/main/mainProcessApplication.ts');
-    const loadIndex = application.indexOf('dependencies.loadConfig();');
-    const localeIndex = application.indexOf('dependencies.initializeLocale();', loadIndex);
-    const noticeIndex = application.indexOf('dependencies.presentTranslationSettingsRepairNotice();', localeIndex);
+    const loadIndex = application.indexOf('dependencies.config.load();');
+    const localeIndex = application.indexOf('dependencies.localization.setLocale(', loadIndex);
+    const noticeIndex = application.indexOf('presentPendingTranslationSettingsRepairNotice({', localeIndex);
     const ipcIndex = application.indexOf('runtime.registerIpc();', noticeIndex);
     const windowIndex = application.indexOf('this.dependencies.windowManager.createMainWindow();', noticeIndex);
     const backgroundIndex = application.indexOf('this.dependencies.backgroundBrowserService.initialize()', noticeIndex);

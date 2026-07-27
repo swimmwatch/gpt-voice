@@ -1,14 +1,11 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 // eslint-disable-next-line n/no-unsupported-features/node-builtins -- SQLite is required by the project's Node 24 runtime.
 import { DatabaseSync } from 'node:sqlite';
-import { APP_DIR } from '../../config';
 import { REPOSITORY_ERROR_CODES, RepositoryError } from '../repositoryErrors';
 import type { SqliteDataSource } from './abstractSqliteRepository';
 
 export const APP_DATABASE_TIMEOUT_MS = 5_000;
 export const APP_DATABASE_FILE_MODE = 0o600;
-export const APP_DATABASE_FILE = path.join(APP_DIR, 'gpt-voice.sqlite3');
 export const APP_DATABASE_SCHEMA_VERSION = 2;
 
 const APP_DATABASE_SIDECAR_SUFFIXES = ['', '-wal', '-shm'] as const;
@@ -97,7 +94,7 @@ export class AppDatabaseCoordinator implements SqliteDataSource {
   private closeStarted = false;
 
   public constructor(
-    private readonly databasePath: string = APP_DATABASE_FILE,
+    private readonly databasePath: string,
     dependencies: Partial<AppDatabaseDependencies> = {},
   ) {
     this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };

@@ -10,7 +10,7 @@ import {
   VllmPrettifyProvider,
 } from '@main/services/prettifyProviders';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
-import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import { createPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import { DEFAULT_PRETTIFY_PROMPT, DEFAULT_PRETTIFY_SETTINGS, PRETTIFY_PROVIDER_IDS } from '@shared/prettifySettings';
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
@@ -19,7 +19,7 @@ import {
   RecordingPrettifyProviderAudit,
   type RecordedPrettifyAuditOperation,
 } from './prettifyAuditTestUtils';
-import { PrettifyRuntimeFixture } from './prettifyRuntimeTestUtils';
+import { PrettifyRuntimeFixture, TestPrettifySettingsStorage } from './prettifyRuntimeTestUtils';
 
 interface FetchCall {
   url: string;
@@ -508,11 +508,10 @@ describe('prettifyProviders', () => {
         calls.push({ url, init });
         return response(200, { message: { content: '' } });
       },
-      getSettingsWithSecret: () =>
-        getPrettifySettingsWithSecret({
-          providerId: 'ollama',
-          ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
-        }),
+      settings: new TestPrettifySettingsStorage({
+        providerId: 'ollama',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+      }),
     }).runtime.shutdown();
 
     assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
@@ -914,7 +913,7 @@ describe('Prettify HTTP audit lifecycle', () => {
         fetch: async () => (providerId === 'ollama' ? response(200, { models: [] }) : response(200, { data: [] })),
       });
       const provider = fixture.registry.get(providerId);
-      const settings = getPrettifySettingsWithSecret({
+      const settings = createPrettifySettingsWithSecret({
         providerId: provider.id,
         ollama: { baseUrl: 'http://localhost:11434', model: 'ollama-model' },
         vllm: { baseUrl: 'http://localhost:8000/v1', model: 'vllm-model' },
@@ -934,7 +933,7 @@ describe('Prettify HTTP audit lifecycle', () => {
       audit: failedAudit,
       fetch: async () => response(503, 'private-response-body-canary'),
     }).registry.get('vllm');
-    const failedSettings = getPrettifySettingsWithSecret({
+    const failedSettings = createPrettifySettingsWithSecret({
       providerId: 'vllm',
       vllm: { baseUrl: 'http://localhost:8000/v1', model: 'vllm-model' },
     });
@@ -1097,7 +1096,7 @@ describe('Prettify HTTP audit lifecycle', () => {
 
   it('audits model discovery, load, unload, and shutdown without exposing model ownership values', async () => {
     const audit = new RecordingPrettifyProviderAudit();
-    const settings = getPrettifySettingsWithSecret({
+    const settings = createPrettifySettingsWithSecret({
       providerId: 'ollama',
       ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
     });
@@ -1117,7 +1116,7 @@ describe('Prettify HTTP audit lifecycle', () => {
         }
         return response(200, { message: { content: '' } });
       },
-      getSettingsWithSecret: () => settings,
+      settings: new TestPrettifySettingsStorage(settings),
     });
     const provider = fixture.registry.getOllama();
 
@@ -1139,7 +1138,7 @@ describe('Prettify HTTP audit lifecycle', () => {
 
   it('retains failed Ollama shutdown ownership for one audited retry', async () => {
     const audit = new RecordingPrettifyProviderAudit();
-    const settings = getPrettifySettingsWithSecret({
+    const settings = createPrettifySettingsWithSecret({
       providerId: 'ollama',
       ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
     });
@@ -1154,7 +1153,7 @@ describe('Prettify HTTP audit lifecycle', () => {
         if (shutdownAttempt === 1) throw new Error('private-shutdown-error-canary');
         return response(200, {});
       },
-      getSettingsWithSecret: () => settings,
+      settings: new TestPrettifySettingsStorage(settings),
     });
     const provider = fixture.registry.getOllama();
     await provider.loadModel(settings);

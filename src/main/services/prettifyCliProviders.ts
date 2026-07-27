@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file -- The CLI provider module keeps its two sibling implementations together. */
-import { t, type TranslationKey } from '@main/i18n';
+import type { I18nService, TranslationKey } from '@main/i18n';
 import {
   CLAUDE_CLI_MODEL_ALIASES,
   ClaudeCliPrettifyAdapter,
@@ -68,12 +68,13 @@ export interface CodexCliPrettifyProviderDependencies extends PrettifyProviderDe
 export function createCliFailure(
   providerId: 'claude-cli' | 'codex-cli',
   errorCode: ClaudeCliPrettifyErrorCode | CodexCliPrettifyErrorCode,
+  localization: Pick<I18nService, 'translate'>,
 ): Exclude<PreparePrettifyExecutionResult, { success: true }> {
   const key =
     providerId === 'claude-cli'
       ? CLAUDE_CLI_ERROR_KEYS[errorCode as ClaudeCliPrettifyErrorCode]
       : CODEX_CLI_ERROR_KEYS[errorCode as CodexCliPrettifyErrorCode];
-  return { error: t(key), errorCode, success: false };
+  return { error: localization.translate(key), errorCode, success: false };
 }
 
 function getClaudeCliModelOptions(configuredModel: string): PrettifyModelOption[] {
@@ -189,7 +190,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
       });
       if (!result.success) {
         audit.terminalCliFailure(context, result.error, modelMetadata);
-        return createCliFailure('claude-cli', result.error);
+        return createCliFailure('claude-cli', result.error, this.dependencies.localization);
       }
       audit.terminalSuccess(context, 'readiness', modelMetadata);
 
@@ -208,7 +209,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
               return { success: true, text: executed.text };
             }
             audit.terminalCliFailure(executionContext, executed.error, { sourceLength: text.length });
-            return createCliFailure('claude-cli', executed.error);
+            return createCliFailure('claude-cli', executed.error, this.dependencies.localization);
           } catch (error: unknown) {
             audit.terminalException(executionContext, 'process', error, { sourceLength: text.length });
             throw error;
@@ -349,7 +350,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
       });
       if (!result.success) {
         audit.terminalCliFailure(context, result.error, modelMetadata);
-        return createCliFailure('codex-cli', result.error);
+        return createCliFailure('codex-cli', result.error, this.dependencies.localization);
       }
       audit.terminalSuccess(context, 'readiness', {
         ...modelMetadata,
@@ -371,7 +372,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
               return { success: true, text: executed.text };
             }
             audit.terminalCliFailure(executionContext, executed.error, { sourceLength: text.length });
-            return createCliFailure('codex-cli', executed.error);
+            return createCliFailure('codex-cli', executed.error, this.dependencies.localization);
           } catch (error: unknown) {
             audit.terminalException(executionContext, 'process', error, { sourceLength: text.length });
             throw error;

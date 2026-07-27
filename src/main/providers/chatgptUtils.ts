@@ -1,7 +1,7 @@
 import type { BrowserContext } from 'playwright-core';
 import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult } from './BaseVoiceProvider';
-import { t } from '../i18n';
+import type { I18nService } from '../i18n';
 import { DEFAULT_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 
@@ -65,13 +65,14 @@ export function shouldRefreshTranscribeToken(status: number): boolean {
 export function parseChatGptTranscribeResponse(
   resp: { status: number; body: string },
   mimeType: string,
+  localization: Pick<I18nService, 'translate'>,
 ): TranscriptionResult {
-  const rateLimited = parseRateLimitedTranscribeResponse(resp);
+  const rateLimited = parseRateLimitedTranscribeResponse(resp, localization);
   if (rateLimited) {
     return rateLimited;
   }
 
-  const parsed = parseTranscribeResponseBody(resp);
+  const parsed = parseTranscribeResponseBody(resp, localization);
   if (
     !parsed.success &&
     resp.status === Number(StatusCodes.INTERNAL_SERVER_ERROR) &&
@@ -79,21 +80,24 @@ export function parseChatGptTranscribeResponse(
   ) {
     return {
       success: false,
-      error: t('error.chatGptAsrFailure', { mimeType: mimeType || 'unknown' }),
+      error: localization.translate('error.chatGptAsrFailure', { mimeType: mimeType || 'unknown' }),
       raw: parsed.raw ?? resp.body,
     };
   }
   return parsed;
 }
 
-export function parseTranscribeResponseBody(resp: { status: number; body: string }): TranscriptionResult {
+export function parseTranscribeResponseBody(
+  resp: { status: number; body: string },
+  localization: Pick<I18nService, 'translate'>,
+): TranscriptionResult {
   let result: Record<string, unknown>;
   try {
     result = JSON.parse(resp.body) as Record<string, unknown>;
   } catch {
     return {
       success: false,
-      error: t('error.nonJsonResponse', {
+      error: localization.translate('error.nonJsonResponse', {
         status: String(resp.status),
         body: resp.body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
       }),
@@ -110,7 +114,11 @@ export function parseTranscribeResponseBody(resp: { status: number; body: string
     return { success: false, error, raw: JSON.stringify(result) };
   }
 
-  return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
+  return {
+    success: false,
+    error: localization.translate('error.noTranscription'),
+    raw: JSON.stringify(result),
+  };
 }
 
 function getTranscribeErrorMessage(result: Record<string, unknown>): string {
