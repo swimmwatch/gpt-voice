@@ -22,6 +22,7 @@ import {
   PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   type PreparePrettifyExecutionResult,
   type PrettifyFetch,
+  type PrettifyProviderDependencies,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
@@ -49,6 +50,7 @@ export {
 };
 export type {
   PreparedPrettifyExecution,
+  PrettifyProviderDependencies,
   PrettifyProviderModelMetadata,
   PrettifyProviderRequest,
 } from '@main/services/prettifyProviderBase';
@@ -58,6 +60,7 @@ export interface PrettifyProviderFactoryDependencies {
   readonly audit: PrettifyProviderAudit;
   readonly claudeCliAdapter: Pick<ClaudeCliPrettifyAdapter, 'checkAvailability' | 'prepare'>;
   readonly codexCliAdapter: Pick<CodexCliPrettifyAdapter, 'checkAvailability' | 'listModels' | 'prepare'>;
+  readonly diagnosticCapture: PrettifyProviderDependencies['diagnosticCapture'];
   readonly fetch: PrettifyFetch;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
@@ -72,6 +75,7 @@ export class PrettifyProviderFactory {
       case 'ollama':
         return new OllamaPrettifyProvider({
           audit: this.dependencies.audit,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
           fetch: this.dependencies.fetch,
           localization: this.dependencies.localization,
           settings: this.dependencies.settings,
@@ -79,6 +83,7 @@ export class PrettifyProviderFactory {
       case 'vllm':
         return new VllmPrettifyProvider({
           audit: this.dependencies.audit,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
           fetch: this.dependencies.fetch,
           localization: this.dependencies.localization,
           settings: this.dependencies.settings,
@@ -87,12 +92,14 @@ export class PrettifyProviderFactory {
         return new ClaudeCliPrettifyProvider({
           adapter: this.dependencies.claudeCliAdapter,
           audit: this.dependencies.audit,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
           localization: this.dependencies.localization,
         });
       case 'codex-cli':
         return new CodexCliPrettifyProvider({
           adapter: this.dependencies.codexCliAdapter,
           audit: this.dependencies.audit,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
           localization: this.dependencies.localization,
         });
     }

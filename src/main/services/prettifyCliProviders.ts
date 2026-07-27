@@ -196,24 +196,32 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 
       return {
         success: true,
-        prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, async (text) => {
-          const executionContext = audit.startPrettify(this.id, text.length);
-          executionContext.lifecycle.phaseEntered('submission');
-          try {
-            const executed = await result.prepared.execute(text, executionContext);
-            if (executed.success) {
-              audit.terminalSuccess(executionContext, 'result', {
-                resultLength: executed.text.length,
+        prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, {
+          audit,
+          contractVersion: result.prepared.capabilityVersion,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
+          execute: async (text, executionContext) => {
+            executionContext.lifecycle.phaseEntered('submission');
+            try {
+              const executed = await result.prepared.execute(text, executionContext);
+              if (executed.success) {
+                audit.terminalSuccess(executionContext, 'result', {
+                  resultLength: executed.text.length,
+                  sourceLength: text.length,
+                });
+                return { success: true, text: executed.text };
+              }
+              audit.terminalCliFailure(executionContext, executed.error, {
                 sourceLength: text.length,
               });
-              return { success: true, text: executed.text };
+              return createCliFailure('claude-cli', executed.error, this.dependencies.localization);
+            } catch (error: unknown) {
+              audit.terminalException(executionContext, 'process', error, {
+                sourceLength: text.length,
+              });
+              throw error;
             }
-            audit.terminalCliFailure(executionContext, executed.error, { sourceLength: text.length });
-            return createCliFailure('claude-cli', executed.error, this.dependencies.localization);
-          } catch (error: unknown) {
-            audit.terminalException(executionContext, 'process', error, { sourceLength: text.length });
-            throw error;
-          }
+          },
         }),
       };
     } catch (error: unknown) {
@@ -359,24 +367,32 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
 
       return {
         success: true,
-        prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, async (text) => {
-          const executionContext = audit.startPrettify(this.id, text.length);
-          executionContext.lifecycle.phaseEntered('submission');
-          try {
-            const executed = await result.prepared.execute(text, executionContext);
-            if (executed.success) {
-              audit.terminalSuccess(executionContext, 'result', {
-                resultLength: executed.text.length,
+        prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, {
+          audit,
+          contractVersion: result.prepared.capabilityVersion,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
+          execute: async (text, executionContext) => {
+            executionContext.lifecycle.phaseEntered('submission');
+            try {
+              const executed = await result.prepared.execute(text, executionContext);
+              if (executed.success) {
+                audit.terminalSuccess(executionContext, 'result', {
+                  resultLength: executed.text.length,
+                  sourceLength: text.length,
+                });
+                return { success: true, text: executed.text };
+              }
+              audit.terminalCliFailure(executionContext, executed.error, {
                 sourceLength: text.length,
               });
-              return { success: true, text: executed.text };
+              return createCliFailure('codex-cli', executed.error, this.dependencies.localization);
+            } catch (error: unknown) {
+              audit.terminalException(executionContext, 'process', error, {
+                sourceLength: text.length,
+              });
+              throw error;
             }
-            audit.terminalCliFailure(executionContext, executed.error, { sourceLength: text.length });
-            return createCliFailure('codex-cli', executed.error, this.dependencies.localization);
-          } catch (error: unknown) {
-            audit.terminalException(executionContext, 'process', error, { sourceLength: text.length });
-            throw error;
-          }
+          },
         }),
       };
     } catch (error: unknown) {

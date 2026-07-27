@@ -1,5 +1,6 @@
 import type { ClipboardType } from '@main/electronRuntime';
 import type { I18nService } from '@main/i18n';
+import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
 import type { PrettifySettingsStorage } from '@main/services/prettifySettingsStorage';
 import type { PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
@@ -11,7 +12,7 @@ import {
   type PresentedNotificationError,
   type SystemNotificationOptions,
 } from '@shared/notifications';
-import type { PrettifySettings } from '@shared/prettifySettings';
+import type { KnownPrettifyProviderId, PrettifySettings } from '@shared/prettifySettings';
 
 export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES = 20;
@@ -39,6 +40,7 @@ export interface SelectedTextPrettifyDependencies {
   readonly actionGate: SelectedTextActionGate;
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextPrettifyClipboard;
+  readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'capturePrettifyCacheHit'>;
   readonly getCacheContext: () => readonly string[];
   readonly logger: {
     info(...args: unknown[]): void;
@@ -151,6 +153,7 @@ export class SelectedTextPrettifyService {
       ]);
       const cachedPrettified = this.dependencies.cache.get(cacheKey);
       if (cachedPrettified) {
+        this.captureCacheHit(selectedText, cachedPrettified, preparation.prepared.providerId);
         this.dependencies.clipboard.writeText(cachedPrettified);
         this.notifyPrettifySuccess();
         this.dependencies.logger.info('Prettified selected text copied from cache:', {
@@ -204,6 +207,18 @@ export class SelectedTextPrettifyService {
     this.restoreClipboard(run.previousClipboardText);
     this.dependencies.logger.info('Selected-text prettify cancelled');
     return this.createCancelledResult();
+  }
+
+  private captureCacheHit(sourceText: string, resultText: string, providerId: KnownPrettifyProviderId): void {
+    try {
+      this.dependencies.diagnosticCapture.capturePrettifyCacheHit({
+        providerId,
+        resultText,
+        sourceText,
+      });
+    } catch {
+      // Diagnostic capture cannot alter selected-text behavior.
+    }
   }
 
   private presentPrettifyError(

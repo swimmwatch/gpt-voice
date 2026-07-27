@@ -13,6 +13,7 @@ import type { SystemNotificationOptions } from '@shared/notifications';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
 import { RecordingPrettifyProviderAudit } from './prettifyAuditTestUtils';
 import { PrettifyRuntimeFixture } from './prettifyRuntimeTestUtils';
+import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
 const localization = new I18nService();
 
@@ -30,6 +31,7 @@ interface TestServiceOptions {
   cacheContext?: readonly string[];
   copiedText?: string;
   copyError?: Error;
+  diagnosticCapture?: RecordingDiagnosticCapture;
   platform?: NodeJS.Platform;
   runtime?: SelectedTextPrettifyDependencies['runtime'];
   prompt?: string;
@@ -81,6 +83,7 @@ function createPrettifySettings(options: TestServiceOptions = {}): PrettifySetti
 }
 
 function createTestService(options: TestServiceOptions = {}) {
+  const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
   const clipboard = {
     clipboard: 'previous clipboard',
     selection: options.selectionText || '',
@@ -115,6 +118,7 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     cache: options.cache || createTextActionResultCache(20),
+    diagnosticCapture,
     getCacheContext: () => options.cacheContext || [],
     logger: {
       info: () => {},
@@ -193,6 +197,7 @@ function createTestService(options: TestServiceOptions = {}) {
   return {
     automationCalls,
     clipboard,
+    diagnosticCapture,
     notifications,
     prepareCalls,
     prettifyCalls,
@@ -399,7 +404,7 @@ describe('selectedTextPrettify', () => {
 
   it('keeps cache hits free of prettify provider operations', async () => {
     const audit = new RecordingPrettifyProviderAudit();
-    const { service } = createTestService({
+    const { diagnosticCapture, service } = createTestService({
       selectionText: 'selected text',
       runtime: new PrettifyRuntimeFixture({
         audit,
@@ -414,6 +419,37 @@ describe('selectedTextPrettify', () => {
     assert.equal((await service.prettifySelectedText()).success, true);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prepare').length, 2);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
+    assert.deepEqual(diagnosticCapture.prettifyCacheInputs, [
+      {
+        providerId: 'ollama',
+        resultText: 'cached prettified text',
+        sourceText: 'selected text',
+      },
+    ]);
+  });
+
+  it('keeps a Prettify cache hit successful when capture throws', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'cached result' },
+    });
+    await first.service.prettifySelectedText();
+    const diagnosticCapture = new RecordingDiagnosticCapture();
+    diagnosticCapture.throwOnCacheCapture = true;
+    const cached = createTestService({
+      cache,
+      diagnosticCapture,
+      selectionText: 'selected text',
+    });
+
+    const result = await cached.service.prettifySelectedText();
+
+    assert.equal(result.success, true);
+    assert.equal(cached.prettifyCalls.length, 0);
+    assert.equal(cached.clipboard.clipboard, 'cached result');
+    assert.equal(cached.notifications.length, 1);
   });
 
   it('keeps CLI cache hits free of duplicate prettify operations', async () => {

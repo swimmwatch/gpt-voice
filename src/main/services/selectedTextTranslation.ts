@@ -1,6 +1,7 @@
 import type { ClipboardType } from '@main/electronRuntime';
 import type { I18nService } from '@main/i18n';
 import type { TranslationExecutionSnapshot, TranslationRuntime } from '@main/services/translation';
+import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationService } from '@main/services/textAutomation';
@@ -40,6 +41,7 @@ export interface SelectedTextTranslationDependencies {
   readonly actionGate: SelectedTextActionGate;
   readonly cache: TextActionResultCache;
   readonly clipboard: SelectedTextTranslationClipboard;
+  readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'captureTranslationCacheHit'>;
   readonly logger: SelectedTextTranslationLogger;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
@@ -114,6 +116,7 @@ export class SelectedTextTranslationService {
       const cachedTranslation = this.dependencies.cache.get(cacheKey);
       if (cachedTranslation) {
         if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        this.captureCacheHit(selectedText, cachedTranslation, snapshot);
         this.dependencies.clipboard.writeText(cachedTranslation);
         this.notifyTranslationCopied(cachedTranslation);
         this.dependencies.logger.info('Translated selected text copied from cache:', {
@@ -152,6 +155,20 @@ export class SelectedTextTranslationService {
       this.dependencies.actionGate.finish('translate');
     }
   };
+
+  private captureCacheHit(sourceText: string, resultText: string, snapshot: TranslationExecutionSnapshot): void {
+    try {
+      this.dependencies.diagnosticCapture.captureTranslationCacheHit({
+        contractVersion: snapshot.contractVersion,
+        providerId: snapshot.providerId,
+        resultText,
+        sourceText,
+        targetLanguage: snapshot.targetLanguage,
+      });
+    } catch {
+      // Diagnostic capture cannot alter selected-text behavior.
+    }
+  }
 
   private presentTranslationError(
     error: unknown,

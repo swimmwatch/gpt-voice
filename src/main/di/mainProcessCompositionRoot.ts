@@ -25,6 +25,10 @@ import {
 } from '../translateProviders';
 import { TranslationProviderAudit } from '../translateProviders/translationProviderAudit';
 import { TranslationRuntime } from '../services/translation';
+import { DiagnosticCaptureService } from '../services/diagnosticCapture';
+import { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
+import { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
+import { DiagnosticTextRedactor } from '../services/diagnosticTextRedactor';
 import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
@@ -77,6 +81,9 @@ import {
   createCloakBrowserLoginContextOptions,
   createCloakBrowserPersistentContextOptions,
 } from '../cloakBrowserLaunchOptions';
+import { AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
+import { SqliteDiagnosticCaptureRepository } from '../repositories/sqlite/sqliteDiagnosticCaptureRepository';
+import { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
@@ -130,7 +137,15 @@ export interface MainProcessTranslationEnvironment {
   readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
   readonly selectedText: Omit<
     SelectedTextTranslationDependencies,
-    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime' | 'textAutomation'
+    | 'actionGate'
+    | 'cache'
+    | 'clipboard'
+    | 'diagnosticCapture'
+    | 'localization'
+    | 'logger'
+    | 'notify'
+    | 'runtime'
+    | 'textAutomation'
   >;
 }
 
@@ -148,6 +163,7 @@ export interface MainProcessPrettifyEnvironment {
     | 'actionGate'
     | 'cache'
     | 'clipboard'
+    | 'diagnosticCapture'
     | 'localization'
     | 'logger'
     | 'notify'
@@ -288,6 +304,21 @@ export class MainProcessCompositionRoot {
       ...this.environment.config,
       logger: loggerFactory.getLogger('config'),
     });
+    const database = new AppDatabaseCoordinator(configStore.paths.databaseFile, this.environment.databaseDependencies);
+    const historyRepository = new SqliteTranscriptionHistoryRepository(database);
+    const diagnosticRepository = new SqliteDiagnosticCaptureRepository(database);
+    const diagnosticStorage = new DiagnosticCaptureStorage(diagnosticRepository, {
+      logger: loggerFactory.getLogger('diagnostic-capture'),
+      now: this.environment.now,
+      randomUUID: this.environment.randomUUID,
+      redactor: new DiagnosticTextRedactor(),
+    });
+    const diagnosticCaptureSettings = new DiagnosticCaptureSettingsService(configStore, diagnosticStorage);
+    const diagnosticCapture = new DiagnosticCaptureService({
+      logger: loggerFactory.getLogger('diagnostic-capture'),
+      settings: diagnosticCaptureSettings,
+      storage: diagnosticStorage,
+    });
     const localization = new I18nService();
     const privateJsonRepository = new FileClaudeWebPrivateJsonRepository({
       fileSystem: this.environment.config.fileSystem,
@@ -394,6 +425,7 @@ export class MainProcessCompositionRoot {
     const translationRuntime = new TranslationRuntime({
       audit: translationProviderAudit,
       config: configStore,
+      diagnosticCapture,
       localization,
       now: this.environment.translation.now,
       registry: translationProviderRegistry,
@@ -408,6 +440,7 @@ export class MainProcessCompositionRoot {
         readText: electronRuntime.readClipboardText,
         writeText: electronRuntime.writeTypedClipboardText,
       },
+      diagnosticCapture,
       logger: loggerFactory.getLogger('selection-translate'),
       localization,
       notify: electronRuntime.showSystemNotification,
@@ -432,6 +465,7 @@ export class MainProcessCompositionRoot {
       audit: prettifyProviderAudit,
       claudeCliAdapter,
       codexCliAdapter,
+      diagnosticCapture,
       fetch: this.environment.prettify.fetch,
       localization,
       settings: prettifySettingsStorage,
@@ -454,6 +488,7 @@ export class MainProcessCompositionRoot {
         readText: electronRuntime.readClipboardText,
         writeText: electronRuntime.writeTypedClipboardText,
       },
+      diagnosticCapture,
       logger: loggerFactory.getLogger('selection-prettify'),
       localization,
       notify: electronRuntime.showSystemNotification,
@@ -494,6 +529,7 @@ export class MainProcessCompositionRoot {
         logger: loggerFactory.getLogger('app-protocol'),
       }),
       backgroundBrowserService,
+      database,
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
         getAppIconPath: assetPaths.getAppIconPath,
@@ -506,6 +542,9 @@ export class MainProcessCompositionRoot {
         getAssetPath: assetPaths.getAssetPath,
         logger: loggerFactory.getLogger('desktop-integration'),
       }),
+      diagnosticCaptureSettings,
+      diagnosticStorage,
+      historyRepository,
       prettifyRuntime,
       shortcutController,
       translationRuntime,

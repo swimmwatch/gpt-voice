@@ -4,28 +4,87 @@ import {
   type ProviderAuditDependencies,
   type ProviderAuditErrorClass,
   type ProviderAuditExceptionType,
+  type ProviderAuditLifecycle,
   type ProviderAuditMetadataForFamily,
   type ProviderAuditOperationContext,
   type ProviderAuditPhase,
   type ProviderAuditTerminalOutcome,
 } from '@main/providerAudit';
-import type { ProviderAuditOperation } from '@main/providerAudit/mappings';
+import type { DiagnosticProviderAuditCauseCode, ProviderAuditOperation } from '@main/providerAudit/mappings';
 import type { CliProcessResult } from '@main/services/prettifyCliRunner';
 import type { PrettifyCliRuntimeErrorCode } from '@shared/prettifySettings';
 
 export type PrettifyAuditMetadata = ProviderAuditMetadataForFamily<'prettify'>;
 
+interface DeferredPrettifyAuditTerminal {
+  readonly metadata?: PrettifyAuditMetadata;
+  readonly outcome: ProviderAuditTerminalOutcome;
+  readonly phase: ProviderAuditPhase;
+}
+
+/** Defers one Prettify terminal until diagnostic capture has settled. */
+class DeferredPrettifyAuditLifecycle implements ProviderAuditLifecycle<'prettify'> {
+  private deferredTerminal: DeferredPrettifyAuditTerminal | null = null;
+
+  public constructor(private readonly lifecycle: ProviderAuditLifecycle<'prettify'>) {}
+
+  public started(metadata?: PrettifyAuditMetadata): void {
+    this.lifecycle.started(metadata);
+  }
+
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: PrettifyAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseEntered(phase, metadata);
+  }
+
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: PrettifyAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseCompleted(phase, metadata);
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: PrettifyAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.retry(phase, metadata);
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: PrettifyAuditMetadata): void {
+    this.lifecycle.recovery(phase, metadata);
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: PrettifyAuditMetadata,
+  ): void {
+    if (this.deferredTerminal !== null) return;
+    this.deferredTerminal = { phase, outcome, ...(metadata === undefined ? {} : { metadata }) };
+  }
+
+  public flushTerminal(): boolean {
+    if (this.deferredTerminal === null) return false;
+    const { metadata, outcome, phase } = this.deferredTerminal;
+    this.deferredTerminal = null;
+    this.lifecycle.terminal(phase, outcome, metadata);
+    return true;
+  }
+
+  public hasSuccessfulTerminal(): boolean {
+    return this.deferredTerminal?.outcome === 'success';
+  }
+}
+
 /** Main-only state shared by one Prettify provider operation across orchestration layers. */
 class PrettifyAuditOperationContextState implements ProviderAuditOperationContext<'prettify'> {
   private cliCleanupFailure = false;
+  private readonly deferredLifecycle: DeferredPrettifyAuditLifecycle | null;
 
   public readonly lifecycle;
   public readonly now;
+  public readonly operationId;
   public readonly startedAt;
 
-  public constructor(context: ProviderAuditOperationContext<'prettify'>) {
-    this.lifecycle = context.lifecycle;
+  public constructor(context: ProviderAuditOperationContext<'prettify'>, deferTerminal = false) {
+    this.deferredLifecycle = deferTerminal ? new DeferredPrettifyAuditLifecycle(context.lifecycle) : null;
+    this.lifecycle = this.deferredLifecycle ?? context.lifecycle;
     this.now = context.now;
+    this.operationId = context.operationId;
     this.startedAt = context.startedAt;
   }
 
@@ -35,6 +94,14 @@ class PrettifyAuditOperationContextState implements ProviderAuditOperationContex
 
   public recordCliCleanupFailure(): void {
     this.cliCleanupFailure = true;
+  }
+
+  public flushTerminal(): boolean {
+    return this.deferredLifecycle?.flushTerminal() ?? false;
+  }
+
+  public hasSuccessfulTerminal(): boolean {
+    return this.deferredLifecycle?.hasSuccessfulTerminal() ?? false;
   }
 }
 
@@ -152,6 +219,21 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     );
   }
 
+  public startCapturedPrettify(providerId: unknown, sourceLength: number): PrettifyAuditOperationContext {
+    return new PrettifyAuditOperationContextState(
+      this.startOperation(providerId, 'prettify', 'dispatch', this.createMetadata({ sourceLength })),
+      true,
+    );
+  }
+
+  public flushCapturedPrettify(context: PrettifyAuditOperationContext): boolean {
+    return context.flushTerminal();
+  }
+
+  public canCaptureSuccess(context: PrettifyAuditOperationContext): boolean {
+    return context.hasSuccessfulTerminal();
+  }
+
   public startProcessCleanup(providerId: unknown): PrettifyAuditOperationContext {
     return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'process-cleanup', 'cleanup'));
   }
@@ -225,6 +307,18 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     options: PrettifyAuditMetadataOptions = {},
   ): void {
     this.terminal(context, phase, 'success', options);
+  }
+
+  public recordDiagnosticCaptureFailure(
+    context: PrettifyAuditOperationContext,
+    causeCode: DiagnosticProviderAuditCauseCode,
+  ): void {
+    context.lifecycle.recovery(
+      'result',
+      this.createMetadata({
+        causeCode,
+      }),
+    );
   }
 
   public terminalFailure(

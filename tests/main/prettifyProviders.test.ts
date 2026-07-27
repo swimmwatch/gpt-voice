@@ -188,7 +188,9 @@ describe('prettifyProviders', () => {
   it('prepares one-shot Claude CLI execution with an empty default model and no HTTP fallthrough', async () => {
     let fetchCalls = 0;
     let generationCalls = 0;
-    const prepared = await new PrettifyRuntimeFixture({
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
       claudeCliAdapter: {
         prepare: async ({ prompt, settings }) => {
           assert.equal(prompt, 'protected prompt');
@@ -210,7 +212,8 @@ describe('prettifyProviders', () => {
         fetchCalls += 1;
         return response(200, {});
       },
-    }).runtime.prepare(
+    });
+    const prepared = await fixture.runtime.prepare(
       {
         providerId: 'claude-cli',
         prompt: 'protected prompt',
@@ -229,6 +232,56 @@ describe('prettifyProviders', () => {
     });
     assert.equal(generationCalls, 1);
     assert.equal(fetchCalls, 0);
+    assert.deepEqual(fixture.diagnosticCapture.prettifyProviderInputs, [
+      {
+        contractVersion: '2.1.71',
+        providerId: 'claude-cli',
+        providerOperationId: audit.operations.find((operation) => operation.input.operation === 'prettify')?.input
+          .operationId,
+        resultText: 'source edited',
+        sourceText: 'source',
+      },
+    ]);
+  });
+
+  it('captures one-shot Codex CLI success once with capability correlation', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
+      codexCliAdapter: {
+        prepare: async () => ({
+          prepared: {
+            cacheContext: ['codex-cli', '0.1.0', 'catalog'],
+            capabilityVersion: '0.1.0',
+            execute: async () => ({
+              capabilityVersion: '0.1.0',
+              success: true as const,
+              text: 'codex result',
+            }),
+            models: [],
+            source: 'catalog' as const,
+          },
+          success: true as const,
+        }),
+      },
+    });
+
+    const result = await fixture.runtime.run('codex source', {
+      providerId: 'codex-cli',
+    });
+
+    assert.deepEqual(result, { success: true, text: 'codex result' });
+    const operation = getAuditOperation(audit, 'prettify');
+    assert.deepEqual(fixture.diagnosticCapture.prettifyProviderInputs, [
+      {
+        contractVersion: '0.1.0',
+        providerId: 'codex-cli',
+        providerOperationId: operation.input.operationId,
+        resultText: 'codex result',
+        sourceText: 'codex source',
+      },
+    ]);
+    assert.equal(getTerminalEvents(operation).length, 1);
   });
 
   it('lists Claude aliases and Codex catalog capabilities through injected CLI adapters', async () => {
@@ -338,12 +391,15 @@ describe('prettifyProviders', () => {
 
   it('prettifies through non-streaming Ollama /api/chat', async () => {
     const calls: FetchCall[] = [];
-    const result = await new PrettifyRuntimeFixture({
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
       fetch: async (url, init) => {
         calls.push({ url, init });
         return response(200, { message: { content: '\n improved text \n' } });
       },
-    }).runtime.run('selected text', {
+    });
+    const result = await fixture.runtime.run('selected text', {
       providerId: 'ollama',
       prompt: 'Improve',
       temperature: 0.25,
@@ -369,6 +425,14 @@ describe('prettifyProviders', () => {
       top_p: 0.9,
     });
     assert.equal('seed' in body.options, false);
+    assert.deepEqual(fixture.diagnosticCapture.prettifyProviderInputs, [
+      {
+        providerId: 'ollama',
+        providerOperationId: getAuditOperation(audit, 'prettify').input.operationId,
+        resultText: '\n improved text \n',
+        sourceText: 'selected text',
+      },
+    ]);
   });
 
   it('maps advanced generation settings to Ollama options', async () => {
@@ -576,12 +640,15 @@ describe('prettifyProviders', () => {
 
   it('prettifies through vLLM /chat/completions and omits auth when no key is configured', async () => {
     const calls: FetchCall[] = [];
-    const result = await new PrettifyRuntimeFixture({
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
       fetch: async (url, init) => {
         calls.push({ url, init });
         return response(200, { choices: [{ message: { content: '\n improved vllm text \n' } }] });
       },
-    }).runtime.run('selected text', {
+    });
+    const result = await fixture.runtime.run('selected text', {
       providerId: 'vllm',
       prompt: DEFAULT_PRETTIFY_PROMPT,
       temperature: 0,
@@ -613,6 +680,127 @@ describe('prettifyProviders', () => {
     );
     assert.match(body.messages[0].content, /Make the text shorter whenever possible without losing meaning/);
     assert.equal(body.messages[1].content, 'selected text');
+    assert.deepEqual(fixture.diagnosticCapture.prettifyProviderInputs, [
+      {
+        providerId: 'vllm',
+        providerOperationId: getAuditOperation(audit, 'prettify').input.operationId,
+        resultText: '\n improved vllm text \n',
+        sourceText: 'selected text',
+      },
+    ]);
+  });
+
+  it('records capture failure before unchanged Prettify success terminal', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
+      fetch: async () => response(200, { message: { content: 'safe result' } }),
+    });
+    fixture.diagnosticCapture.providerResult = {
+      causeCode: 'diagnostic-redaction-failed',
+      status: 'failure',
+    };
+
+    const result = await fixture.runtime.run('prettify-source-private-canary', {
+      providerId: 'ollama',
+      ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+    });
+
+    assert.deepEqual(result, { success: true, text: 'safe result' });
+    const operation = getAuditOperation(audit, 'prettify');
+    const warningEvent = operation.events[operation.events.length - 2];
+    const terminalEvent = operation.events[operation.events.length - 1];
+    assert.equal(warningEvent?.event, 'recovery');
+    assert.equal(warningEvent?.metadata?.causeCode, 'diagnostic-redaction-failed');
+    assert.equal(terminalEvent?.event, 'terminal');
+    assert.equal(terminalEvent?.outcome, 'success');
+    assert.equal(getTerminalEvents(operation).length, 1);
+    assert.equal(JSON.stringify(operation.events).includes('prettify-source-private-canary'), false);
+  });
+
+  it('keeps Prettify success unchanged when the injected capture adapter throws', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
+      fetch: async () => response(200, { message: { content: 'safe result' } }),
+    });
+    fixture.diagnosticCapture.throwOnProviderCapture = true;
+
+    const result = await fixture.runtime.run('source', {
+      providerId: 'ollama',
+      ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+    });
+
+    assert.deepEqual(result, { success: true, text: 'safe result' });
+    const operation = getAuditOperation(audit, 'prettify');
+    assert.equal(operation.events[operation.events.length - 2]?.metadata?.causeCode, 'diagnostic-storage-failed');
+    assert.equal(operation.events[operation.events.length - 1]?.outcome, 'success');
+  });
+
+  it('does not capture failed or empty Prettify outcomes', async () => {
+    const failed = new PrettifyRuntimeFixture({
+      fetch: async () => response(503, { error: 'private provider response' }),
+    });
+    const empty = new PrettifyRuntimeFixture({
+      fetch: async () => response(200, { message: { content: '' } }),
+    });
+
+    assert.equal(
+      (
+        await failed.runtime.run('source', {
+          providerId: 'ollama',
+          ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+        })
+      ).success,
+      false,
+    );
+    assert.equal(
+      (
+        await empty.runtime.run('source', {
+          providerId: 'ollama',
+          ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+        })
+      ).success,
+      false,
+    );
+    assert.deepEqual(failed.diagnosticCapture.prettifyProviderInputs, []);
+    assert.deepEqual(empty.diagnosticCapture.prettifyProviderInputs, []);
+  });
+
+  it('does not capture a cleanup-invalidated Prettify success result', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const fixture = new PrettifyRuntimeFixture({
+      audit,
+      claudeCliAdapter: {
+        prepare: async () => ({
+          prepared: {
+            cacheContext: ['claude-cli', '2.1.71'],
+            capabilityVersion: '2.1.71',
+            execute: async (_text, auditContext) => {
+              if (!auditContext) throw new Error('expected captured audit context');
+              audit.terminalFailure(auditContext, 'cleanup', 'process-failed', {
+                cleanupFailure: true,
+              });
+              return {
+                capabilityVersion: '2.1.71',
+                success: true as const,
+                text: 'cleanup-invalidated result',
+              };
+            },
+          },
+          success: true as const,
+        }),
+      },
+    });
+
+    const result = await fixture.runtime.run('source', {
+      providerId: 'claude-cli',
+    });
+
+    assert.deepEqual(result, { success: true, text: 'cleanup-invalidated result' });
+    assert.deepEqual(fixture.diagnosticCapture.prettifyProviderInputs, []);
+    const operation = getAuditOperation(audit, 'prettify');
+    assert.equal(operation.events[operation.events.length - 1]?.outcome, 'failure');
   });
 
   it('keeps delimiter-like selected text inside the raw source message', async () => {

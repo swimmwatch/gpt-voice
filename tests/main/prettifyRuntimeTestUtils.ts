@@ -16,11 +16,13 @@ import {
 } from '@main/services/prettifySettingsStorage';
 import { getPrettifyBaseUrlValidationError, type PrettifySettingsInput } from '@shared/prettifySettings';
 import { I18nService } from '@main/i18n';
+import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
 type PrettifyRuntimeFixtureOptions = {
   readonly audit?: PrettifyProviderAudit;
   readonly claudeCliAdapter?: Partial<PrettifyProviderFactoryDependencies['claudeCliAdapter']>;
   readonly codexCliAdapter?: Partial<PrettifyProviderFactoryDependencies['codexCliAdapter']>;
+  readonly diagnosticCapture?: RecordingDiagnosticCapture;
   readonly fetch?: PrettifyProviderFactoryDependencies['fetch'];
   readonly settings?: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 };
@@ -48,12 +50,14 @@ export class TestPrettifySettingsStorage {
 /** Owns one isolated Prettify graph for provider and orchestration tests. */
 export class PrettifyRuntimeFixture {
   public readonly audit: PrettifyProviderAudit;
+  public readonly diagnosticCapture: RecordingDiagnosticCapture;
   public readonly factory: PrettifyProviderFactory;
   public readonly registry: PrettifyProviderRegistry;
   public readonly runtime: PrettifyRuntime;
 
   public constructor(options: PrettifyRuntimeFixtureOptions = {}) {
     this.audit = options.audit ?? new PrettifyProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
+    this.diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
     const settings = options.settings ?? new TestPrettifySettingsStorage();
     const localization = new I18nService();
     const claudeCliAdapter: PrettifyProviderFactoryDependencies['claudeCliAdapter'] = {
@@ -86,6 +90,7 @@ export class PrettifyRuntimeFixture {
       audit: this.audit,
       claudeCliAdapter,
       codexCliAdapter,
+      diagnosticCapture: this.diagnosticCapture,
       fetch:
         options.fetch ??
         (async () => {

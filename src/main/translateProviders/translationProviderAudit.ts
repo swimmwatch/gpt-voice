@@ -9,6 +9,7 @@ import {
   type ProviderAuditPhase,
   type ProviderAuditTerminalOutcome,
 } from '@main/providerAudit';
+import type { DiagnosticProviderAuditCauseCode } from '@main/providerAudit/mappings';
 
 import type {
   TranslationProviderFailure,
@@ -22,7 +23,7 @@ export type TranslationProviderAuditMetadata = ProviderAuditMetadataForFamily<'t
 export type TranslationProviderAuditOperationContext = ProviderAuditOperationContext<'translation'>;
 
 export interface TranslationProviderAuditMetadataOptions {
-  readonly causeCode?: TranslationProviderFailureCode;
+  readonly causeCode?: TranslationProviderAuditMetadata['causeCode'];
   readonly discarded?: boolean;
   readonly durationMs?: number;
   readonly exceptionType?: ProviderAuditExceptionType;
@@ -73,12 +74,17 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
   }
 
   public getErrorClass(
-    code: TranslationProviderFailureCode,
+    code: NonNullable<TranslationProviderAuditMetadata['causeCode']>,
     exceptionType?: ProviderAuditExceptionType,
   ): ProviderAuditErrorClass {
     if (exceptionType !== undefined && code !== 'cleanupFailure') return 'internal';
 
     switch (code) {
+      case 'diagnostic-redaction-failed':
+      case 'diagnostic-row-too-large':
+      case 'diagnostic-storage-failed':
+      case 'diagnostic-storage-unavailable':
+        return 'internal';
       case 'unsupportedProvider':
       case 'unsupportedTargetLanguage':
       case 'emptyInput':
@@ -97,6 +103,20 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
       case 'cleanupFailure':
         return 'cleanup';
     }
+  }
+
+  public recordDiagnosticCaptureFailure(
+    lifecycle: TranslationProviderAuditLifecycle,
+    causeCode: DiagnosticProviderAuditCauseCode,
+    metadata: TranslationProviderOperationMetadata,
+  ): void {
+    lifecycle.recovery(
+      'result',
+      this.createMetadata(metadata, {
+        causeCode,
+        postSubmission: true,
+      }),
+    );
   }
 
   public createMetadata(

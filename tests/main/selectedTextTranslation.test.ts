@@ -19,6 +19,7 @@ import type {
 } from '@main/translateProviders/translationProviderContracts';
 import type { TranslationProviderId, TranslationProviderName } from '@shared/translationProvider';
 import type { SystemNotificationOptions } from '@shared/notifications';
+import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
 const localization = new I18nService();
 
@@ -28,6 +29,7 @@ interface TestServiceOptions {
   contractVersion?: string;
   copyFails?: boolean;
   copyText?: string;
+  diagnosticCapture?: RecordingDiagnosticCapture;
   maxInputCharacters?: number;
   onCopy?: () => void;
   providerId?: TranslationProviderId;
@@ -175,6 +177,7 @@ class TestTranslationRuntime implements SelectedTextTranslationRuntime {
 }
 
 function createTestService(options: TestServiceOptions = {}) {
+  const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
   const clipboard = {
     clipboard: 'previous clipboard',
     selection: options.selectionText ?? '',
@@ -198,6 +201,7 @@ function createTestService(options: TestServiceOptions = {}) {
         else clipboard.clipboard = text;
       },
     },
+    diagnosticCapture,
     logger: { info: () => undefined, warn: () => undefined },
     localization,
     notify: (title, body, notificationOptions) => {
@@ -221,6 +225,7 @@ function createTestService(options: TestServiceOptions = {}) {
     actions,
     clipboard,
     dependencies,
+    diagnosticCapture,
     invalidate: () => {
       runtime.invalidate();
     },
@@ -388,9 +393,38 @@ describe('selected-text translation', () => {
 
     assert.equal(first.translations.length, 1);
     assert.equal(exact.translations.length, 0);
+    assert.deepEqual(exact.diagnosticCapture.translationCacheInputs, [
+      {
+        contractVersion: 'v1',
+        providerId: 'google',
+        resultText: 'translated text',
+        sourceText: 'selected text',
+        targetLanguage: 'uk',
+      },
+    ]);
     assert.equal(providerChanged.translations.length, 1);
     assert.equal(contractChanged.translations.length, 1);
     assert.equal(targetChanged.translations.length, 1);
+  });
+
+  it('keeps a Translation cache hit successful when capture throws', async () => {
+    const cache = createTextActionResultCache(20);
+    const diagnosticCapture = new RecordingDiagnosticCapture();
+    const first = createTestService({ cache, copyText: 'selected text' });
+    await first.service.translateSelectedTextToClipboard();
+    diagnosticCapture.throwOnCacheCapture = true;
+    const cached = createTestService({
+      cache,
+      copyText: 'selected text',
+      diagnosticCapture,
+    });
+
+    const result = await cached.service.translateSelectedTextToClipboard();
+
+    assert.equal(result.success, true);
+    assert.equal(cached.clipboard.clipboard, 'translated text');
+    assert.equal(cached.notifications.length, 1);
+    assert.equal(cached.translations.length, 0);
   });
 
   it('keeps service instances and their caches isolated by default', async () => {

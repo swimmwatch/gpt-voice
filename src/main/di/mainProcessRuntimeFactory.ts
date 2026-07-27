@@ -4,12 +4,9 @@ import type {
   MainProcessRuntimeFactory as MainProcessRuntimeFactoryContract,
 } from '../mainProcessApplication';
 import type { StreamingTranscriptionOperationId } from '../providers/streamingVoiceProvider';
-import type { AppDatabaseDependencies } from '../repositories/sqlite/appDatabase';
-import { AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
-import { SqliteDiagnosticCaptureRepository } from '../repositories/sqlite/sqliteDiagnosticCaptureRepository';
-import { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
-import { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
-import { DiagnosticTextRedactor } from '../services/diagnosticTextRedactor';
+import type { AppDatabaseCoordinator, AppDatabaseDependencies } from '../repositories/sqlite/appDatabase';
+import type { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
+import type { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
 import type { TranscriptionCompletionDependencies } from '../services/transcriptionCompletion';
 import {
   StreamingTranscriptionService,
@@ -31,7 +28,7 @@ import type { I18nService } from '../i18n';
 import type { WebContents } from 'electron';
 import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
 import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIpcController';
-import { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
+import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -79,7 +76,11 @@ export interface MainProcessRuntimeFactoryDependencies {
 
 export interface MainProcessRuntimeFactoryControllers {
   readonly backgroundBrowserService: BackgroundBrowserService;
+  readonly database: AppDatabaseCoordinator;
   readonly desktopRuntimeController: DesktopRuntimeController;
+  readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
+  readonly diagnosticStorage: DiagnosticCaptureStorage;
+  readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
@@ -96,19 +97,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
   ) {}
 
   public create(): MainProcessOwnedRuntime {
-    const database = new AppDatabaseCoordinator(this.dependencies.databasePath, this.dependencies.databaseDependencies);
-    const historyRepository = new SqliteTranscriptionHistoryRepository(database);
-    const diagnosticRepository = new SqliteDiagnosticCaptureRepository(database);
-    const diagnosticStorage = new DiagnosticCaptureStorage(diagnosticRepository, {
-      logger: this.dependencies.diagnosticLogger,
-      now: this.dependencies.now,
-      randomUUID: this.dependencies.randomUUID,
-      redactor: new DiagnosticTextRedactor(),
-    });
-    const diagnosticCaptureSettings = new DiagnosticCaptureSettingsService(
-      this.dependencies.ipc.config,
-      diagnosticStorage,
-    );
+    const { database, diagnosticCaptureSettings, diagnosticStorage, historyRepository } = this.controllers;
     const cache = createTranscriptionResultCache({ now: this.dependencies.cacheNow });
     const completionDependencies: TranscriptionCompletionDependencies = {
       cache,

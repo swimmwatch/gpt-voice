@@ -20,6 +20,11 @@ import type {
   TranslationProviderPhase,
 } from '@main/translateProviders/translationProviderContracts';
 import {
+  DIAGNOSTIC_CAPTURE_CAUSE_CODES,
+  type DiagnosticCaptureAttemptResult,
+  type DiagnosticCaptureService,
+} from '@main/services/diagnosticCapture';
+import {
   getTranslationLanguage,
   getTranslationProviderInfo,
   type TranslationProviderId,
@@ -56,6 +61,7 @@ export interface TranslationRuntimeRegistry {
 export interface TranslationRuntimeDependencies {
   readonly audit: TranslationProviderAudit;
   readonly config: Pick<AppConfigStore, 'getTranslationSettings'>;
+  readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'captureTranslationProviderSuccess'>;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly now: () => number;
   readonly registry: TranslationRuntimeRegistry;
@@ -90,7 +96,7 @@ class DeferredTranslationAuditLifecycle implements TranslationProviderAuditLifec
   }
 
   public recovery(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
-    if (this.deferredTerminal === null) this.lifecycle.recovery(phase, metadata);
+    this.lifecycle.recovery(phase, metadata);
   }
 
   public terminal(
@@ -358,6 +364,21 @@ export class TranslationRuntime {
         });
         return failure;
       }
+      if (outcome.success) {
+        const captureResult = await this.captureTranslationProviderSuccess(
+          sourceText as string,
+          outcome.text,
+          snapshot,
+          auditContext.operationId,
+        );
+        if (captureResult.status === 'failure') {
+          this.dependencies.audit.recordDiagnosticCaptureFailure(
+            auditLifecycle,
+            captureResult.causeCode,
+            outcome.metadata,
+          );
+        }
+      }
       deferredAuditTerminal.flushTerminal();
       if (outcome.success) {
         auditLifecycle.terminal(
@@ -420,6 +441,29 @@ export class TranslationRuntime {
       return { success: true, text: outcome.text };
     }
     return { success: false, error: this.getFailureMessage(outcome) };
+  }
+
+  private async captureTranslationProviderSuccess(
+    sourceText: string,
+    resultText: string,
+    snapshot: TranslationExecutionSnapshot,
+    providerOperationId?: string,
+  ): Promise<DiagnosticCaptureAttemptResult> {
+    try {
+      return await this.dependencies.diagnosticCapture.captureTranslationProviderSuccess({
+        contractVersion: snapshot.contractVersion,
+        providerId: snapshot.providerId,
+        providerOperationId,
+        resultText,
+        sourceText,
+        targetLanguage: snapshot.targetLanguage,
+      });
+    } catch {
+      return {
+        causeCode: DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed,
+        status: 'failure',
+      };
+    }
   }
 
   async shutdown(): Promise<TranslationProviderShutdownResult> {

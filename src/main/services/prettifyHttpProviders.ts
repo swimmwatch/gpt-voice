@@ -442,17 +442,21 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: new OneShotPrettifyExecution('ollama', createHttpCacheContext(settings, 'ollama'), async (text) => {
-        try {
-          return await this.prettify({ text, signal, settings });
-        } catch (error: unknown) {
-          return {
-            success: false,
-            error: signal.aborted
-              ? this.dependencies.localization.translate('status.prettifyCancelled')
-              : createConnectionError('Ollama', settings.ollama.baseUrl, error),
-          };
-        }
+      prepared: new OneShotPrettifyExecution('ollama', createHttpCacheContext(settings, 'ollama'), {
+        audit,
+        diagnosticCapture: this.dependencies.diagnosticCapture,
+        execute: async (text, auditContext) => {
+          try {
+            return await this.prettify({ auditContext, text, signal, settings });
+          } catch (error: unknown) {
+            return {
+              success: false,
+              error: signal.aborted
+                ? this.dependencies.localization.translate('status.prettifyCancelled')
+                : createConnectionError('Ollama', settings.ollama.baseUrl, error),
+            };
+          }
+        },
       }),
     });
   }
@@ -853,17 +857,21 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: new OneShotPrettifyExecution('vllm', createHttpCacheContext(settings, 'vllm'), async (text) => {
-        try {
-          return await this.prettify({ text, signal, settings });
-        } catch (error: unknown) {
-          return {
-            success: false,
-            error: signal.aborted
-              ? this.dependencies.localization.translate('status.prettifyCancelled')
-              : createConnectionError('vLLM', settings.vllm.baseUrl, error),
-          };
-        }
+      prepared: new OneShotPrettifyExecution('vllm', createHttpCacheContext(settings, 'vllm'), {
+        audit,
+        diagnosticCapture: this.dependencies.diagnosticCapture,
+        execute: async (text, auditContext) => {
+          try {
+            return await this.prettify({ auditContext, text, signal, settings });
+          } catch (error: unknown) {
+            return {
+              success: false,
+              error: signal.aborted
+                ? this.dependencies.localization.translate('status.prettifyCancelled')
+                : createConnectionError('vLLM', settings.vllm.baseUrl, error),
+            };
+          }
+        },
       }),
     });
   }

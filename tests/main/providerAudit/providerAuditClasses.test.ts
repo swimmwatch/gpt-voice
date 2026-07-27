@@ -67,6 +67,7 @@ describe('provider audit class hierarchy', () => {
     });
 
     const context = audit.startOperation(canary, 'settings-readiness', 'validation');
+    assert.equal(context.operationId, '00000000-0000-4000-8000-000000000001');
     context.lifecycle.terminal(
       'validation',
       'failure',

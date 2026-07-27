@@ -1,65 +1,65 @@
-# Handoff: Provider Audit Task 18 Complete
+# Handoff: Provider Audit Task 19 Complete
 
 ## Status
 
-- Tasks 01–17 are committed; Task 17 is
-  `b54ad347 refactor(di): enforce project boundaries`.
-- Task 18 is implemented and verified, with all Task 18 changes left unstaged
-  and uncommitted for review.
+- Tasks 01–18 are committed; Task 18 is
+  `44a1e1d1 feat(audit): add audit log settings and deletion`.
+- Task 19 is implemented and verified. Its changes are unstaged and
+  uncommitted for review.
 
 ## Completed Work
 
-- Added default-off, independently normalized Translation and Prettify
-  diagnostic capture settings with atomic config persistence.
-- Added `DiagnosticCaptureSettingsService.getSettings()`, `setSettings()`, and
-  `clear()` with exact disable confirmations, serialized maintenance, closed
-  failures, and authoritative settings snapshots.
-- Added repository/storage `pruneAndPurge(policy, categories)` backed by one
-  SQLite immediate transaction.
-- Registered Settings-window-only channels
-  `get-diagnostic-capture-settings`, `set-diagnostic-capture-settings`, and
-  `clear-diagnostic-capture`; preload and renderer declarations use the same
-  shared contracts.
-- Mutation requests contain a complete settings snapshot plus unique
-  `confirmedPurgeCategories`; clear requests contain a closed target plus
-  literal `confirmed: true`.
-- Added the localized `audit-log` section, transactional save reconciliation,
-  confirmed disable/clear flows, action locking, focus restoration, and all
-  required privacy/archive disclosures across eleven locales.
+- Added the main-owned `DiagnosticCaptureService` with per-action,
+  authoritative default-off settings checks and closed fail-open outcomes.
+- Captured normalized successful provider results before their audit terminals
+  for Google, Bing, Yandex, Ollama, vLLM, Claude CLI, and Codex CLI.
+- Captured current Translation and Prettify cache hits without creating
+  provider lifecycles.
+- Provider rows use the same non-null audit operation ID; cache rows use a new
+  action ID and null provider-operation correlation.
+- Provider capture failures emit a safe pre-terminal audit warning and retain
+  the normal success terminal. Cache failures emit only the metadata-only
+  `diagnostic-capture` warning.
+- Failed, empty, stale, cancelled, and cleanup-invalidated results are not
+  captured. Throwing capture dependencies remain fail-open.
 
 ## Changed Boundary
 
-- Contracts/config/service/repositories: `src/shared/diagnosticCaptureSettings.ts`,
-  `src/main/config.ts`, `src/main/services/diagnosticCaptureSettings.ts`,
-  diagnostic storage/repository files, and the main runtime factory.
-- IPC/window/preload: `src/main/ipc.ts`, `src/main/window.ts`,
-  `src/main/preloadApi.ts`, and `src/renderer/types.d.ts`.
-- Renderer/localization: App Settings state and utilities, navigation,
-  `AuditLogSection.tsx`, shared section IDs, and all eleven locale catalogs.
-- Coverage: new diagnostic settings, IPC, and Audit Log suites plus updated
-  config, storage, repository, window, App Settings, and section tests.
+- Composition and audit context:
+  `src/main/di/mainProcessCompositionRoot.ts`,
+  `src/main/di/mainProcessRuntimeFactory.ts`, and
+  `src/main/providerAudit/providerAudit.ts`.
+- Capture and provider integration:
+  `src/main/services/diagnosticCapture.ts`, Translation runtime/audit,
+  Prettify base/runtime/audit/HTTP/CLI/one-shot services, and both selected-text
+  services.
+- Coverage:
+  `tests/main/diagnosticCaptureIntegration.test.ts`,
+  `tests/main/diagnosticCaptureTestUtils.ts`, and the updated Translation,
+  Prettify, selected-text, and provider-audit suites.
 
 ## Checks
 
-- Task 18 focused suites passed: 118 tests.
-- Full unit suite passed: 1,000 tests.
+- Packet 19’s exact focused command passed: 107 tests.
+- The broader focused capture and audit run passed: 121 tests.
+- Full unit suite passed: 1,017 tests.
 - `npm run typecheck`, `npm run test:types`, `npm run lint`,
-  `npm run format:check`, and `git diff --check` passed.
-- `npm run build:prod` passed; webpack reported only its existing three
-  bundle-size recommendations.
+  `npm run format:check`, and `git diff --check` passed on the final state.
+- Privacy canaries passed: source/result text and injected secret, URL,
+  provider payload, credential, session, message, and stack markers did not
+  reach audit metadata, diagnostic warning logs, or renderer results.
 
 ## Risks And Manual Gaps
 
-- The synthetic destructive-dialog keyboard/focus gate is deferred; automated
-  coverage verifies labels, locking, cancellation state restoration, retry
-  behavior, and focus-restoration wiring.
-- No real diagnostic rows were purged. Live Electron interaction, private
-  profiles, providers, credentials, packaging, pushes, pull requests, and
-  releases were not run.
-- Task 18 stores settings and deletes existing rows only; provider/cache result
-  capture remains intentionally absent until Task 19.
+- The synthetic provider/cache manual gate is deferred. Automated tests cover
+  provider/cache correlation and unchanged result, cache, clipboard, and
+  notification behavior.
+- No live providers, browsers, credentials, private text, clipboard content,
+  or real user databases were used.
+- Task 20 receives the tested settings snapshots, redacted stored rows, and
+  existing repository read API. Captured rows remain unavailable to renderers.
 
 ## Next Packet
 
-- [19 Translation and Prettify capture](19_integrate_translation_prettify_capture.md)
-- Task 18 review and commit authorization are required before Task 19 begins.
+- [20 Diagnostics archive core](20_build_diagnostics_archive_core.md)
+- Task 19 review and commit authorization are required before Task 20 begins.

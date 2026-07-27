@@ -1,4 +1,5 @@
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
+import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type { I18nService } from '@main/i18n';
 import {
@@ -32,6 +33,7 @@ export type PrettifyFetch = (url: string, init?: RequestInit) => Promise<Prettif
 
 export interface PrettifyProviderDependencies {
   readonly audit: PrettifyProviderAudit;
+  readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'capturePrettifyProviderSuccess'>;
   readonly localization: Pick<I18nService, 'translate'>;
 }
 

@@ -95,6 +95,7 @@ export interface ProviderAuditDependencies {
 export interface ProviderAuditOperationContext<Family extends ProviderAuditFamily> {
   readonly lifecycle: ProviderAuditLifecycle<Family>;
   readonly now: () => number;
+  readonly operationId?: string;
   readonly startedAt: number;
 }
 
@@ -203,6 +204,12 @@ function canonicalizeProviderAuditRecord(record: ProviderAuditRecord, metadata: 
 export function deriveProviderAuditSeverity(
   event: Pick<ProviderAuditRecord, 'event' | 'outcome'> & ProviderAuditMetadata,
 ): ProviderAuditSeverity {
+  if (
+    event.causeCode !== undefined &&
+    DIAGNOSTIC_CAUSE_CODES.has(event.causeCode as DiagnosticProviderAuditCauseCode)
+  ) {
+    return 'warn';
+  }
   if (event.event !== 'terminal') return 'info';
   if (
     event.outcome === 'success' ||
@@ -211,12 +218,6 @@ export function deriveProviderAuditSeverity(
     event.discarded === true
   ) {
     return 'info';
-  }
-  if (
-    event.causeCode !== undefined &&
-    DIAGNOSTIC_CAUSE_CODES.has(event.causeCode as DiagnosticProviderAuditCauseCode)
-  ) {
-    return 'warn';
   }
   if (event.errorClass === 'cancellation') return 'info';
   if (event.errorClass !== undefined && EXPECTED_WARNING_ERROR_CLASSES.has(event.errorClass)) {
@@ -366,15 +367,30 @@ export abstract class BaseProviderAudit<Family extends ProviderAuditFamily> {
     metadata: ProviderAuditMetadataForFamily<Family> = {},
     operationId?: string,
   ): ProviderAuditOperationContext<Family> {
-    const lifecycle = this.createLifecycle(providerId, operation, operationId);
+    const resolvedOperationId = this.resolveOperationId(operationId);
+    const lifecycle =
+      resolvedOperationId === undefined
+        ? NOOP_LIFECYCLE
+        : this.createLifecycle(providerId, operation, resolvedOperationId);
     const context = Object.freeze({
       lifecycle,
       now: this.dependencies.elapsedNow,
+      ...(resolvedOperationId === undefined ? {} : { operationId: resolvedOperationId }),
       startedAt: this.safeElapsedNow(this.dependencies.elapsedNow),
     });
     lifecycle.started(metadata);
     lifecycle.phaseEntered(phase, metadata);
     return context;
+  }
+
+  private resolveOperationId(operationId?: string): string | undefined {
+    if (operationId !== undefined) return operationId;
+    try {
+      const candidate = this.dependencies.randomUUID();
+      return isCanonicalOperationId(candidate) ? candidate : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   public durationMs(context: ProviderAuditOperationContext<Family>): number {

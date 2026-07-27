@@ -17,6 +17,7 @@ import type { TranslationProviderId, TranslationSettings } from '@shared/transla
 import { noopTranslationProviderAudit } from './translateProviders/translationAuditTestUtils';
 import { I18nService } from '@main/i18n';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
+import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -63,6 +64,7 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
 
 interface RuntimeHarnessOptions {
   audit?: TranslationProviderAudit;
+  diagnosticCapture?: RecordingDiagnosticCapture;
   outcome?: TranslationProviderOutcome;
   settings?: TranslationSettings;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
@@ -166,6 +168,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   const requests: TranslationProviderRequest[] = [];
   let shutdownCalls = 0;
   const failedProviderIds = options.shutdownFailedProviderIds ?? [];
+  const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
 
   const registry: TranslationRuntimeRegistry = {
     getProvider: (providerId) => {
@@ -189,6 +192,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   const runtime = new TranslationRuntime({
     audit: options.audit ?? noopTranslationProviderAudit,
     config,
+    diagnosticCapture,
     localization,
     now: () => {
       now += 1;
@@ -199,6 +203,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
 
   return {
     getProviderCalls,
+    diagnosticCapture,
     requests,
     runtime,
     setSettings: (next: TranslationSettings) => {
@@ -286,6 +291,7 @@ describe('TranslationRuntime', () => {
     const runtime = new TranslationRuntime({
       audit: audit,
       config: new MutableTranslationConfig(DEFAULT_SETTINGS, settingsError),
+      diagnosticCapture: new RecordingDiagnosticCapture(),
       localization,
       now: () => 100,
       registry: {
@@ -364,6 +370,83 @@ describe('TranslationRuntime', () => {
     const serializedAudit = JSON.stringify(translateEntries);
     assert.equal(serializedAudit.includes(sourceCanary), false);
     assert.equal(serializedAudit.includes(resultCanary), false);
+  });
+
+  it('captures every registered provider success once with its audit operation ID', async () => {
+    for (const [providerId, targetLanguage] of [
+      ['google', 'uk'],
+      ['bing', 'ru'],
+      ['yandex', 'be'],
+    ] as const) {
+      const audit = new CapturingTranslationProviderAudit();
+      const diagnosticCapture = new RecordingDiagnosticCapture();
+      diagnosticCapture.providerResult = { status: 'success' };
+      const harness = createRuntimeHarness({
+        audit,
+        diagnosticCapture,
+        settings: {
+          ...DEFAULT_SETTINGS,
+          providerId,
+        },
+      });
+      const snapshot = getSnapshot(harness.runtime);
+
+      const outcome = await harness.runtime.translateWithSnapshot('source-private-canary', snapshot);
+
+      assert.equal(outcome.success, true);
+      assert.equal(harness.diagnosticCapture.translationProviderInputs.length, 1);
+      const input = harness.diagnosticCapture.translationProviderInputs[0];
+      assert.equal(input?.providerId, providerId);
+      assert.equal(input?.targetLanguage, targetLanguage);
+      assert.equal(input?.sourceText, 'source-private-canary');
+      assert.equal(input?.resultText, 'translated');
+      const operationEntries = audit.entries.filter((entry) => entry.record.operationId === input?.providerOperationId);
+      const terminalEntry = operationEntries[operationEntries.length - 1];
+      assert.equal(terminalEntry?.record.event, 'terminal');
+      assert.equal(terminalEntry?.record.outcome, 'success');
+      assert.equal(operationEntries.filter((entry) => entry.record.event === 'terminal').length, 1);
+    }
+  });
+
+  it('emits capture failure warning before unchanged Translation success terminal', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const diagnosticCapture = new RecordingDiagnosticCapture();
+    diagnosticCapture.providerResult = {
+      causeCode: 'diagnostic-storage-unavailable',
+      status: 'failure',
+    };
+    const harness = createRuntimeHarness({ audit, diagnosticCapture });
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('translation-source-private-canary', snapshot);
+
+    assert.equal(outcome.success, true);
+    const operationId = diagnosticCapture.translationProviderInputs[0]?.providerOperationId;
+    const operationEntries = audit.entries.filter((entry) => entry.record.operationId === operationId);
+    const warningEntry = operationEntries[operationEntries.length - 2];
+    const terminalEntry = operationEntries[operationEntries.length - 1];
+    assert.equal(warningEntry?.record.event, 'recovery');
+    assert.equal(warningEntry?.record.causeCode, 'diagnostic-storage-unavailable');
+    assert.equal(warningEntry?.level, 'warn');
+    assert.equal(terminalEntry?.record.event, 'terminal');
+    assert.equal(terminalEntry?.record.outcome, 'success');
+    assert.equal(JSON.stringify(operationEntries).includes('translation-source-private-canary'), false);
+  });
+
+  it('keeps Translation success unchanged when the injected capture adapter throws', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const diagnosticCapture = new RecordingDiagnosticCapture();
+    diagnosticCapture.throwOnProviderCapture = true;
+    const harness = createRuntimeHarness({ audit, diagnosticCapture });
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('source', snapshot);
+
+    assert.equal(outcome.success, true);
+    const translateEntries = audit.entries.filter((entry) => entry.record.operation === 'translate');
+    assert.equal(translateEntries[translateEntries.length - 2]?.record.causeCode, 'diagnostic-storage-failed');
+    assert.equal(translateEntries[translateEntries.length - 2]?.level, 'warn');
+    assert.equal(translateEntries[translateEntries.length - 1]?.record.outcome, 'success');
   });
 
   it('does not let direct IPC compatibility override the authoritative target', async () => {
@@ -491,6 +574,7 @@ describe('TranslationRuntime', () => {
     assert.equal(terminal[0]?.level, 'info');
     assert.equal(terminal[0]?.record.outcome, 'cancelled');
     assert.equal(terminal[0]?.record.discarded, true);
+    assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
   });
 
   it('surfaces sanitized shutdown failure identities for retry', async () => {

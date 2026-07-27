@@ -249,6 +249,15 @@ describe('provider audit lifecycle', () => {
       [{ event: 'started', outcome: 'in-progress' }, 'info'],
       [{ event: 'retry', outcome: 'in-progress', errorClass: 'connection' }, 'info'],
       [{ event: 'recovery', outcome: 'in-progress', errorClass: 'timeout' }, 'info'],
+      [
+        {
+          event: 'recovery',
+          outcome: 'in-progress',
+          causeCode: 'diagnostic-storage-failed',
+          errorClass: 'internal',
+        },
+        'warn',
+      ],
       [{ event: 'terminal', outcome: 'success' }, 'info'],
       [{ event: 'terminal', outcome: 'cancelled', errorClass: 'cancellation' }, 'info'],
       [{ event: 'terminal', outcome: 'stale' }, 'info'],
