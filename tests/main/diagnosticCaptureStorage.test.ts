@@ -36,6 +36,10 @@ class RecordingDiagnosticCaptureRepository implements DiagnosticCaptureRepositor
     readonly capture: DiagnosticCaptureRecord;
     readonly policy: DiagnosticCapturePrunePolicy;
   }> = [];
+  public readonly pruneAndPurgeCalls: Array<{
+    readonly categories: readonly DiagnosticActionType[];
+    readonly policy: DiagnosticCapturePrunePolicy;
+  }> = [];
   public readonly pruneCalls: DiagnosticCapturePrunePolicy[] = [];
   public readonly purgeCalls: Array<readonly DiagnosticActionType[]> = [];
   public readonly readCalls: Array<readonly DiagnosticActionType[]> = [];
@@ -52,6 +56,14 @@ class RecordingDiagnosticCaptureRepository implements DiagnosticCaptureRepositor
     this.throwIfConfigured();
     this.pruneCalls.push(policy);
     return 0;
+  }
+
+  public pruneAndPurge(policy: DiagnosticCapturePrunePolicy, categories: readonly DiagnosticActionType[]): number {
+    this.throwIfConfigured();
+    this.pruneAndPurgeCalls.push({ categories: [...categories], policy });
+    const before = this.rows.length;
+    this.rows = this.rows.filter((row) => !categories.includes(row.actionType));
+    return before - this.rows.length;
   }
 
   public purge(categories: readonly DiagnosticActionType[]): number {
@@ -214,16 +226,28 @@ describe('diagnostic capture storage service', () => {
     assert.equal(JSON.stringify(harness.logs).includes(canary), false);
   });
 
-  it('normalizes categories and delegates prune, purge, and archive reads', async () => {
+  it('normalizes categories and delegates prune, combined purge, purge, and archive reads', async () => {
     const harness = new DiagnosticCaptureStorageHarness();
     await harness.storage.insert(translationInput());
+    await harness.storage.insert(
+      translationInput({
+        actionType: 'prettify',
+        contractVersion: undefined,
+        providerId: 'ollama',
+        targetLanguage: undefined,
+      }),
+    );
 
     assert.deepEqual(await harness.storage.prune(), { affectedRows: 0, status: 'success' });
     assert.deepEqual(await harness.storage.readForArchive(['translation', 'translation']), {
-      rows: harness.repository.rows,
+      rows: [harness.repository.rows[0]],
       status: 'success',
     });
-    assert.deepEqual(await harness.storage.purge(['translation', 'translation']), {
+    assert.deepEqual(await harness.storage.pruneAndPurge(['translation', 'translation']), {
+      affectedRows: 1,
+      status: 'success',
+    });
+    assert.deepEqual(await harness.storage.purge(['prettify', 'prettify']), {
       affectedRows: 1,
       status: 'success',
     });
@@ -233,8 +257,17 @@ describe('diagnostic capture storage service', () => {
         retentionCutoff: '2026-05-28T12:00:00.000Z',
       },
     ]);
+    assert.deepEqual(harness.repository.pruneAndPurgeCalls, [
+      {
+        categories: ['translation'],
+        policy: {
+          capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
+          retentionCutoff: '2026-05-28T12:00:00.000Z',
+        },
+      },
+    ]);
     assert.deepEqual(harness.repository.readCalls, [['translation']]);
-    assert.deepEqual(harness.repository.purgeCalls, [['translation']]);
+    assert.deepEqual(harness.repository.purgeCalls, [['prettify']]);
   });
 
   it('maps repository availability separately from repository operation failures', async () => {

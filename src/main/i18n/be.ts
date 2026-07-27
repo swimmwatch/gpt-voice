@@ -212,6 +212,58 @@ export default {
   'settingsSection.prettify': 'Паляпшэнне тэксту',
   'settingsSection.browser': 'Браўзер',
   'settingsSection.network': 'Сетка',
+  'settingsSection.auditLog': 'Журнал аўдыту',
+
+  // Налады журнала аўдыту
+  'auditLog.title': 'Журнал аўдыту',
+  'auditLog.description':
+    'Пры неабходнасці захоўвайце зыходны і выніковы тэкст паспяховых аперацый перакладу і паляпшэння для лакальнай дыягностыкі.',
+  'auditLog.captureTranslation': 'Захоўваць дыягностыку перакладу',
+  'auditLog.captureTranslationDescription':
+    'Захоўваць зыходны і выніковы тэкст паспяховых перакладаў, уключаючы трапленні ў кэш.',
+  'auditLog.capturePrettify': 'Захоўваць дыягностыку паляпшэння тэксту',
+  'auditLog.capturePrettifyDescription':
+    'Захоўваць зыходны і выніковы тэкст паспяховага паляпшэння, уключаючы трапленні ў кэш.',
+  'auditLog.privacyTitle': 'Канфідэнцыяльная дыягностыка ў адкрытым выглядзе',
+  'auditLog.sensitiveDataWarning':
+    'Захаваныя зыходныя даныя і вынікі могуць змяшчаць асабісты або канфідэнцыяльны тэкст.',
+  'auditLog.plaintextStorageWarning':
+    'Даныя захоўваюцца ў SQLite ў адкрытым выглядзе пасля максімальна магчымага рэдагавання і абаронены правамі файлавай сістэмы карыстальніка. Шыфраванне не выкарыстоўваецца.',
+  'auditLog.redactionLimitWarning':
+    'Рэдагаванне можа не выявіць адвольныя ўбудаваныя сакрэты. Лічыце захаваныя даныя канфідэнцыяльнымі.',
+  'auditLog.archiveInclusionWarning': 'Уключаныя катэгорыі аўтаматычна дадаюцца ў архівы дыягностыкі.',
+  'auditLog.archiveEncryptionWarning': 'Архівы дыягностыкі не шыфруюцца.',
+  'auditLog.clearTitle': 'Выдаліць захаваныя даныя',
+  'auditLog.clearDescription': 'Выдаленне даных незваротнае і не змяняе пераключальнікі захавання.',
+  'auditLog.clear.translation': 'Ачысціць пераклады',
+  'auditLog.clear.prettify': 'Ачысціць паляпшэнні',
+  'auditLog.clear.all': 'Ачысціць усё',
+  'auditLog.disableConfirm.title': 'Адключыць захаванне і выдаліць даныя?',
+  'auditLog.disableConfirm.translation':
+    'Захаванне налад адключыць дыягностыку перакладу і назаўсёды выдаліць усе захаваныя даныя перакладу.',
+  'auditLog.disableConfirm.prettify':
+    'Захаванне налад адключыць дыягностыку паляпшэння і назаўсёды выдаліць усе захаваныя даныя паляпшэння.',
+  'auditLog.disableConfirm.all':
+    'Захаванне налад адключыць абедзве катэгорыі і назаўсёды выдаліць усе захаваныя даныя перакладу і паляпшэння.',
+  'auditLog.disableConfirm.action': 'Адключыць і выдаліць',
+  'auditLog.clearConfirm.translation.title': 'Ачысціць дыягностыку перакладу?',
+  'auditLog.clearConfirm.translation.description':
+    'Усе захаваныя даныя перакладу будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.prettify.title': 'Ачысціць дыягностыку паляпшэння?',
+  'auditLog.clearConfirm.prettify.description':
+    'Усе захаваныя даныя паляпшэння будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.all.title': 'Ачысціць усю дыягностыку?',
+  'auditLog.clearConfirm.all.description':
+    'Усе захаваныя даныя перакладу і паляпшэння будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.action': 'Выдаліць даныя',
+  'auditLog.cancel': 'Адмена',
+  'auditLog.processing': 'Апрацоўка...',
+  'auditLog.error.invalid-request': 'Недапушчальны запыт дыягностыкі.',
+  'auditLog.error.confirmation-required': 'Пацвердзіце дакладныя катэгорыі дыягностыкі, якія будуць выдалены.',
+  'auditLog.error.storage-unavailable': 'Сховішча дыягностыкі недаступнае. Паўтарыце спробу.',
+  'auditLog.error.storage-failed': 'Не ўдалося абнавіць сховішча дыягностыкі. Паўтарыце спробу.',
+  'auditLog.error.save-failed':
+    'Абслугоўванне даных завершана, але налады захавання не ўдалося запісаць. Папярэднія налады застаюцца актыўнымі.',
 
   // About
   'about.open': 'Пра праграму',

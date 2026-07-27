@@ -211,6 +211,54 @@ export default {
   'settingsSection.prettify': 'Prettify',
   'settingsSection.browser': 'Browser',
   'settingsSection.network': 'Network',
+  'settingsSection.auditLog': 'Audit Log',
+
+  // Audit Log settings
+  'auditLog.title': 'Audit Log',
+  'auditLog.description':
+    'Optionally retain successful Translation and Prettify source and result text for local diagnostics.',
+  'auditLog.captureTranslation': 'Capture Translation diagnostics',
+  'auditLog.captureTranslationDescription': 'Store successful translated source and result text, including cache hits.',
+  'auditLog.capturePrettify': 'Capture Prettify diagnostics',
+  'auditLog.capturePrettifyDescription': 'Store successful prettified source and result text, including cache hits.',
+  'auditLog.privacyTitle': 'Sensitive plaintext diagnostics',
+  'auditLog.sensitiveDataWarning': 'Captured source and results may contain private or sensitive text.',
+  'auditLog.plaintextStorageWarning':
+    'Data is stored as best-effort-redacted plaintext SQLite under per-user filesystem permissions. It is not encrypted.',
+  'auditLog.redactionLimitWarning': 'Redaction may miss arbitrary embedded secrets. Treat the stored data as private.',
+  'auditLog.archiveInclusionWarning': 'Enabled categories are included automatically in diagnostics archives.',
+  'auditLog.archiveEncryptionWarning': 'Diagnostics archives are not encrypted.',
+  'auditLog.clearTitle': 'Delete captured data',
+  'auditLog.clearDescription': 'Clearing data is permanent and does not change the capture switches.',
+  'auditLog.clear.translation': 'Clear Translation',
+  'auditLog.clear.prettify': 'Clear Prettify',
+  'auditLog.clear.all': 'Clear all',
+  'auditLog.disableConfirm.title': 'Disable capture and delete data?',
+  'auditLog.disableConfirm.translation':
+    'Saving will disable Translation capture and permanently delete all captured Translation data.',
+  'auditLog.disableConfirm.prettify':
+    'Saving will disable Prettify capture and permanently delete all captured Prettify data.',
+  'auditLog.disableConfirm.all':
+    'Saving will disable both capture categories and permanently delete all captured Translation and Prettify data.',
+  'auditLog.disableConfirm.action': 'Disable and delete',
+  'auditLog.clearConfirm.translation.title': 'Clear Translation diagnostics?',
+  'auditLog.clearConfirm.translation.description':
+    'This permanently deletes all captured Translation data without changing capture settings.',
+  'auditLog.clearConfirm.prettify.title': 'Clear Prettify diagnostics?',
+  'auditLog.clearConfirm.prettify.description':
+    'This permanently deletes all captured Prettify data without changing capture settings.',
+  'auditLog.clearConfirm.all.title': 'Clear all diagnostics?',
+  'auditLog.clearConfirm.all.description':
+    'This permanently deletes all captured Translation and Prettify data without changing capture settings.',
+  'auditLog.clearConfirm.action': 'Clear data',
+  'auditLog.cancel': 'Cancel',
+  'auditLog.processing': 'Processing...',
+  'auditLog.error.invalid-request': 'The diagnostics request was invalid.',
+  'auditLog.error.confirmation-required': 'Confirm the exact diagnostic categories that will be deleted.',
+  'auditLog.error.storage-unavailable': 'Diagnostic storage is unavailable. Try again.',
+  'auditLog.error.storage-failed': 'Could not update diagnostic storage. Try again.',
+  'auditLog.error.save-failed':
+    'Data maintenance completed, but the capture settings could not be saved. The previous settings remain active.',
 
   // About
   'about.open': 'About',

@@ -195,6 +195,58 @@ export default {
   'settingsSection.prettify': 'Aprimorar',
   'settingsSection.browser': 'Navegador',
   'settingsSection.network': 'Rede',
+  'settingsSection.auditLog': 'Registro de auditoria',
+
+  // Configurações do registro de auditoria
+  'auditLog.title': 'Registro de auditoria',
+  'auditLog.description':
+    'Opcionalmente, retenha o texto de origem e de resultado de operações bem-sucedidas de tradução e aprimoramento para diagnóstico local.',
+  'auditLog.captureTranslation': 'Capturar diagnósticos de tradução',
+  'auditLog.captureTranslationDescription':
+    'Armazene o texto de origem e de resultado de traduções bem-sucedidas, incluindo acertos de cache.',
+  'auditLog.capturePrettify': 'Capturar diagnósticos de aprimoramento',
+  'auditLog.capturePrettifyDescription':
+    'Armazene o texto de origem e de resultado de aprimoramentos bem-sucedidos, incluindo acertos de cache.',
+  'auditLog.privacyTitle': 'Diagnósticos confidenciais em texto simples',
+  'auditLog.sensitiveDataWarning': 'A origem e os resultados capturados podem conter texto privado ou confidencial.',
+  'auditLog.plaintextStorageWarning':
+    'Os dados são armazenados como texto simples SQLite com ocultação de melhor esforço e permissões do sistema de arquivos por usuário. Eles não são criptografados.',
+  'auditLog.redactionLimitWarning':
+    'A ocultação pode não detectar segredos arbitrários incorporados. Trate os dados armazenados como privados.',
+  'auditLog.archiveInclusionWarning':
+    'As categorias ativadas são incluídas automaticamente nos arquivos de diagnóstico.',
+  'auditLog.archiveEncryptionWarning': 'Os arquivos de diagnóstico não são criptografados.',
+  'auditLog.clearTitle': 'Excluir dados capturados',
+  'auditLog.clearDescription': 'A exclusão de dados é permanente e não altera os controles de captura.',
+  'auditLog.clear.translation': 'Limpar traduções',
+  'auditLog.clear.prettify': 'Limpar aprimoramentos',
+  'auditLog.clear.all': 'Limpar tudo',
+  'auditLog.disableConfirm.title': 'Desativar a captura e excluir os dados?',
+  'auditLog.disableConfirm.translation':
+    'Salvar desativará a captura de traduções e excluirá permanentemente todos os dados de tradução capturados.',
+  'auditLog.disableConfirm.prettify':
+    'Salvar desativará a captura de aprimoramentos e excluirá permanentemente todos os dados de aprimoramento capturados.',
+  'auditLog.disableConfirm.all':
+    'Salvar desativará as duas categorias e excluirá permanentemente todos os dados de tradução e aprimoramento capturados.',
+  'auditLog.disableConfirm.action': 'Desativar e excluir',
+  'auditLog.clearConfirm.translation.title': 'Limpar os diagnósticos de tradução?',
+  'auditLog.clearConfirm.translation.description':
+    'Isso exclui permanentemente todos os dados de tradução capturados sem alterar as configurações de captura.',
+  'auditLog.clearConfirm.prettify.title': 'Limpar os diagnósticos de aprimoramento?',
+  'auditLog.clearConfirm.prettify.description':
+    'Isso exclui permanentemente todos os dados de aprimoramento capturados sem alterar as configurações de captura.',
+  'auditLog.clearConfirm.all.title': 'Limpar todos os diagnósticos?',
+  'auditLog.clearConfirm.all.description':
+    'Isso exclui permanentemente todos os dados de tradução e aprimoramento capturados sem alterar as configurações de captura.',
+  'auditLog.clearConfirm.action': 'Excluir dados',
+  'auditLog.cancel': 'Cancelar',
+  'auditLog.processing': 'Processando...',
+  'auditLog.error.invalid-request': 'A solicitação de diagnóstico é inválida.',
+  'auditLog.error.confirmation-required': 'Confirme as categorias exatas de diagnóstico que serão excluídas.',
+  'auditLog.error.storage-unavailable': 'O armazenamento de diagnósticos não está disponível. Tente novamente.',
+  'auditLog.error.storage-failed': 'Não foi possível atualizar o armazenamento de diagnósticos. Tente novamente.',
+  'auditLog.error.save-failed':
+    'A manutenção dos dados foi concluída, mas as configurações de captura não puderam ser salvas. As configurações anteriores permanecem ativas.',
   'about.open': 'Sobre',
   'about.version': 'Versão {version}',
   'about.license': 'Licença',

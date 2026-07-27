@@ -193,6 +193,53 @@ export default {
   'settingsSection.prettify': 'सुधारें',
   'settingsSection.browser': 'ब्राउज़र',
   'settingsSection.network': 'नेटवर्क',
+  'settingsSection.auditLog': 'ऑडिट लॉग',
+  'auditLog.title': 'ऑडिट लॉग',
+  'auditLog.description':
+    'स्थानीय निदान के लिए सफल अनुवाद और सुधार के स्रोत तथा परिणाम टेक्स्ट को वैकल्पिक रूप से सुरक्षित रखें।',
+  'auditLog.captureTranslation': 'अनुवाद निदान कैप्चर करें',
+  'auditLog.captureTranslationDescription': 'कैश परिणामों सहित सफल अनुवाद के स्रोत और परिणाम टेक्स्ट को संग्रहीत करें।',
+  'auditLog.capturePrettify': 'सुधार निदान कैप्चर करें',
+  'auditLog.capturePrettifyDescription': 'कैश परिणामों सहित सफल सुधार के स्रोत और परिणाम टेक्स्ट को संग्रहीत करें।',
+  'auditLog.privacyTitle': 'संवेदनशील सादा-पाठ निदान',
+  'auditLog.sensitiveDataWarning': 'कैप्चर किए गए स्रोत और परिणामों में निजी या संवेदनशील टेक्स्ट हो सकता है।',
+  'auditLog.plaintextStorageWarning':
+    'डेटा प्रति-उपयोगकर्ता फ़ाइल सिस्टम अनुमतियों के अंतर्गत यथासंभव संपादित सादा-पाठ SQLite के रूप में संग्रहीत होता है। यह एन्क्रिप्ट नहीं किया जाता।',
+  'auditLog.redactionLimitWarning':
+    'संपादन मनमाने ढंग से अंतर्निहित गोपनीय मानों को छोड़ सकता है। संग्रहीत डेटा को निजी मानें।',
+  'auditLog.archiveInclusionWarning': 'सक्षम श्रेणियाँ निदान अभिलेखों में अपने आप शामिल की जाती हैं।',
+  'auditLog.archiveEncryptionWarning': 'निदान अभिलेख एन्क्रिप्ट नहीं किए जाते।',
+  'auditLog.clearTitle': 'कैप्चर किया गया डेटा हटाएँ',
+  'auditLog.clearDescription': 'डेटा साफ़ करना स्थायी है और कैप्चर स्विच नहीं बदलता।',
+  'auditLog.clear.translation': 'अनुवाद साफ़ करें',
+  'auditLog.clear.prettify': 'सुधार साफ़ करें',
+  'auditLog.clear.all': 'सभी साफ़ करें',
+  'auditLog.disableConfirm.title': 'कैप्चर अक्षम करके डेटा हटाएँ?',
+  'auditLog.disableConfirm.translation':
+    'सहेजने पर अनुवाद कैप्चर अक्षम होगा और कैप्चर किया गया सभी अनुवाद डेटा स्थायी रूप से हट जाएगा।',
+  'auditLog.disableConfirm.prettify':
+    'सहेजने पर सुधार कैप्चर अक्षम होगा और कैप्चर किया गया सभी सुधार डेटा स्थायी रूप से हट जाएगा।',
+  'auditLog.disableConfirm.all':
+    'सहेजने पर दोनों कैप्चर श्रेणियाँ अक्षम होंगी और कैप्चर किया गया सभी अनुवाद तथा सुधार डेटा स्थायी रूप से हट जाएगा।',
+  'auditLog.disableConfirm.action': 'अक्षम करें और हटाएँ',
+  'auditLog.clearConfirm.translation.title': 'अनुवाद निदान साफ़ करें?',
+  'auditLog.clearConfirm.translation.description':
+    'यह कैप्चर सेटिंग बदले बिना कैप्चर किया गया सभी अनुवाद डेटा स्थायी रूप से हटा देता है।',
+  'auditLog.clearConfirm.prettify.title': 'सुधार निदान साफ़ करें?',
+  'auditLog.clearConfirm.prettify.description':
+    'यह कैप्चर सेटिंग बदले बिना कैप्चर किया गया सभी सुधार डेटा स्थायी रूप से हटा देता है।',
+  'auditLog.clearConfirm.all.title': 'सभी निदान साफ़ करें?',
+  'auditLog.clearConfirm.all.description':
+    'यह कैप्चर सेटिंग बदले बिना कैप्चर किया गया सभी अनुवाद और सुधार डेटा स्थायी रूप से हटा देता है।',
+  'auditLog.clearConfirm.action': 'डेटा साफ़ करें',
+  'auditLog.cancel': 'रद्द करें',
+  'auditLog.processing': 'प्रक्रिया जारी है...',
+  'auditLog.error.invalid-request': 'निदान अनुरोध अमान्य था।',
+  'auditLog.error.confirmation-required': 'हटाई जाने वाली सटीक निदान श्रेणियों की पुष्टि करें।',
+  'auditLog.error.storage-unavailable': 'निदान संग्रह उपलब्ध नहीं है। पुनः प्रयास करें।',
+  'auditLog.error.storage-failed': 'निदान संग्रह अपडेट नहीं किया जा सका। पुनः प्रयास करें।',
+  'auditLog.error.save-failed':
+    'डेटा रखरखाव पूरा हुआ, लेकिन कैप्चर सेटिंग सहेजी नहीं जा सकी। पिछली सेटिंग सक्रिय रहती है।',
   'about.open': 'के बारे में',
   'about.version': '{version} संस्करण',
   'about.license': 'लाइसेंस',

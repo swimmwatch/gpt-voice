@@ -99,6 +99,16 @@ export class WindowManager {
     });
   }
 
+  public isTrustedSettingsWindow(webContents: WebContents, senderUrl: string): boolean {
+    const settingsWindow = this.settingsWindow;
+    return Boolean(
+      settingsWindow &&
+      !settingsWindow.isDestroyed() &&
+      settingsWindow.webContents.id === webContents.id &&
+      senderUrl === settingsWindow.webContents.getURL(),
+    );
+  }
+
   public createMainWindow(): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) return;
 

@@ -121,6 +121,14 @@ export class DiagnosticCaptureStorage {
     );
   }
 
+  public pruneAndPurge(categories: readonly DiagnosticActionType[]): Promise<DiagnosticCaptureMaintenanceResult> {
+    return this.enqueue(
+      () => this.pruneAndPurgeNow(categories),
+      this.storageFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageUnavailable),
+      this.storageFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed),
+    );
+  }
+
   public purge(categories: readonly DiagnosticActionType[]): Promise<DiagnosticCaptureMaintenanceResult> {
     return this.enqueue(
       () => this.purgeNow(categories),
@@ -222,6 +230,25 @@ export class DiagnosticCaptureStorage {
         capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
         retentionCutoff: this.retentionCutoff(recordedAt),
       });
+      return { affectedRows, status: 'success' };
+    } catch (error: unknown) {
+      return this.storageFailure(this.storageCause(error));
+    }
+  }
+
+  private pruneAndPurgeNow(categories: readonly DiagnosticActionType[]): DiagnosticCaptureMaintenanceResult {
+    const normalizedCategories = this.normalizeCategories(categories);
+    if (!normalizedCategories) return this.storageFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed);
+
+    try {
+      const recordedAt = this.getRecordedAt();
+      const affectedRows = this.repository.pruneAndPurge(
+        {
+          capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
+          retentionCutoff: this.retentionCutoff(recordedAt),
+        },
+        normalizedCategories,
+      );
       return { affectedRows, status: 'success' };
     } catch (error: unknown) {
       return this.storageFailure(this.storageCause(error));

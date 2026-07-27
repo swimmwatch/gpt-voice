@@ -60,6 +60,8 @@ import type { AppConfigStore } from './config';
 import type { I18nService } from './i18n';
 import type { CloakBrowserSettingsRepository } from './cloakBrowserSettings';
 import type { PrettifySettingsStorage } from './services/prettifySettingsStorage';
+import type { DiagnosticCaptureSettingsService } from './services/diagnosticCaptureSettings';
+import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
 
 export interface MainIpcTransport {
   handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
@@ -69,10 +71,12 @@ export interface MainIpcTransport {
 export type MainIpcConfigRepository = Pick<
   AppConfigStore,
   | 'getHotkeySettings'
+  | 'getDiagnosticCaptureSettings'
   | 'getSnapshot'
   | 'getTextActionSettings'
   | 'getTranslationSettings'
   | 'save'
+  | 'saveDiagnosticCaptureSettings'
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
@@ -113,6 +117,7 @@ export interface MainIpcControllerDependencies {
     dependencies: StreamingTranscriptionIpcControllerDependencies<WebContents>,
   ) => StreamingTranscriptionIpcController<WebContents>;
   readonly desktopRuntimeController: DesktopRuntimeController;
+  readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
@@ -154,6 +159,17 @@ export class TrustedIpcRegistrar {
       return listener(event, ...(args as Args));
     });
     this.channels.add(channel);
+  }
+
+  public handleSettingsWindow<Args extends unknown[]>(channel: string, listener: TrustedIpcListener<Args>): void {
+    this.handle(channel, (event, ...args) => {
+      const senderUrl = event.senderFrame?.url || event.sender.getURL();
+      if (!this.windowManager.isTrustedSettingsWindow(event.sender, senderUrl)) {
+        this.logger.warn('Rejected Settings-only IPC sender');
+        throw new Error('Rejected Settings-only IPC sender');
+      }
+      return listener(event, ...(args as Args));
+    });
   }
 
   public handleStreaming(channel: string, listener: StreamingTranscriptionIpcHandler<WebContents>): void {
@@ -307,6 +323,18 @@ export class MainIpcController {
     this.trustedIpc.handle('translate-text', async (_event, text: string, targetLang: string) => {
       return dependencies.translationRuntime.translateText(text, targetLang);
     });
+
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get, () => {
+      return dependencies.diagnosticCaptureSettings.getSettings();
+    });
+
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set, (_event, request: unknown) =>
+      dependencies.diagnosticCaptureSettings.setSettings(request),
+    );
+
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear, (_event, request: unknown) =>
+      dependencies.diagnosticCaptureSettings.clear(request),
+    );
 
     this.trustedIpc.handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
       return historyController.list(query || {});

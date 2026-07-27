@@ -93,15 +93,17 @@ export class SqliteDiagnosticCaptureRepository extends AbstractSqliteRepository 
     });
   }
 
+  public pruneAndPurge(policy: DiagnosticCapturePrunePolicy, categories: readonly DiagnosticActionType[]): number {
+    return this.executeImmediateTransaction((database) => {
+      const expiredRows = this.deleteExpired(database, policy.retentionCutoff);
+      const capacityRows = this.pruneCapacity(database, 0, policy.capacityBytes);
+      return expiredRows + capacityRows + this.purgeCategories(database, categories);
+    });
+  }
+
   public purge(categories: readonly DiagnosticActionType[]): number {
     if (categories.length === 0) return 0;
-    return this.executeImmediateTransaction((database) => {
-      const placeholders = categories.map(() => '?').join(', ');
-      const result = database
-        .prepare(`DELETE FROM diagnostic_text_actions WHERE action_type IN (${placeholders})`)
-        .run(...categories);
-      return Number(result.changes);
-    });
+    return this.executeImmediateTransaction((database) => this.purgeCategories(database, categories));
   }
 
   public readForArchive(categories: readonly DiagnosticActionType[]): readonly DiagnosticCaptureRow[] {
@@ -139,6 +141,15 @@ export class SqliteDiagnosticCaptureRepository extends AbstractSqliteRepository 
 
   private deleteExpired(database: DatabaseSync, cutoff: string): number {
     const result = database.prepare('DELETE FROM diagnostic_text_actions WHERE recorded_at < ?').run(cutoff);
+    return Number(result.changes);
+  }
+
+  private purgeCategories(database: DatabaseSync, categories: readonly DiagnosticActionType[]): number {
+    if (categories.length === 0) return 0;
+    const placeholders = categories.map(() => '?').join(', ');
+    const result = database
+      .prepare(`DELETE FROM diagnostic_text_actions WHERE action_type IN (${placeholders})`)
+      .run(...categories);
     return Number(result.changes);
   }
 

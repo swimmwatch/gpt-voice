@@ -198,6 +198,57 @@ export default {
   'settingsSection.prettify': 'Améliorer',
   'settingsSection.browser': 'Navigateur',
   'settingsSection.network': 'Réseau',
+  'settingsSection.auditLog': "Journal d'audit",
+  'auditLog.title': "Journal d'audit",
+  'auditLog.description':
+    'Conservez facultativement les textes source et résultat des traductions et améliorations réussies à des fins de diagnostic local.',
+  'auditLog.captureTranslation': 'Capturer les diagnostics de traduction',
+  'auditLog.captureTranslationDescription':
+    'Stocker les textes source et résultat des traductions réussies, y compris les résultats mis en cache.',
+  'auditLog.capturePrettify': "Capturer les diagnostics d'amélioration",
+  'auditLog.capturePrettifyDescription':
+    'Stocker les textes source et résultat des améliorations réussies, y compris les résultats mis en cache.',
+  'auditLog.privacyTitle': 'Diagnostics sensibles en texte brut',
+  'auditLog.sensitiveDataWarning': 'Les sources et résultats capturés peuvent contenir du texte privé ou sensible.',
+  'auditLog.plaintextStorageWarning':
+    "Les données sont stockées en texte brut SQLite avec une rédaction au mieux, sous les permissions du système de fichiers propres à l'utilisateur. Elles ne sont pas chiffrées.",
+  'auditLog.redactionLimitWarning':
+    'La rédaction peut ne pas détecter certains secrets intégrés. Traitez les données stockées comme privées.',
+  'auditLog.archiveInclusionWarning':
+    'Les catégories activées sont automatiquement incluses dans les archives de diagnostic.',
+  'auditLog.archiveEncryptionWarning': 'Les archives de diagnostic ne sont pas chiffrées.',
+  'auditLog.clearTitle': 'Supprimer les données capturées',
+  'auditLog.clearDescription':
+    'La suppression des données est définitive et ne modifie pas les interrupteurs de capture.',
+  'auditLog.clear.translation': 'Effacer les traductions',
+  'auditLog.clear.prettify': 'Effacer les améliorations',
+  'auditLog.clear.all': 'Tout effacer',
+  'auditLog.disableConfirm.title': 'Désactiver la capture et supprimer les données ?',
+  'auditLog.disableConfirm.translation':
+    'L’enregistrement désactivera la capture des traductions et supprimera définitivement toutes les données de traduction capturées.',
+  'auditLog.disableConfirm.prettify':
+    "L’enregistrement désactivera la capture des améliorations et supprimera définitivement toutes les données d'amélioration capturées.",
+  'auditLog.disableConfirm.all':
+    'L’enregistrement désactivera les deux catégories de capture et supprimera définitivement toutes les données de traduction et d’amélioration capturées.',
+  'auditLog.disableConfirm.action': 'Désactiver et supprimer',
+  'auditLog.clearConfirm.translation.title': 'Effacer les diagnostics de traduction ?',
+  'auditLog.clearConfirm.translation.description':
+    'Cette action supprime définitivement toutes les données de traduction capturées sans modifier les paramètres de capture.',
+  'auditLog.clearConfirm.prettify.title': "Effacer les diagnostics d'amélioration ?",
+  'auditLog.clearConfirm.prettify.description':
+    "Cette action supprime définitivement toutes les données d'amélioration capturées sans modifier les paramètres de capture.",
+  'auditLog.clearConfirm.all.title': 'Effacer tous les diagnostics ?',
+  'auditLog.clearConfirm.all.description':
+    'Cette action supprime définitivement toutes les données de traduction et d’amélioration capturées sans modifier les paramètres de capture.',
+  'auditLog.clearConfirm.action': 'Effacer les données',
+  'auditLog.cancel': 'Annuler',
+  'auditLog.processing': 'Traitement en cours...',
+  'auditLog.error.invalid-request': "La demande de diagnostic n'est pas valide.",
+  'auditLog.error.confirmation-required': 'Confirmez les catégories exactes de diagnostic qui seront supprimées.',
+  'auditLog.error.storage-unavailable': 'Le stockage des diagnostics est indisponible. Réessayez.',
+  'auditLog.error.storage-failed': 'Impossible de mettre à jour le stockage des diagnostics. Réessayez.',
+  'auditLog.error.save-failed':
+    "La maintenance des données est terminée, mais les paramètres de capture n'ont pas pu être enregistrés. Les paramètres précédents restent actifs.",
   'about.open': 'À propos',
   'about.version': 'Version {version}',
   'about.license': 'Licence',

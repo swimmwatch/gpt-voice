@@ -180,6 +180,7 @@ describe('WindowManager', () => {
     harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
 
     const mainWindow = harness.created[0];
+    const settingsWindow = harness.created[1];
     const providerWindow = harness.created[4];
     assert.equal(harness.created.length, 5);
     assert.match(providerWindow?.loadUrls[0] ?? '', /providerId=openai-api/u);
@@ -188,12 +189,39 @@ describe('WindowManager', () => {
       true,
     );
     assert.equal(harness.manager.isTrustedAppWindow(providerWindow?.webContents, 'https://attacker.example/'), false);
+    assert.equal(
+      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
+      true,
+    );
+    assert.equal(
+      harness.manager.isTrustedSettingsWindow(mainWindow?.webContents, mainWindow?.loadUrls[0] ?? ''),
+      false,
+    );
+    assert.equal(
+      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, 'app://gpt-voice/settings.html'),
+      false,
+    );
 
     harness.manager.broadcastLocaleChanged('en');
     for (const window of harness.created) {
       assert.deepEqual(window.sent[window.sent.length - 1], ['locale-changed', 'en']);
     }
     assert.equal(mainWindow?.sent.length, 1);
+
+    harness.manager.closeSettingsWindow();
+    harness.manager.showSettingsWindow('audit-log');
+    const replacementSettingsWindow = harness.created[5];
+    assert.equal(
+      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
+      false,
+    );
+    assert.equal(
+      harness.manager.isTrustedSettingsWindow(
+        replacementSettingsWindow?.webContents,
+        replacementSettingsWindow?.loadUrls[0] ?? '',
+      ),
+      true,
+    );
   });
 
   it('keeps state isolated and disposes every owned window idempotently', () => {

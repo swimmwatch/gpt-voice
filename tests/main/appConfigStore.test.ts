@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { AppConfigStore, resolveAppConfigPaths, type AppConfigStoreDependencies } from '@main/config';
 import { writeTextFileAtomically } from '@main/translationSettings';
+import { DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS } from '@shared/diagnosticCaptureSettings';
 import { DEFAULT_CANCEL_HOTKEY, DEFAULT_RECORD_HOTKEY, DEFAULT_RETRY_TRANSCRIPTION_HOTKEY } from '@shared/hotkeys';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 
@@ -146,6 +147,10 @@ describe('AppConfigStore', () => {
       providerId: 'bing',
       targetLanguageByProvider: { bing: 'ru', google: 'uk', yandex: 'be' },
     });
+    fixture.store.saveDiagnosticCaptureSettings({
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: false,
+    });
     assert.equal(fixture.store.getFingerprintSeed(), GENERATED_FINGERPRINT_SEED);
     fixture.store.save();
 
@@ -153,6 +158,8 @@ describe('AppConfigStore', () => {
     assert.deepEqual(Object.keys(persisted), [
       'hotkey',
       'cancelHotkey',
+      'captureTranslationDiagnostics',
+      'capturePrettifyDiagnostics',
       'stopHotkey',
       'translateHotkey',
       'prettifyHotkey',
@@ -213,6 +220,66 @@ describe('AppConfigStore', () => {
     assert.equal(notice.categories.includes('target'), true);
     assert.equal(fixture.store.consumePendingTranslationSettingsRepairNotice(), null);
     assert.equal(fixture.readPersistedConfig().fingerprintSeed, GENERATED_FINGERPRINT_SEED);
+  });
+
+  it('defaults independently corrupt diagnostic settings and resets them before every load', () => {
+    const fixture = createFixture();
+    fixture.writePersistedConfig({
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: 'true',
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+    });
+
+    fixture.store.load();
+    assert.deepEqual(fixture.store.getDiagnosticCaptureSettings(), {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: false,
+    });
+
+    fs.rmSync(fixture.paths.configFile);
+    fixture.store.load();
+    assert.deepEqual(fixture.store.getDiagnosticCaptureSettings(), DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS);
+
+    fixture.store.saveDiagnosticCaptureSettings({
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: true,
+    });
+    fs.writeFileSync(fixture.paths.configFile, '{corrupt-json', 'utf8');
+    fixture.store.load();
+    assert.deepEqual(fixture.store.getDiagnosticCaptureSettings(), DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS);
+  });
+
+  it('publishes diagnostic settings in memory only after atomic persistence succeeds', () => {
+    let shouldFail = false;
+    const fixture = createFixture({
+      writeFileAtomically: (filePath, contents) => {
+        if (shouldFail) throw new Error('synthetic diagnostic settings save failure');
+        writeTextFileAtomically(filePath, contents, {
+          createTemporaryPath: (target) => `${target}.pending`,
+          fileSystem: fs,
+        });
+      },
+    });
+    fixture.store.saveDiagnosticCaptureSettings({
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    });
+    const previousBytes = fs.readFileSync(fixture.paths.configFile, 'utf8');
+    shouldFail = true;
+
+    assert.throws(
+      () =>
+        fixture.store.saveDiagnosticCaptureSettings({
+          capturePrettifyDiagnostics: true,
+          captureTranslationDiagnostics: false,
+        }),
+      /synthetic diagnostic settings save failure/u,
+    );
+    assert.deepEqual(fixture.store.getDiagnosticCaptureSettings(), {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    });
+    assert.equal(fs.readFileSync(fixture.paths.configFile, 'utf8'), previousBytes);
   });
 
   it('migrates the legacy application directory only when load begins', () => {

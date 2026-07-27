@@ -55,5 +55,20 @@ export function registerDiagnosticCaptureRepositoryContract(
         harness.dispose();
       }
     });
+
+    it('combines bounded pruning with a category purge', () => {
+      const harness = createHarness();
+      try {
+        const translation = createRecord('00000000-0000-4000-8000-000000000003', 'translation');
+        const prettify = createRecord('00000000-0000-4000-8000-000000000004', 'prettify');
+        harness.repository.insert(translation, CONTRACT_POLICY);
+        harness.repository.insert(prettify, CONTRACT_POLICY);
+
+        assert.equal(harness.repository.pruneAndPurge(CONTRACT_POLICY, ['translation']), 1);
+        assert.deepEqual(harness.repository.readForArchive(['translation', 'prettify']), [prettify]);
+      } finally {
+        harness.dispose();
+      }
+    });
   });
 }

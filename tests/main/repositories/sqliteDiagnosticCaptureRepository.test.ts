@@ -207,6 +207,61 @@ describe('SQLite diagnostic capture repository', () => {
     assert.deepEqual(harness.repository.readForArchive(['translation', 'prettify']), [expired, capacity]);
   });
 
+  it('commits prune and category purge together in one immediate transaction', () => {
+    const harness = createHarness();
+    const expired = harness.record({ recordedAt: '2026-05-01T00:00:00.000Z' });
+    const translation = harness.record({ recordedAt: CURRENT_TIME });
+    const prettify = harness.record({ actionType: 'prettify', recordedAt: CURRENT_TIME });
+    harness.seed(expired);
+    harness.seed(translation);
+    harness.seed(prettify);
+
+    const affected = harness.repository.pruneAndPurge(
+      {
+        capacityBytes: PAYLOAD_CAP_BYTES,
+        retentionCutoff: RETENTION_CUTOFF,
+      },
+      ['translation'],
+    );
+
+    assert.equal(affected, 2);
+    assert.deepEqual(harness.repository.readForArchive(['translation', 'prettify']), [prettify]);
+  });
+
+  it('rolls back pruning when the category purge fails in the combined transaction', () => {
+    const harness = createHarness();
+    const expired = harness.record({ recordedAt: '2026-05-01T00:00:00.000Z' });
+    const prettify = harness.record({ actionType: 'prettify', recordedAt: CURRENT_TIME });
+    harness.seed(expired);
+    harness.seed(prettify);
+    harness.coordinator.run((database) => {
+      database.exec(`
+        CREATE TRIGGER fail_prettify_diagnostic_delete
+        BEFORE DELETE ON diagnostic_text_actions
+        WHEN OLD.action_type = 'prettify'
+        BEGIN
+          SELECT RAISE(ABORT, 'private-purge-trigger-canary');
+        END;
+      `);
+    });
+
+    assert.throws(
+      () =>
+        harness.repository.pruneAndPurge(
+          {
+            capacityBytes: PAYLOAD_CAP_BYTES,
+            retentionCutoff: RETENTION_CUTOFF,
+          },
+          ['prettify'],
+        ),
+      (error: unknown) =>
+        error instanceof RepositoryError &&
+        error.code === REPOSITORY_ERROR_CODES.OperationFailed &&
+        !error.message.includes('private-purge-trigger-canary'),
+    );
+    assert.deepEqual(harness.repository.readForArchive(['translation', 'prettify']), [expired, prettify]);
+  });
+
   it('purges requested categories without changing transcription history', () => {
     const harness = createHarness();
     const historyRepository = new SqliteTranscriptionHistoryRepository(harness.coordinator);

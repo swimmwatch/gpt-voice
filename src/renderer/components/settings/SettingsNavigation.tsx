@@ -1,4 +1,4 @@
-import { Globe2, Keyboard, Network, Settings2, Sparkles, type LucideIcon } from 'lucide-react';
+import { FileClock, Globe2, Keyboard, Network, Settings2, Sparkles, type LucideIcon } from 'lucide-react';
 import type { JSX } from 'react';
 import { TabsList, TabsTrigger } from '@renderer/components/ui/tabs';
 import type { TranslationFunction } from '@renderer/components/settings/types';
@@ -19,6 +19,7 @@ const SETTINGS_NAVIGATION_ITEMS: readonly SettingsNavigationItem[] = [
   { icon: Sparkles, id: 'prettify', labelKey: 'settingsSection.prettify' },
   { icon: Globe2, id: 'browser', labelKey: 'settingsSection.browser' },
   { icon: Network, id: 'network', labelKey: 'settingsSection.network' },
+  { icon: FileClock, id: 'audit-log', labelKey: 'settingsSection.auditLog' },
 ];
 
 interface SettingsNavigationProps {

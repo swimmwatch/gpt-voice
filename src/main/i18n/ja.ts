@@ -192,6 +192,52 @@ export default {
   'settingsSection.prettify': '整える',
   'settingsSection.browser': 'ブラウザー',
   'settingsSection.network': 'ネットワーク',
+  'settingsSection.auditLog': '監査ログ',
+  'auditLog.title': '監査ログ',
+  'auditLog.description': 'ローカル診断のため、成功した翻訳と文章整形の入力および結果テキストを任意で保持します。',
+  'auditLog.captureTranslation': '翻訳診断を記録',
+  'auditLog.captureTranslationDescription': 'キャッシュ結果を含む、成功した翻訳の入力および結果テキストを保存します。',
+  'auditLog.capturePrettify': '文章整形診断を記録',
+  'auditLog.capturePrettifyDescription': 'キャッシュ結果を含む、成功した文章整形の入力および結果テキストを保存します。',
+  'auditLog.privacyTitle': '機密性のある平文診断データ',
+  'auditLog.sensitiveDataWarning': '記録された入力と結果には、個人情報や機密テキストが含まれる可能性があります。',
+  'auditLog.plaintextStorageWarning':
+    'データは可能な範囲で編集された平文のSQLiteとして、ユーザーごとのファイルシステム権限の下に保存されます。暗号化されません。',
+  'auditLog.redactionLimitWarning':
+    '編集処理では、任意に埋め込まれた秘密情報を見落とす場合があります。保存データは非公開として扱ってください。',
+  'auditLog.archiveInclusionWarning': '有効なカテゴリのデータは診断アーカイブに自動的に含まれます。',
+  'auditLog.archiveEncryptionWarning': '診断アーカイブは暗号化されません。',
+  'auditLog.clearTitle': '記録データを削除',
+  'auditLog.clearDescription': 'データの消去は取り消せず、記録スイッチは変更されません。',
+  'auditLog.clear.translation': '翻訳を消去',
+  'auditLog.clear.prettify': '文章整形を消去',
+  'auditLog.clear.all': 'すべて消去',
+  'auditLog.disableConfirm.title': '記録を無効にしてデータを削除しますか？',
+  'auditLog.disableConfirm.translation':
+    '保存すると翻訳の記録が無効になり、記録済みの翻訳データがすべて完全に削除されます。',
+  'auditLog.disableConfirm.prettify':
+    '保存すると文章整形の記録が無効になり、記録済みの文章整形データがすべて完全に削除されます。',
+  'auditLog.disableConfirm.all':
+    '保存すると両方の記録カテゴリが無効になり、記録済みの翻訳および文章整形データがすべて完全に削除されます。',
+  'auditLog.disableConfirm.action': '無効にして削除',
+  'auditLog.clearConfirm.translation.title': '翻訳診断データを消去しますか？',
+  'auditLog.clearConfirm.translation.description':
+    '記録設定を変更せずに、記録済みの翻訳データをすべて完全に削除します。',
+  'auditLog.clearConfirm.prettify.title': '文章整形診断データを消去しますか？',
+  'auditLog.clearConfirm.prettify.description':
+    '記録設定を変更せずに、記録済みの文章整形データをすべて完全に削除します。',
+  'auditLog.clearConfirm.all.title': 'すべての診断データを消去しますか？',
+  'auditLog.clearConfirm.all.description':
+    '記録設定を変更せずに、記録済みの翻訳および文章整形データをすべて完全に削除します。',
+  'auditLog.clearConfirm.action': 'データを消去',
+  'auditLog.cancel': 'キャンセル',
+  'auditLog.processing': '処理中...',
+  'auditLog.error.invalid-request': '診断リクエストが無効です。',
+  'auditLog.error.confirmation-required': '削除される診断カテゴリを正確に確認してください。',
+  'auditLog.error.storage-unavailable': '診断ストレージを利用できません。もう一度お試しください。',
+  'auditLog.error.storage-failed': '診断ストレージを更新できませんでした。もう一度お試しください。',
+  'auditLog.error.save-failed':
+    'データのメンテナンスは完了しましたが、記録設定を保存できませんでした。以前の設定が引き続き有効です。',
   'about.open': '情報について',
   'about.version': '{version} バージョン',
   'about.license': 'ライセンス',

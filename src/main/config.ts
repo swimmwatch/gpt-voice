@@ -19,6 +19,12 @@ import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 import { DEFAULT_APP_LOCALE, normalizeAppLocale, type AppLocaleId } from '@shared/appLocale';
 import type { TranslationSettings } from '@shared/translationProvider';
 import {
+  DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+  isDiagnosticCaptureSettings,
+  normalizeDiagnosticCaptureSettings,
+  type DiagnosticCaptureSettings,
+} from '@shared/diagnosticCaptureSettings';
+import {
   TranslationSettingsState,
   type AtomicFileSystem,
   type TranslationSettingsRepairNotice,
@@ -90,6 +96,8 @@ export interface AppConfigStoreDependencies {
 
 export interface AppConfigSnapshot {
   readonly cancelHotkey: string;
+  readonly capturePrettifyDiagnostics: boolean;
+  readonly captureTranslationDiagnostics: boolean;
   readonly fingerprintSeed: string;
   readonly hotkey: string;
   readonly locale: AppLocaleId;
@@ -181,6 +189,7 @@ function createImmutablePrettifySettings(settings: PrettifySettings): PrettifySe
  */
 export class AppConfigStore {
   private cancelHotkey = DEFAULT_CANCEL_HOTKEY;
+  private diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
   private fingerprintSeed = '';
   private hotkey = DEFAULT_RECORD_HOTKEY;
   private locale: AppLocaleId = DEFAULT_APP_LOCALE;
@@ -204,6 +213,8 @@ export class AppConfigStore {
   public getSnapshot(): AppConfigSnapshot {
     return Object.freeze({
       cancelHotkey: this.cancelHotkey,
+      capturePrettifyDiagnostics: this.diagnosticCaptureSettings.capturePrettifyDiagnostics,
+      captureTranslationDiagnostics: this.diagnosticCaptureSettings.captureTranslationDiagnostics,
       fingerprintSeed: this.fingerprintSeed,
       hotkey: this.hotkey,
       locale: this.locale,
@@ -236,6 +247,10 @@ export class AppConfigStore {
       prettifyEnabled: this.prettifyEnabled,
       translateEnabled: this.translateEnabled,
     });
+  }
+
+  public getDiagnosticCaptureSettings(): DiagnosticCaptureSettings {
+    return Object.freeze({ ...this.diagnosticCaptureSettings });
   }
 
   public getTranslationSettings(): TranslationSettings {
@@ -308,7 +323,18 @@ export class AppConfigStore {
     return this.translationSettingsState.save(candidate, (settings) => this.persistSnapshot(settings));
   }
 
+  public saveDiagnosticCaptureSettings(candidate: unknown): DiagnosticCaptureSettings {
+    if (!isDiagnosticCaptureSettings(candidate)) {
+      throw new Error('Invalid diagnostic capture settings');
+    }
+    const nextSettings = Object.freeze({ ...candidate });
+    this.persistSnapshot(this.translationSettingsState.getSnapshot(), nextSettings);
+    this.diagnosticCaptureSettings = nextSettings;
+    return this.getDiagnosticCaptureSettings();
+  }
+
   public load(): void {
+    this.diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
     this.initializeFileSystem();
     try {
       if (this.dependencies.fileSystem.existsSync(this.paths.configFile)) {
@@ -344,6 +370,7 @@ export class AppConfigStore {
     const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
     let shouldSaveConfig = false;
 
+    this.diagnosticCaptureSettings = normalizeDiagnosticCaptureSettings(config);
     this.hotkey = getConfigString(config, 'hotkey') ?? this.hotkey;
     this.cancelHotkey = getConfigString(config, 'cancelHotkey') ?? this.cancelHotkey;
     this.stopHotkey = getConfigString(config, 'stopHotkey') ?? this.stopHotkey;
@@ -384,10 +411,13 @@ export class AppConfigStore {
 
   private createPersistedSnapshot(
     translationSettings = this.translationSettingsState.getSnapshot(),
+    diagnosticCaptureSettings = this.diagnosticCaptureSettings,
   ): Record<string, unknown> {
     return {
       hotkey: this.hotkey,
       cancelHotkey: this.cancelHotkey,
+      captureTranslationDiagnostics: diagnosticCaptureSettings.captureTranslationDiagnostics,
+      capturePrettifyDiagnostics: diagnosticCaptureSettings.capturePrettifyDiagnostics,
       stopHotkey: this.stopHotkey,
       translateHotkey: this.translateHotkey,
       prettifyHotkey: this.prettifyHotkey,
@@ -403,11 +433,14 @@ export class AppConfigStore {
     };
   }
 
-  private persistSnapshot(translationSettings = this.translationSettingsState.getSnapshot()): void {
+  private persistSnapshot(
+    translationSettings = this.translationSettingsState.getSnapshot(),
+    diagnosticCaptureSettings = this.diagnosticCaptureSettings,
+  ): void {
     this.ensureAppDirectory();
     this.dependencies.writeFileAtomically(
       this.paths.configFile,
-      JSON.stringify(this.createPersistedSnapshot(translationSettings), null, 2),
+      JSON.stringify(this.createPersistedSnapshot(translationSettings, diagnosticCaptureSettings), null, 2),
     );
   }
 

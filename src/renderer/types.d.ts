@@ -27,6 +27,13 @@ import type { TextActionSettings, TextActionSettingsInput } from '@shared/textAc
 import type { TextActionStatus } from '@shared/textActionStatus';
 import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
 import type {
+  DiagnosticCaptureClearRequest,
+  DiagnosticCaptureClearResult,
+  DiagnosticCaptureSettings,
+  DiagnosticCaptureSettingsMutationRequest,
+  DiagnosticCaptureSettingsMutationResult,
+} from '@shared/diagnosticCaptureSettings';
+import type {
   CancelStreamingTranscriptionIpcResult,
   FinishStreamingTranscriptionIpcResult,
   SendStreamingTranscriptionChunkIpcResult,
@@ -155,6 +162,11 @@ export interface ElectronAPI {
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
   getTranslateSettings: () => Promise<TranslationSettings>;
   getTextActionSettings: () => Promise<TextActionSettings>;
+  getDiagnosticCaptureSettings: () => Promise<DiagnosticCaptureSettings>;
+  setDiagnosticCaptureSettings: (
+    request: DiagnosticCaptureSettingsMutationRequest,
+  ) => Promise<DiagnosticCaptureSettingsMutationResult>;
+  clearDiagnosticCapture: (request: DiagnosticCaptureClearRequest) => Promise<DiagnosticCaptureClearResult>;
   setTextActionSettings: (
     settings: TextActionSettingsInput,
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;

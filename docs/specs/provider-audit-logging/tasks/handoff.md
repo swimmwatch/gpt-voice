@@ -1,69 +1,65 @@
-# Handoff: Provider Audit Task 17 Complete
+# Handoff: Provider Audit Task 18 Complete
 
 ## Status
 
-- Tasks 01–16 are committed; Task 16 is
-  `c3f1f02a refactor(di): migrate runtime adapters`.
-- Task 17 is implemented and verified, with all Task 17 changes left unstaged
+- Tasks 01–17 are committed; Task 17 is
+  `b54ad347 refactor(di): enforce project boundaries`.
+- Task 18 is implemented and verified, with all Task 18 changes left unstaged
   and uncommitted for review.
 
 ## Completed Work
 
-- Removed residual default dependencies and implicit construction from provider
-  audit, SQLite coordination, CLI execution, and Codex CLI integration.
-- Moved window controllers, IPC collaborators, provider navigation, asset
-  resolution, text automation, and Linux desktop integration into the
-  process-owned composition roots.
-- Constructed the main application graph inside `bootstrapMainProcess()` so no
-  mutable application graph remains at module scope.
-- Added a functional renderer logger provider and removed module-owned renderer
-  logger instances.
-- Added static DI architecture enforcement for mutable module state, fallback
-  dependencies, service locators, root-owned construction, and pass-through
-  wrappers.
-- Added deterministic coverage for asset paths, renderer logger isolation,
-  explicit SQLite and audit dependencies, and complete disposal of a second
-  process graph.
-- Updated project DI and runtime-ownership guidance.
+- Added default-off, independently normalized Translation and Prettify
+  diagnostic capture settings with atomic config persistence.
+- Added `DiagnosticCaptureSettingsService.getSettings()`, `setSettings()`, and
+  `clear()` with exact disable confirmations, serialized maintenance, closed
+  failures, and authoritative settings snapshots.
+- Added repository/storage `pruneAndPurge(policy, categories)` backed by one
+  SQLite immediate transaction.
+- Registered Settings-window-only channels
+  `get-diagnostic-capture-settings`, `set-diagnostic-capture-settings`, and
+  `clear-diagnostic-capture`; preload and renderer declarations use the same
+  shared contracts.
+- Mutation requests contain a complete settings snapshot plus unique
+  `confirmedPurgeCategories`; clear requests contain a closed target plus
+  literal `confirmed: true`.
+- Added the localized `audit-log` section, transactional save reconciliation,
+  confirmed disable/clear flows, action locking, focus restoration, and all
+  required privacy/archive disclosures across eleven locales.
 
-## Task 17 Boundary
+## Changed Boundary
 
-- Main composition and ownership:
-  `src/main/main.ts`, `src/main/di/`, `src/main/assets.ts`,
-  `src/main/ipc.ts`, `src/main/linuxDesktopIntegration.ts`,
-  `src/main/window.ts`, and affected audit, provider, SQLite, CLI, selected-text,
-  and text-automation classes.
-- Renderer composition and consumers:
-  `src/renderer/RendererLoggerProvider.tsx`,
-  `src/renderer/bootstrapWindow.tsx`, settings, recording hooks, and
-  notification logging.
-- Enforcement and regression coverage:
-  `tests/main/projectDiBoundaries.test.ts`, new asset, explicit-dependency, and
-  renderer-logger fixtures, plus affected composition, runtime, repository,
-  provider, transcription, and renderer tests.
-- Guidance and state:
-  `docs/agent-guides/project-conventions.md`, `tasks/todo.md`, and this handoff.
+- Contracts/config/service/repositories: `src/shared/diagnosticCaptureSettings.ts`,
+  `src/main/config.ts`, `src/main/services/diagnosticCaptureSettings.ts`,
+  diagnostic storage/repository files, and the main runtime factory.
+- IPC/window/preload: `src/main/ipc.ts`, `src/main/window.ts`,
+  `src/main/preloadApi.ts`, and `src/renderer/types.d.ts`.
+- Renderer/localization: App Settings state and utilities, navigation,
+  `AuditLogSection.tsx`, shared section IDs, and all eleven locale catalogs.
+- Coverage: new diagnostic settings, IPC, and Audit Log suites plus updated
+  config, storage, repository, window, App Settings, and section tests.
 
 ## Checks
 
-- Task 17 focused suites passed: 141 tests.
-- Full unit suite passed: 967 tests.
-- `npm run typecheck`, `npm run test:types`, `npm run lint`, and
-  `npm run format:check` passed.
-- `npm run build:prod` passed; webpack reported only its existing bundle-size
-  recommendations.
-- `git diff --check` passed.
+- Task 18 focused suites passed: 118 tests.
+- Full unit suite passed: 1,000 tests.
+- `npm run typecheck`, `npm run test:types`, `npm run lint`,
+  `npm run format:check`, and `git diff --check` passed.
+- `npm run build:prod` passed; webpack reported only its existing three
+  bundle-size recommendations.
 
 ## Risks And Manual Gaps
 
-- Live Electron lifecycle, clipboard, desktop integration, browser/provider
-  sessions, credentials, platform-specific process execution, and packaged
-  runtime behavior remain deferred manual gates.
-- Packaging, pushes, pull requests, and releases were not run.
-- No renderer/preload/IPC wire contract, provider outcome, persisted data
-  shape, dependency, or release behavior was intentionally changed.
+- The synthetic destructive-dialog keyboard/focus gate is deferred; automated
+  coverage verifies labels, locking, cancellation state restoration, retry
+  behavior, and focus-restoration wiring.
+- No real diagnostic rows were purged. Live Electron interaction, private
+  profiles, providers, credentials, packaging, pushes, pull requests, and
+  releases were not run.
+- Task 18 stores settings and deletes existing rows only; provider/cache result
+  capture remains intentionally absent until Task 19.
 
 ## Next Packet
 
-- [18 Audit Log settings and deletion](18_add_audit_log_settings_and_deletion.md)
-- Task 17 review and commit authorization are required before Task 18 begins.
+- [19 Translation and Prettify capture](19_integrate_translation_prettify_capture.md)
+- Task 18 review and commit authorization are required before Task 19 begins.

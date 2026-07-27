@@ -15,12 +15,17 @@ import {
   getCloakBrowserLocaleOptions,
   getCloakBrowserTimezoneOptions,
   hasAppSettingsFieldErrors,
+  restoreCancelledDiagnosticCaptureSettings,
   saveAppSettingsState,
   validateAppSettings,
   PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS,
   type PrettifySettingsDraft,
 } from '@renderer/appSettingsUtils';
 import type { CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
+import {
+  DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+  type DiagnosticCaptureSettingsMutationRequest,
+} from '@shared/diagnosticCaptureSettings';
 import {
   DEFAULT_PRETTIFY_SETTINGS,
   MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
@@ -60,6 +65,17 @@ function prettifySettingsDraft(
 
 const VALID_PRETTIFY_SETTINGS = prettifySettings();
 const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true };
+const UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT = {
+  confirmedDiagnosticPurgeCategories: [],
+  diagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+  initialDiagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+} as const;
+const SAVE_DIAGNOSTIC_CAPTURE_SETTINGS = async (
+  request: DiagnosticCaptureSettingsMutationRequest,
+): Promise<{ readonly settings: typeof request.settings; readonly success: true }> => ({
+  settings: request.settings,
+  success: true,
+});
 
 function cloakBrowserSettings(overrides: Partial<CloakBrowserSettingsView> = {}): CloakBrowserSettingsView {
   return {
@@ -89,6 +105,7 @@ describe('appSettingsUtils', () => {
 
     assert.deepEqual(
       getAppSettingsFormState({
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         initialPrettifySettings,
         initialSettings,
         initialTextActionSettings,
@@ -105,6 +122,7 @@ describe('appSettingsUtils', () => {
 
     assert.deepEqual(
       getAppSettingsFormState({
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         initialPrettifySettings,
         initialSettings,
         initialTextActionSettings,
@@ -182,6 +200,7 @@ describe('appSettingsUtils', () => {
     changedSettings.proxy.password = 'secret-pass';
 
     const summary = createAppSettingsLogSummary({
+      ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
       settings: changedSettings,
       initialSettings,
       prettifySettings: prettifySettings({
@@ -270,6 +289,7 @@ describe('appSettingsUtils', () => {
     });
 
     const summary = createAppSettingsLogSummary({
+      ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
       settings: initialSettings,
       initialSettings,
       prettifySettings: current,
@@ -637,6 +657,7 @@ describe('appSettingsUtils', () => {
 
     assert.deepEqual(
       getAppSettingsFormState({
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
         initialSettings,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
@@ -704,6 +725,7 @@ describe('appSettingsUtils', () => {
       ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'inactive-private-model' },
     });
     const input = {
+      ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
       settings: initialSettings,
       initialSettings,
       prettifySettings: current,
@@ -774,12 +796,34 @@ describe('appSettingsUtils', () => {
     );
   });
 
+  it('restores only cancelled diagnostic disable drafts and preserves unrelated changes', () => {
+    const initial = {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: true,
+    };
+    const current = {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: false,
+    };
+
+    assert.deepEqual(restoreCancelledDiagnosticCaptureSettings(current, initial, ['translation']), {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    });
+    assert.deepEqual(restoreCancelledDiagnosticCaptureSettings(current, initial, ['prettify']), {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: false,
+    });
+    assert.deepEqual(restoreCancelledDiagnosticCaptureSettings(current, initial, ['translation', 'prettify']), initial);
+  });
+
   it('saves prettify-only changes without saving CloakBrowser settings', async () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const calls: string[] = [];
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
         prettifySettings: prettifySettings({ prompt: 'new prompt' }),
@@ -792,6 +836,7 @@ describe('appSettingsUtils', () => {
           calls.push('cloakbrowser');
           return { success: true, settings: cloakBrowserSettings() };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
           return { success: true, settings: settings as PrettifySettings };
@@ -824,6 +869,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
         prettifySettings: current,
@@ -833,6 +879,7 @@ describe('appSettingsUtils', () => {
       },
       {
         saveCloakBrowserSettings: async () => ({ success: true, settings: cloakBrowserSettings() }),
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           savedProviderId = settings.providerId;
           savedModel = settings.claudeCli?.model;
@@ -854,6 +901,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
         prettifySettings: prettifySettings({ prompt: 'new prompt' }),
@@ -866,6 +914,7 @@ describe('appSettingsUtils', () => {
           calls.push('cloakbrowser');
           return { success: true, settings: cloakBrowserSettings() };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async () => {
           calls.push('prettify');
           return { success: false, error: 'config save failed' };
@@ -888,6 +937,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
@@ -900,6 +950,7 @@ describe('appSettingsUtils', () => {
           calls.push('cloakbrowser');
           return { success: true, settings: cloakBrowserSettings() };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
           return { success: true, settings: settings as PrettifySettings };
@@ -926,6 +977,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
         prettifySettings: prettifySettings({ prompt: '' }),
@@ -938,6 +990,7 @@ describe('appSettingsUtils', () => {
           calls.push('cloakbrowser');
           return { success: true, settings: cloakBrowserSettings() };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
           return { success: true, settings: settings as PrettifySettings };
@@ -961,6 +1014,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: changedSettings,
         initialSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
@@ -973,6 +1027,7 @@ describe('appSettingsUtils', () => {
           calls.push('cloakbrowser');
           return { success: true, settings: cloakBrowserSettings({ backgroundMode: 'visible' }) };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
           return { success: true, settings: settings as PrettifySettings };
@@ -997,6 +1052,7 @@ describe('appSettingsUtils', () => {
 
     const result = await saveAppSettingsState(
       {
+        ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: changedSettings,
         initialSettings,
         prettifySettings: prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }),
@@ -1013,6 +1069,7 @@ describe('appSettingsUtils', () => {
             settings: cloakBrowserSettings({ backgroundMode: 'visible' }),
           };
         },
+        setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
           return { success: true, settings: settings as PrettifySettings };
@@ -1030,5 +1087,146 @@ describe('appSettingsUtils', () => {
     assert.equal(result.settingsSaved, undefined);
     assert.deepEqual(calls, ['prettify', 'cloakbrowser']);
     assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }));
+  });
+
+  it('saves the Audit Log group after existing groups with the exact purge confirmation', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialDiagnosticCaptureSettings = {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: true,
+    };
+    const diagnosticCaptureSettings = {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: false,
+    };
+    const calls: string[] = [];
+    let request: DiagnosticCaptureSettingsMutationRequest | null = null;
+
+    const result = await saveAppSettingsState(
+      {
+        confirmedDiagnosticPurgeCategories: ['translation'],
+        diagnosticCaptureSettings,
+        initialDiagnosticCaptureSettings,
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        initialSettings,
+        initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        settings: initialSettings,
+        textActionSettings: { prettifyEnabled: true, translateEnabled: false },
+      },
+      {
+        saveCloakBrowserSettings: async () => {
+          calls.push('cloakbrowser');
+          return { settings: cloakBrowserSettings(), success: true };
+        },
+        setDiagnosticCaptureSettings: async (candidate) => {
+          calls.push('audit');
+          request = candidate;
+          return { settings: candidate.settings, success: true };
+        },
+        setPrettifySettings: async (settings) => {
+          calls.push('prettify');
+          return { settings: settings as PrettifySettings, success: true };
+        },
+        setTextActionSettings: async (settings) => {
+          calls.push('text-actions');
+          return { settings, success: true };
+        },
+      },
+    );
+
+    assert.deepEqual(calls, ['prettify', 'text-actions', 'audit']);
+    assert.deepEqual(request, {
+      confirmedPurgeCategories: ['translation'],
+      settings: diagnosticCaptureSettings,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.diagnosticCaptureSettingsSaved, true);
+    assert.deepEqual(result.diagnosticCaptureSettings, diagnosticCaptureSettings);
+  });
+
+  it('reconciles an authoritative Audit Log snapshot even when an earlier save group fails', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const diagnosticCaptureSettings = {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    };
+    const calls: string[] = [];
+
+    const result = await saveAppSettingsState(
+      {
+        confirmedDiagnosticPurgeCategories: [],
+        diagnosticCaptureSettings,
+        initialDiagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        initialSettings,
+        initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        settings: initialSettings,
+        textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      },
+      {
+        saveCloakBrowserSettings: async () => ({ settings: cloakBrowserSettings(), success: true }),
+        setDiagnosticCaptureSettings: async (candidate) => {
+          calls.push('audit');
+          return { settings: candidate.settings, success: true };
+        },
+        setPrettifySettings: async () => {
+          calls.push('prettify');
+          return { error: 'prettify-save-failed', success: false };
+        },
+        setTextActionSettings: async (settings) => ({ settings, success: true }),
+      },
+    );
+
+    assert.deepEqual(calls, ['prettify', 'audit']);
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'prettify-save-failed');
+    assert.equal(result.diagnosticCaptureSettingsSaved, true);
+    assert.deepEqual(result.diagnosticCaptureSettings, diagnosticCaptureSettings);
+  });
+
+  it('keeps Audit Log failures retryable and summarizes only booleans and category names', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const initialDiagnosticCaptureSettings = {
+      capturePrettifyDiagnostics: true,
+      captureTranslationDiagnostics: true,
+    };
+    const diagnosticCaptureSettings = {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    };
+    const input = {
+      confirmedDiagnosticPurgeCategories: ['prettify'] as const,
+      diagnosticCaptureSettings,
+      initialDiagnosticCaptureSettings,
+      initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
+      initialSettings,
+      initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+      prettifySettings: VALID_PRETTIFY_SETTINGS,
+      settings: initialSettings,
+      textActionSettings: VALID_TEXT_ACTION_SETTINGS,
+    };
+
+    const summary = createAppSettingsLogSummary(input);
+    assert.deepEqual(summary.changedGroups, ['auditLog']);
+    assert.deepEqual(summary.diagnosticCaptureChangedCategories, ['prettify']);
+    assert.deepEqual(summary.diagnosticCaptureSettings, diagnosticCaptureSettings);
+
+    const result = await saveAppSettingsState(input, {
+      saveCloakBrowserSettings: async () => ({ settings: cloakBrowserSettings(), success: true }),
+      setDiagnosticCaptureSettings: async () => ({
+        errorCode: 'storage-failed',
+        settings: initialDiagnosticCaptureSettings,
+        success: false,
+      }),
+      setPrettifySettings: async (settings) => ({ settings: settings as PrettifySettings, success: true }),
+      setTextActionSettings: async (settings) => ({ settings, success: true }),
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.diagnosticCaptureSettingsSaved, undefined);
+    assert.equal(result.diagnosticCaptureErrorCode, 'storage-failed');
+    assert.deepEqual(result.diagnosticCaptureSettings, initialDiagnosticCaptureSettings);
   });
 });

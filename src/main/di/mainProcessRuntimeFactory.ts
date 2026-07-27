@@ -31,6 +31,7 @@ import type { I18nService } from '../i18n';
 import type { WebContents } from 'electron';
 import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
 import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIpcController';
+import { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -42,6 +43,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'createPrettifyConnectionCoordinator'
   | 'createStreamingTranscriptionController'
   | 'desktopRuntimeController'
+  | 'diagnosticCaptureSettings'
   | 'historyController'
   | 'prettifyRuntime'
   | 'shortcutController'
@@ -103,6 +105,10 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       randomUUID: this.dependencies.randomUUID,
       redactor: new DiagnosticTextRedactor(),
     });
+    const diagnosticCaptureSettings = new DiagnosticCaptureSettingsService(
+      this.dependencies.ipc.config,
+      diagnosticStorage,
+    );
     const cache = createTranscriptionResultCache({ now: this.dependencies.cacheNow });
     const completionDependencies: TranscriptionCompletionDependencies = {
       cache,
@@ -143,6 +149,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       createStreamingTranscriptionController: (dependencies) =>
         new StreamingTranscriptionIpcController<WebContents>(dependencies),
       desktopRuntimeController: this.controllers.desktopRuntimeController,
+      diagnosticCaptureSettings,
       historyController,
       prettifyRuntime: this.controllers.prettifyRuntime,
       shortcutController: this.controllers.shortcutController,

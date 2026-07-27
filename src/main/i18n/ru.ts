@@ -213,6 +213,58 @@ export default {
   'settingsSection.prettify': 'Улучшение текста',
   'settingsSection.browser': 'Браузер',
   'settingsSection.network': 'Сеть',
+  'settingsSection.auditLog': 'Журнал аудита',
+
+  // Настройки журнала аудита
+  'auditLog.title': 'Журнал аудита',
+  'auditLog.description':
+    'При необходимости сохраняйте исходный и результирующий текст успешных операций перевода и улучшения для локальной диагностики.',
+  'auditLog.captureTranslation': 'Сохранять диагностику перевода',
+  'auditLog.captureTranslationDescription':
+    'Сохранять исходный и результирующий текст успешных переводов, включая попадания в кеш.',
+  'auditLog.capturePrettify': 'Сохранять диагностику улучшения текста',
+  'auditLog.capturePrettifyDescription':
+    'Сохранять исходный и результирующий текст успешного улучшения, включая попадания в кеш.',
+  'auditLog.privacyTitle': 'Конфиденциальная диагностика в открытом виде',
+  'auditLog.sensitiveDataWarning':
+    'Сохранённые исходные данные и результаты могут содержать личный или конфиденциальный текст.',
+  'auditLog.plaintextStorageWarning':
+    'Данные хранятся в SQLite в открытом виде после максимально возможного редактирования и защищены правами файловой системы пользователя. Шифрование не используется.',
+  'auditLog.redactionLimitWarning':
+    'Редактирование может не обнаружить произвольные встроенные секреты. Считайте сохранённые данные конфиденциальными.',
+  'auditLog.archiveInclusionWarning': 'Включённые категории автоматически добавляются в архивы диагностики.',
+  'auditLog.archiveEncryptionWarning': 'Архивы диагностики не шифруются.',
+  'auditLog.clearTitle': 'Удалить сохранённые данные',
+  'auditLog.clearDescription': 'Удаление данных необратимо и не изменяет переключатели сохранения.',
+  'auditLog.clear.translation': 'Очистить переводы',
+  'auditLog.clear.prettify': 'Очистить улучшения',
+  'auditLog.clear.all': 'Очистить всё',
+  'auditLog.disableConfirm.title': 'Отключить сохранение и удалить данные?',
+  'auditLog.disableConfirm.translation':
+    'Сохранение настроек отключит диагностику перевода и навсегда удалит все сохранённые данные перевода.',
+  'auditLog.disableConfirm.prettify':
+    'Сохранение настроек отключит диагностику улучшения и навсегда удалит все сохранённые данные улучшения.',
+  'auditLog.disableConfirm.all':
+    'Сохранение настроек отключит обе категории и навсегда удалит все сохранённые данные перевода и улучшения.',
+  'auditLog.disableConfirm.action': 'Отключить и удалить',
+  'auditLog.clearConfirm.translation.title': 'Очистить диагностику перевода?',
+  'auditLog.clearConfirm.translation.description':
+    'Все сохранённые данные перевода будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.prettify.title': 'Очистить диагностику улучшения?',
+  'auditLog.clearConfirm.prettify.description':
+    'Все сохранённые данные улучшения будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.all.title': 'Очистить всю диагностику?',
+  'auditLog.clearConfirm.all.description':
+    'Все сохранённые данные перевода и улучшения будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.action': 'Удалить данные',
+  'auditLog.cancel': 'Отмена',
+  'auditLog.processing': 'Обработка...',
+  'auditLog.error.invalid-request': 'Недопустимый запрос диагностики.',
+  'auditLog.error.confirmation-required': 'Подтвердите точные категории диагностики, которые будут удалены.',
+  'auditLog.error.storage-unavailable': 'Хранилище диагностики недоступно. Повторите попытку.',
+  'auditLog.error.storage-failed': 'Не удалось обновить хранилище диагностики. Повторите попытку.',
+  'auditLog.error.save-failed':
+    'Обслуживание данных завершено, но настройки сохранения не удалось записать. Предыдущие настройки остаются активными.',
 
   // About
   'about.open': 'О программе',

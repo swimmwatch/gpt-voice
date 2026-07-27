@@ -198,6 +198,59 @@ export default {
   'settingsSection.prettify': 'Mejorar',
   'settingsSection.browser': 'Navegador',
   'settingsSection.network': 'Red',
+  'settingsSection.auditLog': 'Registro de auditoría',
+
+  // Ajustes del registro de auditoría
+  'auditLog.title': 'Registro de auditoría',
+  'auditLog.description':
+    'Conserva opcionalmente el texto de origen y resultado de operaciones correctas de traducción y mejora para el diagnóstico local.',
+  'auditLog.captureTranslation': 'Capturar diagnósticos de traducción',
+  'auditLog.captureTranslationDescription':
+    'Guarda el texto de origen y resultado de traducciones correctas, incluidos los aciertos de caché.',
+  'auditLog.capturePrettify': 'Capturar diagnósticos de mejora',
+  'auditLog.capturePrettifyDescription':
+    'Guarda el texto de origen y resultado de mejoras correctas, incluidos los aciertos de caché.',
+  'auditLog.privacyTitle': 'Diagnósticos confidenciales en texto plano',
+  'auditLog.sensitiveDataWarning':
+    'El origen y los resultados capturados pueden contener texto privado o confidencial.',
+  'auditLog.plaintextStorageWarning':
+    'Los datos se guardan como texto plano SQLite con ocultación de mejor esfuerzo y permisos del sistema de archivos por usuario. No están cifrados.',
+  'auditLog.redactionLimitWarning':
+    'La ocultación puede omitir secretos incrustados arbitrarios. Trata los datos guardados como privados.',
+  'auditLog.archiveInclusionWarning':
+    'Las categorías activadas se incluyen automáticamente en los archivos de diagnóstico.',
+  'auditLog.archiveEncryptionWarning': 'Los archivos de diagnóstico no están cifrados.',
+  'auditLog.clearTitle': 'Eliminar datos capturados',
+  'auditLog.clearDescription': 'La eliminación de datos es permanente y no cambia los interruptores de captura.',
+  'auditLog.clear.translation': 'Borrar traducciones',
+  'auditLog.clear.prettify': 'Borrar mejoras',
+  'auditLog.clear.all': 'Borrar todo',
+  'auditLog.disableConfirm.title': '¿Desactivar la captura y eliminar los datos?',
+  'auditLog.disableConfirm.translation':
+    'Al guardar se desactivará la captura de traducciones y se eliminarán permanentemente todos los datos de traducción capturados.',
+  'auditLog.disableConfirm.prettify':
+    'Al guardar se desactivará la captura de mejoras y se eliminarán permanentemente todos los datos de mejora capturados.',
+  'auditLog.disableConfirm.all':
+    'Al guardar se desactivarán ambas categorías y se eliminarán permanentemente todos los datos de traducción y mejora capturados.',
+  'auditLog.disableConfirm.action': 'Desactivar y eliminar',
+  'auditLog.clearConfirm.translation.title': '¿Borrar los diagnósticos de traducción?',
+  'auditLog.clearConfirm.translation.description':
+    'Esto elimina permanentemente todos los datos de traducción capturados sin cambiar los ajustes de captura.',
+  'auditLog.clearConfirm.prettify.title': '¿Borrar los diagnósticos de mejora?',
+  'auditLog.clearConfirm.prettify.description':
+    'Esto elimina permanentemente todos los datos de mejora capturados sin cambiar los ajustes de captura.',
+  'auditLog.clearConfirm.all.title': '¿Borrar todos los diagnósticos?',
+  'auditLog.clearConfirm.all.description':
+    'Esto elimina permanentemente todos los datos de traducción y mejora capturados sin cambiar los ajustes de captura.',
+  'auditLog.clearConfirm.action': 'Borrar datos',
+  'auditLog.cancel': 'Cancelar',
+  'auditLog.processing': 'Procesando...',
+  'auditLog.error.invalid-request': 'La solicitud de diagnóstico no es válida.',
+  'auditLog.error.confirmation-required': 'Confirma las categorías exactas de diagnóstico que se eliminarán.',
+  'auditLog.error.storage-unavailable': 'El almacenamiento de diagnósticos no está disponible. Inténtalo de nuevo.',
+  'auditLog.error.storage-failed': 'No se pudo actualizar el almacenamiento de diagnósticos. Inténtalo de nuevo.',
+  'auditLog.error.save-failed':
+    'El mantenimiento de datos terminó, pero no se pudieron guardar los ajustes de captura. Los ajustes anteriores siguen activos.',
   'about.open': 'Acerca de',
   'about.version': 'Versión {version}',
   'about.license': 'Licencia',

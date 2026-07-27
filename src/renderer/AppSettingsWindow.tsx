@@ -3,12 +3,14 @@ import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
 import BrowserSection from '@renderer/components/settings/BrowserSection';
+import AuditLogSection from '@renderer/components/settings/AuditLogSection';
 import NetworkSection from '@renderer/components/settings/NetworkSection';
 import PrettifySection from '@renderer/components/settings/PrettifySection';
 import SettingsFooter from '@renderer/components/settings/SettingsFooter';
 import SettingsNavigation, { type SettingsSectionId } from '@renderer/components/settings/SettingsNavigation';
 import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
 import SystemSection from '@renderer/components/settings/SystemSection';
+import type { TranslationFunction } from '@renderer/components/settings/types';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 import {
   AlertDialog,
@@ -30,8 +32,10 @@ import {
   getCloakBrowserTimezoneOptions,
   getAppSettingsFormState,
   hasAppSettingsFieldErrors,
+  restoreCancelledDiagnosticCaptureSettings,
   saveAppSettingsState,
   type AppSettingsSaveResult,
+  type AppSettingsSaveInput,
   type AppSettingsFieldErrors,
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
@@ -43,6 +47,25 @@ import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
 import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import { isAppSettingsSectionId } from '@shared/appSettings';
+import {
+  getDisabledDiagnosticCaptureCategories,
+  type DiagnosticCaptureCategory,
+  type DiagnosticCaptureClearTarget,
+  type DiagnosticCaptureSettings,
+  type DiagnosticCaptureSettingsErrorCode,
+} from '@shared/diagnosticCaptureSettings';
+
+const EMPTY_DIAGNOSTIC_CAPTURE_CATEGORIES: readonly DiagnosticCaptureCategory[] = [];
+
+type DiagnosticCaptureConfirmation =
+  | {
+      readonly kind: 'disable';
+      readonly categories: readonly DiagnosticCaptureCategory[];
+    }
+  | {
+      readonly kind: 'clear';
+      readonly target: DiagnosticCaptureClearTarget;
+    };
 
 function getInitialSettingsSection(): SettingsSectionId {
   const section = new URLSearchParams(window.location.search).get('section');
@@ -57,6 +80,121 @@ function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
 
+function getDiagnosticCaptureErrorTranslationKey(errorCode: DiagnosticCaptureSettingsErrorCode): string {
+  return `auditLog.error.${errorCode}`;
+}
+
+function getDisableConfirmationScope(categories: readonly DiagnosticCaptureCategory[]): DiagnosticCaptureClearTarget {
+  return categories.length === 2 ? 'all' : (categories[0] ?? 'all');
+}
+
+interface AppSettingsFormInputCandidates {
+  readonly diagnosticCaptureSettings: AppSettingsSaveInput['diagnosticCaptureSettings'] | null;
+  readonly initialDiagnosticCaptureSettings: AppSettingsSaveInput['initialDiagnosticCaptureSettings'] | null;
+  readonly initialPrettifySettings: AppSettingsSaveInput['initialPrettifySettings'] | null;
+  readonly initialSettings: AppSettingsSaveInput['initialSettings'] | null;
+  readonly initialTextActionSettings: AppSettingsSaveInput['initialTextActionSettings'] | null;
+  readonly localeValues: readonly string[];
+  readonly prettifySettings: AppSettingsSaveInput['prettifySettings'] | null;
+  readonly settings: AppSettingsSaveInput['settings'] | null;
+  readonly textActionSettings: AppSettingsSaveInput['textActionSettings'] | null;
+  readonly timezoneValues: readonly string[];
+}
+
+function createLoadedAppSettingsFormInput(input: AppSettingsFormInputCandidates): AppSettingsSaveInput | null {
+  if (
+    !input.diagnosticCaptureSettings ||
+    !input.initialDiagnosticCaptureSettings ||
+    !input.initialPrettifySettings ||
+    !input.initialSettings ||
+    !input.initialTextActionSettings ||
+    !input.prettifySettings ||
+    !input.settings ||
+    !input.textActionSettings
+  ) {
+    return null;
+  }
+  return {
+    confirmedDiagnosticPurgeCategories: EMPTY_DIAGNOSTIC_CAPTURE_CATEGORIES,
+    diagnosticCaptureSettings: input.diagnosticCaptureSettings,
+    initialDiagnosticCaptureSettings: input.initialDiagnosticCaptureSettings,
+    initialPrettifySettings: input.initialPrettifySettings,
+    initialSettings: input.initialSettings,
+    initialTextActionSettings: input.initialTextActionSettings,
+    localeValues: input.localeValues,
+    prettifySettings: input.prettifySettings,
+    settings: input.settings,
+    textActionSettings: input.textActionSettings,
+    timezoneValues: input.timezoneValues,
+  };
+}
+
+interface SettingsActionLockState {
+  readonly hasDiagnosticConfirmation: boolean;
+  readonly isDiagnosticActionPending: boolean;
+  readonly isSaving: boolean;
+}
+
+function areDiagnosticControlsDisabled(state: SettingsActionLockState): boolean {
+  return state.isSaving || state.isDiagnosticActionPending || state.hasDiagnosticConfirmation;
+}
+
+function isAppSettingsSaveDisabled(
+  state: SettingsActionLockState & {
+    readonly isDirty: boolean;
+    readonly isLoaded: boolean;
+    readonly isValid: boolean;
+  },
+): boolean {
+  return areDiagnosticControlsDisabled(state) || !state.isLoaded || !state.isDirty || !state.isValid;
+}
+
+interface DiagnosticCaptureConfirmationDialogProps {
+  readonly confirmation: DiagnosticCaptureConfirmation | null;
+  readonly isPending: boolean;
+  readonly onConfirm: () => void;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly t: TranslationFunction;
+}
+
+function DiagnosticCaptureConfirmationDialog({
+  confirmation,
+  isPending,
+  onConfirm,
+  onOpenChange,
+  t,
+}: DiagnosticCaptureConfirmationDialogProps): React.ReactNode {
+  return (
+    <AlertDialog open={confirmation !== null} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirmation?.kind === 'disable'
+              ? t('auditLog.disableConfirm.title')
+              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.title`)}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirmation?.kind === 'disable'
+              ? t(`auditLog.disableConfirm.${getDisableConfirmationScope(confirmation.categories)}`)
+              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.description`)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button disabled={isPending} variant="outline">
+              {t('auditLog.cancel')}
+            </Button>
+          </AlertDialogCancel>
+          <Button aria-busy={isPending || undefined} disabled={isPending} onClick={onConfirm} variant="destructive">
+            {isPending && <Spinner label={t('auditLog.processing')} size="sm" />}
+            {confirmation?.kind === 'disable' ? t('auditLog.disableConfirm.action') : t('auditLog.clearConfirm.action')}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
   const desktopApi = useDesktopApi();
@@ -66,16 +204,22 @@ const AppSettingsWindow: React.FC = () => {
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [textActionSettings, setTextActionSettings] = useState<TextActionSettings | null>(null);
   const [initialTextActionSettings, setInitialTextActionSettings] = useState<TextActionSettings | null>(null);
+  const [diagnosticCaptureSettings, setDiagnosticCaptureSettings] = useState<DiagnosticCaptureSettings | null>(null);
+  const [initialDiagnosticCaptureSettings, setInitialDiagnosticCaptureSettings] =
+    useState<DiagnosticCaptureSettings | null>(null);
   const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDiagnosticActionPending, setIsDiagnosticActionPending] = useState(false);
+  const [diagnosticConfirmation, setDiagnosticConfirmation] = useState<DiagnosticCaptureConfirmation | null>(null);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<AppSettingsFieldErrors>({});
   const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
   const closeRequestFocusRef = useRef<HTMLElement | null>(null);
+  const diagnosticConfirmationFocusRef = useRef<HTMLElement | null>(null);
   const {
     applySavedSnapshot: applySavedPrettifySnapshot,
     changeProvider: changePrettifyProvider,
@@ -110,14 +254,21 @@ const AppSettingsWindow: React.FC = () => {
     /** Loads transactional settings and performs the existing HTTP-only model inspection. */
     const loadSettings = async (): Promise<void> => {
       try {
-        const [nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform] =
-          await Promise.all([
-            desktopApi.getCloakBrowserSettings(),
-            desktopApi.getPrettifySettings(),
-            desktopApi.getTextActionSettings(),
-            desktopApi.getHotkey(),
-            desktopApi.getPlatform(),
-          ]);
+        const [
+          nextSettings,
+          nextPrettifySettings,
+          nextTextActionSettings,
+          nextDiagnosticCaptureSettings,
+          nextHotkeySettings,
+          nextPlatform,
+        ] = await Promise.all([
+          desktopApi.getCloakBrowserSettings(),
+          desktopApi.getPrettifySettings(),
+          desktopApi.getTextActionSettings(),
+          desktopApi.getDiagnosticCaptureSettings(),
+          desktopApi.getHotkey(),
+          desktopApi.getPlatform(),
+        ]);
         if (disposed) return;
 
         const editableSettings = createEditableSettings(nextSettings);
@@ -126,6 +277,8 @@ const AppSettingsWindow: React.FC = () => {
         initializePrettifySettingsEvent(nextPrettifySettings);
         setTextActionSettings(nextTextActionSettings);
         setInitialTextActionSettings(nextTextActionSettings);
+        setDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
+        setInitialDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
         setHotkeySettings(nextHotkeySettings);
         setPlatform(nextPlatform);
       } catch (loadError: unknown) {
@@ -187,6 +340,13 @@ const AppSettingsWindow: React.FC = () => {
     value: TextActionSettings[Key],
   ): void => {
     setTextActionSettings((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const updateDiagnosticCaptureSetting = <Key extends keyof DiagnosticCaptureSettings>(
+    key: Key,
+    value: DiagnosticCaptureSettings[Key],
+  ): void => {
+    setDiagnosticCaptureSettings((current) => (current ? { ...current, [key]: value } : current));
   };
 
   function clearFieldErrors(...keys: AppSettingsFieldKey[]): void {
@@ -268,17 +428,21 @@ const AppSettingsWindow: React.FC = () => {
   }, [desktopApi]);
 
   /** Saves all dirty settings groups in their dependency-safe order. */
-  const saveSettings = async (): Promise<void> => {
+  const saveSettings = async (
+    confirmedDiagnosticPurgeCategories: readonly DiagnosticCaptureCategory[],
+  ): Promise<AppSettingsSaveResult | null> => {
     if (
       !settings ||
       !initialSettings ||
       !prettifySettings ||
       !initialPrettifySettings ||
       !textActionSettings ||
-      !initialTextActionSettings
+      !initialTextActionSettings ||
+      !diagnosticCaptureSettings ||
+      !initialDiagnosticCaptureSettings
     ) {
       log.debug('App Settings save ignored because settings are not fully loaded');
-      return;
+      return null;
     }
 
     setIsSaving(true);
@@ -287,6 +451,9 @@ const AppSettingsWindow: React.FC = () => {
     const localeOptions = getCloakBrowserLocaleOptions(settings.locale);
     const timezoneOptions = getCloakBrowserTimezoneOptions(settings.timezone);
     const saveInput = {
+      confirmedDiagnosticPurgeCategories,
+      diagnosticCaptureSettings,
+      initialDiagnosticCaptureSettings,
       settings,
       initialSettings,
       localeValues: localeOptions,
@@ -307,14 +474,15 @@ const AppSettingsWindow: React.FC = () => {
     try {
       saveResult = await saveAppSettingsState(saveInput, {
         saveCloakBrowserSettings: desktopApi.saveCloakBrowserSettings,
+        setDiagnosticCaptureSettings: desktopApi.setDiagnosticCaptureSettings,
         setPrettifySettings: desktopApi.setPrettifySettings,
         setTextActionSettings: desktopApi.setTextActionSettings,
       });
-    } catch (saveError: unknown) {
+    } catch {
       setIsSaving(false);
-      log.error('App Settings save IPC error:', getErrorMessage(saveError));
-      setError(getErrorMessage(saveError));
-      return;
+      log.error('App Settings save IPC error');
+      setError(t('appSettings.saveFailed'));
+      return null;
     }
     if (saveResult.prettifySettings) {
       applySavedPrettifySnapshot(saveResult.prettifySettings, Boolean(saveResult.prettifySettingsSaved));
@@ -331,6 +499,12 @@ const AppSettingsWindow: React.FC = () => {
         setInitialSettings(saveResult.settings);
       }
     }
+    if (saveResult.diagnosticCaptureSettings) {
+      setDiagnosticCaptureSettings(saveResult.diagnosticCaptureSettings);
+      if (saveResult.diagnosticCaptureSettingsSaved) {
+        setInitialDiagnosticCaptureSettings(saveResult.diagnosticCaptureSettings);
+      }
+    }
 
     setIsSaving(false);
     if (!saveResult.success) {
@@ -341,48 +515,141 @@ const AppSettingsWindow: React.FC = () => {
           ),
         });
         setFieldErrors(saveResult.fieldErrors);
-        return;
+        return saveResult;
       }
       log.warn('App Settings save failed:', {
+        diagnosticCaptureErrorCode: saveResult.diagnosticCaptureErrorCode,
+        diagnosticCaptureSettingsSaved: Boolean(saveResult.diagnosticCaptureSettingsSaved),
         error: saveResult.error,
         prettifySettingsSaved: Boolean(saveResult.prettifySettingsSaved),
         textActionSettingsSaved: Boolean(saveResult.textActionSettingsSaved),
         cloakBrowserSettingsSaved: Boolean(saveResult.settingsSaved),
       });
-      setError(saveResult.error || t('appSettings.saveFailed'));
-      return;
+      setError(
+        saveResult.diagnosticCaptureErrorCode
+          ? t(getDiagnosticCaptureErrorTranslationKey(saveResult.diagnosticCaptureErrorCode))
+          : saveResult.error || t('appSettings.saveFailed'),
+      );
+      return saveResult;
     }
     log.info('App Settings saved:', {
       changedGroups: logSummary.changedGroups,
+      diagnosticCaptureSettingsSaved: Boolean(saveResult.diagnosticCaptureSettingsSaved),
       prettifySettingsSaved: Boolean(saveResult.prettifySettingsSaved),
       textActionSettingsSaved: Boolean(saveResult.textActionSettingsSaved),
       cloakBrowserSettingsSaved: Boolean(saveResult.settingsSaved),
     });
     log.info('App Settings save succeeded; closing settings window');
     forceCloseWindow();
+    return saveResult;
+  };
+
+  const restoreDiagnosticConfirmationFocus = (): void => {
+    window.requestAnimationFrame(() => diagnosticConfirmationFocusRef.current?.focus());
+  };
+
+  const closeDiagnosticConfirmation = (): void => {
+    setDiagnosticConfirmation(null);
+    restoreDiagnosticConfirmationFocus();
+  };
+
+  const requestSaveSettings = (): void => {
+    if (
+      isSaving ||
+      isDiagnosticActionPending ||
+      diagnosticConfirmation ||
+      !diagnosticCaptureSettings ||
+      !initialDiagnosticCaptureSettings
+    ) {
+      return;
+    }
+    const disabledCategories = getDisabledDiagnosticCaptureCategories(
+      initialDiagnosticCaptureSettings,
+      diagnosticCaptureSettings,
+    );
+    if (disabledCategories.length === 0) {
+      void saveSettings(EMPTY_DIAGNOSTIC_CAPTURE_CATEGORIES);
+      return;
+    }
+
+    diagnosticConfirmationFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDiagnosticConfirmation({ categories: disabledCategories, kind: 'disable' });
+  };
+
+  const requestDiagnosticClear = (target: DiagnosticCaptureClearTarget): void => {
+    if (isSaving || isDiagnosticActionPending || diagnosticConfirmation) return;
+    diagnosticConfirmationFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setError('');
+    setDiagnosticConfirmation({ kind: 'clear', target });
+  };
+
+  const cancelDiagnosticConfirmation = (): void => {
+    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+    if (diagnosticConfirmation.kind === 'disable' && initialDiagnosticCaptureSettings) {
+      const cancelledCategories = diagnosticConfirmation.categories;
+      setDiagnosticCaptureSettings((current) => {
+        if (!current) return current;
+        return restoreCancelledDiagnosticCaptureSettings(
+          current,
+          initialDiagnosticCaptureSettings,
+          cancelledCategories,
+        );
+      });
+    }
+    closeDiagnosticConfirmation();
+  };
+
+  const confirmDiagnosticAction = async (): Promise<void> => {
+    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+    const confirmation = diagnosticConfirmation;
+    setIsDiagnosticActionPending(true);
+    setError('');
+    try {
+      if (confirmation.kind === 'disable') {
+        const result = await saveSettings(confirmation.categories);
+        if (result?.diagnosticCaptureSettingsSaved) closeDiagnosticConfirmation();
+        return;
+      }
+
+      const result = await desktopApi.clearDiagnosticCapture({
+        confirmed: true,
+        target: confirmation.target,
+      });
+      if (result.success) {
+        closeDiagnosticConfirmation();
+      } else {
+        setError(t(getDiagnosticCaptureErrorTranslationKey(result.errorCode)));
+      }
+    } catch {
+      log.error('Diagnostic capture destructive action IPC error');
+      setError(t('auditLog.error.storage-failed'));
+    } finally {
+      setIsDiagnosticActionPending(false);
+    }
+  };
+
+  const handleDiagnosticConfirmationOpenChange = (open: boolean): void => {
+    if (!open) cancelDiagnosticConfirmation();
   };
 
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
   const localeOptions = getCloakBrowserLocaleOptions(settings?.locale);
   const timezoneOptions = getCloakBrowserTimezoneOptions(settings?.timezone);
-  const formState =
-    settings &&
-    initialSettings &&
-    prettifySettings &&
-    initialPrettifySettings &&
-    textActionSettings &&
-    initialTextActionSettings
-      ? getAppSettingsFormState({
-          initialPrettifySettings,
-          initialSettings,
-          initialTextActionSettings,
-          localeValues: localeOptions,
-          prettifySettings,
-          settings,
-          textActionSettings,
-          timezoneValues: timezoneOptions,
-        })
-      : null;
+  const loadedFormInput = createLoadedAppSettingsFormInput({
+    diagnosticCaptureSettings,
+    initialDiagnosticCaptureSettings,
+    initialPrettifySettings,
+    initialSettings,
+    initialTextActionSettings,
+    localeValues: localeOptions,
+    prettifySettings,
+    settings,
+    textActionSettings,
+    timezoneValues: timezoneOptions,
+  });
+  const formState = loadedFormInput ? getAppSettingsFormState(loadedFormInput) : null;
   const visibleFieldErrors = formState?.isDirty ? { ...formState.validationErrors, ...fieldErrors } : fieldErrors;
   const visibleFieldErrorMessages = presentAppSettingsFieldErrors(visibleFieldErrors, t);
   const isSettingsReady = Boolean(formState && hotkeySettings);
@@ -391,8 +658,19 @@ const AppSettingsWindow: React.FC = () => {
     const message = visibleFieldErrorMessages[fieldKey];
     return message || null;
   };
-  const saveDisabled = isSaving || !formState || !formState.isDirty || !formState.isValid;
   const isDirty = formState?.isDirty ?? false;
+  const actionLockState = {
+    hasDiagnosticConfirmation: diagnosticConfirmation !== null,
+    isDiagnosticActionPending,
+    isSaving,
+  };
+  const saveDisabled = isAppSettingsSaveDisabled({
+    ...actionLockState,
+    isDirty,
+    isLoaded: formState !== null,
+    isValid: formState?.isValid ?? false,
+  });
+  const diagnosticControlsDisabled = areDiagnosticControlsDisabled(actionLockState);
   const restoreCloseRequestFocus = useCallback((): void => {
     window.requestAnimationFrame(() => closeRequestFocusRef.current?.focus());
   }, []);
@@ -406,6 +684,7 @@ const AppSettingsWindow: React.FC = () => {
     [restoreCloseRequestFocus],
   );
   const requestCloseWindow = useCallback((): void => {
+    if (diagnosticConfirmation || isDiagnosticActionPending) return;
     const disposition = getSettingsCloseDisposition({ isDirty, isSaving });
     if (disposition === 'block') {
       return;
@@ -419,7 +698,14 @@ const AppSettingsWindow: React.FC = () => {
       return;
     }
     forceCloseWindow();
-  }, [forceCloseWindow, isDirty, isDiscardConfirmationOpen, isSaving]);
+  }, [
+    diagnosticConfirmation,
+    forceCloseWindow,
+    isDiagnosticActionPending,
+    isDirty,
+    isDiscardConfirmationOpen,
+    isSaving,
+  ]);
   const discardChanges = useCallback((): void => {
     setIsDiscardConfirmationOpen(false);
     forceCloseWindow();
@@ -456,6 +742,8 @@ const AppSettingsWindow: React.FC = () => {
           initialPrettifySettings &&
           textActionSettings &&
           initialTextActionSettings &&
+          diagnosticCaptureSettings &&
+          initialDiagnosticCaptureSettings &&
           hotkeySettings && (
             <>
               <Tabs
@@ -586,6 +874,15 @@ const AppSettingsWindow: React.FC = () => {
                         t={t}
                       />
                     </TabsContent>
+                    <TabsContent className="mt-0" value="audit-log">
+                      <AuditLogSection
+                        disabled={diagnosticControlsDisabled}
+                        onClear={requestDiagnosticClear}
+                        onSettingChange={updateDiagnosticCaptureSetting}
+                        settings={diagnosticCaptureSettings}
+                        t={t}
+                      />
+                    </TabsContent>
                   </div>
                 </div>
               </Tabs>
@@ -593,7 +890,7 @@ const AppSettingsWindow: React.FC = () => {
                 error={error}
                 isDirty={isDirty}
                 isSaving={isSaving}
-                onSave={() => void saveSettings()}
+                onSave={requestSaveSettings}
                 saveDisabled={saveDisabled}
                 t={t}
               />
@@ -629,6 +926,14 @@ const AppSettingsWindow: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DiagnosticCaptureConfirmationDialog
+        confirmation={diagnosticConfirmation}
+        isPending={isDiagnosticActionPending}
+        onConfirm={() => void confirmDiagnosticAction()}
+        onOpenChange={handleDiagnosticConfirmationOpenChange}
+        t={t}
+      />
     </>
   );
 };

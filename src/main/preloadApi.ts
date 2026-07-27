@@ -33,6 +33,14 @@ import type { TextActionSettings, TextActionSettingsInput } from '@shared/textAc
 import { sanitizeTextActionStatus, type TextActionStatus } from '@shared/textActionStatus';
 import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
 import {
+  DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS,
+  type DiagnosticCaptureClearRequest,
+  type DiagnosticCaptureClearResult,
+  type DiagnosticCaptureSettings,
+  type DiagnosticCaptureSettingsMutationRequest,
+  type DiagnosticCaptureSettingsMutationResult,
+} from '@shared/diagnosticCaptureSettings';
+import {
   STREAMING_TRANSCRIPTION_IPC_CHANNELS,
   type CancelStreamingTranscriptionIpcResult,
   type FinishStreamingTranscriptionIpcResult,
@@ -265,6 +273,17 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getTextActionSettings: (): Promise<TextActionSettings> => {
       return ipcRenderer.invoke('get-text-action-settings');
+    },
+    getDiagnosticCaptureSettings: (): Promise<DiagnosticCaptureSettings> => {
+      return ipcRenderer.invoke(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get);
+    },
+    setDiagnosticCaptureSettings: (
+      request: DiagnosticCaptureSettingsMutationRequest,
+    ): Promise<DiagnosticCaptureSettingsMutationResult> => {
+      return ipcRenderer.invoke(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set, request);
+    },
+    clearDiagnosticCapture: (request: DiagnosticCaptureClearRequest): Promise<DiagnosticCaptureClearResult> => {
+      return ipcRenderer.invoke(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear, request);
     },
     setTextActionSettings: (
       settings: TextActionSettingsInput,

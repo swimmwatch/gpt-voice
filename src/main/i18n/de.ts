@@ -198,6 +198,57 @@ export default {
   'settingsSection.prettify': 'Verbessern',
   'settingsSection.browser': 'Browser',
   'settingsSection.network': 'Netzwerk',
+  'settingsSection.auditLog': 'Auditprotokoll',
+
+  // Auditprotokoll-Einstellungen
+  'auditLog.title': 'Auditprotokoll',
+  'auditLog.description':
+    'Optional können Quell- und Ergebnistext erfolgreicher Übersetzungs- und Verbesserungsaktionen für die lokale Diagnose aufbewahrt werden.',
+  'auditLog.captureTranslation': 'Übersetzungsdiagnosen erfassen',
+  'auditLog.captureTranslationDescription':
+    'Quell- und Ergebnistext erfolgreicher Übersetzungen einschließlich Cache-Treffern speichern.',
+  'auditLog.capturePrettify': 'Verbesserungsdiagnosen erfassen',
+  'auditLog.capturePrettifyDescription':
+    'Quell- und Ergebnistext erfolgreicher Verbesserungen einschließlich Cache-Treffern speichern.',
+  'auditLog.privacyTitle': 'Vertrauliche Klartextdiagnosen',
+  'auditLog.sensitiveDataWarning': 'Erfasste Quellen und Ergebnisse können private oder vertrauliche Texte enthalten.',
+  'auditLog.plaintextStorageWarning':
+    'Daten werden nach bestmöglicher Schwärzung als SQLite-Klartext unter benutzerspezifischen Dateisystemrechten gespeichert. Sie sind nicht verschlüsselt.',
+  'auditLog.redactionLimitWarning':
+    'Die Schwärzung kann beliebige eingebettete Geheimnisse übersehen. Behandeln Sie die gespeicherten Daten als privat.',
+  'auditLog.archiveInclusionWarning': 'Aktivierte Kategorien werden automatisch in Diagnosearchive aufgenommen.',
+  'auditLog.archiveEncryptionWarning': 'Diagnosearchive sind nicht verschlüsselt.',
+  'auditLog.clearTitle': 'Erfasste Daten löschen',
+  'auditLog.clearDescription': 'Das Löschen ist dauerhaft und ändert die Erfassungsschalter nicht.',
+  'auditLog.clear.translation': 'Übersetzungen löschen',
+  'auditLog.clear.prettify': 'Verbesserungen löschen',
+  'auditLog.clear.all': 'Alles löschen',
+  'auditLog.disableConfirm.title': 'Erfassung deaktivieren und Daten löschen?',
+  'auditLog.disableConfirm.translation':
+    'Beim Speichern wird die Übersetzungserfassung deaktiviert und alle erfassten Übersetzungsdaten werden dauerhaft gelöscht.',
+  'auditLog.disableConfirm.prettify':
+    'Beim Speichern wird die Verbesserungserfassung deaktiviert und alle erfassten Verbesserungsdaten werden dauerhaft gelöscht.',
+  'auditLog.disableConfirm.all':
+    'Beim Speichern werden beide Erfassungskategorien deaktiviert und alle erfassten Übersetzungs- und Verbesserungsdaten dauerhaft gelöscht.',
+  'auditLog.disableConfirm.action': 'Deaktivieren und löschen',
+  'auditLog.clearConfirm.translation.title': 'Übersetzungsdiagnosen löschen?',
+  'auditLog.clearConfirm.translation.description':
+    'Dadurch werden alle erfassten Übersetzungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.prettify.title': 'Verbesserungsdiagnosen löschen?',
+  'auditLog.clearConfirm.prettify.description':
+    'Dadurch werden alle erfassten Verbesserungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.all.title': 'Alle Diagnosen löschen?',
+  'auditLog.clearConfirm.all.description':
+    'Dadurch werden alle erfassten Übersetzungs- und Verbesserungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.action': 'Daten löschen',
+  'auditLog.cancel': 'Abbrechen',
+  'auditLog.processing': 'Wird verarbeitet...',
+  'auditLog.error.invalid-request': 'Die Diagnoseanforderung war ungültig.',
+  'auditLog.error.confirmation-required': 'Bestätigen Sie genau die Diagnosekategorien, die gelöscht werden.',
+  'auditLog.error.storage-unavailable': 'Der Diagnosespeicher ist nicht verfügbar. Versuchen Sie es erneut.',
+  'auditLog.error.storage-failed': 'Der Diagnosespeicher konnte nicht aktualisiert werden. Versuchen Sie es erneut.',
+  'auditLog.error.save-failed':
+    'Die Datenpflege wurde abgeschlossen, aber die Erfassungseinstellungen konnten nicht gespeichert werden. Die vorherigen Einstellungen bleiben aktiv.',
   'about.open': 'Über',
   'about.version': '{version} Version',
   'about.license': 'Lizenz',

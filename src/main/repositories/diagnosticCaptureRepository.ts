@@ -36,6 +36,7 @@ export interface DiagnosticCapturePrunePolicy {
 export interface DiagnosticCaptureRepository {
   insert(capture: DiagnosticCaptureRecord, policy: DiagnosticCapturePrunePolicy): void;
   prune(policy: DiagnosticCapturePrunePolicy): number;
+  pruneAndPurge(policy: DiagnosticCapturePrunePolicy, categories: readonly DiagnosticActionType[]): number;
   purge(categories: readonly DiagnosticActionType[]): number;
   readForArchive(categories: readonly DiagnosticActionType[]): readonly DiagnosticCaptureRow[];
 }
