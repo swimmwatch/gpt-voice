@@ -44,8 +44,6 @@ import {
 import { ClaudeCliPrettifyAdapter } from '../services/prettifyClaudeCli';
 import { CodexCliPrettifyAdapter, type CodexCliPrettifyAdapterDependencies } from '../services/prettifyCodexCli';
 import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services/prettifyCliRunner';
-import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
-import type { WebContents } from 'electron';
 
 export type MainProcessVoiceProviderEnvironment = Omit<VoiceProviderFactoryDependencies, 'audit' | 'chatGPT'> & {
   readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'sessionStore'> & {
@@ -204,7 +202,6 @@ export class MainProcessCompositionRoot {
       getSettingsWithSecret: this.environment.prettify.getSettingsWithSecret,
       registry: prettifyProviderRegistry,
     });
-    const prettifyConnectionCoordinator = new PrettifyConnectionCheckCoordinator<WebContents>(prettifyRuntime);
     const selectedTextPrettifyService = new SelectedTextPrettifyService({
       ...this.environment.prettify.selectedText,
       actionGate: selectedTextActionGate,
@@ -237,7 +234,6 @@ export class MainProcessCompositionRoot {
       linuxDesktopIntegrationController: new LinuxDesktopIntegrationController(
         desktopEnvironment.linuxDesktopIntegration,
       ),
-      prettifyConnectionCoordinator,
       prettifyRuntime,
       shortcutController,
       translationRuntime,

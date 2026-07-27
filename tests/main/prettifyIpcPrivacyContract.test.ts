@@ -26,8 +26,8 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(rendererTypes, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(handler, /isPrettifyCliProviderId\(providerId\)/u);
     assert.match(handler, /dependencies\.prettifyRuntime\.checkCliConnection\(providerId\)/u);
-    assert.match(handler, /dependencies\.prettifyConnectionCoordinator\.check\(/u);
-    assert.match(handler, /getPrettifySettingsSnapshot\(\)/u);
+    assert.match(handler, /prettifyConnectionCoordinator\.check\(/u);
+    assert.match(handler, /dependencies\.prettifySettings\.getView\(\)/u);
     assert.match(coordinator, /owner\.once\('destroyed'/u);
     assert.doesNotMatch(handler, /Prettify CLI connection checked|log\.(?:info|warn|error)/u);
     assert.doesNotMatch(handler, /executablePath|stdout|stderr|account|authStatus/u);
@@ -38,10 +38,7 @@ describe('Prettify IPC privacy contract', () => {
     const preload = readProjectFile('src/main/preload.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
-    const modelHandlers = ipc.slice(
-      ipc.indexOf("registration.handle(\n    'list-prettify-models'"),
-      ipc.indexOf("registration.handle(\n    'show-notification'"),
-    );
+    const modelHandlers = ipc.slice(ipc.indexOf("'list-prettify-models'"), ipc.indexOf("'show-notification'"));
 
     assert.match(modelHandlers, /providerId: KnownPrettifyProviderId/u);
     assert.match(modelHandlers, /isKnownPrettifyProviderId\(providerId\)/u);
@@ -57,12 +54,9 @@ describe('Prettify IPC privacy contract', () => {
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const summary = ipc.slice(
       ipc.indexOf('function summarizePrettifySettingsInput'),
-      ipc.indexOf('function getTextActionSettingsSnapshot'),
+      ipc.indexOf('export class MainIpcController'),
     );
-    const modelHandlers = ipc.slice(
-      ipc.indexOf("registration.handle(\n    'list-prettify-models'"),
-      ipc.indexOf("registration.handle(\n    'show-notification'"),
-    );
+    const modelHandlers = ipc.slice(ipc.indexOf("'list-prettify-models'"), ipc.indexOf("'show-notification'"));
 
     assert.match(settings, /availability: PrettifyProviderAvailability/u);
     assert.match(settings, /source: PrettifyModelSource/u);

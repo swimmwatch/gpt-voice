@@ -8,7 +8,6 @@ import {
   MainProcessApplication,
   type MainProcessApplicationDependencies,
   type MainProcessElectronApplication,
-  type MainProcessIpcRegistration,
   type MainProcessOwnedRuntime,
   type MainProcessPreventableEvent,
   type MainProcessRuntimeFactory,
@@ -62,25 +61,12 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
   }
 }
 
-class RecordingIpcRegistration implements MainProcessIpcRegistration {
-  public disposeCount = 0;
-
-  public constructor(private readonly events: string[]) {}
-
-  public async dispose(): Promise<void> {
-    this.disposeCount += 1;
-    this.events.push('ipc-dispose');
-  }
-}
-
 class RecordingRuntime implements MainProcessOwnedRuntime {
-  public readonly ipcRegistration: RecordingIpcRegistration;
   public closeCount = 0;
+  public ipcDisposeCount = 0;
   public shutdownCount = 0;
 
-  public constructor(private readonly events: string[]) {
-    this.ipcRegistration = new RecordingIpcRegistration(events);
-  }
+  public constructor(private readonly events: string[]) {}
 
   public closeDatabase(): void {
     this.closeCount += 1;
@@ -91,9 +77,13 @@ class RecordingRuntime implements MainProcessOwnedRuntime {
     this.events.push('diagnostic-prune');
   }
 
-  public registerIpc(): MainProcessIpcRegistration {
+  public async disposeIpc(): Promise<void> {
+    this.ipcDisposeCount += 1;
+    this.events.push('ipc-dispose');
+  }
+
+  public registerIpc(): void {
     this.events.push('ipc-register');
-    return this.ipcRegistration;
   }
 
   public async shutdownDiagnostics() {
@@ -549,7 +539,7 @@ describe('main process application lifecycle', () => {
     await flushAsyncWork();
 
     assert.equal(preventCount, 2);
-    assert.equal(harness.runtime.ipcRegistration.disposeCount, 1);
+    assert.equal(harness.runtime.ipcDisposeCount, 1);
     assert.equal(harness.runtime.shutdownCount, 1);
     assert.equal(harness.runtime.closeCount, 1);
     assert.equal(harness.app.quitCount, 1);

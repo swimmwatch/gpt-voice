@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
-import type { BrowserWindow, Menu, NativeImage, Tray } from 'electron';
+import type { BrowserWindow, IpcMainInvokeEvent, Menu, NativeImage, Tray } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Tests exercise the Node 24 SQLite implementation.
 import { DatabaseSync } from 'node:sqlite';
@@ -13,13 +13,10 @@ import {
   type MainProcessApplicationEnvironment,
   type MainProcessCompositionEnvironment,
 } from '@main/di/mainProcessCompositionRoot';
-import type { MainIpcDependencies } from '@main/ipc';
-import {
-  type MainProcessElectronApplication,
-  type MainProcessIpcRegistration,
-  type MainProcessPreventableEvent,
-} from '@main/mainProcessApplication';
+import type { MainIpcTransport } from '@main/ipc';
+import { type MainProcessElectronApplication, type MainProcessPreventableEvent } from '@main/mainProcessApplication';
 import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from '@main/i18n';
 import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProviders/BingTranslateProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
@@ -140,21 +137,16 @@ class TestTray {
   public setToolTip(): void {}
 }
 
-class RecordingIpcRegistration implements MainProcessIpcRegistration {
-  public disposeCount = 0;
-
-  public async dispose(): Promise<void> {
-    this.disposeCount += 1;
-  }
-}
+type MainIpcListener = Parameters<MainIpcTransport['handle']>[1];
 
 interface CompositionHarnessState {
   closeCount: number;
   createCount: number;
-  readonly ipcDependencies: MainIpcDependencies[];
-  readonly ipcRegistrations: RecordingIpcRegistration[];
+  readonly ipcHandlers: Map<string, MainIpcListener>;
+  readonly removedIpcChannels: string[];
   readonly prettifyAuditRecords: string[];
   readonly translationAuditRecords: string[];
+  window: TestDesktopWindow | null;
 }
 
 class MainProcessCompositionHarness {
@@ -162,10 +154,11 @@ class MainProcessCompositionHarness {
   public readonly state: CompositionHarnessState = {
     closeCount: 0,
     createCount: 0,
-    ipcDependencies: [],
-    ipcRegistrations: [],
+    ipcHandlers: new Map(),
+    removedIpcChannels: [],
     prettifyAuditRecords: [],
     translationAuditRecords: [],
+    window: null,
   };
   public readonly temporaryDirectory: string;
   public readonly databasePath: string;
@@ -196,14 +189,146 @@ class MainProcessCompositionHarness {
       getMonotonicTimeMs: () => 0,
       getRequestedAt: () => '2026-07-27T12:00:00.000Z',
       historyLogger: { warn: () => undefined },
+      ipc: {
+        cloakBrowserSettings: {
+          getView: () => ({
+            backgroundMode: 'hidden',
+            fingerprintSeed: '12345',
+            humanPreset: 'careful',
+            humanize: true,
+            locale: '',
+            proxy: {
+              bypass: '',
+              enabled: false,
+              geoip: true,
+              hasPassword: false,
+              server: '',
+              username: '',
+            },
+            timezone: '',
+          }),
+          prepare: () => {
+            const settings = {
+              backgroundMode: 'hidden' as const,
+              fingerprintSeed: '12345',
+              humanPreset: 'careful' as const,
+              humanize: true,
+              locale: '',
+              proxy: {
+                bypass: '',
+                enabled: false,
+                geoip: true,
+                hasPassword: false,
+                server: '',
+                username: '',
+              },
+              timezone: '',
+            };
+            return {
+              persist: () => settings,
+              settings,
+              settingsWithSecret: {
+                ...settings,
+                proxy: {
+                  ...settings.proxy,
+                  password: '',
+                },
+              },
+            };
+          },
+        },
+        config: {
+          getCurrentProvider: () => 'openai-api',
+          getHotkeySettings: () => ({
+            cancelHotkey: 'Escape',
+            hotkey: 'Super+Shift+Space',
+            prettifyHotkey: 'Super+Shift+P',
+            retryTranscriptionHotkey: 'Super+Shift+R',
+            stopHotkey: 'Super+Shift+S',
+            translateHotkey: 'Super+Shift+T',
+          }),
+          getTextActionSettings: () => ({
+            prettifyEnabled: true,
+            translateEnabled: true,
+          }),
+          getTranslationSettings: () => ({
+            providerId: 'google',
+            targetLanguageByProvider: {
+              bing: 'ru',
+              google: 'uk',
+              yandex: 'be',
+            },
+          }),
+          save: () => undefined,
+          saveTranslationSettings: () => ({
+            providerId: 'google',
+            targetLanguageByProvider: {
+              bing: 'ru',
+              google: 'uk',
+              yandex: 'be',
+            },
+          }),
+          setCurrentLocale: () => undefined,
+          setHotkeys: () => undefined,
+          setTextActionSettings: () => undefined,
+        },
+        ipc: {
+          handle: (channel, listener) => {
+            this.state.ipcHandlers.set(channel, listener);
+          },
+          removeHandler: (channel) => {
+            this.state.removedIpcChannels.push(channel);
+            this.state.ipcHandlers.delete(channel);
+          },
+        },
+        localization: {
+          getAllTranslations,
+          getLocale,
+          getSupportedLocales,
+          setLocale,
+          translate: t,
+        },
+        logger: {
+          error: () => undefined,
+          info: () => undefined,
+          warn: () => undefined,
+        },
+        notification: {
+          show: () => undefined,
+        },
+        platform: 'linux',
+        prettifySettings: {
+          getView: () => getPrettifySettingsWithSecret(),
+          save: () => getPrettifySettingsWithSecret(),
+        },
+        voiceSettings: {
+          clearOpenAIApiKey: () => ({
+            hasApiKey: false,
+            language: 'auto',
+            model: 'whisper-1',
+            prompt: '',
+            temperature: 0,
+          }),
+          getClaudeWebSettings: () => ({ language: 'en-US' }),
+          getOpenAIApiSettingsView: () => ({
+            hasApiKey: false,
+            language: 'auto',
+            model: 'whisper-1',
+            prompt: '',
+            temperature: 0,
+          }),
+          saveClaudeWebSettings: () => ({ language: 'en-US' }),
+          saveOpenAIApiSettings: () => ({
+            hasApiKey: false,
+            language: 'auto',
+            model: 'whisper-1',
+            prompt: '',
+            temperature: 0,
+          }),
+        },
+      },
       now: () => new Date('2026-07-27T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
-      registerIpcHandlers: (dependencies) => {
-        const registration = new RecordingIpcRegistration();
-        this.state.ipcDependencies.push(dependencies);
-        this.state.ipcRegistrations.push(registration);
-        return registration;
-      },
       reportStreamingDiagnostic: () => undefined,
       resolveStreamingCapability: () => null,
       prettify: {
@@ -471,7 +596,11 @@ class MainProcessCompositionHarness {
           translate: () => '',
         },
         window: {
-          createBrowserWindow: () => new TestDesktopWindow() as unknown as BrowserWindow,
+          createBrowserWindow: () => {
+            const window = new TestDesktopWindow();
+            this.state.window = window;
+            return window as unknown as BrowserWindow;
+          },
           getAppIcon: () => new TestNativeImage() as unknown as NativeImage,
           getAppIconPath: () => '/app/icon.png',
           getAppUrl: () => 'app://gpt-voice/index.html',
@@ -538,10 +667,11 @@ describe('main process composition root', () => {
       /\b(?:const|let)\s+(?:appDatabase|transcriptionHistoryRepository|diagnosticCaptureRepository|diagnosticCaptureStorage|transcriptionService|streamingTranscriptionService|quitCleanupComplete|quitCleanupPromise)\b/u,
     );
     assert.doesNotMatch(ipc, /\blet\s+streamingTranscriptionIpcController\b/u);
-    assert.match(ipc, /export class MainIpcRegistration/u);
-    assert.match(ipc, /registration\.handle\('transcribe-audio'/u);
+    assert.match(ipc, /export class MainIpcController/u);
+    assert.match(ipc, /this\.trustedIpc\.handle\('transcribe-audio'/u);
     assert.match(ipc, /if \(this\.disposalPromise\) return this\.disposalPromise;/u);
-    assert.match(ipc, /for \(const channel of this\.channels\) ipcMain\.removeHandler\(channel\);/u);
+    assert.match(ipc, /for \(const channel of this\.channels\) this\.ipc\.removeHandler\(channel\);/u);
+    assert.doesNotMatch(ipc, /\bexport function registerIpcHandlers\b|\bipcMain\b/u);
     assert.doesNotMatch(diagnosticStorage, /DEFAULT_DEPENDENCIES|Partial<DiagnosticCaptureStorageDependencies>/u);
     assert.doesNotMatch(diagnosticRedactor, /export const diagnosticTextRedactor/u);
     assert.doesNotMatch(
@@ -672,16 +802,17 @@ describe('main process composition root', () => {
     application.bootstrap();
 
     assert.equal(harness.state.createCount, 0);
-    assert.equal(harness.state.ipcDependencies.length, 0);
+    assert.equal(harness.state.ipcHandlers.size, 0);
 
     harness.app.emitReady();
     await flushAsyncWork();
 
     assert.equal(harness.state.createCount, 1);
-    assert.equal(harness.state.ipcDependencies.length, 1);
+    assert.equal(harness.state.ipcHandlers.size > 0, true);
 
     harness.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();
+    assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.state.closeCount, 1);
   });
 
@@ -699,23 +830,19 @@ describe('main process composition root', () => {
     second.app.emitReady();
     await flushAsyncWork();
 
-    const firstDependencies = first.state.ipcDependencies[0];
-    const secondDependencies = second.state.ipcDependencies[0];
-    assert.notEqual(firstDependencies.historyController, secondDependencies.historyController);
-    assert.notEqual(firstDependencies.backgroundBrowserService, secondDependencies.backgroundBrowserService);
-    assert.notEqual(firstDependencies.desktopRuntimeController, secondDependencies.desktopRuntimeController);
-    assert.notEqual(firstDependencies.shortcutController, secondDependencies.shortcutController);
-    assert.notEqual(firstDependencies.streamingTranscriptionService, secondDependencies.streamingTranscriptionService);
-    assert.notEqual(firstDependencies.transcriptionService, secondDependencies.transcriptionService);
-    assert.notEqual(firstDependencies.prettifyConnectionCoordinator, secondDependencies.prettifyConnectionCoordinator);
-    assert.notEqual(firstDependencies.prettifyRuntime, secondDependencies.prettifyRuntime);
-    assert.notEqual(firstDependencies.translationRuntime, secondDependencies.translationRuntime);
-    assert.notEqual(firstDependencies.voiceAudit, secondDependencies.voiceAudit);
-    assert.notEqual(firstDependencies.voiceProviderRegistry, secondDependencies.voiceProviderRegistry);
-    assert.notEqual(firstDependencies.windowManager, secondDependencies.windowManager);
-    assert.notEqual(first.state.ipcRegistrations[0], second.state.ipcRegistrations[0]);
-
-    await firstDependencies.translationRuntime.translateText('private-source-canary', 'ru');
+    assert.notEqual(first.state.ipcHandlers, second.state.ipcHandlers);
+    assert.equal(first.state.ipcHandlers.size, second.state.ipcHandlers.size);
+    const translateHandler = first.state.ipcHandlers.get('translate-text');
+    assert.ok(translateHandler);
+    assert.ok(first.state.window);
+    await translateHandler(
+      {
+        sender: first.state.window.webContents,
+        senderFrame: { url: first.state.window.webContents.getURL() },
+      } as unknown as IpcMainInvokeEvent,
+      'private-source-canary',
+      'ru',
+    );
     assert.equal(first.state.translationAuditRecords.length > 0, true);
     assert.equal(second.state.translationAuditRecords.length, 0);
     assert.equal(first.state.translationAuditRecords.join('').includes('private-source-canary'), false);
@@ -723,9 +850,9 @@ describe('main process composition root', () => {
     first.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();
 
-    assert.equal(first.state.ipcRegistrations[0].disposeCount, 1);
+    assert.equal(first.state.ipcHandlers.size, 0);
     assert.equal(first.state.closeCount, 1);
-    assert.equal(second.state.ipcRegistrations[0].disposeCount, 0);
+    assert.equal(second.state.ipcHandlers.size > 0, true);
     assert.equal(second.state.closeCount, 0);
 
     second.app.emitWillQuit({ preventDefault: () => undefined });
@@ -742,7 +869,7 @@ describe('main process composition root', () => {
     await flushAsyncWork();
 
     assert.equal(harness.state.createCount, 0);
-    assert.equal(harness.state.ipcDependencies.length, 0);
+    assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.app.quitCount, 1);
   });
 });

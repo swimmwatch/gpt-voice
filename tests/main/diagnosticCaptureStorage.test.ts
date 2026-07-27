@@ -312,8 +312,8 @@ describe('diagnostic capture storage service', () => {
     const source = fs.readFileSync(MAIN_APPLICATION_SOURCE_PATH, 'utf8');
     const configIndex = source.indexOf('dependencies.loadConfig();');
     const pruneIndex = source.indexOf('await runtime.pruneDiagnostics();');
-    const ipcIndex = source.indexOf('this.ipcRegistration = runtime.registerIpc();');
-    const browserShutdownIndex = source.indexOf('await this.dependencies.shutdownBackgroundBrowser();');
+    const ipcIndex = source.indexOf('runtime.registerIpc();');
+    const browserShutdownIndex = source.indexOf('await this.dependencies.backgroundBrowserService.shutdown();');
     const diagnosticShutdownIndex = source.indexOf('await runtime.shutdownDiagnostics();');
     const databaseCloseIndex = source.indexOf('runtime.closeDatabase();');
 

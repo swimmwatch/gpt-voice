@@ -48,15 +48,12 @@ export interface MainProcessBackgroundStatus {
   readonly ready: boolean;
 }
 
-export interface MainProcessIpcRegistration {
-  dispose(): Promise<void>;
-}
-
 /** Narrow application-facing view of the private dependency graph. */
 export interface MainProcessOwnedRuntime {
   closeDatabase(): void;
+  disposeIpc(): Promise<void>;
   pruneDiagnostics(): Promise<void>;
-  registerIpc(): MainProcessIpcRegistration;
+  registerIpc(): void;
   shutdownDiagnostics(): Promise<DiagnosticCaptureMaintenanceResult>;
 }
 
@@ -90,7 +87,6 @@ export interface MainProcessApplicationDependencies {
  */
 export class MainProcessApplication {
   private bootstrapped = false;
-  private ipcRegistration: MainProcessIpcRegistration | null = null;
   private quitCleanupComplete = false;
   private quitCleanupPromise: Promise<void> | null = null;
   private registered = false;
@@ -163,7 +159,7 @@ export class MainProcessApplication {
     await runtime.pruneDiagnostics();
     if (this.quitCleanupPromise) return;
 
-    this.ipcRegistration = runtime.registerIpc();
+    runtime.registerIpc();
     this.dependencies.windowManager.createMainWindow();
 
     if (this.dependencies.desktopRuntimeController.isStartupBenchmark) {
@@ -204,6 +200,7 @@ export class MainProcessApplication {
   };
 
   private async runQuitCleanup(): Promise<void> {
+    const runtime = this.runtime;
     try {
       this.dependencies.shortcutController.dispose();
     } catch {
@@ -211,7 +208,7 @@ export class MainProcessApplication {
     }
 
     try {
-      await this.ipcRegistration?.dispose();
+      await runtime?.disposeIpc();
     } catch {
       this.dependencies.logger.warn(STREAMING_CLEANUP_FAILURE_LOG);
     }
@@ -239,7 +236,6 @@ export class MainProcessApplication {
       this.dependencies.logger.warn(BROWSER_CLEANUP_FAILURE_LOG);
     }
 
-    const runtime = this.runtime;
     if (runtime) {
       try {
         const storageShutdown = await runtime.shutdownDiagnostics();

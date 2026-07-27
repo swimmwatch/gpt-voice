@@ -18,7 +18,7 @@ describe('App Settings section IPC contract', () => {
 
     assert.match(handler, /isAppSettingsSectionId\(section\)/u);
     assert.match(handler, /showSettingsWindow\(section\)/u);
-    assert.match(ipc, /assertTrustedSender\(event, this\.windowManager\)/u);
+    assert.match(ipc, /this\.assertTrustedSender\(event\)/u);
     assert.match(preload, /openAppSettings: \(section\?: AppSettingsSectionId\)/u);
     assert.match(preload, /ipcRenderer\.invoke\('open-app-settings', section\)/u);
     assert.match(preload, /onMainEvent<\[AppSettingsSectionId\]>\('app-settings-section-requested'/u);

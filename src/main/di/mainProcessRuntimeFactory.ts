@@ -1,6 +1,5 @@
-import type { MainIpcDependencies } from '../ipc';
+import { MainIpcController, type MainIpcControllerDependencies } from '../ipc';
 import type {
-  MainProcessIpcRegistration,
   MainProcessOwnedRuntime,
   MainProcessRuntimeFactory as MainProcessRuntimeFactoryContract,
 } from '../mainProcessApplication';
@@ -27,14 +26,25 @@ import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import type { TranslationRuntime } from '../services/translation';
 import type { PrettifyRuntime } from '../services/prettifyProviders';
-import type { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
-import type { WebContents } from 'electron';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
   keyof TranscriptionCompletionDependencies
 >;
+
+type RuntimeOwnedMainIpcDependencyKeys =
+  | 'backgroundBrowserService'
+  | 'desktopRuntimeController'
+  | 'historyController'
+  | 'prettifyRuntime'
+  | 'shortcutController'
+  | 'streamingTranscriptionService'
+  | 'transcriptionService'
+  | 'translationRuntime'
+  | 'voiceAudit'
+  | 'voiceProviderRegistry'
+  | 'windowManager';
 
 export interface MainProcessRuntimeFactoryDependencies {
   readonly cacheNow: () => number;
@@ -48,9 +58,9 @@ export interface MainProcessRuntimeFactoryDependencies {
   readonly historyLogger: {
     warn(message: string, metadata: Readonly<Record<string, unknown>>): void;
   };
+  readonly ipc: Omit<MainIpcControllerDependencies, RuntimeOwnedMainIpcDependencyKeys>;
   readonly now: () => Date;
   readonly randomUUID: () => string;
-  readonly registerIpcHandlers: (dependencies: MainIpcDependencies) => MainProcessIpcRegistration;
   readonly reportStreamingDiagnostic: StreamingRuntimeDependencies['reportDiagnostic'];
   readonly resolveStreamingCapability: StreamingRuntimeDependencies['resolveCapability'];
   readonly writeClipboardText: (text: string) => void;
@@ -60,7 +70,6 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly shortcutController: ShortcutController;
-  readonly prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents>;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
   readonly voiceProviderAudit: VoiceProviderAudit;
@@ -111,16 +120,12 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       logger: this.dependencies.historyLogger,
       writeClipboardText: this.dependencies.writeClipboardText,
     });
-
-    return new MainProcessRuntimeGraph({
+    const ipcController = new MainIpcController({
+      ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
-      database,
       desktopRuntimeController: this.controllers.desktopRuntimeController,
-      diagnosticStorage,
       historyController,
-      prettifyConnectionCoordinator: this.controllers.prettifyConnectionCoordinator,
       prettifyRuntime: this.controllers.prettifyRuntime,
-      registerIpcHandlers: this.dependencies.registerIpcHandlers,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
       transcriptionService,
@@ -128,6 +133,12 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       voiceAudit: this.controllers.voiceProviderAudit,
       voiceProviderRegistry: this.controllers.voiceProviderRegistry,
       windowManager: this.controllers.windowManager,
+    });
+
+    return new MainProcessRuntimeGraph({
+      database,
+      diagnosticStorage,
+      ipcController,
     });
   }
 

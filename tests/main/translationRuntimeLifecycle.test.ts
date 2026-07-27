@@ -32,14 +32,14 @@ describe('translation runtime lifecycle integration', () => {
   it('closes translation contexts before restarting or persisting CloakBrowser settings', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handler = ipc.slice(
-      ipc.indexOf("registration.handle('save-cloakbrowser-settings'"),
-      ipc.indexOf("registration.handle('save-provider-settings'"),
+      ipc.indexOf("this.trustedIpc.handle('save-cloakbrowser-settings'"),
+      ipc.indexOf("this.trustedIpc.handle('save-provider-settings'"),
     );
 
     const validation = handler.indexOf('assertValidCloakBrowserSettingsInput');
-    const prepare = handler.indexOf('prepareCloakBrowserSettings');
+    const prepare = handler.indexOf('dependencies.cloakBrowserSettings.prepare');
     const shutdown = handler.indexOf('dependencies.translationRuntime.shutdown');
-    const restart = handler.indexOf('backgroundBrowserService.restart');
+    const restart = handler.indexOf('dependencies.backgroundBrowserService.restart');
     const persist = handler.indexOf('preparedSettings.persist');
 
     assert.equal(validation >= 0, true);
@@ -48,8 +48,8 @@ describe('translation runtime lifecycle integration', () => {
     assert.equal(shutdown < restart, true);
     assert.equal(restart < persist, true);
     assert.match(handler, /if \(!translationShutdown\.success\)/u);
-    assert.match(handler, /settings: getCloakBrowserSettingsView\(\)/u);
-    assert.match(handler, /error: t\('error\.translationCleanupFailed'\)/u);
+    assert.match(handler, /settings: dependencies\.cloakBrowserSettings\.getView\(\)/u);
+    assert.match(handler, /error: dependencies\.localization\.translate\('error\.translationCleanupFailed'\)/u);
     assert.doesNotMatch(handler, /failedProviderIds.*error\.message/su);
   });
 
@@ -69,8 +69,8 @@ describe('translation runtime lifecycle integration', () => {
   it('keeps the trusted direct translation IPC signature without accepting a provider override', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handler = ipc.slice(
-      ipc.indexOf("registration.handle('translate-text'"),
-      ipc.indexOf("registration.handle('get-transcription-history'"),
+      ipc.indexOf("this.trustedIpc.handle('translate-text'"),
+      ipc.indexOf("this.trustedIpc.handle('get-transcription-history'"),
     );
 
     assert.match(handler, /text: string, targetLang: string/u);

@@ -4,7 +4,18 @@ import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { app, BrowserWindow, globalShortcut, Menu, nativeImage, protocol, session, shell, Tray } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeImage,
+  protocol,
+  session,
+  shell,
+  Tray,
+} from 'electron';
 import log, { createLogger } from './logger';
 import {
   consumePendingTranslationSettingsRepairNotice,
@@ -22,15 +33,24 @@ import {
   getTranslationSettingsSnapshot,
   hasExplicitLocalePreference,
   loadConfig,
+  saveConfig,
+  saveTranslationSettings,
+  setCurrentLocale,
+  setHotkeys,
   setProvider,
+  setTextActionSettings,
 } from './config';
-import { registerIpcHandlers } from './ipc';
-import { getSupportedLocales, setLocale, t } from './i18n';
+import { getAllTranslations, getLocale, getSupportedLocales, setLocale, t } from './i18n';
 import { configureCloakBrowserRuntime, launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
+import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
 import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
-import { getPrettifySettingsView, getPrettifySettingsWithSecret } from './services/prettifySettingsStorage';
+import {
+  getPrettifySettingsView,
+  getPrettifySettingsWithSecret,
+  savePrettifySettings,
+} from './services/prettifySettingsStorage';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { resolveStartupLocale } from './startupLocale';
 import {
@@ -50,7 +70,12 @@ import {
   createCloakBrowserTranslationContextOptions,
 } from './cloakBrowserLaunchOptions';
 import { presentNotificationError } from '@shared/notifications';
-import { getOpenAIApiSettingsWithSecret } from './providers/openaiApiSettings';
+import {
+  clearOpenAIApiKey,
+  getOpenAIApiSettingsView,
+  getOpenAIApiSettingsWithSecret,
+  saveOpenAIApiSettings,
+} from './providers/openaiApiSettings';
 import {
   clearClaudeWebSession,
   getPlaywrightStorageState,
@@ -58,7 +83,7 @@ import {
   resolveClaudeWebOrganization,
   saveClaudeWebSession,
 } from './providers/claudeWebSession';
-import { getClaudeWebSettings } from './providers/claudeWebSettings';
+import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from './translateProviders/GoogleTranslateProvider';
@@ -100,9 +125,62 @@ const application = new MainProcessCompositionRoot({
   getMonotonicTimeMs,
   getRequestedAt,
   historyLogger: createLogger('ipc'),
+  ipc: {
+    cloakBrowserSettings: {
+      getView: getCloakBrowserSettingsView,
+      prepare: prepareCloakBrowserSettings,
+    },
+    config: {
+      getCurrentProvider: () => currentProvider,
+      getHotkeySettings: () => ({
+        cancelHotkey: currentCancelHotkey,
+        hotkey: currentHotkey,
+        prettifyHotkey: currentPrettifyHotkey,
+        retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
+        stopHotkey: currentStopHotkey,
+        translateHotkey: currentTranslateHotkey,
+      }),
+      getTextActionSettings: () => ({
+        prettifyEnabled: currentPrettifyEnabled,
+        translateEnabled: currentTranslateEnabled,
+      }),
+      getTranslationSettings: getTranslationSettingsSnapshot,
+      save: saveConfig,
+      saveTranslationSettings,
+      setCurrentLocale,
+      setHotkeys,
+      setTextActionSettings,
+    },
+    ipc: {
+      handle: (channel, listener) => ipcMain.handle(channel, listener),
+      removeHandler: (channel) => ipcMain.removeHandler(channel),
+    },
+    localization: {
+      getAllTranslations,
+      getLocale,
+      getSupportedLocales,
+      setLocale,
+      translate: t,
+    },
+    logger: createLogger('ipc'),
+    notification: {
+      show: showSystemNotification,
+    },
+    platform: process.platform,
+    prettifySettings: {
+      getView: getPrettifySettingsView,
+      save: savePrettifySettings,
+    },
+    voiceSettings: {
+      clearOpenAIApiKey,
+      getClaudeWebSettings,
+      getOpenAIApiSettingsView,
+      saveClaudeWebSettings,
+      saveOpenAIApiSettings,
+    },
+  },
   now: getCurrentDate,
   randomUUID,
-  registerIpcHandlers,
   reportStreamingDiagnostic: ignoreStreamingDiagnostic,
   resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
   prettify: {

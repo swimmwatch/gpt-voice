@@ -45,10 +45,10 @@ describe('trusted streaming transcription IPC integration', () => {
 
     assert.match(
       ipc,
-      /ipcMain\.handle\(channel, \(event, \.\.\.args\) => \{\s*assertTrustedSender\(event, windowManager\);\s*return listener\(event\.sender, \.\.\.\(args as unknown\[\]\)\);/u,
+      /this\.ipc\.handle\(channel, \(event, \.\.\.args\) => \{\s*this\.assertTrustedSender\(event\);\s*return listener\(event\.sender, \.\.\.args\);/u,
     );
     assert.match(ipc, /return mainWindow && !mainWindow\.isDestroyed\(\) \? mainWindow\.webContents : null;/u);
-    assert.match(ipc, /removeHandler: \(channel\) => ipcMain\.removeHandler\(channel\)/u);
+    assert.match(ipc, /removeHandler: \(channel\) => this\.trustedIpc\.removeStreamingHandler\(channel\)/u);
   });
 
   it('cancels before browser teardown, provider mutation, and application quit', () => {
@@ -61,7 +61,7 @@ describe('trusted streaming transcription IPC integration', () => {
     const switchShutdown = browser.indexOf('await this.shutdownNow();', switchStart);
     const setProvider = browser.indexOf('this.dependencies.setCurrentProviderId(providerId);', switchStart);
     const quitStart = application.indexOf('private async runQuitCleanup');
-    const ipcTeardown = application.indexOf('await this.ipcRegistration?.dispose();', quitStart);
+    const ipcTeardown = application.indexOf('await runtime?.disposeIpc();', quitStart);
     const browserTeardown = application.indexOf(
       'await this.dependencies.backgroundBrowserService.shutdown();',
       quitStart,
