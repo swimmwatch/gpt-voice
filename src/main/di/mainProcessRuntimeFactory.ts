@@ -4,7 +4,6 @@ import type {
   MainProcessOwnedRuntime,
   MainProcessRuntimeFactory as MainProcessRuntimeFactoryContract,
 } from '../mainProcessApplication';
-import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { StreamingTranscriptionOperationId } from '../providers/streamingVoiceProvider';
 import type { AppDatabaseDependencies } from '../repositories/sqlite/appDatabase';
 import { AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
@@ -17,12 +16,15 @@ import {
   StreamingTranscriptionService,
   type MainStreamingTranscriptionServiceDependencies,
 } from '../services/streamingTranscription';
-import { createTranscriptionService } from '../services/transcription';
+import { TranscriptionService } from '../services/transcription';
 import { TranscriptionHistoryIpcController } from '../services/transcriptionHistoryIpcController';
 import { createTranscriptionResultCache } from '../services/transcriptionResultCache';
 import type { DesktopRuntimeController } from '../desktopRuntimeController';
 import type { ShortcutController } from '../shortcuts';
 import type { WindowManager } from '../window';
+import type { BackgroundBrowserService } from '../browser';
+import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
+import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
 
 type StreamingRuntimeDependencies = Omit<
@@ -37,26 +39,25 @@ export interface MainProcessRuntimeFactoryDependencies {
   readonly diagnosticLogger: {
     warn(...args: unknown[]): void;
   };
-  readonly ensureBackgroundBrowser: () => Promise<void>;
-  readonly getActiveProvider: MainStreamingTranscriptionServiceDependencies['getActiveProvider'];
   readonly getMonotonicTimeMs: StreamingRuntimeDependencies['getMonotonicTimeMs'];
   readonly getRequestedAt: StreamingRuntimeDependencies['getRequestedAt'];
   readonly historyLogger: {
     warn(message: string, metadata: Readonly<Record<string, unknown>>): void;
   };
-  readonly isBackgroundReady: () => boolean;
   readonly now: () => Date;
   readonly randomUUID: () => string;
   readonly registerIpcHandlers: (dependencies: MainIpcDependencies) => MainProcessIpcRegistration;
   readonly reportStreamingDiagnostic: StreamingRuntimeDependencies['reportDiagnostic'];
   readonly resolveStreamingCapability: StreamingRuntimeDependencies['resolveCapability'];
-  readonly voiceAudit: VoiceProviderAudit;
   readonly writeClipboardText: (text: string) => void;
 }
 
 export interface MainProcessRuntimeFactoryControllers {
+  readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly shortcutController: ShortcutController;
+  readonly voiceProviderAudit: VoiceProviderAudit;
+  readonly voiceProviderRegistry: VoiceProviderRegistry;
   readonly windowManager: WindowManager;
 }
 
@@ -83,19 +84,17 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       historyRepository,
       writeClipboardText: this.dependencies.writeClipboardText,
     };
-    const transcribeAudio = createTranscriptionService({
+    const transcriptionService = new TranscriptionService({
       ...completionDependencies,
-      audit: this.dependencies.voiceAudit,
-      ensureBackgroundBrowser: this.dependencies.ensureBackgroundBrowser,
-      getActiveProvider: this.dependencies.getActiveProvider,
+      audit: this.controllers.voiceProviderAudit,
+      backgroundBrowserService: this.controllers.backgroundBrowserService,
       getRequestedAt: this.dependencies.getRequestedAt,
-      isBackgroundReady: this.dependencies.isBackgroundReady,
     });
     const streamingTranscriptionService = new StreamingTranscriptionService({
       ...completionDependencies,
-      audit: this.dependencies.voiceAudit,
+      audit: this.controllers.voiceProviderAudit,
+      backgroundBrowserService: this.controllers.backgroundBrowserService,
       createOperationId: this.createStreamingOperationId,
-      getActiveProvider: this.dependencies.getActiveProvider,
       getMonotonicTimeMs: this.dependencies.getMonotonicTimeMs,
       getRequestedAt: this.dependencies.getRequestedAt,
       reportDiagnostic: this.dependencies.reportStreamingDiagnostic,
@@ -107,6 +106,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     });
 
     return new MainProcessRuntimeGraph({
+      backgroundBrowserService: this.controllers.backgroundBrowserService,
       database,
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       diagnosticStorage,
@@ -114,7 +114,9 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       registerIpcHandlers: this.dependencies.registerIpcHandlers,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
-      transcribeAudio,
+      transcriptionService,
+      voiceAudit: this.controllers.voiceProviderAudit,
+      voiceProviderRegistry: this.controllers.voiceProviderRegistry,
       windowManager: this.controllers.windowManager,
     });
   }

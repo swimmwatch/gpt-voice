@@ -8,6 +8,7 @@ import { app, BrowserWindow, globalShortcut, Menu, nativeImage, protocol, sessio
 import log, { createLogger } from './logger';
 import {
   consumePendingTranslationSettingsRepairNotice,
+  APP_DIR,
   currentCancelHotkey,
   currentHotkey,
   currentPrettifyEnabled,
@@ -20,17 +21,11 @@ import {
   getCurrentLocale,
   hasExplicitLocalePreference,
   loadConfig,
+  setProvider,
 } from './config';
-import {
-  ensureBackgroundBrowser,
-  getActiveProvider,
-  initBackgroundBrowser,
-  isBgReady,
-  shutdownBackgroundBrowser,
-} from './browser';
 import { registerIpcHandlers } from './ipc';
 import { getSupportedLocales, setLocale, t } from './i18n';
-import { configureCloakBrowserRuntime } from './cloakbrowser';
+import { configureCloakBrowserRuntime, launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
 import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
@@ -40,12 +35,27 @@ import { resolveStartupLocale } from './startupLocale';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
 import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
-import { voiceProviderAudit } from './providers';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { getActiveSelectedTextAction } from './services/selectedTextActionState';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
+import {
+  createCloakBrowserLoginContextOptions,
+  createCloakBrowserPersistentContextOptions,
+} from './cloakBrowserLaunchOptions';
+import { presentNotificationError } from '@shared/notifications';
+import { getOpenAIApiSettingsWithSecret } from './providers/openaiApiSettings';
+import {
+  clearClaudeWebSession,
+  getPlaywrightStorageState,
+  readClaudeWebSession,
+  resolveClaudeWebOrganization,
+  saveClaudeWebSession,
+} from './providers/claudeWebSession';
+import { getClaudeWebSettings } from './providers/claudeWebSettings';
+import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
+import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
 
 function initializeLocale(): void {
   setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
@@ -79,18 +89,68 @@ const application = new MainProcessCompositionRoot({
   cacheNow: Date.now,
   databasePath: APP_DATABASE_FILE,
   diagnosticLogger: createLogger('diagnostic-capture'),
-  ensureBackgroundBrowser,
-  getActiveProvider,
   getMonotonicTimeMs,
   getRequestedAt,
   historyLogger: createLogger('ipc'),
-  isBackgroundReady: isBgReady,
   now: getCurrentDate,
   randomUUID,
   registerIpcHandlers,
   reportStreamingDiagnostic: ignoreStreamingDiagnostic,
   resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
-  voiceAudit: voiceProviderAudit,
+  voice: {
+    audit: {
+      elapsedNow: Date.now,
+      getSink: () => createLogger('provider-audit'),
+      now: getCurrentDate,
+      randomUUID,
+    },
+    browser: {
+      createBackgroundContext: (settings) =>
+        launchCloakPersistentContext(createCloakBrowserPersistentContextOptions(settings)),
+      createLoginContext: () => launchCloakContext(createCloakBrowserLoginContextOptions()),
+      getCurrentProviderId: () => currentProvider,
+      getNotAuthenticatedError: () => t('error.noAccessToken'),
+      logger: createLogger('browser'),
+      presentError: (error) => presentNotificationError(error, { context: 'generic', t }).userMessage,
+      setCurrentProviderId: setProvider,
+    },
+    providers: {
+      chatGPT: {
+        logger: createLogger('chatgpt-provider'),
+        now: Date.now,
+        reloadPage: async (page, timeoutMs) => {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
+        },
+        sessionStore: {
+          fileSystem: fs,
+          logger: createLogger('chatgpt-provider'),
+          now: Date.now,
+          sessionFile: path.join(APP_DIR, 'chatgpt-session.json'),
+          tokenFile: path.join(APP_DIR, 'access-token.json'),
+        },
+        writeClipboardText,
+      },
+      claudeWeb: {
+        clearSession: clearClaudeWebSession,
+        createTransport: createClaudeWebPageTransport,
+        getSettings: getClaudeWebSettings,
+        getStorageState: getPlaywrightStorageState,
+        inspectReadiness: inspectClaudeWebReadiness,
+        navigationLogger: createLogger('claude-web-provider'),
+        now: Date.now,
+        readSession: readClaudeWebSession,
+        resolveOrganization: resolveClaudeWebOrganization,
+        saveSession: saveClaudeWebSession,
+        waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+        writeClipboardText,
+      },
+      openAIApi: {
+        fetch,
+        getSettings: getOpenAIApiSettingsWithSecret,
+        writeClipboardText,
+      },
+    },
+  },
   writeClipboardText,
 }).createApplication({
   app,
@@ -170,12 +230,10 @@ const application = new MainProcessCompositionRoot({
     },
   },
   getCurrentVoiceProviderId: () => currentProvider,
-  initializeBackgroundBrowser: initBackgroundBrowser,
   initializeLocale,
   loadConfig,
   logger: log,
   presentTranslationSettingsRepairNotice,
-  shutdownBackgroundBrowser,
   shutdownTranslationProviders: shutdownAllTranslationProviders,
   unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
 });

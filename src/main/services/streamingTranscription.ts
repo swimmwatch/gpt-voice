@@ -90,10 +90,14 @@ export interface StreamingTranscriptionDiagnostic {
 
 export type StreamingTranscriptionDiagnosticOutcome = 'cancelled' | 'completed' | 'failed';
 
+export interface StreamingTranscriptionBackgroundBrowser {
+  getActiveProvider(): BaseVoiceProvider | null;
+}
+
 export interface MainStreamingTranscriptionServiceDependencies extends TranscriptionCompletionDependencies {
   audit: VoiceProviderAudit;
+  backgroundBrowserService: StreamingTranscriptionBackgroundBrowser;
   createOperationId: () => StreamingTranscriptionOperationId;
-  getActiveProvider: () => BaseVoiceProvider | null;
   getMonotonicTimeMs: () => number;
   getRequestedAt: () => string;
   reportDiagnostic: (
@@ -258,7 +262,7 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
       throw this.createStandaloneRejection(StreamingTranscriptionErrorCode.OperationConflict);
     }
 
-    const provider = this.deps.getActiveProvider();
+    const provider = this.deps.backgroundBrowserService.getActiveProvider();
     const capability = this.deps.resolveCapability(provider);
     if (!provider || !provider.isReady() || !capability || capability.provider !== provider) {
       throw this.createStandaloneRejection(StreamingTranscriptionErrorCode.InvalidOperation);
@@ -648,18 +652,18 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     return (
       !operation.provider ||
       !operation.completionSnapshot ||
-      this.deps.getActiveProvider() !== operation.provider ||
+      this.deps.backgroundBrowserService.getActiveProvider() !== operation.provider ||
       operation.provider.info.id !== operation.completionSnapshot.providerId
     );
   }
 
   private createStandaloneRejection(code: StreamingTranscriptionErrorCode): MainStreamingTranscriptionRejection {
-    this.deps.audit.recordStreamingRejection(this.deps.getActiveProvider()?.info.id, code);
+    this.deps.audit.recordStreamingRejection(this.deps.backgroundBrowserService.getActiveProvider()?.info.id, code);
     return new MainStreamingTranscriptionRejection(createStreamingError(code), false);
   }
 
   private createStandaloneTerminalFailure(code: StreamingTranscriptionErrorCode): MainStreamingTranscriptionResult {
-    this.deps.audit.recordStreamingRejection(this.deps.getActiveProvider()?.info.id, code);
+    this.deps.audit.recordStreamingRejection(this.deps.backgroundBrowserService.getActiveProvider()?.info.id, code);
     return { success: false, error: createStreamingError(code), retryEligible: false };
   }
 

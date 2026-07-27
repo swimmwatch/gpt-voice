@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { ClaudeWebVoiceProvider, getAvailableProviders } from '@main/providers';
+import { ClaudeWebVoiceProvider } from '@main/providers';
 import { ClaudeWebVoiceProviderErrorCode } from '@main/providers/ClaudeWebVoiceProvider';
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
@@ -17,6 +17,7 @@ import {
 } from '@main/providerAudit/mappings';
 import { KNOWN_PRETTIFY_PROVIDER_IDS } from '@shared/prettifySettings';
 import { TRANSLATION_PROVIDER_IDS } from '@shared/translationProvider';
+import { VoiceProviderRegistryFixture } from '../providers/voiceProviderRegistryFixture';
 
 const DIAGNOSTIC_CAUSE_CODES = [
   'diagnostic-storage-unavailable',
@@ -45,7 +46,7 @@ describe('provider audit mappings', () => {
   it('exhaustively matches the current provider registries', () => {
     assert.deepEqual(
       Object.keys(PROVIDER_AUDIT_PROVIDER_MAPPINGS.voice),
-      getAvailableProviders().map((provider) => provider.id),
+      new VoiceProviderRegistryFixture().registry.getAvailableProviders().map((provider) => provider.id),
     );
     assert.deepEqual(Object.keys(PROVIDER_AUDIT_PROVIDER_MAPPINGS.prettify), [...KNOWN_PRETTIFY_PROVIDER_IDS]);
     assert.deepEqual(Object.keys(PROVIDER_AUDIT_PROVIDER_MAPPINGS.translation), [...TRANSLATION_PROVIDER_IDS]);

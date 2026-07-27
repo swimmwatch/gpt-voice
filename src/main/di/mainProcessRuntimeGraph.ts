@@ -5,6 +5,7 @@ import type { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStor
 import type { TranscriptionHistoryIpcController } from '../services/transcriptionHistoryIpcController';
 
 export interface MainProcessRuntimeGraphDependencies {
+  readonly backgroundBrowserService: MainIpcDependencies['backgroundBrowserService'];
   readonly database: AppDatabaseCoordinator;
   readonly desktopRuntimeController: MainIpcDependencies['desktopRuntimeController'];
   readonly diagnosticStorage: DiagnosticCaptureStorage;
@@ -12,7 +13,9 @@ export interface MainProcessRuntimeGraphDependencies {
   readonly registerIpcHandlers: (dependencies: MainIpcDependencies) => MainProcessIpcRegistration;
   readonly shortcutController: MainIpcDependencies['shortcutController'];
   readonly streamingTranscriptionService: MainIpcDependencies['streamingTranscriptionService'];
-  readonly transcribeAudio: MainIpcDependencies['transcribeAudio'];
+  readonly transcriptionService: MainIpcDependencies['transcriptionService'];
+  readonly voiceAudit: MainIpcDependencies['voiceAudit'];
+  readonly voiceProviderRegistry: MainIpcDependencies['voiceProviderRegistry'];
   readonly windowManager: MainIpcDependencies['windowManager'];
 }
 
@@ -33,11 +36,14 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
     }
     this.ipcRegistered = true;
     return this.dependencies.registerIpcHandlers({
+      backgroundBrowserService: this.dependencies.backgroundBrowserService,
       desktopRuntimeController: this.dependencies.desktopRuntimeController,
       historyController: this.dependencies.historyController,
       shortcutController: this.dependencies.shortcutController,
       streamingTranscriptionService: this.dependencies.streamingTranscriptionService,
-      transcribeAudio: this.dependencies.transcribeAudio,
+      transcriptionService: this.dependencies.transcriptionService,
+      voiceAudit: this.dependencies.voiceAudit,
+      voiceProviderRegistry: this.dependencies.voiceProviderRegistry,
       windowManager: this.dependencies.windowManager,
     });
   }

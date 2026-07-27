@@ -2,57 +2,54 @@ import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
 import { BatchVoiceProvider } from './BatchVoiceProvider';
 import { getAudioFileExtension } from './chatgptUtils';
-import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { OpenAIApiSettingsWithSecret } from './openaiApiSettingsUtils';
 import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
 import { t } from '../i18n';
-import { writeClipboardText } from '../electronRuntime';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
-import { voiceProviderAudit, type VoiceProviderAudit, type VoiceBatchAuditContext } from './voiceProviderAudit';
+import type { VoiceProviderAudit, VoiceBatchAuditContext } from './voiceProviderAudit';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const ERROR_RESPONSE_BODY_PREVIEW_CHARS = 300;
 
-interface FetchResponseLike {
+export interface FetchResponseLike {
   status: number;
   text(): Promise<string>;
 }
 
-interface OpenAIApiVoiceProviderDependencies {
+export interface OpenAIApiVoiceProviderDependencies {
   audit: VoiceProviderAudit;
   fetch: (url: string, init: RequestInit) => Promise<FetchResponseLike>;
   getSettings: () => OpenAIApiSettingsWithSecret;
   writeClipboardText: (text: string) => void;
 }
 
+export const OPENAI_API_VOICE_PROVIDER_INFO = Object.freeze({
+  id: OPENAI_API_PROVIDER_ID,
+  name: 'OpenAI API',
+  authType: 'apiKey',
+  category: 'api',
+  hasSettings: true,
+  transcriptionMode: 'batch',
+}) satisfies VoiceProviderInfo;
+
+export const OPENAI_API_RENDERER_PROVIDER_INFO = OPENAI_API_VOICE_PROVIDER_INFO;
+
 /** API-key provider for OpenAI's hosted audio transcription endpoint. */
 export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
   private readonly deps: OpenAIApiVoiceProviderDependencies;
 
-  constructor(deps: Partial<OpenAIApiVoiceProviderDependencies> = {}) {
+  constructor(deps: OpenAIApiVoiceProviderDependencies) {
     super();
-    this.deps = {
-      audit: deps.audit || voiceProviderAudit,
-      fetch: deps.fetch || fetch,
-      getSettings: deps.getSettings || getOpenAIApiSettingsWithSecret,
-      writeClipboardText: deps.writeClipboardText || writeClipboardText,
-    };
+    this.deps = deps;
   }
 
-  readonly info = {
-    id: OPENAI_API_PROVIDER_ID,
-    name: 'OpenAI API',
-    authType: 'apiKey',
-    category: 'api',
-    hasSettings: true,
-    transcriptionMode: 'batch',
-  } satisfies VoiceProviderInfo;
+  readonly info = OPENAI_API_VOICE_PROVIDER_INFO;
 
   hasSession(): boolean {
     return Boolean(this.deps.getSettings().apiKey);

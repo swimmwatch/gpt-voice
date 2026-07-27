@@ -13,7 +13,6 @@ import {
 import {
   ClaudeWebPageTransportError,
   ClaudeWebPageTransportErrorCode,
-  createClaudeWebPageTransport,
   type ClaudeWebPageTransportInput,
   type ClaudeWebPageTransportOperationId,
   type ClaudeWebPageTransportStartInput,
@@ -36,7 +35,6 @@ import {
 } from './streamingVoiceProvider';
 import { StreamingTranscriptionOperationError } from './StreamingTranscriptionOperationError';
 import {
-  voiceProviderAudit,
   type VoiceAuditOperationContext,
   type VoiceProviderAudit,
   type VoiceStreamingAuditCounters,
@@ -44,28 +42,18 @@ import {
 import { CLAUDE_WEB_SPEECH_PROTOCOL_VERSION, ClaudeWebProtocolError } from './claudeWebProtocol';
 import {
   CLAUDE_WEB_ORIGIN,
-  clearClaudeWebSession,
   getClaudeWebReadinessFailureCategory,
-  getPlaywrightStorageState,
-  readClaudeWebSession,
-  resolveClaudeWebOrganization,
-  saveClaudeWebSession,
   type ClaudeWebOrganizationContext,
   type ClaudeWebOrganizationEvidence,
   type ClaudeWebSessionReadResult,
 } from './claudeWebSession';
-import { getClaudeWebSettings } from './claudeWebSettings';
-import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
-import { writeClipboardText } from '../electronRuntime';
 import { t } from '../i18n';
-import { createLogger } from '../logger';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 import type { ProviderAuditPhase } from '@main/providerAudit';
+import type { ClaudeWebNavigationService } from './claudeWebNavigationService';
+import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 
-const log = createLogger('claude-web-provider');
-const CLAUDE_WEB_NAVIGATION_TIMEOUT_MS = 30_000;
-const CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS = 10_000;
 const CLAUDE_WEB_READINESS_TIMEOUT_MS = 10_000;
 const CLAUDE_WEB_READINESS_POLL_INTERVAL_MS = 500;
 const CLAUDE_WEB_BOOTSTRAP_PATH =
@@ -126,7 +114,7 @@ const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, Cl
   [ClaudeWebPageTransportErrorCode.PageShutdown]: ClaudeWebVoiceProviderErrorCode.PageShutdown,
 };
 
-type ClaudeWebStorageState = ReturnType<typeof getPlaywrightStorageState>;
+type ClaudeWebStorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
 export interface ClaudeWebReadinessSnapshot {
   authentication: ClaudeWebAuthenticationStatus;
@@ -155,7 +143,7 @@ export interface ClaudeWebVoiceProviderDependencies {
   inspectReadiness(page: Page, timeoutMs: number): Promise<ClaudeWebReadinessSnapshot>;
   createTransport(page: Page): ClaudeWebPageTransportLike;
   writeClipboardText(text: string): void;
-  navigatePage(page: Page): Promise<void>;
+  navigationService: Pick<ClaudeWebNavigationService, 'navigate'>;
   now(): number;
   waitForReadinessRetry(delayMs: number): Promise<void>;
 }
@@ -170,28 +158,6 @@ async function configureClaudeWebPage(page: Page): Promise<void> {
     if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) return route.abort();
     return route.continue();
   });
-}
-
-async function navigateClaudeWebPage(page: Page): Promise<void> {
-  await retryBrowserNavigation(
-    {
-      navigate: () =>
-        page.goto(CLAUDE_WEB_ORIGIN, {
-          waitUntil: 'domcontentloaded',
-          timeout: CLAUDE_WEB_NAVIGATION_TIMEOUT_MS,
-        }),
-      service: BrowserNavigationService.Claude,
-    },
-    {
-      onRetry: (event) => log.warn('Retrying Claude page navigation:', event),
-    },
-  );
-
-  try {
-    await page.waitForLoadState('load', { timeout: CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS });
-  } catch {
-    log.warn('Claude load event did not settle quickly; continuing after DOMContentLoaded');
-  }
 }
 
 /** Reads only the minimum same-origin state needed to prove authenticated Claude routing. */
@@ -293,22 +259,6 @@ export async function inspectClaudeWebReadiness(
   }
 }
 
-const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
-  audit: voiceProviderAudit,
-  getSettings: getClaudeWebSettings,
-  readSession: readClaudeWebSession,
-  saveSession: saveClaudeWebSession,
-  clearSession: clearClaudeWebSession,
-  getStorageState: getPlaywrightStorageState,
-  resolveOrganization: resolveClaudeWebOrganization,
-  inspectReadiness: inspectClaudeWebReadiness,
-  createTransport: createClaudeWebPageTransport,
-  writeClipboardText,
-  navigatePage: navigateClaudeWebPage,
-  now: () => Date.now(),
-  waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
-};
-
 function getSessionErrorCode(result: ClaudeWebSessionReadResult): ClaudeWebVoiceProviderErrorCode | null {
   if (result.status === 'usable') return null;
   if (result.status === 'missing') return ClaudeWebVoiceProviderErrorCode.SessionMissing;
@@ -370,17 +320,28 @@ interface ClaudeWebStreamingOperation {
   transportOperationId: ClaudeWebPageTransportOperationId;
 }
 
+export const CLAUDE_WEB_VOICE_PROVIDER_INFO = Object.freeze({
+  id: CLAUDE_WEB_PROVIDER_ID,
+  name: 'Claude Web',
+  authType: 'browserSession',
+  category: 'web',
+  hasSettings: true,
+  transcriptionMode: 'streaming',
+  loginUrl: CLAUDE_WEB_ORIGIN,
+}) satisfies VoiceProviderInfo;
+
+export const CLAUDE_WEB_RENDERER_PROVIDER_INFO = Object.freeze({
+  id: CLAUDE_WEB_VOICE_PROVIDER_INFO.id,
+  name: CLAUDE_WEB_VOICE_PROVIDER_INFO.name,
+  authType: CLAUDE_WEB_VOICE_PROVIDER_INFO.authType,
+  category: CLAUDE_WEB_VOICE_PROVIDER_INFO.category,
+  hasSettings: CLAUDE_WEB_VOICE_PROVIDER_INFO.hasSettings,
+  transcriptionMode: CLAUDE_WEB_VOICE_PROVIDER_INFO.transcriptionMode,
+}) satisfies RendererSafeVoiceProviderInfo;
+
 /** Browser-session Claude provider; organization identity remains operation-local. */
 export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements StreamingVoiceProviderOperations {
-  readonly info = {
-    id: CLAUDE_WEB_PROVIDER_ID,
-    name: 'Claude Web',
-    authType: 'browserSession',
-    category: 'web',
-    hasSettings: true,
-    transcriptionMode: 'streaming',
-    loginUrl: CLAUDE_WEB_ORIGIN,
-  } satisfies VoiceProviderInfo;
+  readonly info = CLAUDE_WEB_VOICE_PROVIDER_INFO;
 
   private readonly deps: ClaudeWebVoiceProviderDependencies;
   private transport: ClaudeWebPageTransportLike | null = null;
@@ -388,16 +349,16 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   private ready = false;
   private readinessErrorCode: ClaudeWebVoiceProviderErrorCode | null = null;
 
-  constructor(dependencies: Partial<ClaudeWebVoiceProviderDependencies> = {}) {
+  constructor(dependencies: ClaudeWebVoiceProviderDependencies) {
     super();
-    this.deps = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+    this.deps = dependencies;
   }
 
   async initPage(context: BrowserContext): Promise<void> {
     this.context = context;
     this.page = await context.newPage();
     await configureClaudeWebPage(this.page);
-    await this.deps.navigatePage(this.page);
+    await this.deps.navigationService.navigate(this.page);
     this.setReadiness(await this.resolveStartupReadiness(this.page));
     this.transport = this.deps.createTransport(this.page);
   }

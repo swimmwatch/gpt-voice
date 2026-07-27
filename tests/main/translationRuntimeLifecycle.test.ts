@@ -36,7 +36,7 @@ describe('translation runtime lifecycle integration', () => {
     const validation = handler.indexOf('assertValidCloakBrowserSettingsInput');
     const prepare = handler.indexOf('prepareCloakBrowserSettings');
     const shutdown = handler.indexOf('shutdownAllTranslationProviders');
-    const restart = handler.indexOf('restartBackgroundBrowser');
+    const restart = handler.indexOf('backgroundBrowserService.restart');
     const persist = handler.indexOf('preparedSettings.persist');
 
     assert.equal(validation >= 0, true);
@@ -56,7 +56,10 @@ describe('translation runtime lifecycle integration', () => {
 
     assert.match(cleanup, /this\.dependencies\.shutdownTranslationProviders\(\)/u);
     assert.match(cleanup, /failedProviderIds: translationShutdown\.failedProviderIds/u);
-    assert.equal(cleanup.indexOf('shutdownTranslationProviders') < cleanup.indexOf('shutdownBackgroundBrowser'), true);
+    assert.equal(
+      cleanup.indexOf('shutdownTranslationProviders') < cleanup.indexOf('backgroundBrowserService.shutdown'),
+      true,
+    );
     assert.doesNotMatch(cleanup, /translationShutdown.*error\.message/su);
   });
 

@@ -16,6 +16,9 @@ import {
 import { ShortcutController } from '@main/shortcuts';
 import { TrayController } from '@main/tray';
 import { WindowManager } from '@main/window';
+import { BackgroundBrowserService } from '@main/browser';
+import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
+import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -360,6 +363,41 @@ class RecordingShortcutController extends ShortcutController {
   }
 }
 
+class RecordingBackgroundBrowserService extends BackgroundBrowserService {
+  public constructor(private readonly events: string[]) {
+    super({
+      audit: new RecordingVoiceProviderAudit(),
+      createBackgroundContext: async () => {
+        throw new Error('unexpected background context');
+      },
+      createLoginContext: async () => {
+        throw new Error('unexpected login context');
+      },
+      getCurrentProviderId: () => 'openai-api',
+      getNotAuthenticatedError: () => 'not authenticated',
+      logger: { info: () => undefined },
+      presentError: () => 'provider unavailable',
+      providerRegistry: {
+        createProvider: () => {
+          throw new Error('unexpected provider construction');
+        },
+        isKnownProviderId: (_providerId): _providerId is VoiceProviderAuditId => false,
+      },
+      setCurrentProviderId: () => undefined,
+    });
+  }
+
+  public override initialize(): Promise<{ readonly providerId: string; readonly ready: boolean }> {
+    this.events.push('browser-initialize');
+    return Promise.resolve({ providerId: 'openai-api', ready: true });
+  }
+
+  public override shutdown(): Promise<void> {
+    this.events.push('browser-shutdown');
+    return Promise.resolve();
+  }
+}
+
 class MainProcessApplicationHarness {
   public readonly app = new RecordingElectronApplication();
   public readonly events: string[] = [];
@@ -375,16 +413,14 @@ class MainProcessApplicationHarness {
     const windowManager = new RecordingWindowManager(this.events);
     const trayController = new RecordingTrayController(this.events, windowManager);
     const shortcutController = new RecordingShortcutController(this.events, trayController, windowManager);
+    const backgroundBrowserService = new RecordingBackgroundBrowserService(this.events);
     const dependencies: MainProcessApplicationDependencies = {
       app: this.app,
       appProtocolController: new RecordingAppProtocolController(this.events),
+      backgroundBrowserService,
       configureCloakBrowserRuntime: () => this.events.push('cloak-runtime'),
       desktopRuntimeController: new RecordingDesktopRuntimeController(this.events, windowManager, options),
       getCurrentVoiceProviderId: () => 'chatgpt',
-      initializeBackgroundBrowser: async () => {
-        this.events.push('browser-initialize');
-        return { providerId: 'chatgpt', ready: true };
-      },
       initializeLocale: () => this.events.push('locale-initialize'),
       linuxDesktopIntegrationController: new RecordingLinuxDesktopIntegrationController(this.events),
       loadConfig: () => this.events.push('config-load'),
@@ -398,9 +434,6 @@ class MainProcessApplicationHarness {
       presentTranslationSettingsRepairNotice: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
       shortcutController,
-      shutdownBackgroundBrowser: async () => {
-        this.events.push('browser-shutdown');
-      },
       shutdownTranslationProviders: async () => {
         this.events.push('translation-shutdown');
         return { failedProviderIds: [], success: true };

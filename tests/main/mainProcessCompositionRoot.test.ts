@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import type { BrowserWindow, Menu, NativeImage, Tray } from 'electron';
+import type { BrowserContext } from 'playwright-core';
 // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Tests exercise the Node 24 SQLite implementation.
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -18,7 +19,6 @@ import {
   type MainProcessIpcRegistration,
   type MainProcessPreventableEvent,
 } from '@main/mainProcessApplication';
-import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -185,12 +185,9 @@ class MainProcessCompositionHarness {
       },
       databasePath: this.databasePath,
       diagnosticLogger: { warn: () => undefined },
-      ensureBackgroundBrowser: async () => undefined,
-      getActiveProvider: () => null,
       getMonotonicTimeMs: () => 0,
       getRequestedAt: () => '2026-07-27T12:00:00.000Z',
       historyLogger: { warn: () => undefined },
-      isBackgroundReady: () => false,
       now: () => new Date('2026-07-27T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
       registerIpcHandlers: (dependencies) => {
@@ -201,7 +198,75 @@ class MainProcessCompositionHarness {
       },
       reportStreamingDiagnostic: () => undefined,
       resolveStreamingCapability: () => null,
-      voiceAudit: new VoiceProviderAudit(),
+      voice: {
+        audit: {
+          elapsedNow: () => 0,
+          getSink: () => null,
+          now: () => new Date('2026-07-27T12:00:00.000Z'),
+          randomUUID: () => '00000000-0000-4000-8000-000000000002',
+        },
+        browser: {
+          createBackgroundContext: async () => ({ close: async () => undefined }) as BrowserContext,
+          createLoginContext: async () => ({ close: async () => undefined }) as BrowserContext,
+          getCurrentProviderId: () => 'openai-api',
+          getNotAuthenticatedError: () => 'not authenticated',
+          logger: { info: () => undefined },
+          presentError: () => 'provider unavailable',
+          setCurrentProviderId: () => undefined,
+        },
+        providers: {
+          chatGPT: {
+            logger: { info: () => undefined, warn: () => undefined },
+            now: () => 0,
+            reloadPage: async () => undefined,
+            sessionStore: {
+              fileSystem: fs,
+              logger: { error: () => undefined, info: () => undefined },
+              now: () => 0,
+              sessionFile: path.join(this.temporaryDirectory, 'chatgpt-session.json'),
+              tokenFile: path.join(this.temporaryDirectory, 'access-token.json'),
+            },
+            writeClipboardText: () => undefined,
+          },
+          claudeWeb: {
+            clearSession: () => false,
+            createTransport: () => {
+              throw new Error('unexpected Claude transport');
+            },
+            getSettings: () => ({ language: 'en-US' }),
+            getStorageState: (session) => ({ cookies: session.cookies, origins: session.origins }),
+            inspectReadiness: async () => ({
+              authentication: 'unavailable',
+              featureAvailable: false,
+              organizationEvidence: {
+                activeOrganizationCandidates: [],
+                eligibleOrganizations: [],
+              },
+            }),
+            navigationLogger: { warn: () => undefined },
+            now: () => 0,
+            readSession: () => ({ status: 'missing' }),
+            resolveOrganization: () => ({
+              accountScope: 'unknown',
+              routing: { status: 'missing' },
+            }),
+            saveSession: () => undefined,
+            waitForReadinessRetry: async () => undefined,
+            writeClipboardText: () => undefined,
+          },
+          openAIApi: {
+            fetch: async () => ({ status: 200, text: async () => '' }),
+            getSettings: () => ({
+              apiKey: '',
+              language: 'auto',
+              model: 'whisper-1',
+              prompt: '',
+              temperature: 0,
+            }),
+            writeClipboardText: () => undefined,
+          },
+        },
+      },
       writeClipboardText: () => undefined,
     };
     this.applicationEnvironment = {
@@ -307,7 +372,6 @@ class MainProcessCompositionHarness {
         },
       },
       getCurrentVoiceProviderId: () => 'chatgpt',
-      initializeBackgroundBrowser: async () => ({ ready: true }),
       initializeLocale: () => undefined,
       loadConfig: () => undefined,
       logger: {
@@ -316,7 +380,6 @@ class MainProcessCompositionHarness {
         warn: () => undefined,
       },
       presentTranslationSettingsRepairNotice: () => undefined,
-      shutdownBackgroundBrowser: async () => undefined,
       shutdownTranslationProviders: async () => ({ failedProviderIds: [], success: true }),
       unloadPrettifyModel: async () => undefined,
     };
@@ -364,7 +427,7 @@ describe('main process composition root', () => {
 
     assert.doesNotMatch(
       main,
-      /\b(?:const|let)\s+(?:appDatabase|transcriptionHistoryRepository|diagnosticCaptureRepository|diagnosticCaptureStorage|transcribeAudio|streamingTranscriptionService|quitCleanupComplete|quitCleanupPromise)\b/u,
+      /\b(?:const|let)\s+(?:appDatabase|transcriptionHistoryRepository|diagnosticCaptureRepository|diagnosticCaptureStorage|transcriptionService|streamingTranscriptionService|quitCleanupComplete|quitCleanupPromise)\b/u,
     );
     assert.doesNotMatch(ipc, /\blet\s+streamingTranscriptionIpcController\b/u);
     assert.match(ipc, /export class MainIpcRegistration/u);
@@ -373,7 +436,11 @@ describe('main process composition root', () => {
     assert.match(ipc, /for \(const channel of this\.channels\) ipcMain\.removeHandler\(channel\);/u);
     assert.doesNotMatch(diagnosticStorage, /DEFAULT_DEPENDENCIES|Partial<DiagnosticCaptureStorageDependencies>/u);
     assert.doesNotMatch(diagnosticRedactor, /export const diagnosticTextRedactor/u);
-    assert.doesNotMatch(transcription, /\bimport\s*\{\s*voiceProviderAudit\b|\baudit\?:/u);
+    assert.doesNotMatch(
+      transcription,
+      /\bcreateTranscriptionService\b|\bimport\s*\{\s*voiceProviderAudit\b|\baudit\?:/u,
+    );
+    assert.match(transcription, /export class TranscriptionService/u);
     assert.doesNotMatch(streaming, /\bcreateMainStreamingTranscriptionService\b|\bimport\s*\{\s*voiceProviderAudit\b/u);
     assert.match(windowManager, /export class WindowManager/u);
     assert.match(trayController, /export class TrayController/u);
@@ -381,6 +448,30 @@ describe('main process composition root', () => {
     assert.doesNotMatch(windowManager, /^let\s+/mu);
     assert.doesNotMatch(trayController, /^let\s+/mu);
     assert.doesNotMatch(shortcutController, /^let\s+/mu);
+  });
+
+  it('removes migrated Voice and browser singleton construction seams', () => {
+    const browser = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/browser.ts'), 'utf8');
+    const providerIndex = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/providers/index.ts'), 'utf8');
+    const providerAudit = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/providers/voiceProviderAudit.ts'), 'utf8');
+    const providerFactory = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/providers/voiceProviderFactory.ts'),
+      'utf8',
+    );
+    const providerRegistry = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/providers/voiceProviderRegistry.ts'),
+      'utf8',
+    );
+
+    assert.equal(fs.existsSync(path.join(PROJECT_ROOT, 'src/main/backgroundBrowserLifecycle.ts')), false);
+    assert.match(browser, /export class BackgroundBrowserService/u);
+    assert.match(providerFactory, /export class VoiceProviderFactory/u);
+    assert.match(providerRegistry, /export class VoiceProviderRegistry/u);
+    assert.doesNotMatch(browser, /^let\s+/mu);
+    assert.doesNotMatch(providerIndex, /\bproviderRegistry\b|\bcreateProvider\(|\bgetAvailableProviders\(/u);
+    assert.doesNotMatch(providerAudit, /\bexport const voiceProviderAudit\b/u);
+    assert.doesNotMatch(providerFactory, /\bDEFAULT_DEPENDENCIES\b|\bdefaultVoiceProviderFactory\b/u);
+    assert.doesNotMatch(providerRegistry, /\bdefaultVoiceProviderRegistry\b/u);
   });
 
   it('defers database and service construction until normal application startup', async () => {
@@ -421,10 +512,13 @@ describe('main process composition root', () => {
     const firstDependencies = first.state.ipcDependencies[0];
     const secondDependencies = second.state.ipcDependencies[0];
     assert.notEqual(firstDependencies.historyController, secondDependencies.historyController);
+    assert.notEqual(firstDependencies.backgroundBrowserService, secondDependencies.backgroundBrowserService);
     assert.notEqual(firstDependencies.desktopRuntimeController, secondDependencies.desktopRuntimeController);
     assert.notEqual(firstDependencies.shortcutController, secondDependencies.shortcutController);
     assert.notEqual(firstDependencies.streamingTranscriptionService, secondDependencies.streamingTranscriptionService);
-    assert.notEqual(firstDependencies.transcribeAudio, secondDependencies.transcribeAudio);
+    assert.notEqual(firstDependencies.transcriptionService, secondDependencies.transcriptionService);
+    assert.notEqual(firstDependencies.voiceAudit, secondDependencies.voiceAudit);
+    assert.notEqual(firstDependencies.voiceProviderRegistry, secondDependencies.voiceProviderRegistry);
     assert.notEqual(firstDependencies.windowManager, secondDependencies.windowManager);
     assert.notEqual(first.state.ipcRegistrations[0], second.state.ipcRegistrations[0]);
 

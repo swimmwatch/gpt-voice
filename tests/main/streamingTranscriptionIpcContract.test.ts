@@ -54,15 +54,18 @@ describe('trusted streaming transcription IPC integration', () => {
   it('cancels before browser teardown, provider mutation, and application quit', () => {
     const browser = readProjectFile('src/main/browser.ts');
     const application = readProjectFile('src/main/mainProcessApplication.ts');
-    const shutdownStart = browser.indexOf('async function shutdownBackgroundBrowserNow');
-    const runHooks = browser.indexOf('await runBeforeBackgroundBrowserShutdownHooks();', shutdownStart);
+    const shutdownStart = browser.indexOf('private async shutdownNow');
+    const runHooks = browser.indexOf('await this.runBeforeShutdownHooks();', shutdownStart);
     const providerShutdown = browser.indexOf('await provider.shutdown();', shutdownStart);
-    const switchStart = browser.indexOf('async function switchProviderNow');
-    const switchShutdown = browser.indexOf('await shutdownBackgroundBrowserNow();', switchStart);
-    const setProvider = browser.indexOf('setProvider(providerId);', switchStart);
+    const switchStart = browser.indexOf('public switchProvider');
+    const switchShutdown = browser.indexOf('await this.shutdownNow();', switchStart);
+    const setProvider = browser.indexOf('this.dependencies.setCurrentProviderId(providerId);', switchStart);
     const quitStart = application.indexOf('private async runQuitCleanup');
     const ipcTeardown = application.indexOf('await this.ipcRegistration?.dispose();', quitStart);
-    const browserTeardown = application.indexOf('await this.dependencies.shutdownBackgroundBrowser();', quitStart);
+    const browserTeardown = application.indexOf(
+      'await this.dependencies.backgroundBrowserService.shutdown();',
+      quitStart,
+    );
 
     assert.ok(runHooks > shutdownStart && runHooks < providerShutdown);
     assert.ok(switchShutdown > switchStart && switchShutdown < setProvider);

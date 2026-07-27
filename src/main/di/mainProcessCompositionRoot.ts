@@ -7,6 +7,19 @@ import {
 import { ShortcutController, type ShortcutControllerDependencies } from '../shortcuts';
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
+import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } from '../browser';
+import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
+import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
+import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import type { ProviderAuditDependencies } from '../providerAudit';
+import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
+import type { ChatGPTVoiceProviderDependencies } from '../providers/ChatGPTVoiceProvider';
+
+export type MainProcessVoiceProviderEnvironment = Omit<VoiceProviderFactoryDependencies, 'audit' | 'chatGPT'> & {
+  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'sessionStore'> & {
+    readonly sessionStore: FileChatGPTSessionStoreDependencies;
+  };
+};
 import { MainProcessApplication, type MainProcessApplicationDependencies } from '../mainProcessApplication';
 import {
   MainProcessRuntimeFactory,
@@ -14,7 +27,15 @@ import {
   type MainProcessRuntimeFactoryDependencies,
 } from './mainProcessRuntimeFactory';
 
-export type MainProcessCompositionEnvironment = MainProcessRuntimeFactoryDependencies;
+export interface MainProcessVoiceEnvironment {
+  readonly audit: ProviderAuditDependencies;
+  readonly browser: Omit<BackgroundBrowserServiceDependencies, 'audit' | 'providerRegistry'>;
+  readonly providers: MainProcessVoiceProviderEnvironment;
+}
+
+export type MainProcessCompositionEnvironment = MainProcessRuntimeFactoryDependencies & {
+  readonly voice: MainProcessVoiceEnvironment;
+};
 
 export interface MainProcessDesktopControllerEnvironment {
   readonly appProtocol: AppProtocolControllerDependencies;
@@ -27,6 +48,7 @@ export interface MainProcessDesktopControllerEnvironment {
 
 type ConstructedDesktopDependencyKeys =
   | 'appProtocolController'
+  | 'backgroundBrowserService'
   | 'desktopRuntimeController'
   | 'linuxDesktopIntegrationController'
   | 'runtimeFactory'
@@ -41,7 +63,7 @@ export type MainProcessApplicationEnvironment = Omit<
   readonly desktopControllers: MainProcessDesktopControllerEnvironment;
 };
 
-interface ConstructedDesktopControllers extends MainProcessRuntimeFactoryControllers {
+interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
   readonly appProtocolController: AppProtocolController;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly trayController: TrayController;
@@ -56,6 +78,22 @@ export class MainProcessCompositionRoot {
 
   public createApplication(environment: MainProcessApplicationEnvironment): MainProcessApplication {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
+    const voiceProviderAudit = new VoiceProviderAudit(this.environment.voice.audit);
+    const { chatGPT, ...otherVoiceProviders } = this.environment.voice.providers;
+    const voiceProviderFactory = new VoiceProviderFactory({
+      ...otherVoiceProviders,
+      audit: voiceProviderAudit,
+      chatGPT: {
+        ...chatGPT,
+        sessionStore: new FileChatGPTSessionStore(chatGPT.sessionStore),
+      },
+    });
+    const voiceProviderRegistry = new VoiceProviderRegistry(voiceProviderFactory, voiceProviderAudit);
+    const backgroundBrowserService = new BackgroundBrowserService({
+      ...this.environment.voice.browser,
+      audit: voiceProviderAudit,
+      providerRegistry: voiceProviderRegistry,
+    });
     const windowManager = new WindowManager(desktopEnvironment.window);
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
@@ -66,8 +104,9 @@ export class MainProcessCompositionRoot {
       trayController,
       windowManager,
     });
-    const controllers: ConstructedDesktopControllers = {
+    const controllers: ConstructedControllers = {
       appProtocolController: new AppProtocolController(desktopEnvironment.appProtocol),
+      backgroundBrowserService,
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
         windowManager,
@@ -77,6 +116,8 @@ export class MainProcessCompositionRoot {
       ),
       shortcutController,
       trayController,
+      voiceProviderAudit,
+      voiceProviderRegistry,
       windowManager,
     };
 

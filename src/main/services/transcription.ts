@@ -15,60 +15,64 @@ import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 
 const log = createLogger('transcribe');
 
-export interface TranscriptionServiceDependencies extends TranscriptionCompletionDependencies {
-  audit: VoiceProviderAudit;
-  ensureBackgroundBrowser: () => Promise<void>;
-  getActiveProvider: () => BaseVoiceProvider | null;
-  getRequestedAt: () => string;
-  isBackgroundReady: () => boolean;
+export interface TranscriptionBackgroundBrowser {
+  ensure(): Promise<void>;
+  getActiveProvider(): BaseVoiceProvider | null;
+  isReady(): boolean;
 }
 
-export type TranscriptionService = (buffer: ArrayBuffer, mimeType: string) => Promise<TranscriptionResult>;
+export interface TranscriptionServiceDependencies extends TranscriptionCompletionDependencies {
+  audit: VoiceProviderAudit;
+  backgroundBrowserService: TranscriptionBackgroundBrowser;
+  getRequestedAt: () => string;
+}
 
-/** Creates the main-process transcription flow without changing its renderer IPC contract. */
-export function createTranscriptionService(deps: TranscriptionServiceDependencies): TranscriptionService {
-  return async (buffer, mimeType) => {
-    const requestedAt = deps.getRequestedAt();
+/** Owns one main-process batch transcription flow and its injected completion state. */
+export class TranscriptionService {
+  public constructor(private readonly dependencies: TranscriptionServiceDependencies) {}
+
+  public transcribe = async (buffer: ArrayBuffer, mimeType: string): Promise<TranscriptionResult> => {
+    const requestedAt = this.dependencies.getRequestedAt();
     let auditContext: VoiceBatchAuditContext | undefined;
 
     try {
-      const providerBeforeEnsure = deps.getActiveProvider();
+      const providerBeforeEnsure = this.dependencies.backgroundBrowserService.getActiveProvider();
       if (providerBeforeEnsure) {
         const snapshot = createTranscriptionCompletionSnapshot(providerBeforeEnsure, requestedAt);
-        const cachedText = readCachedTranscription(deps, snapshot, buffer, mimeType);
+        const cachedText = readCachedTranscription(this.dependencies, snapshot, buffer, mimeType);
         if (cachedText) {
-          return completeCachedTranscription(deps, snapshot, cachedText);
+          return completeCachedTranscription(this.dependencies, snapshot, cachedText);
         }
       }
 
-      await deps.ensureBackgroundBrowser();
-      const provider = deps.getActiveProvider();
+      await this.dependencies.backgroundBrowserService.ensure();
+      const provider = this.dependencies.backgroundBrowserService.getActiveProvider();
       if (!provider) {
         return { success: false, error: t('error.notLoggedIn') };
       }
 
       if (provider !== providerBeforeEnsure) {
         const snapshot = createTranscriptionCompletionSnapshot(provider, requestedAt);
-        const cachedText = readCachedTranscription(deps, snapshot, buffer, mimeType);
+        const cachedText = readCachedTranscription(this.dependencies, snapshot, buffer, mimeType);
         if (cachedText) {
-          return completeCachedTranscription(deps, snapshot, cachedText);
+          return completeCachedTranscription(this.dependencies, snapshot, cachedText);
         }
       }
 
-      if (!deps.isBackgroundReady() || !provider.isReady()) {
+      if (!this.dependencies.backgroundBrowserService.isReady() || !provider.isReady()) {
         return { success: false, error: t('error.notLoggedIn') };
       }
 
       const batchProvider = isBatchVoiceProvider(provider) ? provider : null;
       if (batchProvider) {
-        auditContext = deps.audit.startBatch(provider.info.id, buffer, mimeType);
+        auditContext = this.dependencies.audit.startBatch(provider.info.id, buffer, mimeType);
       }
       const result =
         batchProvider && auditContext
           ? await batchProvider.transcribe(buffer, mimeType, auditContext)
           : await provider.transcribe(buffer, mimeType);
       if (auditContext) {
-        deps.audit.terminalBatch(
+        this.dependencies.audit.terminalBatch(
           auditContext,
           'result',
           result.success ? 'success' : 'failure',
@@ -81,7 +85,7 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
       }
       if (result.success && result.text) {
         completeBatchTranscription(
-          deps,
+          this.dependencies,
           createTranscriptionCompletionSnapshot(provider, requestedAt),
           buffer,
           mimeType,
@@ -92,7 +96,7 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
       return result;
     } catch (error: unknown) {
       if (auditContext) {
-        deps.audit.terminalBatch(auditContext, 'submission', 'failure', {
+        this.dependencies.audit.terminalBatch(auditContext, 'submission', 'failure', {
           causeCode: 'unknown',
           exceptionType: normalizeProviderAuditExceptionType(error),
         });

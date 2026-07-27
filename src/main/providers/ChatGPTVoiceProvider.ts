@@ -1,8 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
 import { BatchVoiceProvider } from './BatchVoiceProvider';
+import type { ChatGPTSessionStore } from './chatgptSessionStore';
 import {
   getAudioFileExtension,
   getUnexpiredCookies,
@@ -18,24 +17,17 @@ import {
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
 import { t } from '../i18n';
-import { createLogger } from '../logger';
 import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
-import { APP_DIR } from '../config';
-import { writeClipboardText } from '../electronRuntime';
 import { StatusCodes } from 'http-status-codes';
 import { getTranscriptionRetryAfterSeconds } from './transcriptionErrors';
 import {
-  voiceProviderAudit,
   type VoiceProviderAudit,
   type VoiceAuditOperationContext,
   type VoiceBatchAuditContext,
 } from './voiceProviderAudit';
 import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
+import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 
-const log = createLogger('chatgpt-provider');
-
-const SESSION_FILE = path.join(APP_DIR, 'chatgpt-session.json');
-const TOKEN_FILE = path.join(APP_DIR, 'access-token.json');
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
@@ -44,6 +36,7 @@ const TRANSCRIPTION_REQUEST_TIMEOUT_MS = 20000;
 const TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS = 15000;
 const TRANSCRIPTION_RATE_LIMIT_FALLBACK_SECONDS = 60;
 const TRANSCRIPTION_RATE_LIMIT_MAX_SECONDS = 10 * 60;
+export const CHATGPT_VOICE_PROVIDER_ID = 'chatgpt';
 
 const BLOCKED_DOMAINS = [
   'googletagmanager.com',
@@ -95,12 +88,38 @@ type ChatGptTranscriptionAttempt =
       exceptionType?: ProviderAuditExceptionType;
     };
 
-interface ChatGPTVoiceProviderDependencies {
+export interface ChatGPTVoiceProviderLogger {
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+}
+
+export interface ChatGPTVoiceProviderDependencies {
   audit: VoiceProviderAudit;
+  logger: ChatGPTVoiceProviderLogger;
   now(): number;
   reloadPage(page: Page, timeoutMs: number): Promise<void>;
+  sessionStore: ChatGPTSessionStore;
   writeClipboardText(text: string): void;
 }
+
+export const CHATGPT_VOICE_PROVIDER_INFO = Object.freeze({
+  id: CHATGPT_VOICE_PROVIDER_ID,
+  name: 'ChatGPT Web',
+  authType: 'browserSession',
+  category: 'web',
+  hasSettings: true,
+  transcriptionMode: 'batch',
+  loginUrl: CHATGPT_URL,
+}) satisfies VoiceProviderInfo;
+
+export const CHATGPT_RENDERER_PROVIDER_INFO = Object.freeze({
+  id: CHATGPT_VOICE_PROVIDER_INFO.id,
+  name: CHATGPT_VOICE_PROVIDER_INFO.name,
+  authType: CHATGPT_VOICE_PROVIDER_INFO.authType,
+  category: CHATGPT_VOICE_PROVIDER_INFO.category,
+  hasSettings: CHATGPT_VOICE_PROVIDER_INFO.hasSettings,
+  transcriptionMode: CHATGPT_VOICE_PROVIDER_INFO.transcriptionMode,
+}) satisfies RendererSafeVoiceProviderInfo;
 
 /** Browser-session provider for ChatGPT's transcription endpoint. */
 export class ChatGPTVoiceProvider extends BatchVoiceProvider {
@@ -108,29 +127,12 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private transcriptionPageRecovery: Promise<void> | null = null;
   private transcriptionRateLimitUntil = 0;
 
-  constructor(deps: Partial<ChatGPTVoiceProviderDependencies> = {}) {
+  constructor(deps: ChatGPTVoiceProviderDependencies) {
     super();
-    this.deps = {
-      audit: deps.audit || voiceProviderAudit,
-      now: deps.now || Date.now,
-      reloadPage:
-        deps.reloadPage ||
-        (async (page, timeoutMs) => {
-          await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
-        }),
-      writeClipboardText: deps.writeClipboardText || writeClipboardText,
-    };
+    this.deps = deps;
   }
 
-  readonly info = {
-    id: 'chatgpt',
-    name: 'ChatGPT Web',
-    authType: 'browserSession',
-    category: 'web',
-    hasSettings: true,
-    transcriptionMode: 'batch',
-    loginUrl: 'https://chatgpt.com',
-  } satisfies VoiceProviderInfo;
+  readonly info = CHATGPT_VOICE_PROVIDER_INFO;
 
   async initPage(context: BrowserContext): Promise<void> {
     this.transcriptionPageRecovery = null;
@@ -150,7 +152,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   }
 
   getLoginUrl(): string {
-    return this.info.loginUrl || CHATGPT_URL;
+    return CHATGPT_URL;
   }
 
   hasSession(): boolean {
@@ -158,16 +160,16 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     if (!sessionData) return false;
     if (hasUsableSessionState(sessionData)) return true;
 
-    log.warn('Stored ChatGPT session is missing valid auth cookies; clearing it');
+    this.deps.logger.warn('Stored ChatGPT session is missing valid auth cookies; clearing it');
     this.clearSession();
     return false;
   }
 
   clearSession(): void {
     try {
-      if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+      this.deps.sessionStore.clearSession();
     } catch {
-      /* ignore */
+      // Session cleanup remains fail-open.
     }
     this.transcriptionRateLimitUntil = 0;
     this.clearCachedToken();
@@ -175,14 +177,14 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
 
   async saveSession(context: BrowserContext): Promise<void> {
     const state = await context.storageState();
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2));
+    this.deps.sessionStore.saveSession(state);
   }
 
   async loadSession(context: BrowserContext): Promise<boolean> {
     const sessionData = this.readSessionState();
     if (!sessionData) return false;
     if (!hasUsableSessionState(sessionData)) {
-      log.warn('Stored ChatGPT session expired before it could be loaded');
+      this.deps.logger.warn('Stored ChatGPT session expired before it could be loaded');
       this.clearSession();
       return false;
     }
@@ -302,7 +304,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   private async navigateToChatGPT(): Promise<void> {
     if (!this.page) return;
 
-    log.info('Navigating to chatgpt.com...');
+    this.deps.logger.info('Navigating to chatgpt.com...');
     let response: Awaited<ReturnType<Page['goto']>> | undefined;
     await retryBrowserNavigation(
       {
@@ -315,15 +317,15 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
         service: BrowserNavigationService.ChatGPT,
       },
       {
-        onRetry: (event) => log.warn('Retrying ChatGPT page navigation:', event),
+        onRetry: (event) => this.deps.logger.warn('Retrying ChatGPT page navigation:', event),
       },
     );
-    log.info('ChatGPT page loaded:', { status: response?.status() ?? 'n/a' });
+    this.deps.logger.info('ChatGPT page loaded:', { status: response?.status() ?? 'n/a' });
 
     try {
       await this.page.waitForLoadState('load', { timeout: 10000 });
     } catch {
-      log.warn('ChatGPT load event did not settle quickly; continuing after DOMContentLoaded');
+      this.deps.logger.warn('ChatGPT load event did not settle quickly; continuing after DOMContentLoaded');
     }
   }
 
@@ -687,44 +689,18 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
   }
 
   private loadCachedToken(): string {
-    try {
-      if (fs.existsSync(TOKEN_FILE)) {
-        const data: unknown = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
-        if (isRecord(data) && typeof data.accessToken === 'string' && data.accessToken) {
-          log.info('Loaded cached token, length:', data.accessToken.length);
-          return data.accessToken;
-        }
-      }
-    } catch {
-      log.error('Failed to load cached token');
-    }
-    return '';
+    return this.deps.sessionStore.readAccessToken();
   }
 
   private readSessionState(): SessionState | null {
-    try {
-      if (!fs.existsSync(SESSION_FILE)) return null;
-      const sessionState: unknown = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
-      return isRecord(sessionState) ? sessionState : null;
-    } catch {
-      log.error('Failed to load session');
-      return null;
-    }
+    return this.deps.sessionStore.readSession();
   }
 
   private saveCachedToken(accessToken: string): void {
-    try {
-      fs.writeFileSync(TOKEN_FILE, JSON.stringify({ accessToken, savedAt: Date.now() }, null, 2));
-    } catch {
-      log.error('Failed to save cached token');
-    }
+    this.deps.sessionStore.saveAccessToken(accessToken);
   }
 
   private clearCachedToken(): void {
-    try {
-      if (fs.existsSync(TOKEN_FILE)) fs.unlinkSync(TOKEN_FILE);
-    } catch {
-      /* ignore */
-    }
+    this.deps.sessionStore.clearAccessToken();
   }
 }

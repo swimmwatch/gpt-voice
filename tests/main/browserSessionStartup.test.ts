@@ -1,12 +1,12 @@
+/* eslint-disable max-classes-per-file -- Provider and service fixtures own separate lifecycle state. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { BrowserContext } from 'playwright-core';
 import {
+  BackgroundBrowserService,
   BrowserSessionStartupState,
   getBrowserSessionStartupError,
   getBrowserSessionStartupState,
-  initBackgroundBrowser,
-  shutdownBackgroundBrowser,
 } from '@main/browser';
 import { t } from '@main/i18n';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
@@ -72,94 +72,96 @@ class TestBrowserAuditProvider extends BatchVoiceProvider {
   }
 }
 
+class BackgroundBrowserServiceFixture {
+  readonly audit = new RecordingVoiceProviderAudit();
+  readonly service: BackgroundBrowserService;
+  currentProviderId: string;
+
+  constructor(
+    readonly provider: TestBrowserAuditProvider,
+    context: BrowserContext = {
+      close: async () => undefined,
+    } as unknown as BrowserContext,
+  ) {
+    this.currentProviderId = provider.info.id;
+    this.service = new BackgroundBrowserService({
+      audit: this.audit,
+      createBackgroundContext: async () => context,
+      createLoginContext: async () => context,
+      getCurrentProviderId: () => this.currentProviderId,
+      getNotAuthenticatedError: () => t('error.noAccessToken'),
+      logger: { info: () => {} },
+      presentError: (error) => (error instanceof Error ? error.message : String(error)),
+      providerRegistry: {
+        createProvider: () => provider,
+        isKnownProviderId: (providerId): providerId is 'chatgpt' | 'openai-api' | 'claude-web' =>
+          providerId === 'chatgpt' || providerId === 'openai-api' || providerId === 'claude-web',
+      },
+      setCurrentProviderId: (providerId) => {
+        this.currentProviderId = providerId;
+      },
+    });
+  }
+}
+
 describe('browser session startup state', () => {
-  it('treats a missing access token after loading a saved session as temporary', () => {
+  it('classifies saved-session startup states', () => {
     assert.equal(
       getBrowserSessionStartupState({ providerReady: false, sessionLoaded: true }),
       BrowserSessionStartupState.TemporaryFailure,
     );
-  });
-
-  it('treats an unloadable saved session as expired', () => {
     assert.equal(
       getBrowserSessionStartupState({ providerReady: false, sessionLoaded: false }),
       BrowserSessionStartupState.Expired,
     );
-  });
-
-  it('treats a loaded and ready provider as ready', () => {
     assert.equal(
       getBrowserSessionStartupState({ providerReady: true, sessionLoaded: true }),
       BrowserSessionStartupState.Ready,
     );
   });
 
-  it('classifies a switched provider from its own restored-session state', () => {
-    const previousProviderState = getBrowserSessionStartupState({ providerReady: true, sessionLoaded: true });
-    const switchedProviderState = getBrowserSessionStartupState({ providerReady: false, sessionLoaded: false });
-
-    assert.equal(previousProviderState, BrowserSessionStartupState.Ready);
-    assert.equal(switchedProviderState, BrowserSessionStartupState.Expired);
-  });
-
-  it('preserves a provider-specific readiness failure and falls back for legacy providers', () => {
+  it('preserves a provider-specific readiness failure and accepts an injected fallback', () => {
     const providerError = 'Claude readiness failed safely';
+    const fallback = t('error.noAccessToken');
 
-    assert.equal(getBrowserSessionStartupError(providerError), providerError);
-    assert.equal(getBrowserSessionStartupError(null), t('error.noAccessToken'));
+    assert.equal(getBrowserSessionStartupError(providerError, fallback), providerError);
+    assert.equal(getBrowserSessionStartupError(null, fallback), fallback);
   });
 
   it('audits settings readiness, provider readiness, and shutdown without a live browser', async () => {
-    const provider = new TestBrowserAuditProvider();
-    const audit = new RecordingVoiceProviderAudit();
+    const fixture = new BackgroundBrowserServiceFixture(new TestBrowserAuditProvider());
 
-    try {
-      const status = await initBackgroundBrowser({
-        audit: audit,
-        providerFactory: () => provider,
-      });
+    const status = await fixture.service.initialize();
+    await fixture.service.shutdown();
 
-      assert.equal(status.ready, true);
-    } finally {
-      await shutdownBackgroundBrowser();
-    }
-
-    assert.equal(provider.shutdownCalls, 1);
+    assert.equal(status.ready, true);
+    assert.equal(fixture.provider.shutdownCalls, 1);
     assert.deepEqual(
-      audit.operations.map((operation) => operation.input.operation),
+      fixture.audit.operations.map((operation) => operation.input.operation),
       ['settings-readiness', 'readiness', 'shutdown'],
     );
     assert.deepEqual(
-      audit.operations.map((operation) => getTerminalEvents(operation).map((event) => event.outcome)),
+      fixture.audit.operations.map((operation) => getTerminalEvents(operation).map((event) => event.outcome)),
       [['success'], ['success'], ['success']],
     );
   });
 
   it('audits browser session loading with bounded semantic phases', async () => {
-    const provider = new TestBrowserAuditProvider(true);
-    const audit = new RecordingVoiceProviderAudit();
     let contextCloseCalls = 0;
     const context = {
       close: async () => {
         contextCloseCalls += 1;
       },
     } as unknown as BrowserContext;
+    const fixture = new BackgroundBrowserServiceFixture(new TestBrowserAuditProvider(true), context);
 
-    try {
-      const status = await initBackgroundBrowser({
-        audit: audit,
-        backgroundContextFactory: async () => context,
-        providerFactory: () => provider,
-      });
+    const status = await fixture.service.initialize();
+    await fixture.service.shutdown();
 
-      assert.equal(status.ready, true);
-    } finally {
-      await shutdownBackgroundBrowser();
-    }
-
-    assert.equal(provider.loadSessionCalls, 1);
+    assert.equal(status.ready, true);
+    assert.equal(fixture.provider.loadSessionCalls, 1);
     assert.equal(contextCloseCalls, 1);
-    const sessionLoad = audit.operations.find((operation) => operation.input.operation === 'session-load');
+    const sessionLoad = fixture.audit.operations.find((operation) => operation.input.operation === 'session-load');
     assert.ok(sessionLoad);
     assert.deepEqual(
       getTerminalEvents(sessionLoad).map((event) => event.outcome),
@@ -173,22 +175,17 @@ describe('browser session startup state', () => {
 
   it('reports uncertain browser cleanup ownership without changing swallowed close behavior', async () => {
     const privacyCanary = 'private browser path /home/private https://private.invalid stack-private';
-    const provider = new TestBrowserAuditProvider(true);
-    const audit = new RecordingVoiceProviderAudit();
     const context = {
       close: async () => {
         throw new TypeError(privacyCanary);
       },
     } as unknown as BrowserContext;
+    const fixture = new BackgroundBrowserServiceFixture(new TestBrowserAuditProvider(true), context);
 
-    await initBackgroundBrowser({
-      audit: audit,
-      backgroundContextFactory: async () => context,
-      providerFactory: () => provider,
-    });
-    await assert.doesNotReject(() => shutdownBackgroundBrowser());
+    await fixture.service.initialize();
+    await assert.doesNotReject(() => fixture.service.shutdown());
 
-    const shutdown = audit.operations.find((operation) => operation.input.operation === 'shutdown');
+    const shutdown = fixture.audit.operations.find((operation) => operation.input.operation === 'shutdown');
     assert.ok(shutdown);
     const terminal = getTerminalEvents(shutdown)[0];
     assert.equal(terminal?.outcome, 'failure');
@@ -197,22 +194,14 @@ describe('browser session startup state', () => {
   });
 
   it('audits expired-session clearing and preserves the auth-expired status', async () => {
-    const provider = new TestBrowserAuditProvider(true, false);
-    const audit = new RecordingVoiceProviderAudit();
-    const context = {
-      close: async () => undefined,
-    } as unknown as BrowserContext;
+    const fixture = new BackgroundBrowserServiceFixture(new TestBrowserAuditProvider(true, false));
 
-    const status = await initBackgroundBrowser({
-      audit: audit,
-      backgroundContextFactory: async () => context,
-      providerFactory: () => provider,
-    });
+    const status = await fixture.service.initialize();
 
     assert.equal(status.ready, false);
     assert.equal(status.authExpired, true);
-    assert.equal(provider.clearSessionCalls, 1);
-    const sessionClear = audit.operations.find((operation) => operation.input.operation === 'session-clear');
+    assert.equal(fixture.provider.clearSessionCalls, 1);
+    const sessionClear = fixture.audit.operations.find((operation) => operation.input.operation === 'session-clear');
     assert.ok(sessionClear);
     assert.deepEqual(
       getTerminalEvents(sessionClear).map((event) => event.outcome),
@@ -223,17 +212,14 @@ describe('browser session startup state', () => {
   it('retains a failed provider shutdown for the existing retry path', async () => {
     const provider = new TestBrowserAuditProvider();
     provider.shutdownFailures = 1;
-    const audit = new RecordingVoiceProviderAudit();
-    await initBackgroundBrowser({
-      audit: audit,
-      providerFactory: () => provider,
-    });
+    const fixture = new BackgroundBrowserServiceFixture(provider);
+    await fixture.service.initialize();
 
-    await assert.rejects(() => shutdownBackgroundBrowser());
-    await assert.doesNotReject(() => shutdownBackgroundBrowser());
+    await assert.rejects(() => fixture.service.shutdown());
+    await assert.doesNotReject(() => fixture.service.shutdown());
 
     assert.equal(provider.shutdownCalls, 2);
-    const shutdowns = audit.operations.filter((operation) => operation.input.operation === 'shutdown');
+    const shutdowns = fixture.audit.operations.filter((operation) => operation.input.operation === 'shutdown');
     assert.deepEqual(
       shutdowns.map((operation) => getTerminalEvents(operation)[0]?.outcome),
       ['failure', 'success'],

@@ -16,7 +16,7 @@ Task execution and commit gates through Task 08 are recorded in the persistent
 - [x] [07 Diagnostic capture storage](07_build_diagnostic_capture_storage.md)
 - [x] [08 Main composition root](08_create_main_composition_root.md)
 - [x] [09 Desktop controllers DI](09_migrate_desktop_controllers_di.md)
-- [ ] [10 Voice and browser DI](10_migrate_voice_browser_di.md)
+- [x] [10 Voice and browser DI](10_migrate_voice_browser_di.md)
 - [ ] [11 Translation DI](11_migrate_translation_di.md)
 - [ ] [12 Prettify DI](12_migrate_prettify_di.md)
 - [ ] [13 Main IPC and lifecycle DI](13_migrate_main_ipc_lifecycle_di.md)

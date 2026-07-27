@@ -1,70 +1,63 @@
-# Handoff: Provider Audit Task 09 Complete
+# Handoff: Provider Audit Task 10 Complete
 
 ## Status
 
-- Tasks 01–08 are committed; Task 08 is
-  `e737420c refactor(di): add main process composition root`.
-- Task 09 execution was authorized through `execution.task-09` revision 2.
-- Task 09 is implemented and verified, with its code, tests, and owner-first
-  planning revisions left unstaged and uncommitted for review.
-- The earlier runtime-adapter overlap is resolved; there is no active
-  concurrent-writer blocker.
+- Tasks 01–09 are committed; Task 09 is
+  `813f9053 refactor(di): add desktop controller ownership`.
+- Task 10 execution was authorized through `execution.task-10` revision 1.
+- Task 10 is implemented and verified, with all Task 10 changes left unstaged
+  and uncommitted for review.
 
 ## Completed Work
 
-- Added application-owned `WindowManager`, `TrayController`,
-  `ShortcutController`, `AppProtocolController`,
-  `LinuxDesktopIntegrationController`, and `DesktopRuntimeController`
-  instances with idempotent cleanup.
-- Converted About and provider-settings window orchestration to class-owned
-  state and moved all renderer-window ownership, trust checks, broadcasts,
-  quitting state, and settings-close state into `WindowManager`.
-- Made `MainProcessCompositionRoot` construct isolated desktop-controller
-  graphs and extracted the deferred database/service construction into
-  `MainProcessRuntimeFactory`.
-- Replaced `MainProcessApplication` callback bags with direct controller
-  dependencies and passed the required window, shortcut, and runtime
-  controllers into IPC registration.
-- Removed the migrated desktop module state and free stateful APIs while
-  preserving window security, trusted IPC, hotkeys, tray behavior, protocols,
-  startup modes, and platform integration.
+- Added application-owned `BackgroundBrowserService`,
+  `VoiceProviderFactory`, `VoiceProviderRegistry`, `TranscriptionService`, and
+  `FileChatGPTSessionStore` instances.
+- Moved browser context, active-provider, readiness, operation-queue, and
+  pre-shutdown-hook state out of module globals.
+- Injected the Voice audit, browser launcher, fetch, settings, filesystem,
+  session, clock, UUID, logger, cache, clipboard, and navigation adapters
+  through the main composition graph.
+- Preserved lazy provider construction and audit-free enumeration through
+  canonical immutable renderer-safe metadata.
+- Passed owned Voice/browser dependencies through runtime construction, IPC,
+  batch transcription, streaming transcription, startup, and shutdown.
+- Removed the legacy background-browser lifecycle module, default Voice audit,
+  provider registry functions, and function-created batch transcription
+  service.
 
-## Task 09 Boundary
+## Task 10 Boundary
 
-- Owner-first decision, plan, checklist, handoff, and numbered-packet revisions
-- Desktop source: `window.ts`, `tray.ts`, `shortcuts.ts`, `appProtocol.ts`,
-  `appMetadata.ts`, `linuxDesktopIntegration.ts`,
-  `desktopRuntimeController.ts`, `aboutWindowController.ts`, and
-  `providerSettingsWindowController.ts`
-- Wiring: `main.ts`, `mainProcessApplication.ts`, `ipc.ts`,
-  `di/mainProcessCompositionRoot.ts`, `di/mainProcessRuntimeFactory.ts`, and
-  `di/mainProcessRuntimeGraph.ts`
-- Focused controller, composition, lifecycle, appearance, hotkey, protocol,
-  metadata, Linux integration, and trusted-IPC tests under `tests/main/`
+- Voice/browser ownership: `browser.ts`, Voice providers, audit, factory,
+  registry, session store, and Claude navigation service.
+- Composition and lifecycle: `main.ts`, `mainProcessApplication.ts`, `ipc.ts`,
+  and `di/mainProcessCompositionRoot.ts`,
+  `di/mainProcessRuntimeFactory.ts`, and `di/mainProcessRuntimeGraph.ts`.
+- Services: batch and streaming transcription.
+- Tests: browser lifecycle/startup, provider/audit/settings contracts, Voice
+  providers, session/navigation adapters, transcription/streaming, composition
+  isolation, and affected Translation lifecycle source contracts.
 
 ## Checks
 
-- Focused desktop, composition, and affected IPC suite passed: 23/23
-  entrypoints.
-- Full unit suite passed: 149/149 entrypoints.
+- Focused Voice, provider, browser, transcription, streaming, audit, session,
+  navigation, IPC, and composition tests passed.
+- Full unit suite passed: 151/151 entrypoints.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed with no warnings.
 - `npm run format:check` passed.
 - `git diff --check` passed.
 
-## Risks And Platform Gaps
+## Risks And Manual Gaps
 
-- Electron GUI, packaged AppImage/Windows, and native desktop verification
-  remain deferred manual gates.
-- No live browser, provider, credential, private content, packaging, or
-  external process was used.
-- Provider, browser, IPC, preload, renderer, config, localization, and runtime
-  adapter ownership not assigned to Task 09 remains intentionally deferred to
-  Tasks 10–17.
+- Live browser/provider behavior, credentials, private audio, packaged desktop
+  startup, and platform-native verification remain deferred manual gates.
+- No live provider, browser, credential, private content, dependency,
+  packaging, push, PR, or release action was used.
 
 ## Next Packet
 
-- [10 Voice and browser DI](10_migrate_voice_browser_di.md)
-- Review and commit authorization for Task 09 are required before Task 10
+- [11 Translation DI](11_migrate_translation_di.md)
+- Review and commit authorization for Task 10 are required before Task 11
   begins.

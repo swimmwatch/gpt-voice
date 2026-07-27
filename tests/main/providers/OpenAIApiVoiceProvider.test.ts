@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { StatusCodes } from 'http-status-codes';
-import { OpenAIApiVoiceProvider } from '@main/providers/OpenAIApiVoiceProvider';
+import {
+  OpenAIApiVoiceProvider,
+  type OpenAIApiVoiceProviderDependencies,
+} from '@main/providers/OpenAIApiVoiceProvider';
 import { DEFAULT_OPENAI_API_SETTINGS, type OpenAIApiSettingsWithSecret } from '@main/providers/openaiApiSettingsUtils';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 
@@ -13,10 +16,22 @@ function createSettings(overrides: Partial<OpenAIApiSettingsWithSecret> = {}): O
   };
 }
 
+function createProvider(overrides: Partial<OpenAIApiVoiceProviderDependencies>): OpenAIApiVoiceProvider {
+  return new OpenAIApiVoiceProvider({
+    audit: new RecordingVoiceProviderAudit(),
+    fetch: async () => {
+      throw new Error('Unexpected OpenAI request');
+    },
+    getSettings: createSettings,
+    writeClipboardText: () => undefined,
+    ...overrides,
+  });
+}
+
 describe('OpenAIApiVoiceProvider', () => {
   it('returns all result-affecting settings without the API key', () => {
     const settings = createSettings({ language: 'uk', prompt: 'use Ukrainian spelling', temperature: 0.4 });
-    const provider = new OpenAIApiVoiceProvider({ getSettings: () => settings });
+    const provider = createProvider({ getSettings: () => settings });
 
     const context = provider.getTranscriptionCacheContext();
 
@@ -34,10 +49,10 @@ describe('OpenAIApiVoiceProvider', () => {
   });
 
   it('changes context when a transcription setting changes', () => {
-    const first = new OpenAIApiVoiceProvider({
+    const first = createProvider({
       getSettings: () => createSettings({ language: 'auto', prompt: '', temperature: 0 }),
     });
-    const second = new OpenAIApiVoiceProvider({
+    const second = createProvider({
       getSettings: () => createSettings({ language: 'en', prompt: 'identify names', temperature: 0.3 }),
     });
 
@@ -47,7 +62,7 @@ describe('OpenAIApiVoiceProvider', () => {
   it('sends the selected compatible model and language to OpenAI', async () => {
     const audit = new RecordingVoiceProviderAudit();
     let request: RequestInit | undefined;
-    const provider = new OpenAIApiVoiceProvider({
+    const provider = createProvider({
       audit: audit,
       fetch: async (_url, init) => {
         request = init;
@@ -80,7 +95,7 @@ describe('OpenAIApiVoiceProvider', () => {
 
   it('audits configuration absence without retaining credential values', async () => {
     const audit = new RecordingVoiceProviderAudit();
-    const provider = new OpenAIApiVoiceProvider({
+    const provider = createProvider({
       audit: audit,
       getSettings: () => createSettings({ apiKey: '' }),
     });
@@ -97,7 +112,7 @@ describe('OpenAIApiVoiceProvider', () => {
   it('audits success with safe lengths and exactly one terminal', async () => {
     const audit = new RecordingVoiceProviderAudit();
     const clipboard: string[] = [];
-    const provider = new OpenAIApiVoiceProvider({
+    const provider = createProvider({
       audit: audit,
       fetch: async () => ({
         status: Number(StatusCodes.OK),
@@ -144,7 +159,7 @@ describe('OpenAIApiVoiceProvider', () => {
 
     for (const testCase of cases) {
       const audit = new RecordingVoiceProviderAudit();
-      const provider = new OpenAIApiVoiceProvider({
+      const provider = createProvider({
         audit: audit,
         fetch: async () => ({
           status: testCase.status,
@@ -168,7 +183,7 @@ describe('OpenAIApiVoiceProvider', () => {
   it('normalizes transport exceptions and keeps request privacy canaries out of audit metadata', async () => {
     const canary = 'private-key private prompt https://private.invalid /home/private stack-private';
     const audit = new RecordingVoiceProviderAudit();
-    const provider = new OpenAIApiVoiceProvider({
+    const provider = createProvider({
       audit: audit,
       fetch: async () => {
         throw new TypeError(canary);

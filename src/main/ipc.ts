@@ -17,15 +17,9 @@ import {
   saveTranslationSettings,
   saveConfig,
 } from './config';
-import {
-  isBgReady,
-  getBackgroundBrowserStatus,
-  getActiveProvider,
-  launchLoginContext,
-  restartBackgroundBrowser,
-  switchProvider,
-} from './browser';
-import { createProvider, getAvailableProviders, voiceProviderAudit } from './providers';
+import type { BackgroundBrowserService } from './browser';
+import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
+import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
 import { type WindowManager } from './window';
 import type { DesktopRuntimeController } from './desktopRuntimeController';
 import type { ShortcutController } from './shortcuts';
@@ -79,7 +73,6 @@ import {
 } from './services/prettifyProviders';
 import { prettifyProviderAudit } from './services/prettifyProviderAudit';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
-import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
 import { isAppSettingsSectionId } from '@shared/appSettings';
@@ -90,11 +83,14 @@ const log = createLogger('ipc');
 const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
 
 export interface MainIpcDependencies {
+  readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
-  readonly transcribeAudio: TranscriptionService;
+  readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
+  readonly voiceAudit: VoiceProviderAudit;
+  readonly voiceProviderRegistry: VoiceProviderRegistry;
   readonly windowManager: WindowManager;
 }
 
@@ -229,6 +225,7 @@ function assertTrustedSender(event: IpcMainInvokeEvent, windowManager: WindowMan
 function registerStreamingTranscriptionIpcHandlers(
   service: MainStreamingTranscriptionService,
   windowManager: WindowManager,
+  backgroundBrowserService: BackgroundBrowserService,
 ): StreamingTranscriptionIpcController<WebContents> {
   return new StreamingTranscriptionIpcController<WebContents>({
     addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
@@ -237,7 +234,7 @@ function registerStreamingTranscriptionIpcHandlers(
       return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
     },
     isSenderDestroyed: (sender) => sender.isDestroyed(),
-    registerBeforeBrowserShutdownHook: registerBeforeBackgroundBrowserShutdownHook,
+    registerBeforeBrowserShutdownHook: (hook) => backgroundBrowserService.registerBeforeShutdownHook(hook),
     registerHandler: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
         assertTrustedSender(event, windowManager);
@@ -261,11 +258,15 @@ function getHotkeySettingsSnapshot(): HotkeySettings {
   };
 }
 
-function getProviderSettingsSnapshot(providerId: string) {
-  if (!voiceProviderAudit.isKnownProviderId(providerId)) {
-    createProvider(providerId);
+function getProviderSettingsSnapshot(
+  providerId: string,
+  providerRegistry: VoiceProviderRegistry,
+  auditProvider: VoiceProviderAudit,
+) {
+  if (!providerRegistry.isKnownProviderId(providerId)) {
+    providerRegistry.createProvider(providerId);
   }
-  const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'configuration');
+  const audit = auditProvider.startOperation(providerId, 'settings-readiness', 'configuration');
 
   try {
     if (providerId === OPENAI_API_PROVIDER_ID) {
@@ -278,12 +279,12 @@ function getProviderSettingsSnapshot(providerId: string) {
       audit.lifecycle.terminal(
         'configuration',
         settings.hasApiKey ? 'success' : 'failure',
-        settings.hasApiKey ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        settings.hasApiKey ? undefined : auditProvider.createMetadata({ causeCode: 'not-configured' }),
       );
       return settings;
     }
 
-    const provider = createProvider(providerId);
+    const provider = providerRegistry.createProvider(providerId);
     if (providerId === CLAUDE_WEB_PROVIDER_ID) {
       const settings = {
         providerId,
@@ -295,7 +296,7 @@ function getProviderSettingsSnapshot(providerId: string) {
       audit.lifecycle.terminal(
         'configuration',
         settings.hasSession ? 'success' : 'failure',
-        settings.hasSession ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-authenticated' }),
+        settings.hasSession ? undefined : auditProvider.createMetadata({ causeCode: 'not-authenticated' }),
       );
       return settings;
     }
@@ -308,18 +309,22 @@ function getProviderSettingsSnapshot(providerId: string) {
     audit.lifecycle.terminal(
       'configuration',
       settings.hasSession ? 'success' : 'failure',
-      settings.hasSession ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-authenticated' }),
+      settings.hasSession ? undefined : auditProvider.createMetadata({ causeCode: 'not-authenticated' }),
     );
     return settings;
   } catch (error: unknown) {
-    voiceProviderAudit.terminalException(audit, 'configuration', error);
+    auditProvider.terminalException(audit, 'configuration', error);
     throw error;
   }
 }
 
-async function refreshActiveProvider(providerId: string, windowManager: WindowManager) {
+async function refreshActiveProvider(
+  providerId: string,
+  windowManager: WindowManager,
+  backgroundBrowserService: BackgroundBrowserService,
+) {
   if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
-  const status = await restartBackgroundBrowser();
+  const status = await backgroundBrowserService.restart();
   windowManager.publishBackgroundStatus(status, currentProvider);
   return status;
 }
@@ -327,13 +332,17 @@ async function refreshActiveProvider(providerId: string, windowManager: WindowMa
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcRegistration {
   const registration = new MainIpcRegistration(
-    registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService, dependencies.windowManager),
+    registerStreamingTranscriptionIpcHandlers(
+      dependencies.streamingTranscriptionService,
+      dependencies.windowManager,
+      dependencies.backgroundBrowserService,
+    ),
     dependencies.windowManager,
   );
   const historyController = dependencies.historyController;
 
   registration.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
-    return dependencies.transcribeAudio(buffer, mimeType);
+    return dependencies.transcriptionService.transcribe(buffer, mimeType);
   });
 
   registration.handle('translate-text', async (_event, text: string, targetLang: string) => {
@@ -380,7 +389,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       if (typeof providerId !== 'string') {
         return { success: false, error: 'Unsupported provider' };
       }
-      provider = createProvider(providerId);
+      provider = dependencies.voiceProviderRegistry.createProvider(providerId);
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
@@ -391,7 +400,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     let context: BrowserContext | null = null;
     let sessionSaved = false;
     try {
-      context = await launchLoginContext();
+      context = await dependencies.backgroundBrowserService.launchLoginContext();
       const page = await context.newPage();
       await page.goto(provider.getLoginUrl());
 
@@ -402,13 +411,15 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
           done = true;
           try {
             if (saveSession) {
-              const saveAudit = voiceProviderAudit.startOperation(provider.info.id, 'session-save', 'session');
+              const saveAudit = dependencies.voiceAudit.startOperation(provider.info.id, 'session-save', 'session');
               try {
                 await provider.saveSession(context!);
                 saveAudit.lifecycle.phaseCompleted('session');
                 saveAudit.lifecycle.terminal('session', 'success');
               } catch (error: unknown) {
-                voiceProviderAudit.terminalException(saveAudit, 'session', error, { causeCode: 'cleanup-failed' });
+                dependencies.voiceAudit.terminalException(saveAudit, 'session', error, {
+                  causeCode: 'cleanup-failed',
+                });
                 throw error;
               }
               sessionSaved = true;
@@ -431,8 +442,16 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         return { success: false, error: 'Login window closed before session was saved' };
       }
 
-      const status = await refreshActiveProvider(provider.info.id, dependencies.windowManager);
-      const settings = getProviderSettingsSnapshot(provider.info.id);
+      const status = await refreshActiveProvider(
+        provider.info.id,
+        dependencies.windowManager,
+        dependencies.backgroundBrowserService,
+      );
+      const settings = getProviderSettingsSnapshot(
+        provider.info.id,
+        dependencies.voiceProviderRegistry,
+        dependencies.voiceAudit,
+      );
       dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
       if (status?.error) {
         return { success: false, error: status.error };
@@ -456,8 +475,10 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
 
   registration.handle('check-session', () => {
     try {
-      const provider = getActiveProvider() ?? createProvider(currentProvider);
-      const audit = voiceProviderAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
+      const provider =
+        dependencies.backgroundBrowserService.getActiveProvider() ??
+        dependencies.voiceProviderRegistry.createProvider(currentProvider);
+      const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
       try {
         const hasSession = provider.hasSession();
         audit.lifecycle.phaseCompleted('configuration');
@@ -466,13 +487,13 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
           hasSession ? 'success' : 'failure',
           hasSession
             ? undefined
-            : voiceProviderAudit.createMetadata({
+            : dependencies.voiceAudit.createMetadata({
                 causeCode: provider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured',
               }),
         );
         return hasSession;
       } catch (error: unknown) {
-        voiceProviderAudit.terminalException(audit, 'configuration', error);
+        dependencies.voiceAudit.terminalException(audit, 'configuration', error);
         throw error;
       }
     } catch {
@@ -481,26 +502,28 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
   });
 
   registration.handle('is-bg-ready', () => {
-    return isBgReady();
+    return dependencies.backgroundBrowserService.isReady();
   });
 
   registration.handle('get-bg-browser-status', () => {
-    return getBackgroundBrowserStatus();
+    return dependencies.backgroundBrowserService.getStatus();
   });
 
   registration.handle('get-providers', () => {
-    return getAvailableProviders();
+    return dependencies.voiceProviderRegistry.getAvailableProviders();
   });
 
   registration.handle('get-provider-settings', (_event, providerId: string) => {
-    return getProviderSettingsSnapshot(providerId);
+    return getProviderSettingsSnapshot(providerId, dependencies.voiceProviderRegistry, dependencies.voiceAudit);
   });
 
   registration.handle('open-provider-settings', (_event, providerId: unknown) => {
     if (typeof providerId !== 'string') {
       return { success: false, error: 'Unsupported provider' };
     }
-    const provider = getAvailableProviders().find((candidate) => candidate.id === providerId);
+    const provider = dependencies.voiceProviderRegistry
+      .getAvailableProviders()
+      .find((candidate) => candidate.id === providerId);
     if (!provider?.hasSettings) {
       return { success: false, error: 'Provider settings are not available' };
     }
@@ -567,7 +590,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
           error: t('error.translationCleanupFailed'),
         };
       }
-      const backgroundStatus = await restartBackgroundBrowser({
+      const backgroundStatus = await dependencies.backgroundBrowserService.restart({
         cloakBrowserSettings: preparedSettings.settingsWithSecret,
       });
       dependencies.windowManager.publishBackgroundStatus(backgroundStatus, currentProvider);
@@ -594,23 +617,23 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
   registration.handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
-        const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
+        const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
         audit.lifecycle.terminal(
           'validation',
           'failure',
-          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+          dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
         );
         return { success: false, error: 'Unsupported provider' };
       }
       if (providerId === CLAUDE_WEB_PROVIDER_ID) {
-        const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
+        const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
         try {
           assertValidClaudeWebSettingsUpdateInput(settings);
         } catch {
           audit.lifecycle.terminal(
             'validation',
             'failure',
-            voiceProviderAudit.createMetadata({ causeCode: 'invalid-settings' }),
+            dependencies.voiceAudit.createMetadata({ causeCode: 'invalid-settings' }),
           );
           return { success: false, error: t('error.claudeWeb.invalid-settings') };
         }
@@ -621,16 +644,16 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
         let savedSettings: ReturnType<typeof saveClaudeWebSettings>;
         try {
           savedSettings = saveClaudeWebSettings(settings);
-          await refreshActiveProvider(providerId, dependencies.windowManager);
+          await refreshActiveProvider(providerId, dependencies.windowManager, dependencies.backgroundBrowserService);
         } catch (error: unknown) {
-          voiceProviderAudit.terminalException(audit, 'configuration', error);
+          dependencies.voiceAudit.terminalException(audit, 'configuration', error);
           throw error;
         }
         log.info('Provider settings saved:', { providerId });
         const nextSettings = {
           providerId,
           authType: 'browserSession' as const,
-          hasSession: createProvider(providerId).hasSession(),
+          hasSession: dependencies.voiceProviderRegistry.createProvider(providerId).hasSession(),
           language: savedSettings.language,
         };
         audit.lifecycle.phaseCompleted('configuration');
@@ -641,19 +664,23 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       if (providerId !== OPENAI_API_PROVIDER_ID) {
         log.info('Saving provider settings:', { providerId });
         log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
-        const nextSettings = getProviderSettingsSnapshot(providerId);
+        const nextSettings = getProviderSettingsSnapshot(
+          providerId,
+          dependencies.voiceProviderRegistry,
+          dependencies.voiceAudit,
+        );
         dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
         return { success: true, settings: nextSettings };
       }
 
-      const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
+      const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
       try {
         assertValidOpenAIApiSettingsInput(settings);
       } catch (error: unknown) {
         audit.lifecycle.terminal(
           'validation',
           'failure',
-          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+          dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
         );
         throw error;
       }
@@ -663,9 +690,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       let savedSettings: ReturnType<typeof saveOpenAIApiSettings>;
       try {
         savedSettings = saveOpenAIApiSettings(settings);
-        await refreshActiveProvider(providerId, dependencies.windowManager);
+        await refreshActiveProvider(providerId, dependencies.windowManager, dependencies.backgroundBrowserService);
       } catch (error: unknown) {
-        voiceProviderAudit.terminalException(audit, 'configuration', error);
+        dependencies.voiceAudit.terminalException(audit, 'configuration', error);
         throw error;
       }
       log.info('Provider settings saved:', {
@@ -685,7 +712,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       audit.lifecycle.terminal(
         'configuration',
         savedSettings.hasApiKey ? 'success' : 'failure',
-        savedSettings.hasApiKey ? undefined : voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+        savedSettings.hasApiKey ? undefined : dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
       );
       dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
       return { success: true, settings: nextSettings };
@@ -696,29 +723,35 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
   });
 
   registration.handle('clear-provider-auth', async (event, providerId: string) => {
-    const audit = voiceProviderAudit.startOperation(providerId, 'session-clear', 'session');
+    const audit = dependencies.voiceAudit.startOperation(providerId, 'session-clear', 'session');
     try {
-      if (!voiceProviderAudit.isKnownProviderId(providerId)) {
+      if (!dependencies.voiceAudit.isKnownProviderId(providerId)) {
         audit.lifecycle.terminal(
           'session',
           'failure',
-          voiceProviderAudit.createMetadata({ causeCode: 'not-configured' }),
+          dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
         );
         throw new Error(`Unknown voice provider: ${providerId}`);
       }
       if (providerId === OPENAI_API_PROVIDER_ID) {
         clearOpenAIApiKey();
       } else {
-        createProvider(providerId).clearSession();
+        dependencies.voiceProviderRegistry.createProvider(providerId).clearSession();
       }
       audit.lifecycle.phaseCompleted('session');
       audit.lifecycle.terminal('session', 'success');
-      await refreshActiveProvider(providerId, dependencies.windowManager);
-      const settings = getProviderSettingsSnapshot(providerId);
+      await refreshActiveProvider(providerId, dependencies.windowManager, dependencies.backgroundBrowserService);
+      const settings = getProviderSettingsSnapshot(
+        providerId,
+        dependencies.voiceProviderRegistry,
+        dependencies.voiceAudit,
+      );
       dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
       return { success: true, settings };
     } catch (error: unknown) {
-      voiceProviderAudit.terminalException(audit, 'session', error, { causeCode: 'cleanup-failed' });
+      dependencies.voiceAudit.terminalException(audit, 'session', error, {
+        causeCode: 'cleanup-failed',
+      });
       return { success: false, error: getErrorMessage(error) };
     }
   });
@@ -729,7 +762,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
 
   registration.handle('set-active-provider', async (_event, providerId: string) => {
     try {
-      const status = await switchProvider(providerId);
+      const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
       saveConfig();
       dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
       return { success: !status.error, error: status.error };

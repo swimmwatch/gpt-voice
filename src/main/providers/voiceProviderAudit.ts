@@ -312,5 +312,3 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
     );
   }
 }
-
-export const voiceProviderAudit = new VoiceProviderAudit();

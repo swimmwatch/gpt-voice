@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- Provider and session-store fixtures own separate state. */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import type { Page } from 'playwright-core';
@@ -5,6 +6,8 @@ import { StatusCodes } from 'http-status-codes';
 
 import { setLocale, t } from '@main/i18n';
 import { ChatGPTVoiceProvider } from '@main/providers/ChatGPTVoiceProvider';
+import type { ChatGPTSessionStore } from '@main/providers/chatgptSessionStore';
+import type { SessionState } from '@main/providers/chatgptUtils';
 import {
   RecordingVoiceProviderAudit,
   getTerminalEvents,
@@ -52,6 +55,19 @@ class TestChatGPTVoiceProvider extends ChatGPTVoiceProvider {
   }
 }
 
+class TestChatGPTSessionStore implements ChatGPTSessionStore {
+  public clearAccessToken(): void {}
+  public clearSession(): void {}
+  public readAccessToken(): string {
+    return '';
+  }
+  public readSession(): SessionState | null {
+    return null;
+  }
+  public saveAccessToken(): void {}
+  public saveSession(): void {}
+}
+
 function response(status: number, body: Record<string, unknown>, retryAfter?: string): unknown {
   return {
     kind: 'response',
@@ -86,11 +102,13 @@ function createHarness(evaluationResults: unknown[], options: ProviderHarnessOpt
   const page = createFakePage(evaluationResults);
   const provider = new TestChatGPTVoiceProvider({
     audit: audit,
-    now: options.now,
+    logger: { info: () => undefined, warn: () => undefined },
+    now: options.now ?? (() => 0),
     reloadPage: async (_page, timeoutMs) => {
       recoveryTimeouts.push(timeoutMs);
       await options.reloadPage?.();
     },
+    sessionStore: new TestChatGPTSessionStore(),
     writeClipboardText: (text) => clipboardWrites.push(text),
   });
   provider.setReady(page.page);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
-import { createTranscriptionService } from '@main/services/transcription';
+import { TranscriptionService } from '@main/services/transcription';
 import {
   createTranscriptionResultCache,
   createTranscriptionResultCacheKey,
@@ -81,18 +81,20 @@ function createTestService(options: TestServiceOptions = {}) {
   const historyRepository = new RecordingTranscriptionHistoryRepository();
   let ensureCalls = 0;
 
-  const service = createTranscriptionService({
+  const service = new TranscriptionService({
     audit: options.audit ?? audit,
-    cache,
-    ensureBackgroundBrowser: async () => {
-      ensureCalls += 1;
-      activeProvider = options.providerAfterEnsure ?? activeProvider;
-      backgroundReady = true;
+    backgroundBrowserService: {
+      ensure: async () => {
+        ensureCalls += 1;
+        activeProvider = options.providerAfterEnsure ?? activeProvider;
+        backgroundReady = true;
+      },
+      getActiveProvider: () => activeProvider,
+      isReady: () => backgroundReady,
     },
-    getActiveProvider: () => activeProvider,
+    cache,
     getRequestedAt: () => '2026-07-12T00:00:00.000Z',
     historyRepository,
-    isBackgroundReady: () => backgroundReady,
     writeClipboardText: (text) => {
       clipboard.push(text);
     },
@@ -105,7 +107,7 @@ function createTestService(options: TestServiceOptions = {}) {
     ensureCalls: () => ensureCalls,
     history: historyRepository.addedEntries,
     provider: defaultProvider,
-    service,
+    service: service.transcribe,
   };
 }
 

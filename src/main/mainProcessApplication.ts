@@ -5,6 +5,7 @@ import type { LinuxDesktopIntegrationController } from './linuxDesktopIntegratio
 import type { ShortcutController } from './shortcuts';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
+import type { BackgroundBrowserService } from './browser';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -69,10 +70,10 @@ export interface MainProcessRuntimeFactory {
 export interface MainProcessApplicationDependencies {
   readonly app: MainProcessElectronApplication;
   readonly appProtocolController: AppProtocolController;
+  readonly backgroundBrowserService: BackgroundBrowserService;
   readonly configureCloakBrowserRuntime: () => void;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly getCurrentVoiceProviderId: () => string;
-  readonly initializeBackgroundBrowser: () => Promise<MainProcessBackgroundStatus>;
   readonly initializeLocale: () => void;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly loadConfig: () => void;
@@ -80,7 +81,6 @@ export interface MainProcessApplicationDependencies {
   readonly presentTranslationSettingsRepairNotice: () => void;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly shortcutController: ShortcutController;
-  readonly shutdownBackgroundBrowser: () => Promise<void>;
   readonly shutdownTranslationProviders: () => Promise<MainProcessTranslationShutdownResult>;
   readonly trayController: TrayController;
   readonly unloadPrettifyModel: () => Promise<void>;
@@ -176,7 +176,7 @@ export class MainProcessApplication {
 
     this.dependencies.trayController.create();
     this.dependencies.shortcutController.register();
-    const status = await this.dependencies.initializeBackgroundBrowser();
+    const status = await this.dependencies.backgroundBrowserService.initialize();
     this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.getCurrentVoiceProviderId());
   }
 
@@ -237,7 +237,7 @@ export class MainProcessApplication {
     }
 
     try {
-      await this.dependencies.shutdownBackgroundBrowser();
+      await this.dependencies.backgroundBrowserService.shutdown();
     } catch {
       this.dependencies.logger.warn(BROWSER_CLEANUP_FAILURE_LOG);
     }

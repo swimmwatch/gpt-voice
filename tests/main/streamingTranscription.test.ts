@@ -24,6 +24,7 @@ import {
 import { StreamingTranscriptionOperationError } from '@main/providers/StreamingTranscriptionOperationError';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { VoiceProviderRegistryFixture } from './providers/voiceProviderRegistryFixture';
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import {
   MainStreamingTranscriptionRejection,
@@ -235,9 +236,11 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
   const diagnostics: DiagnosticRecord[] = [];
   const deps: MainStreamingTranscriptionServiceDependencies = {
     audit,
+    backgroundBrowserService: {
+      getActiveProvider: () => activeProvider,
+    },
     cache,
     createOperationId: () => operationId,
-    getActiveProvider: () => activeProvider,
     getMonotonicTimeMs: () => monotonicTimeMs,
     getRequestedAt: () => '2026-07-18T12:00:00.000Z',
     historyRepository,
@@ -288,9 +291,10 @@ async function assertServiceRejection(
 
 describe('streaming provider capability resolver', () => {
   it('resolves only the nominal Claude Web provider, not matching metadata or duck typing', () => {
-    const claude = new ClaudeWebVoiceProvider();
+    const claude = new VoiceProviderRegistryFixture().registry.createProvider(CLAUDE_WEB_PROVIDER_ID);
     const lookalike = new TestStreamingProvider();
 
+    assert.equal(claude instanceof ClaudeWebVoiceProvider, true);
     assert.deepEqual(resolveStreamingVoiceProviderCapability(claude), {
       provider: claude,
       operations: claude,

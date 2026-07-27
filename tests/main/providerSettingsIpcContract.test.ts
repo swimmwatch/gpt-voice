@@ -12,8 +12,11 @@ describe('provider settings IPC contract', () => {
     const rendererTypes = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/types.d.ts'), 'utf8');
 
     assert.match(ipcSource, /handle\('provider-login', async \(event, providerId: unknown\)/u);
-    assert.match(ipcSource, /provider = createProvider\(providerId\)/u);
-    assert.match(ipcSource, /refreshActiveProvider\(provider\.info\.id, dependencies\.windowManager\)/u);
+    assert.match(ipcSource, /provider = dependencies\.voiceProviderRegistry\.createProvider\(providerId\)/u);
+    assert.match(
+      ipcSource,
+      /refreshActiveProvider\(\s*provider\.info\.id,\s*dependencies\.windowManager,\s*dependencies\.backgroundBrowserService,\s*\)/u,
+    );
     assert.match(ipcSource, /dependencies\.windowManager\.publishProviderSettingsChanged\(settings, event\.sender\)/u);
     assert.match(preloadSource, /providerLogin: \(providerId: string\)/u);
     assert.match(preloadSource, /ipcRenderer\.invoke\('provider-login', providerId\)/u);
