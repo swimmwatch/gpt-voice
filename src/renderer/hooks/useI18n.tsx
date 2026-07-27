@@ -1,5 +1,6 @@
 import React, { createContext, use, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import defaultTranslations from '@main/i18n/en';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { DEFAULT_APP_LOCALE, type AppLocaleId } from '@shared/appLocale';
 
 const DEFAULT_TRANSLATIONS: Readonly<Record<string, string>> = defaultTranslations;
@@ -24,6 +25,7 @@ export const useI18n = () => use(I18nContext);
 
 /** Synchronizes persisted application language and translations across renderer windows. */
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const desktopApi = useDesktopApi();
   const [translations, setTranslations] = useState<Readonly<Record<string, string>>>(DEFAULT_TRANSLATIONS);
   const [currentLocale, setCurrentLocale] = useState<AppLocaleId>(DEFAULT_APP_LOCALE);
   const [supportedLocales, setSupportedLocales] = useState<AppLocaleId[]>([DEFAULT_APP_LOCALE]);
@@ -32,12 +34,12 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshLocale = useCallback(async (): Promise<void> => {
     const requestId = ++refreshRequestRef.current;
-    const [tr, locale] = await Promise.all([window.electronAPI.getTranslations(), window.electronAPI.getLocale()]);
+    const [tr, locale] = await Promise.all([desktopApi.getTranslations(), desktopApi.getLocale()]);
     if (requestId !== refreshRequestRef.current) return;
     setTranslations(tr);
     setCurrentLocale(locale);
     setIsReady(true);
-  }, []);
+  }, [desktopApi]);
 
   useEffect(() => {
     let disposed = false;
@@ -46,9 +48,9 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const requestId = ++refreshRequestRef.current;
       try {
         const [tr, loc, supported] = await Promise.all([
-          window.electronAPI.getTranslations(),
-          window.electronAPI.getLocale(),
-          window.electronAPI.getSupportedLocales(),
+          desktopApi.getTranslations(),
+          desktopApi.getLocale(),
+          desktopApi.getSupportedLocales(),
         ]);
 
         if (disposed || requestId !== refreshRequestRef.current) return;
@@ -66,7 +68,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     void initI18n();
 
-    const unsubscribe = window.electronAPI.onLocaleChanged(() => {
+    const unsubscribe = desktopApi.onLocaleChanged(() => {
       void refreshLocale().catch(() => undefined);
     });
 
@@ -75,7 +77,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshRequestRef.current += 1;
       unsubscribe();
     };
-  }, [refreshLocale]);
+  }, [desktopApi, refreshLocale]);
 
   useEffect(() => {
     document.documentElement.lang = currentLocale;
@@ -96,11 +98,11 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setLocale = useCallback(
     async (newLocale: AppLocaleId) => {
-      const result = await window.electronAPI.setLocale(newLocale);
+      const result = await desktopApi.setLocale(newLocale);
       if (!result.success) throw new Error('Failed to save application language');
       await refreshLocale();
     },
-    [refreshLocale],
+    [desktopApi, refreshLocale],
   );
 
   const contextValue = useMemo(

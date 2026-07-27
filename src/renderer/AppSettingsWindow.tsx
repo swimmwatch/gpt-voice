@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react';
 import rendererLog from 'electron-log/renderer';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
 import BrowserSection from '@renderer/components/settings/BrowserSection';
 import NetworkSection from '@renderer/components/settings/NetworkSection';
@@ -60,6 +61,7 @@ function generateFingerprintSeed(): string {
 
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
+  const desktopApi = useDesktopApi();
   const { isReady: isI18nReady, locale, setLocale, supportedLocales, t } = useI18n();
   const [settings, setSettings] = useState<EditableCloakBrowserSettings | null>(null);
   const [initialSettings, setInitialSettings] = useState<EditableCloakBrowserSettings | null>(null);
@@ -111,11 +113,11 @@ const AppSettingsWindow: React.FC = () => {
       try {
         const [nextSettings, nextPrettifySettings, nextTextActionSettings, nextHotkeySettings, nextPlatform] =
           await Promise.all([
-            window.electronAPI.getCloakBrowserSettings(),
-            window.electronAPI.getPrettifySettings(),
-            window.electronAPI.getTextActionSettings(),
-            window.electronAPI.getHotkey(),
-            window.electronAPI.getPlatform(),
+            desktopApi.getCloakBrowserSettings(),
+            desktopApi.getPrettifySettings(),
+            desktopApi.getTextActionSettings(),
+            desktopApi.getHotkey(),
+            desktopApi.getPlatform(),
           ]);
         if (disposed) return;
 
@@ -139,13 +141,13 @@ const AppSettingsWindow: React.FC = () => {
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [desktopApi]);
 
   useEffect(() => {
     return () => {
-      void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
+      void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
     };
-  }, []);
+  }, [desktopApi]);
 
   const updateSetting = <Key extends keyof EditableCloakBrowserSettings>(
     key: Key,
@@ -212,7 +214,7 @@ const AppSettingsWindow: React.FC = () => {
   const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
     setError('');
     try {
-      const result = await window.electronAPI.setHotkeyCaptureActive(true);
+      const result = await desktopApi.setHotkeyCaptureActive(true);
       if (!result.success) {
         setError(t('appSettings.saveFailed'));
         return;
@@ -226,13 +228,13 @@ const AppSettingsWindow: React.FC = () => {
 
   const closeHotkeyModal = (): void => {
     setShowHotkeyModal(false);
-    void window.electronAPI.setHotkeyCaptureActive(false).catch(() => undefined);
+    void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
   };
 
   const applyHotkey = async (newHotkey: string): Promise<void> => {
     setError('');
     try {
-      const result = await window.electronAPI.setHotkey(hotkeyTarget, newHotkey);
+      const result = await desktopApi.setHotkey(hotkeyTarget, newHotkey);
       if (result.success) {
         setHotkeySettings(result);
       } else {
@@ -263,8 +265,8 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const forceCloseWindow = useCallback((): void => {
-    void window.electronAPI.closeAppSettings();
-  }, []);
+    void desktopApi.closeAppSettings();
+  }, [desktopApi]);
 
   /** Saves all dirty settings groups in their dependency-safe order. */
   const saveSettings = async (): Promise<void> => {
@@ -305,9 +307,9 @@ const AppSettingsWindow: React.FC = () => {
     let saveResult: AppSettingsSaveResult;
     try {
       saveResult = await saveAppSettingsState(saveInput, {
-        saveCloakBrowserSettings: window.electronAPI.saveCloakBrowserSettings,
-        setPrettifySettings: window.electronAPI.setPrettifySettings,
-        setTextActionSettings: window.electronAPI.setTextActionSettings,
+        saveCloakBrowserSettings: desktopApi.saveCloakBrowserSettings,
+        setPrettifySettings: desktopApi.setPrettifySettings,
+        setTextActionSettings: desktopApi.setTextActionSettings,
       });
     } catch (saveError: unknown) {
       setIsSaving(false);
@@ -433,8 +435,8 @@ const AppSettingsWindow: React.FC = () => {
     [handleDiscardConfirmationOpenChange],
   );
 
-  useEffect(() => window.electronAPI.onAppSettingsCloseRequested(requestCloseWindow), [requestCloseWindow]);
-  useEffect(() => window.electronAPI.onAppSettingsSectionRequested(setActiveSection), []);
+  useEffect(() => desktopApi.onAppSettingsCloseRequested(requestCloseWindow), [desktopApi, requestCloseWindow]);
+  useEffect(() => desktopApi.onAppSettingsSectionRequested(setActiveSection), [desktopApi]);
 
   return (
     <>

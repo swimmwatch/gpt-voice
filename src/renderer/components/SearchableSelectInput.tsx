@@ -1,8 +1,8 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useSelectOpenCoordinator } from '@renderer/DesktopApiProvider';
 import { Input } from '@renderer/components/ui/input';
 import { cn } from '@renderer/lib/cn';
-import { selectOpenCoordinator } from '@renderer/selectOpenCoordinator';
 
 export interface SearchableSelectOption {
   label: string;
@@ -61,6 +61,7 @@ function SearchableSelectInput({
   toggleLabel,
   value,
 }: SearchableSelectInputProps): React.JSX.Element {
+  const selectOpenCoordinator = useSelectOpenCoordinator();
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -87,10 +88,10 @@ function SearchableSelectInput({
       isOpenRef.current = nextOpen;
       setIsOpen(nextOpen);
     },
-    [closeFromCoordinator, onOpen, openToken],
+    [closeFromCoordinator, onOpen, openToken, selectOpenCoordinator],
   );
 
-  useEffect(() => () => selectOpenCoordinator.deactivate(openToken), [openToken]);
+  useEffect(() => () => selectOpenCoordinator.deactivate(openToken), [openToken, selectOpenCoordinator]);
 
   useEffect(() => {
     if (!isEditingRef.current) {

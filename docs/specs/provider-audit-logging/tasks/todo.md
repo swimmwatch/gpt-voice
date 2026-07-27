@@ -20,7 +20,7 @@ Task execution and commit gates through Task 08 are recorded in the persistent
 - [x] [11 Translation DI](11_migrate_translation_di.md)
 - [x] [12 Prettify DI](12_migrate_prettify_di.md)
 - [x] [13 Main IPC and lifecycle DI](13_migrate_main_ipc_lifecycle_di.md)
-- [ ] [14 Preload and renderer DI](14_migrate_preload_renderer_di.md)
+- [x] [14 Preload and renderer DI](14_migrate_preload_renderer_di.md)
 - [ ] [15 Config and localization DI](15_migrate_config_and_localization_di.md)
 - [ ] [16 Runtime adapters](16_migrate_runtime_adapters.md)
 - [ ] [17 Project DI enforcement](17_enforce_project_di_boundaries.md)

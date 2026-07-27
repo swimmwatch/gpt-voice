@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import rendererLog from 'electron-log/renderer';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { prepareTranscriptionAudio, type TranscriptionAudioPayload } from '../audioEncoding';
 import {
   beginRetryTranscription,
@@ -46,6 +47,7 @@ export function useRecording({
   t,
   transcriptionMode,
 }: UseRecordingOptions) {
+  const desktopApi = useDesktopApi();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -60,26 +62,29 @@ export function useRecording({
 
   const showRecognitionErrorNotification = useCallback(
     (error: unknown, fallback: string, options?: SystemNotificationOptions): PresentedNotificationError => {
-      return showTranscriptionFailureNotification(window.electronAPI, t, error, fallback, options);
+      return showTranscriptionFailureNotification(desktopApi, t, error, fallback, options);
     },
-    [t],
+    [desktopApi, t],
   );
 
-  const reportRetryTranscriptionAvailability = useCallback((available: boolean) => {
-    void window.electronAPI.setRetryTranscriptionAvailable(available).catch((error: unknown) => {
-      log.warn('Failed to update retry transcription availability:', getNotificationErrorMessage(error));
-    });
-  }, []);
+  const reportRetryTranscriptionAvailability = useCallback(
+    (available: boolean) => {
+      void desktopApi.setRetryTranscriptionAvailable(available).catch((error: unknown) => {
+        log.warn('Failed to update retry transcription availability:', getNotificationErrorMessage(error));
+      });
+    },
+    [desktopApi],
+  );
 
   const setRecordingLifecycle = useCallback(
     (state: RecordingLifecycleState) => {
       recordingLifecycleStateRef.current = state;
       setRecordingState(state);
-      void window.electronAPI.setRecordingLifecycleState(state).catch((error: unknown) => {
+      void desktopApi.setRecordingLifecycleState(state).catch((error: unknown) => {
         log.warn('Failed to update recording lifecycle state:', getNotificationErrorMessage(error));
       });
     },
-    [setRecordingState],
+    [desktopApi, setRecordingState],
   );
 
   const reportRetryableTranscriptionAudio = useCallback(() => {
@@ -105,9 +110,9 @@ export function useRecording({
     (text: string) => {
       log.info('Copied transcription to clipboard, text length:', text.length);
       setStatus(translatedStatus('status.copiedToClipboard'));
-      showTranscriptionSuccessNotification(window.electronAPI, t, text);
+      showTranscriptionSuccessNotification(desktopApi, t, text);
     },
-    [setStatus, t],
+    [desktopApi, setStatus, t],
   );
 
   const submitTranscriptionAudio = useCallback(
@@ -115,7 +120,7 @@ export function useRecording({
       setStatus(translatedStatus(retry ? 'status.resendingTranscription' : 'status.transcribing'));
 
       try {
-        const result = await window.electronAPI.transcribeAudio(audio.buffer, audio.mimeType);
+        const result = await desktopApi.transcribeAudio(audio.buffer, audio.mimeType);
         log.info('Transcription result:', {
           success: result.success,
           textLength: result.text?.length ?? 0,
@@ -139,7 +144,7 @@ export function useRecording({
         log.error('Transcribe error:', presented.safeLogMetadata);
       }
     },
-    [setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
+    [desktopApi, setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
   );
 
   const streamingRecording = useStreamingRecordingController({
@@ -239,13 +244,14 @@ export function useRecording({
       if (recordingLifecycleStateRef.current !== 'starting') return;
 
       setRecordingLifecycle('idle');
-      void window.electronAPI.recordingStartFailed();
+      void desktopApi.recordingStartFailed();
       const presented = showRecognitionErrorNotification(error, t('status.microphoneError'));
       setStatus(translatedStatus('status.microphoneError'));
       log.error('Microphone error:', presented.safeLogMetadata);
     }
   }, [
     clearLastTranscriptionAudio,
+    desktopApi,
     getSupportedRecordingMimeType,
     rememberLastTranscriptionAudio,
     reportRetryableTranscriptionAudio,

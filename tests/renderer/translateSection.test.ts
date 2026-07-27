@@ -57,7 +57,7 @@ describe('main translation Select controls', () => {
 
     assert.match(handler, /if \(translationSettingsSavePendingRef\.current\) return;/u);
     assert.match(handler, /translationSettingsSavePendingRef\.current = true;/u);
-    assert.match(handler, /window\.electronAPI\.setTranslateSettings\(candidate\)/u);
+    assert.match(handler, /desktopApi\.setTranslateSettings\(candidate\)/u);
     assert.match(handler, /requestId !== translationSettingsRequestRef\.current/u);
     assert.doesNotMatch(
       handler,

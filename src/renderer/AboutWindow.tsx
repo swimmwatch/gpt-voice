@@ -1,5 +1,6 @@
 import { ExternalLink, Scale } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { Button, buttonVariants } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
@@ -9,6 +10,7 @@ import type { AppInfo } from '@shared/appInfo';
 
 /** Renders the application metadata window and handles its asynchronous startup state. */
 function AboutWindow(): JSX.Element {
+  const desktopApi = useDesktopApi();
   const { isReady, t } = useI18n();
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -17,8 +19,8 @@ function AboutWindow(): JSX.Element {
   useWindowStartupReady(isReady && infoState !== 'loading');
 
   const closeWindow = useCallback((): void => {
-    void window.electronAPI.closeAbout();
-  }, []);
+    void desktopApi.closeAbout();
+  }, [desktopApi]);
 
   useEffect(() => {
     if (!isReady) {
@@ -26,7 +28,7 @@ function AboutWindow(): JSX.Element {
     }
 
     let disposed = false;
-    void window.electronAPI
+    void desktopApi
       .getAppInfo()
       .then((info) => {
         if (!disposed) {
@@ -42,7 +44,7 @@ function AboutWindow(): JSX.Element {
     return () => {
       disposed = true;
     };
-  }, [isReady]);
+  }, [desktopApi, isReady]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {

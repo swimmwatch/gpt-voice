@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import {
   applyExternalPrettifyProviderSelection,
   createAppSettingsValidationError,
@@ -50,6 +51,7 @@ function getConfiguredPrettifyModel(settings: PrettifySettingsDraft, providerId:
 
 /** Owns Prettify drafts, model discovery, provider transitions, and Ollama lifecycle actions. */
 export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettifySettingsControllerOptions) {
+  const desktopApi = useDesktopApi();
   const [prettifySettings, setPrettifySettings] = useState<PrettifySettingsDraft | null>(null);
   const [initialPrettifySettings, setInitialPrettifySettings] = useState<PrettifySettingsDraft | null>(null);
   const [modelOptions, setModelOptions] = useState<PrettifyProviderModelOptions>(() =>
@@ -99,7 +101,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
       }));
 
       try {
-        const result = await window.electronAPI.listPrettifyModels(providerId, settingsSnapshot);
+        const result = await desktopApi.listPrettifyModels(providerId, settingsSnapshot);
         if (disposedRef.current || requestId !== modelRequestRef.current) return;
         setProviderModelStates((current) => ({
           ...current,
@@ -149,7 +151,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
         if (!disposedRef.current && requestId === modelRequestRef.current) setIsLoadingModels(false);
       }
     },
-    [clearFieldErrors, t],
+    [clearFieldErrors, desktopApi, t],
   );
 
   const initialize = useCallback(
@@ -306,7 +308,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
     clearFieldErrors('prettifyModel');
     try {
       const selectedModel = prettifySettings.ollama.model;
-      const result = await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+      const result = await desktopApi.loadPrettifyModel('ollama', prettifySettings);
       if (!result.success) {
         setModelLoadError(result.error || t('prettify.modelLoadFailed'));
         return;
@@ -354,7 +356,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
     clearFieldErrors('prettifyModel');
     try {
       const selectedModel = prettifySettings.ollama.model;
-      const result = await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings);
+      const result = await desktopApi.unloadPrettifyModel('ollama', prettifySettings);
       if (!result.success) {
         setModelLoadError(result.error || t('prettify.modelUnloadFailed'));
         return;
@@ -373,7 +375,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
 
   useEffect(() => {
     disposedRef.current = false;
-    const unsubscribe = window.electronAPI.onPrettifySettingsChanged((snapshot) => {
+    const unsubscribe = desktopApi.onPrettifySettingsChanged((snapshot) => {
       modelRequestRef.current += 1;
       setPrettifySettings((current) =>
         current ? applyExternalPrettifyProviderSelection(current, snapshot.providerId) : current,
@@ -397,7 +399,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
       modelRequestRef.current += 1;
       unsubscribe();
     };
-  }, [resetModelActionState, setFieldErrors]);
+  }, [desktopApi, resetModelActionState, setFieldErrors]);
 
   return {
     applySavedSnapshot,

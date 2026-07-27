@@ -12,7 +12,7 @@ function readProjectFile(relativePath: string): string {
 describe('App Settings section IPC contract', () => {
   it('validates optional section requests inside the trusted IPC wrapper', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const handler = ipc.slice(ipc.indexOf("handle('open-app-settings'"), ipc.indexOf("handle('open-about'"));
 
@@ -47,14 +47,14 @@ describe('App Settings section IPC contract', () => {
 
   it('broadcasts application-language changes through the typed preload contract', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const i18nProvider = readProjectFile('src/renderer/hooks/useI18n.tsx');
 
     assert.match(ipc, /broadcastLocaleChanged\(locale\)/u);
     assert.match(preload, /onMainEvent<\[AppLocaleId\]>\('locale-changed'/u);
     assert.match(rendererTypes, /onLocaleChanged: \(callback: \(locale: AppLocaleId\) => void\) => \(\) => void/u);
-    assert.match(i18nProvider, /window\.electronAPI\.onLocaleChanged/u);
-    assert.match(i18nProvider, /window\.electronAPI\.getTranslations\(\)/u);
+    assert.match(i18nProvider, /desktopApi\.onLocaleChanged/u);
+    assert.match(i18nProvider, /desktopApi\.getTranslations\(\)/u);
   });
 });

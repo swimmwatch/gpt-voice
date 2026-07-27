@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
 import rendererLog from 'electron-log/renderer';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { startLivePcmCapture } from '@renderer/audio/livePcmCaptureBrowser';
 import type { LivePcmCaptureSession } from '@renderer/audio/livePcmCaptureSession';
 import {
@@ -62,6 +63,7 @@ export function useStreamingRecordingController({
   streamRef,
   t,
 }: UseStreamingRecordingControllerOptions) {
+  const desktopApi = useDesktopApi();
   const captureRef = useRef<LivePcmCaptureSession | null>(null);
   const capturePromiseRef = useRef<Promise<LivePcmCaptureSession> | null>(null);
   const finalizingRef = useRef(false);
@@ -139,7 +141,7 @@ export function useStreamingRecordingController({
     async (stream: MediaStream, generation: number): Promise<void> => {
       let queueReference: StreamingTranscriptionQueue | null = null;
       const queue = new StreamingTranscriptionQueue({
-        client: window.electronAPI,
+        client: desktopApi,
         onFailure: (failure) => {
           queueMicrotask(() => {
             if (queueReference) void finalizeFailure(queueReference, failure);
@@ -184,7 +186,7 @@ export function useStreamingRecordingController({
         clearOperation(queue);
         if (recordingLifecycleStateRef.current !== 'starting') return;
         setRecordingLifecycle('idle');
-        void window.electronAPI.recordingStartFailed();
+        void desktopApi.recordingStartFailed();
         const presented = showRecognitionError(error, t('status.microphoneError'));
         setStatus(translatedStatus('status.microphoneError'));
         log.error('Microphone error:', presented.safeLogMetadata);
@@ -192,6 +194,7 @@ export function useStreamingRecordingController({
     },
     [
       clearOperation,
+      desktopApi,
       finalizeFailure,
       recordingGenerationRef,
       recordingLifecycleStateRef,

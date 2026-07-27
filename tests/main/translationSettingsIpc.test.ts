@@ -42,7 +42,7 @@ describe('translation settings IPC', () => {
   });
 
   it('keeps preload and renderer declarations synchronized on complete settings types', () => {
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
 
     for (const source of [preload, rendererTypes]) {

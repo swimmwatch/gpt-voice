@@ -1,5 +1,6 @@
 import { History, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type UIEvent } from 'react';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import HistoryEntry from '@renderer/components/HistoryEntry';
 import {
   AlertDialog,
@@ -66,6 +67,7 @@ function HistoryLoadingState({ label }: HistoryLoadingStateProps): JSX.Element {
 
 /** Coordinates history pagination, selection, deletion, and associated window state. */
 function HistoryWindow(): JSX.Element {
+  const desktopApi = useDesktopApi();
   const { t, locale, isReady } = useI18n();
   const [items, setItems] = useState<TranscriptionHistoryEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -122,7 +124,7 @@ function HistoryWindow(): JSX.Element {
       setError('');
 
       try {
-        const page = await window.electronAPI.getTranscriptionHistory({
+        const page = await desktopApi.getTranscriptionHistory({
           limit: HISTORY_PAGE_LIMIT,
           offset,
         });
@@ -155,7 +157,7 @@ function HistoryWindow(): JSX.Element {
         }
       }
     },
-    [presentHistoryError, t],
+    [desktopApi, presentHistoryError, t],
   );
 
   useEffect(() => {
@@ -230,7 +232,7 @@ function HistoryWindow(): JSX.Element {
   const copyEntryText = async (entry: TranscriptionHistoryEntry): Promise<void> => {
     setCopyError('');
     try {
-      const result = await window.electronAPI.copyTranscriptionHistoryText(entry.id);
+      const result = await desktopApi.copyTranscriptionHistoryText(entry.id);
       if (!isMountedRef.current) {
         return;
       }
@@ -270,7 +272,7 @@ function HistoryWindow(): JSX.Element {
     setError('');
     setCopyError('');
     try {
-      const result = await window.electronAPI.clearTranscriptionHistory();
+      const result = await desktopApi.clearTranscriptionHistory();
       if (!isMountedRef.current || requestVersion !== requestVersionRef.current) {
         return;
       }

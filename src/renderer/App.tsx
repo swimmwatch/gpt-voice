@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useEffectEvent, useRef, useCallback, useReducer } from 'react';
+import { useDesktopApi } from './DesktopApiProvider';
 import LoadingScreen from './components/LoadingScreen';
 import MainToolbar from './components/MainToolbar';
 import MainPrettifyProviderBand from './components/MainPrettifyProviderBand';
@@ -52,6 +53,7 @@ import {
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
+  const desktopApi = useDesktopApi();
   const [isLoading, setIsLoading] = useState(true);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState<RendererStatus | null>(null);
@@ -80,7 +82,7 @@ const App: React.FC = () => {
   const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
-      check: (providerId) => window.electronAPI.checkPrettifyCliConnection(providerId),
+      check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
       update: setPrettifyCliConnection,
     }),
   );
@@ -133,9 +135,9 @@ const App: React.FC = () => {
     (nextStatus: RendererStatus) => {
       const notificationBody = renderRendererStatus(nextStatus, t).trim();
       if (!notificationBody) return;
-      void window.electronAPI.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
+      void desktopApi.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
     },
-    [t],
+    [desktopApi, t],
   );
 
   const setStatusAndNotify = useCallback(
@@ -146,28 +148,31 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
-  const refreshOllamaModelState = useCallback(async (settings: PrettifySettings): Promise<void> => {
-    const refreshId = ++prettifyModelRefreshIdRef.current;
-    dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
-    setIsPrettifyModelActionRunning(false);
-    setPrettifyModelActionError('');
+  const refreshOllamaModelState = useCallback(
+    async (settings: PrettifySettings): Promise<void> => {
+      const refreshId = ++prettifyModelRefreshIdRef.current;
+      dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
+      setIsPrettifyModelActionRunning(false);
+      setPrettifyModelActionError('');
 
-    if (settings.providerId !== 'ollama' || !settings.ollama.model) {
-      setOllamaModelOptions([]);
-      return;
-    }
-
-    try {
-      const result = await window.electronAPI.listPrettifyModels('ollama', settings);
-      if (refreshId === prettifyModelRefreshIdRef.current) {
-        setOllamaModelOptions(result.success ? result.models : []);
-      }
-    } catch {
-      if (refreshId === prettifyModelRefreshIdRef.current) {
+      if (settings.providerId !== 'ollama' || !settings.ollama.model) {
         setOllamaModelOptions([]);
+        return;
       }
-    }
-  }, []);
+
+      try {
+        const result = await desktopApi.listPrettifyModels('ollama', settings);
+        if (refreshId === prettifyModelRefreshIdRef.current) {
+          setOllamaModelOptions(result.success ? result.models : []);
+        }
+      } catch {
+        if (refreshId === prettifyModelRefreshIdRef.current) {
+          setOllamaModelOptions([]);
+        }
+      }
+    },
+    [desktopApi],
+  );
 
   const recordingActions = useRecording({
     setStatus,
@@ -190,18 +195,18 @@ const App: React.FC = () => {
       }
     };
 
-    void window.electronAPI
+    void desktopApi
       .getPrettifySettings()
       .then(refresh)
       .catch(() => undefined);
-    const unsubscribe = window.electronAPI.onPrettifySettingsChanged(refresh);
+    const unsubscribe = desktopApi.onPrettifySettingsChanged(refresh);
 
     return () => {
       disposed = true;
       prettifyProviderChangeRequestRef.current += 1;
       unsubscribe();
     };
-  }, [refreshOllamaModelState]);
+  }, [desktopApi, refreshOllamaModelState]);
 
   const applyProviderLoginState = useCallback(
     (
@@ -301,43 +306,43 @@ const App: React.FC = () => {
       emit: (event) => {
         if (!disposed) handleProviderSelectionEvent(event);
       },
-      getActiveProvider: () => window.electronAPI.getActiveProvider(),
-      getProviders: () => window.electronAPI.getProviders(),
+      getActiveProvider: () => desktopApi.getActiveProvider(),
+      getProviders: () => desktopApi.getProviders(),
       getRuntimeState: async () => {
         const [hasSession, backgroundStatus] = await Promise.all([
-          window.electronAPI.checkSession(),
-          window.electronAPI.getBgBrowserStatus(),
+          desktopApi.checkSession(),
+          desktopApi.getBgBrowserStatus(),
         ]);
         return { backgroundStatus, hasSession };
       },
-      setActiveProvider: (providerId) => window.electronAPI.setActiveProvider(providerId),
+      setActiveProvider: (providerId) => desktopApi.setActiveProvider(providerId),
     });
     providerSelectionCoordinatorRef.current = providerSelectionCoordinator;
     const subscriptions = [
-      window.electronAPI.onToggleRecording((recording: boolean) => {
+      desktopApi.onToggleRecording((recording: boolean) => {
         if (disposed) return;
         if (recording) void recordingActionsRef.current.startRecording();
       }),
-      window.electronAPI.onStopRecording(() => {
+      desktopApi.onStopRecording(() => {
         if (disposed) return;
         recordingActionsRef.current.stopRecording();
       }),
-      window.electronAPI.onPauseRecording(() => {
+      desktopApi.onPauseRecording(() => {
         if (!disposed) recordingActionsRef.current.pauseRecording();
       }),
-      window.electronAPI.onResumeRecording(() => {
+      desktopApi.onResumeRecording(() => {
         if (!disposed) recordingActionsRef.current.resumeRecording();
       }),
-      window.electronAPI.onCancelRecording(() => {
+      desktopApi.onCancelRecording(() => {
         if (!disposed) recordingActionsRef.current.cancelRecording();
       }),
-      window.electronAPI.onRetryTranscription(() => {
+      desktopApi.onRetryTranscription(() => {
         if (!disposed) void recordingActionsRef.current.resendLastTranscription();
       }),
-      window.electronAPI.onTranslationStatus((nextStatus) => {
+      desktopApi.onTranslationStatus((nextStatus) => {
         if (!disposed) setStatus(textActionStatusToRendererStatus(nextStatus));
       }),
-      window.electronAPI.onBgBrowserReady((providerId) => {
+      desktopApi.onBgBrowserReady((providerId) => {
         if (
           disposed ||
           providerId !== activeProviderIdRef.current ||
@@ -349,7 +354,7 @@ const App: React.FC = () => {
         setIsLoggedIn(true);
         setIsLoading(false);
       }),
-      window.electronAPI.onBgBrowserError((providerId, error, authExpired) => {
+      desktopApi.onBgBrowserError((providerId, error, authExpired) => {
         if (
           disposed ||
           providerId !== activeProviderIdRef.current ||
@@ -362,7 +367,7 @@ const App: React.FC = () => {
           return;
         }
         // The background-browser event is synchronous; refresh its session state without delaying the event callback.
-        void window.electronAPI.checkSession().then((hasSession) => {
+        void desktopApi.checkSession().then((hasSession) => {
           if (
             !disposed &&
             providerId === activeProviderIdRef.current &&
@@ -372,7 +377,7 @@ const App: React.FC = () => {
           }
         });
       }),
-      window.electronAPI.onHotkeySettingsChanged((settings) => {
+      desktopApi.onHotkeySettingsChanged((settings) => {
         if (disposed) return;
         setRecordHotkey(settings.hotkey);
         if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
@@ -383,7 +388,7 @@ const App: React.FC = () => {
 
     void providerSelectionCoordinator.bootstrap();
 
-    void window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
+    void desktopApi.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
       setRecordHotkey(hk);
       if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
@@ -392,7 +397,7 @@ const App: React.FC = () => {
     });
 
     const translationSettingsRequestId = ++translationSettingsRequestRef.current;
-    void window.electronAPI
+    void desktopApi
       .getTranslateSettings()
       .then((settings) => {
         if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
@@ -414,7 +419,7 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [isI18nReady]);
+  }, [desktopApi, isI18nReady]);
 
   const applyProviderSettingsSnapshot = useCallback(
     (settings: ProviderSettings): void => {
@@ -444,14 +449,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     activeProviderIdRef.current = activeProviderId;
-    return window.electronAPI.onProviderSettingsChanged((settings) => {
+    return desktopApi.onProviderSettingsChanged((settings) => {
       if (isActiveProviderSettingsChange(settings, activeProviderId)) applyProviderSettingsSnapshot(settings);
     });
-  }, [activeProviderId, applyProviderSettingsSnapshot]);
+  }, [activeProviderId, applyProviderSettingsSnapshot, desktopApi]);
 
   const openProviderSettings = async (providerId: string): Promise<void> => {
     try {
-      const result = await window.electronAPI.openProviderSettings(providerId);
+      const result = await desktopApi.openProviderSettings(providerId);
       if (!result.success) {
         setStatus(
           result.error
@@ -476,7 +481,7 @@ const App: React.FC = () => {
     preserveStatusRef.current = false;
     setStatus(translatedStatus('status.loggingIn', { provider: providerName }));
     try {
-      const result = await window.electronAPI.providerLogin(providerId);
+      const result = await desktopApi.providerLogin(providerId);
       if (activeProviderIdRef.current !== providerId) return;
       if (result.success) {
         setIsLoggedIn(true);
@@ -519,7 +524,7 @@ const App: React.FC = () => {
     setPrettifyModelActionError('');
 
     try {
-      const result = await window.electronAPI.setPrettifySettings({ providerId });
+      const result = await desktopApi.setPrettifySettings({ providerId });
       if (requestId !== prettifyProviderChangeRequestRef.current) return;
       dispatchPrettifyProviderSelection(
         result.success
@@ -554,8 +559,8 @@ const App: React.FC = () => {
 
     try {
       const result = isLoaded
-        ? await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings)
-        : await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+        ? await desktopApi.unloadPrettifyModel('ollama', prettifySettings)
+        : await desktopApi.loadPrettifyModel('ollama', prettifySettings);
       if (refreshId !== prettifyModelRefreshIdRef.current) {
         return;
       }
@@ -599,23 +604,26 @@ const App: React.FC = () => {
     }
   };
 
-  const openAppSettingsWindow = useCallback((section?: 'prettify'): void => {
-    void window.electronAPI.openAppSettings(section).catch(() => {
-      setStatus(translatedStatus('error.notificationUnknown'));
-    });
-  }, []);
+  const openAppSettingsWindow = useCallback(
+    (section?: 'prettify'): void => {
+      void desktopApi.openAppSettings(section).catch(() => {
+        setStatus(translatedStatus('error.notificationUnknown'));
+      });
+    },
+    [desktopApi],
+  );
 
   const openHistoryWindow = useCallback((): void => {
-    void window.electronAPI.openTranscriptionHistory().catch(() => {
+    void desktopApi.openTranscriptionHistory().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, []);
+  }, [desktopApi]);
 
   const openAboutWindow = useCallback((): void => {
-    void window.electronAPI.openAbout().catch(() => {
+    void desktopApi.openAbout().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, []);
+  }, [desktopApi]);
 
   const saveTranslationSettings = async (candidate: TranslationSettings): Promise<void> => {
     if (translationSettingsSavePendingRef.current) return;
@@ -630,7 +638,7 @@ const App: React.FC = () => {
     });
 
     try {
-      const result = await window.electronAPI.setTranslateSettings(candidate);
+      const result = await desktopApi.setTranslateSettings(candidate);
       if (requestId !== translationSettingsRequestRef.current) return;
       translationSettingsSavePendingRef.current = false;
       dispatchTranslationSettingsSelection({

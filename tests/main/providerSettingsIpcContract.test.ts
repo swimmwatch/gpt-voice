@@ -8,7 +8,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 describe('provider settings IPC contract', () => {
   it('binds login and mutations to the requested provider and emits only safe snapshots', () => {
     const ipcSource = readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
-    const preloadSource = readFileSync(path.join(PROJECT_ROOT, 'src/main/preload.ts'), 'utf8');
+    const preloadSource = readFileSync(path.join(PROJECT_ROOT, 'src/main/preloadApi.ts'), 'utf8');
     const rendererTypes = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/types.d.ts'), 'utf8');
 
     assert.match(ipcSource, /handle\('provider-login', async \(event, providerId: unknown\)/u);

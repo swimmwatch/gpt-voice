@@ -12,7 +12,7 @@ function readProjectFile(relativePath: string): string {
 describe('Prettify IPC privacy contract', () => {
   it('exposes a dedicated trusted CLI connection check without renderer settings', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const coordinator = readProjectFile('src/main/services/prettifyConnectionCheckCoordinator.ts');
@@ -35,7 +35,7 @@ describe('Prettify IPC privacy contract', () => {
 
   it('accepts every selectable provider for model inspection', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const modelHandlers = ipc.slice(ipc.indexOf("'list-prettify-models'"), ipc.indexOf("'show-notification'"));

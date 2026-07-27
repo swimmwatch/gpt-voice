@@ -11,7 +11,7 @@ function readProjectFile(relativePath: string): string {
 
 describe('trusted streaming transcription IPC integration', () => {
   it('keeps all four preload and renderer declarations aligned with the shared result contract', () => {
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const contract = readProjectFile('src/shared/streamingTranscription.ts');
 
@@ -74,7 +74,7 @@ describe('trusted streaming transcription IPC integration', () => {
 
   it('preserves the existing batch transcription IPC channel', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
 
     assert.match(ipc, /handle\('transcribe-audio'/u);
     assert.match(preload, /ipcRenderer\.invoke\('transcribe-audio', buffer, mimeType\)/u);
