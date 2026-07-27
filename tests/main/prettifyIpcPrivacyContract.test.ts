@@ -37,8 +37,8 @@ describe('Prettify IPC privacy contract', () => {
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const modelHandlers = ipc.slice(
-      ipc.indexOf("handle(\n    'list-prettify-models'"),
-      ipc.indexOf("handle('show-notification'"),
+      ipc.indexOf("registration.handle(\n    'list-prettify-models'"),
+      ipc.indexOf("registration.handle(\n    'show-notification'"),
     );
 
     assert.match(modelHandlers, /providerId: KnownPrettifyProviderId/u);
@@ -58,8 +58,8 @@ describe('Prettify IPC privacy contract', () => {
       ipc.indexOf('function getTextActionSettingsSnapshot'),
     );
     const modelHandlers = ipc.slice(
-      ipc.indexOf("handle(\n    'list-prettify-models'"),
-      ipc.indexOf("handle('show-notification'"),
+      ipc.indexOf("registration.handle(\n    'list-prettify-models'"),
+      ipc.indexOf("registration.handle(\n    'show-notification'"),
     );
 
     assert.match(settings, /availability: PrettifyProviderAvailability/u);

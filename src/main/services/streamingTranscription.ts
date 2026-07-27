@@ -1,8 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { getActiveProvider } from '../browser';
 import type { BaseVoiceProvider } from '../providers/BaseVoiceProvider';
 import { extractClaudeWebPcm, CLAUDE_WEB_PCM_CHUNK_BYTES } from '../providers/claudeWebAudio';
-import { resolveStreamingVoiceProviderCapability } from '../providers/streamingVoiceProviderCapability';
 import {
   copyStreamingTranscriptionChunk,
   StreamingTranscriptionErrorCode,
@@ -19,7 +16,6 @@ import {
 } from '../providers/streamingVoiceProvider';
 import { StreamingTranscriptionOperationError } from '../providers/StreamingTranscriptionOperationError';
 import {
-  voiceProviderAudit,
   type VoiceAuditOperationContext,
   type VoiceProviderAudit,
   type VoiceStreamingAuditCounters,
@@ -770,27 +766,4 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
       return this.deps.audit.getExceptionType(error);
     }
   }
-}
-
-function createDefaultOperationId(): StreamingTranscriptionOperationId {
-  return randomUUID() as StreamingTranscriptionOperationId;
-}
-
-export function createMainStreamingTranscriptionService(
-  completionDependencies: TranscriptionCompletionDependencies,
-  dependencies: Partial<
-    Omit<MainStreamingTranscriptionServiceDependencies, keyof TranscriptionCompletionDependencies>
-  > = {},
-): MainStreamingTranscriptionService {
-  return new StreamingTranscriptionService({
-    ...completionDependencies,
-    audit: voiceProviderAudit,
-    createOperationId: createDefaultOperationId,
-    getActiveProvider,
-    getMonotonicTimeMs: () => performance.now(),
-    getRequestedAt: () => new Date().toISOString(),
-    reportDiagnostic: () => undefined,
-    resolveCapability: resolveStreamingVoiceProviderCapability,
-    ...dependencies,
-  });
 }

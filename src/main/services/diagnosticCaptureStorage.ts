@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { createLogger } from '../logger';
 import type { DiagnosticProviderAuditCauseCode } from '../providerAudit/mappings';
 import {
   DIAGNOSTIC_ACTION_TYPES,
@@ -18,11 +16,7 @@ import {
   isTranslationTargetLanguage,
 } from '@shared/translationProvider';
 import { isKnownPrettifyProviderId } from '@shared/prettifySettings';
-import {
-  DiagnosticTextRedactor,
-  diagnosticTextRedactor,
-  type DiagnosticTextRedactionResult,
-} from './diagnosticTextRedactor';
+import type { DiagnosticTextRedactionResult, DiagnosticTextRedactor } from './diagnosticTextRedactor';
 
 export {
   DIAGNOSTIC_ACTION_TYPES,
@@ -100,26 +94,16 @@ export interface DiagnosticCaptureStorageDependencies {
   readonly redactor: Pick<DiagnosticTextRedactor, 'redact'>;
 }
 
-const DEFAULT_DEPENDENCIES: DiagnosticCaptureStorageDependencies = {
-  logger: createLogger('diagnostic-capture'),
-  now: () => new Date(),
-  randomUUID,
-  redactor: diagnosticTextRedactor,
-};
-
 /** Owns validation, redaction, serialized persistence admission, and shutdown draining. */
 export class DiagnosticCaptureStorage {
-  private readonly dependencies: DiagnosticCaptureStorageDependencies;
   private acceptingOperations = true;
   private operationQueue: Promise<void> = Promise.resolve();
   private shutdownPromise: Promise<DiagnosticCaptureMaintenanceResult> | null = null;
 
   public constructor(
     private readonly repository: DiagnosticCaptureRepository,
-    dependencies: Partial<DiagnosticCaptureStorageDependencies> = {},
-  ) {
-    this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };
-  }
+    private readonly dependencies: DiagnosticCaptureStorageDependencies,
+  ) {}
 
   public insert(input: DiagnosticCaptureInput): Promise<DiagnosticCaptureInsertResult> {
     return this.enqueue(

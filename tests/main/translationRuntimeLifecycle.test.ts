@@ -29,8 +29,8 @@ describe('translation runtime lifecycle integration', () => {
   it('closes translation contexts before restarting or persisting CloakBrowser settings', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handler = ipc.slice(
-      ipc.indexOf("handle('save-cloakbrowser-settings'"),
-      ipc.indexOf("handle('save-provider-settings'"),
+      ipc.indexOf("registration.handle('save-cloakbrowser-settings'"),
+      ipc.indexOf("registration.handle('save-provider-settings'"),
     );
 
     const validation = handler.indexOf('assertValidCloakBrowserSettingsInput');
@@ -51,23 +51,20 @@ describe('translation runtime lifecycle integration', () => {
   });
 
   it('invalidates translation contexts before persistent browser shutdown during quit', () => {
-    const main = readProjectFile('src/main/main.ts');
-    const cleanup = main.slice(main.indexOf('async function runQuitCleanup'), main.indexOf("app.on('will-quit'"));
+    const application = readProjectFile('src/main/mainProcessApplication.ts');
+    const cleanup = application.slice(application.indexOf('private async runQuitCleanup'));
 
-    assert.match(cleanup, /shutdownAllTranslationProviders\(\)/u);
+    assert.match(cleanup, /this\.dependencies\.shutdownTranslationProviders\(\)/u);
     assert.match(cleanup, /failedProviderIds: translationShutdown\.failedProviderIds/u);
-    assert.equal(
-      cleanup.indexOf('shutdownAllTranslationProviders') < cleanup.indexOf('shutdownBackgroundBrowser'),
-      true,
-    );
+    assert.equal(cleanup.indexOf('shutdownTranslationProviders') < cleanup.indexOf('shutdownBackgroundBrowser'), true);
     assert.doesNotMatch(cleanup, /translationShutdown.*error\.message/su);
   });
 
   it('keeps the trusted direct translation IPC signature without accepting a provider override', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handler = ipc.slice(
-      ipc.indexOf("handle('translate-text'"),
-      ipc.indexOf("handle('get-transcription-history'"),
+      ipc.indexOf("registration.handle('translate-text'"),
+      ipc.indexOf("registration.handle('get-transcription-history'"),
     );
 
     assert.match(handler, /text: string, targetLang: string/u);

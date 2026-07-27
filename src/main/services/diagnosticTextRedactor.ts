@@ -113,5 +113,3 @@ export class DiagnosticTextRedactor {
     };
   }
 }
-
-export const diagnosticTextRedactor = new DiagnosticTextRedactor();

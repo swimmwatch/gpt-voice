@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { app, globalShortcut, session } from 'electron';
-import log from './logger';
+import log, { createLogger } from './logger';
 import {
   consumePendingTranslationSettingsRepairNotice,
   currentProvider,
@@ -17,7 +18,7 @@ import {
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
-import { registerIpcHandlers, teardownStreamingTranscriptionIpcHandlers } from './ipc';
+import { registerIpcHandlers } from './ipc';
 import { getSupportedLocales, setLocale, t } from './i18n';
 import { configureCloakBrowserRuntime } from './cloakbrowser';
 import { getAppIconPath } from './assets';
@@ -33,68 +34,36 @@ import { shutdownAllTranslationProviders } from './services/translation';
 import { resolveStartupLocale } from './startupLocale';
 import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
-import { DiagnosticCaptureStorage } from './services/diagnosticCaptureStorage';
-import { AppDatabaseCoordinator } from './repositories/sqlite/appDatabase';
-import { SqliteDiagnosticCaptureRepository } from './repositories/sqlite/sqliteDiagnosticCaptureRepository';
-import { SqliteTranscriptionHistoryRepository } from './repositories/sqlite/sqliteTranscriptionHistoryRepository';
-import { createTranscriptionService } from './services/transcription';
-import { createMainStreamingTranscriptionService } from './services/streamingTranscription';
-import { createTranscriptionResultCache } from './services/transcriptionResultCache';
+import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
+import { voiceProviderAudit } from './providers';
+import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
+import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
 const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
-let quitCleanupComplete = false;
-let quitCleanupPromise: Promise<void> | null = null;
-
-const appDatabase = new AppDatabaseCoordinator();
-const transcriptionHistoryRepository = new SqliteTranscriptionHistoryRepository(appDatabase);
-const diagnosticCaptureRepository = new SqliteDiagnosticCaptureRepository(appDatabase);
-const diagnosticCaptureStorage = new DiagnosticCaptureStorage(diagnosticCaptureRepository);
-const transcriptionCompletionDependencies = {
-  cache: createTranscriptionResultCache(),
-  historyRepository: transcriptionHistoryRepository,
-  writeClipboardText,
-};
-const transcribeAudio = createTranscriptionService({
-  ...transcriptionCompletionDependencies,
-  ensureBackgroundBrowser: () => ensureBackgroundBrowser(),
-  getActiveProvider,
-  getRequestedAt: () => new Date().toISOString(),
-  isBackgroundReady: isBgReady,
-});
-const streamingTranscriptionService = createMainStreamingTranscriptionService(transcriptionCompletionDependencies);
+const STARTUP_BENCHMARK_ARGUMENT = '--startup-benchmark';
+const REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT = '--remove-linux-appimage-desktop-integration';
 
 configureAppIdentity();
 app.disableHardwareAcceleration();
 registerAppProtocolScheme();
 
-const isStartupBenchmark = process.argv.includes('--startup-benchmark');
-
+const isStartupBenchmark = process.argv.includes(STARTUP_BENCHMARK_ARGUMENT);
 const isRemovingLinuxAppImageDesktopIntegration =
-  process.platform === 'linux' && process.argv.includes('--remove-linux-appimage-desktop-integration');
+  process.platform === 'linux' && process.argv.includes(REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT);
 
 if (!isRemovingLinuxAppImageDesktopIntegration && !app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
 
-app.on('second-instance', () => {
-  if (app.isReady()) {
-    showMainWindow();
-  }
-});
-
 function waitForStartupBenchmarkReady(): void {
   const mainWindow = getMainWindow();
-  if (!mainWindow) {
-    return;
-  }
+  if (!mainWindow) return;
 
   const checkWindowStartupState = async (): Promise<void> => {
-    if (mainWindow.isDestroyed()) {
-      return;
-    }
+    if (mainWindow.isDestroyed()) return;
 
     try {
       const isReady: unknown = await mainWindow.webContents.executeJavaScript(
@@ -118,6 +87,63 @@ function waitForStartupBenchmarkReady(): void {
   void checkWindowStartupState();
 }
 
+function configureDockIcon(): void {
+  if (process.platform === 'darwin') {
+    app.dock?.setIcon(getAppIconPath());
+  }
+}
+
+function configureSessionPermissions(): void {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media');
+  });
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === 'media';
+  });
+}
+
+function initializeLocale(): void {
+  setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
+}
+
+function presentTranslationSettingsRepairNotice(): void {
+  presentPendingTranslationSettingsRepairNotice({
+    consume: consumePendingTranslationSettingsRepairNotice,
+    notify: showSystemNotification,
+    translate: t,
+  });
+}
+
+function publishBackgroundStatus(status: {
+  readonly authExpired?: boolean;
+  readonly error?: string;
+  readonly providerId?: string;
+  readonly ready: boolean;
+}): void {
+  const providerId = status.providerId || currentProvider;
+  if (status.ready) {
+    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
+  } else if (status.error) {
+    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
+  }
+}
+
+function getCurrentDate(): Date {
+  return new Date();
+}
+
+function getRequestedAt(): string {
+  return getCurrentDate().toISOString();
+}
+
+function getMonotonicTimeMs(): number {
+  return performance.now();
+}
+
+function ignoreStreamingDiagnostic(): void {
+  // Task 08 preserves the existing no-op diagnostic callback.
+}
+
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('class', 'gpt-voice');
   app.commandLine.appendSwitch('disable-gpu');
@@ -132,136 +158,51 @@ if (app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE) {
   app.commandLine.appendSwitch('no-sandbox');
 }
 
-app.on('ready', () => {
-  log.initialize();
-  log.errorHandler.startCatching();
-
-  if (isRemovingLinuxAppImageDesktopIntegration) {
-    removeLinuxAppImageDesktopIntegration();
-    app.quit();
-    return;
-  }
-
-  if (!isStartupBenchmark) {
-    configureCloakBrowserRuntime();
-    configureNativeAppMetadata();
-    refreshLinuxDesktopIcons();
-    registerLinuxAppImageDesktopIntegration();
-  }
-  registerAppProtocol();
-
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(getAppIconPath());
-  }
-
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === 'media');
-  });
-
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media';
-  });
-
-  loadConfig();
-  setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
-  presentPendingTranslationSettingsRepairNotice({
-    consume: consumePendingTranslationSettingsRepairNotice,
-    notify: showSystemNotification,
-    translate: t,
-  });
-
-  void diagnosticCaptureStorage
-    .pruneOnStartup()
-    .then(() => {
-      registerIpcHandlers({
-        historyRepository: transcriptionHistoryRepository,
-        streamingTranscriptionService,
-        transcribeAudio,
-      });
-      createWindow();
-
-      if (isStartupBenchmark) {
-        waitForStartupBenchmarkReady();
-        return null;
-      }
-
-      createTray();
-      registerShortcuts();
-      return initBackgroundBrowser();
-    })
-    .then((status) => {
-      if (!status) return;
-      const providerId = status.providerId || currentProvider;
-      if (status.ready) {
-        getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-      } else if (status.error) {
-        getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-      }
-    });
-});
-
-app.on('window-all-closed', () => {
-  // Don't quit — keep running in tray
-});
-
-app.on('activate', () => {
-  showMainWindow();
-});
-
-async function runQuitCleanup(): Promise<void> {
-  globalShortcut.unregisterAll();
-  try {
-    await teardownStreamingTranscriptionIpcHandlers();
-  } catch {
-    log.warn('Streaming transcription cleanup incomplete during quit');
-  }
-  try {
-    await unloadLoadedOllamaPrettifyModel();
-  } catch {
-    log.warn('Failed to unload Ollama prettify model during quit');
-  }
-  try {
-    const translationShutdown = await shutdownAllTranslationProviders();
-    if (!translationShutdown.success) {
-      log.warn('Translation provider cleanup incomplete during quit:', {
-        failedProviderIds: translationShutdown.failedProviderIds,
-      });
-    }
-  } catch {
-    log.warn('Translation provider cleanup failed during quit');
-  }
-  try {
-    await shutdownBackgroundBrowser();
-  } catch {
-    log.warn('Background browser cleanup incomplete during quit');
-  }
-  const storageShutdown = await diagnosticCaptureStorage.shutdown();
-  if (storageShutdown.status === 'failure') {
-    log.warn('Application database cleanup incomplete during quit:', {
-      causeCode: storageShutdown.causeCode,
-    });
-  }
-  try {
-    appDatabase.close();
-  } catch {
-    log.warn('Application database cleanup incomplete during quit');
-  }
-}
-
-app.on('will-quit', (event) => {
-  if (quitCleanupComplete) return;
-
-  event.preventDefault();
-  void (quitCleanupPromise ??= runQuitCleanup()
-    .catch(() => {
-      log.warn('Quit cleanup failed');
-    })
-    .finally(() => {
-      quitCleanupComplete = true;
-      app.quit();
-    }));
-});
-
-app.on('before-quit', () => {
-  setQuitting(true);
-});
+new MainProcessCompositionRoot({
+  cacheNow: Date.now,
+  databasePath: APP_DATABASE_FILE,
+  diagnosticLogger: createLogger('diagnostic-capture'),
+  ensureBackgroundBrowser,
+  getActiveProvider,
+  getMonotonicTimeMs,
+  getRequestedAt,
+  historyLogger: createLogger('ipc'),
+  isBackgroundReady: isBgReady,
+  now: getCurrentDate,
+  randomUUID,
+  registerIpcHandlers,
+  reportStreamingDiagnostic: ignoreStreamingDiagnostic,
+  resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
+  voiceAudit: voiceProviderAudit,
+  writeClipboardText,
+})
+  .createApplication({
+    app,
+    configureCloakBrowserRuntime,
+    configureDockIcon,
+    configureNativeAppMetadata,
+    configureSessionPermissions,
+    createTray,
+    createWindow,
+    globalShortcuts: globalShortcut,
+    initializeBackgroundBrowser: initBackgroundBrowser,
+    initializeLocale,
+    isRemovingLinuxDesktopIntegration: isRemovingLinuxAppImageDesktopIntegration,
+    isStartupBenchmark,
+    loadConfig,
+    logger: log,
+    presentTranslationSettingsRepairNotice,
+    publishBackgroundStatus,
+    refreshLinuxDesktopIcons,
+    registerAppProtocol,
+    registerLinuxDesktopIntegration: registerLinuxAppImageDesktopIntegration,
+    registerShortcuts,
+    removeLinuxDesktopIntegration: removeLinuxAppImageDesktopIntegration,
+    setQuitting,
+    showMainWindow,
+    shutdownBackgroundBrowser,
+    shutdownTranslationProviders: shutdownAllTranslationProviders,
+    unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
+    waitForStartupBenchmarkReady,
+  })
+  .register();

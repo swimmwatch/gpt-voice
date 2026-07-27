@@ -2,11 +2,7 @@ import { t } from '../i18n';
 import { createLogger } from '../logger';
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
 import { isBatchVoiceProvider } from '../providers/voiceProviderGuards';
-import {
-  voiceProviderAudit,
-  type VoiceProviderAudit,
-  type VoiceBatchAuditContext,
-} from '../providers/voiceProviderAudit';
+import { type VoiceProviderAudit, type VoiceBatchAuditContext } from '../providers/voiceProviderAudit';
 import {
   completeBatchTranscription,
   completeCachedTranscription,
@@ -20,7 +16,7 @@ import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 const log = createLogger('transcribe');
 
 export interface TranscriptionServiceDependencies extends TranscriptionCompletionDependencies {
-  audit?: VoiceProviderAudit;
+  audit: VoiceProviderAudit;
   ensureBackgroundBrowser: () => Promise<void>;
   getActiveProvider: () => BaseVoiceProvider | null;
   getRequestedAt: () => string;
@@ -31,7 +27,6 @@ export type TranscriptionService = (buffer: ArrayBuffer, mimeType: string) => Pr
 
 /** Creates the main-process transcription flow without changing its renderer IPC contract. */
 export function createTranscriptionService(deps: TranscriptionServiceDependencies): TranscriptionService {
-  const audit = deps.audit ?? voiceProviderAudit;
   return async (buffer, mimeType) => {
     const requestedAt = deps.getRequestedAt();
     let auditContext: VoiceBatchAuditContext | undefined;
@@ -66,14 +61,14 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
 
       const batchProvider = isBatchVoiceProvider(provider) ? provider : null;
       if (batchProvider) {
-        auditContext = audit.startBatch(provider.info.id, buffer, mimeType);
+        auditContext = deps.audit.startBatch(provider.info.id, buffer, mimeType);
       }
       const result =
         batchProvider && auditContext
           ? await batchProvider.transcribe(buffer, mimeType, auditContext)
           : await provider.transcribe(buffer, mimeType);
       if (auditContext) {
-        audit.terminalBatch(
+        deps.audit.terminalBatch(
           auditContext,
           'result',
           result.success ? 'success' : 'failure',
@@ -97,7 +92,7 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
       return result;
     } catch (error: unknown) {
       if (auditContext) {
-        audit.terminalBatch(auditContext, 'submission', 'failure', {
+        deps.audit.terminalBatch(auditContext, 'submission', 'failure', {
           causeCode: 'unknown',
           exceptionType: normalizeProviderAuditExceptionType(error),
         });

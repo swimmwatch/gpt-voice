@@ -1924,3 +1924,300 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: dependency-injection.scope
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The initial DI refinement was proposed as a Task 07 persistence-only graph.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.scope
+      idempotency_key: dependency-injection.scope:v1
+      last_status: answered
+    question:
+      text: 'How broadly should this DI refactor construct “all dependencies”?'
+      kind: single
+      options:
+        - id: task-07-dependency-graph
+          label: 'Task 07 graph (Recommended)'
+          description: 'Construct every persistence dependency and its direct consumers without migrating unrelated provider or browser globals.'
+        - id: main-process-all-services
+          label: 'Entire main process'
+          description: 'Migrate every main-process service into one DI graph now.'
+        - id: foundation-plus-followup
+          label: 'Foundation + follow-up'
+          description: 'Build Task 07 DI now and migrate remaining services in a separate workstream.'
+    answer:
+      selected_ids: [task-07-dependency-graph]
+      text: ''
+    rationale: 'Superseded when the user explicitly expanded DI to the entire project runtime.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: dependency-injection.scope
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user changed the scope from Task 07 to the entire project.'
+      - 'Main, preload, and renderer are separate runtimes and must keep their trust boundaries.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.scope
+      idempotency_key: dependency-injection.scope:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Confirm the revised dependency-injection scope for the expanded provider-audit plan.'
+      kind: single
+      options:
+        - id: project-runtime
+          label: 'Entire project runtime (Recommended)'
+          description: 'Migrate all mutable runtime state across Electron main, preload, and renderer using separate composition roots while keeping pure shared code stateless.'
+        - id: main-runtime
+          label: 'Main process runtime'
+          description: 'Migrate all mutable main-process services but leave preload and renderer construction unchanged.'
+        - id: task-07-only
+          label: 'Task 07 only'
+          description: 'Retain the earlier persistence-only DI boundary.'
+    answer:
+      selected_ids: [project-runtime]
+      text: ''
+    rationale: 'Project-wide scope uses an idiomatic composition root in each runtime instead of crossing Electron boundaries.'
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: dependency-injection.composition
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'No DI framework is present in the dependency graph.'
+      - 'Project conventions prefer class-owned OOP orchestration and constructor injection.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.composition
+      idempotency_key: dependency-injection.composition:v1
+      last_status: answered
+    question:
+      text: 'Which DI composition style should the project use?'
+      kind: single
+      options:
+        - id: manual-container-class
+          label: 'Manual container class (Recommended)'
+          description: 'Use class-owned manual composition and constructor injection without a service locator or new dependency.'
+        - id: manual-factory-object
+          label: 'Manual factory object'
+          description: 'Return a dependency graph from pure factory functions.'
+        - id: di-framework
+          label: 'DI framework'
+          description: 'Add a decorator or token-based runtime DI library.'
+    answer:
+      selected_ids: [manual-container-class]
+      text: ''
+    rationale: 'Manual class-based composition preserves packaging and strict typing without runtime reflection.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: dependency-injection.lifetime
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'Electron startup and quit handlers currently retain mutable module state.'
+      - 'Database and repository ownership must not move into another module singleton.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.lifetime
+      idempotency_key: dependency-injection.lifetime:v1
+      last_status: answered
+    question:
+      text: 'Where should the DI container and its lifetime be owned?'
+      kind: single
+      options:
+        - id: application-instance-ownership
+          label: 'Application instance ownership (Recommended)'
+          description: 'A main-process application instance creates, owns, and disposes the dependency graph without module-level container state.'
+        - id: module-container
+          label: 'Module-local container'
+          description: 'Use one module-level container singleton.'
+        - id: event-closure
+          label: 'Lifecycle closure'
+          description: 'Capture the graph in Electron event-handler closures.'
+    answer:
+      selected_ids: [application-instance-ownership]
+      text: ''
+    rationale: 'Application instance ownership makes initialization and disposal explicit and testable.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: dependency-injection.process-boundaries
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'Electron main, preload, and renderer execute in distinct trust and runtime boundaries.'
+      - 'React and interface-layer code must remain functional.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.process-boundaries
+      idempotency_key: dependency-injection.process-boundaries:v1
+      last_status: answered
+    question:
+      text: 'Should project-wide DI use separate composition roots for main, preload, and React?'
+      kind: single
+      options:
+        - id: per-process-composition
+          label: 'Per-process composition (Recommended)'
+          description: 'Use a class-owned main composition root, a functional preload API factory, and functional React providers and hooks.'
+        - id: main-process-only
+          label: 'Main process only'
+          description: 'Leave preload and renderer construction unchanged.'
+        - id: universal-container
+          label: 'One universal container'
+          description: 'Share one DI abstraction across Electron boundaries.'
+    answer:
+      selected_ids: [per-process-composition]
+      text: ''
+    rationale: 'Separate roots preserve context isolation and the renderer security boundary.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: dependency-injection.delivery
+    revision: 1
+    category: delivery
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected the existing provider-audit workstream rather than a separate specification.'
+      - 'The migration still requires independently reviewable packets.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.delivery
+      idempotency_key: dependency-injection.delivery:v1
+      last_status: answered
+    question:
+      text: 'How should the project-wide DI migration be packaged and sequenced?'
+      kind: single
+      options:
+        - id: new-staged-workstream
+          label: 'New staged workstream (Recommended)'
+          description: 'Use a dedicated DI specification and task sequence.'
+        - id: provider-audit-expansion
+          label: 'Expand provider-audit plan'
+          description: 'Add the full DI migration to the existing provider-audit workstream.'
+        - id: single-big-bang
+          label: 'Single refactor packet'
+          description: 'Migrate every subsystem in one review boundary.'
+    answer:
+      selected_ids: [provider-audit-expansion]
+      text: ''
+    rationale: 'The provider-audit plan is expanded with staged packets before settings and archive integration resumes.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: dependency-injection.stateful-globals
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The runtime contains mutable configuration exports, provider registries, caches, loaders, browser/window/tray/shortcut state, audits, and IPC controllers.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: dependency-injection.stateful-globals
+      idempotency_key: dependency-injection.stateful-globals:v1
+      last_status: answered
+    question:
+      text: 'Which stateful globals must project-wide DI eliminate?'
+      kind: single
+      options:
+        - id: all-mutable-runtime-state
+          label: 'All mutable runtime state (Recommended)'
+          description: 'Move all mutable runtime state under process-owned composition roots while retaining immutable constants and pure declarations.'
+        - id: business-services-only
+          label: 'Business services only'
+          description: 'Leave runtime loader and desktop lifecycle modules stateful.'
+        - id: constructed-instances-only
+          label: 'Constructed instances only'
+          description: 'Remove exported constructed instances but retain mutable module variables.'
+    answer:
+      selected_ids: [all-mutable-runtime-state]
+      text: ''
+    rationale: 'The final architecture prohibits mutable runtime singletons, not only exported class instances.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The expanded plan inserts independently reviewable project-wide DI packets 08–15 before the remaining diagnostics feature packets.'
+      - 'The plan preserves per-process Electron trust boundaries, provider and IPC behavior, repository ownership, privacy, and atomic packet delivery.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: provider-audit-di-expanded-plan-r4
+      supersedes_revision: 3
+      last_status: answered
+    question:
+      text: 'Approve the expanded provider-audit delivery plan that inserts project-wide manual DI Tasks 08–15 and renumbers the remaining diagnostics packets to Tasks 16–22?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve expanded plan'
+          description: 'Accept the class-owned main composition root, process-scoped DI migrations, no mutable runtime globals, and later diagnostics packets as the authoritative sequence.'
+        - id: revise
+          label: 'Revise plan'
+          description: 'Pause execution so the DI packet boundaries or sequencing can be changed.'
+        - id: defer
+          label: 'Defer'
+          description: 'Keep the currently approved pre-DI plan and do not authorize the expanded migration yet.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The migration is staged across Electron runtimes so each packet remains reviewable and cannot weaken a process boundary.'
+    supersedes_revision: 3
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: execution.task-08
+    revision: 1
+    category: execution-authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Task 07 is committed as the verified repository and diagnostic-storage boundary.'
+      - 'Task 08 is the first approved DI packet and remains uncommitted for review.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: execution.task-08
+      idempotency_key: provider-audit-execution-task-08-r1
+      last_status: answered
+    question:
+      text: 'Authorize execution of only Task 08, Create Main Composition Root, after the approved planning artifacts are synchronized?'
+      kind: single
+      options:
+        - id: authorize
+          label: 'Authorize Task 08'
+          description: 'Implement and verify only the Task 07 composition boundary, update todo/handoff, and leave Task 08 uncommitted.'
+        - id: revise
+          label: 'Revise Task 08'
+          description: 'Pause before code changes and revise the packet.'
+        - id: defer
+          label: 'Defer execution'
+          description: 'Approve no Task 08 implementation yet.'
+    answer:
+      selected_ids: [authorize]
+      text: ''
+    rationale: 'Task 08 is authorized as the sole implementation packet for this invocation.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]

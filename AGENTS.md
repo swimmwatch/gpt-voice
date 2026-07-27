@@ -35,11 +35,8 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Do not add free pass-through wrappers that accept or capture a class or service instance only to call one of its methods or repackage its result. Call the method directly, add behavior to the state-owning class, or introduce a class with constructor-injected dependencies.
 - Use functional components, hooks, composition, and functional state updates for React and other UI, interface-layer, or front-end code.
 - Do not hardcode reusable or domain-significant constants inline. Define them at the narrowest shared owner as named `const` values or enums, and reuse the canonical definition.
-- Stateful business services access databases and other external sources
-  through domain-specific repository interfaces. Concrete adapters own
-  SQLite, HTTP, browser, CLI, or filesystem details. Test services with
-  state-owning repository fakes and verify each concrete adapter with focused
-  integration tests.
+- Stateful business services access external sources through domain repository interfaces; concrete SQLite, HTTP, browser, CLI, and filesystem adapters have focused integration tests.
+- Do not create module-level containers or constructed mutable runtime instances. A process-owned composition root transfers them to the application lifecycle; immutable constants, pure functions, readonly lookups, and React contexts remain allowed.
 
 ## State And Handoffs
 
@@ -53,19 +50,10 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 
 ## Prompt MCP Workflow Decisions
 
-- `/spec` routes to `spec-driven-development`; `/plan` routes to
-  `planning-and-task-breakdown`. Do not create parallel implementations.
-- For substantial specifications, add `docs/specs/<slug>/decisions.yaml`
-  before the first material question. It owns normalized, non-sensitive
-  decisions and revision history; Prompt MCP persistence provides recovery.
-- Use the globally configured Prompt MCP for every material user decision in
-  migrated workflows. Inspect the live tool schemas, use the repository's
-  absolute path as `workspace_path`, and prefer `workspace` persistence with
-  stable semantic interview, question, and idempotency identifiers.
-- Do not substitute a plain-chat multiple-choice question while Prompt MCP is
-  callable. Only a committed answer is a decision; cancellation, timeout,
-  unavailability, invalid input, conflict, failure, pause, and pending state
-  are not answers.
+- `/spec` routes to `spec-driven-development`; `/plan` routes to `planning-and-task-breakdown`. Do not create parallel implementations.
+- For substantial specifications, add `docs/specs/<slug>/decisions.yaml` before the first material question; it owns normalized decisions and revision history.
+- Use Prompt MCP for material workflow decisions with the absolute `workspace_path`, workspace persistence, stable semantic IDs, and inspected live schemas.
+- Do not substitute plain-chat choices while Prompt MCP is callable. Only a committed answer is a decision; other states are not answers.
 - Never request credentials, tokens, passwords, session data, private audio or
   transcripts, or unrelated personal information.
 

@@ -24,7 +24,7 @@ import { DiagnosticTextRedactor } from '@main/services/diagnosticTextRedactor';
 const FIXED_NOW = new Date('2026-07-27T12:00:00.000Z');
 const TRANSLATION_CONTRACT_VERSION = '2026-07-25';
 const PROVIDER_OPERATION_ID = '10000000-0000-4000-8000-000000000001';
-const MAIN_SOURCE_PATH = path.resolve(__dirname, '../../src/main/main.ts');
+const MAIN_APPLICATION_SOURCE_PATH = path.resolve(__dirname, '../../src/main/mainProcessApplication.ts');
 const DIAGNOSTIC_SERVICE_SOURCE_PATH = path.resolve(__dirname, '../../src/main/services/diagnosticCaptureStorage.ts');
 const TRANSCRIPTION_COMPLETION_SOURCE_PATH = path.resolve(
   __dirname,
@@ -309,13 +309,13 @@ describe('diagnostic capture storage service', () => {
   });
 
   it('keeps startup prune before IPC and closes the database after draining diagnostics', () => {
-    const source = fs.readFileSync(MAIN_SOURCE_PATH, 'utf8');
-    const configIndex = source.indexOf('loadConfig();');
-    const pruneIndex = source.indexOf('.pruneOnStartup()');
-    const ipcIndex = source.indexOf('registerIpcHandlers({');
-    const browserShutdownIndex = source.indexOf('await shutdownBackgroundBrowser();');
-    const diagnosticShutdownIndex = source.indexOf('await diagnosticCaptureStorage.shutdown();');
-    const databaseCloseIndex = source.indexOf('appDatabase.close();');
+    const source = fs.readFileSync(MAIN_APPLICATION_SOURCE_PATH, 'utf8');
+    const configIndex = source.indexOf('dependencies.loadConfig();');
+    const pruneIndex = source.indexOf('await runtime.pruneDiagnostics();');
+    const ipcIndex = source.indexOf('this.ipcRegistration = runtime.registerIpc();');
+    const browserShutdownIndex = source.indexOf('await this.dependencies.shutdownBackgroundBrowser();');
+    const diagnosticShutdownIndex = source.indexOf('await runtime.shutdownDiagnostics();');
+    const databaseCloseIndex = source.indexOf('runtime.closeDatabase();');
 
     assert.equal(configIndex >= 0, true);
     assert.equal(configIndex < pruneIndex, true);

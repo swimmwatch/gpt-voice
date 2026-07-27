@@ -1,4 +1,4 @@
-# 08 Add Audit Log Settings And Deletion
+# 16 Add Audit Log Settings And Deletion
 
 ## Outcome
 
@@ -7,6 +7,8 @@ Add a localized Audit Log App Settings section with independent default-off Tran
 ## Prerequisites
 
 - Packet 07 is complete and exposes tested prune and transactional category-purge operations.
+- Packet 15 is complete and the project-wide composition roots own all mutable
+  runtime dependencies.
 - The approved specification remains `Status: Approved`.
 - Packet 07’s storage failure results contain only closed causes and safe metadata.
 
@@ -202,7 +204,7 @@ Record any sanitized keyboard/focus manual check in `tasks/handoff.md`.
 
 ## Completion And Handoff
 
-- After verification, update only Packet 08’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
+- After verification, update only Packet 16’s checkbox in `tasks/todo.md` and compact continuation state in `tasks/handoff.md`.
 - Record exact IPC names, settings service API, confirmation request shape, changed files, checks, and blockers.
-- Hand off to Packet 09 with the authoritative main settings snapshot and best-effort storage API.
-- Stop for review; do not begin Packet 09, commit, push, or open a pull request.
+- Hand off to Packet 17 with the authoritative main settings snapshot and best-effort storage API.
+- Stop for review; do not begin Packet 17, commit, push, or open a pull request.

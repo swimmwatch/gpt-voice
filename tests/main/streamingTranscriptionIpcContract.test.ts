@@ -53,16 +53,16 @@ describe('trusted streaming transcription IPC integration', () => {
 
   it('cancels before browser teardown, provider mutation, and application quit', () => {
     const browser = readProjectFile('src/main/browser.ts');
-    const main = readProjectFile('src/main/main.ts');
+    const application = readProjectFile('src/main/mainProcessApplication.ts');
     const shutdownStart = browser.indexOf('async function shutdownBackgroundBrowserNow');
     const runHooks = browser.indexOf('await runBeforeBackgroundBrowserShutdownHooks();', shutdownStart);
     const providerShutdown = browser.indexOf('await provider.shutdown();', shutdownStart);
     const switchStart = browser.indexOf('async function switchProviderNow');
     const switchShutdown = browser.indexOf('await shutdownBackgroundBrowserNow();', switchStart);
     const setProvider = browser.indexOf('setProvider(providerId);', switchStart);
-    const quitStart = main.indexOf('async function runQuitCleanup');
-    const ipcTeardown = main.indexOf('await teardownStreamingTranscriptionIpcHandlers();', quitStart);
-    const browserTeardown = main.indexOf('await shutdownBackgroundBrowser();', quitStart);
+    const quitStart = application.indexOf('private async runQuitCleanup');
+    const ipcTeardown = application.indexOf('await this.ipcRegistration?.dispose();', quitStart);
+    const browserTeardown = application.indexOf('await this.dependencies.shutdownBackgroundBrowser();', quitStart);
 
     assert.ok(runHooks > shutdownStart && runHooks < providerShutdown);
     assert.ok(switchShutdown > switchStart && switchShutdown < setProvider);

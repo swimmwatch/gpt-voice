@@ -63,7 +63,7 @@ import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloa
 import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
 import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
-import { showSystemNotification, writeClipboardText } from './electronRuntime';
+import { showSystemNotification } from './electronRuntime';
 import {
   getHotkeyConflict,
   isHotkeyTarget,
@@ -88,7 +88,6 @@ import {
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
-import type { TranscriptionHistoryRepository } from './repositories/transcriptionHistoryRepository';
 import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
 import {
@@ -107,13 +106,44 @@ import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
 
 const log = createLogger('ipc');
-let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
 const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
 
 export interface MainIpcDependencies {
-  readonly historyRepository: TranscriptionHistoryRepository;
+  readonly historyController: TranscriptionHistoryIpcController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcribeAudio: TranscriptionService;
+}
+
+/** Owns the stateful IPC controllers created by one main-process registration. */
+export class MainIpcRegistration {
+  private readonly channels = new Set<string>();
+  private disposalPromise: Promise<void> | null = null;
+  private disposed = false;
+
+  public constructor(
+    private readonly streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents>,
+  ) {}
+
+  public handle<Args extends unknown[]>(
+    channel: string,
+    listener: (event: IpcMainInvokeEvent, ...args: Args) => unknown,
+  ): void {
+    if (this.disposed) throw new Error('Main IPC registration is disposed');
+    ipcMain.handle(channel, (event, ...args) => {
+      assertTrustedSender(event);
+      return listener(event, ...(args as Args));
+    });
+    this.channels.add(channel);
+  }
+
+  public dispose(): Promise<void> {
+    if (this.disposalPromise) return this.disposalPromise;
+    this.disposed = true;
+    for (const channel of this.channels) ipcMain.removeHandler(channel);
+    this.channels.clear();
+    this.disposalPromise = this.streamingTranscriptionController.dispose();
+    return this.disposalPromise;
+  }
 }
 
 function getErrorMessage(error: unknown): string {
@@ -211,22 +241,10 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   }
 }
 
-function handle<Args extends unknown[]>(
-  channel: string,
-  listener: (event: IpcMainInvokeEvent, ...args: Args) => unknown,
-): void {
-  ipcMain.handle(channel, (event, ...args) => {
-    assertTrustedSender(event);
-    return listener(event, ...(args as Args));
-  });
-}
-
-function registerStreamingTranscriptionIpcHandlers(service: MainStreamingTranscriptionService): void {
-  if (streamingTranscriptionIpcController) {
-    throw new Error('Streaming transcription IPC handlers are already registered');
-  }
-
-  streamingTranscriptionIpcController = new StreamingTranscriptionIpcController<WebContents>({
+function registerStreamingTranscriptionIpcHandlers(
+  service: MainStreamingTranscriptionService,
+): StreamingTranscriptionIpcController<WebContents> {
+  return new StreamingTranscriptionIpcController<WebContents>({
     addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
     getMainWindowSender: () => {
       const mainWindow = getMainWindow();
@@ -244,12 +262,6 @@ function registerStreamingTranscriptionIpcHandlers(service: MainStreamingTranscr
     removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
     service,
   });
-}
-
-export async function teardownStreamingTranscriptionIpcHandlers(): Promise<void> {
-  const controller = streamingTranscriptionIpcController;
-  streamingTranscriptionIpcController = null;
-  await controller?.dispose();
 }
 
 function sendBackgroundStatus(status: {
@@ -352,43 +364,42 @@ async function refreshActiveProvider(providerId: string) {
 }
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
-export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
-  registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService);
-  const historyController = new TranscriptionHistoryIpcController(dependencies.historyRepository, {
-    logger: log,
-    writeClipboardText,
-  });
+export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcRegistration {
+  const registration = new MainIpcRegistration(
+    registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService),
+  );
+  const historyController = dependencies.historyController;
 
-  handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+  registration.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
     return dependencies.transcribeAudio(buffer, mimeType);
   });
 
-  handle('translate-text', async (_event, text: string, targetLang: string) => {
+  registration.handle('translate-text', async (_event, text: string, targetLang: string) => {
     return translateText(text, targetLang);
   });
 
-  handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
+  registration.handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
     return historyController.list(query || {});
   });
 
-  handle('copy-transcription-history-text', (_event, id: number) => {
+  registration.handle('copy-transcription-history-text', (_event, id: number) => {
     return historyController.copyText(id);
   });
 
-  handle('clear-transcription-history', () => {
+  registration.handle('clear-transcription-history', () => {
     return historyController.clear();
   });
 
-  handle('get-recording-status', () => {
+  registration.handle('get-recording-status', () => {
     return getRecordingState().isRecording;
   });
 
-  handle('recording-start-failed', () => {
+  registration.handle('recording-start-failed', () => {
     resetRecordingState();
     return { success: true };
   });
 
-  handle('set-recording-lifecycle-state', (_event, state: unknown) => {
+  registration.handle('set-recording-lifecycle-state', (_event, state: unknown) => {
     if (!isRecordingLifecycleState(state)) {
       return { success: false };
     }
@@ -396,12 +407,12 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     return { success: true };
   });
 
-  handle('set-retry-transcription-available', (_event, available: boolean) => {
+  registration.handle('set-retry-transcription-available', (_event, available: boolean) => {
     setRetryTranscriptionAvailable(Boolean(available));
     return { success: true };
   });
 
-  handle('provider-login', async (event, providerId: unknown) => {
+  registration.handle('provider-login', async (event, providerId: unknown) => {
     let provider;
     try {
       if (typeof providerId !== 'string') {
@@ -481,7 +492,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('check-session', () => {
+  registration.handle('check-session', () => {
     try {
       const provider = getActiveProvider() ?? createProvider(currentProvider);
       const audit = voiceProviderAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
@@ -507,23 +518,23 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('is-bg-ready', () => {
+  registration.handle('is-bg-ready', () => {
     return isBgReady();
   });
 
-  handle('get-bg-browser-status', () => {
+  registration.handle('get-bg-browser-status', () => {
     return getBackgroundBrowserStatus();
   });
 
-  handle('get-providers', () => {
+  registration.handle('get-providers', () => {
     return getAvailableProviders();
   });
 
-  handle('get-provider-settings', (_event, providerId: string) => {
+  registration.handle('get-provider-settings', (_event, providerId: string) => {
     return getProviderSettingsSnapshot(providerId);
   });
 
-  handle('open-provider-settings', (_event, providerId: unknown) => {
+  registration.handle('open-provider-settings', (_event, providerId: unknown) => {
     if (typeof providerId !== 'string') {
       return { success: false, error: 'Unsupported provider' };
     }
@@ -535,16 +546,16 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     return { success: true };
   });
 
-  handle('close-provider-settings', (event) => {
+  registration.handle('close-provider-settings', (event) => {
     return { success: closeProviderSettingsWindow(event.sender) };
   });
 
-  handle('close-app-settings', () => {
+  registration.handle('close-app-settings', () => {
     closeSettingsWindow();
     return { success: true };
   });
 
-  handle('open-app-settings', (_event, section: unknown) => {
+  registration.handle('open-app-settings', (_event, section: unknown) => {
     if (section !== undefined && !isAppSettingsSectionId(section)) {
       return { success: false, error: 'Unsupported settings section' };
     }
@@ -552,30 +563,30 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     return { success: true };
   });
 
-  handle('open-transcription-history', () => {
+  registration.handle('open-transcription-history', () => {
     showHistoryWindow();
     return { success: true };
   });
 
-  handle('open-about', () => {
+  registration.handle('open-about', () => {
     showAboutWindow();
     return { success: true };
   });
 
-  handle('close-about', () => {
+  registration.handle('close-about', () => {
     closeAboutWindow();
     return { success: true };
   });
 
-  handle('get-app-info', () => {
+  registration.handle('get-app-info', () => {
     return getAppInfo();
   });
 
-  handle('get-cloakbrowser-settings', () => {
+  registration.handle('get-cloakbrowser-settings', () => {
     return getCloakBrowserSettingsView();
   });
 
-  handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
+  registration.handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
     try {
       assertValidCloakBrowserSettingsInput(settings);
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
@@ -615,7 +626,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
+  registration.handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
     try {
       if (typeof providerId !== 'string') {
         const audit = voiceProviderAudit.startOperation(providerId, 'settings-readiness', 'validation');
@@ -719,7 +730,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('clear-provider-auth', async (event, providerId: string) => {
+  registration.handle('clear-provider-auth', async (event, providerId: string) => {
     const audit = voiceProviderAudit.startOperation(providerId, 'session-clear', 'session');
     try {
       if (!voiceProviderAudit.isKnownProviderId(providerId)) {
@@ -747,11 +758,11 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('get-active-provider', () => {
+  registration.handle('get-active-provider', () => {
     return currentProvider;
   });
 
-  handle('set-active-provider', async (_event, providerId: string) => {
+  registration.handle('set-active-provider', async (_event, providerId: string) => {
     try {
       const status = await switchProvider(providerId);
       saveConfig();
@@ -762,11 +773,11 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('get-hotkey', (): HotkeySettings => {
+  registration.handle('get-hotkey', (): HotkeySettings => {
     return getHotkeySettingsSnapshot();
   });
 
-  handle('set-hotkey-capture-active', (_event, active: unknown) => {
+  registration.handle('set-hotkey-capture-active', (_event, active: unknown) => {
     if (typeof active !== 'boolean') {
       return { success: false };
     }
@@ -775,7 +786,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     return { success: true };
   });
 
-  handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
+  registration.handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
     if (typeof key !== 'string' || !isHotkeyTarget(key)) {
       return {
         success: false,
@@ -835,15 +846,15 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     return { success: true, ...hotkeySettings };
   });
 
-  handle('get-translate-settings', () => {
+  registration.handle('get-translate-settings', () => {
     return getTranslationSettingsSnapshot();
   });
 
-  handle('get-text-action-settings', () => {
+  registration.handle('get-text-action-settings', () => {
     return getTextActionSettingsSnapshot();
   });
 
-  handle('set-text-action-settings', (_event, settings: unknown) => {
+  registration.handle('set-text-action-settings', (_event, settings: unknown) => {
     try {
       assertValidTextActionSettingsInput(settings);
       const normalized = normalizeTextActionSettings(settings);
@@ -864,7 +875,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('set-translate-settings', (_event, candidate: unknown) => {
+  registration.handle('set-translate-settings', (_event, candidate: unknown) => {
     try {
       const settings = saveTranslationSettings(candidate);
       log.info('Translation settings saved', { providerId: settings.providerId });
@@ -883,35 +894,38 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('get-prettify-settings', () => {
+  registration.handle('get-prettify-settings', () => {
     return getPrettifySettingsSnapshot();
   });
 
-  handle('check-prettify-cli-connection', async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
-    if (!isPrettifyCliProviderId(providerId)) {
-      prettifyProviderAudit.recordUnknownProvider(providerId, 'availability');
-      throw new Error('Unsupported Prettify CLI provider');
-    }
-
-    prettifyCliConnectionChecks.get(event.sender)?.abort();
-    const controller = new AbortController();
-    const handleSenderDestroyed = (): void => controller.abort();
-    prettifyCliConnectionChecks.set(event.sender, controller);
-    event.sender.once('destroyed', handleSenderDestroyed);
-
-    try {
-      return await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
-        signal: controller.signal,
-      });
-    } finally {
-      if (prettifyCliConnectionChecks.get(event.sender) === controller) {
-        prettifyCliConnectionChecks.delete(event.sender);
+  registration.handle(
+    'check-prettify-cli-connection',
+    async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
+      if (!isPrettifyCliProviderId(providerId)) {
+        prettifyProviderAudit.recordUnknownProvider(providerId, 'availability');
+        throw new Error('Unsupported Prettify CLI provider');
       }
-      event.sender.removeListener('destroyed', handleSenderDestroyed);
-    }
-  });
 
-  handle('set-prettify-settings', (_event, settings: unknown = {}) => {
+      prettifyCliConnectionChecks.get(event.sender)?.abort();
+      const controller = new AbortController();
+      const handleSenderDestroyed = (): void => controller.abort();
+      prettifyCliConnectionChecks.set(event.sender, controller);
+      event.sender.once('destroyed', handleSenderDestroyed);
+
+      try {
+        return await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
+          signal: controller.signal,
+        });
+      } finally {
+        if (prettifyCliConnectionChecks.get(event.sender) === controller) {
+          prettifyCliConnectionChecks.delete(event.sender);
+        }
+        event.sender.removeListener('destroyed', handleSenderDestroyed);
+      }
+    },
+  );
+
+  registration.handle('set-prettify-settings', (_event, settings: unknown = {}) => {
     try {
       assertValidPrettifySettingsInput(settings);
       const previous = getPrettifySettingsSnapshot();
@@ -934,7 +948,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle(
+  registration.handle(
     'list-prettify-models',
     async (
       _event,
@@ -969,7 +983,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     },
   );
 
-  handle(
+  registration.handle(
     'load-prettify-model',
     async (
       _event,
@@ -990,7 +1004,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     },
   );
 
-  handle(
+  registration.handle(
     'unload-prettify-model',
     async (
       _event,
@@ -1011,23 +1025,26 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     },
   );
 
-  handle('show-notification', (_event, title: string, body: string, options?: SystemNotificationOptions) => {
-    showSystemNotification(title, body, options);
-  });
+  registration.handle(
+    'show-notification',
+    (_event, title: string, body: string, options?: SystemNotificationOptions) => {
+      showSystemNotification(title, body, options);
+    },
+  );
 
-  handle('get-translations', () => {
+  registration.handle('get-translations', () => {
     return getAllTranslations();
   });
 
-  handle('get-locale', () => {
+  registration.handle('get-locale', () => {
     return getLocale();
   });
 
-  handle('get-supported-locales', () => {
+  registration.handle('get-supported-locales', () => {
     return getSupportedLocales();
   });
 
-  handle('set-locale', (_event, locale: unknown) => {
+  registration.handle('set-locale', (_event, locale: unknown) => {
     try {
       if (!isAppLocaleId(locale)) {
         return { success: false, error: 'Select a supported locale' };
@@ -1045,7 +1062,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
     }
   });
 
-  handle('get-platform', () => {
+  registration.handle('get-platform', () => {
     return process.platform;
   });
+
+  return registration;
 }

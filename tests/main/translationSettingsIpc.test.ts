@@ -12,11 +12,11 @@ function readProjectFile(relativePath: string): string {
 describe('translation settings IPC', () => {
   it('registers both channels through the trusted-sender wrapper', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const wrapper = ipc.slice(ipc.indexOf('function assertTrustedSender'), ipc.indexOf('function registerStreaming'));
+    const wrapper = ipc.slice(ipc.indexOf('public handle<'), ipc.indexOf('public dispose()'));
 
     assert.match(wrapper, /assertTrustedSender\(event\)/u);
-    assert.match(ipc, /handle\('get-translate-settings'/u);
-    assert.match(ipc, /handle\('set-translate-settings'/u);
+    assert.match(ipc, /registration\.handle\('get-translate-settings'/u);
+    assert.match(ipc, /registration\.handle\('set-translate-settings'/u);
     assert.doesNotMatch(ipc, /ipcMain\.handle\('get-translate-settings'/u);
     assert.doesNotMatch(ipc, /ipcMain\.handle\('set-translate-settings'/u);
   });
@@ -24,11 +24,14 @@ describe('translation settings IPC', () => {
   it('returns authoritative snapshots on success, validation rejection, and persistence failure', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handlers = ipc.slice(
-      ipc.indexOf("handle('set-translate-settings'"),
-      ipc.indexOf("handle('get-prettify-settings'"),
+      ipc.indexOf("registration.handle('set-translate-settings'"),
+      ipc.indexOf("registration.handle('get-prettify-settings'"),
     );
 
-    assert.match(ipc, /handle\('get-translate-settings', \(\) => \{\s*return getTranslationSettingsSnapshot\(\)/u);
+    assert.match(
+      ipc,
+      /registration\.handle\('get-translate-settings', \(\) => \{\s*return getTranslationSettingsSnapshot\(\)/u,
+    );
     assert.match(handlers, /const settings = saveTranslationSettings\(candidate\)/u);
     assert.match(handlers, /return \{ success: true, settings \}/u);
     assert.match(handlers, /TranslationSettingsValidationError/u);
@@ -60,8 +63,8 @@ describe('translation settings IPC', () => {
     const config = readProjectFile('src/main/config.ts');
     const settings = readProjectFile('src/main/translationSettings.ts');
     const handlers = ipc.slice(
-      ipc.indexOf("handle('get-translate-settings'"),
-      ipc.indexOf("handle('get-prettify-settings'"),
+      ipc.indexOf("registration.handle('get-translate-settings'"),
+      ipc.indexOf("registration.handle('get-prettify-settings'"),
     );
 
     assert.doesNotMatch(handlers, /getProvider|translationProviderRegistry|launch/u);

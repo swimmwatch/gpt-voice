@@ -1,22 +1,22 @@
-# 11 Integrate About Diagnostics Export
+# 19 Integrate About Diagnostics Export
 
 ## Outcome
 
-Expose packet 10's archive service through a typed, About-only trusted IPC
+Expose packet 18's archive service through a typed, About-only trusted IPC
 operation and an accessible **Export diagnostics** button. Main owns the
 parented save dialog, filename and extension, filesystem authority, archive
 invocation, About-window lifecycle, and localized system notifications.
 
 ## Prerequisites
 
-- Packet 10 is complete and provides a verified main-process archive service
+- Packet 18 is complete and provides a verified main-process archive service
   supporting ZIP on Windows and tar.gz on Linux/macOS.
-- Packet 10 exposes no renderer path authority and cleans every partial
+- Packet 18 exposes no renderer path authority and cleans every partial
   temporary output on failure.
 - Existing About controller, preload API, renderer global types, and
   localization tests pass before changes.
 - Run this packet only through an explicit
-  `incremental-implementation` invocation. Do not begin packet 12 in the same
+  `incremental-implementation` invocation. Do not begin packet 20 in the same
   invocation.
 
 ## Owned Requirements
@@ -48,8 +48,8 @@ the approved IPC contract.
 ## Out Of Scope
 
 - Archive extraction, manifest, hashing, formats, or diagnostic database
-  behavior; packet 10 owns those contracts.
-- Archive analysis or report generation; packet 12 owns it.
+  behavior; packet 18 owns those contracts.
+- Archive analysis or report generation; packet 20 owns it.
 - A renderer file chooser, renderer-provided path, filesystem API, log API,
   database API, or retained-row API.
 - Automatic upload, opening/revealing the archive, copying its path, issue
@@ -101,7 +101,7 @@ the approved IPC contract.
   path. If suffix appending changes the path and that final path already
   exists, do not overwrite it without obtaining native confirmation for that
   exact path.
-- Pass the final dialog-approved path directly to packet 10. Never send it to
+- Pass the final dialog-approved path directly to packet 18. Never send it to
   renderer code or include it in logs/notifications.
 
 ### Concurrency and renderer state
@@ -129,13 +129,13 @@ the approved IPC contract.
   - create no archive or temporary output;
   - show no notification or error;
   - leave About open and retryable.
-- Success, only after packet 10 has atomically installed and verified the
+- Success, only after packet 18 has atomically installed and verified the
   archive:
   - return `{ status: 'saved' }`;
   - close the current About window;
   - show a localized success system notification from main.
 - Failure:
-  - packet 10 removes partial temporary output;
+- packet 18 removes partial temporary output;
   - return `{ status: 'failed' }`;
   - keep About open and retryable;
   - show a localized, safe failure system notification from main;
@@ -161,7 +161,7 @@ the approved IPC contract.
 - IPC changes are additive and update main, preload, shared result, and renderer
   global types together.
 - Existing missing, legacy, and corrupt settings still default both capture
-  booleans to `false`; this integration must not alter packet-08 persistence,
+  booleans to `false`; this integration must not alter packet-16 persistence,
   purge, or clear semantics.
 - Existing About app-info loading, Project/License links, Escape/Close behavior,
   startup-ready gate, focus handling, navigation guards, and locale broadcasts
@@ -185,7 +185,7 @@ the approved IPC contract.
 ## Expected Files Or Components
 
 - `src/shared/diagnosticsArchive.ts` for the additive export result, or the
-  packet-10 shared archive contract file
+  packet-18 shared archive contract file
 - `src/main/aboutWindowController.ts` only if a focused current-window guard
   belongs there
 - `src/main/window.ts` for a narrow current-About getter/guard
@@ -258,7 +258,7 @@ branches are covered on any development host.
 - Treat dialog rejection, archive failure, notification failure, and a closed
   About window as separate safe failures; none may expose a path/raw error or
   leave the main single-flight lock stuck.
-- Archive/rename failure uses packet-10 cleanup and never closes About.
+- Archive/rename failure uses packet-18 cleanup and never closes About.
 - Notification failure after a successfully saved archive must not delete or
   corrupt the valid archive. The operation still returns `saved` and closes
   the originating About window; log only a safe notification-failure
@@ -267,7 +267,7 @@ branches are covered on any development host.
 - Never weaken sender validation, overwrite authority, path privacy, or cleanup
   to make a test pass.
 - Rollback removes the additive channel, preload/type method, About button/state,
-  and localization keys. Packet-10 core remains internal and existing About and
+  and localization keys. Packet-18 core remains internal and existing About and
   settings behavior continues unchanged.
 
 ## Manual Gates
@@ -302,11 +302,11 @@ branches are covered on any development host.
 - `src/main/preload.ts`
 - `src/renderer/types.d.ts`
 - `src/renderer/AboutWindow.tsx`
-- Packet 10 archive service contract.
+- Packet 18 archive service contract.
 
 ## Completion And Handoff
 
-1. Check only packet 11 in `tasks/todo.md`.
+1. Check only packet 19 in `tasks/todo.md`.
 2. Update `tasks/handoff.md` with:
    - the exact IPC result/channel and About-only guard;
    - changed files and localization coverage;
@@ -314,5 +314,5 @@ branches are covered on any development host.
    - native platform checks still outstanding;
    - any dialog, overwrite, cleanup, or notification blocker.
 3. Set the exact next packet to
-   `12_create_diagnostics_analysis_skill.md`.
-4. Stop for review. Do not commit, start packet 12, push, or publish.
+   `20_create_diagnostics_analysis_skill.md`.
+4. Stop for review. Do not commit, start packet 20, push, or publish.

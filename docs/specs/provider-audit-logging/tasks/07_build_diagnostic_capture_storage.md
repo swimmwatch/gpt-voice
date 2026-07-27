@@ -171,7 +171,8 @@ Add the main-process-only redaction and repository foundation for bounded Transl
 - `DiagnosticCaptureStorage.shutdown()` stops admission and drains accepted
   repository work; it does not own or conceal the shared database close.
 - `runQuitCleanup()` closes the application database directly after the
-  diagnostic service drains and after provider/browser/translation cleanup. - Update `runQuitCleanup()` so provider/browser/translation cleanup and any
+  diagnostic service drains and after provider/browser/translation cleanup.
+- Update `runQuitCleanup()` so provider/browser/translation cleanup and any
   resulting diagnostic work settle before the database closes. Preserve
   the existing best-effort quit behavior if an operation fails.
 - Do not close history and diagnostics through two independent owners.

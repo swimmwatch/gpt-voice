@@ -64,13 +64,13 @@ describe('translation settings startup notice', () => {
   });
 
   it('runs after locale setup and before IPC, windows, or background providers', () => {
-    const main = readProjectFile('src/main/main.ts');
-    const loadIndex = main.indexOf('loadConfig();');
-    const localeIndex = main.indexOf('setLocale(', loadIndex);
-    const noticeIndex = main.indexOf('presentPendingTranslationSettingsRepairNotice({', localeIndex);
-    const ipcIndex = main.indexOf('registerIpcHandlers({', noticeIndex);
-    const windowIndex = main.indexOf('createWindow();', noticeIndex);
-    const backgroundIndex = main.indexOf('initBackgroundBrowser()', noticeIndex);
+    const application = readProjectFile('src/main/mainProcessApplication.ts');
+    const loadIndex = application.indexOf('dependencies.loadConfig();');
+    const localeIndex = application.indexOf('dependencies.initializeLocale();', loadIndex);
+    const noticeIndex = application.indexOf('dependencies.presentTranslationSettingsRepairNotice();', localeIndex);
+    const ipcIndex = application.indexOf('runtime.registerIpc();', noticeIndex);
+    const windowIndex = application.indexOf('this.dependencies.createWindow();', noticeIndex);
+    const backgroundIndex = application.indexOf('this.dependencies.initializeBackgroundBrowser()', noticeIndex);
 
     assert.equal(loadIndex >= 0, true);
     assert.equal(loadIndex < localeIndex, true);
