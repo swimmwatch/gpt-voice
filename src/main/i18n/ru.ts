@@ -274,6 +274,14 @@ export default {
   'about.project': 'Проект',
   'about.loading': 'Загрузка информации о программе...',
   'about.loadFailed': 'Не удалось загрузить информацию о программе.',
+  'auditLog.exportAction': 'Экспортировать диагностику',
+  'auditLog.exportPending': 'Экспорт диагностики...',
+  'auditLog.exportDialogTitle': 'Экспорт архива диагностики',
+  'auditLog.exportDescription': 'Сохраните локальный архив диагностики для поиска и устранения проблем.',
+  'notification.diagnosticsExportSaved': 'Диагностика экспортирована',
+  'notification.diagnosticsExportSavedBody': 'Архив диагностики сохранён.',
+  'notification.diagnosticsExportFailed': 'Не удалось экспортировать диагностику',
+  'notification.diagnosticsExportFailedBody': 'Не удалось сохранить архив диагностики. Повторите попытку.',
 
   // History
   'history.open': 'История',

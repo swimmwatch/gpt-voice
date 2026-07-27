@@ -8,6 +8,9 @@ import { TRANSLATION_PROVIDER_IDS, type TranslationProviderId } from './translat
 
 export const DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION = 1 as const;
 export const DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION = 1 as const;
+export const DIAGNOSTICS_EXPORT_IPC_CHANNEL = 'export-diagnostics' as const;
+
+export const DIAGNOSTICS_EXPORT_STATUSES = ['saved', 'cancelled', 'failed'] as const;
 
 export const DIAGNOSTICS_ARCHIVE_FORMATS = ['zip', 'tar-gzip'] as const;
 export const DIAGNOSTICS_ARCHIVE_PLATFORM_FAMILIES = ['windows', 'linux', 'macos'] as const;
@@ -53,6 +56,10 @@ export type DiagnosticsArchivePlatformFamily = (typeof DIAGNOSTICS_ARCHIVE_PLATF
 export type DiagnosticsArchiveArchitecture = (typeof DIAGNOSTICS_ARCHIVE_ARCHITECTURES)[number];
 export type DiagnosticsArchiveVoiceProviderId = (typeof DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS)[number];
 export type DiagnosticsArchivePayloadMemberName = (typeof DIAGNOSTICS_ARCHIVE_PAYLOAD_MEMBER_NAMES)[number];
+export type DiagnosticsExportStatus = (typeof DIAGNOSTICS_EXPORT_STATUSES)[number];
+
+export type DiagnosticsExportResult =
+  { readonly status: 'saved' } | { readonly status: 'cancelled' } | { readonly status: 'failed' };
 
 export interface DiagnosticsArchiveProviderFamilyManifest<ProviderId extends string> {
   readonly capabilityAvailable: boolean;
@@ -168,6 +175,11 @@ function hasExactKeys(value: Record<string, unknown>, expectedKeys: readonly str
 
 function isOneOf<const Value extends string>(values: readonly Value[], value: unknown): value is Value {
   return typeof value === 'string' && values.includes(value as Value);
+}
+
+/** Validates the closed renderer-safe export result without accepting extra fields. */
+export function isDiagnosticsExportResult(value: unknown): value is DiagnosticsExportResult {
+  return isRecord(value) && hasExactKeys(value, ['status']) && isOneOf(DIAGNOSTICS_EXPORT_STATUSES, value.status);
 }
 
 function isSafeCount(value: unknown): value is number {

@@ -131,6 +131,16 @@ const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.languageSaveFailed',
   'settingsSection.system',
 ] as const;
+const REQUIRED_DIAGNOSTICS_EXPORT_KEYS = [
+  'auditLog.exportAction',
+  'auditLog.exportPending',
+  'auditLog.exportDialogTitle',
+  'auditLog.exportDescription',
+  'notification.diagnosticsExportSaved',
+  'notification.diagnosticsExportSavedBody',
+  'notification.diagnosticsExportFailed',
+  'notification.diagnosticsExportFailedBody',
+] as const;
 const REQUIRED_TRANSLATION_SETTINGS_KEYS = [
   'notification.translationSettingsRepaired',
   'notification.translationSettingsRepairedBody',
@@ -242,6 +252,25 @@ describe('i18n', () => {
         assert.doesNotMatch(message, /deepl-private|secret-target|https?:\/\/|\/home\//iu, `${locale}:${key}`);
       }
     }
+  });
+
+  it('localizes the path-free Audit Log export flow and preserves the English sensitivity disclosure', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_DIAGNOSTICS_EXPORT_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
+        assert.doesNotMatch(message, /https?:\/\/|\/home\/|[A-Z]:\\|\.zip|\.tar\.gz/iu, `${locale}:${key}`);
+      }
+    }
+
+    assert.match(en['auditLog.archiveEncryptionWarning'], /not encrypted/iu);
+    assert.match(en['auditLog.plaintextStorageWarning'], /best-effort-redacted/iu);
+    assert.match(en['auditLog.captureTranslation'], /Translation/iu);
+    assert.match(en['auditLog.capturePrettify'], /Prettify/iu);
+    assert.match(en['auditLog.archiveInclusionWarning'], /included automatically/iu);
+    assert.match(en['auditLog.redactionLimitWarning'], /miss arbitrary embedded secrets/iu);
   });
 
   it('keeps every central text-action and error status concise and free of technical details', () => {

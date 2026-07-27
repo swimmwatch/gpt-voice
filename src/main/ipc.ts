@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file -- the trusted registrar and main controller form one IPC ownership boundary. */
-import type { IpcMainInvokeEvent, WebContents } from 'electron';
+import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import type { BackgroundBrowserService } from './browser';
 import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
@@ -62,6 +62,8 @@ import type { CloakBrowserSettingsRepository } from './cloakBrowserSettings';
 import type { PrettifySettingsStorage } from './services/prettifySettingsStorage';
 import type { DiagnosticCaptureSettingsService } from './services/diagnosticCaptureSettings';
 import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
+import type { DiagnosticsExportService } from './services/diagnosticsExport';
+import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
 
 export interface MainIpcTransport {
   handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
@@ -118,6 +120,7 @@ export interface MainIpcControllerDependencies {
   ) => StreamingTranscriptionIpcController<WebContents>;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
+  readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
@@ -140,6 +143,11 @@ export interface MainIpcControllerDependencies {
 }
 
 type TrustedIpcListener<Args extends unknown[]> = (event: IpcMainInvokeEvent, ...args: Args) => unknown;
+type TrustedSettingsIpcListener<Args extends unknown[]> = (
+  event: IpcMainInvokeEvent,
+  settingsWindow: BrowserWindow,
+  ...args: Args
+) => unknown;
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
 export class TrustedIpcRegistrar {
@@ -161,14 +169,18 @@ export class TrustedIpcRegistrar {
     this.channels.add(channel);
   }
 
-  public handleSettingsWindow<Args extends unknown[]>(channel: string, listener: TrustedIpcListener<Args>): void {
+  public handleSettingsWindow<Args extends unknown[]>(
+    channel: string,
+    listener: TrustedSettingsIpcListener<Args>,
+  ): void {
     this.handle(channel, (event, ...args) => {
       const senderUrl = event.senderFrame?.url || event.sender.getURL();
-      if (!this.windowManager.isTrustedSettingsWindow(event.sender, senderUrl)) {
+      const settingsWindow = this.windowManager.getTrustedSettingsWindow(event.sender, senderUrl);
+      if (!settingsWindow) {
         this.logger.warn('Rejected Settings-only IPC sender');
         throw new Error('Rejected Settings-only IPC sender');
       }
-      return listener(event, ...(args as Args));
+      return listener(event, settingsWindow, ...(args as Args));
     });
   }
 
@@ -195,7 +207,7 @@ export class TrustedIpcRegistrar {
     const senderUrl = event.senderFrame?.url || event.sender.getURL();
     if (this.windowManager.isTrustedAppWindow(event.sender, senderUrl)) return;
 
-    this.logger.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
+    this.logger.warn('Rejected IPC from untrusted sender');
     throw new Error('Rejected IPC from untrusted sender');
   }
 }
@@ -328,12 +340,14 @@ export class MainIpcController {
       return dependencies.diagnosticCaptureSettings.getSettings();
     });
 
-    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set, (_event, request: unknown) =>
-      dependencies.diagnosticCaptureSettings.setSettings(request),
+    this.trustedIpc.handleSettingsWindow(
+      DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set,
+      (_event, _settingsWindow, request: unknown) => dependencies.diagnosticCaptureSettings.setSettings(request),
     );
 
-    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear, (_event, request: unknown) =>
-      dependencies.diagnosticCaptureSettings.clear(request),
+    this.trustedIpc.handleSettingsWindow(
+      DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear,
+      (_event, _settingsWindow, request: unknown) => dependencies.diagnosticCaptureSettings.clear(request),
     );
 
     this.trustedIpc.handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
@@ -547,6 +561,10 @@ export class MainIpcController {
 
     this.trustedIpc.handle('get-app-info', () => {
       return dependencies.desktopRuntimeController.getAppInfo();
+    });
+
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTICS_EXPORT_IPC_CHANNEL, (_event, settingsWindow) => {
+      return dependencies.diagnosticsExport.export(settingsWindow);
     });
 
     this.trustedIpc.handle('get-cloakbrowser-settings', () => {

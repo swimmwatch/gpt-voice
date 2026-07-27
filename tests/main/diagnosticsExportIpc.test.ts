@@ -3,14 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
+
 import type { BrowserWindow, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron';
+
 import { TrustedIpcRegistrar, type MainIpcLogger, type MainIpcTransport } from '@main/ipc';
 import { createElectronApi, type ElectronApiIpcRenderer } from '@main/preloadApi';
 import type { WindowManager } from '@main/window';
-import {
-  DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
-  DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS,
-} from '@shared/diagnosticCaptureSettings';
+import { DIAGNOSTICS_EXPORT_IPC_CHANNEL, type DiagnosticsExportResult } from '@shared/diagnosticsArchive';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const SETTINGS_URL = 'app://gpt-voice/settings.html';
@@ -74,19 +73,19 @@ class ExactSettingsWindowTrustPolicy {
     this.liveSettings,
   ];
 
-  public isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
-    return this.trustedSenders.some((sender) => sender.id === webContents.id && sender.url === senderUrl);
-  }
-
   public getTrustedSettingsWindow(webContents: WebContents, senderUrl: string): BrowserWindow | null {
     return webContents.id === this.liveSettings.id && senderUrl === this.liveSettings.url
       ? this.liveSettingsWindow
       : null;
   }
+
+  public isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
+    return this.trustedSenders.some((sender) => sender.id === webContents.id && sender.url === senderUrl);
+  }
 }
 
-class DiagnosticCaptureIpcHarness {
-  public readonly calls: unknown[][] = [];
+class DiagnosticsExportIpcHarness {
+  public readonly calls: Array<{ readonly args: readonly unknown[]; readonly window: BrowserWindow }> = [];
   public readonly transport = new RecordingMainIpcTransport();
   public readonly trustPolicy = new ExactSettingsWindowTrustPolicy();
   public readonly warnings: unknown[][] = [];
@@ -99,12 +98,10 @@ class DiagnosticCaptureIpcHarness {
       warn: (...args) => this.warnings.push(args),
     };
     this.registrar = new TrustedIpcRegistrar(this.transport, logger, this.trustPolicy as unknown as WindowManager);
-    for (const channel of Object.values(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS)) {
-      this.registrar.handleSettingsWindow(channel, (_event, _settingsWindow, ...args) => {
-        this.calls.push([channel, ...args]);
-        return { success: true };
-      });
-    }
+    this.registrar.handleSettingsWindow(DIAGNOSTICS_EXPORT_IPC_CHANNEL, (_event, settingsWindow, ...args) => {
+      this.calls.push({ args, window: settingsWindow });
+      return { status: 'saved' };
+    });
   }
 }
 
@@ -113,11 +110,7 @@ class RecordingPreloadIpcRenderer implements ElectronApiIpcRenderer {
 
   public invoke<Result = unknown>(channel: string, ...args: unknown[]): Promise<Result> {
     this.invocations.push({ args, channel });
-    return Promise.resolve(
-      (channel === DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get
-        ? DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS
-        : { success: true }) as Result,
-    );
+    return Promise.resolve({ status: 'cancelled' } as DiagnosticsExportResult as Result);
   }
 
   public on(_channel: string, _listener: (event: IpcRendererEvent, ...args: unknown[]) => void): void {}
@@ -125,81 +118,71 @@ class RecordingPreloadIpcRenderer implements ElectronApiIpcRenderer {
   public removeListener(_channel: string, _listener: (event: IpcRendererEvent, ...args: unknown[]) => void): void {}
 }
 
-describe('diagnostic capture IPC contract', () => {
-  it('registers all three channels through the Settings-window-only boundary', () => {
+describe('diagnostics export IPC contract', () => {
+  it('registers the export through the Settings-window-only boundary', () => {
     const ipcSource = readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
 
-    assert.match(ipcSource, /handleSettingsWindow\([\s\S]{0,120}DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS\.get/u);
-    assert.match(ipcSource, /handleSettingsWindow\([\s\S]{0,120}DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS\.set/u);
-    assert.match(ipcSource, /handleSettingsWindow\([\s\S]{0,120}DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS\.clear/u);
-    assert.doesNotMatch(ipcSource, /trustedIpc\.handle\(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS\.(?:get|set|clear)/u);
+    assert.match(
+      ipcSource,
+      /handleSettingsWindow\(DIAGNOSTICS_EXPORT_IPC_CHANNEL,[\s\S]{0,180}diagnosticsExport\.export/u,
+    );
+    assert.doesNotMatch(ipcSource, /trustedIpc\.handle\(DIAGNOSTICS_EXPORT_IPC_CHANNEL/u);
+    assert.doesNotMatch(ipcSource, /handleAboutWindow/u);
   });
 
-  it('accepts only the exact live Settings window, frame, and loaded URL', async () => {
-    const harness = new DiagnosticCaptureIpcHarness();
-    const channel = DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get;
+  it('accepts only the exact live Settings window, frame, ID, and loaded URL', async () => {
+    const harness = new DiagnosticsExportIpcHarness();
 
-    assert.deepEqual(await harness.transport.invoke(channel, harness.trustPolicy.liveSettings, SETTINGS_URL), {
-      success: true,
-    });
-    assert.deepEqual(harness.calls, [[channel]]);
+    assert.deepEqual(
+      await harness.transport.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL, harness.trustPolicy.liveSettings, SETTINGS_URL),
+      { status: 'saved' },
+    );
+    assert.deepEqual(harness.calls, [{ args: [], window: harness.trustPolicy.liveSettingsWindow }]);
 
     for (const sender of harness.trustPolicy.trustedSenders.filter(
       (candidate) => candidate.id !== harness.trustPolicy.liveSettings.id,
     )) {
       await assert.rejects(
-        harness.transport.invoke(channel, sender, sender.url),
+        harness.transport.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL, sender, sender.url),
         /Rejected Settings-only IPC sender/u,
         sender.name,
       );
     }
 
     await assert.rejects(
-      harness.transport.invoke(channel, harness.trustPolicy.liveSettings, 'app://gpt-voice/index.html'),
-      /Rejected IPC from untrusted sender/u,
-    );
-    await assert.rejects(
       harness.transport.invoke(
-        channel,
-        { ...harness.trustPolicy.liveSettings, url: 'app://gpt-voice/settings.html?stale=1' },
-        null,
+        DIAGNOSTICS_EXPORT_IPC_CHANNEL,
+        harness.trustPolicy.liveSettings,
+        'app://gpt-voice/index.html?private-path=/home/alice',
       ),
       /Rejected IPC from untrusted sender/u,
     );
+    await assert.rejects(
+      harness.transport.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL, { ...harness.trustPolicy.liveSettings, id: 77 }, null),
+      /Rejected IPC from untrusted sender/u,
+    );
     assert.equal(harness.calls.length, 1);
+    assert.doesNotMatch(JSON.stringify(harness.warnings), /private-path|home|alice|app:\/\/|settings\.html/u);
   });
 
-  it('maps the functional preload API to the exact channels and request shapes', async () => {
+  it('maps the functional preload API to one no-argument invoke with a path-free result', async () => {
     const renderer = new RecordingPreloadIpcRenderer();
     const api = createElectronApi(renderer);
-    const mutation = {
-      confirmedPurgeCategories: ['translation'] as const,
-      settings: {
-        capturePrettifyDiagnostics: true,
-        captureTranslationDiagnostics: false,
-      },
-    };
-    const clear = { confirmed: true, target: 'all' } as const;
 
-    assert.deepEqual(await api.getDiagnosticCaptureSettings(), DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS);
-    await api.setDiagnosticCaptureSettings(mutation);
-    await api.clearDiagnosticCapture(clear);
-
-    assert.deepEqual(renderer.invocations, [
-      { args: [], channel: DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get },
-      { args: [mutation], channel: DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set },
-      { args: [clear], channel: DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear },
-    ]);
+    assert.deepEqual(await api.exportDiagnostics(), { status: 'cancelled' });
+    assert.deepEqual(renderer.invocations, [{ args: [], channel: DIAGNOSTICS_EXPORT_IPC_CHANNEL }]);
   });
 
-  it('keeps the shared methods type-identical in preload and renderer declarations', () => {
+  it('keeps preload and renderer declarations additive and path-free', () => {
     const preload = readFileSync(path.join(PROJECT_ROOT, 'src/main/preloadApi.ts'), 'utf8');
     const rendererTypes = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/types.d.ts'), 'utf8');
+    const shared = readFileSync(path.join(PROJECT_ROOT, 'src/shared/diagnosticsArchive.ts'), 'utf8');
 
-    for (const method of ['getDiagnosticCaptureSettings', 'setDiagnosticCaptureSettings', 'clearDiagnosticCapture']) {
-      assert.equal(preload.includes(`${method}:`), true);
-      assert.equal(rendererTypes.includes(`${method}:`), true);
-    }
-    assert.doesNotMatch(`${preload}\n${rendererTypes}`, /affectedRows|databasePath|sourceText|resultText/u);
+    assert.equal(preload.includes('exportDiagnostics:'), true);
+    assert.equal(rendererTypes.includes('exportDiagnostics:'), true);
+    assert.doesNotMatch(
+      `${preload}\n${rendererTypes}\n${shared}`,
+      /DiagnosticsExportResult[\s\S]{0,160}(?:path|filename|error|stack)/iu,
+    );
   });
 });

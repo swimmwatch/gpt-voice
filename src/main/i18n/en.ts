@@ -268,6 +268,14 @@ export default {
   'about.project': 'Project',
   'about.loading': 'Loading application information...',
   'about.loadFailed': 'Could not load application information.',
+  'auditLog.exportAction': 'Export diagnostics',
+  'auditLog.exportPending': 'Exporting diagnostics...',
+  'auditLog.exportDialogTitle': 'Export diagnostics archive',
+  'auditLog.exportDescription': 'Save a local diagnostics archive for troubleshooting.',
+  'notification.diagnosticsExportSaved': 'Diagnostics exported',
+  'notification.diagnosticsExportSavedBody': 'The diagnostics archive was saved.',
+  'notification.diagnosticsExportFailed': 'Diagnostics export failed',
+  'notification.diagnosticsExportFailedBody': 'The diagnostics archive could not be saved. Try again.',
 
   // History
   'history.open': 'History',

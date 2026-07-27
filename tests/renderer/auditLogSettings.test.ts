@@ -45,13 +45,41 @@ describe('Audit Log App Settings', () => {
     assert.match(en['auditLog.archiveEncryptionWarning'], /not encrypted/u);
   });
 
-  it('locks competing save and clear actions while confirmation or IPC is active', () => {
+  it('owns an accessible export action with synchronous duplicate suppression', () => {
+    const appSettings = readProjectFile('src/renderer/AppSettingsWindow.tsx');
+    const section = readProjectFile('src/renderer/components/settings/AuditLogSection.tsx');
+    const exportAction = appSettings.slice(
+      appSettings.indexOf('const requestDiagnosticsExport'),
+      appSettings.indexOf('const cancelDiagnosticConfirmation'),
+    );
+
+    assert.match(section, /auditLog\.exportAction/u);
+    assert.match(section, /aria-busy=\{exportPending \|\| undefined\}/u);
+    assert.match(section, /aria-describedby="diagnostics-export-description diagnostics-export-status"/u);
+    assert.match(section, /role="status"/u);
+    assert.match(section, /disabled=\{disabled\}/u);
+    assert.match(exportAction, /if \(\s*diagnosticsExportPendingRef\.current/u);
+    assert.match(exportAction, /diagnosticsExportPendingRef\.current = true/u);
+    assert.match(exportAction, /desktopApi\s*\.exportDiagnostics\(\)/u);
+    assert.match(exportAction, /\.finally\(\(\) => \{[\s\S]*diagnosticsExportPendingRef\.current = false/u);
+    assert.doesNotMatch(exportAction, /forceCloseWindow|closeAppSettings/u);
+    assert.match(appSettings, /exportPending=\{isDiagnosticsExportPending\}/u);
+    assert.match(appSettings, /onExport=\{requestDiagnosticsExport\}/u);
+    assert.doesNotMatch(section, /filePath|defaultPath|showSaveDialog|node:fs|electron/u);
+  });
+
+  it('locks competing save, clear, close, and export actions while confirmation or IPC is active', () => {
     const appSettings = readProjectFile('src/renderer/AppSettingsWindow.tsx');
 
-    assert.match(appSettings, /if \(\s*isSaving \|\|\s*isDiagnosticActionPending \|\|\s*diagnosticConfirmation/u);
     assert.match(
       appSettings,
-      /return state\.isSaving \|\| state\.isDiagnosticActionPending \|\| state\.hasDiagnosticConfirmation/u,
+      /state\.isSaving \|\|\s*state\.isDiagnosticActionPending \|\|\s*state\.isDiagnosticsExportPending \|\|\s*state\.hasDiagnosticConfirmation/u,
+    );
+    assert.match(appSettings, /isDiagnosticsExportPending,/u);
+    assert.match(appSettings, /diagnosticsExportPendingRef\.current \|\|\s*diagnosticConfirmation/u);
+    assert.match(
+      appSettings,
+      /if \(diagnosticConfirmation \|\| isDiagnosticActionPending \|\| diagnosticsExportPendingRef\.current\) return;/u,
     );
     assert.match(appSettings, /hasDiagnosticConfirmation: diagnosticConfirmation !== null/u);
     assert.match(appSettings, /const saveDisabled = isAppSettingsSaveDisabled\(\{[\s\S]*?\.\.\.actionLockState/u);

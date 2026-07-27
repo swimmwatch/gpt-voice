@@ -30,6 +30,7 @@ import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnecti
 import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIpcController';
 import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
+import type { DiagnosticsExportService } from '../services/diagnosticsExport';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -42,6 +43,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'createStreamingTranscriptionController'
   | 'desktopRuntimeController'
   | 'diagnosticCaptureSettings'
+  | 'diagnosticsExport'
   | 'historyController'
   | 'prettifyRuntime'
   | 'shortcutController'
@@ -82,6 +84,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticStorage: DiagnosticCaptureStorage;
   readonly diagnosticsArchive: DiagnosticsArchiveService;
+  readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
@@ -142,6 +145,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
         new StreamingTranscriptionIpcController<WebContents>(dependencies),
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       diagnosticCaptureSettings,
+      diagnosticsExport: this.controllers.diagnosticsExport,
       historyController,
       prettifyRuntime: this.controllers.prettifyRuntime,
       shortcutController: this.controllers.shortcutController,

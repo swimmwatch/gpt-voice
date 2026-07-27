@@ -40,6 +40,7 @@ import type {
   StartStreamingTranscriptionIpcResult,
   StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
+import type { DiagnosticsExportResult } from '@shared/diagnosticsArchive';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
@@ -111,6 +112,7 @@ export interface ElectronAPI {
   openAbout: () => Promise<{ success: boolean }>;
   closeAbout: () => Promise<{ success: boolean }>;
   getAppInfo: () => Promise<AppInfo>;
+  exportDiagnostics: () => Promise<DiagnosticsExportResult>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;

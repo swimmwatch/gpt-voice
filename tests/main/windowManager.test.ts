@@ -190,16 +190,16 @@ describe('WindowManager', () => {
     );
     assert.equal(harness.manager.isTrustedAppWindow(providerWindow?.webContents, 'https://attacker.example/'), false);
     assert.equal(
-      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
-      true,
+      harness.manager.getTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
+      settingsWindow as unknown as BrowserWindow,
     );
     assert.equal(
-      harness.manager.isTrustedSettingsWindow(mainWindow?.webContents, mainWindow?.loadUrls[0] ?? ''),
-      false,
+      harness.manager.getTrustedSettingsWindow(mainWindow?.webContents, mainWindow?.loadUrls[0] ?? ''),
+      null,
     );
     assert.equal(
-      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, 'app://gpt-voice/settings.html'),
-      false,
+      harness.manager.getTrustedSettingsWindow(settingsWindow?.webContents, 'app://gpt-voice/settings.html'),
+      null,
     );
 
     harness.manager.broadcastLocaleChanged('en');
@@ -212,15 +212,15 @@ describe('WindowManager', () => {
     harness.manager.showSettingsWindow('audit-log');
     const replacementSettingsWindow = harness.created[5];
     assert.equal(
-      harness.manager.isTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
-      false,
+      harness.manager.getTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
+      null,
     );
     assert.equal(
-      harness.manager.isTrustedSettingsWindow(
+      harness.manager.getTrustedSettingsWindow(
         replacementSettingsWindow?.webContents,
         replacementSettingsWindow?.loadUrls[0] ?? '',
       ),
-      true,
+      replacementSettingsWindow as unknown as BrowserWindow,
     );
   });
 

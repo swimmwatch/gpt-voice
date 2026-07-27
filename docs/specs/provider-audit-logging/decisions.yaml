@@ -2553,3 +2553,33 @@ decisions:
     rationale: 'The untracked tests remain recoverable at /tmp/chatgpt-web-voice-runtime-overlap.31bF3o/.'
     supersedes_revision: null
     requirement_ids: [ARCH-004, COMP-003]
+
+  - id: ui.diagnostics-export-location
+    revision: 1
+    category: task-21-contract
+    state: answered
+    provenance: user
+    evidence:
+      - 'The Audit Log section already owns diagnostic capture, deletion, privacy, archive-inclusion, and encryption disclosures.'
+      - 'Removing export controls from About restores its compact layout so the application logo fits completely.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: ui.diagnostics-export-location
+      idempotency_key: task-21-export-location-r1
+      last_status: answered
+    question:
+      text: 'Confirm the final location and ownership for Export diagnostics in Task 21.'
+      kind: single
+      options:
+        - id: audit-log-settings
+          label: 'Audit Log section'
+          description: 'Place export in App Settings → Audit Log, trust and parent the current Settings window, keep Settings open after every result, and restore About.'
+        - id: about-window
+          label: 'About window'
+          description: 'Keep the current About-only export flow and close About after successful export.'
+    answer:
+      selected_ids: [audit-log-settings]
+      text: ''
+    rationale: 'Export belongs beside capture, deletion, and privacy controls; Settings remains available after export while About retains its compact informational layout.'
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-002, UI-003, COMP-003]

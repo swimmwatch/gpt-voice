@@ -48,6 +48,7 @@ import {
   type StartStreamingTranscriptionIpcResult,
   type StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
+import { DIAGNOSTICS_EXPORT_IPC_CHANNEL, type DiagnosticsExportResult } from '@shared/diagnosticsArchive';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -144,6 +145,9 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getAppInfo: (): Promise<AppInfo> => {
       return ipcRenderer.invoke('get-app-info');
+    },
+    exportDiagnostics: (): Promise<DiagnosticsExportResult> => {
+      return ipcRenderer.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL);
     },
     getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
       return ipcRenderer.invoke('get-cloakbrowser-settings');

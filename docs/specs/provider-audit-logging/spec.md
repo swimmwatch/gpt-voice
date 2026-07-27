@@ -12,7 +12,7 @@ Success means:
 
 - every provider-owned operation has a structured, safe lifecycle trail in the existing application log;
 - optional Translation and Prettify source/result capture is separately configurable, disabled by default, bounded, and removable;
-- the About window creates a portable archive containing retained audit events, a safe runtime/provider manifest, and enabled diagnostic text capture;
+- the Audit Log section in App Settings creates a portable archive containing retained audit events, a safe runtime/provider manifest, and enabled diagnostic text capture;
 - a repository-local skill validates the archive against a user-supplied issue description and produces an evidence-linked Markdown incident report;
 - provider behavior, result contracts, IPC outcomes, retries, clipboard, caches, and history remain compatible.
 
@@ -28,7 +28,7 @@ Success means:
   - Translation already emits typed metadata-only terminal diagnostics from `BaseTranslateProvider`.
 - `src/main/logger.ts` supplies scoped `electron-log` loggers. File logging is `info` and higher, console logging is `debug` and higher, and absence of the runtime logger degrades to a no-op.
 - The Electron main process owns providers, app data, dialogs, filesystem access, browser/session lifecycle, and SQLite. Renderer access remains behind typed `window.electronAPI`.
-- The About window has its own trusted window identity and typed IPC surface, but no file-export flow.
+- App Settings has its own trusted window identity and typed IPC surface, but no file-export flow.
 - `gpt-voice.sqlite3` currently stores transcription history through `node:sqlite`. It has a versioned migration table and no diagnostic-result tables.
 - App Settings uses exhaustive shared section IDs and transactional renderer/main save flows.
 - Existing provider secrets use Electron `safeStorage`, but the user selected plaintext diagnostic text with best-effort redaction and per-user file permissions for this feature.
@@ -286,18 +286,18 @@ Closed phase identifiers may be shared where semantics match and family-specific
 
 ## Diagnostics Archive
 
-### About Flow
+### Audit Log Settings Flow
 
-- **UI-001:** Add an **Export diagnostics** button to the About window.
-- **UI-002:** The button calls a typed preload/main IPC operation accepted only from the current trusted About window sender/URL. Main owns dialog, path, filesystem, archive creation, and notification.
+- **UI-001:** Add an **Export diagnostics** button to the Audit Log section in App Settings.
+- **UI-002:** The button calls a typed preload/main IPC operation accepted only from the current trusted Settings window sender/URL. Main owns dialog, path, filesystem, archive creation, and notification.
 - Main opens a parented OS save dialog with a precomputed unique default:
   - Windows: `gpt-voice-diagnostics-<UTC-basic-timestamp>-<8-hex>.zip`
   - Linux/macOS: `gpt-voice-diagnostics-<UTC-basic-timestamp>-<8-hex>.tar.gz`
 - The dialog uses the correct extension filter and appends the platform extension when omitted. OS-native overwrite confirmation remains authoritative.
 - Renderer never supplies an unrestricted path and receives only a typed `saved`, `cancelled`, or `failed` result.
 - While running, disable the export button and prevent duplicate exports.
-- Cancellation creates no file, notification, or error and leaves About open.
-- **UI-003:** On successful save, close About and show a localized success system notification. On failure, remove partial output, keep About open, and show a localized safe failure notification so the user can retry.
+- Cancellation creates no file, notification, or error and leaves Settings open.
+- **UI-003:** On successful save, keep Settings open and show a localized success system notification. On failure, remove partial output, keep Settings open, and show a localized safe failure notification so the user can retry.
 
 ### Format and Contents
 
@@ -431,7 +431,7 @@ diagnostics/text-actions.jsonl   # present only when an enabled category has ret
 - **COMP-002:** Superseded free-form provider-operation logs are consolidated into audit events. Distinct settings/infrastructure/application logs remain, but are not archived.
 - Old free-form operation wording is not a parsing contract; the versioned event/archive schema is.
 - **COMP-003:** Existing settings default new capture booleans to false. Existing transcription history rows and APIs remain unchanged.
-- IPC changes are additive and update main/preload/renderer types together with trusted About/App Settings sender validation.
+- IPC changes are additive and update main/preload/renderer types together with exact current App Settings sender validation.
 - Archive creation and skill analysis support Windows ZIP and Linux/macOS tar.gz.
 - All new UI text is English-source localized across every existing locale; repository docs remain English.
 
@@ -454,9 +454,9 @@ diagnostics/text-actions.jsonl   # present only when an enabled category has ret
 - Limit tests use UTF-8 bytes and cover 1 MiB accept/reject boundary, 60-day expiry, 100 MiB diagnostic payload pruning, oldest-first cross-category pruning, startup/archive pruning, and no transcription-history deletion.
 - Filesystem tests verify best available permissions and never log text on permission/database errors.
 
-### Archive and About UI
+### Archive and Audit Log UI
 
-- About tests cover button state/accessibility, trusted sender/URL, save-dialog parent/default/filter/extension, unique filename, cancel, duplicate-click suppression, success close+notification, failure cleanup+notification+retry, and no renderer filesystem path authority.
+- Settings tests cover Audit Log button state/accessibility, trusted sender/URL, save-dialog parent/default/filter/extension, unique filename, cancel, duplicate-click suppression, success notification without closing Settings, failure cleanup+notification+retry, and no renderer filesystem path authority.
 - Archive fixtures verify Windows ZIP and non-Windows tar.gz have identical fixed members, valid manifest/hashes, all retained valid audit events, deduplication, malformed-event counts, safe provider/runtime metadata, no unrelated log/config/session/database content, and automatic enabled-category result inclusion.
 - Archive limit/cleanup tests cover fixed members, relative paths, 256 MiB cap, temporary cleanup, atomic destination, overwrite response, and injected archive/filesystem failures.
 - Dependency/build tests prove archive creation uses no shell, external process, network, native postinstall, or live provider.
@@ -477,7 +477,7 @@ diagnostics/text-actions.jsonl   # present only when an enabled category has ret
 
 - **AC-MAN-001:** With synthetic non-private inputs, exercise one success/failure per family and confirm correlation, semantic phases, terminal cause, severity, and absence of prohibited audit content.
 - Verify default-off capture, independent enable, provider/cache success rows, best-effort redaction, 60-day/100 MiB/1 MiB behavior, confirmed purge, and clear actions.
-- On Windows create ZIP; on Linux create tar.gz. Confirm unique default filename, cancel, success notification/About close, failure cleanup/About retry, fixed contents, and enabled-category text inclusion.
+- On Windows create ZIP; on Linux create tar.gz. Confirm unique default filename, cancel, success notification with Settings retained, failure cleanup/Settings retry, fixed contents, and enabled-category text inclusion.
 - Run the repository skill against both synthetic formats with issue context; confirm safe validation, evidence-linked report under `.artifacts/diagnostics`, minimal excerpts, and no persistent extraction.
 
 ## Revalidation and Rollback

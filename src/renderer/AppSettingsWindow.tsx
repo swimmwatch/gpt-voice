@@ -132,11 +132,17 @@ function createLoadedAppSettingsFormInput(input: AppSettingsFormInputCandidates)
 interface SettingsActionLockState {
   readonly hasDiagnosticConfirmation: boolean;
   readonly isDiagnosticActionPending: boolean;
+  readonly isDiagnosticsExportPending: boolean;
   readonly isSaving: boolean;
 }
 
 function areDiagnosticControlsDisabled(state: SettingsActionLockState): boolean {
-  return state.isSaving || state.isDiagnosticActionPending || state.hasDiagnosticConfirmation;
+  return (
+    state.isSaving ||
+    state.isDiagnosticActionPending ||
+    state.isDiagnosticsExportPending ||
+    state.hasDiagnosticConfirmation
+  );
 }
 
 function isAppSettingsSaveDisabled(
@@ -214,12 +220,15 @@ const AppSettingsWindow: React.FC = () => {
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
   const [isSaving, setIsSaving] = useState(false);
   const [isDiagnosticActionPending, setIsDiagnosticActionPending] = useState(false);
+  const [isDiagnosticsExportPending, setIsDiagnosticsExportPending] = useState(false);
   const [diagnosticConfirmation, setDiagnosticConfirmation] = useState<DiagnosticCaptureConfirmation | null>(null);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<AppSettingsFieldErrors>({});
   const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
   const closeRequestFocusRef = useRef<HTMLElement | null>(null);
   const diagnosticConfirmationFocusRef = useRef<HTMLElement | null>(null);
+  const diagnosticsExportPendingRef = useRef(false);
+  const settingsWindowMountedRef = useRef(true);
   const {
     applySavedSnapshot: applySavedPrettifySnapshot,
     changeProvider: changePrettifyProvider,
@@ -300,6 +309,13 @@ const AppSettingsWindow: React.FC = () => {
       void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
     };
   }, [desktopApi]);
+
+  useEffect(() => {
+    settingsWindowMountedRef.current = true;
+    return () => {
+      settingsWindowMountedRef.current = false;
+    };
+  }, []);
 
   const updateSetting = <Key extends keyof EditableCloakBrowserSettings>(
     key: Key,
@@ -557,6 +573,7 @@ const AppSettingsWindow: React.FC = () => {
     if (
       isSaving ||
       isDiagnosticActionPending ||
+      diagnosticsExportPendingRef.current ||
       diagnosticConfirmation ||
       !diagnosticCaptureSettings ||
       !initialDiagnosticCaptureSettings
@@ -578,11 +595,26 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const requestDiagnosticClear = (target: DiagnosticCaptureClearTarget): void => {
-    if (isSaving || isDiagnosticActionPending || diagnosticConfirmation) return;
+    if (isSaving || isDiagnosticActionPending || diagnosticsExportPendingRef.current || diagnosticConfirmation) return;
     diagnosticConfirmationFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setError('');
     setDiagnosticConfirmation({ kind: 'clear', target });
+  };
+
+  const requestDiagnosticsExport = (): void => {
+    if (diagnosticsExportPendingRef.current || isSaving || isDiagnosticActionPending || diagnosticConfirmation) {
+      return;
+    }
+    diagnosticsExportPendingRef.current = true;
+    setIsDiagnosticsExportPending(true);
+    void desktopApi
+      .exportDiagnostics()
+      .catch(() => undefined)
+      .finally(() => {
+        diagnosticsExportPendingRef.current = false;
+        if (settingsWindowMountedRef.current) setIsDiagnosticsExportPending(false);
+      });
   };
 
   const cancelDiagnosticConfirmation = (): void => {
@@ -662,6 +694,7 @@ const AppSettingsWindow: React.FC = () => {
   const actionLockState = {
     hasDiagnosticConfirmation: diagnosticConfirmation !== null,
     isDiagnosticActionPending,
+    isDiagnosticsExportPending,
     isSaving,
   };
   const saveDisabled = isAppSettingsSaveDisabled({
@@ -684,7 +717,7 @@ const AppSettingsWindow: React.FC = () => {
     [restoreCloseRequestFocus],
   );
   const requestCloseWindow = useCallback((): void => {
-    if (diagnosticConfirmation || isDiagnosticActionPending) return;
+    if (diagnosticConfirmation || isDiagnosticActionPending || diagnosticsExportPendingRef.current) return;
     const disposition = getSettingsCloseDisposition({ isDirty, isSaving });
     if (disposition === 'block') {
       return;
@@ -877,7 +910,9 @@ const AppSettingsWindow: React.FC = () => {
                     <TabsContent className="mt-0" value="audit-log">
                       <AuditLogSection
                         disabled={diagnosticControlsDisabled}
+                        exportPending={isDiagnosticsExportPending}
                         onClear={requestDiagnosticClear}
+                        onExport={requestDiagnosticsExport}
                         onSettingChange={updateDiagnosticCaptureSetting}
                         settings={diagnosticCaptureSettings}
                         t={t}

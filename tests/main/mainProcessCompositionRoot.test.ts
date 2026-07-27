@@ -238,6 +238,16 @@ class MainProcessCompositionHarness {
           playwright: '1.61.1',
         },
       },
+      diagnosticsExport: {
+        dialog: {
+          showSaveDialog: async () => ({ canceled: true, filePath: '' }),
+        },
+        fileSystem: {
+          pathExists: async () => false,
+        },
+        platform: 'linux',
+        randomBytes: () => Buffer.from([0x01, 0x02, 0x03, 0x04]),
+      },
       electronRuntime: {
         loadModule: () => ({
           clipboard: {

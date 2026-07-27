@@ -1,22 +1,34 @@
-import { Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import type { JSX } from 'react';
 import type { TranslationFunction } from '@renderer/components/settings/types';
 import { Alert, AlertDescription, AlertTitle } from '@renderer/components/ui/alert';
 import { Button } from '@renderer/components/ui/button';
 import { Label } from '@renderer/components/ui/label';
+import { Spinner } from '@renderer/components/ui/spinner';
 import { Switch } from '@renderer/components/ui/switch';
 import type { DiagnosticCaptureClearTarget, DiagnosticCaptureSettings } from '@shared/diagnosticCaptureSettings';
 import { DIAGNOSTIC_CAPTURE_CLEAR_TARGETS } from '@shared/diagnosticCaptureSettings';
 
 interface AuditLogSectionProps {
   disabled: boolean;
+  exportPending: boolean;
   onClear: (target: DiagnosticCaptureClearTarget) => void;
+  onExport: () => void;
   onSettingChange: (key: keyof DiagnosticCaptureSettings, enabled: boolean) => void;
   settings: DiagnosticCaptureSettings;
   t: TranslationFunction;
 }
 
-function AuditLogSection({ disabled, onClear, onSettingChange, settings, t }: AuditLogSectionProps): JSX.Element {
+/** Renders diagnostic capture, privacy, export, and deletion controls. */
+function AuditLogSection({
+  disabled,
+  exportPending,
+  onClear,
+  onExport,
+  onSettingChange,
+  settings,
+  t,
+}: AuditLogSectionProps): JSX.Element {
   return (
     <section aria-labelledby="audit-log-heading" className="grid gap-5 pb-4">
       <div className="grid gap-1">
@@ -68,6 +80,37 @@ function AuditLogSection({ disabled, onClear, onSettingChange, settings, t }: Au
           </ul>
         </AlertDescription>
       </Alert>
+
+      <div className="grid gap-3 border-b border-border pb-5">
+        <h3 className="text-sm font-semibold text-foreground">{t('auditLog.exportAction')}</h3>
+        <p className="text-xs text-muted-foreground" id="diagnostics-export-description">
+          {t('auditLog.exportDescription')}
+        </p>
+        <div>
+          <Button
+            aria-busy={exportPending || undefined}
+            aria-describedby="diagnostics-export-description diagnostics-export-status"
+            disabled={disabled}
+            onClick={onExport}
+            size="sm"
+          >
+            {exportPending ? (
+              <Spinner label={t('auditLog.exportPending')} size="sm" />
+            ) : (
+              <Download aria-hidden="true" />
+            )}
+            {exportPending ? t('auditLog.exportPending') : t('auditLog.exportAction')}
+          </Button>
+        </div>
+        <p
+          aria-live="polite"
+          className="min-h-4 text-xs text-muted-foreground"
+          id="diagnostics-export-status"
+          role="status"
+        >
+          {exportPending ? t('auditLog.exportPending') : null}
+        </p>
+      </div>
 
       <div className="grid gap-3">
         <h3 className="text-sm font-semibold text-foreground">{t('auditLog.clearTitle')}</h3>

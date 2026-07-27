@@ -45,6 +45,7 @@ import {
   DiagnosticsManifestBuilder,
   type DiagnosticsRuntimeVersions,
 } from '../services/diagnosticsManifest';
+import { DiagnosticsExportService, type DiagnosticsExportServiceDependencies } from '../services/diagnosticsExport';
 import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
@@ -199,6 +200,11 @@ export interface MainProcessDiagnosticsArchiveEnvironment {
   readonly runtimeVersions: DiagnosticsRuntimeVersions;
 }
 
+export type MainProcessDiagnosticsExportEnvironment = Omit<
+  DiagnosticsExportServiceDependencies,
+  'archive' | 'localization' | 'logger' | 'notification' | 'now'
+>;
+
 type RootOwnedRuntimeDependencyKeys =
   | 'databasePath'
   | 'diagnosticLogger'
@@ -224,6 +230,7 @@ export type MainProcessCompositionEnvironment = Omit<
       OpenAIApiSettingsRepositoryDependencies['fileSystem'];
   };
   readonly diagnosticsArchive: MainProcessDiagnosticsArchiveEnvironment;
+  readonly diagnosticsExport: MainProcessDiagnosticsExportEnvironment;
   readonly electronRuntime: Omit<ElectronRuntimeLoaderDependencies, 'logger'>;
   readonly ipc: Omit<
     MainProcessRuntimeFactoryDependencies['ipc'],
@@ -562,6 +569,16 @@ export class MainProcessCompositionRoot {
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
+    const diagnosticsExport = new DiagnosticsExportService({
+      ...this.environment.diagnosticsExport,
+      archive: diagnosticsArchive,
+      localization,
+      logger: loggerFactory.getLogger('diagnostics-export'),
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+      now: this.environment.now,
+    });
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
       getAssetPath: assetPaths.getAssetPath,
@@ -602,6 +619,7 @@ export class MainProcessCompositionRoot {
       diagnosticCaptureSettings,
       diagnosticStorage,
       diagnosticsArchive,
+      diagnosticsExport,
       historyRepository,
       prettifyRuntime,
       shortcutController,

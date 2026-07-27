@@ -99,14 +99,17 @@ export class WindowManager {
     });
   }
 
-  public isTrustedSettingsWindow(webContents: WebContents, senderUrl: string): boolean {
+  public getTrustedSettingsWindow(webContents: WebContents, senderUrl: string): BrowserWindow | null {
     const settingsWindow = this.settingsWindow;
-    return Boolean(
-      settingsWindow &&
-      !settingsWindow.isDestroyed() &&
-      settingsWindow.webContents.id === webContents.id &&
-      senderUrl === settingsWindow.webContents.getURL(),
-    );
+    if (
+      !settingsWindow ||
+      settingsWindow.isDestroyed() ||
+      settingsWindow.webContents.id !== webContents.id ||
+      senderUrl !== settingsWindow.webContents.getURL()
+    ) {
+      return null;
+    }
+    return settingsWindow;
   }
 
   public createMainWindow(): void {

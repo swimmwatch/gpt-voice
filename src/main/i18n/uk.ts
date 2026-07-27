@@ -274,6 +274,14 @@ export default {
   'about.project': 'Проєкт',
   'about.loading': 'Завантаження відомостей про програму...',
   'about.loadFailed': 'Не вдалося завантажити відомості про програму.',
+  'auditLog.exportAction': 'Експортувати діагностику',
+  'auditLog.exportPending': 'Експорт діагностики...',
+  'auditLog.exportDialogTitle': 'Експорт архіву діагностики',
+  'auditLog.exportDescription': 'Збережіть локальний архів діагностики для пошуку й усунення проблем.',
+  'notification.diagnosticsExportSaved': 'Діагностику експортовано',
+  'notification.diagnosticsExportSavedBody': 'Архів діагностики збережено.',
+  'notification.diagnosticsExportFailed': 'Не вдалося експортувати діагностику',
+  'notification.diagnosticsExportFailedBody': 'Не вдалося зберегти архів діагностики. Спробуйте ще раз.',
 
   // History
   'history.open': 'Історія',
