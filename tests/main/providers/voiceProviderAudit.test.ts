@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
+import type { StreamingTranscriptionOperationId } from '@shared/streamingTranscription';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -32,8 +33,96 @@ describe('Voice provider audit adapter', () => {
     assert.equal(audit.getErrorClass('request-failed'), 'provider-rejection');
     assert.equal(audit.getErrorClass('provider-contract-changed'), 'contract');
     assert.equal(audit.getErrorClass('cleanup-failed'), 'cleanup');
+    assert.equal(audit.getErrorClass('invalid-chunk'), 'provider-rejection');
+    assert.equal(audit.getErrorClass('operation-conflict'), 'provider-rejection');
+    assert.equal(audit.getErrorClass('provider-changed'), 'provider-rejection');
+    assert.equal(audit.getErrorClass('transport-failure'), 'connection');
     assert.equal(audit.getErrorClass('unknown'), 'internal');
     assert.equal(audit.getErrorClass('connection-failed', 'TypeError'), 'internal');
+    assert.equal(audit.getStreamingFailurePhase('invalid-sequence'), 'validation');
+    assert.equal(audit.getStreamingFailurePhase('session-expired'), 'readiness');
+    assert.equal(audit.getStreamingFailurePhase('page-shutdown'), 'context');
+    assert.equal(audit.getStreamingFailurePhase('provider-changed'), 'dispatch');
+    assert.equal(audit.getStreamingFailurePhase('transport-failure'), 'result');
+  });
+
+  it('owns streaming correlation, counters, duration, exception normalization, and terminal suppression', () => {
+    const records: Array<Record<string, unknown>> = [];
+    const levels: string[] = [];
+    let elapsedMs = 100;
+    const operationId = '11111111-2222-4333-8444-000000000004';
+    const audit = new VoiceProviderAudit({
+      elapsedNow: () => elapsedMs,
+      getSink: () => ({
+        error: (_label, serialized) => {
+          levels.push('error');
+          records.push(JSON.parse(serialized as string) as Record<string, unknown>);
+        },
+        info: (_label, serialized) => {
+          levels.push('info');
+          records.push(JSON.parse(serialized as string) as Record<string, unknown>);
+        },
+        warn: (_label, serialized) => {
+          levels.push('warn');
+          records.push(JSON.parse(serialized as string) as Record<string, unknown>);
+        },
+      }),
+      now: () => new Date('2026-07-26T00:00:00.000Z'),
+    });
+
+    const context = audit.startStreaming('claude-web', operationId as StreamingTranscriptionOperationId);
+    elapsedMs = 125;
+    context.lifecycle.phaseEntered(
+      'streaming',
+      audit.createStreamingMetadata(context, {
+        acceptedByteCount: 0,
+        chunkCount: 0,
+        frameCount: 0,
+      }),
+    );
+    elapsedMs = 175;
+    audit.terminalStreamingFailure(
+      context,
+      {
+        acceptedByteCount: 8_194,
+        chunkCount: 3,
+        frameCount: 2,
+      },
+      'unexpected-failure',
+      audit.getExceptionType(new TypeError('private message and stack')),
+    );
+    context.lifecycle.phaseEntered('cleanup');
+    audit.terminalStreaming(context, { acceptedByteCount: 0, chunkCount: 0, frameCount: 0 }, 'cleanup', 'success');
+
+    assert.deepEqual(levels, ['info', 'info', 'info', 'error']);
+    assert.equal(
+      records.every((record) => record.operationId === operationId && record.operation === 'transcribe-stream'),
+      true,
+    );
+    assert.deepEqual(
+      records.map((record) => record.sequence),
+      [1, 2, 3, 4],
+    );
+    assert.deepEqual(records[records.length - 1], {
+      schemaVersion: 1,
+      occurredAt: '2026-07-26T00:00:00.000Z',
+      family: 'voice',
+      providerId: 'claude-web',
+      operation: 'transcribe-stream',
+      operationId,
+      sequence: 4,
+      event: 'terminal',
+      phase: 'result',
+      outcome: 'failure',
+      acceptedByteCount: 8_194,
+      chunkCount: 3,
+      durationMs: 75,
+      frameCount: 2,
+      causeCode: 'unexpected-failure',
+      errorClass: 'internal',
+      exceptionType: 'TypeError',
+      transcriptionMode: 'streaming',
+    });
   });
 
   it('emits expected failures at warn and contract failures at error', () => {

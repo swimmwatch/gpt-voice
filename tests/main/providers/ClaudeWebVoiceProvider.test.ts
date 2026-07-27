@@ -39,6 +39,7 @@ import { CLAUDE_WEB_PCM_CHUNK_BYTES, CLAUDE_WEB_PCM_SAMPLE_RATE_HZ } from '@main
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE, WEBM_OPUS_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 import { t } from '@main/i18n';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 
 const SYNTHETIC_ORGANIZATION_UUID = '11111111-2222-4333-8444-555555555555';
 const SYNTHETIC_ORIGIN_STORAGE = [{ name: 'synthetic-state', value: 'synthetic-value' }];
@@ -88,6 +89,7 @@ class FakePageTransport implements ClaudeWebPageTransportLike {
   shutdownCalls = 0;
   result = 'synthetic final';
   error: Error | null = null;
+  cancelError: Error | null = null;
   onShutdown: (() => void) | null = null;
   private nextOperationId = 1;
 
@@ -119,6 +121,7 @@ class FakePageTransport implements ClaudeWebPageTransportLike {
   async cancel(operationId: ClaudeWebPageTransportOperationId): Promise<void> {
     this.cancelCalls += 1;
     this.cancelledOperationIds.push(operationId);
+    if (this.cancelError) throw this.cancelError;
   }
 
   async cancelAll(): Promise<void> {
@@ -185,6 +188,7 @@ class FakeBrowserContext {
 }
 
 interface ProviderHarness {
+  audit: RecordingVoiceProviderAudit;
   provider: ClaudeWebVoiceProvider;
   page: FakePage;
   context: FakeBrowserContext;
@@ -204,6 +208,7 @@ interface ProviderHarness {
 }
 
 function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = {}): ProviderHarness {
+  const audit = new RecordingVoiceProviderAudit();
   const page = new FakePage();
   const context = new FakeBrowserContext(page);
   const transport = new FakePageTransport();
@@ -220,6 +225,7 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     transportCreations: 0,
   };
   const dependencies: ClaudeWebVoiceProviderDependencies = {
+    audit,
     getSettings: () => state.settings,
     readSession: () => state.session,
     saveSession: (storageState) => {
@@ -251,6 +257,7 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
     ...overrides,
   };
   return {
+    audit,
     provider: new ClaudeWebVoiceProvider(dependencies),
     page,
     context,
@@ -666,6 +673,98 @@ describe('ClaudeWebVoiceProvider', () => {
     assert.deepEqual(harness.state.clipboardWrites, ['synthetic final']);
   });
 
+  it('audits one bounded buffered lifecycle through provider-owned cleanup', async () => {
+    const harness = createHarness();
+    await initialize(harness);
+
+    assert.deepEqual(await harness.provider.transcribe(createPcm16Wav([3, -4, 5]), WAV_TRANSCRIPTION_MIME_TYPE), {
+      success: true,
+      text: 'synthetic final',
+    });
+
+    assert.equal(harness.audit.operations.length, 1);
+    const operation = harness.audit.operations[0];
+    assert.equal(operation.input.operation, 'transcribe-batch');
+    assert.equal('providerId' in operation.input ? operation.input.providerId : undefined, CLAUDE_WEB_PROVIDER_ID);
+    assert.deepEqual(
+      operation.events.map((event) => [event.event, event.phase]),
+      [
+        ['started', 'dispatch'],
+        ['phase-entered', 'dispatch'],
+        ['phase-completed', 'dispatch'],
+        ['phase-entered', 'validation'],
+        ['phase-completed', 'validation'],
+        ['phase-entered', 'configuration'],
+        ['phase-completed', 'configuration'],
+        ['phase-entered', 'readiness'],
+        ['phase-completed', 'readiness'],
+        ['phase-entered', 'streaming'],
+        ['phase-completed', 'streaming'],
+        ['phase-entered', 'result'],
+        ['phase-completed', 'result'],
+        ['phase-entered', 'cleanup'],
+        ['phase-completed', 'cleanup'],
+        ['terminal', 'cleanup'],
+      ],
+    );
+    assert.deepEqual(
+      getTerminalEvents(operation).map((event) => event.outcome),
+      ['success'],
+    );
+    assert.deepEqual(getTerminalEvents(operation)[0]?.metadata, {
+      durationMs: getTerminalEvents(operation)[0]?.metadata?.durationMs,
+      hasMimeType: true,
+      inputByteLength: 50,
+      resultLength: 'synthetic final'.length,
+      transcriptionMode: 'batch',
+    });
+  });
+
+  it('audits typed buffered failures and normalizes unexpected cleanup exceptions without private details', async () => {
+    const invalidAudio = createHarness();
+    await initialize(invalidAudio);
+    await invalidAudio.provider.transcribe(new ArrayBuffer(8), WAV_TRANSCRIPTION_MIME_TYPE);
+    const invalidTerminal = getTerminalEvents(invalidAudio.audit.operations[0])[0];
+    assert.equal(invalidTerminal?.phase, 'validation');
+    assert.equal(invalidTerminal?.outcome, 'failure');
+    assert.equal(invalidTerminal?.metadata?.causeCode, ClaudeWebVoiceProviderErrorCode.InvalidAudio);
+    assert.equal(invalidTerminal?.metadata?.errorClass, 'provider-rejection');
+
+    const privacyCanary = 'private cleanup https://private.invalid session=secret stack-private';
+    const cleanupFailure = createHarness({
+      writeClipboardText: () => {
+        throw new TypeError(privacyCanary);
+      },
+    });
+    cleanupFailure.transport.result = 'private transcript canary';
+    await initialize(cleanupFailure);
+    assert.deepEqual(await cleanupFailure.provider.transcribe(createPcm16Wav([31_415]), WAV_TRANSCRIPTION_MIME_TYPE), {
+      success: false,
+      error: ClaudeWebVoiceProviderErrorCode.UnexpectedFailure,
+    });
+    const cleanupTerminal = getTerminalEvents(cleanupFailure.audit.operations[0])[0];
+    assert.equal(cleanupTerminal?.phase, 'cleanup');
+    assert.equal(cleanupTerminal?.outcome, 'failure');
+    assert.equal(cleanupTerminal?.metadata?.causeCode, ClaudeWebVoiceProviderErrorCode.UnexpectedFailure);
+    assert.equal(cleanupTerminal?.metadata?.exceptionType, 'TypeError');
+    assert.equal(cleanupTerminal?.metadata?.errorClass, 'internal');
+    assert.equal(getTerminalEvents(cleanupFailure.audit.operations[0]).length, 1);
+
+    const serializedAudit = JSON.stringify(cleanupFailure.audit.operations);
+    for (const forbidden of [
+      privacyCanary,
+      'private transcript canary',
+      SYNTHETIC_ORGANIZATION_UUID,
+      'synthetic-session',
+      'synthetic-state',
+      'synthetic-value',
+      CLAUDE_WEB_ORIGIN,
+      '31415',
+    ]) {
+      assert.equal(serializedAudit.includes(forbidden), false);
+    }
+  });
+
   it('rejects compressed and malformed audio without conversion or transport work', async () => {
     const harness = createHarness();
     await initialize(harness);
@@ -732,6 +831,10 @@ describe('ClaudeWebVoiceProvider', () => {
       });
       assert.equal(harness.transport.inputs.length, 1);
       assert.deepEqual(harness.state.clipboardWrites, []);
+      const terminal = getTerminalEvents(harness.audit.operations[0]);
+      assert.equal(terminal.length, 1);
+      assert.equal(terminal[0]?.phase, 'streaming');
+      assert.equal(terminal[0]?.metadata?.causeCode, testCase.providerCode);
     }
   });
 
@@ -740,11 +843,19 @@ describe('ClaudeWebVoiceProvider', () => {
     harness.state.settings = { language: 'fr-FR' };
     await initialize(harness);
     const operationId = streamingOperationId('synthetic-main-operation');
+    const auditContext = harness.audit.startStreaming(harness.provider.info.id, operationId);
 
-    assert.deepEqual(await harness.provider.startStreamingTranscription({ operationId }), {
-      operationId,
-      lifecycle: StreamingTranscriptionLifecycle.Starting,
-    });
+    assert.deepEqual(
+      await harness.provider.startStreamingTranscription({
+        audit: harness.audit,
+        auditContext,
+        operationId,
+      }),
+      {
+        operationId,
+        lifecycle: StreamingTranscriptionLifecycle.Starting,
+      },
+    );
     assert.deepEqual(harness.transport.startInputs, [
       { language: 'fr-FR', organizationUuid: SYNTHETIC_ORGANIZATION_UUID },
     ]);
@@ -766,16 +877,42 @@ describe('ClaudeWebVoiceProvider', () => {
     });
     assert.deepEqual(Array.from(harness.transport.finishInputs[0]?.finalChunk ?? []), [3, 0]);
     assert.deepEqual(harness.state.clipboardWrites, []);
+    assert.deepEqual(
+      harness.audit.operations[0].events.map((event) => [event.event, event.phase]),
+      [
+        ['started', 'dispatch'],
+        ['phase-entered', 'dispatch'],
+        ['phase-completed', 'dispatch'],
+        ['phase-entered', 'validation'],
+        ['phase-completed', 'validation'],
+        ['phase-entered', 'configuration'],
+        ['phase-completed', 'configuration'],
+        ['phase-entered', 'readiness'],
+        ['phase-completed', 'readiness'],
+        ['phase-entered', 'context'],
+        ['phase-completed', 'context'],
+      ],
+    );
+    assert.equal(getTerminalEvents(harness.audit.operations[0]).length, 0);
   });
 
   it('rejects conflicting, missing, and invalid live operations with typed metadata-only errors', async () => {
     const harness = createHarness();
     await initialize(harness);
     const operationId = streamingOperationId('synthetic-main-operation');
-    await harness.provider.startStreamingTranscription({ operationId });
+    await harness.provider.startStreamingTranscription({
+      audit: harness.audit,
+      auditContext: harness.audit.startStreaming(harness.provider.info.id, operationId),
+      operationId,
+    });
 
     await assert.rejects(
-      () => harness.provider.startStreamingTranscription({ operationId }),
+      () =>
+        harness.provider.startStreamingTranscription({
+          audit: harness.audit,
+          auditContext: harness.audit.startStreaming(harness.provider.info.id, operationId),
+          operationId,
+        }),
       (error: unknown) => {
         assert.equal(error instanceof StreamingTranscriptionOperationError, true);
         assert.equal(
@@ -810,6 +947,7 @@ describe('ClaudeWebVoiceProvider', () => {
         finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
       }),
       {
+        auditCauseCode: StreamingTranscriptionErrorCode.InvalidOperation,
         success: false,
         operationId: missingOperationId,
         error: {
@@ -838,11 +976,64 @@ describe('ClaudeWebVoiceProvider', () => {
     assert.equal(harness.transport.cancelledOperationIds.length, 1);
   });
 
+  it('classifies provider-owned streaming cleanup uncertainty without retaining the operation', async () => {
+    const privacyCanary = 'private cleanup exception https://private.invalid stack-private';
+    const harness = createHarness();
+    await initialize(harness);
+    const operationId = streamingOperationId('synthetic-main-operation');
+    await harness.provider.startStreamingTranscription({
+      audit: harness.audit,
+      auditContext: harness.audit.startStreaming(harness.provider.info.id, operationId),
+      operationId,
+    });
+    harness.transport.cancelError = new TypeError(privacyCanary);
+
+    await assert.rejects(
+      () =>
+        harness.provider.finishStreamingTranscription({
+          operationId,
+          sequence: 0,
+          finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        const operationError = error as StreamingTranscriptionOperationError;
+        assert.equal(operationError.error.code, StreamingTranscriptionErrorCode.TransportFailure);
+        assert.equal(operationError.auditCauseCode, 'cleanup-failed');
+        assert.equal(operationError.auditExceptionType, 'TypeError');
+        assert.equal(JSON.stringify(operationError).includes(privacyCanary), false);
+        return true;
+      },
+    );
+
+    harness.transport.cancelError = null;
+    assert.deepEqual(
+      await harness.provider.finishStreamingTranscription({
+        operationId,
+        sequence: 0,
+        finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
+      }),
+      {
+        auditCauseCode: StreamingTranscriptionErrorCode.InvalidOperation,
+        success: false,
+        operationId,
+        error: {
+          lifecycle: StreamingTranscriptionLifecycle.Failed,
+          code: StreamingTranscriptionErrorCode.InvalidOperation,
+        },
+      },
+    );
+  });
+
   it('maps live cancellation and readiness failures without retaining operation state', async () => {
     const harness = createHarness();
     await initialize(harness);
     const operationId = streamingOperationId('synthetic-main-operation');
-    await harness.provider.startStreamingTranscription({ operationId });
+    await harness.provider.startStreamingTranscription({
+      audit: harness.audit,
+      auditContext: harness.audit.startStreaming(harness.provider.info.id, operationId),
+      operationId,
+    });
     harness.transport.error = transportError(ClaudeWebPageTransportErrorCode.Cancelled);
 
     assert.deepEqual(
@@ -852,6 +1043,7 @@ describe('ClaudeWebVoiceProvider', () => {
         finalChunk: copyStreamingTranscriptionChunk(new Uint8Array()),
       }),
       {
+        auditCauseCode: ClaudeWebVoiceProviderErrorCode.Cancelled,
         success: false,
         operationId,
         error: {
@@ -863,7 +1055,11 @@ describe('ClaudeWebVoiceProvider', () => {
 
     harness.transport.error = null;
     const cancellableOperationId = streamingOperationId('cancellable-main-operation');
-    await harness.provider.startStreamingTranscription({ operationId: cancellableOperationId });
+    await harness.provider.startStreamingTranscription({
+      audit: harness.audit,
+      auditContext: harness.audit.startStreaming(harness.provider.info.id, cancellableOperationId),
+      operationId: cancellableOperationId,
+    });
     assert.deepEqual(await harness.provider.cancelStreamingTranscription({ operationId: cancellableOperationId }), {
       operationId: cancellableOperationId,
       lifecycle: StreamingTranscriptionLifecycle.Cancelled,
@@ -874,7 +1070,12 @@ describe('ClaudeWebVoiceProvider', () => {
     unready.state.session = { status: 'missing' };
     await initialize(unready);
     await assert.rejects(
-      () => unready.provider.startStreamingTranscription({ operationId }),
+      () =>
+        unready.provider.startStreamingTranscription({
+          audit: unready.audit,
+          auditContext: unready.audit.startStreaming(unready.provider.info.id, operationId),
+          operationId,
+        }),
       (error: unknown) => {
         assert.equal(error instanceof StreamingTranscriptionOperationError, true);
         assert.equal(
@@ -885,6 +1086,28 @@ describe('ClaudeWebVoiceProvider', () => {
       },
     );
     assert.equal(unready.transport.startInputs.length, 0);
+
+    const exceptionCanary = 'private live exception https://private.invalid stack-private';
+    const unexpected = createHarness();
+    await initialize(unexpected);
+    unexpected.transport.error = new TypeError(exceptionCanary);
+    await assert.rejects(
+      () =>
+        unexpected.provider.startStreamingTranscription({
+          audit: unexpected.audit,
+          auditContext: unexpected.audit.startStreaming(unexpected.provider.info.id, operationId),
+          operationId,
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof StreamingTranscriptionOperationError, true);
+        const operationError = error as StreamingTranscriptionOperationError;
+        assert.equal(operationError.error.code, StreamingTranscriptionErrorCode.TransportFailure);
+        assert.equal(operationError.auditCauseCode, ClaudeWebVoiceProviderErrorCode.UnexpectedFailure);
+        assert.equal(operationError.auditExceptionType, 'TypeError');
+        assert.equal(JSON.stringify(operationError).includes(exceptionCanary), false);
+        return true;
+      },
+    );
   });
 
   it('delegates cancellation and drains transport before clearing base page references on shutdown', async () => {

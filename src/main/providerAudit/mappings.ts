@@ -1,5 +1,6 @@
 import type { ClaudeWebVoiceProviderErrorCode } from '@main/providers/ClaudeWebVoiceProvider';
 import type { KnownPrettifyProviderId, PrettifyCliRuntimeErrorCode } from '@shared/prettifySettings';
+import type { StreamingTranscriptionErrorCode } from '@shared/streamingTranscription';
 import type { TranslationProviderId } from '@shared/translationProvider';
 
 import type { ProviderAuditFamily } from './contracts';
@@ -63,6 +64,7 @@ export const PROVIDER_AUDIT_OPERATION_IDS = {
 } as const satisfies Readonly<Record<ProviderAuditFamily, readonly string[]>>;
 
 type ClaudeWebVoiceCauseCode = `${ClaudeWebVoiceProviderErrorCode}`;
+type VoiceStreamingCauseCode = `${StreamingTranscriptionErrorCode}`;
 type VoiceBatchCauseCode =
   | 'not-configured'
   | 'not-authenticated'
@@ -75,7 +77,7 @@ type VoiceBatchCauseCode =
   | 'provider-contract-changed'
   | 'cleanup-failed'
   | 'unknown';
-type VoiceProviderAuditCauseCode = ClaudeWebVoiceCauseCode | VoiceBatchCauseCode;
+type VoiceProviderAuditCauseCode = ClaudeWebVoiceCauseCode | VoiceStreamingCauseCode | VoiceBatchCauseCode;
 
 type PrettifyProviderAuditCauseCode =
   | PrettifyCliRuntimeErrorCode
@@ -128,6 +130,12 @@ export const PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS = {
     'organization-ambiguous': true,
     'invalid-settings': true,
     'invalid-audio': true,
+    'invalid-chunk': true,
+    'invalid-operation': true,
+    'invalid-sequence': true,
+    'operation-conflict': true,
+    'provider-changed': true,
+    'transport-failure': true,
     'upgrade-or-auth': true,
     'connect-timeout': true,
     'connection-loss': true,

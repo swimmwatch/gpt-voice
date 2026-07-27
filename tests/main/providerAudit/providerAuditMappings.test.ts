@@ -98,6 +98,47 @@ describe('provider audit mappings', () => {
     const prettifyCauseCodes = new Set(Object.keys(PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS.prettify));
     const translationCauseCodes = new Set(Object.keys(PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS.translation));
 
+    assert.deepEqual(
+      [...voiceCauseCodes],
+      [
+        'session-missing',
+        'session-expired',
+        'session-invalid',
+        'feature-unavailable',
+        'organization-missing',
+        'organization-ambiguous',
+        'invalid-settings',
+        'invalid-audio',
+        'invalid-chunk',
+        'invalid-operation',
+        'invalid-sequence',
+        'operation-conflict',
+        'provider-changed',
+        'transport-failure',
+        'upgrade-or-auth',
+        'connect-timeout',
+        'connection-loss',
+        'malformed-event',
+        'rate-limit',
+        'first-event-timeout',
+        'overall-timeout',
+        'drain-timeout',
+        'empty-result',
+        'cancelled',
+        'page-shutdown',
+        'unexpected-failure',
+        'not-configured',
+        'not-authenticated',
+        'rate-limited',
+        'connection-failed',
+        'request-failed',
+        'unexpected-response',
+        'provider-contract-changed',
+        'cleanup-failed',
+        'unknown',
+        ...DIAGNOSTIC_CAUSE_CODES,
+      ],
+    );
     for (const causeCode of Object.values(ClaudeWebVoiceProviderErrorCode)) {
       assert.equal(voiceCauseCodes.has(causeCode), true);
     }
