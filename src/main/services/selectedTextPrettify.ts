@@ -221,7 +221,6 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       if (!preparation.success) {
         restoreClipboard(deps, run.previousClipboardText);
         const presented = notifyPrettifyFailure(deps, preparation.error);
-        log.warn('Selected-text prettify preparation failed:', presented.safeLogMetadata);
         return createFailureResult(presented.userMessage);
       }
 
@@ -242,7 +241,6 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         return createSuccessResult();
       }
 
-      log.info('Prettifying selected text:', { textLength: selectedText.length, providerId: settings.providerId });
       const prettified = await preparation.prepared.execute(selectedText);
       if (run.cancelled || run.abortController.signal.aborted) {
         restoreClipboard(deps, run.previousClipboardText);
@@ -253,7 +251,6 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         const error = prettified.error || t('error.noPrettifyResult');
         restoreClipboard(deps, run.previousClipboardText);
         const presented = notifyPrettifyFailure(deps, error);
-        log.warn('Selected-text prettify failed:', presented.safeLogMetadata);
         return createFailureResult(presented.userMessage);
       }
 

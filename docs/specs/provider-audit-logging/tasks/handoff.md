@@ -1,55 +1,54 @@
-# Handoff: Provider Audit Task 04 Complete
+# Handoff: Provider Audit Task 05 Complete
 
 ## Status
 
-- Tasks 01–03 and the OOP wrapper cleanup remain committed.
-- Task 04 is implemented and verified as an unstaged, uncommitted review
-  boundary on 2026-07-26.
-- No Task 05 work has started.
+- Tasks 01–04 and the OOP wrapper cleanup are committed.
+- Task 04 was committed as `de76e8d8 feat(audit): add claude streaming audit lifecycle`.
+- Task 05 is implemented and verified as an unstaged, uncommitted review
+  boundary on 2026-07-27.
+- No Task 06 work has started.
 
 ## Completed Work
 
-- Added exhaustive shared streaming causes and class-owned Voice streaming
-  lifecycle, metadata, counters, failure-phase, exception, rejection, and
-  terminal behavior.
-- Audited Claude buffered transcription across dispatch, validation,
-  configuration, readiness, streaming, result, cleanup, typed failures, and
-  normalized exceptions.
-- Made `StreamingTranscriptionService` the sole live lifecycle owner, reusing
-  the main UUID, retaining audit state with operation ownership, emitting one
-  bounded streaming transition, and terminating once.
-- Added exact accepted-byte, accepted-chunk, and complete-frame terminal
-  counters without per-chunk events.
-- Preserved safe Claude causes through main-only streaming failures while
-  keeping shared renderer results unchanged.
-- Added fresh-ID standalone rejection audits that never retain renderer
-  candidate IDs.
-- Emitted success terminals before cache, clipboard, history, or notification
-  work and classified uncertain provider cleanup as `cleanup-failed`.
-- Removed the superseded Claude transcription failure and streaming completion
-  or termination logs.
+- Expanded `PrettifyProviderAudit` with class-owned metadata, cause/error
+  mapping, exception normalization, operation starts, terminals, duration, and
+  unknown-provider sanitization.
+- Injected the audit object and main-only operation context through existing
+  Prettify dependencies without renderer, preload, or IPC contract changes.
+- Audited Ollama and vLLM settings readiness, availability, model discovery,
+  prepare, one-shot execution, HTTP status, response contract, empty result,
+  cancellation, success, and expected connection failures.
+- Audited Ollama model load, already-running paths, replacement cleanup,
+  unload, shutdown cleanup, failed ownership retention, and shutdown retry.
+- Kept `prepare` and `prettify` as independent operations; cache hits retain
+  support preparation but emit no provider execution operation.
+- Sanitized unknown prepare/list/load/unload candidates in shared dispatch and
+  privileged IPC while preserving existing results.
+- Removed only superseded Prettify provider-operation logs and retained cache,
+  clipboard, notification, settings, and infrastructure diagnostics.
 
 ## Changed Files
 
-- `src/main/providerAudit/mappings.ts`
-- `src/main/providers/ClaudeWebVoiceProvider.ts`
-- `src/main/providers/StreamingTranscriptionOperationError.ts`
-- `src/main/providers/streamingVoiceProvider.ts`
-- `src/main/providers/voiceProviderAudit.ts`
-- `src/main/services/streamingTranscription.ts`
-- `tests/main/providerAudit/providerAuditMappings.test.ts`
-- `tests/main/providers/ClaudeWebVoiceProvider.test.ts`
-- `tests/main/providers/voiceProviderAudit.test.ts`
-- `tests/main/streamingTranscription.test.ts`
+- `src/main/services/prettifyProviderAudit.ts`
+- `src/main/services/prettifyProviderBase.ts`
+- `src/main/services/prettifyProviders.ts`
+- `src/main/services/prettifyHttpProviders.ts`
+- `src/main/services/prettify.ts`
+- `src/main/services/selectedTextPrettify.ts`
+- `src/main/ipc.ts`
+- `tests/main/prettifyAuditTestUtils.ts`
+- `tests/main/prettifyProviders.test.ts`
+- `tests/main/selectedTextPrettify.test.ts`
+- `tests/main/prettifyIpcPrivacyContract.test.ts`
+- `tests/main/providerAudit/providerAuditClasses.test.ts`
 - `docs/specs/provider-audit-logging/tasks/todo.md`
 - `docs/specs/provider-audit-logging/tasks/handoff.md`
 
 ## Checks
 
-- Task 04 focused Claude/provider/registry/service/controller/shared tests
-  passed: 89 tests across 7 suites.
-- Packet 01 audit and Voice adapter tests passed: 16 tests across 3 suites.
-- Full unit suite passed: 839 tests across 149 suites.
+- Focused Prettify, selected-text, IPC, settings, and Packet 01 audit tests
+  passed: 83 tests across 8 suites.
+- Full unit suite passed: 848 tests across 150 suites.
 - `npm run typecheck` passed.
 - `npm run test:types` passed.
 - `npm run lint` passed.
@@ -58,16 +57,16 @@
 
 ## Remaining Risks
 
-- No live Claude session, account, browser page, socket, credential, private
-  audio, or external provider request was exercised.
-- The synthetic desktop streaming manual gate remains deferred and requires
-  separate authorization.
+- No live Ollama/vLLM endpoint, model, credential, selected text, or external
+  provider request was exercised.
+- The synthetic desktop HTTP-provider manual gate remains deferred and
+  requires separate authorization.
 
 ## Exact Next Packet
 
-- [05 Prettify HTTP lifecycle](05_audit_prettify_http_lifecycle.md) is the next
+- [06 Prettify CLI lifecycle](06_audit_prettify_cli_lifecycle.md) is the next
   ordered unchecked packet. It has not been started.
 
 ## Blockers
 
-- None for Task 04.
+- None for Task 05.

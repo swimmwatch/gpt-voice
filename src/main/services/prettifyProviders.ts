@@ -1,5 +1,4 @@
 import { t } from '@main/i18n';
-import { createLogger } from '@main/logger';
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import {
   ClaudeCliPrettifyProvider,
@@ -22,6 +21,7 @@ import {
   type PrettifyProviderDependencies,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
+import { prettifyProviderAudit, type PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import {
   isKnownPrettifyProviderId,
@@ -51,8 +51,10 @@ export type {
 } from '@main/services/prettifyProviderBase';
 export type { PreparePrettifyExecutionResult, PrettifyProviderDependencies, TextProcessingResult };
 
-const log = createLogger('prettify-provider');
-const DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES: PrettifyProviderDependencies = { fetch };
+const DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES: PrettifyProviderDependencies = {
+  audit: prettifyProviderAudit,
+  fetch,
+};
 
 export const KNOWN_PRETTIFY_PROVIDERS: Readonly<Record<KnownPrettifyProviderId, BasePrettifyProvider>> = Object.freeze({
   ollama: new OllamaPrettifyProvider(),
@@ -126,14 +128,33 @@ function getModelListFailureMessage(
 }
 
 export async function listPrettifyModels(
-  providerId: KnownPrettifyProviderId,
+  providerId: unknown,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
 ): Promise<PrettifyModelListResult> {
+  const audit = deps.audit ?? prettifyProviderAudit;
+  if (!isKnownPrettifyProviderId(providerId)) {
+    audit.recordUnknownProvider(providerId, 'model-list');
+    return {
+      availability: { status: 'unavailable' },
+      error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+      models: [],
+      providerId: 'ollama',
+      source: 'http',
+      success: false,
+    };
+  }
   const provider = getKnownPrettifyProvider(providerId);
-  const settings = getSettingsForKnownProvider(providerId, draftSettings);
+  const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelList(providerId) : undefined;
+  let settings: PrettifySettingsWithSecret;
   try {
-    const result = await provider.listModels(settings, deps);
+    settings = getSettingsForKnownProvider(providerId, draftSettings);
+  } catch (error: unknown) {
+    if (auditContext) audit.terminalException(auditContext, 'configuration', error);
+    throw error;
+  }
+  try {
+    const result = await provider.listModels(settings, deps, auditContext);
     const success = result.availability.status === 'available';
     const errorCode = result.availability.status === 'unavailable' ? result.availability.errorCode : undefined;
     return {
@@ -146,6 +167,7 @@ export async function listPrettifyModels(
     };
   } catch (error: unknown) {
     if (!isHttpPrettifyProviderId(providerId)) throw error;
+    if (auditContext) audit.terminalException(auditContext, 'model-discovery', error);
     return {
       availability: { status: 'unavailable' },
       error: createConnectionError(
@@ -162,27 +184,69 @@ export async function listPrettifyModels(
 }
 
 export async function loadPrettifyModel(
-  providerId: KnownPrettifyProviderId,
+  providerId: unknown,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
 ): Promise<PrettifyModelLoadResult> {
+  const audit = deps.audit ?? prettifyProviderAudit;
+  if (!isKnownPrettifyProviderId(providerId)) {
+    audit.recordUnknownProvider(providerId, 'model-load');
+    return { success: false, providerId: 'ollama', error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  }
   const provider = getKnownPrettifyProvider(providerId);
+  const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelLoad(providerId) : undefined;
   if (!provider.capabilities.modelLifecycle) {
+    if (auditContext) {
+      audit.terminalFailure(auditContext, 'validation', 'model-lifecycle-failed');
+    }
     return { success: false, providerId, error: 'Model loading is available only for Ollama' };
   }
-  return provider.loadModel(getSettingsForKnownProvider(providerId, draftSettings), deps);
+  let settings: PrettifySettingsWithSecret;
+  try {
+    settings = getSettingsForKnownProvider(providerId, draftSettings);
+  } catch (error: unknown) {
+    if (auditContext) audit.terminalException(auditContext, 'configuration', error);
+    throw error;
+  }
+  try {
+    return await provider.loadModel(settings, deps, auditContext);
+  } catch (error: unknown) {
+    if (auditContext) audit.terminalException(auditContext, 'model-lifecycle', error);
+    throw error;
+  }
 }
 
 export async function unloadPrettifyModel(
-  providerId: KnownPrettifyProviderId,
+  providerId: unknown,
   draftSettings: PrettifySettingsInput = {},
   deps: PrettifyProviderDependencies = DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
 ): Promise<PrettifyModelUnloadResult> {
+  const audit = deps.audit ?? prettifyProviderAudit;
+  if (!isKnownPrettifyProviderId(providerId)) {
+    audit.recordUnknownProvider(providerId, 'model-unload');
+    return { success: false, providerId: 'ollama', error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  }
   const provider = getKnownPrettifyProvider(providerId);
+  const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelUnload(providerId) : undefined;
   if (!provider.capabilities.modelLifecycle) {
+    if (auditContext) {
+      audit.terminalFailure(auditContext, 'validation', 'model-lifecycle-failed');
+    }
     return { success: false, providerId, error: 'Model unloading is available only for Ollama' };
   }
-  return provider.unloadModel(getSettingsForKnownProvider(providerId, draftSettings), deps);
+  let settings: PrettifySettingsWithSecret;
+  try {
+    settings = getSettingsForKnownProvider(providerId, draftSettings);
+  } catch (error: unknown) {
+    if (auditContext) audit.terminalException(auditContext, 'configuration', error);
+    throw error;
+  }
+  try {
+    return await provider.unloadModel(settings, deps, auditContext);
+  } catch (error: unknown) {
+    if (auditContext) audit.terminalException(auditContext, 'model-lifecycle', error);
+    throw error;
+  }
 }
 
 export async function unloadLoadedOllamaPrettifyModel(
@@ -199,25 +263,52 @@ export async function preparePrettifyExecution(
   signal: AbortSignal = new AbortController().signal,
   deps: PrettifyProviderDependencies = DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
 ): Promise<PreparePrettifyExecutionResult> {
+  const audit = deps.audit ?? prettifyProviderAudit;
   const requestedProvider = draftSettings.providerId;
   if (requestedProvider !== undefined && !isKnownPrettifyProviderId(requestedProvider)) {
+    audit.recordUnknownProvider(requestedProvider, 'prepare');
     return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
   }
 
-  const settings = isKnownPrettifyProviderId(requestedProvider)
-    ? getSettingsForKnownProvider(requestedProvider, draftSettings)
-    : getPrettifySettingsWithSecret(draftSettings);
+  let settings: PrettifySettingsWithSecret;
+  try {
+    settings = isKnownPrettifyProviderId(requestedProvider)
+      ? getSettingsForKnownProvider(requestedProvider, draftSettings)
+      : getPrettifySettingsWithSecret(draftSettings);
+  } catch (error: unknown) {
+    if (isKnownPrettifyProviderId(requestedProvider) && isHttpPrettifyProviderId(requestedProvider)) {
+      const context = audit.startPrepare(requestedProvider);
+      audit.terminalException(context, 'configuration', error);
+    }
+    throw error;
+  }
   const providerId = isKnownPrettifyProviderId(requestedProvider) ? requestedProvider : settings.providerId;
   const provider = getKnownProviderForDispatch(providerId);
-  if (!provider) return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  if (!provider) {
+    audit.recordUnknownProvider(providerId, 'prepare');
+    return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+  }
+  const modelMetadata = provider.getModelMetadata(settings);
+  const auditContext: PrettifyAuditOperationContext | undefined = isHttpPrettifyProviderId(providerId)
+    ? audit.startPrepare(providerId, {
+        modelConfigured: Boolean(modelMetadata.model),
+        modelNameLength: modelMetadata.model.length,
+        modelSource: provider.capabilities.modelSource,
+        usesDefaultModel: modelMetadata.usesDefaultModel,
+      })
+    : undefined;
 
   try {
-    return await provider.prepare(settings, signal, deps);
+    return await provider.prepare(settings, signal, deps, auditContext);
   } catch (error: unknown) {
-    if (signal.aborted) return { success: false, error: t('status.prettifyCancelled') };
+    if (signal.aborted) {
+      if (auditContext) audit.terminalCancelled(auditContext, 'cleanup');
+      return { success: false, error: t('status.prettifyCancelled') };
+    }
     if (!isHttpPrettifyProviderId(providerId)) {
       return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
     }
+    if (auditContext) audit.terminalException(auditContext, 'readiness', error);
     return {
       success: false,
       error: createConnectionError(
@@ -238,10 +329,5 @@ export async function runPrettify(
   const prepared = await preparePrettifyExecution(draftSettings, signal, deps);
   if (!prepared.success) return prepared;
 
-  log.info('Running selected-text prettify:', {
-    providerId: prepared.prepared.providerId,
-    textLength: text.length,
-    cacheContextFields: prepared.prepared.cacheContext.length,
-  });
   return prepared.prepared.execute(text);
 }

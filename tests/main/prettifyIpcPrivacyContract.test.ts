@@ -48,7 +48,7 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(settings, /KNOWN_PRETTIFY_PROVIDER_IDS = \['ollama', 'vllm', 'claude-cli', 'codex-cli'\]/u);
   });
 
-  it('returns availability and source metadata without logging model or process values', () => {
+  it('returns availability and source metadata without duplicate provider-operation logs', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const summary = ipc.slice(
@@ -69,7 +69,9 @@ describe('Prettify IPC privacy contract', () => {
     assert.doesNotMatch(summary, /fallbackModel:\s*settings/u);
     assert.doesNotMatch(modelHandlers, /model:\s*result\.model/u);
     assert.doesNotMatch(modelHandlers, /error:\s*getErrorMessage\(error\)/u);
-    assert.match(modelHandlers, /errorName: error instanceof Error \? error\.name : 'unknown'/u);
-    assert.match(modelHandlers, /modelCount: result\.models\.length/u);
+    assert.doesNotMatch(modelHandlers, /log\.(?:info|warn|error)/u);
+    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-list'\)/u);
+    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-load'\)/u);
+    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-unload'\)/u);
   });
 });

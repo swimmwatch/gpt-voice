@@ -15,7 +15,6 @@ export async function prettifyText(
   settings: PrettifyTextSettings = getPrettifySettingsView(),
 ): Promise<TextProcessingResult> {
   try {
-    log.info('Starting text prettify:', { textLength: text.length });
     return runPrettify(text, settings, settings.signal);
   } catch (error: unknown) {
     log.error('Prettify error:', presentNotificationError(error, { context: 'prettify' }).safeLogMetadata);

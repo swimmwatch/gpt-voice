@@ -100,6 +100,7 @@ import {
   loadPrettifyModel,
   unloadPrettifyModel,
 } from './services/prettifyProviders';
+import { prettifyProviderAudit } from './services/prettifyProviderAudit';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
@@ -952,6 +953,7 @@ export function registerIpcHandlers(): void {
       draftSettings: unknown = {},
     ): Promise<PrettifyModelListResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
+        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-list');
         return {
           availability: { status: 'unavailable' },
           success: false,
@@ -964,26 +966,8 @@ export function registerIpcHandlers(): void {
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Listing Prettify models:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await listPrettifyModels(providerId, draftSettings);
-        log.info('Prettify models listed:', {
-          providerId,
-          modelCount: result.models.length,
-          source: result.source,
-          availability: result.availability.status,
-          ...(result.availability.status === 'unavailable'
-            ? { errorCode: result.availability.errorCode }
-            : { hasCapabilityVersion: Boolean(result.availability.capabilityVersion) }),
-        });
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model listing failed:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
+        return await listPrettifyModels(providerId, draftSettings);
+      } catch {
         return {
           availability: { status: 'unavailable' },
           success: false,
@@ -1004,35 +988,14 @@ export function registerIpcHandlers(): void {
       draftSettings: unknown = {},
     ): Promise<PrettifyModelLoadResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
+        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-load');
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Loading Prettify model:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await loadPrettifyModel(providerId, draftSettings);
-        if (!result.success) {
-          log.warn('Prettify model load failed:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasError: Boolean(result.error),
-          });
-        } else {
-          log.info('Prettify model loaded:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasVramSize: typeof result.vramSizeBytes === 'number',
-          });
-        }
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model load error:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
+        return await loadPrettifyModel(providerId, draftSettings);
+      } catch {
         return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },
@@ -1046,34 +1009,14 @@ export function registerIpcHandlers(): void {
       draftSettings: unknown = {},
     ): Promise<PrettifyModelUnloadResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
+        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-unload');
         return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
       }
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Unloading Prettify model:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await unloadPrettifyModel(providerId, draftSettings);
-        if (!result.success) {
-          log.warn('Prettify model unload failed:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasError: Boolean(result.error),
-          });
-        } else {
-          log.info('Prettify model unloaded:', {
-            providerId,
-            hasModel: Boolean(result.model),
-          });
-        }
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model unload error:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
+        return await unloadPrettifyModel(providerId, draftSettings);
+      } catch {
         return { success: false, providerId, error: t('status.prettifyFailed') };
       }
     },

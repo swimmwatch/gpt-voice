@@ -111,7 +111,7 @@ describe('provider audit class hierarchy', () => {
     assert.deepEqual(second.operations, []);
   });
 
-  it('keeps the Prettify stub inert until a lifecycle is explicitly requested', () => {
+  it('keeps the Prettify audit adapter inert until a lifecycle is explicitly requested', () => {
     const capture = createCapture();
 
     const audit = new PrettifyProviderAudit({

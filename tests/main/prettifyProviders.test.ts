@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { ProviderAuditSink } from '@main/providerAudit';
 import {
   BasePrettifyProvider,
   ClaudeCliPrettifyProvider,
@@ -15,9 +16,16 @@ import {
   unloadLoadedOllamaPrettifyModel,
   unloadPrettifyModel,
 } from '@main/services/prettifyProviders';
+import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
+import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import { DEFAULT_PRETTIFY_PROMPT, DEFAULT_PRETTIFY_SETTINGS, PRETTIFY_PROVIDER_IDS } from '@shared/prettifySettings';
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
+import {
+  getTerminalEvents,
+  RecordingPrettifyProviderAudit,
+  type RecordedPrettifyAuditOperation,
+} from './prettifyAuditTestUtils';
 
 interface FetchCall {
   url: string;
@@ -29,6 +37,15 @@ function response(status: number, body: unknown) {
     status,
     text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
   };
+}
+
+function getAuditOperation(
+  audit: RecordingPrettifyProviderAudit,
+  operation: RecordedPrettifyAuditOperation['input']['operation'],
+): RecordedPrettifyAuditOperation {
+  const match = audit.operations.find((candidate) => candidate.input.operation === operation);
+  assert.ok(match);
+  return match;
 }
 
 describe('prettifyProviders', () => {
@@ -741,5 +758,431 @@ describe('prettifyProviders', () => {
       success: false,
       error: 'Failed to connect to vLLM at http://localhost:8000/v1: fetch failed',
     });
+  });
+});
+
+describe('Prettify HTTP audit lifecycle', () => {
+  it('audits Ollama and vLLM availability without emitting model-list operations', async () => {
+    for (const provider of [new OllamaPrettifyProvider(), new VllmPrettifyProvider()]) {
+      const audit = new RecordingPrettifyProviderAudit();
+      const settings = getPrettifySettingsWithSecret({
+        providerId: provider.id,
+        ollama: { baseUrl: 'http://localhost:11434', model: 'ollama-model' },
+        vllm: { baseUrl: 'http://localhost:8000/v1', model: 'vllm-model' },
+      });
+      const result = await provider.checkAvailability(settings, new AbortController().signal, {
+        audit,
+        fetch: async () => (provider.id === 'ollama' ? response(200, { models: [] }) : response(200, { data: [] })),
+      });
+
+      assert.deepEqual(result, { status: 'available' });
+      assert.deepEqual(
+        audit.operations.map((operation) => operation.input.operation),
+        ['availability'],
+      );
+      assert.equal(getTerminalEvents(getAuditOperation(audit, 'availability'))[0]?.outcome, 'success');
+    }
+
+    const failedAudit = new RecordingPrettifyProviderAudit();
+    const failedProvider = new VllmPrettifyProvider();
+    const failedSettings = getPrettifySettingsWithSecret({
+      providerId: 'vllm',
+      vllm: { baseUrl: 'http://localhost:8000/v1', model: 'vllm-model' },
+    });
+    assert.deepEqual(
+      await failedProvider.checkAvailability(failedSettings, new AbortController().signal, {
+        audit: failedAudit,
+        fetch: async () => response(503, 'private-response-body-canary'),
+      }),
+      { status: 'unavailable' },
+    );
+    assert.equal(getTerminalEvents(getAuditOperation(failedAudit, 'availability'))[0]?.metadata?.httpStatus, 503);
+  });
+
+  it('terminates missing-model readiness and prepare without starting execution', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const result = await runPrettify(
+      'private-source-canary',
+      {
+        providerId: 'vllm',
+        vllm: { baseUrl: 'http://localhost:8000/v1', model: '' },
+      },
+      undefined,
+      {
+        audit,
+        fetch: async () => {
+          throw new Error('fetch must not run');
+        },
+      },
+    );
+
+    assert.deepEqual(result, { success: false, error: 'Select a prettify model in App Settings' });
+    assert.deepEqual(
+      audit.operations.map((operation) => operation.input.operation),
+      ['prepare', 'settings-readiness'],
+    );
+    for (const operation of audit.operations) {
+      const terminal = getTerminalEvents(operation);
+      assert.equal(terminal.length, 1);
+      assert.equal(terminal[0]?.metadata?.causeCode, 'not-configured');
+    }
+  });
+
+  it('separates prepare and one-shot Ollama execution lifecycles', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const prepared = await preparePrettifyExecution(
+      {
+        providerId: 'ollama',
+        prompt: 'private-prompt-canary',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
+      },
+      new AbortController().signal,
+      {
+        audit,
+        fetch: async () => response(200, { message: { content: 'safe result' } }),
+      },
+    );
+
+    assert.equal(prepared.success, true);
+    if (!prepared.success) return;
+    assert.deepEqual(
+      audit.operations.map((operation) => operation.input.operation),
+      ['prepare', 'settings-readiness'],
+    );
+    assert.equal(getTerminalEvents(getAuditOperation(audit, 'prepare')).length, 1);
+    assert.equal(getTerminalEvents(getAuditOperation(audit, 'settings-readiness')).length, 1);
+
+    assert.deepEqual(await prepared.prepared.execute('private-source-canary'), {
+      success: true,
+      text: 'safe result',
+    });
+    const operationCountAfterExecution = audit.operations.length;
+    assert.deepEqual(await prepared.prepared.execute('late-private-source-canary'), {
+      success: false,
+      error: 'Prettify provider is unavailable',
+    });
+    assert.equal(audit.operations.length, operationCountAfterExecution);
+
+    const prettify = getAuditOperation(audit, 'prettify');
+    assert.equal(getTerminalEvents(prettify).length, 1);
+    assert.deepEqual(getTerminalEvents(prettify)[0], {
+      event: 'terminal',
+      phase: 'result',
+      outcome: 'success',
+      metadata: {
+        durationMs: 0,
+        resultLength: 11,
+        sourceLength: 21,
+      },
+    });
+  });
+
+  it('maps HTTP status, response contract, empty result, cancellation, and transport failures', async () => {
+    const cases = [
+      {
+        expectedCause: 'request-failed',
+        expectedOutcome: 'failure',
+        fetch: async () => response(503, 'private-response-body-canary'),
+        signal: undefined,
+      },
+      {
+        expectedCause: 'unexpected-response',
+        expectedOutcome: 'failure',
+        fetch: async () => response(200, '{'),
+        signal: undefined,
+      },
+      {
+        expectedCause: 'empty-result',
+        expectedOutcome: 'failure',
+        fetch: async () => response(200, { choices: [{ message: { content: ' ' } }] }),
+        signal: undefined,
+      },
+      {
+        expectedCause: 'connection-failed',
+        expectedOutcome: 'failure',
+        fetch: async () => {
+          throw new TypeError('private-transport-error-canary');
+        },
+        signal: undefined,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const audit = new RecordingPrettifyProviderAudit();
+      await runPrettify(
+        'private-source-canary',
+        {
+          providerId: 'vllm',
+          prompt: 'private-prompt-canary',
+          vllm: {
+            apiKey: 'private-api-key-canary',
+            baseUrl: 'https://private-endpoint-canary.invalid/v1',
+            model: 'private-model-canary',
+          },
+        },
+        testCase.signal,
+        { audit, fetch: testCase.fetch },
+      );
+      const terminal = getTerminalEvents(getAuditOperation(audit, 'prettify'));
+      assert.equal(terminal.length, 1);
+      assert.equal(terminal[0]?.outcome, testCase.expectedOutcome);
+      assert.equal(terminal[0]?.metadata?.causeCode, testCase.expectedCause);
+      if (testCase.expectedCause === 'request-failed') {
+        assert.equal(terminal[0]?.metadata?.httpStatus, 503);
+      }
+    }
+
+    const abortController = new AbortController();
+    abortController.abort();
+    const cancelledAudit = new RecordingPrettifyProviderAudit();
+    await runPrettify(
+      'private-source-canary',
+      {
+        providerId: 'ollama',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
+      },
+      abortController.signal,
+      {
+        audit: cancelledAudit,
+        fetch: async () => {
+          throw new Error('private-cancellation-error-canary');
+        },
+      },
+    );
+    const cancelled = getTerminalEvents(getAuditOperation(cancelledAudit, 'prettify'));
+    assert.equal(cancelled.length, 1);
+    assert.equal(cancelled[0]?.outcome, 'cancelled');
+    assert.equal(cancelled[0]?.metadata?.causeCode, 'cancelled');
+  });
+
+  it('audits model discovery, load, unload, and shutdown without exposing model ownership values', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const provider = new OllamaPrettifyProvider();
+    const settings = getPrettifySettingsWithSecret({
+      providerId: 'ollama',
+      ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
+    });
+    let runningQueryCount = 0;
+    const deps = {
+      audit,
+      fetch: async (url: string) => {
+        if (url.endsWith('/api/tags')) {
+          return response(200, { models: [{ model: 'private-model-canary' }] });
+        }
+        if (url.endsWith('/api/ps')) {
+          runningQueryCount += 1;
+          return response(
+            200,
+            runningQueryCount === 1 ? { models: [] } : { models: [{ model: 'private-model-canary' }] },
+          );
+        }
+        return response(200, { message: { content: '' } });
+      },
+    };
+
+    await provider.listModels(settings, deps);
+    assert.equal((await provider.loadModel(settings, deps)).success, true);
+    assert.equal((await provider.unloadModel(settings, deps)).success, true);
+    await provider.unloadLoadedModel(deps, settings);
+
+    for (const operationName of ['model-list', 'model-load', 'model-unload', 'shutdown'] as const) {
+      assert.equal(getTerminalEvents(getAuditOperation(audit, operationName)).length, 1);
+    }
+    assert.equal(
+      audit.events.some((event) =>
+        Object.values(event.metadata ?? {}).some((value: unknown) => value === 'private-model-canary'),
+      ),
+      false,
+    );
+  });
+
+  it('retains failed Ollama shutdown ownership for one audited retry', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const provider = new OllamaPrettifyProvider();
+    const settings = getPrettifySettingsWithSecret({
+      providerId: 'ollama',
+      ollama: { baseUrl: 'http://localhost:11434', model: 'private-model-canary' },
+    });
+    await provider.loadModel(settings, {
+      audit,
+      fetch: async (url: string) => (url.endsWith('/api/ps') ? response(200, { models: [] }) : response(200, {})),
+    });
+
+    await assert.rejects(
+      () =>
+        provider.unloadLoadedModel(
+          {
+            audit,
+            fetch: async () => {
+              throw new Error('private-shutdown-error-canary');
+            },
+          },
+          settings,
+        ),
+      /private-shutdown-error-canary/,
+    );
+    await provider.unloadLoadedModel(
+      {
+        audit,
+        fetch: async () => response(200, {}),
+      },
+      settings,
+    );
+
+    const shutdownOperations = audit.operations.filter((operation) => operation.input.operation === 'shutdown');
+    assert.equal(shutdownOperations.length, 2);
+    const firstShutdown = shutdownOperations[0];
+    const secondShutdown = shutdownOperations[1];
+    assert.ok(firstShutdown);
+    assert.ok(secondShutdown);
+    assert.deepEqual(getTerminalEvents(firstShutdown)[0], {
+      event: 'terminal',
+      metadata: {
+        causeCode: 'model-lifecycle-failed',
+        durationMs: 0,
+        errorClass: 'cleanup',
+        modelConfigured: true,
+        modelNameLength: 20,
+        modelSource: 'http',
+        usesDefaultModel: false,
+      },
+      outcome: 'failure',
+      phase: 'cleanup',
+    });
+    assert.equal(getTerminalEvents(secondShutdown)[0]?.outcome, 'success');
+  });
+
+  it('sanitizes unknown providers and keeps audit dependencies fail-open', async () => {
+    const unknownAudit = new RecordingPrettifyProviderAudit();
+    const canary = 'https://private-provider-canary.invalid/?token=secret';
+    assert.deepEqual(
+      await preparePrettifyExecution({ providerId: canary }, new AbortController().signal, {
+        audit: unknownAudit,
+        fetch: async () => response(200, {}),
+      }),
+      { success: false, error: 'Prettify provider is unavailable' },
+    );
+    const unknownDependencies = {
+      audit: unknownAudit,
+      fetch: async () => response(200, {}),
+    };
+    await listPrettifyModels(canary, {}, unknownDependencies);
+    await loadPrettifyModel(canary, {}, unknownDependencies);
+    await unloadPrettifyModel(canary, {}, unknownDependencies);
+    for (const operationName of ['prepare', 'model-list', 'model-load', 'model-unload'] as const) {
+      const unknownOperation = getAuditOperation(unknownAudit, operationName);
+      assert.equal('providerId' in unknownOperation.input, false);
+      assert.equal('providerKnown' in unknownOperation.input && unknownOperation.input.providerKnown, false);
+      assert.equal(getTerminalEvents(unknownOperation).length, 1);
+    }
+    assert.equal(JSON.stringify(unknownAudit.operations).includes(canary), false);
+
+    const throwingSink: ProviderAuditSink = {
+      error: () => {
+        throw new Error('private-sink-error-canary');
+      },
+      info: () => {
+        throw new Error('private-sink-error-canary');
+      },
+      warn: () => {
+        throw new Error('private-sink-error-canary');
+      },
+    };
+    const result = await runPrettify(
+      'source',
+      {
+        providerId: 'ollama',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'model' },
+      },
+      undefined,
+      {
+        audit: new PrettifyProviderAudit({ getSink: () => throwingSink }),
+        fetch: async () => response(200, { message: { content: 'result' } }),
+      },
+    );
+    assert.deepEqual(result, { success: true, text: 'result' });
+  });
+
+  it('derives severity centrally and emits canonical private-data-free records', async () => {
+    const writes: Array<{ severity: 'error' | 'info' | 'warn'; serialized: string }> = [];
+    const sink: ProviderAuditSink = {
+      error: (_label, serialized) => writes.push({ severity: 'error', serialized: serialized as string }),
+      info: (_label, serialized) => writes.push({ severity: 'info', serialized: serialized as string }),
+      warn: (_label, serialized) => writes.push({ severity: 'warn', serialized: serialized as string }),
+    };
+    let uuidSequence = 0;
+    const audit = new PrettifyProviderAudit({
+      elapsedNow: () => 1_000,
+      getSink: () => sink,
+      now: () => new Date('2026-07-27T00:00:00.000Z'),
+      randomUUID: () => {
+        uuidSequence += 1;
+        return `00000000-0000-4000-8000-${String(uuidSequence).padStart(12, '0')}`;
+      },
+    });
+    const privateCanaries = [
+      'private-source-canary',
+      'private-result-canary',
+      'private-prompt-canary',
+      'private-model-canary',
+      'private-api-key-canary',
+      'private-endpoint-canary',
+      'private-exception-canary',
+    ];
+
+    await runPrettify(
+      privateCanaries[0],
+      {
+        providerId: 'vllm',
+        prompt: privateCanaries[2],
+        vllm: {
+          apiKey: privateCanaries[4],
+          baseUrl: `https://${privateCanaries[5]}.invalid/v1`,
+          model: privateCanaries[3],
+        },
+      },
+      undefined,
+      {
+        audit,
+        fetch: async () => {
+          throw new TypeError(privateCanaries[6]);
+        },
+      },
+    );
+
+    const serialized = writes.map((write) => write.serialized).join('\n');
+    for (const canary of privateCanaries) {
+      assert.equal(serialized.includes(canary), false);
+    }
+    assert.equal(
+      writes.some((write) => write.severity === 'warn'),
+      true,
+    );
+
+    const contract = audit.startPrettify('vllm', 1);
+    audit.terminalFailure(contract, 'result', 'unexpected-response');
+    const cancelled = audit.startPrettify('vllm', 1);
+    audit.terminalCancelled(cancelled, 'cleanup');
+    const cleanup = audit.startShutdown('ollama');
+    audit.terminalFailure(cleanup, 'cleanup', 'model-lifecycle-failed', { cleanupFailure: true });
+
+    const terminalSeverities = writes
+      .filter((write) => JSON.parse(write.serialized).event === 'terminal')
+      .map((write) => write.severity);
+    assert.deepEqual(terminalSeverities.slice(-3), ['error', 'info', 'error']);
+
+    const records = writes.map((write) => JSON.parse(write.serialized) as { operationId: string; sequence: number });
+    const recordsByOperation = new Map<string, typeof records>();
+    for (const record of records) {
+      const operationRecords = recordsByOperation.get(record.operationId) ?? [];
+      operationRecords.push(record);
+      recordsByOperation.set(record.operationId, operationRecords);
+    }
+    for (const operationRecords of recordsByOperation.values()) {
+      assert.deepEqual(
+        operationRecords.map((record) => record.sequence),
+        operationRecords.map((_record, index) => index + 1),
+      );
+    }
   });
 });

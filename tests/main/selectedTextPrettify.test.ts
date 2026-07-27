@@ -8,9 +8,11 @@ import {
 } from '@main/services/selectedTextPrettify';
 import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
+import { preparePrettifyExecution } from '@main/services/prettifyProviders';
 import type { ClipboardType } from '@main/electronRuntime';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
+import { RecordingPrettifyProviderAudit } from './prettifyAuditTestUtils';
 
 interface TestServiceOptions {
   actionGate?: SelectedTextActionGate;
@@ -19,6 +21,7 @@ interface TestServiceOptions {
   copiedText?: string;
   copyError?: Error;
   platform?: NodeJS.Platform;
+  prepare?: SelectedTextPrettifyDependencies['prepare'];
   prompt?: string;
   providerId?: PrettifyProviderId;
   baseUrl?: string;
@@ -120,6 +123,7 @@ function createTestService(options: TestServiceOptions = {}) {
     prepare: async (settings, signal) => {
       const typedSettings = settings;
       prepareCalls.push(typedSettings);
+      if (options.prepare) return options.prepare(settings, signal);
       await options.prepareWait;
       if (options.prepareResult) return options.prepareResult;
       const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
@@ -372,6 +376,26 @@ describe('selectedTextPrettify', () => {
       { title: 'Text prettified', body: 'Selection prettified', options: { sound: 'success' } },
       { title: 'Text prettified', body: 'Selection prettified', options: { sound: 'success' } },
     ]);
+  });
+
+  it('keeps cache hits free of prettify provider operations', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const { service } = createTestService({
+      selectionText: 'selected text',
+      prepare: (settings, signal) =>
+        preparePrettifyExecution(settings, signal, {
+          audit,
+          fetch: async () => ({
+            status: 200,
+            text: async () => JSON.stringify({ message: { content: 'cached prettified text' } }),
+          }),
+        }),
+    });
+
+    assert.equal((await service()).success, true);
+    assert.equal((await service()).success, true);
+    assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prepare').length, 2);
+    assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
   });
 
   it('misses the cache when the prepared provider capability version changes', async () => {
