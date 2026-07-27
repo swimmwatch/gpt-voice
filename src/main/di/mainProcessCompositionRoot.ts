@@ -51,14 +51,50 @@ import {
   type CloakBrowserSettingsRepositoryDependencies,
 } from '../cloakBrowserSettings';
 import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } from '../services/prettifySettingsStorage';
+import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
+import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
+import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
+import {
+  OpenAIApiSettingsRepository,
+  type OpenAIApiSettingsRepositoryDependencies,
+} from '../providers/openaiApiSettings';
+import {
+  ClaudeWebSettingsRepository,
+  FileClaudeWebPrivateJsonRepository,
+  type FileClaudeWebPrivateJsonRepositoryDependencies,
+} from '../providers/claudeWebSettings';
+import {
+  ClaudeWebSessionRepository,
+  getPlaywrightStorageState,
+  resolveClaudeWebOrganization,
+} from '../providers/claudeWebSession';
+import {
+  createCloakBrowserLoginContextOptions,
+  createCloakBrowserPersistentContextOptions,
+} from '../cloakBrowserLaunchOptions';
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
-  'audit' | 'chatGPT' | 'localization'
+  'audit' | 'chatGPT' | 'claudeWeb' | 'localization' | 'openAIApi'
 > & {
-  readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'localization' | 'sessionStore'> & {
-    readonly sessionStore: FileChatGPTSessionStoreDependencies;
+  readonly chatGPT: Omit<
+    ChatGPTVoiceProviderDependencies,
+    'audit' | 'localization' | 'logger' | 'sessionStore' | 'writeClipboardText'
+  > & {
+    readonly sessionStore: Omit<FileChatGPTSessionStoreDependencies, 'logger' | 'sessionFile' | 'tokenFile'>;
   };
+  readonly claudeWeb: Omit<
+    VoiceProviderFactoryDependencies['claudeWeb'],
+    | 'clearSession'
+    | 'getSettings'
+    | 'getStorageState'
+    | 'navigationLogger'
+    | 'readSession'
+    | 'resolveOrganization'
+    | 'saveSession'
+    | 'writeClipboardText'
+  >;
+  readonly openAIApi: Omit<VoiceProviderFactoryDependencies['openAIApi'], 'getSettings' | 'writeClipboardText'>;
 };
 import { MainProcessApplication, type MainProcessApplicationDependencies } from '../mainProcessApplication';
 import {
@@ -68,54 +104,90 @@ import {
 } from './mainProcessRuntimeFactory';
 
 export interface MainProcessVoiceEnvironment {
-  readonly audit: ProviderAuditDependencies;
+  readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
   readonly browser: Omit<
     BackgroundBrowserServiceDependencies,
-    'audit' | 'cloakBrowserSettings' | 'config' | 'localization' | 'providerRegistry'
+    | 'audit'
+    | 'cloakBrowserSettings'
+    | 'config'
+    | 'createBackgroundContext'
+    | 'createLoginContext'
+    | 'localization'
+    | 'logger'
+    | 'providerRegistry'
   >;
   readonly providers: MainProcessVoiceProviderEnvironment;
 }
 
 export interface MainProcessTranslationEnvironment {
-  readonly audit: ProviderAuditDependencies;
+  readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
   readonly now: () => number;
-  readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'now'>;
-  readonly selectedText: Omit<SelectedTextTranslationDependencies, 'actionGate' | 'cache' | 'localization' | 'runtime'>;
-}
-
-export interface MainProcessPrettifyEnvironment {
-  readonly audit: ProviderAuditDependencies;
-  readonly cliRunner: CliProcessRunnerDependencies;
-  readonly codexCli: Omit<CodexCliPrettifyAdapterDependencies, 'audit' | 'runner'>;
-  readonly fetch: PrettifyProviderFactoryDependencies['fetch'];
-  readonly settingsStorage: Omit<PrettifySettingsStorageDependencies, 'config' | 'settingsFile'>;
+  readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
   readonly selectedText: Omit<
-    SelectedTextPrettifyDependencies,
-    'actionGate' | 'cache' | 'localization' | 'runtime' | 'settings'
+    SelectedTextTranslationDependencies,
+    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime'
   >;
 }
 
-type RootOwnedRuntimeDependencyKeys = 'databasePath' | 'ipc' | 'localization';
+export interface MainProcessPrettifyEnvironment {
+  readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
+  readonly cliRunner: CliProcessRunnerDependencies;
+  readonly codexCli: Omit<CodexCliPrettifyAdapterDependencies, 'audit' | 'runner'>;
+  readonly fetch: PrettifyProviderFactoryDependencies['fetch'];
+  readonly settingsStorage: Omit<
+    PrettifySettingsStorageDependencies,
+    'config' | 'logger' | 'secureStorage' | 'settingsFile'
+  >;
+  readonly selectedText: Omit<
+    SelectedTextPrettifyDependencies,
+    'actionGate' | 'cache' | 'clipboard' | 'localization' | 'logger' | 'notify' | 'runtime' | 'settings'
+  >;
+}
+
+type RootOwnedRuntimeDependencyKeys =
+  | 'databasePath'
+  | 'diagnosticLogger'
+  | 'historyLogger'
+  | 'ipc'
+  | 'localization'
+  | 'transcriptionLogger'
+  | 'writeClipboardText';
 
 export type MainProcessCompositionEnvironment = Omit<
   MainProcessRuntimeFactoryDependencies,
   RootOwnedRuntimeDependencyKeys
 > & {
-  readonly cloakBrowserSettings: Omit<CloakBrowserSettingsRepositoryDependencies, 'config' | 'settingsFile'>;
-  readonly config: AppConfigStoreDependencies;
+  readonly cloakBrowserRuntime: Omit<CloakBrowserRuntimeLoaderDependencies, 'logger'>;
+  readonly cloakBrowserSettings: Omit<
+    CloakBrowserSettingsRepositoryDependencies,
+    'config' | 'logger' | 'secureStorage' | 'settingsFile'
+  >;
+  readonly config: Omit<AppConfigStoreDependencies, 'logger'> & {
+    readonly fileSystem: AppConfigStoreDependencies['fileSystem'] &
+      FileClaudeWebPrivateJsonRepositoryDependencies['fileSystem'] &
+      OpenAIApiSettingsRepositoryDependencies['fileSystem'];
+  };
+  readonly electronRuntime: Omit<ElectronRuntimeLoaderDependencies, 'logger'>;
   readonly ipc: Omit<
     MainProcessRuntimeFactoryDependencies['ipc'],
-    'cloakBrowserSettings' | 'config' | 'localization' | 'prettifySettings'
+    | 'cloakBrowserSettings'
+    | 'config'
+    | 'localization'
+    | 'logger'
+    | 'notification'
+    | 'prettifySettings'
+    | 'voiceSettings'
   >;
+  readonly logger: LoggerFactoryDependencies;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly translation: MainProcessTranslationEnvironment;
   readonly voice: MainProcessVoiceEnvironment;
 };
 
 export interface MainProcessDesktopControllerEnvironment {
-  readonly appProtocol: AppProtocolControllerDependencies;
-  readonly desktopRuntime: Omit<DesktopRuntimeControllerDependencies, 'windowManager'>;
-  readonly linuxDesktopIntegration: LinuxDesktopIntegrationControllerDependencies;
+  readonly appProtocol: Omit<AppProtocolControllerDependencies, 'logger'>;
+  readonly desktopRuntime: Omit<DesktopRuntimeControllerDependencies, 'openExternal' | 'windowManager'>;
+  readonly linuxDesktopIntegration: Omit<LinuxDesktopIntegrationControllerDependencies, 'logger'>;
   readonly shortcuts: Omit<
     ShortcutControllerDependencies,
     | 'selectedTextActionGate'
@@ -124,9 +196,10 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'trayController'
     | 'windowManager'
     | 'config'
+    | 'logger'
   >;
   readonly tray: Omit<TrayControllerDependencies, 'localization' | 'windowManager'>;
-  readonly window: WindowManagerDependencies;
+  readonly window: Omit<WindowManagerDependencies, 'logger' | 'openExternal'>;
 }
 
 type ConstructedDesktopDependencyKeys =
@@ -141,7 +214,8 @@ type ConstructedDesktopDependencyKeys =
   | 'trayController'
   | 'windowManager';
 
-type RootOwnedApplicationDependencyKeys = 'config' | 'localization' | 'notify';
+type RootOwnedApplicationDependencyKeys =
+  'config' | 'configureCloakBrowserRuntime' | 'localization' | 'logger' | 'notify';
 
 export type MainProcessApplicationEnvironment = Omit<
   MainProcessApplicationDependencies,
@@ -166,28 +240,92 @@ export class MainProcessCompositionRoot {
   /** Constructs one isolated application graph from the injected process environment. */
   public createApplication(environment: MainProcessApplicationEnvironment): MainProcessApplication {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
-    const configStore = new AppConfigStore(this.environment.config);
+    const loggerFactory = new LoggerFactory(this.environment.logger);
+    const electronRuntime = new ElectronRuntimeLoader({
+      ...this.environment.electronRuntime,
+      logger: loggerFactory.getLogger('electron-runtime'),
+    });
+    const cloakBrowserRuntime = new CloakBrowserRuntimeLoader({
+      ...this.environment.cloakBrowserRuntime,
+      logger: loggerFactory.getLogger('cloakbrowser'),
+    });
+    const secureStorage = {
+      decrypt: electronRuntime.decryptSafeStorageString,
+      encrypt: electronRuntime.encryptSafeStorageString,
+      isEncryptionAvailable: electronRuntime.isSafeStorageEncryptionAvailable,
+    };
+    const configStore = new AppConfigStore({
+      ...this.environment.config,
+      logger: loggerFactory.getLogger('config'),
+    });
     const localization = new I18nService();
+    const privateJsonRepository = new FileClaudeWebPrivateJsonRepository({
+      fileSystem: this.environment.config.fileSystem,
+    });
+    const claudeWebSettings = new ClaudeWebSettingsRepository({
+      privateJson: privateJsonRepository,
+      settingsFile: configStore.paths.claudeWebSettingsFile,
+    });
+    const claudeWebSession = new ClaudeWebSessionRepository({
+      privateJson: privateJsonRepository,
+      sessionFile: configStore.paths.claudeWebSessionFile,
+    });
+    const openAIApiSettings = new OpenAIApiSettingsRepository({
+      fileSystem: this.environment.config.fileSystem,
+      logger: loggerFactory.getLogger('openai-api-settings'),
+      secureStorage,
+      settingsFile: configStore.paths.openAIApiSettingsFile,
+    });
     const cloakBrowserSettings = new CloakBrowserSettingsRepository({
       ...this.environment.cloakBrowserSettings,
       config: configStore,
+      logger: loggerFactory.getLogger('cloakbrowser-settings'),
+      secureStorage,
       settingsFile: configStore.paths.cloakBrowserSettingsFile,
     });
     const prettifySettingsStorage = new PrettifySettingsStorage({
       ...this.environment.prettify.settingsStorage,
       config: configStore,
+      logger: loggerFactory.getLogger('prettify-settings'),
+      secureStorage,
       settingsFile: configStore.paths.prettifySettingsFile,
     });
-    const voiceProviderAudit = new VoiceProviderAudit(this.environment.voice.audit);
-    const { chatGPT, ...otherVoiceProviders } = this.environment.voice.providers;
+    const voiceProviderAudit = new VoiceProviderAudit({
+      ...this.environment.voice.audit,
+      getSink: () => loggerFactory.getLogger('provider-audit'),
+    });
+    const { chatGPT, claudeWeb, openAIApi, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
       ...otherVoiceProviders,
       audit: voiceProviderAudit,
       chatGPT: {
         ...chatGPT,
-        sessionStore: new FileChatGPTSessionStore(chatGPT.sessionStore),
+        logger: loggerFactory.getLogger('chatgpt-provider'),
+        sessionStore: new FileChatGPTSessionStore({
+          ...chatGPT.sessionStore,
+          logger: loggerFactory.getLogger('chatgpt-provider'),
+          sessionFile: configStore.paths.chatGPTSessionFile,
+          tokenFile: configStore.paths.chatGPTTokenFile,
+        }),
+        writeClipboardText: electronRuntime.writeClipboardText,
+      },
+      claudeWeb: {
+        ...claudeWeb,
+        clearSession: claudeWebSession.clearSession,
+        getSettings: claudeWebSettings.getSettings,
+        getStorageState: getPlaywrightStorageState,
+        navigationLogger: loggerFactory.getLogger('claude-web-provider'),
+        readSession: claudeWebSession.readSession,
+        resolveOrganization: resolveClaudeWebOrganization,
+        saveSession: claudeWebSession.saveSession,
+        writeClipboardText: electronRuntime.writeClipboardText,
       },
       localization,
+      openAIApi: {
+        ...openAIApi,
+        getSettings: openAIApiSettings.getSettingsWithSecret,
+        writeClipboardText: electronRuntime.writeClipboardText,
+      },
     });
     const voiceProviderRegistry = new VoiceProviderRegistry(voiceProviderFactory, voiceProviderAudit);
     const backgroundBrowserService = new BackgroundBrowserService({
@@ -195,14 +333,25 @@ export class MainProcessCompositionRoot {
       audit: voiceProviderAudit,
       cloakBrowserSettings,
       config: configStore,
+      createBackgroundContext: (settings) =>
+        cloakBrowserRuntime.launchPersistentContext(
+          createCloakBrowserPersistentContextOptions(settings, configStore.paths.browserCacheDirectory),
+        ),
+      createLoginContext: (settings) =>
+        cloakBrowserRuntime.launchContext(createCloakBrowserLoginContextOptions(settings)),
       localization,
+      logger: loggerFactory.getLogger('browser'),
       providerRegistry: voiceProviderRegistry,
     });
-    const translationProviderAudit = new TranslationProviderAudit(this.environment.translation.audit);
+    const translationProviderAudit = new TranslationProviderAudit({
+      ...this.environment.translation.audit,
+      getSink: () => loggerFactory.getLogger('provider-audit'),
+    });
     const selectedTextActionGate = new SelectedTextActionGate();
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
       cloakBrowserSettings,
+      createContext: cloakBrowserRuntime.launchContext,
       now: this.environment.translation.now,
     });
     const translationProviderRegistry = new TranslationProviderRegistry(
@@ -223,10 +372,19 @@ export class MainProcessCompositionRoot {
       cache: createTextActionResultCache(SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES, {
         now: this.environment.cacheNow,
       }),
+      clipboard: {
+        readText: electronRuntime.readClipboardText,
+        writeText: electronRuntime.writeTypedClipboardText,
+      },
+      logger: loggerFactory.getLogger('selection-translate'),
       localization,
+      notify: electronRuntime.showSystemNotification,
       runtime: translationRuntime,
     });
-    const prettifyProviderAudit = new PrettifyProviderAudit(this.environment.prettify.audit);
+    const prettifyProviderAudit = new PrettifyProviderAudit({
+      ...this.environment.prettify.audit,
+      getSink: () => loggerFactory.getLogger('provider-audit'),
+    });
     const cliProcessRunner = new CliProcessRunner(this.environment.prettify.cliRunner);
     const claudeCliAdapter = new ClaudeCliPrettifyAdapter({
       audit: prettifyProviderAudit,
@@ -259,11 +417,21 @@ export class MainProcessCompositionRoot {
         maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
         now: this.environment.cacheNow,
       }),
+      clipboard: {
+        readText: electronRuntime.readClipboardText,
+        writeText: electronRuntime.writeTypedClipboardText,
+      },
+      logger: loggerFactory.getLogger('selection-prettify'),
       localization,
+      notify: electronRuntime.showSystemNotification,
       runtime: prettifyRuntime,
       settings: prettifySettingsStorage,
     });
-    const windowManager = new WindowManager(desktopEnvironment.window);
+    const windowManager = new WindowManager({
+      ...desktopEnvironment.window,
+      logger: loggerFactory.getLogger('window'),
+      openExternal: electronRuntime.openExternal,
+    });
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
       localization,
@@ -277,17 +445,23 @@ export class MainProcessCompositionRoot {
       selectedTextTranslationService,
       trayController,
       windowManager,
+      logger: loggerFactory.getLogger('shortcuts'),
     });
     const controllers: ConstructedControllers = {
-      appProtocolController: new AppProtocolController(desktopEnvironment.appProtocol),
+      appProtocolController: new AppProtocolController({
+        ...desktopEnvironment.appProtocol,
+        logger: loggerFactory.getLogger('app-protocol'),
+      }),
       backgroundBrowserService,
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
+        openExternal: electronRuntime.openExternal,
         windowManager,
       }),
-      linuxDesktopIntegrationController: new LinuxDesktopIntegrationController(
-        desktopEnvironment.linuxDesktopIntegration,
-      ),
+      linuxDesktopIntegrationController: new LinuxDesktopIntegrationController({
+        ...desktopEnvironment.linuxDesktopIntegration,
+        logger: loggerFactory.getLogger('desktop-integration'),
+      }),
       prettifyRuntime,
       shortcutController,
       translationRuntime,
@@ -301,20 +475,37 @@ export class MainProcessCompositionRoot {
       ...applicationEnvironment,
       ...controllers,
       config: configStore,
+      configureCloakBrowserRuntime: cloakBrowserRuntime.configure,
       localization,
-      notify: this.environment.ipc.notification.show.bind(this.environment.ipc.notification),
+      logger: loggerFactory.getRootLogger(),
+      notify: electronRuntime.showSystemNotification,
       runtimeFactory: new MainProcessRuntimeFactory(
         {
           ...this.environment,
           databasePath: configStore.paths.databaseFile,
+          diagnosticLogger: loggerFactory.getLogger('diagnostic-capture'),
+          historyLogger: loggerFactory.getLogger('ipc'),
           ipc: {
             ...this.environment.ipc,
             cloakBrowserSettings,
             config: configStore,
             localization,
+            logger: loggerFactory.getLogger('ipc'),
+            notification: {
+              show: electronRuntime.showSystemNotification,
+            },
             prettifySettings: prettifySettingsStorage,
+            voiceSettings: {
+              clearOpenAIApiKey: openAIApiSettings.clearApiKey,
+              getClaudeWebSettings: claudeWebSettings.getSettings,
+              getOpenAIApiSettingsView: openAIApiSettings.getView,
+              saveClaudeWebSettings: claudeWebSettings.save,
+              saveOpenAIApiSettings: openAIApiSettings.save,
+            },
           },
           localization,
+          transcriptionLogger: loggerFactory.getLogger('transcribe'),
+          writeClipboardText: electronRuntime.writeClipboardText,
         },
         controllers,
       ),

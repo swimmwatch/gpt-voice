@@ -1,5 +1,4 @@
 import type { I18nService } from '../i18n';
-import { createLogger } from '../logger';
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
 import { isBatchVoiceProvider } from '../providers/voiceProviderGuards';
 import { type VoiceProviderAudit, type VoiceBatchAuditContext } from '../providers/voiceProviderAudit';
@@ -12,8 +11,6 @@ import {
 } from './transcriptionCompletion';
 import { presentNotificationError } from '@shared/notifications';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
-
-const log = createLogger('transcribe');
 
 export interface TranscriptionBackgroundBrowser {
   ensure(): Promise<void>;
@@ -102,7 +99,7 @@ export class TranscriptionService {
           exceptionType: normalizeProviderAuditExceptionType(error),
         });
       } else {
-        log.error(
+        this.dependencies.logger.error(
           'Transcription error:',
           presentNotificationError(error, { context: 'transcription' }).safeLogMetadata,
         );

@@ -65,6 +65,7 @@ export interface MainProcessRuntimeFactoryDependencies {
   readonly randomUUID: () => string;
   readonly reportStreamingDiagnostic: StreamingRuntimeDependencies['reportDiagnostic'];
   readonly resolveStreamingCapability: StreamingRuntimeDependencies['resolveCapability'];
+  readonly transcriptionLogger: TranscriptionCompletionDependencies['logger'];
   readonly writeClipboardText: (text: string) => void;
 }
 
@@ -100,6 +101,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     const completionDependencies: TranscriptionCompletionDependencies = {
       cache,
       historyRepository,
+      logger: this.dependencies.transcriptionLogger,
       writeClipboardText: this.dependencies.writeClipboardText,
     };
     const transcriptionService = new TranscriptionService({

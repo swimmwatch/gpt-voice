@@ -1,14 +1,11 @@
-import * as path from 'node:path';
 import type { BrowserContext } from 'playwright-core';
-import { APP_DIR } from '../config';
-import { readClaudeWebPrivateJson, removeClaudeWebPrivateFile, writeClaudeWebPrivateJson } from './claudeWebSettings';
+import type { ClaudeWebPrivateJsonRepository } from './claudeWebSettings';
 
 type PlaywrightStorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
 export type ClaudeWebSessionCookie = PlaywrightStorageState['cookies'][number];
 export type ClaudeWebOriginState = PlaywrightStorageState['origins'][number];
 
-export const CLAUDE_WEB_SESSION_FILE = path.join(APP_DIR, 'claude-web-session.json');
 export const CLAUDE_WEB_SESSION_SCHEMA_VERSION = 1;
 export const CLAUDE_WEB_ORIGIN = 'https://claude.ai';
 export const DEFAULT_CLAUDE_WEB_ACCOUNT_SCOPE = 'unknown';
@@ -28,6 +25,11 @@ export type ClaudeWebSessionReadResult =
 export interface ClaudeWebSessionValidationOptions {
   nowSeconds?: number;
   origin?: string;
+}
+
+export interface ClaudeWebSessionRepositoryDependencies {
+  readonly privateJson: ClaudeWebPrivateJsonRepository;
+  readonly sessionFile: string;
 }
 
 export interface ClaudeWebEligibleOrganization {
@@ -159,32 +161,33 @@ export function createClaudeWebSessionState(
   };
 }
 
-export function saveClaudeWebSession(
-  storageState: PlaywrightStorageState,
-  filePath = CLAUDE_WEB_SESSION_FILE,
-  options: ClaudeWebSessionValidationOptions = {},
-): ClaudeWebSessionState {
-  const state = createClaudeWebSessionState(storageState, options);
-  const result = parseClaudeWebSessionState(state, options);
-  if (result.status !== 'usable') {
-    throw new Error(`Claude Web session state is not usable: ${result.status}`);
-  }
-  writeClaudeWebPrivateJson(filePath, result.state);
-  return result.state;
-}
+/** Provider session repository with an owned file path and injected private storage. */
+export class ClaudeWebSessionRepository {
+  public constructor(private readonly dependencies: ClaudeWebSessionRepositoryDependencies) {}
 
-export function readClaudeWebSession(
-  filePath = CLAUDE_WEB_SESSION_FILE,
-  options: ClaudeWebSessionValidationOptions = {},
-): ClaudeWebSessionReadResult {
-  const result = readClaudeWebPrivateJson(filePath);
-  if (result.status === 'missing') return { status: 'missing' };
-  if (result.status === 'malformed') return { status: 'malformed' };
-  return parseClaudeWebSessionState(result.value, options);
-}
+  public readonly saveSession = (
+    storageState: PlaywrightStorageState,
+    options: ClaudeWebSessionValidationOptions = {},
+  ): ClaudeWebSessionState => {
+    const state = createClaudeWebSessionState(storageState, options);
+    const result = parseClaudeWebSessionState(state, options);
+    if (result.status !== 'usable') {
+      throw new Error(`Claude Web session state is not usable: ${result.status}`);
+    }
+    this.dependencies.privateJson.write(this.dependencies.sessionFile, result.state);
+    return result.state;
+  };
 
-export function clearClaudeWebSession(filePath = CLAUDE_WEB_SESSION_FILE): boolean {
-  return removeClaudeWebPrivateFile(filePath);
+  public readonly readSession = (options: ClaudeWebSessionValidationOptions = {}): ClaudeWebSessionReadResult => {
+    const result = this.dependencies.privateJson.read(this.dependencies.sessionFile);
+    if (result.status === 'missing') return { status: 'missing' };
+    if (result.status === 'malformed') return { status: 'malformed' };
+    return parseClaudeWebSessionState(result.value, options);
+  };
+
+  public readonly clearSession = (): boolean => {
+    return this.dependencies.privateJson.remove(this.dependencies.sessionFile);
+  };
 }
 
 export function getPlaywrightStorageState(state: ClaudeWebSessionState): PlaywrightStorageState {

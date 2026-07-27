@@ -1,5 +1,4 @@
 import * as path from 'node:path';
-import * as os from 'node:os';
 import type * as fs from 'node:fs';
 import {
   DEFAULT_CANCEL_HOTKEY,
@@ -33,6 +32,9 @@ const CHATGPT_SESSION_FILE_NAME = 'chatgpt-session.json';
 const CHATGPT_TOKEN_FILE_NAME = 'access-token.json';
 const CLOAK_BROWSER_SETTINGS_FILE_NAME = 'cloakbrowser-settings.json';
 const PRETTIFY_SETTINGS_FILE_NAME = 'prettify-provider-settings.json';
+const OPENAI_API_SETTINGS_FILE_NAME = 'openai-api-settings.json';
+const CLAUDE_WEB_SETTINGS_FILE_NAME = 'claude-web-settings.json';
+const CLAUDE_WEB_SESSION_FILE_NAME = 'claude-web-session.json';
 const LEGACY_APP_DIRECTORY_NAMES = ['.gpt-voice', '.webvoice'] as const;
 const MIGRATED_LEGACY_ENTRIES = [
   CONFIG_FILE_NAME,
@@ -49,10 +51,13 @@ export interface AppConfigPaths {
   readonly browserCacheDirectory: string;
   readonly chatGPTSessionFile: string;
   readonly chatGPTTokenFile: string;
+  readonly claudeWebSessionFile: string;
+  readonly claudeWebSettingsFile: string;
   readonly cloakBrowserSettingsFile: string;
   readonly configFile: string;
   readonly databaseFile: string;
   readonly legacyAppDirectories: readonly string[];
+  readonly openAIApiSettingsFile: string;
   readonly prettifySettingsFile: string;
 }
 
@@ -124,22 +129,18 @@ export function resolveAppConfigPaths(dependencies: AppConfigPathDependencies): 
     browserCacheDirectory: path.join(appDirectory, BROWSER_CACHE_DIRECTORY_NAME),
     chatGPTSessionFile: path.join(appDirectory, CHATGPT_SESSION_FILE_NAME),
     chatGPTTokenFile: path.join(appDirectory, CHATGPT_TOKEN_FILE_NAME),
+    claudeWebSessionFile: path.join(appDirectory, CLAUDE_WEB_SESSION_FILE_NAME),
+    claudeWebSettingsFile: path.join(appDirectory, CLAUDE_WEB_SETTINGS_FILE_NAME),
     cloakBrowserSettingsFile: path.join(appDirectory, CLOAK_BROWSER_SETTINGS_FILE_NAME),
     configFile: path.join(appDirectory, CONFIG_FILE_NAME),
     databaseFile: path.join(appDirectory, DATABASE_FILE_NAME),
     legacyAppDirectories: Object.freeze(
       LEGACY_APP_DIRECTORY_NAMES.map((directoryName) => path.join(home, directoryName)),
     ),
+    openAIApiSettingsFile: path.join(appDirectory, OPENAI_API_SETTINGS_FILE_NAME),
     prettifySettingsFile: path.join(appDirectory, PRETTIFY_SETTINGS_FILE_NAME),
   });
 }
-
-/** Immutable legacy adapter path retained until Task 16 migrates remaining file adapters. */
-export const APP_DIR = resolveAppConfigPaths({
-  environment: process.env,
-  homeDirectory: os.homedir,
-  platform: process.platform,
-}).appDirectory;
 
 function isValidFingerprintSeed(value: string): boolean {
   return FINGERPRINT_SEED_PATTERN.test(value);

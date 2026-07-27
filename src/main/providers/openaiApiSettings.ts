@@ -1,12 +1,5 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { APP_DIR } from '../config';
-import {
-  decryptSafeStorageString,
-  encryptSafeStorageString,
-  isSafeStorageEncryptionAvailable,
-} from '../electronRuntime';
-import { createLogger } from '../logger';
+import type * as fs from 'node:fs';
+import type { ScopedLogger } from '../logger';
 import {
   assertValidOpenAIApiSettingsInput,
   normalizeOpenAIApiSettings,
@@ -18,83 +11,101 @@ import {
   type OpenAIApiSettingsWithSecret,
 } from './openaiApiSettingsUtils';
 
-const log = createLogger('openai-api-settings');
-const SETTINGS_FILE = path.join(APP_DIR, 'openai-api-settings.json');
+const PRIVATE_FILE_MODE = 0o600;
 
 interface StoredOpenAIApiSettings extends OpenAIApiSettingsInput {
   encryptedApiKey?: string;
 }
 
-function readStoredSettings(): StoredOpenAIApiSettings {
-  try {
-    if (!fs.existsSync(SETTINGS_FILE)) return {};
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) as StoredOpenAIApiSettings;
-  } catch (error) {
-    log.warn('Failed to read OpenAI API settings:', error);
-    return {};
-  }
-}
-
-function writeStoredSettings(settings: StoredOpenAIApiSettings): void {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), { mode: 0o600 });
-}
-
-function encryptApiKey(apiKey: string): string {
-  if (!isSafeStorageEncryptionAvailable()) {
-    throw new Error('Secure storage is not available on this system');
-  }
-  return encryptSafeStorageString(apiKey).toString('base64');
-}
-
-function decryptApiKey(encryptedApiKey?: string): string {
-  if (!encryptedApiKey) return '';
-  if (!isSafeStorageEncryptionAvailable()) return '';
-
-  try {
-    return decryptSafeStorageString(Buffer.from(encryptedApiKey, 'base64'));
-  } catch (error) {
-    log.warn('Failed to decrypt OpenAI API key:', error);
-    return '';
-  }
-}
-
-export function getOpenAIApiSettingsView(): OpenAIApiSettingsView {
-  const stored = readStoredSettings();
-  return sanitizeOpenAIApiSettings(stored, Boolean(decryptApiKey(stored.encryptedApiKey)));
-}
-
-export function getOpenAIApiSettings(): OpenAIApiSettings {
-  return normalizeOpenAIApiSettings(readStoredSettings());
-}
-
-export function getOpenAIApiSettingsWithSecret(): OpenAIApiSettingsWithSecret {
-  const stored = readStoredSettings();
-  return {
-    ...normalizeOpenAIApiSettings(stored),
-    apiKey: decryptApiKey(stored.encryptedApiKey),
+export interface OpenAIApiSettingsRepositoryDependencies {
+  readonly fileSystem: Pick<typeof fs, 'existsSync' | 'readFileSync' | 'writeFileSync'>;
+  readonly logger: Pick<ScopedLogger, 'warn'>;
+  readonly secureStorage: {
+    decrypt(encrypted: Buffer): string;
+    encrypt(plainText: string): Buffer;
+    isEncryptionAvailable(): boolean;
   };
+  readonly settingsFile: string;
 }
 
-export function saveOpenAIApiSettings(input: OpenAIApiSettingsInput): OpenAIApiSettingsView {
-  assertValidOpenAIApiSettingsInput(input);
-  const stored = readStoredSettings();
-  const normalized = normalizeOpenAIApiSettings({ ...stored, ...input });
-  const next: StoredOpenAIApiSettings = {
-    ...normalized,
-    encryptedApiKey: stored.encryptedApiKey,
+/** Filesystem and secure-storage repository for OpenAI API settings. */
+export class OpenAIApiSettingsRepository {
+  public constructor(private readonly dependencies: OpenAIApiSettingsRepositoryDependencies) {}
+
+  public readonly getView = (): OpenAIApiSettingsView => {
+    const stored = this.readStoredSettings();
+    return sanitizeOpenAIApiSettings(stored, Boolean(this.decryptApiKey(stored.encryptedApiKey)));
   };
 
-  if (shouldUpdateApiKey(input.apiKey)) {
-    next.encryptedApiKey = encryptApiKey(input.apiKey.trim());
+  public readonly getSettings = (): OpenAIApiSettings => {
+    return normalizeOpenAIApiSettings(this.readStoredSettings());
+  };
+
+  public readonly getSettingsWithSecret = (): OpenAIApiSettingsWithSecret => {
+    const stored = this.readStoredSettings();
+    return {
+      ...normalizeOpenAIApiSettings(stored),
+      apiKey: this.decryptApiKey(stored.encryptedApiKey),
+    };
+  };
+
+  public readonly save = (input: OpenAIApiSettingsInput): OpenAIApiSettingsView => {
+    assertValidOpenAIApiSettingsInput(input);
+    const stored = this.readStoredSettings();
+    const normalized = normalizeOpenAIApiSettings({ ...stored, ...input });
+    const next: StoredOpenAIApiSettings = {
+      ...normalized,
+      encryptedApiKey: stored.encryptedApiKey,
+    };
+
+    if (shouldUpdateApiKey(input.apiKey)) {
+      next.encryptedApiKey = this.encryptApiKey(input.apiKey.trim());
+    }
+
+    this.writeStoredSettings(next);
+    return sanitizeOpenAIApiSettings(next, Boolean(this.decryptApiKey(next.encryptedApiKey)));
+  };
+
+  public readonly clearApiKey = (): OpenAIApiSettingsView => {
+    const stored = this.readStoredSettings();
+    const next: StoredOpenAIApiSettings = normalizeOpenAIApiSettings(stored);
+    this.writeStoredSettings(next);
+    return sanitizeOpenAIApiSettings(next, false);
+  };
+
+  private readStoredSettings(): StoredOpenAIApiSettings {
+    try {
+      if (!this.dependencies.fileSystem.existsSync(this.dependencies.settingsFile)) return {};
+      return JSON.parse(
+        this.dependencies.fileSystem.readFileSync(this.dependencies.settingsFile, 'utf-8'),
+      ) as StoredOpenAIApiSettings;
+    } catch (error) {
+      this.dependencies.logger.warn('Failed to read OpenAI API settings:', error);
+      return {};
+    }
   }
 
-  writeStoredSettings(next);
-  return sanitizeOpenAIApiSettings(next, Boolean(decryptApiKey(next.encryptedApiKey)));
-}
+  private writeStoredSettings(settings: StoredOpenAIApiSettings): void {
+    this.dependencies.fileSystem.writeFileSync(this.dependencies.settingsFile, JSON.stringify(settings, null, 2), {
+      mode: PRIVATE_FILE_MODE,
+    });
+  }
 
-export function clearOpenAIApiKey(): OpenAIApiSettingsView {
-  const stored = readStoredSettings();
-  const next: StoredOpenAIApiSettings = normalizeOpenAIApiSettings(stored);
-  writeStoredSettings(next);
-  return sanitizeOpenAIApiSettings(next, false);
+  private encryptApiKey(apiKey: string): string {
+    if (!this.dependencies.secureStorage.isEncryptionAvailable()) {
+      throw new Error('Secure storage is not available on this system');
+    }
+    return this.dependencies.secureStorage.encrypt(apiKey).toString('base64');
+  }
+
+  private decryptApiKey(encryptedApiKey?: string): string {
+    if (!encryptedApiKey || !this.dependencies.secureStorage.isEncryptionAvailable()) return '';
+
+    try {
+      return this.dependencies.secureStorage.decrypt(Buffer.from(encryptedApiKey, 'base64'));
+    } catch (error) {
+      this.dependencies.logger.warn('Failed to decrypt OpenAI API key:', error);
+      return '';
+    }
+  }
 }

@@ -1,158 +1,162 @@
-import { createRequire } from 'node:module';
 import {
   getNotificationSoundKind,
   type SystemNotificationOptions,
   type SystemNotificationSound,
 } from '@shared/notifications';
-import { createLogger } from './logger';
+import type { ScopedLogger } from './logger';
 
 export type ClipboardType = 'clipboard' | 'selection';
 
-const log = createLogger('electron-runtime');
-const MACOS_NOTIFICATION_SOUNDS: Record<SystemNotificationSound, string> = {
+const MACOS_NOTIFICATION_SOUNDS: Readonly<Record<SystemNotificationSound, string>> = Object.freeze({
   success: 'Glass',
   error: 'Basso',
-};
+});
 const ERROR_BEEP_DELAY_MS = 160;
 
-interface ClipboardRuntime {
+export interface ClipboardRuntime {
   readText(type?: ClipboardType): string;
   writeText(text: string, type?: ClipboardType): void;
 }
 
-interface NotificationOptions {
+export interface NotificationOptions {
   title: string;
   body: string;
   silent?: boolean;
   sound?: string;
 }
 
-interface NotificationRuntime {
+export interface NotificationRuntime {
   new (options: NotificationOptions): {
     show(): void;
   };
 }
 
-interface ShellRuntime {
+export interface ShellRuntime {
   beep(): void;
+  openExternal(url: string): Promise<void>;
 }
 
-interface SafeStorageRuntime {
+export interface SafeStorageRuntime {
   isEncryptionAvailable(): boolean;
   encryptString(plainText: string): Buffer;
   decryptString(encrypted: Buffer): string;
 }
 
-interface ElectronRuntimeModule {
-  clipboard?: ClipboardRuntime;
-  Notification?: NotificationRuntime;
-  safeStorage?: SafeStorageRuntime;
-  shell?: ShellRuntime;
+export interface ElectronRuntimeModule {
+  readonly clipboard?: ClipboardRuntime;
+  readonly Notification?: NotificationRuntime;
+  readonly safeStorage?: SafeStorageRuntime;
+  readonly shell?: ShellRuntime;
 }
 
-type SoundScheduler = (callback: () => void, delayMs: number) => unknown;
+export type SoundScheduler = (callback: () => void, delayMs: number) => unknown;
 
-let electronRuntime: ElectronRuntimeModule | null = null;
-const loadRuntimeModule = createRequire(__filename);
-
-function loadElectronRuntime(): ElectronRuntimeModule {
-  if (!electronRuntime) {
-    electronRuntime = loadRuntimeModule('electron') as ElectronRuntimeModule;
-  }
-  return electronRuntime;
+export interface ElectronRuntimeLoaderDependencies {
+  readonly loadModule: () => ElectronRuntimeModule;
+  readonly logger: Pick<ScopedLogger, 'warn'>;
+  readonly platform: NodeJS.Platform;
+  readonly schedule: SoundScheduler;
 }
 
-function getClipboard(): ClipboardRuntime {
-  const { clipboard } = loadElectronRuntime();
-  if (!clipboard) {
-    throw new Error('Electron clipboard API is unavailable');
-  }
-  return clipboard;
-}
+/** Owns one isolated lazy Electron runtime module and its privileged adapters. */
+export class ElectronRuntimeLoader {
+  private electronRuntime: ElectronRuntimeModule | null = null;
 
-function getSafeStorage(): SafeStorageRuntime {
-  const { safeStorage } = loadElectronRuntime();
-  if (!safeStorage) {
-    throw new Error('Electron safeStorage API is unavailable');
-  }
-  return safeStorage;
-}
+  public constructor(private readonly dependencies: ElectronRuntimeLoaderDependencies) {}
 
-export function writeClipboardText(text: string): void {
-  getClipboard().writeText(text);
-}
+  public readonly writeClipboardText = (text: string): void => {
+    this.getClipboard().writeText(text);
+  };
 
-export function readClipboardText(type?: ClipboardType): string {
-  return getClipboard().readText(type);
-}
+  public readonly readClipboardText = (type?: ClipboardType): string => {
+    return this.getClipboard().readText(type);
+  };
 
-export function writeTypedClipboardText(text: string, type?: ClipboardType): void {
-  getClipboard().writeText(text, type);
-}
+  public readonly writeTypedClipboardText = (text: string, type?: ClipboardType): void => {
+    this.getClipboard().writeText(text, type);
+  };
 
-function scheduleSound(callback: () => void, delayMs: number): void {
-  setTimeout(callback, delayMs);
-}
+  public readonly showSystemNotification = (
+    title: string,
+    body: string,
+    options: SystemNotificationOptions = {},
+  ): void => {
+    const runtime = this.loadElectronRuntime();
+    const { Notification } = runtime;
+    if (!Notification) {
+      throw new Error('Electron notification API is unavailable');
+    }
 
-function playSystemBeep(runtime: ElectronRuntimeModule): void {
-  try {
-    runtime.shell?.beep();
-  } catch (error: unknown) {
-    log.warn('Could not play notification sound:', error instanceof Error ? error.message : error);
-  }
-}
+    const sound = getNotificationSoundKind(options);
+    const notificationOptions: NotificationOptions = { title, body, silent: false };
+    if (this.dependencies.platform === 'darwin' && sound) {
+      notificationOptions.sound = MACOS_NOTIFICATION_SOUNDS[sound];
+    }
 
-function playFallbackNotificationSound(
-  runtime: ElectronRuntimeModule,
-  sound: SystemNotificationSound,
-  schedule: SoundScheduler,
-): void {
-  if (!runtime.shell) {
-    return;
-  }
+    new Notification(notificationOptions).show();
+    if (this.dependencies.platform !== 'darwin' && sound) {
+      this.playFallbackNotificationSound(runtime, sound);
+    }
+  };
 
-  playSystemBeep(runtime);
-  if (sound === 'error') {
-    schedule(() => playSystemBeep(runtime), ERROR_BEEP_DELAY_MS);
-  }
-}
+  public readonly isSafeStorageEncryptionAvailable = (): boolean => {
+    return this.getSafeStorage().isEncryptionAvailable();
+  };
 
-export function showSystemNotificationWithRuntime(
-  runtime: ElectronRuntimeModule,
-  platform: NodeJS.Platform,
-  title: string,
-  body: string,
-  options: SystemNotificationOptions = {},
-  schedule: SoundScheduler = scheduleSound,
-): void {
-  const { Notification } = runtime;
-  if (!Notification) {
-    throw new Error('Electron notification API is unavailable');
-  }
-  const sound = getNotificationSoundKind(options);
-  const notificationOptions: NotificationOptions = { title, body, silent: false };
-  if (platform === 'darwin' && sound) {
-    notificationOptions.sound = MACOS_NOTIFICATION_SOUNDS[sound];
+  public readonly encryptSafeStorageString = (plainText: string): Buffer => {
+    return this.getSafeStorage().encryptString(plainText);
+  };
+
+  public readonly decryptSafeStorageString = (encrypted: Buffer): string => {
+    return this.getSafeStorage().decryptString(encrypted);
+  };
+
+  public readonly openExternal = (url: string): Promise<void> => {
+    const { shell } = this.loadElectronRuntime();
+    if (!shell) {
+      throw new Error('Electron shell API is unavailable');
+    }
+    return shell.openExternal(url);
+  };
+
+  private loadElectronRuntime(): ElectronRuntimeModule {
+    this.electronRuntime ??= this.dependencies.loadModule();
+    return this.electronRuntime;
   }
 
-  new Notification(notificationOptions).show();
-  if (platform !== 'darwin' && sound) {
-    playFallbackNotificationSound(runtime, sound, schedule);
+  private getClipboard(): ClipboardRuntime {
+    const { clipboard } = this.loadElectronRuntime();
+    if (!clipboard) {
+      throw new Error('Electron clipboard API is unavailable');
+    }
+    return clipboard;
   }
-}
 
-export function showSystemNotification(title: string, body: string, options?: SystemNotificationOptions): void {
-  showSystemNotificationWithRuntime(loadElectronRuntime(), process.platform, title, body, options);
-}
+  private getSafeStorage(): SafeStorageRuntime {
+    const { safeStorage } = this.loadElectronRuntime();
+    if (!safeStorage) {
+      throw new Error('Electron safeStorage API is unavailable');
+    }
+    return safeStorage;
+  }
 
-export function isSafeStorageEncryptionAvailable(): boolean {
-  return getSafeStorage().isEncryptionAvailable();
-}
+  private playSystemBeep(runtime: ElectronRuntimeModule): void {
+    try {
+      runtime.shell?.beep();
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not play notification sound:',
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
 
-export function encryptSafeStorageString(plainText: string): Buffer {
-  return getSafeStorage().encryptString(plainText);
-}
+  private playFallbackNotificationSound(runtime: ElectronRuntimeModule, sound: SystemNotificationSound): void {
+    if (!runtime.shell) return;
 
-export function decryptSafeStorageString(encrypted: Buffer): string {
-  return getSafeStorage().decryptString(encrypted);
+    this.playSystemBeep(runtime);
+    if (sound === 'error') {
+      this.dependencies.schedule(() => this.playSystemBeep(runtime), ERROR_BEEP_DELAY_MS);
+    }
+  }
 }

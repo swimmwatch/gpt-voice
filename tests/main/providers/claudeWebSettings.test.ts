@@ -5,9 +5,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   CLAUDE_WEB_PRIVATE_FILE_MODE,
-  CLAUDE_WEB_SETTINGS_FILE,
-  getClaudeWebSettings,
-  saveClaudeWebSettings,
+  ClaudeWebSettingsRepository,
+  FileClaudeWebPrivateJsonRepository,
 } from '@main/providers/claudeWebSettings';
 import {
   CLAUDE_WEB_PROVIDER_ID,
@@ -27,6 +26,13 @@ function createSettingsFile(): string {
   return path.join(directory, 'settings.json');
 }
 
+function createSettingsRepository(filePath: string): ClaudeWebSettingsRepository {
+  return new ClaudeWebSettingsRepository({
+    privateJson: new FileClaudeWebPrivateJsonRepository({ fileSystem: fs }),
+    settingsFile: filePath,
+  });
+}
+
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
     fs.rmSync(directory, { recursive: true, force: true });
@@ -37,8 +43,6 @@ describe('claudeWebSettings', () => {
   it('defines an isolated provider ID and deterministic default', () => {
     assert.equal(CLAUDE_WEB_PROVIDER_ID, 'claude-web');
     assert.deepEqual(normalizeClaudeWebSettings(), DEFAULT_CLAUDE_WEB_SETTINGS);
-    assert.notEqual(path.basename(CLAUDE_WEB_SETTINGS_FILE), 'openai-api-settings.json');
-    assert.notEqual(path.basename(CLAUDE_WEB_SETTINGS_FILE), 'chatgpt-session.json');
   });
 
   it('canonicalizes valid BCP-47 tags and trims surrounding whitespace', () => {
@@ -87,13 +91,14 @@ describe('claudeWebSettings', () => {
 
   it('persists only schema metadata and canonical language with restrictive permissions', () => {
     const filePath = createSettingsFile();
+    const repository = createSettingsRepository(filePath);
 
-    assert.deepEqual(saveClaudeWebSettings({ language: 'UK-ua' }, filePath), { language: 'uk-UA' });
+    assert.deepEqual(repository.save({ language: 'UK-ua' }), { language: 'uk-UA' });
     assert.deepEqual(JSON.parse(fs.readFileSync(filePath, 'utf8')), {
       schemaVersion: 1,
       language: 'uk-UA',
     });
-    assert.deepEqual(getClaudeWebSettings(filePath), { language: 'uk-UA' });
+    assert.deepEqual(repository.getSettings(), { language: 'uk-UA' });
 
     if (process.platform !== 'win32') {
       assert.equal(fs.statSync(filePath).mode & 0o777, CLAUDE_WEB_PRIVATE_FILE_MODE);
@@ -102,12 +107,13 @@ describe('claudeWebSettings', () => {
 
   it('falls back safely when settings are missing, malformed, or unsupported', () => {
     const filePath = createSettingsFile();
-    assert.deepEqual(getClaudeWebSettings(filePath), DEFAULT_CLAUDE_WEB_SETTINGS);
+    const repository = createSettingsRepository(filePath);
+    assert.deepEqual(repository.getSettings(), DEFAULT_CLAUDE_WEB_SETTINGS);
 
     fs.writeFileSync(filePath, '{');
-    assert.deepEqual(getClaudeWebSettings(filePath), DEFAULT_CLAUDE_WEB_SETTINGS);
+    assert.deepEqual(repository.getSettings(), DEFAULT_CLAUDE_WEB_SETTINGS);
 
     fs.writeFileSync(filePath, JSON.stringify({ schemaVersion: 2, language: 'fr-FR' }));
-    assert.deepEqual(getClaudeWebSettings(filePath), DEFAULT_CLAUDE_WEB_SETTINGS);
+    assert.deepEqual(repository.getSettings(), DEFAULT_CLAUDE_WEB_SETTINGS);
   });
 });

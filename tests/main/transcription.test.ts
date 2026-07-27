@@ -96,6 +96,11 @@ function createTestService(options: TestServiceOptions = {}) {
     cache,
     getRequestedAt: () => '2026-07-12T00:00:00.000Z',
     historyRepository,
+    logger: {
+      error: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+    },
     localization: new I18nService(),
     writeClipboardText: (text) => {
       clipboard.push(text);

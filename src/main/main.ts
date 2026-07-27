@@ -2,64 +2,47 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   app,
   BrowserWindow,
+  clipboard,
   globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
+  Notification,
   protocol,
+  safeStorage,
   session,
   shell,
   Tray,
 } from 'electron';
-import log, { createLogger } from './logger';
 import { resolveAppConfigPaths } from './config';
-import { configureCloakBrowserRuntime, launchCloakContext, launchCloakPersistentContext } from './cloakbrowser';
+import type { CloakBrowserApi } from './cloakbrowser';
 import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
-import {
-  decryptSafeStorageString,
-  encryptSafeStorageString,
-  isSafeStorageEncryptionAvailable,
-  readClipboardText,
-  showSystemNotification,
-  writeClipboardText,
-  writeTypedClipboardText,
-} from './electronRuntime';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { runTextAutomationAction } from './services/textAutomation';
-import {
-  createCloakBrowserLoginContextOptions,
-  createCloakBrowserPersistentContextOptions,
-  createCloakBrowserTranslationContextOptions,
-} from './cloakBrowserLaunchOptions';
-import {
-  clearOpenAIApiKey,
-  getOpenAIApiSettingsView,
-  getOpenAIApiSettingsWithSecret,
-  saveOpenAIApiSettings,
-} from './providers/openaiApiSettings';
-import {
-  clearClaudeWebSession,
-  getPlaywrightStorageState,
-  readClaudeWebSession,
-  resolveClaudeWebOrganization,
-  saveClaudeWebSession,
-} from './providers/claudeWebSession';
-import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
+import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from './translateProviders/GoogleTranslateProvider';
 import { createPlaywrightBingTranslatePageAdapter } from './translateProviders/BingTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from './translateProviders/YandexTranslateProvider';
+
+const loadRuntimeModule = createRequire(__filename);
+// CloakBrowser is ESM while the Electron main bundle is CommonJS.
+// eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
+const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<CloakBrowserApi>;
 
 function getCurrentDate(): Date {
   return new Date();
@@ -89,19 +72,20 @@ const appConfigPaths = resolveAppConfigPaths({
 
 const application = new MainProcessCompositionRoot({
   cacheNow: Date.now,
+  cloakBrowserRuntime: {
+    environment: process.env,
+    fileSystem: fs,
+    importModule: importCloakBrowserModule,
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    resourcesPath: process.resourcesPath,
+  },
   cloakBrowserSettings: {
     fileSystem: fs,
-    logger: createLogger('cloakbrowser-settings'),
-    secureStorage: {
-      decrypt: decryptSafeStorageString,
-      encrypt: encryptSafeStorageString,
-      isEncryptionAvailable: isSafeStorageEncryptionAvailable,
-    },
   },
   config: {
     fileSystem: fs,
     generateFingerprintSeed,
-    logger: createLogger('config'),
     paths: appConfigPaths,
     writeFileAtomically: (filePath, contents) =>
       writeTextFileAtomically(filePath, contents, {
@@ -109,26 +93,29 @@ const application = new MainProcessCompositionRoot({
         fileSystem: fs,
       }),
   },
-  diagnosticLogger: createLogger('diagnostic-capture'),
+  electronRuntime: {
+    loadModule: () => ({
+      clipboard,
+      Notification,
+      safeStorage,
+      shell,
+    }),
+    platform: process.platform,
+    schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+  },
   getMonotonicTimeMs,
   getRequestedAt,
-  historyLogger: createLogger('ipc'),
   ipc: {
     ipc: {
       handle: (channel, listener) => ipcMain.handle(channel, listener),
       removeHandler: (channel) => ipcMain.removeHandler(channel),
     },
-    logger: createLogger('ipc'),
-    notification: {
-      show: showSystemNotification,
-    },
     platform: process.platform,
-    voiceSettings: {
-      clearOpenAIApiKey,
-      getClaudeWebSettings,
-      getOpenAIApiSettingsView,
-      saveClaudeWebSettings,
-      saveOpenAIApiSettings,
+  },
+  logger: {
+    loadModule: () => {
+      const moduleValue: unknown = loadRuntimeModule('electron-log/main');
+      return moduleValue;
     },
   },
   now: getCurrentDate,
@@ -138,7 +125,6 @@ const application = new MainProcessCompositionRoot({
   prettify: {
     audit: {
       elapsedNow: Date.now,
-      getSink: () => createLogger('provider-audit'),
       now: getCurrentDate,
       randomUUID,
     },
@@ -177,37 +163,23 @@ const application = new MainProcessCompositionRoot({
       automateTextAction: async (action) => {
         await runTextAutomationAction(action);
       },
-      clipboard: {
-        readText: readClipboardText,
-        writeText: writeTypedClipboardText,
-      },
       getCacheContext: () => [],
-      logger: createLogger('selection-prettify'),
-      notify: showSystemNotification,
       platform: process.platform,
       wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
     },
     settingsStorage: {
       fileSystem: fs,
-      logger: createLogger('prettify-settings'),
-      secureStorage: {
-        decrypt: decryptSafeStorageString,
-        encrypt: encryptSafeStorageString,
-        isEncryptionAvailable: isSafeStorageEncryptionAvailable,
-      },
     },
   },
   translation: {
     audit: {
       elapsedNow: Date.now,
-      getSink: () => createLogger('provider-audit'),
       now: getCurrentDate,
       randomUUID,
     },
     now: Date.now,
     providers: {
       createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
-      createContext: launchCloakContext,
       createContextOptions: createCloakBrowserTranslationContextOptions,
       createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
       createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
@@ -217,12 +189,6 @@ const application = new MainProcessCompositionRoot({
       automateTextAction: async (action) => {
         await runTextAutomationAction(action);
       },
-      clipboard: {
-        readText: readClipboardText,
-        writeText: writeTypedClipboardText,
-      },
-      logger: createLogger('selection-translate'),
-      notify: showSystemNotification,
       platform: process.platform,
       wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
     },
@@ -230,64 +196,38 @@ const application = new MainProcessCompositionRoot({
   voice: {
     audit: {
       elapsedNow: Date.now,
-      getSink: () => createLogger('provider-audit'),
       now: getCurrentDate,
       randomUUID,
     },
-    browser: {
-      createBackgroundContext: (settings) =>
-        launchCloakPersistentContext(
-          createCloakBrowserPersistentContextOptions(settings, appConfigPaths.browserCacheDirectory),
-        ),
-      createLoginContext: (settings) => launchCloakContext(createCloakBrowserLoginContextOptions(settings)),
-      logger: createLogger('browser'),
-    },
+    browser: {},
     providers: {
       chatGPT: {
-        logger: createLogger('chatgpt-provider'),
         now: Date.now,
         reloadPage: async (page, timeoutMs) => {
           await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
         },
         sessionStore: {
           fileSystem: fs,
-          logger: createLogger('chatgpt-provider'),
           now: Date.now,
-          sessionFile: appConfigPaths.chatGPTSessionFile,
-          tokenFile: appConfigPaths.chatGPTTokenFile,
         },
-        writeClipboardText,
       },
       claudeWeb: {
-        clearSession: clearClaudeWebSession,
         createTransport: createClaudeWebPageTransport,
-        getSettings: getClaudeWebSettings,
-        getStorageState: getPlaywrightStorageState,
         inspectReadiness: inspectClaudeWebReadiness,
-        navigationLogger: createLogger('claude-web-provider'),
         now: Date.now,
-        readSession: readClaudeWebSession,
-        resolveOrganization: resolveClaudeWebOrganization,
-        saveSession: saveClaudeWebSession,
         waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
-        writeClipboardText,
       },
       openAIApi: {
         fetch,
-        getSettings: getOpenAIApiSettingsWithSecret,
-        writeClipboardText,
       },
     },
   },
-  writeClipboardText,
 }).createApplication({
   app,
-  configureCloakBrowserRuntime,
   desktopControllers: {
     appProtocol: {
       appIconPath: getAppIconPath(),
       appRoot: path.resolve(__dirname),
-      logger: createLogger('app-protocol'),
       protocol,
       readFile,
     },
@@ -299,7 +239,6 @@ const application = new MainProcessCompositionRoot({
       environment: process.env,
       exit: (code) => process.exit(code),
       getAppIconPath,
-      openExternal: (url) => shell.openExternal(url),
       platform: process.platform,
       schedule: (callback, delayMs) => setTimeout(callback, delayMs),
       session,
@@ -313,14 +252,12 @@ const application = new MainProcessCompositionRoot({
       getAppIconPath,
       getAssetPath,
       homeDirectory: os.homedir,
-      logger: createLogger('desktop-integration'),
       platform: process.platform,
       spawn: (command, args, options) => spawn(command, [...args], options),
       syncDesktopIcons: syncLinuxDesktopIcons,
     },
     shortcuts: {
       globalShortcut,
-      logger: createLogger('shortcuts'),
       platform: process.platform,
     },
     tray: {
@@ -336,13 +273,10 @@ const application = new MainProcessCompositionRoot({
       getAppIcon,
       getAppIconPath,
       getAppUrl,
-      logger: createLogger('window'),
-      openExternal: (url) => shell.openExternal(url),
       platform: process.platform,
       preloadPath: path.join(__dirname, 'preload.js'),
     },
   },
-  logger: log,
 });
 
 application.bootstrap();

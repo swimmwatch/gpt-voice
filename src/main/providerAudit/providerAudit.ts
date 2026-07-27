@@ -1,8 +1,6 @@
 /* eslint-disable max-classes-per-file -- the public base and private lifecycle implementations form one audit core. */
 import { randomUUID } from 'node:crypto';
 
-import { createLogger } from '@main/logger';
-
 import {
   PROVIDER_AUDIT_LABEL,
   PROVIDER_AUDIT_SCHEMA_VERSION,
@@ -97,7 +95,7 @@ export interface ProviderAuditDependencies {
 
 const DEFAULT_DEPENDENCIES: ProviderAuditDependencies = {
   elapsedNow: Date.now,
-  getSink: () => createLogger('provider-audit'),
+  getSink: () => undefined,
   now: () => new Date(),
   randomUUID,
 };

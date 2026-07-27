@@ -4,18 +4,15 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
-  CLAUDE_WEB_SESSION_FILE,
-  clearClaudeWebSession,
+  ClaudeWebSessionRepository,
   createClaudeWebSessionState,
   getClaudeWebReadinessFailureCategory,
   getPlaywrightStorageState,
-  readClaudeWebSession,
   resolveClaudeWebOrganization,
-  saveClaudeWebSession,
   type ClaudeWebAccountScope,
   type ClaudeWebSessionCookie,
 } from '@main/providers/claudeWebSession';
-import { CLAUDE_WEB_PRIVATE_FILE_MODE } from '@main/providers/claudeWebSettings';
+import { CLAUDE_WEB_PRIVATE_FILE_MODE, FileClaudeWebPrivateJsonRepository } from '@main/providers/claudeWebSettings';
 
 const TEST_ORIGIN = 'https://voice.test.invalid';
 const TEST_ORIGIN_OPTIONS = { origin: TEST_ORIGIN, nowSeconds: 1_000 } as const;
@@ -25,6 +22,13 @@ function createSessionFile(): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-claude-session-'));
   temporaryDirectories.push(directory);
   return path.join(directory, 'session.json');
+}
+
+function createSessionRepository(filePath: string): ClaudeWebSessionRepository {
+  return new ClaudeWebSessionRepository({
+    privateJson: new FileClaudeWebPrivateJsonRepository({ fileSystem: fs }),
+    sessionFile: filePath,
+  });
 }
 
 function cookie(overrides: Partial<ClaudeWebSessionCookie> = {}): ClaudeWebSessionCookie {
@@ -67,6 +71,7 @@ afterEach(() => {
 describe('claudeWebSession', () => {
   it('uses a provider-specific path and persists only relevant browser state', () => {
     const filePath = createSessionFile();
+    const repository = createSessionRepository(filePath);
     const state = storageState({
       cookies: [
         cookie(),
@@ -79,10 +84,8 @@ describe('claudeWebSession', () => {
       ],
     });
 
-    assert.notEqual(path.basename(CLAUDE_WEB_SESSION_FILE), 'chatgpt-session.json');
-    assert.notEqual(path.basename(CLAUDE_WEB_SESSION_FILE), 'openai-api-settings.json');
     assert.deepEqual(
-      saveClaudeWebSession(state, filePath, TEST_ORIGIN_OPTIONS),
+      repository.saveSession(state, TEST_ORIGIN_OPTIONS),
       createClaudeWebSessionState(state, TEST_ORIGIN_OPTIONS),
     );
 
@@ -98,9 +101,10 @@ describe('claudeWebSession', () => {
 
   it('round-trips usable state without schema metadata in the Playwright view', () => {
     const filePath = createSessionFile();
-    saveClaudeWebSession(storageState(), filePath, TEST_ORIGIN_OPTIONS);
+    const repository = createSessionRepository(filePath);
+    repository.saveSession(storageState(), TEST_ORIGIN_OPTIONS);
 
-    const result = readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS);
+    const result = repository.readSession(TEST_ORIGIN_OPTIONS);
     assert.equal(result.status, 'usable');
     if (result.status !== 'usable') return;
     assert.deepEqual(getPlaywrightStorageState(result.state), storageState());
@@ -109,35 +113,34 @@ describe('claudeWebSession', () => {
 
   it('classifies missing, malformed, unsupported, expired, and missing-origin state', () => {
     const filePath = createSessionFile();
-    assert.deepEqual(readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS), { status: 'missing' });
+    const repository = createSessionRepository(filePath);
+    assert.deepEqual(repository.readSession(TEST_ORIGIN_OPTIONS), { status: 'missing' });
 
     fs.writeFileSync(filePath, '{');
-    assert.deepEqual(readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS), { status: 'malformed' });
+    assert.deepEqual(repository.readSession(TEST_ORIGIN_OPTIONS), { status: 'malformed' });
 
     fs.writeFileSync(filePath, JSON.stringify({ schemaVersion: 2, cookies: [], origins: [] }));
-    assert.deepEqual(readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS), { status: 'unsupported-version' });
+    assert.deepEqual(repository.readSession(TEST_ORIGIN_OPTIONS), { status: 'unsupported-version' });
 
     fs.writeFileSync(
       filePath,
       JSON.stringify({ schemaVersion: 1, ...storageState({ cookies: [cookie({ expires: 999 })] }) }),
     );
-    assert.deepEqual(readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS), { status: 'expired' });
+    assert.deepEqual(repository.readSession(TEST_ORIGIN_OPTIONS), { status: 'expired' });
 
     fs.writeFileSync(filePath, JSON.stringify({ schemaVersion: 1, ...storageState({ origins: [] }) }));
-    assert.deepEqual(readClaudeWebSession(filePath, TEST_ORIGIN_OPTIONS), { status: 'missing-origin' });
+    assert.deepEqual(repository.readSession(TEST_ORIGIN_OPTIONS), { status: 'missing-origin' });
   });
 
   it('rejects unusable saves and clears persisted state without exposing values', () => {
     const filePath = createSessionFile();
-    assert.throws(
-      () => saveClaudeWebSession(storageState({ origins: [] }), filePath, TEST_ORIGIN_OPTIONS),
-      /missing-origin/,
-    );
+    const repository = createSessionRepository(filePath);
+    assert.throws(() => repository.saveSession(storageState({ origins: [] }), TEST_ORIGIN_OPTIONS), /missing-origin/);
     assert.equal(fs.existsSync(filePath), false);
 
-    saveClaudeWebSession(storageState(), filePath, TEST_ORIGIN_OPTIONS);
-    assert.equal(clearClaudeWebSession(filePath), true);
-    assert.equal(clearClaudeWebSession(filePath), false);
+    repository.saveSession(storageState(), TEST_ORIGIN_OPTIONS);
+    assert.equal(repository.clearSession(), true);
+    assert.equal(repository.clearSession(), false);
   });
 
   it('resolves exactly one active organization without using response order', () => {

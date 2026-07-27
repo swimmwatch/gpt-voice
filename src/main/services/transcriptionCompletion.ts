@@ -1,15 +1,17 @@
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
 import type { TranscriptionHistoryRepository } from '../repositories/transcriptionHistoryRepository';
-import { createLogger } from '../logger';
 import { createTranscriptionResultCacheKey } from './transcriptionResultCache';
 import type { TextActionResultCache } from './textActionCache';
 import { presentNotificationError } from '@shared/notifications';
 
-const log = createLogger('transcribe');
-
 export interface TranscriptionCompletionDependencies {
   cache: TextActionResultCache;
   historyRepository: TranscriptionHistoryRepository;
+  logger: {
+    error(...args: unknown[]): void;
+    info(...args: unknown[]): void;
+    warn(...args: unknown[]): void;
+  };
   writeClipboardText: (text: string) => void;
 }
 
@@ -56,10 +58,10 @@ export function readCachedTranscription(
     });
     const cachedText = deps.cache.get(key);
     const isHit = Boolean(cachedText?.trim());
-    log.info('Transcription result cache lookup:', { ...metadata, hit: isHit });
+    deps.logger.info('Transcription result cache lookup:', { ...metadata, hit: isHit });
     return isHit ? cachedText : null;
   } catch {
-    log.warn('Transcription result cache lookup failed:', metadata);
+    deps.logger.warn('Transcription result cache lookup failed:', metadata);
     return null;
   }
 }
@@ -81,9 +83,9 @@ function cacheTranscriptionResult(
       providerId: snapshot.providerId,
     });
     deps.cache.set(key, text);
-    if (reportCacheActivity) log.info('Transcription result cache stored:', metadata);
+    if (reportCacheActivity) deps.logger.info('Transcription result cache stored:', metadata);
   } catch {
-    if (reportCacheActivity) log.warn('Transcription result cache storage failed:', metadata);
+    if (reportCacheActivity) deps.logger.warn('Transcription result cache storage failed:', metadata);
   }
 }
 
@@ -102,7 +104,7 @@ function recordTranscriptionHistory(
     });
   } catch (historyError: unknown) {
     if (!reportFailure) return;
-    log.warn('Failed to save transcription history entry:', {
+    deps.logger.warn('Failed to save transcription history entry:', {
       textLength: text.length,
       ...presentNotificationError(historyError, { context: 'transcription' }).safeLogMetadata,
     });

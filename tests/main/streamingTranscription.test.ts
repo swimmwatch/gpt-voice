@@ -254,6 +254,11 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
         : null,
     writeClipboardText: (text) => clipboard.push(text),
     ...overrides,
+    logger: overrides.logger ?? {
+      error: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+    },
   };
   const service = new StreamingTranscriptionService(deps);
 

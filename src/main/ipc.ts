@@ -43,6 +43,8 @@ import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
 import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
 import type { PrettifyRuntime } from './services/prettifyProviders';
+import type { OpenAIApiSettingsRepository } from './providers/openaiApiSettings';
+import type { ClaudeWebSettingsRepository } from './providers/claudeWebSettings';
 import { PrettifyConnectionCheckCoordinator } from './services/prettifyConnectionCheckCoordinator';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import {
@@ -86,11 +88,11 @@ export type MainIpcCloakBrowserSettingsRepository = Pick<CloakBrowserSettingsRep
 export type MainIpcPrettifySettingsRepository = Pick<PrettifySettingsStorage, 'getView' | 'save'>;
 
 export interface MainIpcVoiceSettingsRepository {
-  readonly clearOpenAIApiKey: typeof import('./providers/openaiApiSettings').clearOpenAIApiKey;
-  readonly getClaudeWebSettings: typeof import('./providers/claudeWebSettings').getClaudeWebSettings;
-  readonly getOpenAIApiSettingsView: typeof import('./providers/openaiApiSettings').getOpenAIApiSettingsView;
-  readonly saveClaudeWebSettings: typeof import('./providers/claudeWebSettings').saveClaudeWebSettings;
-  readonly saveOpenAIApiSettings: typeof import('./providers/openaiApiSettings').saveOpenAIApiSettings;
+  readonly clearOpenAIApiKey: OpenAIApiSettingsRepository['clearApiKey'];
+  readonly getClaudeWebSettings: ClaudeWebSettingsRepository['getSettings'];
+  readonly getOpenAIApiSettingsView: OpenAIApiSettingsRepository['getView'];
+  readonly saveClaudeWebSettings: ClaudeWebSettingsRepository['save'];
+  readonly saveOpenAIApiSettings: OpenAIApiSettingsRepository['save'];
 }
 
 export interface MainIpcLogger {

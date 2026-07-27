@@ -1,70 +1,69 @@
-# Handoff: Provider Audit Task 15 Complete
+# Handoff: Provider Audit Task 16 Complete
 
 ## Status
 
-- Tasks 01–14 are committed; Task 14 is
-  `7d6c4445 refactor(di): migrate preload and renderer`.
-- Task 15 is implemented and verified, with all Task 15 changes left unstaged
+- Tasks 01–15 are committed; Task 15 is
+  `6b18fa8 refactor(di): migrate config and localization`.
+- Task 16 is implemented and verified, with all Task 16 changes left unstaged
   and uncommitted for review.
 
 ## Completed Work
 
-- Added side-effect-free `AppConfigStore` construction, immutable
-  `AppConfigSnapshot` values, injected paths/filesystem/fingerprint/logger/
-  atomic-write dependencies, and explicit load/save ownership.
-- Preserved the config JSON shape, field-isolated normalization, fingerprint
-  and hotkey migration, Translation repair notices, legacy directory migration,
-  and atomic persistence behavior.
-- Replaced global locale state with isolated `I18nService` instances and
-  immutable locale catalogs.
-- Added application-owned `CloakBrowserSettingsRepository` and
-  `PrettifySettingsStorage` instances with injected filesystem, secure-storage,
-  logger, and config dependencies.
-- Migrated Voice, Translation, Prettify, browser, IPC, selected-text,
-  transcription, shortcut, tray, and startup consumers to graph-owned config
-  and localization services.
-- Added persistence, migration, immutability, encrypted-settings, startup,
-  composition-isolation, and stale-source-contract coverage.
+- Added graph-owned `LoggerFactory`, `ElectronRuntimeLoader`, and
+  `CloakBrowserRuntimeLoader` classes with isolated lazy module state and
+  injected module, platform, environment, filesystem, clock, and logging
+  dependencies.
+- Preserved logger scopes and levels, fail-open logger loading, clipboard,
+  notification sound, safe-storage, shell, packaged CloakBrowser path, and
+  lazy ESM behavior.
+- Added application-owned `OpenAIApiSettingsRepository`,
+  `FileClaudeWebPrivateJsonRepository`, `ClaudeWebSettingsRepository`, and
+  `ClaudeWebSessionRepository`; removed the remaining `APP_DIR` bridge.
+- Moved all runtime-adapter and provider-private repository construction into
+  `MainProcessCompositionRoot` and injected them into config, providers,
+  browser, Translation, Prettify, selected-text, transcription, IPC, and
+  desktop consumers.
+- Removed logger, Electron, and CloakBrowser module caches, compatibility
+  functions, module-owned loggers, and direct settings/session function seams.
+- Added focused adapter, repository, graph-isolation, lazy-loading,
+  persistence, permissions, and static source-contract coverage.
 
-## Task 15 Boundary
+## Task 16 Boundary
 
-- Core services: `src/main/config.ts`, `src/main/i18n/index.ts`,
-  `src/main/cloakBrowserSettings.ts`, and
-  `src/main/services/prettifySettingsStorage.ts`.
-- Composition and startup: `src/main/main.ts`,
-  `src/main/mainProcessApplication.ts`, `src/main/di/`,
-  `src/main/ipc.ts`, and `src/main/repositories/sqlite/appDatabase.ts`.
-- Direct consumers: Voice providers/browser, Translation providers/runtime,
-  Prettify providers/runtime, selected-text services, transcription,
-  shortcuts, tray, launch options, and Translation settings.
-- Focused tests include new `tests/main/appConfigStore.test.ts`,
-  `tests/main/appConfigTestUtils.ts`, and
-  `tests/main/cloakBrowserSettingsRepository.test.ts`, plus updated config,
-  i18n, settings-storage, startup, composition, provider, browser,
-  selected-text, controller, and renderer presentation tests.
+- Runtime adapters: `src/main/logger.ts`, `src/main/electronRuntime.ts`, and
+  `src/main/cloakbrowser.ts`.
+- Provider repositories and config paths:
+  `src/main/providers/openaiApiSettings.ts`,
+  `src/main/providers/claudeWebSettings.ts`,
+  `src/main/providers/claudeWebSession.ts`, and `src/main/config.ts`.
+- Composition and consumers: `src/main/main.ts`, `src/main/di/`,
+  `src/main/ipc.ts`, `src/main/providerAudit/providerAudit.ts`, and
+  transcription services.
+- Focused tests include new `tests/main/loggerFactory.test.ts`,
+  `tests/main/cloakBrowserRuntime.test.ts`, and
+  `tests/main/providers/openaiApiSettingsRepository.test.ts`, plus updated
+  Electron, Claude repository, composition, streaming, and transcription
+  tests.
 
 ## Checks
 
-- Core config/localization/settings/composition set passed: 75 tests.
-- Directly affected provider/browser/controller/renderer set passed: 239
-  tests.
-- Full unit suite passed: 952 tests.
+- Packet 16 adapter/composition/application focused set passed.
+- Directly affected provider, selected-text, settings, Translation, and
+  transcription focused set passed.
+- Full unit suite passed: 964 tests.
 - `npm run typecheck`, `npm run test:types`, `npm run lint`, and
   `npm run format:check` passed.
 - `git diff --check` passed.
 
 ## Risks And Manual Gaps
 
-- `APP_DIR` remains only as an immutable path bridge for the OpenAI settings
-  and Claude settings/session file adapters assigned to Task 16; it owns no
-  mutable state or import-time filesystem work.
-- Live Electron startup, real configuration directories, secure storage,
-  providers, credentials, private audio/text, and packaged smoke testing remain
-  deferred manual gates.
-- No dependency, IPC wire, renderer/preload contract, provider behavior,
-  package, push, PR, or release change was used.
+- Live Electron clipboard, notifications, safe storage, shell integration,
+  CloakBrowser import/launch, real configuration directories, providers,
+  credentials, and packaged paths remain deferred manual gates.
+- No renderer/preload/IPC wire, provider outcome, persisted JSON shape,
+  dependency, package, push, PR, or release change was used.
 
 ## Next Packet
 
-- [16 Runtime adapters](16_migrate_runtime_adapters.md)
-- Task 15 review and commit authorization are required before Task 16 begins.
+- [17 Project DI enforcement](17_enforce_project_di_boundaries.md)
+- Task 16 review and commit authorization are required before Task 17 begins.

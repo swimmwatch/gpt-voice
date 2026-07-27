@@ -172,28 +172,26 @@ class MainProcessCompositionHarness {
       homeDirectory: () => this.temporaryDirectory,
       platform: 'linux',
     });
-    const logger = {
-      error: () => undefined,
-      info: () => undefined,
-      warn: () => undefined,
-    };
-    const secureStorage = {
-      decrypt: (value: Buffer) => value.toString('utf8'),
-      encrypt: (value: string) => Buffer.from(value, 'utf8'),
-      isEncryptionAvailable: () => true,
-    };
     this.databasePath = configPaths.databaseFile;
     this.compositionEnvironment = {
       cacheNow: () => 0,
+      cloakBrowserRuntime: {
+        environment: {},
+        fileSystem: fs,
+        importModule: async () => ({
+          launchContext: async () => ({ close: async () => undefined }) as BrowserContext,
+          launchPersistentContext: async () => ({ close: async () => undefined }) as BrowserContext,
+        }),
+        isPackaged: false,
+        platform: 'linux',
+        resourcesPath: this.temporaryDirectory,
+      },
       cloakBrowserSettings: {
         fileSystem: fs,
-        logger,
-        secureStorage,
       },
       config: {
         fileSystem: fs,
         generateFingerprintSeed: () => '12345',
-        logger,
         paths: configPaths,
         writeFileAtomically: (filePath, contents) =>
           writeTextFileAtomically(filePath, contents, {
@@ -215,10 +213,27 @@ class MainProcessCompositionHarness {
         platform: 'win32',
         setFileMode: fs.chmodSync,
       },
-      diagnosticLogger: { warn: () => undefined },
+      electronRuntime: {
+        loadModule: () => ({
+          clipboard: {
+            readText: () => '',
+            writeText: () => undefined,
+          },
+          safeStorage: {
+            decryptString: (value) => value.toString('utf8'),
+            encryptString: (value) => Buffer.from(value, 'utf8'),
+            isEncryptionAvailable: () => true,
+          },
+          shell: {
+            beep: () => undefined,
+            openExternal: async () => undefined,
+          },
+        }),
+        platform: 'linux',
+        schedule: () => undefined,
+      },
       getMonotonicTimeMs: () => 0,
       getRequestedAt: () => '2026-07-27T12:00:00.000Z',
-      historyLogger: { warn: () => undefined },
       ipc: {
         ipc: {
           handle: (channel, listener) => {
@@ -229,35 +244,32 @@ class MainProcessCompositionHarness {
             this.state.ipcHandlers.delete(channel);
           },
         },
-        logger,
-        notification: {
-          show: () => undefined,
-        },
         platform: 'linux',
-        voiceSettings: {
-          clearOpenAIApiKey: () => ({
-            hasApiKey: false,
-            language: 'auto',
-            model: 'whisper-1',
-            prompt: '',
-            temperature: 0,
-          }),
-          getClaudeWebSettings: () => ({ language: 'en-US' }),
-          getOpenAIApiSettingsView: () => ({
-            hasApiKey: false,
-            language: 'auto',
-            model: 'whisper-1',
-            prompt: '',
-            temperature: 0,
-          }),
-          saveClaudeWebSettings: () => ({ language: 'en-US' }),
-          saveOpenAIApiSettings: () => ({
-            hasApiKey: false,
-            language: 'auto',
-            model: 'whisper-1',
-            prompt: '',
-            temperature: 0,
-          }),
+      },
+      logger: {
+        loadModule: () => {
+          const recordAudit = (_label: unknown, serialized: unknown): void => {
+            if (typeof serialized !== 'string') return;
+            const record = JSON.parse(serialized) as { family?: string };
+            if (record.family === 'prettify') this.state.prettifyAuditRecords.push(serialized);
+            if (record.family === 'translation') this.state.translationAuditRecords.push(serialized);
+          };
+          const scopedLogger = {
+            debug: () => undefined,
+            error: recordAudit,
+            info: recordAudit,
+            warn: recordAudit,
+          };
+          return {
+            ...scopedLogger,
+            errorHandler: { startCatching: () => undefined },
+            initialize: () => undefined,
+            scope: () => scopedLogger,
+            transports: {
+              console: { level: '' },
+              file: { level: '' },
+            },
+          };
         },
       },
       now: () => new Date('2026-07-27T12:00:00.000Z'),
@@ -267,17 +279,6 @@ class MainProcessCompositionHarness {
       prettify: {
         audit: {
           elapsedNow: () => 0,
-          getSink: () => ({
-            error: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
-            },
-            info: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
-            },
-            warn: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
-            },
-          }),
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000004',
         },
@@ -311,18 +312,10 @@ class MainProcessCompositionHarness {
         fetch: async () => ({ status: 200, text: async () => '{}' }),
         settingsStorage: {
           fileSystem: fs,
-          logger,
-          secureStorage,
         },
         selectedText: {
           automateTextAction: async () => undefined,
-          clipboard: {
-            readText: () => '',
-            writeText: () => undefined,
-          },
           getCacheContext: () => [],
-          logger: { info: () => undefined, warn: () => undefined },
-          notify: () => undefined,
           platform: 'linux',
           wait: async () => undefined,
         },
@@ -330,24 +323,12 @@ class MainProcessCompositionHarness {
       translation: {
         audit: {
           elapsedNow: () => 0,
-          getSink: () => ({
-            error: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
-            },
-            info: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
-            },
-            warn: (_label: unknown, serialized: unknown) => {
-              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
-            },
-          }),
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000003',
         },
         now: () => 0,
         providers: {
           createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
-          createContext: async () => ({ close: async () => undefined }) as BrowserContext,
           createContextOptions: () => ({ headless: true }),
           createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
           createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
@@ -355,12 +336,6 @@ class MainProcessCompositionHarness {
         },
         selectedText: {
           automateTextAction: async () => undefined,
-          clipboard: {
-            readText: () => '',
-            writeText: () => undefined,
-          },
-          logger: { info: () => undefined, warn: () => undefined },
-          notify: () => undefined,
           platform: 'linux',
           wait: async () => undefined,
         },
@@ -368,36 +343,23 @@ class MainProcessCompositionHarness {
       voice: {
         audit: {
           elapsedNow: () => 0,
-          getSink: () => null,
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000002',
         },
-        browser: {
-          createBackgroundContext: async () => ({ close: async () => undefined }) as BrowserContext,
-          createLoginContext: async () => ({ close: async () => undefined }) as BrowserContext,
-          logger: { info: () => undefined },
-        },
+        browser: {},
         providers: {
           chatGPT: {
-            logger: { info: () => undefined, warn: () => undefined },
             now: () => 0,
             reloadPage: async () => undefined,
             sessionStore: {
               fileSystem: fs,
-              logger: { error: () => undefined, info: () => undefined },
               now: () => 0,
-              sessionFile: path.join(this.temporaryDirectory, 'chatgpt-session.json'),
-              tokenFile: path.join(this.temporaryDirectory, 'access-token.json'),
             },
-            writeClipboardText: () => undefined,
           },
           claudeWeb: {
-            clearSession: () => false,
             createTransport: () => {
               throw new Error('unexpected Claude transport');
             },
-            getSettings: () => ({ language: 'en-US' }),
-            getStorageState: (session) => ({ cookies: session.cookies, origins: session.origins }),
             inspectReadiness: async () => ({
               authentication: 'unavailable',
               featureAvailable: false,
@@ -406,40 +368,21 @@ class MainProcessCompositionHarness {
                 eligibleOrganizations: [],
               },
             }),
-            navigationLogger: { warn: () => undefined },
             now: () => 0,
-            readSession: () => ({ status: 'missing' }),
-            resolveOrganization: () => ({
-              accountScope: 'unknown',
-              routing: { status: 'missing' },
-            }),
-            saveSession: () => undefined,
             waitForReadinessRetry: async () => undefined,
-            writeClipboardText: () => undefined,
           },
           openAIApi: {
             fetch: async () => ({ status: 200, text: async () => '' }),
-            getSettings: () => ({
-              apiKey: '',
-              language: 'auto',
-              model: 'whisper-1',
-              prompt: '',
-              temperature: 0,
-            }),
-            writeClipboardText: () => undefined,
           },
         },
       },
-      writeClipboardText: () => undefined,
     };
     this.applicationEnvironment = {
       app: this.app,
-      configureCloakBrowserRuntime: () => undefined,
       desktopControllers: {
         appProtocol: {
           appIconPath: '/app/icon.png',
           appRoot: '/app',
-          logger: { warn: () => undefined },
           protocol: {
             handle: () => undefined,
             registerSchemesAsPrivileged: () => undefined,
@@ -455,7 +398,6 @@ class MainProcessCompositionHarness {
           environment: {},
           exit: () => undefined,
           getAppIconPath: () => '/app/icon.png',
-          openExternal: async () => undefined,
           platform: 'linux',
           schedule: () => undefined,
           session: {
@@ -479,11 +421,6 @@ class MainProcessCompositionHarness {
           getAppIconPath: () => '/app/icon.png',
           getAssetPath: () => '/app/icon.png',
           homeDirectory: () => '/home/test',
-          logger: {
-            debug: () => undefined,
-            info: () => undefined,
-            warn: () => undefined,
-          },
           platform: 'win32',
           spawn: () => ({
             once: () => undefined,
@@ -497,7 +434,6 @@ class MainProcessCompositionHarness {
             unregister: () => undefined,
             unregisterAll: () => undefined,
           },
-          logger: { info: () => undefined, warn: () => undefined },
           platform: 'linux',
         },
         tray: {
@@ -517,16 +453,9 @@ class MainProcessCompositionHarness {
           getAppIcon: () => new TestNativeImage() as unknown as NativeImage,
           getAppIconPath: () => '/app/icon.png',
           getAppUrl: () => 'app://gpt-voice/index.html',
-          logger: { debug: () => undefined, warn: () => undefined },
-          openExternal: async () => undefined,
           platform: 'linux',
           preloadPath: '/app/preload.js',
         },
-      },
-      logger: {
-        errorHandler: { startCatching: () => undefined },
-        initialize: () => undefined,
-        warn: () => undefined,
       },
     };
   }
@@ -729,6 +658,48 @@ describe('main process composition root', () => {
       prettifySettings,
       /\bexport function (?:getPrettifySettings|getPrettifySettingsWithSecret|savePrettifySettings)\b/u,
     );
+  });
+
+  it('removes runtime-adapter caches and compatibility function seams', () => {
+    const compositionRoot = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/di/mainProcessCompositionRoot.ts'),
+      'utf8',
+    );
+    const logger = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/logger.ts'), 'utf8');
+    const electronRuntime = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/electronRuntime.ts'), 'utf8');
+    const cloakBrowserRuntime = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/cloakbrowser.ts'), 'utf8');
+    const config = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/config.ts'), 'utf8');
+    const openAIApiSettings = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/providers/openaiApiSettings.ts'),
+      'utf8',
+    );
+    const claudeWebSettings = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/providers/claudeWebSettings.ts'),
+      'utf8',
+    );
+    const claudeWebSession = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/providers/claudeWebSession.ts'), 'utf8');
+
+    assert.match(compositionRoot, /new LoggerFactory|new ElectronRuntimeLoader|new CloakBrowserRuntimeLoader/u);
+    assert.match(logger, /export class LoggerFactory/u);
+    assert.doesNotMatch(logger, /\blet electronLog\b|\bexport function createLogger\b|\bexport default\b/u);
+    assert.match(electronRuntime, /export class ElectronRuntimeLoader/u);
+    assert.doesNotMatch(
+      electronRuntime,
+      /\blet electronRuntime\b|\bexport function (?:decryptSafeStorageString|encryptSafeStorageString|isSafeStorageEncryptionAvailable|readClipboardText|showSystemNotification|writeClipboardText|writeTypedClipboardText)\b/u,
+    );
+    assert.match(cloakBrowserRuntime, /export class CloakBrowserRuntimeLoader/u);
+    assert.doesNotMatch(
+      cloakBrowserRuntime,
+      /\blet cloakBrowserPromise\b|\bexport (?:async )?function (?:configureCloakBrowserRuntime|launchCloakContext|launchCloakPersistentContext)\b/u,
+    );
+    assert.doesNotMatch(config, /\bAPP_DIR\b/u);
+    assert.match(openAIApiSettings, /export class OpenAIApiSettingsRepository/u);
+    assert.doesNotMatch(
+      openAIApiSettings,
+      /\bexport function (?:clearOpenAIApiKey|getOpenAIApiSettings|getOpenAIApiSettingsView|getOpenAIApiSettingsWithSecret|saveOpenAIApiSettings)\b/u,
+    );
+    assert.match(claudeWebSettings, /export class ClaudeWebSettingsRepository/u);
+    assert.match(claudeWebSession, /export class ClaudeWebSessionRepository/u);
   });
 
   it('defers database and service construction until normal application startup', async () => {
