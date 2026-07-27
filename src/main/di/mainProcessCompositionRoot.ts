@@ -15,7 +15,7 @@ import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
-import type { ProviderAuditDependencies } from '../providerAudit';
+import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
 import type { ChatGPTVoiceProviderDependencies } from '../providers/ChatGPTVoiceProvider';
 import {
@@ -28,7 +28,23 @@ import { TranslationRuntime } from '../services/translation';
 import { DiagnosticCaptureService } from '../services/diagnosticCapture';
 import { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
-import { DiagnosticTextRedactor } from '../services/diagnosticTextRedactor';
+import { DIAGNOSTIC_REDACTOR_VERSION, DiagnosticTextRedactor } from '../services/diagnosticTextRedactor';
+import {
+  DiagnosticsArchiveJsonlSerializer,
+  DiagnosticsArchiveService,
+  ProviderAuditLogExtractor,
+  type DiagnosticsArchiveFileSystem,
+} from '../services/diagnosticsArchive';
+import {
+  ArchiverDiagnosticsArchiveWriterFactory,
+  DiagnosticsArchiveFormatAdapter,
+  type DiagnosticsArchiveFormatFileSystem,
+} from '../services/diagnosticsArchiveFormat';
+import {
+  DiagnosticsEnvironmentSnapshotProvider,
+  DiagnosticsManifestBuilder,
+  type DiagnosticsRuntimeVersions,
+} from '../services/diagnosticsManifest';
 import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
@@ -81,9 +97,10 @@ import {
   createCloakBrowserLoginContextOptions,
   createCloakBrowserPersistentContextOptions,
 } from '../cloakBrowserLaunchOptions';
-import { AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
+import { APP_DATABASE_SCHEMA_VERSION, AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
 import { SqliteDiagnosticCaptureRepository } from '../repositories/sqlite/sqliteDiagnosticCaptureRepository';
 import { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
+import { DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION } from '@shared/diagnosticsArchive';
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
@@ -173,6 +190,15 @@ export interface MainProcessPrettifyEnvironment {
   >;
 }
 
+export interface MainProcessDiagnosticsArchiveEnvironment {
+  readonly architecture: string;
+  readonly fileSystem: DiagnosticsArchiveFileSystem & DiagnosticsArchiveFormatFileSystem;
+  readonly getAppVersion: () => string;
+  readonly hash: (payload: Buffer) => string;
+  readonly platform: NodeJS.Platform;
+  readonly runtimeVersions: DiagnosticsRuntimeVersions;
+}
+
 type RootOwnedRuntimeDependencyKeys =
   | 'databasePath'
   | 'diagnosticLogger'
@@ -197,6 +223,7 @@ export type MainProcessCompositionEnvironment = Omit<
       FileClaudeWebPrivateJsonRepositoryDependencies['fileSystem'] &
       OpenAIApiSettingsRepositoryDependencies['fileSystem'];
   };
+  readonly diagnosticsArchive: MainProcessDiagnosticsArchiveEnvironment;
   readonly electronRuntime: Omit<ElectronRuntimeLoaderDependencies, 'logger'>;
   readonly ipc: Omit<
     MainProcessRuntimeFactoryDependencies['ipc'],
@@ -405,6 +432,36 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('browser'),
       providerRegistry: voiceProviderRegistry,
     });
+    const diagnosticsArchive = new DiagnosticsArchiveService({
+      environment: new DiagnosticsEnvironmentSnapshotProvider({
+        architecture: this.environment.diagnosticsArchive.architecture,
+        backgroundBrowser: backgroundBrowserService,
+        config: configStore,
+        getAppVersion: this.environment.diagnosticsArchive.getAppVersion,
+        platform: this.environment.diagnosticsArchive.platform,
+        runtimeVersions: this.environment.diagnosticsArchive.runtimeVersions,
+      }),
+      fileSystem: this.environment.diagnosticsArchive.fileSystem,
+      formatAdapter: new DiagnosticsArchiveFormatAdapter({
+        fileSystem: this.environment.diagnosticsArchive.fileSystem,
+        platform: this.environment.diagnosticsArchive.platform,
+        writerFactory: new ArchiverDiagnosticsArchiveWriterFactory(),
+      }),
+      jsonl: new DiagnosticsArchiveJsonlSerializer(),
+      logs: new ProviderAuditLogExtractor(loggerFactory.getMainLogFileAccessor()),
+      manifest: new DiagnosticsManifestBuilder({
+        databaseSchemaVersion: APP_DATABASE_SCHEMA_VERSION,
+        diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+        hash: this.environment.diagnosticsArchive.hash,
+        providerAuditSchemaVersion: PROVIDER_AUDIT_SCHEMA_VERSION,
+        redactorVersion: DIAGNOSTIC_REDACTOR_VERSION,
+      }),
+      now: this.environment.now,
+      platform: this.environment.diagnosticsArchive.platform,
+      randomUUID: this.environment.randomUUID,
+      settings: diagnosticCaptureSettings,
+      storage: diagnosticStorage,
+    });
     const translationProviderAudit = new TranslationProviderAudit({
       ...this.environment.translation.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
@@ -544,6 +601,7 @@ export class MainProcessCompositionRoot {
       }),
       diagnosticCaptureSettings,
       diagnosticStorage,
+      diagnosticsArchive,
       historyRepository,
       prettifyRuntime,
       shortcutController,

@@ -19,6 +19,7 @@ const PRETTIFY_CLEANUP_FAILURE_LOG = 'Failed to unload Ollama prettify model dur
 const TRANSLATION_CLEANUP_INCOMPLETE_LOG = 'Translation provider cleanup incomplete during quit:';
 const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed during quit';
 const BROWSER_CLEANUP_FAILURE_LOG = 'Background browser cleanup incomplete during quit';
+const DIAGNOSTICS_ARCHIVE_CLEANUP_FAILURE_LOG = 'Diagnostics archive cleanup incomplete during quit';
 const DATABASE_CLEANUP_FAILURE_LOG = 'Application database cleanup incomplete during quit';
 const QUIT_CLEANUP_FAILURE_LOG = 'Quit cleanup failed';
 const DESKTOP_CLEANUP_FAILURE_LOG = 'Desktop resource cleanup incomplete during quit';
@@ -59,6 +60,7 @@ export interface MainProcessOwnedRuntime {
   pruneDiagnostics(): Promise<void>;
   registerIpc(): void;
   shutdownDiagnostics(): Promise<DiagnosticCaptureMaintenanceResult>;
+  shutdownDiagnosticsArchive(): Promise<void>;
 }
 
 export interface MainProcessRuntimeFactory {
@@ -247,6 +249,12 @@ export class MainProcessApplication {
     }
 
     if (runtime) {
+      try {
+        await runtime.shutdownDiagnosticsArchive();
+      } catch {
+        this.dependencies.logger.warn(DIAGNOSTICS_ARCHIVE_CLEANUP_FAILURE_LOG);
+      }
+
       try {
         const storageShutdown = await runtime.shutdownDiagnostics();
         if (storageShutdown.status === 'failure') {

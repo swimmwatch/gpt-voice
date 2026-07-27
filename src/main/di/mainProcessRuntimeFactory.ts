@@ -29,6 +29,7 @@ import type { WebContents } from 'electron';
 import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
 import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIpcController';
 import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
+import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -80,6 +81,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticStorage: DiagnosticCaptureStorage;
+  readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
@@ -97,7 +99,8 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
   ) {}
 
   public create(): MainProcessOwnedRuntime {
-    const { database, diagnosticCaptureSettings, diagnosticStorage, historyRepository } = this.controllers;
+    const { database, diagnosticCaptureSettings, diagnosticStorage, diagnosticsArchive, historyRepository } =
+      this.controllers;
     const cache = createTranscriptionResultCache({ now: this.dependencies.cacheNow });
     const completionDependencies: TranscriptionCompletionDependencies = {
       cache,
@@ -154,6 +157,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     return new MainProcessRuntimeGraph({
       database,
       diagnosticStorage,
+      diagnosticsArchive,
       ipcController,
     });
   }

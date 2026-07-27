@@ -8,7 +8,7 @@ interface TestLogEntry {
   readonly values: readonly unknown[];
 }
 
-function createRuntime(entries: TestLogEntry[]): ElectronLogRuntime {
+function createRuntime(entries: TestLogEntry[], logFilePath = '/logs/main.log'): ElectronLogRuntime {
   const scoped = new Map<string, ScopedLogger>();
   const createMethod =
     (scope: string, level: string) =>
@@ -36,7 +36,10 @@ function createRuntime(entries: TestLogEntry[]): ElectronLogRuntime {
     },
     transports: {
       console: { level: 'unset' },
-      file: { level: 'unset' },
+      file: {
+        getFile: () => ({ path: logFilePath }),
+        level: 'unset',
+      },
     },
     warn: createMethod('root', 'warn'),
   };
@@ -48,6 +51,10 @@ describe('LoggerFactory', () => {
     const runtime = createRuntime(entries);
     let loads = 0;
     const factory = new LoggerFactory({
+      fileSystem: {
+        existsSync: () => false,
+        readFileSync: () => '',
+      },
       loadModule: () => {
         loads += 1;
         return { default: runtime };
@@ -70,6 +77,10 @@ describe('LoggerFactory', () => {
   it('caches a fail-open no-op result without retrying the loader', () => {
     let loads = 0;
     const factory = new LoggerFactory({
+      fileSystem: {
+        existsSync: () => false,
+        readFileSync: () => '',
+      },
       loadModule: () => {
         loads += 1;
         throw new Error('unavailable');
@@ -91,12 +102,20 @@ describe('LoggerFactory', () => {
     const firstRuntime = createRuntime([]);
     const secondRuntime = createRuntime([]);
     const first = new LoggerFactory({
+      fileSystem: {
+        existsSync: () => false,
+        readFileSync: () => '',
+      },
       loadModule: () => {
         firstLoads += 1;
         return firstRuntime;
       },
     });
     const second = new LoggerFactory({
+      fileSystem: {
+        existsSync: () => false,
+        readFileSync: () => '',
+      },
       loadModule: () => {
         secondLoads += 1;
         return secondRuntime;
@@ -110,5 +129,25 @@ describe('LoggerFactory', () => {
     secondLogger.info('second');
     assert.equal(firstLoads, 1);
     assert.equal(secondLoads, 1);
+  });
+
+  it('reads only current and rotated main logs in oldest-first order without exposing paths', () => {
+    const reads: string[] = [];
+    const factory = new LoggerFactory({
+      fileSystem: {
+        existsSync: (filePath) => ['/private/main.old.log', '/private/main.log'].includes(String(filePath)),
+        readFileSync: (filePath) => {
+          reads.push(String(filePath));
+          return String(filePath).includes('.old.') ? 'old contents' : 'current contents';
+        },
+      },
+      loadModule: () => createRuntime([], '/private/main.log'),
+    });
+
+    assert.deepEqual(factory.getMainLogFileAccessor().readRetainedLogs(), [
+      { contents: 'old contents', generation: 'rotated' },
+      { contents: 'current contents', generation: 'current' },
+    ]);
+    assert.deepEqual(reads, ['/private/main.old.log', '/private/main.log']);
   });
 });

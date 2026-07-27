@@ -145,6 +145,14 @@ export class DiagnosticCaptureStorage {
     );
   }
 
+  public readPrunedArchiveSnapshot(categories: readonly DiagnosticActionType[]): Promise<DiagnosticCaptureReadResult> {
+    return this.enqueue(
+      () => this.readPrunedArchiveSnapshotNow(categories),
+      this.readFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageUnavailable),
+      this.readFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed),
+    );
+  }
+
   public async pruneOnStartup(): Promise<void> {
     try {
       const result = await this.prune();
@@ -274,6 +282,25 @@ export class DiagnosticCaptureStorage {
     if (!normalizedCategories) return this.readFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed);
 
     try {
+      return {
+        rows: this.repository.readForArchive(normalizedCategories),
+        status: 'success',
+      };
+    } catch (error: unknown) {
+      return this.readFailure(this.storageCause(error));
+    }
+  }
+
+  private readPrunedArchiveSnapshotNow(categories: readonly DiagnosticActionType[]): DiagnosticCaptureReadResult {
+    const normalizedCategories = this.normalizeCategories(categories);
+    if (!normalizedCategories) return this.readFailure(DIAGNOSTIC_CAPTURE_CAUSE_CODES.StorageFailed);
+
+    try {
+      const recordedAt = this.getRecordedAt();
+      this.repository.prune({
+        capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
+        retentionCutoff: this.retentionCutoff(recordedAt),
+      });
       return {
         rows: this.repository.readForArchive(normalizedCategories),
         status: 'success',

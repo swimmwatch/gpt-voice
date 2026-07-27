@@ -243,6 +243,10 @@ describe('diagnostic capture storage service', () => {
       rows: [harness.repository.rows[0]],
       status: 'success',
     });
+    assert.deepEqual(await harness.storage.readPrunedArchiveSnapshot(['translation', 'translation']), {
+      rows: [harness.repository.rows[0]],
+      status: 'success',
+    });
     assert.deepEqual(await harness.storage.pruneAndPurge(['translation', 'translation']), {
       affectedRows: 1,
       status: 'success',
@@ -252,6 +256,10 @@ describe('diagnostic capture storage service', () => {
       status: 'success',
     });
     assert.deepEqual(harness.repository.pruneCalls, [
+      {
+        capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
+        retentionCutoff: '2026-05-28T12:00:00.000Z',
+      },
       {
         capacityBytes: DIAGNOSTIC_CAPTURE_PAYLOAD_CAP_BYTES,
         retentionCutoff: '2026-05-28T12:00:00.000Z',
@@ -266,7 +274,7 @@ describe('diagnostic capture storage service', () => {
         },
       },
     ]);
-    assert.deepEqual(harness.repository.readCalls, [['translation']]);
+    assert.deepEqual(harness.repository.readCalls, [['translation'], ['translation']]);
     assert.deepEqual(harness.repository.purgeCalls, [['prettify']]);
   });
 

@@ -5,7 +5,6 @@ import {
   PROVIDER_AUDIT_SCHEMA_VERSION,
   type ProviderAuditFamily,
   type ProviderAuditMetadata,
-  type ProviderAuditMetadataKey,
   type ProviderAuditOutcome,
   type ProviderAuditPhase,
   type ProviderAuditRecord,
@@ -27,6 +26,7 @@ import {
   isProviderAuditOperation,
   isProviderAuditProviderId,
 } from './mappings';
+import { serializeProviderAuditRecord } from './recordCodec';
 
 const CANONICAL_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const DIAGNOSTIC_CAUSE_CODES = new Set<DiagnosticProviderAuditCauseCode>([
@@ -178,28 +178,6 @@ function getOccurredAt(now: () => Date): string | null {
   return occurredAt.toISOString();
 }
 
-function canonicalizeProviderAuditRecord(record: ProviderAuditRecord, metadata: ProviderAuditMetadata): string | null {
-  const canonical: Record<string, unknown> = {
-    schemaVersion: record.schemaVersion,
-    occurredAt: record.occurredAt,
-    family: record.family,
-  };
-  if (record.providerId !== undefined) canonical.providerId = record.providerId;
-  canonical.operation = record.operation;
-  canonical.operationId = record.operationId;
-  canonical.sequence = record.sequence;
-  canonical.event = record.event;
-  canonical.phase = record.phase;
-  canonical.outcome = record.outcome;
-
-  for (const key of Object.keys(metadata).sort() as ProviderAuditMetadataKey[]) {
-    canonical[key] = metadata[key];
-  }
-
-  const serialized = JSON.stringify(canonical);
-  return serialized.includes('\n') || serialized.includes('\r') ? null : serialized;
-}
-
 /** Derives the logger level solely from normalized audit state. */
 export function deriveProviderAuditSeverity(
   event: Pick<ProviderAuditRecord, 'event' | 'outcome'> & ProviderAuditMetadata,
@@ -313,7 +291,7 @@ class ProviderAuditLifecycleState<Family extends ProviderAuditFamily> implements
         outcome,
         ...normalizedMetadata,
       };
-      const serialized = canonicalizeProviderAuditRecord(record, normalizedMetadata);
+      const serialized = serializeProviderAuditRecord(record);
       if (!serialized) return false;
       const severity = deriveProviderAuditSeverity(record);
 

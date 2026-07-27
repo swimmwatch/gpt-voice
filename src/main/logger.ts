@@ -1,4 +1,7 @@
 /* eslint-disable max-classes-per-file -- the factory and its private lazy logger views form one adapter. */
+import type * as fs from 'node:fs';
+import * as path from 'node:path';
+
 export interface ScopedLogger {
   debug(...args: unknown[]): void;
   info(...args: unknown[]): void;
@@ -16,6 +19,9 @@ export interface RootLogger extends ScopedLogger {
 export interface ElectronLogRuntime extends RootLogger {
   readonly transports: {
     readonly file: {
+      getFile(): {
+        readonly path: string;
+      };
       level: string;
     };
     readonly console: {
@@ -26,7 +32,20 @@ export interface ElectronLogRuntime extends RootLogger {
 }
 
 export interface LoggerFactoryDependencies {
+  readonly fileSystem: {
+    existsSync(filePath: fs.PathLike): boolean;
+    readFileSync(filePath: fs.PathOrFileDescriptor, encoding: 'utf8'): string;
+  };
   readonly loadModule: () => unknown;
+}
+
+export interface RetainedMainLog {
+  readonly contents: string;
+  readonly generation: 'rotated' | 'current';
+}
+
+export interface MainLogFileAccessor {
+  readRetainedLogs(): readonly RetainedMainLog[];
 }
 
 const FILE_LOG_LEVEL = 'info';
@@ -65,6 +84,13 @@ class LoggerRuntimeState {
     return this.loadElectronLog() ?? NOOP_ROOT_LOGGER;
   }
 
+  public getMainLogFilePath(): string | null {
+    const runtime = this.loadElectronLog();
+    if (!runtime) return null;
+    const filePath = runtime.transports.file.getFile().path;
+    return typeof filePath === 'string' && path.isAbsolute(filePath) ? filePath : null;
+  }
+
   private loadElectronLog(): ElectronLogRuntime | null {
     if (this.electronLog !== undefined) return this.electronLog;
 
@@ -78,6 +104,36 @@ class LoggerRuntimeState {
     }
 
     return this.electronLog;
+  }
+}
+
+/** Reads only the retained main log generations in deterministic oldest-first order. */
+class ElectronMainLogFileAccessor implements MainLogFileAccessor {
+  public constructor(
+    private readonly state: LoggerRuntimeState,
+    private readonly fileSystem: LoggerFactoryDependencies['fileSystem'],
+  ) {}
+
+  public readRetainedLogs(): readonly RetainedMainLog[] {
+    const activePath = this.state.getMainLogFilePath();
+    if (!activePath) return [];
+    const parsed = path.parse(activePath);
+    const candidates = [
+      {
+        filePath: path.join(parsed.dir, `${parsed.name}.old${parsed.ext}`),
+        generation: 'rotated' as const,
+      },
+      { filePath: activePath, generation: 'current' as const },
+    ];
+    const retainedLogs: RetainedMainLog[] = [];
+    for (const candidate of candidates) {
+      if (!this.fileSystem.existsSync(candidate.filePath)) continue;
+      retainedLogs.push({
+        contents: this.fileSystem.readFileSync(candidate.filePath, 'utf8'),
+        generation: candidate.generation,
+      });
+    }
+    return Object.freeze(retainedLogs);
   }
 }
 
@@ -136,6 +192,7 @@ class LazyRootLogger implements RootLogger {
 
 /** Owns one isolated lazy electron-log runtime and its stable scoped logger views. */
 export class LoggerFactory {
+  private readonly mainLogAccessor: MainLogFileAccessor;
   private readonly rootLogger: RootLogger;
   private readonly scopedLoggers = new Map<string, ScopedLogger>();
   private readonly state: LoggerRuntimeState;
@@ -143,6 +200,7 @@ export class LoggerFactory {
   public constructor(dependencies: LoggerFactoryDependencies) {
     this.state = new LoggerRuntimeState(dependencies);
     this.rootLogger = new LazyRootLogger(this.state);
+    this.mainLogAccessor = new ElectronMainLogFileAccessor(this.state, dependencies.fileSystem);
   }
 
   public getLogger(scope: string): ScopedLogger {
@@ -156,5 +214,9 @@ export class LoggerFactory {
 
   public getRootLogger(): RootLogger {
     return this.rootLogger;
+  }
+
+  public getMainLogFileAccessor(): MainLogFileAccessor {
+    return this.mainLogAccessor;
   }
 }

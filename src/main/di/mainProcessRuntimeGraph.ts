@@ -2,10 +2,12 @@ import type { MainIpcController } from '../ipc';
 import type { MainProcessOwnedRuntime } from '../mainProcessApplication';
 import type { AppDatabaseCoordinator } from '../repositories/sqlite/appDatabase';
 import type { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
+import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
 
 export interface MainProcessRuntimeGraphDependencies {
   readonly database: AppDatabaseCoordinator;
   readonly diagnosticStorage: DiagnosticCaptureStorage;
+  readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly ipcController: MainIpcController;
 }
 
@@ -29,6 +31,10 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
 
   public shutdownDiagnostics() {
     return this.dependencies.diagnosticStorage.shutdown();
+  }
+
+  public shutdownDiagnosticsArchive(): Promise<void> {
+    return this.dependencies.diagnosticsArchive.shutdown();
   }
 
   public closeDatabase(): void {

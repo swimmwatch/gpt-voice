@@ -48,6 +48,50 @@ const requiredPaths = [
   'dist/settings.html',
   'package.json',
 ];
+const archiveRuntimeModules = [
+  'abort-controller',
+  'archiver',
+  'async',
+  'b4a',
+  'balanced-match',
+  'base64-js',
+  'bare-events',
+  'bare-fs',
+  'bare-path',
+  'bare-stream',
+  'bare-url',
+  'brace-expansion',
+  'buffer',
+  'buffer-crc32',
+  'compress-commons',
+  'concat-map',
+  'core-util-is',
+  'crc-32',
+  'crc32-stream',
+  'event-target-shim',
+  'events',
+  'events-universal',
+  'fast-fifo',
+  'inherits',
+  'ieee754',
+  'is-stream',
+  'isarray',
+  'lazystream',
+  'minimatch',
+  'normalize-path',
+  'process',
+  'process-nextick-args',
+  'readable-stream',
+  'readdir-glob',
+  'safe-buffer',
+  'streamx',
+  'string_decoder',
+  'tar-stream',
+  'teex',
+  'text-decoder',
+  'util-deprecate',
+  'zip-stream',
+] as const;
 
 describe('packaged runtime policy', () => {
   it('packages only the audited Codex schema through the existing asset resource', async () => {
@@ -92,11 +136,23 @@ describe('packaged runtime policy', () => {
         'dist\\renderer/assets/livePcmCapture.worklet.js',
         'dist\\settings.html',
         'package.json',
+        ...archiveRuntimeModules.map((moduleName) => `node_modules/${moduleName}/index.js`),
         'node_modules/cloakbrowser/dist/index.js',
         'node_modules/playwright-core/lib/server/browserType.js',
       ]),
       [],
     );
+  });
+
+  it('packages the approved direct archive dependency and its locked JavaScript graph', async () => {
+    const packageJson: unknown = JSON.parse(await readFile(packagePath, 'utf8'));
+    assert.ok(isRecord(packageJson) && isRecord(packageJson.dependencies) && isRecord(packageJson.build));
+    assert.equal(packageJson.dependencies.archiver, '^8.0.0');
+    const files = packageJson.build.files;
+    assert.ok(Array.isArray(files));
+    for (const moduleName of archiveRuntimeModules) {
+      assert.equal(files.includes(`node_modules/${moduleName}/**/*`), true, moduleName);
+    }
   });
 
   it('reports missing runtime files and forbidden diagnostics with concise relative paths', async () => {

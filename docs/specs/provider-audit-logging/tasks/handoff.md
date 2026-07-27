@@ -1,65 +1,86 @@
-# Handoff: Provider Audit Task 19 Complete
+# Handoff: Provider Audit Task 20 Complete
 
 ## Status
 
-- Tasks 01–18 are committed; Task 18 is
-  `44a1e1d1 feat(audit): add audit log settings and deletion`.
-- Task 19 is implemented and verified. Its changes are unstaged and
+- Tasks 01–19 are committed; Task 19 is
+  `e735ee38 feat(audit): capture translation and prettify diagnostics`.
+- Task 20 is implemented and verified. Its changes are unstaged and
   uncommitted for review.
 
 ## Completed Work
 
-- Added the main-owned `DiagnosticCaptureService` with per-action,
-  authoritative default-off settings checks and closed fail-open outcomes.
-- Captured normalized successful provider results before their audit terminals
-  for Google, Bing, Yandex, Ollama, vLLM, Claude CLI, and Codex CLI.
-- Captured current Translation and Prettify cache hits without creating
-  provider lifecycles.
-- Provider rows use the same non-null audit operation ID; cache rows use a new
-  action ID and null provider-operation correlation.
-- Provider capture failures emit a safe pre-terminal audit warning and retain
-  the normal success terminal. Cache failures emit only the metadata-only
-  `diagnostic-capture` warning.
-- Failed, empty, stale, cancelled, and cleanup-invalidated results are not
-  captured. Throwing capture dependencies remain fail-open.
+- Added schema-v1 archive, manifest, canonical JSON/JSONL, fixed-member,
+  validation, size, count, and privacy contracts.
+- Added oldest-first provider-audit extraction from retained main logs with
+  canonical validation and `(operationId, sequence)` deduplication.
+- Added serialized prune/read diagnostic snapshots with strict stored-row,
+  byte-count, redactor-version, correlation, and category validation.
+- Added ZIP and gzip-compressed tar creation and producer verification through
+  the direct production dependency `archiver@8.0.0`.
+- Added private sibling temporary output, atomic publication, failure cleanup,
+  shutdown draining, and main-process composition-root ownership.
 
-## Changed Boundary
+## Changed Files
 
-- Composition and audit context:
+- Dependency and packaging:
+  `package.json`, `package-lock.json`, and
+  `scripts/packaged-runtime-policy.mjs`.
+- Archive and audit contracts:
+  `src/shared/diagnosticsArchive.ts`,
+  `src/main/providerAudit/recordCodec.ts`,
+  `src/main/providerAudit/index.ts`, and
+  `src/main/providerAudit/providerAudit.ts`.
+- Main services and lifecycle:
+  `src/main/services/diagnosticsArchive.ts`,
+  `src/main/services/diagnosticsArchiveFormat.ts`,
+  `src/main/services/diagnosticsManifest.ts`,
+  `src/main/services/diagnosticCaptureStorage.ts`,
+  `src/main/logger.ts`, `src/main/main.ts`,
+  `src/main/mainProcessApplication.ts`,
   `src/main/di/mainProcessCompositionRoot.ts`,
   `src/main/di/mainProcessRuntimeFactory.ts`, and
-  `src/main/providerAudit/providerAudit.ts`.
-- Capture and provider integration:
-  `src/main/services/diagnosticCapture.ts`, Translation runtime/audit,
-  Prettify base/runtime/audit/HTTP/CLI/one-shot services, and both selected-text
-  services.
+  `src/main/di/mainProcessRuntimeGraph.ts`.
+- Dependency typing:
+  `src/types/archiver.d.ts`.
 - Coverage:
-  `tests/main/diagnosticCaptureIntegration.test.ts`,
-  `tests/main/diagnosticCaptureTestUtils.ts`, and the updated Translation,
-  Prettify, selected-text, and provider-audit suites.
+  `tests/main/diagnosticsArchive.test.ts`,
+  `tests/main/diagnosticsArchiveFormat.test.ts`,
+  `tests/main/diagnosticsManifest.test.ts`,
+  `tests/main/diagnosticCaptureStorage.test.ts`,
+  `tests/main/loggerFactory.test.ts`,
+  `tests/main/mainProcessApplication.test.ts`,
+  `tests/main/mainProcessCompositionRoot.test.ts`, and
+  `tests/scripts/packagedRuntimePolicy.test.ts`.
 
 ## Checks
 
-- Packet 19’s exact focused command passed: 107 tests.
-- The broader focused capture and audit run passed: 121 tests.
-- Full unit suite passed: 1,017 tests.
+- Focused archive, storage, logger, lifecycle, composition, and packaging-policy
+  coverage passed: 57 tests.
+- Full unit suite passed: 1,033 tests.
 - `npm run typecheck`, `npm run test:types`, `npm run lint`,
-  `npm run format:check`, and `git diff --check` passed on the final state.
-- Privacy canaries passed: source/result text and injected secret, URL,
-  provider payload, credential, session, message, and stack markers did not
-  reach audit metadata, diagnostic warning logs, or renderer results.
+  `npm run format:check`, `npm run build:prod`, and `git diff --check` passed.
+- `npm run audit:prod` passed its high-severity gate and reports one existing
+  moderate `tar` advisory.
+- `npm run prepare:cloakbrowser`, `npm run pack`, and
+  `npm run verify:packaged` passed with the reviewed Archiver dependency graph
+  included in the packaged-runtime allowlist.
+- Independent Linux tools accepted the synthetic native tar.gz and
+  synthetic-on-Linux ZIP, listed only the three fixed regular-file members,
+  and produced identical corresponding payload hashes.
 
 ## Risks And Manual Gaps
 
-- The synthetic provider/cache manual gate is deferred. Automated tests cover
-  provider/cache correlation and unchanged result, cache, clipboard, and
-  notification behavior.
-- No live providers, browsers, credentials, private text, clipboard content,
-  or real user databases were used.
-- Task 20 receives the tested settings snapshots, redacted stored rows, and
-  existing repository read API. Captured rows remain unavailable to renderers.
+- The locked Archiver graph is pure JavaScript, has no install scripts, and
+  uses permissive reviewed licenses. The existing moderate `tar` advisory
+  remains visible in the production audit.
+- Native Windows ZIP and native macOS tar.gz smoke checks are deferred until
+  those platforms are available. Linux tar.gz and the Linux packaging gate are
+  complete.
+- No live providers, credentials, private diagnostic rows, browser profiles,
+  external archive processes, or user-selected destinations were used.
+- Packet 20 intentionally exposes no renderer, preload, IPC, or export UI.
 
 ## Next Packet
 
-- [20 Diagnostics archive core](20_build_diagnostics_archive_core.md)
-- Task 19 review and commit authorization are required before Task 20 begins.
+- [21 About diagnostics export](21_integrate_about_diagnostics_export.md)
+- Task 20 must be reviewed before its commit boundary and Task 21 execution.

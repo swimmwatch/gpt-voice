@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file -- application and IPC fakes own independent test state. */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -218,6 +219,25 @@ class MainProcessCompositionHarness {
         platform: 'win32',
         setFileMode: fs.chmodSync,
       },
+      diagnosticsArchive: {
+        architecture: 'x64',
+        fileSystem: {
+          chmod: (filePath, mode) => fs.promises.chmod(filePath, mode),
+          createWriteStream: (filePath, options) => fs.createWriteStream(filePath, options),
+          readFile: (filePath) => fs.promises.readFile(filePath),
+          removeFile: (filePath) => fs.promises.rm(filePath, { force: true }),
+          rename: (sourcePath, destinationPath) => fs.promises.rename(sourcePath, destinationPath),
+        },
+        getAppVersion: () => '1.0.0',
+        hash: (payload) => createHash('sha256').update(payload).digest('hex'),
+        platform: 'linux',
+        runtimeVersions: {
+          cloakBrowser: '0.4.12',
+          electron: '39.0.0',
+          node: '24.0.0',
+          playwright: '1.61.1',
+        },
+      },
       electronRuntime: {
         loadModule: () => ({
           clipboard: {
@@ -252,6 +272,7 @@ class MainProcessCompositionHarness {
         platform: 'linux',
       },
       logger: {
+        fileSystem: fs,
         loadModule: () => {
           const recordAudit = (_label: unknown, serialized: unknown): void => {
             if (typeof serialized !== 'string') return;
@@ -272,7 +293,10 @@ class MainProcessCompositionHarness {
             scope: () => scopedLogger,
             transports: {
               console: { level: '' },
-              file: { level: '' },
+              file: {
+                getFile: () => ({ path: path.join(this.temporaryDirectory, 'main.log') }),
+                level: '',
+              },
             },
           };
         },

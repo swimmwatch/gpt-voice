@@ -1,5 +1,8 @@
 export {
   normalizeProviderAuditExceptionType,
+  PROVIDER_AUDIT_LABEL,
+  PROVIDER_AUDIT_SCHEMA_VERSION,
+  type ProviderAuditRecord,
   type ProviderAuditErrorClass,
   type ProviderAuditExceptionType,
   type ProviderAuditFamily,
@@ -17,3 +20,4 @@ export {
   type ProviderAuditSink,
   type UnknownProviderAuditLifecycleInput,
 } from './providerAudit';
+export { isProviderAuditRecord, parseCanonicalProviderAuditRecord, serializeProviderAuditRecord } from './recordCodec';

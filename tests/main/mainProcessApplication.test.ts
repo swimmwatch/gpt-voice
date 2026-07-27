@@ -70,6 +70,7 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
 class RecordingRuntime implements MainProcessOwnedRuntime {
   public closeCount = 0;
   public ipcDisposeCount = 0;
+  public archiveShutdownCount = 0;
   public shutdownCount = 0;
 
   public constructor(private readonly events: string[]) {}
@@ -96,6 +97,11 @@ class RecordingRuntime implements MainProcessOwnedRuntime {
     this.shutdownCount += 1;
     this.events.push('diagnostic-shutdown');
     return { affectedRows: 0, status: 'success' } as const;
+  }
+
+  public async shutdownDiagnosticsArchive(): Promise<void> {
+    this.archiveShutdownCount += 1;
+    this.events.push('diagnostics-archive-shutdown');
   }
 }
 
@@ -561,6 +567,7 @@ describe('main process application lifecycle', () => {
 
     assert.equal(preventCount, 2);
     assert.equal(harness.runtime.ipcDisposeCount, 1);
+    assert.equal(harness.runtime.archiveShutdownCount, 1);
     assert.equal(harness.runtime.shutdownCount, 1);
     assert.equal(harness.runtime.closeCount, 1);
     assert.equal(harness.app.quitCount, 1);
@@ -571,6 +578,7 @@ describe('main process application lifecycle', () => {
       'prettify-shutdown',
       'translation-shutdown',
       'browser-shutdown',
+      'diagnostics-archive-shutdown',
       'diagnostic-shutdown',
       'database-close',
       'tray-dispose',

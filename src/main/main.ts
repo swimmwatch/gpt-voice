@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -38,6 +38,10 @@ import { createPlaywrightYandexTranslatePageAdapter } from './translateProviders
 import { APP_DATABASE_TIMEOUT_MS } from './repositories/sqlite/appDatabase';
 
 const loadRuntimeModule = createRequire(__filename);
+const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
+const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
+const UNKNOWN_RUNTIME_VERSION = 'unknown';
+const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
 const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
@@ -62,6 +66,37 @@ function ignoreStreamingDiagnostic(): void {
 
 function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90_000) + 10_000);
+}
+
+function getInstalledPackageVersion(packageName: string): string {
+  try {
+    let currentDirectory = path.dirname(loadRuntimeModule.resolve(packageName));
+    for (let index = 0; index < MAX_PACKAGE_DIRECTORY_ASCENTS; index += 1) {
+      const packageFile = path.join(currentDirectory, 'package.json');
+      if (fs.existsSync(packageFile)) {
+        const parsed: unknown = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          !Array.isArray(parsed) &&
+          (parsed as Record<string, unknown>).name === packageName &&
+          typeof (parsed as Record<string, unknown>).version === 'string'
+        ) {
+          return (parsed as Record<string, string>).version;
+        }
+      }
+      const parentDirectory = path.dirname(currentDirectory);
+      if (parentDirectory === currentDirectory) break;
+      currentDirectory = parentDirectory;
+    }
+  } catch {
+    // The manifest uses a fixed safe marker when package metadata is unavailable.
+  }
+  return UNKNOWN_RUNTIME_VERSION;
+}
+
+function hashDiagnosticsPayload(payload: Buffer): string {
+  return createHash('sha256').update(payload).digest('hex');
 }
 
 function runTextAutomationCommand(command: string, args: string[]): Promise<void> {
@@ -100,6 +135,25 @@ function bootstrapMainProcess(): void {
       now: getCurrentDate,
       platform: process.platform,
       setFileMode: fs.chmodSync,
+    },
+    diagnosticsArchive: {
+      architecture: process.arch,
+      fileSystem: {
+        chmod: (filePath, mode) => fs.promises.chmod(filePath, mode),
+        createWriteStream: (filePath, options) => fs.createWriteStream(filePath, options),
+        readFile: (filePath) => fs.promises.readFile(filePath),
+        removeFile: (filePath) => fs.promises.rm(filePath, { force: true }),
+        rename: (sourcePath, destinationPath) => fs.promises.rename(sourcePath, destinationPath),
+      },
+      getAppVersion: () => app.getVersion(),
+      hash: hashDiagnosticsPayload,
+      platform: process.platform,
+      runtimeVersions: {
+        cloakBrowser: getInstalledPackageVersion(CLOAK_BROWSER_PACKAGE_NAME),
+        electron: process.versions.electron ?? UNKNOWN_RUNTIME_VERSION,
+        node: process.versions.node,
+        playwright: getInstalledPackageVersion(PLAYWRIGHT_PACKAGE_NAME),
+      },
     },
     cloakBrowserRuntime: {
       environment: process.env,
@@ -142,6 +196,7 @@ function bootstrapMainProcess(): void {
       platform: process.platform,
     },
     logger: {
+      fileSystem: fs,
       loadModule: () => {
         const moduleValue: unknown = loadRuntimeModule('electron-log/main');
         return moduleValue;
