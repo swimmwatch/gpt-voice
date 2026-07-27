@@ -68,7 +68,7 @@ describe('translation settings startup notice', () => {
     const loadIndex = main.indexOf('loadConfig();');
     const localeIndex = main.indexOf('setLocale(', loadIndex);
     const noticeIndex = main.indexOf('presentPendingTranslationSettingsRepairNotice({', localeIndex);
-    const ipcIndex = main.indexOf('registerIpcHandlers();', noticeIndex);
+    const ipcIndex = main.indexOf('registerIpcHandlers({', noticeIndex);
     const windowIndex = main.indexOf('createWindow();', noticeIndex);
     const backgroundIndex = main.indexOf('initBackgroundBrowser()', noticeIndex);
 

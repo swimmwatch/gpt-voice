@@ -28,7 +28,6 @@ import { MainStreamingTranscriptionRejection } from './MainStreamingTranscriptio
 import {
   completeStreamingTranscription,
   createTranscriptionCompletionSnapshot,
-  defaultTranscriptionCompletionDependencies,
   type TranscriptionCompletionDependencies,
   type TranscriptionCompletionSnapshot,
 } from './transcriptionCompletion';
@@ -778,10 +777,13 @@ function createDefaultOperationId(): StreamingTranscriptionOperationId {
 }
 
 export function createMainStreamingTranscriptionService(
-  dependencies: Partial<MainStreamingTranscriptionServiceDependencies> = {},
+  completionDependencies: TranscriptionCompletionDependencies,
+  dependencies: Partial<
+    Omit<MainStreamingTranscriptionServiceDependencies, keyof TranscriptionCompletionDependencies>
+  > = {},
 ): MainStreamingTranscriptionService {
   return new StreamingTranscriptionService({
-    ...defaultTranscriptionCompletionDependencies,
+    ...completionDependencies,
     audit: voiceProviderAudit,
     createOperationId: createDefaultOperationId,
     getActiveProvider,
@@ -792,5 +794,3 @@ export function createMainStreamingTranscriptionService(
     ...dependencies,
   });
 }
-
-export const streamingTranscriptionService = createMainStreamingTranscriptionService();

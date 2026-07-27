@@ -35,6 +35,11 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Do not add free pass-through wrappers that accept or capture a class or service instance only to call one of its methods or repackage its result. Call the method directly, add behavior to the state-owning class, or introduce a class with constructor-injected dependencies.
 - Use functional components, hooks, composition, and functional state updates for React and other UI, interface-layer, or front-end code.
 - Do not hardcode reusable or domain-significant constants inline. Define them at the narrowest shared owner as named `const` values or enums, and reuse the canonical definition.
+- Stateful business services access databases and other external sources
+  through domain-specific repository interfaces. Concrete adapters own
+  SQLite, HTTP, browser, CLI, or filesystem details. Test services with
+  state-owning repository fakes and verify each concrete adapter with focused
+  integration tests.
 
 ## State And Handoffs
 

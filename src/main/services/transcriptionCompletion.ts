@@ -1,16 +1,15 @@
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
-import { writeClipboardText } from '../electronRuntime';
+import type { TranscriptionHistoryRepository } from '../repositories/transcriptionHistoryRepository';
 import { createLogger } from '../logger';
-import { addTranscriptionHistoryEntry } from './transcriptionHistoryStorage';
-import { createTranscriptionResultCache, createTranscriptionResultCacheKey } from './transcriptionResultCache';
+import { createTranscriptionResultCacheKey } from './transcriptionResultCache';
 import type { TextActionResultCache } from './textActionCache';
 import { presentNotificationError } from '@shared/notifications';
 
 const log = createLogger('transcribe');
 
 export interface TranscriptionCompletionDependencies {
-  addHistoryEntry: (entry: { requestedAt: string; providerId: string; providerName: string; text: string }) => unknown;
   cache: TextActionResultCache;
+  historyRepository: TranscriptionHistoryRepository;
   writeClipboardText: (text: string) => void;
 }
 
@@ -95,7 +94,7 @@ function recordTranscriptionHistory(
   reportFailure = true,
 ): void {
   try {
-    deps.addHistoryEntry({
+    deps.historyRepository.addEntry({
       requestedAt: snapshot.requestedAt,
       providerId: snapshot.providerId,
       providerName: snapshot.providerName,
@@ -142,9 +141,3 @@ export function completeStreamingTranscription(
   deps.writeClipboardText(text);
   recordTranscriptionHistory(deps, snapshot, text, false);
 }
-
-export const defaultTranscriptionCompletionDependencies: TranscriptionCompletionDependencies = {
-  addHistoryEntry: addTranscriptionHistoryEntry,
-  cache: createTranscriptionResultCache(),
-  writeClipboardText,
-};

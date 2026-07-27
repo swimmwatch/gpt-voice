@@ -24,6 +24,7 @@ import {
 import { StreamingTranscriptionOperationError } from '@main/providers/StreamingTranscriptionOperationError';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import {
   MainStreamingTranscriptionRejection,
   StreamingTranscriptionService,
@@ -230,16 +231,16 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
   const operationId = asOperationId('11111111-2222-4333-8444-000000000004');
   const cache = new TestCache();
   const clipboard: string[] = [];
-  const history: Array<{ requestedAt: string; providerId: string; providerName: string; text: string }> = [];
+  const historyRepository = new RecordingTranscriptionHistoryRepository();
   const diagnostics: DiagnosticRecord[] = [];
   const deps: MainStreamingTranscriptionServiceDependencies = {
-    addHistoryEntry: (entry) => history.push(entry),
     audit,
     cache,
     createOperationId: () => operationId,
     getActiveProvider: () => activeProvider,
     getMonotonicTimeMs: () => monotonicTimeMs,
     getRequestedAt: () => '2026-07-18T12:00:00.000Z',
+    historyRepository,
     reportDiagnostic: (outcome, diagnostic) => diagnostics.push({ outcome, diagnostic }),
     resolveCapability: (candidate) =>
       candidate === provider
@@ -258,7 +259,7 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
     cache,
     clipboard,
     diagnostics,
-    history,
+    history: historyRepository.addedEntries,
     operationId,
     provider,
     service,
@@ -790,11 +791,11 @@ describe('main streaming transcription service', () => {
       observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
     });
     const harness = createHarness({
-      addHistoryEntry: () => {
-        observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
-      },
       audit,
       cache,
+      historyRepository: new RecordingTranscriptionHistoryRepository(() => {
+        observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
+      }),
       writeClipboardText: () => {
         observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
       },

@@ -1,4 +1,3 @@
-import { ensureBackgroundBrowser, getActiveProvider, isBgReady } from '../browser';
 import { t } from '../i18n';
 import { createLogger } from '../logger';
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
@@ -12,7 +11,6 @@ import {
   completeBatchTranscription,
   completeCachedTranscription,
   createTranscriptionCompletionSnapshot,
-  defaultTranscriptionCompletionDependencies,
   readCachedTranscription,
   type TranscriptionCompletionDependencies,
 } from './transcriptionCompletion';
@@ -113,11 +111,3 @@ export function createTranscriptionService(deps: TranscriptionServiceDependencie
     }
   };
 }
-
-export const transcribeAudio = createTranscriptionService({
-  ...defaultTranscriptionCompletionDependencies,
-  ensureBackgroundBrowser: () => ensureBackgroundBrowser(),
-  getActiveProvider,
-  getRequestedAt: () => new Date().toISOString(),
-  isBackgroundReady: isBgReady,
-});

@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: provider-audit-logging
 interview_id: spec:provider-audit-logging
-updated_at: '2026-07-26'
+updated_at: '2026-07-27'
 decisions:
   - id: outcome.debuggable-provider-failures
     revision: 1
@@ -1652,6 +1652,272 @@ decisions:
         - id: leave-unapproved
           label: 'Leave unapproved'
           description: 'Keep the current audited plan in Draft without requesting changes or authorizing implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: repository.scope
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Task 07 already contains the only application SQLite access, while provider, HTTP, browser, CLI, settings, and cache refactors would cross unrelated task boundaries.'
+      - 'The repository architecture can be established for history and diagnostic capture now and reused when later external-source work is explicitly scoped.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      batch_id: repository-architecture-round-01
+      question_id: repository.scope
+      idempotency_key: repository.scope:v1
+      last_status: answered
+    question:
+      text: 'How broadly should the new repository architecture be applied in this refactor?'
+      kind: single
+      options:
+        - id: task-07-foundation
+          label: 'Task 07 foundation (Recommended)'
+          description: 'Refactor transcription history and diagnostic capture now, and establish the same port/adapter pattern for future external-source work without changing current providers.'
+        - id: all-main-external-sources
+          label: 'All main external sources'
+          description: 'Also refactor existing HTTP, browser, CLI, settings, cache, and provider integrations into repositories in this change.'
+        - id: diagnostics-workstream
+          label: 'Diagnostics workstream'
+          description: 'Refactor Task 07 plus predefine repository adapters needed by later settings and archive packets, without changing unrelated providers.'
+    answer:
+      selected_ids: [task-07-foundation]
+      text: ''
+    rationale: 'Keeps the current packet independently reviewable while creating a reusable repository boundary for future data sources.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-003]
+
+  - id: repository.hierarchy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'Diagnostic capture and transcription history have different domain operations and do not fit one natural CRUD contract.'
+      - 'Current services receive raw DatabaseSync callbacks, coupling business behavior and tests to SQLite.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      batch_id: repository-architecture-round-01
+      question_id: repository.hierarchy
+      idempotency_key: repository.hierarchy:v1
+      last_status: answered
+    question:
+      text: 'Which repository hierarchy should the revised Task 07 packet require?'
+      kind: single
+      options:
+        - id: domain-ports-sqlite-base
+          label: 'Domain ports + SQLite base (Recommended)'
+          description: 'Use domain-specific abstract repositories, a shared SQLite base for connection/transaction mechanics, and concrete SQLite implementations.'
+        - id: generic-crud-base
+          label: 'Generic CRUD hierarchy'
+          description: 'Force history and diagnostics through one generic entity/query CRUD base class, adding generic type parameters for their different operations.'
+        - id: sqlite-only
+          label: 'SQLite-only repositories'
+          description: 'Create only SQLite abstract/concrete classes and let services depend directly on SQLite-specific repository types.'
+    answer:
+      selected_ids: [domain-ports-sqlite-base]
+      text: ''
+    rationale: 'Domain ports keep business logic backend-neutral; the SQLite base centralizes only implementation-specific connection and transaction mechanics.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, DATA-007]
+
+  - id: repository.testing
+    revision: 1
+    category: testing
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current diagnostic tests combine validation, redaction, queueing, SQL, migrations, permissions, and retention in one SQLite-backed harness.'
+      - 'Real SQLite coverage remains necessary for strict tables, migrations, transactions, indexes, retention order, and rollback.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      batch_id: repository-architecture-round-01
+      question_id: repository.testing
+      idempotency_key: repository.testing:v1
+      last_status: answered
+    question:
+      text: 'How should automated repository coverage be divided?'
+      kind: single
+      options:
+        - id: unit-and-integration
+          label: 'Unit + SQLite integration (Recommended)'
+          description: 'Test services with state-owning fake repositories, test the SQLite base with a test subclass, and test each concrete SQLite repository against temporary databases.'
+        - id: sqlite-integration-only
+          label: 'SQLite integration only'
+          description: 'Use temporary SQLite databases for service and repository tests, with fewer fakes but slower and less isolated failure coverage.'
+        - id: mocked-driver-only
+          label: 'Mocked driver only'
+          description: 'Mock SQLite calls without real database fixtures, improving speed but weakening migration, transaction, index, and SQL behavior coverage.'
+    answer:
+      selected_ids: [unit-and-integration]
+      text: ''
+    rationale: 'The split proves business orchestration independently while retaining end-to-end confidence in SQLite behavior.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, DATA-003, DATA-007, DATA-008, OPS-004, COMP-003]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'Task 07 now defines domain-specific abstract repository ports, a shared abstract SQLite base, concrete history and diagnostic SQLite implementations, and backend-neutral service boundaries.'
+      - 'The verification contract separates fake-repository service tests, SQLite-base tests, coordinator/migration tests, and concrete temporary-database integration tests.'
+      - 'The revised packet preserves the approved storage, privacy, migration, retention, permission, compatibility, and shutdown requirements.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: 'Do you approve the revised Task 07 repository architecture plan as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve revised plan (Recommended)'
+          description: 'Approve the domain repository ports, shared SQLite base, concrete SQLite adapters, and split unit/integration test strategy; stop before implementation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan in Draft and revise the repository architecture or tests.'
+        - id: leave-draft
+          label: 'Leave unapproved'
+          description: 'Keep the current repository plan in Draft without authorizing it.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: repository.typescript-shape
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'TypeScript classes support single inheritance, so a concrete repository cannot extend both a domain abstract class and a shared SQLite abstract base.'
+      - 'The repository boundary must remain backend-neutral without introducing mixins or duplicating SQLite transaction mechanics.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: repository.typescript-shape
+      idempotency_key: repository.typescript-shape:v1
+      last_status: answered
+    question:
+      text: 'How should the repository hierarchy handle TypeScript’s single-inheritance limit?'
+      kind: single
+      options:
+        - id: interfaces-and-abstract-sqlite-base
+          label: 'Ports + abstract SQLite base (Recommended)'
+          description: 'Use domain repository interfaces as backend-neutral ports; concrete SQLite classes extend one abstract SQLite base and implement the relevant port, avoiding mixins and multiple inheritance.'
+        - id: abstract-domain-plus-composition
+          label: 'Abstract domains + composition'
+          description: 'Use abstract domain repository classes; each SQLite implementation extends its domain class and composes a shared SQLite transaction helper instead of inheriting a SQLite base.'
+        - id: mixin-hierarchy
+          label: 'Mixin hierarchy'
+          description: 'Keep both abstract domain and SQLite inheritance through TypeScript mixins, at the cost of more complex typing and class construction.'
+    answer:
+      selected_ids: [interfaces-and-abstract-sqlite-base]
+      text: ''
+    rationale: 'Interfaces are the backend-neutral domain ports; the abstract SQLite base is the only inheritance axis and owns source-specific mechanics.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, DATA-007, COMP-003]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The refined Task 07 packet resolves TypeScript single inheritance with backend-neutral domain interfaces and one abstract SQLite base.'
+      - 'The packet identifies concrete adapters, composition changes, service boundaries, contract suites, base-class tests, SQLite integration tests, privacy checks, rollback, and verification.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      supersedes_revision: 2
+      last_status: answered
+    question:
+      text: 'Do you approve the refined Task 07 repository architecture plan as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve refined plan (Recommended)'
+          description: 'Approve the backend-neutral interfaces, abstract SQLite base, concrete adapters, dependency-injection changes, and layered repository tests; stop before implementation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan in Draft and revise the hierarchy, scope, file ownership, or test strategy.'
+        - id: leave-draft
+          label: 'Leave unapproved'
+          description: 'Keep the current refined plan in Draft without authorizing implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: execution.task-07-repository-refactor
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - 'The revised Task 07 packet is approved and implementation must remain uncommitted for review.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: execution.task-07-repository-refactor
+      idempotency_key: execution-task-07-repository-refactor-v1
+      last_status: answered
+    question:
+      text: 'Authorize execution of the revised Task 07 repository refactor now, leaving all Task 07 changes uncommitted for review?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve execution'
+          description: 'Implement and verify only revised Task 07, update its checklist and handoff, and stop without committing.'
+        - id: do-not-execute
+          label: 'Do not execute'
+          description: 'Keep the repository unchanged and leave the revised packet pending.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+      rationale: ''
+      supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-07
+    revision: 1
+    category: commit-authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revised Task 07 is implemented, verified, and isolated as the completed repository and diagnostic-storage boundary.'
+      - 'The next project-wide dependency-injection work must begin from an atomic Task 07 commit.'
+    prompt_mcp:
+      interview_id: plan:provider-audit-logging
+      question_id: commit.task-07
+      idempotency_key: commit.task-07:v1
+      last_status: answered
+    question:
+      text: 'Authorize the verified Task 07 boundary commit with message `feat(audit): add diagnostic capture repositories`?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Commit Task 07 (Recommended)'
+          description: 'Create one atomic commit containing only the verified Task 07 repository and diagnostic-storage boundary before beginning the expanded DI migration.'
+        - id: leave-uncommitted
+          label: 'Leave uncommitted'
+          description: 'Keep Task 07 in the worktree and block later packets under the incremental workflow.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Do not commit; return Task 07 for further revision.'
     answer:
       selected_ids: [approve]
       text: ''

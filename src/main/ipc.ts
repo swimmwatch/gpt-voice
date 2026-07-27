@@ -48,7 +48,7 @@ import {
   setRetryTranscriptionAvailable,
   setShortcutsSuspended,
 } from './shortcuts';
-import { transcribeAudio } from './services/transcription';
+import type { TranscriptionService } from './services/transcription';
 import { shutdownAllTranslationProviders, translateText } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
@@ -88,11 +88,8 @@ import {
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
-import {
-  clearTranscriptionHistory,
-  getTranscriptionHistoryPage,
-  getTranscriptionHistoryText,
-} from './services/transcriptionHistoryStorage';
+import type { TranscriptionHistoryRepository } from './repositories/transcriptionHistoryRepository';
+import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
 import {
   checkPrettifyCliConnection,
@@ -104,7 +101,7 @@ import { prettifyProviderAudit } from './services/prettifyProviderAudit';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
-import { streamingTranscriptionService } from './services/streamingTranscription';
+import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
@@ -112,6 +109,12 @@ import { TranslationSettingsValidationError } from './translationSettings';
 const log = createLogger('ipc');
 let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
 const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
+
+export interface MainIpcDependencies {
+  readonly historyRepository: TranscriptionHistoryRepository;
+  readonly streamingTranscriptionService: MainStreamingTranscriptionService;
+  readonly transcribeAudio: TranscriptionService;
+}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -218,7 +221,7 @@ function handle<Args extends unknown[]>(
   });
 }
 
-function registerStreamingTranscriptionIpcHandlers(): void {
+function registerStreamingTranscriptionIpcHandlers(service: MainStreamingTranscriptionService): void {
   if (streamingTranscriptionIpcController) {
     throw new Error('Streaming transcription IPC handlers are already registered');
   }
@@ -239,7 +242,7 @@ function registerStreamingTranscriptionIpcHandlers(): void {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
     removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
-    service: streamingTranscriptionService,
+    service,
   });
 }
 
@@ -349,11 +352,15 @@ async function refreshActiveProvider(providerId: string) {
 }
 
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
-export function registerIpcHandlers(): void {
-  registerStreamingTranscriptionIpcHandlers();
+export function registerIpcHandlers(dependencies: MainIpcDependencies): void {
+  registerStreamingTranscriptionIpcHandlers(dependencies.streamingTranscriptionService);
+  const historyController = new TranscriptionHistoryIpcController(dependencies.historyRepository, {
+    logger: log,
+    writeClipboardText,
+  });
 
   handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
-    return transcribeAudio(buffer, mimeType);
+    return dependencies.transcribeAudio(buffer, mimeType);
   });
 
   handle('translate-text', async (_event, text: string, targetLang: string) => {
@@ -361,28 +368,15 @@ export function registerIpcHandlers(): void {
   });
 
   handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
-    return getTranscriptionHistoryPage(query || {});
+    return historyController.list(query || {});
   });
 
   handle('copy-transcription-history-text', (_event, id: number) => {
-    const numericId = Number(id);
-    const text = getTranscriptionHistoryText(numericId);
-    if (!text) {
-      return { success: false, error: 'History entry not found' };
-    }
-
-    try {
-      writeClipboardText(text);
-      return { success: true };
-    } catch (error: unknown) {
-      log.warn('Failed to copy transcription history text:', { id: numericId, error: getErrorMessage(error) });
-      return { success: false, error: 'Failed to copy history text' };
-    }
+    return historyController.copyText(id);
   });
 
   handle('clear-transcription-history', () => {
-    clearTranscriptionHistory();
-    return { success: true };
+    return historyController.clear();
   });
 
   handle('get-recording-status', () => {

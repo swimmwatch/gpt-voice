@@ -7,7 +7,13 @@ import {
   hasExplicitLocalePreference,
   loadConfig,
 } from './config';
-import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
+import {
+  ensureBackgroundBrowser,
+  getActiveProvider,
+  initBackgroundBrowser,
+  isBgReady,
+  shutdownBackgroundBrowser,
+} from './browser';
 import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
 import { createTray } from './tray';
 import { registerShortcuts } from './shortcuts';
@@ -22,18 +28,42 @@ import {
 } from './linuxDesktopIntegration';
 import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
 import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
-import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
 import { shutdownAllTranslationProviders } from './services/translation';
 import { resolveStartupLocale } from './startupLocale';
-import { showSystemNotification } from './electronRuntime';
+import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
+import { DiagnosticCaptureStorage } from './services/diagnosticCaptureStorage';
+import { AppDatabaseCoordinator } from './repositories/sqlite/appDatabase';
+import { SqliteDiagnosticCaptureRepository } from './repositories/sqlite/sqliteDiagnosticCaptureRepository';
+import { SqliteTranscriptionHistoryRepository } from './repositories/sqlite/sqliteTranscriptionHistoryRepository';
+import { createTranscriptionService } from './services/transcription';
+import { createMainStreamingTranscriptionService } from './services/streamingTranscription';
+import { createTranscriptionResultCache } from './services/transcriptionResultCache';
 
 const CHROMIUM_FATAL_LOG_LEVEL = '3';
 const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
 let quitCleanupComplete = false;
 let quitCleanupPromise: Promise<void> | null = null;
+
+const appDatabase = new AppDatabaseCoordinator();
+const transcriptionHistoryRepository = new SqliteTranscriptionHistoryRepository(appDatabase);
+const diagnosticCaptureRepository = new SqliteDiagnosticCaptureRepository(appDatabase);
+const diagnosticCaptureStorage = new DiagnosticCaptureStorage(diagnosticCaptureRepository);
+const transcriptionCompletionDependencies = {
+  cache: createTranscriptionResultCache(),
+  historyRepository: transcriptionHistoryRepository,
+  writeClipboardText,
+};
+const transcribeAudio = createTranscriptionService({
+  ...transcriptionCompletionDependencies,
+  ensureBackgroundBrowser: () => ensureBackgroundBrowser(),
+  getActiveProvider,
+  getRequestedAt: () => new Date().toISOString(),
+  isBackgroundReady: isBgReady,
+});
+const streamingTranscriptionService = createMainStreamingTranscriptionService(transcriptionCompletionDependencies);
 
 configureAppIdentity();
 app.disableHardwareAcceleration();
@@ -140,25 +170,34 @@ app.on('ready', () => {
     translate: t,
   });
 
-  registerIpcHandlers();
-  createWindow();
+  void diagnosticCaptureStorage
+    .pruneOnStartup()
+    .then(() => {
+      registerIpcHandlers({
+        historyRepository: transcriptionHistoryRepository,
+        streamingTranscriptionService,
+        transcribeAudio,
+      });
+      createWindow();
 
-  if (isStartupBenchmark) {
-    waitForStartupBenchmarkReady();
-    return;
-  }
+      if (isStartupBenchmark) {
+        waitForStartupBenchmarkReady();
+        return null;
+      }
 
-  createTray();
-  registerShortcuts();
-
-  void initBackgroundBrowser().then((status) => {
-    const providerId = status.providerId || currentProvider;
-    if (status.ready) {
-      getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-    } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-    }
-  });
+      createTray();
+      registerShortcuts();
+      return initBackgroundBrowser();
+    })
+    .then((status) => {
+      if (!status) return;
+      const providerId = status.providerId || currentProvider;
+      if (status.ready) {
+        getMainWindow()?.webContents.send('bg-browser-ready', providerId);
+      } else if (status.error) {
+        getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
+      }
+    });
 });
 
 app.on('window-all-closed', () => {
@@ -171,20 +210,42 @@ app.on('activate', () => {
 
 async function runQuitCleanup(): Promise<void> {
   globalShortcut.unregisterAll();
-  await teardownStreamingTranscriptionIpcHandlers();
+  try {
+    await teardownStreamingTranscriptionIpcHandlers();
+  } catch {
+    log.warn('Streaming transcription cleanup incomplete during quit');
+  }
   try {
     await unloadLoadedOllamaPrettifyModel();
-  } catch (error: unknown) {
-    log.warn('Failed to unload Ollama prettify model during quit:', error instanceof Error ? error.message : error);
+  } catch {
+    log.warn('Failed to unload Ollama prettify model during quit');
   }
-  closeTranscriptionHistoryStore();
-  const translationShutdown = await shutdownAllTranslationProviders();
-  if (!translationShutdown.success) {
-    log.warn('Translation provider cleanup incomplete during quit:', {
-      failedProviderIds: translationShutdown.failedProviderIds,
+  try {
+    const translationShutdown = await shutdownAllTranslationProviders();
+    if (!translationShutdown.success) {
+      log.warn('Translation provider cleanup incomplete during quit:', {
+        failedProviderIds: translationShutdown.failedProviderIds,
+      });
+    }
+  } catch {
+    log.warn('Translation provider cleanup failed during quit');
+  }
+  try {
+    await shutdownBackgroundBrowser();
+  } catch {
+    log.warn('Background browser cleanup incomplete during quit');
+  }
+  const storageShutdown = await diagnosticCaptureStorage.shutdown();
+  if (storageShutdown.status === 'failure') {
+    log.warn('Application database cleanup incomplete during quit:', {
+      causeCode: storageShutdown.causeCode,
     });
   }
-  await shutdownBackgroundBrowser();
+  try {
+    appDatabase.close();
+  } catch {
+    log.warn('Application database cleanup incomplete during quit');
+  }
 }
 
 app.on('will-quit', (event) => {
@@ -192,8 +253,8 @@ app.on('will-quit', (event) => {
 
   event.preventDefault();
   void (quitCleanupPromise ??= runQuitCleanup()
-    .catch((error: unknown) => {
-      log.warn('Quit cleanup failed:', error instanceof Error ? error.message : error);
+    .catch(() => {
+      log.warn('Quit cleanup failed');
     })
     .finally(() => {
       quitCleanupComplete = true;

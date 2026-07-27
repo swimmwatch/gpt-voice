@@ -12,6 +12,7 @@ import type { TextActionResultCache } from '@main/services/textActionCache';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   protected override buildLifecycle(): ProviderAuditLifecycle<'voice'> {
@@ -77,14 +78,11 @@ function createTestService(options: TestServiceOptions = {}) {
   let backgroundReady = options.backgroundReady ?? true;
   const cache = options.cache || createTranscriptionResultCache();
   const clipboard: string[] = [];
-  const history: Array<{ requestedAt: string; providerId: string; providerName: string; text: string }> = [];
+  const historyRepository = new RecordingTranscriptionHistoryRepository();
   let ensureCalls = 0;
 
   const service = createTranscriptionService({
     audit: options.audit ?? audit,
-    addHistoryEntry: (entry) => {
-      history.push(entry);
-    },
     cache,
     ensureBackgroundBrowser: async () => {
       ensureCalls += 1;
@@ -93,6 +91,7 @@ function createTestService(options: TestServiceOptions = {}) {
     },
     getActiveProvider: () => activeProvider,
     getRequestedAt: () => '2026-07-12T00:00:00.000Z',
+    historyRepository,
     isBackgroundReady: () => backgroundReady,
     writeClipboardText: (text) => {
       clipboard.push(text);
@@ -104,7 +103,7 @@ function createTestService(options: TestServiceOptions = {}) {
     cache,
     clipboard,
     ensureCalls: () => ensureCalls,
-    history,
+    history: historyRepository.addedEntries,
     provider: defaultProvider,
     service,
   };
