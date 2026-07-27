@@ -3,15 +3,16 @@ import { StatusCodes } from 'http-status-codes';
 import { t } from '@main/i18n';
 import {
   BasePrettifyProvider,
-  createOneShotExecution,
   type PreparePrettifyExecutionResult,
+  type PrettifyFetch,
   type PrettifyProviderDependencies,
   type PrettifyProviderModelList,
   type PrettifyProviderRequest,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
+import { OneShotPrettifyExecution } from '@main/services/prettifyOneShotExecution';
 import type { PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
-import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type {
   KnownPrettifyProviderId,
   PrettifyModelLoadResult,
@@ -42,6 +43,11 @@ interface ParsedPrettifyText {
 }
 
 export type HttpPrettifyProviderId = 'ollama' | 'vllm';
+
+export interface HttpPrettifyProviderDependencies extends PrettifyProviderDependencies {
+  readonly fetch: PrettifyFetch;
+  readonly getSettingsWithSecret: (input?: PrettifySettingsInput) => PrettifySettingsWithSecret;
+}
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
@@ -224,9 +230,9 @@ function extractVllmText(body: string): ParsedPrettifyText {
 
 async function getRunningOllamaModels(
   baseUrl: string,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<Map<string, RunningOllamaModelInfo>> {
-  const response = await deps.fetch(joinUrl(baseUrl, '/api/ps'));
+  const response = await dependencies.fetch(joinUrl(baseUrl, '/api/ps'));
   const body = await response.text();
   if (response.status !== Number(StatusCodes.OK)) return new Map();
   return parseOllamaRunningModels(body);
@@ -235,10 +241,10 @@ async function getRunningOllamaModels(
 async function getOllamaModelVramSize(
   baseUrl: string,
   model: string,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<number | undefined> {
   try {
-    return (await getRunningOllamaModels(baseUrl, deps)).get(model)?.vramSizeBytes;
+    return (await getRunningOllamaModels(baseUrl, dependencies)).get(model)?.vramSizeBytes;
   } catch {
     return undefined;
   }
@@ -268,9 +274,9 @@ function isSameOllamaModel(left: LoadedOllamaPrettifyModel | null, right: Loaded
 async function setOllamaModelKeepAlive(
   model: LoadedOllamaPrettifyModel,
   keepAlive: number,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<void> {
-  const response = await deps.fetch(joinUrl(model.baseUrl, '/api/chat'), {
+  const response = await dependencies.fetch(joinUrl(model.baseUrl, '/api/chat'), {
     method: 'POST',
     headers: createJsonHeaders(),
     body: JSON.stringify({
@@ -320,21 +326,20 @@ export function getHttpPrettifyProviderBaseUrl(
 export class OllamaPrettifyProvider extends BasePrettifyProvider {
   private loadedModel: LoadedOllamaPrettifyModel | null = null;
 
-  public constructor() {
-    super('ollama');
+  public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
+    super('ollama', dependencies.audit);
   }
 
   public async checkAvailability(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const context = auditContext ?? audit.startAvailability(this.id);
     context.lifecycle.phaseEntered('readiness', audit.createMetadata({ modelSource: 'http' }));
     try {
-      const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'), { signal });
+      const response = await this.dependencies.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'), { signal });
       const body = await response.text();
       if (response.status !== Number(StatusCodes.OK)) {
         audit.terminalFailure(context, 'readiness', 'request-failed', {
@@ -362,15 +367,14 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const context = auditContext ?? audit.startModelList(this.id);
     context.lifecycle.phaseEntered('model-discovery', audit.createMetadata({ modelSource: 'http' }));
     let response;
     try {
-      response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'));
+      response = await this.dependencies.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'));
     } catch (error: unknown) {
       audit.terminalFailure(context, 'model-discovery', 'connection-failed', { modelSource: 'http' });
       throw error;
@@ -397,7 +401,10 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     try {
       const result: PrettifyProviderModelList = {
         availability: { status: 'available' },
-        models: withOllamaRunningMetadata(parsed.models, await getRunningOllamaModels(settings.ollama.baseUrl, deps)),
+        models: withOllamaRunningMetadata(
+          parsed.models,
+          await getRunningOllamaModels(settings.ollama.baseUrl, this.dependencies),
+        ),
         source: 'http' as const,
       };
       audit.terminalSuccess(context, 'result', { modelSource: 'http' });
@@ -411,10 +418,9 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
   public prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const modelMetadata = audit.createMetadata({
       modelConfigured: Boolean(settings.ollama.model),
       modelNameLength: settings.ollama.model.length,
@@ -434,9 +440,9 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: createOneShotExecution('ollama', createHttpCacheContext(settings, 'ollama'), async (text) => {
+      prepared: new OneShotPrettifyExecution('ollama', createHttpCacheContext(settings, 'ollama'), async (text) => {
         try {
-          return await this.prettify({ text, signal, settings }, deps);
+          return await this.prettify({ text, signal, settings });
         } catch (error: unknown) {
           return {
             success: false,
@@ -449,11 +455,13 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     });
   }
 
-  public async prettify(
-    { auditContext, text, signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const audit = this.getAudit(deps);
+  public async prettify({
+    auditContext,
+    text,
+    signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const audit = this.audit;
     const context = auditContext ?? audit.startPrettify(this.id, text.length);
     const sourceMetadata = audit.createMetadata({ sourceLength: text.length });
     context.lifecycle.phaseEntered('validation', sourceMetadata);
@@ -461,7 +469,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     context.lifecycle.phaseEntered('submission', sourceMetadata);
     let response;
     try {
-      response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/chat'), {
+      response = await this.dependencies.fetch(joinUrl(settings.ollama.baseUrl, '/api/chat'), {
         method: 'POST',
         headers: createJsonHeaders(),
         signal,
@@ -520,10 +528,9 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
   /** Loads and retains the configured Ollama model while preserving replacement ownership. */
   public async loadModel(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelLoadResult> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const modelMetadata = audit.createMetadata({
       modelConfigured: Boolean(settings.ollama.model),
       modelNameLength: settings.ollama.model.length,
@@ -546,7 +553,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
       context.lifecycle.phaseEntered('model-discovery', modelMetadata);
       let runningModels = new Map<string, RunningOllamaModelInfo>();
       try {
-        runningModels = await getRunningOllamaModels(nextModel.baseUrl, deps);
+        runningModels = await getRunningOllamaModels(nextModel.baseUrl, this.dependencies);
       } catch {
         runningModels = new Map();
       }
@@ -567,7 +574,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         (this.loadedModel.baseUrl !== nextModel.baseUrl || this.loadedModel.model !== nextModel.model)
       ) {
         replacementCleanupActive = true;
-        await setOllamaModelKeepAlive(this.loadedModel, 0, deps);
+        await setOllamaModelKeepAlive(this.loadedModel, 0, this.dependencies);
         this.loadedModel = null;
         replacementCleanupActive = false;
       }
@@ -581,13 +588,13 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
           vramSizeBytes: runningSelectedModel.vramSizeBytes,
         };
       }
-      await setOllamaModelKeepAlive(nextModel, -1, deps);
+      await setOllamaModelKeepAlive(nextModel, -1, this.dependencies);
       this.loadedModel = nextModel;
       const result: PrettifyModelLoadResult = {
         success: true,
         providerId: this.id,
         model: nextModel.model,
-        vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, deps),
+        vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, this.dependencies),
       };
       audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
       return result;
@@ -612,10 +619,9 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
   public async unloadModel(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelUnloadResult> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const modelMetadata = audit.createMetadata({
       modelConfigured: Boolean(settings.ollama.model),
       modelNameLength: settings.ollama.model.length,
@@ -637,14 +643,15 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
       context.lifecycle.phaseEntered('model-discovery', modelMetadata);
       let shouldUnload = isSameOllamaModel(this.loadedModel, model);
       try {
-        shouldUnload = shouldUnload || (await getRunningOllamaModels(model.baseUrl, deps)).has(model.model);
+        shouldUnload =
+          shouldUnload || (await getRunningOllamaModels(model.baseUrl, this.dependencies)).has(model.model);
       } catch {
         shouldUnload = true;
       }
       context.lifecycle.phaseCompleted('model-discovery', modelMetadata);
       context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
       if (shouldUnload) {
-        await setOllamaModelKeepAlive(model, 0, deps);
+        await setOllamaModelKeepAlive(model, 0, this.dependencies);
       }
       if (isSameOllamaModel(this.loadedModel, model)) this.loadedModel = null;
       audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
@@ -660,16 +667,13 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     }
   }
 
-  public async unloadLoadedModel(
-    deps: PrettifyProviderDependencies,
-    fallbackSettings: PrettifySettingsInput = {},
-  ): Promise<void> {
-    const audit = this.getAudit(deps);
+  public async unloadLoadedModel(fallbackSettings: PrettifySettingsInput = {}): Promise<void> {
+    const audit = this.audit;
     const context = audit.startShutdown(this.id);
     context.lifecycle.phaseEntered('configuration');
     let savedSettings: PrettifySettingsWithSecret;
     try {
-      savedSettings = getPrettifySettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
+      savedSettings = this.dependencies.getSettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
     } catch (error: unknown) {
       audit.terminalException(context, 'configuration', error, { cleanupFailure: true });
       throw error;
@@ -692,7 +696,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     }
     context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
     try {
-      await setOllamaModelKeepAlive(model, 0, deps);
+      await setOllamaModelKeepAlive(model, 0, this.dependencies);
     } catch (error: unknown) {
       audit.terminalFailure(context, 'cleanup', 'model-lifecycle-failed', {
         ...modelMetadata,
@@ -721,21 +725,20 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
 /** HTTP-backed OpenAI-compatible vLLM provider. */
 export class VllmPrettifyProvider extends BasePrettifyProvider {
-  public constructor() {
-    super('vllm');
+  public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
+    super('vllm', dependencies.audit);
   }
 
   public async checkAvailability(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const context = auditContext ?? audit.startAvailability(this.id);
     context.lifecycle.phaseEntered('readiness', audit.createMetadata({ modelSource: 'http' }));
     try {
-      const response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
+      const response = await this.dependencies.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
         headers: createJsonHeaders(settings.vllm.apiKey),
         signal,
       });
@@ -766,15 +769,14 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const context = auditContext ?? audit.startModelList(this.id);
     context.lifecycle.phaseEntered('model-discovery', audit.createMetadata({ modelSource: 'http' }));
     let response;
     try {
-      response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
+      response = await this.dependencies.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
         headers: createJsonHeaders(settings.vllm.apiKey),
       });
     } catch (error: unknown) {
@@ -807,10 +809,9 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
   public prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    const audit = this.getAudit(deps);
+    const audit = this.audit;
     const modelMetadata = audit.createMetadata({
       modelConfigured: Boolean(settings.vllm.model),
       modelNameLength: settings.vllm.model.length,
@@ -830,9 +831,9 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: createOneShotExecution('vllm', createHttpCacheContext(settings, 'vllm'), async (text) => {
+      prepared: new OneShotPrettifyExecution('vllm', createHttpCacheContext(settings, 'vllm'), async (text) => {
         try {
-          return await this.prettify({ text, signal, settings }, deps);
+          return await this.prettify({ text, signal, settings });
         } catch (error: unknown) {
           return {
             success: false,
@@ -845,11 +846,13 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     });
   }
 
-  public async prettify(
-    { auditContext, text, signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const audit = this.getAudit(deps);
+  public async prettify({
+    auditContext,
+    text,
+    signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const audit = this.audit;
     const context = auditContext ?? audit.startPrettify(this.id, text.length);
     const sourceMetadata = audit.createMetadata({ sourceLength: text.length });
     context.lifecycle.phaseEntered('validation', sourceMetadata);
@@ -857,7 +860,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     context.lifecycle.phaseEntered('submission', sourceMetadata);
     let response;
     try {
-      response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
+      response = await this.dependencies.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
         method: 'POST',
         headers: createJsonHeaders(settings.vllm.apiKey),
         signal,

@@ -1,10 +1,4 @@
-import type { ClaudeCliPrettifyAdapter } from '@main/services/prettifyClaudeCli';
-import type { CodexCliPrettifyAdapter } from '@main/services/prettifyCodexCli';
-import {
-  prettifyProviderAudit,
-  type PrettifyAuditOperationContext,
-  type PrettifyProviderAudit,
-} from '@main/services/prettifyProviderAudit';
+import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import {
   getPrettifyProviderCapabilities,
@@ -28,18 +22,15 @@ export interface TextProcessingResult {
   errorCode?: PrettifyCliRuntimeErrorCode;
 }
 
-interface FetchResponseLike {
+export interface PrettifyFetchResponse {
   status: number;
   text(): Promise<string>;
 }
 
+export type PrettifyFetch = (url: string, init?: RequestInit) => Promise<PrettifyFetchResponse>;
+
 export interface PrettifyProviderDependencies {
-  audit?: PrettifyProviderAudit;
-  claudeCliAdapter?: Pick<ClaudeCliPrettifyAdapter, 'prepare'> &
-    Partial<Pick<ClaudeCliPrettifyAdapter, 'checkAvailability'>>;
-  codexCliAdapter?: Pick<CodexCliPrettifyAdapter, 'listModels' | 'prepare'> &
-    Partial<Pick<CodexCliPrettifyAdapter, 'checkAvailability'>>;
-  fetch: (url: string, init?: RequestInit) => Promise<FetchResponseLike>;
+  readonly audit: PrettifyProviderAudit;
 }
 
 export interface PrettifyProviderRequest {
@@ -71,28 +62,14 @@ export type PreparePrettifyExecutionResult =
   | { prepared: PreparedPrettifyExecution; success: true }
   | { error: string; errorCode?: PrettifyCliRuntimeErrorCode; success: false };
 
-export function createOneShotExecution(
-  providerId: KnownPrettifyProviderId,
-  cacheContext: readonly string[],
-  execute: (text: string) => Promise<TextProcessingResult>,
-): PreparedPrettifyExecution {
-  let consumed = false;
-  return {
-    cacheContext,
-    providerId,
-    execute: async (text) => {
-      if (consumed) return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
-      consumed = true;
-      return execute(text);
-    },
-  };
-}
-
 /** Shared provider-domain contract. Persistence, validation, and IPC stay in their dedicated services. */
 export abstract class BasePrettifyProvider {
   public readonly capabilities: PrettifyProviderCapabilities;
 
-  protected constructor(public readonly id: KnownPrettifyProviderId) {
+  protected constructor(
+    public readonly id: KnownPrettifyProviderId,
+    protected readonly audit: PrettifyProviderAudit,
+  ) {
     this.capabilities = getPrettifyProviderCapabilities(id);
   }
 
@@ -108,7 +85,6 @@ export abstract class BasePrettifyProvider {
   public checkAvailability(
     _settings: PrettifySettingsWithSecret,
     _signal: AbortSignal,
-    _deps: PrettifyProviderDependencies,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
     return Promise.resolve({ status: 'unavailable' });
@@ -116,7 +92,6 @@ export abstract class BasePrettifyProvider {
 
   public listModels(
     _settings: PrettifySettingsWithSecret,
-    _deps: PrettifyProviderDependencies,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
     return Promise.resolve({
@@ -129,22 +104,17 @@ export abstract class BasePrettifyProvider {
   public prepare(
     _settings: PrettifySettingsWithSecret,
     _signal: AbortSignal,
-    _deps: PrettifyProviderDependencies,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
     return Promise.resolve({ success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
   }
 
-  public prettify(
-    _request: PrettifyProviderRequest,
-    _deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
+  public prettify(_request: PrettifyProviderRequest): Promise<TextProcessingResult> {
     return Promise.resolve({ success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
   }
 
   public loadModel(
     _settings: PrettifySettingsWithSecret,
-    _deps: PrettifyProviderDependencies,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelLoadResult> {
     return Promise.resolve({
@@ -156,7 +126,6 @@ export abstract class BasePrettifyProvider {
 
   public unloadModel(
     _settings: PrettifySettingsWithSecret,
-    _deps: PrettifyProviderDependencies,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelUnloadResult> {
     return Promise.resolve({
@@ -164,10 +133,6 @@ export abstract class BasePrettifyProvider {
       providerId: this.id,
       error: 'Model unloading is available only for Ollama',
     });
-  }
-
-  protected getAudit(deps: PrettifyProviderDependencies): PrettifyProviderAudit {
-    return deps.audit ?? prettifyProviderAudit;
   }
 
   protected abstract getConfiguredModel(settings: PrettifySettingsWithSecret): string;

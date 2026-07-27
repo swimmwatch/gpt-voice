@@ -2,12 +2,8 @@ import { createHash } from 'node:crypto';
 import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
-import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
-import {
-  prettifyProviderAudit,
-  type PrettifyAuditOperationContext,
-  type PrettifyProviderAudit,
-} from '@main/services/prettifyProviderAudit';
+import { CliProcessFailureCode, type CliProcessResult } from '@main/services/prettifyCliRunner';
+import { PrettifyProviderAudit, type PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import {
   isValidCodexCliPrettifyModel,
   type CodexCliPrettifyReasoningEffort,
@@ -200,9 +196,9 @@ export interface CodexCliOutputSchemaPathContext {
 }
 
 export interface CodexCliPrettifyAdapterDependencies {
-  audit?: PrettifyProviderAudit;
+  readonly audit: PrettifyProviderAudit;
   outputSchemaPathResolver?: () => string;
-  runner?: CodexCliProcessRunner;
+  readonly runner: CodexCliProcessRunner;
   schemaFileSystem?: CodexCliSchemaFileSystem;
 }
 
@@ -471,10 +467,10 @@ export class CodexCliPrettifyAdapter {
   private readonly runner: CodexCliProcessRunner;
   private readonly schemaFileSystem: CodexCliSchemaFileSystem;
 
-  constructor(dependencies: CodexCliPrettifyAdapterDependencies = {}) {
-    this.audit = dependencies.audit ?? prettifyProviderAudit;
+  constructor(dependencies: CodexCliPrettifyAdapterDependencies) {
+    this.audit = dependencies.audit;
     this.outputSchemaPathResolver = dependencies.outputSchemaPathResolver ?? resolveDefaultCodexCliOutputSchemaPath;
-    this.runner = dependencies.runner ?? new CliProcessRunner();
+    this.runner = dependencies.runner;
     this.schemaFileSystem = dependencies.schemaFileSystem ?? systemSchemaFileSystem;
   }
 

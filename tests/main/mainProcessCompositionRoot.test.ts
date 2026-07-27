@@ -19,7 +19,7 @@ import {
   type MainProcessIpcRegistration,
   type MainProcessPreventableEvent,
 } from '@main/mainProcessApplication';
-import { createSelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { getPrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProviders/BingTranslateProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
@@ -153,6 +153,7 @@ interface CompositionHarnessState {
   createCount: number;
   readonly ipcDependencies: MainIpcDependencies[];
   readonly ipcRegistrations: RecordingIpcRegistration[];
+  readonly prettifyAuditRecords: string[];
   readonly translationAuditRecords: string[];
 }
 
@@ -163,6 +164,7 @@ class MainProcessCompositionHarness {
     createCount: 0,
     ipcDependencies: [],
     ipcRegistrations: [],
+    prettifyAuditRecords: [],
     translationAuditRecords: [],
   };
   public readonly temporaryDirectory: string;
@@ -204,6 +206,66 @@ class MainProcessCompositionHarness {
       },
       reportStreamingDiagnostic: () => undefined,
       resolveStreamingCapability: () => null,
+      prettify: {
+        audit: {
+          elapsedNow: () => 0,
+          getSink: () => ({
+            error: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
+            },
+            info: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
+            },
+            warn: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.prettifyAuditRecords.push(serialized);
+            },
+          }),
+          now: () => new Date('2026-07-27T12:00:00.000Z'),
+          randomUUID: () => '00000000-0000-4000-8000-000000000004',
+        },
+        cliRunner: {
+          clock: {
+            clearTimeout: () => undefined,
+            now: () => 0,
+            setTimeout: () => 0,
+          },
+          environment: {},
+          fileSystem: {
+            access: async () => undefined,
+            mkdtemp: async () => this.temporaryDirectory,
+            removeDirectory: async () => undefined,
+            stat: async () => ({ isFile: () => true }),
+          },
+          getTemporaryDirectory: () => this.temporaryDirectory,
+          platform: 'linux',
+          spawn: () => {
+            throw new Error('unexpected Prettify process');
+          },
+        },
+        codexCli: {
+          outputSchemaPathResolver: () => '/app/prettify/codex-output.schema.json',
+          schemaFileSystem: {
+            access: async () => undefined,
+            readFile: async () => new Uint8Array(),
+            stat: async () => ({ isFile: () => true }),
+          },
+        },
+        fetch: async () => ({ status: 200, text: async () => '{}' }),
+        getSettingsWithSecret: getPrettifySettingsWithSecret,
+        selectedText: {
+          automateTextAction: async () => undefined,
+          clipboard: {
+            readText: () => '',
+            writeText: () => undefined,
+          },
+          getCacheContext: () => [],
+          getPrettifySettings: () => getPrettifySettingsWithSecret(),
+          logger: { info: () => undefined, warn: () => undefined },
+          notify: () => undefined,
+          platform: 'linux',
+          wait: async () => undefined,
+        },
+      },
       translation: {
         audit: {
           elapsedNow: () => 0,
@@ -239,7 +301,6 @@ class MainProcessCompositionHarness {
           sleep: async () => undefined,
         },
         selectedText: {
-          actionGate: createSelectedTextActionGate(),
           automateTextAction: async () => undefined,
           clipboard: {
             readText: () => '',
@@ -382,8 +443,6 @@ class MainProcessCompositionHarness {
           syncDesktopIcons: () => undefined,
         },
         shortcuts: {
-          cancelSelectedTextPrettify: () => false,
-          getActiveSelectedTextAction: () => null,
           getSettings: () => ({
             cancelHotkey: 'Escape',
             hotkey: 'Super+Shift+Space',
@@ -401,7 +460,6 @@ class MainProcessCompositionHarness {
           },
           logger: { info: () => undefined, warn: () => undefined },
           platform: 'linux',
-          prettifySelectedText: async () => ({ success: true }),
         },
         tray: {
           application: this.app,
@@ -432,7 +490,6 @@ class MainProcessCompositionHarness {
         warn: () => undefined,
       },
       presentTranslationSettingsRepairNotice: () => undefined,
-      unloadPrettifyModel: async () => undefined,
     };
   }
 
@@ -565,6 +622,48 @@ describe('main process composition root', () => {
     assert.doesNotMatch(providerBase, /\bDEFAULT_DEPENDENCIES\b|launchCloakContext|Date\.now|setTimeout/u);
   });
 
+  it('removes migrated Prettify singleton and default construction seams', () => {
+    const runtime = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/prettifyProviders.ts'), 'utf8');
+    const selectedText = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/selectedTextPrettify.ts'), 'utf8');
+    const actionGate = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/selectedTextActionState.ts'), 'utf8');
+    const providerAudit = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/services/prettifyProviderAudit.ts'),
+      'utf8',
+    );
+    const oneShotExecution = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/services/prettifyOneShotExecution.ts'),
+      'utf8',
+    );
+    const claudeCliAdapter = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/prettifyClaudeCli.ts'), 'utf8');
+    const codexCliAdapter = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/prettifyCodexCli.ts'), 'utf8');
+    const cliProviders = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/prettifyCliProviders.ts'), 'utf8');
+    const ipc = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
+
+    assert.match(runtime, /export class PrettifyProviderFactory/u);
+    assert.match(runtime, /export class PrettifyProviderRegistry/u);
+    assert.match(runtime, /export class PrettifyRuntime/u);
+    assert.match(selectedText, /export class SelectedTextPrettifyService/u);
+    assert.match(actionGate, /export class SelectedTextActionGate/u);
+    assert.match(oneShotExecution, /export class OneShotPrettifyExecution/u);
+    assert.doesNotMatch(
+      runtime,
+      /\bKNOWN_PRETTIFY_PROVIDERS\b|\bDEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES\b|\bexport (?:async )?function (?:checkPrettifyCliConnection|listPrettifyModels|loadPrettifyModel|preparePrettifyExecution|runPrettify|unloadLoadedOllamaPrettifyModel|unloadPrettifyModel)\b/u,
+    );
+    assert.doesNotMatch(providerAudit, /\bexport const prettifyProviderAudit\b/u);
+    assert.doesNotMatch(claudeCliAdapter, /\breadonly audit\?:|\?\? new PrettifyProviderAudit/u);
+    assert.doesNotMatch(codexCliAdapter, /\breadonly audit\?:|\?\? new PrettifyProviderAudit/u);
+    assert.doesNotMatch(cliProviders, /\bdefault(?:Claude|Codex)CliAdapter\b/u);
+    assert.doesNotMatch(
+      selectedText,
+      /\bcreateSelectedTextPrettifyService\b|\bexport const (?:prettifySelectedText|cancelSelectedTextPrettify)\b/u,
+    );
+    assert.doesNotMatch(
+      actionGate,
+      /\bcreateSelectedTextActionGate\b|\bdefaultSelectedTextActionGate\b|\bselectedTextActionGate\b/u,
+    );
+    assert.doesNotMatch(ipc, /\bprettifyCliConnectionChecks\b|\bprettifyProviderAudit\b/u);
+  });
+
   it('defers database and service construction until normal application startup', async () => {
     const harness = createHarness();
     const application = new MainProcessCompositionRoot(harness.compositionEnvironment).createApplication(
@@ -608,6 +707,8 @@ describe('main process composition root', () => {
     assert.notEqual(firstDependencies.shortcutController, secondDependencies.shortcutController);
     assert.notEqual(firstDependencies.streamingTranscriptionService, secondDependencies.streamingTranscriptionService);
     assert.notEqual(firstDependencies.transcriptionService, secondDependencies.transcriptionService);
+    assert.notEqual(firstDependencies.prettifyConnectionCoordinator, secondDependencies.prettifyConnectionCoordinator);
+    assert.notEqual(firstDependencies.prettifyRuntime, secondDependencies.prettifyRuntime);
     assert.notEqual(firstDependencies.translationRuntime, secondDependencies.translationRuntime);
     assert.notEqual(firstDependencies.voiceAudit, secondDependencies.voiceAudit);
     assert.notEqual(firstDependencies.voiceProviderRegistry, secondDependencies.voiceProviderRegistry);

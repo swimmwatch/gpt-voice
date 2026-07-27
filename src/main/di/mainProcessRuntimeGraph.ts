@@ -10,6 +10,8 @@ export interface MainProcessRuntimeGraphDependencies {
   readonly desktopRuntimeController: MainIpcDependencies['desktopRuntimeController'];
   readonly diagnosticStorage: DiagnosticCaptureStorage;
   readonly historyController: TranscriptionHistoryIpcController;
+  readonly prettifyConnectionCoordinator: MainIpcDependencies['prettifyConnectionCoordinator'];
+  readonly prettifyRuntime: MainIpcDependencies['prettifyRuntime'];
   readonly registerIpcHandlers: (dependencies: MainIpcDependencies) => MainProcessIpcRegistration;
   readonly shortcutController: MainIpcDependencies['shortcutController'];
   readonly streamingTranscriptionService: MainIpcDependencies['streamingTranscriptionService'];
@@ -40,6 +42,8 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
       backgroundBrowserService: this.dependencies.backgroundBrowserService,
       desktopRuntimeController: this.dependencies.desktopRuntimeController,
       historyController: this.dependencies.historyController,
+      prettifyConnectionCoordinator: this.dependencies.prettifyConnectionCoordinator,
+      prettifyRuntime: this.dependencies.prettifyRuntime,
       shortcutController: this.dependencies.shortcutController,
       streamingTranscriptionService: this.dependencies.streamingTranscriptionService,
       transcriptionService: this.dependencies.transcriptionService,

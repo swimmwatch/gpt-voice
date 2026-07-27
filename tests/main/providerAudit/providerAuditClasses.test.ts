@@ -186,6 +186,6 @@ describe('provider audit class hierarchy', () => {
     ]) {
       assert.equal(translationExports[obsoleteExport], undefined);
     }
-    assert.deepEqual(Object.keys(prettifyExports).sort(), ['PrettifyProviderAudit', 'prettifyProviderAudit']);
+    assert.deepEqual(Object.keys(prettifyExports).sort(), ['PrettifyProviderAudit']);
   });
 });

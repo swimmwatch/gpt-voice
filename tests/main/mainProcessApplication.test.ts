@@ -328,8 +328,6 @@ class RecordingShortcutController extends ShortcutController {
     windowManager: WindowManager,
   ) {
     super({
-      cancelSelectedTextPrettify: () => false,
-      getActiveSelectedTextAction: () => null,
       getSettings: () => ({
         cancelHotkey: 'Escape',
         hotkey: 'Super+Shift+Space',
@@ -347,7 +345,13 @@ class RecordingShortcutController extends ShortcutController {
       },
       logger: { info: () => undefined, warn: () => undefined },
       platform: 'linux',
-      prettifySelectedText: async () => ({ success: true }),
+      selectedTextActionGate: {
+        getActive: () => null,
+      },
+      selectedTextPrettifyService: {
+        cancel: () => null,
+        prettifySelectedText: async () => ({ success: true, status: '' }),
+      },
       selectedTextTranslationService: {
         translateSelectedTextToClipboard: async () => ({ success: true }),
       },
@@ -433,6 +437,11 @@ class MainProcessApplicationHarness {
         initialize: () => this.events.push('logger-initialize'),
         warn: (message, metadata) => this.warnings.push({ message, ...(metadata ? { metadata } : {}) }),
       },
+      prettifyRuntime: {
+        shutdown: async () => {
+          this.events.push('prettify-shutdown');
+        },
+      },
       presentTranslationSettingsRepairNotice: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
       shortcutController,
@@ -443,9 +452,6 @@ class MainProcessApplicationHarness {
         },
       },
       trayController,
-      unloadPrettifyModel: async () => {
-        this.events.push('prettify-shutdown');
-      },
       windowManager,
     };
     return new MainProcessApplication(dependencies);

@@ -15,6 +15,7 @@ describe('Prettify IPC privacy contract', () => {
     const preload = readProjectFile('src/main/preload.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
+    const coordinator = readProjectFile('src/main/services/prettifyConnectionCheckCoordinator.ts');
     const handler = ipc.slice(
       ipc.indexOf("'check-prettify-cli-connection'"),
       ipc.indexOf("handle('set-prettify-settings'"),
@@ -24,9 +25,10 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(preload, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(rendererTypes, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(handler, /isPrettifyCliProviderId\(providerId\)/u);
-    assert.match(handler, /recordUnknownProvider\(providerId, 'availability'\)/u);
+    assert.match(handler, /dependencies\.prettifyRuntime\.checkCliConnection\(providerId\)/u);
+    assert.match(handler, /dependencies\.prettifyConnectionCoordinator\.check\(/u);
     assert.match(handler, /getPrettifySettingsSnapshot\(\)/u);
-    assert.match(handler, /event\.sender\.once\('destroyed'/u);
+    assert.match(coordinator, /owner\.once\('destroyed'/u);
     assert.doesNotMatch(handler, /Prettify CLI connection checked|log\.(?:info|warn|error)/u);
     assert.doesNotMatch(handler, /executablePath|stdout|stderr|account|authStatus/u);
   });
@@ -72,8 +74,8 @@ describe('Prettify IPC privacy contract', () => {
     assert.doesNotMatch(modelHandlers, /model:\s*result\.model/u);
     assert.doesNotMatch(modelHandlers, /error:\s*getErrorMessage\(error\)/u);
     assert.doesNotMatch(modelHandlers, /log\.(?:info|warn|error)/u);
-    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-list'\)/u);
-    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-load'\)/u);
-    assert.match(modelHandlers, /recordUnknownProvider\(providerId, 'model-unload'\)/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.listModels\(providerId/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.loadModel\(providerId/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.unloadModel\(providerId/u);
   });
 });

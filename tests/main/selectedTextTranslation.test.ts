@@ -9,7 +9,7 @@ import {
   type SelectedTextTranslationRuntime,
 } from '@main/services/selectedTextTranslation';
 import type { TranslationExecutionSnapshot } from '@main/services/translation';
-import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationAction } from '@main/services/textAutomation';
 import type {
@@ -159,7 +159,7 @@ function createTestService(options: TestServiceOptions = {}) {
   const runtime = new TestTranslationRuntime(snapshot, options);
 
   const dependencies: SelectedTextTranslationDependencies = {
-    actionGate: options.actionGate ?? createSelectedTextActionGate(),
+    actionGate: options.actionGate ?? new SelectedTextActionGate(),
     automateTextAction: async (action) => {
       actions.push(action);
       options.onCopy?.();
@@ -431,7 +431,7 @@ describe('selected-text translation', () => {
   });
 
   it('silently skips translation while prettify is active', async () => {
-    const actionGate = createSelectedTextActionGate();
+    const actionGate = new SelectedTextActionGate();
     assert.equal(actionGate.tryBegin('prettify'), true);
     const harness = createTestService({
       actionGate,

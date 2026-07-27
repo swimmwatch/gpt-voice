@@ -180,7 +180,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
       ...getPreflightResults(),
       success({ structured_output: { text: 'synthetic-placeholder' }, type: 'result' }),
     ]);
-    const adapter = new ClaudeCliPrettifyAdapter({ runner });
+    const adapter = new ClaudeCliPrettifyAdapter({ audit: new RecordingPrettifyProviderAudit(), runner });
     const controller = new AbortController();
     const settings = getSettings({ effort: 'high', fallbackModel: 'claude-opus-4-6', model: 'sonnet' });
     const source = ['synthetic', 'input'].join('-');
@@ -245,7 +245,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
       ...getPreflightResults(),
       success({ structured_output: { text: 'prepared result' } }),
     ]);
-    const adapter = new ClaudeCliPrettifyAdapter({ runner });
+    const adapter = new ClaudeCliPrettifyAdapter({ audit: new RecordingPrettifyProviderAudit(), runner });
     const prepared = await adapter.prepare({
       prompt: PROTECTED_PROMPT,
       settings: getSettings(),
@@ -316,7 +316,10 @@ describe('ClaudeCliPrettifyAdapter', () => {
         ClaudeCliPrettifyErrorCode.ProcessFailed,
       ],
     ] as const) {
-      const adapter = new ClaudeCliPrettifyAdapter({ runner: new FakeRunner([...results]) });
+      const adapter = new ClaudeCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
+        runner: new FakeRunner([...results]),
+      });
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -326,7 +329,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
 
   it('maps invalid configured models precisely before generation', async () => {
     const runner = new FakeRunner(getPreflightResults());
-    const adapter = new ClaudeCliPrettifyAdapter({ runner });
+    const adapter = new ClaudeCliPrettifyAdapter({ audit: new RecordingPrettifyProviderAudit(), runner });
 
     assert.deepEqual(
       await adapter.prepare({
@@ -356,7 +359,10 @@ describe('ClaudeCliPrettifyAdapter', () => {
       [CliProcessFailureCode.CleanupFailure, ClaudeCliPrettifyErrorCode.ProcessFailed],
     ];
     for (const [runnerFailure, expected] of cases) {
-      const adapter = new ClaudeCliPrettifyAdapter({ runner: new FakeRunner([failure(runnerFailure)]) });
+      const adapter = new ClaudeCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
+        runner: new FakeRunner([failure(runnerFailure)]),
+      });
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -371,7 +377,10 @@ describe('ClaudeCliPrettifyAdapter', () => {
       [success({ structured_output: {} }), ClaudeCliPrettifyErrorCode.MalformedOutput],
       [success('not json'), ClaudeCliPrettifyErrorCode.MalformedOutput],
     ] as const) {
-      const adapter = new ClaudeCliPrettifyAdapter({ runner: new FakeRunner([...getPreflightResults(), output]) });
+      const adapter = new ClaudeCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
+        runner: new FakeRunner([...getPreflightResults(), output]),
+      });
       assert.deepEqual(
         await adapter.prettify({
           prompt: PROTECTED_PROMPT,

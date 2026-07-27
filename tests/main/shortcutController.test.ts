@@ -42,13 +42,15 @@ class ShortcutControllerHarness {
   public settings: ShortcutSettingsSnapshot = DEFAULT_SETTINGS;
   public readonly trayStates: string[] = [];
   public readonly controller = new ShortcutController({
-    cancelSelectedTextPrettify: () => false,
-    getActiveSelectedTextAction: () => null,
     getSettings: () => this.settings,
     globalShortcut: this.globalShortcuts,
     logger: { info: () => undefined, warn: () => undefined },
     platform: 'linux',
-    prettifySelectedText: async () => ({ success: true }),
+    selectedTextActionGate: { getActive: () => null },
+    selectedTextPrettifyService: {
+      cancel: () => null,
+      prettifySelectedText: async () => ({ success: true, status: '' }),
+    },
     selectedTextTranslationService: {
       translateSelectedTextToClipboard: async () => ({ success: true }),
     },

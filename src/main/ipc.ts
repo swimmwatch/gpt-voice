@@ -65,13 +65,8 @@ import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
 import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
 import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import {
-  checkPrettifyCliConnection,
-  listPrettifyModels,
-  loadPrettifyModel,
-  unloadPrettifyModel,
-} from './services/prettifyProviders';
-import { prettifyProviderAudit } from './services/prettifyProviderAudit';
+import type { PrettifyRuntime } from './services/prettifyProviders';
+import type { PrettifyConnectionCheckCoordinator } from './services/prettifyConnectionCheckCoordinator';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
 import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
@@ -80,12 +75,12 @@ import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
 
 const log = createLogger('ipc');
-const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
-
 export interface MainIpcDependencies {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly historyController: TranscriptionHistoryIpcController;
+  readonly prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents>;
+  readonly prettifyRuntime: PrettifyRuntime;
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
@@ -102,6 +97,7 @@ export class MainIpcRegistration {
   private disposed = false;
 
   public constructor(
+    private readonly prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents>,
     private readonly streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents>,
     private readonly windowManager: WindowManager,
   ) {}
@@ -123,6 +119,7 @@ export class MainIpcRegistration {
     this.disposed = true;
     for (const channel of this.channels) ipcMain.removeHandler(channel);
     this.channels.clear();
+    this.prettifyConnectionCoordinator.dispose();
     this.disposalPromise = this.streamingTranscriptionController.dispose();
     return this.disposalPromise;
   }
@@ -333,6 +330,7 @@ async function refreshActiveProvider(
 /** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
 export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcRegistration {
   const registration = new MainIpcRegistration(
+    dependencies.prettifyConnectionCoordinator,
     registerStreamingTranscriptionIpcHandlers(
       dependencies.streamingTranscriptionService,
       dependencies.windowManager,
@@ -901,26 +899,9 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
     'check-prettify-cli-connection',
     async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
       if (!isPrettifyCliProviderId(providerId)) {
-        prettifyProviderAudit.recordUnknownProvider(providerId, 'availability');
-        throw new Error('Unsupported Prettify CLI provider');
+        return dependencies.prettifyRuntime.checkCliConnection(providerId);
       }
-
-      prettifyCliConnectionChecks.get(event.sender)?.abort();
-      const controller = new AbortController();
-      const handleSenderDestroyed = (): void => controller.abort();
-      prettifyCliConnectionChecks.set(event.sender, controller);
-      event.sender.once('destroyed', handleSenderDestroyed);
-
-      try {
-        return await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
-          signal: controller.signal,
-        });
-      } finally {
-        if (prettifyCliConnectionChecks.get(event.sender) === controller) {
-          prettifyCliConnectionChecks.delete(event.sender);
-        }
-        event.sender.removeListener('destroyed', handleSenderDestroyed);
-      }
+      return dependencies.prettifyConnectionCoordinator.check(event.sender, providerId, getPrettifySettingsSnapshot());
     },
   );
 
@@ -955,20 +936,16 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       draftSettings: unknown = {},
     ): Promise<PrettifyModelListResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
-        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-list');
+        const rejected = await dependencies.prettifyRuntime.listModels(providerId, {});
         return {
-          availability: { status: 'unavailable' },
-          success: false,
-          providerId: 'ollama',
-          source: 'http',
-          models: [],
+          ...rejected,
           error: 'Unsupported prettify provider',
         };
       }
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        return await listPrettifyModels(providerId, draftSettings);
+        return await dependencies.prettifyRuntime.listModels(providerId, draftSettings);
       } catch {
         return {
           availability: { status: 'unavailable' },
@@ -990,13 +967,13 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       draftSettings: unknown = {},
     ): Promise<PrettifyModelLoadResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
-        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-load');
-        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
+        const rejected = await dependencies.prettifyRuntime.loadModel(providerId, {});
+        return { ...rejected, error: 'Unsupported prettify provider' };
       }
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        return await loadPrettifyModel(providerId, draftSettings);
+        return await dependencies.prettifyRuntime.loadModel(providerId, draftSettings);
       } catch {
         return { success: false, providerId, error: t('status.prettifyFailed') };
       }
@@ -1011,13 +988,13 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       draftSettings: unknown = {},
     ): Promise<PrettifyModelUnloadResult> => {
       if (!isKnownPrettifyProviderId(providerId)) {
-        prettifyProviderAudit.recordUnknownProvider(providerId, 'model-unload');
-        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
+        const rejected = await dependencies.prettifyRuntime.unloadModel(providerId, {});
+        return { ...rejected, error: 'Unsupported prettify provider' };
       }
 
       try {
         assertValidKnownPrettifySettingsInput(draftSettings);
-        return await unloadPrettifyModel(providerId, draftSettings);
+        return await dependencies.prettifyRuntime.unloadModel(providerId, draftSettings);
       } catch {
         return { success: false, providerId, error: t('status.prettifyFailed') };
       }

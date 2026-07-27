@@ -27,6 +27,25 @@ import {
   type SelectedTextTranslationDependencies,
 } from '../services/selectedTextTranslation';
 import { createTextActionResultCache } from '../services/textActionCache';
+import { SelectedTextActionGate } from '../services/selectedTextActionState';
+import {
+  SelectedTextPrettifyService,
+  SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
+  SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES,
+  type SelectedTextPrettifyDependencies,
+} from '../services/selectedTextPrettify';
+import { PrettifyProviderAudit } from '../services/prettifyProviderAudit';
+import {
+  PrettifyProviderFactory,
+  PrettifyProviderRegistry,
+  PrettifyRuntime,
+  type PrettifyProviderFactoryDependencies,
+} from '../services/prettifyProviders';
+import { ClaudeCliPrettifyAdapter } from '../services/prettifyClaudeCli';
+import { CodexCliPrettifyAdapter, type CodexCliPrettifyAdapterDependencies } from '../services/prettifyCodexCli';
+import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services/prettifyCliRunner';
+import { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
+import type { WebContents } from 'electron';
 
 export type MainProcessVoiceProviderEnvironment = Omit<VoiceProviderFactoryDependencies, 'audit' | 'chatGPT'> & {
   readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'sessionStore'> & {
@@ -51,10 +70,20 @@ export interface MainProcessTranslationEnvironment {
   readonly getSettings: TranslationRuntimeDependencies['getSettings'];
   readonly now: () => number;
   readonly providers: Omit<TranslationProviderFactoryDependencies, 'now'>;
-  readonly selectedText: Omit<SelectedTextTranslationDependencies, 'cache' | 'runtime'>;
+  readonly selectedText: Omit<SelectedTextTranslationDependencies, 'actionGate' | 'cache' | 'runtime'>;
+}
+
+export interface MainProcessPrettifyEnvironment {
+  readonly audit: ProviderAuditDependencies;
+  readonly cliRunner: CliProcessRunnerDependencies;
+  readonly codexCli: Omit<CodexCliPrettifyAdapterDependencies, 'audit' | 'runner'>;
+  readonly fetch: PrettifyProviderFactoryDependencies['fetch'];
+  readonly getSettingsWithSecret: PrettifyProviderFactoryDependencies['getSettingsWithSecret'];
+  readonly selectedText: Omit<SelectedTextPrettifyDependencies, 'actionGate' | 'cache' | 'runtime'>;
 }
 
 export type MainProcessCompositionEnvironment = MainProcessRuntimeFactoryDependencies & {
+  readonly prettify: MainProcessPrettifyEnvironment;
   readonly translation: MainProcessTranslationEnvironment;
   readonly voice: MainProcessVoiceEnvironment;
 };
@@ -65,7 +94,11 @@ export interface MainProcessDesktopControllerEnvironment {
   readonly linuxDesktopIntegration: LinuxDesktopIntegrationControllerDependencies;
   readonly shortcuts: Omit<
     ShortcutControllerDependencies,
-    'selectedTextTranslationService' | 'trayController' | 'windowManager'
+    | 'selectedTextActionGate'
+    | 'selectedTextPrettifyService'
+    | 'selectedTextTranslationService'
+    | 'trayController'
+    | 'windowManager'
   >;
   readonly tray: Omit<TrayControllerDependencies, 'windowManager'>;
   readonly window: WindowManagerDependencies;
@@ -78,6 +111,7 @@ type ConstructedDesktopDependencyKeys =
   | 'linuxDesktopIntegrationController'
   | 'runtimeFactory'
   | 'shortcutController'
+  | 'prettifyRuntime'
   | 'translationRuntime'
   | 'trayController'
   | 'windowManager';
@@ -102,6 +136,7 @@ interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
 export class MainProcessCompositionRoot {
   public constructor(private readonly environment: MainProcessCompositionEnvironment) {}
 
+  /** Constructs one isolated application graph from the injected process environment. */
   public createApplication(environment: MainProcessApplicationEnvironment): MainProcessApplication {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
     const voiceProviderAudit = new VoiceProviderAudit(this.environment.voice.audit);
@@ -121,6 +156,7 @@ export class MainProcessCompositionRoot {
       providerRegistry: voiceProviderRegistry,
     });
     const translationProviderAudit = new TranslationProviderAudit(this.environment.translation.audit);
+    const selectedTextActionGate = new SelectedTextActionGate();
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
       now: this.environment.translation.now,
@@ -138,10 +174,45 @@ export class MainProcessCompositionRoot {
     });
     const selectedTextTranslationService = new SelectedTextTranslationService({
       ...this.environment.translation.selectedText,
+      actionGate: selectedTextActionGate,
       cache: createTextActionResultCache(SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES, {
         now: this.environment.cacheNow,
       }),
       runtime: translationRuntime,
+    });
+    const prettifyProviderAudit = new PrettifyProviderAudit(this.environment.prettify.audit);
+    const cliProcessRunner = new CliProcessRunner(this.environment.prettify.cliRunner);
+    const claudeCliAdapter = new ClaudeCliPrettifyAdapter({
+      audit: prettifyProviderAudit,
+      runner: cliProcessRunner,
+    });
+    const codexCliAdapter = new CodexCliPrettifyAdapter({
+      ...this.environment.prettify.codexCli,
+      audit: prettifyProviderAudit,
+      runner: cliProcessRunner,
+    });
+    const prettifyProviderFactory = new PrettifyProviderFactory({
+      audit: prettifyProviderAudit,
+      claudeCliAdapter,
+      codexCliAdapter,
+      fetch: this.environment.prettify.fetch,
+      getSettingsWithSecret: this.environment.prettify.getSettingsWithSecret,
+    });
+    const prettifyProviderRegistry = new PrettifyProviderRegistry(prettifyProviderFactory);
+    const prettifyRuntime = new PrettifyRuntime({
+      audit: prettifyProviderAudit,
+      getSettingsWithSecret: this.environment.prettify.getSettingsWithSecret,
+      registry: prettifyProviderRegistry,
+    });
+    const prettifyConnectionCoordinator = new PrettifyConnectionCheckCoordinator<WebContents>(prettifyRuntime);
+    const selectedTextPrettifyService = new SelectedTextPrettifyService({
+      ...this.environment.prettify.selectedText,
+      actionGate: selectedTextActionGate,
+      cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
+        maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
+        now: this.environment.cacheNow,
+      }),
+      runtime: prettifyRuntime,
     });
     const windowManager = new WindowManager(desktopEnvironment.window);
     const trayController = new TrayController({
@@ -150,6 +221,8 @@ export class MainProcessCompositionRoot {
     });
     const shortcutController = new ShortcutController({
       ...desktopEnvironment.shortcuts,
+      selectedTextActionGate,
+      selectedTextPrettifyService,
       selectedTextTranslationService,
       trayController,
       windowManager,
@@ -164,6 +237,8 @@ export class MainProcessCompositionRoot {
       linuxDesktopIntegrationController: new LinuxDesktopIntegrationController(
         desktopEnvironment.linuxDesktopIntegration,
       ),
+      prettifyConnectionCoordinator,
+      prettifyRuntime,
       shortcutController,
       translationRuntime,
       trayController,

@@ -291,5 +291,3 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     }
   }
 }
-
-export const prettifyProviderAudit = new PrettifyProviderAudit();

@@ -1,9 +1,5 @@
-import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
-import {
-  prettifyProviderAudit,
-  type PrettifyAuditOperationContext,
-  type PrettifyProviderAudit,
-} from '@main/services/prettifyProviderAudit';
+import { CliProcessFailureCode, type CliProcessResult } from '@main/services/prettifyCliRunner';
+import { PrettifyProviderAudit, type PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import {
   CLAUDE_CLI_PRETTIFY_MODEL_ALIASES,
   isValidClaudeCliPrettifyModel,
@@ -127,8 +123,8 @@ export interface ClaudeCliProcessRunner {
 }
 
 export interface ClaudeCliPrettifyAdapterDependencies {
-  audit?: PrettifyProviderAudit;
-  runner?: ClaudeCliProcessRunner;
+  readonly audit: PrettifyProviderAudit;
+  readonly runner: ClaudeCliProcessRunner;
 }
 
 interface SemanticVersion {
@@ -280,9 +276,9 @@ export class ClaudeCliPrettifyAdapter {
   private readonly audit: PrettifyProviderAudit;
   private readonly runner: ClaudeCliProcessRunner;
 
-  constructor(dependencies: ClaudeCliPrettifyAdapterDependencies = {}) {
-    this.audit = dependencies.audit ?? prettifyProviderAudit;
-    this.runner = dependencies.runner ?? new CliProcessRunner();
+  constructor(dependencies: ClaudeCliPrettifyAdapterDependencies) {
+    this.audit = dependencies.audit;
+    this.runner = dependencies.runner;
   }
 
   public async checkAvailability(input: ClaudeCliAvailabilityInput): Promise<ClaudeCliAvailabilityResult> {

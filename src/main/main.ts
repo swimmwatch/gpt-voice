@@ -30,7 +30,8 @@ import { configureCloakBrowserRuntime, launchCloakContext, launchCloakPersistent
 import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
-import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
+import { getPrettifySettingsView, getPrettifySettingsWithSecret } from './services/prettifySettingsStorage';
+import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { resolveStartupLocale } from './startupLocale';
 import {
   readClipboardText,
@@ -42,8 +43,6 @@ import { presentPendingTranslationSettingsRepairNotice } from './translationSett
 import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
-import { getActiveSelectedTextAction, selectedTextActionGate } from './services/selectedTextActionState';
-import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
 import { runTextAutomationAction } from './services/textAutomation';
 import {
   createCloakBrowserLoginContextOptions,
@@ -106,6 +105,61 @@ const application = new MainProcessCompositionRoot({
   registerIpcHandlers,
   reportStreamingDiagnostic: ignoreStreamingDiagnostic,
   resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
+  prettify: {
+    audit: {
+      elapsedNow: Date.now,
+      getSink: () => createLogger('provider-audit'),
+      now: getCurrentDate,
+      randomUUID,
+    },
+    cliRunner: {
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      environment: process.env,
+      fileSystem: {
+        access: (filePath, mode) => fs.promises.access(filePath, mode),
+        mkdtemp: (prefix) => fs.promises.mkdtemp(prefix),
+        removeDirectory: (directory) => fs.promises.rm(directory, { force: true, recursive: true }),
+        stat: (filePath) => fs.promises.stat(filePath),
+      },
+      getTemporaryDirectory: os.tmpdir,
+      platform: process.platform,
+      spawn: (executable, args, options) => spawn(executable, args, options),
+    },
+    codexCli: {
+      outputSchemaPathResolver: () =>
+        resolveCodexCliOutputSchemaPath({
+          isPackaged: app.isPackaged,
+          mainDirectory: __dirname,
+          resourcesPath: process.resourcesPath,
+        }),
+      schemaFileSystem: {
+        access: (filePath, mode) => fs.promises.access(filePath, mode),
+        readFile: (filePath) => fs.promises.readFile(filePath),
+        stat: (filePath) => fs.promises.stat(filePath),
+      },
+    },
+    fetch,
+    getSettingsWithSecret: getPrettifySettingsWithSecret,
+    selectedText: {
+      automateTextAction: async (action) => {
+        await runTextAutomationAction(action);
+      },
+      clipboard: {
+        readText: readClipboardText,
+        writeText: writeTypedClipboardText,
+      },
+      getCacheContext: () => [],
+      getPrettifySettings: getPrettifySettingsView,
+      logger: createLogger('selection-prettify'),
+      notify: showSystemNotification,
+      platform: process.platform,
+      wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+    },
+  },
   translation: {
     audit: {
       elapsedNow: Date.now,
@@ -124,7 +178,6 @@ const application = new MainProcessCompositionRoot({
       sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
     },
     selectedText: {
-      actionGate: selectedTextActionGate,
       automateTextAction: async (action) => {
         await runTextAutomationAction(action);
       },
@@ -232,8 +285,6 @@ const application = new MainProcessCompositionRoot({
       syncDesktopIcons: syncLinuxDesktopIcons,
     },
     shortcuts: {
-      cancelSelectedTextPrettify,
-      getActiveSelectedTextAction,
       getSettings: () => ({
         cancelHotkey: currentCancelHotkey,
         hotkey: currentHotkey,
@@ -247,7 +298,6 @@ const application = new MainProcessCompositionRoot({
       globalShortcut,
       logger: createLogger('shortcuts'),
       platform: process.platform,
-      prettifySelectedText,
     },
     tray: {
       application: app,
@@ -274,7 +324,6 @@ const application = new MainProcessCompositionRoot({
   loadConfig,
   logger: log,
   presentTranslationSettingsRepairNotice,
-  unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
 });
 
 application.bootstrap();

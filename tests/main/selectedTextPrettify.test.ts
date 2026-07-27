@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import { setLocale } from '@main/i18n';
 import {
   MAX_PRETTIFY_SELECTED_TEXT_LENGTH,
-  createSelectedTextPrettifyService,
+  SelectedTextPrettifyService,
   type SelectedTextPrettifyDependencies,
 } from '@main/services/selectedTextPrettify';
-import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
-import { preparePrettifyExecution } from '@main/services/prettifyProviders';
 import type { ClipboardType } from '@main/electronRuntime';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
 import { RecordingPrettifyProviderAudit } from './prettifyAuditTestUtils';
+import { PrettifyRuntimeFixture } from './prettifyRuntimeTestUtils';
 
 interface TestServiceOptions {
   actionGate?: SelectedTextActionGate;
@@ -21,7 +21,7 @@ interface TestServiceOptions {
   copiedText?: string;
   copyError?: Error;
   platform?: NodeJS.Platform;
-  prepare?: SelectedTextPrettifyDependencies['prepare'];
+  runtime?: SelectedTextPrettifyDependencies['runtime'];
   prompt?: string;
   providerId?: PrettifyProviderId;
   baseUrl?: string;
@@ -97,7 +97,7 @@ function createTestService(options: TestServiceOptions = {}) {
   const prettifySettings = createPrettifySettings(options);
 
   const deps: SelectedTextPrettifyDependencies = {
-    actionGate: options.actionGate || createSelectedTextActionGate(),
+    actionGate: options.actionGate || new SelectedTextActionGate(),
     automateTextAction: async (action) => {
       automationCalls.push(action);
       if (options.copyError) {
@@ -116,55 +116,60 @@ function createTestService(options: TestServiceOptions = {}) {
     cache: options.cache || createTextActionResultCache(20),
     getCacheContext: () => options.cacheContext || [],
     getPrettifySettings: () => prettifySettings,
+    logger: {
+      info: () => {},
+      warn: () => {},
+    },
     notify: (title, body, options) => {
       notifications.push({ title, body, options });
     },
     platform: options.platform || 'linux',
-    prepare: async (settings, signal) => {
-      const typedSettings = settings;
-      prepareCalls.push(typedSettings);
-      if (options.prepare) return options.prepare(settings, signal);
-      await options.prepareWait;
-      if (options.prepareResult) return options.prepareResult;
-      const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
-      return {
-        success: true as const,
-        prepared: {
-          providerId: typedSettings.providerId,
-          cacheContext: options.providerCacheContext ?? [
-            typedSettings.providerId,
-            providerSettings.baseUrl,
-            providerSettings.model,
-            typedSettings.prompt,
-            String(typedSettings.temperature),
-            String(typedSettings.topP),
-            String(typedSettings.topK),
-            String(typedSettings.minP),
-            String(typedSettings.repeatPenalty),
-            String(typedSettings.maxOutputTokens),
-            typedSettings.seed === null ? '' : String(typedSettings.seed),
-          ],
-          execute: async (text: string) => {
-            prettifyCalls.push({
-              text,
-              providerId: typedSettings.providerId,
-              prompt: typedSettings.prompt,
-              model: providerSettings.model,
-              baseUrl: providerSettings.baseUrl,
-              maxOutputTokens: typedSettings.maxOutputTokens,
-              minP: typedSettings.minP,
-              repeatPenalty: typedSettings.repeatPenalty,
-              seed: typedSettings.seed,
-              temperature: typedSettings.temperature,
-              topK: typedSettings.topK,
-              topP: typedSettings.topP,
-              signal,
-            });
-            await options.prettifyWait;
-            return options.prettifyResult || { success: true, text: 'prettified text' };
+    runtime: options.runtime ?? {
+      prepare: async (settings, signal) => {
+        const typedSettings = settings;
+        prepareCalls.push(typedSettings);
+        await options.prepareWait;
+        if (options.prepareResult) return options.prepareResult;
+        const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
+        return {
+          success: true as const,
+          prepared: {
+            providerId: typedSettings.providerId,
+            cacheContext: options.providerCacheContext ?? [
+              typedSettings.providerId,
+              providerSettings.baseUrl,
+              providerSettings.model,
+              typedSettings.prompt,
+              String(typedSettings.temperature),
+              String(typedSettings.topP),
+              String(typedSettings.topK),
+              String(typedSettings.minP),
+              String(typedSettings.repeatPenalty),
+              String(typedSettings.maxOutputTokens),
+              typedSettings.seed === null ? '' : String(typedSettings.seed),
+            ],
+            execute: async (text: string) => {
+              prettifyCalls.push({
+                text,
+                providerId: typedSettings.providerId,
+                prompt: typedSettings.prompt,
+                model: providerSettings.model,
+                baseUrl: providerSettings.baseUrl,
+                maxOutputTokens: typedSettings.maxOutputTokens,
+                minP: typedSettings.minP,
+                repeatPenalty: typedSettings.repeatPenalty,
+                seed: typedSettings.seed,
+                temperature: typedSettings.temperature,
+                topK: typedSettings.topK,
+                topP: typedSettings.topP,
+                signal,
+              });
+              await options.prettifyWait;
+              return options.prettifyResult || { success: true, text: 'prettified text' };
+            },
           },
-        },
-      };
+        };
+      },
     },
     wait: async (delayMs) => {
       waitCalls.push(delayMs);
@@ -177,7 +182,7 @@ function createTestService(options: TestServiceOptions = {}) {
     notifications,
     prepareCalls,
     prettifyCalls,
-    service: createSelectedTextPrettifyService(deps),
+    service: new SelectedTextPrettifyService(deps),
     waitCalls,
   };
 }
@@ -190,7 +195,7 @@ describe('selectedTextPrettify', () => {
   it('keeps the clipboard and fails clearly when no text is selected', async () => {
     const { clipboard, notifications, service } = createTestService();
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'No text selected to prettify');
@@ -205,7 +210,7 @@ describe('selectedTextPrettify', () => {
       selectionText: 'x'.repeat(MAX_PRETTIFY_SELECTED_TEXT_LENGTH + 1),
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(
@@ -229,7 +234,7 @@ describe('selectedTextPrettify', () => {
       selectionText: 'primary selection',
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, true);
     assert.equal(clipboard.clipboard, 'prettified text');
@@ -250,7 +255,7 @@ describe('selectedTextPrettify', () => {
       platform: 'darwin',
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, true);
     assert.equal(clipboard.clipboard, 'prettified text');
@@ -274,7 +279,7 @@ describe('selectedTextPrettify', () => {
       selectionText: 'selected text',
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, true);
     assert.equal(prettifyCalls.length, 1);
@@ -296,7 +301,7 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: false, error: 'provider unavailable' },
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'provider unavailable');
@@ -312,7 +317,7 @@ describe('selectedTextPrettify', () => {
       prepareResult: { success: false, error: 'CLI unavailable' },
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'CLI unavailable');
@@ -331,7 +336,7 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: false, error: cooldownError },
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'Could not connect to Ollama. Make sure it is running and the URL is correct.');
@@ -348,7 +353,7 @@ describe('selectedTextPrettify', () => {
   it('copies prettified text to the clipboard on success', async () => {
     const { clipboard, notifications, service } = createTestService({ selectionText: 'selected text' });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, true);
     assert.equal(result.status, 'Selection prettified');
@@ -364,8 +369,8 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'cached prettified text' },
     });
 
-    const first = await service();
-    const second = await service();
+    const first = await service.prettifySelectedText();
+    const second = await service.prettifySelectedText();
 
     assert.equal(first.success, true);
     assert.equal(second.success, true);
@@ -382,18 +387,17 @@ describe('selectedTextPrettify', () => {
     const audit = new RecordingPrettifyProviderAudit();
     const { service } = createTestService({
       selectionText: 'selected text',
-      prepare: (settings, signal) =>
-        preparePrettifyExecution(settings, signal, {
-          audit,
-          fetch: async () => ({
-            status: 200,
-            text: async () => JSON.stringify({ message: { content: 'cached prettified text' } }),
-          }),
+      runtime: new PrettifyRuntimeFixture({
+        audit,
+        fetch: async () => ({
+          status: 200,
+          text: async () => JSON.stringify({ message: { content: 'cached prettified text' } }),
         }),
+      }).runtime,
     });
 
-    assert.equal((await service()).success, true);
-    assert.equal((await service()).success, true);
+    assert.equal((await service.prettifySelectedText()).success, true);
+    assert.equal((await service.prettifySelectedText()).success, true);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prepare').length, 2);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
   });
@@ -403,31 +407,34 @@ describe('selectedTextPrettify', () => {
     const { service } = createTestService({
       providerId: 'claude-cli',
       selectionText: 'selected text',
-      prepare: (settings, signal) =>
-        preparePrettifyExecution(settings, signal, {
-          audit,
-          claudeCliAdapter: {
-            prepare: async () => ({
-              prepared: {
-                cacheContext: ['claude-cli', '2.1.71', 'safe-capability-context'],
+      runtime: new PrettifyRuntimeFixture({
+        audit,
+        claudeCliAdapter: {
+          checkAvailability: async () => ({
+            capabilityVersion: '2.1.71',
+            success: true as const,
+          }),
+          prepare: async () => ({
+            prepared: {
+              cacheContext: ['claude-cli', '2.1.71', 'safe-capability-context'],
+              capabilityVersion: '2.1.71',
+              execute: async () => ({
                 capabilityVersion: '2.1.71',
-                execute: async () => ({
-                  capabilityVersion: '2.1.71',
-                  success: true as const,
-                  text: 'cached prettified text',
-                }),
-              },
-              success: true as const,
-            }),
-          },
-          fetch: async () => {
-            throw new Error('HTTP must not run for CLI providers');
-          },
-        }),
+                success: true as const,
+                text: 'cached prettified text',
+              }),
+            },
+            success: true as const,
+          }),
+        },
+        fetch: async () => {
+          throw new Error('HTTP must not run for CLI providers');
+        },
+      }).runtime,
     });
 
-    assert.equal((await service()).success, true);
-    assert.equal((await service()).success, true);
+    assert.equal((await service.prettifySelectedText()).success, true);
+    assert.equal((await service.prettifySelectedText()).success, true);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prepare').length, 2);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'settings-readiness').length, 2);
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
@@ -448,8 +455,8 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'second result' },
     });
 
-    await first.service();
-    await second.service();
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
 
     assert.equal(first.prepareCalls.length, 1);
     assert.equal(second.prepareCalls.length, 1);
@@ -475,8 +482,8 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'second result' },
     });
 
-    await first.service();
-    await second.service();
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
 
     assert.equal(first.prettifyCalls.length, 1);
     assert.equal(second.prettifyCalls.length, 1);
@@ -513,9 +520,9 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'new vllm result' },
     });
 
-    await first.service();
-    await second.service();
-    await third.service();
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
+    await third.service.prettifySelectedText();
 
     assert.equal(first.prettifyCalls.length, 1);
     assert.equal(second.prettifyCalls.length, 1);
@@ -548,8 +555,8 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'custom generation result' },
     });
 
-    await first.service();
-    await second.service();
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
 
     assert.equal(first.prettifyCalls.length, 1);
     assert.equal(second.prettifyCalls.length, 1);
@@ -569,8 +576,8 @@ describe('selectedTextPrettify', () => {
       prettifyResult: { success: true, text: 'prettified after failure' },
     });
 
-    await first.service();
-    const secondResult = await second.service();
+    await first.service.prettifySelectedText();
+    const secondResult = await second.service.prettifySelectedText();
 
     assert.equal(secondResult.success, true);
     assert.equal(first.prettifyCalls.length, 1);
@@ -588,8 +595,8 @@ describe('selectedTextPrettify', () => {
       prettifyWait,
     });
 
-    const first = service();
-    const second = await service();
+    const first = service.prettifySelectedText();
+    const second = await service.prettifySelectedText();
     finishPrettify();
     const firstResult = await first;
 
@@ -604,14 +611,14 @@ describe('selectedTextPrettify', () => {
   });
 
   it('silently skips prettify while translation is active', async () => {
-    const actionGate = createSelectedTextActionGate();
+    const actionGate = new SelectedTextActionGate();
     assert.equal(actionGate.tryBegin('translate'), true);
     const { automationCalls, notifications, prettifyCalls, service } = createTestService({
       actionGate,
       selectionText: 'selected text',
     });
 
-    const result = await service();
+    const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.skipped, true);
@@ -630,7 +637,7 @@ describe('selectedTextPrettify', () => {
       prettifyWait,
     });
 
-    const first = service();
+    const first = service.prettifySelectedText();
     for (let attempts = 0; attempts < 5 && prettifyCalls.length === 0; attempts += 1) {
       await Promise.resolve();
     }
@@ -670,7 +677,7 @@ describe('selectedTextPrettify', () => {
       prepareWait,
     });
 
-    const active = service();
+    const active = service.prettifySelectedText();
     for (let attempts = 0; attempts < 5 && prepareCalls.length === 0; attempts += 1) {
       await Promise.resolve();
     }
@@ -700,7 +707,7 @@ describe('selectedTextPrettify', () => {
     });
     const { clipboard, prettifyCalls, service } = createTestService({ selectionText: 'selected text', prettifyWait });
 
-    const first = service();
+    const first = service.prettifySelectedText();
     for (let attempts = 0; attempts < 5 && prettifyCalls.length === 0; attempts += 1) {
       await Promise.resolve();
     }
@@ -709,7 +716,7 @@ describe('selectedTextPrettify', () => {
     finishPrettify();
     await first;
 
-    const second = await service();
+    const second = await service.prettifySelectedText();
 
     assert.equal(second.success, true);
     assert.equal(clipboard.clipboard, 'prettified text');

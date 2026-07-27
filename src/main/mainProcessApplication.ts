@@ -7,6 +7,7 @@ import type { TrayController } from './tray';
 import type { WindowManager } from './window';
 import type { BackgroundBrowserService } from './browser';
 import type { TranslationRuntime } from './services/translation';
+import type { PrettifyRuntime } from './services/prettifyProviders';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -75,11 +76,11 @@ export interface MainProcessApplicationDependencies {
   readonly loadConfig: () => void;
   readonly logger: MainProcessLogger;
   readonly presentTranslationSettingsRepairNotice: () => void;
+  readonly prettifyRuntime: Pick<PrettifyRuntime, 'shutdown'>;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly shortcutController: ShortcutController;
   readonly translationRuntime: Pick<TranslationRuntime, 'shutdown'>;
   readonly trayController: TrayController;
-  readonly unloadPrettifyModel: () => Promise<void>;
   readonly windowManager: WindowManager;
 }
 
@@ -216,7 +217,7 @@ export class MainProcessApplication {
     }
 
     try {
-      await this.dependencies.unloadPrettifyModel();
+      await this.dependencies.prettifyRuntime.shutdown();
     } catch {
       this.dependencies.logger.warn(PRETTIFY_CLEANUP_FAILURE_LOG);
     }

@@ -262,6 +262,7 @@ describe('CodexCliPrettifyAdapter', () => {
     ]);
     const schema = createFakeSchemaFileSystem();
     const adapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
       runner,
       schemaFileSystem: schema.fileSystem,
@@ -390,6 +391,7 @@ describe('CodexCliPrettifyAdapter', () => {
       success({ text: 'prepared result' }),
     ]);
     const adapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
       runner,
       schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
@@ -437,7 +439,10 @@ describe('CodexCliPrettifyAdapter', () => {
         CodexCliPrettifyErrorCode.NotAuthenticated,
       ],
     ] as const) {
-      const adapter = new CodexCliPrettifyAdapter({ runner: new FakeRunner([...results]) });
+      const adapter = new CodexCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
+        runner: new FakeRunner([...results]),
+      });
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -462,7 +467,10 @@ describe('CodexCliPrettifyAdapter', () => {
       [CliProcessFailureCode.CleanupFailure, CodexCliPrettifyErrorCode.ProcessFailed],
     ];
     for (const [runnerFailure, expected] of cases) {
-      const adapter = new CodexCliPrettifyAdapter({ runner: new FakeRunner([failure(runnerFailure)]) });
+      const adapter = new CodexCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
+        runner: new FakeRunner([failure(runnerFailure)]),
+      });
       assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: controller.signal }), {
         error: expected,
         success: false,
@@ -473,7 +481,10 @@ describe('CodexCliPrettifyAdapter', () => {
   it('uses the bundled model catalog after primary failure and retains valid configured free-text models on catalog drift', async () => {
     const controller = new AbortController();
     const bundledRunner = new FakeRunner([failure(CliProcessFailureCode.SpawnError), success(MODEL_CATALOG)]);
-    const bundledAdapter = new CodexCliPrettifyAdapter({ runner: bundledRunner });
+    const bundledAdapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
+      runner: bundledRunner,
+    });
     assert.deepEqual(await bundledAdapter.discoverModels(getSettings(), controller.signal), {
       models: [
         {
@@ -492,6 +503,7 @@ describe('CodexCliPrettifyAdapter', () => {
     );
 
     const configuredAdapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       runner: new FakeRunner([success({ changed: 'shape' }), success({ still: 'changed' })]),
     });
     assert.deepEqual(
@@ -516,6 +528,7 @@ describe('CodexCliPrettifyAdapter', () => {
       ],
     };
     const adapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
       runner: new FakeRunner([...getAvailabilityResults(), success(catalog)]),
       schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
@@ -574,6 +587,7 @@ describe('CodexCliPrettifyAdapter', () => {
       ],
     };
     const adapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       runner: new FakeRunner([success(catalog)]),
     });
 
@@ -610,6 +624,7 @@ describe('CodexCliPrettifyAdapter', () => {
     ]);
     const schema = createFakeSchemaFileSystem();
     const adapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
       runner,
       schemaFileSystem: schema.fileSystem,
@@ -630,6 +645,7 @@ describe('CodexCliPrettifyAdapter', () => {
     assert.equal(executionArguments.includes('model_verbosity="high"'), true);
 
     const discovery = await new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       runner: new FakeRunner([success(MODEL_CATALOG)]),
     }).discoverModels(settings, new AbortController().signal);
     assert.equal(discovery.success, true);
@@ -648,7 +664,10 @@ describe('CodexCliPrettifyAdapter', () => {
 
   it('maps invalid models and unavailable model discovery precisely', async () => {
     const invalidRunner = new FakeRunner(getAvailabilityResults());
-    const invalidAdapter = new CodexCliPrettifyAdapter({ runner: invalidRunner });
+    const invalidAdapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
+      runner: invalidRunner,
+    });
     assert.deepEqual(
       await invalidAdapter.prepare({
         prompt: PROTECTED_PROMPT,
@@ -660,6 +679,7 @@ describe('CodexCliPrettifyAdapter', () => {
     assert.equal(invalidRunner.calls.length, 5);
 
     const discoveryAdapter = new CodexCliPrettifyAdapter({
+      audit: new RecordingPrettifyProviderAudit(),
       runner: new FakeRunner([failure(CliProcessFailureCode.SpawnError), success({ unsupported: 'catalog shape' })]),
     });
     assert.deepEqual(await discoveryAdapter.discoverModels(getSettings(), new AbortController().signal), {
@@ -734,6 +754,7 @@ describe('CodexCliPrettifyAdapter', () => {
     for (const invalidCase of invalidCases) {
       const runner = new FakeRunner(getAvailabilityResults());
       const adapter = new CodexCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
         outputSchemaPathResolver: invalidCase.resolver,
         runner,
         schemaFileSystem: createFakeSchemaFileSystem(invalidCase.fileSystem).fileSystem,
@@ -769,6 +790,7 @@ describe('CodexCliPrettifyAdapter', () => {
       [success('not json'), CodexCliPrettifyErrorCode.MalformedOutput],
     ] as const) {
       const adapter = new CodexCliPrettifyAdapter({
+        audit: new RecordingPrettifyProviderAudit(),
         outputSchemaPathResolver: () => OUTPUT_SCHEMA_PATH,
         runner: new FakeRunner([...getAvailabilityResults(), success(MODEL_CATALOG), output]),
         schemaFileSystem: createFakeSchemaFileSystem().fileSystem,

@@ -1,20 +1,9 @@
-import {
-  readClipboardText,
-  showSystemNotification,
-  writeTypedClipboardText,
-  type ClipboardType,
-} from '@main/electronRuntime';
+import type { ClipboardType } from '@main/electronRuntime';
 import { t } from '@main/i18n';
-import { createLogger } from '@main/logger';
-import { preparePrettifyExecution, type PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
-import { getPrettifySettingsView } from '@main/services/prettifySettingsStorage';
-import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
-import {
-  createTextActionCacheKey,
-  createTextActionResultCache,
-  type TextActionResultCache,
-} from '@main/services/textActionCache';
-import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import type { PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
+import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
+import type { TextAutomationAction } from '@main/services/textAutomation';
 import {
   formatNotificationBody,
   presentNotificationError,
@@ -23,7 +12,6 @@ import {
 } from '@shared/notifications';
 import type { PrettifySettings } from '@shared/prettifySettings';
 
-const log = createLogger('selection-prettify');
 export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES = 20;
 export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS = 60_000;
@@ -42,137 +30,65 @@ export interface SelectedTextPrettifyClipboard {
   writeText(text: string, type?: ClipboardType): void;
 }
 
-export interface SelectedTextPrettifyDependencies {
-  actionGate: SelectedTextActionGate;
-  automateTextAction: (action: TextAutomationAction) => Promise<void>;
-  cache: TextActionResultCache;
-  clipboard: SelectedTextPrettifyClipboard;
-  getCacheContext: () => readonly string[];
-  getPrettifySettings: () => PrettifySettings;
-  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
-  platform: NodeJS.Platform;
-  prepare: (settings: PrettifySettings, signal: AbortSignal) => Promise<PreparePrettifyExecutionResult>;
-  wait: (delayMs: number) => Promise<void>;
+export interface SelectedTextPrettifyRuntime {
+  prepare(settings: PrettifySettings, signal: AbortSignal): Promise<PreparePrettifyExecutionResult>;
 }
 
-export interface SelectedTextPrettifyService {
-  (): Promise<SelectedTextPrettifyResult>;
-  cancel(): SelectedTextPrettifyResult | null;
+export interface SelectedTextPrettifyDependencies {
+  readonly actionGate: SelectedTextActionGate;
+  readonly automateTextAction: (action: TextAutomationAction) => Promise<void>;
+  readonly cache: TextActionResultCache;
+  readonly clipboard: SelectedTextPrettifyClipboard;
+  readonly getCacheContext: () => readonly string[];
+  readonly getPrettifySettings: () => PrettifySettings;
+  readonly logger: {
+    info(...args: unknown[]): void;
+    warn(...args: unknown[]): void;
+  };
+  readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
+  readonly platform: NodeJS.Platform;
+  readonly runtime: SelectedTextPrettifyRuntime;
+  readonly wait: (delayMs: number) => Promise<void>;
 }
 
 interface SelectedTextPrettifyRun {
-  abortController: AbortController;
+  readonly abortController: AbortController;
   cancelled: boolean;
   previousClipboardText: string | null;
 }
 
-function presentPrettifyError(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
-  return presentNotificationError(error, { context: 'prettify', fallback, t });
-}
-
-function restoreClipboard(deps: SelectedTextPrettifyDependencies, previousClipboardText: string | null): void {
-  if (previousClipboardText !== null) {
-    deps.clipboard.writeText(previousClipboardText);
-  }
-}
-
-async function readSelectedText(
-  deps: SelectedTextPrettifyDependencies,
-): Promise<{ selectedText: string; copyError?: unknown }> {
-  let copyError: unknown;
-
-  try {
-    await deps.automateTextAction('copy');
-    await deps.wait(COPY_SETTLE_DELAY_MS);
-  } catch (error: unknown) {
-    copyError = error;
-    log.warn('Could not copy selected text with OS automation:', presentPrettifyError(error).safeLogMetadata);
-  }
-
-  let selectedText = deps.clipboard.readText();
-  if (!selectedText.trim() && deps.platform === 'linux') {
-    selectedText = deps.clipboard.readText('selection');
-    if (selectedText.trim() && copyError) {
-      log.info('Using Linux selection clipboard after copy automation failed:', { textLength: selectedText.length });
-    }
-  }
-
-  return { selectedText, copyError };
-}
-
-function notifyPrettifyFailure(
-  deps: SelectedTextPrettifyDependencies,
-  error: unknown,
-  fallback = t('status.prettifyFailed'),
-): PresentedNotificationError {
-  const presented = presentPrettifyError(error, fallback);
-  try {
-    deps.notify(t('notification.prettifyFailed'), formatNotificationBody(presented.userMessage, fallback), {
-      sound: 'error',
-    });
-  } catch (error: unknown) {
-    log.warn('Could not show prettify failure notification:', presentPrettifyError(error).safeLogMetadata);
-  }
-  return presented;
-}
-
-function notifyPrettifySuccess(deps: SelectedTextPrettifyDependencies): void {
-  try {
-    deps.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), { sound: 'success' });
-  } catch (error: unknown) {
-    log.warn('Could not show prettify success notification:', presentPrettifyError(error).safeLogMetadata);
-  }
-}
-
 function createFailureResult(error: string): SelectedTextPrettifyResult {
-  return {
-    success: false,
-    status: error,
-    error,
-  };
+  return { success: false, status: error, error };
 }
 
 function createCancelledResult(): SelectedTextPrettifyResult {
   const status = t('status.prettifyCancelled');
-  return {
-    cancelled: true,
-    success: false,
-    status,
-    error: status,
-  };
+  return { cancelled: true, success: false, status, error: status };
 }
 
 function createSkippedResult(): SelectedTextPrettifyResult {
-  return {
-    success: false,
-    status: '',
-    skipped: true,
-  };
+  return { success: false, status: '', skipped: true };
 }
 
 function createSuccessResult(): SelectedTextPrettifyResult {
-  return {
-    success: true,
-    status: t('status.prettifiedSelection'),
-  };
+  return { success: true, status: t('status.prettifiedSelection') };
 }
 
-function getPrettifyCacheContext(): readonly string[] {
-  return [];
-}
+/** Owns one cancellable selected-text Prettify workflow and its cache. */
+export class SelectedTextPrettifyService {
+  private activeRun: SelectedTextPrettifyRun | null = null;
 
-/** Creates the single-flight selected-text prettify action and its cancellation lifecycle. */
-export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDependencies): SelectedTextPrettifyService {
-  let activeRun: SelectedTextPrettifyRun | null = null;
+  public constructor(private readonly dependencies: SelectedTextPrettifyDependencies) {}
 
-  const service = async function prettifySelectedText(): Promise<SelectedTextPrettifyResult> {
-    if (!deps.actionGate.tryBegin('prettify')) {
-      log.info('Selected-text prettify skipped because another selected-text action is active');
+  /** Prettifies the current desktop selection while preserving clipboard and cancellation semantics. */
+  public readonly prettifySelectedText = async (): Promise<SelectedTextPrettifyResult> => {
+    if (!this.dependencies.actionGate.tryBegin('prettify')) {
+      this.dependencies.logger.info('Selected-text prettify skipped because another selected-text action is active');
       return createSkippedResult();
     }
-    if (activeRun) {
-      deps.actionGate.finish('prettify');
-      log.info('Selected-text prettify skipped because a prettify run is already active');
+    if (this.activeRun) {
+      this.dependencies.actionGate.finish('prettify');
+      this.dependencies.logger.info('Selected-text prettify skipped because a prettify run is already active');
       return createSkippedResult();
     }
 
@@ -181,46 +97,46 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
       cancelled: false,
       previousClipboardText: null,
     };
-    activeRun = run;
+    this.activeRun = run;
 
     try {
-      run.previousClipboardText = deps.clipboard.readText();
-      deps.clipboard.writeText('');
-      const { selectedText, copyError } = await readSelectedText(deps);
+      run.previousClipboardText = this.dependencies.clipboard.readText();
+      this.dependencies.clipboard.writeText('');
+      const { selectedText, copyError } = await this.readSelectedText();
       if (run.cancelled || run.abortController.signal.aborted) {
-        restoreClipboard(deps, run.previousClipboardText);
+        this.restoreClipboard(run.previousClipboardText);
         return createCancelledResult();
       }
 
       if (!selectedText.trim()) {
         if (copyError) {
-          log.warn(
+          this.dependencies.logger.warn(
             'No selected text found after copy automation failure:',
-            presentPrettifyError(copyError).safeLogMetadata,
+            this.presentPrettifyError(copyError).safeLogMetadata,
           );
         }
         const error = t('error.noTextSelectedToPrettify');
-        restoreClipboard(deps, run.previousClipboardText);
-        const presented = notifyPrettifyFailure(deps, error);
+        this.restoreClipboard(run.previousClipboardText);
+        const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
       }
 
       if (selectedText.length > MAX_PRETTIFY_SELECTED_TEXT_LENGTH) {
         const error = t('error.prettifyTextTooLong', { max: String(MAX_PRETTIFY_SELECTED_TEXT_LENGTH) });
-        restoreClipboard(deps, run.previousClipboardText);
-        const presented = notifyPrettifyFailure(deps, error);
+        this.restoreClipboard(run.previousClipboardText);
+        const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
       }
 
-      const settings = deps.getPrettifySettings();
-      const preparation = await deps.prepare(settings, run.abortController.signal);
+      const settings = this.dependencies.getPrettifySettings();
+      const preparation = await this.dependencies.runtime.prepare(settings, run.abortController.signal);
       if (run.cancelled || run.abortController.signal.aborted) {
-        restoreClipboard(deps, run.previousClipboardText);
+        this.restoreClipboard(run.previousClipboardText);
         return createCancelledResult();
       }
       if (!preparation.success) {
-        restoreClipboard(deps, run.previousClipboardText);
-        const presented = notifyPrettifyFailure(deps, preparation.error);
+        this.restoreClipboard(run.previousClipboardText);
+        const presented = this.notifyPrettifyFailure(preparation.error);
         return createFailureResult(presented.userMessage);
       }
 
@@ -228,13 +144,13 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
         'prettify',
         selectedText,
         ...preparation.prepared.cacheContext,
-        ...deps.getCacheContext(),
+        ...this.dependencies.getCacheContext(),
       ]);
-      const cachedPrettified = deps.cache.get(cacheKey);
+      const cachedPrettified = this.dependencies.cache.get(cacheKey);
       if (cachedPrettified) {
-        deps.clipboard.writeText(cachedPrettified);
-        notifyPrettifySuccess(deps);
-        log.info('Prettified selected text copied from cache:', {
+        this.dependencies.clipboard.writeText(cachedPrettified);
+        this.notifyPrettifySuccess();
+        this.dependencies.logger.info('Prettified selected text copied from cache:', {
           sourceLength: selectedText.length,
           prettifiedLength: cachedPrettified.length,
         });
@@ -243,79 +159,110 @@ export function createSelectedTextPrettifyService(deps: SelectedTextPrettifyDepe
 
       const prettified = await preparation.prepared.execute(selectedText);
       if (run.cancelled || run.abortController.signal.aborted) {
-        restoreClipboard(deps, run.previousClipboardText);
+        this.restoreClipboard(run.previousClipboardText);
         return createCancelledResult();
       }
-
       if (!prettified.success || !prettified.text?.trim()) {
         const error = prettified.error || t('error.noPrettifyResult');
-        restoreClipboard(deps, run.previousClipboardText);
-        const presented = notifyPrettifyFailure(deps, error);
+        this.restoreClipboard(run.previousClipboardText);
+        const presented = this.notifyPrettifyFailure(error);
         return createFailureResult(presented.userMessage);
       }
 
-      deps.cache.set(cacheKey, prettified.text);
-      deps.clipboard.writeText(prettified.text);
-      notifyPrettifySuccess(deps);
-      log.info('Prettified selected text copied:', {
+      this.dependencies.cache.set(cacheKey, prettified.text);
+      this.dependencies.clipboard.writeText(prettified.text);
+      this.notifyPrettifySuccess();
+      this.dependencies.logger.info('Prettified selected text copied:', {
         sourceLength: selectedText.length,
         prettifiedLength: prettified.text.length,
       });
       return createSuccessResult();
     } catch (error: unknown) {
       if (run.cancelled || run.abortController.signal.aborted) {
-        restoreClipboard(deps, run.previousClipboardText);
+        this.restoreClipboard(run.previousClipboardText);
         return createCancelledResult();
       }
-
-      restoreClipboard(deps, run.previousClipboardText);
-      const presented = notifyPrettifyFailure(deps, error);
-      log.warn('Selected-text prettify failed:', presented.safeLogMetadata);
+      this.restoreClipboard(run.previousClipboardText);
+      const presented = this.notifyPrettifyFailure(error);
+      this.dependencies.logger.warn('Selected-text prettify failed:', presented.safeLogMetadata);
       return createFailureResult(presented.userMessage);
     } finally {
-      if (activeRun === run) {
-        activeRun = null;
-      }
-      deps.actionGate.finish('prettify');
+      if (this.activeRun === run) this.activeRun = null;
+      this.dependencies.actionGate.finish('prettify');
     }
-  } as SelectedTextPrettifyService;
-
-  service.cancel = (): SelectedTextPrettifyResult | null => {
-    if (!activeRun || activeRun.abortController.signal.aborted) {
-      return null;
-    }
-
-    activeRun.cancelled = true;
-    activeRun.abortController.abort();
-    restoreClipboard(deps, activeRun.previousClipboardText);
-    log.info('Selected-text prettify cancelled');
-    return createCancelledResult();
   };
 
-  return service;
+  public cancel(): SelectedTextPrettifyResult | null {
+    const run = this.activeRun;
+    if (!run || run.abortController.signal.aborted) return null;
+
+    run.cancelled = true;
+    run.abortController.abort();
+    this.restoreClipboard(run.previousClipboardText);
+    this.dependencies.logger.info('Selected-text prettify cancelled');
+    return createCancelledResult();
+  }
+
+  private presentPrettifyError(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
+    return presentNotificationError(error, { context: 'prettify', fallback, t });
+  }
+
+  private restoreClipboard(previousClipboardText: string | null): void {
+    if (previousClipboardText !== null) this.dependencies.clipboard.writeText(previousClipboardText);
+  }
+
+  private async readSelectedText(): Promise<{ selectedText: string; copyError?: unknown }> {
+    let copyError: unknown;
+    try {
+      await this.dependencies.automateTextAction('copy');
+      await this.dependencies.wait(COPY_SETTLE_DELAY_MS);
+    } catch (error: unknown) {
+      copyError = error;
+      this.dependencies.logger.warn(
+        'Could not copy selected text with OS automation:',
+        this.presentPrettifyError(error).safeLogMetadata,
+      );
+    }
+
+    let selectedText = this.dependencies.clipboard.readText();
+    if (!selectedText.trim() && this.dependencies.platform === 'linux') {
+      selectedText = this.dependencies.clipboard.readText('selection');
+      if (selectedText.trim() && copyError) {
+        this.dependencies.logger.info('Using Linux selection clipboard after copy automation failed:', {
+          textLength: selectedText.length,
+        });
+      }
+    }
+    return { selectedText, copyError };
+  }
+
+  private notifyPrettifyFailure(error: unknown, fallback = t('status.prettifyFailed')): PresentedNotificationError {
+    const presented = this.presentPrettifyError(error, fallback);
+    try {
+      this.dependencies.notify(
+        t('notification.prettifyFailed'),
+        formatNotificationBody(presented.userMessage, fallback),
+        { sound: 'error' },
+      );
+    } catch (notificationError: unknown) {
+      this.dependencies.logger.warn(
+        'Could not show prettify failure notification:',
+        this.presentPrettifyError(notificationError).safeLogMetadata,
+      );
+    }
+    return presented;
+  }
+
+  private notifyPrettifySuccess(): void {
+    try {
+      this.dependencies.notify(t('notification.textPrettified'), t('status.prettifiedSelection'), {
+        sound: 'success',
+      });
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not show prettify success notification:',
+        this.presentPrettifyError(error).safeLogMetadata,
+      );
+    }
+  }
 }
-
-const selectedTextPrettifyService = createSelectedTextPrettifyService({
-  actionGate: selectedTextActionGate,
-  automateTextAction: async (action) => {
-    await runTextAutomationAction(action);
-  },
-  cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
-    maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
-  }),
-  clipboard: {
-    readText: (type) => readClipboardText(type),
-    writeText: (text, type) => writeTypedClipboardText(text, type),
-  },
-  getCacheContext: getPrettifyCacheContext,
-  getPrettifySettings: () => ({
-    ...getPrettifySettingsView(),
-  }),
-  notify: showSystemNotification,
-  platform: process.platform,
-  prepare: (settings, signal) => preparePrettifyExecution(settings, signal),
-  wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
-});
-
-export const prettifySelectedText = selectedTextPrettifyService;
-export const cancelSelectedTextPrettify = (): SelectedTextPrettifyResult | null => selectedTextPrettifyService.cancel();

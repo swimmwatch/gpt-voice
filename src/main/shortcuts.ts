@@ -16,6 +16,8 @@ import {
 } from '@shared/recordingLifecycle';
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
 import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
+import type { SelectedTextActionGate } from './services/selectedTextActionState';
+import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
@@ -46,8 +48,6 @@ export interface ShortcutSettingsSnapshot extends HotkeySettings {
 }
 
 export interface ShortcutControllerDependencies {
-  readonly cancelSelectedTextPrettify: () => unknown;
-  readonly getActiveSelectedTextAction: () => unknown;
   readonly getSettings: () => ShortcutSettingsSnapshot;
   readonly globalShortcut: {
     register(accelerator: string, callback: () => void): boolean;
@@ -59,7 +59,8 @@ export interface ShortcutControllerDependencies {
     warn(...args: unknown[]): void;
   };
   readonly platform: NodeJS.Platform;
-  readonly prettifySelectedText: () => Promise<TextActionResultForStatus>;
+  readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
+  readonly selectedTextPrettifyService: Pick<SelectedTextPrettifyService, 'cancel' | 'prettifySelectedText'>;
   readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
@@ -178,7 +179,7 @@ export class ShortcutController {
       const window = this.dependencies.windowManager.getMainWindow();
       handleCancelShortcut(canCancelRecording(this.recordingLifecycleState), {
         cancelPrettify: () => {
-          const result = this.dependencies.cancelSelectedTextPrettify();
+          const result = this.dependencies.selectedTextPrettifyService.cancel();
           if (result) {
             this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling prettify`);
             this.updateTrayIconForRecordingLifecycle();
@@ -195,7 +196,7 @@ export class ShortcutController {
     this.dependencies.logger.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
     const translateRegistered = this.registerConfiguredShortcut('translate', translateHotkey, () => {
-      const selectedTextBusy = Boolean(this.dependencies.getActiveSelectedTextAction());
+      const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
       const currentSettings = this.dependencies.getSettings();
       if (!canRunTranslateShortcut(this.recordingLifecycleState, currentSettings.translateEnabled, selectedTextBusy)) {
         if (currentSettings.translateEnabled) {
@@ -220,7 +221,7 @@ export class ShortcutController {
     this.dependencies.logger.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 
     const prettifyRegistered = this.registerConfiguredShortcut('prettify', prettifyHotkey, () => {
-      const selectedTextBusy = Boolean(this.dependencies.getActiveSelectedTextAction());
+      const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
       const currentSettings = this.dependencies.getSettings();
       if (!canRunPrettifyShortcut(this.recordingLifecycleState, currentSettings.prettifyEnabled, selectedTextBusy)) {
         if (currentSettings.prettifyEnabled) {
@@ -235,7 +236,7 @@ export class ShortcutController {
       }
 
       this.dependencies.logger.info(`${prettifyHotkey} pressed, prettifying selected text`);
-      const resultPromise = this.dependencies.prettifySelectedText();
+      const resultPromise = this.dependencies.selectedTextPrettifyService.prettifySelectedText();
       this.dependencies.trayController.updateIcon('prettifying');
       this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
       void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {

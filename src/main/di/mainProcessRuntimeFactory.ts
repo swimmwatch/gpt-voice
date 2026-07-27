@@ -26,6 +26,9 @@ import type { BackgroundBrowserService } from '../browser';
 import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import type { TranslationRuntime } from '../services/translation';
+import type { PrettifyRuntime } from '../services/prettifyProviders';
+import type { PrettifyConnectionCheckCoordinator } from '../services/prettifyConnectionCheckCoordinator';
+import type { WebContents } from 'electron';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
 
 type StreamingRuntimeDependencies = Omit<
@@ -57,6 +60,8 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly shortcutController: ShortcutController;
+  readonly prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents>;
+  readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
   readonly voiceProviderAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
@@ -113,6 +118,8 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       diagnosticStorage,
       historyController,
+      prettifyConnectionCoordinator: this.controllers.prettifyConnectionCoordinator,
+      prettifyRuntime: this.controllers.prettifyRuntime,
       registerIpcHandlers: this.dependencies.registerIpcHandlers,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
