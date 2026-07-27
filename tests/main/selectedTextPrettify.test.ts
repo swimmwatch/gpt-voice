@@ -398,6 +398,41 @@ describe('selectedTextPrettify', () => {
     assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
   });
 
+  it('keeps CLI cache hits free of duplicate prettify operations', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const { service } = createTestService({
+      providerId: 'claude-cli',
+      selectionText: 'selected text',
+      prepare: (settings, signal) =>
+        preparePrettifyExecution(settings, signal, {
+          audit,
+          claudeCliAdapter: {
+            prepare: async () => ({
+              prepared: {
+                cacheContext: ['claude-cli', '2.1.71', 'safe-capability-context'],
+                capabilityVersion: '2.1.71',
+                execute: async () => ({
+                  capabilityVersion: '2.1.71',
+                  success: true as const,
+                  text: 'cached prettified text',
+                }),
+              },
+              success: true as const,
+            }),
+          },
+          fetch: async () => {
+            throw new Error('HTTP must not run for CLI providers');
+          },
+        }),
+    });
+
+    assert.equal((await service()).success, true);
+    assert.equal((await service()).success, true);
+    assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prepare').length, 2);
+    assert.equal(audit.operations.filter((operation) => operation.input.operation === 'settings-readiness').length, 2);
+    assert.equal(audit.operations.filter((operation) => operation.input.operation === 'prettify').length, 1);
+  });
+
   it('misses the cache when the prepared provider capability version changes', async () => {
     const cache = createTextActionResultCache(20);
     const first = createTestService({

@@ -81,20 +81,31 @@ export async function checkPrettifyCliConnection(
   draftSettings: PrettifySettingsInput = {},
   options: { deps?: PrettifyProviderDependencies; signal?: AbortSignal } = {},
 ): Promise<PrettifyCliConnectionResult> {
+  const deps = options.deps ?? DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES;
+  const audit = deps.audit ?? prettifyProviderAudit;
+  const auditContext = audit.startAvailability(providerId);
   const provider = getKnownPrettifyProvider(providerId);
-  const settings = getSettingsForKnownProvider(providerId, draftSettings);
+  let settings: PrettifySettingsWithSecret;
+  try {
+    settings = getSettingsForKnownProvider(providerId, draftSettings);
+  } catch (error: unknown) {
+    audit.terminalException(auditContext, 'configuration', error);
+    throw error;
+  }
   try {
     const availability = await provider.checkAvailability(
       settings,
       options.signal ?? new AbortController().signal,
-      options.deps ?? DEFAULT_PRETTIFY_PROVIDER_DEPENDENCIES,
+      deps,
+      auditContext,
     );
     if (availability.status === 'available') return { providerId, status: 'connected' };
     const errorCode = availability.errorCode ?? 'process-failed';
     return errorCode === 'not-authenticated'
       ? { providerId, status: 'login-required' }
       : { errorCode, providerId, status: 'unavailable' };
-  } catch {
+  } catch (error: unknown) {
+    audit.terminalException(auditContext, 'process', error);
     return { errorCode: 'process-failed', providerId, status: 'unavailable' };
   }
 }
@@ -145,12 +156,12 @@ export async function listPrettifyModels(
     };
   }
   const provider = getKnownPrettifyProvider(providerId);
-  const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelList(providerId) : undefined;
+  const auditContext = audit.startModelList(providerId);
   let settings: PrettifySettingsWithSecret;
   try {
     settings = getSettingsForKnownProvider(providerId, draftSettings);
   } catch (error: unknown) {
-    if (auditContext) audit.terminalException(auditContext, 'configuration', error);
+    audit.terminalException(auditContext, 'configuration', error);
     throw error;
   }
   try {
@@ -166,8 +177,8 @@ export async function listPrettifyModels(
       success,
     };
   } catch (error: unknown) {
+    audit.terminalException(auditContext, 'model-discovery', error);
     if (!isHttpPrettifyProviderId(providerId)) throw error;
-    if (auditContext) audit.terminalException(auditContext, 'model-discovery', error);
     return {
       availability: { status: 'unavailable' },
       error: createConnectionError(
@@ -276,7 +287,7 @@ export async function preparePrettifyExecution(
       ? getSettingsForKnownProvider(requestedProvider, draftSettings)
       : getPrettifySettingsWithSecret(draftSettings);
   } catch (error: unknown) {
-    if (isKnownPrettifyProviderId(requestedProvider) && isHttpPrettifyProviderId(requestedProvider)) {
+    if (isKnownPrettifyProviderId(requestedProvider)) {
       const context = audit.startPrepare(requestedProvider);
       audit.terminalException(context, 'configuration', error);
     }
@@ -289,26 +300,25 @@ export async function preparePrettifyExecution(
     return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
   }
   const modelMetadata = provider.getModelMetadata(settings);
-  const auditContext: PrettifyAuditOperationContext | undefined = isHttpPrettifyProviderId(providerId)
-    ? audit.startPrepare(providerId, {
-        modelConfigured: Boolean(modelMetadata.model),
-        modelNameLength: modelMetadata.model.length,
-        modelSource: provider.capabilities.modelSource,
-        usesDefaultModel: modelMetadata.usesDefaultModel,
-      })
-    : undefined;
+  const auditContext: PrettifyAuditOperationContext = audit.startPrepare(providerId, {
+    modelConfigured: Boolean(modelMetadata.model),
+    modelNameLength: modelMetadata.model.length,
+    modelSource: provider.capabilities.modelSource,
+    usesDefaultModel: modelMetadata.usesDefaultModel,
+  });
 
   try {
     return await provider.prepare(settings, signal, deps, auditContext);
   } catch (error: unknown) {
     if (signal.aborted) {
-      if (auditContext) audit.terminalCancelled(auditContext, 'cleanup');
+      audit.terminalCancelled(auditContext, 'cleanup');
       return { success: false, error: t('status.prettifyCancelled') };
     }
     if (!isHttpPrettifyProviderId(providerId)) {
+      audit.terminalException(auditContext, 'process', error);
       return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
     }
-    if (auditContext) audit.terminalException(auditContext, 'readiness', error);
+    audit.terminalException(auditContext, 'readiness', error);
     return {
       success: false,
       error: createConnectionError(

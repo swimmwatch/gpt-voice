@@ -895,6 +895,7 @@ export function registerIpcHandlers(): void {
 
   handle('check-prettify-cli-connection', async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
     if (!isPrettifyCliProviderId(providerId)) {
+      prettifyProviderAudit.recordUnknownProvider(providerId, 'availability');
       throw new Error('Unsupported Prettify CLI provider');
     }
 
@@ -905,15 +906,9 @@ export function registerIpcHandlers(): void {
     event.sender.once('destroyed', handleSenderDestroyed);
 
     try {
-      const result = await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
+      return await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
         signal: controller.signal,
       });
-      log.info('Prettify CLI connection checked:', {
-        providerId,
-        status: result.status,
-        ...(result.status === 'unavailable' ? { errorCode: result.errorCode } : {}),
-      });
-      return result;
     } finally {
       if (prettifyCliConnectionChecks.get(event.sender) === controller) {
         prettifyCliConnectionChecks.delete(event.sender);

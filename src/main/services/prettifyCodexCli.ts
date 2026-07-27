@@ -4,6 +4,11 @@ import path from 'node:path';
 import { app } from 'electron';
 import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
 import {
+  prettifyProviderAudit,
+  type PrettifyAuditOperationContext,
+  type PrettifyProviderAudit,
+} from '@main/services/prettifyProviderAudit';
+import {
   isValidCodexCliPrettifyModel,
   type CodexCliPrettifyReasoningEffort,
   type CodexCliPrettifySettings,
@@ -142,7 +147,7 @@ export type CodexCliModelListResult = CodexCliModelListSuccess | CodexCliModelDi
 export interface CodexCliPreparedPrettify {
   cacheContext: readonly string[];
   capabilityVersion: string;
-  execute(text: string): Promise<CodexCliPrettifyResult>;
+  execute(text: string, auditContext?: PrettifyAuditOperationContext): Promise<CodexCliPrettifyResult>;
   models: readonly CodexCliModelCapability[];
   source: CodexCliModelDiscoverySuccess['source'];
 }
@@ -150,6 +155,7 @@ export interface CodexCliPreparedPrettify {
 export type CodexCliPrepareResult = { prepared: CodexCliPreparedPrettify; success: true } | CodexCliPrettifyFailure;
 
 export interface CodexCliPrettifyInput {
+  auditContext?: PrettifyAuditOperationContext;
   prompt: string;
   settings: CodexCliPrettifySettings;
   signal: AbortSignal;
@@ -157,6 +163,7 @@ export interface CodexCliPrettifyInput {
 }
 
 export interface CodexCliAvailabilityInput {
+  auditContext?: PrettifyAuditOperationContext;
   settings: CodexCliPrettifySettings;
   signal: AbortSignal;
 }
@@ -193,9 +200,15 @@ export interface CodexCliOutputSchemaPathContext {
 }
 
 export interface CodexCliPrettifyAdapterDependencies {
+  audit?: PrettifyProviderAudit;
   outputSchemaPathResolver?: () => string;
   runner?: CodexCliProcessRunner;
   schemaFileSystem?: CodexCliSchemaFileSystem;
+}
+
+interface CodexCliRunOptions {
+  auditContext?: PrettifyAuditOperationContext;
+  stdoutLimitBytes?: number;
 }
 
 interface SemanticVersion {
@@ -453,18 +466,22 @@ export function getCodexCliPrettifyCacheContext(
 
 /** Executes the internal, capability-gated Codex CLI Prettify contract. */
 export class CodexCliPrettifyAdapter {
+  private readonly audit: PrettifyProviderAudit;
   private readonly outputSchemaPathResolver: () => string;
   private readonly runner: CodexCliProcessRunner;
   private readonly schemaFileSystem: CodexCliSchemaFileSystem;
 
   constructor(dependencies: CodexCliPrettifyAdapterDependencies = {}) {
+    this.audit = dependencies.audit ?? prettifyProviderAudit;
     this.outputSchemaPathResolver = dependencies.outputSchemaPathResolver ?? resolveDefaultCodexCliOutputSchemaPath;
     this.runner = dependencies.runner ?? new CliProcessRunner();
     this.schemaFileSystem = dependencies.schemaFileSystem ?? systemSchemaFileSystem;
   }
 
   public async checkAvailability(input: CodexCliAvailabilityInput): Promise<CodexCliAvailabilityResult> {
-    const versionResult = await this.run(input.settings, input.signal, 'codex-cli-version', ['--version'], '');
+    const versionResult = await this.run(input.settings, input.signal, 'codex-cli-version', ['--version'], '', {
+      auditContext: input.auditContext,
+    });
     if (!versionResult.success) return { error: mapRunnerFailure(versionResult), success: false };
 
     const version = parseSemanticVersion(versionResult.stdout);
@@ -473,7 +490,9 @@ export class CodexCliPrettifyAdapter {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
     }
 
-    const execHelpResult = await this.run(input.settings, input.signal, 'codex-cli-exec-help', ['exec', '--help'], '');
+    const execHelpResult = await this.run(input.settings, input.signal, 'codex-cli-exec-help', ['exec', '--help'], '', {
+      auditContext: input.auditContext,
+    });
     if (!execHelpResult.success) return { error: mapRunnerFailure(execHelpResult), success: false };
     if (!hasRequiredFlags(execHelpResult.stdout, REQUIRED_CODEX_CLI_EXEC_HELP_FLAGS)) {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
@@ -485,19 +504,29 @@ export class CodexCliPrettifyAdapter {
       'codex-cli-model-help',
       ['debug', 'models', '--help'],
       '',
+      { auditContext: input.auditContext },
     );
     if (!modelHelpResult.success) return { error: mapRunnerFailure(modelHelpResult), success: false };
     if (!hasRequiredFlags(modelHelpResult.stdout, REQUIRED_CODEX_CLI_MODEL_HELP_FLAGS)) {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
     }
 
-    const featuresResult = await this.run(input.settings, input.signal, 'codex-cli-features', ['features', 'list'], '');
+    const featuresResult = await this.run(
+      input.settings,
+      input.signal,
+      'codex-cli-features',
+      ['features', 'list'],
+      '',
+      { auditContext: input.auditContext },
+    );
     if (!featuresResult.success) return { error: mapRunnerFailure(featuresResult), success: false };
     if (!hasRequiredDisableFeatures(featuresResult.stdout)) {
       return { error: CodexCliPrettifyErrorCode.NoToolsUnavailable, success: false };
     }
 
-    const authResult = await this.run(input.settings, input.signal, 'codex-cli-login-status', ['login', 'status'], '');
+    const authResult = await this.run(input.settings, input.signal, 'codex-cli-login-status', ['login', 'status'], '', {
+      auditContext: input.auditContext,
+    });
     if (!authResult.success) {
       if (authResult.failure === CliProcessFailureCode.NonzeroExit) {
         return { error: CodexCliPrettifyErrorCode.NotAuthenticated, success: false };
@@ -511,15 +540,12 @@ export class CodexCliPrettifyAdapter {
   public async discoverModels(
     settings: CodexCliPrettifySettings,
     signal: AbortSignal,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<CodexCliModelDiscoveryResult> {
-    const primaryResult = await this.run(
-      settings,
-      signal,
-      'codex-cli-models',
-      ['debug', 'models'],
-      '',
-      CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES,
-    );
+    const primaryResult = await this.run(settings, signal, 'codex-cli-models', ['debug', 'models'], '', {
+      auditContext,
+      stdoutLimitBytes: CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES,
+    });
     if (primaryResult.success) {
       const catalog = parseModelCatalog(primaryResult.stdout);
       if (catalog) {
@@ -539,7 +565,10 @@ export class CodexCliPrettifyAdapter {
       'codex-cli-bundled-models',
       ['debug', 'models', '--bundled'],
       '',
-      CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES,
+      {
+        auditContext,
+        stdoutLimitBytes: CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES,
+      },
     );
     if (bundledResult.success) {
       const catalog = parseModelCatalog(bundledResult.stdout);
@@ -576,7 +605,7 @@ export class CodexCliPrettifyAdapter {
 
   public async prettify(input: CodexCliPrettifyInput): Promise<CodexCliPrettifyResult> {
     const prepared = await this.prepare(input);
-    return prepared.success ? prepared.prepared.execute(input.text) : prepared;
+    return prepared.success ? prepared.prepared.execute(input.text, input.auditContext) : prepared;
   }
 
   public async listModels(input: CodexCliAvailabilityInput): Promise<CodexCliModelListResult> {
@@ -588,7 +617,7 @@ export class CodexCliPrettifyAdapter {
       return { error: CodexCliPrettifyErrorCode.SchemaUnavailable, success: false };
     }
 
-    const discovered = await this.discoverModels(input.settings, input.signal);
+    const discovered = await this.discoverModels(input.settings, input.signal, input.auditContext);
     if (!discovered.success) return discovered;
     return { ...discovered, capabilityVersion: availability.capabilityVersion };
   }
@@ -605,7 +634,7 @@ export class CodexCliPrettifyAdapter {
       return { error: CodexCliPrettifyErrorCode.SchemaUnavailable, success: false };
     }
 
-    const discovered = await this.discoverModels(input.settings, input.signal);
+    const discovered = await this.discoverModels(input.settings, input.signal, input.auditContext);
     if (!discovered.success) return discovered;
     const modelCapability = input.settings.model
       ? findModelCapability(input.settings.model, discovered.models)
@@ -619,10 +648,12 @@ export class CodexCliPrettifyAdapter {
       prepared: {
         cacheContext: getCodexCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
         capabilityVersion: availability.capabilityVersion,
-        execute: async (text) => {
+        execute: async (text, auditContext) => {
           if (consumed) return { error: CodexCliPrettifyErrorCode.ProcessFailed, success: false };
           consumed = true;
-          const result = await this.run(input.settings, input.signal, 'codex-cli-prettify', args, text);
+          const result = await this.run(input.settings, input.signal, 'codex-cli-prettify', args, text, {
+            auditContext,
+          });
           if (!result.success) return { error: mapRunnerFailure(result), success: false };
 
           const envelope = parseCodexCliEnvelope(result.stdout);
@@ -666,19 +697,25 @@ export class CodexCliPrettifyAdapter {
     operationLabel: string,
     args: readonly string[],
     stdin: string,
-    stdoutLimitBytes = CODEX_CLI_STDOUT_LIMIT_BYTES,
+    options: CodexCliRunOptions = {},
   ): Promise<CliProcessResult> {
-    return this.runner.run({
-      args,
-      configuredExecutablePath: getConfiguredExecutablePath(settings),
-      executableName: CODEX_CLI_EXECUTABLE_NAME,
-      includeStderrExcerpt: false,
-      operationLabel,
-      signal,
-      stderrLimitBytes: CODEX_CLI_STDERR_LIMIT_BYTES,
-      stdin,
-      stdoutLimitBytes,
-      timeoutMs: getTimeoutMs(settings),
-    });
+    if (options.auditContext) this.audit.enterCliProcess(options.auditContext);
+    return this.runner
+      .run({
+        args,
+        configuredExecutablePath: getConfiguredExecutablePath(settings),
+        executableName: CODEX_CLI_EXECUTABLE_NAME,
+        includeStderrExcerpt: false,
+        operationLabel,
+        signal,
+        stderrLimitBytes: CODEX_CLI_STDERR_LIMIT_BYTES,
+        stdin,
+        stdoutLimitBytes: options.stdoutLimitBytes ?? CODEX_CLI_STDOUT_LIMIT_BYTES,
+        timeoutMs: getTimeoutMs(settings),
+      })
+      .then((result) => {
+        if (options.auditContext) this.audit.completeCliProcess(options.auditContext, result);
+        return result;
+      });
   }
 }

@@ -24,8 +24,10 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(preload, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(rendererTypes, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(handler, /isPrettifyCliProviderId\(providerId\)/u);
+    assert.match(handler, /recordUnknownProvider\(providerId, 'availability'\)/u);
     assert.match(handler, /getPrettifySettingsSnapshot\(\)/u);
     assert.match(handler, /event\.sender\.once\('destroyed'/u);
+    assert.doesNotMatch(handler, /Prettify CLI connection checked|log\.(?:info|warn|error)/u);
     assert.doesNotMatch(handler, /executablePath|stdout|stderr|account|authStatus/u);
   });
 

@@ -1,5 +1,10 @@
 import { CliProcessFailureCode, CliProcessRunner, type CliProcessResult } from '@main/services/prettifyCliRunner';
 import {
+  prettifyProviderAudit,
+  type PrettifyAuditOperationContext,
+  type PrettifyProviderAudit,
+} from '@main/services/prettifyProviderAudit';
+import {
   CLAUDE_CLI_PRETTIFY_MODEL_ALIASES,
   isValidClaudeCliPrettifyModel,
   type ClaudeCliPrettifyEffort,
@@ -83,12 +88,13 @@ export type ClaudeCliPrettifyResult = ClaudeCliPrettifySuccess | ClaudeCliPretti
 export interface ClaudeCliPreparedPrettify {
   cacheContext: readonly string[];
   capabilityVersion: string;
-  execute(text: string): Promise<ClaudeCliPrettifyResult>;
+  execute(text: string, auditContext?: PrettifyAuditOperationContext): Promise<ClaudeCliPrettifyResult>;
 }
 
 export type ClaudeCliPrepareResult = { prepared: ClaudeCliPreparedPrettify; success: true } | ClaudeCliPrettifyFailure;
 
 export interface ClaudeCliPrettifyInput {
+  auditContext?: PrettifyAuditOperationContext;
   prompt: string;
   settings: ClaudeCliPrettifySettings;
   signal: AbortSignal;
@@ -96,6 +102,7 @@ export interface ClaudeCliPrettifyInput {
 }
 
 export interface ClaudeCliAvailabilityInput {
+  auditContext?: PrettifyAuditOperationContext;
   settings: ClaudeCliPrettifySettings;
   signal: AbortSignal;
 }
@@ -120,6 +127,7 @@ export interface ClaudeCliProcessRunner {
 }
 
 export interface ClaudeCliPrettifyAdapterDependencies {
+  audit?: PrettifyProviderAudit;
   runner?: ClaudeCliProcessRunner;
 }
 
@@ -269,14 +277,23 @@ export function getClaudeCliPrettifyCacheContext(
 
 /** Executes Claude CLI preflight and isolated print-mode prettification. */
 export class ClaudeCliPrettifyAdapter {
+  private readonly audit: PrettifyProviderAudit;
   private readonly runner: ClaudeCliProcessRunner;
 
   constructor(dependencies: ClaudeCliPrettifyAdapterDependencies = {}) {
+    this.audit = dependencies.audit ?? prettifyProviderAudit;
     this.runner = dependencies.runner ?? new CliProcessRunner();
   }
 
   public async checkAvailability(input: ClaudeCliAvailabilityInput): Promise<ClaudeCliAvailabilityResult> {
-    const versionResult = await this.run(input.settings, input.signal, 'claude-cli-version', ['--version'], '');
+    const versionResult = await this.run(
+      input.settings,
+      input.signal,
+      'claude-cli-version',
+      ['--version'],
+      '',
+      input.auditContext,
+    );
     if (!versionResult.success) return { error: mapRunnerFailure(versionResult), success: false };
 
     const version = parseSemanticVersion(versionResult.stdout);
@@ -285,7 +302,14 @@ export class ClaudeCliPrettifyAdapter {
       return { error: ClaudeCliPrettifyErrorCode.Unsupported, success: false };
     }
 
-    const helpResult = await this.run(input.settings, input.signal, 'claude-cli-help', ['--help'], '');
+    const helpResult = await this.run(
+      input.settings,
+      input.signal,
+      'claude-cli-help',
+      ['--help'],
+      '',
+      input.auditContext,
+    );
     if (!helpResult.success) return { error: mapRunnerFailure(helpResult), success: false };
     if (!hasRequiredCapabilities(helpResult.stdout))
       return { error: ClaudeCliPrettifyErrorCode.Unsupported, success: false };
@@ -296,6 +320,7 @@ export class ClaudeCliPrettifyAdapter {
       'claude-cli-auth-status',
       ['auth', 'status', '--json'],
       '',
+      input.auditContext,
     );
     if (!authResult.success) {
       if (authResult.failure === CliProcessFailureCode.NonzeroExit) {
@@ -312,7 +337,7 @@ export class ClaudeCliPrettifyAdapter {
 
   public async prettify(input: ClaudeCliPrettifyInput): Promise<ClaudeCliPrettifyResult> {
     const prepared = await this.prepare(input);
-    return prepared.success ? prepared.prepared.execute(input.text) : prepared;
+    return prepared.success ? prepared.prepared.execute(input.text, input.auditContext) : prepared;
   }
 
   public async prepare(input: ClaudeCliPrepareInput): Promise<ClaudeCliPrepareResult> {
@@ -328,10 +353,10 @@ export class ClaudeCliPrettifyAdapter {
       prepared: {
         cacheContext: getClaudeCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
         capabilityVersion: availability.capabilityVersion,
-        execute: async (text) => {
+        execute: async (text, auditContext) => {
           if (consumed) return { error: ClaudeCliPrettifyErrorCode.ProcessFailed, success: false };
           consumed = true;
-          const result = await this.run(input.settings, input.signal, 'claude-cli-prettify', args, text);
+          const result = await this.run(input.settings, input.signal, 'claude-cli-prettify', args, text, auditContext);
           if (!result.success) return { error: mapRunnerFailure(result), success: false };
 
           const envelope = parseClaudeCliEnvelope(result.stdout);
@@ -352,18 +377,25 @@ export class ClaudeCliPrettifyAdapter {
     operationLabel: string,
     args: readonly string[],
     stdin: string,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<CliProcessResult> {
-    return this.runner.run({
-      args,
-      configuredExecutablePath: getConfiguredExecutablePath(settings),
-      executableName: CLAUDE_CLI_EXECUTABLE_NAME,
-      includeStderrExcerpt: false,
-      operationLabel,
-      signal,
-      stderrLimitBytes: CLAUDE_CLI_STDERR_LIMIT_BYTES,
-      stdin,
-      stdoutLimitBytes: CLAUDE_CLI_STDOUT_LIMIT_BYTES,
-      timeoutMs: getTimeoutMs(settings),
-    });
+    if (auditContext) this.audit.enterCliProcess(auditContext);
+    return this.runner
+      .run({
+        args,
+        configuredExecutablePath: getConfiguredExecutablePath(settings),
+        executableName: CLAUDE_CLI_EXECUTABLE_NAME,
+        includeStderrExcerpt: false,
+        operationLabel,
+        signal,
+        stderrLimitBytes: CLAUDE_CLI_STDERR_LIMIT_BYTES,
+        stdin,
+        stdoutLimitBytes: CLAUDE_CLI_STDOUT_LIMIT_BYTES,
+        timeoutMs: getTimeoutMs(settings),
+      })
+      .then((result) => {
+        if (auditContext) this.audit.completeCliProcess(auditContext, result);
+        return result;
+      });
   }
 }

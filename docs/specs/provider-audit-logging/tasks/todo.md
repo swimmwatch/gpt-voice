@@ -18,12 +18,15 @@ Task 04 execution was authorized through persistent Prompt MCP question
 Task 04 commit and Task 05 execution were authorized through persistent Prompt
 MCP questions `commit.task-04` revision 3 and `execution.task-05` revision 1.
 
+Task 05 commit and Task 06 execution were authorized through persistent Prompt
+MCP questions `commit.task-05` and `execution.task-06`, both revision 1.
+
 - [x] [01 Provider audit core](01_define_provider_audit_core.md)
 - [x] [02 Translation audit lifecycle](02_migrate_translation_audit_lifecycle.md)
 - [x] [03 Voice batch and browser lifecycle](03_audit_voice_batch_and_browser_lifecycle.md)
 - [x] [04 Claude buffered and streaming voice](04_audit_claude_streaming_voice.md)
 - [x] [05 Prettify HTTP lifecycle](05_audit_prettify_http_lifecycle.md)
-- [ ] [06 Prettify CLI lifecycle](06_audit_prettify_cli_lifecycle.md)
+- [x] [06 Prettify CLI lifecycle](06_audit_prettify_cli_lifecycle.md)
 - [ ] [07 Diagnostic capture storage](07_build_diagnostic_capture_storage.md)
 - [ ] [08 Audit Log settings and deletion](08_add_audit_log_settings_and_deletion.md)
 - [ ] [09 Translation and Prettify capture integration](09_integrate_translation_prettify_capture.md)

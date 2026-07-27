@@ -9,6 +9,7 @@ import * as prettifyAuditModule from '@main/services/prettifyProviderAudit';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import * as translationAuditModule from '@main/translateProviders/translationProviderAudit';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
+import { RecordingPrettifyProviderAudit } from '../prettifyAuditTestUtils';
 import { RecordingTranslationProviderAudit } from '../translateProviders/translationAuditTestUtils';
 
 function createCapture() {
@@ -120,6 +121,40 @@ describe('provider audit class hierarchy', () => {
 
     assert.equal(audit.family, 'prettify');
     assert.deepEqual(capture.serializedEvents, []);
+  });
+
+  it('owns independent CLI capability and process-cleanup operations', () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const capability = audit.startCapabilityCheck('claude-cli');
+    audit.terminalCliFailure(capability, 'unsupported');
+    const cleanup = audit.startProcessCleanup('codex-cli');
+    audit.terminalSuccess(cleanup, 'cleanup');
+
+    assert.deepEqual(
+      audit.operations.map((operation) => operation.input.operation),
+      ['capability-check', 'process-cleanup'],
+    );
+    assert.deepEqual(
+      audit.operations.map((operation) => operation.events[operation.events.length - 1]),
+      [
+        {
+          event: 'terminal',
+          metadata: {
+            causeCode: 'unsupported',
+            durationMs: 0,
+            errorClass: 'configuration',
+          },
+          outcome: 'failure',
+          phase: 'readiness',
+        },
+        {
+          event: 'terminal',
+          metadata: { durationMs: 0 },
+          outcome: 'success',
+          phase: 'cleanup',
+        },
+      ],
+    );
   });
 
   it('does not expose obsolete function factories or family helper functions', () => {

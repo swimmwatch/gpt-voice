@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the public family audit and private operation state share one contract. */
 import {
   BaseProviderAudit,
   type ProviderAuditDependencies,
@@ -9,9 +10,35 @@ import {
   type ProviderAuditTerminalOutcome,
 } from '@main/providerAudit';
 import type { ProviderAuditOperation } from '@main/providerAudit/mappings';
+import type { CliProcessResult } from '@main/services/prettifyCliRunner';
+import type { PrettifyCliRuntimeErrorCode } from '@shared/prettifySettings';
 
 export type PrettifyAuditMetadata = ProviderAuditMetadataForFamily<'prettify'>;
-export type PrettifyAuditOperationContext = ProviderAuditOperationContext<'prettify'>;
+
+/** Main-only state shared by one Prettify provider operation across orchestration layers. */
+class PrettifyAuditOperationContextState implements ProviderAuditOperationContext<'prettify'> {
+  private cliCleanupFailure = false;
+
+  public readonly lifecycle;
+  public readonly now;
+  public readonly startedAt;
+
+  public constructor(context: ProviderAuditOperationContext<'prettify'>) {
+    this.lifecycle = context.lifecycle;
+    this.now = context.now;
+    this.startedAt = context.startedAt;
+  }
+
+  public get hasCliCleanupFailure(): boolean {
+    return this.cliCleanupFailure;
+  }
+
+  public recordCliCleanupFailure(): void {
+    this.cliCleanupFailure = true;
+  }
+}
+
+export type PrettifyAuditOperationContext = PrettifyAuditOperationContextState;
 
 export interface PrettifyAuditMetadataOptions {
   readonly causeCode?: PrettifyAuditMetadata['causeCode'];
@@ -88,40 +115,89 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     providerId: unknown,
     options: PrettifyAuditMetadataOptions = {},
   ): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'settings-readiness', 'validation', this.createMetadata(options));
+    return new PrettifyAuditOperationContextState(
+      this.startOperation(providerId, 'settings-readiness', 'validation', this.createMetadata(options)),
+    );
   }
 
   public startAvailability(providerId: unknown): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'availability', 'dispatch');
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'availability', 'dispatch'));
+  }
+
+  public startCapabilityCheck(providerId: unknown): PrettifyAuditOperationContext {
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'capability-check', 'dispatch'));
   }
 
   public startModelList(providerId: unknown): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'model-list', 'dispatch');
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'model-list', 'dispatch'));
   }
 
   public startModelLoad(providerId: unknown): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'model-load', 'dispatch');
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'model-load', 'dispatch'));
   }
 
   public startModelUnload(providerId: unknown): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'model-unload', 'dispatch');
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'model-unload', 'dispatch'));
   }
 
   public startPrepare(providerId: unknown, options: PrettifyAuditMetadataOptions = {}): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'prepare', 'dispatch', this.createMetadata(options));
+    return new PrettifyAuditOperationContextState(
+      this.startOperation(providerId, 'prepare', 'dispatch', this.createMetadata(options)),
+    );
   }
 
   public startPrettify(providerId: unknown, sourceLength: number): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'prettify', 'dispatch', this.createMetadata({ sourceLength }));
+    return new PrettifyAuditOperationContextState(
+      this.startOperation(providerId, 'prettify', 'dispatch', this.createMetadata({ sourceLength })),
+    );
+  }
+
+  public startProcessCleanup(providerId: unknown): PrettifyAuditOperationContext {
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'process-cleanup', 'cleanup'));
   }
 
   public startShutdown(providerId: unknown): PrettifyAuditOperationContext {
-    return this.startOperation(providerId, 'shutdown', 'shutdown');
+    return new PrettifyAuditOperationContextState(this.startOperation(providerId, 'shutdown', 'shutdown'));
   }
 
   public recordUnknownProvider(providerId: unknown, operation: ProviderAuditOperation<'prettify'>): void {
-    const context = this.startOperation(providerId, operation, 'validation');
+    const context = new PrettifyAuditOperationContextState(this.startOperation(providerId, operation, 'validation'));
     this.terminalFailure(context, 'validation', 'unknown');
+  }
+
+  public enterCliProcess(context: PrettifyAuditOperationContext): void {
+    context.lifecycle.phaseEntered('process');
+  }
+
+  public completeCliProcess(context: PrettifyAuditOperationContext, result: CliProcessResult): void {
+    context.lifecycle.phaseCompleted(
+      'process',
+      this.createMetadata({
+        durationMs: result.diagnostics.durationMs,
+      }),
+    );
+    if (result.diagnostics.cleanup !== 'failed') return;
+
+    context.recordCliCleanupFailure();
+    const cleanupMetadata = this.createMetadata({
+      causeCode: 'process-failed',
+      cleanupFailure: true,
+    });
+    context.lifecycle.phaseEntered('cleanup', cleanupMetadata);
+    context.lifecycle.phaseCompleted('cleanup', cleanupMetadata);
+  }
+
+  public terminalCliFailure(
+    context: PrettifyAuditOperationContext,
+    causeCode: PrettifyCliRuntimeErrorCode,
+    options: Omit<PrettifyAuditMetadataOptions, 'causeCode'> = {},
+  ): void {
+    const phase = this.getCliFailurePhase(causeCode);
+    if (causeCode === 'cancelled') {
+      this.terminalCancelled(context, phase, options);
+      return;
+    }
+    this.terminalFailure(context, phase, causeCode, options);
   }
 
   public terminal(
@@ -130,11 +206,14 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     outcome: ProviderAuditTerminalOutcome,
     options: PrettifyAuditMetadataOptions = {},
   ): void {
+    const cleanupFailure = options.cleanupFailure === true || context.hasCliCleanupFailure;
     context.lifecycle.terminal(
-      phase,
-      outcome,
+      cleanupFailure ? 'cleanup' : phase,
+      cleanupFailure ? 'failure' : outcome,
       this.createMetadata({
         ...options,
+        ...(cleanupFailure && options.causeCode === undefined ? { causeCode: 'process-failed' as const } : {}),
+        cleanupFailure,
         durationMs: options.durationMs ?? this.durationMs(context),
       }),
     );
@@ -185,6 +264,31 @@ export class PrettifyProviderAudit extends BaseProviderAudit<'prettify'> {
     if (cleanupFailure) return 'cleanup';
     if (exceptionType !== undefined) return 'internal';
     return PRETTIFY_AUDIT_ERROR_CLASS_BY_CAUSE[causeCode];
+  }
+
+  private getCliFailurePhase(causeCode: PrettifyCliRuntimeErrorCode): ProviderAuditPhase {
+    switch (causeCode) {
+      case 'not-installed':
+      case 'not-executable':
+      case 'invalid-model':
+      case 'schema-unavailable':
+        return 'configuration';
+      case 'not-authenticated':
+      case 'unsupported':
+      case 'no-tools-unavailable':
+        return 'readiness';
+      case 'model-discovery-failed':
+        return 'model-discovery';
+      case 'empty-output':
+      case 'malformed-output':
+        return 'result';
+      case 'cancelled':
+      case 'timed-out':
+      case 'output-limit':
+      case 'nonzero-exit':
+      case 'process-failed':
+        return 'process';
+    }
   }
 }
 

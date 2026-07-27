@@ -7,6 +7,7 @@ import {
   CodexCliPrettifyProvider,
   KNOWN_PRETTIFY_PROVIDERS,
   OllamaPrettifyProvider,
+  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   VllmPrettifyProvider,
   checkPrettifyCliConnection,
   listPrettifyModels,
@@ -758,6 +759,211 @@ describe('prettifyProviders', () => {
       success: false,
       error: 'Failed to connect to vLLM at http://localhost:8000/v1: fetch failed',
     });
+  });
+});
+
+describe('Prettify CLI audit lifecycle', () => {
+  it('correlates CLI availability, model discovery, prepare, and one-shot execution', async () => {
+    const audit = new RecordingPrettifyProviderAudit();
+    const privateCanaries = {
+      executablePath: '/private/claude-cli-path-canary',
+      model: 'claude-private-model-canary',
+      output: 'private-output-canary',
+      prompt: 'private-prompt-canary',
+      source: 'private-source-canary',
+    };
+    let generationCalls = 0;
+    const deps = {
+      audit,
+      claudeCliAdapter: {
+        checkAvailability: async () => ({ capabilityVersion: '2.1.71', success: true as const }),
+        prepare: async () => ({
+          prepared: {
+            cacheContext: ['safe-cache-context'],
+            capabilityVersion: '2.1.71',
+            execute: async () => {
+              generationCalls += 1;
+              return { capabilityVersion: '2.1.71', success: true as const, text: privateCanaries.output };
+            },
+          },
+          success: true as const,
+        }),
+      },
+      fetch: async () => {
+        throw new Error('HTTP must not run for CLI providers');
+      },
+    };
+
+    assert.deepEqual(
+      await checkPrettifyCliConnection(
+        'claude-cli',
+        { claudeCli: { executablePath: privateCanaries.executablePath } },
+        { deps },
+      ),
+      { providerId: 'claude-cli', status: 'connected' },
+    );
+    assert.equal(
+      (await listPrettifyModels('claude-cli', { claudeCli: { model: privateCanaries.model } }, deps)).success,
+      true,
+    );
+    const prepared = await preparePrettifyExecution(
+      {
+        claudeCli: {
+          executablePath: privateCanaries.executablePath,
+          model: privateCanaries.model,
+        },
+        prompt: privateCanaries.prompt,
+        providerId: 'claude-cli',
+      },
+      new AbortController().signal,
+      deps,
+    );
+    assert.equal(prepared.success, true);
+    if (!prepared.success) return;
+    assert.deepEqual(await prepared.prepared.execute(privateCanaries.source), {
+      success: true,
+      text: privateCanaries.output,
+    });
+    const operationCount = audit.operations.length;
+    assert.deepEqual(await prepared.prepared.execute('late-private-source-canary'), {
+      success: false,
+      error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+    });
+    assert.equal(audit.operations.length, operationCount);
+    assert.equal(generationCalls, 1);
+
+    assert.deepEqual(
+      audit.operations.map((operation) => operation.input.operation),
+      ['availability', 'model-list', 'prepare', 'settings-readiness', 'prettify'],
+    );
+    for (const operation of audit.operations) {
+      assert.equal('providerId' in operation.input && operation.input.providerId, 'claude-cli');
+      assert.equal(getTerminalEvents(operation).length, 1);
+    }
+    const prettifyTerminal = getTerminalEvents(getAuditOperation(audit, 'prettify'))[0];
+    assert.deepEqual(prettifyTerminal, {
+      event: 'terminal',
+      metadata: {
+        durationMs: 0,
+        resultLength: privateCanaries.output.length,
+        sourceLength: privateCanaries.source.length,
+      },
+      outcome: 'success',
+      phase: 'result',
+    });
+    const serializedAudit = JSON.stringify(audit.operations);
+    for (const canary of Object.values(privateCanaries)) {
+      assert.equal(serializedAudit.includes(canary), false);
+    }
+  });
+
+  it('maps CLI timeout, cancellation, and malformed output to closed terminals', async () => {
+    const cases = [
+      {
+        error: ClaudeCliPrettifyErrorCode.TimedOut,
+        expectedErrorClass: 'timeout',
+        expectedOutcome: 'failure',
+        providerId: 'claude-cli',
+      },
+      {
+        error: CodexCliPrettifyErrorCode.Cancelled,
+        expectedErrorClass: 'cancellation',
+        expectedOutcome: 'cancelled',
+        providerId: 'codex-cli',
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const audit = new RecordingPrettifyProviderAudit();
+      const result = await runPrettify('private-source-canary', { providerId: testCase.providerId }, undefined, {
+        audit,
+        claudeCliAdapter: {
+          prepare: async () => ({
+            error: testCase.error as ClaudeCliPrettifyErrorCode,
+            success: false as const,
+          }),
+        },
+        codexCliAdapter: {
+          listModels: async () => ({
+            error: CodexCliPrettifyErrorCode.ModelDiscoveryFailed,
+            success: false as const,
+          }),
+          prepare: async () => ({
+            error: testCase.error as CodexCliPrettifyErrorCode,
+            success: false as const,
+          }),
+        },
+        fetch: async () => response(200, {}),
+      });
+      assert.equal(result.success, false);
+      const terminal = getTerminalEvents(getAuditOperation(audit, 'prepare'))[0];
+      assert.equal(terminal?.outcome, testCase.expectedOutcome);
+      assert.equal(terminal?.metadata?.causeCode, testCase.error);
+      assert.equal(terminal?.metadata?.errorClass, testCase.expectedErrorClass);
+      assert.equal(getTerminalEvents(getAuditOperation(audit, 'settings-readiness')).length, 1);
+    }
+
+    const malformedAudit = new RecordingPrettifyProviderAudit();
+    await runPrettify('private-source-canary', { providerId: 'codex-cli' }, undefined, {
+      audit: malformedAudit,
+      codexCliAdapter: {
+        listModels: async () => ({
+          error: CodexCliPrettifyErrorCode.ModelDiscoveryFailed,
+          success: false as const,
+        }),
+        prepare: async () => ({
+          prepared: {
+            cacheContext: ['safe-cache-context'],
+            capabilityVersion: '0.144.3',
+            execute: async () => ({
+              error: CodexCliPrettifyErrorCode.MalformedOutput,
+              success: false as const,
+            }),
+            models: [],
+            source: 'catalog' as const,
+          },
+          success: true as const,
+        }),
+      },
+      fetch: async () => response(200, {}),
+    });
+    const malformedTerminal = getTerminalEvents(getAuditOperation(malformedAudit, 'prettify'))[0];
+    assert.equal(malformedTerminal?.outcome, 'failure');
+    assert.equal(malformedTerminal?.metadata?.causeCode, 'malformed-output');
+    assert.equal(malformedTerminal?.metadata?.errorClass, 'contract');
+  });
+
+  it('keeps CLI behavior fail-open when the audit sink throws', async () => {
+    const throwingSink: ProviderAuditSink = {
+      error: () => {
+        throw new Error('private-cli-sink-error-canary');
+      },
+      info: () => {
+        throw new Error('private-cli-sink-error-canary');
+      },
+      warn: () => {
+        throw new Error('private-cli-sink-error-canary');
+      },
+    };
+    const result = await runPrettify('source', { providerId: 'claude-cli' }, undefined, {
+      audit: new PrettifyProviderAudit({ getSink: () => throwingSink }),
+      claudeCliAdapter: {
+        prepare: async () => ({
+          prepared: {
+            cacheContext: ['safe-cache-context'],
+            capabilityVersion: '2.1.71',
+            execute: async () => ({
+              capabilityVersion: '2.1.71',
+              success: true as const,
+              text: 'result',
+            }),
+          },
+          success: true as const,
+        }),
+      },
+      fetch: async () => response(200, {}),
+    });
+    assert.deepEqual(result, { success: true, text: 'result' });
   });
 });
 
