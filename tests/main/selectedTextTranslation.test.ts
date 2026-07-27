@@ -4,10 +4,11 @@ import { afterEach, describe, it } from 'node:test';
 import type { ClipboardType } from '@main/electronRuntime';
 import { setLocale } from '@main/i18n';
 import {
-  createSelectedTextTranslationService,
+  SelectedTextTranslationService,
   type SelectedTextTranslationDependencies,
+  type SelectedTextTranslationRuntime,
 } from '@main/services/selectedTextTranslation';
-import { getTranslationFailureMessage, type TranslationExecutionSnapshot } from '@main/services/translation';
+import type { TranslationExecutionSnapshot } from '@main/services/translation';
 import { createSelectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationAction } from '@main/services/textAutomation';
@@ -89,6 +90,60 @@ function createSuccess(
   };
 }
 
+class TestTranslationRuntime implements SelectedTextTranslationRuntime {
+  public readonly translations: Array<{ text: string; snapshot: TranslationExecutionSnapshot }> = [];
+  private currentGeneration: number;
+
+  public constructor(
+    private snapshot: TranslationExecutionSnapshot,
+    private readonly options: TestServiceOptions,
+  ) {
+    this.currentGeneration = snapshot.generation;
+  }
+
+  public getSnapshot() {
+    return { success: true as const, snapshot: this.snapshot };
+  }
+
+  public invalidate(): void {
+    this.currentGeneration += 1;
+  }
+
+  public isCurrent(candidate: TranslationExecutionSnapshot): boolean {
+    return candidate.generation === this.currentGeneration;
+  }
+
+  public setProviderId(providerId: TranslationProviderId): void {
+    this.snapshot = Object.freeze({ ...this.snapshot, providerId });
+  }
+
+  public async translateWithSnapshot(
+    text: unknown,
+    requestSnapshot: TranslationExecutionSnapshot,
+  ): Promise<TranslationProviderOutcome> {
+    if (typeof text !== 'string') throw new Error('Expected test Translation source text');
+    this.translations.push({ text, snapshot: requestSnapshot });
+    await this.options.translateWait;
+    return this.options.translateOutcome ?? createSuccess(requestSnapshot, 'translated text', text.length);
+  }
+
+  public validateInput(
+    text: unknown,
+    requestSnapshot: TranslationExecutionSnapshot,
+  ): TranslationProviderFailure | null {
+    if (typeof text !== 'string') throw new Error('Expected test Translation source text');
+    const sourceText = text;
+    if (requestSnapshot.generation !== this.currentGeneration) {
+      return createFailure(requestSnapshot, 'cancelledOrStaleOperation', sourceText.length, true);
+    }
+    if (!sourceText.trim()) return createFailure(requestSnapshot, 'emptyInput', sourceText.length);
+    if (sourceText.length > requestSnapshot.maxInputCharacters) {
+      return createFailure(requestSnapshot, 'inputTooLong', sourceText.length);
+    }
+    return null;
+  }
+}
+
 function createTestService(options: TestServiceOptions = {}) {
   const clipboard = {
     clipboard: 'previous clipboard',
@@ -100,9 +155,8 @@ function createTestService(options: TestServiceOptions = {}) {
     body: string;
     options?: SystemNotificationOptions;
   }> = [];
-  const translations: Array<{ text: string; snapshot: TranslationExecutionSnapshot }> = [];
   const snapshot = createSnapshot(options);
-  let currentGeneration = snapshot.generation;
+  const runtime = new TestTranslationRuntime(snapshot, options);
 
   const dependencies: SelectedTextTranslationDependencies = {
     actionGate: options.actionGate ?? createSelectedTextActionGate(),
@@ -120,28 +174,12 @@ function createTestService(options: TestServiceOptions = {}) {
         else clipboard.clipboard = text;
       },
     },
-    getFailureMessage: getTranslationFailureMessage,
-    getSnapshot: () => ({ success: true, snapshot }),
-    isCurrent: (candidate) => candidate.generation === currentGeneration,
+    logger: { info: () => undefined, warn: () => undefined },
     notify: (title, body, notificationOptions) => {
       notifications.push({ title, body, options: notificationOptions });
     },
     platform: 'linux',
-    translate: async (text, requestSnapshot) => {
-      translations.push({ text, snapshot: requestSnapshot });
-      await options.translateWait;
-      return options.translateOutcome ?? createSuccess(requestSnapshot, 'translated text', text.length);
-    },
-    validateInput: (text, requestSnapshot) => {
-      if (requestSnapshot.generation !== currentGeneration) {
-        return createFailure(requestSnapshot, 'cancelledOrStaleOperation', text.length, true);
-      }
-      if (!text.trim()) return createFailure(requestSnapshot, 'emptyInput', text.length);
-      if (text.length > requestSnapshot.maxInputCharacters) {
-        return createFailure(requestSnapshot, 'inputTooLong', text.length);
-      }
-      return null;
-    },
+    runtime,
     wait: async () => {},
   };
 
@@ -150,12 +188,13 @@ function createTestService(options: TestServiceOptions = {}) {
     clipboard,
     dependencies,
     invalidate: () => {
-      currentGeneration += 1;
+      runtime.invalidate();
     },
     notifications,
-    service: createSelectedTextTranslationService(dependencies),
+    runtime,
+    service: new SelectedTextTranslationService(dependencies),
     snapshot,
-    translations,
+    translations: runtime.translations,
   };
 }
 
@@ -175,7 +214,7 @@ describe('selected-text translation', () => {
   it('restores clipboard and reports an empty selection', async () => {
     const harness = createTestService();
 
-    const result = await harness.service();
+    const result = await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'No text selected to translate');
@@ -198,8 +237,8 @@ describe('selected-text translation', () => {
       selectionText: 'primary selection',
     });
 
-    assert.equal((await normal.service()).success, true);
-    assert.equal((await failedCopy.service()).success, true);
+    assert.equal((await normal.service.translateSelectedTextToClipboard()).success, true);
+    assert.equal((await failedCopy.service.translateSelectedTextToClipboard()).success, true);
     assert.equal(normal.clipboard.clipboard, 'translated text');
     assert.equal(failedCopy.clipboard.clipboard, 'translated text');
     assert.equal(normal.translations[0]?.text, 'primary selection');
@@ -212,17 +251,10 @@ describe('selected-text translation', () => {
       copyText: 'selected text',
       onCopy: () => {
         liveProvider = 'bing';
+        harness.runtime.setProviderId(liveProvider);
       },
     });
-    harness.dependencies.getSnapshot = () => ({
-      success: true,
-      snapshot: Object.freeze({
-        ...harness.snapshot,
-        providerId: liveProvider,
-      }),
-    });
-
-    await harness.service();
+    await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(liveProvider, 'bing');
     assert.equal(harness.translations[0]?.snapshot.providerId, 'google');
@@ -236,7 +268,7 @@ describe('selected-text translation', () => {
       providerName: 'Bing',
     });
 
-    const result = await harness.service();
+    const result = await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'Selected text is too long for Bing: 1001 characters; maximum 1000.');
@@ -251,7 +283,7 @@ describe('selected-text translation', () => {
       translateOutcome: createFailure(snapshot, 'navigationFailure', 13),
     });
 
-    const result = await harness.service();
+    const result = await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'Could not connect to the translation provider. Try again.');
@@ -261,7 +293,7 @@ describe('selected-text translation', () => {
   it('copies successful provider output only after the provider outcome is complete', async () => {
     const harness = createTestService({ copyText: 'selected text' });
 
-    const result = await harness.service();
+    const result = await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(result.success, true);
     assert.equal(result.status, 'Translation copied');
@@ -314,17 +346,30 @@ describe('selected-text translation', () => {
       targetLanguage: 'ru',
     });
 
-    await first.service();
-    await exact.service();
-    await providerChanged.service();
-    await contractChanged.service();
-    await targetChanged.service();
+    await first.service.translateSelectedTextToClipboard();
+    await exact.service.translateSelectedTextToClipboard();
+    await providerChanged.service.translateSelectedTextToClipboard();
+    await contractChanged.service.translateSelectedTextToClipboard();
+    await targetChanged.service.translateSelectedTextToClipboard();
 
     assert.equal(first.translations.length, 1);
     assert.equal(exact.translations.length, 0);
     assert.equal(providerChanged.translations.length, 1);
     assert.equal(contractChanged.translations.length, 1);
     assert.equal(targetChanged.translations.length, 1);
+  });
+
+  it('keeps service instances and their caches isolated by default', async () => {
+    const first = createTestService({ copyText: 'selected text' });
+    const second = createTestService({ copyText: 'selected text' });
+
+    await first.service.translateSelectedTextToClipboard();
+    await first.service.translateSelectedTextToClipboard();
+    await second.service.translateSelectedTextToClipboard();
+
+    assert.notEqual(first.service, second.service);
+    assert.equal(first.translations.length, 1);
+    assert.equal(second.translations.length, 1);
   });
 
   it('does not cache failed or cleanup-failed outcomes', async () => {
@@ -337,8 +382,8 @@ describe('selected-text translation', () => {
     });
     const retry = createTestService({ cache, copyText: 'selected text' });
 
-    await failed.service();
-    await retry.service();
+    await failed.service.translateSelectedTextToClipboard();
+    await retry.service.translateSelectedTextToClipboard();
 
     assert.equal(failed.translations.length, 1);
     assert.equal(retry.translations.length, 1);
@@ -354,7 +399,7 @@ describe('selected-text translation', () => {
       translateWait,
     });
 
-    const operation = harness.service();
+    const operation = harness.service.translateSelectedTextToClipboard();
     await waitUntil(() => harness.translations.length === 1);
     harness.invalidate();
     finishTranslation();
@@ -375,8 +420,8 @@ describe('selected-text translation', () => {
       translateWait,
     });
 
-    const first = harness.service();
-    const second = await harness.service();
+    const first = harness.service.translateSelectedTextToClipboard();
+    const second = await harness.service.translateSelectedTextToClipboard();
     finishTranslation();
     const firstResult = await first;
 
@@ -393,7 +438,7 @@ describe('selected-text translation', () => {
       copyText: 'selected text',
     });
 
-    const result = await harness.service();
+    const result = await harness.service.translateSelectedTextToClipboard();
 
     assert.equal(result.skipped, true);
     assert.deepEqual(harness.actions, []);

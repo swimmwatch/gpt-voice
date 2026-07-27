@@ -22,8 +22,11 @@ describe('translation runtime lifecycle integration', () => {
     assert.doesNotMatch(browser, /translationUtils|BrowserNavigationService\.GoogleTranslate/u);
     assert.doesNotMatch(config, /currentTargetLang|getLegacyGoogleTarget|synchronizeLegacy/u);
     assert.doesNotMatch(translation, /playwright-core|translationUtils|getTranslatePage/u);
-    assert.match(translation, /translationProviderRegistry/u);
-    assert.match(translation, /getTranslationSettingsSnapshot/u);
+    assert.match(translation, /export class TranslationRuntime/u);
+    assert.doesNotMatch(
+      translation,
+      /\btranslationRuntime\b|\btranslationProviderRegistry\b|\bgetTranslationSettingsSnapshot\b/u,
+    );
   });
 
   it('closes translation contexts before restarting or persisting CloakBrowser settings', () => {
@@ -35,7 +38,7 @@ describe('translation runtime lifecycle integration', () => {
 
     const validation = handler.indexOf('assertValidCloakBrowserSettingsInput');
     const prepare = handler.indexOf('prepareCloakBrowserSettings');
-    const shutdown = handler.indexOf('shutdownAllTranslationProviders');
+    const shutdown = handler.indexOf('dependencies.translationRuntime.shutdown');
     const restart = handler.indexOf('backgroundBrowserService.restart');
     const persist = handler.indexOf('preparedSettings.persist');
 
@@ -54,10 +57,10 @@ describe('translation runtime lifecycle integration', () => {
     const application = readProjectFile('src/main/mainProcessApplication.ts');
     const cleanup = application.slice(application.indexOf('private async runQuitCleanup'));
 
-    assert.match(cleanup, /this\.dependencies\.shutdownTranslationProviders\(\)/u);
+    assert.match(cleanup, /this\.dependencies\.translationRuntime\.shutdown\(\)/u);
     assert.match(cleanup, /failedProviderIds: translationShutdown\.failedProviderIds/u);
     assert.equal(
-      cleanup.indexOf('shutdownTranslationProviders') < cleanup.indexOf('backgroundBrowserService.shutdown'),
+      cleanup.indexOf('translationRuntime.shutdown') < cleanup.indexOf('backgroundBrowserService.shutdown'),
       true,
     );
     assert.doesNotMatch(cleanup, /translationShutdown.*error\.message/su);
@@ -71,7 +74,7 @@ describe('translation runtime lifecycle integration', () => {
     );
 
     assert.match(handler, /text: string, targetLang: string/u);
-    assert.match(handler, /translateText\(text, targetLang\)/u);
+    assert.match(handler, /dependencies\.translationRuntime\.translateText\(text, targetLang\)/u);
     assert.doesNotMatch(handler, /providerId|translationProviderRegistry|getProvider/u);
   });
 });

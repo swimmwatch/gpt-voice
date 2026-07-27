@@ -164,5 +164,3 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
     );
   }
 }
-
-export const translationProviderAudit = new TranslationProviderAudit();

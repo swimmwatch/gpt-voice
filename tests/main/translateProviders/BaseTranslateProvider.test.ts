@@ -98,7 +98,7 @@ class FakeTranslateProvider extends BaseTranslateProvider {
   insertedTexts: string[] = [];
   selectedTargets: string[] = [];
 
-  constructor(dependencies: Partial<BaseTranslateProviderDependencies>) {
+  constructor(dependencies: BaseTranslateProviderDependencies) {
     super(TRANSLATION_PROVIDER_INFO.google, dependencies);
   }
 

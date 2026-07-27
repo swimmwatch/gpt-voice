@@ -22,6 +22,7 @@ import {
   type BingSelectionSnapshot,
   type BingTranslatePageAdapter,
 } from '@main/translateProviders/BingTranslateProvider';
+import { TRANSLATION_RESULT_TIMEOUT_MS } from '@main/translateProviders/BaseTranslateProvider';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
 
@@ -239,7 +240,7 @@ function createHarness(
     readinessTimeoutMs: 2,
     resultPollIntervalMs: 1,
     resultStabilityDelayMs: 0,
-    ...(resultTimeoutMs === null ? {} : { resultTimeoutMs }),
+    resultTimeoutMs: resultTimeoutMs ?? TRANSLATION_RESULT_TIMEOUT_MS,
     sleep: async () => {},
     waitForCatalogStability: async () => {},
     waitForClearPoll: async () => {},

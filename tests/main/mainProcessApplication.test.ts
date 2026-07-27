@@ -348,7 +348,9 @@ class RecordingShortcutController extends ShortcutController {
       logger: { info: () => undefined, warn: () => undefined },
       platform: 'linux',
       prettifySelectedText: async () => ({ success: true }),
-      translateSelectedTextToClipboard: async () => ({ success: true }),
+      selectedTextTranslationService: {
+        translateSelectedTextToClipboard: async () => ({ success: true }),
+      },
       trayController,
       windowManager,
     });
@@ -434,9 +436,11 @@ class MainProcessApplicationHarness {
       presentTranslationSettingsRepairNotice: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
       shortcutController,
-      shutdownTranslationProviders: async () => {
-        this.events.push('translation-shutdown');
-        return { failedProviderIds: [], success: true };
+      translationRuntime: {
+        shutdown: async () => {
+          this.events.push('translation-shutdown');
+          return { failedProviderIds: [], success: true };
+        },
       },
       trayController,
       unloadPrettifyModel: async () => {

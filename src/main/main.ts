@@ -19,6 +19,7 @@ import {
   currentTranslateEnabled,
   currentTranslateHotkey,
   getCurrentLocale,
+  getTranslationSettingsSnapshot,
   hasExplicitLocalePreference,
   loadConfig,
   setProvider,
@@ -30,19 +31,24 @@ import { getAppIcon, getAppIconPath, getAssetPath } from './assets';
 import { getAppUrl } from './appProtocol';
 import { syncLinuxDesktopIcons } from './linuxDesktopIcons';
 import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
-import { shutdownAllTranslationProviders } from './services/translation';
 import { resolveStartupLocale } from './startupLocale';
-import { showSystemNotification, writeClipboardText } from './electronRuntime';
+import {
+  readClipboardText,
+  showSystemNotification,
+  writeClipboardText,
+  writeTypedClipboardText,
+} from './electronRuntime';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
 import { APP_DATABASE_FILE } from './repositories/sqlite/appDatabase';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
-import { getActiveSelectedTextAction } from './services/selectedTextActionState';
+import { getActiveSelectedTextAction, selectedTextActionGate } from './services/selectedTextActionState';
 import { cancelSelectedTextPrettify, prettifySelectedText } from './services/selectedTextPrettify';
-import { translateSelectedTextToClipboard } from './services/selectedTextTranslation';
+import { runTextAutomationAction } from './services/textAutomation';
 import {
   createCloakBrowserLoginContextOptions,
   createCloakBrowserPersistentContextOptions,
+  createCloakBrowserTranslationContextOptions,
 } from './cloakBrowserLaunchOptions';
 import { presentNotificationError } from '@shared/notifications';
 import { getOpenAIApiSettingsWithSecret } from './providers/openaiApiSettings';
@@ -56,6 +62,9 @@ import {
 import { getClaudeWebSettings } from './providers/claudeWebSettings';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
+import { createPlaywrightGoogleTranslatePageAdapter } from './translateProviders/GoogleTranslateProvider';
+import { createPlaywrightBingTranslatePageAdapter } from './translateProviders/BingTranslateProvider';
+import { createPlaywrightYandexTranslatePageAdapter } from './translateProviders/YandexTranslateProvider';
 
 function initializeLocale(): void {
   setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
@@ -97,6 +106,38 @@ const application = new MainProcessCompositionRoot({
   registerIpcHandlers,
   reportStreamingDiagnostic: ignoreStreamingDiagnostic,
   resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
+  translation: {
+    audit: {
+      elapsedNow: Date.now,
+      getSink: () => createLogger('provider-audit'),
+      now: getCurrentDate,
+      randomUUID,
+    },
+    getSettings: getTranslationSettingsSnapshot,
+    now: Date.now,
+    providers: {
+      createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
+      createContext: launchCloakContext,
+      createContextOptions: createCloakBrowserTranslationContextOptions,
+      createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
+      createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
+      sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+    },
+    selectedText: {
+      actionGate: selectedTextActionGate,
+      automateTextAction: async (action) => {
+        await runTextAutomationAction(action);
+      },
+      clipboard: {
+        readText: readClipboardText,
+        writeText: writeTypedClipboardText,
+      },
+      logger: createLogger('selection-translate'),
+      notify: showSystemNotification,
+      platform: process.platform,
+      wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+    },
+  },
   voice: {
     audit: {
       elapsedNow: Date.now,
@@ -207,7 +248,6 @@ const application = new MainProcessCompositionRoot({
       logger: createLogger('shortcuts'),
       platform: process.platform,
       prettifySelectedText,
-      translateSelectedTextToClipboard,
     },
     tray: {
       application: app,
@@ -234,7 +274,6 @@ const application = new MainProcessCompositionRoot({
   loadConfig,
   logger: log,
   presentTranslationSettingsRepairNotice,
-  shutdownTranslationProviders: shutdownAllTranslationProviders,
   unloadPrettifyModel: unloadLoadedOllamaPrettifyModel,
 });
 

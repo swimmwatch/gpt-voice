@@ -121,10 +121,10 @@ export interface YandexTranslatePageAdapter {
 
 export type YandexTranslatePageAdapterFactory = (page: Page) => YandexTranslatePageAdapter;
 
-export interface YandexTranslateProviderDependencies extends Partial<BaseTranslateProviderDependencies> {
+export interface YandexTranslateProviderDependencies extends BaseTranslateProviderDependencies {
   readonly clearPollIntervalMs?: number;
   readonly clearTimeoutMs?: number;
-  readonly createPageAdapter?: YandexTranslatePageAdapterFactory;
+  readonly createPageAdapter: YandexTranslatePageAdapterFactory;
   readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   readonly waitForClearPoll?: (delayMs: number) => Promise<void>;
 }
@@ -140,12 +140,6 @@ interface DestinationLocatorSnapshot {
   readonly locator?: Locator;
   readonly resolution: YandexEditorResolution;
   readonly visiblePanels: number;
-}
-
-function wait(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 async function getVisibleLocators(locator: Locator): Promise<VisibleLocatorSnapshot[]> {
@@ -531,7 +525,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   }
 }
 
-function createPlaywrightYandexTranslatePageAdapter(page: Page): YandexTranslatePageAdapter {
+export function createPlaywrightYandexTranslatePageAdapter(page: Page): YandexTranslatePageAdapter {
   return new PlaywrightYandexTranslatePageAdapter(page);
 }
 
@@ -547,13 +541,13 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
-  constructor(dependencies: YandexTranslateProviderDependencies = {}) {
+  constructor(dependencies: YandexTranslateProviderDependencies) {
     super(TRANSLATION_PROVIDER_INFO.yandex, dependencies);
     this.clearPollIntervalMs = dependencies.clearPollIntervalMs ?? YANDEX_CLEAR_POLL_INTERVAL_MS;
     this.clearTimeoutMs = dependencies.clearTimeoutMs ?? YANDEX_CLEAR_TIMEOUT_MS;
-    this.createPageAdapter = dependencies.createPageAdapter ?? createPlaywrightYandexTranslatePageAdapter;
+    this.createPageAdapter = dependencies.createPageAdapter;
     this.onNavigationRetry = dependencies.onNavigationRetry;
-    this.waitForClearPoll = dependencies.waitForClearPoll ?? wait;
+    this.waitForClearPoll = dependencies.waitForClearPoll ?? dependencies.sleep;
   }
 
   protected async navigateAndHandleConsent(

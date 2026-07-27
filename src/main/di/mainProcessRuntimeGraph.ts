@@ -14,6 +14,7 @@ export interface MainProcessRuntimeGraphDependencies {
   readonly shortcutController: MainIpcDependencies['shortcutController'];
   readonly streamingTranscriptionService: MainIpcDependencies['streamingTranscriptionService'];
   readonly transcriptionService: MainIpcDependencies['transcriptionService'];
+  readonly translationRuntime: MainIpcDependencies['translationRuntime'];
   readonly voiceAudit: MainIpcDependencies['voiceAudit'];
   readonly voiceProviderRegistry: MainIpcDependencies['voiceProviderRegistry'];
   readonly windowManager: MainIpcDependencies['windowManager'];
@@ -42,6 +43,7 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
       shortcutController: this.dependencies.shortcutController,
       streamingTranscriptionService: this.dependencies.streamingTranscriptionService,
       transcriptionService: this.dependencies.transcriptionService,
+      translationRuntime: this.dependencies.translationRuntime,
       voiceAudit: this.dependencies.voiceAudit,
       voiceProviderRegistry: this.dependencies.voiceProviderRegistry,
       windowManager: this.dependencies.windowManager,

@@ -87,10 +87,10 @@ export interface GoogleTranslatePageAdapter {
 
 export type GoogleTranslatePageAdapterFactory = (page: Page) => GoogleTranslatePageAdapter;
 
-export interface GoogleTranslateProviderDependencies extends Partial<BaseTranslateProviderDependencies> {
+export interface GoogleTranslateProviderDependencies extends BaseTranslateProviderDependencies {
   readonly clearPollIntervalMs?: number;
   readonly clearTimeoutMs?: number;
-  readonly createPageAdapter?: GoogleTranslatePageAdapterFactory;
+  readonly createPageAdapter: GoogleTranslatePageAdapterFactory;
   readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   readonly waitForClearPoll?: (delayMs: number) => Promise<void>;
 }
@@ -99,12 +99,6 @@ interface VisibleLocatorSnapshot {
   readonly editable: boolean;
   readonly enabled: boolean;
   readonly locator: Locator;
-}
-
-function wait(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 function getOriginClassification(url: URL): {
@@ -348,7 +342,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
   }
 }
 
-function createPlaywrightGoogleTranslatePageAdapter(page: Page): GoogleTranslatePageAdapter {
+export function createPlaywrightGoogleTranslatePageAdapter(page: Page): GoogleTranslatePageAdapter {
   return new PlaywrightGoogleTranslatePageAdapter(page);
 }
 
@@ -363,13 +357,13 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
-  constructor(dependencies: GoogleTranslateProviderDependencies = {}) {
+  constructor(dependencies: GoogleTranslateProviderDependencies) {
     super(TRANSLATION_PROVIDER_INFO.google, dependencies);
     this.clearPollIntervalMs = dependencies.clearPollIntervalMs ?? GOOGLE_CLEAR_POLL_INTERVAL_MS;
     this.clearTimeoutMs = dependencies.clearTimeoutMs ?? GOOGLE_CLEAR_TIMEOUT_MS;
-    this.createPageAdapter = dependencies.createPageAdapter ?? createPlaywrightGoogleTranslatePageAdapter;
+    this.createPageAdapter = dependencies.createPageAdapter;
     this.onNavigationRetry = dependencies.onNavigationRetry;
-    this.waitForClearPoll = dependencies.waitForClearPoll ?? wait;
+    this.waitForClearPoll = dependencies.waitForClearPoll ?? dependencies.sleep;
   }
 
   protected async navigateAndHandleConsent(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {

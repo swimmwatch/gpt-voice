@@ -6,6 +6,7 @@ import type { ShortcutController } from './shortcuts';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
 import type { BackgroundBrowserService } from './browser';
+import type { TranslationRuntime } from './services/translation';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -46,11 +47,6 @@ export interface MainProcessBackgroundStatus {
   readonly ready: boolean;
 }
 
-export interface MainProcessTranslationShutdownResult {
-  readonly failedProviderIds: readonly string[];
-  readonly success: boolean;
-}
-
 export interface MainProcessIpcRegistration {
   dispose(): Promise<void>;
 }
@@ -81,7 +77,7 @@ export interface MainProcessApplicationDependencies {
   readonly presentTranslationSettingsRepairNotice: () => void;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly shortcutController: ShortcutController;
-  readonly shutdownTranslationProviders: () => Promise<MainProcessTranslationShutdownResult>;
+  readonly translationRuntime: Pick<TranslationRuntime, 'shutdown'>;
   readonly trayController: TrayController;
   readonly unloadPrettifyModel: () => Promise<void>;
   readonly windowManager: WindowManager;
@@ -226,7 +222,7 @@ export class MainProcessApplication {
     }
 
     try {
-      const translationShutdown = await this.dependencies.shutdownTranslationProviders();
+      const translationShutdown = await this.dependencies.translationRuntime.shutdown();
       if (!translationShutdown.success) {
         this.dependencies.logger.warn(TRANSLATION_CLEANUP_INCOMPLETE_LOG, {
           failedProviderIds: translationShutdown.failedProviderIds,

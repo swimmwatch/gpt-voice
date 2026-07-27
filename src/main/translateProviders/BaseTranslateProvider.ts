@@ -1,8 +1,6 @@
 import type { LaunchContextOptions } from 'cloakbrowser';
 import type { BrowserContext, Page } from 'playwright-core';
 
-import { createCloakBrowserTranslationContextOptions } from '@main/cloakBrowserLaunchOptions';
-import { launchCloakContext } from '@main/cloakbrowser';
 import { normalizeProviderAuditExceptionType, type ProviderAuditExceptionType } from '@main/providerAudit';
 import {
   getTranslationLanguage,
@@ -24,8 +22,8 @@ import {
   type TranslationProviderAuditOperationContext,
 } from './translationProviderAudit';
 
-const DEFAULT_RESULT_TIMEOUT_MS = 15_000;
-const DEFAULT_RESULT_POLL_INTERVAL_MS = 100;
+export const TRANSLATION_RESULT_TIMEOUT_MS = 15_000;
+export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 
 export interface BaseTranslateProviderDependencies {
@@ -93,19 +91,6 @@ interface FailureAuditOptions {
   readonly pageClosed?: boolean;
 }
 
-const DEFAULT_DEPENDENCIES: BaseTranslateProviderDependencies = {
-  createContext: launchCloakContext,
-  createContextOptions: createCloakBrowserTranslationContextOptions,
-  now: () => Date.now(),
-  resultPollIntervalMs: DEFAULT_RESULT_POLL_INTERVAL_MS,
-  resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
-  resultTimeoutMs: DEFAULT_RESULT_TIMEOUT_MS,
-  sleep: (delayMs) =>
-    new Promise((resolve) => {
-      setTimeout(resolve, delayMs);
-    }),
-};
-
 /** Shared main-process lifecycle; subclasses implement only public-page behavior. */
 export abstract class BaseTranslateProvider {
   public readonly info: TranslationProviderInfo;
@@ -120,9 +105,9 @@ export abstract class BaseTranslateProvider {
   private closePromise: Promise<boolean> | null = null;
   private shutDown = false;
 
-  protected constructor(info: TranslationProviderInfo, dependencies: Partial<BaseTranslateProviderDependencies> = {}) {
+  protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
-    this.dependencies = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+    this.dependencies = dependencies;
     this.translate = (request) => this.enqueueTranslation(request);
     this.shutdown = () => this.shutdownProvider();
     Object.defineProperties(this, {

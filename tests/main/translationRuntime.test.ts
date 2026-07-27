@@ -478,4 +478,27 @@ describe('TranslationRuntime', () => {
     });
     assert.equal(harness.shutdownCalls, 1);
   });
+
+  it('keeps generations, provider routing, and audits isolated between runtimes', async () => {
+    const firstAudit = new CapturingTranslationProviderAudit();
+    const secondAudit = new CapturingTranslationProviderAudit();
+    const first = createRuntimeHarness({ audit: firstAudit });
+    const second = createRuntimeHarness({ audit: secondAudit });
+    const firstSnapshot = getSnapshot(first.runtime);
+    const secondSnapshot = getSnapshot(second.runtime);
+
+    await first.runtime.shutdown();
+    const firstFailure = first.runtime.validateInput('selected text', firstSnapshot);
+    const secondFailure = second.runtime.validateInput('selected text', secondSnapshot);
+
+    assert.equal(firstFailure?.code, 'cancelledOrStaleOperation');
+    assert.equal(secondFailure, null);
+    assert.equal(first.shutdownCalls, 1);
+    assert.equal(second.shutdownCalls, 0);
+    assert.equal(firstAudit.entries.length > secondAudit.entries.length, true);
+    assert.equal(
+      secondAudit.entries.some((entry) => entry.record.causeCode === 'cancelledOrStaleOperation'),
+      false,
+    );
+  });
 });

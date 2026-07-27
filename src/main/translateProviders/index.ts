@@ -1,86 +1,60 @@
-import { BaseTranslateProvider } from '@main/translateProviders/BaseTranslateProvider';
-import { BingTranslateProvider } from '@main/translateProviders/BingTranslateProvider';
-import { GoogleTranslateProvider } from '@main/translateProviders/GoogleTranslateProvider';
-import { YandexTranslateProvider } from '@main/translateProviders/YandexTranslateProvider';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
-import {
-  translationProviderAudit,
-  type TranslationProviderAudit,
-} from '@main/translateProviders/translationProviderAudit';
+import type { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
+import type {
+  TranslationProviderOutcome,
+  TranslationProviderRequest,
+} from '@main/translateProviders/translationProviderContracts';
 import {
   TRANSLATION_PROVIDER_IDS,
-  TRANSLATION_PROVIDER_INFO,
   isTranslationProviderId,
   type TranslationProviderId,
   type TranslationProviderInfo,
 } from '@shared/translationProvider';
-
-export interface TranslationProviderDefinition {
-  readonly factory: () => BaseTranslateProvider;
-  readonly info: TranslationProviderInfo;
-}
-
-export type TranslationProviderDefinitions = Readonly<Record<TranslationProviderId, TranslationProviderDefinition>>;
 
 export interface TranslationProviderShutdownResult {
   readonly failedProviderIds: readonly TranslationProviderId[];
   readonly success: boolean;
 }
 
-export interface TranslationProviderRegistryDependencies {
-  readonly audit: TranslationProviderAudit;
-  readonly now: () => number;
+export interface TranslationProviderInstance {
+  readonly info: TranslationProviderInfo;
+  readonly shutdown: () => Promise<void>;
+  readonly translate: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
 }
 
-const DEFAULT_REGISTRY_DEPENDENCIES: TranslationProviderRegistryDependencies = {
-  audit: translationProviderAudit,
-  now: Date.now,
-};
-
-export const TRANSLATION_PROVIDER_DEFINITIONS: TranslationProviderDefinitions = Object.freeze({
-  google: Object.freeze({
-    factory: () => new GoogleTranslateProvider(),
-    info: TRANSLATION_PROVIDER_INFO.google,
-  }),
-  bing: Object.freeze({
-    factory: () => new BingTranslateProvider(),
-    info: TRANSLATION_PROVIDER_INFO.bing,
-  }),
-  yandex: Object.freeze({
-    factory: () => new YandexTranslateProvider(),
-    info: TRANSLATION_PROVIDER_INFO.yandex,
-  }),
-});
+export interface TranslationProviderFactoryContract {
+  create(providerId: TranslationProviderId): TranslationProviderInstance;
+  getProviderInfo(providerId: TranslationProviderId): TranslationProviderInfo;
+}
 
 /** Exhaustive lazy owner for one reusable translation provider instance per provider ID. */
 export class TranslationProviderRegistry {
-  private readonly instances = new Map<TranslationProviderId, BaseTranslateProvider>();
-  private readonly dependencies: TranslationProviderRegistryDependencies;
+  private readonly instances = new Map<TranslationProviderId, TranslationProviderInstance>();
 
-  constructor(
-    private readonly definitions: TranslationProviderDefinitions = TRANSLATION_PROVIDER_DEFINITIONS,
-    dependencies: Partial<TranslationProviderRegistryDependencies> = {},
-  ) {
-    this.dependencies = { ...DEFAULT_REGISTRY_DEPENDENCIES, ...dependencies };
+  public constructor(
+    private readonly factory: TranslationProviderFactoryContract,
+    private readonly audit: TranslationProviderAudit,
+    private readonly now: () => number,
+  ) {}
+
+  public getAvailableProviderInfo(): readonly TranslationProviderInfo[] {
+    return Object.freeze(TRANSLATION_PROVIDER_IDS.map((providerId) => this.factory.getProviderInfo(providerId)));
   }
 
-  getAvailableProviderInfo(): readonly TranslationProviderInfo[] {
-    return Object.freeze(TRANSLATION_PROVIDER_IDS.map((providerId) => this.definitions[providerId].info));
-  }
-
-  getProvider(providerId: unknown): BaseTranslateProvider {
+  public getProvider(providerId: unknown): TranslationProviderInstance {
     if (!isTranslationProviderId(providerId)) {
       throw new Error('Unknown translation provider');
     }
     const current = this.instances.get(providerId);
     if (current) return current;
 
-    const definition = this.definitions[providerId];
-    const provider = definition.factory();
+    const provider = this.factory.create(providerId);
+    const info = this.factory.getProviderInfo(providerId);
     if (
-      !(provider instanceof BaseTranslateProvider) ||
-      provider.info !== definition.info ||
-      provider.info.id !== providerId
+      provider.info !== info ||
+      provider.info.id !== providerId ||
+      typeof provider.shutdown !== 'function' ||
+      typeof provider.translate !== 'function'
     ) {
       throw new Error('Invalid translation provider definition');
     }
@@ -88,32 +62,28 @@ export class TranslationProviderRegistry {
     return provider;
   }
 
-  async shutdown(): Promise<TranslationProviderShutdownResult> {
+  public async shutdown(): Promise<TranslationProviderShutdownResult> {
     const providers = [...this.instances.entries()];
     const failedProviderIds = (
       await Promise.all(
         providers.map(async ([providerId, provider]) => {
-          const startedAt = this.dependencies.now();
-          const startMetadata = this.dependencies.audit.createMetadata({
+          const startedAt = this.now();
+          const info = this.factory.getProviderInfo(providerId);
+          const startMetadata = this.audit.createMetadata({
             providerId,
-            contractVersion: this.definitions[providerId].info.contractVersion,
+            contractVersion: info.contractVersion,
             durationMs: 0,
             attemptCount: 1,
             phase: 'shutdown',
           });
-          const auditLifecycle = this.dependencies.audit.startOperation(
-            providerId,
-            'shutdown',
-            'shutdown',
-            startMetadata,
-          ).lifecycle;
+          const auditLifecycle = this.audit.startOperation(providerId, 'shutdown', 'shutdown', startMetadata).lifecycle;
           try {
             await provider.shutdown();
             this.instances.delete(providerId);
-            const terminalMetadata = this.dependencies.audit.createMetadata({
+            const terminalMetadata = this.audit.createMetadata({
               providerId,
-              contractVersion: this.definitions[providerId].info.contractVersion,
-              durationMs: Math.max(0, this.dependencies.now() - startedAt),
+              contractVersion: info.contractVersion,
+              durationMs: Math.max(0, this.now() - startedAt),
               attemptCount: 1,
               phase: 'shutdown',
             });
@@ -124,11 +94,11 @@ export class TranslationProviderRegistry {
             auditLifecycle.terminal(
               'shutdown',
               'failure',
-              this.dependencies.audit.createMetadata(
+              this.audit.createMetadata(
                 {
                   providerId,
-                  contractVersion: this.definitions[providerId].info.contractVersion,
-                  durationMs: Math.max(0, this.dependencies.now() - startedAt),
+                  contractVersion: info.contractVersion,
+                  durationMs: Math.max(0, this.now() - startedAt),
                   attemptCount: 1,
                   phase: 'shutdown',
                 },
@@ -152,4 +122,5 @@ export class TranslationProviderRegistry {
   }
 }
 
-export const translationProviderRegistry = new TranslationProviderRegistry();
+export { TranslationProviderFactory } from './translationProviderFactory';
+export type { TranslationProviderFactoryDependencies } from './translationProviderFactory';

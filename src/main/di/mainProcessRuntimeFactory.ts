@@ -25,6 +25,7 @@ import type { WindowManager } from '../window';
 import type { BackgroundBrowserService } from '../browser';
 import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import type { TranslationRuntime } from '../services/translation';
 import { MainProcessRuntimeGraph } from './mainProcessRuntimeGraph';
 
 type StreamingRuntimeDependencies = Omit<
@@ -56,6 +57,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly shortcutController: ShortcutController;
+  readonly translationRuntime: TranslationRuntime;
   readonly voiceProviderAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
   readonly windowManager: WindowManager;
@@ -115,6 +117,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
       transcriptionService,
+      translationRuntime: this.controllers.translationRuntime,
       voiceAudit: this.controllers.voiceProviderAudit,
       voiceProviderRegistry: this.controllers.voiceProviderRegistry,
       windowManager: this.controllers.windowManager,

@@ -107,11 +107,11 @@ export interface BingTranslatePageAdapter {
 
 export type BingTranslatePageAdapterFactory = (page: Page) => BingTranslatePageAdapter;
 
-export interface BingTranslateProviderDependencies extends Partial<BaseTranslateProviderDependencies> {
+export interface BingTranslateProviderDependencies extends BaseTranslateProviderDependencies {
   readonly catalogStabilityDelayMs?: number;
   readonly clearPollIntervalMs?: number;
   readonly clearTimeoutMs?: number;
-  readonly createPageAdapter?: BingTranslatePageAdapterFactory;
+  readonly createPageAdapter: BingTranslatePageAdapterFactory;
   readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
   readonly readinessTimeoutMs?: number;
   readonly waitForCatalogStability?: (delayMs: number) => Promise<void>;
@@ -122,12 +122,6 @@ interface VisibleLocatorSnapshot {
   readonly editable: boolean;
   readonly enabled: boolean;
   readonly locator: Locator;
-}
-
-function wait(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 function createControlCountSnapshot(controls: readonly VisibleLocatorSnapshot[]): BingControlCountSnapshot {
@@ -426,7 +420,7 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   }
 }
 
-function createPlaywrightBingTranslatePageAdapter(page: Page): BingTranslatePageAdapter {
+export function createPlaywrightBingTranslatePageAdapter(page: Page): BingTranslatePageAdapter {
   return new PlaywrightBingTranslatePageAdapter(page);
 }
 
@@ -445,16 +439,16 @@ export class BingTranslateProvider extends BaseTranslateProvider {
   private readonly waitForCatalogStability: (delayMs: number) => Promise<void>;
   private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
-  constructor(dependencies: BingTranslateProviderDependencies = {}) {
+  constructor(dependencies: BingTranslateProviderDependencies) {
     super(TRANSLATION_PROVIDER_INFO.bing, dependencies);
     this.catalogStabilityDelayMs = dependencies.catalogStabilityDelayMs ?? BING_CATALOG_STABILITY_DELAY_MS;
     this.clearPollIntervalMs = dependencies.clearPollIntervalMs ?? BING_CLEAR_POLL_INTERVAL_MS;
     this.clearTimeoutMs = dependencies.clearTimeoutMs ?? BING_CLEAR_TIMEOUT_MS;
-    this.createPageAdapter = dependencies.createPageAdapter ?? createPlaywrightBingTranslatePageAdapter;
+    this.createPageAdapter = dependencies.createPageAdapter;
     this.onNavigationRetry = dependencies.onNavigationRetry;
     this.readinessTimeoutMs = dependencies.readinessTimeoutMs ?? BING_READINESS_TIMEOUT_MS;
-    this.waitForCatalogStability = dependencies.waitForCatalogStability ?? wait;
-    this.waitForClearPoll = dependencies.waitForClearPoll ?? wait;
+    this.waitForCatalogStability = dependencies.waitForCatalogStability ?? dependencies.sleep;
+    this.waitForClearPoll = dependencies.waitForClearPoll ?? dependencies.sleep;
   }
 
   protected async navigateAndHandleConsent(

@@ -19,6 +19,10 @@ import {
   type MainProcessIpcRegistration,
   type MainProcessPreventableEvent,
 } from '@main/mainProcessApplication';
+import { createSelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProviders/BingTranslateProvider';
+import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
+import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -149,6 +153,7 @@ interface CompositionHarnessState {
   createCount: number;
   readonly ipcDependencies: MainIpcDependencies[];
   readonly ipcRegistrations: RecordingIpcRegistration[];
+  readonly translationAuditRecords: string[];
 }
 
 class MainProcessCompositionHarness {
@@ -158,6 +163,7 @@ class MainProcessCompositionHarness {
     createCount: 0,
     ipcDependencies: [],
     ipcRegistrations: [],
+    translationAuditRecords: [],
   };
   public readonly temporaryDirectory: string;
   public readonly databasePath: string;
@@ -198,6 +204,53 @@ class MainProcessCompositionHarness {
       },
       reportStreamingDiagnostic: () => undefined,
       resolveStreamingCapability: () => null,
+      translation: {
+        audit: {
+          elapsedNow: () => 0,
+          getSink: () => ({
+            error: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
+            },
+            info: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
+            },
+            warn: (_label: unknown, serialized: unknown) => {
+              if (typeof serialized === 'string') this.state.translationAuditRecords.push(serialized);
+            },
+          }),
+          now: () => new Date('2026-07-27T12:00:00.000Z'),
+          randomUUID: () => '00000000-0000-4000-8000-000000000003',
+        },
+        getSettings: () => ({
+          providerId: 'google',
+          targetLanguageByProvider: {
+            bing: 'ru',
+            google: 'uk',
+            yandex: 'be',
+          },
+        }),
+        now: () => 0,
+        providers: {
+          createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
+          createContext: async () => ({ close: async () => undefined }) as BrowserContext,
+          createContextOptions: () => ({ headless: true }),
+          createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
+          createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
+          sleep: async () => undefined,
+        },
+        selectedText: {
+          actionGate: createSelectedTextActionGate(),
+          automateTextAction: async () => undefined,
+          clipboard: {
+            readText: () => '',
+            writeText: () => undefined,
+          },
+          logger: { info: () => undefined, warn: () => undefined },
+          notify: () => undefined,
+          platform: 'linux',
+          wait: async () => undefined,
+        },
+      },
       voice: {
         audit: {
           elapsedNow: () => 0,
@@ -349,7 +402,6 @@ class MainProcessCompositionHarness {
           logger: { info: () => undefined, warn: () => undefined },
           platform: 'linux',
           prettifySelectedText: async () => ({ success: true }),
-          translateSelectedTextToClipboard: async () => ({ success: true }),
         },
         tray: {
           application: this.app,
@@ -380,7 +432,6 @@ class MainProcessCompositionHarness {
         warn: () => undefined,
       },
       presentTranslationSettingsRepairNotice: () => undefined,
-      shutdownTranslationProviders: async () => ({ failedProviderIds: [], success: true }),
       unloadPrettifyModel: async () => undefined,
     };
   }
@@ -474,6 +525,46 @@ describe('main process composition root', () => {
     assert.doesNotMatch(providerRegistry, /\bdefaultVoiceProviderRegistry\b/u);
   });
 
+  it('removes migrated Translation singleton and default construction seams', () => {
+    const runtime = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/services/translation.ts'), 'utf8');
+    const selectedText = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/services/selectedTextTranslation.ts'),
+      'utf8',
+    );
+    const providerAudit = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/translateProviders/translationProviderAudit.ts'),
+      'utf8',
+    );
+    const providerBase = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/translateProviders/BaseTranslateProvider.ts'),
+      'utf8',
+    );
+    const providerFactory = fs.readFileSync(
+      path.join(PROJECT_ROOT, 'src/main/translateProviders/translationProviderFactory.ts'),
+      'utf8',
+    );
+    const providerRegistry = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/translateProviders/index.ts'), 'utf8');
+
+    assert.match(runtime, /export class TranslationRuntime/u);
+    assert.match(selectedText, /export class SelectedTextTranslationService/u);
+    assert.match(providerFactory, /export class TranslationProviderFactory/u);
+    assert.match(providerRegistry, /export class TranslationProviderRegistry/u);
+    assert.doesNotMatch(
+      runtime,
+      /\bexport (?:const|function) (?:translationRuntime|getTranslationExecutionSnapshot|isTranslationExecutionCurrent|validateTranslationInput|translateWithSnapshot|translateText|shutdownAllTranslationProviders)\b/u,
+    );
+    assert.doesNotMatch(
+      selectedText,
+      /\bcreateSelectedTextTranslationService\b|\bexport const translateSelectedTextToClipboard\b/u,
+    );
+    assert.doesNotMatch(providerAudit, /\bexport const translationProviderAudit\b/u);
+    assert.doesNotMatch(
+      providerRegistry,
+      /\bDEFAULT_REGISTRY_DEPENDENCIES\b|\bTRANSLATION_PROVIDER_DEFINITIONS\b|\btranslationProviderRegistry\b/u,
+    );
+    assert.doesNotMatch(providerBase, /\bDEFAULT_DEPENDENCIES\b|launchCloakContext|Date\.now|setTimeout/u);
+  });
+
   it('defers database and service construction until normal application startup', async () => {
     const harness = createHarness();
     const application = new MainProcessCompositionRoot(harness.compositionEnvironment).createApplication(
@@ -517,10 +608,16 @@ describe('main process composition root', () => {
     assert.notEqual(firstDependencies.shortcutController, secondDependencies.shortcutController);
     assert.notEqual(firstDependencies.streamingTranscriptionService, secondDependencies.streamingTranscriptionService);
     assert.notEqual(firstDependencies.transcriptionService, secondDependencies.transcriptionService);
+    assert.notEqual(firstDependencies.translationRuntime, secondDependencies.translationRuntime);
     assert.notEqual(firstDependencies.voiceAudit, secondDependencies.voiceAudit);
     assert.notEqual(firstDependencies.voiceProviderRegistry, secondDependencies.voiceProviderRegistry);
     assert.notEqual(firstDependencies.windowManager, secondDependencies.windowManager);
     assert.notEqual(first.state.ipcRegistrations[0], second.state.ipcRegistrations[0]);
+
+    await firstDependencies.translationRuntime.translateText('private-source-canary', 'ru');
+    assert.equal(first.state.translationAuditRecords.length > 0, true);
+    assert.equal(second.state.translationAuditRecords.length, 0);
+    assert.equal(first.state.translationAuditRecords.join('').includes('private-source-canary'), false);
 
     first.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();

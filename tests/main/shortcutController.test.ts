@@ -49,7 +49,9 @@ class ShortcutControllerHarness {
     logger: { info: () => undefined, warn: () => undefined },
     platform: 'linux',
     prettifySelectedText: async () => ({ success: true }),
-    translateSelectedTextToClipboard: async () => ({ success: true }),
+    selectedTextTranslationService: {
+      translateSelectedTextToClipboard: async () => ({ success: true }),
+    },
     trayController: {
       updateIcon: (state: string) => this.trayStates.push(state),
     },

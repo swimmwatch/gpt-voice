@@ -31,6 +31,10 @@ export interface TextActionResultForStatus {
   success: boolean;
 }
 
+export interface SelectedTextTranslationShortcutService {
+  translateSelectedTextToClipboard(): Promise<TextActionResultForStatus>;
+}
+
 export interface TextActionStatusResolution {
   failureLogMetadata?: NotificationErrorLogMetadata & { action: TextActionStatusAction };
   status: TextActionStatus;
@@ -56,7 +60,7 @@ export interface ShortcutControllerDependencies {
   };
   readonly platform: NodeJS.Platform;
   readonly prettifySelectedText: () => Promise<TextActionResultForStatus>;
-  readonly translateSelectedTextToClipboard: () => Promise<TextActionResultForStatus>;
+  readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
 }
@@ -206,7 +210,7 @@ export class ShortcutController {
       }
 
       this.dependencies.logger.info(`${translateHotkey} pressed, translating selected text`);
-      const resultPromise = this.dependencies.translateSelectedTextToClipboard();
+      const resultPromise = this.dependencies.selectedTextTranslationService.translateSelectedTextToClipboard();
       this.sendTextActionStatus({ action: 'translation', phase: 'working' });
       void resolveTextActionStatus('translation', resultPromise).then((resolution) => {
         this.reportTextActionFailure(resolution.failureLogMetadata);

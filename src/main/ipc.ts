@@ -24,7 +24,7 @@ import { type WindowManager } from './window';
 import type { DesktopRuntimeController } from './desktopRuntimeController';
 import type { ShortcutController } from './shortcuts';
 import type { TranscriptionService } from './services/transcription';
-import { shutdownAllTranslationProviders, translateText } from './services/translation';
+import type { TranslationRuntime } from './services/translation';
 import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
 import { createLogger } from './logger';
 import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
@@ -89,6 +89,7 @@ export interface MainIpcDependencies {
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
+  readonly translationRuntime: Pick<TranslationRuntime, 'shutdown' | 'translateText'>;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
   readonly windowManager: WindowManager;
@@ -346,7 +347,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
   });
 
   registration.handle('translate-text', async (_event, text: string, targetLang: string) => {
-    return translateText(text, targetLang);
+    return dependencies.translationRuntime.translateText(text, targetLang);
   });
 
   registration.handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
@@ -579,7 +580,7 @@ export function registerIpcHandlers(dependencies: MainIpcDependencies): MainIpcR
       assertValidCloakBrowserSettingsInput(settings);
       log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
       const preparedSettings = prepareCloakBrowserSettings(settings);
-      const translationShutdown = await shutdownAllTranslationProviders();
+      const translationShutdown = await dependencies.translationRuntime.shutdown();
       if (!translationShutdown.success) {
         log.warn('CloakBrowser settings save blocked by translation cleanup:', {
           failedProviderIds: translationShutdown.failedProviderIds,
