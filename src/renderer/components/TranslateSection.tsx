@@ -1,5 +1,6 @@
 import { Globe } from 'lucide-react';
 import { useMemo } from 'react';
+import type { TranslationKey } from '@main/i18n';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { TRANSLATION_PROVIDER_OPTIONS, getTranslationLanguageOptions } from '@renderer/translationLanguageOptions';
 import { ProviderStatusIndicator, type ProviderStatusTone } from '@renderer/components/ProviderStatusIndicator';
@@ -23,13 +24,13 @@ interface Props {
   settings: TranslationSettings;
 }
 
-const TRANSLATION_CONNECTION_LABEL_KEYS: Record<TranslationProviderConnectionStatus, string> = {
+const TRANSLATION_CONNECTION_LABEL_KEYS: Record<TranslationProviderConnectionStatus, TranslationKey> = {
   [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking]: 'provider.connectionChecking',
   [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected]: 'provider.connected',
   [TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected]: 'provider.notConnected',
 };
 
-const TRANSLATION_CONNECTION_TOOLTIP_KEYS: Record<TranslationProviderConnectionDetail, string> = {
+const TRANSLATION_CONNECTION_TOOLTIP_KEYS: Record<TranslationProviderConnectionDetail, TranslationKey> = {
   [TRANSLATION_PROVIDER_CONNECTION_DETAILS.Cancelled]: 'status.translationCancelled',
   [TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed]: 'error.translationCleanupFailed',
   [TRANSLATION_PROVIDER_CONNECTION_DETAILS.ConsentOrChallenge]: 'error.translationConsentOrChallenge',
@@ -49,6 +50,35 @@ const TRANSLATION_CONNECTION_TONES: Record<TranslationProviderConnectionStatus, 
   [TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected]: 'error',
 };
 
+export interface TranslationProviderConnectionPresentation {
+  readonly labelKey: TranslationKey;
+  readonly tone: ProviderStatusTone;
+  readonly tooltipKey: TranslationKey;
+}
+
+export function getTranslationProviderConnectionPresentation(
+  connectionState: TranslationProviderConnectionState | null,
+  settings: TranslationSettings,
+): TranslationProviderConnectionPresentation {
+  const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
+  const connectionMatchesSelection =
+    connectionState?.providerId === null ||
+    (connectionState?.providerId === settings.providerId && connectionState.targetLanguage === targetLanguage);
+  const status =
+    connectionState && connectionMatchesSelection
+      ? connectionState.status
+      : TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking;
+  const detail =
+    connectionState && connectionMatchesSelection
+      ? connectionState.detail
+      : TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
+  return {
+    labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[status],
+    tone: TRANSLATION_CONNECTION_TONES[status],
+    tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[detail],
+  };
+}
+
 /** Renders the compact main-window translation provider and target selectors. */
 const TranslateSection = ({
   connectionState,
@@ -64,17 +94,7 @@ const TranslateSection = ({
     [locale, settings.providerId],
   );
   const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
-  const connectionMatchesSelection =
-    connectionState?.providerId === null ||
-    (connectionState?.providerId === settings.providerId && connectionState.targetLanguage === targetLanguage);
-  const connectionStatus =
-    connectionState && connectionMatchesSelection
-      ? connectionState.status
-      : TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking;
-  const connectionDetail =
-    connectionState && connectionMatchesSelection
-      ? connectionState.detail
-      : TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
+  const connectionPresentation = getTranslationProviderConnectionPresentation(connectionState, settings);
 
   return (
     <section className="command-dock-language-band" data-slot="translate-section">
@@ -133,9 +153,9 @@ const TranslateSection = ({
       <ProviderStatusIndicator
         className="command-dock-provider-state command-dock-translation-connection"
         dataSlot="translation-provider-connection"
-        label={t(TRANSLATION_CONNECTION_LABEL_KEYS[connectionStatus])}
-        tone={TRANSLATION_CONNECTION_TONES[connectionStatus]}
-        tooltip={t(TRANSLATION_CONNECTION_TOOLTIP_KEYS[connectionDetail])}
+        label={t(connectionPresentation.labelKey)}
+        tone={connectionPresentation.tone}
+        tooltip={t(connectionPresentation.tooltipKey)}
       />
 
       {error && (

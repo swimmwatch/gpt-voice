@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui
 import { groupProvidersByCategory } from '@renderer/providerGrouping';
 import { PROVIDER_CONNECTION_REASONS, type ProviderConnectionReason } from '@renderer/providerState';
 import type { ProviderAuthType, ProviderInfo } from '@renderer/types';
+import type { TranslationKey } from '@main/i18n';
 
 interface MainToolbarProps {
   activeProviderAuthType: ProviderAuthType;
@@ -36,7 +37,7 @@ interface MainToolbarProps {
   providers: ProviderInfo[];
 }
 
-const PROVIDER_CONNECTION_TOOLTIP_KEYS: Record<ProviderConnectionReason, string> = {
+export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
   [PROVIDER_CONNECTION_REASONS.ApiConfigured]: 'status.providerConfigured',
   [PROVIDER_CONNECTION_REASONS.ApiNotConfigured]: 'status.providerNotConfigured',
   [PROVIDER_CONNECTION_REASONS.BrowserReady]: 'provider.connectionReadyTooltip',
@@ -44,7 +45,7 @@ const PROVIDER_CONNECTION_TOOLTIP_KEYS: Record<ProviderConnectionReason, string>
   [PROVIDER_CONNECTION_REASONS.Checking]: 'provider.connectionCheckingTooltip',
   [PROVIDER_CONNECTION_REASONS.SessionExpired]: 'status.sessionExpired',
   [PROVIDER_CONNECTION_REASONS.SessionMissing]: 'provider.sessionMissingTooltip',
-};
+} as const satisfies Record<ProviderConnectionReason, TranslationKey>;
 
 /** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
@@ -69,7 +70,7 @@ function MainToolbar({
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
   const providerStatusTooltip =
     providerConnectionFailureTooltip ||
-    t(PROVIDER_CONNECTION_TOOLTIP_KEYS[providerConnectionReason], {
+    t(VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS[providerConnectionReason], {
       provider: activeProviderName,
     });
   const providerGroups = groupProvidersByCategory(providers);

@@ -33,6 +33,7 @@ import {
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
 import {
+  createBrowserProviderFailurePresentation,
   notificationErrorStatus,
   renderRendererStatus,
   shouldPresentIdleHotkeyStatus,
@@ -186,6 +187,18 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
+  const applyBrowserProviderFailure = useCallback(
+    (error: unknown): void => {
+      const failure = createBrowserProviderFailurePresentation(error);
+      setIsLoggedIn(false);
+      setProviderConnectionReason(failure.reason);
+      setProviderConnectionFailureStatus(failure.status);
+      preserveStatusRef.current = true;
+      setStatusAndNotify(failure.status);
+    },
+    [setStatusAndNotify],
+  );
+
   const refreshPrettifyProviderState = useCallback(
     async (settings: PrettifySettings): Promise<void> => {
       const refreshId = ++prettifyModelRefreshIdRef.current;
@@ -220,6 +233,7 @@ const App: React.FC = () => {
               ? ''
               : presentNotificationError(result.error, {
                   context: 'generic',
+                  t,
                 }).userMessage,
           );
         }
@@ -311,19 +325,14 @@ const App: React.FC = () => {
         preserveStatusRef.current = true;
         setStatusAndNotify(translatedStatus('status.sessionExpired'));
       } else if (authType === 'browserSession' && backgroundStatus?.error) {
-        preserveStatusRef.current = true;
-        const failureStatus = translatedStatus('status.browserInitFailed', {
-          error: notificationErrorStatus(presentNotificationError(backgroundStatus.error, { context: 'generic' })),
-        });
-        setProviderConnectionFailureStatus(failureStatus);
-        setStatusAndNotify(failureStatus);
+        applyBrowserProviderFailure(backgroundStatus.error);
       } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
       return loginState;
     },
-    [setStatusAndNotify],
+    [applyBrowserProviderFailure, setStatusAndNotify],
   );
 
   const applyProviderLoginStateRef = useRef(applyProviderLoginState);
@@ -342,11 +351,7 @@ const App: React.FC = () => {
         return;
       case 'bootstrap-failed': {
         setIsLoading(false);
-        preserveStatusRef.current = true;
-        const presented = presentNotificationError(event.error, {
-          context: 'generic',
-        });
-        setStatusAndNotify(translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }));
+        applyBrowserProviderFailure(event.error);
         return;
       }
       case 'switch-started':
@@ -360,26 +365,14 @@ const App: React.FC = () => {
         setProviderConnectionFailureStatus(null);
         return;
       case 'switch-completed': {
-        const loginState = applyProviderLoginState(
-          event.authType,
-          event.runtime.hasSession,
-          event.runtime.backgroundStatus,
-        );
-        if (!loginState.sessionExpired && !event.result.success && event.result.error) {
-          preserveStatusRef.current = true;
-          const presented = presentNotificationError(event.result.error, { context: 'generic' });
-          setStatusAndNotify(
-            translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }),
-          );
+        applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
+        if (!event.result.success) {
+          applyBrowserProviderFailure(event.result.error);
         }
         return;
       }
       case 'switch-failed': {
-        preserveStatusRef.current = true;
-        const presented = presentNotificationError(event.error, {
-          context: 'generic',
-        });
-        setStatusAndNotify(translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }));
+        applyBrowserProviderFailure(event.error);
         return;
       }
       case 'switch-settled':

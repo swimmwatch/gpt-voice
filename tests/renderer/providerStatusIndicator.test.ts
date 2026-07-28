@@ -18,7 +18,8 @@ describe('provider status indicators', () => {
     assert.match(indicator, /<TooltipTrigger asChild>/u);
     assert.match(indicator, /tabIndex=\{0\}/u);
     assert.match(indicator, /role=\{role\}/u);
-    assert.match(indicator, /aria-label=\{`\$\{label\}\. \$\{tooltip\}`\}/u);
+    assert.match(indicator, /aria-label=\{accessibleName\}/u);
+    assert.match(indicator, /normalizedLabel === normalizedTooltip/u);
     assert.doesNotMatch(indicator, /<button|onClick/u);
   });
 

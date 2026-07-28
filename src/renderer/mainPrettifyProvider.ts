@@ -1,5 +1,6 @@
 import { getOllamaModelControl, type OllamaModelControl } from '@renderer/prettifyModelControl';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
+import type { TranslationKey } from '@main/i18n';
 import type { PrettifyModelOption, PrettifyProviderId, PrettifySettings } from '@shared/prettifySettings';
 
 export const MAIN_PRETTIFY_PROVIDER_LABEL_KEYS: Record<PrettifyProviderId, string> = {
@@ -27,10 +28,10 @@ export interface MainPrettifyHttpConnectionState {
 }
 
 export interface MainPrettifyProviderStatus {
-  labelKey: string;
+  labelKey: TranslationKey;
   tone: MainPrettifyProviderStatusTone;
-  tooltipKey?: string;
-  valueKey?: string;
+  tooltipKey?: TranslationKey;
+  valueKey?: TranslationKey;
 }
 
 export interface MainPrettifyProviderViewState {
