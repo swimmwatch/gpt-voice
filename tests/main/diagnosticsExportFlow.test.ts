@@ -60,6 +60,7 @@ class DiagnosticsExportHarness {
   public nowValue = FIXED_DATE;
   public platform: NodeJS.Platform;
   public randomBytesValue = FIXED_RANDOM_BYTES;
+  public throwLogger = false;
   public throwNotification = false;
   public readonly service: DiagnosticsExportService;
 
@@ -112,6 +113,7 @@ class DiagnosticsExportHarness {
   }
 
   public warn(message: string, metadata?: Readonly<Record<string, unknown>>): void {
+    if (this.throwLogger) throw new Error('private logger failure');
     this.warnings.push({ message, metadata });
   }
 }
@@ -319,6 +321,18 @@ describe('diagnostics export flow', () => {
         metadata: { status: 'saved' },
       },
     ]);
+  });
+
+  it('preserves a saved result when notification and logger delivery both throw', async () => {
+    const window = new TestSettingsWindow(15);
+    const harness = new DiagnosticsExportHarness();
+    harness.throwLogger = true;
+    harness.throwNotification = true;
+    harness.dialogResults.push({ canceled: false, filePath: '/synthetic/saved-without-diagnostics.tar.gz' });
+
+    assert.deepEqual(await harness.service.export(window as unknown as BrowserWindow), { status: 'saved' });
+    assert.equal(window.closeCount, 0);
+    assert.deepEqual(harness.warnings, []);
   });
 
   it('fails closed for malformed dialog output without exposing raw failures or paths', async () => {

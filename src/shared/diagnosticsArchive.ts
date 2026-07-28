@@ -3,8 +3,13 @@ import {
   type DiagnosticCaptureCategory,
   type DiagnosticCaptureSettings,
 } from './diagnosticCaptureSettings';
-import { PRETTIFY_PROVIDER_IDS, type KnownPrettifyProviderId } from './prettifySettings';
-import { TRANSLATION_PROVIDER_IDS, type TranslationProviderId } from './translationProvider';
+import { PRETTIFY_CLI_PROVIDER_IDS, PRETTIFY_PROVIDER_IDS, type KnownPrettifyProviderId } from './prettifySettings';
+import {
+  TRANSLATION_PROVIDER_IDS,
+  TRANSLATION_PROVIDER_INFO,
+  isTranslationTargetLanguage,
+  type TranslationProviderId,
+} from './translationProvider';
 
 export const DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION = 1 as const;
 export const DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION = 1 as const;
@@ -44,11 +49,17 @@ export const DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS = ['chatgpt', 'openai-api', 
 export const DIAGNOSTICS_ARCHIVE_SENSITIVITY_WARNING =
   'Diagnostic text may contain private or unrecognized secret data; treat this archive as sensitive.' as const;
 
+const MEBIBYTE_BYTES = 1024 * 1024;
+
 export const DIAGNOSTICS_ARCHIVE_LIMITS = Object.freeze({
-  MaxJsonlLineBytes: 8 * 1024 * 1024,
-  MaxMemberBytes: 128 * 1024 * 1024,
-  MaxRecordsPerJsonlMember: 1_000_000,
-  MaxTotalUncompressedBytes: 256 * 1024 * 1024,
+  MaxArchiveStructureBytes: 1 * MEBIBYTE_BYTES,
+  MaxCompressionRatio: 1000,
+  MaxJsonlLineBytes: 8 * MEBIBYTE_BYTES,
+  MaxMemberBytes: 64 * MEBIBYTE_BYTES,
+  MaxOuterArchiveBytes: 130 * MEBIBYTE_BYTES,
+  MaxRecordsPerJsonlMember: 100_000,
+  MaxTotalUncompressedBytes: 128 * MEBIBYTE_BYTES,
+  MinCompressionRatioMemberBytes: 1 * MEBIBYTE_BYTES,
 } as const);
 
 export type DiagnosticsArchiveFormat = (typeof DIAGNOSTICS_ARCHIVE_FORMATS)[number];
@@ -60,6 +71,20 @@ export type DiagnosticsExportStatus = (typeof DIAGNOSTICS_EXPORT_STATUSES)[numbe
 
 export type DiagnosticsExportResult =
   { readonly status: 'saved' } | { readonly status: 'cancelled' } | { readonly status: 'failed' };
+
+export function isDiagnosticsArchiveOuterByteLengthWithinLimit(byteLength: number): boolean {
+  return (
+    Number.isSafeInteger(byteLength) && byteLength >= 0 && byteLength <= DIAGNOSTICS_ARCHIVE_LIMITS.MaxOuterArchiveBytes
+  );
+}
+
+export function isDiagnosticsArchiveStructureByteLengthWithinLimit(byteLength: number): boolean {
+  return (
+    Number.isSafeInteger(byteLength) &&
+    byteLength >= 0 &&
+    byteLength <= DIAGNOSTICS_ARCHIVE_LIMITS.MaxArchiveStructureBytes
+  );
+}
 
 export interface DiagnosticsArchiveProviderFamilyManifest<ProviderId extends string> {
   readonly capabilityAvailable: boolean;
@@ -159,6 +184,7 @@ export interface DiagnosticArchiveTextActionRow {
 }
 
 const CANONICAL_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const CANONICAL_SEMANTIC_VERSION_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const MAX_SAFE_VERSION_LENGTH = 128;
 
@@ -200,6 +226,33 @@ function isSafeVersion(value: unknown): value is string {
     !value.includes('\r') &&
     !value.includes('\n')
   );
+}
+
+function isCanonicalSemanticVersion(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    value.length > MAX_SAFE_VERSION_LENGTH ||
+    !CANONICAL_SEMANTIC_VERSION_PATTERN.test(value)
+  ) {
+    return false;
+  }
+  return value.split('.').every((part) => Number.isSafeInteger(Number(part)));
+}
+
+function hasClosedDiagnosticActionMetadata(value: Record<string, unknown>): boolean {
+  if (value.actionType === 'translation') {
+    if (!isOneOf(TRANSLATION_PROVIDER_IDS, value.providerId)) return false;
+    return (
+      value.contractVersion === TRANSLATION_PROVIDER_INFO[value.providerId].contractVersion &&
+      typeof value.targetLanguage === 'string' &&
+      isTranslationTargetLanguage(value.providerId, value.targetLanguage)
+    );
+  }
+  if (value.actionType !== 'prettify' || !isOneOf(PRETTIFY_PROVIDER_IDS, value.providerId)) return false;
+  if (value.targetLanguage !== null) return false;
+  return PRETTIFY_CLI_PROVIDER_IDS.includes(value.providerId as (typeof PRETTIFY_CLI_PROVIDER_IDS)[number])
+    ? isCanonicalSemanticVersion(value.contractVersion)
+    : value.contractVersion === null;
 }
 
 function isExactProviderIdList<const ProviderId extends string>(
@@ -470,8 +523,6 @@ export function isDiagnosticArchiveTextActionRow(value: unknown): value is Diagn
     typeof value.actionId === 'string' &&
     CANONICAL_UUID_PATTERN.test(value.actionId) &&
     isOneOf(DIAGNOSTIC_CAPTURE_CATEGORIES, value.actionType) &&
-    (value.contractVersion === null || isSafeVersion(value.contractVersion)) &&
-    typeof value.providerId === 'string' &&
     (value.providerOperationId === null ||
       (typeof value.providerOperationId === 'string' && CANONICAL_UUID_PATTERN.test(value.providerOperationId))) &&
     isCanonicalTimestamp(value.recordedAt) &&
@@ -484,11 +535,7 @@ export function isDiagnosticArchiveTextActionRow(value: unknown): value is Diagn
     isSafeCount(value.sourceBytes) &&
     (value.sourceKind === 'provider' || value.sourceKind === 'cache') &&
     typeof value.sourceText === 'string' &&
-    (value.targetLanguage === null || isSafeVersion(value.targetLanguage)) &&
-    ((value.actionType === 'translation' && isOneOf(TRANSLATION_PROVIDER_IDS, value.providerId)) ||
-      (value.actionType === 'prettify' &&
-        isOneOf(PRETTIFY_PROVIDER_IDS, value.providerId) &&
-        value.targetLanguage === null))
+    hasClosedDiagnosticActionMetadata(value)
   );
 }
 

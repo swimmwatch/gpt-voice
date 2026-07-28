@@ -34,6 +34,7 @@ const PROVIDER_AUDIT_LOG_LINE_PATTERN =
   /^\[[^\]\r\n]+\] \[(?:info|warn|error)\] \(provider-audit\) +Provider audit event(?: (?<payload>.*))?$/u;
 const PRIVATE_TEMPORARY_FILE_PREFIX = '.gpt-voice-diagnostics-';
 const PRIVATE_TEMPORARY_FILE_SUFFIX = '.tmp';
+const PRIVATE_TEMPORARY_CLEANUP_ATTEMPTS = 2;
 
 export interface ProviderAuditLogExtraction {
   readonly records: readonly ProviderAuditRecord[];
@@ -264,12 +265,14 @@ export class DiagnosticsArchiveService {
   }
 
   private async removeTemporaryFile(filePath: string): Promise<void> {
-    try {
-      await this.dependencies.fileSystem.removeFile(filePath);
-    } catch {
-      // A later shutdown attempt retries any temporary file that still exists.
-      return;
+    for (let attempt = 0; attempt < PRIVATE_TEMPORARY_CLEANUP_ATTEMPTS; attempt += 1) {
+      try {
+        await this.dependencies.fileSystem.removeFile(filePath);
+        this.temporaryFiles.delete(filePath);
+        return;
+      } catch {
+        // Retry once now; shutdown retries the owned path if both attempts fail.
+      }
     }
-    this.temporaryFiles.delete(filePath);
   }
 }

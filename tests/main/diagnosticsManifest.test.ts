@@ -57,6 +57,31 @@ function createTranslationRow(overrides: Partial<DiagnosticCaptureRow> = {}): Di
   };
 }
 
+function createPrettifyRow(overrides: Partial<DiagnosticCaptureRow> = {}): DiagnosticCaptureRow {
+  const sourceText = 'source [REDACTED]';
+  const resultText = 'result';
+  const sourceBytes = Buffer.byteLength(sourceText, 'utf8');
+  const resultBytes = Buffer.byteLength(resultText, 'utf8');
+  return {
+    actionId: ACTION_ID,
+    actionType: 'prettify',
+    contractVersion: '1.2.3',
+    providerId: 'claude-cli',
+    providerOperationId: PROVIDER_OPERATION_ID,
+    recordedAt: RECORDED_AT,
+    redactionCount: 1,
+    redactorVersion: DIAGNOSTIC_REDACTOR_VERSION,
+    resultBytes,
+    resultText,
+    retainedBytes: sourceBytes + resultBytes,
+    sourceBytes,
+    sourceKind: 'provider',
+    sourceText,
+    targetLanguage: null,
+    ...overrides,
+  };
+}
+
 function createEnvironment(): DiagnosticsArchiveEnvironmentSnapshot {
   return {
     appVersion: '1.4.0',
@@ -176,6 +201,15 @@ describe('diagnostics manifest', () => {
     );
     assert.ok(validProviderRow);
     assert.ok(validCacheRow);
+    assert.ok(createDiagnosticArchiveRow(createPrettifyRow()));
+    assert.ok(
+      createDiagnosticArchiveRow(
+        createPrettifyRow({
+          contractVersion: null,
+          providerId: 'ollama',
+        }),
+      ),
+    );
 
     const invalidRows: DiagnosticCaptureRow[] = [
       createTranslationRow({ sourceBytes: 1 }),
@@ -187,6 +221,12 @@ describe('diagnostics manifest', () => {
       createTranslationRow({ contractVersion: 'stale-contract' }),
       createTranslationRow({ targetLanguage: null }),
       createTranslationRow({ targetLanguage: 'not-supported' }),
+      createPrettifyRow({ contractVersion: null }),
+      createPrettifyRow({ contractVersion: '01.2.3' }),
+      createPrettifyRow({ contractVersion: '1.2' }),
+      createPrettifyRow({ contractVersion: 'arbitrary-safe-string' }),
+      createPrettifyRow({ contractVersion: '1.2.3', providerId: 'ollama' }),
+      createPrettifyRow({ targetLanguage: 'en' }),
     ];
     for (const row of invalidRows) assert.equal(createDiagnosticArchiveRow(row), null);
 

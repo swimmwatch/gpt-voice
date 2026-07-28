@@ -1,12 +1,14 @@
 /* eslint-disable max-classes-per-file -- the abstract factory and concrete archiver adapter form one boundary. */
 import type * as fs from 'node:fs';
 import { finished } from 'node:stream/promises';
-import { gunzipSync, inflateRawSync } from 'node:zlib';
+import { deflateRawSync, gunzipSync, inflateRawSync } from 'node:zlib';
 import { TarArchive, ZipArchive, type Archiver } from 'archiver';
 
 import {
   DIAGNOSTICS_ARCHIVE_LIMITS,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  isDiagnosticsArchiveOuterByteLengthWithinLimit,
+  isDiagnosticsArchiveStructureByteLengthWithinLimit,
   type DiagnosticsArchiveFormat,
 } from '@shared/diagnosticsArchive';
 
@@ -82,18 +84,19 @@ export class DiagnosticsArchiveFormatAdapter {
     outputPath: string,
     members: readonly DiagnosticsArchiveMember[],
   ): Promise<void> {
-    this.validateMembers(members);
-    const output = this.dependencies.fileSystem.createWriteStream(outputPath, {
-      flags: 'wx',
-      mode: PRIVATE_FILE_MODE,
-    });
-    const archive = this.dependencies.writerFactory.create(format);
-    const writerFailure = new Promise<never>((_resolve, reject) => {
-      archive.on('error', reject);
-      archive.on('warning', reject);
-    });
-
+    let output: fs.WriteStream | null = null;
+    let archive: DiagnosticsArchiveWriter | null = null;
     try {
+      this.validateMembers(members);
+      output = this.dependencies.fileSystem.createWriteStream(outputPath, {
+        flags: 'wx',
+        mode: PRIVATE_FILE_MODE,
+      });
+      archive = this.dependencies.writerFactory.create(format);
+      const writerFailure = new Promise<never>((_resolve, reject) => {
+        archive?.on('error', reject);
+        archive?.on('warning', reject);
+      });
       archive.pipe(output);
       for (const member of members) {
         archive.append(member.payload, {
@@ -111,11 +114,18 @@ export class DiagnosticsArchiveFormatAdapter {
       this.verify(format, archiveBytes, members);
     } catch {
       try {
-        archive.abort();
+        archive?.abort();
       } catch {
         // The owning archive service removes the private sibling output.
       }
-      output.destroy();
+      output?.destroy();
+      if (output) {
+        try {
+          await finished(output);
+        } catch {
+          // Stream failure is normalized at this archive-format boundary.
+        }
+      }
       throw new Error('Diagnostics archive creation failed');
     }
   }
@@ -148,9 +158,20 @@ export class DiagnosticsArchiveFormatAdapter {
       throw new TypeError('Invalid diagnostics archive members');
     }
     let totalBytes = 0;
+    const compressedPayloadSizes = new Map<Buffer, number>();
     for (const member of members) {
       if (member.payload.byteLength > DIAGNOSTICS_ARCHIVE_LIMITS.MaxMemberBytes) {
         throw new TypeError('Diagnostics archive member is too large');
+      }
+      if (member.payload.byteLength >= DIAGNOSTICS_ARCHIVE_LIMITS.MinCompressionRatioMemberBytes) {
+        let compressedBytes = compressedPayloadSizes.get(member.payload);
+        if (compressedBytes === undefined) {
+          compressedBytes = deflateRawSync(member.payload, { level: 9 }).byteLength;
+          compressedPayloadSizes.set(member.payload, compressedBytes);
+        }
+        if (member.payload.byteLength / Math.max(compressedBytes, 1) > DIAGNOSTICS_ARCHIVE_LIMITS.MaxCompressionRatio) {
+          throw new TypeError('Diagnostics archive member compression ratio is too large');
+        }
       }
       totalBytes += member.payload.byteLength;
     }
@@ -158,6 +179,11 @@ export class DiagnosticsArchiveFormatAdapter {
       throw new TypeError('Diagnostics archive is too large');
     }
   }
+}
+
+interface DiagnosticsArchiveInspection {
+  readonly members: ReadonlyMap<string, Buffer>;
+  readonly structureBytes: number;
 }
 
 function findZipEndRecord(archiveBytes: Buffer): number {
@@ -168,7 +194,7 @@ function findZipEndRecord(archiveBytes: Buffer): number {
   throw new Error('Invalid ZIP signature');
 }
 
-function readZipMembers(archiveBytes: Buffer): ReadonlyMap<string, Buffer> {
+function readZipMembers(archiveBytes: Buffer): DiagnosticsArchiveInspection {
   if (
     archiveBytes.length < ZIP_MINIMUM_END_RECORD_BYTES ||
     archiveBytes.readUInt32LE(0) !== ZIP_LOCAL_FILE_HEADER_SIGNATURE
@@ -195,6 +221,7 @@ function readZipMembers(archiveBytes: Buffer): ReadonlyMap<string, Buffer> {
   }
 
   const members = new Map<string, Buffer>();
+  let compressedPayloadBytes = 0;
   let offset = centralOffset;
   for (let index = 0; index < totalEntries; index += 1) {
     if (archiveBytes.readUInt32LE(offset) !== ZIP_CENTRAL_DIRECTORY_SIGNATURE) {
@@ -233,10 +260,14 @@ function readZipMembers(archiveBytes: Buffer): ReadonlyMap<string, Buffer> {
     const payload = compressionMethod === ZIP_COMPRESSION_STORED ? Buffer.from(compressed) : inflateRawSync(compressed);
     if (payload.byteLength !== uncompressedSize) throw new Error('Invalid ZIP member size');
     members.set(name, payload);
+    compressedPayloadBytes += compressedSize;
     offset += 46 + nameLength + extraLength + entryCommentLength;
   }
   if (offset !== endOffset) throw new Error('Invalid ZIP directory length');
-  return members;
+  return {
+    members,
+    structureBytes: archiveBytes.byteLength - compressedPayloadBytes,
+  };
 }
 
 function readNullTerminatedText(bytes: Buffer): string {
@@ -256,12 +287,13 @@ function isZeroBlock(bytes: Buffer): boolean {
   return bytes.every((value) => value === 0);
 }
 
-function readTarGzipMembers(archiveBytes: Buffer): ReadonlyMap<string, Buffer> {
+function readTarGzipMembers(archiveBytes: Buffer): DiagnosticsArchiveInspection {
   if (archiveBytes.length < 2 || archiveBytes[0] !== 0x1f || archiveBytes[1] !== 0x8b) {
     throw new Error('Invalid gzip signature');
   }
   const tarBytes = gunzipSync(archiveBytes);
   const members = new Map<string, Buffer>();
+  let payloadBytes = 0;
   let offset = 0;
   let endBlocks = 0;
   while (offset + TAR_BLOCK_BYTES <= tarBytes.length) {
@@ -284,12 +316,16 @@ function readTarGzipMembers(archiveBytes: Buffer): ReadonlyMap<string, Buffer> {
     const payloadEnd = offset + size;
     if (payloadEnd > tarBytes.length) throw new Error('Invalid TAR member size');
     members.set(name, Buffer.from(tarBytes.subarray(offset, payloadEnd)));
+    payloadBytes += size;
     offset += Math.ceil(size / TAR_BLOCK_BYTES) * TAR_BLOCK_BYTES;
   }
   if (endBlocks !== 2 || !isZeroBlock(tarBytes.subarray(offset))) {
     throw new Error('Invalid TAR termination');
   }
-  return members;
+  return {
+    members,
+    structureBytes: tarBytes.byteLength - payloadBytes,
+  };
 }
 
 /** Producer-side inspection used only to verify archives generated by this adapter. */
@@ -297,7 +333,14 @@ export function inspectDiagnosticsArchiveForVerification(
   format: DiagnosticsArchiveFormat,
   archiveBytes: Buffer,
 ): ReadonlyMap<string, Buffer> {
-  const members = format === 'zip' ? readZipMembers(archiveBytes) : readTarGzipMembers(archiveBytes);
+  if (!isDiagnosticsArchiveOuterByteLengthWithinLimit(archiveBytes.byteLength)) {
+    throw new Error('Diagnostics outer archive is too large');
+  }
+  const inspection = format === 'zip' ? readZipMembers(archiveBytes) : readTarGzipMembers(archiveBytes);
+  if (!isDiagnosticsArchiveStructureByteLengthWithinLimit(inspection.structureBytes)) {
+    throw new Error('Diagnostics archive structure is too large');
+  }
+  const { members } = inspection;
   const allowedNames = new Set<string>([
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,

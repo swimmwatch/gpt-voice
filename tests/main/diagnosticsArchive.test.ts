@@ -23,6 +23,7 @@ import {
   DiagnosticsArchiveFormatAdapter,
   inspectDiagnosticsArchiveForVerification,
 } from '@main/services/diagnosticsArchiveFormat';
+import { DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES } from '@main/services/diagnosticCaptureStorage';
 import { DIAGNOSTIC_REDACTOR_VERSION } from '@main/services/diagnosticTextRedactor';
 import { DiagnosticsManifestBuilder } from '@main/services/diagnosticsManifest';
 import {
@@ -30,6 +31,8 @@ import {
   DIAGNOSTICS_ARCHIVE_LIMITS,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
   isDiagnosticsArchiveManifest,
+  serializeCanonicalDiagnosticsJson,
+  type DiagnosticArchiveTextActionRow,
   type DiagnosticsArchiveEnvironmentSnapshot,
   type DiagnosticsArchiveManifest,
 } from '@shared/diagnosticsArchive';
@@ -98,6 +101,49 @@ function createDiagnosticRow(overrides: Partial<DiagnosticCaptureRow> = {}): Dia
     targetLanguage: 'en',
     ...overrides,
   };
+}
+
+function createUtf8Text(byteLength: number): string {
+  return `${'é'.repeat(Math.floor(byteLength / 2))}${byteLength % 2 === 0 ? '' : 'x'}`;
+}
+
+function createArchiveRowWithSerializedByteLength(targetBytes: number): DiagnosticArchiveTextActionRow {
+  let sourceBytes = targetBytes - 512;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const sourceText = createUtf8Text(sourceBytes);
+    const candidate: DiagnosticArchiveTextActionRow = {
+      ...createDiagnosticRow({
+        redactionCount: 0,
+        resultBytes: 0,
+        resultText: '',
+        retainedBytes: sourceBytes,
+        sourceBytes,
+        sourceText,
+      }),
+      schemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+    };
+    const serialized = serializeCanonicalDiagnosticsJson(candidate);
+    assert.ok(serialized);
+    const serializedBytes = Buffer.byteLength(serialized, 'utf8');
+    if (serializedBytes === targetBytes) return candidate;
+    sourceBytes += targetBytes - serializedBytes;
+  }
+  throw new Error('Unable to construct an exact diagnostics JSONL fixture');
+}
+
+function createRetainedRows(recordCount: number): DiagnosticCaptureRow[] {
+  const sourceText = 'x'.repeat(DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES);
+  return Array.from({ length: recordCount }, (_value, index) =>
+    createDiagnosticRow({
+      actionId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      redactionCount: 0,
+      resultBytes: 0,
+      resultText: '',
+      retainedBytes: DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES,
+      sourceBytes: DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES,
+      sourceText,
+    }),
+  );
 }
 
 function createEnvironment(): DiagnosticsArchiveEnvironmentSnapshot {
@@ -260,6 +306,44 @@ describe('provider audit log extractor', () => {
   });
 });
 
+describe('diagnostics archive JSONL limits', () => {
+  it('counts multibyte UTF-8 line bytes without the terminator at the exact limit and one byte over', () => {
+    const serializer = new DiagnosticsArchiveJsonlSerializer();
+    const exact = createArchiveRowWithSerializedByteLength(DIAGNOSTICS_ARCHIVE_LIMITS.MaxJsonlLineBytes);
+    const payload = serializer.serializeDiagnosticRows([exact]);
+
+    assert.equal(payload.byteLength, DIAGNOSTICS_ARCHIVE_LIMITS.MaxJsonlLineBytes + 1);
+    assert.equal(payload.subarray(-1).equals(Buffer.from('\n')), true);
+    assert.throws(() =>
+      serializer.serializeDiagnosticRows([
+        createArchiveRowWithSerializedByteLength(DIAGNOSTICS_ARCHIVE_LIMITS.MaxJsonlLineBytes + 1),
+      ]),
+    );
+  });
+
+  it('accepts the exact 64 MiB member and rejects one byte over', () => {
+    const serializer = new DiagnosticsArchiveJsonlSerializer();
+    const fullMemberLine = createArchiveRowWithSerializedByteLength(DIAGNOSTICS_ARCHIVE_LIMITS.MaxJsonlLineBytes - 1);
+    const exactRows = Array<DiagnosticArchiveTextActionRow>(8).fill(fullMemberLine);
+    const payload = serializer.serializeDiagnosticRows(exactRows);
+    assert.equal(payload.byteLength, DIAGNOSTICS_ARCHIVE_LIMITS.MaxMemberBytes);
+
+    const oneByteLonger = createArchiveRowWithSerializedByteLength(DIAGNOSTICS_ARCHIVE_LIMITS.MaxJsonlLineBytes);
+    assert.throws(() => serializer.serializeDiagnosticRows([...exactRows.slice(0, 7), oneByteLonger]));
+  });
+
+  it('accepts exactly 100,000 records and rejects record 100,001 before serialization', () => {
+    const serializer = new DiagnosticsArchiveJsonlSerializer();
+    const record = createAuditRecord();
+    const oneRecord = serializer.serializeAuditEvents([record]);
+    const exactRecords = Array<ProviderAuditRecord>(DIAGNOSTICS_ARCHIVE_LIMITS.MaxRecordsPerJsonlMember).fill(record);
+    const exactPayload = serializer.serializeAuditEvents(exactRecords);
+
+    assert.equal(exactPayload.byteLength, oneRecord.byteLength * DIAGNOSTICS_ARCHIVE_LIMITS.MaxRecordsPerJsonlMember);
+    assert.throws(() => serializer.serializeAuditEvents([...exactRecords, record]));
+  });
+});
+
 describe('diagnostics archive service', () => {
   it('creates the fixed archive from pruned rows and retained audit records without unrelated private data', async () => {
     const harness = new DiagnosticsArchiveHarness();
@@ -356,6 +440,29 @@ describe('diagnostics archive service', () => {
       },
       {
         overrides: {
+          jsonl: {
+            serializeAuditEvents: () => {
+              throw new Error(`${RAW_SECRET_CANARY}-serializer-error`);
+            },
+            serializeDiagnosticRows: () => Buffer.alloc(0),
+          },
+        },
+      },
+      {
+        overrides: {
+          manifest: new DiagnosticsManifestBuilder({
+            databaseSchemaVersion: 2,
+            diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+            hash: () => {
+              throw new Error(`${RAW_SECRET_CANARY}-hash-error`);
+            },
+            providerAuditSchemaVersion: PROVIDER_AUDIT_SCHEMA_VERSION,
+            redactorVersion: DIAGNOSTIC_REDACTOR_VERSION,
+          }),
+        },
+      },
+      {
+        overrides: {
           storage: {
             readPrunedArchiveSnapshot: async () => ({
               causeCode: 'diagnostic-storage-failed',
@@ -412,6 +519,72 @@ describe('diagnostics archive service', () => {
       fs.readdirSync(partialHarness.directory).some((name) => name.endsWith('.tmp')),
       false,
     );
+
+    let cleanupAttempts = 0;
+    const cleanupHarness = new DiagnosticsArchiveHarness({
+      fileSystem: {
+        removeFile: async (filePath) => {
+          cleanupAttempts += 1;
+          if (cleanupAttempts === 1) throw new Error(`${RAW_SECRET_CANARY}-cleanup-error`);
+          await fs.promises.rm(filePath, { force: true });
+        },
+        rename: (sourcePath, destinationPath) => fs.promises.rename(sourcePath, destinationPath),
+      },
+      formatAdapter: {
+        writeAndVerify: async (_format, outputPath) => {
+          await fs.promises.writeFile(outputPath, 'partial', { flag: 'wx', mode: 0o600 });
+          throw new Error(`${RAW_SECRET_CANARY}-verification-error`);
+        },
+      },
+    });
+    assert.deepEqual(await cleanupHarness.service.createArchive(cleanupHarness.destinationPath), {
+      status: 'failure',
+    });
+    assert.equal(cleanupAttempts, 2);
+    assert.equal(fs.existsSync(cleanupHarness.destinationPath), false);
+    assert.equal(cleanupHarness.rows.length, 1);
+    assert.equal(
+      fs.readdirSync(cleanupHarness.directory).some((name) => name.endsWith('.tmp')),
+      false,
+    );
+  });
+
+  it('preserves a valid 100 MiB retained snapshot on failure and succeeds after user-controlled deletion', async () => {
+    const captureSettings = {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    } as const;
+    let settingsReadCount = 0;
+    const harness = new DiagnosticsArchiveHarness({
+      settings: {
+        getSettings: () => {
+          settingsReadCount += 1;
+          return captureSettings;
+        },
+      },
+    });
+    harness.rows.splice(0, harness.rows.length, ...createRetainedRows(100));
+
+    assert.deepEqual(await harness.service.createArchive(harness.destinationPath), { status: 'failure' });
+    assert.equal(harness.rows.length, 100);
+    assert.equal(
+      harness.rows.reduce((total, row) => total + row.retainedBytes, 0),
+      100 * DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES,
+    );
+    assert.deepEqual(captureSettings, {
+      capturePrettifyDiagnostics: false,
+      captureTranslationDiagnostics: true,
+    });
+    assert.equal(fs.existsSync(harness.destinationPath), false);
+    assert.equal(
+      fs.readdirSync(harness.directory).some((name) => name.endsWith('.tmp')),
+      false,
+    );
+
+    harness.rows.splice(0, harness.rows.length, createDiagnosticRow());
+    assert.deepEqual(await harness.service.createArchive(harness.destinationPath), { status: 'success' });
+    assert.equal(harness.rows.length, 1);
+    assert.equal(settingsReadCount, 2);
   });
 
   it('drains active creation, removes temporary output, and rejects later work during idempotent shutdown', async () => {
