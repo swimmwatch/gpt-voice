@@ -3,8 +3,14 @@ import { describe, it } from 'node:test';
 import {
   getTranslationLanguage,
   getTranslationProviderInfo,
+  INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE,
+  isTranslationProviderConnectionState,
   isTranslationProviderId,
   isTranslationTargetLanguage,
+  sanitizeTranslationProviderConnectionState,
+  TRANSLATION_PROVIDER_CONNECTION_DETAILS,
+  TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
+  TRANSLATION_PROVIDER_CONNECTION_STATUSES,
   TRANSLATION_PROVIDER_IDS,
   TRANSLATION_PROVIDER_INFO,
   type TranslationProviderId,
@@ -107,5 +113,58 @@ describe('translation provider contracts', () => {
       },
     };
     assert.equal(settings.targetLanguageByProvider[providerId], 'en');
+  });
+
+  it('defines a closed renderer-safe Translation connection contract', () => {
+    assert.deepEqual(Object.values(TRANSLATION_PROVIDER_CONNECTION_STATUSES), [
+      'checking',
+      'connected',
+      'not-connected',
+    ]);
+    assert.deepEqual(Object.values(TRANSLATION_PROVIDER_CONNECTION_DETAILS), [
+      'cancelled',
+      'cleanup-failed',
+      'consent-or-challenge',
+      'invalid-settings',
+      'navigation-failed',
+      'not-started',
+      'opening-provider',
+      'page-changed',
+      'ready',
+      'translation-disabled',
+      'unexpected-failure',
+    ]);
+    assert.deepEqual(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS, {
+      changed: 'translation-provider-connection-changed',
+      get: 'get-translation-provider-connection',
+    });
+  });
+
+  it('validates status-detail combinations, selections, and exact keys', () => {
+    const connected = {
+      detail: 'ready',
+      providerId: 'google',
+      status: 'connected',
+      targetLanguage: 'en',
+    };
+    assert.equal(isTranslationProviderConnectionState(connected), true);
+    assert.equal(isTranslationProviderConnectionState({ ...connected, detail: 'opening-provider' }), false);
+    assert.equal(isTranslationProviderConnectionState({ ...connected, providerId: 'private-provider' }), false);
+    assert.equal(isTranslationProviderConnectionState({ ...connected, targetLanguage: 'private-target' }), false);
+    assert.equal(isTranslationProviderConnectionState({ ...connected, message: 'private-canary' }), false);
+  });
+
+  it('sanitizes malformed or sensitive connection payloads to the immutable initial state', () => {
+    const sanitized = sanitizeTranslationProviderConnectionState({
+      detail: 'navigation-failed',
+      message: 'private-message-canary',
+      providerId: 'google',
+      status: 'not-connected',
+      targetLanguage: 'en',
+      url: 'https://private.example',
+    });
+    assert.equal(sanitized, INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE);
+    assert.equal(Object.isFrozen(sanitized), true);
+    assert.doesNotMatch(JSON.stringify(sanitized), /private|https/i);
   });
 });

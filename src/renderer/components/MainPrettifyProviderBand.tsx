@@ -1,8 +1,9 @@
-import { BrainCircuit, Circle, Gauge, LoaderCircle, Settings } from 'lucide-react';
+import { BrainCircuit, Gauge, LoaderCircle, Settings } from 'lucide-react';
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
 import { getMainPrettifyProviderViewState, MAIN_PRETTIFY_PROVIDER_LABEL_KEYS } from '@renderer/mainPrettifyProvider';
+import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
 import {
   Select,
@@ -58,6 +59,13 @@ function MainPrettifyProviderBand({
   const providerSettingsLabel = t('mainDock.openPrettifySettings');
   const modelActionLabel = t(viewState.ollamaControl?.isLoaded ? 'mainDock.prettifyFree' : 'mainDock.prettifyLoad');
   const modelActionTitle = t(viewState.ollamaControl?.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle');
+  const providerStatusLabel =
+    error ||
+    (providerStatus
+      ? `${t(providerStatus.labelKey)}${providerStatus.valueKey ? `: ${t(providerStatus.valueKey)}` : ''}`
+      : '');
+  const providerStatusTooltip =
+    error || (providerStatus ? t(providerStatus.tooltipKey ?? providerStatus.valueKey ?? providerStatus.labelKey) : '');
 
   return (
     <section className="command-dock-prettify-band" data-slot="prettify-provider-band">
@@ -96,24 +104,15 @@ function MainPrettifyProviderBand({
         <div className="command-dock-prettify-summary">
           <span className="command-dock-model-label">{t('mainDock.prettifyModelLabel')}</span>
           <strong title={model}>{model}</strong>
-          {(error || providerStatus) && (
-            <span
-              className={`command-dock-prettify-state ${error ? 'is-error' : `is-${providerStatus?.tone ?? 'neutral'}`}`}
-              data-slot="prettify-provider-state"
+          {providerStatusLabel && (
+            <ProviderStatusIndicator
+              className="command-dock-prettify-state"
+              dataSlot="prettify-provider-state"
+              label={providerStatusLabel}
               role={error ? 'alert' : 'status'}
-              title={error || undefined}
-            >
-              <Circle aria-hidden="true" fill="currentColor" strokeWidth={0} />
-              <span>
-                {error ||
-                  (providerStatus && (
-                    <>
-                      {t(providerStatus.labelKey)}
-                      {providerStatus.valueKey ? `: ${t(providerStatus.valueKey)}` : ''}
-                    </>
-                  ))}
-              </span>
-            </span>
+              tone={error ? 'error' : (providerStatus?.tone ?? 'neutral')}
+              tooltip={providerStatusTooltip}
+            />
           )}
         </div>
 
@@ -142,16 +141,15 @@ function MainPrettifyProviderBand({
           )}
 
           {viewState.connection && (
-            <span
-              aria-label={t(viewState.connection.valueKey ?? viewState.connection.labelKey)}
-              className={`command-dock-provider-state command-dock-prettify-connection is-${viewState.connection.tone}`}
-              data-slot="prettify-cli-connection"
-              role="status"
-              title={t(viewState.connection.valueKey ?? viewState.connection.labelKey)}
-            >
-              <Circle aria-hidden="true" fill="currentColor" strokeWidth={0} />
-              <span>{t(viewState.connection.labelKey)}</span>
-            </span>
+            <ProviderStatusIndicator
+              className="command-dock-provider-state command-dock-prettify-connection"
+              dataSlot="prettify-cli-connection"
+              label={t(viewState.connection.labelKey)}
+              tone={viewState.connection.tone}
+              tooltip={t(
+                viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey,
+              )}
+            />
           )}
 
           <Tooltip>

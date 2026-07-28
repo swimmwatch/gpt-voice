@@ -261,6 +261,21 @@ function failureCode(outcome: Awaited<ReturnType<BingTranslateProvider['translat
 }
 
 describe('BingTranslateProvider', () => {
+  it('opens and prepares Bing during initialization without submitting text', async () => {
+    const harness = createHarness();
+    const adapter = harness.adapters[0];
+    assert.ok(adapter);
+
+    const outcome = await harness.provider.initialize(requestFixture.createInitialization({ targetLanguage: 'ru' }));
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(adapter.navigationCalls, 1);
+    assert.equal(adapter.selection.sourceLanguage, 'auto-detect');
+    assert.equal(adapter.selection.targetLanguage, 'ru');
+    assert.deepEqual(adapter.fillCalls, []);
+  });
+
   it('uses the approved bounded production readiness window', () => {
     assert.equal(BING_CATALOG_STABILITY_DELAY_MS, 250);
     assert.equal(BING_READINESS_TIMEOUT_MS, 5_000);

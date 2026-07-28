@@ -64,6 +64,9 @@ import type { DiagnosticCaptureSettingsService } from './services/diagnosticCapt
 import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
 import type { DiagnosticsExportService } from './services/diagnosticsExport';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
+import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+
+const TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG = 'Translation provider connection refresh failed';
 
 export interface MainIpcTransport {
   handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
@@ -134,7 +137,10 @@ export interface MainIpcControllerDependencies {
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
-  readonly translationRuntime: Pick<TranslationRuntime, 'shutdown' | 'translateText'>;
+  readonly translationRuntime: Pick<
+    TranslationRuntime,
+    'getConnectionState' | 'initializeSelectedProvider' | 'shutdown' | 'translateText'
+  >;
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
@@ -865,6 +871,10 @@ export class MainIpcController {
       return dependencies.config.getTranslationSettings();
     });
 
+    this.trustedIpc.handle(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get, () => {
+      return dependencies.translationRuntime.getConnectionState();
+    });
+
     this.trustedIpc.handle('get-text-action-settings', () => {
       return dependencies.config.getTextActionSettings();
     });
@@ -873,15 +883,21 @@ export class MainIpcController {
       try {
         assertValidTextActionSettingsInput(settings);
         const normalized = normalizeTextActionSettings(settings);
+        const previous = dependencies.config.getTextActionSettings();
         log.info('Saving text action settings:', {
           from: {
-            translateEnabled: dependencies.config.getTextActionSettings().translateEnabled,
-            prettifyEnabled: dependencies.config.getTextActionSettings().prettifyEnabled,
+            translateEnabled: previous.translateEnabled,
+            prettifyEnabled: previous.prettifyEnabled,
           },
           to: normalized,
         });
         dependencies.config.setTextActionSettings(normalized);
         dependencies.config.save();
+        if (previous.translateEnabled !== normalized.translateEnabled) {
+          void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
+            log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+          });
+        }
         log.info('Text action settings saved:', normalized);
         return { success: true, settings: normalized };
       } catch (error: unknown) {
@@ -894,6 +910,9 @@ export class MainIpcController {
       try {
         const settings = dependencies.config.saveTranslationSettings(candidate);
         log.info('Translation settings saved', { providerId: settings.providerId });
+        void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
+          log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+        });
         return { success: true, settings };
       } catch (error: unknown) {
         const validationFailure = error instanceof TranslationSettingsValidationError;

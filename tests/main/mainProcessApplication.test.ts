@@ -24,6 +24,7 @@ import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
+import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -398,8 +399,12 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
 }
 
 class RecordingConfigStore extends TestAppConfigStore {
-  public constructor(private readonly events: string[]) {
+  public constructor(
+    private readonly events: string[],
+    translateEnabled: boolean,
+  ) {
     super('chatgpt');
+    this.setTextActionSettings({ translateEnabled });
   }
 
   public override load(): void {
@@ -432,7 +437,12 @@ class MainProcessApplicationHarness {
     readonly metadata?: Readonly<Record<string, unknown>>;
   }> = [];
   public createApplication(
-    options: { readonly benchmark?: boolean; readonly removing?: boolean } = {},
+    options: {
+      readonly benchmark?: boolean;
+      readonly removing?: boolean;
+      readonly translationEnabled?: boolean;
+      readonly translationInitializationFailure?: boolean;
+    } = {},
   ): MainProcessApplication {
     const windowManager = new RecordingWindowManager(this.events);
     const trayController = new RecordingTrayController(this.events, windowManager);
@@ -442,7 +452,7 @@ class MainProcessApplicationHarness {
       app: this.app,
       appProtocolController: new RecordingAppProtocolController(this.events),
       backgroundBrowserService,
-      config: new RecordingConfigStore(this.events),
+      config: new RecordingConfigStore(this.events, options.translationEnabled ?? true),
       configureCloakBrowserRuntime: () => this.events.push('cloak-runtime'),
       desktopRuntimeController: new RecordingDesktopRuntimeController(this.events, windowManager, options),
       localization: new RecordingI18nService(this.events),
@@ -463,6 +473,13 @@ class MainProcessApplicationHarness {
       runtimeFactory: this.runtimeFactory,
       shortcutController,
       translationRuntime: {
+        initializeSelectedProvider: async () => {
+          this.events.push('translation-initialize');
+          if (options.translationInitializationFailure) {
+            throw new Error('private translation startup failure');
+          }
+          return INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE;
+        },
         shutdown: async () => {
           this.events.push('translation-shutdown');
           return { failedProviderIds: [], success: true };
@@ -520,6 +537,7 @@ describe('main process application lifecycle', () => {
       'window-create',
       'tray-create',
       'shortcuts-register',
+      'translation-initialize',
       'browser-initialize',
       'background-status',
     ]);
@@ -544,7 +562,37 @@ describe('main process application lifecycle', () => {
     assert.equal(benchmarkHarness.events.includes('benchmark-wait'), true);
     assert.equal(benchmarkHarness.events.includes('tray-create'), false);
     assert.equal(benchmarkHarness.events.includes('browser-initialize'), false);
+    assert.equal(benchmarkHarness.events.includes('translation-initialize'), false);
     assert.equal(benchmarkHarness.events.includes('cloak-runtime'), false);
+  });
+
+  it('keeps application startup fail-open when Translation provider initialization rejects', async () => {
+    const harness = new MainProcessApplicationHarness();
+    harness.createApplication({ translationInitializationFailure: true }).bootstrap();
+
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    assert.equal(harness.events.includes('translation-initialize'), true);
+    assert.equal(harness.events.includes('browser-initialize'), true);
+    assert.equal(harness.events.includes('background-status'), true);
+    assert.deepEqual(harness.warnings, [
+      {
+        message: 'Translation provider initialization failed during startup',
+      },
+    ]);
+  });
+
+  it('lets the Translation runtime publish its disabled state during startup', async () => {
+    const harness = new MainProcessApplicationHarness();
+    harness.createApplication({ translationEnabled: false }).bootstrap();
+
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    assert.equal(harness.events.includes('translation-initialize'), true);
+    assert.equal(harness.events.includes('browser-initialize'), true);
+    assert.equal(harness.events.includes('background-status'), true);
   });
 
   it('owns one idempotent shutdown in the required resource order', async () => {

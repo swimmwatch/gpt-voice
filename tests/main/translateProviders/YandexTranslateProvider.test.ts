@@ -369,6 +369,19 @@ const requestFixture = new TranslationProviderRequestFixture({
 });
 
 describe('YandexTranslateProvider', () => {
+  it('opens the selected Yandex target page during initialization without submitting text', async () => {
+    const harness = createHarness();
+    harness.adapter.navigationRoute = createRoute(null, { targetLanguage: 'be' });
+
+    const outcome = await harness.provider.initialize(requestFixture.createInitialization({ targetLanguage: 'be' }));
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.deepEqual(harness.adapter.navigatedUrls, ['https://translate.yandex.com/en/translator']);
+    assert.equal(new URL(harness.adapter.navigatedUrls[0] ?? '').searchParams.has('text'), false);
+    assert.deepEqual(harness.adapter.insertedTexts, []);
+  });
+
   it('binds only shared Yandex metadata and enforces the 10,000-character limit before browser creation', async () => {
     const harness = createHarness();
 

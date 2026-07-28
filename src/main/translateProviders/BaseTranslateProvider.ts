@@ -10,6 +10,8 @@ import {
 } from '@shared/translationProvider';
 import {
   translationHookFailure,
+  type TranslationProviderInitializationOutcome,
+  type TranslationProviderInitializationRequest,
   type TranslationProviderFailure,
   type TranslationProviderFailureCode,
   type TranslationProviderHookResult,
@@ -44,13 +46,24 @@ interface OperationState {
   readonly attemptCount: number;
   readonly generation: number;
   readonly signal?: AbortSignal;
-  readonly sourceLength: number;
+  readonly sourceLength?: number;
   readonly startedAt: number;
+  readonly supersedable: boolean;
   readonly targetLanguage?: string;
 }
 
 interface ValidatedOperationState extends OperationState {
+  readonly sourceLength: number;
   readonly targetLanguage: string;
+}
+
+interface PreparedOperationState extends OperationState {
+  readonly targetLanguage: string;
+}
+
+enum TranslationPreparationPurpose {
+  Initialization = 'initialization',
+  Translation = 'translation',
 }
 
 interface PreparationSuccess {
@@ -96,6 +109,9 @@ interface FailureAuditOptions {
 /** Shared main-process lifecycle; subclasses implement only public-page behavior. */
 export abstract class BaseTranslateProvider {
   public readonly info: TranslationProviderInfo;
+  public readonly initialize: (
+    request: TranslationProviderInitializationRequest,
+  ) => Promise<TranslationProviderInitializationOutcome>;
   public readonly translate: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
   public readonly shutdown: () => Promise<void>;
 
@@ -110,9 +126,11 @@ export abstract class BaseTranslateProvider {
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
     this.dependencies = dependencies;
+    this.initialize = (request) => this.enqueueInitialization(request);
     this.translate = (request) => this.enqueueTranslation(request);
     this.shutdown = () => this.shutdownProvider();
     Object.defineProperties(this, {
+      initialize: { configurable: false, writable: false },
       shutdown: { configurable: false, writable: false },
       translate: { configurable: false, writable: false },
     });
@@ -139,6 +157,17 @@ export abstract class BaseTranslateProvider {
 
   protected abstract clearVisibleState(page: Page): Promise<TranslationProviderHookResult>;
 
+  private enqueueInitialization(
+    request: TranslationProviderInitializationRequest,
+  ): Promise<TranslationProviderInitializationOutcome> {
+    const operation = this.operationQueue.then(() => this.runInitialization(request));
+    this.operationQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
   private enqueueTranslation(request: TranslationProviderRequest): Promise<TranslationProviderOutcome> {
     const generation = ++this.generation;
     const operation = this.operationQueue.then(() => this.runTranslation(request, generation));
@@ -147,6 +176,49 @@ export abstract class BaseTranslateProvider {
       () => undefined,
     );
     return operation;
+  }
+
+  private async runInitialization(
+    request: TranslationProviderInitializationRequest,
+  ): Promise<TranslationProviderInitializationOutcome> {
+    const startedAt = this.dependencies.now();
+    const initialState: OperationState = {
+      audit: request.audit,
+      auditContext: request.auditContext,
+      attemptCount: 1,
+      generation: this.generation,
+      signal: request.signal,
+      startedAt,
+      supersedable: false,
+    };
+    request.auditContext.lifecycle.started({ attemptCount: 1 });
+    const canonicalInfo = getTranslationProviderInfo(this.info.id);
+
+    if (!this.isOperationActive(initialState)) {
+      return this.createStaleFailure('validation', initialState);
+    }
+    if (canonicalInfo !== this.info || request.providerId !== this.info.id) {
+      return this.createFailure('unsupportedProvider', 'validation', initialState);
+    }
+
+    const targetLanguage: unknown = request.targetLanguage;
+    if (typeof targetLanguage !== 'string' || !getTranslationLanguage(this.info.id, targetLanguage)) {
+      return this.createFailure('unsupportedTargetLanguage', 'validation', initialState);
+    }
+
+    const state: PreparedOperationState = {
+      ...initialState,
+      targetLanguage,
+    };
+    const preparation = await this.preparePage(state, TranslationPreparationPurpose.Initialization);
+    if (!preparation.success) return preparation.outcome;
+    return this.createInitializationSuccess(
+      {
+        ...state,
+        attemptCount: preparation.attemptCount,
+      },
+      'targetSelection',
+    );
   }
 
   /** Executes one generation after it reaches the serialized provider queue. */
@@ -165,6 +237,7 @@ export abstract class BaseTranslateProvider {
       signal: request.signal,
       sourceLength,
       startedAt,
+      supersedable: true,
     };
     request.auditContext.lifecycle.started({
       attemptCount: 1,
@@ -186,6 +259,7 @@ export abstract class BaseTranslateProvider {
 
     const state: ValidatedOperationState = {
       ...initialState,
+      sourceLength,
       targetLanguage,
     };
     if (typeof rawSourceText !== 'string' || rawSourceText.trim().length === 0) {
@@ -198,7 +272,7 @@ export abstract class BaseTranslateProvider {
       return this.createStaleFailure('validation', state);
     }
 
-    const preparation = await this.preparePage(state);
+    const preparation = await this.preparePage(state, TranslationPreparationPurpose.Translation);
     if (!preparation.success) return preparation.outcome;
 
     const activeState: ValidatedOperationState = {
@@ -259,9 +333,12 @@ export abstract class BaseTranslateProvider {
   }
 
   /** Runs the bounded pre-submission page preparation and recovery sequence. */
-  private async preparePage(state: ValidatedOperationState): Promise<PreparationResult> {
+  private async preparePage(
+    state: PreparedOperationState,
+    purpose: TranslationPreparationPurpose,
+  ): Promise<PreparationResult> {
     for (let attemptCount = 1; attemptCount <= 2; attemptCount += 1) {
-      const activeState: ValidatedOperationState = {
+      const activeState: PreparedOperationState = {
         ...state,
         attemptCount,
       };
@@ -277,6 +354,15 @@ export abstract class BaseTranslateProvider {
         const recoveryFailure = await this.recoverPreparation(activeState);
         if (recoveryFailure) return recoveryFailure;
         continue;
+      }
+
+      if (purpose === TranslationPreparationPurpose.Initialization) {
+        return {
+          success: true,
+          page,
+          previousResult: '',
+          attemptCount,
+        };
       }
 
       const staleState = await this.prepareStaleState(page, activeState);
@@ -303,7 +389,7 @@ export abstract class BaseTranslateProvider {
     };
   }
 
-  private async runPreparationSteps(page: Page, state: ValidatedOperationState): Promise<PreparationStepsResult> {
+  private async runPreparationSteps(page: Page, state: PreparedOperationState): Promise<PreparationStepsResult> {
     const steps: ReadonlyArray<{
       phase: TranslationProviderPhase;
       fallbackCode: TranslationProviderFailureCode;
@@ -374,7 +460,7 @@ export abstract class BaseTranslateProvider {
     state.auditContext.lifecycle.phaseCompleted('consent-or-challenge', metadata);
   }
 
-  private async prepareStaleState(page: Page, state: ValidatedOperationState): Promise<StaleStatePreparationResult> {
+  private async prepareStaleState(page: Page, state: PreparedOperationState): Promise<StaleStatePreparationResult> {
     this.phaseEntered('staleState', state);
     const staleState = await this.invokeHook(() => this.clearStaleState(page), 'pageContractFailure');
     if (!this.isOperationActive(state)) {
@@ -551,7 +637,33 @@ export abstract class BaseTranslateProvider {
   }
 
   private isOperationActive(state: OperationState): boolean {
-    return !this.shutDown && state.generation === this.generation && state.signal?.aborted !== true;
+    return (
+      !this.shutDown && (!state.supersedable || state.generation === this.generation) && state.signal?.aborted !== true
+    );
+  }
+
+  private createInitializationSuccess(
+    state: PreparedOperationState,
+    phase: TranslationProviderPhase,
+  ): TranslationProviderInitializationOutcome {
+    const metadata = {
+      ...this.createMetadata(phase, state),
+      providerId: this.info.id,
+      targetLanguage: state.targetLanguage,
+      contractVersion: this.info.contractVersion,
+    };
+    state.auditContext.lifecycle.terminal(
+      state.audit.toPhase(phase),
+      'success',
+      state.audit.createMetadata(metadata, {
+        durationMs: this.createAuditDuration(state),
+        pageClosed: false,
+      }),
+    );
+    return {
+      success: true,
+      metadata,
+    };
   }
 
   private createSuccess(text: string, state: ValidatedOperationState, pageClosed: boolean): TranslationProviderOutcome {
@@ -623,7 +735,7 @@ export abstract class BaseTranslateProvider {
           }
         : {}),
       ...(state.targetLanguage === undefined ? {} : { targetLanguage: state.targetLanguage }),
-      sourceLength: state.sourceLength,
+      ...(state.sourceLength === undefined ? {} : { sourceLength: state.sourceLength }),
       ...(resultLength === undefined ? {} : { resultLength }),
       durationMs: Math.max(0, this.dependencies.now() - state.startedAt),
       attemptCount: state.attemptCount,

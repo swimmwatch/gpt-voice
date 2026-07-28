@@ -218,6 +218,61 @@ describe('BaseTranslateProvider', () => {
     assert.equal(TRANSLATION_RESULT_STABILITY_DELAY_MS, 500);
   });
 
+  it('prepares and reuses the selected provider page without submitting source text', async () => {
+    const harness = createHarness();
+    const audit = new RecordingTranslationProviderAudit();
+    const fixture = new TranslationProviderRequestFixture(requestFixture.defaults, audit);
+
+    const initialization = await harness.provider.initialize(fixture.createInitialization());
+
+    assert.equal(initialization.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.deepEqual(harness.provider.selectedTargets, ['navigate:en', 'en']);
+    assert.equal(harness.provider.calls.insert, 0);
+    assert.equal(harness.provider.calls.read, 0);
+    assert.equal(harness.provider.calls.staleState, 0);
+    assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
+    assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
+
+    assert.equal((await harness.provider.translate(fixture.create())).success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.newPageCalls, 1);
+    assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('closes a failed warm-up and lets the first translation recover with a new page', async () => {
+    const harness = createHarness();
+    harness.provider.navigationResult = translationHookFailure('navigationFailure');
+
+    const initialization = await harness.provider.initialize(requestFixture.createInitialization());
+
+    assert.equal(initialization.success, false);
+    assert.equal(initialization.success ? null : initialization.code, 'navigationFailure');
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.closeCalls, 1);
+
+    harness.provider.navigationResult = translationHookSuccess();
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 2);
+    assert.equal(harness.contexts[1]?.newPageCalls, 1);
+  });
+
+  it('queues the first translation behind in-flight initialization without invalidating preparation', async () => {
+    const harness = createHarness();
+
+    const initialization = harness.provider.initialize(requestFixture.createInitialization());
+    const translation = harness.provider.translate(requestFixture.create());
+    const [initializationOutcome, translationOutcome] = await Promise.all([initialization, translation]);
+
+    assert.equal(initializationOutcome.success, true);
+    assert.equal(translationOutcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.newPageCalls, 1);
+    assert.equal(harness.provider.calls.insert, 1);
+  });
+
   it('lazily creates and reuses one nonpersistent context per provider instance', async () => {
     const first = createHarness();
     const second = createHarness();

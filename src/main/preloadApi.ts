@@ -31,7 +31,14 @@ import type {
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import { sanitizeTextActionStatus, type TextActionStatus } from '@shared/textActionStatus';
-import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
+  isTranslationProviderConnectionState,
+  sanitizeTranslationProviderConnectionState,
+  type TranslationProviderConnectionState,
+  type TranslationSettings,
+  type TranslationSettingsSaveResult,
+} from '@shared/translationProvider';
 import {
   DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS,
   type DiagnosticCaptureClearRequest,
@@ -89,6 +96,11 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => {
       return onMainEvent<[unknown]>('translation-status', (status) => callback(sanitizeTextActionStatus(status)));
+    },
+    onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => {
+      return onMainEvent<[unknown]>(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, (state) => {
+        if (isTranslationProviderConnectionState(state)) callback(state);
+      });
     },
     recordingStartFailed: (): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('recording-start-failed');
@@ -274,6 +286,10 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getTranslateSettings: (): Promise<TranslationSettings> => {
       return ipcRenderer.invoke('get-translate-settings');
+    },
+    getTranslationProviderConnection: async (): Promise<TranslationProviderConnectionState> => {
+      const state = await ipcRenderer.invoke<unknown>(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get);
+      return sanitizeTranslationProviderConnectionState(state);
     },
     getTextActionSettings: (): Promise<TextActionSettings> => {
       return ipcRenderer.invoke('get-text-action-settings');

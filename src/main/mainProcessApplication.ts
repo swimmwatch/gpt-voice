@@ -16,6 +16,7 @@ import { presentPendingTranslationSettingsRepairNotice } from './translationSett
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
 const PRETTIFY_CLEANUP_FAILURE_LOG = 'Failed to unload Ollama prettify model during quit';
+const TRANSLATION_INITIALIZATION_FAILURE_LOG = 'Translation provider initialization failed during startup';
 const TRANSLATION_CLEANUP_INCOMPLETE_LOG = 'Translation provider cleanup incomplete during quit:';
 const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed during quit';
 const BROWSER_CLEANUP_FAILURE_LOG = 'Background browser cleanup incomplete during quit';
@@ -81,7 +82,7 @@ export interface MainProcessApplicationDependencies {
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'shutdown'>;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly shortcutController: ShortcutController;
-  readonly translationRuntime: Pick<TranslationRuntime, 'shutdown'>;
+  readonly translationRuntime: Pick<TranslationRuntime, 'initializeSelectedProvider' | 'shutdown'>;
   readonly trayController: TrayController;
   readonly windowManager: WindowManager;
 }
@@ -181,6 +182,9 @@ export class MainProcessApplication {
 
     this.dependencies.trayController.create();
     this.dependencies.shortcutController.register();
+    void this.dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
+      this.dependencies.logger.warn(TRANSLATION_INITIALIZATION_FAILURE_LOG);
+    });
     const status = await this.dependencies.backgroundBrowserService.initialize();
     this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.config.getSnapshot().provider);
   }

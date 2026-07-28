@@ -1,6 +1,8 @@
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 import type { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
 import type {
+  TranslationProviderInitializationOutcome,
+  TranslationProviderInitializationRequest,
   TranslationProviderOutcome,
   TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
@@ -18,6 +20,9 @@ export interface TranslationProviderShutdownResult {
 
 export interface TranslationProviderInstance {
   readonly info: TranslationProviderInfo;
+  readonly initialize: (
+    request: TranslationProviderInitializationRequest,
+  ) => Promise<TranslationProviderInitializationOutcome>;
   readonly shutdown: () => Promise<void>;
   readonly translate: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
 }
@@ -53,6 +58,7 @@ export class TranslationProviderRegistry {
     if (
       provider.info !== info ||
       provider.info.id !== providerId ||
+      typeof provider.initialize !== 'function' ||
       typeof provider.shutdown !== 'function' ||
       typeof provider.translate !== 'function'
     ) {

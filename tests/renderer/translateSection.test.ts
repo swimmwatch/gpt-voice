@@ -21,7 +21,11 @@ describe('main translation Select controls', () => {
     assert.match(section, /<SelectValue \/>/u);
     assert.match(section, /disabled=\{isSaving\}/u);
     assert.match(section, /role="alert"/u);
-    assert.doesNotMatch(section, /translate\.saving|is-saving|role="status"/u);
+    assert.match(section, /<ProviderStatusIndicator/u);
+    assert.match(section, /dataSlot="translation-provider-connection"/u);
+    assert.match(section, /provider\.notConnected/u);
+    assert.match(section, /TRANSLATION_CONNECTION_TOOLTIP_KEYS/u);
+    assert.doesNotMatch(section, /translate\.saving|is-saving/u);
     assert.doesNotMatch(section, /assets\/flags|<img|deepl|Yandex.*warning/iu);
   });
 
@@ -45,6 +49,9 @@ describe('main translation Select controls', () => {
       /\.command-dock-translation-select-content \[data-slot='select-viewport'\] \{[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
     );
     assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?\.command-dock-language-band \{/u);
+    assert.match(styles, /grid-template-columns: 22px 147px 200px minmax\(0, 1fr\);/u);
+    assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?grid-template-columns: 22px minmax\(0, 1fr\) auto;/u);
+    assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?grid-column: 4;/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 420/u);
   });
@@ -65,6 +72,9 @@ describe('main translation Select controls', () => {
     );
     assert.match(app, /disposed \|\| translationSettingsRequestId !== translationSettingsRequestRef\.current/u);
     assert.match(app, /translationSettingsRequestRef\.current \+= 1/u);
+    assert.match(app, /desktopApi[\s\S]{0,40}\.getTranslationProviderConnection\(\)/u);
+    assert.match(app, /desktopApi\.onTranslationProviderConnectionChanged/u);
+    assert.match(app, /translationConnectionRequestId !== translationConnectionRequestRef\.current/u);
     assert.match(sectionUsage, /createTranslationProviderCandidate/u);
     assert.match(sectionUsage, /createTranslationSettingsCandidate/u);
     assert.match(sectionUsage, /confirmedSettings/u);

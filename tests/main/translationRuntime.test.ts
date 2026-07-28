@@ -9,11 +9,20 @@ import {
 } from '@main/services/translation';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import type {
+  TranslationProviderInitializationOutcome,
+  TranslationProviderInitializationRequest,
+  TranslationProviderFailureCode,
   TranslationProviderOutcome,
   TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
-import type { TranslationProviderId, TranslationSettings } from '@shared/translationProvider';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_DETAILS,
+  TRANSLATION_PROVIDER_CONNECTION_STATUSES,
+  type TranslationProviderConnectionState,
+  type TranslationProviderId,
+  type TranslationSettings,
+} from '@shared/translationProvider';
 import { noopTranslationProviderAudit } from './translateProviders/translationAuditTestUtils';
 import { I18nService } from '@main/i18n';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
@@ -33,7 +42,12 @@ class MutableTranslationConfig {
   public constructor(
     private settings: TranslationSettings,
     private readonly error?: Error,
+    private translateEnabled = true,
   ) {}
+
+  public getTextActionSettings(): { prettifyEnabled: boolean; translateEnabled: boolean } {
+    return { prettifyEnabled: true, translateEnabled: this.translateEnabled };
+  }
 
   public getTranslationSettings(): TranslationSettings {
     if (this.error) throw this.error;
@@ -42,6 +56,10 @@ class MutableTranslationConfig {
 
   public setSettings(settings: TranslationSettings): void {
     this.settings = settings;
+  }
+
+  public setTranslationEnabled(enabled: boolean): void {
+    this.translateEnabled = enabled;
   }
 }
 
@@ -65,10 +83,12 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
 interface RuntimeHarnessOptions {
   audit?: TranslationProviderAudit;
   diagnosticCapture?: RecordingDiagnosticCapture;
+  initialize?: (request: TranslationProviderInitializationRequest) => Promise<TranslationProviderInitializationOutcome>;
   outcome?: TranslationProviderOutcome;
   settings?: TranslationSettings;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
   translate?: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
+  translationEnabled?: boolean;
 }
 
 interface CapturedAuditEntry {
@@ -163,8 +183,13 @@ class ThrowingLifecycleTranslationProviderAudit extends TranslationProviderAudit
 
 function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   let now = 100;
-  const config = new MutableTranslationConfig(options.settings ?? DEFAULT_SETTINGS);
+  const config = new MutableTranslationConfig(
+    options.settings ?? DEFAULT_SETTINGS,
+    undefined,
+    options.translationEnabled,
+  );
   const getProviderCalls: unknown[] = [];
+  const initializationRequests: TranslationProviderInitializationRequest[] = [];
   const requests: TranslationProviderRequest[] = [];
   let shutdownCalls = 0;
   const failedProviderIds = options.shutdownFailedProviderIds ?? [];
@@ -174,6 +199,27 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     getProvider: (providerId) => {
       getProviderCalls.push(providerId);
       return {
+        initialize: async (request) => {
+          initializationRequests.push(request);
+          if (options.initialize) return options.initialize(request);
+          const outcome: TranslationProviderInitializationOutcome = {
+            success: true,
+            metadata: {
+              providerId: request.providerId,
+              targetLanguage: request.targetLanguage,
+              contractVersion: '2026-07-25',
+              durationMs: 2,
+              attemptCount: 1,
+              phase: 'targetSelection',
+            },
+          };
+          request.auditContext.lifecycle.terminal(
+            'target-selection',
+            'success',
+            request.audit.createMetadata(outcome.metadata),
+          );
+          return outcome;
+        },
         translate: async (request) => {
           requests.push(request);
           if (options.translate) return options.translate(request);
@@ -203,11 +249,15 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
 
   return {
     getProviderCalls,
+    initializationRequests,
     diagnosticCapture,
     requests,
     runtime,
     setSettings: (next: TranslationSettings) => {
       config.setSettings(next);
+    },
+    setTranslationEnabled: (enabled: boolean) => {
+      config.setTranslationEnabled(enabled);
     },
     get shutdownCalls() {
       return shutdownCalls;
@@ -238,6 +288,194 @@ describe('TranslationRuntime', () => {
     });
     assert.equal(Object.isFrozen(snapshot), true);
     assert.deepEqual(harness.getProviderCalls, []);
+  });
+
+  it('initializes the selected provider and target without dispatching translation text', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const harness = createRuntimeHarness({
+      audit,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        providerId: 'yandex',
+      },
+    });
+    const states: TranslationProviderConnectionState[] = [];
+    harness.runtime.subscribeConnectionState((state) => states.push(state));
+
+    const result = await harness.runtime.initializeSelectedProvider();
+
+    assert.deepEqual(harness.getProviderCalls, ['yandex']);
+    assert.equal(harness.initializationRequests.length, 1);
+    assert.equal(harness.initializationRequests[0]?.providerId, 'yandex');
+    assert.equal(harness.initializationRequests[0]?.targetLanguage, 'be');
+    assert.equal('sourceText' in (harness.initializationRequests[0] ?? {}), false);
+    assert.deepEqual(harness.requests, []);
+    assert.equal(
+      audit.entries.every((entry) => entry.record.operation === 'settings-readiness'),
+      true,
+    );
+    assert.equal(audit.entries.filter((entry) => entry.record.event === 'terminal').length, 1);
+    assert.equal(audit.entries[audit.entries.length - 1]?.record.outcome, 'success');
+    assert.deepEqual(states, [
+      {
+        detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider,
+        providerId: 'yandex',
+        status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking,
+        targetLanguage: 'be',
+      },
+      {
+        detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+        providerId: 'yandex',
+        status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+        targetLanguage: 'be',
+      },
+    ]);
+    assert.equal(result, states[1]);
+    assert.equal(harness.runtime.getConnectionState(), result);
+  });
+
+  it('reports disabled Translation without opening a provider', async () => {
+    const harness = createRuntimeHarness({ translationEnabled: false });
+    const states: TranslationProviderConnectionState[] = [];
+    harness.runtime.subscribeConnectionState((state) => states.push(state));
+
+    const result = await harness.runtime.initializeSelectedProvider();
+
+    assert.deepEqual(result, {
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.TranslationDisabled,
+      providerId: 'google',
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      targetLanguage: 'uk',
+    });
+    assert.deepEqual(states, [result]);
+    assert.deepEqual(harness.getProviderCalls, []);
+    assert.deepEqual(harness.initializationRequests, []);
+  });
+
+  it('keeps startup initialization fail-open and audits normalized provider exceptions', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const harness = createRuntimeHarness({
+      audit,
+      initialize: async () => {
+        throw new Error('https://translate.private/session/private-startup-canary');
+      },
+    });
+
+    await harness.runtime.initializeSelectedProvider();
+
+    const terminal = audit.entries[audit.entries.length - 1];
+    assert.equal(terminal?.record.event, 'terminal');
+    assert.equal(terminal?.record.outcome, 'failure');
+    assert.equal(terminal?.record.causeCode, 'pageContractFailure');
+    assert.equal(terminal?.record.exceptionType, 'Error');
+    assert.equal(terminal?.level, 'error');
+    assert.equal(JSON.stringify(audit.entries).includes('private-startup-canary'), false);
+    assert.deepEqual(harness.runtime.getConnectionState(), {
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+      providerId: 'google',
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      targetLanguage: 'uk',
+    });
+    assert.doesNotMatch(JSON.stringify(harness.runtime.getConnectionState()), /private|https/i);
+
+    const outcome = await harness.runtime.translateWithSnapshot('first request', getSnapshot(harness.runtime));
+    assert.equal(outcome.success, true);
+    assert.deepEqual(harness.getProviderCalls, ['google', 'google']);
+    assert.equal(harness.requests.length, 1);
+  });
+
+  it('maps closed provider readiness failures to human-readable connection details', async () => {
+    const expectations: ReadonlyArray<
+      readonly [TranslationProviderFailureCode, TranslationProviderConnectionState['detail']]
+    > = [
+      ['navigationFailure', TRANSLATION_PROVIDER_CONNECTION_DETAILS.NavigationFailed],
+      ['consentOrChallenge', TRANSLATION_PROVIDER_CONNECTION_DETAILS.ConsentOrChallenge],
+      ['pageContractFailure', TRANSLATION_PROVIDER_CONNECTION_DETAILS.PageChanged],
+      ['cleanupFailure', TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed],
+      ['cancelledOrStaleOperation', TRANSLATION_PROVIDER_CONNECTION_DETAILS.Cancelled],
+    ];
+
+    for (const [code, detail] of expectations) {
+      const harness = createRuntimeHarness({
+        initialize: async (request) => ({
+          code,
+          discard: code === 'cancelledOrStaleOperation',
+          metadata: {
+            attemptCount: 1,
+            contractVersion: '2026-07-25',
+            durationMs: 2,
+            phase: 'readiness',
+            providerId: request.providerId,
+            targetLanguage: request.targetLanguage,
+          },
+          success: false,
+        }),
+      });
+
+      assert.deepEqual(await harness.runtime.initializeSelectedProvider(), {
+        detail,
+        providerId: 'google',
+        status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+        targetLanguage: 'uk',
+      });
+    }
+  });
+
+  it('suppresses stale initialization completion after the selected provider changes', async () => {
+    let resolveGoogle!: (outcome: TranslationProviderInitializationOutcome) => void;
+    const googleOutcome = new Promise<TranslationProviderInitializationOutcome>((resolve) => {
+      resolveGoogle = resolve;
+    });
+    const harness = createRuntimeHarness({
+      initialize: (request) => {
+        if (request.providerId === 'google') {
+          return googleOutcome;
+        }
+        return Promise.resolve({
+          success: true,
+          metadata: {
+            attemptCount: 1,
+            contractVersion: '2026-07-25',
+            durationMs: 2,
+            phase: 'targetSelection',
+            providerId: request.providerId,
+            targetLanguage: request.targetLanguage,
+          },
+        });
+      },
+    });
+    const states: TranslationProviderConnectionState[] = [];
+    harness.runtime.subscribeConnectionState((state) => states.push(state));
+
+    const googleInitialization = harness.runtime.initializeSelectedProvider();
+    harness.setSettings({ ...DEFAULT_SETTINGS, providerId: 'yandex' });
+    const yandexResult = await harness.runtime.initializeSelectedProvider();
+    resolveGoogle({
+      success: true,
+      metadata: {
+        attemptCount: 1,
+        contractVersion: '2026-07-25',
+        durationMs: 3,
+        phase: 'targetSelection',
+        providerId: 'google',
+        targetLanguage: 'uk',
+      },
+    });
+    await googleInitialization;
+
+    assert.deepEqual(yandexResult, {
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+      providerId: 'yandex',
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+      targetLanguage: 'be',
+    });
+    assert.equal(
+      states.some(
+        (state) => state.providerId === 'google' && state.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+      ),
+      false,
+    );
+    assert.equal(harness.runtime.getConnectionState(), yandexResult);
   });
 
   it('fails closed for unsupported provider and target settings without registry access', () => {

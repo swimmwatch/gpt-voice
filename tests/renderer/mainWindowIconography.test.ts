@@ -44,7 +44,9 @@ describe('main window iconography', () => {
     assert.match(toolbar, /groupProvidersByCategory/u);
     assert.match(toolbar, /<SelectSeparator/u);
     assert.match(toolbar, /<Settings aria-hidden="true"/u);
-    assert.match(toolbar, /className="command-dock-provider-state command-dock-provider-state-success" role="status"/u);
+    assert.match(toolbar, /<ProviderStatusIndicator/u);
+    assert.match(toolbar, /className="command-dock-provider-state command-dock-provider-state-success"/u);
+    assert.match(toolbar, /dataSlot="voice-provider-connection"/u);
     assert.doesNotMatch(toolbar, /command-dock-provider-state[^>]+onClick=/u);
     assert.doesNotMatch(toolbar, /\bWrench\b/u);
     assert.match(

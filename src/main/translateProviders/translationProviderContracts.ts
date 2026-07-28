@@ -41,6 +41,14 @@ export interface TranslationProviderRequest {
   readonly signal?: AbortSignal;
 }
 
+export interface TranslationProviderInitializationRequest {
+  readonly audit: TranslationProviderAudit;
+  readonly auditContext: TranslationProviderAuditOperationContext;
+  readonly providerId: TranslationProviderId;
+  readonly targetLanguage: string;
+  readonly signal?: AbortSignal;
+}
+
 export interface TranslationProviderOperationMetadata {
   readonly providerId?: TranslationProviderId;
   readonly targetLanguage?: string;
@@ -64,6 +72,15 @@ export interface TranslationProviderSuccess {
   };
 }
 
+export interface TranslationProviderInitializationSuccess {
+  readonly success: true;
+  readonly metadata: TranslationProviderOperationMetadata & {
+    readonly providerId: TranslationProviderId;
+    readonly targetLanguage: string;
+    readonly contractVersion: string;
+  };
+}
+
 export interface TranslationProviderFailure {
   readonly success: false;
   readonly code: TranslationProviderFailureCode;
@@ -73,6 +90,8 @@ export interface TranslationProviderFailure {
 }
 
 export type TranslationProviderOutcome = TranslationProviderSuccess | TranslationProviderFailure;
+export type TranslationProviderInitializationOutcome =
+  TranslationProviderInitializationSuccess | TranslationProviderFailure;
 
 export interface TranslationProviderHookSuccess<T> {
   readonly success: true;

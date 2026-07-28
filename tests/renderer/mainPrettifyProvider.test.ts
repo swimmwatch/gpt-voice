@@ -23,7 +23,11 @@ describe('main Prettify provider view state', () => {
       ollamaControl: null,
       providerId: 'ollama',
       providerLabelKey: 'prettify.provider.ollama',
-      status: { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' },
+      status: {
+        labelKey: 'mainDock.prettifyNotConfigured',
+        tone: 'neutral',
+        tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
+      },
     });
 
     const configured = createSettings({ ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'gemma3:1b' } });
@@ -40,7 +44,11 @@ describe('main Prettify provider view state', () => {
       [],
     );
     assert.equal(vllm.model, 'qwen');
-    assert.deepEqual(vllm.status, { labelKey: 'mainDock.prettifyConfigured', tone: 'success' });
+    assert.deepEqual(vllm.status, {
+      labelKey: 'mainDock.prettifyConfigured',
+      tone: 'success',
+      tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
+    });
 
     const claudeSettings = createSettings({
       providerId: 'claude-cli',
@@ -55,7 +63,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(claude.connection, {
       labelKey: 'provider.connected',
       tone: 'success',
-      valueKey: 'prettify.cli.statusAvailable',
+      tooltipKey: 'prettify.cli.statusAvailable',
     });
 
     const codex = getMainPrettifyProviderViewState(createSettings({ providerId: 'codex-cli' }), [], {
@@ -66,7 +74,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(codex.connection, {
       labelKey: 'mainDock.prettifySignIn',
       tone: 'warning',
-      valueKey: 'mainDock.prettifySignInHelp',
+      tooltipKey: 'mainDock.prettifySignInHelp',
     });
   });
 
@@ -75,7 +83,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
       labelKey: 'mainDock.prettifyChecking',
       tone: 'neutral',
-      valueKey: 'prettify.cli.statusChecking',
+      tooltipKey: 'prettify.cli.statusChecking',
     });
     assert.deepEqual(
       getMainPrettifyProviderViewState(settings, [], {
@@ -86,7 +94,7 @@ describe('main Prettify provider view state', () => {
       {
         labelKey: 'mainDock.prettifyUnavailable',
         tone: 'error',
-        valueKey: 'prettify.cli.statusUnavailable',
+        tooltipKey: 'prettify.cli.statusUnavailable',
       },
     );
   });

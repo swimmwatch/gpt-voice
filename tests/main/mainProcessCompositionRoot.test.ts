@@ -774,6 +774,7 @@ describe('main process composition root', () => {
 
     assert.notEqual(first.state.ipcHandlers, second.state.ipcHandlers);
     assert.equal(first.state.ipcHandlers.size, second.state.ipcHandlers.size);
+    const secondStartupAuditRecordCount = second.state.translationAuditRecords.length;
     const translateHandler = first.state.ipcHandlers.get('translate-text');
     assert.ok(translateHandler);
     assert.ok(first.state.window);
@@ -786,7 +787,7 @@ describe('main process composition root', () => {
       'ru',
     );
     assert.equal(first.state.translationAuditRecords.length > 0, true);
-    assert.equal(second.state.translationAuditRecords.length, 0);
+    assert.equal(second.state.translationAuditRecords.length, secondStartupAuditRecordCount);
     assert.equal(first.state.translationAuditRecords.join('').includes('private-source-canary'), false);
 
     first.app.emitWillQuit({ preventDefault: () => undefined });

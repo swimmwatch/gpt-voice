@@ -3,6 +3,10 @@ import { AboutWindowController } from './aboutWindowController';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
+  type TranslationProviderConnectionState,
+} from '@shared/translationProvider';
 
 const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
@@ -74,6 +78,10 @@ export class WindowManager {
       this.mainWindow?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
     }
   }
+
+  public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {
+    this.mainWindow?.webContents.send(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state);
+  };
 
   public publishProviderSettingsChanged(settings: unknown, source: Pick<WebContents, 'id'>): void {
     if (!this.mainWindow || this.mainWindow.webContents.id === source.id) return;

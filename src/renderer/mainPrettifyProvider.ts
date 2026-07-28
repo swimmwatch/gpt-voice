@@ -14,6 +14,7 @@ export type MainPrettifyProviderStatusTone = 'error' | 'neutral' | 'success' | '
 export interface MainPrettifyProviderStatus {
   labelKey: string;
   tone: MainPrettifyProviderStatusTone;
+  tooltipKey?: string;
   valueKey?: string;
 }
 
@@ -59,15 +60,35 @@ function getProviderStatus(
   switch (settings.providerId) {
     case 'ollama':
       if (!settings.ollama.model) {
-        return { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' };
+        return {
+          labelKey: 'mainDock.prettifyNotConfigured',
+          tone: 'neutral',
+          tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
+        };
       }
       return ollamaControl?.isLoaded
-        ? { labelKey: 'modelMemory.loaded', tone: 'success' }
-        : { labelKey: 'modelMemory.notLoaded', tone: 'neutral' };
+        ? {
+            labelKey: 'modelMemory.loaded',
+            tone: 'success',
+            tooltipKey: 'mainDock.prettifyOllamaLoadedTooltip',
+          }
+        : {
+            labelKey: 'modelMemory.notLoaded',
+            tone: 'neutral',
+            tooltipKey: 'mainDock.prettifyOllamaNotLoadedTooltip',
+          };
     case 'vllm':
       return settings.vllm.model
-        ? { labelKey: 'mainDock.prettifyConfigured', tone: 'success' }
-        : { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' };
+        ? {
+            labelKey: 'mainDock.prettifyConfigured',
+            tone: 'success',
+            tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
+          }
+        : {
+            labelKey: 'mainDock.prettifyNotConfigured',
+            tone: 'neutral',
+            tooltipKey: 'mainDock.prettifyVllmNotConfiguredTooltip',
+          };
     case 'claude-cli':
       return null;
     case 'codex-cli':
@@ -81,15 +102,31 @@ export function getMainPrettifyCliConnectionViewState(
 ): MainPrettifyProviderStatus | null {
   if (providerId !== 'claude-cli' && providerId !== 'codex-cli') return null;
   if (!connection || connection.providerId !== providerId || connection.status === 'checking') {
-    return { labelKey: 'mainDock.prettifyChecking', tone: 'neutral', valueKey: 'prettify.cli.statusChecking' };
+    return {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      tooltipKey: 'prettify.cli.statusChecking',
+    };
   }
   switch (connection.status) {
     case 'connected':
-      return { labelKey: 'provider.connected', tone: 'success', valueKey: 'prettify.cli.statusAvailable' };
+      return {
+        labelKey: 'provider.connected',
+        tone: 'success',
+        tooltipKey: 'prettify.cli.statusAvailable',
+      };
     case 'login-required':
-      return { labelKey: 'mainDock.prettifySignIn', tone: 'warning', valueKey: 'mainDock.prettifySignInHelp' };
+      return {
+        labelKey: 'mainDock.prettifySignIn',
+        tone: 'warning',
+        tooltipKey: 'mainDock.prettifySignInHelp',
+      };
     case 'unavailable':
-      return { labelKey: 'mainDock.prettifyUnavailable', tone: 'error', valueKey: 'prettify.cli.statusUnavailable' };
+      return {
+        labelKey: 'mainDock.prettifyUnavailable',
+        tone: 'error',
+        tooltipKey: 'prettify.cli.statusUnavailable',
+      };
   }
 }
 

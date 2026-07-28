@@ -569,6 +569,7 @@ export class MainProcessCompositionRoot {
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
+    translationRuntime.subscribeConnectionState(windowManager.publishTranslationProviderConnectionState);
     const diagnosticsExport = new DiagnosticsExportService({
       ...this.environment.diagnosticsExport,
       archive: diagnosticsArchive,

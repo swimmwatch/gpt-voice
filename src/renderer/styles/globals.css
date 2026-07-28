@@ -345,6 +345,13 @@
   color: var(--dock-success);
 }
 
+.command-dock-provider-state:focus-visible,
+.command-dock-prettify-state:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .command-dock .command-dock-provider-action {
   max-width: 104px;
   height: 28px;
@@ -757,7 +764,7 @@
   align-items: center;
   padding: 0 11px 0 16px;
   column-gap: 8px;
-  grid-template-columns: 22px 147px minmax(0, 1fr);
+  grid-template-columns: 22px 147px 200px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
 
@@ -780,6 +787,24 @@
 
 .command-dock .command-dock-translation-trigger {
   width: 100%;
+}
+
+.command-dock-translation-connection {
+  overflow: hidden;
+  color: var(--destructive);
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-dock-translation-connection.is-success {
+  color: var(--dock-success);
+}
+
+.command-dock-translation-connection.is-neutral {
+  color: var(--dock-muted);
 }
 
 .command-dock .command-dock-language-field:last-of-type .command-dock-translation-trigger {
@@ -850,7 +875,7 @@
   .command-dock-language-band {
     min-height: 91px;
     flex-basis: 91px;
-    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-columns: 22px minmax(0, 1fr) auto;
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
@@ -860,6 +885,11 @@
 
   .command-dock-language-field {
     grid-column: 2;
+  }
+
+  .command-dock-translation-connection {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .command-dock-record-button-main {

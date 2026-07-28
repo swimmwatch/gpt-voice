@@ -9,7 +9,10 @@ import type {
   UnknownProviderAuditLifecycleInput,
 } from '@main/providerAudit';
 import { TranslationProviderAudit } from '@main/translateProviders/translationProviderAudit';
-import type { TranslationProviderRequest } from '@main/translateProviders/translationProviderContracts';
+import type {
+  TranslationProviderInitializationRequest,
+  TranslationProviderRequest,
+} from '@main/translateProviders/translationProviderContracts';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
 
 export type TranslationAuditLifecycleInput =
@@ -122,6 +125,19 @@ export class TranslationProviderRequestFixture {
       audit: this.audit,
       auditContext: this.audit.startTranslate(this.defaults.providerId),
       ...this.defaults,
+      ...overrides,
+    };
+  }
+
+  public createInitialization(
+    overrides: Partial<Omit<TranslationProviderInitializationRequest, 'audit' | 'auditContext'>> = {},
+  ): TranslationProviderInitializationRequest {
+    return {
+      audit: this.audit,
+      auditContext: this.audit.startSettingsReadiness(this.defaults.providerId),
+      providerId: this.defaults.providerId,
+      targetLanguage: this.defaults.targetLanguage,
+      ...(this.defaults.signal === undefined ? {} : { signal: this.defaults.signal }),
       ...overrides,
     };
   }

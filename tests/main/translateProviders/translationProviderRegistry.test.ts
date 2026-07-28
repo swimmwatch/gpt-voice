@@ -23,6 +23,8 @@ import {
   createPlaywrightYandexTranslatePageAdapter,
 } from '@main/translateProviders/YandexTranslateProvider';
 import type {
+  TranslationProviderInitializationOutcome,
+  TranslationProviderInitializationRequest,
   TranslationProviderOutcome,
   TranslationProviderRequest,
 } from '@main/translateProviders/translationProviderContracts';
@@ -35,6 +37,11 @@ import {
 import { noopTranslationProviderAudit, RecordingTranslationProviderAudit } from './translationAuditTestUtils';
 
 class TestTranslationProvider implements TranslationProviderInstance {
+  public readonly initialize = (
+    _request: TranslationProviderInitializationRequest,
+  ): Promise<TranslationProviderInitializationOutcome> => {
+    return Promise.reject(new Error('Unexpected test initialization'));
+  };
   public readonly translate = (_request: TranslationProviderRequest): Promise<TranslationProviderOutcome> => {
     return Promise.reject(new Error('Unexpected test translation'));
   };

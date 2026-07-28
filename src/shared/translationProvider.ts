@@ -32,6 +32,53 @@ export interface TranslationSettingsSaveResult {
   readonly success: boolean;
 }
 
+export const TRANSLATION_PROVIDER_CONNECTION_STATUSES = {
+  Checking: 'checking',
+  Connected: 'connected',
+  NotConnected: 'not-connected',
+} as const;
+
+export type TranslationProviderConnectionStatus =
+  (typeof TRANSLATION_PROVIDER_CONNECTION_STATUSES)[keyof typeof TRANSLATION_PROVIDER_CONNECTION_STATUSES];
+
+export const TRANSLATION_PROVIDER_CONNECTION_DETAILS = {
+  Cancelled: 'cancelled',
+  CleanupFailed: 'cleanup-failed',
+  ConsentOrChallenge: 'consent-or-challenge',
+  InvalidSettings: 'invalid-settings',
+  NavigationFailed: 'navigation-failed',
+  NotStarted: 'not-started',
+  OpeningProvider: 'opening-provider',
+  PageChanged: 'page-changed',
+  Ready: 'ready',
+  TranslationDisabled: 'translation-disabled',
+  UnexpectedFailure: 'unexpected-failure',
+} as const;
+
+export type TranslationProviderConnectionDetail =
+  (typeof TRANSLATION_PROVIDER_CONNECTION_DETAILS)[keyof typeof TRANSLATION_PROVIDER_CONNECTION_DETAILS];
+
+export interface TranslationProviderConnectionState {
+  readonly detail: TranslationProviderConnectionDetail;
+  readonly providerId: TranslationProviderId | null;
+  readonly status: TranslationProviderConnectionStatus;
+  readonly targetLanguage: string | null;
+}
+
+export const TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS = {
+  changed: 'translation-provider-connection-changed',
+  get: 'get-translation-provider-connection',
+} as const;
+
+export const INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE: TranslationProviderConnectionState = Object.freeze({
+  detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.NotStarted,
+  providerId: null,
+  status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+  targetLanguage: null,
+});
+
+const TRANSLATION_PROVIDER_CONNECTION_STATE_KEYS = ['detail', 'providerId', 'status', 'targetLanguage'] as const;
+
 export const TRANSLATION_PROVIDER_INFO = Object.freeze({
   google: {
     id: 'google',
@@ -84,4 +131,53 @@ export function getTranslationLanguage(providerId: unknown, code: unknown): Tran
 
 export function isTranslationTargetLanguage(providerId: unknown, code: unknown): code is string {
   return getTranslationLanguage(providerId, code) !== undefined;
+}
+
+export function isTranslationProviderConnectionState(value: unknown): value is TranslationProviderConnectionState {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  const keys = Object.keys(candidate);
+  if (
+    keys.length !== TRANSLATION_PROVIDER_CONNECTION_STATE_KEYS.length ||
+    !keys.every((key) => (TRANSLATION_PROVIDER_CONNECTION_STATE_KEYS as readonly string[]).includes(key))
+  ) {
+    return false;
+  }
+  if (
+    !Object.values(TRANSLATION_PROVIDER_CONNECTION_STATUSES).includes(
+      candidate.status as TranslationProviderConnectionStatus,
+    ) ||
+    !Object.values(TRANSLATION_PROVIDER_CONNECTION_DETAILS).includes(
+      candidate.detail as TranslationProviderConnectionDetail,
+    )
+  ) {
+    return false;
+  }
+
+  const validSelection =
+    candidate.providerId === null
+      ? candidate.targetLanguage === null
+      : isTranslationProviderId(candidate.providerId) &&
+        isTranslationTargetLanguage(candidate.providerId, candidate.targetLanguage);
+  if (!validSelection) return false;
+
+  switch (candidate.status) {
+    case TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking:
+      return candidate.detail === TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
+    case TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected:
+      return candidate.detail === TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready;
+    case TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected:
+      return (
+        candidate.detail !== TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider &&
+        candidate.detail !== TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready
+      );
+    default:
+      return false;
+  }
+}
+
+export function sanitizeTranslationProviderConnectionState(value: unknown): TranslationProviderConnectionState {
+  return isTranslationProviderConnectionState(value)
+    ? Object.freeze({ ...value })
+    : INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE;
 }

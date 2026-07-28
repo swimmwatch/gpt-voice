@@ -16,9 +16,11 @@ import {
   type MainPrettifyCliConnectionState,
 } from './mainPrettifyCliConnection';
 import {
+  PROVIDER_CONNECTION_REASONS,
   getProviderLoginState,
   isActiveProviderSettingsChange,
   isProviderConfigured,
+  type ProviderConnectionReason,
   type ProviderLoginState,
 } from './providerState';
 import {
@@ -42,7 +44,11 @@ import {
   type PrettifyProviderId,
   type PrettifySettings,
 } from '@shared/prettifySettings';
-import { DEFAULT_TRANSLATION_SETTINGS, type TranslationSettings } from '@shared/translationProvider';
+import {
+  DEFAULT_TRANSLATION_SETTINGS,
+  type TranslationProviderConnectionState,
+  type TranslationSettings,
+} from '@shared/translationProvider';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import {
   createTranslationProviderCandidate,
@@ -60,11 +66,17 @@ const App: React.FC = () => {
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [providerConnectionReason, setProviderConnectionReason] = useState<ProviderConnectionReason>(
+    PROVIDER_CONNECTION_REASONS.SessionMissing,
+  );
+  const [providerConnectionFailureStatus, setProviderConnectionFailureStatus] = useState<RendererStatus | null>(null);
   const [translationSettingsSelection, dispatchTranslationSettingsSelection] = useReducer(
     reduceTranslationSettingsViewState,
     createTranslationSettingsViewState(DEFAULT_TRANSLATION_SETTINGS),
   );
   const translationSettings = translationSettingsSelection.settings;
+  const [translationConnectionState, setTranslationConnectionState] =
+    useState<TranslationProviderConnectionState | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -104,6 +116,7 @@ const App: React.FC = () => {
   const prettifyProviderChangeRequestRef = useRef(0);
   const translationSettingsRequestRef = useRef(0);
   const translationSettingsSavePendingRef = useRef(false);
+  const translationConnectionRequestRef = useRef(0);
 
   const updateRecordingState = useCallback((nextState: RecordingLifecycleState): void => {
     recordingStateRef.current = nextState;
@@ -217,17 +230,19 @@ const App: React.FC = () => {
       const loginState = getProviderLoginState(authType, hasSession, backgroundStatus);
       setIsLoggedIn(loginState.isLoggedIn);
       setIsLoading(loginState.isLoading);
+      setProviderConnectionReason(loginState.reason);
+      setProviderConnectionFailureStatus(null);
 
       if (authType === 'browserSession' && loginState.sessionExpired) {
         preserveStatusRef.current = true;
         setStatusAndNotify(translatedStatus('status.sessionExpired'));
       } else if (authType === 'browserSession' && backgroundStatus?.error) {
         preserveStatusRef.current = true;
-        setStatusAndNotify(
-          translatedStatus('status.browserInitFailed', {
-            error: notificationErrorStatus(presentNotificationError(backgroundStatus.error, { context: 'generic' })),
-          }),
-        );
+        const failureStatus = translatedStatus('status.browserInitFailed', {
+          error: notificationErrorStatus(presentNotificationError(backgroundStatus.error, { context: 'generic' })),
+        });
+        setProviderConnectionFailureStatus(failureStatus);
+        setStatusAndNotify(failureStatus);
       } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
@@ -267,6 +282,8 @@ const App: React.FC = () => {
         setActiveProviderId(event.providerId);
         setIsLoggingIn(false);
         setIsLoading(true);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
+        setProviderConnectionFailureStatus(null);
         return;
       case 'switch-completed': {
         const loginState = applyProviderLoginState(
@@ -342,6 +359,11 @@ const App: React.FC = () => {
       desktopApi.onTranslationStatus((nextStatus) => {
         if (!disposed) setStatus(textActionStatusToRendererStatus(nextStatus));
       }),
+      desktopApi.onTranslationProviderConnectionChanged((connectionState) => {
+        if (disposed) return;
+        translationConnectionRequestRef.current += 1;
+        setTranslationConnectionState(connectionState);
+      }),
       desktopApi.onBgBrowserReady((providerId) => {
         if (
           disposed ||
@@ -353,6 +375,8 @@ const App: React.FC = () => {
         preserveStatusRef.current = false;
         setIsLoggedIn(true);
         setIsLoading(false);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
+        setProviderConnectionFailureStatus(null);
       }),
       desktopApi.onBgBrowserError((providerId, error, authExpired) => {
         if (
@@ -407,9 +431,21 @@ const App: React.FC = () => {
         // Keep the last confirmed in-memory snapshot when IPC is unavailable.
       });
 
+    const translationConnectionRequestId = ++translationConnectionRequestRef.current;
+    void desktopApi
+      .getTranslationProviderConnection()
+      .then((connectionState) => {
+        if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
+        setTranslationConnectionState(connectionState);
+      })
+      .catch(() => {
+        // Keep the last main-process connection state when IPC is unavailable.
+      });
+
     return () => {
       disposed = true;
       translationSettingsRequestRef.current += 1;
+      translationConnectionRequestRef.current += 1;
       translationSettingsSavePendingRef.current = false;
       providerSelectionCoordinator.dispose();
       if (providerSelectionCoordinatorRef.current === providerSelectionCoordinator) {
@@ -425,8 +461,10 @@ const App: React.FC = () => {
     (settings: ProviderSettings): void => {
       if (settings.authType === 'browserSession') {
         setIsLoading(false);
+        setProviderConnectionFailureStatus(null);
         if (!settings.hasSession) {
           setIsLoggedIn(false);
+          setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
           preserveStatusRef.current = true;
           setStatusAndNotify(translatedStatus('status.providerNotConfigured', { provider: activeProviderName }));
         }
@@ -435,6 +473,10 @@ const App: React.FC = () => {
 
       const configured = isProviderConfigured(settings);
       setIsLoggedIn(configured);
+      setProviderConnectionReason(
+        configured ? PROVIDER_CONNECTION_REASONS.ApiConfigured : PROVIDER_CONNECTION_REASONS.ApiNotConfigured,
+      );
+      setProviderConnectionFailureStatus(null);
       setIsLoading(false);
       if (configured) {
         preserveStatusRef.current = false;
@@ -478,6 +520,8 @@ const App: React.FC = () => {
     }
 
     setIsLoggingIn(true);
+    setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
+    setProviderConnectionFailureStatus(null);
     preserveStatusRef.current = false;
     setStatus(translatedStatus('status.loggingIn', { provider: providerName }));
     try {
@@ -485,21 +529,28 @@ const App: React.FC = () => {
       if (activeProviderIdRef.current !== providerId) return;
       if (result.success) {
         setIsLoggedIn(true);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
         setStatusAndNotify(translatedStatus('status.loggedIn', { provider: providerName }));
       } else {
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
         preserveStatusRef.current = true;
         const presented = presentNotificationError(result.error, {
           context: 'generic',
         });
-        setStatusAndNotify(translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) }));
+        const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+        setProviderConnectionFailureStatus(failureStatus);
+        setStatusAndNotify(failureStatus);
       }
     } catch (error: unknown) {
       if (activeProviderIdRef.current !== providerId) return;
+      setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
       preserveStatusRef.current = true;
       const presented = presentNotificationError(error, {
         context: 'generic',
       });
-      setStatusAndNotify(translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) }));
+      const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+      setProviderConnectionFailureStatus(failureStatus);
+      setStatusAndNotify(failureStatus);
     } finally {
       setIsLoggingIn(false);
     }
@@ -669,6 +720,10 @@ const App: React.FC = () => {
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
+        providerConnectionFailureTooltip={
+          providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
+        }
+        providerConnectionReason={providerConnectionReason}
         onOpenAbout={openAboutWindow}
         onOpenAppSettings={() => openAppSettingsWindow()}
         onOpenHistory={openHistoryWindow}
@@ -689,6 +744,7 @@ const App: React.FC = () => {
         settings={prettifySettings}
       />
       <TranslateSection
+        connectionState={translationConnectionState}
         error={translationSettingsSelection.error}
         isSaving={translationSettingsSelection.pendingRequestId !== null}
         onProviderChange={(providerId) => {

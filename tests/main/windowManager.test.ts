@@ -5,6 +5,7 @@ import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebCo
 import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { WindowManager } from '@main/window';
+import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 
 type WindowListener = (...args: unknown[]) => void;
 
@@ -169,6 +170,21 @@ describe('WindowManager', () => {
     mainWindow?.triggerClose();
     assert.equal(mainWindow?.hideCount, 1);
     assert.equal(mainWindow?.destroyed, false);
+  });
+
+  it('publishes only the closed Translation connection state to the main window', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    const state = {
+      detail: 'navigation-failed',
+      providerId: 'google',
+      status: 'not-connected',
+      targetLanguage: 'en',
+    } as const;
+
+    harness.manager.publishTranslationProviderConnectionState(state);
+
+    assert.deepEqual(harness.created[0]?.sent, [[TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state]]);
   });
 
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', () => {

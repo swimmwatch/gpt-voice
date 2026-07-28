@@ -25,7 +25,11 @@ import type {
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import type { TextActionStatus } from '@shared/textActionStatus';
-import type { TranslationSettings, TranslationSettingsSaveResult } from '@shared/translationProvider';
+import type {
+  TranslationProviderConnectionState,
+  TranslationSettings,
+  TranslationSettingsSaveResult,
+} from '@shared/translationProvider';
 import type {
   DiagnosticCaptureClearRequest,
   DiagnosticCaptureClearResult,
@@ -94,6 +98,7 @@ export interface ElectronAPI {
   onStopRecording: (callback: () => void) => () => void;
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
+  onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
@@ -163,6 +168,7 @@ export interface ElectronAPI {
   setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
   getTranslateSettings: () => Promise<TranslationSettings>;
+  getTranslationProviderConnection: () => Promise<TranslationProviderConnectionState>;
   getTextActionSettings: () => Promise<TextActionSettings>;
   getDiagnosticCaptureSettings: () => Promise<DiagnosticCaptureSettings>;
   setDiagnosticCaptureSettings: (

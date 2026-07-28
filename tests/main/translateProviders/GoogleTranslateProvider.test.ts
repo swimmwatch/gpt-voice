@@ -242,6 +242,22 @@ const requestFixture = new TranslationProviderRequestFixture({
 });
 
 describe('GoogleTranslateProvider', () => {
+  it('opens the selected Google target page during initialization without submitting text', async () => {
+    const harness = createHarness();
+    harness.adapter.navigationRoute = createTranslatorRoute('uk', 'ru');
+
+    const outcome = await harness.provider.initialize(requestFixture.createInitialization({ targetLanguage: 'uk' }));
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.adapter.navigatedUrls.length, 1);
+    const navigationUrl = new URL(harness.adapter.navigatedUrls[0] ?? '');
+    assert.equal(navigationUrl.origin, 'https://translate.google.ru');
+    assert.equal(navigationUrl.searchParams.get('tl'), 'uk');
+    assert.equal(navigationUrl.searchParams.has('text'), false);
+    assert.deepEqual(harness.adapter.insertedTexts, []);
+  });
+
   it('binds only the shared Google metadata and rejects source-only auto before browser creation', async () => {
     const harness = createHarness();
 

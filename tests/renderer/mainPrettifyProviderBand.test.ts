@@ -139,9 +139,11 @@ describe('main Prettify provider band contract', () => {
 
     assert.match(app, /checkPrettifyCliConnection\(providerId\)/u);
     assert.match(band, /className="command-dock-prettify-controls"/u);
-    assert.match(band, /data-slot="prettify-cli-connection"/u);
+    assert.match(band, /dataSlot="prettify-cli-connection"/u);
     assert.match(band, /command-dock-provider-state command-dock-prettify-connection/u);
-    assert.match(band, /aria-label=\{t\(viewState\.connection\.valueKey/u);
+    assert.match(band, /<ProviderStatusIndicator/u);
+    assert.match(band, /viewState\.connection\.tooltipKey/u);
+    assert.match(band, /dataSlot="prettify-provider-state"/u);
     assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: 125px;/u);
     assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: 125px;/u);
     assert.match(

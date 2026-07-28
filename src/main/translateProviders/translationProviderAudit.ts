@@ -60,6 +60,14 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
     return this.startOperation(providerId, 'translate', 'validation', metadata, operationId);
   }
 
+  public startSettingsReadiness(
+    providerId: unknown,
+    metadata: TranslationProviderAuditMetadata = {},
+    operationId?: string,
+  ): TranslationProviderAuditOperationContext {
+    return this.startOperation(providerId, 'settings-readiness', 'validation', metadata, operationId);
+  }
+
   public toPhase(phase: TranslationProviderPhase): ProviderAuditPhase {
     switch (phase) {
       case 'sourceDetection':

@@ -4,6 +4,11 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import type { IpcRendererEvent } from 'electron';
 import { createElectronApi, type ElectronApiIpcRenderer } from '@main/preloadApi';
+import {
+  INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE,
+  TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
+  type TranslationProviderConnectionState,
+} from '@shared/translationProvider';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -74,6 +79,51 @@ describe('preload API factory', () => {
 
     assert.deepEqual(firstEvents, [true]);
     assert.deepEqual(secondEvents, [false]);
+  });
+
+  it('sanitizes Translation connection queries and ignores malformed events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const api = createElectronApi(renderer);
+    const events: TranslationProviderConnectionState[] = [];
+    renderer.respond(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get, {
+      detail: 'navigation-failed',
+      message: 'private-message-canary',
+      providerId: 'google',
+      status: 'not-connected',
+      targetLanguage: 'en',
+    });
+    const unsubscribe = api.onTranslationProviderConnectionChanged((state) => events.push(state));
+
+    assert.equal(await api.getTranslationProviderConnection(), INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE);
+    renderer.emit(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, {
+      detail: 'ready',
+      providerId: 'google',
+      status: 'connected',
+      targetLanguage: 'en',
+    });
+    renderer.emit(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, {
+      detail: 'navigation-failed',
+      providerId: 'google',
+      stack: 'private-stack-canary',
+      status: 'not-connected',
+      targetLanguage: 'en',
+    });
+    unsubscribe();
+    renderer.emit(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, {
+      detail: 'ready',
+      providerId: 'bing',
+      status: 'connected',
+      targetLanguage: 'en',
+    });
+
+    assert.deepEqual(events, [
+      {
+        detail: 'ready',
+        providerId: 'google',
+        status: 'connected',
+        targetLanguage: 'en',
+      },
+    ]);
   });
 
   it('exposes exactly one factory result through the preload bridge', () => {
