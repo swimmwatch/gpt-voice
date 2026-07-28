@@ -19,6 +19,10 @@ describe('window appearance', () => {
     assert.match(rendererTemplate, /background: #181a1b;/u);
     assert.match(rendererTemplate, /color-scheme: dark;/u);
     assert.match(rendererTemplate, /id="window-startup-loader"/u);
+    assert.match(
+      rendererTemplate,
+      /#window-startup-spinner \{[\s\S]*?width: 48px;[\s\S]*?height: 48px;[\s\S]*?border: 4px solid #737679;/u,
+    );
     assert.match(rendererTemplate, /cursor: progress;/u);
   });
 
