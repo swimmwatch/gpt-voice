@@ -10,9 +10,21 @@ const ARCHIVE_ADAPTER_PATH = path.join(WORKSPACE_PATH, 'src/main/services/diagno
 const ARCHIVER_PACKAGE_PATH = 'node_modules/archiver';
 const NATIVE_FILE_SUFFIXES = ['.dll', '.dylib', '.exe', '.node', '.so'] as const;
 const FORBIDDEN_RUNTIME_DEPENDENCY_PATTERNS = [/^bindings$/u, /^node-gyp/u, /^node-pre-gyp/u, /^prebuild/u];
+const FORBIDDEN_ANALYSIS_DEPENDENCIES = [
+  'adm-zip',
+  'extract-zip',
+  'jszip',
+  'node-stream-zip',
+  'python-shell',
+  'tar-stream',
+  'unzipper',
+  'yauzl',
+] as const;
 
 interface PackageJson {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly devDependencies?: Readonly<Record<string, string>>;
+  readonly scripts?: Readonly<Record<string, string>>;
 }
 
 interface PackageLockEntry {
@@ -59,6 +71,36 @@ function getDependencyClosure(packages: Readonly<Record<string, PackageLockEntry
 }
 
 describe('diagnostics archive dependency policy', () => {
+  it('keeps diagnostics analysis outside package scripts and dependencies', () => {
+    const packageJson = readJson<PackageJson>(PACKAGE_JSON_PATH);
+    const directDependencies = {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    };
+
+    for (const dependencyName of FORBIDDEN_ANALYSIS_DEPENDENCIES) {
+      assert.equal(directDependencies[dependencyName], undefined, dependencyName);
+    }
+
+    const scriptCommands = Object.values(packageJson.scripts ?? {}).join('\n');
+    for (const forbiddenInvocation of [
+      'analyze-diagnostics-archive',
+      'inspect_diagnostics_archive',
+      'python3',
+      '.py',
+    ]) {
+      assert.equal(scriptCommands.includes(forbiddenInvocation), false, forbiddenInvocation);
+    }
+
+    const runtimeSources = fs
+      .readdirSync(path.join(WORKSPACE_PATH, 'src'), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && /\.(?:ts|tsx)$/u.test(entry.name))
+      .map((entry) => fs.readFileSync(path.join(entry.parentPath, entry.name), 'utf8'))
+      .join('\n');
+    assert.equal(runtimeSources.includes('inspect_diagnostics_archive'), false);
+    assert.equal(runtimeSources.includes('analyze-diagnostics-archive'), false);
+  });
+
   it('keeps archiver direct and narrowly imported by the main archive adapter', () => {
     const packageJson = readJson<PackageJson>(PACKAGE_JSON_PATH);
     assert.equal(packageJson.dependencies?.archiver, '^8.0.0');

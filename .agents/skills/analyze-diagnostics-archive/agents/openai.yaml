@@ -1,4 +1,4 @@
 interface:
   display_name: "Analyze Diagnostics Archive"
-  short_description: "Safely analyze GPT-Voice diagnostics archives"
-  default_prompt: "Use $analyze-diagnostics-archive to validate this GPT-Voice diagnostics archive and produce an evidence-linked incident report from the supplied issue context."
+  short_description: "Best-effort analysis of a confirmed local GPT-Voice export"
+  default_prompt: "Use $analyze-diagnostics-archive only after confirming this is my unchanged local GPT-Voice export. Use an already-available read-only capability for bounded evidence and write at most one private incident report when the filesystem safeguards can be established."

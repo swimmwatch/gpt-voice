@@ -470,7 +470,7 @@ For deeper troubleshooting, open **App settings → Audit Log**:
 
 Use **Export diagnostics** in the same Audit Log section to create a private support archive. Windows exports ZIP; Linux and macOS export tar.gz. The archive always contains the schema-versioned metadata audit stream and manifest, and automatically includes retained text only for capture categories enabled at export time. Archives are not encrypted. Treat the database, archive, and any derived report as private data, and review them before sharing.
 
-Repository contributors can analyze an exported archive with `$analyze-diagnostics-archive`. Supply the local archive path together with the issue description, expected behavior, observed behavior, and approximate occurrence time. The skill validates the archive before analysis and defaults its evidence-linked report to the ignored path `.artifacts/diagnostics/<archive-id>/report.md`.
+Repository contributors can analyze an exported archive with `$analyze-diagnostics-archive`. Supply the local archive path together with the issue description, expected behavior, observed behavior, and approximate occurrence time, and confirm that the unchanged local GPT-Voice export remained under your control. Analysis is bounded and best-effort, requires a suitable already-available read-only archive capability, and may be unavailable when the required preflight cannot be established. A successful run may write at most one private evidence-linked report under the ignored path `.artifacts/diagnostics/<archive-id>/report.md`; the tool and agent workflow prove neither archive authenticity nor malicious-input safety.
 
 ## Privacy And Sessions
 

@@ -1,7 +1,7 @@
 # Todo: Current Branch Security Remediation
 
 - [x] [01 Bound diagnostics archive production](01_bound_diagnostics_archive_production.md)
-- [ ] [02 Replace the diagnostics inspector](02_replace_diagnostics_inspector.md)
+- [x] [02 Replace the diagnostics inspector](02_replace_diagnostics_inspector.md)
 - [ ] [03 Harden Prettify HTTP readiness](03_harden_prettify_http_readiness.md)
 - [ ] [04 Settle initial Voice and Translation readiness](04_settle_initial_voice_translation_readiness.md)
 - [ ] [05 Make Translation browser reset recoverable](05_make_translation_reset_recoverable.md)

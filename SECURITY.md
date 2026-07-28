@@ -54,7 +54,7 @@ Translation and Prettify diagnostic text capture is an explicit local plaintext 
 - Storage is per-user, permission-restricted, retention- and size-bounded, and can be purged by category or in full from **App settings → Audit Log**.
 - Diagnostic ZIP or tar.gz exports are not encrypted and automatically include retained text for categories enabled when the export begins.
 
-Treat the diagnostic database, exported archive, and any derived analysis report as private data. Review and redact them before sharing. GPT-Voice never uploads these artifacts or opens them automatically.
+Treat the diagnostic database, exported archive, and any derived analysis report as private, best-effort-redacted data. Review and redact them before sharing. Repository analysis is a bounded, tool-dependent workflow that proves neither archive authenticity nor malicious-input safety. GPT-Voice never uploads these artifacts or opens them automatically.
 
 ## Disclosure Policy
 

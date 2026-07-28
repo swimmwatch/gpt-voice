@@ -1,6 +1,5 @@
 /* eslint-disable max-classes-per-file -- Integration fixtures own isolated audit, storage, and archive state. */
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -45,11 +44,6 @@ import {
 import type { DiagnosticCaptureSettings } from '@shared/diagnosticCaptureSettings';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 
-const WORKSPACE_PATH = path.resolve(__dirname, '../..');
-const DIAGNOSTICS_INSPECTOR_PATH = path.join(
-  WORKSPACE_PATH,
-  '.agents/skills/analyze-diagnostics-archive/scripts/inspect_diagnostics_archive.py',
-);
 const OCCURRED_AT = '2026-07-27T12:00:00.000Z';
 const ARCHIVE_ID = '20000000-0000-4000-8000-000000000001';
 const VOICE_OPERATION_ID = '00000000-0000-4000-8000-000000000041';
@@ -364,7 +358,7 @@ afterEach(() => {
 });
 
 describe('provider audit privacy integration', () => {
-  it('keeps prohibited channels out of audit, manifest, diagnostic rows, and bounded analysis excerpts', async () => {
+  it('keeps prohibited channels out of producer audit, manifest, and diagnostic rows', async () => {
     const harness = new DiagnosticsPrivacyHarness();
     harness.emitProviderAuditMatrix();
 
@@ -419,32 +413,6 @@ describe('provider audit privacy integration', () => {
       diagnosticRows.some(({ providerId }) => ['chatgpt', 'openai-api', 'claude-web'].includes(String(providerId))),
       false,
     );
-
-    const excerptExecution = spawnSync(
-      'python3',
-      [
-        DIAGNOSTICS_INSPECTOR_PATH,
-        'excerpt',
-        '--archive',
-        archivePath,
-        '--action-id',
-        String(diagnosticRows[0]?.actionId),
-        '--field',
-        'source',
-      ],
-      {
-        encoding: 'utf8',
-        env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
-        maxBuffer: 1024 * 1024,
-      },
-    );
-    assert.equal(excerptExecution.status, 0, excerptExecution.stderr);
-    const excerpt = JSON.parse(excerptExecution.stdout) as Record<string, unknown>;
-    assert.equal(excerpt.status, 'validated-excerpt');
-    assert.equal(Number(excerpt.excerptCharacters) <= 200, true);
-    for (const marker of Object.values(PROHIBITED_MARKERS)) {
-      assert.equal(String(excerpt.excerpt).includes(marker), false, `excerpt:${marker}`);
-    }
   });
 
   it('omits disabled categories and all diagnostic text while preserving metadata audit events', async () => {
