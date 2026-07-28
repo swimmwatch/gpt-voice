@@ -51,7 +51,7 @@ describe('main window iconography', () => {
     assert.doesNotMatch(toolbar, /\bWrench\b/u);
     assert.match(
       styles,
-      /\.command-dock-provider-controls \{[\s\S]*?width: 125px;[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
+      /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
     );
     assert.match(styles, /\.command-dock-provider-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u);
     assert.match(styles, /\.command-dock-provider-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);

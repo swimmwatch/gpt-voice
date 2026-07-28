@@ -49,8 +49,15 @@ describe('main translation Select controls', () => {
       /\.command-dock-translation-select-content \[data-slot='select-viewport'\] \{[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
     );
     assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?\.command-dock-language-band \{/u);
-    assert.match(styles, /grid-template-columns: 22px 147px 200px minmax\(0, 1fr\);/u);
-    assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?grid-template-columns: 22px minmax\(0, 1fr\) auto;/u);
+    assert.match(styles, /--dock-translation-target-width: 175px;/u);
+    assert.match(
+      styles,
+      /grid-template-columns:[\s\S]*?22px 147px var\(--dock-translation-target-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
+    );
+    assert.match(
+      styles,
+      /@media \(max-width: 439px\)[\s\S]*?grid-template-columns: 22px minmax\(0, 1fr\) var\(--dock-provider-controls-width\);/u,
+    );
     assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?grid-column: 4;/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
     assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 420/u);

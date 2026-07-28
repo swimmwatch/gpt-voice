@@ -2,7 +2,11 @@ import { BrainCircuit, Gauge, LoaderCircle, Settings } from 'lucide-react';
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
-import { getMainPrettifyProviderViewState, MAIN_PRETTIFY_PROVIDER_LABEL_KEYS } from '@renderer/mainPrettifyProvider';
+import {
+  getMainPrettifyProviderViewState,
+  MAIN_PRETTIFY_PROVIDER_LABEL_KEYS,
+  type MainPrettifyHttpConnectionState,
+} from '@renderer/mainPrettifyProvider';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
 import {
@@ -24,7 +28,9 @@ import {
 
 interface MainPrettifyProviderBandProps {
   cliConnection: MainPrettifyCliConnectionState | null;
+  connectionError: string;
   error: string;
+  httpConnection: MainPrettifyHttpConnectionState | null;
   isModelActionRunning: boolean;
   isProviderChangeSaving: boolean;
   ollamaModels: readonly PrettifyModelOption[];
@@ -42,7 +48,9 @@ const PRETTIFY_PROVIDER_GROUPS = [
 /** Renders the permanent, provider-specific Prettify controls in the main command dock. */
 function MainPrettifyProviderBand({
   cliConnection,
+  connectionError,
   error,
+  httpConnection,
   isModelActionRunning,
   isProviderChangeSaving,
   ollamaModels,
@@ -52,7 +60,7 @@ function MainPrettifyProviderBand({
   settings,
 }: MainPrettifyProviderBandProps): React.JSX.Element {
   const { t } = useI18n();
-  const viewState = getMainPrettifyProviderViewState(settings, ollamaModels, cliConnection);
+  const viewState = getMainPrettifyProviderViewState(settings, ollamaModels, cliConnection, httpConnection);
   const providerStatus = viewState.status;
   const hasModelAction = Boolean(viewState.ollamaControl);
   const model = viewState.model || t(viewState.modelFallbackKey);
@@ -66,6 +74,12 @@ function MainPrettifyProviderBand({
       : '');
   const providerStatusTooltip =
     error || (providerStatus ? t(providerStatus.tooltipKey ?? providerStatus.valueKey ?? providerStatus.labelKey) : '');
+  const providerStatusHasError = Boolean(error);
+  const providerConnectionTooltip =
+    connectionError ||
+    (viewState.connection
+      ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
+      : '');
 
   return (
     <section className="command-dock-prettify-band" data-slot="prettify-provider-band">
@@ -109,8 +123,8 @@ function MainPrettifyProviderBand({
               className="command-dock-prettify-state"
               dataSlot="prettify-provider-state"
               label={providerStatusLabel}
-              role={error ? 'alert' : 'status'}
-              tone={error ? 'error' : (providerStatus?.tone ?? 'neutral')}
+              role={providerStatusHasError ? 'alert' : 'status'}
+              tone={providerStatusHasError ? 'error' : (providerStatus?.tone ?? 'neutral')}
               tooltip={providerStatusTooltip}
             />
           )}
@@ -143,12 +157,10 @@ function MainPrettifyProviderBand({
           {viewState.connection && (
             <ProviderStatusIndicator
               className="command-dock-provider-state command-dock-prettify-connection"
-              dataSlot="prettify-cli-connection"
+              dataSlot="prettify-provider-connection"
               label={t(viewState.connection.labelKey)}
               tone={viewState.connection.tone}
-              tooltip={t(
-                viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey,
-              )}
+              tooltip={providerConnectionTooltip}
             />
           )}
 

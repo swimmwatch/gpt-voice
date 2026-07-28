@@ -49,4 +49,23 @@ describe('provider status indicators', () => {
     assert.match(band, /providerStatus\.tooltipKey/u);
     assert.match(band, /viewState\.connection\.tooltipKey/u);
   });
+
+  it('reserves one stable status column across Voice, Prettify, and Translation', () => {
+    const styles = readProjectFile('src/renderer/styles/globals.css');
+
+    assert.match(styles, /--dock-provider-controls-width: 125px;/u);
+    assert.match(styles, /--dock-translation-target-width: 175px;/u);
+    assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
+    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
+    assert.match(
+      styles,
+      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?var\(--dock-translation-target-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
+    );
+    assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?width: 100%;[\s\S]*?justify-self: stretch;/u);
+    assert.match(
+      styles,
+      /\.command-dock-provider-state > span \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/u,
+    );
+    assert.doesNotMatch(styles, /\.command-dock-translation-connection \{[\s\S]*?justify-self: end;/u);
+  });
 });

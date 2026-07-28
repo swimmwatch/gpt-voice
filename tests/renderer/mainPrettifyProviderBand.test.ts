@@ -36,8 +36,8 @@ describe('main Prettify provider band contract', () => {
   it('persists only the provider ID before checking the authoritative active provider', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const refresh = app.slice(
-      app.indexOf('const refreshOllamaModelState'),
-      app.indexOf('const {', app.indexOf('const refreshOllamaModelState')),
+      app.indexOf('const refreshPrettifyProviderState'),
+      app.indexOf('const {', app.indexOf('const refreshPrettifyProviderState')),
     );
     const handler = app.slice(
       app.indexOf('const handlePrettifyProviderChange'),
@@ -49,8 +49,10 @@ describe('main Prettify provider band contract', () => {
     assert.match(handler, /type: 'begin'/u);
     assert.match(handler, /type: 'rejected'/u);
     assert.doesNotMatch(handler, /listPrettifyModels|loadPrettifyModel|prettifyText|auth/u);
-    assert.match(refresh, /settings\.providerId !== 'ollama'/u);
-    assert.match(refresh, /listPrettifyModels\('ollama', settings\)/u);
+    assert.match(refresh, /isPrettifyCliProviderId\(settings\.providerId\)/u);
+    assert.match(refresh, /const providerId = settings\.providerId/u);
+    assert.match(refresh, /listPrettifyModels\(providerId, settings\)/u);
+    assert.match(refresh, /setPrettifyConnectionError/u);
   });
 
   it('opens App Settings directly on Prettify and keeps Ollama as the only main-band model action', () => {
@@ -132,23 +134,27 @@ describe('main Prettify provider band contract', () => {
     );
   });
 
-  it('places an untruncated CLI status in the Voice-aligned right-side controls', () => {
+  it('places provider connection status in the stable Voice-aligned right-side controls', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const band = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
     assert.match(app, /checkPrettifyCliConnection\(providerId\)/u);
     assert.match(band, /className="command-dock-prettify-controls"/u);
-    assert.match(band, /dataSlot="prettify-cli-connection"/u);
+    assert.match(app, /httpConnection=\{prettifyHttpConnection\}/u);
+    assert.match(band, /dataSlot="prettify-provider-connection"/u);
     assert.match(band, /command-dock-provider-state command-dock-prettify-connection/u);
     assert.match(band, /<ProviderStatusIndicator/u);
-    assert.match(band, /viewState\.connection\.tooltipKey/u);
+    assert.match(band, /const providerConnectionTooltip =/u);
+    assert.match(band, /connectionError \|\|/u);
+    assert.match(band, /tooltip=\{providerConnectionTooltip\}/u);
     assert.match(band, /dataSlot="prettify-provider-state"/u);
-    assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: 125px;/u);
-    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: 125px;/u);
+    assert.doesNotMatch(band, /connectionError\s+\?\s+t\('provider\.notConnected'\)/u);
+    assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
+    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(
       styles,
-      /\.command-dock-prettify-layout \{[\s\S]*?grid-template-columns: 22px 147px minmax\(0, 1fr\) 125px;/u,
+      /\.command-dock-prettify-layout \{[\s\S]*?grid-template-columns: 22px 147px minmax\(0, 1fr\) var\(--dock-provider-controls-width\);/u,
     );
     assert.match(styles, /\.command-dock-prettify-connection \{[^}]*white-space: nowrap;/u);
     assert.doesNotMatch(styles, /\.command-dock-prettify-connection \{[^}]*font-size:/u);

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getMainPrettifyProviderViewState, reduceMainPrettifyProviderSelection } from '@renderer/mainPrettifyProvider';
+import {
+  getMainPrettifyProviderViewState,
+  MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
+  reduceMainPrettifyProviderSelection,
+} from '@renderer/mainPrettifyProvider';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
 
 function createSettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
@@ -17,7 +21,11 @@ function createSettings(overrides: Partial<PrettifySettings> = {}): PrettifySett
 describe('main Prettify provider view state', () => {
   it('shows Ollama model memory without hiding an unconfigured provider', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(createSettings(), []), {
-      connection: null,
+      connection: {
+        labelKey: 'mainDock.prettifyChecking',
+        tone: 'neutral',
+        tooltipKey: 'provider.connectionCheckingTooltip',
+      },
       model: '',
       modelFallbackKey: 'prettify.noModels',
       ollamaControl: null,
@@ -72,7 +80,7 @@ describe('main Prettify provider view state', () => {
     });
     assert.equal(codex.status, null);
     assert.deepEqual(codex.connection, {
-      labelKey: 'mainDock.prettifySignIn',
+      labelKey: 'provider.notConnected',
       tone: 'warning',
       tooltipKey: 'mainDock.prettifySignInHelp',
     });
@@ -92,10 +100,48 @@ describe('main Prettify provider view state', () => {
         status: 'unavailable',
       }).connection,
       {
-        labelKey: 'mainDock.prettifyUnavailable',
+        labelKey: 'provider.notConnected',
         tone: 'error',
         tooltipKey: 'prettify.cli.statusUnavailable',
       },
+    );
+  });
+
+  it('shows HTTP connection progress, success, failure, and ignores stale provider results', () => {
+    const settings = createSettings({ providerId: 'vllm' });
+    assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      tooltipKey: 'provider.connectionCheckingTooltip',
+    });
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'vllm',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+      }).connection,
+      {
+        labelKey: 'provider.connected',
+        tone: 'success',
+        tooltipKey: 'provider.connectionReadyTooltip',
+      },
+    );
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'vllm',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+      }).connection,
+      {
+        labelKey: 'provider.notConnected',
+        tone: 'error',
+        tooltipKey: 'mainDock.prettifyUnavailable',
+      },
+    );
+    assert.equal(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'ollama',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+      }).connection?.labelKey,
+      'mainDock.prettifyChecking',
     );
   });
 });

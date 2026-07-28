@@ -28,6 +28,19 @@ describe('window startup state', () => {
     }
   });
 
+  it('keeps the main loader until all three selected provider families settle', () => {
+    const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
+
+    assert.match(source, /isInitialProviderStartupPending\(\{/u);
+    assert.match(source, /prettifyPending: isInitialPrettifyProviderLoading/u);
+    assert.match(source, /translationConnection: translationConnectionState/u);
+    assert.match(source, /translationSettingsPending: !hasLoadedInitialTranslationSettings/u);
+    assert.match(source, /voicePending: isLoading/u);
+    assert.match(source, /useWindowStartupReady\(isI18nReady && !providerStartupPending\)/u);
+    assert.match(source, /if \(!isI18nReady \|\| providerStartupPending\) return <LoadingScreen \/>;/u);
+    assert.match(source, /setTranslationConnectionState\(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE\)/u);
+  });
+
   it('clears the busy cursor after the startup content becomes ready', () => {
     const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/WindowStartupGate.tsx'), 'utf8');
 

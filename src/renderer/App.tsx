@@ -9,7 +9,11 @@ import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
-import { reduceMainPrettifyProviderSelection } from './mainPrettifyProvider';
+import {
+  MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
+  reduceMainPrettifyProviderSelection,
+  type MainPrettifyHttpConnectionState,
+} from './mainPrettifyProvider';
 import {
   createMainPrettifyCliConnectionCoordinator,
   getActivePrettifyCliProviderId,
@@ -39,7 +43,9 @@ import {
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
 import {
+  DEFAULT_PRETTIFY_PROVIDER_ID,
   DEFAULT_PRETTIFY_SETTINGS,
+  isPrettifyCliProviderId,
   type PrettifyModelOption,
   type PrettifyProviderId,
   type PrettifySettings,
@@ -56,6 +62,7 @@ import {
   createTranslationSettingsViewState,
   reduceTranslationSettingsViewState,
 } from './translationSettingsViewState';
+import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE, isInitialProviderStartupPending } from './providerStartupState';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
@@ -77,6 +84,7 @@ const App: React.FC = () => {
   const translationSettings = translationSettingsSelection.settings;
   const [translationConnectionState, setTranslationConnectionState] =
     useState<TranslationProviderConnectionState | null>(null);
+  const [hasLoadedInitialTranslationSettings, setHasLoadedInitialTranslationSettings] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -91,11 +99,20 @@ const App: React.FC = () => {
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
+  const [prettifyConnectionError, setPrettifyConnectionError] = useState('');
+  const [prettifyHttpConnection, setPrettifyHttpConnection] = useState<MainPrettifyHttpConnectionState | null>(null);
   const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
+  const [hasLoadedInitialPrettifySettings, setHasLoadedInitialPrettifySettings] = useState(false);
+  const [isInitialPrettifyProviderLoading, setIsInitialPrettifyProviderLoading] = useState(true);
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
       check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
-      update: setPrettifyCliConnection,
+      update: (connection) => {
+        setPrettifyCliConnection(connection);
+        if (connection !== null && connection.status !== 'checking') {
+          setIsInitialPrettifyProviderLoading(false);
+        }
+      },
     }),
   );
 
@@ -104,8 +121,14 @@ const App: React.FC = () => {
   const activeProviderName = activeProvider?.name || activeProviderId;
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
   const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
+  const providerStartupPending = isInitialProviderStartupPending({
+    prettifyPending: isInitialPrettifyProviderLoading,
+    translationConnection: translationConnectionState,
+    translationSettingsPending: !hasLoadedInitialTranslationSettings,
+    voicePending: isLoading,
+  });
 
-  useWindowStartupReady(isI18nReady && !isLoading);
+  useWindowStartupReady(isI18nReady && !providerStartupPending);
 
   const preserveStatusRef = useRef(false);
   const recordingStateRef = useRef<RecordingLifecycleState>('idle');
@@ -124,10 +147,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!hasLoadedInitialPrettifySettings) return;
     prettifyCliConnectionCoordinator.refresh(
       getActivePrettifyCliProviderId(prettifySettings.providerId, prettifyProviderSelection.pendingRequestId !== null),
     );
   }, [
+    hasLoadedInitialPrettifySettings,
     prettifySettings.providerId,
     prettifySettings.claudeCli.executablePath,
     prettifySettings.claudeCli.timeoutSeconds,
@@ -161,30 +186,55 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
-  const refreshOllamaModelState = useCallback(
+  const refreshPrettifyProviderState = useCallback(
     async (settings: PrettifySettings): Promise<void> => {
       const refreshId = ++prettifyModelRefreshIdRef.current;
       dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
       setIsPrettifyModelActionRunning(false);
       setPrettifyModelActionError('');
+      setPrettifyConnectionError('');
 
-      if (settings.providerId !== 'ollama' || !settings.ollama.model) {
+      if (isPrettifyCliProviderId(settings.providerId)) {
         setOllamaModelOptions([]);
+        setPrettifyHttpConnection(null);
         return;
       }
 
+      const providerId = settings.providerId;
+      setPrettifyHttpConnection({
+        providerId,
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Checking,
+      });
       try {
-        const result = await desktopApi.listPrettifyModels('ollama', settings);
+        const result = await desktopApi.listPrettifyModels(providerId, settings);
         if (refreshId === prettifyModelRefreshIdRef.current) {
-          setOllamaModelOptions(result.success ? result.models : []);
+          setOllamaModelOptions(providerId === 'ollama' && result.success ? result.models : []);
+          setPrettifyHttpConnection({
+            providerId,
+            status: result.success
+              ? MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
+              : MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+          setPrettifyConnectionError(
+            result.success
+              ? ''
+              : presentNotificationError(result.error, {
+                  context: 'generic',
+                }).userMessage,
+          );
         }
       } catch {
         if (refreshId === prettifyModelRefreshIdRef.current) {
           setOllamaModelOptions([]);
+          setPrettifyHttpConnection({
+            providerId,
+            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+          setPrettifyConnectionError(t('error.notificationUnknown'));
         }
       }
     },
-    [desktopApi],
+    [desktopApi, t],
   );
 
   const recordingActions = useRecording({
@@ -202,24 +252,48 @@ const App: React.FC = () => {
 
   useEffect(() => {
     let disposed = false;
-    const refresh = (settings: PrettifySettings): void => {
-      if (!disposed) {
-        void refreshOllamaModelState(settings);
+    const refresh = async (settings: PrettifySettings, initial: boolean): Promise<void> => {
+      if (disposed) return;
+      if (initial) {
+        setHasLoadedInitialPrettifySettings(true);
+      }
+      await refreshPrettifyProviderState(settings);
+      if (initial && !disposed && !isPrettifyCliProviderId(settings.providerId)) {
+        setIsInitialPrettifyProviderLoading(false);
       }
     };
 
     void desktopApi
       .getPrettifySettings()
-      .then(refresh)
-      .catch(() => undefined);
-    const unsubscribe = desktopApi.onPrettifySettingsChanged(refresh);
+      .then((settings) => refresh(settings, true))
+      .catch(() => {
+        if (disposed) return;
+        setHasLoadedInitialPrettifySettings(true);
+        if (isPrettifyCliProviderId(DEFAULT_PRETTIFY_PROVIDER_ID)) {
+          setPrettifyCliConnection({
+            errorCode: 'process-failed',
+            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
+            status: 'unavailable',
+          });
+        } else {
+          setPrettifyHttpConnection({
+            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
+            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+        }
+        setPrettifyConnectionError(t('error.notificationUnknown'));
+        setIsInitialPrettifyProviderLoading(false);
+      });
+    const unsubscribe = desktopApi.onPrettifySettingsChanged((settings) => {
+      void refresh(settings, false);
+    });
 
     return () => {
       disposed = true;
       prettifyProviderChangeRequestRef.current += 1;
       unsubscribe();
     };
-  }, [desktopApi, refreshOllamaModelState]);
+  }, [desktopApi, refreshPrettifyProviderState, t]);
 
   const applyProviderLoginState = useCallback(
     (
@@ -391,15 +465,26 @@ const App: React.FC = () => {
           return;
         }
         // The background-browser event is synchronous; refresh its session state without delaying the event callback.
-        void desktopApi.checkSession().then((hasSession) => {
-          if (
-            !disposed &&
-            providerId === activeProviderIdRef.current &&
-            activeProviderAuthTypeRef.current === 'browserSession'
-          ) {
-            applyProviderLoginStateRef.current('browserSession', hasSession, { ready: false, error });
-          }
-        });
+        void desktopApi
+          .checkSession()
+          .then((hasSession) => {
+            if (
+              !disposed &&
+              providerId === activeProviderIdRef.current &&
+              activeProviderAuthTypeRef.current === 'browserSession'
+            ) {
+              applyProviderLoginStateRef.current('browserSession', hasSession, { ready: false, error });
+            }
+          })
+          .catch(() => {
+            if (
+              !disposed &&
+              providerId === activeProviderIdRef.current &&
+              activeProviderAuthTypeRef.current === 'browserSession'
+            ) {
+              applyProviderLoginStateRef.current('browserSession', false, { ready: false, error });
+            }
+          });
       }),
       desktopApi.onHotkeySettingsChanged((settings) => {
         if (disposed) return;
@@ -426,9 +511,12 @@ const App: React.FC = () => {
       .then((settings) => {
         if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
         dispatchTranslationSettingsSelection({ settings, type: 'snapshot' });
+        setHasLoadedInitialTranslationSettings(true);
       })
       .catch(() => {
-        // Keep the last confirmed in-memory snapshot when IPC is unavailable.
+        if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
+        setHasLoadedInitialTranslationSettings(true);
+        setTranslationConnectionState(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE);
       });
 
     const translationConnectionRequestId = ++translationConnectionRequestRef.current;
@@ -439,7 +527,8 @@ const App: React.FC = () => {
         setTranslationConnectionState(connectionState);
       })
       .catch(() => {
-        // Keep the last main-process connection state when IPC is unavailable.
+        if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
+        setTranslationConnectionState(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE);
       });
 
     return () => {
@@ -709,7 +798,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (!isI18nReady || isLoading) return <LoadingScreen />;
+  if (!isI18nReady || providerStartupPending) return <LoadingScreen />;
 
   return (
     <main className="command-dock" data-slot="main-window">
@@ -734,7 +823,9 @@ const App: React.FC = () => {
       />
       <MainPrettifyProviderBand
         cliConnection={prettifyCliConnection}
+        connectionError={prettifyConnectionError}
         error={prettifyProviderSelection.error || prettifyModelActionError}
+        httpConnection={prettifyHttpConnection}
         isModelActionRunning={isPrettifyModelActionRunning}
         isProviderChangeSaving={prettifyProviderSelection.pendingRequestId !== null}
         ollamaModels={ollamaModelOptions}
