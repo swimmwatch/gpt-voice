@@ -2159,3 +2159,34 @@ decisions:
     rationale: Only the current Linux host is available. Packet 10 cannot complete because its Windows archive, packaged Prettify, accessibility, dependency, and packaged-runtime acceptance must run on a real Windows host.
     supersedes_revision: null
     requirement_ids: [AC-MAN-002, AC-MAN-003, AC-MAN-005, AC-MAN-006]
+
+  - id: publication.current-branch-security-remediation-pr-state
+    revision: 1
+    category: publication
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - feature/translation-providers
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      question_id: publication.current-branch-security-remediation-pr-state
+      idempotency_key: publication.current-branch-security-remediation-pr-state:v1
+      last_status: answered
+    question:
+      text: Should this PR be a draft or ready for review? The approved specification still blocks merge on native Linux/Windows manual gates and final review.
+      kind: single
+      options:
+        - id: draft
+          label: Create draft PR
+          description: Push the branch and open a draft PR into main, accurately marking the six required native/manual gates and final review as outstanding.
+        - id: ready
+          label: Create ready PR
+          description: Push the branch and open a ready-for-review PR into main while explicitly stating it is not merge-ready until the outstanding manual gates and final review pass.
+    answer:
+      selected_ids: [ready]
+      text: ''
+    rationale: The user authorized a ready-for-review pull request. Its title and description must still state that merge remains blocked by the six native/manual acceptance gates and final review.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
