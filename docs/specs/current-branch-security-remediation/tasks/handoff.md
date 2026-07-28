@@ -3,57 +3,48 @@
 ## Status
 
 - Specification revision 3 and plan revision 2 remain approved.
-- Packets 01–08 are committed; Packet 08 is
-  `29cec340 docs(security): reconcile remediation guidance`.
-- Packet 09 remains incomplete and unchecked after its fresh packaged-runtime
-  failure.
-- The contract-preserving Packet 07 packaging repair was authorized through
-  Prompt MCP decision `execution.task-07-packaging-repair` revision 1.
-- The Packet 07 repair is complete, verified, unstaged, and uncommitted for
+- Packets 01–09 are complete. Packet 08 is
+  `29cec340 docs(security): reconcile remediation guidance`; the Packet 07
+  packaging repair is `f788a6a fix(security): exclude bare runtime packages`.
+- Packet 09 passed against full gate HEAD
+  `f788a6ac9d679698bde0dc40202b9e697529c91b` on Linux x64 with Node
+  `v24.18.0` and npm `12.0.1`.
+- Packet 09 checklist and handoff changes are unstaged and uncommitted for
   review.
-
-## Packet 07 Repair
-
-- Root cause: Electron Builder follows the production dependency graph
-  independently of positive `build.files` entries. Removing the five positive
-  package patterns therefore left the Bare-only branch in the generated ASAR.
-- `package.json` now has exact negative file filters for `bare-fs`,
-  `bare-path`, `bare-stream`, `bare-url`, and `teex`.
-- `ElectronNodeArchiveRuntimePolicy` owns the exclusion invariant. It requires
-  all five exact negative filters while rejecting missing filters, positive
-  inclusions, approved-runtime entries, and other Node-module exclusions.
-- Deterministic policy tests cover the exact package configuration, missing
-  exclusions, positive inclusions, and overbroad exclusions.
 
 ## Changed Files
 
-- `package.json`
-- `scripts/dependency-policy/electronNodeArchiveRuntimePolicy.ts`
-- `tests/scripts/productionAdvisoryPolicy.test.ts`
-- `tests/scripts/packagedRuntimePolicy.test.ts`
-- This handoff
+- `docs/specs/current-branch-security-remediation/tasks/todo.md`
+- `docs/specs/current-branch-security-remediation/tasks/handoff.md`
+- Ignored local gate evidence under `dist/`, `build/generated/`, and
+  `release/linux-unpacked/`
 
 ## Verification
 
-- Focused Packet 07 suite passed: 41 tests across 5 files.
-- Production and test TypeScript checks, full ESLint, and Prettier passed.
-- Dependabot configuration validation passed.
-- Diagnostics dependency policy passed for Linux x64 and Windows x64 locked
-  closures and current Linux x64 installed artifacts: 48 Node runtime
-  packages, 42 Bare-only findings, and one executable script were classified.
-- Production audit passed its configured threshold with only the canonical
-  moderate `GHSA-r292-9mhp-454m` advisory.
-- `git diff --check` passed and `package-lock.json` remains byte-identical.
+- Focused cross-packet suite passed: 212 tests across 28 files.
+- Production and test TypeScript checks, ESLint, Prettier, and the full unit
+  suite passed; the full suite contained 1,175 tests across 211 suites.
+- Dependabot configuration and diagnostics dependency policy passed for
+  Linux x64 and Windows x64 locked closures and current Linux x64 installed
+  artifacts: 48 Node-runtime packages, 42 Bare-only findings, and one
+  executable script were classified.
+- The production audit passed with only the canonical moderate
+  `GHSA-r292-9mhp-454m` advisory.
+- The production build passed with the unchanged three Webpack performance
+  warnings for asset size, entrypoint size, and code-splitting guidance.
+- The no-download CloakBrowser preflight passed with auto-update disabled and
+  an accessible cached native binary.
+- A fresh Linux x64 unpacked artifact was built after recording the gate HEAD,
+  and packaged-runtime verification passed against that artifact.
+- `git diff --check` passed; the gate HEAD remained unchanged through packaged
+  verification.
 
 ## Remaining Risk And Exact Continuation
 
-- The prior ignored Linux unpacked artifact demonstrates the old failure and
-  is stale after this repair. No package result is claimed from the focused
-  Packet 07 checks.
-- Review the repair and separately authorize its scoped commit, suggested as
-  `fix(security): exclude bare runtime packages`.
-- After that commit, separately authorize a full Packet 09 rerun against a new
-  recorded HEAD. The rerun must create and verify a fresh native unpacked
-  artifact; no partial result from the failed gate can be reused.
-- Do not begin Packet 10 or Provider Audit Task 24 while Packet 09 remains
-  incomplete.
+- The automated packaged evidence is native to this Linux x64 host and is not
+  Windows or cross-platform manual acceptance.
+- [Packet 10](10_complete_native_manual_gates.md) is the exact next packet. It
+  requires separately authorized manual execution on real Linux and Windows
+  hosts; a real Windows x64 host is not available in this session and remains
+  a completion blocker for that packet.
+- Do not begin Packet 10 or Provider Audit Task 24 in this packet.
