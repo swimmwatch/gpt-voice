@@ -36,7 +36,7 @@ export const ELECTRON_LOCALE_FILENAMES = ['en-GB.pak', 'en-US.pak', 'ru.pak', 'u
 // eslint-disable-next-line security/detect-unsafe-regex -- Anchored locale-resource file-name validation.
 const ELECTRON_LOCALE_FILE_NAME = /^[a-z]{2,3}(?:-[A-Z]{2,3})?\.pak$/u;
 
-const ALLOWED_RUNTIME_MODULES = new Set([
+export const APPROVED_RUNTIME_MODULES = Object.freeze([
   '@floating-ui/core',
   '@floating-ui/dom',
   '@floating-ui/react-dom',
@@ -89,10 +89,6 @@ const ALLOWED_RUNTIME_MODULES = new Set([
   'balanced-match',
   'base64-js',
   'bare-events',
-  'bare-fs',
-  'bare-path',
-  'bare-stream',
-  'bare-url',
   'brace-expansion',
   'buffer',
   'buffer-crc32',
@@ -149,7 +145,6 @@ const ALLOWED_RUNTIME_MODULES = new Set([
   'tailwind-merge',
   'tar',
   'tar-stream',
-  'teex',
   'text-decoder',
   'tslib',
   'use-callback-ref',
@@ -158,6 +153,7 @@ const ALLOWED_RUNTIME_MODULES = new Set([
   'yallist',
   'zip-stream',
 ]);
+const ALLOWED_RUNTIME_MODULES = new Set(APPROVED_RUNTIME_MODULES);
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(['__test__', '__tests__', 'fixture', 'fixtures', 'test', 'tests']);
 

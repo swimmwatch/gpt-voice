@@ -42,6 +42,12 @@ GPT-Voice is a desktop app that controls a browser session and handles voice inp
 - Production dependency audits run with `npm run audit:prod`.
 - Sensitive files, session data, browser caches, credentials, and local release artifacts must not be committed.
 
+## Known production advisory exceptions
+
+| Advisory | Locked production path | Severity | Impact | Override policy | Responsible upstream dependency | Last reviewed | Recheck triggers |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `GHSA-r292-9mhp-454m` | `cloakbrowser@0.4.12 -> tar@7.5.19` | moderate | Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member selection. | No compatible CloakBrowser resolution has been validated; a forced transitive override can break its archive/runtime behavior. | `cloakbrowser` | `2026-07-28` | Any CloakBrowser or lockfile change, advisory update, or compatible upstream fix. |
+
 ## Local Diagnostic Capture Exception
 
 Provider audit events are always-on, schema-versioned, and metadata-only. They exclude audio, transcripts, selected text, prompts, results, credentials, URLs, paths, raw provider responses, command output, and exception details.

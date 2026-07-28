@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 interface PackagedRuntimePolicyModule {
+  APPROVED_RUNTIME_MODULES: readonly string[];
   ELECTRON_LOCALE_FILENAMES: readonly string[];
   RUNTIME_ASSET_PATHS: readonly string[];
   getElectronLocaleViolations: (paths: readonly string[]) => string[];
@@ -23,6 +24,7 @@ function isPackagedRuntimePolicyModule(value: unknown): value is PackagedRuntime
   return (
     typeof value === 'object' &&
     value !== null &&
+    Array.isArray((value as Record<string, unknown>).APPROVED_RUNTIME_MODULES) &&
     Array.isArray((value as Record<string, unknown>).ELECTRON_LOCALE_FILENAMES) &&
     Array.isArray((value as Record<string, unknown>).RUNTIME_ASSET_PATHS) &&
     typeof (value as Record<string, unknown>).getElectronLocaleViolations === 'function' &&
@@ -56,10 +58,6 @@ const archiveRuntimeModules = [
   'balanced-match',
   'base64-js',
   'bare-events',
-  'bare-fs',
-  'bare-path',
-  'bare-stream',
-  'bare-url',
   'brace-expansion',
   'buffer',
   'buffer-crc32',
@@ -87,11 +85,11 @@ const archiveRuntimeModules = [
   'streamx',
   'string_decoder',
   'tar-stream',
-  'teex',
   'text-decoder',
   'util-deprecate',
   'zip-stream',
 ] as const;
+const bareOnlyRuntimeModules = ['bare-fs', 'bare-path', 'bare-stream', 'bare-url', 'teex'] as const;
 
 describe('packaged runtime policy', () => {
   it('packages only the audited Codex schema through the existing asset resource', async () => {
@@ -144,7 +142,7 @@ describe('packaged runtime policy', () => {
     );
   });
 
-  it('packages the approved direct archive dependency and its locked JavaScript graph', async () => {
+  it('packages the approved Electron/Node archive graph and excludes the Bare-only branch', async () => {
     const packageJson: unknown = JSON.parse(await readFile(packagePath, 'utf8'));
     assert.ok(isRecord(packageJson) && isRecord(packageJson.dependencies) && isRecord(packageJson.build));
     assert.equal(packageJson.dependencies.archiver, '^8.0.0');
@@ -152,6 +150,20 @@ describe('packaged runtime policy', () => {
     assert.ok(Array.isArray(files));
     for (const moduleName of archiveRuntimeModules) {
       assert.equal(files.includes(`node_modules/${moduleName}/**/*`), true, moduleName);
+    }
+    for (const moduleName of bareOnlyRuntimeModules) {
+      assert.equal(files.includes(`node_modules/${moduleName}/**/*`), false, moduleName);
+    }
+
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isPackagedRuntimePolicyModule(importedModule));
+    assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes('bare-events'), true);
+    for (const moduleName of bareOnlyRuntimeModules) {
+      assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes(moduleName), false, moduleName);
+      assert.deepEqual(
+        importedModule.getPackagedRuntimeViolations([...requiredPaths, `node_modules/${moduleName}/index.js`]),
+        [`unexpected runtime module: ${moduleName}`],
+      );
     }
   });
 
