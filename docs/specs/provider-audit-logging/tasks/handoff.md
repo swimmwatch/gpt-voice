@@ -1,74 +1,51 @@
-# Handoff: Provider Audit Task 23 Complete
+# Handoff: Provider Audit Tasks 01–23 Committed
 
 ## Status
 
-- Tasks 01–22 are committed; Task 22 is
-  `3073a5c feat(diagnostics): add archive analysis skill`.
-- Task 23 is implemented and verified. Its documentation, integration tests,
-  checklist, and this handoff are unstaged and uncommitted for review.
-- Task 22 commit and Task 23 execution are authorized through Prompt MCP
-  questions `commit.task-22` and `execution.task-23`, both revision 1.
+- Tasks 01–23 are committed.
+- Task 23 is commit
+  `89e8e833 docs(diagnostics): complete integration gate`.
+- Task 24 remains unchecked, unstarted, and requires separate execution
+  authorization.
 
-## Completed Work
+## Completed Boundary
 
-- Documented always-on metadata-only provider audit, default-off Translation
-  and Prettify capture, successful provider/cache eligibility, Voice
-  exclusion, best-effort redaction, plaintext SQLite, retention and size
-  limits, deletion, private archive formats, and repository analysis workflow.
-- Documented the approved plaintext diagnostic exception and private handling
-  requirements in `SECURITY.md`. The export location follows the final
-  `ui.diagnostics-export-location` decision: **App settings → Audit Log**.
-- Added an exhaustive cross-family registry gate proving every current Voice,
-  Prettify, and Translation provider has an audit mapping and a closed manifest
-  adapter.
-- Added a synthetic privacy matrix through real audit serialization,
-  redaction/storage, archive creation, category filtering, and the repository
-  inspector. Prohibited audio, transcript, prompt, model, credential, session,
-  account, URL, HTTP, exception, process, environment, path, cache, and
-  unrelated-log markers remain outside audit, manifests, retained rows, and
-  bounded excerpts.
-- Added an `archiver` policy gate proving the dependency is direct, imported
-  only by the main archive adapter, free of install scripts and native
-  binaries across its locked production closure, and isolated from shell,
-  network, and provider modules.
-- Audited all 80 active specification IDs: every ID is owned by `plan.md` and
-  at least one numbered packet after expanding documented ranges. `todo.md`
-  remains the sole completion checklist.
+- Metadata-only provider audit remains always enabled for Voice, Translation,
+  and Prettify lifecycle operations.
+- Default-off Translation and Prettify diagnostic capture retains only
+  successful eligible provider or cache text after best-effort redaction.
+  Voice audio and transcripts remain excluded.
+- Diagnostic storage remains local plaintext SQLite with bounded retention and
+  per-category deletion. ZIP and tar.gz exports remain private, unencrypted,
+  and best-effort-redacted.
+- `$analyze-diagnostics-archive` is an instruction-only, selective,
+  best-effort, tool-dependent workflow. The repository provides no parser,
+  validator, extractor, launcher, process adapter, report writer, or portable
+  analysis runtime.
+- Task 23 added synthetic registry, privacy, archive-production, documentation,
+  build, and integration evidence. Those checks do not replace live-provider,
+  native installed-package, private-archive, installer, signing, or Windows
+  packaged verification.
 
-## Changed Files
+## Evidence Boundaries And Remaining Risk
 
-- Documentation: `README.md`, `SECURITY.md`.
-- Integration coverage: `tests/main/providerAuditRegistry.test.ts`,
-  `tests/main/providerAuditPrivacy.test.ts`, and
-  `tests/scripts/diagnosticsArchiveDependencyPolicy.test.ts`.
-- Packet state: `docs/specs/provider-audit-logging/tasks/todo.md` and this
-  `handoff.md`.
+1. Host-independent lockfile policy covers complete Linux x64 and Windows x64
+   production closures.
+2. Installed-artifact inspection covers only the current matching host target.
+3. Native Linux and Windows installed/package evidence remains the separate
+   current-branch remediation Packet 10 gate.
 
-## Checks
+- macOS packaging remains paused pending signing and notarization.
+- The canonical moderate advisory is `GHSA-r292-9mhp-454m` on
+  `cloakbrowser@0.4.12 -> tar@7.5.19`. It is separate from Archiver's
+  creation-only closure and predates the reviewed six-commit range.
 
-- Focused Task 23 integration suite passed: 6 tests.
-- Full unit suite passed: 1,069 tests.
-- `npm run typecheck`, `npm run test:types`, `npm run lint`,
-  `npm run format:check`, and `git diff --check` passed.
-- `npm run audit:prod` passed at the configured high-severity threshold.
-  `npm ls archiver --omit=dev` resolves the direct `archiver@8.0.0`.
-- `npm run build:prod` passed. `npm run verify:packaged` passed against the
-  prepared Linux unpacked application, including ASAR, fuses, icon, license,
-  and CloakBrowser runtime.
-- Synthetic archive creation and bounded analysis passed without Electron UI,
-  network, providers, credentials, personal profiles, private audio/text, or
-  user archives. Temporary fixtures were removed in teardown.
+## Separate Continuations
 
-## Risks And Manual Gaps
-
-- The production audit reports one moderate `tar <=7.5.20` advisory below the
-  configured high-severity failure threshold. Task 23 adds no dependency or
-  lockfile changes.
-- No live provider, private user archive, installer, signing, or Windows
-  packaged flow was exercised. These remain deliberate manual boundaries.
-
-## Next Packet
-
-- [24 Sanitized manual verification](24_complete_sanitized_manual_verification.md)
-- Do not start Task 24 until Task 23 is reviewed and its commit boundary and
-  Task 24 execution are separately authorized.
+- Provider Audit Task 24:
+  [Sanitized manual verification](24_complete_sanitized_manual_verification.md).
+  It remains a separate workstream and must not start without its own explicit
+  execution authorization.
+- The active continuation is the current-branch security remediation
+  workstream. After Packet 08 is reviewed and committed, Packet 09 is the exact
+  next packet and requires separate execution authorization.

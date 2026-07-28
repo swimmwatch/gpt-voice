@@ -48,6 +48,22 @@ GPT-Voice is a desktop app that controls a browser session and handles voice inp
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `GHSA-r292-9mhp-454m` | `cloakbrowser@0.4.12 -> tar@7.5.19` | moderate | Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member selection. | No compatible CloakBrowser resolution has been validated; a forced transitive override can break its archive/runtime behavior. | `cloakbrowser` | `2026-07-28` | Any CloakBrowser or lockfile change, advisory update, or compatible upstream fix. |
 
+The advisory above is separate from the `archiver -> tar-stream -> bare-fs`
+archive-creation closure and predates the reviewed six-commit range.
+Dependency evidence is kept in three distinct tiers:
+
+1. Host-independent lockfile analysis proves complete production closure for
+   Linux x64 and Windows x64.
+2. Installed-artifact inspection proves only the current matching host target;
+   filename suffixes, mocked platforms, fixtures, and stale unpacked artifacts
+   are not cross-platform package evidence.
+3. Native installed and packaged-runtime proof for representative Linux and
+   Windows environments remains pending in remediation Packet 10.
+
+Mach-O classifier fixtures do not imply current macOS packaging evidence.
+macOS distribution remains paused until signing and notarization are
+configured.
+
 ## Local Diagnostic Capture Exception
 
 Provider audit events are always-on, schema-versioned, and metadata-only. They exclude audio, transcripts, selected text, prompts, results, credentials, URLs, paths, raw provider responses, command output, and exception details.
@@ -60,7 +76,24 @@ Translation and Prettify diagnostic text capture is an explicit local plaintext 
 - Storage is per-user, permission-restricted, retention- and size-bounded, and can be purged by category or in full from **App settings → Audit Log**.
 - Diagnostic ZIP or tar.gz exports are not encrypted and automatically include retained text for categories enabled when the export begins.
 
-Treat the diagnostic database, exported archive, and any derived analysis report as private, best-effort-redacted data. Review and redact them before sharing. Repository analysis is a bounded, tool-dependent workflow that proves neither archive authenticity nor malicious-input safety. GPT-Voice never uploads these artifacts or opens them automatically.
+The app-owned schema-v1 ZIP and tar.gz producer contract enforces inclusive
+ceilings of `64 MiB` per member, `128 MiB` total uncompressed payload, `8 MiB`
+per JSONL line excluding its terminator, `100,000` records per JSONL member,
+`1 MiB` of archive structure, a `130 MiB` outer archive, and a maximum reported
+compression ratio of `1000:1`.
+
+Treat the diagnostic database, exported archive, and any derived analysis
+report as local, unencrypted, private, best-effort-redacted data. Review and
+redact them before sharing. Repository analysis is instruction-only,
+selective, best-effort, and tool-dependent. The repository supplies no parser,
+validator, extractor, launcher, process adapter, report writer, or portable
+analysis runtime. The workflow proves neither archive authenticity nor
+hostile-input safety, complete schema validation, prompt-injection isolation,
+stable-file handling, resource containment, or absence of tool-created
+temporary data. Report publication is capability-dependent, refuses an
+existing target by default, and requires separate explicit authorization and
+revalidation before replacement. GPT-Voice never uploads these artifacts or
+opens them automatically.
 
 ## Disclosure Policy
 

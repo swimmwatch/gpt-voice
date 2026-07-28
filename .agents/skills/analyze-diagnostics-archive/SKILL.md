@@ -75,6 +75,13 @@ records per JSONL member. During selective analysis these are best-effort stop
 conditions only: stop when the active tool reports or encounters an excess,
 but do not claim that unseen records or lines were counted or validated.
 
+GPT-Voice applies these envelope and JSONL ceilings while creating schema-v1
+ZIP or tar.gz exports. They are an app-owned producer contract, not validation
+performed by this instruction-only workflow. Agent analysis remains selective,
+best-effort, and tool-dependent; it does not establish complete schema
+validation, stable-file handling, resource containment, or absence of
+tool-created temporary data.
+
 Tool allocation, parsing, decompression, buffering, caching, temporary files,
 cleanup, CPU, memory, path races, and container-edge handling remain outside
 repository enforcement. A benign walkthrough and the absence of a reported

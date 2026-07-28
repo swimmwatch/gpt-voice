@@ -7,7 +7,7 @@
 - [x] [05 Make Translation browser reset recoverable](05_make_translation_reset_recoverable.md)
 - [x] [06 Correct provider status presentation](06_correct_provider_status_presentation.md)
 - [x] [07 Verify dependency closure, packaged runtime, and advisory policy](07_verify_dependency_closure_advisory_policy.md)
-- [ ] [08 Reconcile documentation and handoffs](08_reconcile_documentation_handoffs.md)
+- [x] [08 Reconcile documentation and handoffs](08_reconcile_documentation_handoffs.md)
 - [ ] [09 Run the automated integration gate](09_run_automated_integration_gate.md)
 - [ ] [10 Complete native manual gates](10_complete_native_manual_gates.md)
 - [ ] [11 Complete final review and merge evidence](11_complete_final_review_merge_evidence.md)

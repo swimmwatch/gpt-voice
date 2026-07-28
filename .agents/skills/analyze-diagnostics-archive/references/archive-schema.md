@@ -1,8 +1,10 @@
 # Diagnostics Archive Schema Reference
 
-This reference is a closed reasoning allowlist for a bounded agent-managed
+This reference documents the app-owned schema-v1 ZIP and tar.gz producer
+contract and is a closed reasoning allowlist for bounded agent-managed
 inspection. It is not a parser, complete schema validator, authenticity check,
-or malicious-input test. Omit a value whenever the active tool or agent cannot
+or malicious-input test. Analysis remains selective, best-effort, and
+tool-dependent. Omit a value whenever the active tool or agent cannot
 confidently establish every applicable rule below.
 
 ## Producer envelope
@@ -34,9 +36,11 @@ Inclusive producer ceilings are:
 - `8 MiB` UTF-8 per JSONL line, excluding its terminator;
 - `100,000` records per JSONL member.
 
-These values are preflight and best-effort selective-read stop conditions for
-the agent. They do not bound an external tool's resource use or prove that
-unseen content was validated.
+GPT-Voice enforces these values while producing an export. They are preflight
+and best-effort selective-read stop conditions for the agent, not an
+agent-supplied validator. They do not bound an external tool's resource use,
+establish stable-file handling, prove that unseen content was validated, or
+exclude tool-created temporary data.
 
 ## Primitive forms
 
