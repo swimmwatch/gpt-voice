@@ -117,7 +117,7 @@ function MainToolbar({
             <TooltipTrigger asChild>
               <Button
                 aria-label={t('navigation.openAppSettings')}
-                className="command-dock-icon-button"
+                className="command-dock-icon-button command-dock-settings-shortcut"
                 onClick={onOpenAppSettings}
                 size="icon"
                 title={t('navigation.openAppSettings')}
@@ -166,7 +166,7 @@ function MainToolbar({
               <TooltipTrigger asChild>
                 <Button
                   aria-label={providerSettingsLabel}
-                  className="command-dock-provider-settings-shortcut"
+                  className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
                   onClick={onOpenProviderSettings}
                   size="icon"
                   title={providerSettingsLabel}

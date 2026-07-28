@@ -57,6 +57,19 @@ describe('main window iconography', () => {
     assert.match(styles, /\.command-dock-provider-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
   });
 
+  it('uses one hover treatment for every main-window settings gear', () => {
+    const toolbar = readRendererSource('components/MainToolbar.tsx');
+    const prettifyBand = readRendererSource('components/MainPrettifyProviderBand.tsx');
+    const styles = readRendererSource('styles/globals.css');
+
+    assert.equal((toolbar.match(/command-dock-settings-shortcut/gu) ?? []).length, 2);
+    assert.match(prettifyBand, /command-dock-prettify-settings-shortcut command-dock-settings-shortcut/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-settings-shortcut:hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
+    );
+  });
+
   it('keeps settings closing in native window controls instead of the footer', () => {
     const appSettings = readRendererSource('AppSettingsWindow.tsx');
     const footer = readRendererSource('components/settings/SettingsFooter.tsx');

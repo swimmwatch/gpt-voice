@@ -592,7 +592,7 @@
   justify-self: end;
 }
 
-.command-dock .command-dock-prettify-settings-shortcut:hover {
+.command-dock .command-dock-settings-shortcut:hover {
   background: var(--surface-raised);
   color: var(--dock-foreground);
 }

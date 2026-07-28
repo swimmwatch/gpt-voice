@@ -156,7 +156,7 @@ function MainPrettifyProviderBand({
             <TooltipTrigger asChild>
               <Button
                 aria-label={providerSettingsLabel}
-                className="command-dock-prettify-settings-shortcut"
+                className="command-dock-prettify-settings-shortcut command-dock-settings-shortcut"
                 onClick={onOpenSettings}
                 size="icon"
                 title={providerSettingsLabel}
