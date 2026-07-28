@@ -355,6 +355,14 @@ class MainProcessCompositionHarness {
           },
         },
         fetch: async () => ({ status: 200, text: async () => '{}' }),
+        httpReadiness: {
+          clock: {
+            clearTimeout: () => undefined,
+            now: () => 0,
+            setTimeout: () => 0,
+          },
+          createAbortController: () => new AbortController(),
+        },
         settingsStorage: {
           fileSystem: fs,
         },

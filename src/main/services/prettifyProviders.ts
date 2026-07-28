@@ -25,6 +25,7 @@ import {
   type PrettifyProviderDependencies,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
+import type { PrettifyHttpReadiness } from '@main/services/prettifyHttpReadiness';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsStorage, PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import {
@@ -63,6 +64,7 @@ export interface PrettifyProviderFactoryDependencies {
   readonly diagnosticCapture: PrettifyProviderDependencies['diagnosticCapture'];
   readonly fetch: PrettifyFetch;
   readonly localization: Pick<I18nService, 'translate'>;
+  readonly readiness: PrettifyHttpReadiness;
   readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 }
 
@@ -78,6 +80,7 @@ export class PrettifyProviderFactory {
           diagnosticCapture: this.dependencies.diagnosticCapture,
           fetch: this.dependencies.fetch,
           localization: this.dependencies.localization,
+          readiness: this.dependencies.readiness,
           settings: this.dependencies.settings,
         });
       case 'vllm':
@@ -86,6 +89,7 @@ export class PrettifyProviderFactory {
           diagnosticCapture: this.dependencies.diagnosticCapture,
           fetch: this.dependencies.fetch,
           localization: this.dependencies.localization,
+          readiness: this.dependencies.readiness,
           settings: this.dependencies.settings,
         });
       case 'claude-cli':
@@ -216,11 +220,7 @@ export class PrettifyRuntime {
       if (!isHttpPrettifyProviderId(providerId)) throw error;
       return {
         availability: { status: 'unavailable' },
-        error: createConnectionError(
-          getHttpPrettifyProviderName(providerId),
-          getHttpPrettifyProviderBaseUrl(settings, providerId),
-          error,
-        ),
+        error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
         models: [],
         providerId,
         source: provider.capabilities.modelSource,

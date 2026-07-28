@@ -238,6 +238,14 @@ function bootstrapMainProcess(): void {
         now: getCurrentDate,
         randomUUID,
       },
+      httpReadiness: {
+        clock: {
+          clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+          now: Date.now,
+          setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        },
+        createAbortController: () => new AbortController(),
+      },
       cliRunner: {
         clock: {
           clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),

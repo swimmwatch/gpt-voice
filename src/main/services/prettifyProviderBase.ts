@@ -25,6 +25,7 @@ export interface TextProcessingResult {
 }
 
 export interface PrettifyFetchResponse {
+  readonly body?: ReadableStream<Uint8Array> | null;
   status: number;
   text(): Promise<string>;
 }

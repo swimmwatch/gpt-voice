@@ -8,6 +8,7 @@ import {
 import { ClaudeCliPrettifyErrorCode } from '@main/services/prettifyClaudeCli';
 import { CodexCliPrettifyErrorCode } from '@main/services/prettifyCodexCli';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
+import { PrettifyHttpReadiness, type PrettifyHttpReadinessDependencies } from '@main/services/prettifyHttpReadiness';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 import {
   createPrettifySettingsWithSecret,
@@ -24,6 +25,7 @@ type PrettifyRuntimeFixtureOptions = {
   readonly codexCliAdapter?: Partial<PrettifyProviderFactoryDependencies['codexCliAdapter']>;
   readonly diagnosticCapture?: RecordingDiagnosticCapture;
   readonly fetch?: PrettifyProviderFactoryDependencies['fetch'];
+  readonly httpReadiness?: Omit<PrettifyHttpReadinessDependencies, 'audit' | 'fetch'>;
   readonly settings?: Pick<PrettifySettingsStorage, 'getWithSecret'>;
 };
 
@@ -86,17 +88,30 @@ export class PrettifyRuntimeFixture {
       }),
       ...options.codexCliAdapter,
     };
+    const fetch =
+      options.fetch ??
+      (async () => {
+        throw new Error('Unexpected Prettify HTTP request');
+      });
+    const readiness = new PrettifyHttpReadiness({
+      audit: this.audit,
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      createAbortController: () => new AbortController(),
+      fetch,
+      ...options.httpReadiness,
+    });
     this.factory = new PrettifyProviderFactory({
       audit: this.audit,
       claudeCliAdapter,
       codexCliAdapter,
       diagnosticCapture: this.diagnosticCapture,
-      fetch:
-        options.fetch ??
-        (async () => {
-          throw new Error('Unexpected Prettify HTTP request');
-        }),
+      fetch,
       localization,
+      readiness,
       settings,
     });
     this.registry = new PrettifyProviderRegistry(this.factory);

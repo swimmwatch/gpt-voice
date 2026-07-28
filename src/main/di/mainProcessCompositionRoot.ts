@@ -60,6 +60,7 @@ import {
   type SelectedTextPrettifyDependencies,
 } from '../services/selectedTextPrettify';
 import { PrettifyProviderAudit } from '../services/prettifyProviderAudit';
+import { PrettifyHttpReadiness, type PrettifyHttpReadinessDependencies } from '../services/prettifyHttpReadiness';
 import {
   PrettifyProviderFactory,
   PrettifyProviderRegistry,
@@ -172,6 +173,7 @@ export interface MainProcessPrettifyEnvironment {
   readonly cliRunner: CliProcessRunnerDependencies;
   readonly codexCli: Omit<CodexCliPrettifyAdapterDependencies, 'audit' | 'runner'>;
   readonly fetch: PrettifyProviderFactoryDependencies['fetch'];
+  readonly httpReadiness: Omit<PrettifyHttpReadinessDependencies, 'audit' | 'fetch'>;
   readonly settingsStorage: Omit<
     PrettifySettingsStorageDependencies,
     'config' | 'logger' | 'secureStorage' | 'settingsFile'
@@ -525,6 +527,11 @@ export class MainProcessCompositionRoot {
       audit: prettifyProviderAudit,
       runner: cliProcessRunner,
     });
+    const prettifyHttpReadiness = new PrettifyHttpReadiness({
+      ...this.environment.prettify.httpReadiness,
+      audit: prettifyProviderAudit,
+      fetch: this.environment.prettify.fetch,
+    });
     const prettifyProviderFactory = new PrettifyProviderFactory({
       audit: prettifyProviderAudit,
       claudeCliAdapter,
@@ -532,6 +539,7 @@ export class MainProcessCompositionRoot {
       diagnosticCapture,
       fetch: this.environment.prettify.fetch,
       localization,
+      readiness: prettifyHttpReadiness,
       settings: prettifySettingsStorage,
     });
     const prettifyProviderRegistry = new PrettifyProviderRegistry(prettifyProviderFactory);

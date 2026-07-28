@@ -28,9 +28,17 @@ interface FetchCall {
 }
 
 function response(status: number, body: unknown) {
+  const text = typeof body === 'string' ? body : JSON.stringify(body);
+  const bytes = new TextEncoder().encode(text);
   return {
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
     status,
-    text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
+    text: async () => text,
   };
 }
 
@@ -361,7 +369,10 @@ describe('prettifyProviders', () => {
           });
         }
         return response(200, {
-          models: [{ model: 'llama3.2', size: 3_500_000_000 }, { name: 'mistral', size: 4_000_000_000 }, { model: '' }],
+          models: [
+            { model: 'llama3.2', size: 3_500_000_000 },
+            { name: 'mistral', size: 4_000_000_000 },
+          ],
         });
       },
     }).runtime.listModels('ollama', {
