@@ -39,6 +39,8 @@ const BARE_FS_PACKAGE: ExpectedPackage = {
 const SHARED_BARE_EVENTS_PACKAGE_NAME = 'bare-events';
 const NODE_MODULES_PREFIX = 'node_modules/';
 const PACKAGE_PATTERN_SUFFIX = '/**/*';
+const PACKAGE_EXCLUSION_PATTERN_SUFFIX = '{,/**/*}';
+const PACKAGE_EXCLUSION_PREFIX = '!';
 const SAFE_PACKAGE_NAME = /^(?:@[\w.~-]+\/[\w.~-]+|[\w.~-]+)$/u;
 
 export const ELECTRON_NODE_ARCHIVER_BARE_ONLY_PACKAGES: readonly ExpectedPackage[] = Object.freeze([
@@ -63,6 +65,10 @@ function toPackageIdentity(lockedPackage: Pick<LockedPackage, 'name' | 'path' | 
 
 function toPackagePattern(packageName: string): string {
   return `${NODE_MODULES_PREFIX}${packageName}${PACKAGE_PATTERN_SUFFIX}`;
+}
+
+function toPackageExclusionPattern(packageName: string): string {
+  return `${PACKAGE_EXCLUSION_PREFIX}${NODE_MODULES_PREFIX}${packageName}${PACKAGE_EXCLUSION_PATTERN_SUFFIX}`;
 }
 
 function readStringArray(value: unknown, detail: string): readonly string[] {
@@ -189,14 +195,28 @@ export class ElectronNodeArchiveRuntimePolicy {
     const buildFiles = this.readBuildFiles();
     const approvedRuntimeModules = this.readApprovedRuntimeModules();
     const nodeRuntimeNames = new Set(nodeRuntimePackages.map((lockedPackage) => lockedPackage.name));
+    const bareOnlyExclusionPatterns = new Set(
+      bareOnlyPackages.map((lockedPackage) => toPackageExclusionPattern(lockedPackage.name)),
+    );
     for (const packageName of nodeRuntimeNames) {
       if (!buildFiles.has(toPackagePattern(packageName)) || !approvedRuntimeModules.has(packageName)) {
         return failRuntimePolicy(`missing packaged Node runtime module ${packageName}`);
       }
     }
     for (const lockedPackage of bareOnlyPackages) {
+      if (!buildFiles.has(toPackageExclusionPattern(lockedPackage.name))) {
+        return failRuntimePolicy(`missing Bare-only exclusion ${lockedPackage.name}`);
+      }
       if (buildFiles.has(toPackagePattern(lockedPackage.name)) || approvedRuntimeModules.has(lockedPackage.name)) {
         return failRuntimePolicy(`included Bare-only module ${lockedPackage.name}`);
+      }
+    }
+    for (const buildFile of buildFiles) {
+      if (
+        buildFile.startsWith(`${PACKAGE_EXCLUSION_PREFIX}${NODE_MODULES_PREFIX}`) &&
+        !bareOnlyExclusionPatterns.has(buildFile)
+      ) {
+        return failRuntimePolicy('unexpected Node runtime exclusion');
       }
     }
   }

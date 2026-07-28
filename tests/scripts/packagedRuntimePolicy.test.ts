@@ -153,7 +153,12 @@ describe('packaged runtime policy', () => {
     }
     for (const moduleName of bareOnlyRuntimeModules) {
       assert.equal(files.includes(`node_modules/${moduleName}/**/*`), false, moduleName);
+      assert.equal(files.includes(`!node_modules/${moduleName}{,/**/*}`), true, moduleName);
     }
+    assert.deepEqual(
+      files.filter((file): file is string => typeof file === 'string' && file.startsWith('!node_modules/')),
+      bareOnlyRuntimeModules.map((moduleName) => `!node_modules/${moduleName}{,/**/*}`),
+    );
 
     const importedModule: unknown = await import(pathToFileURL(modulePath).href);
     assert.ok(isPackagedRuntimePolicyModule(importedModule));

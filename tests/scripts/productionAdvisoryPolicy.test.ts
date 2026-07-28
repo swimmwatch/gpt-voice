@@ -145,7 +145,10 @@ class DependencyPolicyFixture {
 
 class ElectronNodeArchiveRuntimeFixture {
   public readonly approvedRuntimeModules = ['archiver', 'bare-events', 'tar-stream'];
-  public readonly buildFiles = this.approvedRuntimeModules.map((name) => `node_modules/${name}/**/*`);
+  public readonly buildFiles = [
+    ...this.approvedRuntimeModules.map((name) => `node_modules/${name}/**/*`),
+    ...ELECTRON_NODE_ARCHIVER_BARE_ONLY_PACKAGES.map(({ name }) => `!node_modules/${name}{,/**/*}`),
+  ];
   public readonly lockfile: FixtureLockfile = {
     lockfileVersion: 3,
     packages: {
@@ -433,6 +436,17 @@ describe('Electron/Node archive runtime policy', () => {
     const includedBuildPattern = new ElectronNodeArchiveRuntimeFixture();
     includedBuildPattern.buildFiles.push('node_modules/bare-fs/**/*');
     cases.push({ fixture: includedBuildPattern, targetIndex: 0 });
+
+    const missingBareOnlyExclusion = new ElectronNodeArchiveRuntimeFixture();
+    missingBareOnlyExclusion.buildFiles.splice(
+      missingBareOnlyExclusion.buildFiles.indexOf('!node_modules/bare-fs{,/**/*}'),
+      1,
+    );
+    cases.push({ fixture: missingBareOnlyExclusion, targetIndex: 0 });
+
+    const overbroadNodeModulesExclusion = new ElectronNodeArchiveRuntimeFixture();
+    overbroadNodeModulesExclusion.buildFiles.push('!node_modules/bare-*{,/**/*}');
+    cases.push({ fixture: overbroadNodeModulesExclusion, targetIndex: 0 });
 
     const includedRuntimeModule = new ElectronNodeArchiveRuntimeFixture();
     includedRuntimeModule.approvedRuntimeModules.push('bare-fs');
