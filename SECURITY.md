@@ -42,6 +42,20 @@ GPT-Voice is a desktop app that controls a browser session and handles voice inp
 - Production dependency audits run with `npm run audit:prod`.
 - Sensitive files, session data, browser caches, credentials, and local release artifacts must not be committed.
 
+## Local Diagnostic Capture Exception
+
+Provider audit events are always-on, schema-versioned, and metadata-only. They exclude audio, transcripts, selected text, prompts, results, credentials, URLs, paths, raw provider responses, command output, and exception details.
+
+Translation and Prettify diagnostic text capture is an explicit local plaintext exception:
+
+- Both categories are independently off by default. Voice audio and transcripts are never captured.
+- Only successful provider and cache source/result text is eligible. Known credentials are excluded or represented only by non-secret presence metadata; raw provider responses and unrelated logs are not included.
+- Eligible text passes through best-effort redaction before plaintext SQLite storage, but arbitrary embedded secrets may not be detected.
+- Storage is per-user, permission-restricted, retention- and size-bounded, and can be purged by category or in full from **App settings → Audit Log**.
+- Diagnostic ZIP or tar.gz exports are not encrypted and automatically include retained text for categories enabled when the export begins.
+
+Treat the diagnostic database, exported archive, and any derived analysis report as private data. Review and redact them before sharing. GPT-Voice never uploads these artifacts or opens them automatically.
+
 ## Disclosure Policy
 
 We follow a responsible disclosure process. After a vulnerability is confirmed, maintainers will work on a fix, prepare a release when needed, and disclose the issue publicly only after a patch is available.

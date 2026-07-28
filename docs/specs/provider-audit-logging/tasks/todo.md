@@ -29,5 +29,5 @@ Task execution and commit gates through Task 08 are recorded in the persistent
 - [x] [20 Diagnostics archive core](20_build_diagnostics_archive_core.md)
 - [x] [21 Audit Log diagnostics export](21_integrate_about_diagnostics_export.md)
 - [x] [22 Diagnostics analysis skill](22_create_diagnostics_analysis_skill.md)
-- [ ] [23 Integration gate](23_document_and_run_integration_gate.md)
+- [x] [23 Integration gate](23_document_and_run_integration_gate.md)
 - [ ] [24 Sanitized manual verification](24_complete_sanitized_manual_verification.md)

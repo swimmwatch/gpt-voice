@@ -456,11 +456,29 @@ build/           Packaging metadata, macOS entitlements, and Fedora release imag
 - **Codex remains unavailable**: update to a compatible Codex CLI and use **Refresh**. Missing output-schema support, model discovery, or proven no-tools/isolation controls fails closed and cannot be bypassed in GPT-Voice.
 - **A request is cancelled, times out, exceeds an output limit, or exits unsuccessfully**: no automatic retry occurs. Check provider availability and quota, adjust the 15–600-second timeout if appropriate, and retry manually with non-private input after resolving the cause.
 
+### Diagnostics And Provider Audit Logs
+
+GPT-Voice writes schema-versioned, metadata-only provider audit events to the normal application log for Voice, Translation, and Prettify operations. These events record bounded lifecycle details such as the provider, operation, phase, outcome, safe cause code, and timing. They do not contain audio, transcripts, selected text, prompts, results, credentials, raw provider responses, URLs, paths, command output, or exception messages. A cache hit is an application result, not a provider operation, so it does not create a provider audit lifecycle.
+
+For deeper troubleshooting, open **App settings → Audit Log**:
+
+- **Capture Translation diagnostics** and **Capture Prettify diagnostics** are independent and off by default.
+- When enabled, GPT-Voice retains only successful provider or cache source/result text for that category. Voice audio and transcripts, raw provider responses, failed results, prompts, and unrelated application logs are never retained in diagnostic text storage.
+- Retained text is masked with best-effort `[REDACTED]` replacements before it is stored. The masking targets known secret and URL patterns but cannot guarantee that arbitrary embedded secrets are found.
+- Retained rows are plaintext in the per-user `gpt-voice.sqlite3` database with per-user file permissions. Retention is limited to 60 days, a combined 100 MiB payload budget, and 1 MiB per row.
+- Turning a capture category off requires confirmation and purges that category. Separate actions clear Translation, Prettify, or all retained diagnostic text without changing the toggles.
+
+Use **Export diagnostics** in the same Audit Log section to create a private support archive. Windows exports ZIP; Linux and macOS export tar.gz. The archive always contains the schema-versioned metadata audit stream and manifest, and automatically includes retained text only for capture categories enabled at export time. Archives are not encrypted. Treat the database, archive, and any derived report as private data, and review them before sharing.
+
+Repository contributors can analyze an exported archive with `$analyze-diagnostics-archive`. Supply the local archive path together with the issue description, expected behavior, observed behavior, and approximate occurrence time. The skill validates the archive before analysis and defaults its evidence-linked report to the ignored path `.artifacts/diagnostics/<archive-id>/report.md`.
+
 ## Privacy And Sessions
 
 GPT-Voice sends recorded audio to the transcription provider you select. ChatGPT Web sends audio through your authenticated web session. Claude Web sends live audio through an authenticated browser session and a private integration that can change. OpenAI API sends audio to OpenAI's official transcription endpoint with your API key. Prettify Text sends selected text and the protected prettify prompt to the configured Ollama, vLLM, Claude CLI, or Codex CLI provider. These requests use your provider account and can consume subscription or API quota; GPT-Voice does not bypass provider limits.
 
 Provider data is stored in the native per-user app data directory for the current platform, for example `%APPDATA%\GPT-Voice` on Windows and `~/.config/GPT-Voice` on Linux. ChatGPT Web stores `chatgpt-session.json`; Claude Web stores `claude-web-session.json` and its non-secret language setting separately. OpenAI API stores `openai-api-settings.json` with an encrypted API key when Electron secure storage is available. Prettify provider settings, including optional CLI executable paths and model choices, are stored in `config.json`; an optional encrypted vLLM API key is stored in `prettify-provider-settings.json`. GPT-Voice does not store Claude CLI or Codex CLI authentication, account data, raw stdout, or stderr. Successful transcription history is stored locally in `gpt-voice.sqlite3` and can be cleared from the History window. Legacy `~/.gpt-voice` and `~/.webvoice` directories are migrated automatically when possible. Treat this data as sensitive and do not commit session files, API settings, history databases, or browser cache data.
+
+Diagnostic capture is an explicit plaintext exception to encrypted credential storage. It is disabled by default, category-specific, bounded, and locally purgeable as described above. GPT-Voice never uploads diagnostic databases, archives, or reports and never opens them automatically.
 
 To avoid duplicate provider requests when the same audio is retried, GPT-Voice keeps up to 10 successful transcription results in process memory for up to 5 minutes. It hashes the exact audio bytes with the selected provider's transcription settings to derive an opaque lookup key, but the cache never retains the audio itself. For Claude Web, a canonical recording is retained only in memory for an eligible explicit Retry after a live failure or successful completion; it is never automatically replayed. Failed and empty results are not cached, and all cached entries disappear when GPT-Voice restarts.
 
