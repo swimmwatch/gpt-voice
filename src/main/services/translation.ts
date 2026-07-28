@@ -104,26 +104,29 @@ interface DeferredTranslationAuditTerminal {
 class DeferredTranslationAuditLifecycle implements TranslationProviderAuditLifecycle {
   private deferredTerminal: DeferredTranslationAuditTerminal | null = null;
 
-  public constructor(private readonly lifecycle: TranslationProviderAuditLifecycle) {}
+  public constructor(
+    private readonly lifecycle: TranslationProviderAuditLifecycle,
+    private readonly isActive: () => boolean = () => true,
+  ) {}
 
   public started(metadata?: TranslationProviderAuditMetadata): void {
-    this.lifecycle.started(metadata);
+    if (this.isActive()) this.lifecycle.started(metadata);
   }
 
   public phaseEntered(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
-    if (this.deferredTerminal === null) this.lifecycle.phaseEntered(phase, metadata);
+    if (this.isActive() && this.deferredTerminal === null) this.lifecycle.phaseEntered(phase, metadata);
   }
 
   public phaseCompleted(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
-    if (this.deferredTerminal === null) this.lifecycle.phaseCompleted(phase, metadata);
+    if (this.isActive() && this.deferredTerminal === null) this.lifecycle.phaseCompleted(phase, metadata);
   }
 
   public retry(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
-    if (this.deferredTerminal === null) this.lifecycle.retry(phase, metadata);
+    if (this.isActive() && this.deferredTerminal === null) this.lifecycle.retry(phase, metadata);
   }
 
   public recovery(phase: ProviderAuditPhase, metadata?: TranslationProviderAuditMetadata): void {
-    this.lifecycle.recovery(phase, metadata);
+    if (this.isActive()) this.lifecycle.recovery(phase, metadata);
   }
 
   public terminal(
@@ -131,12 +134,15 @@ class DeferredTranslationAuditLifecycle implements TranslationProviderAuditLifec
     outcome: ProviderAuditTerminalOutcome,
     metadata?: TranslationProviderAuditMetadata,
   ): void {
-    if (this.deferredTerminal !== null) return;
+    if (!this.isActive() || this.deferredTerminal !== null) return;
     this.deferredTerminal = { phase, outcome, ...(metadata === undefined ? {} : { metadata }) };
   }
 
   public flushTerminal(): boolean {
-    if (this.deferredTerminal === null) return false;
+    if (!this.isActive() || this.deferredTerminal === null) {
+      this.deferredTerminal = null;
+      return false;
+    }
     const { metadata, outcome, phase } = this.deferredTerminal;
     this.deferredTerminal = null;
     this.lifecycle.terminal(phase, outcome, metadata);
@@ -282,7 +288,13 @@ export class TranslationRuntime {
 
     let provider: ReturnType<TranslationRuntimeRegistry['getProvider']> | null = null;
     try {
-      const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(auditContext.lifecycle);
+      const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(
+        auditContext.lifecycle,
+        () =>
+          initializationGeneration === this.connectionInitializationGeneration &&
+          !deadline.signal.aborted &&
+          this.isCurrent(snapshot),
+      );
       const readiness = await deadline.run(async (signal) => {
         auditContext.lifecycle.phaseEntered('dispatch', metadata);
         provider = this.dependencies.registry.getProvider(snapshot.providerId);
@@ -654,7 +666,10 @@ export class TranslationRuntime {
       auditLifecycle.phaseEntered('dispatch', startMetadata);
       const provider = this.dependencies.registry.getProvider(snapshot.providerId);
       auditLifecycle.phaseCompleted('dispatch', startMetadata);
-      const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(auditLifecycle);
+      const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(
+        auditLifecycle,
+        () => this.isCurrent(snapshot) && !controller.signal.aborted,
+      );
       const outcome = await provider.translate({
         audit: this.dependencies.audit,
         auditContext: Object.freeze({
@@ -809,12 +824,46 @@ export class TranslationRuntime {
     }
   }
 
+  /**
+   * Invalidates active work and releases provider ownership while preserving
+   * connection listeners for a reusable settings reset.
+   */
+  async reset(): Promise<TranslationProviderShutdownResult> {
+    this.invalidateActiveOperations();
+    this.publishResetState(
+      TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking,
+      TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider,
+    );
+
+    try {
+      const result = await this.dependencies.registry.shutdown();
+      if (!result.success) this.settleResetCleanupFailure();
+      return result;
+    } catch {
+      this.settleResetCleanupFailure();
+      return Object.freeze({
+        failedProviderIds: Object.freeze([]),
+        success: false,
+      });
+    }
+  }
+
+  public settleResetCleanupFailure(): TranslationProviderConnectionState {
+    return this.publishResetState(
+      TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed,
+    );
+  }
+
+  public settleResetUnexpectedFailure(): TranslationProviderConnectionState {
+    return this.publishResetState(
+      TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+    );
+  }
+
   async shutdown(): Promise<TranslationProviderShutdownResult> {
-    this.generation += 1;
-    this.connectionInitializationGeneration += 1;
-    this.connectionInitializationDeadline?.cancel();
-    this.connectionInitializationDeadline = null;
-    for (const controller of this.activeControllers) controller.abort();
+    this.invalidateActiveOperations();
 
     try {
       return await this.dependencies.registry.shutdown();
@@ -827,5 +876,26 @@ export class TranslationRuntime {
       });
       this.connectionListeners.clear();
     }
+  }
+
+  private invalidateActiveOperations(): void {
+    this.generation += 1;
+    this.connectionInitializationGeneration += 1;
+    this.connectionInitializationDeadline?.cancel();
+    this.connectionInitializationDeadline = null;
+    for (const controller of this.activeControllers) controller.abort();
+  }
+
+  private publishResetState(
+    status: TranslationProviderConnectionState['status'],
+    detail: TranslationProviderConnectionDetail,
+  ): TranslationProviderConnectionState {
+    const selection = this.getConfiguredConnectionSelection();
+    return this.publishConnectionState({
+      detail,
+      providerId: selection?.providerId ?? this.connectionState.providerId,
+      status,
+      targetLanguage: selection?.targetLanguage ?? this.connectionState.targetLanguage,
+    });
   }
 }

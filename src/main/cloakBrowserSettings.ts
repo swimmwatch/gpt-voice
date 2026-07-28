@@ -30,9 +30,15 @@ export interface CloakBrowserSettingsWithSecret extends Omit<CloakBrowserSetting
 }
 
 export interface PreparedCloakBrowserSettings {
+  authoritativeSettings: CloakBrowserSettingsView;
   settings: CloakBrowserSettingsView;
   settingsWithSecret: CloakBrowserSettingsWithSecret;
   persist: () => CloakBrowserSettingsView;
+}
+
+export interface CloakBrowserSettingsSnapshot {
+  readonly settings: CloakBrowserSettingsView;
+  readonly settingsWithSecret: CloakBrowserSettingsWithSecret;
 }
 
 export interface CloakBrowserSettingsRepositoryDependencies {
@@ -40,7 +46,6 @@ export interface CloakBrowserSettingsRepositoryDependencies {
   readonly fileSystem: {
     existsSync(path: fs.PathLike): boolean;
     readFileSync(path: fs.PathOrFileDescriptor, encoding: BufferEncoding): string;
-    writeFileSync(path: fs.PathOrFileDescriptor, data: string, options?: fs.WriteFileOptions): void;
   };
   readonly logger: {
     warn(...args: unknown[]): void;
@@ -51,6 +56,7 @@ export interface CloakBrowserSettingsRepositoryDependencies {
     isEncryptionAvailable(): boolean;
   };
   readonly settingsFile: string;
+  readonly writeFileAtomically: (filePath: string, contents: string) => void;
 }
 
 function shouldSanitizeFingerprintSeed(input: CloakBrowserSettingsInput): boolean {
@@ -105,35 +111,21 @@ export class CloakBrowserSettingsRepository {
   public constructor(private readonly dependencies: CloakBrowserSettingsRepositoryDependencies) {}
 
   public getView(): CloakBrowserSettingsView {
-    const stored = this.readStoredSettings();
-    const normalized = normalizeCloakBrowserSettingsInput(stored, this.dependencies.config.getFingerprintSeed(), {
-      sanitizeInvalidFingerprintSeed: true,
-    });
-    return createCloakBrowserSettingsView(
-      normalized,
-      Boolean(this.decryptProxyPassword(stored.proxy?.encryptedPassword)),
-    );
+    return this.getSnapshot().settings;
   }
 
   public getWithSecret(): CloakBrowserSettingsWithSecret {
-    const stored = this.readStoredSettings();
-    const normalized = normalizeCloakBrowserSettingsInput(stored, this.dependencies.config.getFingerprintSeed(), {
-      sanitizeInvalidFingerprintSeed: true,
-    });
-    const password = this.decryptProxyPassword(stored.proxy?.encryptedPassword);
+    return this.getSnapshot().settingsWithSecret;
+  }
 
-    return {
-      ...normalized,
-      proxy: {
-        ...normalized.proxy,
-        password,
-      },
-    };
+  public getSnapshot(): CloakBrowserSettingsSnapshot {
+    return this.createSnapshot(this.readStoredSettings());
   }
 
   public prepare(input: CloakBrowserSettingsInput = {}): PreparedCloakBrowserSettings {
     assertValidCloakBrowserSettingsInput(input);
     const stored = this.readStoredSettings();
+    const authoritative = this.createSnapshot(stored);
     const normalized = normalizeCloakBrowserSettingsInput(
       mergeStoredSettings(stored, input),
       this.dependencies.config.getFingerprintSeed(),
@@ -171,6 +163,7 @@ export class CloakBrowserSettingsRepository {
     };
 
     return {
+      authoritativeSettings: authoritative.settings,
       settings: view,
       settingsWithSecret,
       persist: () => {
@@ -190,15 +183,30 @@ export class CloakBrowserSettingsRepository {
       return JSON.parse(
         this.dependencies.fileSystem.readFileSync(this.dependencies.settingsFile, 'utf8'),
       ) as StoredCloakBrowserSettings;
-    } catch (error) {
-      this.dependencies.logger.warn('Failed to read CloakBrowser settings:', error);
+    } catch {
+      this.dependencies.logger.warn('Failed to read CloakBrowser settings');
       return {};
     }
   }
 
   private writeStoredSettings(settings: StoredCloakBrowserSettings): void {
-    this.dependencies.fileSystem.writeFileSync(this.dependencies.settingsFile, JSON.stringify(settings, null, 2), {
-      mode: 0o600,
+    this.dependencies.writeFileAtomically(this.dependencies.settingsFile, JSON.stringify(settings, null, 2));
+  }
+
+  private createSnapshot(stored: StoredCloakBrowserSettings): CloakBrowserSettingsSnapshot {
+    const normalized = normalizeCloakBrowserSettingsInput(stored, this.dependencies.config.getFingerprintSeed(), {
+      sanitizeInvalidFingerprintSeed: true,
+    });
+    const password = this.decryptProxyPassword(stored.proxy?.encryptedPassword);
+    return Object.freeze({
+      settings: createCloakBrowserSettingsView(normalized, Boolean(password)),
+      settingsWithSecret: Object.freeze({
+        ...normalized,
+        proxy: Object.freeze({
+          ...normalized.proxy,
+          password,
+        }),
+      }),
     });
   }
 
@@ -214,8 +222,8 @@ export class CloakBrowserSettingsRepository {
 
     try {
       return this.dependencies.secureStorage.decrypt(Buffer.from(encryptedPassword, 'base64'));
-    } catch (error) {
-      this.dependencies.logger.warn('Failed to decrypt CloakBrowser proxy password:', error);
+    } catch {
+      this.dependencies.logger.warn('Failed to decrypt CloakBrowser proxy password');
       return '';
     }
   }

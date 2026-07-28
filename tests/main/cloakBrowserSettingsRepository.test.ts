@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import type * as fs from 'node:fs';
 import { describe, it } from 'node:test';
 import { CloakBrowserSettingsRepository } from '@main/cloakBrowserSettings';
+import { writeTextFileAtomically } from '@main/translationSettings';
 import { TestAppConfigStore } from './appConfigTestUtils';
 
 class MemoryCloakBrowserSettingsFileSystem {
   public readonly files = new Map<string, string>();
+  public failRename = false;
+  public failWrite = false;
   public readCount = 0;
   public writeCount = 0;
 
@@ -23,7 +26,21 @@ class MemoryCloakBrowserSettingsFileSystem {
 
   public writeFileSync(filePath: fs.PathOrFileDescriptor, data: string, _options?: fs.WriteFileOptions): void {
     this.writeCount += 1;
+    if (this.failWrite) throw new Error('synthetic atomic write failure');
     this.files.set(String(filePath), data);
+  }
+
+  public renameSync(oldPath: fs.PathLike, newPath: fs.PathLike): void {
+    if (this.failRename) throw new Error('synthetic atomic rename failure');
+    const source = String(oldPath);
+    const contents = this.files.get(source);
+    if (contents === undefined) throw new Error('missing synthetic temporary file');
+    this.files.set(String(newPath), contents);
+    this.files.delete(source);
+  }
+
+  public rmSync(filePath: fs.PathLike): void {
+    this.files.delete(String(filePath));
   }
 }
 
@@ -45,6 +62,11 @@ class CloakBrowserSettingsRepositoryFixture {
         isEncryptionAvailable: () => true,
       },
       settingsFile,
+      writeFileAtomically: (filePath, contents) =>
+        writeTextFileAtomically(filePath, contents, {
+          createTemporaryPath: (target) => `${target}.tmp`,
+          fileSystem: this.fileSystem,
+        }),
     });
   }
 }
@@ -122,5 +144,33 @@ describe('CloakBrowserSettingsRepository', () => {
     );
     assert.equal(fixture.fileSystem.writeCount, 0);
     assert.equal(fixture.fileSystem.files.size, 0);
+  });
+
+  it('preserves the authoritative file and snapshot when the atomic temporary write fails', () => {
+    const fixture = new CloakBrowserSettingsRepositoryFixture();
+    fixture.repository.save({ backgroundMode: 'visible' });
+    const authoritativeFile = fixture.fileSystem.files.get(fixture.settingsFile);
+    const authoritativeSettings = fixture.repository.getView();
+    fixture.fileSystem.failWrite = true;
+
+    assert.throws(() => fixture.repository.save({ backgroundMode: 'hidden' }), /synthetic atomic write failure/u);
+
+    assert.equal(fixture.fileSystem.files.get(fixture.settingsFile), authoritativeFile);
+    assert.deepEqual(fixture.repository.getView(), authoritativeSettings);
+    assert.equal(fixture.fileSystem.files.has(`${fixture.settingsFile}.tmp`), false);
+  });
+
+  it('preserves the authoritative file and removes the temporary file when atomic replacement fails', () => {
+    const fixture = new CloakBrowserSettingsRepositoryFixture();
+    fixture.repository.save({ backgroundMode: 'visible' });
+    const authoritativeFile = fixture.fileSystem.files.get(fixture.settingsFile);
+    const authoritativeSettings = fixture.repository.getView();
+    fixture.fileSystem.failRename = true;
+
+    assert.throws(() => fixture.repository.save({ backgroundMode: 'hidden' }), /synthetic atomic rename failure/u);
+
+    assert.equal(fixture.fileSystem.files.get(fixture.settingsFile), authoritativeFile);
+    assert.deepEqual(fixture.repository.getView(), authoritativeSettings);
+    assert.equal(fixture.fileSystem.files.has(`${fixture.settingsFile}.tmp`), false);
   });
 });

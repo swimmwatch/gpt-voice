@@ -29,28 +29,36 @@ describe('translation runtime lifecycle integration', () => {
     );
   });
 
-  it('closes translation contexts before restarting or persisting CloakBrowser settings', () => {
+  it('routes CloakBrowser saves through the state-owning recoverable reset service', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
+    const resetService = readProjectFile('src/main/services/cloakBrowserSettingsReset.ts');
     const handler = ipc.slice(
       ipc.indexOf("this.trustedIpc.handle('save-cloakbrowser-settings'"),
       ipc.indexOf("this.trustedIpc.handle('save-provider-settings'"),
     );
 
-    const validation = handler.indexOf('assertValidCloakBrowserSettingsInput');
-    const prepare = handler.indexOf('dependencies.cloakBrowserSettings.prepare');
-    const shutdown = handler.indexOf('dependencies.translationRuntime.shutdown');
-    const restart = handler.indexOf('dependencies.backgroundBrowserService.restart');
-    const persist = handler.indexOf('preparedSettings.persist');
+    const validation = resetService.indexOf('assertValidCloakBrowserSettingsInput');
+    const prepare = resetService.indexOf('this.dependencies.settings.prepare');
+    const reset = resetService.indexOf('this.dependencies.translation.reset');
+    const release = resetService.indexOf('this.releaseBackgroundBrowser');
+    const initialize = resetService.indexOf('this.initializeBackgroundBrowser');
+    const persist = resetService.indexOf('prepared.persist');
+    const warm = resetService.indexOf('this.warmSelectedTranslationProvider');
 
+    assert.match(handler, /dependencies\.cloakBrowserSettingsReset\.save\(settings\)/u);
+    assert.doesNotMatch(
+      handler,
+      /translationRuntime\.shutdown|backgroundBrowserService\.restart|preparedSettings\.persist/u,
+    );
     assert.equal(validation >= 0, true);
     assert.equal(validation < prepare, true);
-    assert.equal(prepare < shutdown, true);
-    assert.equal(shutdown < restart, true);
-    assert.equal(restart < persist, true);
-    assert.match(handler, /if \(!translationShutdown\.success\)/u);
-    assert.match(handler, /settings: dependencies\.cloakBrowserSettings\.getView\(\)/u);
-    assert.match(handler, /error: dependencies\.localization\.translate\('error\.translationCleanupFailed'\)/u);
-    assert.doesNotMatch(handler, /failedProviderIds.*error\.message/su);
+    assert.equal(prepare < reset, true);
+    assert.equal(reset < release, true);
+    assert.equal(release < initialize, true);
+    assert.equal(initialize < persist, true);
+    assert.equal(persist < warm, true);
+    assert.match(resetService, /export class CloakBrowserSettingsResetService/u);
+    assert.doesNotMatch(resetService, /translation\.shutdown/u);
   });
 
   it('invalidates translation contexts before persistent browser shutdown during quit', () => {
@@ -64,6 +72,16 @@ describe('translation runtime lifecycle integration', () => {
       true,
     );
     assert.doesNotMatch(cleanup, /translationShutdown.*error\.message/su);
+  });
+
+  it('clears Translation listeners only in final shutdown, never reusable reset', () => {
+    const translation = readProjectFile('src/main/services/translation.ts');
+    const reset = translation.slice(translation.indexOf('async reset()'), translation.indexOf('async shutdown()'));
+    const shutdown = translation.slice(translation.indexOf('async shutdown()'));
+
+    assert.doesNotMatch(reset, /connectionListeners\.clear/u);
+    assert.match(shutdown, /connectionListeners\.clear\(\)/u);
+    assert.equal(translation.match(/connectionListeners\.clear\(\)/gu)?.length, 1);
   });
 
   it('keeps the trusted direct translation IPC signature without accepting a provider override', () => {

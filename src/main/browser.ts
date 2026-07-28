@@ -210,7 +210,25 @@ export class BackgroundBrowserService {
 
   public shutdown(preserveError = false): Promise<void> {
     this.activeInitialization?.deadline.cancel();
-    return this.operationQueue.run(() => this.shutdownNow(preserveError));
+    return this.operationQueue.run(async () => {
+      await this.shutdownNow(preserveError);
+    });
+  }
+
+  /**
+   * Releases the current browser owner before a settings transaction.
+   * A false result means cleanup ownership is uncertain and no replacement
+   * context may be started.
+   */
+  public releaseForSettingsReset(): Promise<boolean> {
+    this.activeInitialization?.deadline.cancel();
+    return this.operationQueue.run(async () => {
+      try {
+        return await this.shutdownNow();
+      } catch {
+        return false;
+      }
+    });
   }
 
   private async initializeNow(options: BackgroundBrowserLaunchOptions = {}): Promise<BackgroundBrowserStatus> {
@@ -559,7 +577,7 @@ export class BackgroundBrowserService {
     }
   }
 
-  private async shutdownNow(preserveError = false): Promise<void> {
+  private async shutdownNow(preserveError = false): Promise<boolean> {
     const provider = this.activeProvider;
     const audit = this.dependencies.audit;
     const shutdownAudit = provider ? audit.startOperation(provider.info.id, 'shutdown', 'shutdown') : null;
@@ -602,6 +620,7 @@ export class BackgroundBrowserService {
         cleanupFailed ? audit.createMetadata({ causeCode: 'cleanup-failed' }) : undefined,
       );
     }
+    return !cleanupFailed;
   }
 
   private async runBeforeShutdownHooks(): Promise<void> {

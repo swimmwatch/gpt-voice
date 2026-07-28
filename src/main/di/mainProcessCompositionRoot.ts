@@ -25,6 +25,7 @@ import {
 } from '../translateProviders';
 import { TranslationProviderAudit } from '../translateProviders/translationProviderAudit';
 import { TranslationRuntime } from '../services/translation';
+import { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
 import { DiagnosticCaptureService } from '../services/diagnosticCapture';
 import { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import { DiagnosticCaptureStorage } from '../services/diagnosticCaptureStorage';
@@ -226,7 +227,7 @@ export type MainProcessCompositionEnvironment = Omit<
   readonly cloakBrowserRuntime: Omit<CloakBrowserRuntimeLoaderDependencies, 'logger'>;
   readonly cloakBrowserSettings: Omit<
     CloakBrowserSettingsRepositoryDependencies,
-    'config' | 'logger' | 'secureStorage' | 'settingsFile'
+    'config' | 'logger' | 'secureStorage' | 'settingsFile' | 'writeFileAtomically'
   >;
   readonly config: Omit<AppConfigStoreDependencies, 'logger'> & {
     readonly fileSystem: AppConfigStoreDependencies['fileSystem'] &
@@ -382,6 +383,7 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('cloakbrowser-settings'),
       secureStorage,
       settingsFile: configStore.paths.cloakBrowserSettingsFile,
+      writeFileAtomically: this.environment.config.writeFileAtomically,
     });
     const prettifySettingsStorage = new PrettifySettingsStorage({
       ...this.environment.prettify.settingsStorage,
@@ -583,6 +585,17 @@ export class MainProcessCompositionRoot {
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
     translationRuntime.subscribeConnectionState(windowManager.publishTranslationProviderConnectionState);
+    const cloakBrowserSettingsReset = new CloakBrowserSettingsResetService({
+      backgroundBrowser: backgroundBrowserService,
+      getVoiceProviderId: () => configStore.getSnapshot().provider,
+      localization,
+      logger: loggerFactory.getLogger('cloakbrowser-settings'),
+      publishBackgroundStatus: (status, fallbackProviderId) =>
+        windowManager.publishBackgroundStatus(status, fallbackProviderId),
+      readinessDeadline: this.environment.initialProviderReadiness,
+      settings: cloakBrowserSettings,
+      translation: translationRuntime,
+    });
     const diagnosticsExport = new DiagnosticsExportService({
       ...this.environment.diagnosticsExport,
       archive: diagnosticsArchive,
@@ -617,6 +630,7 @@ export class MainProcessCompositionRoot {
         logger: loggerFactory.getLogger('app-protocol'),
       }),
       backgroundBrowserService,
+      cloakBrowserSettingsReset,
       database,
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,

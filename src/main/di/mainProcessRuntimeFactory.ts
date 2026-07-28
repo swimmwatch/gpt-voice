@@ -31,6 +31,7 @@ import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIp
 import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
 import type { DiagnosticsExportService } from '../services/diagnosticsExport';
+import type { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -39,6 +40,7 @@ type StreamingRuntimeDependencies = Omit<
 
 type RuntimeOwnedMainIpcDependencyKeys =
   | 'backgroundBrowserService'
+  | 'cloakBrowserSettingsReset'
   | 'createPrettifyConnectionCoordinator'
   | 'createStreamingTranscriptionController'
   | 'desktopRuntimeController'
@@ -79,6 +81,7 @@ export interface MainProcessRuntimeFactoryDependencies {
 
 export interface MainProcessRuntimeFactoryControllers {
   readonly backgroundBrowserService: BackgroundBrowserService;
+  readonly cloakBrowserSettingsReset: CloakBrowserSettingsResetService;
   readonly database: AppDatabaseCoordinator;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
@@ -140,6 +143,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
+      cloakBrowserSettingsReset: this.controllers.cloakBrowserSettingsReset,
       createPrettifyConnectionCoordinator: (runtime) => new PrettifyConnectionCheckCoordinator<WebContents>(runtime),
       createStreamingTranscriptionController: (dependencies) =>
         new StreamingTranscriptionIpcController<WebContents>(dependencies),

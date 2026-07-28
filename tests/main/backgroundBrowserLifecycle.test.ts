@@ -62,6 +62,12 @@ class ReadyLifecycleProvider extends BatchVoiceProvider {
   }
 }
 
+class FailingShutdownLifecycleProvider extends ReadyLifecycleProvider {
+  public override async shutdown(): Promise<void> {
+    throw new Error('synthetic provider cleanup failure');
+  }
+}
+
 function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserService {
   const context = { close: async () => undefined } as unknown as BrowserContext;
   return new BackgroundBrowserService({
@@ -156,5 +162,24 @@ describe('background browser lifecycle hooks', () => {
     firstShutdownGate.resolve();
     await firstShutdown;
     assert.equal(firstShutdownComplete, true);
+  });
+
+  it('reports exclusive settings-reset ownership only after provider cleanup succeeds', async () => {
+    const successfulProvider = new ReadyLifecycleProvider();
+    const successfulService = createService(successfulProvider);
+    await successfulService.initialize();
+
+    const successfulRelease = await successfulService.releaseForSettingsReset();
+
+    assert.equal(successfulRelease, true);
+    assert.equal(successfulService.isReady(), false);
+
+    const failingService = createService(new FailingShutdownLifecycleProvider());
+    await failingService.initialize();
+
+    const failedRelease = await failingService.releaseForSettingsReset();
+
+    assert.equal(failedRelease, false);
+    assert.equal(failingService.isReady(), false);
   });
 });

@@ -9,13 +9,12 @@ import type { DesktopRuntimeController } from './desktopRuntimeController';
 import type { ShortcutController } from './shortcuts';
 import type { TranscriptionService } from './services/transcription';
 import type { TranslationRuntime } from './services/translation';
+import type { CloakBrowserSettingsResetService } from './services/cloakBrowserSettingsReset';
 import {
   assertValidOpenAIApiSettingsInput,
   OPENAI_API_PROVIDER_ID,
   type OpenAIApiSettingsInput,
 } from './providers/openaiApiSettingsUtils';
-import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
-import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import {
   getHotkeyConflict,
@@ -93,7 +92,7 @@ export type MainIpcLocalization = Pick<
   'getCurrentCatalog' | 'getLocale' | 'getSupportedLocales' | 'setLocale' | 'translate'
 >;
 
-export type MainIpcCloakBrowserSettingsRepository = Pick<CloakBrowserSettingsRepository, 'getView' | 'prepare'>;
+export type MainIpcCloakBrowserSettingsRepository = Pick<CloakBrowserSettingsRepository, 'getView'>;
 
 export type MainIpcPrettifySettingsRepository = Pick<PrettifySettingsStorage, 'getView' | 'save'>;
 
@@ -114,6 +113,7 @@ export interface MainIpcLogger {
 export interface MainIpcControllerDependencies {
   readonly backgroundBrowserService: BackgroundBrowserService;
   readonly cloakBrowserSettings: MainIpcCloakBrowserSettingsRepository;
+  readonly cloakBrowserSettingsReset: CloakBrowserSettingsResetService;
   readonly config: MainIpcConfigRepository;
   readonly createPrettifyConnectionCoordinator: (
     runtime: PrettifyRuntime,
@@ -139,7 +139,7 @@ export interface MainIpcControllerDependencies {
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
   readonly translationRuntime: Pick<
     TranslationRuntime,
-    'getConnectionState' | 'initializeSelectedProvider' | 'shutdown' | 'translateText'
+    'getConnectionState' | 'initializeSelectedProvider' | 'translateText'
   >;
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
@@ -220,35 +220,6 @@ export class TrustedIpcRegistrar {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function summarizeBackgroundStatus(status: { ready: boolean; error?: string; authExpired?: boolean }) {
-  return {
-    ready: status.ready,
-    hasError: Boolean(status.error),
-    error: status.error,
-    authExpired: Boolean(status.authExpired),
-  };
-}
-
-function summarizeCloakBrowserSettingsInput(settings: CloakBrowserSettingsInput = {}) {
-  const proxy = settings.proxy ?? {};
-  return {
-    hasHumanize: typeof settings.humanize === 'boolean',
-    humanize: settings.humanize,
-    humanPreset: settings.humanPreset,
-    backgroundMode: settings.backgroundMode,
-    fingerprintSeedLength: typeof settings.fingerprintSeed === 'string' ? settings.fingerprintSeed.trim().length : 0,
-    hasLocale: typeof settings.locale === 'string' && settings.locale.trim().length > 0,
-    hasTimezone: typeof settings.timezone === 'string' && settings.timezone.trim().length > 0,
-    proxyEnabled: Boolean(proxy.enabled),
-    proxyGeoip: Boolean(proxy.geoip),
-    hasProxyServer: typeof proxy.server === 'string' && proxy.server.trim().length > 0,
-    hasProxyBypass: typeof proxy.bypass === 'string' && proxy.bypass.trim().length > 0,
-    hasProxyUsername: typeof proxy.username === 'string' && proxy.username.trim().length > 0,
-    hasProxyPasswordUpdate: typeof proxy.password === 'string' && proxy.password.trim().length > 0,
-    clearProxyPassword: Boolean(proxy.clearPassword),
-  };
 }
 
 function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) {
@@ -578,46 +549,7 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
-      try {
-        assertValidCloakBrowserSettingsInput(settings);
-        log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
-        const preparedSettings = dependencies.cloakBrowserSettings.prepare(settings);
-        const translationShutdown = await dependencies.translationRuntime.shutdown();
-        if (!translationShutdown.success) {
-          log.warn('CloakBrowser settings save blocked by translation cleanup:', {
-            failedProviderIds: translationShutdown.failedProviderIds,
-          });
-          return {
-            success: false,
-            settings: dependencies.cloakBrowserSettings.getView(),
-            error: dependencies.localization.translate('error.translationCleanupFailed'),
-          };
-        }
-        const backgroundStatus = await dependencies.backgroundBrowserService.restart({
-          cloakBrowserSettings: preparedSettings.settingsWithSecret,
-        });
-        dependencies.windowManager.publishBackgroundStatus(
-          backgroundStatus,
-          dependencies.config.getSnapshot().provider,
-        );
-        log.info('CloakBrowser settings restart result:', summarizeBackgroundStatus(backgroundStatus));
-        if (backgroundStatus.error) {
-          log.warn('CloakBrowser settings save failed during restart:', summarizeBackgroundStatus(backgroundStatus));
-          return {
-            success: false,
-            settings: preparedSettings.settings,
-            backgroundStatus,
-            error: backgroundStatus.error,
-          };
-        }
-        // Persist only after restart succeeds so a rejected save cannot poison the next launch.
-        const savedSettings = preparedSettings.persist();
-        log.info('CloakBrowser settings saved');
-        return { success: true, settings: savedSettings, backgroundStatus };
-      } catch (error: unknown) {
-        log.error('CloakBrowser settings save error:', getErrorMessage(error));
-        return { success: false, error: getErrorMessage(error) };
-      }
+      return dependencies.cloakBrowserSettingsReset.save(settings);
     });
 
     this.trustedIpc.handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {

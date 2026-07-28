@@ -89,6 +89,7 @@ interface RuntimeHarnessOptions {
   outcome?: TranslationProviderOutcome;
   readinessDeadline?: InitialProviderReadinessTestDependencies;
   settings?: TranslationSettings;
+  shutdownError?: Error;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
   translate?: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
   translationEnabled?: boolean;
@@ -237,6 +238,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     },
     shutdown: async () => {
       shutdownCalls += 1;
+      if (options.shutdownError) throw options.shutdownError;
       return {
         success: failedProviderIds.length === 0,
         failedProviderIds,
@@ -898,6 +900,102 @@ describe('TranslationRuntime', () => {
     assert.equal(terminal[0]?.record.outcome, 'cancelled');
     assert.equal(terminal[0]?.record.discarded, true);
     assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+  });
+
+  it('preserves connection listeners across reset and clears them only on final shutdown', async () => {
+    const harness = createRuntimeHarness();
+    const states: TranslationProviderConnectionState[] = [];
+    const listener = (state: TranslationProviderConnectionState): void => {
+      states.push(state);
+    };
+    harness.runtime.subscribeConnectionState(listener);
+
+    const reset = await harness.runtime.reset();
+    await harness.runtime.initializeSelectedProvider();
+
+    assert.equal(reset.success, true);
+    assert.deepEqual(
+      states.map((state) => [state.status, state.detail]),
+      [
+        [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking, TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider],
+        [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected, TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready],
+      ],
+    );
+
+    await harness.runtime.shutdown();
+    const listenerCallCount = states.length;
+    harness.runtime.settleResetUnexpectedFailure();
+
+    assert.equal(states.length, listenerCallCount);
+  });
+
+  it('settles reset cleanup failure without clearing connection listeners', async () => {
+    const harness = createRuntimeHarness({
+      shutdownFailedProviderIds: ['bing'],
+    });
+    const states: TranslationProviderConnectionState[] = [];
+    harness.runtime.subscribeConnectionState((state) => states.push(state));
+
+    const reset = await harness.runtime.reset();
+    harness.runtime.settleResetUnexpectedFailure();
+
+    assert.deepEqual(reset, {
+      success: false,
+      failedProviderIds: ['bing'],
+    });
+    assert.deepEqual(
+      states.map((state) => [state.status, state.detail]),
+      [
+        [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking, TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider],
+        [TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected, TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed],
+        [
+          TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+          TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+        ],
+      ],
+    );
+  });
+
+  it('normalizes throwing registry cleanup and settles reset readiness', async () => {
+    const harness = createRuntimeHarness({
+      shutdownError: new Error('private://session/account?token=credential-canary'),
+    });
+    const states: TranslationProviderConnectionState[] = [];
+    harness.runtime.subscribeConnectionState((state) => states.push(state));
+
+    const reset = await harness.runtime.reset();
+
+    assert.deepEqual(reset, {
+      failedProviderIds: [],
+      success: false,
+    });
+    assert.equal(states[states.length - 1]?.detail, TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed);
+    assert.equal(JSON.stringify({ reset, states }).includes('credential-canary'), false);
+  });
+
+  it('suppresses stale provider audit phases after reset invalidates an active request', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    let finishTranslation!: (outcome: TranslationProviderOutcome) => void;
+    const pending = new Promise<TranslationProviderOutcome>((resolve) => {
+      finishTranslation = resolve;
+    });
+    const harness = createRuntimeHarness({
+      audit,
+      translate: async () => pending,
+    });
+    const snapshot = getSnapshot(harness.runtime);
+    const operation = harness.runtime.translateWithSnapshot('selected text', snapshot);
+    await Promise.resolve();
+
+    await harness.runtime.reset();
+    const auditEntryCount = audit.entries.length;
+    harness.requests[0]?.auditContext.lifecycle.phaseEntered('submission');
+
+    assert.equal(audit.entries.length, auditEntryCount);
+    finishTranslation(createSuccess(harness.requests[0]));
+    const outcome = await operation;
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'cancelledOrStaleOperation');
   });
 
   it('surfaces sanitized shutdown failure identities for retry', async () => {

@@ -21,6 +21,7 @@ import { writeTextFileAtomically } from '@main/translationSettings';
 import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProviders/BingTranslateProvider';
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
+import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -82,6 +83,7 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
 }
 
 class TestDesktopWindow {
+  public readonly sentMessages: unknown[][] = [];
   public readonly webContents = {
     executeJavaScript: async () => true,
     getURL: () => 'app://gpt-voice/index.html',
@@ -89,7 +91,9 @@ class TestDesktopWindow {
     isDestroyed: () => false,
     on: () => undefined,
     once: () => undefined,
-    send: () => undefined,
+    send: (...args: unknown[]) => {
+      this.sentMessages.push(args);
+    },
     setWindowOpenHandler: () => undefined,
   };
 
@@ -772,6 +776,38 @@ describe('main process composition root', () => {
     await flushAsyncWork();
     assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.state.closeCount, 1);
+  });
+
+  it('keeps the single Translation connection subscription across repeated real CloakBrowser save handlers', async () => {
+    const harness = createHarness();
+    new MainProcessCompositionRoot(harness.compositionEnvironment)
+      .createApplication(harness.applicationEnvironment)
+      .bootstrap();
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    const saveHandler = harness.state.ipcHandlers.get('save-cloakbrowser-settings');
+    assert.ok(saveHandler);
+    assert.ok(harness.state.window);
+    const event = {
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as unknown as IpcMainInvokeEvent;
+    const countConnectionMessages = (): number =>
+      harness.state.window?.sentMessages.filter(
+        ([channel]) => channel === TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed,
+      ).length ?? 0;
+    const initialMessageCount = countConnectionMessages();
+
+    const first = await saveHandler(event, { backgroundMode: 'hidden' });
+    const firstMessageCount = countConnectionMessages();
+    const second = await saveHandler(event, { backgroundMode: 'visible' });
+    const secondMessageCount = countConnectionMessages();
+
+    assert.equal((first as { success?: boolean }).success, true);
+    assert.equal((second as { success?: boolean }).success, true);
+    assert.equal(firstMessageCount - initialMessageCount, 2);
+    assert.equal(secondMessageCount - firstMessageCount, 2);
   });
 
   it('keeps independently composed repositories, services, IPC, and shutdown state isolated', async () => {
