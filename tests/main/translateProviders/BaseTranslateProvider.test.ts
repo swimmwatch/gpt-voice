@@ -87,6 +87,7 @@ class FakeTranslateProvider extends BaseTranslateProvider {
   clearResult: TranslationProviderHookResult = translationHookSuccess();
   insertResult: TranslationProviderHookResult = translationHookSuccess();
   navigationError: Error | null = null;
+  navigationDeferred: Deferred<TranslationProviderHookResult> | null = null;
   navigationResult: TranslationProviderHookResult = translationHookSuccess();
   previousResult = '';
   readinessResults: TranslationProviderHookResult[] = [translationHookSuccess()];
@@ -110,6 +111,11 @@ class FakeTranslateProvider extends BaseTranslateProvider {
     this.calls.navigate += 1;
     this.selectedTargets.push(`navigate:${targetLanguage}`);
     if (this.navigationError) throw this.navigationError;
+    if (this.navigationDeferred) {
+      const deferred = this.navigationDeferred;
+      this.navigationDeferred = null;
+      return deferred.promise;
+    }
     return this.navigationResult;
   }
 
@@ -271,6 +277,31 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts.length, 1);
     assert.equal(harness.contexts[0]?.newPageCalls, 1);
     assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('detaches a cancelled initialization queue and preserves retry-owned resources', async () => {
+    const harness = createHarness();
+    const firstNavigation = createDeferred<TranslationProviderHookResult>();
+    harness.provider.navigationDeferred = firstNavigation;
+
+    const first = harness.provider.initialize(requestFixture.createInitialization());
+    await waitUntil(() => harness.provider.calls.navigate === 1);
+
+    harness.provider.cancelInitialization();
+    const retry = await harness.provider.initialize(requestFixture.createInitialization());
+
+    assert.equal(retry.success, true);
+    assert.equal(harness.contexts.length, 2);
+    assert.equal(harness.contexts[0]?.closeCalls, 1);
+    assert.equal(harness.contexts[1]?.closeCalls, 0);
+
+    firstNavigation.resolve(translationHookSuccess());
+    const stale = await first;
+    assert.equal(stale.success, false);
+    assert.equal(stale.success ? null : stale.code, 'cancelledOrStaleOperation');
+    assert.equal(harness.contexts[1]?.closeCalls, 0);
+    assert.equal((await harness.provider.translate(requestFixture.create())).success, true);
+    assert.equal(harness.contexts.length, 2);
   });
 
   it('lazily creates and reuses one nonpersistent context per provider instance', async () => {

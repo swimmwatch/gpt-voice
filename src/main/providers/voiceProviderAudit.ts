@@ -78,6 +78,7 @@ const VOICE_AUDIT_ERROR_CLASS_BY_CAUSE = {
   'session-expired': 'authentication',
   'session-invalid': 'authentication',
   'session-missing': 'authentication',
+  'timed-out': 'timeout',
   'unexpected-failure': 'internal',
   'unexpected-response': 'contract',
   'upgrade-or-auth': 'authentication',
@@ -256,6 +257,28 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
         causeCode: options.causeCode ?? 'unknown',
         durationMs: this.durationMs(context),
         exceptionType,
+      }),
+    );
+  }
+
+  public terminalReadinessTimedOut(context: VoiceAuditOperationContext): void {
+    context.lifecycle.terminal(
+      'readiness',
+      'failure',
+      this.createMetadata({
+        causeCode: 'timed-out',
+        durationMs: this.durationMs(context),
+      }),
+    );
+  }
+
+  public terminalCancelled(context: VoiceAuditOperationContext, phase: ProviderAuditPhase = 'cleanup'): void {
+    context.lifecycle.terminal(
+      phase,
+      'cancelled',
+      this.createMetadata({
+        causeCode: 'cancelled',
+        durationMs: this.durationMs(context),
       }),
     );
   }

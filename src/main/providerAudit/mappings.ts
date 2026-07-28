@@ -70,6 +70,7 @@ type VoiceBatchCauseCode =
   | 'not-authenticated'
   | 'rate-limited'
   | 'connection-failed'
+  | 'timed-out'
   | 'request-failed'
   | 'unexpected-response'
   | 'empty-result'
@@ -98,6 +99,7 @@ type TranslationProviderAuditCauseCode =
   | 'consentOrChallenge'
   | 'pageContractFailure'
   | 'resultTimeoutOrEmpty'
+  | 'timed-out'
   | 'cancelledOrStaleOperation'
   | 'cleanupFailure';
 
@@ -152,6 +154,7 @@ export const PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS = {
     'not-authenticated': true,
     'rate-limited': true,
     'connection-failed': true,
+    'timed-out': true,
     'request-failed': true,
     'unexpected-response': true,
     'provider-contract-changed': true,
@@ -193,6 +196,7 @@ export const PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS = {
     consentOrChallenge: true,
     pageContractFailure: true,
     resultTimeoutOrEmpty: true,
+    'timed-out': true,
     cancelledOrStaleOperation: true,
     cleanupFailure: true,
     ...DIAGNOSTIC_CAUSE_CODE_MAPPING,

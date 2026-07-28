@@ -105,6 +105,7 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
       case 'pageContractFailure':
         return 'contract';
       case 'resultTimeoutOrEmpty':
+      case 'timed-out':
         return 'timeout';
       case 'cancelledOrStaleOperation':
         return 'cancellation';
@@ -188,6 +189,20 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
           options.postSubmission ?? TranslationProviderAudit.POST_SUBMISSION_PHASES.has(failure.metadata.phase),
         recoveryScheduled: options.recoveryScheduled,
         retryScheduled: options.retryScheduled,
+      }),
+    );
+  }
+
+  public terminalReadinessTimedOut(
+    context: TranslationProviderAuditOperationContext,
+    metadata: TranslationProviderOperationMetadata,
+  ): void {
+    context.lifecycle.terminal(
+      'readiness',
+      'failure',
+      this.createMetadata(metadata, {
+        causeCode: 'timed-out',
+        durationMs: this.durationMs(context),
       }),
     );
   }

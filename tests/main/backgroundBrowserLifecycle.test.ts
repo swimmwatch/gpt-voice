@@ -9,6 +9,7 @@ import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
+import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 
 class Deferred {
   public readonly promise: Promise<void>;
@@ -78,6 +79,7 @@ function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserServ
       },
       isKnownProviderId: (providerId): providerId is VoiceProviderAuditId => providerId === 'openai-api',
     },
+    readinessDeadline: new InitialProviderReadinessTestDependencies(),
   });
 }
 

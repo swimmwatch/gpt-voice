@@ -1,11 +1,23 @@
+/* eslint-disable max-classes-per-file -- The service and its deferred readiness terminal share one lifecycle. */
 import type { BrowserContext } from 'playwright-core';
 import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import type { BaseVoiceProvider } from '@main/providers/BaseVoiceProvider';
-import type { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
+import type {
+  VoiceAuditLifecycle,
+  VoiceAuditMetadata,
+  VoiceAuditOperationContext,
+  VoiceProviderAudit,
+} from '@main/providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '@main/providers/voiceProviderRegistry';
+import type { ProviderAuditPhase, ProviderAuditTerminalOutcome } from '@main/providerAudit';
 import { BackgroundBrowserOperationQueue } from '@main/backgroundBrowserOperationQueue';
 import type { AppConfigStore } from '@main/config';
 import type { I18nService } from '@main/i18n';
+import {
+  InitialProviderReadinessDeadline,
+  type InitialProviderReadinessDeadlineDependencies,
+  type InitialProviderReadinessStopCause,
+} from '@main/services/initialProviderReadinessDeadline';
 import { presentNotificationError } from '@shared/notifications';
 
 export interface BackgroundBrowserStatus {
@@ -36,10 +48,75 @@ export interface BackgroundBrowserServiceDependencies {
   readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: BackgroundBrowserLogger;
   readonly providerRegistry: Pick<VoiceProviderRegistry, 'createProvider' | 'isKnownProviderId'>;
+  readonly readinessDeadline: InitialProviderReadinessDeadlineDependencies;
 }
 
 export interface BackgroundBrowserLaunchOptions {
   readonly cloakBrowserSettings?: CloakBrowserSettingsWithSecret;
+}
+
+interface BackgroundBrowserInitializationState {
+  contextCleanupStarted: boolean;
+  context: BrowserContext | null;
+  readonly deadline: InitialProviderReadinessDeadline;
+  readonly generation: number;
+  pendingAudit: VoiceAuditOperationContext | null;
+  providerCleanupStarted: boolean;
+  provider: BaseVoiceProvider | null;
+  readinessAudit: VoiceAuditOperationContext | null;
+  readinessAuditRoot: VoiceAuditOperationContext | null;
+  readinessTerminal: DeferredVoiceAuditLifecycle | null;
+  stopped: boolean;
+}
+
+interface DeferredVoiceAuditTerminal {
+  readonly metadata?: VoiceAuditMetadata;
+  readonly outcome: ProviderAuditTerminalOutcome;
+  readonly phase: ProviderAuditPhase;
+}
+
+/** Defers readiness terminal publication until the owning deadline settles. */
+class DeferredVoiceAuditLifecycle implements VoiceAuditLifecycle {
+  private deferredTerminal: DeferredVoiceAuditTerminal | null = null;
+
+  public constructor(private readonly lifecycle: VoiceAuditLifecycle) {}
+
+  public started(metadata?: VoiceAuditMetadata): void {
+    this.lifecycle.started(metadata);
+  }
+
+  public phaseEntered(phase: ProviderAuditPhase, metadata?: VoiceAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseEntered(phase, metadata);
+  }
+
+  public phaseCompleted(phase: ProviderAuditPhase, metadata?: VoiceAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.phaseCompleted(phase, metadata);
+  }
+
+  public retry(phase: ProviderAuditPhase, metadata?: VoiceAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.retry(phase, metadata);
+  }
+
+  public recovery(phase: ProviderAuditPhase, metadata?: VoiceAuditMetadata): void {
+    if (this.deferredTerminal === null) this.lifecycle.recovery(phase, metadata);
+  }
+
+  public terminal(
+    phase: ProviderAuditPhase,
+    outcome: ProviderAuditTerminalOutcome,
+    metadata?: VoiceAuditMetadata,
+  ): void {
+    if (this.deferredTerminal !== null) return;
+    this.deferredTerminal = { phase, outcome, ...(metadata === undefined ? {} : { metadata }) };
+  }
+
+  public flushTerminal(): boolean {
+    if (this.deferredTerminal === null) return false;
+    const { metadata, outcome, phase } = this.deferredTerminal;
+    this.deferredTerminal = null;
+    this.lifecycle.terminal(phase, outcome, metadata);
+    return true;
+  }
 }
 
 export function getBrowserSessionStartupState({
@@ -65,6 +142,8 @@ export class BackgroundBrowserService {
   private error = '';
   private readonly operationQueue = new BackgroundBrowserOperationQueue();
   private readonly beforeShutdownHooks = new Set<BeforeBackgroundBrowserShutdownHook>();
+  private activeInitialization: BackgroundBrowserInitializationState | null = null;
+  private initializationGeneration = 0;
   private ready = false;
 
   public constructor(private readonly dependencies: BackgroundBrowserServiceDependencies) {}
@@ -98,6 +177,7 @@ export class BackgroundBrowserService {
   }
 
   public initialize(options: BackgroundBrowserLaunchOptions = {}): Promise<BackgroundBrowserStatus> {
+    this.activeInitialization?.deadline.cancel();
     return this.operationQueue.run(() => this.initializeNow(options));
   }
 
@@ -109,6 +189,7 @@ export class BackgroundBrowserService {
   }
 
   public restart(options: BackgroundBrowserLaunchOptions = {}): Promise<BackgroundBrowserStatus> {
+    this.activeInitialization?.deadline.cancel();
     return this.operationQueue.run(async () => {
       await this.shutdownNow();
       return this.initializeNow(options);
@@ -116,6 +197,7 @@ export class BackgroundBrowserService {
   }
 
   public switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
+    this.activeInitialization?.deadline.cancel();
     return this.operationQueue.run(async () => {
       if (!this.dependencies.providerRegistry.isKnownProviderId(providerId)) {
         this.dependencies.providerRegistry.createProvider(providerId);
@@ -127,16 +209,8 @@ export class BackgroundBrowserService {
   }
 
   public shutdown(preserveError = false): Promise<void> {
+    this.activeInitialization?.deadline.cancel();
     return this.operationQueue.run(() => this.shutdownNow(preserveError));
-  }
-
-  private async ensureBackgroundContext(settings?: CloakBrowserSettingsWithSecret): Promise<BrowserContext> {
-    if (this.backgroundContext) return this.backgroundContext;
-    this.dependencies.logger.info('Launching persistent background browser...');
-    this.backgroundContext = await this.dependencies.createBackgroundContext(
-      settings ?? this.dependencies.cloakBrowserSettings.getWithSecret(),
-    );
-    return this.backgroundContext;
   }
 
   private async initializeNow(options: BackgroundBrowserLaunchOptions = {}): Promise<BackgroundBrowserStatus> {
@@ -147,16 +221,56 @@ export class BackgroundBrowserService {
     this.error = '';
     this.authExpired = false;
 
+    let provider: BaseVoiceProvider;
     try {
-      this.activeProvider = this.dependencies.providerRegistry.createProvider(
-        this.dependencies.config.getSnapshot().provider,
-      );
+      provider = this.dependencies.providerRegistry.createProvider(this.dependencies.config.getSnapshot().provider);
     } catch (error: unknown) {
       this.error = this.presentError(error);
       return this.getStatus();
     }
 
-    const provider = this.activeProvider;
+    const deadline = new InitialProviderReadinessDeadline(this.dependencies.readinessDeadline);
+    const state: BackgroundBrowserInitializationState = {
+      contextCleanupStarted: false,
+      context: null,
+      deadline,
+      generation: ++this.initializationGeneration,
+      pendingAudit: null,
+      providerCleanupStarted: false,
+      provider,
+      readinessAudit: null,
+      readinessAuditRoot: null,
+      readinessTerminal: null,
+      stopped: false,
+    };
+    this.activeInitialization = state;
+    this.activeProvider = provider;
+
+    try {
+      let result;
+      try {
+        result = await deadline.run(() => this.runInitialization(state, options));
+      } catch (error: unknown) {
+        state.readinessTerminal?.flushTerminal();
+        throw error;
+      }
+      if (result.status === 'completed') {
+        state.readinessTerminal?.flushTerminal();
+        return result.value;
+      }
+      this.settleStoppedInitialization(state, result.cause);
+      return this.getStatus();
+    } finally {
+      if (this.activeInitialization === state) this.activeInitialization = null;
+    }
+  }
+
+  private async runInitialization(
+    state: BackgroundBrowserInitializationState,
+    options: BackgroundBrowserLaunchOptions,
+  ): Promise<BackgroundBrowserStatus> {
+    const provider = state.provider;
+    if (!provider) return this.getStatus();
     const audit = this.dependencies.audit;
     const settingsAudit = audit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
     let hasSession: boolean;
@@ -164,46 +278,64 @@ export class BackgroundBrowserService {
       hasSession = provider.hasSession();
     } catch (error: unknown) {
       audit.terminalException(settingsAudit, 'configuration', error);
-      throw error;
+      return this.failInitialization(state, error);
     }
     if (!hasSession) {
-      settingsAudit.lifecycle.terminal(
-        'configuration',
-        'failure',
-        audit.createMetadata({
-          causeCode: provider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured',
-        }),
-      );
+      const causeCode = provider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured';
+      settingsAudit.lifecycle.terminal('configuration', 'failure', audit.createMetadata({ causeCode }));
+      state.readinessAudit?.lifecycle.terminal('readiness', 'failure', audit.createMetadata({ causeCode }));
       return this.getStatus();
     }
     settingsAudit.lifecycle.phaseCompleted('configuration');
     settingsAudit.lifecycle.terminal('configuration', 'success');
+    const readinessAudit = audit.startOperation(
+      provider.info.id,
+      'readiness',
+      provider.requiresBrowserSession() ? 'context' : 'readiness',
+    );
+    const readinessTerminal = new DeferredVoiceAuditLifecycle(readinessAudit.lifecycle);
+    state.readinessAuditRoot = readinessAudit;
+    state.readinessTerminal = readinessTerminal;
+    state.readinessAudit = Object.freeze({
+      ...readinessAudit,
+      lifecycle: readinessTerminal,
+    });
 
     try {
       if (provider.requiresBrowserSession()) {
-        const initialized = await this.initializeBrowserSessionProvider(provider, options);
+        const initialized = await this.initializeBrowserSessionProvider(state, options);
         if (!initialized) return this.getStatus();
       } else {
-        this.initializeApiProvider(provider);
+        this.initializeApiProvider(state);
       }
-      this.ready = true;
+      if (this.isInitializationActive(state)) this.ready = true;
       return this.getStatus();
     } catch (error: unknown) {
-      this.error = this.presentError(error);
-      await this.shutdownNow(true);
-      return this.getStatus();
+      return this.failInitialization(state, error);
     }
   }
 
   /** Restores one browser-session provider and reports whether it reached readiness. */
   private async initializeBrowserSessionProvider(
-    provider: BaseVoiceProvider,
+    state: BackgroundBrowserInitializationState,
     options: BackgroundBrowserLaunchOptions,
   ): Promise<boolean> {
+    const provider = state.provider;
+    if (!provider) return false;
     const audit = this.dependencies.audit;
-    const readinessAudit = audit.startOperation(provider.info.id, 'readiness', 'context');
+    const readinessAudit = state.readinessAudit;
+    if (!readinessAudit) return false;
     try {
-      this.backgroundContext = await this.ensureBackgroundContext(options.cloakBrowserSettings);
+      this.dependencies.logger.info('Launching persistent background browser...');
+      const context = await this.dependencies.createBackgroundContext(
+        options.cloakBrowserSettings ?? this.dependencies.cloakBrowserSettings.getWithSecret(),
+      );
+      if (!this.isInitializationActive(state)) {
+        this.releaseContext(context);
+        return false;
+      }
+      state.context = context;
+      this.backgroundContext = context;
       readinessAudit.lifecycle.phaseCompleted('context');
     } catch (error: unknown) {
       audit.terminalException(readinessAudit, 'context', error, { causeCode: 'connection-failed' });
@@ -211,11 +343,16 @@ export class BackgroundBrowserService {
     }
 
     const sessionAudit = audit.startOperation(provider.info.id, 'session-load', 'session');
+    state.pendingAudit = sessionAudit;
     let sessionLoaded: boolean;
     try {
-      sessionLoaded = await provider.loadSession(this.backgroundContext);
+      const context = state.context;
+      if (!context || !this.isInitializationActive(state)) return false;
+      sessionLoaded = await provider.loadSession(context);
+      if (!this.isInitializationActive(state)) return false;
     } catch (error: unknown) {
       audit.terminalException(sessionAudit, 'session', error, { causeCode: 'not-authenticated' });
+      if (state.pendingAudit === sessionAudit) state.pendingAudit = null;
       audit.terminalException(readinessAudit, 'session', error, { causeCode: 'not-authenticated' });
       throw error;
     }
@@ -225,10 +362,14 @@ export class BackgroundBrowserService {
       sessionLoaded ? 'success' : 'failure',
       sessionLoaded ? undefined : audit.createMetadata({ causeCode: 'not-authenticated' }),
     );
+    if (state.pendingAudit === sessionAudit) state.pendingAudit = null;
     if (sessionLoaded) {
       readinessAudit.lifecycle.phaseEntered('navigation');
       try {
-        await provider.initPage(this.backgroundContext);
+        const context = state.context;
+        if (!context || !this.isInitializationActive(state)) return false;
+        await provider.initPage(context);
+        if (!this.isInitializationActive(state)) return false;
         readinessAudit.lifecycle.phaseCompleted('navigation');
       } catch (error: unknown) {
         audit.terminalException(readinessAudit, 'navigation', error, { causeCode: 'connection-failed' });
@@ -258,7 +399,7 @@ export class BackgroundBrowserService {
         audit.terminalException(clearAudit, 'session', error, { causeCode: 'cleanup-failed' });
         throw error;
       }
-      await this.shutdownNow(true);
+      await this.cleanupInitialization(state, true);
       return false;
     }
 
@@ -275,15 +416,147 @@ export class BackgroundBrowserService {
     return true;
   }
 
-  private initializeApiProvider(provider: BaseVoiceProvider): void {
+  private initializeApiProvider(state: BackgroundBrowserInitializationState): void {
+    const provider = state.provider;
+    if (!provider) return;
     const audit = this.dependencies.audit;
-    const readinessAudit = audit.startOperation(provider.info.id, 'readiness', 'readiness');
+    const readinessAudit = state.readinessAudit;
+    if (!readinessAudit) return;
     if (!provider.isReady()) {
       readinessAudit.lifecycle.terminal('readiness', 'failure', audit.createMetadata({ causeCode: 'not-configured' }));
       throw new Error(this.getNotAuthenticatedError());
     }
     readinessAudit.lifecycle.phaseCompleted('readiness');
     readinessAudit.lifecycle.terminal('readiness', 'success');
+  }
+
+  private async failInitialization(
+    state: BackgroundBrowserInitializationState,
+    error: unknown,
+  ): Promise<BackgroundBrowserStatus> {
+    if (!this.isInitializationActive(state)) return this.getStatus();
+    this.error = this.presentError(error);
+    await this.cleanupInitialization(state, true);
+    return this.getStatus();
+  }
+
+  private isInitializationActive(state: BackgroundBrowserInitializationState): boolean {
+    return (
+      !state.stopped &&
+      !state.deadline.signal.aborted &&
+      this.activeInitialization === state &&
+      state.generation === this.initializationGeneration
+    );
+  }
+
+  private settleStoppedInitialization(
+    state: BackgroundBrowserInitializationState,
+    cause: InitialProviderReadinessStopCause,
+  ): void {
+    if (state.stopped) return;
+    state.stopped = true;
+    const readinessAudit = state.readinessAuditRoot;
+    if (readinessAudit) {
+      try {
+        if (cause === 'timed-out') {
+          this.dependencies.audit.terminalReadinessTimedOut(readinessAudit);
+        } else {
+          this.dependencies.audit.terminalCancelled(readinessAudit);
+        }
+      } catch {
+        // Audit settlement is fail-open and cannot retain browser ownership.
+      }
+    }
+    if (state.pendingAudit) {
+      try {
+        this.dependencies.audit.terminalCancelled(state.pendingAudit);
+      } catch {
+        // Secondary audit settlement cannot retain browser ownership.
+      }
+      state.pendingAudit = null;
+    }
+
+    this.ready = false;
+    if (this.activeProvider === state.provider) this.activeProvider = null;
+    if (this.backgroundContext === state.context) this.backgroundContext = null;
+    const provider = state.provider;
+    const context = state.context;
+    state.provider = null;
+    state.context = null;
+    if (!state.providerCleanupStarted) this.releaseProvider(provider);
+    if (!state.contextCleanupStarted) this.releaseContext(context);
+  }
+
+  private async cleanupInitialization(
+    state: BackgroundBrowserInitializationState,
+    preserveError: boolean,
+  ): Promise<void> {
+    const provider = state.provider;
+    const context = state.context;
+    const audit = this.dependencies.audit;
+    const shutdownAudit = provider ? audit.startOperation(provider.info.id, 'shutdown', 'shutdown') : null;
+    state.pendingAudit = shutdownAudit;
+    let cleanupFailed = false;
+
+    await this.runBeforeShutdownHooks();
+    if (this.activeProvider === provider) this.ready = false;
+    if (!preserveError) {
+      this.error = '';
+      this.authExpired = false;
+    }
+    if (provider) {
+      try {
+        state.providerCleanupStarted = true;
+        await provider.shutdown();
+        if (state.provider === provider) state.provider = null;
+        if (this.activeProvider === provider) this.activeProvider = null;
+      } catch (error: unknown) {
+        if (shutdownAudit) {
+          audit.terminalException(shutdownAudit, 'shutdown', error, { causeCode: 'cleanup-failed' });
+          if (state.pendingAudit === shutdownAudit) state.pendingAudit = null;
+        }
+        throw error;
+      }
+    }
+    if (context) {
+      try {
+        state.contextCleanupStarted = true;
+        this.dependencies.logger.info('Shutting down background browser...');
+        await context.close();
+        this.dependencies.logger.info('Background browser closed');
+      } catch {
+        cleanupFailed = true;
+      }
+      if (state.context === context) state.context = null;
+      if (this.backgroundContext === context) this.backgroundContext = null;
+    }
+    if (shutdownAudit) {
+      shutdownAudit.lifecycle.phaseCompleted('shutdown');
+      shutdownAudit.lifecycle.terminal(
+        'shutdown',
+        cleanupFailed ? 'failure' : 'success',
+        cleanupFailed ? audit.createMetadata({ causeCode: 'cleanup-failed' }) : undefined,
+      );
+      if (state.pendingAudit === shutdownAudit) state.pendingAudit = null;
+    }
+  }
+
+  private releaseProvider(provider: BaseVoiceProvider | null): void {
+    if (!provider) return;
+    try {
+      void provider.shutdown().catch(() => undefined);
+    } catch {
+      // Detached provider cleanup cannot delay readiness settlement.
+    }
+  }
+
+  private releaseContext(context: BrowserContext | null): void {
+    if (!context) return;
+    try {
+      void context.close().catch(() => undefined);
+    } catch {
+      // Detached context cleanup cannot delay readiness settlement.
+    }
   }
 
   private async shutdownNow(preserveError = false): Promise<void> {

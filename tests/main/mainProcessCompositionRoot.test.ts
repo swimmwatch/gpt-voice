@@ -269,6 +269,14 @@ class MainProcessCompositionHarness {
       },
       getMonotonicTimeMs: () => 0,
       getRequestedAt: () => '2026-07-27T12:00:00.000Z',
+      initialProviderReadiness: {
+        clock: {
+          clearTimeout: () => undefined,
+          now: () => 0,
+          setTimeout: () => 0,
+        },
+        createAbortController: () => new AbortController(),
+      },
       ipc: {
         ipc: {
           handle: (channel, listener) => {

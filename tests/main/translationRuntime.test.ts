@@ -27,6 +27,8 @@ import { noopTranslationProviderAudit } from './translateProviders/translationAu
 import { I18nService } from '@main/i18n';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
 import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
+import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
+import { INITIAL_PROVIDER_READINESS_TIMEOUT_MS } from '@main/services/initialProviderReadinessDeadline';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -85,6 +87,7 @@ interface RuntimeHarnessOptions {
   diagnosticCapture?: RecordingDiagnosticCapture;
   initialize?: (request: TranslationProviderInitializationRequest) => Promise<TranslationProviderInitializationOutcome>;
   outcome?: TranslationProviderOutcome;
+  readinessDeadline?: InitialProviderReadinessTestDependencies;
   settings?: TranslationSettings;
   shutdownFailedProviderIds?: readonly TranslationProviderId[];
   translate?: (request: TranslationProviderRequest) => Promise<TranslationProviderOutcome>;
@@ -192,13 +195,18 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   const initializationRequests: TranslationProviderInitializationRequest[] = [];
   const requests: TranslationProviderRequest[] = [];
   let shutdownCalls = 0;
+  let cancelInitializationCalls = 0;
   const failedProviderIds = options.shutdownFailedProviderIds ?? [];
   const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
+  const readinessDeadline = options.readinessDeadline ?? new InitialProviderReadinessTestDependencies();
 
   const registry: TranslationRuntimeRegistry = {
     getProvider: (providerId) => {
       getProviderCalls.push(providerId);
       return {
+        cancelInitialization: () => {
+          cancelInitializationCalls += 1;
+        },
         initialize: async (request) => {
           initializationRequests.push(request);
           if (options.initialize) return options.initialize(request);
@@ -244,6 +252,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
       now += 1;
       return now;
     },
+    readinessDeadline,
     registry,
   });
 
@@ -252,6 +261,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     initializationRequests,
     diagnosticCapture,
     requests,
+    readinessDeadline,
     runtime,
     setSettings: (next: TranslationSettings) => {
       config.setSettings(next);
@@ -261,6 +271,9 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
     },
     get shutdownCalls() {
       return shutdownCalls;
+    },
+    get cancelInitializationCalls() {
+      return cancelInitializationCalls;
     },
   };
 }
@@ -478,6 +491,77 @@ describe('TranslationRuntime', () => {
     assert.equal(harness.runtime.getConnectionState(), yandexResult);
   });
 
+  it('times out ignored initialization cancellation and lets a later attempt connect', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const readinessDeadline = new InitialProviderReadinessTestDependencies();
+    let initializationCount = 0;
+    let resolveFirst!: (outcome: TranslationProviderInitializationOutcome) => void;
+    const firstOutcome = new Promise<TranslationProviderInitializationOutcome>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const harness = createRuntimeHarness({
+      audit,
+      readinessDeadline,
+      initialize: async (request) => {
+        initializationCount += 1;
+        if (initializationCount === 1) return firstOutcome;
+        return {
+          success: true,
+          metadata: {
+            attemptCount: 1,
+            contractVersion: '2026-07-25',
+            durationMs: 2,
+            phase: 'targetSelection',
+            providerId: request.providerId,
+            targetLanguage: request.targetLanguage,
+          },
+        };
+      },
+    });
+
+    const first = harness.runtime.initializeSelectedProvider();
+    await Promise.resolve();
+    readinessDeadline.clock.advanceBy(INITIAL_PROVIDER_READINESS_TIMEOUT_MS);
+    const timedOut = await first;
+
+    assert.deepEqual(timedOut, {
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+      providerId: 'google',
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      targetLanguage: 'uk',
+    });
+    assert.equal(harness.initializationRequests[0]?.signal?.aborted, true);
+    assert.equal(harness.cancelInitializationCalls, 1);
+    const timeoutTerminal = audit.entries.find(
+      (entry) => entry.record.event === 'terminal' && entry.record.causeCode === 'timed-out',
+    );
+    assert.equal(timeoutTerminal?.record.operation, 'settings-readiness');
+    assert.equal(timeoutTerminal?.record.errorClass, 'timeout');
+    assert.equal(timeoutTerminal?.record.outcome, 'failure');
+
+    const retry = await harness.runtime.initializeSelectedProvider();
+    assert.equal(retry.status, TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected);
+
+    resolveFirst({
+      success: true,
+      metadata: {
+        attemptCount: 1,
+        contractVersion: '2026-07-25',
+        durationMs: 3,
+        phase: 'targetSelection',
+        providerId: 'google',
+        targetLanguage: 'uk',
+      },
+    });
+    await Promise.resolve();
+    assert.equal(harness.runtime.getConnectionState(), retry);
+    assert.equal(
+      audit.entries.filter((entry) => entry.record.causeCode === 'timed-out' && entry.record.event === 'terminal')
+        .length,
+      1,
+    );
+  });
+
   it('fails closed for unsupported provider and target settings without registry access', () => {
     const providerAudit = new CapturingTranslationProviderAudit();
     const targetAudit = new CapturingTranslationProviderAudit();
@@ -532,6 +616,7 @@ describe('TranslationRuntime', () => {
       diagnosticCapture: new RecordingDiagnosticCapture(),
       localization,
       now: () => 100,
+      readinessDeadline: new InitialProviderReadinessTestDependencies(),
       registry: {
         getProvider: () => {
           throw new Error('provider must not be created');

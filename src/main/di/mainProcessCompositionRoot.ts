@@ -60,6 +60,7 @@ import {
   type SelectedTextPrettifyDependencies,
 } from '../services/selectedTextPrettify';
 import { PrettifyProviderAudit } from '../services/prettifyProviderAudit';
+import type { InitialProviderReadinessDeadlineDependencies } from '../services/initialProviderReadinessDeadline';
 import { PrettifyHttpReadiness, type PrettifyHttpReadinessDependencies } from '../services/prettifyHttpReadiness';
 import {
   PrettifyProviderFactory,
@@ -146,6 +147,7 @@ export interface MainProcessVoiceEnvironment {
     | 'localization'
     | 'logger'
     | 'providerRegistry'
+    | 'readinessDeadline'
   >;
   readonly providers: MainProcessVoiceProviderEnvironment;
 }
@@ -244,6 +246,7 @@ export type MainProcessCompositionEnvironment = Omit<
     | 'prettifySettings'
     | 'voiceSettings'
   >;
+  readonly initialProviderReadiness: InitialProviderReadinessDeadlineDependencies;
   readonly logger: LoggerFactoryDependencies;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly textAutomation: TextAutomationServiceDependencies;
@@ -440,6 +443,7 @@ export class MainProcessCompositionRoot {
       localization,
       logger: loggerFactory.getLogger('browser'),
       providerRegistry: voiceProviderRegistry,
+      readinessDeadline: this.environment.initialProviderReadiness,
     });
     const diagnosticsArchive = new DiagnosticsArchiveService({
       environment: new DiagnosticsEnvironmentSnapshotProvider({
@@ -494,6 +498,7 @@ export class MainProcessCompositionRoot {
       diagnosticCapture,
       localization,
       now: this.environment.translation.now,
+      readinessDeadline: this.environment.initialProviderReadiness,
       registry: translationProviderRegistry,
     });
     const selectedTextTranslationService = new SelectedTextTranslationService({

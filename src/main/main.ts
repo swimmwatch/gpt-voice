@@ -209,6 +209,14 @@ function bootstrapMainProcess(): void {
     },
     getMonotonicTimeMs,
     getRequestedAt,
+    initialProviderReadiness: {
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      createAbortController: () => new AbortController(),
+    },
     ipc: {
       ipc: {
         handle: (channel, listener) => ipcMain.handle(channel, listener),

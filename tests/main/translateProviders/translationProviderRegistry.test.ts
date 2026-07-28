@@ -37,6 +37,7 @@ import {
 import { noopTranslationProviderAudit, RecordingTranslationProviderAudit } from './translationAuditTestUtils';
 
 class TestTranslationProvider implements TranslationProviderInstance {
+  public readonly cancelInitialization = (): void => {};
   public readonly initialize = (
     _request: TranslationProviderInitializationRequest,
   ): Promise<TranslationProviderInitializationOutcome> => {

@@ -45,10 +45,10 @@ interface OperationState {
   readonly auditContext: TranslationProviderAuditOperationContext;
   readonly attemptCount: number;
   readonly generation: number;
+  readonly kind: 'initialization' | 'translation';
   readonly signal?: AbortSignal;
   readonly sourceLength?: number;
   readonly startedAt: number;
-  readonly supersedable: boolean;
   readonly targetLanguage?: string;
 }
 
@@ -108,6 +108,7 @@ interface FailureAuditOptions {
 
 /** Shared main-process lifecycle; subclasses implement only public-page behavior. */
 export abstract class BaseTranslateProvider {
+  public readonly cancelInitialization: () => void;
   public readonly info: TranslationProviderInfo;
   public readonly initialize: (
     request: TranslationProviderInitializationRequest,
@@ -119,6 +120,7 @@ export abstract class BaseTranslateProvider {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private generation = 0;
+  private initializationGeneration = 0;
   private operationQueue: Promise<void> = Promise.resolve();
   private closePromise: Promise<boolean> | null = null;
   private shutDown = false;
@@ -126,10 +128,12 @@ export abstract class BaseTranslateProvider {
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
     this.dependencies = dependencies;
+    this.cancelInitialization = () => this.cancelInitializationNow();
     this.initialize = (request) => this.enqueueInitialization(request);
     this.translate = (request) => this.enqueueTranslation(request);
     this.shutdown = () => this.shutdownProvider();
     Object.defineProperties(this, {
+      cancelInitialization: { configurable: false, writable: false },
       initialize: { configurable: false, writable: false },
       shutdown: { configurable: false, writable: false },
       translate: { configurable: false, writable: false },
@@ -160,7 +164,8 @@ export abstract class BaseTranslateProvider {
   private enqueueInitialization(
     request: TranslationProviderInitializationRequest,
   ): Promise<TranslationProviderInitializationOutcome> {
-    const operation = this.operationQueue.then(() => this.runInitialization(request));
+    const generation = this.initializationGeneration;
+    const operation = this.operationQueue.then(() => this.runInitialization(request, generation));
     this.operationQueue = operation.then(
       () => undefined,
       () => undefined,
@@ -180,16 +185,17 @@ export abstract class BaseTranslateProvider {
 
   private async runInitialization(
     request: TranslationProviderInitializationRequest,
+    generation: number,
   ): Promise<TranslationProviderInitializationOutcome> {
     const startedAt = this.dependencies.now();
     const initialState: OperationState = {
       audit: request.audit,
       auditContext: request.auditContext,
       attemptCount: 1,
-      generation: this.generation,
+      generation,
+      kind: 'initialization',
       signal: request.signal,
       startedAt,
-      supersedable: false,
     };
     request.auditContext.lifecycle.started({ attemptCount: 1 });
     const canonicalInfo = getTranslationProviderInfo(this.info.id);
@@ -234,10 +240,10 @@ export abstract class BaseTranslateProvider {
       auditContext: request.auditContext,
       attemptCount: 1,
       generation,
+      kind: 'translation',
       signal: request.signal,
       sourceLength,
       startedAt,
-      supersedable: true,
     };
     request.auditContext.lifecycle.started({
       attemptCount: 1,
@@ -540,6 +546,13 @@ export abstract class BaseTranslateProvider {
       }
       this.context = ownedBrowser;
       const page = await ownedBrowser.newPage();
+      if (!this.isOperationActive(state) || this.context !== ownedBrowser) {
+        this.releaseDetachedResources(page, ownedBrowser);
+        return {
+          success: false,
+          outcome: this.createStaleFailure('context', state),
+        };
+      }
       this.page = page;
       return { success: true, page };
     } catch (error: unknown) {
@@ -637,9 +650,11 @@ export abstract class BaseTranslateProvider {
   }
 
   private isOperationActive(state: OperationState): boolean {
-    return (
-      !this.shutDown && (!state.supersedable || state.generation === this.generation) && state.signal?.aborted !== true
-    );
+    const generationCurrent =
+      state.kind === 'initialization'
+        ? state.generation === this.initializationGeneration
+        : state.generation === this.generation;
+    return !this.shutDown && generationCurrent && state.signal?.aborted !== true;
   }
 
   private createInitializationSuccess(
@@ -823,11 +838,12 @@ export abstract class BaseTranslateProvider {
 
   private async closeOwnedResources(): Promise<boolean> {
     if (this.closePromise) return this.closePromise;
-    this.closePromise = this.performCloseOwnedResources();
+    const closePromise = this.performCloseOwnedResources();
+    this.closePromise = closePromise;
     try {
-      return await this.closePromise;
+      return await closePromise;
     } finally {
-      this.closePromise = null;
+      if (this.closePromise === closePromise) this.closePromise = null;
     }
   }
 
@@ -844,17 +860,16 @@ export abstract class BaseTranslateProvider {
         pageClosed = false;
       }
     }
-    if (pageClosed) this.page = null;
+    if (pageClosed && this.page === page) this.page = null;
 
     if (context) {
       try {
         await context.close();
-        this.context = null;
-        this.page = null;
+        if (this.context === context) this.context = null;
+        if (this.page === page) this.page = null;
         return true;
       } catch {
-        this.context = context;
-        if (!pageClosed) this.page = page;
+        if (this.context === context && !pageClosed && this.page === null) this.page = page;
         return false;
       }
     }
@@ -865,9 +880,41 @@ export abstract class BaseTranslateProvider {
   private async shutdownProvider(): Promise<void> {
     this.shutDown = true;
     this.generation += 1;
+    this.initializationGeneration += 1;
     const closed = await this.closeOwnedResources();
     if (!closed) {
       throw new Error('Translation provider cleanup failed');
     }
+  }
+
+  private cancelInitializationNow(): void {
+    this.initializationGeneration += 1;
+    this.generation += 1;
+    this.operationQueue = Promise.resolve();
+    this.closePromise = null;
+    const page = this.page;
+    const context = this.context;
+    if (this.page === page) this.page = null;
+    if (this.context === context) this.context = null;
+    this.releaseDetachedResources(page, context);
+  }
+
+  private releaseDetachedResources(page: Page | null, context: BrowserContext | null): void {
+    const cleanup: Promise<unknown>[] = [];
+    if (page) {
+      try {
+        if (!page.isClosed()) cleanup.push(page.close());
+      } catch {
+        // Detached provider resources remain unavailable to later generations.
+      }
+    }
+    if (context) {
+      try {
+        cleanup.push(context.close());
+      } catch {
+        // Detached provider resources remain unavailable to later generations.
+      }
+    }
+    if (cleanup.length > 0) void Promise.allSettled(cleanup);
   }
 }

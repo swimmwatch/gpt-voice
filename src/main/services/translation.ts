@@ -26,6 +26,10 @@ import {
   type DiagnosticCaptureService,
 } from '@main/services/diagnosticCapture';
 import {
+  InitialProviderReadinessDeadline,
+  type InitialProviderReadinessDeadlineDependencies,
+} from '@main/services/initialProviderReadinessDeadline';
+import {
   INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE,
   TRANSLATION_PROVIDER_CONNECTION_DETAILS,
   TRANSLATION_PROVIDER_CONNECTION_STATUSES,
@@ -60,7 +64,9 @@ export interface TranslationTextResult {
 }
 
 export interface TranslationRuntimeRegistry {
-  getProvider(providerId: unknown): Pick<TranslationProviderInstance, 'initialize' | 'translate'>;
+  getProvider(
+    providerId: unknown,
+  ): Pick<TranslationProviderInstance, 'cancelInitialization' | 'initialize' | 'translate'>;
   shutdown(): Promise<TranslationProviderShutdownResult>;
 }
 
@@ -70,6 +76,7 @@ export interface TranslationRuntimeDependencies {
   readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'captureTranslationProviderSuccess'>;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly now: () => number;
+  readonly readinessDeadline: InitialProviderReadinessDeadlineDependencies;
   readonly registry: TranslationRuntimeRegistry;
 }
 
@@ -167,7 +174,7 @@ export class TranslationRuntime {
   private generation = 0;
   private readonly activeControllers = new Set<AbortController>();
   private connectionInitializationGeneration = 0;
-  private connectionInitializationController: AbortController | null = null;
+  private connectionInitializationDeadline: InitialProviderReadinessDeadline | null = null;
   private connectionState = INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE;
   private readonly connectionListeners = new Set<TranslationProviderConnectionListener>();
 
@@ -220,8 +227,8 @@ export class TranslationRuntime {
   /** Opens and prepares the selected provider page without submitting user text. */
   async initializeSelectedProvider(): Promise<TranslationProviderConnectionState> {
     const initializationGeneration = ++this.connectionInitializationGeneration;
-    this.connectionInitializationController?.abort();
-    this.connectionInitializationController = null;
+    this.connectionInitializationDeadline?.cancel();
+    this.connectionInitializationDeadline = null;
 
     if (!this.isTranslationEnabled()) {
       const selection = this.getConfiguredConnectionSelection();
@@ -263,10 +270,9 @@ export class TranslationRuntime {
       attemptCount: 0,
       phase: 'validation',
     });
-    const controller = new AbortController();
-    this.connectionInitializationController = controller;
+    const deadline = new InitialProviderReadinessDeadline(this.dependencies.readinessDeadline);
+    this.connectionInitializationDeadline = deadline;
     const startedAt = this.dependencies.now();
-    this.activeControllers.add(controller);
     this.publishConnectionState({
       detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider,
       providerId: snapshot.providerId,
@@ -274,26 +280,46 @@ export class TranslationRuntime {
       targetLanguage: snapshot.targetLanguage,
     });
 
+    let provider: ReturnType<TranslationRuntimeRegistry['getProvider']> | null = null;
     try {
-      auditContext.lifecycle.phaseEntered('dispatch', metadata);
-      const provider = this.dependencies.registry.getProvider(snapshot.providerId);
-      auditContext.lifecycle.phaseCompleted('dispatch', metadata);
       const deferredAuditTerminal = new DeferredTranslationAuditLifecycle(auditContext.lifecycle);
-      const outcome = await provider.initialize({
-        audit: this.dependencies.audit,
-        auditContext: Object.freeze({
-          ...auditContext,
-          lifecycle: deferredAuditTerminal,
-        }),
-        providerId: snapshot.providerId,
-        targetLanguage: snapshot.targetLanguage,
-        signal: controller.signal,
+      const readiness = await deadline.run(async (signal) => {
+        auditContext.lifecycle.phaseEntered('dispatch', metadata);
+        provider = this.dependencies.registry.getProvider(snapshot.providerId);
+        auditContext.lifecycle.phaseCompleted('dispatch', metadata);
+        return provider.initialize({
+          audit: this.dependencies.audit,
+          auditContext: Object.freeze({
+            ...auditContext,
+            lifecycle: deferredAuditTerminal,
+          }),
+          providerId: snapshot.providerId,
+          targetLanguage: snapshot.targetLanguage,
+          signal,
+        });
       });
-      if (
-        !this.isCurrent(snapshot) ||
-        controller.signal.aborted ||
-        initializationGeneration !== this.connectionInitializationGeneration
-      ) {
+      if (readiness.status === 'stopped') {
+        this.cancelProviderInitialization(provider);
+        if (readiness.cause === 'timed-out') {
+          this.dependencies.audit.terminalReadinessTimedOut(auditContext, {
+            providerId: snapshot.providerId,
+            targetLanguage: snapshot.targetLanguage,
+            contractVersion: snapshot.contractVersion,
+            durationMs: Math.max(0, this.dependencies.now() - startedAt),
+            attemptCount: 0,
+            phase: 'readiness',
+          });
+          if (initializationGeneration === this.connectionInitializationGeneration && this.isCurrent(snapshot)) {
+            return this.publishConnectionState({
+              detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+              providerId: snapshot.providerId,
+              status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+              targetLanguage: snapshot.targetLanguage,
+            });
+          }
+          return this.connectionState;
+        }
+
         const failure = createFailure(
           'cancelledOrStaleOperation',
           'shutdown',
@@ -307,7 +333,26 @@ export class TranslationRuntime {
           true,
         );
         this.dependencies.audit.terminalFailure(auditContext.lifecycle, failure, {
-          signalAborted: controller.signal.aborted,
+          signalAborted: true,
+        });
+        return this.connectionState;
+      }
+      const outcome = readiness.value;
+      if (!this.isCurrent(snapshot) || initializationGeneration !== this.connectionInitializationGeneration) {
+        const failure = createFailure(
+          'cancelledOrStaleOperation',
+          'shutdown',
+          startedAt,
+          this.dependencies.now,
+          {
+            providerId: snapshot.providerId,
+            targetLanguage: snapshot.targetLanguage,
+            contractVersion: snapshot.contractVersion,
+          },
+          true,
+        );
+        this.dependencies.audit.terminalFailure(auditContext.lifecycle, failure, {
+          signalAborted: deadline.signal.aborted,
         });
         return this.connectionState;
       }
@@ -330,7 +375,7 @@ export class TranslationRuntime {
         });
       } else {
         this.dependencies.audit.terminalFailure(auditContext.lifecycle, outcome, {
-          signalAborted: controller.signal.aborted,
+          signalAborted: deadline.signal.aborted,
         });
         return this.publishConnectionFailure(outcome.code, snapshot);
       }
@@ -342,9 +387,9 @@ export class TranslationRuntime {
       });
       this.dependencies.audit.terminalFailure(auditContext.lifecycle, failure, {
         exceptionType: normalizeProviderAuditExceptionType(error),
-        signalAborted: controller.signal.aborted,
+        signalAborted: deadline.signal.aborted,
       });
-      if (controller.signal.aborted || initializationGeneration !== this.connectionInitializationGeneration) {
+      if (deadline.signal.aborted || initializationGeneration !== this.connectionInitializationGeneration) {
         return this.connectionState;
       }
       return this.publishConnectionState({
@@ -354,9 +399,8 @@ export class TranslationRuntime {
         targetLanguage: snapshot.targetLanguage,
       });
     } finally {
-      this.activeControllers.delete(controller);
-      if (this.connectionInitializationController === controller) {
-        this.connectionInitializationController = null;
+      if (this.connectionInitializationDeadline === deadline) {
+        this.connectionInitializationDeadline = null;
       }
     }
   }
@@ -449,6 +493,14 @@ export class TranslationRuntime {
       }
     }
     return next;
+  }
+
+  private cancelProviderInitialization(provider: ReturnType<TranslationRuntimeRegistry['getProvider']> | null): void {
+    try {
+      provider?.cancelInitialization();
+    } catch {
+      // Provider cancellation is fail-open; the runtime generation is already terminal.
+    }
   }
 
   private captureSnapshot(terminalOnSuccess: boolean): AuditedTranslationExecutionSnapshotResult {
@@ -760,8 +812,8 @@ export class TranslationRuntime {
   async shutdown(): Promise<TranslationProviderShutdownResult> {
     this.generation += 1;
     this.connectionInitializationGeneration += 1;
-    this.connectionInitializationController?.abort();
-    this.connectionInitializationController = null;
+    this.connectionInitializationDeadline?.cancel();
+    this.connectionInitializationDeadline = null;
     for (const controller of this.activeControllers) controller.abort();
 
     try {

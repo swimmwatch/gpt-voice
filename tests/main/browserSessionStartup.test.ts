@@ -13,6 +13,8 @@ import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
+import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
+import { INITIAL_PROVIDER_READINESS_TIMEOUT_MS } from '@main/services/initialProviderReadinessDeadline';
 
 const localization = new I18nService();
 
@@ -75,8 +77,46 @@ class TestBrowserAuditProvider extends BatchVoiceProvider {
   }
 }
 
+class RetryableTimedOutBrowserProvider extends TestBrowserAuditProvider {
+  private resolveFirstSession: ((loaded: boolean) => void) | null = null;
+  private readonly firstSession = new Promise<boolean>((resolve) => {
+    this.resolveFirstSession = resolve;
+  });
+
+  public constructor() {
+    super(true);
+  }
+
+  public override async loadSession(): Promise<boolean> {
+    this.loadSessionCalls += 1;
+    if (this.loadSessionCalls === 1) return this.firstSession;
+    return true;
+  }
+
+  public resolveLateSession(): void {
+    this.resolveFirstSession?.(true);
+    this.resolveFirstSession = null;
+  }
+}
+
+class CleanupHungBrowserProvider extends TestBrowserAuditProvider {
+  public constructor() {
+    super(true);
+  }
+
+  public override async initPage(): Promise<void> {
+    throw new Error('private-initialization-failure-canary');
+  }
+
+  public override async shutdown(): Promise<void> {
+    this.shutdownCalls += 1;
+    return new Promise<never>(() => undefined);
+  }
+}
+
 class BackgroundBrowserServiceFixture {
   readonly audit = new RecordingVoiceProviderAudit();
+  readonly readinessDeadline = new InitialProviderReadinessTestDependencies();
   readonly service: BackgroundBrowserService;
   readonly config: TestAppConfigStore;
 
@@ -100,6 +140,7 @@ class BackgroundBrowserServiceFixture {
         isKnownProviderId: (providerId): providerId is 'chatgpt' | 'openai-api' | 'claude-web' =>
           providerId === 'chatgpt' || providerId === 'openai-api' || providerId === 'claude-web',
       },
+      readinessDeadline: this.readinessDeadline,
     });
   }
 }
@@ -225,5 +266,101 @@ describe('browser session startup state', () => {
       ['failure', 'success'],
     );
     assert.doesNotMatch(JSON.stringify(shutdowns), /private shutdown failure|\/home\/private/u);
+  });
+
+  it('times out a hung browser generation and keeps a retry-owned context authoritative', async () => {
+    const provider = new RetryableTimedOutBrowserProvider();
+    const audit = new RecordingVoiceProviderAudit();
+    const readinessDeadline = new InitialProviderReadinessTestDependencies();
+    const contexts: Array<{ closeCalls: number; close: () => Promise<void> }> = [];
+    const service = new BackgroundBrowserService({
+      audit,
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      config: new TestAppConfigStore('chatgpt'),
+      createBackgroundContext: async () => {
+        const context = {
+          closeCalls: 0,
+          close: async () => {
+            context.closeCalls += 1;
+          },
+        };
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createLoginContext: async () => {
+        throw new Error('unexpected login context');
+      },
+      localization,
+      logger: { info: () => undefined },
+      providerRegistry: {
+        createProvider: () => provider,
+        isKnownProviderId: (providerId): providerId is 'chatgpt' => providerId === 'chatgpt',
+      },
+      readinessDeadline,
+    });
+
+    const first = service.initialize();
+    for (let attempt = 0; attempt < 10 && provider.loadSessionCalls === 0; attempt += 1) {
+      await Promise.resolve();
+    }
+    readinessDeadline.clock.advanceBy(INITIAL_PROVIDER_READINESS_TIMEOUT_MS);
+    const timedOut = await first;
+
+    assert.equal(timedOut.ready, false);
+    assert.equal(readinessDeadline.controllers[0]?.signal.aborted, true);
+    assert.equal(provider.shutdownCalls, 1);
+    assert.equal(contexts[0]?.closeCalls, 1);
+    const readiness = audit.operations.find((operation) => operation.input.operation === 'readiness');
+    assert.ok(readiness);
+    const timeoutTerminal = getTerminalEvents(readiness);
+    assert.equal(timeoutTerminal.length, 1);
+    assert.equal(timeoutTerminal[0]?.metadata?.causeCode, 'timed-out');
+    assert.equal(timeoutTerminal[0]?.metadata?.errorClass, 'timeout');
+    const sessionLoad = audit.operations.find((operation) => operation.input.operation === 'session-load');
+    assert.ok(sessionLoad);
+    assert.deepEqual(
+      getTerminalEvents(sessionLoad).map((event) => [event.outcome, event.metadata?.causeCode]),
+      [['cancelled', 'cancelled']],
+    );
+
+    const retry = await service.initialize();
+    assert.equal(retry.ready, true);
+    assert.equal(contexts.length, 2);
+    assert.equal(contexts[1]?.closeCalls, 0);
+
+    provider.resolveLateSession();
+    await Promise.resolve();
+    assert.equal(service.getStatus().ready, true);
+    assert.equal(service.getActiveProvider(), provider);
+    assert.equal(contexts[1]?.closeCalls, 0);
+    assert.equal(getTerminalEvents(readiness).length, 1);
+  });
+
+  it('keeps cleanup inside the same absolute deadline and replaces its deferred failure with timeout', async () => {
+    const provider = new CleanupHungBrowserProvider();
+    const fixture = new BackgroundBrowserServiceFixture(provider);
+
+    const initialization = fixture.service.initialize();
+    for (let attempt = 0; attempt < 10 && provider.shutdownCalls === 0; attempt += 1) {
+      await Promise.resolve();
+    }
+    fixture.readinessDeadline.clock.advanceBy(INITIAL_PROVIDER_READINESS_TIMEOUT_MS);
+    const result = await initialization;
+
+    assert.equal(result.ready, false);
+    assert.equal(provider.shutdownCalls, 1);
+    const readiness = fixture.audit.operations.find((operation) => operation.input.operation === 'readiness');
+    assert.ok(readiness);
+    assert.deepEqual(
+      getTerminalEvents(readiness).map((event) => [event.outcome, event.metadata?.causeCode]),
+      [['failure', 'timed-out']],
+    );
+    const shutdown = fixture.audit.operations.find((operation) => operation.input.operation === 'shutdown');
+    assert.ok(shutdown);
+    assert.deepEqual(
+      getTerminalEvents(shutdown).map((event) => [event.outcome, event.metadata?.causeCode]),
+      [['cancelled', 'cancelled']],
+    );
+    assert.doesNotMatch(JSON.stringify(fixture.audit.operations), /private-initialization-failure-canary/u);
   });
 });

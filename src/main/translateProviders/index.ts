@@ -19,6 +19,7 @@ export interface TranslationProviderShutdownResult {
 }
 
 export interface TranslationProviderInstance {
+  readonly cancelInitialization: () => void;
   readonly info: TranslationProviderInfo;
   readonly initialize: (
     request: TranslationProviderInitializationRequest,
@@ -58,6 +59,7 @@ export class TranslationProviderRegistry {
     if (
       provider.info !== info ||
       provider.info.id !== providerId ||
+      typeof provider.cancelInitialization !== 'function' ||
       typeof provider.initialize !== 'function' ||
       typeof provider.shutdown !== 'function' ||
       typeof provider.translate !== 'function'

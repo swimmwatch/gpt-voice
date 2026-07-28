@@ -25,6 +25,7 @@ import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
 import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
+import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -384,6 +385,7 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
         },
         isKnownProviderId: (_providerId): _providerId is VoiceProviderAuditId => false,
       },
+      readinessDeadline: new InitialProviderReadinessTestDependencies(),
     });
   }
 
