@@ -1,0 +1,4 @@
+interface:
+  display_name: "Analyze Diagnostics Archive"
+  short_description: "Safely analyze GPT-Voice diagnostics archives"
+  default_prompt: "Use $analyze-diagnostics-archive to validate this GPT-Voice diagnostics archive and produce an evidence-linked incident report from the supplied issue context."
