@@ -260,7 +260,7 @@ The review report is the finding inventory and evidence source. The decision led
 - The packaged-runtime verifier fails if the Node default path begins resolving `bare-fs`, if an excluded
   alternate-runtime package or artifact is present, or if archive creation no longer works without that branch.
 - Cross-platform claims must distinguish host-independent lockfile proof, host-installed artifact proof, and native manual verification. A current-host scan cannot be described as exhaustive for another platform.
-- **SEC-012:** The existing `tar@7.5.19` advisory through `cloakbrowser@0.4.12` (`GHSA-r292-9mhp-454m`) is a tracked exception, not silently suppressed and not misattributed to this branch.
+- **SEC-012:** The existing `tar@7.5.19` advisory through `cloakbrowser@0.5.2` (`GHSA-r292-9mhp-454m`) is a tracked exception, not silently suppressed and not misattributed to this branch.
 - **OPS-001:** `SECURITY.md` owns one “Known production advisory exceptions” table. The exception row includes advisory ID, affected locked path/versions, severity, impact, reason an unvalidated override is prohibited, responsible upstream dependency, last-reviewed date, and recheck triggers.
 - The exception row is reevaluated on every CloakBrowser or lockfile change and when a compatible upstream fix becomes available. A static assertion requires the locked path and advisory output to match the canonical row; mismatch fails rather than silently updating the exception.
 - Unknown advisories and advisories at or above the configured blocking threshold continue to fail the existing production-audit gate.

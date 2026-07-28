@@ -43,10 +43,10 @@ const TRANSLATIONS_BY_LOCALE = {
   zh,
 } as const;
 const CANONICAL_ADVISORY_ROW =
-  '| `GHSA-r292-9mhp-454m` | `cloakbrowser@0.4.12 -> tar@7.5.19` | moderate | ' +
+  '| `GHSA-r292-9mhp-454m` | `cloakbrowser@0.5.2 -> tar@7.5.19` | moderate | ' +
   'Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member ' +
   'selection. | No compatible CloakBrowser resolution has been validated; a forced transitive override can break ' +
-  'its archive/runtime behavior. | `cloakbrowser` | `2026-07-28` | Any CloakBrowser or lockfile change, advisory ' +
+  'its archive/runtime behavior. | `cloakbrowser` | `2026-07-29` | Any CloakBrowser or lockfile change, advisory ' +
   'update, or compatible upstream fix. |';
 
 interface RepositoryHistoryReader {

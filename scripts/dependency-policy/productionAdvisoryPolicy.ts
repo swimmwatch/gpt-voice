@@ -11,13 +11,13 @@ export const KNOWN_PRODUCTION_ADVISORY_EXCEPTION = Object.freeze({
   dependencyVersion: '7.5.19',
   impact:
     'Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member selection.',
-  lastReviewed: '2026-07-28',
-  lockedPath: 'cloakbrowser@0.4.12 -> tar@7.5.19',
+  lastReviewed: '2026-07-29',
+  lockedPath: 'cloakbrowser@0.5.2 -> tar@7.5.19',
   overridePolicy:
     'No compatible CloakBrowser resolution has been validated; a forced transitive override can break its archive/runtime behavior.',
   parentName: 'cloakbrowser',
   parentPath: 'node_modules/cloakbrowser',
-  parentVersion: '0.4.12',
+  parentVersion: '0.5.2',
   recheckTriggers: 'Any CloakBrowser or lockfile change, advisory update, or compatible upstream fix.',
   severity: 'moderate',
 });

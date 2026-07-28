@@ -85,7 +85,7 @@ class DependencyPolicyFixture {
         '': {
           dependencies: {
             archiver: '1.0.0',
-            cloakbrowser: '0.4.12',
+            cloakbrowser: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.parentVersion,
             'cycle-a': '1.0.0',
             'parent-a': '1.0.0',
             'parent-b': '1.0.0',
