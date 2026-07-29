@@ -71,6 +71,7 @@ class DesktopRuntimeHarness {
   public permissionRequest: PermissionRequestHandler | null = null;
   public output = '';
   public rendererReady = true;
+  public readonly rendererScripts: string[] = [];
 
   public createController(
     options: {
@@ -112,7 +113,10 @@ class DesktopRuntimeHarness {
           ({
             isDestroyed: () => false,
             webContents: {
-              executeJavaScript: async () => this.rendererReady,
+              executeJavaScript: async (script: string) => {
+                this.rendererScripts.push(script);
+                return this.rendererReady;
+              },
             },
           }) as unknown as BrowserWindow,
       },
@@ -195,7 +199,7 @@ describe('DesktopRuntimeController', () => {
     assert.equal(controller.getAppInfo().version, '1.4.0');
   });
 
-  it('reports the existing startup benchmark marker through injected adapters', async () => {
+  it('reports the startup benchmark marker after the renderer shell mounts', async () => {
     const harness = new DesktopRuntimeHarness();
     const controller = harness.createController({
       arguments: ['--startup-benchmark'],
@@ -207,5 +211,6 @@ describe('DesktopRuntimeController', () => {
 
     assert.equal(harness.output, 'GPT_VOICE_STARTUP_READY\n');
     assert.equal(harness.app.quitCount, 1);
+    assert.deepEqual(harness.rendererScripts, ["document.getElementById('window-startup-content') !== null"]);
   });
 });

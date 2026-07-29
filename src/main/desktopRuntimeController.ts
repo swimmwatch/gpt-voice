@@ -7,6 +7,7 @@ const CHROMIUM_FATAL_LOG_LEVEL = '3';
 const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
 const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
 const STARTUP_BENCHMARK_ARGUMENT = '--startup-benchmark';
+const STARTUP_BENCHMARK_RENDERER_MOUNT_QUERY = "document.getElementById('window-startup-content') !== null";
 const REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT = '--remove-linux-appimage-desktop-integration';
 const ELECTRON_DISABLE_SANDBOX_ENVIRONMENT_KEY = 'ELECTRON_DISABLE_SANDBOX';
 
@@ -209,8 +210,9 @@ export class DesktopRuntimeController {
       if (mainWindow.isDestroyed()) return;
 
       try {
+        // Benchmark mode skips provider startup, so measure the mounted shell rather than the normal provider-ready gate.
         const isReady: unknown = await mainWindow.webContents.executeJavaScript(
-          "document.body?.dataset.windowStartup === 'ready'",
+          STARTUP_BENCHMARK_RENDERER_MOUNT_QUERY,
           true,
         );
         if (isReady === true) {
