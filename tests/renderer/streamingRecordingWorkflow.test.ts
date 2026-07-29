@@ -25,7 +25,7 @@ describe('streaming recording workflow', () => {
     assert.match(streaming, /recordingGenerationRef\.current !== generation/u);
     assert.ok(queueConstruction >= 0 && liveCapture > queueConstruction);
     assert.doesNotMatch(streaming.slice(queueConstruction, liveCapture), /await/u);
-    assert.match(streaming, /client: window\.electronAPI/u);
+    assert.match(streaming, /client: desktopApi/u);
     assert.match(streaming, /onFrame: \(frame\) => queue\.enqueueFrame\(frame\)/u);
   });
 
@@ -40,7 +40,7 @@ describe('streaming recording workflow', () => {
     assert.match(streaming, /if \(!ownsRecording\(\)\) return;/u);
     assert.match(streaming, /void queue\.cancel\(\)/u);
     assert.match(hook, /await submitTranscriptionAudio\(retry\.audio, true\)/u);
-    assert.match(hook, /window\.electronAPI\.transcribeAudio\(audio\.buffer, audio\.mimeType\)/u);
+    assert.match(hook, /desktopApi\.transcribeAudio\(audio\.buffer, audio\.mimeType\)/u);
     assert.doesNotMatch(streaming, /transcribeAudio/u);
   });
 

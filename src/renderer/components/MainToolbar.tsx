@@ -1,6 +1,7 @@
-import { AudioLines, Circle, CircleHelp, History, LogIn, Mic, Settings } from 'lucide-react';
+import { AudioLines, CircleHelp, History, LogIn, Mic, Settings } from 'lucide-react';
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
+import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
 import {
   Select,
@@ -14,7 +15,9 @@ import {
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { groupProvidersByCategory } from '@renderer/providerGrouping';
+import { PROVIDER_CONNECTION_REASONS, type ProviderConnectionReason } from '@renderer/providerState';
 import type { ProviderAuthType, ProviderInfo } from '@renderer/types';
+import type { TranslationKey } from '@main/i18n';
 
 interface MainToolbarProps {
   activeProviderAuthType: ProviderAuthType;
@@ -29,8 +32,20 @@ interface MainToolbarProps {
   onOpenProviderSettings: () => void;
   onProviderChange: (providerId: string) => void;
   onProviderLogin: () => void;
+  providerConnectionFailureTooltip: string;
+  providerConnectionReason: ProviderConnectionReason;
   providers: ProviderInfo[];
 }
+
+export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
+  [PROVIDER_CONNECTION_REASONS.ApiConfigured]: 'status.providerConfigured',
+  [PROVIDER_CONNECTION_REASONS.ApiNotConfigured]: 'status.providerNotConfigured',
+  [PROVIDER_CONNECTION_REASONS.BrowserReady]: 'provider.connectionReadyTooltip',
+  [PROVIDER_CONNECTION_REASONS.BrowserUnavailable]: 'provider.browserUnavailableTooltip',
+  [PROVIDER_CONNECTION_REASONS.Checking]: 'provider.connectionCheckingTooltip',
+  [PROVIDER_CONNECTION_REASONS.SessionExpired]: 'status.sessionExpired',
+  [PROVIDER_CONNECTION_REASONS.SessionMissing]: 'provider.sessionMissingTooltip',
+} as const satisfies Record<ProviderConnectionReason, TranslationKey>;
 
 /** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
@@ -46,11 +61,18 @@ function MainToolbar({
   onOpenProviderSettings,
   onProviderChange,
   onProviderLogin,
+  providerConnectionFailureTooltip,
+  providerConnectionReason,
   providers,
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
   const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
+  const providerStatusTooltip =
+    providerConnectionFailureTooltip ||
+    t(VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS[providerConnectionReason], {
+      provider: activeProviderName,
+    });
   const providerGroups = groupProvidersByCategory(providers);
 
   return (
@@ -58,8 +80,8 @@ function MainToolbar({
       <div className="command-dock-header-band">
         <AudioLines aria-hidden="true" className="command-dock-brand-icon" strokeWidth={1.75} />
         <div className="command-dock-brand">
-          <strong>{t('mainDock.title')}</strong>
-          <span>{t('mainDock.subtitle')}</span>
+          <strong>{t('mainDock.subtitle')}</strong>
+          <span>{t('mainDock.title')}</span>
         </div>
         <div className="command-dock-header-actions" data-slot="main-toolbar-actions">
           <Tooltip>
@@ -96,7 +118,7 @@ function MainToolbar({
             <TooltipTrigger asChild>
               <Button
                 aria-label={t('navigation.openAppSettings')}
-                className="command-dock-icon-button"
+                className="command-dock-icon-button command-dock-settings-shortcut"
                 onClick={onOpenAppSettings}
                 size="icon"
                 title={t('navigation.openAppSettings')}
@@ -145,7 +167,7 @@ function MainToolbar({
               <TooltipTrigger asChild>
                 <Button
                   aria-label={providerSettingsLabel}
-                  className="command-dock-provider-settings-shortcut"
+                  className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
                   onClick={onOpenProviderSettings}
                   size="icon"
                   title={providerSettingsLabel}
@@ -159,10 +181,13 @@ function MainToolbar({
           )}
 
           {isLoggedIn ? (
-            <span className="command-dock-provider-state command-dock-provider-state-success" role="status">
-              <Circle aria-hidden="true" fill="currentColor" strokeWidth={0} />
-              <span>{t('provider.connected')}</span>
-            </span>
+            <ProviderStatusIndicator
+              className="command-dock-provider-state command-dock-provider-state-success"
+              dataSlot="voice-provider-connection"
+              label={t('provider.connected')}
+              tone="success"
+              tooltip={providerStatusTooltip}
+            />
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -171,14 +196,13 @@ function MainToolbar({
                   className="command-dock-provider-action"
                   disabled={isLoggingIn}
                   onClick={onProviderLogin}
-                  title={providerActionLabel}
                   variant="outline"
                 >
                   {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
                   <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{providerActionLabel}</TooltipContent>
+              <TooltipContent>{providerStatusTooltip}</TooltipContent>
             </Tooltip>
           )}
         </div>

@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Übersetzungsanbieter',
+  'translate.saving': 'Wird gespeichert...',
+  'translate.settingsSaveFailed': 'Übersetzungseinstellungen konnten nicht gespeichert werden',
+
   'status.pressToRecord': 'Drücken Sie {hotkey}, um die Aufnahme zu starten',
   'status.recording': 'Aufnahme läuft...',
   'status.paused': 'Pause',
@@ -35,6 +39,21 @@ export default {
   'notification.translationCopied': 'Übersetzung kopiert',
   'notification.prettifyFailed': 'Verbesserung fehlgeschlagen',
   'notification.textPrettified': 'Text verbessert',
+  'notification.translationSettingsRepaired': 'Übersetzungseinstellungen aktualisiert',
+  'notification.translationSettingsRepairedBody':
+    'Ungültige oder veraltete Übersetzungseinstellungen wurden durch sichere Standardwerte ersetzt.',
+  'error.translationUnsupportedSelection': 'Wählen Sie einen unterstützten Übersetzungsanbieter und eine Sprache.',
+  'error.translationTextTooLong': 'Der ausgewählte Text ist für {provider} zu lang: {actual} Zeichen, maximal {max}.',
+  'error.translationConnectionFailed': 'Verbindung zum Übersetzungsanbieter fehlgeschlagen. Versuchen Sie es erneut.',
+  'error.translationConsentOrChallenge':
+    'Der Übersetzungsanbieter verlangt eine Zustimmung oder Überprüfung. Versuchen Sie es später erneut.',
+  'error.translationPageChanged': 'Die Seite des Übersetzungsanbieters wurde geändert. Versuchen Sie es später erneut.',
+  'error.translationResultUnavailable': 'Vor Ablauf der Zeit war kein Übersetzungsergebnis verfügbar.',
+  'error.translationCleanupFailed':
+    'Die Übersetzungsdaten konnten nicht bereinigt werden. Es wurde kein Ergebnis kopiert.',
+  'error.translationSettingsInvalid': 'Wählen Sie einen unterstützten Übersetzungsanbieter und eine Sprache.',
+  'error.translationSettingsSaveFailed':
+    'Die Übersetzungseinstellungen konnten nicht gespeichert werden. Die vorherige Auswahl bleibt aktiv.',
   'login.loggingIn': 'Anmeldung...',
   'login.connected': '{provider}: Verbunden',
   'login.configured': '{provider}: Konfiguriert',
@@ -45,6 +64,14 @@ export default {
   'provider.connect': 'Verbinden',
   'provider.configure': 'Konfigurieren',
   'provider.connected': 'Verbunden',
+  'provider.notConnected': 'Nicht verbunden',
+  'provider.connectionChecking': 'Prüfen',
+  'provider.connectionReadyTooltip': 'Der Anbieter ist bereit.',
+  'provider.connectionCheckingTooltip': 'Die Verbindung zum Anbieter wird geöffnet.',
+  'provider.browserUnavailableTooltip': 'Die Browser-Sitzung des Anbieters konnte nicht geöffnet werden.',
+  'provider.sessionMissingTooltip': 'Keine Browser-Sitzung verfügbar. Verbinden Sie den Anbieter, um fortzufahren.',
+  'translate.connectionDisabledTooltip': 'Die Übersetzung ist deaktiviert; die Anbietersitzung wurde nicht gestartet.',
+  'translate.connectionNotStartedTooltip': 'Die Initialisierung des Übersetzungsanbieters wurde noch nicht gestartet.',
   'provider.connectionReady': 'Bereit',
   'provider.connectionSetupRequired': 'Ein Setup erforderlich',
   'provider.claudeWeb.name': 'Claude Web',
@@ -134,10 +161,16 @@ export default {
   'mainDock.title': 'Befehlsdock',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Sprachanbieter',
-  'mainDock.prettifyProviderLabel': 'Verbessern',
+  'mainDock.prettifyProviderLabel': 'Verbesserungsanbieter',
   'mainDock.prettifyModelLabel': 'Modell',
   'mainDock.prettifyNotConfigured': 'Nicht konfiguriert',
   'mainDock.prettifyConfigured': 'Konfiguriert',
+  'mainDock.prettifyOllamaNotConfiguredTooltip': 'Wählen Sie in den Prettify-Einstellungen ein Ollama-Modell aus.',
+  'mainDock.prettifyOllamaLoadedTooltip': 'Das ausgewählte Ollama-Modell ist geladen und bereit.',
+  'mainDock.prettifyOllamaNotLoadedTooltip': 'Das ausgewählte Ollama-Modell ist nicht geladen.',
+  'mainDock.prettifyVllmConfiguredTooltip':
+    'Ein vLLM-Modell ist konfiguriert; die Verfügbarkeit wird bei Verwendung geprüft.',
+  'mainDock.prettifyVllmNotConfiguredTooltip': 'Wählen Sie in den Prettify-Einstellungen ein vLLM-Modell aus.',
   'mainDock.prettifyChecking': 'Prüfung',
   'mainDock.prettifySignIn': 'Anmelden',
   'mainDock.prettifySignInHelp': 'Melden Sie sich in der ausgewählten CLI an und wählen Sie sie erneut aus.',
@@ -179,12 +212,73 @@ export default {
   'settingsSection.prettify': 'Verbessern',
   'settingsSection.browser': 'Browser',
   'settingsSection.network': 'Netzwerk',
+  'settingsSection.auditLog': 'Auditprotokoll',
+
+  // Auditprotokoll-Einstellungen
+  'auditLog.title': 'Auditprotokoll',
+  'auditLog.description':
+    'Optional können Quell- und Ergebnistext erfolgreicher Übersetzungs- und Verbesserungsaktionen für die lokale Diagnose aufbewahrt werden.',
+  'auditLog.captureTranslation': 'Übersetzungsdiagnosen erfassen',
+  'auditLog.captureTranslationDescription':
+    'Quell- und Ergebnistext erfolgreicher Übersetzungen einschließlich Cache-Treffern speichern.',
+  'auditLog.capturePrettify': 'Verbesserungsdiagnosen erfassen',
+  'auditLog.capturePrettifyDescription':
+    'Quell- und Ergebnistext erfolgreicher Verbesserungen einschließlich Cache-Treffern speichern.',
+  'auditLog.privacyTitle': 'Vertrauliche Klartextdiagnosen',
+  'auditLog.sensitiveDataWarning': 'Erfasste Quellen und Ergebnisse können private oder vertrauliche Texte enthalten.',
+  'auditLog.plaintextStorageWarning':
+    'Daten werden nach bestmöglicher Schwärzung als SQLite-Klartext unter benutzerspezifischen Dateisystemrechten gespeichert. Sie sind nicht verschlüsselt.',
+  'auditLog.redactionLimitWarning':
+    'Die Schwärzung kann beliebige eingebettete Geheimnisse übersehen. Behandeln Sie die gespeicherten Daten als privat.',
+  'auditLog.archiveInclusionWarning': 'Aktivierte Kategorien werden automatisch in Diagnosearchive aufgenommen.',
+  'auditLog.archiveEncryptionWarning': 'Diagnosearchive sind nicht verschlüsselt.',
+  'auditLog.clearTitle': 'Erfasste Daten löschen',
+  'auditLog.clearDescription': 'Das Löschen ist dauerhaft und ändert die Erfassungsschalter nicht.',
+  'auditLog.clear.translation': 'Übersetzungen löschen',
+  'auditLog.clear.prettify': 'Verbesserungen löschen',
+  'auditLog.clear.all': 'Alles löschen',
+  'auditLog.disableConfirm.title': 'Erfassung deaktivieren und Daten löschen?',
+  'auditLog.disableConfirm.translation':
+    'Beim Speichern wird die Übersetzungserfassung deaktiviert und alle erfassten Übersetzungsdaten werden dauerhaft gelöscht.',
+  'auditLog.disableConfirm.prettify':
+    'Beim Speichern wird die Verbesserungserfassung deaktiviert und alle erfassten Verbesserungsdaten werden dauerhaft gelöscht.',
+  'auditLog.disableConfirm.all':
+    'Beim Speichern werden beide Erfassungskategorien deaktiviert und alle erfassten Übersetzungs- und Verbesserungsdaten dauerhaft gelöscht.',
+  'auditLog.disableConfirm.action': 'Deaktivieren und löschen',
+  'auditLog.clearConfirm.translation.title': 'Übersetzungsdiagnosen löschen?',
+  'auditLog.clearConfirm.translation.description':
+    'Dadurch werden alle erfassten Übersetzungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.prettify.title': 'Verbesserungsdiagnosen löschen?',
+  'auditLog.clearConfirm.prettify.description':
+    'Dadurch werden alle erfassten Verbesserungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.all.title': 'Alle Diagnosen löschen?',
+  'auditLog.clearConfirm.all.description':
+    'Dadurch werden alle erfassten Übersetzungs- und Verbesserungsdaten dauerhaft gelöscht, ohne die Erfassungseinstellungen zu ändern.',
+  'auditLog.clearConfirm.action': 'Daten löschen',
+  'auditLog.cancel': 'Abbrechen',
+  'auditLog.processing': 'Wird verarbeitet...',
+  'auditLog.error.invalid-request': 'Die Diagnoseanforderung war ungültig.',
+  'auditLog.error.confirmation-required': 'Bestätigen Sie genau die Diagnosekategorien, die gelöscht werden.',
+  'auditLog.error.storage-unavailable': 'Der Diagnosespeicher ist nicht verfügbar. Versuchen Sie es erneut.',
+  'auditLog.error.storage-failed': 'Der Diagnosespeicher konnte nicht aktualisiert werden. Versuchen Sie es erneut.',
+  'auditLog.error.save-failed':
+    'Die Datenpflege wurde abgeschlossen, aber die Erfassungseinstellungen konnten nicht gespeichert werden. Die vorherigen Einstellungen bleiben aktiv.',
   'about.open': 'Über',
   'about.version': '{version} Version',
   'about.license': 'Lizenz',
   'about.copyright': 'Copyright',
+  'about.project': 'Projekt',
   'about.loading': 'Lade Anwendungsinformationen...',
   'about.loadFailed': 'Konnte Anwendungsinformationen nicht laden.',
+  'auditLog.exportAction': 'Diagnose exportieren',
+  'auditLog.exportPending': 'Diagnose wird exportiert...',
+  'auditLog.exportDialogTitle': 'Diagnosearchiv exportieren',
+  'auditLog.exportDescription': 'Speichert ein lokales Diagnosearchiv zur Fehlerbehebung.',
+  'notification.diagnosticsExportSaved': 'Diagnose exportiert',
+  'notification.diagnosticsExportSavedBody': 'Das Diagnosearchiv wurde gespeichert.',
+  'notification.diagnosticsExportFailed': 'Diagnoseexport fehlgeschlagen',
+  'notification.diagnosticsExportFailedBody':
+    'Das Diagnosearchiv konnte nicht gespeichert werden. Bitte erneut versuchen.',
   'history.open': 'Verlauf',
   'history.title': 'Transkriptionsverlauf',
   'history.count': '{count} Einträge',
@@ -275,6 +369,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Mittel',
   'prettify.codexCli.reasoningEffort.high': 'Hoch',
   'prettify.codexCli.reasoningEffort.xhigh': 'Extra hoch',
+  'prettify.codexCli.reasoningEffort.max': 'Maximal',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ultra',
   'prettify.codexCli.verbosity': 'Antwort-Detailgrad',
   'prettify.codexCli.verbosityHelp':
     'Steuert die Detailtiefe der Antwort, wenn das ausgewählte Codex-Modell dies unterstützt.',

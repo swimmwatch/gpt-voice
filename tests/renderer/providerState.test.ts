@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  PROVIDER_CONNECTION_REASONS,
   expireBrowserSessionSettings,
   getProviderLoginState,
   isActiveProviderSettingsChange,
@@ -13,6 +14,7 @@ describe('providerState', () => {
     assert.deepEqual(getProviderLoginState('browserSession', true, { ready: false, authExpired: true }), {
       isLoggedIn: false,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.SessionExpired,
       sessionExpired: true,
     });
   });
@@ -21,6 +23,7 @@ describe('providerState', () => {
     assert.deepEqual(getProviderLoginState('browserSession', false, { ready: true }), {
       isLoggedIn: true,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.BrowserReady,
       sessionExpired: false,
     });
   });
@@ -29,6 +32,7 @@ describe('providerState', () => {
     assert.deepEqual(getProviderLoginState('browserSession', true, { ready: false, error: 'Browser startup failed' }), {
       isLoggedIn: false,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.BrowserUnavailable,
       sessionExpired: false,
     });
   });
@@ -37,11 +41,13 @@ describe('providerState', () => {
     assert.deepEqual(getProviderLoginState('browserSession', true), {
       isLoggedIn: false,
       isLoading: true,
+      reason: PROVIDER_CONNECTION_REASONS.Checking,
       sessionExpired: false,
     });
     assert.deepEqual(getProviderLoginState('browserSession', false), {
       isLoggedIn: false,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.SessionMissing,
       sessionExpired: false,
     });
   });
@@ -50,11 +56,13 @@ describe('providerState', () => {
     assert.deepEqual(getProviderLoginState('apiKey', false, { ready: true }), {
       isLoggedIn: false,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.ApiNotConfigured,
       sessionExpired: false,
     });
     assert.deepEqual(getProviderLoginState('apiKey', true, { ready: false, authExpired: true }), {
       isLoggedIn: true,
       isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.ApiConfigured,
       sessionExpired: false,
     });
   });

@@ -34,8 +34,12 @@ describe('renderer Select open coordination', () => {
     );
 
     for (const source of [select, searchable]) {
+      assert.match(source, /useSelectOpenCoordinator\(\)/u);
       assert.match(source, /selectOpenCoordinator\.activate/u);
       assert.match(source, /selectOpenCoordinator\.deactivate/u);
     }
+
+    const coordinatorSource = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/selectOpenCoordinator.ts'), 'utf8');
+    assert.doesNotMatch(coordinatorSource, /export const selectOpenCoordinator/u);
   });
 });

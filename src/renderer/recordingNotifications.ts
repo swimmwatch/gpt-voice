@@ -1,4 +1,4 @@
-import rendererLog from 'electron-log/renderer';
+import type { RendererLogger } from '@renderer/RendererLoggerProvider';
 import {
   formatNotificationBody,
   getNotificationErrorMessage,
@@ -7,7 +7,6 @@ import {
   type SystemNotificationOptions,
 } from '@shared/notifications';
 
-const log = rendererLog.scope('recording-notifications');
 const CLAUDE_WEB_ERROR_TRANSLATION_PREFIX = 'error.claudeWeb.';
 
 interface TranscriptionNotificationApi {
@@ -27,12 +26,13 @@ function localizeProviderError(error: unknown, t: Translate): unknown {
 
 function showNotificationSafely(
   api: TranscriptionNotificationApi,
+  logger: RendererLogger,
   title: string,
   body: string,
   options?: SystemNotificationOptions,
 ): void {
   void api.showNotification(title, body, options).catch((error: unknown) => {
-    log.warn(
+    logger.warn(
       'Could not show transcription notification:',
       presentNotificationError(error, { context: 'transcription', fallback: 'Notification failed' }).safeLogMetadata,
     );
@@ -41,14 +41,16 @@ function showNotificationSafely(
 
 export function showTranscriptionSuccessNotification(
   api: TranscriptionNotificationApi,
+  logger: RendererLogger,
   t: Translate,
   text: string,
 ): void {
-  showNotificationSafely(api, t('notification.textCopied'), text, { sound: 'success' });
+  showNotificationSafely(api, logger, t('notification.textCopied'), text, { sound: 'success' });
 }
 
 export function showTranscriptionFailureNotification(
   api: TranscriptionNotificationApi,
+  logger: RendererLogger,
   t: Translate,
   error: unknown,
   fallback: string,
@@ -61,6 +63,7 @@ export function showTranscriptionFailureNotification(
   });
   showNotificationSafely(
     api,
+    logger,
     t('notification.transcriptionFailed'),
     formatNotificationBody(presented.userMessage, fallback),
     options,

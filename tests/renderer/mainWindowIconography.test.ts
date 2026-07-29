@@ -10,6 +10,13 @@ function readRendererSource(filename: string): string {
 }
 
 describe('main window iconography', () => {
+  it('renders GPT-Voice as the primary brand and Command Dock as the subtitle', () => {
+    const toolbar = readRendererSource('components/MainToolbar.tsx');
+
+    assert.match(toolbar, /<strong>\{t\('mainDock\.subtitle'\)\}<\/strong>/u);
+    assert.match(toolbar, /<span>\{t\('mainDock\.title'\)\}<\/span>/u);
+  });
+
   it('uses a microphone for the voice provider and a brain circuit for the Prettify provider', () => {
     const toolbar = readRendererSource('components/MainToolbar.tsx');
     const prettifyBand = readRendererSource('components/MainPrettifyProviderBand.tsx');
@@ -37,15 +44,30 @@ describe('main window iconography', () => {
     assert.match(toolbar, /groupProvidersByCategory/u);
     assert.match(toolbar, /<SelectSeparator/u);
     assert.match(toolbar, /<Settings aria-hidden="true"/u);
-    assert.match(toolbar, /className="command-dock-provider-state command-dock-provider-state-success" role="status"/u);
+    assert.match(toolbar, /<ProviderStatusIndicator/u);
+    assert.match(toolbar, /className="command-dock-provider-state command-dock-provider-state-success"/u);
+    assert.match(toolbar, /dataSlot="voice-provider-connection"/u);
     assert.doesNotMatch(toolbar, /command-dock-provider-state[^>]+onClick=/u);
     assert.doesNotMatch(toolbar, /\bWrench\b/u);
     assert.match(
       styles,
-      /\.command-dock-provider-controls \{[\s\S]*?width: 125px;[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
+      /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
     );
     assert.match(styles, /\.command-dock-provider-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u);
     assert.match(styles, /\.command-dock-provider-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
+  });
+
+  it('uses one hover treatment for every main-window settings gear', () => {
+    const toolbar = readRendererSource('components/MainToolbar.tsx');
+    const prettifyBand = readRendererSource('components/MainPrettifyProviderBand.tsx');
+    const styles = readRendererSource('styles/globals.css');
+
+    assert.equal((toolbar.match(/command-dock-settings-shortcut/gu) ?? []).length, 2);
+    assert.match(prettifyBand, /command-dock-prettify-settings-shortcut command-dock-settings-shortcut/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-settings-shortcut:hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
+    );
   });
 
   it('keeps settings closing in native window controls instead of the footer', () => {
@@ -68,5 +90,14 @@ describe('main window iconography', () => {
 
     assert.match(aboutWindow, /APP_ICON_ASSET_PATH/u);
     assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
+  });
+
+  it('renders guarded external links for the project and license', () => {
+    const aboutWindow = readRendererSource('AboutWindow.tsx');
+
+    assert.match(aboutWindow, /href=\{appInfo\.projectUrl\}/u);
+    assert.match(aboutWindow, /href=\{appInfo\.licenseUrl\}/u);
+    assert.equal((aboutWindow.match(/rel="noreferrer"/gu) ?? []).length, 2);
+    assert.equal((aboutWindow.match(/target="_blank"/gu) ?? []).length, 2);
   });
 });

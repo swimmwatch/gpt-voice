@@ -21,5 +21,3 @@ export function createSelectOpenCoordinator(): SelectOpenCoordinator {
     },
   };
 }
-
-export const selectOpenCoordinator = createSelectOpenCoordinator();

@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 interface PackagedRuntimePolicyModule {
+  APPROVED_RUNTIME_MODULES: readonly string[];
   ELECTRON_LOCALE_FILENAMES: readonly string[];
   RUNTIME_ASSET_PATHS: readonly string[];
   getElectronLocaleViolations: (paths: readonly string[]) => string[];
@@ -23,6 +24,7 @@ function isPackagedRuntimePolicyModule(value: unknown): value is PackagedRuntime
   return (
     typeof value === 'object' &&
     value !== null &&
+    Array.isArray((value as Record<string, unknown>).APPROVED_RUNTIME_MODULES) &&
     Array.isArray((value as Record<string, unknown>).ELECTRON_LOCALE_FILENAMES) &&
     Array.isArray((value as Record<string, unknown>).RUNTIME_ASSET_PATHS) &&
     typeof (value as Record<string, unknown>).getElectronLocaleViolations === 'function' &&
@@ -48,6 +50,46 @@ const requiredPaths = [
   'dist/settings.html',
   'package.json',
 ];
+const archiveRuntimeModules = [
+  'abort-controller',
+  'archiver',
+  'async',
+  'b4a',
+  'balanced-match',
+  'base64-js',
+  'bare-events',
+  'brace-expansion',
+  'buffer',
+  'buffer-crc32',
+  'compress-commons',
+  'concat-map',
+  'core-util-is',
+  'crc-32',
+  'crc32-stream',
+  'event-target-shim',
+  'events',
+  'events-universal',
+  'fast-fifo',
+  'inherits',
+  'ieee754',
+  'is-stream',
+  'isarray',
+  'lazystream',
+  'minimatch',
+  'normalize-path',
+  'process',
+  'process-nextick-args',
+  'readable-stream',
+  'readdir-glob',
+  'safe-buffer',
+  'streamx',
+  'string_decoder',
+  'tar-stream',
+  'text-decoder',
+  'util-deprecate',
+  'zip-stream',
+] as const;
+const bareOnlyRuntimeModules = ['bare-fs', 'bare-path', 'bare-stream', 'bare-url', 'teex'] as const;
 
 describe('packaged runtime policy', () => {
   it('packages only the audited Codex schema through the existing asset resource', async () => {
@@ -92,11 +134,42 @@ describe('packaged runtime policy', () => {
         'dist\\renderer/assets/livePcmCapture.worklet.js',
         'dist\\settings.html',
         'package.json',
+        ...archiveRuntimeModules.map((moduleName) => `node_modules/${moduleName}/index.js`),
         'node_modules/cloakbrowser/dist/index.js',
         'node_modules/playwright-core/lib/server/browserType.js',
       ]),
       [],
     );
+  });
+
+  it('packages the approved Electron/Node archive graph and excludes the Bare-only branch', async () => {
+    const packageJson: unknown = JSON.parse(await readFile(packagePath, 'utf8'));
+    assert.ok(isRecord(packageJson) && isRecord(packageJson.dependencies) && isRecord(packageJson.build));
+    assert.equal(packageJson.dependencies.archiver, '^8.0.0');
+    const files = packageJson.build.files;
+    assert.ok(Array.isArray(files));
+    for (const moduleName of archiveRuntimeModules) {
+      assert.equal(files.includes(`node_modules/${moduleName}/**/*`), true, moduleName);
+    }
+    for (const moduleName of bareOnlyRuntimeModules) {
+      assert.equal(files.includes(`node_modules/${moduleName}/**/*`), false, moduleName);
+      assert.equal(files.includes(`!node_modules/${moduleName}{,/**/*}`), true, moduleName);
+    }
+    assert.deepEqual(
+      files.filter((file): file is string => typeof file === 'string' && file.startsWith('!node_modules/')),
+      bareOnlyRuntimeModules.map((moduleName) => `!node_modules/${moduleName}{,/**/*}`),
+    );
+
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isPackagedRuntimePolicyModule(importedModule));
+    assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes('bare-events'), true);
+    for (const moduleName of bareOnlyRuntimeModules) {
+      assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes(moduleName), false, moduleName);
+      assert.deepEqual(
+        importedModule.getPackagedRuntimeViolations([...requiredPaths, `node_modules/${moduleName}/index.js`]),
+        [`unexpected runtime module: ${moduleName}`],
+      );
+    }
   });
 
   it('reports missing runtime files and forbidden diagnostics with concise relative paths', async () => {

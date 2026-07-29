@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useEffectEvent, useRef, useCallback, useReducer } from 'react';
+import { useDesktopApi } from './DesktopApiProvider';
 import LoadingScreen from './components/LoadingScreen';
 import MainToolbar from './components/MainToolbar';
 import MainPrettifyProviderBand from './components/MainPrettifyProviderBand';
@@ -8,16 +9,22 @@ import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
-import { reduceMainPrettifyProviderSelection } from './mainPrettifyProvider';
+import {
+  MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
+  reduceMainPrettifyProviderSelection,
+  type MainPrettifyHttpConnectionState,
+} from './mainPrettifyProvider';
 import {
   createMainPrettifyCliConnectionCoordinator,
   getActivePrettifyCliProviderId,
   type MainPrettifyCliConnectionState,
 } from './mainPrettifyCliConnection';
 import {
+  PROVIDER_CONNECTION_REASONS,
   getProviderLoginState,
   isActiveProviderSettingsChange,
   isProviderConfigured,
+  type ProviderConnectionReason,
   type ProviderLoginState,
 } from './providerState';
 import {
@@ -26,6 +33,7 @@ import {
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
 import {
+  createBrowserProviderFailurePresentation,
   notificationErrorStatus,
   renderRendererStatus,
   shouldPresentIdleHotkeyStatus,
@@ -36,22 +44,48 @@ import {
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
 import {
+  DEFAULT_PRETTIFY_PROVIDER_ID,
   DEFAULT_PRETTIFY_SETTINGS,
+  isPrettifyCliProviderId,
   type PrettifyModelOption,
   type PrettifyProviderId,
   type PrettifySettings,
 } from '@shared/prettifySettings';
+import {
+  DEFAULT_TRANSLATION_SETTINGS,
+  type TranslationProviderConnectionState,
+  type TranslationSettings,
+} from '@shared/translationProvider';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import {
+  createTranslationProviderCandidate,
+  createTranslationSettingsCandidate,
+  createTranslationSettingsViewState,
+  reduceTranslationSettingsViewState,
+} from './translationSettingsViewState';
+import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE, isInitialProviderStartupPending } from './providerStartupState';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
+  const desktopApi = useDesktopApi();
   const [isLoading, setIsLoading] = useState(true);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState<RendererStatus | null>(null);
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [targetLang, setTargetLang] = useState('en');
+  const [providerConnectionReason, setProviderConnectionReason] = useState<ProviderConnectionReason>(
+    PROVIDER_CONNECTION_REASONS.SessionMissing,
+  );
+  const [providerConnectionFailureStatus, setProviderConnectionFailureStatus] = useState<RendererStatus | null>(null);
+  const [translationSettingsSelection, dispatchTranslationSettingsSelection] = useReducer(
+    reduceTranslationSettingsViewState,
+    createTranslationSettingsViewState(DEFAULT_TRANSLATION_SETTINGS),
+  );
+  const translationSettings = translationSettingsSelection.settings;
+  const [translationConnectionState, setTranslationConnectionState] =
+    useState<TranslationProviderConnectionState | null>(null);
+  const [hasLoadedInitialTranslationSettings, setHasLoadedInitialTranslationSettings] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState('chatgpt');
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -66,11 +100,20 @@ const App: React.FC = () => {
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
+  const [prettifyConnectionError, setPrettifyConnectionError] = useState('');
+  const [prettifyHttpConnection, setPrettifyHttpConnection] = useState<MainPrettifyHttpConnectionState | null>(null);
   const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
+  const [hasLoadedInitialPrettifySettings, setHasLoadedInitialPrettifySettings] = useState(false);
+  const [isInitialPrettifyProviderLoading, setIsInitialPrettifyProviderLoading] = useState(true);
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
-      check: (providerId) => window.electronAPI.checkPrettifyCliConnection(providerId),
-      update: setPrettifyCliConnection,
+      check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
+      update: (connection) => {
+        setPrettifyCliConnection(connection);
+        if (connection !== null && connection.status !== 'checking') {
+          setIsInitialPrettifyProviderLoading(false);
+        }
+      },
     }),
   );
 
@@ -79,8 +122,14 @@ const App: React.FC = () => {
   const activeProviderName = activeProvider?.name || activeProviderId;
   const activeProviderAuthType = activeProvider?.authType || 'browserSession';
   const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
+  const providerStartupPending = isInitialProviderStartupPending({
+    prettifyPending: isInitialPrettifyProviderLoading,
+    translationConnection: translationConnectionState,
+    translationSettingsPending: !hasLoadedInitialTranslationSettings,
+    voicePending: isLoading,
+  });
 
-  useWindowStartupReady(isI18nReady && !isLoading);
+  useWindowStartupReady(isI18nReady && !providerStartupPending);
 
   const preserveStatusRef = useRef(false);
   const recordingStateRef = useRef<RecordingLifecycleState>('idle');
@@ -89,6 +138,9 @@ const App: React.FC = () => {
   const providerSelectionCoordinatorRef = useRef<ProviderSelectionCoordinator | null>(null);
   const prettifyModelRefreshIdRef = useRef(0);
   const prettifyProviderChangeRequestRef = useRef(0);
+  const translationSettingsRequestRef = useRef(0);
+  const translationSettingsSavePendingRef = useRef(false);
+  const translationConnectionRequestRef = useRef(0);
 
   const updateRecordingState = useCallback((nextState: RecordingLifecycleState): void => {
     recordingStateRef.current = nextState;
@@ -96,10 +148,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!hasLoadedInitialPrettifySettings) return;
     prettifyCliConnectionCoordinator.refresh(
       getActivePrettifyCliProviderId(prettifySettings.providerId, prettifyProviderSelection.pendingRequestId !== null),
     );
   }, [
+    hasLoadedInitialPrettifySettings,
     prettifySettings.providerId,
     prettifySettings.claudeCli.executablePath,
     prettifySettings.claudeCli.timeoutSeconds,
@@ -120,9 +174,9 @@ const App: React.FC = () => {
     (nextStatus: RendererStatus) => {
       const notificationBody = renderRendererStatus(nextStatus, t).trim();
       if (!notificationBody) return;
-      void window.electronAPI.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
+      void desktopApi.showNotification('GPT-Voice', notificationBody).catch(() => undefined);
     },
-    [t],
+    [desktopApi, t],
   );
 
   const setStatusAndNotify = useCallback(
@@ -133,28 +187,69 @@ const App: React.FC = () => {
     [showStatusNotification],
   );
 
-  const refreshOllamaModelState = useCallback(async (settings: PrettifySettings): Promise<void> => {
-    const refreshId = ++prettifyModelRefreshIdRef.current;
-    dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
-    setIsPrettifyModelActionRunning(false);
-    setPrettifyModelActionError('');
+  const applyBrowserProviderFailure = useCallback(
+    (error: unknown): void => {
+      const failure = createBrowserProviderFailurePresentation(error);
+      setIsLoggedIn(false);
+      setProviderConnectionReason(failure.reason);
+      setProviderConnectionFailureStatus(failure.status);
+      preserveStatusRef.current = true;
+      setStatusAndNotify(failure.status);
+    },
+    [setStatusAndNotify],
+  );
 
-    if (settings.providerId !== 'ollama' || !settings.ollama.model) {
-      setOllamaModelOptions([]);
-      return;
-    }
+  const refreshPrettifyProviderState = useCallback(
+    async (settings: PrettifySettings): Promise<void> => {
+      const refreshId = ++prettifyModelRefreshIdRef.current;
+      dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
+      setIsPrettifyModelActionRunning(false);
+      setPrettifyModelActionError('');
+      setPrettifyConnectionError('');
 
-    try {
-      const result = await window.electronAPI.listPrettifyModels('ollama', settings);
-      if (refreshId === prettifyModelRefreshIdRef.current) {
-        setOllamaModelOptions(result.success ? result.models : []);
-      }
-    } catch {
-      if (refreshId === prettifyModelRefreshIdRef.current) {
+      if (isPrettifyCliProviderId(settings.providerId)) {
         setOllamaModelOptions([]);
+        setPrettifyHttpConnection(null);
+        return;
       }
-    }
-  }, []);
+
+      const providerId = settings.providerId;
+      setPrettifyHttpConnection({
+        providerId,
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Checking,
+      });
+      try {
+        const result = await desktopApi.listPrettifyModels(providerId, settings);
+        if (refreshId === prettifyModelRefreshIdRef.current) {
+          setOllamaModelOptions(providerId === 'ollama' && result.success ? result.models : []);
+          setPrettifyHttpConnection({
+            providerId,
+            status: result.success
+              ? MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
+              : MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+          setPrettifyConnectionError(
+            result.success
+              ? ''
+              : presentNotificationError(result.error, {
+                  context: 'generic',
+                  t,
+                }).userMessage,
+          );
+        }
+      } catch {
+        if (refreshId === prettifyModelRefreshIdRef.current) {
+          setOllamaModelOptions([]);
+          setPrettifyHttpConnection({
+            providerId,
+            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+          setPrettifyConnectionError(t('error.notificationUnknown'));
+        }
+      }
+    },
+    [desktopApi, t],
+  );
 
   const recordingActions = useRecording({
     setStatus,
@@ -171,24 +266,48 @@ const App: React.FC = () => {
 
   useEffect(() => {
     let disposed = false;
-    const refresh = (settings: PrettifySettings): void => {
-      if (!disposed) {
-        void refreshOllamaModelState(settings);
+    const refresh = async (settings: PrettifySettings, initial: boolean): Promise<void> => {
+      if (disposed) return;
+      if (initial) {
+        setHasLoadedInitialPrettifySettings(true);
+      }
+      await refreshPrettifyProviderState(settings);
+      if (initial && !disposed && !isPrettifyCliProviderId(settings.providerId)) {
+        setIsInitialPrettifyProviderLoading(false);
       }
     };
 
-    void window.electronAPI
+    void desktopApi
       .getPrettifySettings()
-      .then(refresh)
-      .catch(() => undefined);
-    const unsubscribe = window.electronAPI.onPrettifySettingsChanged(refresh);
+      .then((settings) => refresh(settings, true))
+      .catch(() => {
+        if (disposed) return;
+        setHasLoadedInitialPrettifySettings(true);
+        if (isPrettifyCliProviderId(DEFAULT_PRETTIFY_PROVIDER_ID)) {
+          setPrettifyCliConnection({
+            errorCode: 'process-failed',
+            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
+            status: 'unavailable',
+          });
+        } else {
+          setPrettifyHttpConnection({
+            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
+            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+          });
+        }
+        setPrettifyConnectionError(t('error.notificationUnknown'));
+        setIsInitialPrettifyProviderLoading(false);
+      });
+    const unsubscribe = desktopApi.onPrettifySettingsChanged((settings) => {
+      void refresh(settings, false);
+    });
 
     return () => {
       disposed = true;
       prettifyProviderChangeRequestRef.current += 1;
       unsubscribe();
     };
-  }, [refreshOllamaModelState]);
+  }, [desktopApi, refreshPrettifyProviderState, t]);
 
   const applyProviderLoginState = useCallback(
     (
@@ -199,24 +318,21 @@ const App: React.FC = () => {
       const loginState = getProviderLoginState(authType, hasSession, backgroundStatus);
       setIsLoggedIn(loginState.isLoggedIn);
       setIsLoading(loginState.isLoading);
+      setProviderConnectionReason(loginState.reason);
+      setProviderConnectionFailureStatus(null);
 
       if (authType === 'browserSession' && loginState.sessionExpired) {
         preserveStatusRef.current = true;
         setStatusAndNotify(translatedStatus('status.sessionExpired'));
       } else if (authType === 'browserSession' && backgroundStatus?.error) {
-        preserveStatusRef.current = true;
-        setStatusAndNotify(
-          translatedStatus('status.browserInitFailed', {
-            error: notificationErrorStatus(presentNotificationError(backgroundStatus.error, { context: 'generic' })),
-          }),
-        );
+        applyBrowserProviderFailure(backgroundStatus.error);
       } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
       return loginState;
     },
-    [setStatusAndNotify],
+    [applyBrowserProviderFailure, setStatusAndNotify],
   );
 
   const applyProviderLoginStateRef = useRef(applyProviderLoginState);
@@ -235,11 +351,7 @@ const App: React.FC = () => {
         return;
       case 'bootstrap-failed': {
         setIsLoading(false);
-        preserveStatusRef.current = true;
-        const presented = presentNotificationError(event.error, {
-          context: 'generic',
-        });
-        setStatusAndNotify(translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }));
+        applyBrowserProviderFailure(event.error);
         return;
       }
       case 'switch-started':
@@ -249,28 +361,18 @@ const App: React.FC = () => {
         setActiveProviderId(event.providerId);
         setIsLoggingIn(false);
         setIsLoading(true);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
+        setProviderConnectionFailureStatus(null);
         return;
       case 'switch-completed': {
-        const loginState = applyProviderLoginState(
-          event.authType,
-          event.runtime.hasSession,
-          event.runtime.backgroundStatus,
-        );
-        if (!loginState.sessionExpired && !event.result.success && event.result.error) {
-          preserveStatusRef.current = true;
-          const presented = presentNotificationError(event.result.error, { context: 'generic' });
-          setStatusAndNotify(
-            translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }),
-          );
+        applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
+        if (!event.result.success) {
+          applyBrowserProviderFailure(event.result.error);
         }
         return;
       }
       case 'switch-failed': {
-        preserveStatusRef.current = true;
-        const presented = presentNotificationError(event.error, {
-          context: 'generic',
-        });
-        setStatusAndNotify(translatedStatus('status.browserInitFailed', { error: notificationErrorStatus(presented) }));
+        applyBrowserProviderFailure(event.error);
         return;
       }
       case 'switch-settled':
@@ -288,43 +390,48 @@ const App: React.FC = () => {
       emit: (event) => {
         if (!disposed) handleProviderSelectionEvent(event);
       },
-      getActiveProvider: () => window.electronAPI.getActiveProvider(),
-      getProviders: () => window.electronAPI.getProviders(),
+      getActiveProvider: () => desktopApi.getActiveProvider(),
+      getProviders: () => desktopApi.getProviders(),
       getRuntimeState: async () => {
         const [hasSession, backgroundStatus] = await Promise.all([
-          window.electronAPI.checkSession(),
-          window.electronAPI.getBgBrowserStatus(),
+          desktopApi.checkSession(),
+          desktopApi.getBgBrowserStatus(),
         ]);
         return { backgroundStatus, hasSession };
       },
-      setActiveProvider: (providerId) => window.electronAPI.setActiveProvider(providerId),
+      setActiveProvider: (providerId) => desktopApi.setActiveProvider(providerId),
     });
     providerSelectionCoordinatorRef.current = providerSelectionCoordinator;
     const subscriptions = [
-      window.electronAPI.onToggleRecording((recording: boolean) => {
+      desktopApi.onToggleRecording((recording: boolean) => {
         if (disposed) return;
         if (recording) void recordingActionsRef.current.startRecording();
       }),
-      window.electronAPI.onStopRecording(() => {
+      desktopApi.onStopRecording(() => {
         if (disposed) return;
         recordingActionsRef.current.stopRecording();
       }),
-      window.electronAPI.onPauseRecording(() => {
+      desktopApi.onPauseRecording(() => {
         if (!disposed) recordingActionsRef.current.pauseRecording();
       }),
-      window.electronAPI.onResumeRecording(() => {
+      desktopApi.onResumeRecording(() => {
         if (!disposed) recordingActionsRef.current.resumeRecording();
       }),
-      window.electronAPI.onCancelRecording(() => {
+      desktopApi.onCancelRecording(() => {
         if (!disposed) recordingActionsRef.current.cancelRecording();
       }),
-      window.electronAPI.onRetryTranscription(() => {
+      desktopApi.onRetryTranscription(() => {
         if (!disposed) void recordingActionsRef.current.resendLastTranscription();
       }),
-      window.electronAPI.onTranslationStatus((nextStatus) => {
+      desktopApi.onTranslationStatus((nextStatus) => {
         if (!disposed) setStatus(textActionStatusToRendererStatus(nextStatus));
       }),
-      window.electronAPI.onBgBrowserReady((providerId) => {
+      desktopApi.onTranslationProviderConnectionChanged((connectionState) => {
+        if (disposed) return;
+        translationConnectionRequestRef.current += 1;
+        setTranslationConnectionState(connectionState);
+      }),
+      desktopApi.onBgBrowserReady((providerId) => {
         if (
           disposed ||
           providerId !== activeProviderIdRef.current ||
@@ -335,8 +442,10 @@ const App: React.FC = () => {
         preserveStatusRef.current = false;
         setIsLoggedIn(true);
         setIsLoading(false);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
+        setProviderConnectionFailureStatus(null);
       }),
-      window.electronAPI.onBgBrowserError((providerId, error, authExpired) => {
+      desktopApi.onBgBrowserError((providerId, error, authExpired) => {
         if (
           disposed ||
           providerId !== activeProviderIdRef.current ||
@@ -349,17 +458,28 @@ const App: React.FC = () => {
           return;
         }
         // The background-browser event is synchronous; refresh its session state without delaying the event callback.
-        void window.electronAPI.checkSession().then((hasSession) => {
-          if (
-            !disposed &&
-            providerId === activeProviderIdRef.current &&
-            activeProviderAuthTypeRef.current === 'browserSession'
-          ) {
-            applyProviderLoginStateRef.current('browserSession', hasSession, { ready: false, error });
-          }
-        });
+        void desktopApi
+          .checkSession()
+          .then((hasSession) => {
+            if (
+              !disposed &&
+              providerId === activeProviderIdRef.current &&
+              activeProviderAuthTypeRef.current === 'browserSession'
+            ) {
+              applyProviderLoginStateRef.current('browserSession', hasSession, { ready: false, error });
+            }
+          })
+          .catch(() => {
+            if (
+              !disposed &&
+              providerId === activeProviderIdRef.current &&
+              activeProviderAuthTypeRef.current === 'browserSession'
+            ) {
+              applyProviderLoginStateRef.current('browserSession', false, { ready: false, error });
+            }
+          });
       }),
-      window.electronAPI.onHotkeySettingsChanged((settings) => {
+      desktopApi.onHotkeySettingsChanged((settings) => {
         if (disposed) return;
         setRecordHotkey(settings.hotkey);
         if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
@@ -370,7 +490,7 @@ const App: React.FC = () => {
 
     void providerSelectionCoordinator.bootstrap();
 
-    void window.electronAPI.getHotkey().then(({ hotkey: hk }) => {
+    void desktopApi.getHotkey().then(({ hotkey: hk }) => {
       if (disposed) return;
       setRecordHotkey(hk);
       if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
@@ -378,13 +498,37 @@ const App: React.FC = () => {
       }
     });
 
-    void window.electronAPI.getTranslateSettings().then(({ targetLang: tl }) => {
-      if (disposed) return;
-      setTargetLang(tl);
-    });
+    const translationSettingsRequestId = ++translationSettingsRequestRef.current;
+    void desktopApi
+      .getTranslateSettings()
+      .then((settings) => {
+        if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
+        dispatchTranslationSettingsSelection({ settings, type: 'snapshot' });
+        setHasLoadedInitialTranslationSettings(true);
+      })
+      .catch(() => {
+        if (disposed || translationSettingsRequestId !== translationSettingsRequestRef.current) return;
+        setHasLoadedInitialTranslationSettings(true);
+        setTranslationConnectionState(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE);
+      });
+
+    const translationConnectionRequestId = ++translationConnectionRequestRef.current;
+    void desktopApi
+      .getTranslationProviderConnection()
+      .then((connectionState) => {
+        if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
+        setTranslationConnectionState(connectionState);
+      })
+      .catch(() => {
+        if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
+        setTranslationConnectionState(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE);
+      });
 
     return () => {
       disposed = true;
+      translationSettingsRequestRef.current += 1;
+      translationConnectionRequestRef.current += 1;
+      translationSettingsSavePendingRef.current = false;
       providerSelectionCoordinator.dispose();
       if (providerSelectionCoordinatorRef.current === providerSelectionCoordinator) {
         providerSelectionCoordinatorRef.current = null;
@@ -393,14 +537,16 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [isI18nReady]);
+  }, [desktopApi, isI18nReady]);
 
   const applyProviderSettingsSnapshot = useCallback(
     (settings: ProviderSettings): void => {
       if (settings.authType === 'browserSession') {
         setIsLoading(false);
+        setProviderConnectionFailureStatus(null);
         if (!settings.hasSession) {
           setIsLoggedIn(false);
+          setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
           preserveStatusRef.current = true;
           setStatusAndNotify(translatedStatus('status.providerNotConfigured', { provider: activeProviderName }));
         }
@@ -409,6 +555,10 @@ const App: React.FC = () => {
 
       const configured = isProviderConfigured(settings);
       setIsLoggedIn(configured);
+      setProviderConnectionReason(
+        configured ? PROVIDER_CONNECTION_REASONS.ApiConfigured : PROVIDER_CONNECTION_REASONS.ApiNotConfigured,
+      );
+      setProviderConnectionFailureStatus(null);
       setIsLoading(false);
       if (configured) {
         preserveStatusRef.current = false;
@@ -423,14 +573,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     activeProviderIdRef.current = activeProviderId;
-    return window.electronAPI.onProviderSettingsChanged((settings) => {
+    return desktopApi.onProviderSettingsChanged((settings) => {
       if (isActiveProviderSettingsChange(settings, activeProviderId)) applyProviderSettingsSnapshot(settings);
     });
-  }, [activeProviderId, applyProviderSettingsSnapshot]);
+  }, [activeProviderId, applyProviderSettingsSnapshot, desktopApi]);
 
   const openProviderSettings = async (providerId: string): Promise<void> => {
     try {
-      const result = await window.electronAPI.openProviderSettings(providerId);
+      const result = await desktopApi.openProviderSettings(providerId);
       if (!result.success) {
         setStatus(
           result.error
@@ -452,28 +602,37 @@ const App: React.FC = () => {
     }
 
     setIsLoggingIn(true);
+    setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
+    setProviderConnectionFailureStatus(null);
     preserveStatusRef.current = false;
     setStatus(translatedStatus('status.loggingIn', { provider: providerName }));
     try {
-      const result = await window.electronAPI.providerLogin(providerId);
+      const result = await desktopApi.providerLogin(providerId);
       if (activeProviderIdRef.current !== providerId) return;
       if (result.success) {
         setIsLoggedIn(true);
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
         setStatusAndNotify(translatedStatus('status.loggedIn', { provider: providerName }));
       } else {
+        setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
         preserveStatusRef.current = true;
         const presented = presentNotificationError(result.error, {
           context: 'generic',
         });
-        setStatusAndNotify(translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) }));
+        const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+        setProviderConnectionFailureStatus(failureStatus);
+        setStatusAndNotify(failureStatus);
       }
     } catch (error: unknown) {
       if (activeProviderIdRef.current !== providerId) return;
+      setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
       preserveStatusRef.current = true;
       const presented = presentNotificationError(error, {
         context: 'generic',
       });
-      setStatusAndNotify(translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) }));
+      const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+      setProviderConnectionFailureStatus(failureStatus);
+      setStatusAndNotify(failureStatus);
     } finally {
       setIsLoggingIn(false);
     }
@@ -498,7 +657,7 @@ const App: React.FC = () => {
     setPrettifyModelActionError('');
 
     try {
-      const result = await window.electronAPI.setPrettifySettings({ providerId });
+      const result = await desktopApi.setPrettifySettings({ providerId });
       if (requestId !== prettifyProviderChangeRequestRef.current) return;
       dispatchPrettifyProviderSelection(
         result.success
@@ -533,8 +692,8 @@ const App: React.FC = () => {
 
     try {
       const result = isLoaded
-        ? await window.electronAPI.unloadPrettifyModel('ollama', prettifySettings)
-        : await window.electronAPI.loadPrettifyModel('ollama', prettifySettings);
+        ? await desktopApi.unloadPrettifyModel('ollama', prettifySettings)
+        : await desktopApi.loadPrettifyModel('ollama', prettifySettings);
       if (refreshId !== prettifyModelRefreshIdRef.current) {
         return;
       }
@@ -578,25 +737,61 @@ const App: React.FC = () => {
     }
   };
 
-  const openAppSettingsWindow = useCallback((section?: 'prettify'): void => {
-    void window.electronAPI.openAppSettings(section).catch(() => {
-      setStatus(translatedStatus('error.notificationUnknown'));
-    });
-  }, []);
+  const openAppSettingsWindow = useCallback(
+    (section?: 'prettify'): void => {
+      void desktopApi.openAppSettings(section).catch(() => {
+        setStatus(translatedStatus('error.notificationUnknown'));
+      });
+    },
+    [desktopApi],
+  );
 
   const openHistoryWindow = useCallback((): void => {
-    void window.electronAPI.openTranscriptionHistory().catch(() => {
+    void desktopApi.openTranscriptionHistory().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, []);
+  }, [desktopApi]);
 
   const openAboutWindow = useCallback((): void => {
-    void window.electronAPI.openAbout().catch(() => {
+    void desktopApi.openAbout().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, []);
+  }, [desktopApi]);
 
-  if (!isI18nReady || isLoading) return <LoadingScreen />;
+  const saveTranslationSettings = async (candidate: TranslationSettings): Promise<void> => {
+    if (translationSettingsSavePendingRef.current) return;
+    translationSettingsSavePendingRef.current = true;
+
+    const requestId = ++translationSettingsRequestRef.current;
+    const fallbackError = t('translate.settingsSaveFailed');
+    dispatchTranslationSettingsSelection({
+      candidate,
+      requestId,
+      type: 'save-started',
+    });
+
+    try {
+      const result = await desktopApi.setTranslateSettings(candidate);
+      if (requestId !== translationSettingsRequestRef.current) return;
+      translationSettingsSavePendingRef.current = false;
+      dispatchTranslationSettingsSelection({
+        error: fallbackError,
+        requestId,
+        result,
+        type: 'save-completed',
+      });
+    } catch {
+      if (requestId !== translationSettingsRequestRef.current) return;
+      translationSettingsSavePendingRef.current = false;
+      dispatchTranslationSettingsSelection({
+        error: fallbackError,
+        requestId,
+        type: 'save-failed',
+      });
+    }
+  };
+
+  if (!isI18nReady || providerStartupPending) return <LoadingScreen />;
 
   return (
     <main className="command-dock" data-slot="main-window">
@@ -607,6 +802,10 @@ const App: React.FC = () => {
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
+        providerConnectionFailureTooltip={
+          providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
+        }
+        providerConnectionReason={providerConnectionReason}
         onOpenAbout={openAboutWindow}
         onOpenAppSettings={() => openAppSettingsWindow()}
         onOpenHistory={openHistoryWindow}
@@ -617,7 +816,9 @@ const App: React.FC = () => {
       />
       <MainPrettifyProviderBand
         cliConnection={prettifyCliConnection}
+        connectionError={prettifyConnectionError}
         error={prettifyProviderSelection.error || prettifyModelActionError}
+        httpConnection={prettifyHttpConnection}
         isModelActionRunning={isPrettifyModelActionRunning}
         isProviderChangeSaving={prettifyProviderSelection.pendingRequestId !== null}
         ollamaModels={ollamaModelOptions}
@@ -625,6 +826,26 @@ const App: React.FC = () => {
         onOpenSettings={() => openAppSettingsWindow('prettify')}
         onProviderChange={(providerId) => void handlePrettifyProviderChange(providerId)}
         settings={prettifySettings}
+      />
+      <TranslateSection
+        connectionState={translationConnectionState}
+        error={translationSettingsSelection.error}
+        isSaving={translationSettingsSelection.pendingRequestId !== null}
+        onProviderChange={(providerId) => {
+          const candidate = createTranslationProviderCandidate(
+            translationSettingsSelection.confirmedSettings,
+            providerId,
+          );
+          void saveTranslationSettings(candidate);
+        }}
+        onTargetLanguageChange={(targetLanguage) => {
+          const candidate = createTranslationSettingsCandidate(
+            translationSettingsSelection.confirmedSettings,
+            targetLanguage,
+          );
+          void saveTranslationSettings(candidate);
+        }}
+        settings={translationSettings}
       />
       <RecordingControls
         onCancel={cancelRecording}
@@ -635,13 +856,6 @@ const App: React.FC = () => {
         recordHotkey={recordHotkey}
         state={recordingState}
         status={status}
-      />
-      <TranslateSection
-        targetLang={targetLang}
-        onLangChange={(lang) => {
-          setTargetLang(lang);
-          void window.electronAPI.setTranslateSettings(lang);
-        }}
       />
     </main>
   );

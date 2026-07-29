@@ -1,26 +1,25 @@
 /* eslint-disable max-classes-per-file -- The HTTP provider module keeps its two sibling implementations together. */
 import { StatusCodes } from 'http-status-codes';
-import { t } from '@main/i18n';
-import { createLogger } from '@main/logger';
 import {
   BasePrettifyProvider,
-  createOneShotExecution,
   type PreparePrettifyExecutionResult,
+  type PrettifyFetch,
   type PrettifyProviderDependencies,
   type PrettifyProviderModelList,
   type PrettifyProviderRequest,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
-import { getPrettifySettingsWithSecret, type PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
+import { OneShotPrettifyExecution } from '@main/services/prettifyOneShotExecution';
+import { type PrettifyHttpProviderId, PrettifyHttpReadiness } from '@main/services/prettifyHttpReadiness';
+import type { PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
+import type { PrettifySettingsStorage, PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type {
   KnownPrettifyProviderId,
   PrettifyModelLoadResult,
-  PrettifyModelOption,
   PrettifyModelUnloadResult,
+  PrettifyProviderAvailability,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
-
-const log = createLogger('prettify-provider');
 
 interface LoadedOllamaPrettifyModel {
   baseUrl: string;
@@ -32,7 +31,20 @@ interface RunningOllamaModelInfo {
   vramSizeBytes?: number;
 }
 
-export type HttpPrettifyProviderId = 'ollama' | 'vllm';
+interface ParsedPrettifyText {
+  readonly contractValid: boolean;
+  readonly text: string;
+}
+
+export type HttpPrettifyProviderId = PrettifyHttpProviderId;
+const OLLAMA_PRETTIFY_PROVIDER_ID = 'ollama' as const;
+const VLLM_PRETTIFY_PROVIDER_ID = 'vllm' as const;
+
+export interface HttpPrettifyProviderDependencies extends PrettifyProviderDependencies {
+  readonly fetch: PrettifyFetch;
+  readonly readiness: PrettifyHttpReadiness;
+  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
+}
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
@@ -129,21 +141,6 @@ function getOllamaModelId(item: Record<string, unknown>): string {
   return id.trim();
 }
 
-function parseOllamaModels(body: string): PrettifyModelOption[] {
-  const parsed = safeJsonParse(body);
-  if (!isRecord(parsed) || !Array.isArray(parsed.models)) return [];
-
-  return parsed.models
-    .map((item): PrettifyModelOption | null => {
-      if (!isRecord(item)) return null;
-      const id = getOllamaModelId(item);
-      if (!id) return null;
-      const sizeBytes = getFiniteNumber(item.size);
-      return sizeBytes === undefined ? { id, name: id } : { id, name: id, sizeBytes };
-    })
-    .filter((item): item is PrettifyModelOption => Boolean(item));
-}
-
 function parseOllamaRunningModels(body: string): Map<string, RunningOllamaModelInfo> {
   const parsed = safeJsonParse(body);
   const models = new Map<string, RunningOllamaModelInfo>();
@@ -164,40 +161,37 @@ function parseOllamaRunningModels(body: string): Map<string, RunningOllamaModelI
   return models;
 }
 
-function parseVllmModels(body: string): PrettifyModelOption[] {
+function extractOllamaText(body: string): ParsedPrettifyText {
   const parsed = safeJsonParse(body);
-  if (!isRecord(parsed) || !Array.isArray(parsed.data)) return [];
-
-  return parsed.data
-    .map((item): PrettifyModelOption | null => {
-      if (!isRecord(item) || typeof item.id !== 'string') return null;
-      const id = item.id.trim();
-      return id ? { id, name: id } : null;
-    })
-    .filter((item): item is PrettifyModelOption => Boolean(item));
+  if (!isRecord(parsed) || !isRecord(parsed.message) || typeof parsed.message.content !== 'string') {
+    return { contractValid: false, text: '' };
+  }
+  return {
+    contractValid: true,
+    text: parsed.message.content.trim() ? parsed.message.content : '',
+  };
 }
 
-function extractOllamaText(body: string): string {
+function extractVllmText(body: string): ParsedPrettifyText {
   const parsed = safeJsonParse(body);
-  if (!isRecord(parsed) || !isRecord(parsed.message) || typeof parsed.message.content !== 'string') return '';
-  return parsed.message.content.trim() ? parsed.message.content : '';
-}
-
-function extractVllmText(body: string): string {
-  const parsed = safeJsonParse(body);
-  if (!isRecord(parsed) || !Array.isArray(parsed.choices)) return '';
+  if (!isRecord(parsed) || !Array.isArray(parsed.choices)) {
+    return { contractValid: false, text: '' };
+  }
   const firstChoice: unknown = parsed.choices[0];
   if (!isRecord(firstChoice) || !isRecord(firstChoice.message) || typeof firstChoice.message.content !== 'string') {
-    return '';
+    return { contractValid: false, text: '' };
   }
-  return firstChoice.message.content.trim() ? firstChoice.message.content : '';
+  return {
+    contractValid: true,
+    text: firstChoice.message.content.trim() ? firstChoice.message.content : '',
+  };
 }
 
 async function getRunningOllamaModels(
   baseUrl: string,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<Map<string, RunningOllamaModelInfo>> {
-  const response = await deps.fetch(joinUrl(baseUrl, '/api/ps'));
+  const response = await dependencies.fetch(joinUrl(baseUrl, '/api/ps'));
   const body = await response.text();
   if (response.status !== Number(StatusCodes.OK)) return new Map();
   return parseOllamaRunningModels(body);
@@ -206,30 +200,13 @@ async function getRunningOllamaModels(
 async function getOllamaModelVramSize(
   baseUrl: string,
   model: string,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<number | undefined> {
   try {
-    return (await getRunningOllamaModels(baseUrl, deps)).get(model)?.vramSizeBytes;
+    return (await getRunningOllamaModels(baseUrl, dependencies)).get(model)?.vramSizeBytes;
   } catch {
     return undefined;
   }
-}
-
-function withOllamaRunningMetadata(
-  models: PrettifyModelOption[],
-  runningModels: Map<string, RunningOllamaModelInfo>,
-): PrettifyModelOption[] {
-  return models.map((model) => {
-    const runningModel = runningModels.get(model.id);
-    if (!runningModel) return model;
-    const sizeBytes = model.sizeBytes ?? runningModel.sizeBytes;
-    return {
-      ...model,
-      isLoaded: true,
-      ...(sizeBytes === undefined ? {} : { sizeBytes }),
-      ...(runningModel.vramSizeBytes === undefined ? {} : { vramSizeBytes: runningModel.vramSizeBytes }),
-    };
-  });
 }
 
 function isSameOllamaModel(left: LoadedOllamaPrettifyModel | null, right: LoadedOllamaPrettifyModel): boolean {
@@ -239,9 +216,9 @@ function isSameOllamaModel(left: LoadedOllamaPrettifyModel | null, right: Loaded
 async function setOllamaModelKeepAlive(
   model: LoadedOllamaPrettifyModel,
   keepAlive: number,
-  deps: PrettifyProviderDependencies,
+  dependencies: HttpPrettifyProviderDependencies,
 ): Promise<void> {
-  const response = await deps.fetch(joinUrl(model.baseUrl, '/api/chat'), {
+  const response = await dependencies.fetch(joinUrl(model.baseUrl, '/api/chat'), {
     method: 'POST',
     headers: createJsonHeaders(),
     body: JSON.stringify({
@@ -291,94 +268,198 @@ export function getHttpPrettifyProviderBaseUrl(
 export class OllamaPrettifyProvider extends BasePrettifyProvider {
   private loadedModel: LoadedOllamaPrettifyModel | null = null;
 
-  public constructor() {
-    super('ollama');
+  public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
+    super(OLLAMA_PRETTIFY_PROVIDER_ID, dependencies.audit);
+  }
+
+  public async checkAvailability(
+    settings: PrettifySettingsWithSecret,
+    signal: AbortSignal,
+    auditContext?: PrettifyAuditOperationContext,
+  ): Promise<PrettifyProviderAvailability> {
+    return this.dependencies.readiness.checkAvailability({
+      auditContext,
+      baseUrl: settings.ollama.baseUrl,
+      providerId: OLLAMA_PRETTIFY_PROVIDER_ID,
+      signal,
+    });
   }
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/tags'));
-    const body = await response.text();
-    if (response.status !== Number(StatusCodes.OK)) throw new Error(createHttpError('Ollama', response.status));
-    const models = parseOllamaModels(body);
-    try {
-      return {
-        availability: { status: 'available' },
-        models: withOllamaRunningMetadata(models, await getRunningOllamaModels(settings.ollama.baseUrl, deps)),
-        source: 'http',
-      };
-    } catch {
-      return { availability: { status: 'available' }, models, source: 'http' };
-    }
+    return this.dependencies.readiness.listModels({
+      auditContext,
+      baseUrl: settings.ollama.baseUrl,
+      providerId: OLLAMA_PRETTIFY_PROVIDER_ID,
+    });
   }
 
   public prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    if (!settings.ollama.model) return Promise.resolve({ success: false, error: t('error.noPrettifyModel') });
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.ollama.model),
+      modelNameLength: settings.ollama.model.length,
+      modelSource: 'http',
+      usesDefaultModel: !settings.ollama.model,
+    });
+    const context = auditContext ?? audit.startPrepare(this.id, modelMetadata);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
+    if (!settings.ollama.model) {
+      audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
+      audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
+      return Promise.resolve({
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      });
+    }
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: createOneShotExecution('ollama', createHttpCacheContext(settings, 'ollama'), async (text) => {
-        try {
-          return await this.prettify({ text, signal, settings }, deps);
-        } catch (error: unknown) {
-          return {
-            success: false,
-            error: signal.aborted
-              ? t('status.prettifyCancelled')
-              : createConnectionError('Ollama', settings.ollama.baseUrl, error),
-          };
-        }
+      prepared: new OneShotPrettifyExecution('ollama', createHttpCacheContext(settings, 'ollama'), {
+        audit,
+        diagnosticCapture: this.dependencies.diagnosticCapture,
+        execute: async (text, auditContext) => {
+          try {
+            return await this.prettify({ auditContext, text, signal, settings });
+          } catch (error: unknown) {
+            return {
+              success: false,
+              error: signal.aborted
+                ? this.dependencies.localization.translate('status.prettifyCancelled')
+                : createConnectionError('Ollama', settings.ollama.baseUrl, error),
+            };
+          }
+        },
       }),
     });
   }
 
-  public async prettify(
-    { text, signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const response = await deps.fetch(joinUrl(settings.ollama.baseUrl, '/api/chat'), {
-      method: 'POST',
-      headers: createJsonHeaders(),
-      signal,
-      body: JSON.stringify({
-        model: settings.ollama.model,
-        messages: createMessages(settings.prompt, text),
-        options: createOllamaGenerationOptions(settings),
-        ...(this.isPinnedModel(settings.ollama) ? { keep_alive: -1 } : {}),
-        stream: false,
-      }),
-    });
-    const body = await response.text();
+  public async prettify({
+    auditContext,
+    text,
+    signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const audit = this.audit;
+    const context = auditContext ?? audit.startPrettify(this.id, text.length);
+    const sourceMetadata = audit.createMetadata({ sourceLength: text.length });
+    context.lifecycle.phaseEntered('validation', sourceMetadata);
+    context.lifecycle.phaseCompleted('validation', sourceMetadata);
+    context.lifecycle.phaseEntered('submission', sourceMetadata);
+    let response;
+    try {
+      response = await this.dependencies.fetch(joinUrl(settings.ollama.baseUrl, '/api/chat'), {
+        method: 'POST',
+        headers: createJsonHeaders(),
+        signal,
+        body: JSON.stringify({
+          model: settings.ollama.model,
+          messages: createMessages(settings.prompt, text),
+          options: createOllamaGenerationOptions(settings),
+          ...(this.isPinnedModel(settings.ollama) ? { keep_alive: -1 } : {}),
+          stream: false,
+        }),
+      });
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        audit.terminalCancelled(context, 'cleanup', { sourceLength: text.length });
+      } else {
+        audit.terminalFailure(context, 'submission', 'connection-failed', { sourceLength: text.length });
+      }
+      throw error;
+    }
+    context.lifecycle.phaseCompleted('submission', sourceMetadata);
+    context.lifecycle.phaseEntered('result', sourceMetadata);
+    let body: string;
+    try {
+      body = await response.text();
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        audit.terminalCancelled(context, 'cleanup', { sourceLength: text.length });
+      } else {
+        audit.terminalFailure(context, 'result', 'request-failed', { sourceLength: text.length });
+      }
+      throw error;
+    }
     if (response.status !== Number(StatusCodes.OK)) {
+      audit.terminalFailure(context, 'result', 'request-failed', {
+        httpStatus: response.status,
+        sourceLength: text.length,
+      });
       return { success: false, error: createHttpError('Ollama', response.status) };
     }
     const result = extractOllamaText(body);
-    return result ? { success: true, text: result } : { success: false, error: t('error.noPrettifyResult') };
+    if (!result.contractValid) {
+      audit.terminalFailure(context, 'result', 'unexpected-response', { sourceLength: text.length });
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
+    }
+    if (!result.text) {
+      audit.terminalFailure(context, 'result', 'empty-result', { sourceLength: text.length });
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
+    }
+    audit.terminalSuccess(context, 'result', {
+      resultLength: result.text.length,
+      sourceLength: text.length,
+    });
+    return { success: true, text: result.text };
   }
 
+  /** Loads and retains the configured Ollama model while preserving replacement ownership. */
   public async loadModel(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelLoadResult> {
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.ollama.model),
+      modelNameLength: settings.ollama.model.length,
+      modelSource: 'http',
+      usesDefaultModel: !settings.ollama.model,
+    });
+    const context = auditContext ?? audit.startModelLoad(this.id);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
     if (!settings.ollama.model) {
-      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+      audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
+      audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
+      return {
+        success: false,
+        providerId: this.id,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      };
     }
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
     const nextModel = { baseUrl: settings.ollama.baseUrl, model: settings.ollama.model };
+    let replacementCleanupActive = false;
     try {
+      context.lifecycle.phaseEntered('model-discovery', modelMetadata);
       let runningModels = new Map<string, RunningOllamaModelInfo>();
       try {
-        runningModels = await getRunningOllamaModels(nextModel.baseUrl, deps);
+        runningModels = await getRunningOllamaModels(nextModel.baseUrl, this.dependencies);
       } catch {
         runningModels = new Map();
       }
       const runningSelectedModel = runningModels.get(nextModel.model);
+      context.lifecycle.phaseCompleted('model-discovery', modelMetadata);
+      context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
       if (isSameOllamaModel(this.loadedModel, nextModel) && runningSelectedModel) {
-        log.info('Ollama prettify model is already loaded:', { modelLength: nextModel.model.length });
+        audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
         return {
           success: true,
           providerId: this.id,
@@ -390,12 +471,14 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         this.loadedModel &&
         (this.loadedModel.baseUrl !== nextModel.baseUrl || this.loadedModel.model !== nextModel.model)
       ) {
-        await setOllamaModelKeepAlive(this.loadedModel, 0, deps);
+        replacementCleanupActive = true;
+        await setOllamaModelKeepAlive(this.loadedModel, 0, this.dependencies);
         this.loadedModel = null;
+        replacementCleanupActive = false;
       }
       if (runningSelectedModel) {
         this.loadedModel = nextModel;
-        log.info('Using already running Ollama prettify model:', { modelLength: nextModel.model.length });
+        audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
         return {
           success: true,
           providerId: this.id,
@@ -403,16 +486,26 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
           vramSizeBytes: runningSelectedModel.vramSizeBytes,
         };
       }
-      log.info('Loading Ollama prettify model:', { modelLength: nextModel.model.length });
-      await setOllamaModelKeepAlive(nextModel, -1, deps);
+      await setOllamaModelKeepAlive(nextModel, -1, this.dependencies);
       this.loadedModel = nextModel;
-      return {
+      const result: PrettifyModelLoadResult = {
         success: true,
         providerId: this.id,
         model: nextModel.model,
-        vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, deps),
+        vramSizeBytes: await getOllamaModelVramSize(nextModel.baseUrl, nextModel.model, this.dependencies),
       };
+      audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
+      return result;
     } catch (error: unknown) {
+      audit.terminalFailure(
+        context,
+        replacementCleanupActive ? 'cleanup' : 'model-lifecycle',
+        'model-lifecycle-failed',
+        {
+          ...modelMetadata,
+          cleanupFailure: replacementCleanupActive,
+        },
+      );
       return {
         success: false,
         providerId: this.id,
@@ -424,28 +517,49 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
   public async unloadModel(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyModelUnloadResult> {
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.ollama.model),
+      modelNameLength: settings.ollama.model.length,
+      modelSource: 'http',
+      usesDefaultModel: !settings.ollama.model,
+    });
+    const context = auditContext ?? audit.startModelUnload(this.id);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
     if (!settings.ollama.model) {
-      return { success: false, providerId: this.id, error: t('error.noPrettifyModel') };
+      audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
+      audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
+      return {
+        success: false,
+        providerId: this.id,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      };
     }
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
     const model = { baseUrl: settings.ollama.baseUrl, model: settings.ollama.model };
     try {
+      context.lifecycle.phaseEntered('model-discovery', modelMetadata);
       let shouldUnload = isSameOllamaModel(this.loadedModel, model);
       try {
-        shouldUnload = shouldUnload || (await getRunningOllamaModels(model.baseUrl, deps)).has(model.model);
+        shouldUnload =
+          shouldUnload || (await getRunningOllamaModels(model.baseUrl, this.dependencies)).has(model.model);
       } catch {
         shouldUnload = true;
       }
+      context.lifecycle.phaseCompleted('model-discovery', modelMetadata);
+      context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
       if (shouldUnload) {
-        log.info('Unloading Ollama prettify model:', { modelLength: model.model.length });
-        await setOllamaModelKeepAlive(model, 0, deps);
-      } else {
-        log.info('Ollama prettify model is not loaded:', { modelLength: model.model.length });
+        await setOllamaModelKeepAlive(model, 0, this.dependencies);
       }
       if (isSameOllamaModel(this.loadedModel, model)) this.loadedModel = null;
+      audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
       return { success: true, providerId: this.id, model: model.model };
     } catch (error: unknown) {
+      audit.terminalFailure(context, 'model-lifecycle', 'model-lifecycle-failed', modelMetadata);
       return {
         success: false,
         providerId: this.id,
@@ -455,20 +569,50 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     }
   }
 
-  public async unloadLoadedModel(
-    deps: PrettifyProviderDependencies,
-    fallbackSettings: PrettifySettingsInput = {},
-  ): Promise<void> {
-    const savedSettings = getPrettifySettingsWithSecret({ ...fallbackSettings, providerId: 'ollama' });
+  public async unloadLoadedModel(fallbackSettings: PrettifySettingsInput = {}): Promise<void> {
+    const audit = this.audit;
+    const context = audit.startShutdown(this.id);
+    context.lifecycle.phaseEntered('configuration');
+    let savedSettings: PrettifySettingsWithSecret;
+    try {
+      savedSettings = this.dependencies.settings.getWithSecret({
+        ...fallbackSettings,
+        providerId: 'ollama',
+      });
+    } catch (error: unknown) {
+      audit.terminalException(context, 'configuration', error, { cleanupFailure: true });
+      throw error;
+    }
     const model =
       this.loadedModel ??
       (savedSettings.ollama.model
         ? { baseUrl: savedSettings.ollama.baseUrl, model: savedSettings.ollama.model }
         : null);
-    if (!model) return;
-    log.info('Unloading Ollama prettify model:', { modelLength: model.model.length });
-    await setOllamaModelKeepAlive(model, 0, deps);
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(model),
+      modelNameLength: model?.model.length ?? 0,
+      modelSource: 'http',
+      usesDefaultModel: !model,
+    });
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    if (!model) {
+      audit.terminalSuccess(context, 'shutdown', modelMetadata);
+      return;
+    }
+    context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
+    try {
+      await setOllamaModelKeepAlive(model, 0, this.dependencies);
+    } catch (error: unknown) {
+      audit.terminalFailure(context, 'cleanup', 'model-lifecycle-failed', {
+        ...modelMetadata,
+        cleanupFailure: true,
+      });
+      throw error;
+    }
+    context.lifecycle.phaseCompleted('model-lifecycle', modelMetadata);
+    context.lifecycle.phaseEntered('cleanup', modelMetadata);
     if (isSameOllamaModel(this.loadedModel, model)) this.loadedModel = null;
+    audit.terminalSuccess(context, 'cleanup', modelMetadata);
   }
 
   protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
@@ -486,61 +630,151 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
 /** HTTP-backed OpenAI-compatible vLLM provider. */
 export class VllmPrettifyProvider extends BasePrettifyProvider {
-  public constructor() {
-    super('vllm');
+  public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
+    super(VLLM_PRETTIFY_PROVIDER_ID, dependencies.audit);
+  }
+
+  public async checkAvailability(
+    settings: PrettifySettingsWithSecret,
+    signal: AbortSignal,
+    auditContext?: PrettifyAuditOperationContext,
+  ): Promise<PrettifyProviderAvailability> {
+    return this.dependencies.readiness.checkAvailability({
+      apiKey: settings.vllm.apiKey,
+      auditContext,
+      baseUrl: settings.vllm.baseUrl,
+      providerId: VLLM_PRETTIFY_PROVIDER_ID,
+      signal,
+    });
   }
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/models'), {
-      headers: createJsonHeaders(settings.vllm.apiKey),
+    return this.dependencies.readiness.listModels({
+      apiKey: settings.vllm.apiKey,
+      auditContext,
+      baseUrl: settings.vllm.baseUrl,
+      providerId: VLLM_PRETTIFY_PROVIDER_ID,
     });
-    const body = await response.text();
-    if (response.status !== Number(StatusCodes.OK)) throw new Error(createHttpError('vLLM', response.status));
-    return { availability: { status: 'available' }, models: parseVllmModels(body), source: 'http' };
   }
 
   public prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    if (!settings.vllm.model) return Promise.resolve({ success: false, error: t('error.noPrettifyModel') });
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.vllm.model),
+      modelNameLength: settings.vllm.model.length,
+      modelSource: 'http',
+      usesDefaultModel: !settings.vllm.model,
+    });
+    const context = auditContext ?? audit.startPrepare(this.id, modelMetadata);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
+    if (!settings.vllm.model) {
+      audit.terminalFailure(readinessContext, 'configuration', 'not-configured', modelMetadata);
+      audit.terminalFailure(context, 'configuration', 'not-configured', modelMetadata);
+      return Promise.resolve({
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyModel'),
+      });
+    }
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    audit.terminalSuccess(context, 'readiness', modelMetadata);
     return Promise.resolve({
       success: true,
-      prepared: createOneShotExecution('vllm', createHttpCacheContext(settings, 'vllm'), async (text) => {
-        try {
-          return await this.prettify({ text, signal, settings }, deps);
-        } catch (error: unknown) {
-          return {
-            success: false,
-            error: signal.aborted
-              ? t('status.prettifyCancelled')
-              : createConnectionError('vLLM', settings.vllm.baseUrl, error),
-          };
-        }
+      prepared: new OneShotPrettifyExecution('vllm', createHttpCacheContext(settings, 'vllm'), {
+        audit,
+        diagnosticCapture: this.dependencies.diagnosticCapture,
+        execute: async (text, auditContext) => {
+          try {
+            return await this.prettify({ auditContext, text, signal, settings });
+          } catch (error: unknown) {
+            return {
+              success: false,
+              error: signal.aborted
+                ? this.dependencies.localization.translate('status.prettifyCancelled')
+                : createConnectionError('vLLM', settings.vllm.baseUrl, error),
+            };
+          }
+        },
       }),
     });
   }
 
-  public async prettify(
-    { text, signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const response = await deps.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
-      method: 'POST',
-      headers: createJsonHeaders(settings.vllm.apiKey),
-      signal,
-      body: JSON.stringify(createVllmRequestBody(settings, text)),
-    });
-    const body = await response.text();
+  public async prettify({
+    auditContext,
+    text,
+    signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const audit = this.audit;
+    const context = auditContext ?? audit.startPrettify(this.id, text.length);
+    const sourceMetadata = audit.createMetadata({ sourceLength: text.length });
+    context.lifecycle.phaseEntered('validation', sourceMetadata);
+    context.lifecycle.phaseCompleted('validation', sourceMetadata);
+    context.lifecycle.phaseEntered('submission', sourceMetadata);
+    let response;
+    try {
+      response = await this.dependencies.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
+        method: 'POST',
+        headers: createJsonHeaders(settings.vllm.apiKey),
+        signal,
+        body: JSON.stringify(createVllmRequestBody(settings, text)),
+      });
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        audit.terminalCancelled(context, 'cleanup', { sourceLength: text.length });
+      } else {
+        audit.terminalFailure(context, 'submission', 'connection-failed', { sourceLength: text.length });
+      }
+      throw error;
+    }
+    context.lifecycle.phaseCompleted('submission', sourceMetadata);
+    context.lifecycle.phaseEntered('result', sourceMetadata);
+    let body: string;
+    try {
+      body = await response.text();
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        audit.terminalCancelled(context, 'cleanup', { sourceLength: text.length });
+      } else {
+        audit.terminalFailure(context, 'result', 'request-failed', { sourceLength: text.length });
+      }
+      throw error;
+    }
     if (response.status !== Number(StatusCodes.OK)) {
+      audit.terminalFailure(context, 'result', 'request-failed', {
+        httpStatus: response.status,
+        sourceLength: text.length,
+      });
       return { success: false, error: createHttpError('vLLM', response.status) };
     }
     const result = extractVllmText(body);
-    return result ? { success: true, text: result } : { success: false, error: t('error.noPrettifyResult') };
+    if (!result.contractValid) {
+      audit.terminalFailure(context, 'result', 'unexpected-response', { sourceLength: text.length });
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
+    }
+    if (!result.text) {
+      audit.terminalFailure(context, 'result', 'empty-result', { sourceLength: text.length });
+      return {
+        success: false,
+        error: this.dependencies.localization.translate('error.noPrettifyResult'),
+      };
+    }
+    audit.terminalSuccess(context, 'result', {
+      resultLength: result.text.length,
+      sourceLength: text.length,
+    });
+    return { success: true, text: result.text };
   }
 
   protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {

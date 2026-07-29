@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getMainPrettifyProviderViewState, reduceMainPrettifyProviderSelection } from '@renderer/mainPrettifyProvider';
+import {
+  getMainPrettifyProviderViewState,
+  MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
+  reduceMainPrettifyProviderSelection,
+} from '@renderer/mainPrettifyProvider';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
 
 function createSettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
@@ -17,13 +21,21 @@ function createSettings(overrides: Partial<PrettifySettings> = {}): PrettifySett
 describe('main Prettify provider view state', () => {
   it('shows Ollama model memory without hiding an unconfigured provider', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(createSettings(), []), {
-      connection: null,
+      connection: {
+        labelKey: 'mainDock.prettifyChecking',
+        tone: 'neutral',
+        tooltipKey: 'provider.connectionCheckingTooltip',
+      },
       model: '',
       modelFallbackKey: 'prettify.noModels',
       ollamaControl: null,
       providerId: 'ollama',
       providerLabelKey: 'prettify.provider.ollama',
-      status: { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' },
+      status: {
+        labelKey: 'mainDock.prettifyNotConfigured',
+        tone: 'neutral',
+        tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
+      },
     });
 
     const configured = createSettings({ ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'gemma3:1b' } });
@@ -40,7 +52,11 @@ describe('main Prettify provider view state', () => {
       [],
     );
     assert.equal(vllm.model, 'qwen');
-    assert.deepEqual(vllm.status, { labelKey: 'mainDock.prettifyConfigured', tone: 'success' });
+    assert.deepEqual(vllm.status, {
+      labelKey: 'mainDock.prettifyConfigured',
+      tone: 'success',
+      tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
+    });
 
     const claudeSettings = createSettings({
       providerId: 'claude-cli',
@@ -55,7 +71,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(claude.connection, {
       labelKey: 'provider.connected',
       tone: 'success',
-      valueKey: 'prettify.cli.statusAvailable',
+      tooltipKey: 'prettify.cli.statusAvailable',
     });
 
     const codex = getMainPrettifyProviderViewState(createSettings({ providerId: 'codex-cli' }), [], {
@@ -64,9 +80,9 @@ describe('main Prettify provider view state', () => {
     });
     assert.equal(codex.status, null);
     assert.deepEqual(codex.connection, {
-      labelKey: 'mainDock.prettifySignIn',
+      labelKey: 'provider.notConnected',
       tone: 'warning',
-      valueKey: 'mainDock.prettifySignInHelp',
+      tooltipKey: 'mainDock.prettifySignInHelp',
     });
   });
 
@@ -75,7 +91,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
       labelKey: 'mainDock.prettifyChecking',
       tone: 'neutral',
-      valueKey: 'prettify.cli.statusChecking',
+      tooltipKey: 'prettify.cli.statusChecking',
     });
     assert.deepEqual(
       getMainPrettifyProviderViewState(settings, [], {
@@ -84,10 +100,48 @@ describe('main Prettify provider view state', () => {
         status: 'unavailable',
       }).connection,
       {
-        labelKey: 'mainDock.prettifyUnavailable',
+        labelKey: 'provider.notConnected',
         tone: 'error',
-        valueKey: 'prettify.cli.statusUnavailable',
+        tooltipKey: 'prettify.cli.statusUnavailable',
       },
+    );
+  });
+
+  it('shows HTTP connection progress, success, failure, and ignores stale provider results', () => {
+    const settings = createSettings({ providerId: 'vllm' });
+    assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      tooltipKey: 'provider.connectionCheckingTooltip',
+    });
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'vllm',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+      }).connection,
+      {
+        labelKey: 'provider.connected',
+        tone: 'success',
+        tooltipKey: 'provider.connectionReadyTooltip',
+      },
+    );
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'vllm',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+      }).connection,
+      {
+        labelKey: 'provider.notConnected',
+        tone: 'error',
+        tooltipKey: 'mainDock.prettifyUnavailable',
+      },
+    );
+    assert.equal(
+      getMainPrettifyProviderViewState(settings, [], null, {
+        providerId: 'ollama',
+        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+      }).connection?.labelKey,
+      'mainDock.prettifyChecking',
     );
   });
 });

@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Провайдер перевода',
+  'translate.saving': 'Сохранение...',
+  'translate.settingsSaveFailed': 'Не удалось сохранить настройки перевода',
+
   // Status messages
   'status.pressToRecord': 'Нажмите {hotkey} для начала записи',
   'status.recording': 'Запись...',
@@ -38,6 +42,19 @@ export default {
   'notification.translationCopied': 'Перевод скопирован',
   'notification.prettifyFailed': 'Не удалось улучшить текст',
   'notification.textPrettified': 'Текст улучшен',
+  'notification.translationSettingsRepaired': 'Настройки перевода обновлены',
+  'notification.translationSettingsRepairedBody':
+    'Недопустимые или устаревшие настройки перевода заменены безопасными значениями.',
+  'error.translationUnsupportedSelection': 'Выберите поддерживаемый сервис и язык перевода.',
+  'error.translationTextTooLong':
+    'Выделенный текст слишком длинный для {provider}: {actual} символов при максимуме {max}.',
+  'error.translationConnectionFailed': 'Не удалось подключиться к сервису перевода. Повторите попытку.',
+  'error.translationConsentOrChallenge': 'Сервис перевода требует согласия или проверки. Повторите попытку позже.',
+  'error.translationPageChanged': 'Страница сервиса перевода изменилась. Повторите попытку позже.',
+  'error.translationResultUnavailable': 'Результат перевода не был получен до истечения времени ожидания.',
+  'error.translationCleanupFailed': 'Не удалось очистить данные перевода. Результат не скопирован.',
+  'error.translationSettingsInvalid': 'Выберите поддерживаемый сервис и язык перевода.',
+  'error.translationSettingsSaveFailed': 'Не удалось сохранить настройки перевода. Предыдущий выбор остаётся активным.',
 
   // Login button
   'login.loggingIn': 'Вход...',
@@ -52,6 +69,14 @@ export default {
   'provider.connect': 'Подключить',
   'provider.configure': 'Настроить',
   'provider.connected': 'Подключено',
+  'provider.notConnected': 'Не подключено',
+  'provider.connectionChecking': 'Проверка',
+  'provider.connectionReadyTooltip': 'Провайдер готов к работе.',
+  'provider.connectionCheckingTooltip': 'Открывается подключение к провайдеру.',
+  'provider.browserUnavailableTooltip': 'Не удалось открыть браузерную сессию провайдера.',
+  'provider.sessionMissingTooltip': 'Браузерная сессия недоступна. Подключите провайдера, чтобы продолжить.',
+  'translate.connectionDisabledTooltip': 'Перевод отключён, поэтому сессия провайдера не была запущена.',
+  'translate.connectionNotStartedTooltip': 'Инициализация провайдера перевода ещё не запускалась.',
   'provider.connectionReady': 'Готово',
   'provider.connectionSetupRequired': 'Требуется настройка',
   'provider.claudeWeb.name': 'Claude Web',
@@ -145,10 +170,15 @@ export default {
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Провайдер распознавания',
-  'mainDock.prettifyProviderLabel': 'Улучшение',
+  'mainDock.prettifyProviderLabel': 'Провайдер улучшения',
   'mainDock.prettifyModelLabel': 'Модель',
   'mainDock.prettifyNotConfigured': 'Не настроен',
   'mainDock.prettifyConfigured': 'Настроен',
+  'mainDock.prettifyOllamaNotConfiguredTooltip': 'Выберите модель Ollama в настройках Prettify.',
+  'mainDock.prettifyOllamaLoadedTooltip': 'Выбранная модель Ollama загружена и готова к работе.',
+  'mainDock.prettifyOllamaNotLoadedTooltip': 'Выбранная модель Ollama не загружена.',
+  'mainDock.prettifyVllmConfiguredTooltip': 'Модель vLLM настроена; доступность проверяется при использовании.',
+  'mainDock.prettifyVllmNotConfiguredTooltip': 'Выберите модель vLLM в настройках Prettify.',
   'mainDock.prettifyChecking': 'Проверка',
   'mainDock.prettifySignIn': 'Войти',
   'mainDock.prettifySignInHelp': 'Войдите в выбранной CLI, затем выберите её снова.',
@@ -196,14 +226,75 @@ export default {
   'settingsSection.prettify': 'Улучшение текста',
   'settingsSection.browser': 'Браузер',
   'settingsSection.network': 'Сеть',
+  'settingsSection.auditLog': 'Журнал аудита',
+
+  // Настройки журнала аудита
+  'auditLog.title': 'Журнал аудита',
+  'auditLog.description':
+    'При необходимости сохраняйте исходный и результирующий текст успешных операций перевода и улучшения для локальной диагностики.',
+  'auditLog.captureTranslation': 'Сохранять диагностику перевода',
+  'auditLog.captureTranslationDescription':
+    'Сохранять исходный и результирующий текст успешных переводов, включая попадания в кеш.',
+  'auditLog.capturePrettify': 'Сохранять диагностику улучшения текста',
+  'auditLog.capturePrettifyDescription':
+    'Сохранять исходный и результирующий текст успешного улучшения, включая попадания в кеш.',
+  'auditLog.privacyTitle': 'Конфиденциальная диагностика в открытом виде',
+  'auditLog.sensitiveDataWarning':
+    'Сохранённые исходные данные и результаты могут содержать личный или конфиденциальный текст.',
+  'auditLog.plaintextStorageWarning':
+    'Данные хранятся в SQLite в открытом виде после максимально возможного редактирования и защищены правами файловой системы пользователя. Шифрование не используется.',
+  'auditLog.redactionLimitWarning':
+    'Редактирование может не обнаружить произвольные встроенные секреты. Считайте сохранённые данные конфиденциальными.',
+  'auditLog.archiveInclusionWarning': 'Включённые категории автоматически добавляются в архивы диагностики.',
+  'auditLog.archiveEncryptionWarning': 'Архивы диагностики не шифруются.',
+  'auditLog.clearTitle': 'Удалить сохранённые данные',
+  'auditLog.clearDescription': 'Удаление данных необратимо и не изменяет переключатели сохранения.',
+  'auditLog.clear.translation': 'Очистить переводы',
+  'auditLog.clear.prettify': 'Очистить улучшения',
+  'auditLog.clear.all': 'Очистить всё',
+  'auditLog.disableConfirm.title': 'Отключить сохранение и удалить данные?',
+  'auditLog.disableConfirm.translation':
+    'Сохранение настроек отключит диагностику перевода и навсегда удалит все сохранённые данные перевода.',
+  'auditLog.disableConfirm.prettify':
+    'Сохранение настроек отключит диагностику улучшения и навсегда удалит все сохранённые данные улучшения.',
+  'auditLog.disableConfirm.all':
+    'Сохранение настроек отключит обе категории и навсегда удалит все сохранённые данные перевода и улучшения.',
+  'auditLog.disableConfirm.action': 'Отключить и удалить',
+  'auditLog.clearConfirm.translation.title': 'Очистить диагностику перевода?',
+  'auditLog.clearConfirm.translation.description':
+    'Все сохранённые данные перевода будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.prettify.title': 'Очистить диагностику улучшения?',
+  'auditLog.clearConfirm.prettify.description':
+    'Все сохранённые данные улучшения будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.all.title': 'Очистить всю диагностику?',
+  'auditLog.clearConfirm.all.description':
+    'Все сохранённые данные перевода и улучшения будут навсегда удалены без изменения настроек сохранения.',
+  'auditLog.clearConfirm.action': 'Удалить данные',
+  'auditLog.cancel': 'Отмена',
+  'auditLog.processing': 'Обработка...',
+  'auditLog.error.invalid-request': 'Недопустимый запрос диагностики.',
+  'auditLog.error.confirmation-required': 'Подтвердите точные категории диагностики, которые будут удалены.',
+  'auditLog.error.storage-unavailable': 'Хранилище диагностики недоступно. Повторите попытку.',
+  'auditLog.error.storage-failed': 'Не удалось обновить хранилище диагностики. Повторите попытку.',
+  'auditLog.error.save-failed':
+    'Обслуживание данных завершено, но настройки сохранения не удалось записать. Предыдущие настройки остаются активными.',
 
   // About
   'about.open': 'О программе',
   'about.version': 'Версия {version}',
   'about.license': 'Лицензия',
   'about.copyright': 'Авторские права',
+  'about.project': 'Проект',
   'about.loading': 'Загрузка информации о программе...',
   'about.loadFailed': 'Не удалось загрузить информацию о программе.',
+  'auditLog.exportAction': 'Экспортировать диагностику',
+  'auditLog.exportPending': 'Экспорт диагностики...',
+  'auditLog.exportDialogTitle': 'Экспорт архива диагностики',
+  'auditLog.exportDescription': 'Сохраните локальный архив диагностики для поиска и устранения проблем.',
+  'notification.diagnosticsExportSaved': 'Диагностика экспортирована',
+  'notification.diagnosticsExportSavedBody': 'Архив диагностики сохранён.',
+  'notification.diagnosticsExportFailed': 'Не удалось экспортировать диагностику',
+  'notification.diagnosticsExportFailedBody': 'Не удалось сохранить архив диагностики. Повторите попытку.',
 
   // History
   'history.open': 'История',
@@ -303,6 +394,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Средний',
   'prettify.codexCli.reasoningEffort.high': 'Высокий',
   'prettify.codexCli.reasoningEffort.xhigh': 'Очень высокий',
+  'prettify.codexCli.reasoningEffort.max': 'Максимальный',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Подробность ответа',
   'prettify.codexCli.verbosityHelp': 'Управляет подробностью ответа, если выбранная модель Codex это поддерживает.',
   'prettify.codexCli.verbosity.low': 'Низкая',

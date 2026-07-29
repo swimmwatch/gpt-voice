@@ -1,186 +1,397 @@
-import { app, globalShortcut, session } from 'electron';
-import log from './logger';
-import { loadConfig, getCurrentLocale, hasExplicitLocalePreference, currentProvider } from './config';
-import { initBackgroundBrowser, shutdownBackgroundBrowser } from './browser';
-import { createWindow, getMainWindow, setQuitting, showMainWindow } from './window';
-import { createTray } from './tray';
-import { registerShortcuts } from './shortcuts';
-import { registerIpcHandlers, teardownStreamingTranscriptionIpcHandlers } from './ipc';
-import { setLocale, getSupportedLocales } from './i18n';
-import { configureCloakBrowserRuntime } from './cloakbrowser';
-import { getAppIconPath } from './assets';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { execFile, spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+// eslint-disable-next-line n/no-unsupported-features/node-builtins -- SQLite is required by the project's Node 24 runtime.
+import { DatabaseSync } from 'node:sqlite';
 import {
-  refreshLinuxDesktopIcons,
-  registerLinuxAppImageDesktopIntegration,
-  removeLinuxAppImageDesktopIntegration,
-} from './linuxDesktopIntegration';
-import { registerAppProtocol, registerAppProtocolScheme } from './appProtocol';
-import { configureAppIdentity, configureNativeAppMetadata } from './appMetadata';
-import { closeTranscriptionHistoryStore } from './services/transcriptionHistoryStorage';
-import { unloadLoadedOllamaPrettifyModel } from './services/prettifyProviders';
-import { resolveStartupLocale } from './startupLocale';
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeImage,
+  Notification,
+  protocol,
+  safeStorage,
+  session,
+  shell,
+  Tray,
+} from 'electron';
+import { resolveAppConfigPaths } from './config';
+import type { CloakBrowserApi } from './cloakbrowser';
+import { getAppUrl } from './appProtocol';
+import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
+import { writeTextFileAtomically } from './translationSettings';
+import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
+import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
+import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
+import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
+import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
+import { createPlaywrightGoogleTranslatePageAdapter } from './translateProviders/GoogleTranslateProvider';
+import { createPlaywrightBingTranslatePageAdapter } from './translateProviders/BingTranslateProvider';
+import { createPlaywrightYandexTranslatePageAdapter } from './translateProviders/YandexTranslateProvider';
+import { APP_DATABASE_TIMEOUT_MS } from './repositories/sqlite/appDatabase';
 
-const CHROMIUM_FATAL_LOG_LEVEL = '3';
-const STARTUP_BENCHMARK_READY_MARKER = 'GPT_VOICE_STARTUP_READY';
-const STARTUP_BENCHMARK_POLL_INTERVAL_MS = 25;
-let quitCleanupComplete = false;
-let quitCleanupPromise: Promise<void> | null = null;
+const loadRuntimeModule = createRequire(__filename);
+const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
+const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
+const UNKNOWN_RUNTIME_VERSION = 'unknown';
+const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
+// CloakBrowser is ESM while the Electron main bundle is CommonJS.
+// eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
+const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<CloakBrowserApi>;
 
-configureAppIdentity();
-app.disableHardwareAcceleration();
-registerAppProtocolScheme();
-
-const isStartupBenchmark = process.argv.includes('--startup-benchmark');
-
-const isRemovingLinuxAppImageDesktopIntegration =
-  process.platform === 'linux' && process.argv.includes('--remove-linux-appimage-desktop-integration');
-
-if (!isRemovingLinuxAppImageDesktopIntegration && !app.requestSingleInstanceLock()) {
-  app.quit();
-  process.exit(0);
+function getCurrentDate(): Date {
+  return new Date();
 }
 
-app.on('second-instance', () => {
-  if (app.isReady()) {
-    showMainWindow();
-  }
-});
+function getRequestedAt(): string {
+  return getCurrentDate().toISOString();
+}
 
-function waitForStartupBenchmarkReady(): void {
-  const mainWindow = getMainWindow();
-  if (!mainWindow) {
-    return;
-  }
+function getMonotonicTimeMs(): number {
+  return performance.now();
+}
 
-  const checkWindowStartupState = async (): Promise<void> => {
-    if (mainWindow.isDestroyed()) {
-      return;
+function ignoreStreamingDiagnostic(): void {
+  // Task 08 preserves the existing no-op diagnostic callback.
+}
+
+function generateFingerprintSeed(): string {
+  return String(Math.floor(Math.random() * 90_000) + 10_000);
+}
+
+function getInstalledPackageVersion(packageName: string): string {
+  try {
+    let currentDirectory = path.dirname(loadRuntimeModule.resolve(packageName));
+    for (let index = 0; index < MAX_PACKAGE_DIRECTORY_ASCENTS; index += 1) {
+      const packageFile = path.join(currentDirectory, 'package.json');
+      if (fs.existsSync(packageFile)) {
+        const parsed: unknown = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          !Array.isArray(parsed) &&
+          (parsed as Record<string, unknown>).name === packageName &&
+          typeof (parsed as Record<string, unknown>).version === 'string'
+        ) {
+          return (parsed as Record<string, string>).version;
+        }
+      }
+      const parentDirectory = path.dirname(currentDirectory);
+      if (parentDirectory === currentDirectory) break;
+      currentDirectory = parentDirectory;
     }
+  } catch {
+    // The manifest uses a fixed safe marker when package metadata is unavailable.
+  }
+  return UNKNOWN_RUNTIME_VERSION;
+}
 
-    try {
-      const isReady: unknown = await mainWindow.webContents.executeJavaScript(
-        "document.body?.dataset.windowStartup === 'ready'",
-        true,
-      );
-      if (isReady === true) {
-        process.stdout.write(`${STARTUP_BENCHMARK_READY_MARKER}\n`);
-        app.quit();
+function hashDiagnosticsPayload(payload: Buffer): string {
+  return createHash('sha256').update(payload).digest('hex');
+}
+
+async function diagnosticsExportPathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(filePath);
+    return true;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+function runTextAutomationCommand(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { windowsHide: true }, (error) => {
+      if (error) {
+        reject(error instanceof Error ? error : new Error('Text automation command failed'));
         return;
       }
-    } catch {
-      // The renderer can briefly be unavailable while its document is being replaced.
-    }
-
-    setTimeout(() => {
-      void checkWindowStartupState();
-    }, STARTUP_BENCHMARK_POLL_INTERVAL_MS);
-  };
-
-  void checkWindowStartupState();
+      resolve();
+    });
+  });
 }
 
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('class', 'gpt-voice');
-  app.commandLine.appendSwitch('disable-gpu');
-  app.commandLine.appendSwitch('disable-dev-shm-usage');
-  // Chromium can print non-actionable X11 clipboard atom cache messages as ERROR.
-  // Keep native Chromium stderr quiet while preserving app logs and fatal Chromium logs.
-  app.commandLine.appendSwitch('log-level', CHROMIUM_FATAL_LOG_LEVEL);
-}
-
-if (app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE) {
-  process.env.ELECTRON_DISABLE_SANDBOX = '1';
-  app.commandLine.appendSwitch('no-sandbox');
-}
-
-app.on('ready', () => {
-  log.initialize();
-  log.errorHandler.startCatching();
-
-  if (isRemovingLinuxAppImageDesktopIntegration) {
-    removeLinuxAppImageDesktopIntegration();
-    app.quit();
-    return;
-  }
-
-  if (!isStartupBenchmark) {
-    configureCloakBrowserRuntime();
-    configureNativeAppMetadata();
-    refreshLinuxDesktopIcons();
-    registerLinuxAppImageDesktopIntegration();
-  }
-  registerAppProtocol();
-
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(getAppIconPath());
-  }
-
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === 'media');
+/**
+ * Constructs and starts the process-owned application graph.
+ */
+function bootstrapMainProcess(): void {
+  const appConfigPaths = resolveAppConfigPaths({
+    environment: process.env,
+    homeDirectory: os.homedir,
+    platform: process.platform,
   });
 
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media';
+  const application = new MainProcessCompositionRoot({
+    assetPaths: {
+      isPackaged: app.isPackaged,
+      mainDirectory: __dirname,
+      resourcesPath: process.resourcesPath,
+    },
+    cacheNow: Date.now,
+    databaseDependencies: {
+      closeDatabase: (database) => database.close(),
+      createDatabase: (databasePath) => new DatabaseSync(databasePath, { timeout: APP_DATABASE_TIMEOUT_MS }),
+      fileExists: fs.existsSync,
+      now: getCurrentDate,
+      platform: process.platform,
+      setFileMode: fs.chmodSync,
+    },
+    diagnosticsArchive: {
+      architecture: process.arch,
+      fileSystem: {
+        chmod: (filePath, mode) => fs.promises.chmod(filePath, mode),
+        createWriteStream: (filePath, options) => fs.createWriteStream(filePath, options),
+        readFile: (filePath) => fs.promises.readFile(filePath),
+        removeFile: (filePath) => fs.promises.rm(filePath, { force: true }),
+        rename: (sourcePath, destinationPath) => fs.promises.rename(sourcePath, destinationPath),
+      },
+      getAppVersion: () => app.getVersion(),
+      hash: hashDiagnosticsPayload,
+      platform: process.platform,
+      runtimeVersions: {
+        cloakBrowser: getInstalledPackageVersion(CLOAK_BROWSER_PACKAGE_NAME),
+        electron: process.versions.electron ?? UNKNOWN_RUNTIME_VERSION,
+        node: process.versions.node,
+        playwright: getInstalledPackageVersion(PLAYWRIGHT_PACKAGE_NAME),
+      },
+    },
+    diagnosticsExport: {
+      dialog: {
+        showSaveDialog: (parentWindow, options) => dialog.showSaveDialog(parentWindow, options),
+      },
+      fileSystem: {
+        pathExists: diagnosticsExportPathExists,
+      },
+      platform: process.platform,
+      randomBytes,
+    },
+    cloakBrowserRuntime: {
+      environment: process.env,
+      fileSystem: fs,
+      importModule: importCloakBrowserModule,
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      resourcesPath: process.resourcesPath,
+    },
+    cloakBrowserSettings: {
+      fileSystem: fs,
+    },
+    config: {
+      fileSystem: fs,
+      generateFingerprintSeed,
+      paths: appConfigPaths,
+      writeFileAtomically: (filePath, contents) =>
+        writeTextFileAtomically(filePath, contents, {
+          createTemporaryPath: (target) => `${target}.${randomUUID()}.tmp`,
+          fileSystem: fs,
+        }),
+    },
+    electronRuntime: {
+      loadModule: () => ({
+        clipboard,
+        Notification,
+        safeStorage,
+        shell,
+      }),
+      platform: process.platform,
+      schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+    },
+    getMonotonicTimeMs,
+    getRequestedAt,
+    initialProviderReadiness: {
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      createAbortController: () => new AbortController(),
+    },
+    ipc: {
+      ipc: {
+        handle: (channel, listener) => ipcMain.handle(channel, listener),
+        removeHandler: (channel) => ipcMain.removeHandler(channel),
+      },
+      platform: process.platform,
+    },
+    logger: {
+      fileSystem: fs,
+      loadModule: () => {
+        const moduleValue: unknown = loadRuntimeModule('electron-log/main');
+        return moduleValue;
+      },
+    },
+    now: getCurrentDate,
+    randomUUID,
+    reportStreamingDiagnostic: ignoreStreamingDiagnostic,
+    resolveStreamingCapability: resolveStreamingVoiceProviderCapability,
+    textAutomation: {
+      environment: process.env,
+      platform: process.platform,
+      runner: runTextAutomationCommand,
+    },
+    prettify: {
+      audit: {
+        elapsedNow: Date.now,
+        now: getCurrentDate,
+        randomUUID,
+      },
+      httpReadiness: {
+        clock: {
+          clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+          now: Date.now,
+          setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        },
+        createAbortController: () => new AbortController(),
+      },
+      cliRunner: {
+        clock: {
+          clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+          now: Date.now,
+          setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        },
+        environment: process.env,
+        fileSystem: {
+          access: (filePath, mode) => fs.promises.access(filePath, mode),
+          mkdtemp: (prefix) => fs.promises.mkdtemp(prefix),
+          removeDirectory: (directory) => fs.promises.rm(directory, { force: true, recursive: true }),
+          stat: (filePath) => fs.promises.stat(filePath),
+        },
+        getTemporaryDirectory: os.tmpdir,
+        killProcessGroup: (processId, signal) => process.kill(processId, signal),
+        platform: process.platform,
+        spawn: (executable, args, options) => spawn(executable, args, options),
+      },
+      codexCli: {
+        outputSchemaPathResolver: () =>
+          resolveCodexCliOutputSchemaPath({
+            isPackaged: app.isPackaged,
+            mainDirectory: __dirname,
+            resourcesPath: process.resourcesPath,
+          }),
+        schemaFileSystem: {
+          access: (filePath, mode) => fs.promises.access(filePath, mode),
+          readFile: (filePath) => fs.promises.readFile(filePath),
+          stat: (filePath) => fs.promises.stat(filePath),
+        },
+      },
+      fetch,
+      selectedText: {
+        getCacheContext: () => [],
+        platform: process.platform,
+        wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+      },
+      settingsStorage: {
+        fileSystem: fs,
+      },
+    },
+    translation: {
+      audit: {
+        elapsedNow: Date.now,
+        now: getCurrentDate,
+        randomUUID,
+      },
+      now: Date.now,
+      providers: {
+        createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
+        createContextOptions: createCloakBrowserTranslationContextOptions,
+        createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
+        createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
+        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+      },
+      selectedText: {
+        platform: process.platform,
+        wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+      },
+    },
+    voice: {
+      audit: {
+        elapsedNow: Date.now,
+        now: getCurrentDate,
+        randomUUID,
+      },
+      browser: {},
+      providers: {
+        chatGPT: {
+          now: Date.now,
+          reloadPage: async (page, timeoutMs) => {
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs });
+          },
+          sessionStore: {
+            fileSystem: fs,
+            now: Date.now,
+          },
+        },
+        claudeWeb: {
+          createTransport: createClaudeWebPageTransport,
+          inspectReadiness: inspectClaudeWebReadiness,
+          now: Date.now,
+          waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+        },
+        openAIApi: {
+          fetch,
+        },
+      },
+    },
+  }).createApplication({
+    app,
+    desktopControllers: {
+      appProtocol: {
+        protocol,
+        readFile,
+      },
+      desktopRuntime: {
+        app,
+        arguments: process.argv,
+        buildMenu: (template) => Menu.buildFromTemplate(template),
+        electronVersion: process.versions.electron,
+        environment: process.env,
+        exit: (code) => process.exit(code),
+        platform: process.platform,
+        schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+        session,
+        setApplicationMenu: (menu) => Menu.setApplicationMenu(menu),
+        writeStandardOutput: (value) => process.stdout.write(value),
+      },
+      linuxDesktopIntegration: {
+        app,
+        environment: process.env,
+        fileSystem: fs,
+        homeDirectory: os.homedir,
+        platform: process.platform,
+        spawn: (command, args, options) => spawn(command, [...args], options),
+      },
+      shortcuts: {
+        globalShortcut,
+        platform: process.platform,
+      },
+      tray: {
+        application: app,
+        buildMenu: (template) => Menu.buildFromTemplate(template),
+        createNativeImage: (iconPath) => nativeImage.createFromPath(iconPath),
+        createTray: (icon) => new Tray(icon),
+        platform: process.platform,
+      },
+      window: {
+        createBrowserWindow: (options) => new BrowserWindow(options),
+        getAppUrl,
+        platform: process.platform,
+        preloadPath: path.join(__dirname, 'preload.js'),
+      },
+    },
   });
 
-  loadConfig();
-  setLocale(resolveStartupLocale(getCurrentLocale(), hasExplicitLocalePreference(), getSupportedLocales()));
-
-  registerIpcHandlers();
-  createWindow();
-
-  if (isStartupBenchmark) {
-    waitForStartupBenchmarkReady();
-    return;
-  }
-
-  createTray();
-  registerShortcuts();
-
-  void initBackgroundBrowser().then((status) => {
-    const providerId = status.providerId || currentProvider;
-    if (status.ready) {
-      getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-    } else if (status.error) {
-      getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-    }
-  });
-});
-
-app.on('window-all-closed', () => {
-  // Don't quit — keep running in tray
-});
-
-app.on('activate', () => {
-  showMainWindow();
-});
-
-async function runQuitCleanup(): Promise<void> {
-  globalShortcut.unregisterAll();
-  await teardownStreamingTranscriptionIpcHandlers();
-  try {
-    await unloadLoadedOllamaPrettifyModel();
-  } catch (error: unknown) {
-    log.warn('Failed to unload Ollama prettify model during quit:', error instanceof Error ? error.message : error);
-  }
-  closeTranscriptionHistoryStore();
-  await shutdownBackgroundBrowser();
+  application.bootstrap();
 }
 
-app.on('will-quit', (event) => {
-  if (quitCleanupComplete) return;
-
-  event.preventDefault();
-  void (quitCleanupPromise ??= runQuitCleanup()
-    .catch((error: unknown) => {
-      log.warn('Quit cleanup failed:', error instanceof Error ? error.message : error);
-    })
-    .finally(() => {
-      quitCleanupComplete = true;
-      app.quit();
-    }));
-});
-
-app.on('before-quit', () => {
-  setQuitting(true);
-});
+bootstrapMainProcess();

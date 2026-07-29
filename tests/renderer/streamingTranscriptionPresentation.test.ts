@@ -5,12 +5,14 @@ import {
   StreamingTranscriptionLifecycle,
   type StreamingTranscriptionError,
 } from '@shared/streamingTranscription';
-import { getSupportedLocales, setLocale, t } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import {
   StreamingRecordingLocalErrorCode,
   type StreamingRecordingFailure,
 } from '@renderer/audio/streamingTranscriptionQueue';
 import { getStreamingTranscriptionFailureTranslationKey } from '@renderer/audio/streamingTranscriptionPresentation';
+
+const localization = new I18nService();
 
 function createStreamingError(code: StreamingTranscriptionErrorCode): StreamingTranscriptionError {
   if (code === StreamingTranscriptionErrorCode.Cancelled) {
@@ -25,7 +27,7 @@ function createIpcFailure(code: StreamingTranscriptionErrorCode): StreamingRecor
 
 describe('streaming transcription presentation', () => {
   afterEach(() => {
-    setLocale('en');
+    localization.setLocale('en');
   });
 
   it('maps every shared and local streaming failure to a fixed safe translation in every locale', () => {
@@ -43,11 +45,11 @@ describe('streaming transcription presentation', () => {
       },
     ];
 
-    for (const locale of getSupportedLocales()) {
-      setLocale(locale);
+    for (const locale of localization.getSupportedLocales()) {
+      localization.setLocale(locale);
       for (const failure of failures) {
         const key = getStreamingTranscriptionFailureTranslationKey(failure);
-        const message = t(key);
+        const message = localization.translate(key);
         const rawCode = failure.kind === 'ipc' ? failure.error.code : failure.code;
 
         assert.equal(typeof message, 'string', `${locale}:${key}`);

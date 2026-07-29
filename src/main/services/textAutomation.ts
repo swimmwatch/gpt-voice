@@ -1,6 +1,3 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
 export type TextAutomationAction = 'copy' | 'paste';
 export type TextAutomationStrategy = 'linux-x11' | 'linux-wayland' | 'macos' | 'windows';
 
@@ -13,9 +10,13 @@ export interface TextAutomationCommand {
 
 export type CommandRunner = (command: string, args: string[]) => Promise<void>;
 
-const execFileAsync = promisify(execFile);
+export interface TextAutomationServiceDependencies {
+  readonly environment: NodeJS.ProcessEnv;
+  readonly platform: NodeJS.Platform;
+  readonly runner: CommandRunner;
+}
 
-export function getLinuxTextAutomationStrategy(env: NodeJS.ProcessEnv = process.env): 'linux-x11' | 'linux-wayland' {
+export function getLinuxTextAutomationStrategy(env: NodeJS.ProcessEnv): 'linux-x11' | 'linux-wayland' {
   const sessionType = (env.XDG_SESSION_TYPE || '').toLowerCase();
   if (sessionType === 'wayland' || env.WAYLAND_DISPLAY) {
     return 'linux-wayland';
@@ -25,8 +26,8 @@ export function getLinuxTextAutomationStrategy(env: NodeJS.ProcessEnv = process.
 
 export function buildTextAutomationCommand(
   action: TextAutomationAction,
-  platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
 ): TextAutomationCommand | null {
   const key = action === 'copy' ? 'c' : 'v';
 
@@ -76,47 +77,35 @@ export function buildTextAutomationCommand(
   return null;
 }
 
-export async function commandExists(
-  command: string,
-  platform: NodeJS.Platform = process.platform,
-  runner: CommandRunner = runCommand,
-): Promise<boolean> {
-  try {
-    if (platform === 'win32') {
-      await runner('where.exe', [command]);
-    } else {
-      await runner('sh', ['-c', `command -v ${command} >/dev/null 2>&1`]);
+/** Owns one graph's selected-text OS automation boundary. */
+export class TextAutomationService {
+  public constructor(private readonly dependencies: TextAutomationServiceDependencies) {}
+
+  public async run(action: TextAutomationAction): Promise<TextAutomationCommand> {
+    const command = buildTextAutomationCommand(action, this.dependencies.platform, this.dependencies.environment);
+
+    if (!command) {
+      throw new Error(`Selected-text ${action} automation is not supported on ${this.dependencies.platform}`);
     }
-    return true;
-  } catch {
-    return false;
-  }
-}
 
-export async function runCommand(command: string, args: string[]): Promise<void> {
-  await execFileAsync(command, args, { windowsHide: true });
-}
+    if (!(await this.commandExists(command.requiredExecutable))) {
+      throw new Error(`${command.requiredExecutable} is required for selected-text automation`);
+    }
 
-export async function runTextAutomationAction(
-  action: TextAutomationAction,
-  options: {
-    env?: NodeJS.ProcessEnv;
-    platform?: NodeJS.Platform;
-    runner?: CommandRunner;
-  } = {},
-): Promise<TextAutomationCommand> {
-  const platform = options.platform ?? process.platform;
-  const runner = options.runner ?? runCommand;
-  const command = buildTextAutomationCommand(action, platform, options.env ?? process.env);
-
-  if (!command) {
-    throw new Error(`Selected-text ${action} automation is not supported on ${platform}`);
+    await this.dependencies.runner(command.command, command.args);
+    return command;
   }
 
-  if (!(await commandExists(command.requiredExecutable, platform, runner))) {
-    throw new Error(`${command.requiredExecutable} is required for selected-text automation`);
+  private async commandExists(command: string): Promise<boolean> {
+    try {
+      if (this.dependencies.platform === 'win32') {
+        await this.dependencies.runner('where.exe', [command]);
+      } else {
+        await this.dependencies.runner('sh', ['-c', `command -v ${command} >/dev/null 2>&1`]);
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
-
-  await runner(command.command, command.args);
-  return command;
 }

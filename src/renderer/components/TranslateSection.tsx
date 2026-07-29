@@ -1,49 +1,168 @@
 import { Globe } from 'lucide-react';
-import belarusFlag from '@renderer/assets/flags/be.svg';
-import unitedStatesFlag from '@renderer/assets/flags/en.svg';
-import russiaFlag from '@renderer/assets/flags/ru.svg';
-import ukraineFlag from '@renderer/assets/flags/uk.svg';
+import { useMemo } from 'react';
+import type { TranslationKey } from '@main/i18n';
 import { useI18n } from '@renderer/hooks/useI18n';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@renderer/components/ui/select';
+import { TRANSLATION_PROVIDER_OPTIONS, getTranslationLanguageOptions } from '@renderer/translationLanguageOptions';
+import { ProviderStatusIndicator, type ProviderStatusTone } from '@renderer/components/ProviderStatusIndicator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_DETAILS,
+  TRANSLATION_PROVIDER_CONNECTION_STATUSES,
+  type TranslationProviderConnectionDetail,
+  type TranslationProviderConnectionState,
+  type TranslationProviderConnectionStatus,
+  type TranslationProviderId,
+  type TranslationSettings,
+} from '@shared/translationProvider';
 
 interface Props {
-  targetLang: string;
-  onLangChange: (lang: string) => void;
+  connectionState: TranslationProviderConnectionState | null;
+  error: string;
+  isSaving: boolean;
+  onProviderChange: (providerId: TranslationProviderId) => void;
+  onTargetLanguageChange: (targetLanguage: string) => void;
+  settings: TranslationSettings;
 }
 
-const LANGUAGE_OPTIONS = [
-  { flag: unitedStatesFlag, value: 'en', labelKey: 'translate.english' },
-  { flag: russiaFlag, value: 'ru', labelKey: 'translate.russian' },
-  { flag: ukraineFlag, value: 'uk', labelKey: 'translate.ukrainian' },
-  { flag: belarusFlag, value: 'be', labelKey: 'translate.belarusian' },
-] as const;
+const TRANSLATION_CONNECTION_LABEL_KEYS: Record<TranslationProviderConnectionStatus, TranslationKey> = {
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking]: 'provider.connectionChecking',
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected]: 'provider.connected',
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected]: 'provider.notConnected',
+};
 
-const TranslateSection = ({ targetLang, onLangChange }: Props): React.JSX.Element => {
-  const { t } = useI18n();
-  const selectedLanguage = LANGUAGE_OPTIONS.find((option) => option.value === targetLang) ?? LANGUAGE_OPTIONS[0];
+const TRANSLATION_CONNECTION_TOOLTIP_KEYS: Record<TranslationProviderConnectionDetail, TranslationKey> = {
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.Cancelled]: 'status.translationCancelled',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed]: 'error.translationCleanupFailed',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.ConsentOrChallenge]: 'error.translationConsentOrChallenge',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.InvalidSettings]: 'error.translationUnsupportedSelection',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.NavigationFailed]: 'error.translationConnectionFailed',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.NotStarted]: 'translate.connectionNotStartedTooltip',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider]: 'provider.connectionCheckingTooltip',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.PageChanged]: 'error.translationPageChanged',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready]: 'provider.connectionReadyTooltip',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.TranslationDisabled]: 'translate.connectionDisabledTooltip',
+  [TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure]: 'error.translationConnectionFailed',
+};
+
+const TRANSLATION_CONNECTION_TONES: Record<TranslationProviderConnectionStatus, ProviderStatusTone> = {
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking]: 'neutral',
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected]: 'success',
+  [TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected]: 'error',
+};
+
+export interface TranslationProviderConnectionPresentation {
+  readonly labelKey: TranslationKey;
+  readonly tone: ProviderStatusTone;
+  readonly tooltipKey: TranslationKey;
+}
+
+export function getTranslationProviderConnectionPresentation(
+  connectionState: TranslationProviderConnectionState | null,
+  settings: TranslationSettings,
+): TranslationProviderConnectionPresentation {
+  const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
+  const connectionMatchesSelection =
+    connectionState?.providerId === null ||
+    (connectionState?.providerId === settings.providerId && connectionState.targetLanguage === targetLanguage);
+  const status =
+    connectionState && connectionMatchesSelection
+      ? connectionState.status
+      : TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking;
+  const detail =
+    connectionState && connectionMatchesSelection
+      ? connectionState.detail
+      : TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
+  return {
+    labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[status],
+    tone: TRANSLATION_CONNECTION_TONES[status],
+    tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[detail],
+  };
+}
+
+/** Renders the compact main-window translation provider and target selectors. */
+const TranslateSection = ({
+  connectionState,
+  error,
+  isSaving,
+  onProviderChange,
+  onTargetLanguageChange,
+  settings,
+}: Props): React.JSX.Element => {
+  const { locale, t } = useI18n();
+  const languageOptions = useMemo(
+    () => getTranslationLanguageOptions(settings.providerId, locale),
+    [locale, settings.providerId],
+  );
+  const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
+  const connectionPresentation = getTranslationProviderConnectionPresentation(connectionState, settings);
 
   return (
     <section className="command-dock-language-band" data-slot="translate-section">
       <Globe aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
-      <span className="command-dock-language-label">{t('translate.targetLanguage')}</span>
-      <Select onValueChange={onLangChange} value={targetLang}>
-        <SelectTrigger aria-label={t('translate.targetLanguage')} className="command-dock-language-trigger">
-          <span className="command-dock-language-value">
-            <img alt="" aria-hidden="true" src={selectedLanguage.flag} />
-            <span>{t(selectedLanguage.labelKey)}</span>
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          {LANGUAGE_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <span className="command-dock-language-option">
-                <img alt="" aria-hidden="true" src={option.flag} />
-                <span>{t(option.labelKey)}</span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+
+      <div className="command-dock-language-field command-dock-language-target-field">
+        <span className="command-dock-field-label">{t('translate.provider')}</span>
+        <Select
+          disabled={isSaving}
+          onValueChange={(providerId) => {
+            if (TRANSLATION_PROVIDER_OPTIONS.some((option) => option.value === providerId)) {
+              onProviderChange(providerId as TranslationProviderId);
+            }
+          }}
+          value={settings.providerId}
+        >
+          <SelectTrigger
+            aria-label={t('translate.provider')}
+            className="command-dock-provider-trigger command-dock-translation-trigger"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="command-dock-translation-select-content">
+            {TRANSLATION_PROVIDER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="command-dock-language-field">
+        <span className="command-dock-field-label">{t('translate.targetLanguage')}</span>
+        <Select disabled={isSaving} onValueChange={onTargetLanguageChange} value={targetLanguage}>
+          <SelectTrigger
+            aria-label={t('translate.targetLanguage')}
+            className="command-dock-provider-trigger command-dock-translation-trigger"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent
+            className="command-dock-translation-select-content"
+            showScrollButtons={false}
+            viewportClassName="command-dock-translation-select-viewport"
+          >
+            {languageOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ProviderStatusIndicator
+        className="command-dock-provider-state command-dock-translation-connection"
+        dataSlot="translation-provider-connection"
+        label={t(connectionPresentation.labelKey)}
+        tone={connectionPresentation.tone}
+        tooltip={t(connectionPresentation.tooltipKey)}
+      />
+
+      {error && (
+        <span className="command-dock-language-state is-error" data-slot="translation-settings-state" role="alert">
+          {error}
+        </span>
+      )}
     </section>
   );
 };

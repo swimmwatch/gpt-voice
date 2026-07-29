@@ -11,7 +11,7 @@ function readProjectFile(relativePath: string): string {
 
 describe('trusted streaming transcription IPC integration', () => {
   it('keeps all four preload and renderer declarations aligned with the shared result contract', () => {
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const contract = readProjectFile('src/shared/streamingTranscription.ts');
 
@@ -45,24 +45,27 @@ describe('trusted streaming transcription IPC integration', () => {
 
     assert.match(
       ipc,
-      /ipcMain\.handle\(channel, \(event, \.\.\.args\) => \{\s*assertTrustedSender\(event\);\s*return listener\(event\.sender, \.\.\.\(args as unknown\[\]\)\);/u,
+      /this\.ipc\.handle\(channel, \(event, \.\.\.args\) => \{\s*this\.assertTrustedSender\(event\);\s*return listener\(event\.sender, \.\.\.args\);/u,
     );
     assert.match(ipc, /return mainWindow && !mainWindow\.isDestroyed\(\) \? mainWindow\.webContents : null;/u);
-    assert.match(ipc, /removeHandler: \(channel\) => ipcMain\.removeHandler\(channel\)/u);
+    assert.match(ipc, /removeHandler: \(channel\) => this\.trustedIpc\.removeStreamingHandler\(channel\)/u);
   });
 
   it('cancels before browser teardown, provider mutation, and application quit', () => {
     const browser = readProjectFile('src/main/browser.ts');
-    const main = readProjectFile('src/main/main.ts');
-    const shutdownStart = browser.indexOf('async function shutdownBackgroundBrowserNow');
-    const runHooks = browser.indexOf('await runBeforeBackgroundBrowserShutdownHooks();', shutdownStart);
-    const providerShutdown = browser.indexOf('await activeProvider.shutdown();', shutdownStart);
-    const switchStart = browser.indexOf('async function switchProviderNow');
-    const switchShutdown = browser.indexOf('await shutdownBackgroundBrowserNow();', switchStart);
-    const setProvider = browser.indexOf('setProvider(providerId);', switchStart);
-    const quitStart = main.indexOf('async function runQuitCleanup');
-    const ipcTeardown = main.indexOf('await teardownStreamingTranscriptionIpcHandlers();', quitStart);
-    const browserTeardown = main.indexOf('await shutdownBackgroundBrowser();', quitStart);
+    const application = readProjectFile('src/main/mainProcessApplication.ts');
+    const shutdownStart = browser.indexOf('private async shutdownNow');
+    const runHooks = browser.indexOf('await this.runBeforeShutdownHooks();', shutdownStart);
+    const providerShutdown = browser.indexOf('await provider.shutdown();', shutdownStart);
+    const switchStart = browser.indexOf('public switchProvider');
+    const switchShutdown = browser.indexOf('await this.shutdownNow();', switchStart);
+    const setProvider = browser.indexOf('this.dependencies.config.setProvider(providerId);', switchStart);
+    const quitStart = application.indexOf('private async runQuitCleanup');
+    const ipcTeardown = application.indexOf('await runtime?.disposeIpc();', quitStart);
+    const browserTeardown = application.indexOf(
+      'await this.dependencies.backgroundBrowserService.shutdown();',
+      quitStart,
+    );
 
     assert.ok(runHooks > shutdownStart && runHooks < providerShutdown);
     assert.ok(switchShutdown > switchStart && switchShutdown < setProvider);
@@ -71,7 +74,7 @@ describe('trusted streaming transcription IPC integration', () => {
 
   it('preserves the existing batch transcription IPC channel', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
 
     assert.match(ipc, /handle\('transcribe-audio'/u);
     assert.match(preload, /ipcRenderer\.invoke\('transcribe-audio', buffer, mimeType\)/u);

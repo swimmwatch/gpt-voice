@@ -1,5 +1,6 @@
 import { CheckCircle2, KeyRound, LogIn, Save, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { getClaudeWebLanguageOptions, type ClaudeWebLanguageOption } from '@renderer/claudeWebLanguageOptions';
@@ -135,6 +136,7 @@ function ProviderSettingsForm({
   provider,
   settings,
 }: ProviderSettingsFormProps): JSX.Element {
+  const desktopApi = useDesktopApi();
   const { locale, t } = useI18n();
   const [apiKey, setApiKey] = useState('');
   const [openAIApiModel, setOpenAIApiModel] = useState<OpenAIApiProviderSettings['model']>(
@@ -177,7 +179,7 @@ function ProviderSettingsForm({
     setIsSaving(true);
     setError('');
     try {
-      const result = await window.electronAPI.saveProviderSettings(settings.providerId, {
+      const result = await desktopApi.saveProviderSettings(settings.providerId, {
         apiKey,
         language: openAIApiLanguage,
         model: openAIApiModel,
@@ -202,7 +204,7 @@ function ProviderSettingsForm({
     setIsSaving(true);
     setError('');
     try {
-      const result = await window.electronAPI.saveProviderSettings(CLAUDE_WEB_PROVIDER_ID, {
+      const result = await desktopApi.saveProviderSettings(CLAUDE_WEB_PROVIDER_ID, {
         language: claudeWebLanguage,
       });
       if (result.success && result.settings?.providerId === CLAUDE_WEB_PROVIDER_ID) {
@@ -223,7 +225,7 @@ function ProviderSettingsForm({
     setIsSaving(true);
     setError('');
     try {
-      const result = await window.electronAPI.clearProviderAuth(provider.id);
+      const result = await desktopApi.clearProviderAuth(provider.id);
       if (result.success && result.settings) {
         onSaved(result.settings);
         setApiKey('');

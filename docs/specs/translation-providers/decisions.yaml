@@ -1,0 +1,1785 @@
+schema_version: 1
+spec_slug: translation-providers
+interview_id: spec:translation-providers
+decisions:
+  - id: outcome.provider-expansion
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested Bing, Yandex, and DeepL translation providers alongside the current provider.
+    answer:
+      selected_ids: [bing, yandex, deepl]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-004, UI-002]
+
+  - id: architecture.shared-translate-base
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested a base class shared by all current and new translation providers.
+    answer:
+      selected_ids: [shared-base-class]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-003]
+
+  - id: ui.main-screen-selection
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested translation-provider and language selection on the main screen using the existing Select control pattern.
+    answer:
+      selected_ids: [provider-and-language-selects]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-003, UI-007]
+
+  - id: research.live-provider-pages
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly required CloakBrowser MCP research for every new provider, comparable to the Google Translate baseline.
+    answer:
+      selected_ids: [cloakbrowser-bing, cloakbrowser-yandex, cloakbrowser-deepl]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DOC-004, AC-MAN-001]
+
+  - id: current.google-implementation
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/services/translation.ts owns a Google-specific functional browser automation flow.
+      - src/main/services/translationUtils.ts owns Google URLs, selectors, timeouts, normalization, and the supported-language guard.
+      - src/main/browser.ts owns one Google Translate page inside the persistent background browser context.
+    answer:
+      selected_ids: [google-functional-service]
+      text: ''
+    rationale: The current implementation has no translation-provider abstraction or registry.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, COMP-001]
+
+  - id: current.main-screen-language-select
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/renderer/components/TranslateSection.tsx renders a Radix-backed Select for the translation target language.
+      - src/renderer/App.tsx loads and persists the selected target through typed preload IPC.
+    answer:
+      selected_ids: [existing-language-select]
+      text: ''
+    rationale: The requested provider selector can extend an established main-screen interaction pattern.
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-006]
+
+  - id: current.language-set
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/services/translationUtils.ts accepts only en, ru, uk, and be.
+      - src/renderer/components/TranslateSection.tsx exposes English, Russian, Ukrainian, and Belarusian.
+    answer:
+      selected_ids: [en, ru, uk, be]
+      text: ''
+    rationale: This is the current product language scope, not yet a decision for all new providers.
+    supersedes_revision: null
+    requirement_ids: [SET-002, LANG-002]
+
+  - id: current.settings-contract
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: repository
+    evidence:
+      - config.json currently persists one targetLang value and no translation-provider ID.
+      - get-translate-settings returns only targetLang.
+      - set-translate-settings accepts one guarded language string.
+      - src/main/preload.ts and src/renderer/types.d.ts mirror that IPC contract.
+    answer:
+      selected_ids: [single-target-language]
+      text: ''
+    rationale: Provider selection and any per-provider language state require an additive migration of this contract.
+    supersedes_revision: null
+    requirement_ids: [SET-002, SET-003, SET-006]
+
+  - id: current.selected-text-flow
+    revision: 1
+    category: normal-flow
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/services/selectedTextTranslation.ts serializes selected-text actions, restores the clipboard on failure, caches successful translations by selected text and target language, and copies the result on success.
+      - tests/main/selectedTextTranslation.test.ts covers empty selection, clipboard recovery, cache behavior, concurrent suppression, failure, and success.
+    answer:
+      selected_ids: [preserve-selected-text-flow]
+      text: ''
+    rationale: Provider choice must become part of execution and cache identity without changing clipboard-first semantics.
+    supersedes_revision: null
+    requirement_ids: [RUN-001, RUN-004, COMP-001]
+
+  - id: current.browser-retry
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/browser-navigation-retry/spec.md permits bounded retries for transient page.goto failures and forbids retrying authentication, invalid navigation, or non-network errors.
+      - The current Google translation page navigation uses that retry seam.
+    answer:
+      selected_ids: [bounded-navigation-retry]
+      text: ''
+    rationale: Navigation recovery does not itself authorize replaying selected text.
+    supersedes_revision: null
+    requirement_ids: [RUN-005, RUN-006]
+
+  - id: privacy.existing-research
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/researches/translation-providers/main.md records sanitized CloakBrowser evidence dated 2026-07-21.
+      - The record observes source-bearing URL history for Google and Yandex, provider-visible History retention for Yandex, a stale initialized page for Bing, and a DeepL connection-security challenge.
+    answer:
+      selected_ids: [provider-specific-retention-and-readiness-risks]
+      text: ''
+    rationale: Fresh 2026-07-25 CloakBrowser checks and normalized language baselines now supersede the earlier provisional status while preserving its historical evidence.
+    supersedes_revision: null
+    requirement_ids: [ARCH-007, RUN-013, SEC-002, SEC-006]
+
+  - id: research.bing-live-2026-07-25
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A fresh CloakBrowser MCP run on 2026-07-25 loaded Bing Translator anonymously and completed two bounded synthetic translations.
+      - Native source and target selects exposed en, ru, uk, and be; source auto-detection used auto-detect.
+      - The source was a contenteditable textbox, the result changed and stabilized, and the public clear control removed both source and result.
+      - Source text did not enter the top-level URL or Back history during the run.
+      - Provider cookies, local storage, telemetry, and a previously observed inert first-load state still require isolation and bounded readiness handling.
+    answer:
+      selected_ids: [executable-with-bounded-readiness]
+      text: ''
+    rationale: Bing has current executable evidence but a loaded DOM alone is not sufficient readiness evidence.
+    supersedes_revision: null
+    requirement_ids: [BING-002, BING-005, BING-006, BING-007]
+
+  - id: research.yandex-live-2026-07-25
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A fresh CloakBrowser MCP run on 2026-07-25 loaded Yandex Translate anonymously and completed bounded synthetic translations with automatic source detection.
+      - The public page exposed contenteditable source and result controls, a 10,000-character advertised limit, and language controls covering the current product targets.
+      - Full source text entered the top-level URL and browser history.
+      - Provider telemetry and local-storage/history surfaces also handled translation data after essential-cookie consent was chosen.
+      - Clearing the visible editor removed the current text parameter but does not establish provider-side deletion.
+    answer:
+      selected_ids: [executable-with-source-retention-risk]
+      text: ''
+    rationale: Technical feasibility does not resolve whether GPT-Voice should enable this privacy posture.
+    supersedes_revision: null
+    requirement_ids: [YNDX-002, YNDX-004, YNDX-006, YNDX-007, YNDX-008]
+
+  - id: research.deepl-live-2026-07-25
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A fresh CloakBrowser MCP run on 2026-07-25 loaded the anonymous DeepL translator shell and identified public source, result, and language-control candidates.
+      - Rejecting optional cookies did not remove a connection-security overlay backed by clearance.deepl.com.
+      - The challenge persisted through one bounded wait and intercepted translator interaction.
+      - No source text persisted, no translation request completed, and no result, clear flow, executable language mapping, or input limit was proven.
+      - DOM-only inspection behind the overlay is structural evidence only and is excluded from executable rollout evidence.
+    answer:
+      selected_ids: [blocked-by-connection-security-challenge]
+      text: ''
+    rationale: DeepL must fail closed unless a future application-equivalent canary succeeds without solving or suppressing the challenge.
+    supersedes_revision: null
+    requirement_ids: [UI-002, OPS-002, COMP-004]
+
+  - id: research.bing-language-inventory
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A no-text-submission CloakBrowser pass on 2026-07-25 found 179 unique Bing target codes and one dynamic duplicate in the Recently used group.
+      - The source inventory matched the target inventory plus the source-only auto-detect value.
+      - Descendant option values are stable extraction keys; labels and optgroup position may localize or vary by session.
+    answer:
+      selected_ids: [179-targets]
+      text: ''
+    rationale: The checked-in inventory must deduplicate exact codes and ignore dynamic recently-used groups and order.
+    supersedes_revision: null
+    requirement_ids: [BING-001, BING-003, LANG-002, LANG-003]
+
+  - id: research.yandex-language-inventory
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A no-text-submission CloakBrowser pass on 2026-07-25 found 118 unique Yandex target code and label pairs.
+      - The source inventory matched the target inventory; automatic detection is a separate switch.
+      - Stable public attributes expose provider codes and labels, while the inactive duplicate inventory remains mounted and must be excluded.
+    answer:
+      selected_ids: [118-targets]
+      text: ''
+    rationale: The checked-in inventory must scope extraction to the visible chooser and preserve provider-specific codes and fallback labels.
+    supersedes_revision: null
+    requirement_ids: [YNDX-001, LANG-002, LANG-003, LANG-004]
+
+  - id: research.google-language-inventory
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A no-text-submission CloakBrowser pass on 2026-07-25 found 249 unique Google target code and label pairs.
+      - The source inventory matched the target inventory plus the source-only auto detection entry.
+      - Stable public option attributes expose codes and accessible labels; visibility scoping is required because inactive hydrated option trees remain mounted.
+      - Rejecting optional consent through the visible Reject all control returned to the allowlisted translator origin.
+    answer:
+      selected_ids: [249-targets]
+      text: ''
+    rationale: The checked-in inventory must exclude source-only auto detection and scope extraction to the visible target chooser.
+    supersedes_revision: null
+    requirement_ids: [GOOG-001, GOOG-002, LANG-002, LANG-003, LANG-004]
+
+  - id: current.github-workflow-security
+    revision: 1
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - Existing workflows run on GitHub-hosted runners with explicit minimal permissions and Node.js 24.
+      - Existing CI disables CloakBrowser auto-update and uses repository installation/preparation scripts.
+      - No current workflow has issue-write permission or a scheduled language-monitor precedent.
+    answer:
+      selected_ids: [minimal-permissions-node24-pinned-cloakbrowser]
+      text: ''
+    rationale: The new scheduled workflow needs contents read and narrowly scoped issues write while preserving existing CI conventions.
+    supersedes_revision: null
+    requirement_ids: [OPS-001, OPS-003, OPS-010]
+
+  - id: scope.source-language-selection
+    revision: 1
+    category: scope
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - The current Google flow uses automatic source detection.
+      - The user requested target-language selection and did not request a source-language control.
+    answer:
+      selected_ids: [automatic-source-detection-only]
+      text: ''
+    rationale: Manual source-language selection is outside this specification unless reopened explicitly.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: scope.provider-apis-and-auth
+    revision: 1
+    category: scope
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - The requested providers are public translator web pages.
+      - Existing research used anonymous pages and did not inspect private endpoints.
+    answer:
+      selected_ids: [public-web-pages-only]
+      text: ''
+    rationale: Provider APIs, credentials, paid tiers, login automation, and document translation are outside this specification.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: quality.live-ci
+    revision: 1
+    category: acceptance
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/agent-guides/project-conventions.md requires deterministic fixtures and forbids live provider assertions in tests.
+    answer:
+      selected_ids: [manual-canaries-only]
+      text: ''
+    rationale: Live translator checks belong to sanitized manual revalidation, not deterministic CI.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: security.context-lifecycle
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Google and Yandex place source text in browser history, while Bing and DeepL create provider cookies, storage, or telemetry state.
+      - The current Google implementation shares the persistent background browser context used by voice providers.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: provider-policy-round-01
+      question_id: security.context-lifecycle
+      idempotency_key: security.context-lifecycle:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which browser-context lifecycle should translation operations use?
+      kind: single
+      options:
+        - id: isolated-per-operation
+          label: Isolate every operation (Recommended)
+          description: Use one dedicated nonpersistent context per hotkey operation, never share voice-provider state, and require confirmed teardown before success.
+        - id: isolated-per-provider-session
+          label: Reuse by provider
+          description: Keep one nonpersistent context per translation provider until app exit, reducing startup work while retaining history and storage across operations.
+        - id: shared-background-profile
+          label: Share background profile
+          description: Keep the current persistent background context, accepting cross-operation and cross-feature browser retention.
+    answer:
+      selected_ids: [isolated-per-provider-session]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-006, ARCH-007, ARCH-008, SEC-006]
+
+  - id: rollout.yandex
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Yandex completed translation but copied plaintext source into the top-level URL, browser history, provider telemetry, and local history/settings surfaces.
+      - Local context destruction cannot establish provider-side deletion or retention limits.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: provider-policy-round-01
+      question_id: rollout.yandex
+      idempotency_key: rollout.yandex:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the first release expose Yandex given its observed source-retention behavior?
+      kind: single
+      options:
+        - id: visible-disabled
+          label: Visible but disabled (Recommended)
+          description: Implement and test the provider contract, but keep it unselectable with a localized privacy explanation until a later explicit enablement decision.
+        - id: explicit-opt-in
+          label: Require explicit opt-in
+          description: Make Yandex selectable only after a persistent in-app acknowledgement of its URL, history, telemetry, and uncertain provider-side retention.
+        - id: enabled-default
+          label: Enable immediately
+          description: Make Yandex selectable without an extra gate, explicitly accepting the observed transport and retention risks.
+    answer:
+      selected_ids: [enabled-default]
+      text: ''
+    rationale: The user explicitly accepted immediate enablement after reviewing the observed data surfaces.
+    supersedes_revision: null
+    requirement_ids: [UI-002, YNDX-008, SEC-007]
+
+  - id: rollout.deepl
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Two research dates encountered a blocking connection-security challenge in application-equivalent CloakBrowser.
+      - No successful source insertion, translation, executable language mapping, result extraction, clear flow, or input limit has been proven.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: provider-policy-round-01
+      question_id: rollout.deepl
+      idempotency_key: rollout.deepl:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the first release expose DeepL while its browser flow remains unproven behind a connection-security challenge?
+      kind: single
+      options:
+        - id: visible-disabled
+          label: Visible but disabled (Recommended)
+          description: Implement its fail-closed class and metadata, but keep it unselectable until a challenge-free CloakBrowser canary proves the complete contract.
+        - id: selectable-fail-closed
+          label: Selectable with failures
+          description: Allow selection now, attempt each operation once, and return a safe challenge error whenever the page blocks automation.
+        - id: defer-provider
+          label: Defer DeepL entirely
+          description: Exclude DeepL implementation and UI from this work until executable research is available.
+    answer:
+      selected_ids: [defer-provider]
+      text: ''
+    rationale: This supersedes the original DeepL implementation request for the current specification.
+    supersedes_revision: null
+    requirement_ids: [UI-002, OPS-002, COMP-004]
+
+  - id: scope.language-availability
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The current product exposes en, ru, uk, and be.
+      - Bing and Yandex expose those four targets; DeepL has no executable target mapping, and its public list omits Belarusian.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: provider-policy-round-01
+      question_id: scope.language-availability
+      idempotency_key: scope.language-availability:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should target-language choices vary across translation providers?
+      kind: single
+      options:
+        - id: provider-specific-evidence
+          label: Evidence-backed per provider (Recommended)
+          description: Show only each enabled provider's executable, validated targets; disabled or unproven providers expose no runnable language choice.
+        - id: common-intersection
+          label: One common set
+          description: Restrict every provider to the proven common set, currently English, Russian, and Ukrainian, dropping Belarusian from the product.
+        - id: fixed-current-four
+          label: Keep all four everywhere
+          description: Always show English, Russian, Ukrainian, and Belarusian, disabling or rejecting combinations a provider cannot execute.
+    answer:
+      selected_ids:
+        - provider-specific-maintained
+        - scheduled-language-monitor
+        - create-github-issue-on-change
+      text: Maintain a supported-language inventory for every in-scope provider, periodically check for changes in GitHub Actions, and create an issue whenever any inventory changes.
+    rationale: The custom answer expands the work to durable provider inventories and automated change detection.
+    supersedes_revision: null
+    requirement_ids: [UI-003, LANG-001, LANG-005, LANG-006, OPS-001]
+
+  - id: compatibility.language-memory
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - config.json currently stores one targetLang value and no translation-provider ID.
+      - Provider-specific language sets can make one global language invalid after a provider switch.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: provider-policy-round-01
+      question_id: compatibility.language-memory
+      idempotency_key: compatibility.language-memory:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What target-language state should provider switching preserve?
+      kind: single
+      options:
+        - id: remember-per-provider
+          label: Remember per provider (Recommended)
+          description: Persist one target language per provider; migrate the current target to Google and seed other providers only with a compatible value or their default.
+        - id: single-global
+          label: Keep one global language
+          description: Reuse one target across providers and require switch-time validation or fallback when the new provider does not support it.
+        - id: reset-english
+          label: Reset to English
+          description: Set the target to English whenever the translation provider changes.
+    answer:
+      selected_ids: [remember-per-provider]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SET-002, SET-003, SET-005]
+
+  - id: operations.language-monitor-scope
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The current specification now includes Google, Bing, and Yandex at runtime while DeepL is explicitly deferred.
+      - The custom language-policy answer requested an inventory for each provider.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: language-monitor-round-01
+      question_id: operations.language-monitor-scope
+      idempotency_key: operations.language-monitor-scope:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which provider inventories should the scheduled workflow monitor in this work?
+      kind: single
+      options:
+        - id: current-runtime-providers
+          label: Current runtime providers (Recommended)
+          description: Monitor Google, Bing, and Yandex; add DeepL only when a later approved specification returns it to runtime scope.
+        - id: all-four-providers
+          label: Include deferred DeepL
+          description: Monitor Google, Bing, Yandex, and DeepL even though DeepL implementation and UI are deferred.
+        - id: enabled-only-dynamic
+          label: Dynamically enabled only
+          description: Derive the monitored set from providers currently marked selectable, automatically excluding any future disabled provider.
+    answer:
+      selected_ids: [current-runtime-providers]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-002]
+
+  - id: operations.language-monitor-cadence
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The custom language-policy answer requires periodic checks but does not define a schedule.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: language-monitor-round-01
+      question_id: operations.language-monitor-cadence
+      idempotency_key: operations.language-monitor-cadence:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How often should GitHub Actions check provider language inventories?
+      kind: single
+      options:
+        - id: weekly
+          label: Weekly (Recommended)
+          description: Run every Monday at 06:00 UTC and allow a manual workflow dispatch for immediate rechecks.
+        - id: daily
+          label: Daily
+          description: Run every day at 06:00 UTC for faster detection with more browser traffic and workflow noise.
+        - id: monthly
+          label: Monthly
+          description: Run on the first Monday of each month at 06:00 UTC with lower cost and slower detection.
+    answer:
+      selected_ids: [daily]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-001]
+
+  - id: operations.language-monitor-evidence
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Runtime compatibility depends on the language values exposed by each public translator page.
+      - Provider documentation can differ from executable public-page behavior.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: language-monitor-round-01
+      question_id: operations.language-monitor-evidence
+      idempotency_key: operations.language-monitor-evidence:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What evidence should the language-inventory workflow compare with the checked-in baseline?
+      kind: single
+      options:
+        - id: cloakbrowser-public-ui
+          label: Public UI via CloakBrowser (Recommended)
+          description: Extract language codes and labels from allowlisted public translator controls without submitting text or inspecting private endpoints.
+        - id: public-documentation
+          label: Public documentation
+          description: Parse provider-supported-language documentation without opening the translator UI.
+        - id: ui-and-documentation
+          label: UI plus documentation
+          description: Check both sources and report disagreement as well as inventory drift, increasing coverage and maintenance cost.
+    answer:
+      selected_ids: [cloakbrowser-public-ui]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-003, OPS-004, OPS-005]
+
+  - id: operations.language-change-reporting
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - A blocked or broken probe does not prove that a provider language set changed.
+      - The custom answer requires an issue immediately when an actual set change is detected.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: language-monitor-round-01
+      question_id: operations.language-change-reporting
+      idempotency_key: operations.language-change-reporting:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: When should the workflow create a language-change issue?
+      kind: single
+      options:
+        - id: first-confirmed-diff
+          label: First confirmed difference (Recommended)
+          description: Create an issue after one successful probe returns a changed set; a challenge or probe failure fails the job but is not reported as language drift.
+        - id: any-anomaly
+          label: Any anomaly
+          description: Create an issue for either a changed set or any challenge, selector failure, or unavailable provider.
+        - id: two-confirmed-diffs
+          label: Two consecutive differences
+          description: Require the same changed set in two scheduled runs before creating an issue, reducing false positives but delaying notification.
+    answer:
+      selected_ids: [first-confirmed-diff]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-007]
+
+  - id: operations.language-issue-lifecycle
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - An unchanged checked-in baseline would otherwise create duplicate issues on every scheduled run.
+      - Updating supported languages changes a public runtime contract and needs reviewed research.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: language-monitor-round-01
+      question_id: operations.language-issue-lifecycle
+      idempotency_key: operations.language-issue-lifecycle:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should detected language drift be deduplicated and incorporated?
+      kind: single
+      options:
+        - id: provider-diff-issue-reviewed-pr
+          label: Deduplicated issue, reviewed PR (Recommended)
+          description: Keep one issue per provider and diff fingerprint, update the existing issue on repeats, and change the baseline only through a separately reviewed pull request.
+        - id: aggregate-issue-reviewed-pr
+          label: One aggregate issue
+          description: Maintain one shared open issue for all provider drift and update the baseline only through a separately reviewed pull request.
+        - id: issue-and-draft-pr
+          label: Issue plus draft PR
+          description: Create or update a deduplicated issue and automatically open a draft pull request with the observed inventory change.
+    answer:
+      selected_ids: [provider-diff-issue-reviewed-pr]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-008, OPS-009, OPS-011]
+
+  - id: scope.language-ui-coverage
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The current UI exposes only en, ru, uk, and be.
+      - The new monitoring decision requires complete provider-specific language inventories, but it does not yet say whether every inventoried target appears in the main-screen selector.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: runtime-behavior-round-01
+      question_id: scope.language-ui-coverage
+      idempotency_key: scope.language-ui-coverage:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which inventoried target languages should the main-screen selector expose?
+      kind: single
+      options:
+        - id: all-supported-targets
+          label: Every supported target (Recommended)
+          description: Show the complete checked-in target inventory for the selected provider and update it only through reviewed inventory changes.
+        - id: current-four-only
+          label: Keep the current four
+          description: Monitor complete inventories but expose only English, Russian, Ukrainian, and Belarusian in the product.
+        - id: curated-product-list
+          label: Separate curated subset
+          description: Maintain a second reviewed product allowlist that can expose any subset of each provider's full monitored inventory.
+    answer:
+      selected_ids: [all-supported-targets]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-003, LANG-005]
+
+  - id: ui.language-labels
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - Complete provider inventories can contain more than one hundred languages and regional variants.
+      - Repository UI copy is localized across multiple application locales, while language codes and provider labels vary.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: runtime-behavior-round-01
+      question_id: ui.language-labels
+      idempotency_key: ui.language-labels:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the expanded language selector localize language names?
+      kind: single
+      options:
+        - id: intl-displaynames-fallback
+          label: Intl names with fallback (Recommended)
+          description: Render canonical language or regional names through Intl.DisplayNames in the app locale and fall back to the checked-in provider label.
+        - id: provider-english-labels
+          label: Provider labels
+          description: Show the checked-in English label supplied by each provider regardless of the app locale.
+        - id: repository-translations
+          label: Translate every label
+          description: Add and maintain repository translation keys for every language and regional variant in every supported app locale.
+    answer:
+      selected_ids: [intl-displaynames-fallback]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-004, LANG-004]
+
+  - id: failure.submission-replay
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Bing has previously exposed a loaded but inert page that recovered after a clean reload.
+      - After source insertion, a timeout can be ambiguous because the provider may already have received the selected text.
+      - Yandex records submitted text in multiple provider surfaces.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: runtime-behavior-round-01
+      question_id: failure.submission-replay
+      idempotency_key: failure.submission-replay:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What automatic retry boundary should translation providers follow?
+      kind: single
+      options:
+        - id: pre-submit-only
+          label: Retry only before submission (Recommended)
+          description: Permit bounded navigation or readiness recovery before source insertion, but never replay text automatically after insertion starts.
+        - id: one-full-replay
+          label: Allow one full replay
+          description: Retry one complete translation in a fresh context after an ambiguous timeout or page failure, potentially sending the text twice.
+        - id: no-automatic-retry
+          label: Never retry
+          description: Fail on the first navigation, readiness, submission, or result error and leave every retry to the user.
+    answer:
+      selected_ids: [pre-submit-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [RUN-005, RUN-006]
+
+  - id: failure.input-limit
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Current research observes provider-specific advertised limits, including 1,000 for Bing, 5,000 for Google, and 10,000 for Yandex.
+      - Silent truncation would change the user's selected text without an explicit indication.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: runtime-behavior-round-01
+      question_id: failure.input-limit
+      idempotency_key: failure.input-limit:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen when selected text exceeds the active provider's checked-in input limit?
+      kind: single
+      options:
+        - id: reject-before-submit
+          label: Reject before submission (Recommended)
+          description: Send nothing, preserve the previous clipboard, and show a localized error with the provider limit and selected-text length.
+        - id: truncate-with-warning
+          label: Truncate with warning
+          description: Translate only the maximum prefix and notify the user that the result is incomplete.
+        - id: let-provider-decide
+          label: Submit unchanged
+          description: Send the full text and rely on the provider page to truncate, reject, or report an error.
+    answer:
+      selected_ids: [reject-before-submit]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [RUN-003, GOOG-003, BING-004, YNDX-005]
+
+  - id: normal-flow.selection-side-effects
+    revision: 1
+    category: normal-flow
+    state: answered
+    provenance: user
+    evidence:
+      - Provider or language selection does not itself require sending text.
+      - Launching translator pages on selection would create provider network and browser state before the user invokes translation.
+      - An active selected-text action is already serialized independently of renderer state.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: runtime-behavior-round-01
+      question_id: normal-flow.selection-side-effects
+      idempotency_key: normal-flow.selection-side-effects:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should provider or language selection do before the next translation hotkey press?
+      kind: single
+      options:
+        - id: persist-for-next-operation
+          label: Persist only (Recommended)
+          description: Save the choice without navigation or probing; an in-flight operation keeps its start-time snapshot and the new choice applies to the next operation.
+        - id: prewarm-selected-provider
+          label: Prewarm the provider
+          description: Save the choice and immediately open or navigate its translator page without submitting text.
+        - id: switch-active-operation
+          label: Switch immediately
+          description: Cancel any in-flight translation and initialize the newly selected provider as soon as the setting changes.
+    answer:
+      selected_ids: [persist-for-next-operation]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-007, UI-008, RUN-002]
+
+  - id: security.post-operation-cleanup
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Provider contexts will be reused until app exit, so source and result DOM state can outlive one operation.
+      - Visible clearing is defense in depth and does not erase provider-side retention, but a failed clear can leave additional local page state.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: edge-policy-round-01
+      question_id: security.post-operation-cleanup
+      idempotency_key: security.post-operation-cleanup:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What cleanup gate should follow each operation in a reusable provider context?
+      kind: single
+      options:
+        - id: clear-or-close-before-success
+          label: Clear or close before success (Recommended)
+          description: Clear source and result; if clearing fails, invalidate and close that provider context, and report success only after clear or confirmed close.
+        - id: best-effort-reuse
+          label: Best effort only
+          description: Attempt clearing but return success and keep reusing the context even when clearing fails.
+        - id: always-close
+          label: Always close after use
+          description: Close the provider context after every operation, replacing the earlier reuse-until-exit decision.
+    answer:
+      selected_ids: [clear-or-close-before-success]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [RUN-011, RUN-012, RUN-013]
+
+  - id: compatibility.removed-language
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - A reviewed inventory update can remove a target that remains stored in a user's per-provider settings.
+      - Sending an unsupported code or silently choosing a different target would violate predictable translation behavior.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: edge-policy-round-01
+      question_id: compatibility.removed-language
+      idempotency_key: compatibility.removed-language:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen when an app update removes a user's saved target language for a provider?
+      kind: single
+      options:
+        - id: fallback-default-notify
+          label: Fallback and notify (Recommended)
+          description: Replace it with the provider's checked-in default, persist the repair, and show one localized nonblocking notice.
+        - id: require-reselection
+          label: Require reselection
+          description: Preserve the unavailable value, block translation, and require the user to choose a supported target.
+        - id: fallback-silent
+          label: Fallback silently
+          description: Replace it with the provider default without notifying the user.
+    answer:
+      selected_ids: [fallback-default-notify]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SET-005]
+
+  - id: operations.inventory-diff-semantics
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Bing exposes a session-dependent duplicate Recently used option and both providers can reorder or localize controls.
+      - Provider labels are the fallback when Intl.DisplayNames cannot interpret a provider-specific code.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: edge-policy-round-01
+      question_id: operations.inventory-diff-semantics
+      idempotency_key: operations.inventory-diff-semantics:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which normalized language-inventory changes should create a drift issue?
+      kind: single
+      options:
+        - id: code-label-map
+          label: Code and label map (Recommended)
+          description: Compare deduplicated code-to-label maps and report additions, removals, or label changes while ignoring DOM order and dynamic recent groups.
+        - id: codes-only
+          label: Codes only
+          description: Report only added or removed codes and ignore provider-label changes.
+        - id: raw-options
+          label: Raw option sequence
+          description: Compare every DOM option and its order, including duplicate or session-dependent recent entries.
+    answer:
+      selected_ids: [code-label-map]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OPS-005, OPS-006, OPS-008]
+
+  - id: compatibility.default-provider
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Existing installations have Google-only translation settings and no translation-provider ID.
+      - Changing the default provider would change where selected text is sent after upgrade.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: edge-policy-round-01
+      question_id: compatibility.default-provider
+      idempotency_key: compatibility.default-provider:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which provider should existing and fresh installations use by default?
+      kind: single
+      options:
+        - id: google
+          label: Google (Recommended)
+          description: Preserve current behavior and migrate the existing targetLang value into Google's per-provider setting.
+        - id: bing
+          label: Bing
+          description: Switch fresh and upgraded installations to Bing unless a translation provider was already stored.
+        - id: yandex
+          label: Yandex
+          description: Switch fresh and upgraded installations to Yandex unless a translation provider was already stored.
+    answer:
+      selected_ids: [google]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SET-001, SET-002, COMP-001]
+
+  - id: security.yandex-disclosure
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Yandex is enabled by default policy without an opt-in gate.
+      - Its plaintext URL, history, telemetry, and uncertain provider-side retention differ materially from Bing's observed behavior.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: edge-policy-round-01
+      question_id: security.yandex-disclosure
+      idempotency_key: security.yandex-disclosure:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should GPT-Voice disclose Yandex's provider-specific data handling without adding an opt-in gate?
+      kind: single
+      options:
+        - id: ui-hint-and-docs
+          label: UI hint and documentation (Recommended)
+          description: Add a nonblocking accessible note near selection and document the URL, history, telemetry, and retention uncertainty in README/privacy guidance.
+        - id: documentation-only
+          label: Documentation only
+          description: Keep the main selector unchanged and disclose the behavior only in user documentation.
+        - id: no-special-disclosure
+          label: No special disclosure
+          description: Treat Yandex like other providers and add no provider-specific UI or documentation notice.
+    answer:
+      selected_ids: [no-special-disclosure]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-009, SEC-007, DOC-003]
+
+  - id: architecture.translation-settings-shape
+    revision: 1
+    category: interfaces
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - One provider ID plus a provider-keyed target map is the smallest typed shape that satisfies per-provider memory and exhaustive main-process validation.
+      - The draft exposes this reversible internal contract for explicit approval.
+    answer:
+      selected_ids: [provider-id-and-target-map]
+      text: ''
+    rationale: This shape avoids provider-specific optional fields and makes registry/settings exhaustiveness compile-time visible.
+    supersedes_revision: null
+    requirement_ids: [SET-003, SET-004, SET-006]
+
+  - id: architecture.no-new-dependencies
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The repository already contains CloakBrowser, Playwright Core, YAML, Node.js 24, GitHub Actions, React, and the shared Select primitives required by the contract.
+      - The user did not authorize dependency or packaging expansion.
+    answer:
+      selected_ids: [existing-stack-only]
+      text: ''
+    rationale: The draft makes new dependencies and packaging changes non-goals.
+    supersedes_revision: null
+    requirement_ids: [OPS-003, SEC-008]
+
+  - id: research.count-independent-provider-contracts-2026-07-25
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - A final no-count Google CloakBrowser pass proved one visible search/listbox/group, Home/End terminal traversal, two stable normalized reads, and zero relevant mutations without submitting text.
+      - A bounded Google inert probe proved one exact Translation results region, primary fragments outside listitem alternative cards, and a unique accessible Clear source text control whose success leaves the empty region mounted.
+      - Bing exposed a canonical all-language optgroup separate from dynamic Recently used entries, exact target/output-language agreement, an exact public Clear control, and no trustworthy negative inert marker.
+      - Yandex exposed its current source, hidden-empty destination, auto-detect, target-search, option, and Clear contracts; two one-second target-map reads were stable without a hardcoded count.
+      - Every research page was cleared where applicable and closed; retained evidence contains no source/result value, raw DOM, storage, cookie, response body, or source-bearing URL.
+    answer:
+      selected_ids: [count-independent-composite-completion, google-named-result-region]
+      text: ''
+    rationale: Provider readiness and monitoring can distinguish structurally complete drift from partial hydration without treating the current baseline count or named languages as completion sentinels.
+    supersedes_revision: null
+    requirement_ids:
+      [GOOG-006, GOOG-007, BING-002, BING-005, BING-006, BING-007, YNDX-004, YNDX-006, YNDX-007, YNDX-008, OPS-005]
+
+  - id: quality.final-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective covers selection, language display, operation behavior, limits, recovery, notices, and clipboard outcomes.
+      - Operator perspective covers context shutdown, daily scheduling, permissions, probe failures, issue deduplication, baseline review, rollback, and revalidation.
+      - Implementer perspective covers typed settings, IPC, base-class ownership, provider hooks, registry, inventories, lifecycle, and failure taxonomy.
+      - Tester perspective covers deterministic provider fixtures, migration, UI, cache, monitor, workflow, and sanitized manual canaries.
+      - Security-reviewer perspective covers browser isolation, accepted Yandex retention, origin allowlists, challenge handling, redaction, permissions, and cleanup.
+      - Maintainer perspective covers checked-in baselines, contract versions, drift issues, reviewed updates, documentation, rollback, and the DeepL re-entry gate.
+      - Independent Draft audit resolved persisted-load versus IPC validation, removed-provider rollback storage, live chooser hydration completeness, and exact Yandex target-code selection before approval.
+    answer:
+      selected_ids: [user, operator, implementer, tester, security-reviewer, maintainer]
+      text: ''
+    rationale: No material decision remains unresolved before Draft review.
+    supersedes_revision: null
+    requirement_ids: [UI-001, OPS-001, ARCH-001, AC-AUTO-001, SEC-001, DOC-004]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/translation-providers/spec.md is inspectable with Status Draft.
+      - All 20 material Prompt MCP questions have committed answers and no unresolved interview question remains.
+      - The decision ledger, 111 unique requirement and acceptance IDs, and the 249/179/118 provider baselines pass structural validation.
+      - An independent gap audit found no remaining material blocker after four ambiguities were corrected.
+    prompt_mcp:
+      interview_id: spec:translation-providers
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen to the translation-providers Draft specification?
+      kind: single
+      options:
+        - id: approve
+          label: Approve the Draft (Recommended)
+          description: Make this the authoritative implementation contract and stop before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status, reopen the affected decisions, and revise before another approval decision.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval and preserve all current research and decisions for later continuation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the Draft as the authoritative implementation contract.
+    supersedes_revision: null
+    requirement_ids: [AC-AUTO-001, AC-MAN-001]
+
+  - id: quality.plan-executability-audit
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - Eleven self-contained packets cover all 111 active requirement and acceptance IDs with valid headings, links, tables, and an acyclic dependency graph.
+      - Final CloakBrowser revalidation made Google result scoping, Bing readiness/clear/output agreement, and Google/Bing/Yandex count-independent inventory completion executable without new discovery.
+      - The audit assigned shared navigation identities before provider packets, added the interim renderer and legacy-Google settings bridges, located one-shot repair notice consumption, and fixed the exact 520x420 UI gate.
+      - The monitor packets validate and bound untrusted public metadata before issue writes, recompute fingerprints, reject ambiguous issue identity, and preserve the no-text/no-baseline-mutation boundary.
+      - Planning artifacts and research/decision YAML pass formatting, parsing, baseline invariants, and requirement-coverage checks.
+    answer:
+      selected_ids: [executable-awaiting-plan-approval]
+      text: ''
+    rationale: No unresolved material implementation choice or packet-local discovery remains before the plan approval gate.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, SET-006, UI-006, OPS-005, AC-AUTO-001, AC-AUTO-008]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The approved specification was decomposed into 11 self-contained packets covering all 111 active requirement and acceptance IDs.
+      - Structural, executability, research, baseline, formatting, and decision-ledger audits passed before the approval gate.
+      - The user committed the approve option through persistent Prompt MCP question approval.plan revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen to the translation-providers implementation plan?
+      kind: single
+      options:
+        - id: approve
+          label: Approve the plan (Recommended)
+          description: Make the 11 audited task packets authoritative; this does not authorize implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan unapproved and provide revisions before another approval review.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Preserve the current plan and stop without authorizing it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the implementation plan; packet execution remains separately gated.
+    supersedes_revision: null
+    requirement_ids: [AC-AUTO-001, AC-MAN-001]
+
+  - id: execution.task-01
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The implementation plan is approved, but plan approval does not authorize a packet.
+      - Task 01 is the exact next packet and owns only shared translation contracts, metadata, inventories, and deterministic parity tests.
+      - The user committed defer-execution through persistent Prompt MCP question execution.task-01 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: execution-round-01
+      question_id: execution.task-01
+      idempotency_key: execution.task-01:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should the next incremental-implementation invocation be authorized to execute Task 01, “Define Translation Contracts And Inventories”?
+      kind: single
+      options:
+        - id: authorize-task-01
+          label: Authorize Task 01 (Recommended)
+          description: Allow a later incremental-implementation invocation to execute only Task 01, verify it, update the checklist/handoff, and stop.
+        - id: defer-execution
+          label: Defer execution
+          description: Keep every implementation packet gated while preserving the approved plan.
+    answer:
+      selected_ids: [defer-execution]
+      text: ''
+    rationale: The user explicitly deferred Task 01 execution; no production implementation is authorized.
+    supersedes_revision: null
+    requirement_ids: [LANG-001, AC-AUTO-004]
+
+  - id: execution.task-01
+    revision: 3
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 2 timed out and therefore did not change the prior deferral.
+      - The user then explicitly invoked incremental implementation and committed authorize-task-01 through persistent Prompt MCP question execution.task-01 revision 3.
+      - Authorization covers exactly Task 01, its deterministic checks, and the required checklist and handoff updates; it excludes commits and every later packet.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      question_id: execution.task-01
+      idempotency_key: execution.task-01:v3
+      last_status: answered
+      revision: 3
+    question:
+      text: Should Task 01, “Define Translation Contracts And Inventories,” be authorized for incremental-implementation invocation?
+      kind: single
+      options:
+        - id: authorize-task-01
+          label: Authorize Task 01 (Recommended)
+          description: Authorize exactly Task 01 now; implementation will stop after checks handoff update, with no commit or second packet.
+        - id: keep-deferred
+          label: Keep deferred
+          description: Leave every implementation packet gated make no repository changes.
+    answer:
+      selected_ids: [authorize-task-01]
+      text: ''
+    rationale: The user explicitly authorized Task 01 and no other implementation packet.
+    supersedes_revision: 2
+    requirement_ids: [LANG-001, AC-AUTO-004]
+
+  - id: commit.task-01
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 01 and all translation research, specification, planning, implementation, and deterministic test artifacts remained untracked after verification.
+      - The Task 01 parity tests require the reviewed YAML baselines, so a code-only commit would not be green in isolation.
+      - The user committed authorize-foundation-commit through persistent Prompt MCP question commit.task-01 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: commit-round-01
+      question_id: commit.task-01
+      idempotency_key: commit.task-01:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the completed Task 01 checkpoint be handled before Task 02?
+      kind: single
+      options:
+        - id: authorize-foundation-commit
+          label: Authorize foundation commit (Recommended)
+          description: Authorize one coherent green commit containing the approved translation research/spec/plan, Task 01 code and tests, and Task 01 state updates; exclude the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep uncommitted
+          description: Keep Task 01 and all translation planning/research artifacts uncommitted; Task 02 cannot start.
+    answer:
+      selected_ids: [authorize-foundation-commit]
+      text: ''
+    rationale: The user authorized one green translation foundation commit and explicitly excluded the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [LANG-001, AC-AUTO-004]
+
+  - id: execution.task-02
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 01 is complete and has an authorized green foundation commit boundary.
+      - Task 02 is the exact next packet and owns only the abstract translation-provider lifecycle, nonpersistent launch options, navigation identities, and deterministic tests.
+      - The user committed authorize-task-02 through persistent Prompt MCP question execution.task-02 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: execution-round-04
+      question_id: execution.task-02
+      idempotency_key: execution.task-02:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 01 foundation commit, should the next execution-capable incremental-implementation invocation execute Task 02, “Build The Base Translate Provider Lifecycle”?
+      kind: single
+      options:
+        - id: authorize-task-02
+          label: Authorize Task 02 (Recommended)
+          description: After the authorized foundation commit, execute only Task 02, run its deterministic checks, update todo/handoff, and stop uncommitted.
+        - id: defer-task-02
+          label: Defer Task 02
+          description: Create only the authorized Task 01 foundation commit and leave Task 02 gated.
+    answer:
+      selected_ids: [authorize-task-02]
+      text: ''
+    rationale: The user explicitly authorized Task 02 after the Task 01 foundation commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, AC-AUTO-001]
+
+  - id: commit.task-02
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 02 is implemented, its focused lifecycle, launch-option, navigation, type, lint, and formatting checks pass, and it remains uncommitted.
+      - Task 03 requires the already-validated target code at the base navigation hook so Google can navigate once to the exact target without hidden mutable state.
+      - The user committed authorize-task-02-commit through persistent Prompt MCP question commit.task-02 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: commit-round-02
+      question_id: commit.task-02
+      idempotency_key: commit.task-02:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 02 checkpoint be handled before Task 03?
+      kind: single
+      options:
+        - id: authorize-task-02-commit
+          label: Authorize Task 02 commit (Recommended)
+          description: Authorize a scoped Task 02 commit after passing the validated target into the navigation hook and rerunning Task 02 checks; exclude the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep uncommitted
+          description: Keep Task 02 uncommitted and leave Task 03 blocked.
+    answer:
+      selected_ids: [authorize-task-02-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 02 commit after its target-aware navigation seam is verified.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-003, RUN-007]
+
+  - id: execution.task-03
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 is the ordered next packet and owns only the unregistered Google Translate subclass and deterministic public-page contract fixtures.
+      - The legacy Google route remains active and no live provider access, registry change, or later packet is included.
+      - The user committed authorize-task-03 through persistent Prompt MCP question execution.task-03 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: execution-round-05
+      question_id: execution.task-03
+      idempotency_key: execution.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 02 commit, should the next execution-capable incremental-implementation invocation execute Task 03, “Migrate Google Translate To The Shared Provider”?
+      kind: single
+      options:
+        - id: authorize-task-03
+          label: Authorize Task 03 (Recommended)
+          description: After the authorized Task 02 commit, execute only the unregistered deterministic Google provider packet, update todo/handoff, and stop uncommitted.
+        - id: defer-task-03
+          label: Defer Task 03
+          description: Create only the authorized Task 02 commit and leave Google provider work gated.
+    answer:
+      selected_ids: [authorize-task-03]
+      text: ''
+    rationale: The user explicitly authorized Task 03 after the Task 02 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [GOOG-001, AC-AUTO-002]
+
+  - id: commit.task-03
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 is implemented, its Google provider, legacy utility, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Google provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-03-commit through persistent Prompt MCP question commit.task-03 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      question_id: commit.task-03
+      idempotency_key: commit.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 03 Google provider checkpoint be handled before Task 04?
+      kind: single
+      options:
+        - id: authorize-task-03-commit
+          label: Authorize Task 03 commit (Recommended)
+          description: Allow a later execution-capable invocation to commit only the verified Task 03 Google provider, tests, todo, and handoff, while excluding the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 03 uncommitted
+          description: Leave Task 03 uncommitted; no later provider packet can begin.
+    answer:
+      selected_ids: [authorize-task-03-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 03 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [GOOG-001, AC-AUTO-002]
+
+  - id: execution.task-04
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 is the ordered next packet and owns only the unregistered Bing Translate subclass and deterministic public-page contract fixtures.
+      - The Task 04 packet is self-contained and excludes live provider access, registry activation, settings, IPC, UI, dependency, and later-packet work.
+      - The user committed authorize-task-04 through persistent Prompt MCP question execution.task-04 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      question_id: execution.task-04
+      idempotency_key: execution.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the authorized Task 03 commit, should the next execution-capable incremental-implementation invocation execute Task 04, “Implement The Bing Translate Provider”?
+      kind: single
+      options:
+        - id: authorize-task-04
+          label: Authorize Task 04 (Recommended)
+          description: After the Task 03 commit, execute only the unregistered deterministic Bing provider packet, verify it, update todo/handoff, and stop uncommitted.
+        - id: defer-task-04
+          label: Defer Task 04
+          description: Create only the authorized Task 03 commit and leave Bing implementation gated.
+    answer:
+      selected_ids: [authorize-task-04]
+      text: ''
+    rationale: The user explicitly authorized Task 04 after the Task 03 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [BING-001, AC-AUTO-002]
+
+  - id: commit.task-04
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 is implemented, its Bing provider, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Bing provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-04-commit through persistent Prompt MCP question commit.task-04 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-05-gates-v1
+      question_id: commit.task-04
+      idempotency_key: commit.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 04 Bing provider checkpoint be handled before Task 05?
+      kind: single
+      options:
+        - id: authorize-task-04-commit
+          label: Authorize Task 04 commit (Recommended)
+          description: Allow the next execution-capable invocation to commit only the verified Bing provider, its tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 04 uncommitted
+          description: Keep Task 04 uncommitted; Task 05 remains blocked.
+    answer:
+      selected_ids: [authorize-task-04-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 04 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [BING-001, AC-AUTO-002]
+
+  - id: execution.task-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is the ordered next packet and owns only the unregistered Yandex Translate subclass and deterministic public-page contract fixtures.
+      - The Task 05 packet is self-contained and excludes live provider access, registry activation, settings, IPC, UI, dependency, and later-packet work.
+      - The user committed authorize-task-05 through persistent Prompt MCP question execution.task-05 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-05-gates-v1
+      question_id: execution.task-05
+      idempotency_key: execution.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 04 commit, should the next execution-capable incremental-implementation invocation execute Task 05, “Implement The Yandex Translate Provider”?
+      kind: single
+      options:
+        - id: authorize-task-05
+          label: Authorize Task 05 (Recommended)
+          description: After the authorized Task 04 commit, execute only the unregistered deterministic Yandex provider packet, verify it, update todo/handoff, and stop uncommitted.
+        - id: defer-task-05
+          label: Defer Task 05
+          description: Create only the authorized Task 04 commit and leave Yandex implementation gated.
+    answer:
+      selected_ids: [authorize-task-05]
+      text: ''
+    rationale: The user explicitly authorized Task 05 after the Task 04 commit and no later packet.
+    supersedes_revision: null
+    requirement_ids: [YNDX-001, AC-AUTO-002]
+
+  - id: commit.task-05
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is implemented, its Yandex provider, lifecycle, type, lint, and formatting checks pass, and it remains uncommitted.
+      - The scoped checkpoint contains only the unregistered Yandex provider, deterministic fixtures, checklist and handoff updates, and these durable decisions.
+      - The user committed authorize-task-05-commit through persistent Prompt MCP question commit.task-05 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-06-gates-v1
+      question_id: commit.task-05
+      idempotency_key: commit.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the verified Task 05 Yandex provider checkpoint be handled before Task 06?
+      kind: single
+      options:
+        - id: authorize-task-05-commit
+          label: Authorize Task 05 commit (Recommended)
+          description: Allow the next execution-capable invocation to commit only the verified Yandex provider, its tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+        - id: keep-uncommitted
+          label: Keep Task 05 uncommitted
+          description: Keep Task 05 uncommitted; Task 06 remains blocked.
+    answer:
+      selected_ids: [authorize-task-05-commit]
+      text: ''
+    rationale: The user authorized the scoped Task 05 commit and explicitly preserved the unrelated agent-reference edit.
+    supersedes_revision: null
+    requirement_ids: [YNDX-001, AC-AUTO-002]
+
+- id: execution.task-06
+  revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 06 is the ordered next packet and owns only the translation registry, settings migration and atomic persistence, typed IPC, startup repair notice, and minimal renderer compatibility bridge.
+      - The Task 06 packet is self-contained and excludes selected-text routing, final dual-Select controls, live provider access, dependencies, and later-packet work.
+      - The user committed authorize-task-06 through persistent Prompt MCP question execution.task-06 revision 1.
+    prompt_mcp:
+      interview_id: plan:translation-providers
+      batch_id: task-06-gates-v1
+      question_id: execution.task-06
+      idempotency_key: execution.task-06:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: After the Task 05 commit, should the next execution-capable incremental-implementation invocation execute Task 06, “Add The Translation Registry, Settings, And IPC”?
+      kind: single
+      options:
+        - id: authorize-task-06
+          label: Authorize Task 06 (Recommended)
+          description: After the authorized Task 05 commit, execute only the registry, settings migration, atomic persistence, typed IPC, startup notice, and minimal renderer compatibility packet; verify it and stop uncommitted.
+        - id: defer-task-06
+          label: Defer Task 06
+          description: Create only the authorized Task 05 commit and leave registry/settings/IPC integration gated.
+    answer:
+      selected_ids: [authorize-task-06]
+      text: ''
+    rationale: The user explicitly authorized Task 06 after the Task 05 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
+
+- id: commit.task-06
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 06 implemented, registry, settings, IPC, type, lint, and formatting checks pass, and remains uncommitted.
+    - The scoped checkpoint contains only Task 06 implementation, deterministic tests, checklist and handoff updates, and durable decisions.
+    - The user committed `authorize-task-06-commit` through persistent Prompt MCP question `commit.task-06` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-07-gates-v1
+    question_id: commit.task-06
+    idempotency_key: commit.task-06:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 06 registry, settings, and IPC checkpoint be handled before Task 07?
+    kind: single
+    options:
+      - id: authorize-task-06-commit
+        label: Authorize Task 06 commit (Recommended)
+        description: Allow the next execution-capable invocation to commit only the verified registry/settings/IPC implementation, tests, todo, handoff, and durable gate decisions; preserve the unrelated agent-reference edit.
+      - id: keep-task-06-uncommitted
+        label: Keep Task 06 uncommitted
+        description: Leave Task 06 uncommitted; Task 07 cannot start.
+  answer:
+    selected_ids: [authorize-task-06-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 06 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [ARCH-004, SET-001, SET-007, AC-AUTO-003, AC-AUTO-005]
+
+- id: execution.task-07
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 07 is the next ordered packet and owns selected-text registry routing, cache identity, runtime lifecycle integration, and removal of the legacy Google translation page.
+    - Task 07 is self-contained and excludes final Select controls, live canaries, monitoring, documentation, dependencies, and later-packet work.
+    - The user committed `authorize-task-07` through persistent Prompt MCP question `execution.task-07` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-07-gates-v1
+    question_id: execution.task-07
+    idempotency_key: execution.task-07:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 06 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 07, “Integrate Selected-Text Translation Runtime”?
+    kind: single
+    options:
+      - id: authorize-task-07
+        label: Authorize Task 07 (Recommended)
+        description: After the scoped Task 06 commit, execute only Task 07 selected-text runtime integration, verify it, update todo/handoff, and leave Task 07 uncommitted.
+      - id: defer-task-07
+        label: Defer Task 07
+        description: Create only the authorized Task 06 commit and leave selected-text runtime integration gated.
+  answer:
+    selected_ids: [authorize-task-07]
+    text: ''
+  rationale: The user explicitly authorized Task 07 after the scoped Task 06 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [RUN-001, ARCH-005, RUN-005, SEC-001, COMP-001, AC-AUTO-006]
+
+- id: commit.task-07
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 07 implementation and deterministic verification are complete and remain uncommitted.
+    - The scoped checkpoint contains only selected-text runtime integration, lifecycle cleanup, tests, checklist, handoff, and durable decisions.
+    - The user committed `authorize-task-07-commit` through persistent Prompt MCP question `commit.task-07` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-08-gates-v1
+    question_id: commit.task-07
+    idempotency_key: commit.task-07:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 07 selected-text runtime checkpoint be handled?
+    kind: single
+    options:
+      - id: authorize-task-07-commit
+        label: Commit Task 07
+        description: After reverifying the Task 07 scope and required checks, create only the scoped runtime commit and keep the unrelated agent-reference edit uncommitted.
+      - id: keep-task-07-uncommitted
+        label: Keep uncommitted
+        description: Do not create a commit and do not begin Task 08.
+  answer:
+    selected_ids: [authorize-task-07-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 07 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [RUN-001, ARCH-005, RUN-005, SEC-001, COMP-001, AC-AUTO-006]
+
+- id: execution.task-08
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 08 is the next ordered packet and owns only the main-screen translation provider and language Select controls.
+    - Task 08 excludes live provider access, dependencies, window resizing, later packets, publishing, and release work.
+    - The user committed `authorize-task-08` through persistent Prompt MCP question `execution.task-08` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-08-gates-v1
+    question_id: execution.task-08
+    idempotency_key: execution.task-08:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 07 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 08, “Expose Translation Provider and Language Select Controls”?
+    kind: single
+    options:
+      - id: authorize-task-08
+        label: Authorize Task 08
+        description: After the authorized Task 07 commit, implement only the main-screen provider and full-language Select controls, verify them, update todo/handoff, and leave Task 08 uncommitted.
+      - id: defer-task-08
+        label: Defer Task 08
+        description: Stop after the Task 07 checkpoint; make no Task 08 implementation changes.
+  answer:
+    selected_ids: [authorize-task-08]
+    text: ''
+  rationale: The user explicitly authorized Task 08 after the scoped Task 07 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-007, UI-008, UI-009, AC-AUTO-007]
+
+- id: commit.task-08
+  revision: 1
+  category: commit
+  state: answered
+  provenance: user
+  evidence:
+    - Task 08 implementation and deterministic verification are complete and remain uncommitted.
+    - The scoped checkpoint contains only main-screen translation controls, locale parity, renderer tests, checklist, handoff, and durable decisions.
+    - The user committed `authorize-task-08-commit` through persistent Prompt MCP question `commit.task-08` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-09-gates-v1
+    question_id: commit.task-08
+    idempotency_key: commit.task-08:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: How should the verified Task 08 main-screen translation-controls checkpoint be handled?
+    kind: single
+    options:
+      - id: authorize-task-08-commit
+        label: Commit Task 08
+        description: After reverifying Task 08, create only its scoped main-screen translation-controls commit and keep the unrelated agent-reference edit uncommitted.
+      - id: keep-task-08-uncommitted
+        label: Keep uncommitted
+        description: Do not create a Task 08 commit and do not begin Task 09.
+  answer:
+    selected_ids: [authorize-task-08-commit]
+    text: ''
+  rationale: The user explicitly authorized the scoped Task 08 commit while preserving the unrelated agent-reference edit.
+  supersedes_revision: null
+  requirement_ids: [UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-007, UI-008, UI-009, AC-AUTO-007]
+
+- id: execution.task-09
+  revision: 1
+  category: execution
+  state: answered
+  provenance: user
+  evidence:
+    - Task 09 is the next ordered packet and owns only the deterministic no-text translation-language inventory probe.
+    - Task 09 excludes live provider access, baseline mutation, GitHub issue work, dependencies, later packets, publishing, and release work.
+    - The user committed `authorize-task-09` through persistent Prompt MCP question `execution.task-09` revision 1.
+  prompt_mcp:
+    interview_id: plan:translation-providers
+    batch_id: task-09-gates-v1
+    question_id: execution.task-09
+    idempotency_key: execution.task-09:v1
+    last_status: answered
+    revision: 1
+  question:
+    text: After the Task 08 checkpoint is handled, may the next execution-capable incremental-implementation invocation execute Task 09, “Build Translation Language Inventory Probe”?
+    kind: single
+    options:
+      - id: authorize-task-09
+        label: Authorize Task 09
+        description: After the authorized Task 08 commit, implement only the deterministic no-text translation-language inventory probe engine, verify it without live provider access, update todo/handoff, and leave Task 09 uncommitted.
+      - id: defer-task-09
+        label: Defer Task 09
+        description: Stop after the Task 08 checkpoint; make no Task 09 implementation changes.
+  answer:
+    selected_ids: [authorize-task-09]
+    text: ''
+  rationale: The user explicitly authorized Task 09 after the scoped Task 08 commit and no later packet.
+  supersedes_revision: null
+  requirement_ids: [OPS-002, OPS-003, OPS-004, OPS-005, OPS-006, OPS-007, OPS-009, OPS-012, AC-AUTO-008]

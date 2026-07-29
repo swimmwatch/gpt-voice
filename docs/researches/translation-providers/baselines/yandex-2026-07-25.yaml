@@ -1,0 +1,257 @@
+schema_version: 1
+provider_id: yandex
+evidence_date: '2026-07-25'
+target_count: 118
+source_only: []
+source_behavior:
+  language_inventory_difference: none
+  auto_detect:
+    control: switch
+    listed_as_language: false
+    observed_default: enabled
+extraction:
+  opener: 'button[aria-label^="Choose target language"]'
+  option_selector: '[data-lang-element="true"][data-value][role="checkbox"][aria-label]:visible'
+  code_attribute: data-value
+  label_source: aria-label
+  normalization_notes:
+    - Scope extraction to visible options because inactive source and target inventories remain mounted.
+    - Preserve provider codes exactly, including pt-BR, sr-Latn, kazlat, and uzbcyr.
+    - Preserve beta and alpha maturity suffixes as part of the provider label.
+languages:
+  - code: 'abq'
+    label: Abaza beta
+  - code: 'ab'
+    label: Abkhaz beta
+  - code: 'ady'
+    label: Adyghe beta
+  - code: 'af'
+    label: Afrikaans
+  - code: 'sq'
+    label: Albanian
+  - code: 'am'
+    label: Amharic beta
+  - code: 'ar'
+    label: Arabic
+  - code: 'hy'
+    label: Armenian
+  - code: 'az'
+    label: Azerbaijani
+  - code: 'ba'
+    label: Bashkir
+  - code: 'eu'
+    label: Basque
+  - code: 'be'
+    label: Belarusian
+  - code: 'bn'
+    label: Bengali
+  - code: 'bs'
+    label: Bosnian
+  - code: 'bg'
+    label: Bulgarian
+  - code: 'my'
+    label: Burmese beta
+  - code: 'bua'
+    label: Buryat beta
+  - code: 'ca'
+    label: Catalan
+  - code: 'ceb'
+    label: Cebuano
+  - code: 'ce'
+    label: Chechen
+  - code: 'zh'
+    label: Chinese
+  - code: 'cv'
+    label: Chuvash
+  - code: 'hr'
+    label: Croatian
+  - code: 'cs'
+    label: Czech
+  - code: 'da'
+    label: Danish
+  - code: 'nl'
+    label: Dutch
+  - code: 'sjn'
+    label: Elvish (Sindarin) alpha
+  - code: 'emj'
+    label: Emoji
+  - code: 'en'
+    label: English
+  - code: 'myv'
+    label: Erzya
+  - code: 'eo'
+    label: Esperanto
+  - code: 'et'
+    label: Estonian
+  - code: 'fi'
+    label: Finnish
+  - code: 'fr'
+    label: French
+  - code: 'gl'
+    label: Galician
+  - code: 'glt'
+    label: Galtaran
+  - code: 'ka'
+    label: Georgian
+  - code: 'de'
+    label: German
+  - code: 'el'
+    label: Greek
+  - code: 'gu'
+    label: Gujarati
+  - code: 'ht'
+    label: Haitian
+  - code: 'he'
+    label: Hebrew
+  - code: 'mrj'
+    label: Hill Mari
+  - code: 'hi'
+    label: Hindi
+  - code: 'hu'
+    label: Hungarian
+  - code: 'is'
+    label: Icelandic
+  - code: 'id'
+    label: Indonesian
+  - code: 'ga'
+    label: Irish
+  - code: 'it'
+    label: Italian
+  - code: 'ja'
+    label: Japanese
+  - code: 'jv'
+    label: Javanese
+  - code: 'kbd'
+    label: Kabardian beta
+  - code: 'kn'
+    label: Kannada
+  - code: 'krc'
+    label: Karachay-Balkar beta
+  - code: 'kk'
+    label: Kazakh
+  - code: 'kazlat'
+    label: Kazakh (Latin) beta
+  - code: 'kjh'
+    label: Khakas beta
+  - code: 'km'
+    label: Khmer
+  - code: 'kv'
+    label: Komi
+  - code: 'ko'
+    label: Korean
+  - code: 'ky'
+    label: Kyrgyz beta
+  - code: 'lo'
+    label: Lao beta
+  - code: 'la'
+    label: Latin
+  - code: 'lv'
+    label: Latvian
+  - code: 'lt'
+    label: Lithuanian
+  - code: 'lb'
+    label: Luxembourgish
+  - code: 'mk'
+    label: Macedonian
+  - code: 'mg'
+    label: Malagasy
+  - code: 'ms'
+    label: Malay
+  - code: 'ml'
+    label: Malayalam beta
+  - code: 'mt'
+    label: Maltese
+  - code: 'mns'
+    label: Mansi beta
+  - code: 'mi'
+    label: Maori
+  - code: 'mr'
+    label: Marathi
+  - code: 'mhr'
+    label: Mari
+  - code: 'mdf'
+    label: Moksha
+  - code: 'mn'
+    label: Mongolian beta
+  - code: 'ne'
+    label: Nepali
+  - code: 'nog'
+    label: Nogai beta
+  - code: 'no'
+    label: Norwegian
+  - code: 'os'
+    label: Ossetian
+  - code: 'pap'
+    label: Papiamento beta
+  - code: 'fa'
+    label: Persian
+  - code: 'pl'
+    label: Polish
+  - code: 'pt'
+    label: Portuguese
+  - code: 'pt-BR'
+    label: Portuguese (Brazilian)
+  - code: 'pa'
+    label: Punjabi
+  - code: 'ro'
+    label: Romanian
+  - code: 'ru'
+    label: Russian
+  - code: 'gd'
+    label: Scottish Gaelic
+  - code: 'sr'
+    label: Serbian
+  - code: 'sr-Latn'
+    label: Serbian (Latin)
+  - code: 'si'
+    label: Sinhalese
+  - code: 'sk'
+    label: Slovak
+  - code: 'sl'
+    label: Slovenian
+  - code: 'es'
+    label: Spanish
+  - code: 'su'
+    label: Sundanese
+  - code: 'sw'
+    label: Swahili
+  - code: 'sv'
+    label: Swedish
+  - code: 'tl'
+    label: Tagalog
+  - code: 'tg'
+    label: Tajik beta
+  - code: 'ta'
+    label: Tamil beta
+  - code: 'tt'
+    label: Tatar
+  - code: 'te'
+    label: Telugu beta
+  - code: 'th'
+    label: Thai
+  - code: 'tr'
+    label: Turkish
+  - code: 'tyv'
+    label: Tuvan
+  - code: 'udm'
+    label: Udmurt
+  - code: 'uk'
+    label: Ukrainian
+  - code: 'ur'
+    label: Urdu
+  - code: 'uz'
+    label: Uzbek
+  - code: 'uzbcyr'
+    label: Uzbek (Cyrillic)
+  - code: 'vi'
+    label: Vietnamese
+  - code: 'cy'
+    label: Welsh
+  - code: 'xh'
+    label: Xhosa beta
+  - code: 'sah'
+    label: Yakut beta
+  - code: 'yi'
+    label: Yiddish
+  - code: 'zu'
+    label: Zulu

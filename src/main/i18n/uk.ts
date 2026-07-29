@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Постачальник перекладу',
+  'translate.saving': 'Збереження...',
+  'translate.settingsSaveFailed': 'Не вдалося зберегти налаштування перекладу',
+
   // Status messages
   'status.pressToRecord': 'Натисніть {hotkey} для початку запису',
   'status.recording': 'Запис...',
@@ -38,6 +42,19 @@ export default {
   'notification.translationCopied': 'Переклад скопійовано',
   'notification.prettifyFailed': 'Не вдалося покращити текст',
   'notification.textPrettified': 'Текст покращено',
+  'notification.translationSettingsRepaired': 'Налаштування перекладу оновлено',
+  'notification.translationSettingsRepairedBody':
+    'Недійсні або застарілі налаштування перекладу замінено безпечними значеннями.',
+  'error.translationUnsupportedSelection': 'Виберіть підтримуваний сервіс і мову перекладу.',
+  'error.translationTextTooLong': 'Виділений текст задовгий для {provider}: {actual} символів за максимуму {max}.',
+  'error.translationConnectionFailed': 'Не вдалося підключитися до сервісу перекладу. Повторіть спробу.',
+  'error.translationConsentOrChallenge': 'Сервіс перекладу вимагає згоди або перевірки. Повторіть спробу пізніше.',
+  'error.translationPageChanged': 'Сторінка сервісу перекладу змінилася. Повторіть спробу пізніше.',
+  'error.translationResultUnavailable': 'Результат перекладу не було отримано до завершення часу очікування.',
+  'error.translationCleanupFailed': 'Не вдалося очистити дані перекладу. Результат не скопійовано.',
+  'error.translationSettingsInvalid': 'Виберіть підтримуваний сервіс і мову перекладу.',
+  'error.translationSettingsSaveFailed':
+    'Не вдалося зберегти налаштування перекладу. Попередній вибір залишається активним.',
 
   // Login button
   'login.loggingIn': 'Вхід...',
@@ -52,6 +69,14 @@ export default {
   'provider.connect': 'Підключити',
   'provider.configure': 'Налаштувати',
   'provider.connected': 'Підключено',
+  'provider.notConnected': 'Не підключено',
+  'provider.connectionChecking': 'Перевірка',
+  'provider.connectionReadyTooltip': 'Провайдер готовий до роботи.',
+  'provider.connectionCheckingTooltip': 'Відкривається підключення до провайдера.',
+  'provider.browserUnavailableTooltip': 'Не вдалося відкрити браузерну сесію провайдера.',
+  'provider.sessionMissingTooltip': 'Браузерна сесія недоступна. Підключіть провайдера, щоб продовжити.',
+  'translate.connectionDisabledTooltip': 'Переклад вимкнено, тому сесію провайдера не було запущено.',
+  'translate.connectionNotStartedTooltip': 'Ініціалізація провайдера перекладу ще не запускалася.',
   'provider.connectionReady': 'Готово',
   'provider.connectionSetupRequired': 'Потрібне налаштування',
   'provider.claudeWeb.name': 'Claude Web',
@@ -145,10 +170,15 @@ export default {
   'mainDock.title': 'Панель команд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Провайдер розпізнавання',
-  'mainDock.prettifyProviderLabel': 'Покращення',
+  'mainDock.prettifyProviderLabel': 'Провайдер покращення',
   'mainDock.prettifyModelLabel': 'Модель',
   'mainDock.prettifyNotConfigured': 'Не налаштовано',
   'mainDock.prettifyConfigured': 'Налаштовано',
+  'mainDock.prettifyOllamaNotConfiguredTooltip': 'Виберіть модель Ollama в налаштуваннях Prettify.',
+  'mainDock.prettifyOllamaLoadedTooltip': 'Вибрану модель Ollama завантажено й підготовлено.',
+  'mainDock.prettifyOllamaNotLoadedTooltip': 'Вибрану модель Ollama не завантажено.',
+  'mainDock.prettifyVllmConfiguredTooltip': 'Модель vLLM налаштовано; доступність перевіряється під час використання.',
+  'mainDock.prettifyVllmNotConfiguredTooltip': 'Виберіть модель vLLM у налаштуваннях Prettify.',
   'mainDock.prettifyChecking': 'Перевірка',
   'mainDock.prettifySignIn': 'Увійти',
   'mainDock.prettifySignInHelp': 'Увійдіть у вибраній CLI, потім виберіть її знову.',
@@ -196,14 +226,75 @@ export default {
   'settingsSection.prettify': 'Покращення тексту',
   'settingsSection.browser': 'Браузер',
   'settingsSection.network': 'Мережа',
+  'settingsSection.auditLog': 'Журнал аудиту',
+
+  // Налаштування журналу аудиту
+  'auditLog.title': 'Журнал аудиту',
+  'auditLog.description':
+    'За потреби зберігайте вихідний і результуючий текст успішних операцій перекладу та покращення для локальної діагностики.',
+  'auditLog.captureTranslation': 'Зберігати діагностику перекладу',
+  'auditLog.captureTranslationDescription':
+    'Зберігати вихідний і результуючий текст успішних перекладів, включно з влучаннями в кеш.',
+  'auditLog.capturePrettify': 'Зберігати діагностику покращення тексту',
+  'auditLog.capturePrettifyDescription':
+    'Зберігати вихідний і результуючий текст успішного покращення, включно з влучаннями в кеш.',
+  'auditLog.privacyTitle': 'Конфіденційна діагностика у відкритому вигляді',
+  'auditLog.sensitiveDataWarning':
+    'Збережені вихідні дані та результати можуть містити приватний або конфіденційний текст.',
+  'auditLog.plaintextStorageWarning':
+    'Дані зберігаються в SQLite у відкритому вигляді після максимально можливого редагування та захищені правами файлової системи користувача. Шифрування не використовується.',
+  'auditLog.redactionLimitWarning':
+    'Редагування може не виявити довільні вбудовані секрети. Вважайте збережені дані конфіденційними.',
+  'auditLog.archiveInclusionWarning': 'Увімкнені категорії автоматично додаються до архівів діагностики.',
+  'auditLog.archiveEncryptionWarning': 'Архіви діагностики не шифруються.',
+  'auditLog.clearTitle': 'Видалити збережені дані',
+  'auditLog.clearDescription': 'Видалення даних незворотне й не змінює перемикачі збереження.',
+  'auditLog.clear.translation': 'Очистити переклади',
+  'auditLog.clear.prettify': 'Очистити покращення',
+  'auditLog.clear.all': 'Очистити все',
+  'auditLog.disableConfirm.title': 'Вимкнути збереження та видалити дані?',
+  'auditLog.disableConfirm.translation':
+    'Збереження налаштувань вимкне діагностику перекладу й назавжди видалить усі збережені дані перекладу.',
+  'auditLog.disableConfirm.prettify':
+    'Збереження налаштувань вимкне діагностику покращення й назавжди видалить усі збережені дані покращення.',
+  'auditLog.disableConfirm.all':
+    'Збереження налаштувань вимкне обидві категорії й назавжди видалить усі збережені дані перекладу та покращення.',
+  'auditLog.disableConfirm.action': 'Вимкнути й видалити',
+  'auditLog.clearConfirm.translation.title': 'Очистити діагностику перекладу?',
+  'auditLog.clearConfirm.translation.description':
+    'Усі збережені дані перекладу буде назавжди видалено без зміни налаштувань збереження.',
+  'auditLog.clearConfirm.prettify.title': 'Очистити діагностику покращення?',
+  'auditLog.clearConfirm.prettify.description':
+    'Усі збережені дані покращення буде назавжди видалено без зміни налаштувань збереження.',
+  'auditLog.clearConfirm.all.title': 'Очистити всю діагностику?',
+  'auditLog.clearConfirm.all.description':
+    'Усі збережені дані перекладу та покращення буде назавжди видалено без зміни налаштувань збереження.',
+  'auditLog.clearConfirm.action': 'Видалити дані',
+  'auditLog.cancel': 'Скасувати',
+  'auditLog.processing': 'Обробка...',
+  'auditLog.error.invalid-request': 'Недійсний запит діагностики.',
+  'auditLog.error.confirmation-required': 'Підтвердьте точні категорії діагностики, які буде видалено.',
+  'auditLog.error.storage-unavailable': 'Сховище діагностики недоступне. Спробуйте ще раз.',
+  'auditLog.error.storage-failed': 'Не вдалося оновити сховище діагностики. Спробуйте ще раз.',
+  'auditLog.error.save-failed':
+    'Обслуговування даних завершено, але налаштування збереження не вдалося записати. Попередні налаштування залишаються активними.',
 
   // About
   'about.open': 'Про програму',
   'about.version': 'Версія {version}',
   'about.license': 'Ліцензія',
   'about.copyright': 'Авторські права',
+  'about.project': 'Проєкт',
   'about.loading': 'Завантаження відомостей про програму...',
   'about.loadFailed': 'Не вдалося завантажити відомості про програму.',
+  'auditLog.exportAction': 'Експортувати діагностику',
+  'auditLog.exportPending': 'Експорт діагностики...',
+  'auditLog.exportDialogTitle': 'Експорт архіву діагностики',
+  'auditLog.exportDescription': 'Збережіть локальний архів діагностики для пошуку й усунення проблем.',
+  'notification.diagnosticsExportSaved': 'Діагностику експортовано',
+  'notification.diagnosticsExportSavedBody': 'Архів діагностики збережено.',
+  'notification.diagnosticsExportFailed': 'Не вдалося експортувати діагностику',
+  'notification.diagnosticsExportFailedBody': 'Не вдалося зберегти архів діагностики. Спробуйте ще раз.',
 
   // History
   'history.open': 'Історія',
@@ -301,6 +392,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Середній',
   'prettify.codexCli.reasoningEffort.high': 'Високий',
   'prettify.codexCli.reasoningEffort.xhigh': 'Дуже високий',
+  'prettify.codexCli.reasoningEffort.max': 'Максимальний',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Докладність відповіді',
   'prettify.codexCli.verbosityHelp': 'Керує докладністю відповіді, якщо вибрана модель Codex це підтримує.',
   'prettify.codexCli.verbosity.low': 'Низька',

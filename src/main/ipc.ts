@@ -1,70 +1,21 @@
-import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
+/* eslint-disable max-classes-per-file -- the trusted registrar and main controller form one IPC ownership boundary. */
+import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
-import {
-  currentHotkey,
-  currentCancelHotkey,
-  currentStopHotkey,
-  currentTranslateHotkey,
-  currentPrettifyHotkey,
-  currentRetryTranscriptionHotkey,
-  currentTranslateEnabled,
-  currentPrettifyEnabled,
-  currentTargetLang,
-  currentProvider,
-  setHotkeys,
-  setTranslateSettings,
-  setTextActionSettings,
-  setCurrentLocale,
-  saveConfig,
-} from './config';
-import {
-  isBgReady,
-  getBackgroundBrowserStatus,
-  getActiveProvider,
-  launchLoginContext,
-  restartBackgroundBrowser,
-  switchProvider,
-} from './browser';
-import { createProvider, getAvailableProviders } from './providers';
-import {
-  closeAboutWindow,
-  closeProviderSettingsWindow,
-  closeSettingsWindow,
-  broadcastLocaleChanged,
-  getMainWindow,
-  getSettingsWindow,
-  isTrustedAppWindow,
-  showAboutWindow,
-  showHistoryWindow,
-  showProviderSettingsWindow,
-  showSettingsWindow,
-} from './window';
-import { getAppInfo } from './appMetadata';
-import {
-  registerShortcuts,
-  getRecordingState,
-  resetRecordingState,
-  setRecordingLifecycleState,
-  setRetryTranscriptionAvailable,
-  setShortcutsSuspended,
-} from './shortcuts';
-import { transcribeAudio } from './services/transcription';
-import { translateText } from './services/translation';
-import { isGoogleTranslateTargetLanguage } from './services/translationUtils';
-import { getAllTranslations, getLocale, setLocale, getSupportedLocales, t } from './i18n';
-import { createLogger } from './logger';
-import { getClaudeWebSettings, saveClaudeWebSettings } from './providers/claudeWebSettings';
-import { clearOpenAIApiKey, getOpenAIApiSettingsView, saveOpenAIApiSettings } from './providers/openaiApiSettings';
+import type { BackgroundBrowserService } from './browser';
+import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
+import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
+import { type WindowManager } from './window';
+import type { DesktopRuntimeController } from './desktopRuntimeController';
+import type { ShortcutController } from './shortcuts';
+import type { TranscriptionService } from './services/transcription';
+import type { TranslationRuntime } from './services/translation';
+import type { CloakBrowserSettingsResetService } from './services/cloakBrowserSettingsReset';
 import {
   assertValidOpenAIApiSettingsInput,
   OPENAI_API_PROVIDER_ID,
   type OpenAIApiSettingsInput,
 } from './providers/openaiApiSettingsUtils';
-import { getCloakBrowserSettingsView, prepareCloakBrowserSettings } from './cloakBrowserSettings';
-import { assertValidCloakBrowserSettingsInput } from './cloakBrowserSettingsUtils';
-import type { CloakBrowserSettingsInput } from '@shared/cloakBrowserSettings';
 import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
-import { showSystemNotification, writeClipboardText } from './electronRuntime';
 import {
   getHotkeyConflict,
   isHotkeyTarget,
@@ -89,60 +40,186 @@ import {
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
-import {
-  clearTranscriptionHistory,
-  getTranscriptionHistoryPage,
-  getTranscriptionHistoryText,
-} from './services/transcriptionHistoryStorage';
-import { getPrettifySettingsView, savePrettifySettings } from './services/prettifySettingsStorage';
-import {
-  checkPrettifyCliConnection,
-  listPrettifyModels,
-  loadPrettifyModel,
-  unloadPrettifyModel,
-} from './services/prettifyProviders';
+import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
+import type { PrettifyRuntime } from './services/prettifyProviders';
+import type { OpenAIApiSettingsRepository } from './providers/openaiApiSettings';
+import type { ClaudeWebSettingsRepository } from './providers/claudeWebSettings';
+import { PrettifyConnectionCheckCoordinator } from './services/prettifyConnectionCheckCoordinator';
 import { shouldRefreshProviderAfterMutation } from './providerSettingsMutation';
-import { registerBeforeBackgroundBrowserShutdownHook } from './backgroundBrowserLifecycle';
-import { StreamingTranscriptionIpcController } from './streamingTranscriptionIpcController';
-import { streamingTranscriptionService } from './services/streamingTranscription';
+import {
+  StreamingTranscriptionIpcController,
+  type StreamingTranscriptionIpcControllerDependencies,
+  type StreamingTranscriptionIpcHandler,
+} from './streamingTranscriptionIpcController';
+import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
+import { TranslationSettingsValidationError } from './translationSettings';
+import type { AppConfigStore } from './config';
+import type { I18nService } from './i18n';
+import type { CloakBrowserSettingsRepository } from './cloakBrowserSettings';
+import type { PrettifySettingsStorage } from './services/prettifySettingsStorage';
+import type { DiagnosticCaptureSettingsService } from './services/diagnosticCaptureSettings';
+import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
+import type { DiagnosticsExportService } from './services/diagnosticsExport';
+import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
+import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 
-const log = createLogger('ipc');
-let streamingTranscriptionIpcController: StreamingTranscriptionIpcController<WebContents> | null = null;
-const prettifyCliConnectionChecks = new WeakMap<WebContents, AbortController>();
+const TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG = 'Translation provider connection refresh failed';
+
+export interface MainIpcTransport {
+  handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
+  removeHandler(channel: string): void;
+}
+
+export type MainIpcConfigRepository = Pick<
+  AppConfigStore,
+  | 'getHotkeySettings'
+  | 'getDiagnosticCaptureSettings'
+  | 'getSnapshot'
+  | 'getTextActionSettings'
+  | 'getTranslationSettings'
+  | 'save'
+  | 'saveDiagnosticCaptureSettings'
+  | 'saveTranslationSettings'
+  | 'setHotkeys'
+  | 'setLocalePreference'
+  | 'setTextActionSettings'
+>;
+
+export type MainIpcLocalization = Pick<
+  I18nService,
+  'getCurrentCatalog' | 'getLocale' | 'getSupportedLocales' | 'setLocale' | 'translate'
+>;
+
+export type MainIpcCloakBrowserSettingsRepository = Pick<CloakBrowserSettingsRepository, 'getView'>;
+
+export type MainIpcPrettifySettingsRepository = Pick<PrettifySettingsStorage, 'getView' | 'save'>;
+
+export interface MainIpcVoiceSettingsRepository {
+  readonly clearOpenAIApiKey: OpenAIApiSettingsRepository['clearApiKey'];
+  readonly getClaudeWebSettings: ClaudeWebSettingsRepository['getSettings'];
+  readonly getOpenAIApiSettingsView: OpenAIApiSettingsRepository['getView'];
+  readonly saveClaudeWebSettings: ClaudeWebSettingsRepository['save'];
+  readonly saveOpenAIApiSettings: OpenAIApiSettingsRepository['save'];
+}
+
+export interface MainIpcLogger {
+  error(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+}
+
+export interface MainIpcControllerDependencies {
+  readonly backgroundBrowserService: BackgroundBrowserService;
+  readonly cloakBrowserSettings: MainIpcCloakBrowserSettingsRepository;
+  readonly cloakBrowserSettingsReset: CloakBrowserSettingsResetService;
+  readonly config: MainIpcConfigRepository;
+  readonly createPrettifyConnectionCoordinator: (
+    runtime: PrettifyRuntime,
+  ) => PrettifyConnectionCheckCoordinator<WebContents>;
+  readonly createStreamingTranscriptionController: (
+    dependencies: StreamingTranscriptionIpcControllerDependencies<WebContents>,
+  ) => StreamingTranscriptionIpcController<WebContents>;
+  readonly desktopRuntimeController: DesktopRuntimeController;
+  readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
+  readonly diagnosticsExport: DiagnosticsExportService;
+  readonly historyController: TranscriptionHistoryIpcController;
+  readonly ipc: MainIpcTransport;
+  readonly localization: MainIpcLocalization;
+  readonly logger: MainIpcLogger;
+  readonly notification: {
+    show(title: string, body: string, options?: SystemNotificationOptions): void;
+  };
+  readonly platform: NodeJS.Platform;
+  readonly prettifyRuntime: PrettifyRuntime;
+  readonly prettifySettings: MainIpcPrettifySettingsRepository;
+  readonly shortcutController: ShortcutController;
+  readonly streamingTranscriptionService: MainStreamingTranscriptionService;
+  readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
+  readonly translationRuntime: Pick<
+    TranslationRuntime,
+    'getConnectionState' | 'initializeSelectedProvider' | 'translateText'
+  >;
+  readonly trustedIpc: TrustedIpcRegistrar;
+  readonly voiceAudit: VoiceProviderAudit;
+  readonly voiceProviderRegistry: VoiceProviderRegistry;
+  readonly voiceSettings: MainIpcVoiceSettingsRepository;
+  readonly windowManager: WindowManager;
+}
+
+type TrustedIpcListener<Args extends unknown[]> = (event: IpcMainInvokeEvent, ...args: Args) => unknown;
+type TrustedSettingsIpcListener<Args extends unknown[]> = (
+  event: IpcMainInvokeEvent,
+  settingsWindow: BrowserWindow,
+  ...args: Args
+) => unknown;
+
+/** Owns trusted-sender validation and the channels registered directly by one controller. */
+export class TrustedIpcRegistrar {
+  private readonly channels = new Set<string>();
+  private disposed = false;
+
+  public constructor(
+    private readonly ipc: MainIpcTransport,
+    private readonly logger: MainIpcLogger,
+    private readonly windowManager: WindowManager,
+  ) {}
+
+  public handle<Args extends unknown[]>(channel: string, listener: TrustedIpcListener<Args>): void {
+    if (this.disposed) throw new Error('Main IPC registrar is disposed');
+    this.ipc.handle(channel, (event, ...args) => {
+      this.assertTrustedSender(event);
+      return listener(event, ...(args as Args));
+    });
+    this.channels.add(channel);
+  }
+
+  public handleSettingsWindow<Args extends unknown[]>(
+    channel: string,
+    listener: TrustedSettingsIpcListener<Args>,
+  ): void {
+    this.handle(channel, (event, ...args) => {
+      const senderUrl = event.senderFrame?.url || event.sender.getURL();
+      const settingsWindow = this.windowManager.getTrustedSettingsWindow(event.sender, senderUrl);
+      if (!settingsWindow) {
+        this.logger.warn('Rejected Settings-only IPC sender');
+        throw new Error('Rejected Settings-only IPC sender');
+      }
+      return listener(event, settingsWindow, ...(args as Args));
+    });
+  }
+
+  public handleStreaming(channel: string, listener: StreamingTranscriptionIpcHandler<WebContents>): void {
+    if (this.disposed) throw new Error('Main IPC registrar is disposed');
+    this.ipc.handle(channel, (event, ...args) => {
+      this.assertTrustedSender(event);
+      return listener(event.sender, ...args);
+    });
+  }
+
+  public removeStreamingHandler(channel: string): void {
+    this.ipc.removeHandler(channel);
+  }
+
+  public dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const channel of this.channels) this.ipc.removeHandler(channel);
+    this.channels.clear();
+  }
+
+  private assertTrustedSender(event: IpcMainInvokeEvent): void {
+    const senderUrl = event.senderFrame?.url || event.sender.getURL();
+    if (this.windowManager.isTrustedAppWindow(event.sender, senderUrl)) return;
+
+    this.logger.warn('Rejected IPC from untrusted sender');
+    throw new Error('Rejected IPC from untrusted sender');
+  }
+}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function summarizeBackgroundStatus(status: { ready: boolean; error?: string; authExpired?: boolean }) {
-  return {
-    ready: status.ready,
-    hasError: Boolean(status.error),
-    error: status.error,
-    authExpired: Boolean(status.authExpired),
-  };
-}
-
-function summarizeCloakBrowserSettingsInput(settings: CloakBrowserSettingsInput = {}) {
-  const proxy = settings.proxy ?? {};
-  return {
-    hasHumanize: typeof settings.humanize === 'boolean',
-    humanize: settings.humanize,
-    humanPreset: settings.humanPreset,
-    backgroundMode: settings.backgroundMode,
-    fingerprintSeedLength: typeof settings.fingerprintSeed === 'string' ? settings.fingerprintSeed.trim().length : 0,
-    hasLocale: typeof settings.locale === 'string' && settings.locale.trim().length > 0,
-    hasTimezone: typeof settings.timezone === 'string' && settings.timezone.trim().length > 0,
-    proxyEnabled: Boolean(proxy.enabled),
-    proxyGeoip: Boolean(proxy.geoip),
-    hasProxyServer: typeof proxy.server === 'string' && proxy.server.trim().length > 0,
-    hasProxyBypass: typeof proxy.bypass === 'string' && proxy.bypass.trim().length > 0,
-    hasProxyUsername: typeof proxy.username === 'string' && proxy.username.trim().length > 0,
-    hasProxyPasswordUpdate: typeof proxy.password === 'string' && proxy.password.trim().length > 0,
-    clearProxyPassword: Boolean(proxy.clearPassword),
-  };
 }
 
 function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) {
@@ -187,826 +264,828 @@ function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
   };
 }
 
-function getTextActionSettingsSnapshot() {
-  return {
-    translateEnabled: currentTranslateEnabled,
-    prettifyEnabled: currentPrettifyEnabled,
-  };
-}
+/** Owns every privileged renderer-to-main IPC handler and per-sender lifecycle for one application graph. */
+export class MainIpcController {
+  private disposalPromise: Promise<void> | null = null;
+  private disposed = false;
+  private prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents> | null = null;
+  private registered = false;
+  private streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents> | null = null;
+  private readonly trustedIpc: TrustedIpcRegistrar;
 
-function getPrettifySettingsSnapshot() {
-  return getPrettifySettingsView();
-}
-
-function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  const senderUrl = event.senderFrame?.url || event.sender.getURL();
-
-  if (!isTrustedAppWindow(event.sender, senderUrl)) {
-    log.warn('Rejected IPC from untrusted sender:', senderUrl || '<unknown>');
-    throw new Error('Rejected IPC from untrusted sender');
-  }
-}
-
-function handle<Args extends unknown[]>(
-  channel: string,
-  listener: (event: IpcMainInvokeEvent, ...args: Args) => unknown,
-): void {
-  ipcMain.handle(channel, (event, ...args) => {
-    assertTrustedSender(event);
-    return listener(event, ...(args as Args));
-  });
-}
-
-function registerStreamingTranscriptionIpcHandlers(): void {
-  if (streamingTranscriptionIpcController) {
-    throw new Error('Streaming transcription IPC handlers are already registered');
+  public constructor(private readonly dependencies: MainIpcControllerDependencies) {
+    this.trustedIpc = dependencies.trustedIpc;
   }
 
-  streamingTranscriptionIpcController = new StreamingTranscriptionIpcController<WebContents>({
-    addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
-    getMainWindowSender: () => {
-      const mainWindow = getMainWindow();
-      return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
-    },
-    isSenderDestroyed: (sender) => sender.isDestroyed(),
-    registerBeforeBrowserShutdownHook: registerBeforeBackgroundBrowserShutdownHook,
-    registerHandler: (channel, listener) => {
-      ipcMain.handle(channel, (event, ...args) => {
-        assertTrustedSender(event);
-        return listener(event.sender, ...(args as unknown[]));
-      });
-    },
-    removeHandler: (channel) => ipcMain.removeHandler(channel),
-    removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
-    service: streamingTranscriptionService,
-  });
-}
+  /** Registers every main-process handler once for this controller. */
+  public register(): void {
+    if (this.disposed) throw new Error('Main IPC controller is disposed');
+    if (this.registered) return;
+    this.registered = true;
 
-export async function teardownStreamingTranscriptionIpcHandlers(): Promise<void> {
-  const controller = streamingTranscriptionIpcController;
-  streamingTranscriptionIpcController = null;
-  await controller?.dispose();
-}
+    const dependencies = this.dependencies;
+    const historyController = dependencies.historyController;
+    const log = dependencies.logger;
+    const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
+      dependencies.prettifyRuntime,
+    );
+    this.prettifyConnectionCoordinator = prettifyConnectionCoordinator;
+    this.streamingTranscriptionController = dependencies.createStreamingTranscriptionController({
+      addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
+      getMainWindowSender: () => {
+        const mainWindow = dependencies.windowManager.getMainWindow();
+        return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+      },
+      isSenderDestroyed: (sender) => sender.isDestroyed(),
+      registerBeforeBrowserShutdownHook: (hook) =>
+        dependencies.backgroundBrowserService.registerBeforeShutdownHook(hook),
+      registerHandler: (channel, listener) => this.trustedIpc.handleStreaming(channel, listener),
+      removeHandler: (channel) => this.trustedIpc.removeStreamingHandler(channel),
+      removeSenderDestroyedListener: (sender, listener) => sender.removeListener('destroyed', listener),
+      service: dependencies.streamingTranscriptionService,
+    });
 
-function sendBackgroundStatus(status: {
-  providerId?: string;
-  ready: boolean;
-  error?: string;
-  authExpired?: boolean;
-}): void {
-  const providerId = status.providerId || currentProvider;
-  if (status.ready) {
-    getMainWindow()?.webContents.send('bg-browser-ready', providerId);
-  } else if (status.error) {
-    getMainWindow()?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
-  }
-}
+    this.trustedIpc.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+      return dependencies.transcriptionService.transcribe(buffer, mimeType);
+    });
 
-function sendProviderSettingsChanged(settings: unknown, source: IpcMainInvokeEvent['sender']): void {
-  const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.webContents.id === source.id) return;
-  mainWindow.webContents.send('provider-settings-changed', settings);
-}
+    this.trustedIpc.handle('translate-text', async (_event, text: string, targetLang: string) => {
+      return dependencies.translationRuntime.translateText(text, targetLang);
+    });
 
-function sendPrettifySettingsChanged(settings: ReturnType<typeof getPrettifySettingsSnapshot>): void {
-  getMainWindow()?.webContents.send('prettify-settings-changed', settings);
-  getSettingsWindow()?.webContents.send('prettify-settings-changed', settings);
-}
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get, () => {
+      return dependencies.diagnosticCaptureSettings.getSettings();
+    });
 
-function getHotkeySettingsSnapshot(): HotkeySettings {
-  return {
-    hotkey: currentHotkey,
-    cancelHotkey: currentCancelHotkey,
-    stopHotkey: currentStopHotkey,
-    translateHotkey: currentTranslateHotkey,
-    prettifyHotkey: currentPrettifyHotkey,
-    retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
-  };
-}
+    this.trustedIpc.handleSettingsWindow(
+      DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.set,
+      (_event, _settingsWindow, request: unknown) => dependencies.diagnosticCaptureSettings.setSettings(request),
+    );
 
-function getProviderSettingsSnapshot(providerId: string) {
-  if (providerId === OPENAI_API_PROVIDER_ID) {
-    return {
-      providerId,
-      authType: 'apiKey',
-      ...getOpenAIApiSettingsView(),
-    };
-  }
+    this.trustedIpc.handleSettingsWindow(
+      DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.clear,
+      (_event, _settingsWindow, request: unknown) => dependencies.diagnosticCaptureSettings.clear(request),
+    );
 
-  const provider = createProvider(providerId);
-  if (providerId === CLAUDE_WEB_PROVIDER_ID) {
-    return {
-      providerId,
-      authType: 'browserSession',
-      hasSession: provider.hasSession(),
-      ...getClaudeWebSettings(),
-    };
-  }
-  return {
-    providerId,
-    authType: provider.info.authType,
-    hasSession: provider.hasSession(),
-  };
-}
+    this.trustedIpc.handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
+      return historyController.list(query || {});
+    });
 
-async function refreshActiveProvider(providerId: string) {
-  if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
-  const status = await restartBackgroundBrowser();
-  sendBackgroundStatus(status);
-  return status;
-}
+    this.trustedIpc.handle('copy-transcription-history-text', (_event, id: number) => {
+      return historyController.copyText(id);
+    });
 
-/** Registers every privileged renderer-to-main IPC channel through the trusted-sender wrapper. */
-export function registerIpcHandlers(): void {
-  registerStreamingTranscriptionIpcHandlers();
+    this.trustedIpc.handle('clear-transcription-history', () => {
+      return historyController.clear();
+    });
 
-  handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
-    return transcribeAudio(buffer, mimeType);
-  });
+    this.trustedIpc.handle('get-recording-status', () => {
+      return dependencies.shortcutController.getRecordingState().isRecording;
+    });
 
-  handle('translate-text', async (_event, text: string, targetLang: string) => {
-    return translateText(text, targetLang);
-  });
-
-  handle('get-transcription-history', (_event, query: TranscriptionHistoryQuery) => {
-    return getTranscriptionHistoryPage(query || {});
-  });
-
-  handle('copy-transcription-history-text', (_event, id: number) => {
-    const numericId = Number(id);
-    const text = getTranscriptionHistoryText(numericId);
-    if (!text) {
-      return { success: false, error: 'History entry not found' };
-    }
-
-    try {
-      writeClipboardText(text);
+    this.trustedIpc.handle('recording-start-failed', () => {
+      dependencies.shortcutController.resetRecordingState();
       return { success: true };
-    } catch (error: unknown) {
-      log.warn('Failed to copy transcription history text:', { id: numericId, error: getErrorMessage(error) });
-      return { success: false, error: 'Failed to copy history text' };
-    }
-  });
+    });
 
-  handle('clear-transcription-history', () => {
-    clearTranscriptionHistory();
-    return { success: true };
-  });
-
-  handle('get-recording-status', () => {
-    return getRecordingState().isRecording;
-  });
-
-  handle('recording-start-failed', () => {
-    resetRecordingState();
-    return { success: true };
-  });
-
-  handle('set-recording-lifecycle-state', (_event, state: unknown) => {
-    if (!isRecordingLifecycleState(state)) {
-      return { success: false };
-    }
-    setRecordingLifecycleState(state);
-    return { success: true };
-  });
-
-  handle('set-retry-transcription-available', (_event, available: boolean) => {
-    setRetryTranscriptionAvailable(Boolean(available));
-    return { success: true };
-  });
-
-  handle('provider-login', async (event, providerId: unknown) => {
-    let provider;
-    try {
-      if (typeof providerId !== 'string') {
-        return { success: false, error: 'Unsupported provider' };
+    this.trustedIpc.handle('set-recording-lifecycle-state', (_event, state: unknown) => {
+      if (!isRecordingLifecycleState(state)) {
+        return { success: false };
       }
-      provider = createProvider(providerId);
-    } catch (error: unknown) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
-    }
-    if (!provider.requiresBrowserSession()) {
-      return { success: false, error: 'Provider does not support browser login' };
-    }
+      dependencies.shortcutController.setRecordingLifecycleState(state);
+      return { success: true };
+    });
 
-    let context: BrowserContext | null = null;
-    let sessionSaved = false;
-    try {
-      context = await launchLoginContext();
-      const page = await context.newPage();
-      await page.goto(provider.getLoginUrl());
+    this.trustedIpc.handle('set-retry-transcription-available', (_event, available: boolean) => {
+      dependencies.shortcutController.setRetryTranscriptionAvailable(Boolean(available));
+      return { success: true };
+    });
 
-      await new Promise<void>((resolve) => {
-        let done = false;
-        const finish = async (saveSession: boolean) => {
-          if (done) return;
-          done = true;
-          try {
-            if (saveSession) {
-              await provider.saveSession(context!);
-              sessionSaved = true;
+    this.trustedIpc.handle('provider-login', async (event, providerId: unknown) => {
+      let provider;
+      try {
+        if (typeof providerId !== 'string') {
+          return { success: false, error: 'Unsupported provider' };
+        }
+        provider = dependencies.voiceProviderRegistry.createProvider(providerId);
+      } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+      if (!provider.requiresBrowserSession()) {
+        return { success: false, error: 'Provider does not support browser login' };
+      }
+
+      let context: BrowserContext | null = null;
+      let sessionSaved = false;
+      try {
+        context = await dependencies.backgroundBrowserService.launchLoginContext();
+        const page = await context.newPage();
+        await page.goto(provider.getLoginUrl());
+
+        await new Promise<void>((resolve) => {
+          let done = false;
+          const finish = async (saveSession: boolean) => {
+            if (done) return;
+            done = true;
+            try {
+              if (saveSession) {
+                const saveAudit = dependencies.voiceAudit.startOperation(provider.info.id, 'session-save', 'session');
+                try {
+                  await provider.saveSession(context!);
+                  saveAudit.lifecycle.phaseCompleted('session');
+                  saveAudit.lifecycle.terminal('session', 'success');
+                } catch (error: unknown) {
+                  dependencies.voiceAudit.terminalException(saveAudit, 'session', error, {
+                    causeCode: 'cleanup-failed',
+                  });
+                  throw error;
+                }
+                sessionSaved = true;
+              }
+            } finally {
+              await context?.close().catch(() => {});
+              resolve();
             }
-          } finally {
-            await context?.close().catch(() => {});
-            resolve();
-          }
-        };
+          };
 
-        context!.on('close', () => {
-          void finish(false);
+          context!.on('close', () => {
+            void finish(false);
+          });
+          page.on('close', () => {
+            void finish(true);
+          });
         });
-        page.on('close', () => {
-          void finish(true);
-        });
-      });
 
-      if (!sessionSaved) {
-        return { success: false, error: 'Login window closed before session was saved' };
-      }
-
-      const status = await refreshActiveProvider(provider.info.id);
-      const settings = getProviderSettingsSnapshot(provider.info.id);
-      sendProviderSettingsChanged(settings, event.sender);
-      if (status?.error) {
-        return { success: false, error: status.error };
-      }
-      if (status && !status.ready) {
-        return { success: false, error: 'Login did not produce a valid provider session' };
-      }
-
-      return { success: true, settings };
-    } catch (error: unknown) {
-      if (context) {
-        try {
-          await context.close();
-        } catch {
-          /* ignore */
+        if (!sessionSaved) {
+          return { success: false, error: 'Login window closed before session was saved' };
         }
+
+        const status = await this.refreshActiveProvider(provider.info.id);
+        const settings = this.getProviderSettingsSnapshot(provider.info.id);
+        dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
+        if (status?.error) {
+          return { success: false, error: status.error };
+        }
+        if (status && !status.ready) {
+          return { success: false, error: 'Login did not produce a valid provider session' };
+        }
+
+        return { success: true, settings };
+      } catch (error: unknown) {
+        if (context) {
+          try {
+            await context.close();
+          } catch {
+            /* ignore */
+          }
+        }
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
       }
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
-    }
-  });
+    });
 
-  handle('check-session', () => {
-    try {
-      const provider = getActiveProvider() ?? createProvider(currentProvider);
-      return provider.hasSession();
-    } catch (error: unknown) {
-      log.warn('Failed to check provider session:', error instanceof Error ? error.message : error);
-      return false;
-    }
-  });
-
-  handle('is-bg-ready', () => {
-    return isBgReady();
-  });
-
-  handle('get-bg-browser-status', () => {
-    return getBackgroundBrowserStatus();
-  });
-
-  handle('get-providers', () => {
-    return getAvailableProviders();
-  });
-
-  handle('get-provider-settings', (_event, providerId: string) => {
-    return getProviderSettingsSnapshot(providerId);
-  });
-
-  handle('open-provider-settings', (_event, providerId: unknown) => {
-    if (typeof providerId !== 'string') {
-      return { success: false, error: 'Unsupported provider' };
-    }
-    const provider = getAvailableProviders().find((candidate) => candidate.id === providerId);
-    if (!provider?.hasSettings) {
-      return { success: false, error: 'Provider settings are not available' };
-    }
-    showProviderSettingsWindow(provider.id, t('providerSettings.title', { provider: provider.name }));
-    return { success: true };
-  });
-
-  handle('close-provider-settings', (event) => {
-    return { success: closeProviderSettingsWindow(event.sender) };
-  });
-
-  handle('close-app-settings', () => {
-    closeSettingsWindow();
-    return { success: true };
-  });
-
-  handle('open-app-settings', (_event, section: unknown) => {
-    if (section !== undefined && !isAppSettingsSectionId(section)) {
-      return { success: false, error: 'Unsupported settings section' };
-    }
-    showSettingsWindow(section);
-    return { success: true };
-  });
-
-  handle('open-transcription-history', () => {
-    showHistoryWindow();
-    return { success: true };
-  });
-
-  handle('open-about', () => {
-    showAboutWindow();
-    return { success: true };
-  });
-
-  handle('close-about', () => {
-    closeAboutWindow();
-    return { success: true };
-  });
-
-  handle('get-app-info', () => {
-    return getAppInfo();
-  });
-
-  handle('get-cloakbrowser-settings', () => {
-    return getCloakBrowserSettingsView();
-  });
-
-  handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
-    try {
-      assertValidCloakBrowserSettingsInput(settings);
-      log.info('Saving CloakBrowser settings:', summarizeCloakBrowserSettingsInput(settings));
-      const preparedSettings = prepareCloakBrowserSettings(settings);
-      const backgroundStatus = await restartBackgroundBrowser({
-        cloakBrowserSettings: preparedSettings.settingsWithSecret,
-      });
-      sendBackgroundStatus(backgroundStatus);
-      log.info('CloakBrowser settings restart result:', summarizeBackgroundStatus(backgroundStatus));
-      if (backgroundStatus.error) {
-        log.warn('CloakBrowser settings save failed during restart:', summarizeBackgroundStatus(backgroundStatus));
-        return {
-          success: false,
-          settings: preparedSettings.settings,
-          backgroundStatus,
-          error: backgroundStatus.error,
-        };
+    this.trustedIpc.handle('check-session', () => {
+      try {
+        const provider =
+          dependencies.backgroundBrowserService.getActiveProvider() ??
+          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getSnapshot().provider);
+        const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
+        try {
+          const hasSession = provider.hasSession();
+          audit.lifecycle.phaseCompleted('configuration');
+          audit.lifecycle.terminal(
+            'configuration',
+            hasSession ? 'success' : 'failure',
+            hasSession
+              ? undefined
+              : dependencies.voiceAudit.createMetadata({
+                  causeCode: provider.requiresBrowserSession() ? 'not-authenticated' : 'not-configured',
+                }),
+          );
+          return hasSession;
+        } catch (error: unknown) {
+          dependencies.voiceAudit.terminalException(audit, 'configuration', error);
+          throw error;
+        }
+      } catch {
+        return false;
       }
-      // Persist only after restart succeeds so a rejected save cannot poison the next launch.
-      const savedSettings = preparedSettings.persist();
-      log.info('CloakBrowser settings saved');
-      return { success: true, settings: savedSettings, backgroundStatus };
-    } catch (error: unknown) {
-      log.error('CloakBrowser settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
-    }
-  });
+    });
 
-  handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
-    try {
+    this.trustedIpc.handle('is-bg-ready', () => {
+      return dependencies.backgroundBrowserService.isReady();
+    });
+
+    this.trustedIpc.handle('get-bg-browser-status', () => {
+      return dependencies.backgroundBrowserService.getStatus();
+    });
+
+    this.trustedIpc.handle('get-providers', () => {
+      return dependencies.voiceProviderRegistry.getAvailableProviders();
+    });
+
+    this.trustedIpc.handle('get-provider-settings', (_event, providerId: string) => {
+      return this.getProviderSettingsSnapshot(providerId);
+    });
+
+    this.trustedIpc.handle('open-provider-settings', (_event, providerId: unknown) => {
       if (typeof providerId !== 'string') {
         return { success: false, error: 'Unsupported provider' };
       }
-      if (providerId === CLAUDE_WEB_PROVIDER_ID) {
-        try {
-          assertValidClaudeWebSettingsUpdateInput(settings);
-        } catch {
-          log.warn('Claude Web provider settings rejected:', { providerId });
-          return { success: false, error: t('error.claudeWeb.invalid-settings') };
+      const provider = dependencies.voiceProviderRegistry
+        .getAvailableProviders()
+        .find((candidate) => candidate.id === providerId);
+      if (!provider?.hasSettings) {
+        return { success: false, error: 'Provider settings are not available' };
+      }
+      dependencies.windowManager.showProviderSettingsWindow(
+        provider.id,
+        dependencies.localization.translate('providerSettings.title', { provider: provider.name }),
+      );
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('close-provider-settings', (event) => {
+      return { success: dependencies.windowManager.closeProviderSettingsWindow(event.sender) };
+    });
+
+    this.trustedIpc.handle('close-app-settings', () => {
+      dependencies.windowManager.closeSettingsWindow();
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('open-app-settings', (_event, section: unknown) => {
+      if (section !== undefined && !isAppSettingsSectionId(section)) {
+        return { success: false, error: 'Unsupported settings section' };
+      }
+      dependencies.windowManager.showSettingsWindow(section);
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('open-transcription-history', () => {
+      dependencies.windowManager.showHistoryWindow();
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('open-about', () => {
+      dependencies.windowManager.showAboutWindow();
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('close-about', () => {
+      dependencies.windowManager.closeAboutWindow();
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('get-app-info', () => {
+      return dependencies.desktopRuntimeController.getAppInfo();
+    });
+
+    this.trustedIpc.handleSettingsWindow(DIAGNOSTICS_EXPORT_IPC_CHANNEL, (_event, settingsWindow) => {
+      return dependencies.diagnosticsExport.export(settingsWindow);
+    });
+
+    this.trustedIpc.handle('get-cloakbrowser-settings', () => {
+      return dependencies.cloakBrowserSettings.getView();
+    });
+
+    this.trustedIpc.handle('save-cloakbrowser-settings', async (_event, settings: unknown) => {
+      return dependencies.cloakBrowserSettingsReset.save(settings);
+    });
+
+    this.trustedIpc.handle('save-provider-settings', async (event, providerId: unknown, settings: unknown) => {
+      try {
+        if (typeof providerId !== 'string') {
+          const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
+          audit.lifecycle.terminal(
+            'validation',
+            'failure',
+            dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
+          );
+          return { success: false, error: 'Unsupported provider' };
+        }
+        if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+          const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
+          try {
+            assertValidClaudeWebSettingsUpdateInput(settings);
+          } catch {
+            audit.lifecycle.terminal(
+              'validation',
+              'failure',
+              dependencies.voiceAudit.createMetadata({ causeCode: 'invalid-settings' }),
+            );
+            return { success: false, error: dependencies.localization.translate('error.claudeWeb.invalid-settings') };
+          }
+
+          audit.lifecycle.phaseCompleted('validation');
+          audit.lifecycle.phaseEntered('configuration');
+          log.info('Saving provider settings:', { providerId });
+          let savedSettings: ReturnType<MainIpcVoiceSettingsRepository['saveClaudeWebSettings']>;
+          try {
+            savedSettings = dependencies.voiceSettings.saveClaudeWebSettings(settings);
+            await this.refreshActiveProvider(providerId);
+          } catch (error: unknown) {
+            dependencies.voiceAudit.terminalException(audit, 'configuration', error);
+            throw error;
+          }
+          log.info('Provider settings saved:', { providerId });
+          const nextSettings = {
+            providerId,
+            authType: 'browserSession' as const,
+            hasSession: dependencies.voiceProviderRegistry.createProvider(providerId).hasSession(),
+            language: savedSettings.language,
+          };
+          audit.lifecycle.phaseCompleted('configuration');
+          audit.lifecycle.terminal('configuration', 'success');
+          dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
+          return { success: true, settings: nextSettings };
+        }
+        if (providerId !== OPENAI_API_PROVIDER_ID) {
+          log.info('Saving provider settings:', { providerId });
+          log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
+          const nextSettings = this.getProviderSettingsSnapshot(providerId);
+          dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
+          return { success: true, settings: nextSettings };
         }
 
-        log.info('Saving provider settings:', { providerId });
-        const savedSettings = saveClaudeWebSettings(settings);
-        await refreshActiveProvider(providerId);
-        log.info('Provider settings saved:', { providerId });
+        const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
+        try {
+          assertValidOpenAIApiSettingsInput(settings);
+        } catch (error: unknown) {
+          audit.lifecycle.terminal(
+            'validation',
+            'failure',
+            dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
+          );
+          throw error;
+        }
+        audit.lifecycle.phaseCompleted('validation');
+        audit.lifecycle.phaseEntered('configuration');
+        log.info('Saving provider settings:', { providerId, ...summarizeOpenAIApiSettingsInput(settings) });
+        let savedSettings: ReturnType<MainIpcVoiceSettingsRepository['saveOpenAIApiSettings']>;
+        try {
+          savedSettings = dependencies.voiceSettings.saveOpenAIApiSettings(settings);
+          await this.refreshActiveProvider(providerId);
+        } catch (error: unknown) {
+          dependencies.voiceAudit.terminalException(audit, 'configuration', error);
+          throw error;
+        }
+        log.info('Provider settings saved:', {
+          providerId,
+          hasApiKey: savedSettings.hasApiKey,
+          model: savedSettings.model,
+          language: savedSettings.language,
+          promptLength: savedSettings.prompt.length,
+          temperature: savedSettings.temperature,
+        });
         const nextSettings = {
           providerId,
-          authType: 'browserSession' as const,
-          hasSession: createProvider(providerId).hasSession(),
-          language: savedSettings.language,
+          authType: 'apiKey' as const,
+          ...savedSettings,
         };
-        sendProviderSettingsChanged(nextSettings, event.sender);
+        audit.lifecycle.phaseCompleted('configuration');
+        audit.lifecycle.terminal(
+          'configuration',
+          savedSettings.hasApiKey ? 'success' : 'failure',
+          savedSettings.hasApiKey ? undefined : dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
+        );
+        dependencies.windowManager.publishProviderSettingsChanged(nextSettings, event.sender);
         return { success: true, settings: nextSettings };
+      } catch (error: unknown) {
+        log.error('Provider settings save error:', getErrorMessage(error));
+        return { success: false, error: getErrorMessage(error) };
       }
-      if (providerId !== OPENAI_API_PROVIDER_ID) {
-        log.info('Saving provider settings:', { providerId });
-        log.warn('Provider settings save skipped for provider without editable settings:', { providerId });
-        const nextSettings = getProviderSettingsSnapshot(providerId);
-        sendProviderSettingsChanged(nextSettings, event.sender);
-        return { success: true, settings: nextSettings };
+    });
+
+    this.trustedIpc.handle('clear-provider-auth', async (event, providerId: string) => {
+      const audit = dependencies.voiceAudit.startOperation(providerId, 'session-clear', 'session');
+      try {
+        if (!dependencies.voiceAudit.isKnownProviderId(providerId)) {
+          audit.lifecycle.terminal(
+            'session',
+            'failure',
+            dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
+          );
+          throw new Error(`Unknown voice provider: ${providerId}`);
+        }
+        if (providerId === OPENAI_API_PROVIDER_ID) {
+          dependencies.voiceSettings.clearOpenAIApiKey();
+        } else {
+          dependencies.voiceProviderRegistry.createProvider(providerId).clearSession();
+        }
+        audit.lifecycle.phaseCompleted('session');
+        audit.lifecycle.terminal('session', 'success');
+        await this.refreshActiveProvider(providerId);
+        const settings = this.getProviderSettingsSnapshot(providerId);
+        dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
+        return { success: true, settings };
+      } catch (error: unknown) {
+        dependencies.voiceAudit.terminalException(audit, 'session', error, {
+          causeCode: 'cleanup-failed',
+        });
+        return { success: false, error: getErrorMessage(error) };
+      }
+    });
+
+    this.trustedIpc.handle('get-active-provider', () => {
+      return dependencies.config.getSnapshot().provider;
+    });
+
+    this.trustedIpc.handle('set-active-provider', async (_event, providerId: string) => {
+      try {
+        const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
+        dependencies.config.save();
+        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getSnapshot().provider);
+        return { success: !status.error, error: status.error };
+      } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error) };
+      }
+    });
+
+    this.trustedIpc.handle('get-hotkey', (): HotkeySettings => {
+      return dependencies.config.getHotkeySettings();
+    });
+
+    this.trustedIpc.handle('set-hotkey-capture-active', (_event, active: unknown) => {
+      if (typeof active !== 'boolean') {
+        return { success: false };
       }
 
-      assertValidOpenAIApiSettingsInput(settings);
-      log.info('Saving provider settings:', { providerId, ...summarizeOpenAIApiSettingsInput(settings) });
-      const savedSettings = saveOpenAIApiSettings(settings);
-      await refreshActiveProvider(providerId);
-      log.info('Provider settings saved:', {
-        providerId,
-        hasApiKey: savedSettings.hasApiKey,
-        model: savedSettings.model,
-        language: savedSettings.language,
-        promptLength: savedSettings.prompt.length,
-        temperature: savedSettings.temperature,
-      });
-      const nextSettings = {
-        providerId,
-        authType: 'apiKey' as const,
-        ...savedSettings,
-      };
-      sendProviderSettingsChanged(nextSettings, event.sender);
-      return { success: true, settings: nextSettings };
-    } catch (error: unknown) {
-      log.error('Provider settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
+      dependencies.shortcutController.setSuspended(active);
+      return { success: true };
+    });
+
+    this.trustedIpc.handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
+      if (typeof key !== 'string' || !isHotkeyTarget(key)) {
+        return {
+          success: false,
+          error: 'Unsupported hotkey target',
+          ...dependencies.config.getHotkeySettings(),
+        };
+      }
+      const target: HotkeyTarget = key;
+      if (typeof hotkey !== 'string') {
+        return {
+          success: false,
+          error: 'Hotkey must be a string',
+          ...dependencies.config.getHotkeySettings(),
+        };
+      }
+      const normalizedHotkey = normalizeHotkey(hotkey);
+      if (!normalizedHotkey) {
+        return {
+          success: false,
+          error: 'Choose a key or key combination',
+          ...dependencies.config.getHotkeySettings(),
+        };
+      }
+
+      const conflict = getHotkeyConflict(target, normalizedHotkey, dependencies.config.getHotkeySettings());
+      if (conflict) {
+        return {
+          success: false,
+          error: `This hotkey conflicts with the ${conflict} shortcut`,
+          ...dependencies.config.getHotkeySettings(),
+        };
+      }
+
+      if (key === 'cancel') {
+        log.info(
+          'Changing cancel hotkey from',
+          dependencies.config.getHotkeySettings().cancelHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ cancelHotkey: normalizedHotkey });
+      } else if (key === 'stop') {
+        log.info(
+          'Changing stop hotkey from',
+          dependencies.config.getHotkeySettings().stopHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ stopHotkey: normalizedHotkey });
+      } else if (target === 'translate') {
+        log.info(
+          'Changing translate hotkey from',
+          dependencies.config.getHotkeySettings().translateHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ translateHotkey: normalizedHotkey });
+      } else if (target === 'prettify') {
+        log.info(
+          'Changing prettify hotkey from',
+          dependencies.config.getHotkeySettings().prettifyHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
+      } else if (target === 'retryTranscription') {
+        log.info(
+          'Changing retry transcription hotkey from',
+          dependencies.config.getHotkeySettings().retryTranscriptionHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ retryTranscriptionHotkey: normalizedHotkey });
+      } else {
+        log.info('Changing hotkey from', dependencies.config.getHotkeySettings().hotkey, 'to', normalizedHotkey);
+        dependencies.config.setHotkeys({ hotkey: normalizedHotkey });
+      }
+      dependencies.config.save();
+      dependencies.shortcutController.register();
+      const hotkeySettings = dependencies.config.getHotkeySettings();
+      dependencies.windowManager.getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
+      return { success: true, ...hotkeySettings };
+    });
+
+    this.trustedIpc.handle('get-translate-settings', () => {
+      return dependencies.config.getTranslationSettings();
+    });
+
+    this.trustedIpc.handle(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get, () => {
+      return dependencies.translationRuntime.getConnectionState();
+    });
+
+    this.trustedIpc.handle('get-text-action-settings', () => {
+      return dependencies.config.getTextActionSettings();
+    });
+
+    this.trustedIpc.handle('set-text-action-settings', (_event, settings: unknown) => {
+      try {
+        assertValidTextActionSettingsInput(settings);
+        const normalized = normalizeTextActionSettings(settings);
+        const previous = dependencies.config.getTextActionSettings();
+        log.info('Saving text action settings:', {
+          from: {
+            translateEnabled: previous.translateEnabled,
+            prettifyEnabled: previous.prettifyEnabled,
+          },
+          to: normalized,
+        });
+        dependencies.config.setTextActionSettings(normalized);
+        dependencies.config.save();
+        if (previous.translateEnabled !== normalized.translateEnabled) {
+          void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
+            log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+          });
+        }
+        log.info('Text action settings saved:', normalized);
+        return { success: true, settings: normalized };
+      } catch (error: unknown) {
+        log.error('Text action settings save error:', getErrorMessage(error));
+        return { success: false, settings: dependencies.config.getTextActionSettings(), error: getErrorMessage(error) };
+      }
+    });
+
+    this.trustedIpc.handle('set-translate-settings', (_event, candidate: unknown) => {
+      try {
+        const settings = dependencies.config.saveTranslationSettings(candidate);
+        log.info('Translation settings saved', { providerId: settings.providerId });
+        void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
+          log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+        });
+        return { success: true, settings };
+      } catch (error: unknown) {
+        const validationFailure = error instanceof TranslationSettingsValidationError;
+        log.warn('Translation settings update rejected', {
+          errorName: error instanceof Error ? error.name : 'unknown',
+          validationFailure,
+        });
+        return {
+          success: false,
+          settings: dependencies.config.getTranslationSettings(),
+          error: dependencies.localization.translate(
+            validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
+          ),
+        };
+      }
+    });
+
+    this.trustedIpc.handle('get-prettify-settings', () => {
+      return dependencies.prettifySettings.getView();
+    });
+
+    this.trustedIpc.handle(
+      'check-prettify-cli-connection',
+      async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
+        if (!isPrettifyCliProviderId(providerId)) {
+          return dependencies.prettifyRuntime.checkCliConnection(providerId);
+        }
+        return prettifyConnectionCoordinator.check(event.sender, providerId, dependencies.prettifySettings.getView());
+      },
+    );
+
+    this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) => {
+      try {
+        assertValidPrettifySettingsInput(settings);
+        const previous = dependencies.prettifySettings.getView();
+        log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
+        const savedSettings = dependencies.prettifySettings.save(settings);
+        log.info('Prettify settings saved:', {
+          providerId: savedSettings.providerId,
+          providerChanged: savedSettings.providerId !== previous.providerId,
+          promptLength: savedSettings.prompt.length,
+          temperature: savedSettings.temperature,
+          ollamaModelLength: savedSettings.ollama.model.length,
+          vllmModelLength: savedSettings.vllm.model.length,
+          vllmHasApiKey: savedSettings.vllm.hasApiKey,
+        });
+        dependencies.windowManager.publishPrettifySettingsChanged(savedSettings);
+        return { success: true, settings: savedSettings };
+      } catch (error: unknown) {
+        log.error('Prettify settings save error:', getErrorMessage(error));
+        return { success: false, settings: dependencies.prettifySettings.getView(), error: getErrorMessage(error) };
+      }
+    });
+
+    this.trustedIpc.handle(
+      'list-prettify-models',
+      async (
+        _event,
+        providerId: KnownPrettifyProviderId,
+        draftSettings: unknown = {},
+      ): Promise<PrettifyModelListResult> => {
+        if (!isKnownPrettifyProviderId(providerId)) {
+          const rejected = await dependencies.prettifyRuntime.listModels(providerId, {});
+          return {
+            ...rejected,
+            error: 'Unsupported prettify provider',
+          };
+        }
+
+        try {
+          assertValidKnownPrettifySettingsInput(draftSettings);
+          return await dependencies.prettifyRuntime.listModels(providerId, draftSettings);
+        } catch {
+          return {
+            availability: { status: 'unavailable' },
+            success: false,
+            providerId,
+            source: getPrettifyProviderCapabilities(providerId).modelSource,
+            models: [],
+            error: dependencies.localization.translate('status.prettifyFailed'),
+          };
+        }
+      },
+    );
+
+    this.trustedIpc.handle(
+      'load-prettify-model',
+      async (
+        _event,
+        providerId: KnownPrettifyProviderId,
+        draftSettings: unknown = {},
+      ): Promise<PrettifyModelLoadResult> => {
+        if (!isKnownPrettifyProviderId(providerId)) {
+          const rejected = await dependencies.prettifyRuntime.loadModel(providerId, {});
+          return { ...rejected, error: 'Unsupported prettify provider' };
+        }
+
+        try {
+          assertValidKnownPrettifySettingsInput(draftSettings);
+          return await dependencies.prettifyRuntime.loadModel(providerId, draftSettings);
+        } catch {
+          return { success: false, providerId, error: dependencies.localization.translate('status.prettifyFailed') };
+        }
+      },
+    );
+
+    this.trustedIpc.handle(
+      'unload-prettify-model',
+      async (
+        _event,
+        providerId: KnownPrettifyProviderId,
+        draftSettings: unknown = {},
+      ): Promise<PrettifyModelUnloadResult> => {
+        if (!isKnownPrettifyProviderId(providerId)) {
+          const rejected = await dependencies.prettifyRuntime.unloadModel(providerId, {});
+          return { ...rejected, error: 'Unsupported prettify provider' };
+        }
+
+        try {
+          assertValidKnownPrettifySettingsInput(draftSettings);
+          return await dependencies.prettifyRuntime.unloadModel(providerId, draftSettings);
+        } catch {
+          return { success: false, providerId, error: dependencies.localization.translate('status.prettifyFailed') };
+        }
+      },
+    );
+
+    this.trustedIpc.handle(
+      'show-notification',
+      (_event, title: string, body: string, options?: SystemNotificationOptions) => {
+        dependencies.notification.show(title, body, options);
+      },
+    );
+
+    this.trustedIpc.handle('get-translations', () => {
+      return dependencies.localization.getCurrentCatalog();
+    });
+
+    this.trustedIpc.handle('get-locale', () => {
+      return dependencies.localization.getLocale();
+    });
+
+    this.trustedIpc.handle('get-supported-locales', () => {
+      return dependencies.localization.getSupportedLocales();
+    });
+
+    this.trustedIpc.handle('set-locale', (_event, locale: unknown) => {
+      try {
+        if (!isAppLocaleId(locale)) {
+          return { success: false, error: 'Select a supported locale' };
+        }
+        log.info('Saving locale:', { from: dependencies.localization.getLocale(), to: locale });
+        dependencies.localization.setLocale(locale);
+        dependencies.config.setLocalePreference(locale);
+        dependencies.config.save();
+        dependencies.windowManager.broadcastLocaleChanged(locale);
+        log.info('Locale saved:', { locale: dependencies.localization.getLocale() });
+        return { success: true };
+      } catch (error: unknown) {
+        log.error('Locale save error:', getErrorMessage(error));
+        return { success: false, error: getErrorMessage(error) };
+      }
+    });
+
+    this.trustedIpc.handle('get-platform', () => {
+      return dependencies.platform;
+    });
+  }
+
+  public dispose(): Promise<void> {
+    if (this.disposalPromise) return this.disposalPromise;
+    this.disposed = true;
+    this.trustedIpc.dispose();
+    this.prettifyConnectionCoordinator?.dispose();
+    this.disposalPromise = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
+    return this.disposalPromise;
+  }
+
+  private getProviderSettingsSnapshot(providerId: string) {
+    const providerRegistry = this.dependencies.voiceProviderRegistry;
+    const auditProvider = this.dependencies.voiceAudit;
+    if (!providerRegistry.isKnownProviderId(providerId)) {
+      providerRegistry.createProvider(providerId);
     }
-  });
+    const audit = auditProvider.startOperation(providerId, 'settings-readiness', 'configuration');
 
-  handle('clear-provider-auth', async (event, providerId: string) => {
     try {
-      log.info('Clearing provider auth:', { providerId });
       if (providerId === OPENAI_API_PROVIDER_ID) {
-        clearOpenAIApiKey();
-      } else {
-        createProvider(providerId).clearSession();
+        const settings = {
+          providerId,
+          authType: 'apiKey' as const,
+          ...this.dependencies.voiceSettings.getOpenAIApiSettingsView(),
+        };
+        audit.lifecycle.phaseCompleted('configuration');
+        audit.lifecycle.terminal(
+          'configuration',
+          settings.hasApiKey ? 'success' : 'failure',
+          settings.hasApiKey ? undefined : auditProvider.createMetadata({ causeCode: 'not-configured' }),
+        );
+        return settings;
       }
-      await refreshActiveProvider(providerId);
-      log.info('Provider auth cleared:', { providerId });
-      const settings = getProviderSettingsSnapshot(providerId);
-      sendProviderSettingsChanged(settings, event.sender);
-      return { success: true, settings };
-    } catch (error: unknown) {
-      log.error('Provider auth clear error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
-    }
-  });
 
-  handle('get-active-provider', () => {
-    return currentProvider;
-  });
-
-  handle('set-active-provider', async (_event, providerId: string) => {
-    try {
-      const previousProvider = currentProvider;
-      log.info('Changing active provider:', { from: previousProvider, to: providerId });
-      const status = await switchProvider(providerId);
-      saveConfig();
-      sendBackgroundStatus(status);
-      if (status.error) {
-        log.warn('Active provider change failed:', {
-          from: previousProvider,
-          to: providerId,
-          status: summarizeBackgroundStatus(status),
-        });
-      } else {
-        log.info('Active provider changed:', {
-          from: previousProvider,
-          to: providerId,
-          status: summarizeBackgroundStatus(status),
-        });
+      const provider = providerRegistry.createProvider(providerId);
+      if (providerId === CLAUDE_WEB_PROVIDER_ID) {
+        const settings = {
+          providerId,
+          authType: 'browserSession' as const,
+          hasSession: provider.hasSession(),
+          ...this.dependencies.voiceSettings.getClaudeWebSettings(),
+        };
+        audit.lifecycle.phaseCompleted('configuration');
+        audit.lifecycle.terminal(
+          'configuration',
+          settings.hasSession ? 'success' : 'failure',
+          settings.hasSession ? undefined : auditProvider.createMetadata({ causeCode: 'not-authenticated' }),
+        );
+        return settings;
       }
-      return { success: !status.error, error: status.error };
-    } catch (error: unknown) {
-      log.error('Active provider change error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
-    }
-  });
-
-  handle('get-hotkey', (): HotkeySettings => {
-    return getHotkeySettingsSnapshot();
-  });
-
-  handle('set-hotkey-capture-active', (_event, active: unknown) => {
-    if (typeof active !== 'boolean') {
-      return { success: false };
-    }
-
-    setShortcutsSuspended(active);
-    return { success: true };
-  });
-
-  handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
-    if (typeof key !== 'string' || !isHotkeyTarget(key)) {
-      return {
-        success: false,
-        error: 'Unsupported hotkey target',
-        ...getHotkeySettingsSnapshot(),
-      };
-    }
-    const target: HotkeyTarget = key;
-    if (typeof hotkey !== 'string') {
-      return {
-        success: false,
-        error: 'Hotkey must be a string',
-        ...getHotkeySettingsSnapshot(),
-      };
-    }
-    const normalizedHotkey = normalizeHotkey(hotkey);
-    if (!normalizedHotkey) {
-      return {
-        success: false,
-        error: 'Choose a key or key combination',
-        ...getHotkeySettingsSnapshot(),
-      };
-    }
-
-    const conflict = getHotkeyConflict(target, normalizedHotkey, getHotkeySettingsSnapshot());
-    if (conflict) {
-      return {
-        success: false,
-        error: `This hotkey conflicts with the ${conflict} shortcut`,
-        ...getHotkeySettingsSnapshot(),
-      };
-    }
-
-    if (key === 'cancel') {
-      log.info('Changing cancel hotkey from', currentCancelHotkey, 'to', normalizedHotkey);
-      setHotkeys(undefined, normalizedHotkey, undefined, undefined, undefined);
-    } else if (key === 'stop') {
-      log.info('Changing stop hotkey from', currentStopHotkey, 'to', normalizedHotkey);
-      setHotkeys(undefined, undefined, normalizedHotkey, undefined, undefined);
-    } else if (target === 'translate') {
-      log.info('Changing translate hotkey from', currentTranslateHotkey, 'to', normalizedHotkey);
-      setHotkeys(undefined, undefined, undefined, normalizedHotkey, undefined);
-    } else if (target === 'prettify') {
-      log.info('Changing prettify hotkey from', currentPrettifyHotkey, 'to', normalizedHotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, normalizedHotkey, undefined);
-    } else if (target === 'retryTranscription') {
-      log.info('Changing retry transcription hotkey from', currentRetryTranscriptionHotkey, 'to', normalizedHotkey);
-      setHotkeys(undefined, undefined, undefined, undefined, undefined, normalizedHotkey);
-    } else {
-      log.info('Changing hotkey from', currentHotkey, 'to', normalizedHotkey);
-      setHotkeys(normalizedHotkey, undefined, undefined, undefined, undefined, undefined);
-    }
-    saveConfig();
-    registerShortcuts();
-    const hotkeySettings = getHotkeySettingsSnapshot();
-    getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
-    return { success: true, ...hotkeySettings };
-  });
-
-  handle('get-translate-settings', () => {
-    return { targetLang: currentTargetLang };
-  });
-
-  handle('get-text-action-settings', () => {
-    return getTextActionSettingsSnapshot();
-  });
-
-  handle('set-text-action-settings', (_event, settings: unknown) => {
-    try {
-      assertValidTextActionSettingsInput(settings);
-      const normalized = normalizeTextActionSettings(settings);
-      log.info('Saving text action settings:', {
-        from: {
-          translateEnabled: currentTranslateEnabled,
-          prettifyEnabled: currentPrettifyEnabled,
-        },
-        to: normalized,
-      });
-      setTextActionSettings(normalized.translateEnabled, normalized.prettifyEnabled);
-      saveConfig();
-      log.info('Text action settings saved:', normalized);
-      return { success: true, settings: normalized };
-    } catch (error: unknown) {
-      log.error('Text action settings save error:', getErrorMessage(error));
-      return { success: false, settings: getTextActionSettingsSnapshot(), error: getErrorMessage(error) };
-    }
-  });
-
-  handle('set-translate-settings', (_event, targetLang: unknown) => {
-    try {
-      if (!isGoogleTranslateTargetLanguage(targetLang)) {
-        return { success: false, error: 'Select a supported translation language' };
-      }
-      log.info('Saving translate settings:', { from: currentTargetLang, to: targetLang });
-      setTranslateSettings(targetLang);
-      saveConfig();
-      log.info('Translate settings saved:', { targetLang: currentTargetLang });
-      return { success: true };
-    } catch (error: unknown) {
-      log.error('Translate settings save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
-    }
-  });
-
-  handle('get-prettify-settings', () => {
-    return getPrettifySettingsSnapshot();
-  });
-
-  handle('check-prettify-cli-connection', async (event, providerId: unknown): Promise<PrettifyCliConnectionResult> => {
-    if (!isPrettifyCliProviderId(providerId)) {
-      throw new Error('Unsupported Prettify CLI provider');
-    }
-
-    prettifyCliConnectionChecks.get(event.sender)?.abort();
-    const controller = new AbortController();
-    const handleSenderDestroyed = (): void => controller.abort();
-    prettifyCliConnectionChecks.set(event.sender, controller);
-    event.sender.once('destroyed', handleSenderDestroyed);
-
-    try {
-      const result = await checkPrettifyCliConnection(providerId, getPrettifySettingsSnapshot(), {
-        signal: controller.signal,
-      });
-      log.info('Prettify CLI connection checked:', {
+      const settings = {
         providerId,
-        status: result.status,
-        ...(result.status === 'unavailable' ? { errorCode: result.errorCode } : {}),
-      });
-      return result;
-    } finally {
-      if (prettifyCliConnectionChecks.get(event.sender) === controller) {
-        prettifyCliConnectionChecks.delete(event.sender);
-      }
-      event.sender.removeListener('destroyed', handleSenderDestroyed);
-    }
-  });
-
-  handle('set-prettify-settings', (_event, settings: unknown = {}) => {
-    try {
-      assertValidPrettifySettingsInput(settings);
-      const previous = getPrettifySettingsSnapshot();
-      log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
-      const savedSettings = savePrettifySettings(settings);
-      log.info('Prettify settings saved:', {
-        providerId: savedSettings.providerId,
-        providerChanged: savedSettings.providerId !== previous.providerId,
-        promptLength: savedSettings.prompt.length,
-        temperature: savedSettings.temperature,
-        ollamaModelLength: savedSettings.ollama.model.length,
-        vllmModelLength: savedSettings.vllm.model.length,
-        vllmHasApiKey: savedSettings.vllm.hasApiKey,
-      });
-      sendPrettifySettingsChanged(savedSettings);
-      return { success: true, settings: savedSettings };
+        authType: provider.info.authType,
+        hasSession: provider.hasSession(),
+      };
+      audit.lifecycle.phaseCompleted('configuration');
+      audit.lifecycle.terminal(
+        'configuration',
+        settings.hasSession ? 'success' : 'failure',
+        settings.hasSession ? undefined : auditProvider.createMetadata({ causeCode: 'not-authenticated' }),
+      );
+      return settings;
     } catch (error: unknown) {
-      log.error('Prettify settings save error:', getErrorMessage(error));
-      return { success: false, settings: getPrettifySettingsSnapshot(), error: getErrorMessage(error) };
+      auditProvider.terminalException(audit, 'configuration', error);
+      throw error;
     }
-  });
+  }
 
-  handle(
-    'list-prettify-models',
-    async (
-      _event,
-      providerId: KnownPrettifyProviderId,
-      draftSettings: unknown = {},
-    ): Promise<PrettifyModelListResult> => {
-      if (!isKnownPrettifyProviderId(providerId)) {
-        return {
-          availability: { status: 'unavailable' },
-          success: false,
-          providerId: 'ollama',
-          source: 'http',
-          models: [],
-          error: 'Unsupported prettify provider',
-        };
-      }
-
-      try {
-        assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Listing Prettify models:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await listPrettifyModels(providerId, draftSettings);
-        log.info('Prettify models listed:', {
-          providerId,
-          modelCount: result.models.length,
-          source: result.source,
-          availability: result.availability.status,
-          ...(result.availability.status === 'unavailable'
-            ? { errorCode: result.availability.errorCode }
-            : { hasCapabilityVersion: Boolean(result.availability.capabilityVersion) }),
-        });
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model listing failed:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
-        return {
-          availability: { status: 'unavailable' },
-          success: false,
-          providerId,
-          source: getPrettifyProviderCapabilities(providerId).modelSource,
-          models: [],
-          error: t('status.prettifyFailed'),
-        };
-      }
-    },
-  );
-
-  handle(
-    'load-prettify-model',
-    async (
-      _event,
-      providerId: KnownPrettifyProviderId,
-      draftSettings: unknown = {},
-    ): Promise<PrettifyModelLoadResult> => {
-      if (!isKnownPrettifyProviderId(providerId)) {
-        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
-      }
-
-      try {
-        assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Loading Prettify model:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await loadPrettifyModel(providerId, draftSettings);
-        if (!result.success) {
-          log.warn('Prettify model load failed:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasError: Boolean(result.error),
-          });
-        } else {
-          log.info('Prettify model loaded:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasVramSize: typeof result.vramSizeBytes === 'number',
-          });
-        }
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model load error:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
-        return { success: false, providerId, error: t('status.prettifyFailed') };
-      }
-    },
-  );
-
-  handle(
-    'unload-prettify-model',
-    async (
-      _event,
-      providerId: KnownPrettifyProviderId,
-      draftSettings: unknown = {},
-    ): Promise<PrettifyModelUnloadResult> => {
-      if (!isKnownPrettifyProviderId(providerId)) {
-        return { success: false, providerId: 'ollama', error: 'Unsupported prettify provider' };
-      }
-
-      try {
-        assertValidKnownPrettifySettingsInput(draftSettings);
-        log.info('Unloading Prettify model:', {
-          providerId,
-          draft: summarizePrettifySettingsInput(draftSettings),
-        });
-        const result = await unloadPrettifyModel(providerId, draftSettings);
-        if (!result.success) {
-          log.warn('Prettify model unload failed:', {
-            providerId,
-            hasModel: Boolean(result.model),
-            hasError: Boolean(result.error),
-          });
-        } else {
-          log.info('Prettify model unloaded:', {
-            providerId,
-            hasModel: Boolean(result.model),
-          });
-        }
-        return result;
-      } catch (error: unknown) {
-        log.warn('Prettify model unload error:', {
-          providerId,
-          errorName: error instanceof Error ? error.name : 'unknown',
-        });
-        return { success: false, providerId, error: t('status.prettifyFailed') };
-      }
-    },
-  );
-
-  handle('show-notification', (_event, title: string, body: string, options?: SystemNotificationOptions) => {
-    showSystemNotification(title, body, options);
-  });
-
-  handle('get-translations', () => {
-    return getAllTranslations();
-  });
-
-  handle('get-locale', () => {
-    return getLocale();
-  });
-
-  handle('get-supported-locales', () => {
-    return getSupportedLocales();
-  });
-
-  handle('set-locale', (_event, locale: unknown) => {
-    try {
-      if (!isAppLocaleId(locale)) {
-        return { success: false, error: 'Select a supported locale' };
-      }
-      log.info('Saving locale:', { from: getLocale(), to: locale });
-      setLocale(locale);
-      setCurrentLocale(locale);
-      saveConfig();
-      broadcastLocaleChanged(locale);
-      log.info('Locale saved:', { locale: getLocale() });
-      return { success: true };
-    } catch (error: unknown) {
-      log.error('Locale save error:', getErrorMessage(error));
-      return { success: false, error: getErrorMessage(error) };
-    }
-  });
-
-  handle('get-platform', () => {
-    return process.platform;
-  });
+  private async refreshActiveProvider(providerId: string) {
+    const currentProvider = this.dependencies.config.getSnapshot().provider;
+    if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
+    const status = await this.dependencies.backgroundBrowserService.restart();
+    this.dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
+    return status;
+  }
 }

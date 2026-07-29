@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file -- The CLI provider module keeps its two sibling implementations together. */
-import { t, type TranslationKey } from '@main/i18n';
+import type { I18nService, TranslationKey } from '@main/i18n';
 import {
   CLAUDE_CLI_MODEL_ALIASES,
   ClaudeCliPrettifyAdapter,
@@ -13,13 +13,14 @@ import {
 } from '@main/services/prettifyCodexCli';
 import {
   BasePrettifyProvider,
-  createOneShotExecution,
   type PreparePrettifyExecutionResult,
   type PrettifyProviderDependencies,
   type PrettifyProviderModelList,
   type PrettifyProviderRequest,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
+import { OneShotPrettifyExecution } from '@main/services/prettifyOneShotExecution';
+import type { PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type { PrettifyModelOption, PrettifyProviderAvailability } from '@shared/prettifySettings';
 
@@ -56,18 +57,24 @@ const CODEX_CLI_ERROR_KEYS: Record<CodexCliPrettifyErrorCode, TranslationKey> = 
   [CodexCliPrettifyErrorCode.ModelDiscoveryFailed]: 'error.prettify.codexCli.model-discovery-failed',
 };
 
-const defaultClaudeCliAdapter = new ClaudeCliPrettifyAdapter();
-const defaultCodexCliAdapter = new CodexCliPrettifyAdapter();
+export interface ClaudeCliPrettifyProviderDependencies extends PrettifyProviderDependencies {
+  readonly adapter: Pick<ClaudeCliPrettifyAdapter, 'checkAvailability' | 'prepare'>;
+}
+
+export interface CodexCliPrettifyProviderDependencies extends PrettifyProviderDependencies {
+  readonly adapter: Pick<CodexCliPrettifyAdapter, 'checkAvailability' | 'listModels' | 'prepare'>;
+}
 
 export function createCliFailure(
   providerId: 'claude-cli' | 'codex-cli',
   errorCode: ClaudeCliPrettifyErrorCode | CodexCliPrettifyErrorCode,
+  localization: Pick<I18nService, 'translate'>,
 ): Exclude<PreparePrettifyExecutionResult, { success: true }> {
   const key =
     providerId === 'claude-cli'
       ? CLAUDE_CLI_ERROR_KEYS[errorCode as ClaudeCliPrettifyErrorCode]
       : CODEX_CLI_ERROR_KEYS[errorCode as CodexCliPrettifyErrorCode];
-  return { error: t(key), errorCode, success: false };
+  return { error: localization.translate(key), errorCode, success: false };
 }
 
 function getClaudeCliModelOptions(configuredModel: string): PrettifyModelOption[] {
@@ -84,74 +91,151 @@ function getClaudeCliModelOptions(configuredModel: string): PrettifyModelOption[
 
 /** Capability-gated Claude CLI provider. */
 export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
-  public constructor() {
-    super('claude-cli');
+  public constructor(private readonly dependencies: ClaudeCliPrettifyProviderDependencies) {
+    super('claude-cli', dependencies.audit);
   }
 
   public async checkAvailability(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
-    const adapter = deps.claudeCliAdapter;
-    const input = { settings: settings.claudeCli, signal };
-    const result = adapter?.checkAvailability
-      ? await adapter.checkAvailability(input)
-      : await defaultClaudeCliAdapter.checkAvailability(input);
-    return result.success
-      ? { status: 'available', capabilityVersion: result.capabilityVersion }
-      : { status: 'unavailable', errorCode: result.error };
+    const audit = this.audit;
+    const context = auditContext ?? audit.startAvailability(this.id);
+    context.lifecycle.phaseEntered('readiness');
+    const input = { auditContext: context, settings: settings.claudeCli, signal };
+    try {
+      const result = await this.dependencies.adapter.checkAvailability(input);
+      if (result.success) {
+        audit.terminalSuccess(context, 'readiness');
+        return { status: 'available', capabilityVersion: result.capabilityVersion };
+      }
+      audit.terminalCliFailure(context, result.error);
+      return { status: 'unavailable', errorCode: result.error };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'process', error);
+      throw error;
+    }
   }
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const prepared = await (deps.claudeCliAdapter ?? defaultClaudeCliAdapter).prepare({
-      prompt: settings.prompt,
-      settings: settings.claudeCli,
-      signal: new AbortController().signal,
+    const audit = this.audit;
+    const context = auditContext ?? audit.startModelList(this.id);
+    const source =
+      settings.claudeCli.model && !(CLAUDE_CLI_MODEL_ALIASES as readonly string[]).includes(settings.claudeCli.model)
+        ? 'configured-model'
+        : 'known-aliases';
+    const metadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.claudeCli.model),
+      modelNameLength: settings.claudeCli.model.length,
+      modelSource: source,
+      usesDefaultModel: !settings.claudeCli.model,
     });
-    return {
-      availability: prepared.success
-        ? { status: 'available', capabilityVersion: prepared.prepared.capabilityVersion }
-        : { status: 'unavailable', errorCode: prepared.error },
-      models: getClaudeCliModelOptions(settings.claudeCli.model),
-      source:
-        settings.claudeCli.model && !(CLAUDE_CLI_MODEL_ALIASES as readonly string[]).includes(settings.claudeCli.model)
-          ? 'configured-model'
-          : 'known-aliases',
-    };
+    context.lifecycle.phaseEntered('model-discovery', metadata);
+    try {
+      const prepared = await this.dependencies.adapter.prepare({
+        auditContext: context,
+        prompt: settings.prompt,
+        settings: settings.claudeCli,
+        signal: new AbortController().signal,
+      });
+      if (prepared.success) {
+        audit.terminalSuccess(context, 'model-discovery', metadata);
+      } else {
+        audit.terminalCliFailure(context, prepared.error, metadata);
+      }
+      return {
+        availability: prepared.success
+          ? { status: 'available', capabilityVersion: prepared.prepared.capabilityVersion }
+          : { status: 'unavailable', errorCode: prepared.error },
+        models: getClaudeCliModelOptions(settings.claudeCli.model),
+        source,
+      };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'model-discovery', error, metadata);
+      throw error;
+    }
   }
 
   public async prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    const result = await (deps.claudeCliAdapter ?? defaultClaudeCliAdapter).prepare({
-      prompt: settings.prompt,
-      settings: settings.claudeCli,
-      signal,
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.claudeCli.model),
+      modelNameLength: settings.claudeCli.model.length,
+      modelSource:
+        settings.claudeCli.model && !(CLAUDE_CLI_MODEL_ALIASES as readonly string[]).includes(settings.claudeCli.model)
+          ? 'configured-model'
+          : 'known-aliases',
+      usesDefaultModel: !settings.claudeCli.model,
     });
-    if (!result.success) return createCliFailure('claude-cli', result.error);
+    const context = auditContext ?? audit.startPrepare(this.id, modelMetadata);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    context.lifecycle.phaseEntered('readiness', modelMetadata);
+    try {
+      const result = await this.dependencies.adapter.prepare({
+        auditContext: context,
+        prompt: settings.prompt,
+        settings: settings.claudeCli,
+        signal,
+      });
+      if (!result.success) {
+        audit.terminalCliFailure(context, result.error, modelMetadata);
+        return createCliFailure('claude-cli', result.error, this.dependencies.localization);
+      }
+      audit.terminalSuccess(context, 'readiness', modelMetadata);
 
-    return {
-      success: true,
-      prepared: createOneShotExecution('claude-cli', result.prepared.cacheContext, async (text) => {
-        const executed = await result.prepared.execute(text);
-        return executed.success
-          ? { success: true, text: executed.text }
-          : createCliFailure('claude-cli', executed.error);
-      }),
-    };
+      return {
+        success: true,
+        prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, {
+          audit,
+          contractVersion: result.prepared.capabilityVersion,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
+          execute: async (text, executionContext) => {
+            executionContext.lifecycle.phaseEntered('submission');
+            try {
+              const executed = await result.prepared.execute(text, executionContext);
+              if (executed.success) {
+                audit.terminalSuccess(executionContext, 'result', {
+                  resultLength: executed.text.length,
+                  sourceLength: text.length,
+                });
+                return { success: true, text: executed.text };
+              }
+              audit.terminalCliFailure(executionContext, executed.error, {
+                sourceLength: text.length,
+              });
+              return createCliFailure('claude-cli', executed.error, this.dependencies.localization);
+            } catch (error: unknown) {
+              audit.terminalException(executionContext, 'process', error, {
+                sourceLength: text.length,
+              });
+              throw error;
+            }
+          },
+        }),
+      };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'readiness', error, modelMetadata);
+      throw error;
+    }
   }
 
-  public async prettify(
-    { text, signal = new AbortController().signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const prepared = await this.prepare(settings, signal, deps);
+  public async prettify({
+    text,
+    signal = new AbortController().signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const prepared = await this.prepare(settings, signal);
     return prepared.success ? prepared.prepared.execute(text) : prepared;
   }
 
@@ -162,90 +246,167 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 
 /** Capability-gated experimental Codex CLI provider. */
 export class CodexCliPrettifyProvider extends BasePrettifyProvider {
-  public constructor() {
-    super('codex-cli');
+  public constructor(private readonly dependencies: CodexCliPrettifyProviderDependencies) {
+    super('codex-cli', dependencies.audit);
   }
 
   public async checkAvailability(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
-    const adapter = deps.codexCliAdapter;
-    const input = { settings: settings.codexCli, signal };
-    const result = adapter?.checkAvailability
-      ? await adapter.checkAvailability(input)
-      : await defaultCodexCliAdapter.checkAvailability(input);
-    return result.success
-      ? { status: 'available', capabilityVersion: result.capabilityVersion }
-      : { status: 'unavailable', errorCode: result.error };
+    const audit = this.audit;
+    const context = auditContext ?? audit.startAvailability(this.id);
+    context.lifecycle.phaseEntered('readiness');
+    const input = { auditContext: context, settings: settings.codexCli, signal };
+    try {
+      const result = await this.dependencies.adapter.checkAvailability(input);
+      if (result.success) {
+        audit.terminalSuccess(context, 'readiness');
+        return { status: 'available', capabilityVersion: result.capabilityVersion };
+      }
+      audit.terminalCliFailure(context, result.error);
+      return { status: 'unavailable', errorCode: result.error };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'process', error);
+      throw error;
+    }
   }
 
   public async listModels(
     settings: PrettifySettingsWithSecret,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
-    const listed = await (deps.codexCliAdapter ?? defaultCodexCliAdapter).listModels({
-      settings: settings.codexCli,
-      signal: new AbortController().signal,
+    const audit = this.audit;
+    const context = auditContext ?? audit.startModelList(this.id);
+    const metadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.codexCli.model),
+      modelNameLength: settings.codexCli.model.length,
+      modelSource: this.capabilities.modelSource,
+      usesDefaultModel: !settings.codexCli.model,
     });
-    if (!listed.success) {
-      return {
-        availability: { status: 'unavailable', errorCode: listed.error },
-        models: [],
-        source: this.capabilities.modelSource,
-      };
-    }
+    context.lifecycle.phaseEntered('model-discovery', metadata);
+    try {
+      const listed = await this.dependencies.adapter.listModels({
+        auditContext: context,
+        settings: settings.codexCli,
+        signal: new AbortController().signal,
+      });
+      if (!listed.success) {
+        audit.terminalCliFailure(context, listed.error, metadata);
+        return {
+          availability: { status: 'unavailable', errorCode: listed.error },
+          models: [],
+          source: this.capabilities.modelSource,
+        };
+      }
 
-    const models = listed.models.map((model) => ({
-      id: model.id,
-      name: model.name,
-      reasoningEfforts: model.reasoningEfforts,
-      verbosity: model.verbosity,
-    }));
-    const configuredModel = settings.codexCli.model;
-    if (
-      configuredModel &&
-      isValidCodexCliModel(configuredModel) &&
-      !models.some((model) => model.id === configuredModel)
-    ) {
-      models.push({ id: configuredModel, name: configuredModel, reasoningEfforts: [], verbosity: [] });
+      const models = listed.models.map((model) => ({
+        id: model.id,
+        name: model.name,
+        reasoningEfforts: model.reasoningEfforts,
+        verbosity: model.verbosity,
+      }));
+      const configuredModel = settings.codexCli.model;
+      if (
+        configuredModel &&
+        isValidCodexCliModel(configuredModel) &&
+        !models.some((model) => model.id === configuredModel)
+      ) {
+        models.push({ id: configuredModel, name: configuredModel, reasoningEfforts: [], verbosity: [] });
+      }
+      const successMetadata = audit.createMetadata({
+        ...metadata,
+        modelSource: listed.source,
+      });
+      audit.terminalSuccess(context, 'model-discovery', successMetadata);
+      return {
+        availability: { status: 'available', capabilityVersion: listed.capabilityVersion },
+        models,
+        source: listed.source,
+      };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'model-discovery', error, metadata);
+      throw error;
     }
-    return {
-      availability: { status: 'available', capabilityVersion: listed.capabilityVersion },
-      models,
-      source: listed.source,
-    };
   }
 
   public async prepare(
     settings: PrettifySettingsWithSecret,
     signal: AbortSignal,
-    deps: PrettifyProviderDependencies,
+    auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    const result = await (deps.codexCliAdapter ?? defaultCodexCliAdapter).prepare({
-      prompt: settings.prompt,
-      settings: settings.codexCli,
-      signal,
+    const audit = this.audit;
+    const modelMetadata = audit.createMetadata({
+      modelConfigured: Boolean(settings.codexCli.model),
+      modelNameLength: settings.codexCli.model.length,
+      modelSource: this.capabilities.modelSource,
+      usesDefaultModel: !settings.codexCli.model,
     });
-    if (!result.success) return createCliFailure('codex-cli', result.error);
+    const context = auditContext ?? audit.startPrepare(this.id, modelMetadata);
+    const readinessContext = audit.startSettingsReadiness(this.id, modelMetadata);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
+    audit.terminalSuccess(readinessContext, 'configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    context.lifecycle.phaseEntered('readiness', modelMetadata);
+    try {
+      const result = await this.dependencies.adapter.prepare({
+        auditContext: context,
+        prompt: settings.prompt,
+        settings: settings.codexCli,
+        signal,
+      });
+      if (!result.success) {
+        audit.terminalCliFailure(context, result.error, modelMetadata);
+        return createCliFailure('codex-cli', result.error, this.dependencies.localization);
+      }
+      audit.terminalSuccess(context, 'readiness', {
+        ...modelMetadata,
+        modelSource: result.prepared.source,
+      });
 
-    return {
-      success: true,
-      prepared: createOneShotExecution('codex-cli', result.prepared.cacheContext, async (text) => {
-        const executed = await result.prepared.execute(text);
-        return executed.success
-          ? { success: true, text: executed.text }
-          : createCliFailure('codex-cli', executed.error);
-      }),
-    };
+      return {
+        success: true,
+        prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, {
+          audit,
+          contractVersion: result.prepared.capabilityVersion,
+          diagnosticCapture: this.dependencies.diagnosticCapture,
+          execute: async (text, executionContext) => {
+            executionContext.lifecycle.phaseEntered('submission');
+            try {
+              const executed = await result.prepared.execute(text, executionContext);
+              if (executed.success) {
+                audit.terminalSuccess(executionContext, 'result', {
+                  resultLength: executed.text.length,
+                  sourceLength: text.length,
+                });
+                return { success: true, text: executed.text };
+              }
+              audit.terminalCliFailure(executionContext, executed.error, {
+                sourceLength: text.length,
+              });
+              return createCliFailure('codex-cli', executed.error, this.dependencies.localization);
+            } catch (error: unknown) {
+              audit.terminalException(executionContext, 'process', error, {
+                sourceLength: text.length,
+              });
+              throw error;
+            }
+          },
+        }),
+      };
+    } catch (error: unknown) {
+      audit.terminalException(context, 'readiness', error, modelMetadata);
+      throw error;
+    }
   }
 
-  public async prettify(
-    { text, signal = new AbortController().signal, settings }: PrettifyProviderRequest,
-    deps: PrettifyProviderDependencies,
-  ): Promise<TextProcessingResult> {
-    const prepared = await this.prepare(settings, signal, deps);
+  public async prettify({
+    text,
+    signal = new AbortController().signal,
+    settings,
+  }: PrettifyProviderRequest): Promise<TextProcessingResult> {
+    const prepared = await this.prepare(settings, signal);
     return prepared.success ? prepared.prepared.execute(text) : prepared;
   }
 

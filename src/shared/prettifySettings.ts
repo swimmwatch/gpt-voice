@@ -5,7 +5,15 @@ export const KNOWN_PRETTIFY_PROVIDER_IDS = ['ollama', 'vllm', 'claude-cli', 'cod
 export const PRETTIFY_CLI_PROVIDER_IDS = ['claude-cli', 'codex-cli'] as const;
 export const CLAUDE_CLI_PRETTIFY_EFFORT_VALUES = ['default', 'low', 'medium', 'high'] as const;
 export const CLAUDE_CLI_PRETTIFY_MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
-export const CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES = ['default', 'low', 'medium', 'high', 'xhigh'] as const;
+export const CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES = [
+  'default',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const;
 export const CODEX_CLI_PRETTIFY_VERBOSITY_VALUES = ['low', 'medium', 'high'] as const;
 export const MAX_PRETTIFY_PROMPT_LENGTH = 4_000;
 export const MIN_PRETTIFY_CLI_TIMEOUT_SECONDS = 15;

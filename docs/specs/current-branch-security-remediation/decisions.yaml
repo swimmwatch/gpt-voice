@@ -1,0 +1,2192 @@
+schema_version: 1
+spec_slug: current-branch-security-remediation
+interview_id: spec:current-branch-security-remediation
+updated_at: '2026-07-28'
+decisions:
+  - id: outcome.merge-readiness
+    revision: 1
+    category: outcome
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#final-verdict
+    answer:
+      selected_ids: [resolve-review-findings]
+      text: ''
+    rationale: The reviewed branch is not merge-ready until the blocking security, availability, lifecycle, and compatibility defects are corrected and regression-tested.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, DOC-004, AC-AUTO-019, AC-AUTO-020]
+
+  - id: security.archive-boundary
+    revision: 1
+    category: security
+    state: superseded
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#1-untrusted-archives-can-exceed-the-advertised-resource-envelope
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#3-attacker-controlled-metadata-is-emitted-as-trusted-normalized-evidence
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#6-archive-input-is-not-required-to-be-one-stable-regular-file
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#7-plaintext-temporary-extraction-cleanup-is-silently-best-effort
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#8-persistent-incident-reports-have-no-enforced-private-write-policy
+    answer:
+      selected_ids: [harden-untrusted-archive-boundary]
+      text: ''
+    rationale: Archive inspection and report publication must remain bounded, non-executable, metadata-safe, private, and deterministic for malicious input and cleanup failures.
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002, SEC-003, SEC-004, SEC-005]
+
+  - id: lifecycle.provider-readiness
+    revision: 1
+    category: failure
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#2-startup-can-remain-permanently-covered-by-the-loader
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#4-saving-cloakbrowser-settings-permanently-removes-translation-status-updates
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#9-malformed-prettify-model-contracts-are-displayed-as-connected
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#10-voice-bootstrap-and-switch-failures-leave-misleading-tooltips
+    answer:
+      selected_ids: [bounded-accurate-recoverable]
+      text: ''
+    rationale: Initial readiness must settle, reusable Translation reset must preserve subscribers, malformed provider contracts must fail closed, and renderer tooltips must retain sanitized failure reasons.
+    supersedes_revision: null
+    requirement_ids:
+      - READY-001
+      - READY-002
+      - READY-003
+      - READY-004
+      - READY-005
+      - UX-001
+      - UX-002
+      - COMP-005
+      - FAIL-003
+      - FAIL-004
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-013
+      - AC-AUTO-014
+      - AC-AUTO-015
+      - AC-AUTO-016
+
+  - id: architecture.boundaries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md#project-boundaries
+      - docs/agent-guides/project-conventions.md#dependency-injection-and-runtime-ownership
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#positive-controls-and-standards-compliance
+    answer:
+      selected_ids: [preserve-existing-boundaries]
+      text: ''
+    rationale: Main retains privileged filesystem, browser, HTTP, and IPC ownership; renderer remains functional and typed; stateful services remain class-owned and constructor-injected; no raw sensitive data crosses logging or IPC boundaries.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-001
+      - ARCH-002
+      - ARCH-003
+      - ARCH-007
+      - DEP-001
+      - DEP-002
+      - DEP-003
+      - DOC-005
+      - AC-AUTO-017
+
+  - id: compatibility.public-contracts
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#scope
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#positive-controls-and-standards-compliance
+    answer:
+      selected_ids: [preserve-public-contracts]
+      text: ''
+    rationale: Remediation must not weaken trusted IPC, closed connection contracts, privacy guarantees, provider behavior, or existing archive schema compatibility unless an explicit decision supersedes it.
+    supersedes_revision: null
+    requirement_ids: [COMP-005]
+
+  - id: scope.remediation-depth
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#blocking-findings
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#important-findings
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#optional-improvements
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: scope-round-01
+      question_id: scope.remediation-depth
+      idempotency_key: scope.remediation-depth:v1
+      last_status: answered
+    question:
+      text: Which review findings should this remediation specification require?
+      kind: single
+      options:
+        - id: blockers-and-important
+          label: Blockers and important findings (Recommended)
+          description: Resolve findings 1-10 in one review cycle and leave optional improvements and the pre-existing dependency advisory tracked separately.
+        - id: all-review-items
+          label: All review items
+          description: Include findings 1-10, every optional improvement, stale handoff repair, and dependency-policy/advisory follow-up.
+        - id: blockers-only
+          label: Blocking findings only
+          description: Require only findings 1-5 and defer findings 6-10 and optional items.
+    answer:
+      selected_ids: [all-review-items]
+      text: ''
+    rationale: The specification covers every blocking, important, and optional review item, plus the explicit handoff and advisory follow-up.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001]
+
+  - id: compatibility.python-runtime
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#5-the-advertised-python-310-and-windows-execution-contracts-are-false
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: scope-round-01
+      question_id: compatibility.python-runtime
+      idempotency_key: compatibility.python-runtime:v1
+      last_status: answered
+    question:
+      text: Which Python compatibility contract should the diagnostics inspector provide?
+      kind: single
+      options:
+        - id: preserve-python-310
+          label: Preserve Python 3.10+ (Recommended)
+          description: Replace 3.11-only APIs and add configurable cross-platform interpreter resolution with Python 3.10 and Windows coverage.
+        - id: require-python-311
+          label: Require Python 3.11+
+          description: Raise and enforce the documented minimum while still adding cross-platform interpreter resolution and Windows coverage.
+    answer:
+      selected_ids: [require-python-311]
+      text: ''
+    rationale: The inspector may use Python 3.11 APIs, but the minimum and cross-platform launcher contract must be truthful and tested.
+    supersedes_revision: null
+    requirement_ids: [COMP-001]
+
+  - id: readiness.prettify-timeout
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#2-startup-can-remain-permanently-covered-by-the-loader
+      - src/main/services/prettifyHttpProviders.ts
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: scope-round-01
+      question_id: readiness.prettify-timeout
+      idempotency_key: readiness.prettify-timeout:v1
+      last_status: answered
+    question:
+      text: What main-owned deadline should initial Ollama/vLLM readiness use before settling to Not connected?
+      kind: single
+      options:
+        - id: ten-seconds
+          label: 10 seconds (Recommended)
+          description: Match existing readiness-oriented provider budgets and keep startup recovery prompt.
+        - id: fifteen-seconds
+          label: 15 seconds
+          description: Allow slower local or remote-compatible endpoints while remaining bounded.
+        - id: thirty-seconds
+          label: 30 seconds
+          description: Maximize tolerance for slow endpoints at the cost of a longer blocked startup.
+    answer:
+      selected_ids: [ten-seconds]
+      text: ''
+    rationale: Initial HTTP readiness must settle within ten seconds and expose a closed Not connected state after timeout.
+    supersedes_revision: null
+    requirement_ids: [READY-002]
+
+  - id: security.archive-resource-envelope
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#1-untrusted-archives-can-exceed-the-advertised-resource-envelope
+      - docs/specs/provider-audit-logging/spec.md#untrusted-archive-handling
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: scope-round-01
+      question_id: security.archive-resource-envelope
+      idempotency_key: security.archive-resource-envelope:v1
+      last_status: answered
+    question:
+      text: How should remediation bound accepted archive data and normalized inspector output?
+      kind: single
+      options:
+        - id: reduce-acceptance-limits
+          label: Reduce acceptance limits (Recommended)
+          description: Limit members to 64 MiB, total payload to 128 MiB, JSONL to 100,000 records, structural metadata to 1 MiB, and normalized output to 1 MiB/10,000 evidence items with omission counts.
+        - id: preserve-archive-limits
+          label: Preserve archive limits
+          description: Keep 128 MiB member, 256 MiB total, and 1,000,000-record acceptance while streaming in bounded memory; cap structural metadata at 1 MiB and normalized output at 1 MiB/10,000 evidence items with omission counts.
+    answer:
+      selected_ids: [reduce-acceptance-limits]
+      text: ''
+    rationale: Reduce accepted payload and record limits as well as bounding structural metadata and normalized output to protect the inspector and agent host.
+    supersedes_revision: null
+    requirement_ids: [SEC-003, SEC-005, COMP-003]
+
+  - id: architecture.python-invocation
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#5-the-advertised-python-310-and-windows-execution-contracts-are-false
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - tests/skills/analyzeDiagnosticsArchive.test.ts
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-02
+      question_id: architecture.python-invocation
+      idempotency_key: architecture.python-invocation:v1
+      last_status: answered
+    question:
+      text: How should the repository invoke the Python 3.11+ diagnostics inspector across platforms?
+      kind: single
+      options:
+        - id: owned-node-launcher
+          label: Owned Node launcher (Recommended)
+          description: Use a repository-owned, shell-free Node launcher with injectable interpreter discovery, an explicit override, Windows py support, and python3.11/python3/python fallbacks.
+        - id: documented-platform-commands
+          label: Platform-specific commands
+          description: Keep direct Python invocation but document and test separate Windows and POSIX commands without one canonical launcher.
+        - id: explicit-interpreter-only
+          label: Explicit interpreter only
+          description: Require the caller to provide an exact Python executable or launcher command for every inspection.
+    answer:
+      selected_ids: [explicit-interpreter-only]
+      text: ''
+    rationale: Callers supply and own the exact interpreter argv; the repository validates it and never performs fallback discovery.
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, ARCH-005, ARCH-006, ARCH-008, COMP-002]
+
+  - id: architecture.python-invocation
+    revision: 2
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - tests/skills/analyzeDiagnosticsArchive.test.ts
+      - Prompt MCP answer plan.interpreter-adapter-location revision 1
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      batch_id: architecture-round-01
+      question_id: plan.interpreter-adapter-location
+      idempotency_key: plan.interpreter-adapter-location:v1
+      last_status: answered
+    question:
+      text: How should the diagnostics skill invoke the explicitly selected Python 3.11+ interpreter?
+      kind: single
+      options:
+        - id: direct-skill-invocation
+          label: Direct skill invocation
+          description: The agent skill runs the checked-in Python script directly with the explicitly selected interpreter; no process adapter or launcher wrapper is added.
+        - id: repository-process-adapter
+          label: Repository process adapter
+          description: A repository-owned adapter validates and launches the explicitly selected interpreter.
+    answer:
+      selected_ids: [direct-skill-invocation]
+      text: ''
+    rationale: Superseded when the user selected agent-managed archive inspection with no checked-in validator or interpreter contract.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-004, ARCH-005, ARCH-006, ARCH-008, COMP-002]
+
+  - id: security.direct-invocation-deadline
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - .agents/skills/analyze-diagnostics-archive/scripts/inspect_diagnostics_archive.py
+      - docs/specs/current-branch-security-remediation/spec.md#python-compatibility-and-invocation
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-06
+      question_id: security.direct-invocation-deadline
+      idempotency_key: security.direct-invocation-deadline:v1
+      last_status: answered
+    question:
+      text: Without a process adapter, how should the diagnostics CLI bound wall-clock execution?
+      kind: single
+      options:
+        - id: cli-checkpoints-and-caller-cancel
+          label: CLI deadlines (Recommended)
+          description: The Python CLI enforces 120-second inspect and 30-second excerpt/report monotonic deadlines at bounded processing checkpoints; the skill cancels the direct command when its execution surface supports cancellation.
+        - id: resource-bounds-only
+          label: Resource bounds only
+          description: Remove the wall-clock deadline promise and rely on regular-file validation, archive/memory/output ceilings, and caller cancellation.
+    answer:
+      selected_ids: []
+      text: The need for any diagnostics script should be reconsidered because the agent could open and analyze the archive under the required rules.
+    rationale: No diagnostics CLI remains under the selected agent-managed inspection architecture, so CLI deadline ownership is not applicable.
+    supersedes_revision: null
+    requirement_ids: [ARCH-008, FAIL-002, AC-AUTO-010]
+
+  - id: architecture.archive-analysis-engine
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#1-untrusted-archives-can-exceed-the-advertised-resource-envelope
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#3-attacker-controlled-metadata-is-emitted-as-trusted-normalized-evidence
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - .agents/skills/analyze-diagnostics-archive/scripts/inspect_diagnostics_archive.py
+      - tests/skills/analyzeDiagnosticsArchive.test.ts
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-07
+      question_id: architecture.archive-analysis-engine
+      idempotency_key: architecture.archive-analysis-engine:v1
+      last_status: answered
+    question:
+      text: What should own deterministic validation of an untrusted diagnostics archive before the agent reasons from it?
+      kind: single
+      options:
+        - id: checked-in-validator
+          label: Checked-in validator (Recommended)
+          description: Keep a modular standard-library Python validator that enforces format, resource, schema, and output limits; the agent directly runs it and analyzes only its bounded normalized result.
+        - id: remove-analysis-skill
+          label: Remove analysis workflow
+          description: Remove the repository diagnostics-analysis skill and inspector entirely; exports remain private artifacts but the repository no longer claims to analyze untrusted archives.
+        - id: agent-managed-inspection
+          label: Agent-managed inspection
+          description: Remove the validator and let the agent inspect archives with available tools; resource and sanitization controls become procedural and cannot retain equivalent deterministic hostile-archive test guarantees.
+    answer:
+      selected_ids: [agent-managed-inspection]
+      text: ''
+    rationale: The checked-in validator is removed. The agent inspects archives with available read-only tools under procedural limits, and the specification no longer claims equivalent deterministic hostile-archive enforcement or tests.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-001
+      - ARCH-002
+      - ARCH-004
+      - ARCH-005
+      - ARCH-006
+      - ARCH-008
+      - SEC-001
+      - SEC-002
+      - SEC-003
+      - SEC-004
+      - SEC-005
+      - SEC-006
+      - SEC-007
+      - SEC-008
+      - COMP-001
+      - COMP-002
+      - FAIL-001
+      - FAIL-002
+      - FAIL-006
+      - DOC-001
+      - DOC-002
+      - AC-AUTO-001
+      - AC-AUTO-002
+      - AC-AUTO-003
+      - AC-AUTO-004
+      - AC-AUTO-005
+      - AC-AUTO-006
+      - AC-AUTO-007
+      - AC-AUTO-008
+      - AC-AUTO-010
+
+  - id: security.report-publication
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#8-persistent-incident-reports-have-no-enforced-private-write-policy
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-02
+      question_id: security.report-publication
+      idempotency_key: security.report-publication:v1
+      last_status: answered
+    question:
+      text: How should private incident-report publication be enforced?
+      kind: single
+      options:
+        - id: owned-safe-publisher
+          label: Owned safe publisher (Recommended)
+          description: Require a repository-owned publisher that privately creates directories/files, rejects unsafe targets, publishes atomically, and reports cleanup failure on POSIX and Windows.
+        - id: enforced-skill-procedure
+          label: Enforced skill procedure
+          description: Keep report writing in the agent workflow and require explicit platform-specific permissions, no-follow/exclusive creation, atomic replacement, and verification steps in the skill contract.
+    answer:
+      selected_ids: []
+      text: 'There is no need to publish anything anywhere.'
+    rationale: Superseded because publication was interpreted as external publishing rather than saving the existing private local report.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: security.report-publication
+    revision: 2
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#8-persistent-incident-reports-have-no-enforced-private-write-policy
+      - 'Revision 1 used publication ambiguously; no external upload or publication is ever in scope.'
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-03
+      question_id: security.report-publication
+      idempotency_key: security.report-publication:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: Should diagnostics analysis still save one private Markdown report locally, without uploading or publishing it externally?
+      kind: single
+      options:
+        - id: save-private-local-report
+          label: Save private local report (Recommended)
+          description: Keep the existing local report outcome, but require a safe private writer, atomic creation, cleanup verification, and no external action.
+        - id: no-persistent-report
+          label: No persistent report
+          description: Return the analysis only in the active conversation and leave no report or extracted artifact on disk.
+    answer:
+      selected_ids: [save-private-local-report]
+      text: ''
+    rationale: Revision 1 referred ambiguously to external publication; revision 2 preserves one private local report while prohibiting upload or external publication.
+    supersedes_revision: 1
+    requirement_ids: [SEC-009, SEC-011]
+
+  - id: security.report-publication
+    revision: 3
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#8-persistent-incident-reports-have-no-enforced-private-write-policy
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-08
+      question_id: security.report-publication
+      idempotency_key: security.report-publication:v3
+      supersedes_revision: 2
+      last_status: answered
+    question:
+      text: Under agent-managed archive inspection with no checked-in scripts, where should the incident analysis result be retained?
+      kind: single
+      options:
+        - id: conversation-only
+          label: Conversation only (Recommended)
+          description: Return the analysis in the active conversation and create no local report or intermediate artifact.
+        - id: agent-written-local-report
+          label: Agent-written local report
+          description: Preserve one private local Markdown report written through the agent's available filesystem tools, with procedural permission and collision checks but no checked-in writer.
+    answer:
+      selected_ids: [agent-written-local-report]
+      text: ''
+    rationale: The agent may save one private local Markdown report through its available filesystem tools. Permission, collision, replacement, and cleanup checks are procedural and must not be represented as deterministic cross-platform guarantees.
+    supersedes_revision: 2
+    requirement_ids: [SEC-009, SEC-010, SEC-011, FAIL-005, DOC-003, AC-AUTO-009]
+
+  - id: readiness.http-deadline-scope
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#2-startup-can-remain-permanently-covered-by-the-loader
+      - src/main/services/prettifyHttpProviders.ts
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-02
+      question_id: readiness.http-deadline-scope
+      idempotency_key: readiness.http-deadline-scope:v1
+      last_status: answered
+    question:
+      text: Which Prettify HTTP operations should use the selected 10-second readiness deadline?
+      kind: single
+      options:
+        - id: all-readiness-model-list
+          label: All readiness/model-list calls (Recommended)
+          description: Bound initial startup and later Ollama/vLLM availability or model-list requests, with caller cancellation and late-result suppression.
+        - id: startup-only
+          label: Initial startup only
+          description: Bound only the startup gate and leave later availability or model-list requests under their current behavior.
+    answer:
+      selected_ids: [all-readiness-model-list]
+      text: ''
+    rationale: The same ten-second deadline applies to initial and later readiness/model-list calls so no equivalent HTTP path remains unbounded.
+    supersedes_revision: null
+    requirement_ids: [READY-002]
+
+  - id: acceptance.platform-ci
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#verification-gaps-and-residual-risk
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#optional-improvements
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-02
+      question_id: acceptance.platform-ci
+      idempotency_key: acceptance.platform-ci:v1
+      last_status: answered
+    question:
+      text: What automated platform gate should enforce the diagnostics and dependency contracts?
+      kind: single
+      options:
+        - id: linux-windows-required
+          label: Linux and Windows required (Recommended)
+          description: Add mandatory Python 3.11 inspector/launcher and complete applicable dependency-closure checks to Linux and native Windows PR jobs; keep macOS unit-owned while packaging is paused.
+        - id: linux-required-windows-manual
+          label: Linux required, Windows manual
+          description: Automate Python and dependency checks on Linux and retain native Windows as a recorded manual gate.
+        - id: manual-platform-gates
+          label: Manual platform gates
+          description: Keep platform execution outside required CI and rely on documented Linux/Windows manual verification.
+    answer:
+      selected_ids: [manual-platform-gates]
+      text: ''
+    rationale: Cross-platform behavior remains required, but native execution is recorded as a manual gate instead of expanding required CI workflows.
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
+
+  - id: security.production-advisory
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#verification-evidence
+      - package-lock.json
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-02
+      question_id: security.production-advisory
+      idempotency_key: security.production-advisory:v1
+      last_status: answered
+    question:
+      text: How should the pre-existing moderate tar advisory be handled by this remediation?
+      kind: single
+      options:
+        - id: tracked-exception
+          label: Track explicit exception (Recommended)
+          description: Record the transitive upstream risk and recheck it in dependency gates without forcing an unsafe CloakBrowser override; adopt a compatible upstream fix when available.
+        - id: require-remediation
+          label: Require remediation before merge
+          description: Block completion until a compatible CloakBrowser/tar upgrade or override removes the advisory and passes browser/package verification.
+    answer:
+      selected_ids: [tracked-exception]
+      text: ''
+    rationale: The advisory remains visible and revalidated without forcing an unsafe transitive override; a compatible upstream fix is adopted when available and verified.
+    supersedes_revision: null
+    requirement_ids: [SEC-012, OPS-001, AC-AUTO-018]
+
+  - id: security.temporary-data-strategy
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#7-plaintext-temporary-extraction-cleanup-is-silently-best-effort
+      - docs/specs/provider-audit-logging/spec.md#untrusted-archive-handling
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-03
+      question_id: security.temporary-data-strategy
+      idempotency_key: security.temporary-data-strategy:v1
+      last_status: answered
+    question:
+      text: How should the inspector handle archive member data during validation?
+      kind: single
+      options:
+        - id: stream-without-extraction
+          label: Stream without extraction (Recommended)
+          description: Validate and parse members from one stable archive handle without writing plaintext member files to temporary storage.
+        - id: verified-private-extraction
+          label: Verified private extraction
+          description: Keep private temporary member files, retry cleanup, verify deletion, and fail closed with a sanitized cleanup status when removal cannot be confirmed.
+    answer:
+      selected_ids: [stream-without-extraction]
+      text: ''
+    rationale: Streaming from the stable archive handle removes the plaintext extraction and cleanup risk instead of making deletion best-effort.
+    supersedes_revision: null
+    requirement_ids: [SEC-008]
+
+  - id: security.untrusted-metadata-policy
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#3-attacker-controlled-metadata-is-emitted-as-trusted-normalized-evidence
+      - .agents/skills/analyze-diagnostics-archive/references/archive-schema.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-03
+      question_id: security.untrusted-metadata-policy
+      idempotency_key: security.untrusted-metadata-policy:v1
+      last_status: answered
+    question:
+      text: What should happen when a manifest or action version field violates its closed safe-token grammar?
+      kind: single
+      options:
+        - id: reject-archive
+          label: Reject archive (Recommended)
+          description: Treat the schema contract as invalid and emit only a closed sanitized failure without the unsafe value.
+        - id: omit-unsafe-field
+          label: Omit unsafe field
+          description: Continue analysis with the field absent and a fixed omission flag, never forwarding the original value.
+    answer:
+      selected_ids: [reject-archive]
+      text: ''
+    rationale: Unsafe version or contract metadata invalidates the archive; omission would allow a malformed closed contract to continue as trusted evidence.
+    supersedes_revision: null
+    requirement_ids: [SEC-006, SEC-007]
+
+  - id: security.report-existing-target
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#8-persistent-incident-reports-have-no-enforced-private-write-policy
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: security-round-04
+      question_id: security.report-existing-target
+      idempotency_key: security.report-existing-target:v1
+      last_status: answered
+    question:
+      text: What should the private local report writer do when the requested report path already exists?
+      kind: single
+      options:
+        - id: explicit-safe-replace
+          label: Require explicit safe replacement (Recommended)
+          description: Refuse by default; replace only after an explicit replace request and verification that the target is a regular user-owned file, using atomic publication.
+        - id: never-overwrite
+          label: Never overwrite
+          description: Always fail safely when the target exists and require a different output path.
+    answer:
+      selected_ids: [explicit-safe-replace]
+      text: ''
+    rationale: Existing reports are never overwritten implicitly; an explicit replace request still requires regular-file ownership and safe atomic publication.
+    supersedes_revision: null
+    requirement_ids: [SEC-010]
+
+  - id: operations.external-actions
+    revision: 1
+    category: operations
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#scope
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: Specification authoring and remediation require no live providers, credentials, private archives, network uploads, packaging, publishing, or release actions.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: compatibility.export-envelope
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/provider-audit-logging/spec.md#safe-creation
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#1-untrusted-archives-can-exceed-the-advertised-resource-envelope
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: compatibility-round-03
+      question_id: compatibility.export-envelope
+      idempotency_key: compatibility.export-envelope:v1
+      last_status: answered
+    question:
+      text: Should newly exported diagnostics archives obey the reduced inspector envelope?
+      kind: single
+      options:
+        - id: align-exporter
+          label: Align exporter limits (Recommended)
+          description: Apply 64 MiB/member and 128 MiB/total to export and fail atomically if complete retained evidence does not fit.
+        - id: inspector-only
+          label: Inspector only
+          description: Keep the exporter at 128 MiB/member and 256 MiB/total even though some new exports may be rejected by the inspector.
+        - id: new-chunked-schema
+          label: Add chunked schema
+          description: Introduce a new archive schema that splits large evidence across bounded members, with migration and compatibility work.
+    answer:
+      selected_ids: [align-exporter]
+      text: ''
+    rationale: Newly exported archives must remain inspectable by the bundled skill and fail atomically rather than creating an archive outside its accepted envelope.
+    supersedes_revision: null
+    requirement_ids: [EXPORT-001]
+
+  - id: readiness.voice-translation-timeout
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md#2-startup-can-remain-permanently-covered-by-the-loader
+      - docs/specs/current-branch-security-remediation/spec.md#initial-readiness
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: readiness-round-05
+      question_id: readiness.voice-translation-timeout
+      idempotency_key: readiness.voice-translation-timeout:v1
+      last_status: answered
+    question:
+      text: What terminal startup deadline should selected Voice and Translation initialization use?
+      kind: single
+      options:
+        - id: ninety-seconds
+          label: 90 seconds (Recommended)
+          description: Allow browser launch plus bounded provider readiness/recovery while guaranteeing the global startup loader settles.
+        - id: sixty-seconds
+          label: 60 seconds
+          description: Release startup sooner on failure, with less tolerance for slow browser/provider initialization.
+        - id: one-hundred-twenty-seconds
+          label: 120 seconds
+          description: Allow the slowest supported hosts more time at the cost of a longer blocked startup.
+    answer:
+      selected_ids: [sixty-seconds]
+      text: ''
+    rationale: Selected Voice and Translation initialization settle within 60 seconds so a failed provider cannot hold the startup loader longer.
+    supersedes_revision: null
+    requirement_ids: [READY-001]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: What should happen with the current security-remediation specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve specification (Recommended)
+          description: Mark the draft Approved as the authoritative implementation contract and stop before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and reopen the affected decisions for revision.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the current specification Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+      - Prompt MCP answer security.report-publication revision 3
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: What should happen with the revised security-remediation specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve specification (Recommended)
+          description: Mark the revised draft Approved as the authoritative implementation contract and stop before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and reopen the affected decisions for revision.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the revised specification Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The corrected draft is approved as the authoritative implementation contract after final security, readiness, traceability, and six-perspective gap review.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: plan.archive-inspector-structure
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/scripts/inspect_diagnostics_archive.py
+      - tests/skills/analyzeDiagnosticsArchive.test.ts
+      - docs/specs/current-branch-security-remediation/spec.md#diagnostics-archive-input-boundary
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      batch_id: architecture-round-01
+      question_id: plan.archive-inspector-structure
+      idempotency_key: plan.archive-inspector-structure:v1
+      last_status: answered
+    question:
+      text: How should the diagnostics inspector be organized while implementing the bounded archive, schema, evidence, and report contracts?
+      kind: single
+      options:
+        - id: modular-python-package
+          label: Modular Python package (Recommended)
+          description: Keep one thin CLI entry and split stateful standard-library implementation into focused input, container, schema, evidence, and report modules with direct tests.
+        - id: single-script-refactor
+          label: Single-script refactor
+          description: Retain one Python source file and add classes and injected seams inside it, minimizing files but keeping all security boundaries in one large module.
+    answer:
+      selected_ids: [modular-python-package]
+      text: ''
+    rationale: Superseded when the user selected agent-managed inspection and removal of the checked-in validator.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-007, SEC-001, SEC-002, SEC-004, SEC-005, SEC-008]
+
+  - id: plan.interpreter-adapter-location
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - .agents/skills/analyze-diagnostics-archive/SKILL.md
+      - tests/skills/analyzeDiagnosticsArchive.test.ts
+      - docs/specs/current-branch-security-remediation/spec.md#python-compatibility-and-invocation
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      batch_id: architecture-round-01
+      question_id: plan.interpreter-adapter-location
+      idempotency_key: plan.interpreter-adapter-location:v1
+      last_status: answered
+    question:
+      text: Where should the repository-owned Node process adapter for the explicitly supplied Python interpreter live?
+      kind: single
+      options:
+        - id: skill-owned-adapter
+          label: Skill-owned adapter (Recommended)
+          description: Keep the class and thin CLI beside the diagnostics skill so its invocation, bounded output, environment, and timeouts ship as one self-contained workflow.
+        - id: project-script-adapter
+          label: Project-level adapter
+          description: Put the class and CLI under the repository scripts directory and let the diagnostics skill call that shared project tool.
+    answer:
+      selected_ids: []
+      text: No adapters needed. The agent skill simply runs the script.
+    rationale: Superseded when the user selected agent-managed inspection with no checked-in Python validator or process adapter.
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, ARCH-005, ARCH-006, ARCH-008, COMP-002, AC-AUTO-010]
+
+  - id: security.archive-boundary
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+      - docs/reviews/2026-07-28-current-branch-code-security-review.md
+    question:
+      text: How should the reviewed archive-inspector boundary be remediated?
+      kind: single
+      options:
+        - id: remove-validator-document-residuals
+          label: Remove validator and document residuals
+          description: Delete the vulnerable executable consumer, use an agent-managed best-effort procedure, and retain deterministic guarantees only for the application exporter.
+    answer:
+      selected_ids: [remove-validator-document-residuals]
+      text: ''
+    rationale: The repository no longer claims deterministic hostile-archive validation. Agent and tool limitations are explicit accepted residual risks.
+    supersedes_revision: 1
+    requirement_ids: [SEC-001, SEC-002, SEC-003, SEC-004, SEC-005, FAIL-001, FAIL-002]
+
+  - id: compatibility.python-runtime
+    revision: 2
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+    question:
+      text: What Python compatibility contract remains after removing the checked-in inspector?
+      kind: single
+      options:
+        - id: no-python-contract
+          label: No Python contract
+          description: Repository diagnostics analysis has no Python runtime, launcher, or interpreter prerequisite.
+    answer:
+      selected_ids: [no-python-contract]
+      text: ''
+    rationale: Removing the inspector closes the false Python compatibility claim rather than replacing it with another runtime contract.
+    supersedes_revision: 1
+    requirement_ids: [COMP-001, COMP-002, COMP-004, AC-AUTO-010]
+
+  - id: security.archive-resource-envelope
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+      - Prompt MCP answer compatibility.export-envelope revision 1
+    question:
+      text: Where do the reduced diagnostics archive limits remain enforceable?
+      kind: single
+      options:
+        - id: producer-limits-agent-stop-conditions
+          label: Producer limits and agent stop conditions
+          description: Enforce limits in the exporter and use tool-reported values only as best-effort agent refusal conditions.
+    answer:
+      selected_ids: [producer-limits-agent-stop-conditions]
+      text: ''
+    rationale: The 64/128 MiB and related limits remain deterministic producer constraints, not claims about external archive tools or model resource use.
+    supersedes_revision: 1
+    requirement_ids: [SEC-003, SEC-004, SEC-005, COMP-003, EXPORT-001, AC-AUTO-021]
+
+  - id: acceptance.platform-ci
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+      - Prompt MCP answer acceptance.platform-ci revision 1
+    question:
+      text: What native platform gate applies to the agent-managed analysis and existing application contracts?
+      kind: single
+      options:
+        - id: manual-platform-gates
+          label: Manual platform gates
+          description: Keep benign agent workflow, provider readiness, accessibility, and dependency-artifact checks as recorded Linux/Windows manual gates.
+    answer:
+      selected_ids: [manual-platform-gates]
+      text: ''
+    rationale: Native execution remains manual and records the exact tool and safeguards exercised without claiming hostile-archive equivalence.
+    supersedes_revision: 1
+    requirement_ids: [AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
+
+  - id: security.temporary-data-strategy
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+    question:
+      text: How should the agent handle archive member data without a checked-in inspector?
+      kind: single
+      options:
+        - id: selective-read-no-bulk-extraction
+          label: Selective reads without bulk extraction
+          description: Use an available read-only tool for selected member content, never knowingly extract members, and disclose tool-internal temporary-data uncertainty.
+    answer:
+      selected_ids: [selective-read-no-bulk-extraction]
+      text: ''
+    rationale: Repository extraction code is removed; tool-internal buffering and cleanup are accepted residual risks rather than guaranteed away.
+    supersedes_revision: 1
+    requirement_ids: [SEC-008, AC-AUTO-008]
+
+  - id: security.untrusted-metadata-policy
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+    question:
+      text: How should agent-managed analysis handle metadata that cannot be mapped to a closed producer field?
+      kind: single
+      options:
+        - id: omit-unverified-metadata
+          label: Omit unverified metadata
+          description: Do not echo, repair, or trust the value; disclose that complete schema validation was not performed.
+    answer:
+      selected_ids: [omit-unverified-metadata]
+      text: ''
+    rationale: The agent follows a closed reasoning allowlist but does not claim parser-enforced rejection or prompt-injection isolation.
+    supersedes_revision: 1
+    requirement_ids: [SEC-006, SEC-007, AC-AUTO-006, AC-AUTO-007]
+
+  - id: security.report-existing-target
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer security.report-publication revision 3
+      - Prompt MCP answer security.report-existing-target revision 1
+    question:
+      text: What should the agent do when the private local report path already exists?
+      kind: single
+      options:
+        - id: explicit-best-effort-replace
+          label: Explicit best-effort replacement
+          description: Refuse by default and replace only after explicit authorization and procedural regular-file and ownership revalidation.
+    answer:
+      selected_ids: [explicit-best-effort-replace]
+      text: ''
+    rationale: Explicit replacement remains required, but atomicity, no-follow, ACL, and race guarantees are limited to capabilities the active filesystem tool can actually verify.
+    supersedes_revision: 1
+    requirement_ids: [SEC-009, SEC-010, SEC-011, FAIL-005, AC-AUTO-009]
+
+  - id: compatibility.export-envelope
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP answer compatibility.export-envelope revision 1
+      - Prompt MCP answer architecture.archive-analysis-engine revision 1
+    question:
+      text: Why should newly exported diagnostics archives retain the reduced envelope after the bundled inspector is removed?
+      kind: single
+      options:
+        - id: bounded-producer-artifact
+          label: Bounded producer artifact
+          description: Preserve 64 MiB/member and 128 MiB/total as independent privacy, application-health, and practical agent-usability constraints.
+    answer:
+      selected_ids: [bounded-producer-artifact]
+      text: ''
+    rationale: Export still fails atomically when complete retained evidence does not fit, without claiming compatibility with a bundled consumer.
+    supersedes_revision: 1
+    requirement_ids: [EXPORT-001, COMP-003, AC-AUTO-021]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/01_bound_diagnostics_archive_production.md
+      - docs/specs/current-branch-security-remediation/tasks/11_complete_final_review_merge_evidence.md
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: What should happen with the current-branch security-remediation implementation plan?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan
+          description: Make the 11-packet plan authoritative, then request Task 01 execution authorization separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in draft and return it for revisions before any execution request.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the validated plan as an unapproved draft and stop without execution authorization.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The validated 11-packet plan is approved as the authoritative execution sequence; approval does not authorize implementation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-01
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/01_bound_diagnostics_archive_production.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      question_id: execution.task-01
+      idempotency_key: execution.task-01:v1
+      last_status: answered
+    question:
+      text: Should Packet 01 — Bound diagnostics archive production — be authorized for execution?
+      kind: single
+      options:
+        - id: authorize-task-01
+          label: Authorize Task 01
+          description: Authorize exactly Packet 01 for a later incremental-implementation invocation; no other packet, commit, push, packaging, or release is authorized.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Leave Packet 01 unauthorized and keep the approved plan ready for later execution approval.
+    answer:
+      selected_ids: [authorize-task-01]
+      text: ''
+    rationale: Exactly Packet 01 is authorized for a later incremental-implementation invocation; no other execution or publication action is authorized.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-007, SEC-003, COMP-003, EXPORT-001, DEP-001, AC-AUTO-007, AC-AUTO-021]
+
+  - id: commit.task-01
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/01_bound_diagnostics_archive_production.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-02
+      question_id: commit.task-01
+      idempotency_key: commit.task-01:v1
+      last_status: answered
+    question:
+      text: Should the verified Packet 01 boundary be committed with message `fix(security): bound diagnostics archive production` so Packet 02 may begin?
+      kind: single
+      options:
+        - id: authorize-commit-task-01
+          label: Authorize Packet 01 commit
+          description: Commit only the verified Packet 01 producer-limit implementation, tests, checklist, and handoff; preserve the broader untracked review/spec bundle and all unrelated state.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Leave Packet 01 uncommitted and do not begin Packet 02.
+    answer:
+      selected_ids: [authorize-commit-task-01]
+      text: ''
+    rationale: The verified Packet 01 boundary is authorized for one scoped commit before Packet 02 begins.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-007, SEC-003, COMP-003, EXPORT-001, DEP-001, AC-AUTO-007, AC-AUTO-021]
+
+  - id: execution.task-02
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/02_replace_diagnostics_inspector.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-02
+      question_id: execution.task-02
+      idempotency_key: execution.task-02:v1
+      last_status: answered
+    question:
+      text: Should Packet 02 — Replace the Diagnostics Inspector — be authorized for execution?
+      kind: single
+      options:
+        - id: authorize-task-02
+          label: Authorize Packet 02
+          description: After the authorized Packet 01 commit, execute exactly Packet 02, leave its changes uncommitted for review, and do not run native archive gates or begin Packet 03.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Do not implement Packet 02.
+    answer:
+      selected_ids: [authorize-task-02]
+      text: ''
+    rationale: Exactly Packet 02 is authorized after the Packet 01 boundary commit; no native gate, later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-004
+      - ARCH-005
+      - ARCH-006
+      - ARCH-008
+      - SEC-001
+      - SEC-002
+      - SEC-003
+      - SEC-004
+      - SEC-005
+      - SEC-006
+      - SEC-007
+      - SEC-008
+      - SEC-009
+      - SEC-010
+      - SEC-011
+      - COMP-001
+      - COMP-002
+      - COMP-004
+      - DEP-003
+      - FAIL-001
+      - FAIL-002
+      - FAIL-005
+      - FAIL-006
+      - DOC-001
+      - DOC-002
+      - DOC-003
+      - AC-AUTO-001
+      - AC-AUTO-002
+      - AC-AUTO-003
+      - AC-AUTO-004
+      - AC-AUTO-005
+      - AC-AUTO-006
+      - AC-AUTO-007
+      - AC-AUTO-008
+      - AC-AUTO-009
+      - AC-AUTO-010
+
+  - id: commit.task-02
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/02_replace_diagnostics_inspector.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-03
+      question_id: commit.task-02
+      idempotency_key: commit.task-02:v1
+      last_status: answered
+    question:
+      text: Authorize an atomic commit containing only the completed and verified Packet 02 boundary, using commit message `fix(security): replace diagnostics inspector`?
+      kind: single
+      options:
+        - id: approve-commit-task-02
+          label: Approve commit
+          description: Commit only Packet 02 implementation, tests, public docs, todo, and handoff; preserve the unrelated untracked planning/review bundle.
+        - id: decline-commit-task-02
+          label: Do not commit
+          description: Leave Packet 02 unstaged and stop before Packet 03.
+    answer:
+      selected_ids: [approve-commit-task-02]
+      text: ''
+    rationale: The verified Packet 02 boundary is authorized for one scoped commit before Packet 03 begins.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-004
+      - ARCH-005
+      - ARCH-006
+      - ARCH-008
+      - SEC-001
+      - SEC-002
+      - SEC-003
+      - SEC-004
+      - SEC-005
+      - SEC-006
+      - SEC-007
+      - SEC-008
+      - SEC-009
+      - SEC-010
+      - SEC-011
+      - COMP-001
+      - COMP-002
+      - COMP-004
+      - DEP-003
+      - FAIL-001
+      - FAIL-002
+      - FAIL-005
+      - FAIL-006
+      - DOC-001
+      - DOC-002
+      - DOC-003
+      - AC-AUTO-001
+      - AC-AUTO-002
+      - AC-AUTO-003
+      - AC-AUTO-004
+      - AC-AUTO-005
+      - AC-AUTO-006
+      - AC-AUTO-007
+      - AC-AUTO-008
+      - AC-AUTO-009
+      - AC-AUTO-010
+
+  - id: execution.task-03
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/03_harden_prettify_http_readiness.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-03
+      question_id: execution.task-03
+      idempotency_key: execution.task-03:v1
+      last_status: answered
+    question:
+      text: After the authorized Packet 02 commit, authorize execution of only Packet 03 — Harden Prettify HTTP readiness — leaving Packet 03 uncommitted for review?
+      kind: single
+      options:
+        - id: approve-execution-task-03
+          label: Execute Packet 03
+          description: Implement and verify only Packet 03, update its checklist and handoff, then stop without committing it.
+        - id: decline-execution-task-03
+          label: Stop after commit
+          description: Create the authorized Packet 02 commit but do not begin Packet 03.
+    answer:
+      selected_ids: [approve-execution-task-03]
+      text: ''
+    rationale: Exactly Packet 03 is authorized after the Packet 02 boundary commit; no later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [READY-002, READY-003, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-011, AC-AUTO-012]
+
+  - id: commit.task-03
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/03_harden_prettify_http_readiness.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: commit-round-03
+      question_id: commit.task-03
+      idempotency_key: commit.task-03:v1
+      last_status: answered
+    question:
+      text: Packet 03 is verified (focused suite, TypeScript, lint, formatting, full 1,126-test suite). Authorize an atomic commit containing only Packet 03 and its checklist/handoff updates?
+      kind: single
+      options:
+        - id: approve-commit-task-03
+          label: Commit Packet 03
+          description: Create one scoped commit for the verified Packet 03 boundary, excluding unrelated review/spec planning files.
+        - id: decline-commit-task-03
+          label: Keep uncommitted
+          description: Leave Packet 03 uncommitted and do not begin Packet 04.
+    answer:
+      selected_ids: [approve-commit-task-03]
+      text: ''
+    rationale: The reviewed Packet 03 boundary may be committed atomically; unrelated untracked review and planning artifacts remain excluded.
+    supersedes_revision: null
+    requirement_ids: [READY-002, READY-003, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-011, AC-AUTO-012]
+
+  - id: execution.task-04
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/04_settle_initial_voice_translation_readiness.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-04
+      question_id: execution.task-04
+      idempotency_key: execution.task-04:v1
+      last_status: answered
+    question:
+      text: After the authorized Packet 03 commit, authorize execution of only Packet 04 — Settle initial Voice and Translation readiness — leaving Packet 04 uncommitted for review?
+      kind: single
+      options:
+        - id: approve-execution-task-04
+          label: Execute Packet 04
+          description: Implement and verify only Packet 04, update its checklist and handoff, then stop without committing it.
+        - id: decline-execution-task-04
+          label: Stop after commit
+          description: Create the authorized Packet 03 commit but do not begin Packet 04.
+    answer:
+      selected_ids: [approve-execution-task-04]
+      text: ''
+    rationale: Exactly Packet 04 is authorized after the Packet 03 boundary commit; no later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [READY-001, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-016]
+
+  - id: commit.task-04
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/04_settle_initial_voice_translation_readiness.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      question_id: commit.task-04
+      idempotency_key: commit.task-04:v1
+      last_status: answered
+    question:
+      text: Authorize an atomic commit containing only the completed and verified Packet 04 boundary, using commit message `fix(security): bound initial provider readiness`?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Commit only Packet 04 implementation, tests, checklist, and handoff while preserving unrelated untracked review and planning artifacts.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 04 uncommitted and do not begin Packet 05.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 04 boundary is authorized for one scoped commit before Packet 05 begins.
+    supersedes_revision: null
+    requirement_ids: [READY-001, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-016]
+
+  - id: execution.task-05
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/05_make_translation_reset_recoverable.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      question_id: execution.task-05
+      idempotency_key: execution.task-05:v1
+      last_status: answered
+    question:
+      text: After the authorized Packet 04 commit, authorize execution of only Packet 05 — Make Translation browser reset recoverable — leaving Packet 05 uncommitted for review?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Implement and verify only Packet 05, update its checklist and handoff, then stop without committing it.
+        - id: decline
+          label: Do not execute
+          description: Create the authorized Packet 04 commit but do not begin Packet 05.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Exactly Packet 05 is authorized after the Packet 04 boundary commit; no later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [READY-004, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-013]
+
+  - id: commit.task-05
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/05_make_translation_reset_recoverable.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-06
+      question_id: commit.task-05
+      idempotency_key: commit.task-05:v1
+      last_status: answered
+    question:
+      text: Packet 05 is complete and verified. Authorize an atomic commit using `fix(security): make translation reset recoverable`?
+      kind: single
+      options:
+        - id: approve
+          label: Commit Packet 05
+          description: Create one scoped commit containing only the verified Packet 05 implementation, tests, checklist, and handoff; preserve the unrelated untracked review/spec bundle.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 05 uncommitted and do not begin Packet 06.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 05 boundary is authorized for one scoped commit before Packet 06 begins.
+    supersedes_revision: null
+    requirement_ids: [READY-004, FAIL-003, FAIL-004, COMP-005, DEP-003, AC-AUTO-013]
+
+  - id: execution.task-06
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/06_correct_provider_status_presentation.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-06
+      question_id: execution.task-06
+      idempotency_key: execution.task-06:v1
+      last_status: answered
+    question:
+      text: After the Packet 05 boundary commit, authorize execution of only Packet 06 — Correct provider status presentation?
+      kind: single
+      options:
+        - id: approve
+          label: Execute Packet 06
+          description: After the authorized Packet 05 commit, implement and verify only Packet 06, update its checklist and handoff, then stop without committing it.
+        - id: decline
+          label: Do not execute
+          description: Do not implement Packet 06.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Exactly Packet 06 is authorized after the Packet 05 boundary commit; no later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, READY-005, UX-001, UX-002, COMP-005, AC-AUTO-014, AC-AUTO-015]
+
+  - id: commit.task-06
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/06_correct_provider_status_presentation.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-07
+      question_id: commit.task-06
+      idempotency_key: commit.task-06:v1
+      last_status: answered
+    question:
+      text: Packet 06 is complete and verified. Authorize an atomic commit using `fix(security): correct provider status presentation`?
+      kind: single
+      options:
+        - id: approve
+          label: Commit Packet 06
+          description: Create one scoped commit containing only the verified Packet 06 renderer changes, tests, checklist, and handoff; preserve the unrelated untracked review/spec bundle.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 06 uncommitted and do not begin Packet 07.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 06 boundary is authorized for one scoped commit before Packet 07 begins.
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, READY-005, UX-001, UX-002, COMP-005, AC-AUTO-014, AC-AUTO-015]
+
+  - id: execution.task-07
+    revision: 1
+    category: implementation
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/07_verify_dependency_closure_advisory_policy.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-07
+      question_id: execution.task-07
+      idempotency_key: execution.task-07:v1
+      last_status: answered
+    question:
+      text: After the Packet 06 boundary commit, authorize execution of only Packet 07 — Verify dependency closure and advisory policy?
+      kind: single
+      options:
+        - id: approve
+          label: Execute Packet 07
+          description: After the authorized Packet 06 commit, implement and verify only Packet 07, update its checklist and handoff, then stop without committing it.
+        - id: decline
+          label: Do not execute
+          description: Do not implement Packet 07.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Exactly Packet 07 is authorized after the Packet 06 boundary commit; no later packet, commit, push, package, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, SEC-012, OPS-001, AC-AUTO-017, AC-AUTO-018]
+
+  - id: architecture.archiver-native-closure
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - package-lock.json
+      - node_modules/tar-stream/package.json
+      - node_modules/bare-fs/package.json
+      - tests/scripts/diagnosticsArchiveDependencyPolicy.test.ts
+    answer:
+      selected_ids: [native-alternate-runtime-observed]
+      text: ''
+    rationale: The locked production path archiver@8.0.0 -> tar-stream@3.2.0 -> bare-fs@4.7.4 is target-applicable. bare-fs ships native-addon metadata and Linux and Windows prebuilt binaries, while tar-stream maps its fs dependency to Node's built-in fs under the default runtime condition and to bare-fs only under the Bare condition.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, DEP-002, AC-AUTO-017, AC-MAN-006]
+
+  - id: architecture.archiver-runtime-boundary
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - package.json
+      - package-lock.json
+      - node_modules/tar-stream/package.json
+      - node_modules/bare-fs/package.json
+      - scripts/packaged-runtime-policy.mjs
+      - tests/scripts/diagnosticsArchiveDependencyPolicy.test.ts
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: architecture-round-08
+      question_id: architecture.archiver-runtime-boundary
+      idempotency_key: architecture.archiver-runtime-boundary:v1
+      last_status: answered
+    question:
+      text: Which Archiver dependency boundary should replace the contradicted requirement that its complete locked closure is pure JavaScript?
+      kind: single
+      options:
+        - id: exclude-alternate-runtime-artifacts
+          label: Exclude alternate-runtime artifacts
+          description: Keep Archiver and the complete lockfile evidence, but package and verify only its Electron/Node runtime path; exclude bare-fs and native artifacts used only by the Bare runtime.
+        - id: replace-archive-dependency
+          label: Replace archive dependency
+          description: Select and validate a different JavaScript-only archive creation dependency, accepting a package-lock and implementation migration.
+        - id: package-native-closure
+          label: Package native closure
+          description: Keep bare-fs native artifacts in packaged applications, remove the JavaScript-only boundary, and require native security and platform verification.
+    answer:
+      selected_ids: [exclude-alternate-runtime-artifacts]
+      text: ''
+    rationale: Preserve Archiver and the complete target-aware lockfile evidence, but define the JavaScript-only security boundary at the Electron/Node packaged runtime. Exclude bare-fs and native artifacts reachable only through tar-stream's Bare runtime condition, then verify archive creation and packaged contents on supported Linux and Windows targets.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, DEP-002, AC-AUTO-017, AC-MAN-006]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+      - Prompt MCP answer architecture.archiver-runtime-boundary revision 1
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      supersedes_revision: 2
+      last_status: answered
+    question:
+      text: What should happen with the revised security-remediation specification draft that separates complete Archiver lock evidence from the JavaScript-only Electron/Node packaged runtime?
+      kind: single
+      options:
+        - id: approve
+          label: Approve specification
+          description: Mark the revised draft Approved as the authoritative contract and stop before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and reopen the affected dependency-boundary decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the revised specification Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The revised dependency boundary is approved after the six-perspective gap review. Complete lock evidence retains alternate-runtime native findings while the supported Electron/Node packaged runtime excludes that branch and preserves archive creation.
+    supersedes_revision: 2
+    requirement_ids: [DEP-001, DEP-002, AC-AUTO-017, AC-MAN-006]
+
+  - id: plan.archiver-bare-only-set
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - package-lock.json
+      - scripts/dependency-policy/lockedProductionClosure.ts
+      - package.json
+      - scripts/packaged-runtime-policy.mjs
+    answer:
+      selected_ids: [five-package-bare-only-set]
+      text: 'bare-fs@4.7.4, bare-path@3.1.1, bare-stream@2.13.3, bare-url@2.4.6, teex@1.0.1'
+    rationale: Removing only the verified tar-stream -> bare-fs alternate-runtime edge makes these five packages unreachable from Archiver on both Linux x64 and Windows x64. bare-events remains reachable through the valid Node runtime graph and must remain packaged.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, DEP-002, AC-AUTO-017]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/07_verify_dependency_closure_advisory_policy.md
+      - Prompt MCP answer architecture.archiver-runtime-boundary revision 1
+    prompt_mcp:
+      interview_id: plan:current-branch-security-remediation
+      batch_id: approval-round-02
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: What should happen with the revised plan that keeps complete Archiver lock evidence but excludes the exact five-package Bare-only branch from Electron/Node packaging?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan
+          description: Make revised Packet 07 authoritative and request its execution authorization separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan Draft and revise Packet 07 before any execution request.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the revised plan Draft and stop without requesting execution authorization.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The revised plan is approved as the authoritative execution sequence. Packet 07 now distinguishes complete native lock evidence from the JavaScript-only Electron/Node packaged runtime and remains independently executable.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, SEC-012, OPS-001, AC-AUTO-017, AC-AUTO-018]
+
+  - id: execution.task-07
+    revision: 2
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/07_verify_dependency_closure_advisory_policy.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - Prompt MCP answer approval.plan revision 2
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-08
+      question_id: execution.task-07
+      idempotency_key: execution.task-07:v2
+      supersedes_revision: 1
+      last_status: answered
+    question:
+      text: Authorize execution of revised Packet 07 only, including removal of the five Bare-only packaging patterns, while leaving Packet 07 uncommitted for review?
+      kind: single
+      options:
+        - id: approve
+          label: Execute revised Packet 07
+          description: Implement and verify only Packet 07, update its checklist and handoff, then stop without committing or beginning Packet 08.
+        - id: decline
+          label: Do not execute
+          description: Keep the revised approved plan but make no implementation changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Revised Packet 07 alone is authorized for implementation and verification. It remains uncommitted for review and does not authorize Packet 08, packaging, native manual gates, push, pull request, or release.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, SEC-012, OPS-001, AC-AUTO-017, AC-AUTO-018]
+
+  - id: commit.task-07
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - scripts/dependency-policy
+      - scripts/verify-diagnostics-dependency-policy.ts
+      - tests/scripts/productionAdvisoryPolicy.test.ts
+      - tests/scripts/archiverNodeRuntimeBoundary.test.ts
+      - git commit e5d60921 fix(security): verify packaged dependency boundary
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-09
+      question_id: commit.task-07
+      idempotency_key: commit.task-07:v1
+      last_status: answered
+    question:
+      text: Packet 07 is complete and verified. Authorize one scoped commit using `fix(security): verify packaged dependency boundary`, excluding the untracked review/spec planning bundle?
+      kind: single
+      options:
+        - id: approve
+          label: Commit Packet 07
+          description: Commit only Packet 07 implementation, tests, SECURITY.md, package/runtime policy, todo, and handoff; preserve the untracked review/spec planning bundle.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 07 uncommitted and do not begin Packet 08.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 07 implementation boundary is authorized for one scoped commit. The untracked review/spec planning bundle remains excluded and no push, Packet 08 implementation, package, or release is authorized by this decision.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, SEC-012, OPS-001, AC-AUTO-017, AC-AUTO-018]
+
+  - id: execution.task-08
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/08_reconcile_documentation_handoffs.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - git commit e5d60921 fix(security): verify packaged dependency boundary
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-09
+      question_id: execution.task-08
+      idempotency_key: execution.task-08:v1
+      last_status: answered
+    question:
+      text: After the authorized Packet 07 commit, authorize execution of only Packet 08 — Reconcile documentation and handoffs — leaving Packet 08 uncommitted for review?
+      kind: single
+      options:
+        - id: approve
+          label: Execute Packet 08
+          description: Update and verify only active documentation, Provider Audit task state, and focused documentation/history tests; stop without committing or beginning Packet 09.
+        - id: decline
+          label: Do not execute
+          description: Keep Packet 07 committed but make no Packet 08 changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Packet 08 alone is authorized for documentation, Provider Audit task-state reconciliation, focused tests, checklist, and handoff updates. No Packet 09, Provider Audit Task 24, commit, push, package, manual gate, or release is authorized.
+    supersedes_revision: null
+    requirement_ids: [DOC-004, DOC-005, AC-AUTO-020]
+
+  - id: commit.task-08
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - tests/docs/currentBranchRemediationDocumentation.test.ts
+      - docs/specs/provider-audit-logging/tasks/handoff.md
+      - git commit 29cec34 docs(security): reconcile remediation guidance
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-10
+      question_id: commit.task-08
+      idempotency_key: commit.task-08:v1
+      last_status: answered
+    question:
+      text: Packet 08 is complete and reverified. Authorize one scoped commit using `docs(security): reconcile remediation guidance`?
+      kind: single
+      options:
+        - id: approve
+          label: Commit Packet 08
+          description: Commit only the verified Packet 08 documentation, history test, todo, and handoff while preserving the unrelated untracked review/spec bundle.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 08 uncommitted and do not begin Packet 09.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 08 documentation and test boundary is authorized for one scoped atomic commit. The untracked review/spec planning bundle remains excluded.
+    supersedes_revision: null
+    requirement_ids: [DOC-004, DOC-005, AC-AUTO-020]
+
+  - id: execution.task-09
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/09_run_automated_integration_gate.md
+      - docs/specs/current-branch-security-remediation/tasks/plan.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - git commit 29cec34 docs(security): reconcile remediation guidance
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-10
+      question_id: execution.task-09
+      idempotency_key: execution.task-09:v1
+      last_status: answered
+    question:
+      text: After the Packet 08 boundary commit, authorize execution of only Packet 09 — Run the automated integration gate — including creation of a fresh local native unpacked verification artifact?
+      kind: single
+      options:
+        - id: approve
+          label: Execute Packet 09
+          description: After the authorized Packet 08 commit, run only Packet 09's automated integration, build, dependency, cache-preflight, native unpacked packaging, and packaged-runtime gates; update state and stop without committing Packet 09.
+        - id: decline
+          label: Do not execute
+          description: Create the authorized Packet 08 commit only and do not run Packet 09.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Packet 09 alone is authorized after the Packet 08 boundary commit, including one fresh local native unpacked verification artifact. No fixes, installer, live provider, manual gate, later packet, commit, push, pull request, or release is authorized.
+    supersedes_revision: null
+    requirement_ids:
+      - OUT-002
+      - ARCH-001
+      - ARCH-002
+      - ARCH-003
+      - ARCH-007
+      - AC-AUTO-001
+      - AC-AUTO-002
+      - AC-AUTO-003
+      - AC-AUTO-004
+      - AC-AUTO-005
+      - AC-AUTO-006
+      - AC-AUTO-007
+      - AC-AUTO-008
+      - AC-AUTO-009
+      - AC-AUTO-010
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-013
+      - AC-AUTO-014
+      - AC-AUTO-015
+      - AC-AUTO-016
+      - AC-AUTO-017
+      - AC-AUTO-018
+      - AC-AUTO-019
+      - AC-AUTO-020
+      - AC-AUTO-021
+
+  - id: execution.task-07-packaging-repair
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/07_verify_dependency_closure_advisory_policy.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - Packet 09 packaged-runtime failure at git commit 29cec3402625dfdd80058729e2c6920b36690071
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      question_id: execution.task-07-packaging-repair
+      idempotency_key: execution.task-07-packaging-repair:v1
+      last_status: answered
+    question:
+      text: Authorize a contract-preserving Packet 07 repair for the packaged-runtime failure, without changing dependencies, lockfiles, runtime behavior, or beginning a Packet 09 rerun?
+      kind: single
+      options:
+        - id: approve
+          label: Repair Packet 07
+          description: Add explicit negative Electron Builder file filters for only the five approved Bare-only packages, add deterministic regression coverage, run Packet 07's focused checks, update handoff state, and stop with the repair uncommitted.
+        - id: decline
+          label: Do not repair
+          description: Keep the failed Packet 09 handoff unchanged and make no packaging-policy changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Electron Builder traverses production dependencies independently of the positive build.files allowlist, so removal of positive Bare-only patterns did not exclude those packages. The authorized repair preserves the approved runtime-boundary decision by requiring exact negative filters for only the five verified Bare-only packages.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, AC-AUTO-017]
+
+  - id: commit.task-07-packaging-repair
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - package.json
+      - scripts/dependency-policy/electronNodeArchiveRuntimePolicy.ts
+      - tests/scripts/packagedRuntimePolicy.test.ts
+      - tests/scripts/productionAdvisoryPolicy.test.ts
+      - git commit f788a6a fix(security): exclude bare runtime packages
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-12
+      question_id: commit.task-07-packaging-repair
+      idempotency_key: commit.task-07-packaging-repair:v1
+      last_status: answered
+    question:
+      text: Authorize one scoped Packet 07 repair commit using `fix(security): exclude bare runtime packages`?
+      kind: single
+      options:
+        - id: approve
+          label: Commit repair
+          description: Commit only the verified package filter, state-owning policy, focused tests, and handoff while preserving the untracked review/spec bundle.
+        - id: decline
+          label: Do not commit
+          description: Leave the Packet 07 repair uncommitted and do not rerun Packet 09.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified five-file Packet 07 packaging repair is authorized for one atomic commit. The untracked review/spec bundle remains excluded.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, ARCH-007, DEP-001, DEP-002, DEP-003, AC-AUTO-017]
+
+  - id: execution.task-09-rerun
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/09_run_automated_integration_gate.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - git commit f788a6a fix(security): exclude bare runtime packages
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-12
+      question_id: execution.task-09-rerun
+      idempotency_key: execution.task-09-rerun:v1
+      last_status: answered
+    question:
+      text: After the Packet 07 repair commit, authorize a complete Packet 09 rerun against a new recorded HEAD, including creation and verification of a fresh local Linux x64 unpacked artifact?
+      kind: single
+      options:
+        - id: approve
+          label: Rerun Packet 09
+          description: After the repair commit, rerun every Packet 09 focused, project, dependency, build, cache-preflight, fresh native unpacked package, and packaged-runtime check; update state and stop without committing Packet 09.
+        - id: decline
+          label: Do not rerun
+          description: Create the authorized repair commit only and leave Packet 09 incomplete.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: A complete Packet 09 rerun is authorized against the repair commit, including one fresh local Linux x64 unpacked artifact. No later packet, manual gate, commit, push, pull request, publication, or release is authorized.
+    supersedes_revision: null
+    requirement_ids:
+      - OUT-002
+      - ARCH-001
+      - ARCH-002
+      - ARCH-003
+      - ARCH-007
+      - AC-AUTO-001
+      - AC-AUTO-002
+      - AC-AUTO-003
+      - AC-AUTO-004
+      - AC-AUTO-005
+      - AC-AUTO-006
+      - AC-AUTO-007
+      - AC-AUTO-008
+      - AC-AUTO-009
+      - AC-AUTO-010
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-013
+      - AC-AUTO-014
+      - AC-AUTO-015
+      - AC-AUTO-016
+      - AC-AUTO-017
+      - AC-AUTO-018
+      - AC-AUTO-019
+      - AC-AUTO-020
+      - AC-AUTO-021
+
+  - id: commit.task-09
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/09_run_automated_integration_gate.md
+      - docs/specs/current-branch-security-remediation/tasks/todo.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - git commit f788a6a fix(security): exclude bare runtime packages
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-13
+      question_id: commit.task-09
+      idempotency_key: commit.task-09:v1
+      last_status: answered
+    question:
+      text: Authorize one scoped Packet 09 boundary commit using `test(security): record automated integration gate`?
+      kind: single
+      options:
+        - id: approve
+          label: Commit Packet 09
+          description: Commit only the verified Packet 09 todo and handoff changes using `test(security): record automated integration gate`; preserve the untracked review/spec bundle.
+        - id: decline
+          label: Leave uncommitted
+          description: Keep Packet 09 uncommitted and do not begin Packet 10.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The verified Packet 09 checklist and handoff boundary is authorized for one atomic commit. The untracked review/spec bundle remains excluded.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, AC-AUTO-019]
+
+  - id: execution.task-10
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/10_complete_native_manual_gates.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-13
+      question_id: execution.task-10
+      idempotency_key: execution.task-10:v1
+      last_status: answered
+    question:
+      text: After the Packet 09 boundary commit, authorize execution of Packet 10's native manual gates?
+      kind: single
+      options:
+        - id: approve
+          label: Authorize Packet 10
+          description: After the Packet 09 commit, authorize only Packet 10's native manual gates and evidence updates; no live/private provider data, push, PR, publication, or release.
+        - id: decline
+          label: Do not start
+          description: Stop after any authorized Packet 09 commit without beginning Packet 10.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: Packet 10 alone is authorized after the Packet 09 boundary commit. Its manual gates must use real native hosts and benign synthetic data and may be recorded as blocked when the required environment is unavailable.
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
+
+  - id: environment.task-10-native-access
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/tasks/10_complete_native_manual_gates.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      batch_id: execution-round-13
+      question_id: environment.task-10-native-access
+      idempotency_key: environment.task-10-native-access:v1
+      last_status: answered
+    question:
+      text: Which native environments and operator-assisted manual setups are available now for Packet 10?
+      kind: single
+      options:
+        - id: both
+          label: Linux and Windows
+          description: Real native Linux and Windows hosts plus operator-assisted archive, provider-state, accessibility, and filesystem exercises are available for this packet.
+        - id: linux-only
+          label: Linux only
+          description: Only the current real Linux host is available; Windows-required acceptance remains blocked.
+        - id: not-now
+          label: Not available now
+          description: Required native hosts or operator-assisted manual setups are not currently available, so Packet 10 must remain blocked.
+    answer:
+      selected_ids: [linux-only]
+      text: ''
+    rationale: Only the current Linux host is available. Packet 10 cannot complete because its Windows archive, packaged Prettify, accessibility, dependency, and packaged-runtime acceptance must run on a real Windows host.
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-002, AC-MAN-003, AC-MAN-005, AC-MAN-006]
+
+  - id: publication.current-branch-security-remediation-pr-state
+    revision: 1
+    category: publication
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/current-branch-security-remediation/spec.md
+      - docs/specs/current-branch-security-remediation/tasks/handoff.md
+      - feature/translation-providers
+    prompt_mcp:
+      interview_id: spec:current-branch-security-remediation
+      question_id: publication.current-branch-security-remediation-pr-state
+      idempotency_key: publication.current-branch-security-remediation-pr-state:v1
+      last_status: answered
+    question:
+      text: Should this PR be a draft or ready for review? The approved specification still blocks merge on native Linux/Windows manual gates and final review.
+      kind: single
+      options:
+        - id: draft
+          label: Create draft PR
+          description: Push the branch and open a draft PR into main, accurately marking the six required native/manual gates and final review as outstanding.
+        - id: ready
+          label: Create ready PR
+          description: Push the branch and open a ready-for-review PR into main while explicitly stating it is not merge-ready until the outstanding manual gates and final review pass.
+    answer:
+      selected_ids: [ready]
+      text: ''
+    rationale: The user authorized a ready-for-review pull request. Its title and description must still state that merge remains blocked by the six native/manual acceptance gates and final review.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]

@@ -26,12 +26,25 @@ import type {
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
 import type { TextActionStatus } from '@shared/textActionStatus';
 import type {
+  TranslationProviderConnectionState,
+  TranslationSettings,
+  TranslationSettingsSaveResult,
+} from '@shared/translationProvider';
+import type {
+  DiagnosticCaptureClearRequest,
+  DiagnosticCaptureClearResult,
+  DiagnosticCaptureSettings,
+  DiagnosticCaptureSettingsMutationRequest,
+  DiagnosticCaptureSettingsMutationResult,
+} from '@shared/diagnosticCaptureSettings';
+import type {
   CancelStreamingTranscriptionIpcResult,
   FinishStreamingTranscriptionIpcResult,
   SendStreamingTranscriptionChunkIpcResult,
   StartStreamingTranscriptionIpcResult,
   StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
+import type { DiagnosticsExportResult } from '@shared/diagnosticsArchive';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
@@ -85,6 +98,7 @@ export interface ElectronAPI {
   onStopRecording: (callback: () => void) => () => void;
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
+  onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
@@ -103,6 +117,7 @@ export interface ElectronAPI {
   openAbout: () => Promise<{ success: boolean }>;
   closeAbout: () => Promise<{ success: boolean }>;
   getAppInfo: () => Promise<AppInfo>;
+  exportDiagnostics: () => Promise<DiagnosticsExportResult>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;
@@ -152,12 +167,18 @@ export interface ElectronAPI {
   getHotkey: () => Promise<HotkeySettings>;
   setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
   setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
-  getTranslateSettings: () => Promise<{ targetLang: string }>;
+  getTranslateSettings: () => Promise<TranslationSettings>;
+  getTranslationProviderConnection: () => Promise<TranslationProviderConnectionState>;
   getTextActionSettings: () => Promise<TextActionSettings>;
+  getDiagnosticCaptureSettings: () => Promise<DiagnosticCaptureSettings>;
+  setDiagnosticCaptureSettings: (
+    request: DiagnosticCaptureSettingsMutationRequest,
+  ) => Promise<DiagnosticCaptureSettingsMutationResult>;
+  clearDiagnosticCapture: (request: DiagnosticCaptureClearRequest) => Promise<DiagnosticCaptureClearResult>;
   setTextActionSettings: (
     settings: TextActionSettingsInput,
   ) => Promise<{ success: boolean; settings: TextActionSettings }>;
-  setTranslateSettings: (targetLang: string) => Promise<{ success: boolean }>;
+  setTranslateSettings: (settings: TranslationSettings) => Promise<TranslationSettingsSaveResult>;
   getPrettifySettings: () => Promise<PrettifySettings>;
   checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
   setPrettifySettings: (

@@ -13,7 +13,6 @@ import {
 import {
   ClaudeWebPageTransportError,
   ClaudeWebPageTransportErrorCode,
-  createClaudeWebPageTransport,
   type ClaudeWebPageTransportInput,
   type ClaudeWebPageTransportOperationId,
   type ClaudeWebPageTransportStartInput,
@@ -31,33 +30,30 @@ import {
   type StreamingTranscriptionOperationId,
   type StreamingTranscriptionResult,
   type StreamingTranscriptionStarted,
+  type StreamingVoiceAuditCauseCode,
   type StreamingVoiceProviderOperations,
 } from './streamingVoiceProvider';
 import { StreamingTranscriptionOperationError } from './StreamingTranscriptionOperationError';
+import {
+  type VoiceAuditOperationContext,
+  type VoiceProviderAudit,
+  type VoiceStreamingAuditCounters,
+} from './voiceProviderAudit';
 import { CLAUDE_WEB_SPEECH_PROTOCOL_VERSION, ClaudeWebProtocolError } from './claudeWebProtocol';
 import {
   CLAUDE_WEB_ORIGIN,
-  clearClaudeWebSession,
   getClaudeWebReadinessFailureCategory,
-  getPlaywrightStorageState,
-  readClaudeWebSession,
-  resolveClaudeWebOrganization,
-  saveClaudeWebSession,
   type ClaudeWebOrganizationContext,
   type ClaudeWebOrganizationEvidence,
   type ClaudeWebSessionReadResult,
 } from './claudeWebSession';
-import { getClaudeWebSettings } from './claudeWebSettings';
-import { BrowserNavigationService, retryBrowserNavigation } from '../browserNavigationRetry';
-import { writeClipboardText } from '../electronRuntime';
-import { t } from '../i18n';
-import { createLogger } from '../logger';
+import type { I18nService } from '../i18n';
 import { CLAUDE_WEB_PROVIDER_ID, type ClaudeWebSettings } from '@shared/claudeWebSettings';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
+import type { ProviderAuditPhase } from '@main/providerAudit';
+import type { ClaudeWebNavigationService } from './claudeWebNavigationService';
+import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 
-const log = createLogger('claude-web-provider');
-const CLAUDE_WEB_NAVIGATION_TIMEOUT_MS = 30_000;
-const CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS = 10_000;
 const CLAUDE_WEB_READINESS_TIMEOUT_MS = 10_000;
 const CLAUDE_WEB_READINESS_POLL_INTERVAL_MS = 500;
 const CLAUDE_WEB_BOOTSTRAP_PATH =
@@ -65,6 +61,11 @@ const CLAUDE_WEB_BOOTSTRAP_PATH =
 const CLAUDE_WEB_RECORD_BUTTON_ACCESSIBLE_NAME = 'Press and hold to record';
 const BLOCKED_RESOURCE_TYPES = new Set(['font', 'image', 'media']);
 const SUPPORTED_WAV_MIME_TYPES = new Set(['audio/wav', 'audio/wave', 'audio/x-wav']);
+const EMPTY_STREAMING_AUDIT_COUNTERS = Object.freeze({
+  acceptedByteCount: 0,
+  chunkCount: 0,
+  frameCount: 0,
+}) satisfies VoiceStreamingAuditCounters;
 
 type ClaudeWebAuthenticationStatus = 'authenticated' | 'unauthenticated' | 'unavailable';
 
@@ -113,7 +114,7 @@ const TRANSPORT_ERROR_CODES: Readonly<Record<ClaudeWebPageTransportErrorCode, Cl
   [ClaudeWebPageTransportErrorCode.PageShutdown]: ClaudeWebVoiceProviderErrorCode.PageShutdown,
 };
 
-type ClaudeWebStorageState = ReturnType<typeof getPlaywrightStorageState>;
+type ClaudeWebStorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
 export interface ClaudeWebReadinessSnapshot {
   authentication: ClaudeWebAuthenticationStatus;
@@ -132,6 +133,8 @@ export interface ClaudeWebPageTransportLike {
 }
 
 export interface ClaudeWebVoiceProviderDependencies {
+  audit: VoiceProviderAudit;
+  localization: Pick<I18nService, 'translate'>;
   getSettings(): ClaudeWebSettings;
   readSession(): ClaudeWebSessionReadResult;
   saveSession(storageState: ClaudeWebStorageState): unknown;
@@ -141,7 +144,7 @@ export interface ClaudeWebVoiceProviderDependencies {
   inspectReadiness(page: Page, timeoutMs: number): Promise<ClaudeWebReadinessSnapshot>;
   createTransport(page: Page): ClaudeWebPageTransportLike;
   writeClipboardText(text: string): void;
-  navigatePage(page: Page): Promise<void>;
+  navigationService: Pick<ClaudeWebNavigationService, 'navigate'>;
   now(): number;
   waitForReadinessRetry(delayMs: number): Promise<void>;
 }
@@ -156,28 +159,6 @@ async function configureClaudeWebPage(page: Page): Promise<void> {
     if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) return route.abort();
     return route.continue();
   });
-}
-
-async function navigateClaudeWebPage(page: Page): Promise<void> {
-  await retryBrowserNavigation(
-    {
-      navigate: () =>
-        page.goto(CLAUDE_WEB_ORIGIN, {
-          waitUntil: 'domcontentloaded',
-          timeout: CLAUDE_WEB_NAVIGATION_TIMEOUT_MS,
-        }),
-      service: BrowserNavigationService.Claude,
-    },
-    {
-      onRetry: (event) => log.warn('Retrying Claude page navigation:', event),
-    },
-  );
-
-  try {
-    await page.waitForLoadState('load', { timeout: CLAUDE_WEB_LOAD_SETTLE_TIMEOUT_MS });
-  } catch {
-    log.warn('Claude load event did not settle quickly; continuing after DOMContentLoaded');
-  }
 }
 
 /** Reads only the minimum same-origin state needed to prove authenticated Claude routing. */
@@ -279,21 +260,6 @@ export async function inspectClaudeWebReadiness(
   }
 }
 
-const DEFAULT_DEPENDENCIES: ClaudeWebVoiceProviderDependencies = {
-  getSettings: getClaudeWebSettings,
-  readSession: readClaudeWebSession,
-  saveSession: saveClaudeWebSession,
-  clearSession: clearClaudeWebSession,
-  getStorageState: getPlaywrightStorageState,
-  resolveOrganization: resolveClaudeWebOrganization,
-  inspectReadiness: inspectClaudeWebReadiness,
-  createTransport: createClaudeWebPageTransport,
-  writeClipboardText,
-  navigatePage: navigateClaudeWebPage,
-  now: () => Date.now(),
-  waitForReadinessRetry: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
-};
-
 function getSessionErrorCode(result: ClaudeWebSessionReadResult): ClaudeWebVoiceProviderErrorCode | null {
   if (result.status === 'usable') return null;
   if (result.status === 'missing') return ClaudeWebVoiceProviderErrorCode.SessionMissing;
@@ -310,12 +276,6 @@ function getTranscriptionErrorCode(error: unknown): ClaudeWebVoiceProviderErrorC
   }
   if (error instanceof ClaudeWebPageTransportError) return TRANSPORT_ERROR_CODES[error.code];
   return ClaudeWebVoiceProviderErrorCode.UnexpectedFailure;
-}
-
-function getSafeErrorMetadata(error: unknown): Record<string, unknown> {
-  const errorCode = getTranscriptionErrorCode(error);
-  if (!(error instanceof ClaudeWebPageTransportError)) return { errorCode };
-  return { errorCode, ...error.diagnostics };
 }
 
 function isSupportedWavMimeType(mimeType: string): boolean {
@@ -337,8 +297,11 @@ function mapStreamingError(error: unknown): StreamingTranscriptionError {
   return createStreamingError(StreamingTranscriptionErrorCode.TransportFailure);
 }
 
-function streamingOperationError(code: StreamingTranscriptionErrorCode): StreamingTranscriptionOperationError {
-  return new StreamingTranscriptionOperationError(createStreamingError(code));
+function streamingOperationError(
+  code: StreamingTranscriptionErrorCode,
+  auditCauseCode: StreamingVoiceAuditCauseCode = code,
+): StreamingTranscriptionOperationError {
+  return new StreamingTranscriptionOperationError(createStreamingError(code), auditCauseCode);
 }
 
 function isValidStreamingChunk(chunk: Uint8Array, allowEmpty: boolean): boolean {
@@ -358,17 +321,28 @@ interface ClaudeWebStreamingOperation {
   transportOperationId: ClaudeWebPageTransportOperationId;
 }
 
+export const CLAUDE_WEB_VOICE_PROVIDER_INFO = Object.freeze({
+  id: CLAUDE_WEB_PROVIDER_ID,
+  name: 'Claude Web',
+  authType: 'browserSession',
+  category: 'web',
+  hasSettings: true,
+  transcriptionMode: 'streaming',
+  loginUrl: CLAUDE_WEB_ORIGIN,
+}) satisfies VoiceProviderInfo;
+
+export const CLAUDE_WEB_RENDERER_PROVIDER_INFO = Object.freeze({
+  id: CLAUDE_WEB_VOICE_PROVIDER_INFO.id,
+  name: CLAUDE_WEB_VOICE_PROVIDER_INFO.name,
+  authType: CLAUDE_WEB_VOICE_PROVIDER_INFO.authType,
+  category: CLAUDE_WEB_VOICE_PROVIDER_INFO.category,
+  hasSettings: CLAUDE_WEB_VOICE_PROVIDER_INFO.hasSettings,
+  transcriptionMode: CLAUDE_WEB_VOICE_PROVIDER_INFO.transcriptionMode,
+}) satisfies RendererSafeVoiceProviderInfo;
+
 /** Browser-session Claude provider; organization identity remains operation-local. */
 export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements StreamingVoiceProviderOperations {
-  readonly info = {
-    id: CLAUDE_WEB_PROVIDER_ID,
-    name: 'Claude Web',
-    authType: 'browserSession',
-    category: 'web',
-    hasSettings: true,
-    transcriptionMode: 'streaming',
-    loginUrl: CLAUDE_WEB_ORIGIN,
-  } satisfies VoiceProviderInfo;
+  readonly info = CLAUDE_WEB_VOICE_PROVIDER_INFO;
 
   private readonly deps: ClaudeWebVoiceProviderDependencies;
   private transport: ClaudeWebPageTransportLike | null = null;
@@ -376,16 +350,16 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   private ready = false;
   private readinessErrorCode: ClaudeWebVoiceProviderErrorCode | null = null;
 
-  constructor(dependencies: Partial<ClaudeWebVoiceProviderDependencies> = {}) {
+  constructor(dependencies: ClaudeWebVoiceProviderDependencies) {
     super();
-    this.deps = { ...DEFAULT_DEPENDENCIES, ...dependencies };
+    this.deps = dependencies;
   }
 
   async initPage(context: BrowserContext): Promise<void> {
     this.context = context;
     this.page = await context.newPage();
     await configureClaudeWebPage(this.page);
-    await this.deps.navigatePage(this.page);
+    await this.deps.navigationService.navigate(this.page);
     this.setReadiness(await this.resolveStartupReadiness(this.page));
     this.transport = this.deps.createTransport(this.page);
   }
@@ -442,7 +416,9 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   }
 
   getReadinessError(): string | null {
-    return this.readinessErrorCode ? t(`error.claudeWeb.${this.readinessErrorCode}`) : null;
+    return this.readinessErrorCode
+      ? this.deps.localization.translate(`error.claudeWeb.${this.readinessErrorCode}`)
+      : null;
   }
 
   getTranscriptionCacheContext(): readonly string[] {
@@ -466,20 +442,48 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
   }
 
   async transcribe(buffer: ArrayBuffer, mimeType = WAV_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
+    const audit = this.deps.audit.startBatch(this.info.id, buffer, mimeType);
+    const startMetadata = this.deps.audit.createBatchMetadata(audit);
+    let auditPhase: ProviderAuditPhase = 'validation';
+    audit.lifecycle.phaseCompleted('dispatch', startMetadata);
+    audit.lifecycle.phaseEntered('validation', startMetadata);
+
     try {
       if (!isSupportedWavMimeType(mimeType)) {
+        this.deps.audit.terminalBatch(audit, 'validation', 'failure', {
+          causeCode: ClaudeWebVoiceProviderErrorCode.InvalidAudio,
+        });
         return { success: false, error: ClaudeWebVoiceProviderErrorCode.InvalidAudio };
       }
 
       const pcm = extractClaudeWebPcm(new Uint8Array(buffer));
-      const context = await this.resolveTranscriptionContext();
-      if (!context.ready) return { success: false, error: context.errorCode };
+      audit.lifecycle.phaseCompleted('validation', startMetadata);
+      const context = await this.resolveTranscriptionContext(audit, startMetadata);
+      if (!context.ready) {
+        this.deps.audit.terminalBatch(audit, this.getAuditFailurePhase(context.errorCode), 'failure', {
+          causeCode: context.errorCode,
+        });
+        return { success: false, error: context.errorCode };
+      }
 
+      auditPhase = 'streaming';
+      audit.lifecycle.phaseEntered('streaming', startMetadata);
       const text = await context.transport.transcribe({
         pcm,
         ...context.input,
       });
+      audit.lifecycle.phaseCompleted('streaming', startMetadata);
+      auditPhase = 'result';
+      audit.lifecycle.phaseEntered('result', startMetadata);
+      audit.lifecycle.phaseCompleted(
+        'result',
+        this.deps.audit.createBatchMetadata(audit, { resultLength: text.length }),
+      );
+      auditPhase = 'cleanup';
+      audit.lifecycle.phaseEntered('cleanup', startMetadata);
       this.deps.writeClipboardText(text);
+      audit.lifecycle.phaseCompleted('cleanup', startMetadata);
+      this.deps.audit.terminalBatch(audit, 'cleanup', 'success', { resultLength: text.length });
       return { success: true, text };
     } catch (error: unknown) {
       const errorCode = getTranscriptionErrorCode(error);
@@ -489,21 +493,38 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
       ) {
         this.ready = false;
       }
-      log.error('Claude transcription failed:', getSafeErrorMetadata(error));
+      if (errorCode === ClaudeWebVoiceProviderErrorCode.UnexpectedFailure) {
+        this.deps.audit.terminalBatchException(audit, auditPhase, error, { causeCode: errorCode });
+      } else {
+        this.deps.audit.terminalBatch(
+          audit,
+          auditPhase,
+          errorCode === ClaudeWebVoiceProviderErrorCode.Cancelled ? 'cancelled' : 'failure',
+          { causeCode: errorCode },
+        );
+      }
       return { success: false, error: errorCode };
     }
   }
 
   async startStreamingTranscription(input: StartStreamingTranscriptionInput): Promise<StreamingTranscriptionStarted> {
+    const auditMetadata = input.audit.createStreamingMetadata(input.auditContext, EMPTY_STREAMING_AUDIT_COUNTERS);
+    input.auditContext.lifecycle.phaseCompleted('dispatch', auditMetadata);
+    input.auditContext.lifecycle.phaseEntered('validation', auditMetadata);
     if (this.streamingOperations.has(input.operationId)) {
       throw streamingOperationError(StreamingTranscriptionErrorCode.OperationConflict);
     }
+    input.auditContext.lifecycle.phaseCompleted('validation', auditMetadata);
 
-    const context = await this.resolveTranscriptionContext();
-    if (!context.ready) throw streamingOperationError(StreamingTranscriptionErrorCode.TransportFailure);
+    const context = await this.resolveTranscriptionContext(input.auditContext, auditMetadata);
+    if (!context.ready) {
+      throw streamingOperationError(StreamingTranscriptionErrorCode.TransportFailure, context.errorCode);
+    }
 
     try {
+      input.auditContext.lifecycle.phaseEntered('context', auditMetadata);
       const transportOperationId = await context.transport.start(context.input);
+      input.auditContext.lifecycle.phaseCompleted('context', auditMetadata);
       this.streamingOperations.set(input.operationId, {
         transport: context.transport,
         transportOperationId,
@@ -513,7 +534,15 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
         lifecycle: StreamingTranscriptionLifecycle.Starting,
       };
     } catch (error: unknown) {
-      throw new StreamingTranscriptionOperationError(mapStreamingError(error));
+      if (error instanceof StreamingTranscriptionOperationError) throw error;
+      const causeCode = getTranscriptionErrorCode(error);
+      throw new StreamingTranscriptionOperationError(
+        mapStreamingError(error),
+        causeCode,
+        causeCode === ClaudeWebVoiceProviderErrorCode.UnexpectedFailure
+          ? input.audit.getExceptionType(error)
+          : undefined,
+      );
     }
   }
 
@@ -524,7 +553,11 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
     if (!operation) throw streamingOperationError(StreamingTranscriptionErrorCode.InvalidOperation);
     if (!isValidStreamingChunk(input.chunk, false)) {
       this.streamingOperations.delete(input.operationId);
-      await operation.transport.cancel(operation.transportOperationId);
+      try {
+        await operation.transport.cancel(operation.transportOperationId);
+      } catch (error: unknown) {
+        throw this.createStreamingCleanupError(error);
+      }
       throw streamingOperationError(StreamingTranscriptionErrorCode.InvalidChunk);
     }
 
@@ -537,8 +570,19 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
       };
     } catch (error: unknown) {
       this.streamingOperations.delete(input.operationId);
-      await operation.transport.cancel(operation.transportOperationId);
-      throw new StreamingTranscriptionOperationError(mapStreamingError(error));
+      try {
+        await operation.transport.cancel(operation.transportOperationId);
+      } catch (cleanupError: unknown) {
+        throw this.createStreamingCleanupError(cleanupError);
+      }
+      const causeCode = getTranscriptionErrorCode(error);
+      throw new StreamingTranscriptionOperationError(
+        mapStreamingError(error),
+        causeCode,
+        causeCode === ClaudeWebVoiceProviderErrorCode.UnexpectedFailure
+          ? this.deps.audit.getExceptionType(error)
+          : undefined,
+      );
     }
   }
 
@@ -546,6 +590,7 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
     const operation = this.streamingOperations.get(input.operationId);
     if (!operation) {
       return {
+        auditCauseCode: StreamingTranscriptionErrorCode.InvalidOperation,
         success: false,
         operationId: input.operationId,
         error: createStreamingError(StreamingTranscriptionErrorCode.InvalidOperation),
@@ -553,32 +598,48 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
     }
     if (!isValidStreamingChunk(input.finalChunk, true)) {
       this.streamingOperations.delete(input.operationId);
-      await operation.transport.cancel(operation.transportOperationId);
+      try {
+        await operation.transport.cancel(operation.transportOperationId);
+      } catch (error: unknown) {
+        throw this.createStreamingCleanupError(error);
+      }
       return {
+        auditCauseCode: StreamingTranscriptionErrorCode.InvalidChunk,
         success: false,
         operationId: input.operationId,
         error: createStreamingError(StreamingTranscriptionErrorCode.InvalidChunk),
       };
     }
 
+    let result: StreamingTranscriptionResult;
     try {
       const text = await operation.transport.finish(operation.transportOperationId, input.finalChunk);
-      return {
+      result = {
         success: true,
         operationId: input.operationId,
         lifecycle: StreamingTranscriptionLifecycle.Completed,
         text,
       };
     } catch (error: unknown) {
-      return {
+      const causeCode = getTranscriptionErrorCode(error);
+      result = {
+        auditCauseCode: causeCode,
+        ...(causeCode === ClaudeWebVoiceProviderErrorCode.UnexpectedFailure
+          ? { auditExceptionType: this.deps.audit.getExceptionType(error) }
+          : {}),
         success: false,
         operationId: input.operationId,
         error: mapStreamingError(error),
       };
-    } finally {
-      this.streamingOperations.delete(input.operationId);
-      await operation.transport.cancel(operation.transportOperationId);
     }
+
+    this.streamingOperations.delete(input.operationId);
+    try {
+      await operation.transport.cancel(operation.transportOperationId);
+    } catch (error: unknown) {
+      throw this.createStreamingCleanupError(error);
+    }
+    return result;
   }
 
   async cancelStreamingTranscription(
@@ -611,19 +672,25 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
     }
   }
 
-  private async resolveTranscriptionContext(): Promise<ClaudeWebTranscriptionContext> {
+  private async resolveTranscriptionContext(
+    auditContext: VoiceAuditOperationContext,
+    auditMetadata: ReturnType<VoiceProviderAudit['createMetadata']>,
+  ): Promise<ClaudeWebTranscriptionContext> {
     if (!this.page || this.page.isClosed() || !this.transport) {
       this.ready = false;
       return { ready: false, errorCode: ClaudeWebVoiceProviderErrorCode.PageShutdown };
     }
 
+    auditContext.lifecycle.phaseEntered('configuration', auditMetadata);
     let settings: ClaudeWebSettings;
     try {
       settings = this.deps.getSettings();
     } catch {
       return { ready: false, errorCode: ClaudeWebVoiceProviderErrorCode.InvalidSettings };
     }
+    auditContext.lifecycle.phaseCompleted('configuration', auditMetadata);
 
+    auditContext.lifecycle.phaseEntered('readiness', auditMetadata);
     const readiness = await this.resolveReadiness(this.page);
     this.setReadiness(readiness);
     if (readiness.errorCode || readiness.organization.routing.status !== 'resolved') {
@@ -632,6 +699,7 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
         errorCode: readiness.errorCode ?? ClaudeWebVoiceProviderErrorCode.OrganizationMissing,
       };
     }
+    auditContext.lifecycle.phaseCompleted('readiness', auditMetadata);
 
     return {
       ready: true,
@@ -641,6 +709,35 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
         organizationUuid: readiness.organization.routing.organizationUuid,
       },
     };
+  }
+
+  private getAuditFailurePhase(errorCode: ClaudeWebVoiceProviderErrorCode): ProviderAuditPhase {
+    switch (errorCode) {
+      case ClaudeWebVoiceProviderErrorCode.InvalidAudio:
+        return 'validation';
+      case ClaudeWebVoiceProviderErrorCode.InvalidSettings:
+        return 'configuration';
+      case ClaudeWebVoiceProviderErrorCode.SessionMissing:
+      case ClaudeWebVoiceProviderErrorCode.SessionExpired:
+      case ClaudeWebVoiceProviderErrorCode.SessionInvalid:
+      case ClaudeWebVoiceProviderErrorCode.FeatureUnavailable:
+      case ClaudeWebVoiceProviderErrorCode.OrganizationMissing:
+      case ClaudeWebVoiceProviderErrorCode.OrganizationAmbiguous:
+      case ClaudeWebVoiceProviderErrorCode.UnexpectedFailure:
+        return 'readiness';
+      case ClaudeWebVoiceProviderErrorCode.PageShutdown:
+        return 'context';
+      default:
+        return 'result';
+    }
+  }
+
+  private createStreamingCleanupError(error: unknown): StreamingTranscriptionOperationError {
+    return new StreamingTranscriptionOperationError(
+      createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+      'cleanup-failed',
+      this.deps.audit.getExceptionType(error),
+    );
   }
 
   private async resolveReadiness(

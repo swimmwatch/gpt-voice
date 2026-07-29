@@ -1,23 +1,28 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { StatusCodes } from 'http-status-codes';
-import { setLocale } from '@main/i18n';
+import { I18nService } from '@main/i18n';
 import {
   getTranscriptionRetryAfterSeconds,
   parseRateLimitedTranscribeResponse,
 } from '@main/providers/transcriptionErrors';
 
+const localization = new I18nService();
+
 describe('transcriptionErrors', () => {
   afterEach(() => {
-    setLocale('en');
+    localization.setLocale('en');
   });
 
   it('returns null for non-rate-limit responses', () => {
     assert.equal(
-      parseRateLimitedTranscribeResponse({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        body: JSON.stringify({ detail: 'Temporary provider failure' }),
-      }),
+      parseRateLimitedTranscribeResponse(
+        {
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          body: JSON.stringify({ detail: 'Temporary provider failure' }),
+        },
+        localization,
+      ),
       null,
     );
   });
@@ -26,10 +31,13 @@ describe('transcriptionErrors', () => {
     const body = JSON.stringify({ error: { message: 'Provider-specific rate limit details' } });
 
     assert.deepEqual(
-      parseRateLimitedTranscribeResponse({
-        status: StatusCodes.TOO_MANY_REQUESTS,
-        body,
-      }),
+      parseRateLimitedTranscribeResponse(
+        {
+          status: StatusCodes.TOO_MANY_REQUESTS,
+          body,
+        },
+        localization,
+      ),
       {
         success: false,
         error: 'Too many requests. Try again later.',
@@ -47,10 +55,13 @@ describe('transcriptionErrors', () => {
     });
 
     assert.deepEqual(
-      parseRateLimitedTranscribeResponse({
-        status: StatusCodes.TOO_MANY_REQUESTS,
-        body,
-      }),
+      parseRateLimitedTranscribeResponse(
+        {
+          status: StatusCodes.TOO_MANY_REQUESTS,
+          body,
+        },
+        localization,
+      ),
       {
         success: false,
         error: 'Too many requests. Try again in 30s.',
@@ -63,10 +74,13 @@ describe('transcriptionErrors', () => {
     const body = JSON.stringify({ error: { retry_after_seconds: 1.2 } });
 
     assert.equal(
-      parseRateLimitedTranscribeResponse({
-        status: StatusCodes.TOO_MANY_REQUESTS,
-        body,
-      })?.error,
+      parseRateLimitedTranscribeResponse(
+        {
+          status: StatusCodes.TOO_MANY_REQUESTS,
+          body,
+        },
+        localization,
+      )?.error,
       'Too many requests. Try again in 2s.',
     );
   });
@@ -75,11 +89,14 @@ describe('transcriptionErrors', () => {
     const body = JSON.stringify({ error: { retry_after_seconds: 90, message: 'synthetic provider details' } });
 
     assert.equal(
-      parseRateLimitedTranscribeResponse({
-        status: StatusCodes.TOO_MANY_REQUESTS,
-        body,
-        retryAfter: '12.2',
-      })?.error,
+      parseRateLimitedTranscribeResponse(
+        {
+          status: StatusCodes.TOO_MANY_REQUESTS,
+          body,
+          retryAfter: '12.2',
+        },
+        localization,
+      )?.error,
       'Too many requests. Try again in 13s.',
     );
   });

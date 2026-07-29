@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import LoadingScreen from '@renderer/components/LoadingScreen';
 import ProviderSettingsForm from '@renderer/components/ProviderSettingsForm';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
@@ -13,6 +14,7 @@ import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 
 /** Loads one provider-bound settings snapshot and never follows the main window's active provider. */
 function ProviderSettingsWindow(): JSX.Element {
+  const desktopApi = useDesktopApi();
   const { isReady: isI18nReady, t } = useI18n();
   const [provider, setProvider] = useState<ProviderInfo | null>(null);
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
@@ -28,11 +30,11 @@ function ProviderSettingsWindow(): JSX.Element {
     const loadProviderSettings = async (): Promise<void> => {
       try {
         const providerId = getProviderSettingsWindowProviderId(window.location.search);
-        const providers = await window.electronAPI.getProviders();
+        const providers = await desktopApi.getProviders();
         const requestedProvider = findSettingsProvider(providers, providerId);
         if (!requestedProvider) throw new Error('Provider settings are not available');
 
-        const nextSettings = await window.electronAPI.getProviderSettings(requestedProvider.id);
+        const nextSettings = await desktopApi.getProviderSettings(requestedProvider.id);
         if (!isMatchingProviderSettings(nextSettings, requestedProvider.id)) {
           throw new Error('Provider settings response did not match the requested provider');
         }
@@ -54,25 +56,25 @@ function ProviderSettingsWindow(): JSX.Element {
     return () => {
       disposed = true;
     };
-  }, [isI18nReady, t]);
+  }, [desktopApi, isI18nReady, t]);
 
   const closeWindow = useCallback((): void => {
-    void window.electronAPI.closeProviderSettings();
-  }, []);
+    void desktopApi.closeProviderSettings();
+  }, [desktopApi]);
 
   const login = useCallback(async (): Promise<ProviderSettings> => {
     if (!provider) throw new Error(t('providerSettings.loadFailed'));
 
-    const result = await window.electronAPI.providerLogin(provider.id);
+    const result = await desktopApi.providerLogin(provider.id);
     if (!result.success) throw new Error(result.error || t('status.loginFailed', { error: '' }));
 
-    const nextSettings = result.settings ?? (await window.electronAPI.getProviderSettings(provider.id));
+    const nextSettings = result.settings ?? (await desktopApi.getProviderSettings(provider.id));
     if (!isMatchingProviderSettings(nextSettings, provider.id)) {
       throw new Error(t('providerSettings.loadFailed'));
     }
     setSettings(nextSettings);
     return nextSettings;
-  }, [provider, t]);
+  }, [desktopApi, provider, t]);
 
   if (!isI18nReady || isLoading) return <LoadingScreen />;
 

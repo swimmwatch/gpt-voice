@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildTextAutomationCommand,
   getLinuxTextAutomationStrategy,
-  runTextAutomationAction,
+  TextAutomationService,
 } from '@main/services/textAutomation';
 
 describe('textAutomation', () => {
@@ -48,18 +48,18 @@ describe('textAutomation', () => {
   });
 
   it('builds macOS osascript commands', () => {
-    assert.deepEqual(buildTextAutomationCommand('copy', 'darwin')?.args, [
+    assert.deepEqual(buildTextAutomationCommand('copy', 'darwin', {})?.args, [
       '-e',
       'tell application "System Events" to keystroke "c" using command down',
     ]);
-    assert.deepEqual(buildTextAutomationCommand('paste', 'darwin')?.args, [
+    assert.deepEqual(buildTextAutomationCommand('paste', 'darwin', {})?.args, [
       '-e',
       'tell application "System Events" to keystroke "v" using command down',
     ]);
   });
 
   it('builds Windows SendKeys commands', () => {
-    const copyCommand = buildTextAutomationCommand('copy', 'win32');
+    const copyCommand = buildTextAutomationCommand('copy', 'win32', {});
 
     assert.equal(copyCommand?.command, 'powershell.exe');
     assert.equal(
@@ -69,7 +69,7 @@ describe('textAutomation', () => {
       true,
     );
     assert.equal(
-      buildTextAutomationCommand('paste', 'win32')?.args.includes(
+      buildTextAutomationCommand('paste', 'win32', {})?.args.includes(
         'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^v")',
       ),
       true,
@@ -78,13 +78,14 @@ describe('textAutomation', () => {
 
   it('checks executable availability before running automation', async () => {
     const calls: Array<{ command: string; args: string[] }> = [];
-    await runTextAutomationAction('copy', {
+    const automation = new TextAutomationService({
       platform: 'linux',
-      env: { XDG_SESSION_TYPE: 'x11' },
+      environment: { XDG_SESSION_TYPE: 'x11' },
       runner: async (command, args) => {
         calls.push({ command, args });
       },
     });
+    await automation.run('copy');
 
     assert.deepEqual(calls, [
       { command: 'sh', args: ['-c', 'command -v xdotool >/dev/null 2>&1'] },

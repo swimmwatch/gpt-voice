@@ -23,6 +23,23 @@ Load only the section relevant to the current task. This guide is not an always-
 - Keep provider behavior behind `BaseVoiceProvider`, and keep ChatGPT browser-session data separate from encrypted OpenAI API settings.
 - Do not expose Node, Electron internals, raw IPC, or provider secrets to the renderer.
 
+## Dependency Injection And Runtime Ownership
+
+- Construct main-process business services, repositories, controllers, and
+  runtime adapters only in `MainProcessCompositionRoot` or
+  `MainProcessRuntimeFactory`. Dedicated provider and external-adapter
+  factories may construct only their operation-scoped implementations.
+- Keep the preload root functional in `preload.ts`, and keep renderer
+  composition functional through `bootstrapWindow`, React providers, and
+  hooks. Only these roots may import process runtime values such as Electron
+  or the renderer logger.
+- Require complete constructor dependencies for stateful business classes.
+  Do not add default dependency objects, service locators, mutable module
+  state, exported constructed instances, or free pass-through wrappers.
+- Inject clocks, UUID generators, filesystem, SQLite, browser, HTTP, CLI, OS,
+  and logging adapters. Every process graph owns its resources independently
+  and releases them through its application shutdown lifecycle.
+
 ## Desktop, Browser, And Packaging
 
 - Preserve single-instance, tray, shortcut, microphone, clipboard, and platform metadata behavior unless explicitly targeted.

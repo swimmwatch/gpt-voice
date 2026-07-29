@@ -1,10 +1,11 @@
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
+import { useSelectOpenCoordinator } from '@renderer/DesktopApiProvider';
 import { cn } from '@renderer/lib/cn';
-import { selectOpenCoordinator } from '@renderer/selectOpenCoordinator';
 
 function Select(rootProps: ComponentProps<typeof SelectPrimitive.Root>): React.JSX.Element {
+  const selectOpenCoordinator = useSelectOpenCoordinator();
   const { defaultOpen = false, open: controlledOpen, ...props } = rootProps;
   const [token] = useState(() => Symbol('select'));
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -25,14 +26,14 @@ function Select(rootProps: ComponentProps<typeof SelectPrimitive.Root>): React.J
       if (!isControlled) setUncontrolledOpen(nextOpen);
       notifyOpenChange(nextOpen);
     },
-    [closeFromCoordinator, isControlled, notifyOpenChange, token],
+    [closeFromCoordinator, isControlled, notifyOpenChange, selectOpenCoordinator, token],
   );
 
   useEffect(() => {
     if (open) selectOpenCoordinator.activate(token, closeFromCoordinator);
     else selectOpenCoordinator.deactivate(token);
     return () => selectOpenCoordinator.deactivate(token);
-  }, [closeFromCoordinator, open, token]);
+  }, [closeFromCoordinator, open, selectOpenCoordinator, token]);
 
   return <SelectPrimitive.Root {...props} onOpenChange={handleOpenChange} open={open} />;
 }
@@ -89,12 +90,19 @@ function SelectScrollDownButton({
   );
 }
 
+interface SelectContentProps extends ComponentProps<typeof SelectPrimitive.Content> {
+  showScrollButtons?: boolean;
+  viewportClassName?: string;
+}
+
 function SelectContent({
   children,
   className,
   position = 'popper',
+  showScrollButtons = true,
+  viewportClassName,
   ...props
-}: ComponentProps<typeof SelectPrimitive.Content>): React.JSX.Element {
+}: SelectContentProps): React.JSX.Element {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -107,11 +115,11 @@ function SelectContent({
         position={position}
         {...props}
       >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport className="p-1" data-slot="select-viewport">
+        {showScrollButtons && <SelectScrollUpButton />}
+        <SelectPrimitive.Viewport className={cn('p-1', viewportClassName)} data-slot="select-viewport">
           {children}
         </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
+        {showScrollButtons && <SelectScrollDownButton />}
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

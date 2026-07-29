@@ -83,6 +83,40 @@ describe('browser navigation retry', () => {
     assert.deepEqual(delays, [500, 1000, 2000]);
   });
 
+  for (const [service, expectedName] of [
+    [BrowserNavigationService.GoogleTranslate, 'Google Translate'],
+    [BrowserNavigationService.BingTranslate, 'Bing Translator'],
+    [BrowserNavigationService.YandexTranslate, 'Yandex Translate'],
+  ] as const) {
+    it(`keeps bounded safe retry behavior for ${expectedName}`, async () => {
+      let attempts = 0;
+      const events: BrowserNavigationRetryEvent[] = [];
+
+      await retryBrowserNavigation(
+        {
+          navigate: async () => {
+            attempts += 1;
+            if (attempts === 1) {
+              throw new Error('page.goto: net::ERR_CONNECTION_RESET at https://private.invalid/source');
+            }
+          },
+          service,
+        },
+        {
+          onRetry: (event) => events.push(event),
+          random: () => 0.5,
+          sleep: async () => undefined,
+        },
+      );
+
+      assert.equal(attempts, 2);
+      assert.equal(events.length, 1);
+      assert.equal(events[0]?.service, service);
+      assert.equal(events[0]?.error.wasSanitized, true);
+      assert.equal(JSON.stringify(events[0]).includes('private.invalid'), false);
+    });
+  }
+
   it('classifies Claude navigation retries independently', async () => {
     const events: BrowserNavigationRetryEvent[] = [];
     let attempts = 0;

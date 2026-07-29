@@ -34,7 +34,7 @@ describe('App Settings prettify models', () => {
 
     assert.doesNotMatch(providerChange, /listPrettifyModels/u);
     assert.match(providerChange, /modelRequestRef\.current \+= 1/u);
-    assert.match(refresh, /window\.electronAPI\.listPrettifyModels\(providerId, settingsSnapshot\)/u);
+    assert.match(refresh, /desktopApi\.listPrettifyModels\(providerId, settingsSnapshot\)/u);
     assert.match(refresh, /requestId !== modelRequestRef\.current/u);
     assert.match(refresh, /checkStatus: result\.success \? 'available' : 'unavailable'/u);
     assert.match(prettifySection, /onOpen=\{refreshCliModelsOnOpen\}/u);

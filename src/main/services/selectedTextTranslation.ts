@@ -1,21 +1,10 @@
-import { currentTargetLang } from '@main/config';
-import {
-  readClipboardText,
-  showSystemNotification,
-  writeTypedClipboardText,
-  type ClipboardType,
-} from '@main/electronRuntime';
-import { t } from '@main/i18n';
-import { createLogger } from '@main/logger';
-import { translateText } from '@main/services/translation';
-import { normalizeGoogleTranslateTargetLang } from '@main/services/translationUtils';
-import { selectedTextActionGate, type SelectedTextActionGate } from '@main/services/selectedTextActionState';
-import {
-  createTextActionCacheKey,
-  createTextActionResultCache,
-  type TextActionResultCache,
-} from '@main/services/textActionCache';
-import { runTextAutomationAction, type TextAutomationAction } from '@main/services/textAutomation';
+import type { ClipboardType } from '@main/electronRuntime';
+import type { I18nService } from '@main/i18n';
+import type { TranslationExecutionSnapshot, TranslationRuntime } from '@main/services/translation';
+import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
+import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
+import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
+import type { TextAutomationService } from '@main/services/textAutomation';
 import {
   formatNotificationBody,
   presentNotificationError,
@@ -23,7 +12,6 @@ import {
   type SystemNotificationOptions,
 } from '@shared/notifications';
 
-const log = createLogger('selection-translate');
 export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES = 20;
 
@@ -39,185 +27,227 @@ export interface SelectedTextTranslationClipboard {
   writeText(text: string, type?: ClipboardType): void;
 }
 
+export interface SelectedTextTranslationLogger {
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+}
+
+export type SelectedTextTranslationRuntime = Pick<
+  TranslationRuntime,
+  'getFailureMessage' | 'getSnapshot' | 'isCurrent' | 'translateWithSnapshot' | 'validateInput'
+>;
+
 export interface SelectedTextTranslationDependencies {
-  actionGate: SelectedTextActionGate;
-  automateTextAction: (action: TextAutomationAction) => Promise<void>;
-  cache: TextActionResultCache;
-  clipboard: SelectedTextTranslationClipboard;
-  getTargetLang: () => string;
-  notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
-  platform: NodeJS.Platform;
-  translate: (text: string, targetLang: string) => Promise<{ success: boolean; text?: string; error?: string }>;
-  wait: (delayMs: number) => Promise<void>;
-}
-
-function presentTranslationError(error: unknown, fallback = t('status.translationFailed')): PresentedNotificationError {
-  return presentNotificationError(error, { context: 'translation', fallback, t });
-}
-
-function restoreClipboard(deps: SelectedTextTranslationDependencies, previousClipboardText: string | null): void {
-  if (previousClipboardText !== null) {
-    deps.clipboard.writeText(previousClipboardText);
-  }
-}
-
-async function readSelectedText(
-  deps: SelectedTextTranslationDependencies,
-): Promise<{ selectedText: string; copyError?: unknown }> {
-  let copyError: unknown;
-
-  try {
-    await deps.automateTextAction('copy');
-    await deps.wait(COPY_SETTLE_DELAY_MS);
-  } catch (error: unknown) {
-    copyError = error;
-    log.warn('Could not copy selected text with OS automation:', presentTranslationError(error).safeLogMetadata);
-  }
-
-  let selectedText = deps.clipboard.readText();
-  if (!selectedText.trim() && deps.platform === 'linux') {
-    selectedText = deps.clipboard.readText('selection');
-    if (selectedText.trim() && copyError) {
-      log.info('Using Linux selection clipboard after copy automation failed:', { textLength: selectedText.length });
-    }
-  }
-
-  return { selectedText, copyError };
-}
-
-function notifyTranslationFailure(
-  deps: SelectedTextTranslationDependencies,
-  error: unknown,
-  fallback = t('status.translationFailed'),
-): PresentedNotificationError {
-  const presented = presentTranslationError(error, fallback);
-  try {
-    deps.notify(t('notification.translationFailed'), formatNotificationBody(presented.userMessage, fallback), {
-      sound: 'error',
-    });
-  } catch (error: unknown) {
-    log.warn('Could not show translation failure notification:', presentTranslationError(error).safeLogMetadata);
-  }
-  return presented;
-}
-
-function notifyTranslationCopied(deps: SelectedTextTranslationDependencies, body: string): void {
-  try {
-    deps.notify(t('notification.translationCopied'), formatNotificationBody(body, t('status.translationCopied')), {
-      sound: 'success',
-    });
-  } catch (error: unknown) {
-    log.warn('Could not show translation copied notification:', presentTranslationError(error).safeLogMetadata);
-  }
+  readonly actionGate: SelectedTextActionGate;
+  readonly cache: TextActionResultCache;
+  readonly clipboard: SelectedTextTranslationClipboard;
+  readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'captureTranslationCacheHit'>;
+  readonly logger: SelectedTextTranslationLogger;
+  readonly localization: Pick<I18nService, 'translate'>;
+  readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
+  readonly platform: NodeJS.Platform;
+  readonly runtime: SelectedTextTranslationRuntime;
+  readonly textAutomation: Pick<TextAutomationService, 'run'>;
+  readonly wait: (delayMs: number) => Promise<void>;
 }
 
 function createFailureResult(error: string): SelectedTextTranslationResult {
-  return {
-    success: false,
-    status: error,
-    error,
-  };
+  return { success: false, status: error, error };
 }
 
 function createSkippedResult(): SelectedTextTranslationResult {
-  return {
-    success: false,
-    status: '',
-    skipped: true,
-  };
+  return { success: false, status: '', skipped: true };
 }
 
-function createSuccessResult(): SelectedTextTranslationResult {
-  return {
-    success: true,
-    status: t('status.translationCopied'),
-  };
+function createSuccessResult(status: string): SelectedTextTranslationResult {
+  return { success: true, status };
 }
 
-export function createSelectedTextTranslationService(deps: SelectedTextTranslationDependencies) {
-  return async function translateSelectedTextToClipboard(): Promise<SelectedTextTranslationResult> {
-    if (!deps.actionGate.tryBegin('translate')) {
-      log.info('Selected-text translation skipped because another selected-text action is active');
+/** Owns one serialized selected-text Translation workflow and its cache. */
+export class SelectedTextTranslationService {
+  public constructor(private readonly dependencies: SelectedTextTranslationDependencies) {}
+
+  /** Translates the current desktop selection and writes the accepted result to the clipboard. */
+  public readonly translateSelectedTextToClipboard = async (): Promise<SelectedTextTranslationResult> => {
+    if (!this.dependencies.actionGate.tryBegin('translate')) {
+      this.dependencies.logger.info('Selected-text translation skipped because another selected-text action is active');
       return createSkippedResult();
     }
 
     let previousClipboardText: string | null = null;
-
+    let snapshot: TranslationExecutionSnapshot | null = null;
     try {
-      previousClipboardText = deps.clipboard.readText();
-      deps.clipboard.writeText('');
-      const { selectedText, copyError } = await readSelectedText(deps);
+      const snapshotResult = this.dependencies.runtime.getSnapshot();
+      if (!snapshotResult.success) {
+        const message = this.dependencies.runtime.getFailureMessage(snapshotResult);
+        const presented = this.notifyTranslationFailure(message);
+        return createFailureResult(presented.userMessage);
+      }
+      snapshot = snapshotResult.snapshot;
 
-      if (!selectedText.trim()) {
-        if (copyError) {
-          log.warn(
+      previousClipboardText = this.dependencies.clipboard.readText();
+      this.dependencies.clipboard.writeText('');
+      const { selectedText, copyError } = await this.readSelectedText();
+
+      const validationFailure = this.dependencies.runtime.validateInput(selectedText, snapshot);
+      if (validationFailure) {
+        if (validationFailure.discard || !this.dependencies.runtime.isCurrent(snapshot)) {
+          return createSkippedResult();
+        }
+        if (!selectedText.trim() && copyError) {
+          this.dependencies.logger.warn(
             'No selected text found after copy automation failure:',
-            presentTranslationError(copyError).safeLogMetadata,
+            this.presentTranslationError(copyError).safeLogMetadata,
           );
         }
-        const error = t('error.noTextSelectedToTranslate');
-        restoreClipboard(deps, previousClipboardText);
-        const presented = notifyTranslationFailure(deps, error);
+        this.restoreClipboard(previousClipboardText);
+        const message = this.dependencies.runtime.getFailureMessage(validationFailure);
+        const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
       }
 
-      const targetLang = normalizeGoogleTranslateTargetLang(deps.getTargetLang());
-      const cacheKey = createTextActionCacheKey(['translate', selectedText, targetLang]);
-      const cachedTranslation = deps.cache.get(cacheKey);
+      const cacheKey = createTextActionCacheKey([
+        'translate',
+        snapshot.providerId,
+        snapshot.contractVersion,
+        snapshot.targetLanguage,
+        selectedText,
+      ]);
+      const cachedTranslation = this.dependencies.cache.get(cacheKey);
       if (cachedTranslation) {
-        deps.clipboard.writeText(cachedTranslation);
-        notifyTranslationCopied(deps, cachedTranslation);
-        log.info('Translated selected text copied from cache:', {
+        if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        this.captureCacheHit(selectedText, cachedTranslation, snapshot);
+        this.dependencies.clipboard.writeText(cachedTranslation);
+        this.notifyTranslationCopied(cachedTranslation);
+        this.dependencies.logger.info('Translated selected text copied from cache:', {
+          providerId: snapshot.providerId,
+          contractVersion: snapshot.contractVersion,
+          targetLanguage: snapshot.targetLanguage,
           sourceLength: selectedText.length,
-          translatedLength: cachedTranslation.length,
-          targetLang,
+          resultLength: cachedTranslation.length,
         });
-        return createSuccessResult();
+        return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
       }
 
-      log.info('Translating selected text:', { textLength: selectedText.length, targetLang });
-      const translated = await deps.translate(selectedText, targetLang);
-      if (!translated.success || !translated.text?.trim()) {
-        const error = translated.error || t('status.translationFailed');
-        restoreClipboard(deps, previousClipboardText);
-        const presented = notifyTranslationFailure(deps, error);
-        log.warn('Selected-text translation failed:', presented.safeLogMetadata);
+      const outcome = await this.dependencies.runtime.translateWithSnapshot(selectedText, snapshot);
+      if (!outcome.success) {
+        if (outcome.discard || !this.dependencies.runtime.isCurrent(snapshot)) {
+          return createSkippedResult();
+        }
+        this.restoreClipboard(previousClipboardText);
+        const message = this.dependencies.runtime.getFailureMessage(outcome);
+        const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
       }
+      if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
 
-      deps.cache.set(cacheKey, translated.text);
-      deps.clipboard.writeText(translated.text);
-      notifyTranslationCopied(deps, translated.text);
-      log.info('Translated selected text copied:', {
-        sourceLength: selectedText.length,
-        translatedLength: translated.text.length,
-        targetLang,
-      });
-      return createSuccessResult();
+      this.dependencies.cache.set(cacheKey, outcome.text);
+      this.dependencies.clipboard.writeText(outcome.text);
+      this.notifyTranslationCopied(outcome.text);
+      return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
     } catch (error: unknown) {
-      restoreClipboard(deps, previousClipboardText);
-      const presented = notifyTranslationFailure(deps, error);
-      log.warn('Selected-text translation failed:', presented.safeLogMetadata);
+      if (snapshot && !this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+      this.restoreClipboard(previousClipboardText);
+      const presented = this.notifyTranslationFailure(error);
+      this.dependencies.logger.warn('Selected-text translation failed:', presented.safeLogMetadata);
       return createFailureResult(presented.userMessage);
     } finally {
-      deps.actionGate.finish('translate');
+      this.dependencies.actionGate.finish('translate');
     }
   };
-}
 
-export const translateSelectedTextToClipboard = createSelectedTextTranslationService({
-  actionGate: selectedTextActionGate,
-  automateTextAction: async (action) => {
-    await runTextAutomationAction(action);
-  },
-  cache: createTextActionResultCache(SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES),
-  clipboard: {
-    readText: (type) => readClipboardText(type),
-    writeText: (text, type) => writeTypedClipboardText(text, type),
-  },
-  getTargetLang: () => currentTargetLang,
-  notify: showSystemNotification,
-  platform: process.platform,
-  translate: translateText,
-  wait: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
-});
+  private captureCacheHit(sourceText: string, resultText: string, snapshot: TranslationExecutionSnapshot): void {
+    try {
+      this.dependencies.diagnosticCapture.captureTranslationCacheHit({
+        contractVersion: snapshot.contractVersion,
+        providerId: snapshot.providerId,
+        resultText,
+        sourceText,
+        targetLanguage: snapshot.targetLanguage,
+      });
+    } catch {
+      // Diagnostic capture cannot alter selected-text behavior.
+    }
+  }
+
+  private presentTranslationError(
+    error: unknown,
+    fallback = this.dependencies.localization.translate('status.translationFailed'),
+  ): PresentedNotificationError {
+    return presentNotificationError(error, {
+      context: 'translation',
+      fallback,
+      t: this.dependencies.localization.translate,
+    });
+  }
+
+  private restoreClipboard(previousClipboardText: string | null): void {
+    if (previousClipboardText !== null) {
+      this.dependencies.clipboard.writeText(previousClipboardText);
+    }
+  }
+
+  private async readSelectedText(): Promise<{ selectedText: string; copyError?: unknown }> {
+    let copyError: unknown;
+    try {
+      await this.dependencies.textAutomation.run('copy');
+      await this.dependencies.wait(COPY_SETTLE_DELAY_MS);
+    } catch (error: unknown) {
+      copyError = error;
+      this.dependencies.logger.warn(
+        'Could not copy selected text with OS automation:',
+        this.presentTranslationError(error).safeLogMetadata,
+      );
+    }
+
+    let selectedText = this.dependencies.clipboard.readText();
+    if (!selectedText.trim() && this.dependencies.platform === 'linux') {
+      selectedText = this.dependencies.clipboard.readText('selection');
+      if (selectedText.trim() && copyError) {
+        this.dependencies.logger.info('Using Linux selection clipboard after copy automation failed:', {
+          textLength: selectedText.length,
+        });
+      }
+    }
+    return { selectedText, copyError };
+  }
+
+  private notifyTranslationFailure(
+    error: unknown,
+    fallback = this.dependencies.localization.translate('status.translationFailed'),
+  ): PresentedNotificationError {
+    const presented = this.presentTranslationError(error, fallback);
+    try {
+      this.dependencies.notify(
+        this.dependencies.localization.translate('notification.translationFailed'),
+        formatNotificationBody(presented.userMessage, fallback),
+        {
+          sound: 'error',
+        },
+      );
+    } catch (notificationError: unknown) {
+      this.dependencies.logger.warn(
+        'Could not show translation failure notification:',
+        this.presentTranslationError(notificationError).safeLogMetadata,
+      );
+    }
+    return presented;
+  }
+
+  private notifyTranslationCopied(body: string): void {
+    try {
+      this.dependencies.notify(
+        this.dependencies.localization.translate('notification.translationCopied'),
+        formatNotificationBody(body, this.dependencies.localization.translate('status.translationCopied')),
+        {
+          sound: 'success',
+        },
+      );
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not show translation copied notification:',
+        this.presentTranslationError(error).safeLogMetadata,
+      );
+    }
+  }
+}

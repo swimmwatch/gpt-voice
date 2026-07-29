@@ -1,9 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { getActiveProvider } from '../browser';
-import { createLogger } from '../logger';
 import type { BaseVoiceProvider } from '../providers/BaseVoiceProvider';
 import { extractClaudeWebPcm, CLAUDE_WEB_PCM_CHUNK_BYTES } from '../providers/claudeWebAudio';
-import { resolveStreamingVoiceProviderCapability } from '../providers/streamingVoiceProviderCapability';
 import {
   copyStreamingTranscriptionChunk,
   StreamingTranscriptionErrorCode,
@@ -14,21 +10,25 @@ import {
   type StreamingTranscriptionError,
   type StreamingTranscriptionOperationId,
   type StreamingTranscriptionStarted,
+  type StreamingVoiceAuditCauseCode,
   type StreamingVoiceProviderCapability,
   type StreamingVoiceProviderOperations,
 } from '../providers/streamingVoiceProvider';
 import { StreamingTranscriptionOperationError } from '../providers/StreamingTranscriptionOperationError';
+import {
+  type VoiceAuditOperationContext,
+  type VoiceProviderAudit,
+  type VoiceStreamingAuditCounters,
+} from '../providers/voiceProviderAudit';
 import { MainStreamingTranscriptionRejection } from './MainStreamingTranscriptionRejection';
 import {
   completeStreamingTranscription,
   createTranscriptionCompletionSnapshot,
-  defaultTranscriptionCompletionDependencies,
   type TranscriptionCompletionDependencies,
   type TranscriptionCompletionSnapshot,
 } from './transcriptionCompletion';
 import { WAV_TRANSCRIPTION_MIME_TYPE } from '@shared/transcriptionConstants';
 
-const log = createLogger('streaming-transcription');
 const STREAMING_TRANSCRIPTION_OWNER_TOKEN: unique symbol = Symbol('streaming-transcription-owner-token');
 
 export type StreamingTranscriptionOwnerToken = Readonly<{
@@ -90,9 +90,14 @@ export interface StreamingTranscriptionDiagnostic {
 
 export type StreamingTranscriptionDiagnosticOutcome = 'cancelled' | 'completed' | 'failed';
 
+export interface StreamingTranscriptionBackgroundBrowser {
+  getActiveProvider(): BaseVoiceProvider | null;
+}
+
 export interface MainStreamingTranscriptionServiceDependencies extends TranscriptionCompletionDependencies {
+  audit: VoiceProviderAudit;
+  backgroundBrowserService: StreamingTranscriptionBackgroundBrowser;
   createOperationId: () => StreamingTranscriptionOperationId;
-  getActiveProvider: () => BaseVoiceProvider | null;
   getMonotonicTimeMs: () => number;
   getRequestedAt: () => string;
   reportDiagnostic: (
@@ -111,13 +116,17 @@ export interface MainStreamingTranscriptionService {
 }
 
 interface TerminalFailure {
+  readonly auditCauseCode: StreamingVoiceAuditCauseCode;
   readonly error: StreamingTranscriptionError;
   readonly retryEligible: boolean;
 }
 
 interface ActiveStreamingTranscription {
+  auditFrameCount: number;
+  acceptedChunkCount: number;
   acceptedByteCount: number;
   acceptedFrameCount: number;
+  auditContext: VoiceAuditOperationContext | null;
   chunks: CopiedStreamingTranscriptionChunk[];
   completionSnapshot: TranscriptionCompletionSnapshot | null;
   finishClaimed: boolean;
@@ -144,6 +153,14 @@ function mapProviderError(error: unknown): StreamingTranscriptionError {
   if (error instanceof MainStreamingTranscriptionRejection) return error.error;
   if (error instanceof StreamingTranscriptionOperationError) return error.error;
   return createStreamingError(StreamingTranscriptionErrorCode.TransportFailure);
+}
+
+function getProviderAuditCause(error: unknown): StreamingVoiceAuditCauseCode {
+  if (error instanceof StreamingTranscriptionOperationError) {
+    return error.auditCauseCode ?? error.error.code;
+  }
+  if (error instanceof MainStreamingTranscriptionRejection) return error.error.code;
+  return StreamingTranscriptionErrorCode.TransportFailure;
 }
 
 function isValidSequence(sequence: unknown, expected: number): sequence is number {
@@ -233,29 +250,19 @@ function getDurationMs(now: number, startedAtMs: number): number {
   return Math.max(0, Math.round(now - startedAtMs));
 }
 
-function defaultReportDiagnostic(
-  outcome: StreamingTranscriptionDiagnosticOutcome,
-  diagnostic: StreamingTranscriptionDiagnostic,
-): void {
-  if (outcome === 'completed') {
-    log.info('Streaming transcription completed:', diagnostic);
-    return;
-  }
-  log.warn('Streaming transcription terminated:', diagnostic);
-}
-
 /** Owns the one live main-process transcription operation and its terminal side effects. */
 export class StreamingTranscriptionService implements MainStreamingTranscriptionService {
   private activeOperation: ActiveStreamingTranscription | null = null;
 
   constructor(private readonly deps: MainStreamingTranscriptionServiceDependencies) {}
 
+  /** Claims one accepted provider operation before starting its live transport. */
   async start(input: StartMainStreamingTranscriptionInput): Promise<MainStreamingTranscriptionStarted> {
     if (this.activeOperation) {
       throw this.createStandaloneRejection(StreamingTranscriptionErrorCode.OperationConflict);
     }
 
-    const provider = this.deps.getActiveProvider();
+    const provider = this.deps.backgroundBrowserService.getActiveProvider();
     const capability = this.deps.resolveCapability(provider);
     if (!provider || !provider.isReady() || !capability || capability.provider !== provider) {
       throw this.createStandaloneRejection(StreamingTranscriptionErrorCode.InvalidOperation);
@@ -271,8 +278,11 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     }
 
     const operation: ActiveStreamingTranscription = {
+      auditFrameCount: 0,
       acceptedByteCount: 0,
+      acceptedChunkCount: 0,
       acceptedFrameCount: 0,
+      auditContext: null,
       chunks: [],
       completionSnapshot,
       finishClaimed: false,
@@ -288,10 +298,16 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
       terminalFailure: null,
     };
     this.activeOperation = operation;
+    const auditContext = this.deps.audit.startStreaming(provider.info.id, operationId);
+    operation.auditContext = auditContext;
 
     const operations = capability.operations;
     try {
-      const result = await operations.startStreamingTranscription({ operationId });
+      const result = await operations.startStreamingTranscription({
+        audit: this.deps.audit,
+        auditContext,
+        operationId,
+      });
       if (operation.terminalFailure) {
         await this.cancelProviderOperation(operations, operationId);
         throw new MainStreamingTranscriptionRejection(
@@ -310,9 +326,15 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
         const failure = await this.terminate(
           operation,
           createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+          undefined,
+          'provider-contract-changed',
         );
         throw new MainStreamingTranscriptionRejection(failure.error, failure.retryEligible);
       }
+      auditContext.lifecycle.phaseEntered(
+        'streaming',
+        this.deps.audit.createStreamingMetadata(auditContext, this.getAuditCounters(operation)),
+      );
       return result;
     } catch (error: unknown) {
       if (error instanceof MainStreamingTranscriptionRejection) throw error;
@@ -322,7 +344,13 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
           operation.terminalFailure.retryEligible,
         );
       }
-      const failure = await this.terminate(operation, mapProviderError(error));
+      const failure = await this.terminate(
+        operation,
+        mapProviderError(error),
+        undefined,
+        getProviderAuditCause(error),
+        this.getAuditExceptionType(error),
+      );
       throw new MainStreamingTranscriptionRejection(failure.error, failure.retryEligible);
     }
   }
@@ -394,13 +422,17 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
         const failure = await this.terminate(
           operation,
           createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+          undefined,
+          'provider-contract-changed',
         );
         throw new MainStreamingTranscriptionRejection(failure.error, failure.retryEligible);
       }
 
       operation.chunks.push(chunk);
       operation.acceptedByteCount += chunk.byteLength;
+      operation.acceptedChunkCount += 1;
       operation.acceptedFrameCount += 1;
+      if (chunk.byteLength === CLAUDE_WEB_PCM_CHUNK_BYTES) operation.auditFrameCount += 1;
       operation.nextSequence += 1;
       return result;
     } catch (error: unknown) {
@@ -411,7 +443,13 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
           operation.terminalFailure.retryEligible,
         );
       }
-      const failure = await this.terminate(operation, mapProviderError(error));
+      const failure = await this.terminate(
+        operation,
+        mapProviderError(error),
+        undefined,
+        getProviderAuditCause(error),
+        this.getAuditExceptionType(error),
+      );
       throw new MainStreamingTranscriptionRejection(failure.error, failure.retryEligible);
     } finally {
       operation.pushInFlight = false;
@@ -459,17 +497,26 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
 
     operation.recordingWav = recordingWav;
     operation.acceptedByteCount += finalChunk.byteLength;
-    if (finalChunk.byteLength === CLAUDE_WEB_PCM_CHUNK_BYTES) operation.acceptedFrameCount += 1;
+    if (finalChunk.byteLength > 0) operation.acceptedChunkCount += 1;
+    if (finalChunk.byteLength === CLAUDE_WEB_PCM_CHUNK_BYTES) {
+      operation.acceptedFrameCount += 1;
+      operation.auditFrameCount += 1;
+    }
     if (finalChunk.byteLength > 0) operation.liveAudioAttempted = true;
 
     const operations = operation.operations;
     const operationId = operation.operationId;
-    if (!operations || !operationId) {
+    const auditContext = operation.auditContext;
+    if (!operations || !operationId || !auditContext) {
       finalChunk.fill(0);
       return this.toTerminalFailure(
         await this.terminate(operation, createStreamingError(StreamingTranscriptionErrorCode.InvalidOperation)),
       );
     }
+
+    const streamingMetadata = this.deps.audit.createStreamingMetadata(auditContext, this.getAuditCounters(operation));
+    auditContext.lifecycle.phaseCompleted('streaming', streamingMetadata);
+    auditContext.lifecycle.phaseEntered('result', streamingMetadata);
 
     let providerResult;
     try {
@@ -480,7 +527,15 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
       });
     } catch (error: unknown) {
       if (operation.terminalFailure) return this.toTerminalFailure(operation.terminalFailure);
-      return this.toTerminalFailure(await this.terminate(operation, mapProviderError(error)));
+      return this.toTerminalFailure(
+        await this.terminate(
+          operation,
+          mapProviderError(error),
+          undefined,
+          getProviderAuditCause(error),
+          this.getAuditExceptionType(error),
+        ),
+      );
     } finally {
       finalChunk.fill(0);
     }
@@ -493,21 +548,48 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     }
     if (providerResult.operationId !== operationId) {
       return this.toTerminalFailure(
-        await this.terminate(operation, createStreamingError(StreamingTranscriptionErrorCode.TransportFailure)),
+        await this.terminate(
+          operation,
+          createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+          undefined,
+          'provider-contract-changed',
+        ),
       );
     }
     if (!providerResult.success) {
-      return this.toTerminalFailure(await this.terminate(operation, providerResult.error));
+      return this.toTerminalFailure(
+        await this.terminate(
+          operation,
+          providerResult.error,
+          undefined,
+          providerResult.auditCauseCode ?? providerResult.error.code,
+          providerResult.auditExceptionType,
+        ),
+      );
     }
     if (providerResult.lifecycle !== StreamingTranscriptionLifecycle.Completed || !providerResult.text.trim()) {
       return this.toTerminalFailure(
-        await this.terminate(operation, createStreamingError(StreamingTranscriptionErrorCode.TransportFailure)),
+        await this.terminate(
+          operation,
+          createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+          undefined,
+          providerResult.text.trim() ? 'provider-contract-changed' : 'empty-result',
+        ),
       );
     }
 
     const snapshot = operation.completionSnapshot;
     const wave = operation.recordingWav;
     const diagnostic = this.createDiagnostic(operation, false);
+    const successMetadata = this.deps.audit.createStreamingMetadata(auditContext, this.getAuditCounters(operation), {
+      resultLength: providerResult.text.length,
+    });
+    auditContext.lifecycle.phaseCompleted('result', successMetadata);
+    auditContext.lifecycle.phaseEntered('cleanup', successMetadata);
+    auditContext.lifecycle.phaseCompleted('cleanup', successMetadata);
+    this.deps.audit.terminalStreaming(auditContext, this.getAuditCounters(operation), 'cleanup', 'success', {
+      resultLength: providerResult.text.length,
+    });
     operation.recordingWav = null;
     this.releaseOperation(operation);
     if (!snapshot || !wave) {
@@ -570,16 +652,18 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     return (
       !operation.provider ||
       !operation.completionSnapshot ||
-      this.deps.getActiveProvider() !== operation.provider ||
+      this.deps.backgroundBrowserService.getActiveProvider() !== operation.provider ||
       operation.provider.info.id !== operation.completionSnapshot.providerId
     );
   }
 
   private createStandaloneRejection(code: StreamingTranscriptionErrorCode): MainStreamingTranscriptionRejection {
+    this.deps.audit.recordStreamingRejection(this.deps.backgroundBrowserService.getActiveProvider()?.info.id, code);
     return new MainStreamingTranscriptionRejection(createStreamingError(code), false);
   }
 
   private createStandaloneTerminalFailure(code: StreamingTranscriptionErrorCode): MainStreamingTranscriptionResult {
+    this.deps.audit.recordStreamingRejection(this.deps.backgroundBrowserService.getActiveProvider()?.info.id, code);
     return { success: false, error: createStreamingError(code), retryEligible: false };
   }
 
@@ -591,16 +675,29 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     operation: ActiveStreamingTranscription,
     error: StreamingTranscriptionError,
     retryEligible = getRetryEligibility(operation, error),
+    auditCauseCode: StreamingVoiceAuditCauseCode = error.code,
+    auditExceptionType?: ReturnType<VoiceProviderAudit['getExceptionType']>,
   ): Promise<TerminalFailure> {
     if (operation.terminalFailure) return operation.terminalFailure;
 
-    const failure = { error, retryEligible } satisfies TerminalFailure;
+    const failure = { auditCauseCode, error, retryEligible } satisfies TerminalFailure;
     operation.terminalFailure = failure;
     const operations = operation.operations;
     const operationId = operation.operationId;
+    const auditContext = operation.auditContext;
+    const auditCounters = this.getAuditCounters(operation);
     const diagnostic = this.createDiagnostic(operation, retryEligible, error.code);
     this.releaseOperation(operation);
-    if (operations && operationId) await this.cancelProviderOperation(operations, operationId);
+    const cleanupExceptionType =
+      operations && operationId ? await this.cancelProviderOperation(operations, operationId) : undefined;
+    if (auditContext) {
+      this.deps.audit.terminalStreamingFailure(
+        auditContext,
+        auditCounters,
+        cleanupExceptionType === undefined ? auditCauseCode : 'cleanup-failed',
+        cleanupExceptionType ?? auditExceptionType,
+      );
+    }
     this.reportDiagnostic(
       error.code === StreamingTranscriptionErrorCode.Cancelled ? 'cancelled' : 'failed',
       diagnostic,
@@ -614,11 +711,26 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     operation.chunks.length = 0;
     operation.recordingWav?.fill(0);
     operation.recordingWav = null;
+    operation.auditContext = null;
     operation.completionSnapshot = null;
     operation.operationId = null;
     operation.operations = null;
     operation.owner = null;
     operation.provider = null;
+  }
+
+  private getAuditCounters(operation: ActiveStreamingTranscription): VoiceStreamingAuditCounters {
+    return {
+      acceptedByteCount: operation.acceptedByteCount,
+      chunkCount: operation.acceptedChunkCount,
+      frameCount: operation.auditFrameCount,
+    };
+  }
+
+  private getAuditExceptionType(error: unknown): ReturnType<VoiceProviderAudit['getExceptionType']> | undefined {
+    if (error instanceof StreamingTranscriptionOperationError) return error.auditExceptionType;
+    if (error instanceof MainStreamingTranscriptionRejection) return undefined;
+    return this.deps.audit.getExceptionType(error);
   }
 
   private createDiagnostic(
@@ -649,32 +761,13 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
   private async cancelProviderOperation(
     operations: StreamingVoiceProviderOperations,
     operationId: StreamingTranscriptionOperationId,
-  ): Promise<void> {
+  ): Promise<ReturnType<VoiceProviderAudit['getExceptionType']> | undefined> {
     try {
       await operations.cancelStreamingTranscription({ operationId });
-    } catch {
+      return undefined;
+    } catch (error: unknown) {
       // Provider cancellation is best effort; main ownership is already cleared.
+      return this.deps.audit.getExceptionType(error);
     }
   }
 }
-
-function createDefaultOperationId(): StreamingTranscriptionOperationId {
-  return randomUUID() as StreamingTranscriptionOperationId;
-}
-
-export function createMainStreamingTranscriptionService(
-  dependencies: Partial<MainStreamingTranscriptionServiceDependencies> = {},
-): MainStreamingTranscriptionService {
-  return new StreamingTranscriptionService({
-    ...defaultTranscriptionCompletionDependencies,
-    createOperationId: createDefaultOperationId,
-    getActiveProvider,
-    getMonotonicTimeMs: () => performance.now(),
-    getRequestedAt: () => new Date().toISOString(),
-    reportDiagnostic: defaultReportDiagnostic,
-    resolveCapability: resolveStreamingVoiceProviderCapability,
-    ...dependencies,
-  });
-}
-
-export const streamingTranscriptionService = createMainStreamingTranscriptionService();

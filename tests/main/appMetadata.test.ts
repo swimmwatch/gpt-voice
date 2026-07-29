@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { APP_COPYRIGHT, APP_LICENSE, APP_NAME, createAppInfo } from '@main/appMetadata';
+import { APP_COPYRIGHT, APP_LICENSE, APP_LICENSE_URL, APP_NAME, APP_WEBSITE, createAppInfo } from '@main/appMetadata';
 
 describe('appMetadata', () => {
   it('creates renderer-safe application information from the running version', () => {
+    assert.equal(APP_LICENSE_URL, `${APP_WEBSITE}/blob/main/LICENSE`);
     assert.deepEqual(createAppInfo('1.4.0'), {
       copyright: APP_COPYRIGHT,
       license: APP_LICENSE,
+      licenseUrl: APP_LICENSE_URL,
       name: APP_NAME,
+      projectUrl: APP_WEBSITE,
       version: '1.4.0',
     });
   });

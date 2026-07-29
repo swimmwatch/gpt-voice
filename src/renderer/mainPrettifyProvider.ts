@@ -1,5 +1,6 @@
 import { getOllamaModelControl, type OllamaModelControl } from '@renderer/prettifyModelControl';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
+import type { TranslationKey } from '@main/i18n';
 import type { PrettifyModelOption, PrettifyProviderId, PrettifySettings } from '@shared/prettifySettings';
 
 export const MAIN_PRETTIFY_PROVIDER_LABEL_KEYS: Record<PrettifyProviderId, string> = {
@@ -10,11 +11,27 @@ export const MAIN_PRETTIFY_PROVIDER_LABEL_KEYS: Record<PrettifyProviderId, strin
 };
 
 export type MainPrettifyProviderStatusTone = 'error' | 'neutral' | 'success' | 'warning';
+export type MainPrettifyHttpProviderId = Extract<PrettifyProviderId, 'ollama' | 'vllm'>;
+
+export const MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES = Object.freeze({
+  Checking: 'checking',
+  Connected: 'connected',
+  NotConnected: 'not-connected',
+} as const);
+
+export type MainPrettifyHttpConnectionStatus =
+  (typeof MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES)[keyof typeof MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES];
+
+export interface MainPrettifyHttpConnectionState {
+  readonly providerId: MainPrettifyHttpProviderId;
+  readonly status: MainPrettifyHttpConnectionStatus;
+}
 
 export interface MainPrettifyProviderStatus {
-  labelKey: string;
+  labelKey: TranslationKey;
   tone: MainPrettifyProviderStatusTone;
-  valueKey?: string;
+  tooltipKey?: TranslationKey;
+  valueKey?: TranslationKey;
 }
 
 export interface MainPrettifyProviderViewState {
@@ -59,15 +76,35 @@ function getProviderStatus(
   switch (settings.providerId) {
     case 'ollama':
       if (!settings.ollama.model) {
-        return { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' };
+        return {
+          labelKey: 'mainDock.prettifyNotConfigured',
+          tone: 'neutral',
+          tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
+        };
       }
       return ollamaControl?.isLoaded
-        ? { labelKey: 'modelMemory.loaded', tone: 'success' }
-        : { labelKey: 'modelMemory.notLoaded', tone: 'neutral' };
+        ? {
+            labelKey: 'modelMemory.loaded',
+            tone: 'success',
+            tooltipKey: 'mainDock.prettifyOllamaLoadedTooltip',
+          }
+        : {
+            labelKey: 'modelMemory.notLoaded',
+            tone: 'neutral',
+            tooltipKey: 'mainDock.prettifyOllamaNotLoadedTooltip',
+          };
     case 'vllm':
       return settings.vllm.model
-        ? { labelKey: 'mainDock.prettifyConfigured', tone: 'success' }
-        : { labelKey: 'mainDock.prettifyNotConfigured', tone: 'neutral' };
+        ? {
+            labelKey: 'mainDock.prettifyConfigured',
+            tone: 'success',
+            tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
+          }
+        : {
+            labelKey: 'mainDock.prettifyNotConfigured',
+            tone: 'neutral',
+            tooltipKey: 'mainDock.prettifyVllmNotConfiguredTooltip',
+          };
     case 'claude-cli':
       return null;
     case 'codex-cli':
@@ -81,27 +118,75 @@ export function getMainPrettifyCliConnectionViewState(
 ): MainPrettifyProviderStatus | null {
   if (providerId !== 'claude-cli' && providerId !== 'codex-cli') return null;
   if (!connection || connection.providerId !== providerId || connection.status === 'checking') {
-    return { labelKey: 'mainDock.prettifyChecking', tone: 'neutral', valueKey: 'prettify.cli.statusChecking' };
+    return {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      tooltipKey: 'prettify.cli.statusChecking',
+    };
   }
   switch (connection.status) {
     case 'connected':
-      return { labelKey: 'provider.connected', tone: 'success', valueKey: 'prettify.cli.statusAvailable' };
+      return {
+        labelKey: 'provider.connected',
+        tone: 'success',
+        tooltipKey: 'prettify.cli.statusAvailable',
+      };
     case 'login-required':
-      return { labelKey: 'mainDock.prettifySignIn', tone: 'warning', valueKey: 'mainDock.prettifySignInHelp' };
+      return {
+        labelKey: 'provider.notConnected',
+        tone: 'warning',
+        tooltipKey: 'mainDock.prettifySignInHelp',
+      };
     case 'unavailable':
-      return { labelKey: 'mainDock.prettifyUnavailable', tone: 'error', valueKey: 'prettify.cli.statusUnavailable' };
+      return {
+        labelKey: 'provider.notConnected',
+        tone: 'error',
+        tooltipKey: 'prettify.cli.statusUnavailable',
+      };
   }
+}
+
+export function getMainPrettifyHttpConnectionViewState(
+  providerId: PrettifyProviderId,
+  connection: MainPrettifyHttpConnectionState | null,
+): MainPrettifyProviderStatus | null {
+  if (providerId !== 'ollama' && providerId !== 'vllm') return null;
+  if (
+    !connection ||
+    connection.providerId !== providerId ||
+    connection.status === MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Checking
+  ) {
+    return {
+      labelKey: 'mainDock.prettifyChecking',
+      tone: 'neutral',
+      tooltipKey: 'provider.connectionCheckingTooltip',
+    };
+  }
+  return connection.status === MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
+    ? {
+        labelKey: 'provider.connected',
+        tone: 'success',
+        tooltipKey: 'provider.connectionReadyTooltip',
+      }
+    : {
+        labelKey: 'provider.notConnected',
+        tone: 'error',
+        tooltipKey: 'mainDock.prettifyUnavailable',
+      };
 }
 
 export function getMainPrettifyProviderViewState(
   settings: PrettifySettings,
   ollamaModels: readonly PrettifyModelOption[],
   cliConnection: MainPrettifyCliConnectionState | null = null,
+  httpConnection: MainPrettifyHttpConnectionState | null = null,
 ): MainPrettifyProviderViewState {
   const ollamaControl = getOllamaModelControl(settings, ollamaModels);
   const isCliProvider = settings.providerId === 'claude-cli' || settings.providerId === 'codex-cli';
   return {
-    connection: getMainPrettifyCliConnectionViewState(settings.providerId, cliConnection),
+    connection:
+      getMainPrettifyCliConnectionViewState(settings.providerId, cliConnection) ??
+      getMainPrettifyHttpConnectionViewState(settings.providerId, httpConnection),
     model: getActiveModel(settings),
     modelFallbackKey: isCliProvider ? 'prettify.providerDefault' : 'prettify.noModels',
     ollamaControl,

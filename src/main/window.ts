@@ -1,347 +1,380 @@
-import { BrowserWindow, shell, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
-import * as path from 'node:path';
-import { createAboutWindowController, isTrustedWindow } from './aboutWindowController';
-import { createProviderSettingsWindowController } from './providerSettingsWindowController';
-import { createLogger } from './logger';
-import { getAppIcon, getAppIconPath } from './assets';
-import { getAppUrl } from './appProtocol';
-import type { AppSettingsSectionId } from '@shared/appSettings';
+import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import { AboutWindowController } from './aboutWindowController';
+import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
+import type { AppSettingsSectionId } from '@shared/appSettings';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
+  type TranslationProviderConnectionState,
+} from '@shared/translationProvider';
 
-let mainWindow: BrowserWindow | null = null;
-let settingsWindow: BrowserWindow | null = null;
-let historyWindow: BrowserWindow | null = null;
-let isQuitting = false;
-let isSettingsWindowCloseConfirmed = false;
-const log = createLogger('window');
 const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
-const providerSettingsWindowController = createProviderSettingsWindowController<BrowserWindow>();
+const APP_PROTOCOL = 'app:';
+const APP_HOST = 'gpt-voice';
 
-export function getMainWindow(): BrowserWindow | null {
-  return mainWindow;
+export interface WindowManagerLogger {
+  debug(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
 }
 
-export function getSettingsWindow(): BrowserWindow | null {
-  return settingsWindow;
+export interface WindowManagerDependencies {
+  readonly createAboutWindowController: (createWindow: () => BrowserWindow) => AboutWindowController<BrowserWindow>;
+  readonly createBrowserWindow: (options: BrowserWindowConstructorOptions) => BrowserWindow;
+  readonly getAppIcon: () => NativeImage;
+  readonly getAppIconPath: () => string;
+  readonly getAppUrl: (pathname?: string) => string;
+  readonly logger: WindowManagerLogger;
+  readonly openExternal: (url: string) => Promise<void>;
+  readonly platform: NodeJS.Platform;
+  readonly preloadPath: string;
+  readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
 }
 
-export function getHistoryWindow(): BrowserWindow | null {
-  return historyWindow;
+export interface BackgroundBrowserStatus {
+  readonly authExpired?: boolean;
+  readonly error?: string;
+  readonly providerId?: string;
+  readonly ready: boolean;
 }
 
-export function broadcastLocaleChanged(locale: AppLocaleId): void {
-  const windows = [
-    mainWindow,
-    settingsWindow,
-    historyWindow,
-    aboutWindowController.getWindow(),
-    ...providerSettingsWindowController.getWindows(),
-  ];
-  for (const window of new Set(windows)) {
-    if (window && !window.isDestroyed()) window.webContents.send('locale-changed', locale);
+/** Owns every renderer window and the trust boundary around their web contents. */
+export class WindowManager {
+  private readonly aboutWindowController: AboutWindowController<BrowserWindow>;
+  private historyWindow: BrowserWindow | null = null;
+  private mainWindow: BrowserWindow | null = null;
+  private readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
+  private quitting = false;
+  private settingsCloseConfirmed = false;
+  private settingsWindow: BrowserWindow | null = null;
+
+  public constructor(private readonly dependencies: WindowManagerDependencies) {
+    this.aboutWindowController = dependencies.createAboutWindowController(this.createAboutWindow);
+    this.providerSettingsWindowController = dependencies.providerSettingsWindowController;
   }
-}
 
-export function isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
-  return isTrustedWindow(
-    [
-      mainWindow,
-      settingsWindow,
-      historyWindow,
-      aboutWindowController.getWindow(),
-      ...providerSettingsWindowController.getWindows(),
-    ],
-    webContents,
-    senderUrl,
-  );
-}
+  public getMainWindow(): BrowserWindow | null {
+    return this.mainWindow;
+  }
 
-export function showProviderSettingsWindow(providerId: string, title: string): void {
-  providerSettingsWindowController.show(providerId, () => {
-    const providerSettingsUrl = new URL(getAppUrl('provider-settings.html'));
-    providerSettingsUrl.searchParams.set('providerId', providerId);
-    const providerWindow = new BrowserWindow({
-      width: 560,
-      height: 680,
-      minWidth: 440,
-      minHeight: 520,
+  public getSettingsWindow(): BrowserWindow | null {
+    return this.settingsWindow;
+  }
+
+  public getHistoryWindow(): BrowserWindow | null {
+    return this.historyWindow;
+  }
+
+  public setQuitting(value: boolean): void {
+    this.quitting = value;
+  }
+
+  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string): void {
+    const providerId = status.providerId || fallbackProviderId;
+    if (status.ready) {
+      this.mainWindow?.webContents.send('bg-browser-ready', providerId);
+    } else if (status.error) {
+      this.mainWindow?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
+    }
+  }
+
+  public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {
+    this.mainWindow?.webContents.send(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state);
+  };
+
+  public publishProviderSettingsChanged(settings: unknown, source: Pick<WebContents, 'id'>): void {
+    if (!this.mainWindow || this.mainWindow.webContents.id === source.id) return;
+    this.mainWindow.webContents.send('provider-settings-changed', settings);
+  }
+
+  public publishPrettifySettingsChanged(settings: unknown): void {
+    this.mainWindow?.webContents.send('prettify-settings-changed', settings);
+    this.settingsWindow?.webContents.send('prettify-settings-changed', settings);
+  }
+
+  public broadcastLocaleChanged(locale: AppLocaleId): void {
+    for (const window of new Set(this.getAllWindows())) {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('locale-changed', locale);
+      }
+    }
+  }
+
+  public isTrustedAppWindow(webContents: WebContents, senderUrl: string): boolean {
+    return this.getAllWindows().some((window) => {
+      return window?.webContents.id === webContents.id && senderUrl === window.webContents.getURL();
+    });
+  }
+
+  public getTrustedSettingsWindow(webContents: WebContents, senderUrl: string): BrowserWindow | null {
+    const settingsWindow = this.settingsWindow;
+    if (
+      !settingsWindow ||
+      settingsWindow.isDestroyed() ||
+      settingsWindow.webContents.id !== webContents.id ||
+      senderUrl !== settingsWindow.webContents.getURL()
+    ) {
+      return null;
+    }
+    return settingsWindow;
+  }
+
+  public createMainWindow(): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) return;
+
+    const appIcon = this.dependencies.getAppIcon();
+    const appIconPath = this.dependencies.getAppIconPath();
+    if (appIcon.isEmpty()) {
+      this.dependencies.logger.warn('App icon could not be loaded:', appIconPath);
+    } else {
+      this.dependencies.logger.debug('App icon loaded:', appIconPath, appIcon.getSize());
+    }
+
+    const window = this.dependencies.createBrowserWindow({
+      width: MAIN_WINDOW_CONTENT_WIDTH,
+      height: MAIN_WINDOW_CONTENT_HEIGHT,
       useContentSize: true,
       autoHideMenuBar: true,
       backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-      resizable: true,
+      fullscreenable: false,
+      maximizable: false,
+      resizable: false,
       show: true,
-      title,
-      webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-        navigateOnDragDrop: false,
-      },
-      icon: getAppIconPath(),
+      webPreferences: this.createWebPreferences(),
+      icon: appIconPath,
     });
-    providerWindow.setMenuBarVisibility(false);
-    applyNavigationGuards(providerWindow);
-    void providerWindow.loadURL(providerSettingsUrl.toString());
-    return providerWindow;
-  });
-}
+    this.mainWindow = window;
 
-export function closeProviderSettingsWindow(webContents: WebContents): boolean {
-  return providerSettingsWindowController.closeForWebContents(webContents);
-}
+    const applyWindowIcon = (): void => {
+      if (this.mainWindow !== window || window.isDestroyed() || this.dependencies.platform === 'darwin') return;
+      window.setIcon(appIconPath);
+      if (!appIcon.isEmpty()) window.setIcon(appIcon);
+    };
 
-export function setQuitting(value: boolean): void {
-  isQuitting = value;
-}
+    applyWindowIcon();
+    window.once('ready-to-show', applyWindowIcon);
+    window.webContents.once('did-finish-load', applyWindowIcon);
+    window.setMenuBarVisibility(false);
+    void window.loadURL(this.dependencies.getAppUrl());
+    this.applyNavigationGuards(window);
 
-export function showMainWindow(): void {
-  if (!mainWindow) {
-    createWindow();
-    return;
-  }
-
-  if (mainWindow.isMinimized()) {
-    mainWindow.restore();
-  }
-
-  mainWindow.show();
-  mainWindow.focus();
-}
-
-function applyNavigationGuards(win: BrowserWindow): void {
-  win.webContents.on('will-navigate', (event, url) => {
-    let allowed: boolean;
-    try {
-      const parsed = new URL(url);
-      allowed = parsed.protocol === 'app:' && parsed.host === 'gpt-voice';
-    } catch {
-      allowed = false;
-    }
-
-    if (!allowed) {
-      log.warn('Blocked navigation to:', url);
-      event.preventDefault();
-    }
-  });
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol === 'https:') {
-        void shell.openExternal(parsed.toString());
+    window.on('closed', () => {
+      if (this.mainWindow === window) this.mainWindow = null;
+    });
+    window.on('close', (event) => {
+      if (this.mainWindow === window && !this.quitting) {
+        event.preventDefault();
+        window.hide();
       }
-    } catch {
-      log.warn('Blocked malformed external URL:', url);
-    }
-    return { action: 'deny' };
-  });
-}
-
-export function showSettingsWindow(section?: AppSettingsSectionId): void {
-  if (settingsWindow) {
-    if (settingsWindow.isMinimized()) {
-      settingsWindow.restore();
-    }
-    settingsWindow.show();
-    settingsWindow.focus();
-    if (section) settingsWindow.webContents.send('app-settings-section-requested', section);
-    return;
+    });
   }
 
-  const appIconPath = getAppIconPath();
-  const options: BrowserWindowConstructorOptions = {
-    width: 760,
-    height: 720,
-    minWidth: 440,
-    minHeight: 520,
-    autoHideMenuBar: true,
-    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-    show: true,
-    title: 'Settings',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-      navigateOnDragDrop: false,
-    },
-    icon: appIconPath,
-  };
+  public showMainWindow(): void {
+    const window = this.mainWindow;
+    if (!window || window.isDestroyed()) {
+      this.createMainWindow();
+      return;
+    }
+    this.showAndFocus(window);
+  }
 
-  settingsWindow = new BrowserWindow(options);
-  settingsWindow.setMenuBarVisibility(false);
-  applyNavigationGuards(settingsWindow);
-  const settingsUrl = new URL(getAppUrl('settings.html'));
-  if (section) settingsUrl.searchParams.set('section', section);
-  void settingsWindow.loadURL(settingsUrl.toString());
-
-  settingsWindow.on('close', (event) => {
-    if (isQuitting || isSettingsWindowCloseConfirmed) {
+  public showSettingsWindow(section?: AppSettingsSectionId): void {
+    const existing = this.settingsWindow;
+    if (existing && !existing.isDestroyed()) {
+      this.showAndFocus(existing);
+      if (section) existing.webContents.send('app-settings-section-requested', section);
       return;
     }
 
-    // The renderer owns dirty-state confirmation for both native and in-app close requests.
-    event.preventDefault();
-    settingsWindow?.webContents.send('app-settings-close-requested');
-  });
+    const window = this.dependencies.createBrowserWindow({
+      width: 760,
+      height: 720,
+      minWidth: 440,
+      minHeight: 520,
+      autoHideMenuBar: true,
+      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+      show: true,
+      title: 'Settings',
+      webPreferences: this.createWebPreferences(),
+      icon: this.dependencies.getAppIconPath(),
+    });
+    this.settingsWindow = window;
+    window.setMenuBarVisibility(false);
+    this.applyNavigationGuards(window);
+    const settingsUrl = new URL(this.dependencies.getAppUrl('settings.html'));
+    if (section) settingsUrl.searchParams.set('section', section);
+    void window.loadURL(settingsUrl.toString());
 
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-    isSettingsWindowCloseConfirmed = false;
-  });
-}
-
-export function closeSettingsWindow(): void {
-  if (!settingsWindow) {
-    return;
-  }
-
-  isSettingsWindowCloseConfirmed = true;
-  settingsWindow.close();
-}
-
-const aboutWindowController = createAboutWindowController(() => {
-  const aboutWindow = new BrowserWindow({
-    width: 420,
-    height: 420,
-    minWidth: 360,
-    minHeight: 380,
-    useContentSize: true,
-    autoHideMenuBar: true,
-    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-    show: true,
-    maximizable: false,
-    resizable: false,
-    title: 'About GPT-Voice',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-      navigateOnDragDrop: false,
-    },
-    icon: getAppIconPath(),
-  });
-  aboutWindow.setMenuBarVisibility(false);
-  applyNavigationGuards(aboutWindow);
-  void aboutWindow.loadURL(getAppUrl('about.html'));
-  return aboutWindow;
-});
-
-export function showAboutWindow(): void {
-  aboutWindowController.show();
-}
-
-export function closeAboutWindow(): void {
-  aboutWindowController.close();
-}
-
-export function showHistoryWindow(): void {
-  if (historyWindow) {
-    if (historyWindow.isMinimized()) {
-      historyWindow.restore();
-    }
-    historyWindow.show();
-    historyWindow.focus();
-    return;
-  }
-
-  const appIconPath = getAppIconPath();
-  const options: BrowserWindowConstructorOptions = {
-    width: 760,
-    height: 720,
-    minWidth: 520,
-    minHeight: 420,
-    autoHideMenuBar: true,
-    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-    show: true,
-    title: 'History',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-      navigateOnDragDrop: false,
-    },
-    icon: appIconPath,
-  };
-
-  historyWindow = new BrowserWindow(options);
-  historyWindow.setMenuBarVisibility(false);
-  applyNavigationGuards(historyWindow);
-  void historyWindow.loadURL(getAppUrl('history.html'));
-
-  historyWindow.on('closed', () => {
-    historyWindow = null;
-  });
-}
-
-export function createWindow(): void {
-  const appIcon = getAppIcon();
-  const appIconPath = getAppIconPath();
-
-  if (appIcon.isEmpty()) {
-    log.warn('App icon could not be loaded:', appIconPath);
-  } else {
-    log.debug('App icon loaded:', appIconPath, appIcon.getSize());
-  }
-
-  mainWindow = new BrowserWindow({
-    width: MAIN_WINDOW_CONTENT_WIDTH,
-    height: MAIN_WINDOW_CONTENT_HEIGHT,
-    useContentSize: true,
-    autoHideMenuBar: true,
-    backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-    fullscreenable: false,
-    maximizable: false,
-    resizable: false,
-    show: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-      navigateOnDragDrop: false,
-    },
-    icon: appIconPath,
-  });
-
-  const applyWindowIcon = (): void => {
-    if (!mainWindow || process.platform === 'darwin') {
-      return;
-    }
-
-    mainWindow.setIcon(appIconPath);
-
-    if (!appIcon.isEmpty()) {
-      mainWindow.setIcon(appIcon);
-    }
-  };
-
-  applyWindowIcon();
-  mainWindow.once('ready-to-show', applyWindowIcon);
-  mainWindow.webContents.once('did-finish-load', applyWindowIcon);
-
-  mainWindow.setMenuBarVisibility(false);
-  void mainWindow.loadURL(getAppUrl());
-  applyNavigationGuards(mainWindow);
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-
-  mainWindow.on('close', (event) => {
-    if (mainWindow && !isQuitting) {
+    window.on('close', (event) => {
+      if (this.quitting || this.settingsCloseConfirmed) return;
       event.preventDefault();
-      mainWindow.hide();
+      window.webContents.send('app-settings-close-requested');
+    });
+    window.on('closed', () => {
+      if (this.settingsWindow === window) this.settingsWindow = null;
+      this.settingsCloseConfirmed = false;
+    });
+  }
+
+  public closeSettingsWindow(): void {
+    const window = this.settingsWindow;
+    if (!window || window.isDestroyed()) return;
+    this.settingsCloseConfirmed = true;
+    window.close();
+  }
+
+  public showHistoryWindow(): void {
+    const existing = this.historyWindow;
+    if (existing && !existing.isDestroyed()) {
+      this.showAndFocus(existing);
+      return;
     }
-  });
+
+    const window = this.dependencies.createBrowserWindow({
+      width: 760,
+      height: 720,
+      minWidth: 520,
+      minHeight: 420,
+      autoHideMenuBar: true,
+      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+      show: true,
+      title: 'History',
+      webPreferences: this.createWebPreferences(),
+      icon: this.dependencies.getAppIconPath(),
+    });
+    this.historyWindow = window;
+    window.setMenuBarVisibility(false);
+    this.applyNavigationGuards(window);
+    void window.loadURL(this.dependencies.getAppUrl('history.html'));
+    window.on('closed', () => {
+      if (this.historyWindow === window) this.historyWindow = null;
+    });
+  }
+
+  public showAboutWindow(): void {
+    this.aboutWindowController.show();
+  }
+
+  public closeAboutWindow(): void {
+    this.aboutWindowController.close();
+  }
+
+  public showProviderSettingsWindow(providerId: string, title: string): void {
+    this.providerSettingsWindowController.show(providerId, () => {
+      const providerSettingsUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
+      providerSettingsUrl.searchParams.set('providerId', providerId);
+      const window = this.dependencies.createBrowserWindow({
+        width: 560,
+        height: 680,
+        minWidth: 440,
+        minHeight: 520,
+        useContentSize: true,
+        autoHideMenuBar: true,
+        backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+        resizable: true,
+        show: true,
+        title,
+        webPreferences: this.createWebPreferences(),
+        icon: this.dependencies.getAppIconPath(),
+      });
+      window.setMenuBarVisibility(false);
+      this.applyNavigationGuards(window);
+      void window.loadURL(providerSettingsUrl.toString());
+      return window;
+    });
+  }
+
+  public closeProviderSettingsWindow(webContents: WebContents): boolean {
+    return this.providerSettingsWindowController.closeForWebContents(webContents);
+  }
+
+  public dispose(): void {
+    this.quitting = true;
+    this.settingsCloseConfirmed = true;
+    for (const window of new Set([this.mainWindow, this.settingsWindow, this.historyWindow])) {
+      if (window && !window.isDestroyed()) window.close();
+    }
+    this.mainWindow = null;
+    this.settingsWindow = null;
+    this.historyWindow = null;
+    this.aboutWindowController.dispose();
+    this.providerSettingsWindowController.dispose();
+  }
+
+  private getAllWindows(): readonly (BrowserWindow | null)[] {
+    return [
+      this.mainWindow,
+      this.settingsWindow,
+      this.historyWindow,
+      this.aboutWindowController.getWindow(),
+      ...this.providerSettingsWindowController.getWindows(),
+    ];
+  }
+
+  private readonly createAboutWindow = (): BrowserWindow => {
+    const window = this.dependencies.createBrowserWindow({
+      width: 420,
+      height: 420,
+      minWidth: 360,
+      minHeight: 380,
+      useContentSize: true,
+      autoHideMenuBar: true,
+      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+      show: true,
+      maximizable: false,
+      resizable: false,
+      title: 'About GPT-Voice',
+      webPreferences: this.createWebPreferences(),
+      icon: this.dependencies.getAppIconPath(),
+    });
+    window.setMenuBarVisibility(false);
+    this.applyNavigationGuards(window);
+    void window.loadURL(this.dependencies.getAppUrl('about.html'));
+    return window;
+  };
+
+  private createWebPreferences(): NonNullable<BrowserWindowConstructorOptions['webPreferences']> {
+    return {
+      preload: this.dependencies.preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
+      navigateOnDragDrop: false,
+    };
+  }
+
+  private showAndFocus(window: BrowserWindow): void {
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+  }
+
+  private applyNavigationGuards(window: BrowserWindow): void {
+    window.webContents.on('will-navigate', (event, url) => {
+      let allowed: boolean;
+      try {
+        const parsed = new URL(url);
+        allowed = parsed.protocol === APP_PROTOCOL && parsed.host === APP_HOST;
+      } catch {
+        allowed = false;
+      }
+
+      if (!allowed) {
+        this.dependencies.logger.warn('Blocked navigation to:', url);
+        event.preventDefault();
+      }
+    });
+
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'https:') void this.dependencies.openExternal(parsed.toString());
+      } catch {
+        this.dependencies.logger.warn('Blocked malformed external URL:', url);
+      }
+      return { action: 'deny' };
+    });
+  }
 }

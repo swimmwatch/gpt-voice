@@ -1,17 +1,29 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { currentPrettifySettings, setPrettifySettings } from '@main/config';
+import * as fs from 'node:fs';
+import { AppConfigStore, resolveAppConfigPaths } from '@main/config';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 
-const initialPrettifySettings = structuredClone(currentPrettifySettings);
+const config = new AppConfigStore({
+  fileSystem: fs,
+  generateFingerprintSeed: () => '12345',
+  logger: { error: () => undefined, info: () => undefined, warn: () => undefined },
+  paths: resolveAppConfigPaths({
+    environment: { XDG_CONFIG_HOME: '/unused' },
+    homeDirectory: () => '/unused-home',
+    platform: 'linux',
+  }),
+  writeFileAtomically: () => undefined,
+});
+const initialPrettifySettings = structuredClone(config.getSnapshot().prettifySettings);
 
 afterEach(() => {
-  setPrettifySettings(initialPrettifySettings);
+  config.setPrettifySettings(initialPrettifySettings);
 });
 
 describe('config prettify settings', () => {
   it('preserves each CLI settings object through independent configuration updates', () => {
-    setPrettifySettings({
+    config.setPrettifySettings({
       ...DEFAULT_PRETTIFY_SETTINGS,
       providerId: 'claude-cli',
       claudeCli: {
@@ -20,7 +32,7 @@ describe('config prettify settings', () => {
         model: 'claude-sonnet',
       },
     });
-    setPrettifySettings({
+    config.setPrettifySettings({
       codexCli: {
         executablePath: '/opt/Codex CLI/codex',
         model: 'gpt-5.6',
@@ -30,6 +42,7 @@ describe('config prettify settings', () => {
       },
     });
 
+    const currentPrettifySettings = config.getSnapshot().prettifySettings;
     assert.deepEqual(currentPrettifySettings.claudeCli, {
       executablePath: '/opt/Claude CLI/claude',
       model: 'claude-sonnet',

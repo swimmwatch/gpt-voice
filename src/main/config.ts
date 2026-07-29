@@ -1,7 +1,5 @@
 import * as path from 'node:path';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import { createLogger } from './logger';
+import type * as fs from 'node:fs';
 import {
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
@@ -9,116 +7,147 @@ import {
   DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
   DEFAULT_TRANSLATE_HOTKEY,
+  type HotkeySettings,
 } from '@shared/hotkeys';
 import {
   DEFAULT_PRETTIFY_SETTINGS,
-  DEFAULT_PRETTIFY_PROMPT,
-  DEFAULT_PRETTIFY_REASONING,
   normalizePrettifySettings,
-  type PrettifyReasoning,
   type PrettifySettings,
   type PrettifySettingsInput,
 } from '@shared/prettifySettings';
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 import { DEFAULT_APP_LOCALE, normalizeAppLocale, type AppLocaleId } from '@shared/appLocale';
+import type { TranslationSettings } from '@shared/translationProvider';
+import {
+  DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+  isDiagnosticCaptureSettings,
+  normalizeDiagnosticCaptureSettings,
+  type DiagnosticCaptureSettings,
+} from '@shared/diagnosticCaptureSettings';
+import {
+  TranslationSettingsState,
+  type AtomicFileSystem,
+  type TranslationSettingsRepairNotice,
+} from './translationSettings';
 
-const log = createLogger('config');
+const APP_DIRECTORY_NAME = 'GPT-Voice';
+const BROWSER_CACHE_DIRECTORY_NAME = 'browser-cache';
+const CONFIG_FILE_NAME = 'config.json';
+const DATABASE_FILE_NAME = 'gpt-voice.sqlite3';
+const CHATGPT_SESSION_FILE_NAME = 'chatgpt-session.json';
+const CHATGPT_TOKEN_FILE_NAME = 'access-token.json';
+const CLOAK_BROWSER_SETTINGS_FILE_NAME = 'cloakbrowser-settings.json';
+const PRETTIFY_SETTINGS_FILE_NAME = 'prettify-provider-settings.json';
+const OPENAI_API_SETTINGS_FILE_NAME = 'openai-api-settings.json';
+const CLAUDE_WEB_SETTINGS_FILE_NAME = 'claude-web-settings.json';
+const CLAUDE_WEB_SESSION_FILE_NAME = 'claude-web-session.json';
+const LEGACY_APP_DIRECTORY_NAMES = ['.gpt-voice', '.webvoice'] as const;
+const MIGRATED_LEGACY_ENTRIES = [
+  CONFIG_FILE_NAME,
+  CHATGPT_SESSION_FILE_NAME,
+  CHATGPT_TOKEN_FILE_NAME,
+  BROWSER_CACHE_DIRECTORY_NAME,
+] as const;
 const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
-
-const LEGACY_APP_DIRS = [path.join(os.homedir(), '.gpt-voice'), path.join(os.homedir(), '.webvoice')];
-
-function getAppDataDir(): string {
-  if (process.platform === 'win32') {
-    return process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  }
-  if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support');
-  }
-  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-}
-
-export const APP_DIR = path.join(getAppDataDir(), 'GPT-Voice');
-
-const MIGRATED_LEGACY_ENTRIES = ['config.json', 'chatgpt-session.json', 'access-token.json', 'browser-cache'];
-
-function migrateWholeLegacyAppDir(legacyDir: string): boolean {
-  fs.mkdirSync(path.dirname(APP_DIR), { recursive: true });
-
-  try {
-    fs.renameSync(legacyDir, APP_DIR);
-    log.info('Migrated app data directory:', legacyDir, '->', APP_DIR);
-  } catch (renameError) {
-    try {
-      fs.cpSync(legacyDir, APP_DIR, { recursive: true });
-      fs.rmSync(legacyDir, { recursive: true, force: true });
-      log.info('Copied app data directory:', legacyDir, '->', APP_DIR);
-    } catch (copyError) {
-      log.warn('Failed to migrate app data directory:', renameError, copyError);
-    }
-  }
-
-  return fs.existsSync(APP_DIR);
-}
-
-function copyMissingLegacyEntries(legacyDir: string): void {
-  for (const entry of MIGRATED_LEGACY_ENTRIES) {
-    const source = path.join(legacyDir, entry);
-    const target = path.join(APP_DIR, entry);
-    if (!fs.existsSync(source) || fs.existsSync(target)) continue;
-
-    try {
-      fs.cpSync(source, target, { recursive: true });
-      log.info('Copied missing app data entry:', source, '->', target);
-    } catch (error) {
-      log.warn('Failed to copy missing app data entry:', source, error);
-    }
-  }
-}
-
-function migrateLegacyAppDir(): void {
-  const legacyDirs = LEGACY_APP_DIRS.filter((candidate) => candidate !== APP_DIR && fs.existsSync(candidate));
-  if (legacyDirs.length === 0) return;
-
-  if (!fs.existsSync(APP_DIR) && migrateWholeLegacyAppDir(legacyDirs[0])) {
-    return;
-  }
-
-  fs.mkdirSync(APP_DIR, { recursive: true });
-  for (const legacyDir of legacyDirs) {
-    copyMissingLegacyEntries(legacyDir);
-  }
-}
-
-migrateLegacyAppDir();
-
-if (!fs.existsSync(APP_DIR)) {
-  fs.mkdirSync(APP_DIR, { recursive: true });
-}
-
-export const BROWSER_CACHE_DIR = path.join(APP_DIR, 'browser-cache');
-export const CONFIG_FILE = path.join(APP_DIR, 'config.json');
-
-export let currentHotkey = DEFAULT_RECORD_HOTKEY;
-export let currentCancelHotkey = DEFAULT_CANCEL_HOTKEY;
-export let currentStopHotkey = DEFAULT_STOP_HOTKEY;
-export let currentTranslateHotkey = DEFAULT_TRANSLATE_HOTKEY;
-export let currentPrettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
-export let currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
-export let currentTranslateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
-export let currentPrettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
-export let currentTargetLang = 'en';
-export let currentProvider = 'chatgpt';
-export let currentLocale: AppLocaleId = DEFAULT_APP_LOCALE;
-let currentLocaleWasExplicitlySelected = false;
-export let currentFingerprintSeed = '';
-export let currentPrettifyPrompt = DEFAULT_PRETTIFY_PROMPT;
-export let currentPrettifyReasoning: PrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
-export let currentPrettifySettings: PrettifySettings = DEFAULT_PRETTIFY_SETTINGS;
-
+const DEFAULT_VOICE_PROVIDER_ID = 'chatgpt';
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 
-function generateFingerprintSeed(): string {
-  return String(Math.floor(Math.random() * 90000) + 10000);
+export interface AppConfigPaths {
+  readonly appDirectory: string;
+  readonly browserCacheDirectory: string;
+  readonly chatGPTSessionFile: string;
+  readonly chatGPTTokenFile: string;
+  readonly claudeWebSessionFile: string;
+  readonly claudeWebSettingsFile: string;
+  readonly cloakBrowserSettingsFile: string;
+  readonly configFile: string;
+  readonly databaseFile: string;
+  readonly legacyAppDirectories: readonly string[];
+  readonly openAIApiSettingsFile: string;
+  readonly prettifySettingsFile: string;
+}
+
+export interface AppConfigPathDependencies {
+  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly homeDirectory: () => string;
+  readonly platform: NodeJS.Platform;
+}
+
+export interface AppConfigFileSystem extends AtomicFileSystem {
+  cpSync(source: fs.PathLike, destination: fs.PathLike, options?: fs.CopySyncOptions): void;
+  existsSync(path: fs.PathLike): boolean;
+  mkdirSync(path: fs.PathLike, options?: fs.MakeDirectoryOptions): string | undefined;
+  readFileSync(path: fs.PathOrFileDescriptor, encoding: BufferEncoding): string;
+}
+
+export interface AppConfigLogger {
+  error(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+}
+
+export interface AppConfigStoreDependencies {
+  readonly fileSystem: AppConfigFileSystem;
+  readonly generateFingerprintSeed: () => string;
+  readonly logger: AppConfigLogger;
+  readonly paths: AppConfigPaths;
+  readonly writeFileAtomically: (filePath: string, contents: string) => void;
+}
+
+export interface AppConfigSnapshot {
+  readonly cancelHotkey: string;
+  readonly capturePrettifyDiagnostics: boolean;
+  readonly captureTranslationDiagnostics: boolean;
+  readonly fingerprintSeed: string;
+  readonly hotkey: string;
+  readonly locale: AppLocaleId;
+  readonly localeExplicit: boolean;
+  readonly prettifyEnabled: boolean;
+  readonly prettifyHotkey: string;
+  readonly prettifySettings: PrettifySettings;
+  readonly provider: string;
+  readonly retryTranscriptionHotkey: string;
+  readonly stopHotkey: string;
+  readonly translateEnabled: boolean;
+  readonly translateHotkey: string;
+  readonly translationSettings: TranslationSettings;
+}
+
+export interface TextActionSettingsSnapshot {
+  readonly prettifyEnabled: boolean;
+  readonly translateEnabled: boolean;
+}
+
+function getAppDataDirectory({ environment, homeDirectory, platform }: AppConfigPathDependencies): string {
+  const home = homeDirectory();
+  if (platform === 'win32') {
+    return environment.APPDATA || path.join(home, 'AppData', 'Roaming');
+  }
+  if (platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support');
+  }
+  return environment.XDG_CONFIG_HOME || path.join(home, '.config');
+}
+
+export function resolveAppConfigPaths(dependencies: AppConfigPathDependencies): AppConfigPaths {
+  const home = dependencies.homeDirectory();
+  const appDirectory = path.join(getAppDataDirectory(dependencies), APP_DIRECTORY_NAME);
+  return Object.freeze({
+    appDirectory,
+    browserCacheDirectory: path.join(appDirectory, BROWSER_CACHE_DIRECTORY_NAME),
+    chatGPTSessionFile: path.join(appDirectory, CHATGPT_SESSION_FILE_NAME),
+    chatGPTTokenFile: path.join(appDirectory, CHATGPT_TOKEN_FILE_NAME),
+    claudeWebSessionFile: path.join(appDirectory, CLAUDE_WEB_SESSION_FILE_NAME),
+    claudeWebSettingsFile: path.join(appDirectory, CLAUDE_WEB_SETTINGS_FILE_NAME),
+    cloakBrowserSettingsFile: path.join(appDirectory, CLOAK_BROWSER_SETTINGS_FILE_NAME),
+    configFile: path.join(appDirectory, CONFIG_FILE_NAME),
+    databaseFile: path.join(appDirectory, DATABASE_FILE_NAME),
+    legacyAppDirectories: Object.freeze(
+      LEGACY_APP_DIRECTORY_NAMES.map((directoryName) => path.join(home, directoryName)),
+    ),
+    openAIApiSettingsFile: path.join(appDirectory, OPENAI_API_SETTINGS_FILE_NAME),
+    prettifySettingsFile: path.join(appDirectory, PRETTIFY_SETTINGS_FILE_NAME),
+  });
 }
 
 function isValidFingerprintSeed(value: string): boolean {
@@ -143,172 +172,339 @@ function getConfigBoolean(config: Record<string, unknown>, key: string): boolean
   return typeof value === 'boolean' ? value : undefined;
 }
 
-export function setHotkeys(
-  hotkey?: string,
-  cancelHotkey?: string,
-  stopHotkey?: string,
-  translateHotkey?: string,
-  prettifyHotkey?: string,
-  retryTranscriptionHotkey?: string,
-): void {
-  if (hotkey !== undefined) currentHotkey = hotkey;
-  if (cancelHotkey !== undefined) currentCancelHotkey = cancelHotkey;
-  if (stopHotkey !== undefined) currentStopHotkey = stopHotkey;
-  if (translateHotkey !== undefined) currentTranslateHotkey = translateHotkey;
-  if (prettifyHotkey !== undefined) currentPrettifyHotkey = prettifyHotkey;
-  if (retryTranscriptionHotkey !== undefined) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
-}
-
-export function setTranslateSettings(targetLang?: string): void {
-  if (targetLang !== undefined) currentTargetLang = targetLang;
-}
-
-export function setTextActionSettings(translateEnabled?: boolean, prettifyEnabled?: boolean): void {
-  if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
-  if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
-}
-
-function updateLegacyPrettifyMirrors(): void {
-  currentPrettifyPrompt = currentPrettifySettings.prompt;
-  currentPrettifyReasoning = DEFAULT_PRETTIFY_REASONING;
-}
-
-export function setPrettifySettings(settings: PrettifySettingsInput = {}): void {
-  currentPrettifySettings = normalizePrettifySettings({
-    ...currentPrettifySettings,
+function createImmutablePrettifySettings(settings: PrettifySettings): PrettifySettings {
+  return Object.freeze({
     ...settings,
-    claudeCli: {
-      ...currentPrettifySettings.claudeCli,
-      ...settings.claudeCli,
-    },
-    codexCli: {
-      ...currentPrettifySettings.codexCli,
-      ...settings.codexCli,
-    },
-    ollama: {
-      ...currentPrettifySettings.ollama,
-      ...settings.ollama,
-    },
-    vllm: {
-      ...currentPrettifySettings.vllm,
-      ...settings.vllm,
-    },
+    claudeCli: Object.freeze({ ...settings.claudeCli }),
+    codexCli: Object.freeze({ ...settings.codexCli }),
+    ollama: Object.freeze({ ...settings.ollama }),
+    vllm: Object.freeze({ ...settings.vllm }),
   });
-  updateLegacyPrettifyMirrors();
 }
 
-export function setProvider(providerId: string): void {
-  currentProvider = providerId;
-}
+/**
+ * Owns the mutable persisted application configuration for one application
+ * graph. Construction is side-effect free; filesystem preparation happens
+ * only when load or save is explicitly requested.
+ */
+export class AppConfigStore {
+  private cancelHotkey = DEFAULT_CANCEL_HOTKEY;
+  private diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
+  private fingerprintSeed = '';
+  private hotkey = DEFAULT_RECORD_HOTKEY;
+  private locale: AppLocaleId = DEFAULT_APP_LOCALE;
+  private localeWasExplicitlySelected = false;
+  private prettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
+  private prettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+  private prettifySettings = createImmutablePrettifySettings(DEFAULT_PRETTIFY_SETTINGS);
+  private provider = DEFAULT_VOICE_PROVIDER_ID;
+  private retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
+  private stopHotkey = DEFAULT_STOP_HOTKEY;
+  private translateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
+  private translateHotkey = DEFAULT_TRANSLATE_HOTKEY;
+  private readonly translationSettingsState = new TranslationSettingsState();
 
-export function setCurrentLocale(locale: AppLocaleId): void {
-  currentLocale = locale;
-  currentLocaleWasExplicitlySelected = true;
-}
+  public constructor(private readonly dependencies: AppConfigStoreDependencies) {}
 
-export function getFingerprintSeed(): string {
-  if (!isValidFingerprintSeed(currentFingerprintSeed)) {
-    currentFingerprintSeed = generateFingerprintSeed();
-    saveConfig();
+  public get paths(): AppConfigPaths {
+    return this.dependencies.paths;
   }
-  return currentFingerprintSeed;
-}
 
-export function getCurrentLocale(): AppLocaleId {
-  return currentLocale;
-}
-
-export function hasExplicitLocalePreference(): boolean {
-  return currentLocaleWasExplicitlySelected;
-}
-
-// Configuration loading validates each persisted field independently to isolate corrupt legacy values.
-export function loadConfig(): void {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const parsedConfig: unknown = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      const config = isRecord(parsedConfig) ? parsedConfig : {};
-      const hotkey = getConfigString(config, 'hotkey');
-      const cancelHotkey = getConfigString(config, 'cancelHotkey');
-      const stopHotkey = getConfigString(config, 'stopHotkey');
-      const translateHotkey = getConfigString(config, 'translateHotkey');
-      const prettifyHotkey = getConfigString(config, 'prettifyHotkey');
-      const retryTranscriptionHotkey = getConfigString(config, 'retryTranscriptionHotkey');
-      const translateEnabled = getConfigBoolean(config, 'translateEnabled');
-      const prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled');
-      const targetLang = getConfigString(config, 'targetLang');
-      const provider = getConfigString(config, 'provider');
-      const locale = getConfigString(config, 'locale');
-      const localeExplicit = getConfigBoolean(config, 'localeExplicit');
-      const fingerprintSeed = getConfigString(config, 'fingerprintSeed');
-      const prettifySettings = config.prettifySettings;
-      const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
-
-      if (hotkey) currentHotkey = hotkey;
-      if (cancelHotkey) currentCancelHotkey = cancelHotkey;
-      if (stopHotkey) currentStopHotkey = stopHotkey;
-      if (translateHotkey) currentTranslateHotkey = translateHotkey;
-      if (prettifyHotkey) currentPrettifyHotkey = prettifyHotkey;
-      if (retryTranscriptionHotkey) currentRetryTranscriptionHotkey = retryTranscriptionHotkey;
-      if (translateEnabled !== undefined) currentTranslateEnabled = translateEnabled;
-      if (prettifyEnabled !== undefined) currentPrettifyEnabled = prettifyEnabled;
-      if (targetLang) currentTargetLang = targetLang;
-      if (provider) currentProvider = provider;
-      if (locale && localeExplicit === true) {
-        currentLocale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
-        currentLocaleWasExplicitlySelected = true;
-      }
-      if (fingerprintSeed) currentFingerprintSeed = fingerprintSeed;
-      currentPrettifySettings = normalizePrettifySettings(
-        isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt },
-      );
-      updateLegacyPrettifyMirrors();
-
-      if (
-        currentHotkey === DEFAULT_RECORD_HOTKEY &&
-        currentRetryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY
-      ) {
-        currentRetryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
-        log.info('Migrated conflicting retry transcription hotkey to:', DEFAULT_RETRY_TRANSCRIPTION_HOTKEY);
-        saveConfig();
-      }
-    }
-    if (!isValidFingerprintSeed(currentFingerprintSeed)) {
-      currentFingerprintSeed = generateFingerprintSeed();
-      saveConfig();
-    }
-  } catch (error) {
-    log.error('Failed to load config:', getErrorMessage(error));
+  public getSnapshot(): AppConfigSnapshot {
+    return Object.freeze({
+      cancelHotkey: this.cancelHotkey,
+      capturePrettifyDiagnostics: this.diagnosticCaptureSettings.capturePrettifyDiagnostics,
+      captureTranslationDiagnostics: this.diagnosticCaptureSettings.captureTranslationDiagnostics,
+      fingerprintSeed: this.fingerprintSeed,
+      hotkey: this.hotkey,
+      locale: this.locale,
+      localeExplicit: this.localeWasExplicitlySelected,
+      prettifyEnabled: this.prettifyEnabled,
+      prettifyHotkey: this.prettifyHotkey,
+      prettifySettings: createImmutablePrettifySettings(this.prettifySettings),
+      provider: this.provider,
+      retryTranscriptionHotkey: this.retryTranscriptionHotkey,
+      stopHotkey: this.stopHotkey,
+      translateEnabled: this.translateEnabled,
+      translateHotkey: this.translateHotkey,
+      translationSettings: this.translationSettingsState.getSnapshot(),
+    });
   }
-}
 
-export function saveConfig(): void {
-  try {
-    fs.writeFileSync(
-      CONFIG_FILE,
-      JSON.stringify(
-        {
-          hotkey: currentHotkey,
-          cancelHotkey: currentCancelHotkey,
-          stopHotkey: currentStopHotkey,
-          translateHotkey: currentTranslateHotkey,
-          prettifyHotkey: currentPrettifyHotkey,
-          retryTranscriptionHotkey: currentRetryTranscriptionHotkey,
-          translateEnabled: currentTranslateEnabled,
-          prettifyEnabled: currentPrettifyEnabled,
-          targetLang: currentTargetLang,
-          provider: currentProvider,
-          locale: currentLocale,
-          localeExplicit: currentLocaleWasExplicitlySelected,
-          fingerprintSeed: currentFingerprintSeed,
-          prettifySettings: currentPrettifySettings,
+  public getHotkeySettings(): HotkeySettings {
+    return Object.freeze({
+      cancelHotkey: this.cancelHotkey,
+      hotkey: this.hotkey,
+      prettifyHotkey: this.prettifyHotkey,
+      retryTranscriptionHotkey: this.retryTranscriptionHotkey,
+      stopHotkey: this.stopHotkey,
+      translateHotkey: this.translateHotkey,
+    });
+  }
+
+  public getTextActionSettings(): TextActionSettingsSnapshot {
+    return Object.freeze({
+      prettifyEnabled: this.prettifyEnabled,
+      translateEnabled: this.translateEnabled,
+    });
+  }
+
+  public getDiagnosticCaptureSettings(): DiagnosticCaptureSettings {
+    return Object.freeze({ ...this.diagnosticCaptureSettings });
+  }
+
+  public getTranslationSettings(): TranslationSettings {
+    return this.translationSettingsState.getSnapshot();
+  }
+
+  public getFingerprintSeed(): string {
+    if (!isValidFingerprintSeed(this.fingerprintSeed)) {
+      this.fingerprintSeed = this.dependencies.generateFingerprintSeed();
+      this.save();
+    }
+    return this.fingerprintSeed;
+  }
+
+  public consumePendingTranslationSettingsRepairNotice(): TranslationSettingsRepairNotice | null {
+    return this.translationSettingsState.consumeRepairNotice();
+  }
+
+  public setHotkeys(settings: Partial<HotkeySettings>): void {
+    if (settings.hotkey !== undefined) this.hotkey = settings.hotkey;
+    if (settings.cancelHotkey !== undefined) this.cancelHotkey = settings.cancelHotkey;
+    if (settings.stopHotkey !== undefined) this.stopHotkey = settings.stopHotkey;
+    if (settings.translateHotkey !== undefined) this.translateHotkey = settings.translateHotkey;
+    if (settings.prettifyHotkey !== undefined) this.prettifyHotkey = settings.prettifyHotkey;
+    if (settings.retryTranscriptionHotkey !== undefined) {
+      this.retryTranscriptionHotkey = settings.retryTranscriptionHotkey;
+    }
+  }
+
+  public setTextActionSettings(settings: Partial<TextActionSettingsSnapshot>): void {
+    if (settings.translateEnabled !== undefined) this.translateEnabled = settings.translateEnabled;
+    if (settings.prettifyEnabled !== undefined) this.prettifyEnabled = settings.prettifyEnabled;
+  }
+
+  public setPrettifySettings(settings: PrettifySettingsInput = {}): void {
+    this.prettifySettings = createImmutablePrettifySettings(
+      normalizePrettifySettings({
+        ...this.prettifySettings,
+        ...settings,
+        claudeCli: {
+          ...this.prettifySettings.claudeCli,
+          ...settings.claudeCli,
         },
-        null,
-        2,
-      ),
+        codexCli: {
+          ...this.prettifySettings.codexCli,
+          ...settings.codexCli,
+        },
+        ollama: {
+          ...this.prettifySettings.ollama,
+          ...settings.ollama,
+        },
+        vllm: {
+          ...this.prettifySettings.vllm,
+          ...settings.vllm,
+        },
+      }),
     );
-  } catch (error) {
-    log.error('Failed to save config:', getErrorMessage(error));
-    throw error;
+  }
+
+  public setProvider(providerId: string): void {
+    this.provider = providerId;
+  }
+
+  public setLocalePreference(locale: AppLocaleId): void {
+    this.locale = locale;
+    this.localeWasExplicitlySelected = true;
+  }
+
+  public saveTranslationSettings(candidate: unknown): TranslationSettings {
+    return this.translationSettingsState.save(candidate, (settings) => this.persistSnapshot(settings));
+  }
+
+  public saveDiagnosticCaptureSettings(candidate: unknown): DiagnosticCaptureSettings {
+    if (!isDiagnosticCaptureSettings(candidate)) {
+      throw new Error('Invalid diagnostic capture settings');
+    }
+    const nextSettings = Object.freeze({ ...candidate });
+    this.persistSnapshot(this.translationSettingsState.getSnapshot(), nextSettings);
+    this.diagnosticCaptureSettings = nextSettings;
+    return this.getDiagnosticCaptureSettings();
+  }
+
+  public load(): void {
+    this.diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
+    this.initializeFileSystem();
+    try {
+      if (this.dependencies.fileSystem.existsSync(this.paths.configFile)) {
+        const parsedConfig: unknown = JSON.parse(
+          this.dependencies.fileSystem.readFileSync(this.paths.configFile, 'utf8'),
+        );
+        this.loadPersistedConfig(isRecord(parsedConfig) ? parsedConfig : {});
+      }
+      if (!isValidFingerprintSeed(this.fingerprintSeed)) {
+        this.fingerprintSeed = this.dependencies.generateFingerprintSeed();
+        this.save();
+      }
+    } catch (error) {
+      this.dependencies.logger.error('Failed to load config:', getErrorMessage(error));
+    }
+  }
+
+  public save(): void {
+    this.ensureAppDirectory();
+    try {
+      this.persistSnapshot();
+    } catch (error) {
+      this.dependencies.logger.error('Failed to save config:', getErrorMessage(error));
+      throw error;
+    }
+  }
+
+  private loadPersistedConfig(config: Record<string, unknown>): void {
+    const targetLang = getConfigString(config, 'targetLang');
+    const locale = getConfigString(config, 'locale');
+    const localeExplicit = getConfigBoolean(config, 'localeExplicit');
+    const prettifySettings = config.prettifySettings;
+    const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
+    let shouldSaveConfig = false;
+
+    this.diagnosticCaptureSettings = normalizeDiagnosticCaptureSettings(config);
+    this.hotkey = getConfigString(config, 'hotkey') ?? this.hotkey;
+    this.cancelHotkey = getConfigString(config, 'cancelHotkey') ?? this.cancelHotkey;
+    this.stopHotkey = getConfigString(config, 'stopHotkey') ?? this.stopHotkey;
+    this.translateHotkey = getConfigString(config, 'translateHotkey') ?? this.translateHotkey;
+    this.prettifyHotkey = getConfigString(config, 'prettifyHotkey') ?? this.prettifyHotkey;
+    this.retryTranscriptionHotkey =
+      getConfigString(config, 'retryTranscriptionHotkey') ?? this.retryTranscriptionHotkey;
+    this.translateEnabled = getConfigBoolean(config, 'translateEnabled') ?? this.translateEnabled;
+    this.prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled') ?? this.prettifyEnabled;
+    this.provider = getConfigString(config, 'provider') ?? this.provider;
+    if (locale && localeExplicit === true) {
+      this.locale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
+      this.localeWasExplicitlySelected = true;
+    }
+    this.fingerprintSeed = getConfigString(config, 'fingerprintSeed') ?? this.fingerprintSeed;
+    this.prettifySettings = createImmutablePrettifySettings(
+      normalizePrettifySettings(isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt }),
+    );
+
+    if (this.hotkey === DEFAULT_RECORD_HOTKEY && this.retryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY) {
+      this.retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
+      this.dependencies.logger.info(
+        'Migrated conflicting retry transcription hotkey to:',
+        DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
+      );
+      shouldSaveConfig = true;
+    }
+    if (!isValidFingerprintSeed(this.fingerprintSeed)) {
+      this.fingerprintSeed = this.dependencies.generateFingerprintSeed();
+      shouldSaveConfig = true;
+    }
+
+    this.translationSettingsState.load(config.translationSettings, targetLang, (settings) =>
+      this.persistSnapshot(settings),
+    );
+    if (shouldSaveConfig) this.save();
+  }
+
+  private createPersistedSnapshot(
+    translationSettings = this.translationSettingsState.getSnapshot(),
+    diagnosticCaptureSettings = this.diagnosticCaptureSettings,
+  ): Record<string, unknown> {
+    return {
+      hotkey: this.hotkey,
+      cancelHotkey: this.cancelHotkey,
+      captureTranslationDiagnostics: diagnosticCaptureSettings.captureTranslationDiagnostics,
+      capturePrettifyDiagnostics: diagnosticCaptureSettings.capturePrettifyDiagnostics,
+      stopHotkey: this.stopHotkey,
+      translateHotkey: this.translateHotkey,
+      prettifyHotkey: this.prettifyHotkey,
+      retryTranscriptionHotkey: this.retryTranscriptionHotkey,
+      translateEnabled: this.translateEnabled,
+      prettifyEnabled: this.prettifyEnabled,
+      translationSettings,
+      provider: this.provider,
+      locale: this.locale,
+      localeExplicit: this.localeWasExplicitlySelected,
+      fingerprintSeed: this.fingerprintSeed,
+      prettifySettings: this.prettifySettings,
+    };
+  }
+
+  private persistSnapshot(
+    translationSettings = this.translationSettingsState.getSnapshot(),
+    diagnosticCaptureSettings = this.diagnosticCaptureSettings,
+  ): void {
+    this.ensureAppDirectory();
+    this.dependencies.writeFileAtomically(
+      this.paths.configFile,
+      JSON.stringify(this.createPersistedSnapshot(translationSettings, diagnosticCaptureSettings), null, 2),
+    );
+  }
+
+  private initializeFileSystem(): void {
+    this.migrateLegacyAppDirectory();
+    this.ensureAppDirectory();
+  }
+
+  private ensureAppDirectory(): void {
+    if (!this.dependencies.fileSystem.existsSync(this.paths.appDirectory)) {
+      this.dependencies.fileSystem.mkdirSync(this.paths.appDirectory, { recursive: true });
+    }
+  }
+
+  private migrateLegacyAppDirectory(): void {
+    const legacyDirectories = this.paths.legacyAppDirectories.filter(
+      (candidate) => candidate !== this.paths.appDirectory && this.dependencies.fileSystem.existsSync(candidate),
+    );
+    if (legacyDirectories.length === 0) return;
+
+    if (
+      !this.dependencies.fileSystem.existsSync(this.paths.appDirectory) &&
+      this.migrateWholeLegacyAppDirectory(legacyDirectories[0])
+    ) {
+      return;
+    }
+
+    this.ensureAppDirectory();
+    for (const legacyDirectory of legacyDirectories) {
+      this.copyMissingLegacyEntries(legacyDirectory);
+    }
+  }
+
+  private migrateWholeLegacyAppDirectory(legacyDirectory: string): boolean {
+    this.dependencies.fileSystem.mkdirSync(path.dirname(this.paths.appDirectory), { recursive: true });
+    try {
+      this.dependencies.fileSystem.renameSync(legacyDirectory, this.paths.appDirectory);
+      this.dependencies.logger.info('Migrated app data directory:', legacyDirectory, '->', this.paths.appDirectory);
+    } catch (renameError) {
+      try {
+        this.dependencies.fileSystem.cpSync(legacyDirectory, this.paths.appDirectory, { recursive: true });
+        this.dependencies.fileSystem.rmSync(legacyDirectory, { recursive: true, force: true });
+        this.dependencies.logger.info('Copied app data directory:', legacyDirectory, '->', this.paths.appDirectory);
+      } catch (copyError) {
+        this.dependencies.logger.warn('Failed to migrate app data directory:', renameError, copyError);
+      }
+    }
+    return this.dependencies.fileSystem.existsSync(this.paths.appDirectory);
+  }
+
+  private copyMissingLegacyEntries(legacyDirectory: string): void {
+    for (const entry of MIGRATED_LEGACY_ENTRIES) {
+      const source = path.join(legacyDirectory, entry);
+      const target = path.join(this.paths.appDirectory, entry);
+      if (!this.dependencies.fileSystem.existsSync(source) || this.dependencies.fileSystem.existsSync(target)) {
+        continue;
+      }
+
+      try {
+        this.dependencies.fileSystem.cpSync(source, target, { recursive: true });
+        this.dependencies.logger.info('Copied missing app data entry:', source, '->', target);
+      } catch (error) {
+        this.dependencies.logger.warn('Failed to copy missing app data entry:', source, error);
+      }
+    }
   }
 }

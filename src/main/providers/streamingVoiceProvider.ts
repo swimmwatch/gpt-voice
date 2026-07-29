@@ -1,4 +1,6 @@
 import { BaseVoiceProvider, type VoiceProviderInfo } from './BaseVoiceProvider';
+import type { ProviderAuditExceptionType } from '@main/providerAudit';
+import type { VoiceAuditMetadata, VoiceAuditOperationContext, VoiceProviderAudit } from './voiceProviderAudit';
 import {
   StreamingTranscriptionLifecycle,
   type StreamingTranscriptionError,
@@ -24,7 +26,11 @@ export type CopiedStreamingTranscriptionChunk = Uint8Array & {
   readonly [COPIED_STREAMING_TRANSCRIPTION_CHUNK]: never;
 };
 
+export type StreamingVoiceAuditCauseCode = NonNullable<VoiceAuditMetadata['causeCode']>;
+
 export interface StartStreamingTranscriptionInput {
+  readonly audit: VoiceProviderAudit;
+  readonly auditContext: VoiceAuditOperationContext;
   readonly operationId: StreamingTranscriptionOperationId;
 }
 
@@ -64,6 +70,8 @@ export type StreamingTranscriptionResult =
       readonly text: string;
     }
   | {
+      readonly auditCauseCode?: StreamingVoiceAuditCauseCode;
+      readonly auditExceptionType?: ProviderAuditExceptionType;
       readonly success: false;
       readonly operationId: StreamingTranscriptionOperationId;
       readonly error: StreamingTranscriptionError;

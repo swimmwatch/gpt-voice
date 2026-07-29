@@ -2,54 +2,55 @@ import { StatusCodes } from 'http-status-codes';
 import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
 import { BatchVoiceProvider } from './BatchVoiceProvider';
 import { getAudioFileExtension } from './chatgptUtils';
-import { getOpenAIApiSettingsWithSecret } from './openaiApiSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { OpenAIApiSettingsWithSecret } from './openaiApiSettingsUtils';
 import { parseRateLimitedTranscribeResponse } from './transcriptionErrors';
-import { t } from '../i18n';
-import { createLogger } from '../logger';
-import { writeClipboardText } from '../electronRuntime';
+import type { I18nService } from '../i18n';
 import {
   DEFAULT_TRANSCRIPTION_MIME_TYPE,
   TRANSCRIPTION_UPLOAD_FILE_BASENAME,
   WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
 } from '@shared/transcriptionConstants';
-import { presentNotificationError } from '@shared/notifications';
+import type { VoiceProviderAudit, VoiceBatchAuditContext } from './voiceProviderAudit';
+import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
 
-const log = createLogger('openai-api-provider');
 const TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const ERROR_RESPONSE_BODY_PREVIEW_CHARS = 300;
 
-interface FetchResponseLike {
+export interface FetchResponseLike {
   status: number;
   text(): Promise<string>;
 }
 
-interface OpenAIApiVoiceProviderDependencies {
+export interface OpenAIApiVoiceProviderDependencies {
+  audit: VoiceProviderAudit;
   fetch: (url: string, init: RequestInit) => Promise<FetchResponseLike>;
+  localization: Pick<I18nService, 'translate'>;
   getSettings: () => OpenAIApiSettingsWithSecret;
+  writeClipboardText: (text: string) => void;
 }
+
+export const OPENAI_API_VOICE_PROVIDER_INFO = Object.freeze({
+  id: OPENAI_API_PROVIDER_ID,
+  name: 'OpenAI API',
+  authType: 'apiKey',
+  category: 'api',
+  hasSettings: true,
+  transcriptionMode: 'batch',
+}) satisfies VoiceProviderInfo;
+
+export const OPENAI_API_RENDERER_PROVIDER_INFO = OPENAI_API_VOICE_PROVIDER_INFO;
 
 /** API-key provider for OpenAI's hosted audio transcription endpoint. */
 export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
   private readonly deps: OpenAIApiVoiceProviderDependencies;
 
-  constructor(deps: Partial<OpenAIApiVoiceProviderDependencies> = {}) {
+  constructor(deps: OpenAIApiVoiceProviderDependencies) {
     super();
-    this.deps = {
-      fetch: deps.fetch || fetch,
-      getSettings: deps.getSettings || getOpenAIApiSettingsWithSecret,
-    };
+    this.deps = deps;
   }
 
-  readonly info = {
-    id: OPENAI_API_PROVIDER_ID,
-    name: 'OpenAI API',
-    authType: 'apiKey',
-    category: 'api',
-    hasSettings: true,
-    transcriptionMode: 'batch',
-  } satisfies VoiceProviderInfo;
+  readonly info = OPENAI_API_VOICE_PROVIDER_INFO;
 
   hasSession(): boolean {
     return Boolean(this.deps.getSettings().apiKey);
@@ -78,12 +79,27 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     ];
   }
 
-  async transcribe(buffer: ArrayBuffer, mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE): Promise<TranscriptionResult> {
+  /** Executes one audited OpenAI batch request without changing its public result. */
+  async transcribe(
+    buffer: ArrayBuffer,
+    mimeType = WEBM_OPUS_TRANSCRIPTION_MIME_TYPE,
+    auditContext?: VoiceBatchAuditContext,
+  ): Promise<TranscriptionResult> {
+    const audit = auditContext ?? this.deps.audit.startBatch(this.info.id, buffer, mimeType);
+    audit.lifecycle.phaseCompleted('dispatch', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+    audit.lifecycle.phaseEntered('configuration', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+
     try {
       const settings = this.deps.getSettings();
       if (!settings.apiKey) {
-        return { success: false, error: t('error.noAccessToken') };
+        this.deps.audit.terminalBatch(audit, 'configuration', 'failure', {
+          attemptCount: 0,
+          causeCode: 'not-configured',
+        });
+        return { success: false, error: this.deps.localization.translate('error.noAccessToken') };
       }
+      audit.lifecycle.phaseCompleted('configuration', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+      audit.lifecycle.phaseEntered('validation', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
 
       const formData = new FormData();
       const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE });
@@ -98,6 +114,8 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
       if (settings.prompt) {
         formData.append('prompt', settings.prompt);
       }
+      audit.lifecycle.phaseCompleted('validation', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
+      audit.lifecycle.phaseEntered('submission', this.deps.audit.createBatchMetadata(audit, { attemptCount: 1 }));
 
       const response = await this.deps.fetch(TRANSCRIPTIONS_URL, {
         method: 'POST',
@@ -107,14 +125,53 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
         body: formData,
       });
       const body = await response.text();
+      audit.lifecycle.phaseCompleted(
+        'submission',
+        this.deps.audit.createBatchMetadata(audit, {
+          attemptCount: 1,
+          httpStatus: response.status,
+        }),
+      );
 
       if (response.status !== Number(StatusCodes.OK)) {
-        return this.parseErrorResponse(response.status, body);
+        const result = this.parseErrorResponse(response.status, body);
+        this.deps.audit.terminalBatch(audit, 'result', 'failure', {
+          attemptCount: 1,
+          causeCode: response.status === Number(StatusCodes.TOO_MANY_REQUESTS) ? 'rate-limited' : 'request-failed',
+          httpStatus: response.status,
+        });
+        return result;
       }
 
-      return this.parseSuccessResponse(body);
+      audit.lifecycle.phaseEntered(
+        'result',
+        this.deps.audit.createBatchMetadata(audit, {
+          attemptCount: 1,
+          httpStatus: response.status,
+        }),
+      );
+      const result = this.parseSuccessResponse(body);
+      if (result.success && result.text) {
+        this.deps.audit.terminalBatch(audit, 'result', 'success', {
+          attemptCount: 1,
+          httpStatus: response.status,
+          resultLength: result.text.length,
+        });
+        return result;
+      }
+
+      this.deps.audit.terminalBatch(audit, 'result', 'failure', {
+        attemptCount: 1,
+        causeCode: this.classifySuccessFailure(body),
+        httpStatus: response.status,
+      });
+      return result;
     } catch (error: unknown) {
-      log.error('Transcribe error:', presentNotificationError(error, { context: 'transcription' }).safeLogMetadata);
+      this.deps.audit.terminalBatch(audit, 'submission', 'failure', {
+        attemptCount: 1,
+        causeCode: 'connection-failed',
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
@@ -126,7 +183,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', {
+        error: this.deps.localization.translate('error.nonJsonResponse', {
           status: String(StatusCodes.OK),
           body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
         }),
@@ -135,15 +192,19 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
 
     const text = typeof result.text === 'string' ? result.text : '';
     if (!text) {
-      return { success: false, error: t('error.noTranscription'), raw: JSON.stringify(result) };
+      return {
+        success: false,
+        error: this.deps.localization.translate('error.noTranscription'),
+        raw: JSON.stringify(result),
+      };
     }
 
-    writeClipboardText(text);
+    this.deps.writeClipboardText(text);
     return { success: true, text };
   }
 
   private parseErrorResponse(status: number, body: string): TranscriptionResult {
-    const rateLimited = parseRateLimitedTranscribeResponse({ status, body });
+    const rateLimited = parseRateLimitedTranscribeResponse({ status, body }, this.deps.localization);
     if (rateLimited) {
       return rateLimited;
     }
@@ -158,11 +219,23 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     } catch {
       return {
         success: false,
-        error: t('error.nonJsonResponse', {
+        error: this.deps.localization.translate('error.nonJsonResponse', {
           status: String(status),
           body: body.substring(0, ERROR_RESPONSE_BODY_PREVIEW_CHARS),
         }),
       };
+    }
+  }
+
+  private classifySuccessFailure(body: string): 'empty-result' | 'provider-contract-changed' | 'unexpected-response' {
+    try {
+      const result: unknown = JSON.parse(body);
+      if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+        return 'provider-contract-changed';
+      }
+      return 'error' in result ? 'unexpected-response' : 'empty-result';
+    } catch {
+      return 'provider-contract-changed';
     }
   }
 }

@@ -28,6 +28,14 @@ import {
   type PrettifyBaseUrlValidationErrorCode,
 } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
+import {
+  areDiagnosticCaptureSettingsEqual,
+  type DiagnosticCaptureCategory,
+  type DiagnosticCaptureSettings,
+  type DiagnosticCaptureSettingsErrorCode,
+  type DiagnosticCaptureSettingsMutationRequest,
+  type DiagnosticCaptureSettingsMutationResult,
+} from '@shared/diagnosticCaptureSettings';
 
 const SUPPORTED_PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:']);
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
@@ -208,9 +216,15 @@ export interface AppSettingsSaveDependencies {
   setTextActionSettings: (
     settings: TextActionSettings,
   ) => Promise<{ success: boolean; settings?: TextActionSettings; error?: string }>;
+  setDiagnosticCaptureSettings: (
+    request: DiagnosticCaptureSettingsMutationRequest,
+  ) => Promise<DiagnosticCaptureSettingsMutationResult>;
 }
 
 export interface AppSettingsSaveInput {
+  confirmedDiagnosticPurgeCategories: readonly DiagnosticCaptureCategory[];
+  diagnosticCaptureSettings: DiagnosticCaptureSettings;
+  initialDiagnosticCaptureSettings: DiagnosticCaptureSettings;
   initialPrettifySettings: PrettifySettingsDraft;
   initialSettings: EditableCloakBrowserSettings;
   initialTextActionSettings: TextActionSettings;
@@ -223,6 +237,9 @@ export interface AppSettingsSaveInput {
 
 export interface AppSettingsSaveResult {
   success: boolean;
+  diagnosticCaptureErrorCode?: DiagnosticCaptureSettingsErrorCode;
+  diagnosticCaptureSettingsSaved?: boolean;
+  diagnosticCaptureSettings?: DiagnosticCaptureSettings;
   error?: string;
   fieldErrors?: AppSettingsFieldErrors;
   prettifySettingsSaved?: boolean;
@@ -239,7 +256,7 @@ export interface AppSettingsFormState {
   validationErrors: AppSettingsFieldErrors;
 }
 
-export type AppSettingsChangedGroup = 'prettify' | 'textActions' | 'cloakBrowser';
+export type AppSettingsChangedGroup = 'prettify' | 'textActions' | 'cloakBrowser' | 'auditLog';
 
 export interface SanitizedCloakBrowserSettingsSummary {
   humanize: boolean;
@@ -280,6 +297,8 @@ export interface SanitizedPrettifyProviderSummary {
 export interface AppSettingsLogSummary extends SanitizedPrettifyProviderSummary {
   changedGroups: AppSettingsChangedGroup[];
   changedFields: string[];
+  diagnosticCaptureChangedCategories: DiagnosticCaptureCategory[];
+  diagnosticCaptureSettings: DiagnosticCaptureSettings;
   prettifyPromptChanged: boolean;
   prettifyPromptLength: number;
   prettifyProviderId: KnownPrettifyProviderId;
@@ -427,6 +446,23 @@ function collectTextActionChangedFields(input: AppSettingsSaveInput): string[] {
   ]);
 }
 
+function collectDiagnosticCaptureChangedCategories(input: AppSettingsSaveInput): DiagnosticCaptureCategory[] {
+  const categories: DiagnosticCaptureCategory[] = [];
+  if (
+    input.diagnosticCaptureSettings.captureTranslationDiagnostics !==
+    input.initialDiagnosticCaptureSettings.captureTranslationDiagnostics
+  ) {
+    categories.push('translation');
+  }
+  if (
+    input.diagnosticCaptureSettings.capturePrettifyDiagnostics !==
+    input.initialDiagnosticCaptureSettings.capturePrettifyDiagnostics
+  ) {
+    categories.push('prettify');
+  }
+  return categories;
+}
+
 function collectCloakBrowserChangedFields(input: AppSettingsSaveInput): string[] {
   const { initialSettings: initial, settings: current } = input;
   return collectChangedFields([
@@ -519,11 +555,15 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
   }
   appendChangedGroup(changedGroups, changedFields, 'textActions', collectTextActionChangedFields(input));
   appendChangedGroup(changedGroups, changedFields, 'cloakBrowser', collectCloakBrowserChangedFields(input));
+  const diagnosticCaptureChangedCategories = collectDiagnosticCaptureChangedCategories(input);
+  appendChangedGroup(changedGroups, changedFields, 'auditLog', diagnosticCaptureChangedCategories);
 
   return {
     ...createSanitizedPrettifyProviderSummary(input.prettifySettings),
     changedGroups,
     changedFields,
+    diagnosticCaptureChangedCategories,
+    diagnosticCaptureSettings: input.diagnosticCaptureSettings,
     prettifyPromptChanged: input.prettifySettings.prompt !== input.initialPrettifySettings.prompt,
     prettifyPromptLength: input.prettifySettings.prompt.length,
     prettifyProviderId: input.prettifySettings.providerId,
@@ -858,7 +898,8 @@ export function getAppSettingsFormState(input: AppSettingsSaveInput): AppSetting
     isDirty:
       !arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings) ||
       !areTextActionSettingsEqual(input.textActionSettings, input.initialTextActionSettings) ||
-      !areCloakBrowserSettingsEqual(input.settings, input.initialSettings),
+      !areCloakBrowserSettingsEqual(input.settings, input.initialSettings) ||
+      !areDiagnosticCaptureSettingsEqual(input.diagnosticCaptureSettings, input.initialDiagnosticCaptureSettings),
     isValid: !hasAppSettingsFieldErrors(validationErrors),
     validationErrors,
   };
@@ -899,6 +940,23 @@ export function areTextActionSettingsEqual(left: TextActionSettings, right: Text
   return left.translateEnabled === right.translateEnabled && left.prettifyEnabled === right.prettifyEnabled;
 }
 
+/** Restores only the diagnostic toggles covered by a cancelled destructive confirmation. */
+export function restoreCancelledDiagnosticCaptureSettings(
+  current: DiagnosticCaptureSettings,
+  initial: DiagnosticCaptureSettings,
+  cancelledCategories: readonly DiagnosticCaptureCategory[],
+): DiagnosticCaptureSettings {
+  return {
+    ...current,
+    capturePrettifyDiagnostics: cancelledCategories.includes('prettify')
+      ? initial.capturePrettifyDiagnostics
+      : current.capturePrettifyDiagnostics,
+    captureTranslationDiagnostics: cancelledCategories.includes('translation')
+      ? initial.captureTranslationDiagnostics
+      : current.captureTranslationDiagnostics,
+  };
+}
+
 export function areCloakBrowserSettingsEqual(
   current: EditableCloakBrowserSettings,
   initial: EditableCloakBrowserSettings,
@@ -921,6 +979,7 @@ export function areCloakBrowserSettingsEqual(
   );
 }
 
+/** Saves each dirty App Settings group while preserving authoritative partial results. */
 export async function saveAppSettingsState(
   input: AppSettingsSaveInput,
   deps: AppSettingsSaveDependencies,
@@ -941,6 +1000,10 @@ export async function saveAppSettingsState(
   const shouldSavePrettify = !arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings);
   const shouldSaveTextActions = !areTextActionSettingsEqual(input.textActionSettings, input.initialTextActionSettings);
   const shouldSaveCloakBrowser = !areCloakBrowserSettingsEqual(input.settings, input.initialSettings);
+  const shouldSaveDiagnosticCapture = !areDiagnosticCaptureSettingsEqual(
+    input.diagnosticCaptureSettings,
+    input.initialDiagnosticCaptureSettings,
+  );
   const result: AppSettingsSaveResult = {
     success: true,
   };
@@ -978,6 +1041,20 @@ export async function saveAppSettingsState(
       if (cloakResult.settings) {
         result.settings = createEditableSettings(cloakResult.settings);
       }
+    }
+  }
+
+  if (shouldSaveDiagnosticCapture) {
+    const diagnosticCaptureResult = await deps.setDiagnosticCaptureSettings({
+      confirmedPurgeCategories: input.confirmedDiagnosticPurgeCategories,
+      settings: input.diagnosticCaptureSettings,
+    });
+    result.diagnosticCaptureSettings = diagnosticCaptureResult.settings;
+    if (diagnosticCaptureResult.success) {
+      result.diagnosticCaptureSettingsSaved = true;
+    } else {
+      result.success = false;
+      result.diagnosticCaptureErrorCode = diagnosticCaptureResult.errorCode;
     }
   }
 

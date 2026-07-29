@@ -57,7 +57,7 @@ For specifications, plans, architecture choices, releases, and other
 recoverable workflows:
 
 1. Resolve the target worktree's absolute path. In this repository it is
-   `/home/dmitry-vasiliev/PycharmProjects/open-source/gpt-voice`.
+   `/home/dmitry-vasiliev/PycharmProjects/open-source/chatgpt-web-voice`.
 2. Call `start_interview` with a stable semantic ID such as `spec:<slug>` or
    `plan:<slug>` and `persistence: workspace`.
 3. Reopening the same interview ID is recovery, not a reason to generate a new
@@ -69,7 +69,7 @@ Example start:
 
 ```json
 {
-  "workspace_path": "/home/dmitry-vasiliev/PycharmProjects/open-source/gpt-voice",
+  "workspace_path": "/home/dmitry-vasiliev/PycharmProjects/open-source/chatgpt-web-voice",
   "interview_id": "spec:example-feature",
   "persistence": "workspace"
 }
@@ -121,7 +121,7 @@ Example batch:
 
 ```json
 {
-  "workspace_path": "/home/dmitry-vasiliev/PycharmProjects/open-source/gpt-voice",
+  "workspace_path": "/home/dmitry-vasiliev/PycharmProjects/open-source/chatgpt-web-voice",
   "interview_id": "spec:example-feature",
   "batch_id": "compatibility-round-01",
   "timeout_seconds": 1800,

@@ -12,9 +12,10 @@ function readProjectFile(relativePath: string): string {
 describe('Prettify IPC privacy contract', () => {
   it('exposes a dedicated trusted CLI connection check without renderer settings', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
+    const coordinator = readProjectFile('src/main/services/prettifyConnectionCheckCoordinator.ts');
     const handler = ipc.slice(
       ipc.indexOf("'check-prettify-cli-connection'"),
       ipc.indexOf("handle('set-prettify-settings'"),
@@ -24,20 +25,20 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(preload, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(rendererTypes, /checkPrettifyCliConnection: \(providerId: PrettifyCliProviderId\)/u);
     assert.match(handler, /isPrettifyCliProviderId\(providerId\)/u);
-    assert.match(handler, /getPrettifySettingsSnapshot\(\)/u);
-    assert.match(handler, /event\.sender\.once\('destroyed'/u);
+    assert.match(handler, /dependencies\.prettifyRuntime\.checkCliConnection\(providerId\)/u);
+    assert.match(handler, /prettifyConnectionCoordinator\.check\(/u);
+    assert.match(handler, /dependencies\.prettifySettings\.getView\(\)/u);
+    assert.match(coordinator, /owner\.once\('destroyed'/u);
+    assert.doesNotMatch(handler, /Prettify CLI connection checked|log\.(?:info|warn|error)/u);
     assert.doesNotMatch(handler, /executablePath|stdout|stderr|account|authStatus/u);
   });
 
   it('accepts every selectable provider for model inspection', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const preload = readProjectFile('src/main/preload.ts');
+    const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
-    const modelHandlers = ipc.slice(
-      ipc.indexOf("handle(\n    'list-prettify-models'"),
-      ipc.indexOf("handle('show-notification'"),
-    );
+    const modelHandlers = ipc.slice(ipc.indexOf("'list-prettify-models'"), ipc.indexOf("'show-notification'"));
 
     assert.match(modelHandlers, /providerId: KnownPrettifyProviderId/u);
     assert.match(modelHandlers, /isKnownPrettifyProviderId\(providerId\)/u);
@@ -48,17 +49,14 @@ describe('Prettify IPC privacy contract', () => {
     assert.match(settings, /KNOWN_PRETTIFY_PROVIDER_IDS = \['ollama', 'vllm', 'claude-cli', 'codex-cli'\]/u);
   });
 
-  it('returns availability and source metadata without logging model or process values', () => {
+  it('returns availability and source metadata without duplicate provider-operation logs', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const settings = readProjectFile('src/shared/prettifySettings.ts');
     const summary = ipc.slice(
       ipc.indexOf('function summarizePrettifySettingsInput'),
-      ipc.indexOf('function getTextActionSettingsSnapshot'),
+      ipc.indexOf('export class MainIpcController'),
     );
-    const modelHandlers = ipc.slice(
-      ipc.indexOf("handle(\n    'list-prettify-models'"),
-      ipc.indexOf("handle('show-notification'"),
-    );
+    const modelHandlers = ipc.slice(ipc.indexOf("'list-prettify-models'"), ipc.indexOf("'show-notification'"));
 
     assert.match(settings, /availability: PrettifyProviderAvailability/u);
     assert.match(settings, /source: PrettifyModelSource/u);
@@ -69,7 +67,9 @@ describe('Prettify IPC privacy contract', () => {
     assert.doesNotMatch(summary, /fallbackModel:\s*settings/u);
     assert.doesNotMatch(modelHandlers, /model:\s*result\.model/u);
     assert.doesNotMatch(modelHandlers, /error:\s*getErrorMessage\(error\)/u);
-    assert.match(modelHandlers, /errorName: error instanceof Error \? error\.name : 'unknown'/u);
-    assert.match(modelHandlers, /modelCount: result\.models\.length/u);
+    assert.doesNotMatch(modelHandlers, /log\.(?:info|warn|error)/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.listModels\(providerId/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.loadModel\(providerId/u);
+    assert.match(modelHandlers, /dependencies\.prettifyRuntime\.unloadModel\(providerId/u);
   });
 });

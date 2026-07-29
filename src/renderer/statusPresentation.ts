@@ -1,7 +1,12 @@
 import type { TranslationKey } from '@main/i18n';
-import { NotificationErrorCode, type PresentedNotificationError } from '@shared/notifications';
+import {
+  NotificationErrorCode,
+  presentNotificationError,
+  type PresentedNotificationError,
+} from '@shared/notifications';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TextActionStatus } from '@shared/textActionStatus';
+import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 
 export type RendererStatusParams = Record<string, string | RendererStatus>;
 
@@ -12,6 +17,11 @@ export interface RendererStatus {
 }
 
 export type TranslateRendererStatus = (key: TranslationKey, params?: Record<string, string>) => string;
+
+export interface BrowserProviderFailurePresentation {
+  readonly reason: typeof PROVIDER_CONNECTION_REASONS.BrowserUnavailable;
+  readonly status: RendererStatus;
+}
 
 export function translatedStatus(key: TranslationKey, params?: RendererStatusParams): RendererStatus {
   return params ? { kind: 'translation', key, params } : { kind: 'translation', key };
@@ -93,6 +103,17 @@ export function notificationErrorStatus(error: Pick<PresentedNotificationError, 
     case NotificationErrorCode.Unknown:
       return translatedStatus('error.notificationUnknown');
   }
+}
+
+/** Produces one locale-neutral, sanitized descriptor for browser-provider connection failures. */
+export function createBrowserProviderFailurePresentation(error: unknown): BrowserProviderFailurePresentation {
+  const presented = presentNotificationError(error, { context: 'generic' });
+  return {
+    reason: PROVIDER_CONNECTION_REASONS.BrowserUnavailable,
+    status: translatedStatus('status.browserInitFailed', {
+      error: notificationErrorStatus(presented),
+    }),
+  };
 }
 
 export function shouldPresentIdleHotkeyStatus(

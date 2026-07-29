@@ -22,6 +22,11 @@ import {
   type StreamingVoiceProviderOperations,
 } from '@main/providers/streamingVoiceProvider';
 import { StreamingTranscriptionOperationError } from '@main/providers/StreamingTranscriptionOperationError';
+import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voiceAuditTestUtils';
+import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
+import { VoiceProviderRegistryFixture } from './providers/voiceProviderRegistryFixture';
+import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import {
   MainStreamingTranscriptionRejection,
   StreamingTranscriptionService,
@@ -105,6 +110,7 @@ class TestStreamingProvider extends StreamingVoiceProvider implements StreamingV
     lifecycle: StreamingTranscriptionLifecycle.Completed,
     text: 'streamed text',
   });
+  cancelHandler: (input: CancelStreamingTranscriptionInput) => Promise<void> = async () => undefined;
 
   clearSession(): void {}
 
@@ -146,6 +152,7 @@ class TestStreamingProvider extends StreamingVoiceProvider implements StreamingV
     input: CancelStreamingTranscriptionInput,
   ): Promise<StreamingTranscriptionCancellation> {
     this.cancelCalls.push(input);
+    await this.cancelHandler(input);
     return {
       operationId: input.operationId,
       lifecycle: StreamingTranscriptionLifecycle.Cancelled,
@@ -157,6 +164,8 @@ class TestCache implements TextActionResultCache {
   readonly values = new Map<string, string>();
   setCalls = 0;
 
+  constructor(private readonly onSet: () => void = () => undefined) {}
+
   clear(): void {
     this.values.clear();
   }
@@ -166,6 +175,7 @@ class TestCache implements TextActionResultCache {
   }
 
   set(key: string, value: string): void {
+    this.onSet();
     this.setCalls += 1;
     this.values.set(key, value);
   }
@@ -216,21 +226,25 @@ function combineBytes(...chunks: Uint8Array[]): Uint8Array {
 }
 
 function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDependencies> = {}) {
+  const audit = new RecordingVoiceProviderAudit();
   const provider = new TestStreamingProvider();
   let activeProvider: TestStreamingProvider | null = provider;
   let monotonicTimeMs = 1_000;
-  const operationId = asOperationId('injected-operation-id');
+  const operationId = asOperationId('11111111-2222-4333-8444-000000000004');
   const cache = new TestCache();
   const clipboard: string[] = [];
-  const history: Array<{ requestedAt: string; providerId: string; providerName: string; text: string }> = [];
+  const historyRepository = new RecordingTranscriptionHistoryRepository();
   const diagnostics: DiagnosticRecord[] = [];
   const deps: MainStreamingTranscriptionServiceDependencies = {
-    addHistoryEntry: (entry) => history.push(entry),
+    audit,
+    backgroundBrowserService: {
+      getActiveProvider: () => activeProvider,
+    },
     cache,
     createOperationId: () => operationId,
-    getActiveProvider: () => activeProvider,
     getMonotonicTimeMs: () => monotonicTimeMs,
     getRequestedAt: () => '2026-07-18T12:00:00.000Z',
+    historyRepository,
     reportDiagnostic: (outcome, diagnostic) => diagnostics.push({ outcome, diagnostic }),
     resolveCapability: (candidate) =>
       candidate === provider
@@ -241,14 +255,20 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
         : null,
     writeClipboardText: (text) => clipboard.push(text),
     ...overrides,
+    logger: overrides.logger ?? {
+      error: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+    },
   };
   const service = new StreamingTranscriptionService(deps);
 
   return {
+    audit,
     cache,
     clipboard,
     diagnostics,
-    history,
+    history: historyRepository.addedEntries,
     operationId,
     provider,
     service,
@@ -277,9 +297,10 @@ async function assertServiceRejection(
 
 describe('streaming provider capability resolver', () => {
   it('resolves only the nominal Claude Web provider, not matching metadata or duck typing', () => {
-    const claude = new ClaudeWebVoiceProvider();
+    const claude = new VoiceProviderRegistryFixture().registry.createProvider(CLAUDE_WEB_PROVIDER_ID);
     const lookalike = new TestStreamingProvider();
 
+    assert.equal(claude instanceof ClaudeWebVoiceProvider, true);
     assert.deepEqual(resolveStreamingVoiceProviderCapability(claude), {
       provider: claude,
       operations: claude,
@@ -309,6 +330,130 @@ describe('main streaming transcription service', () => {
     assert.equal(idCalls, 0);
   });
 
+  it('uses fresh internal IDs for standalone rejections and keeps sink arguments metadata-only', async () => {
+    const serializedEvents: string[] = [];
+    const internalRejectionId = '99999999-8888-4777-8666-000000000004';
+    const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
+      getSink: () => ({
+        error: (_label, serialized) => serializedEvents.push(serialized as string),
+        info: (_label, serialized) => serializedEvents.push(serialized as string),
+        warn: (_label, serialized) => serializedEvents.push(serialized as string),
+      }),
+      now: () => new Date('2026-07-26T00:00:00.000Z'),
+      randomUUID: () => internalRejectionId,
+    });
+    const harness = createHarness({ audit });
+    const rendererCandidate = asOperationId('renderer-candidate https://private.invalid?token=private');
+    const owner = createStreamingTranscriptionOwnerToken();
+
+    assert.deepEqual(
+      await harness.service.finish({
+        owner,
+        operationId: rendererCandidate,
+        sequence: 0,
+        finalChunk: Uint8Array.of(31, 41),
+        recordingWav: createPcm16Wav(Uint8Array.of(31, 41)),
+      }),
+      {
+        success: false,
+        error: createStreamingError(StreamingTranscriptionErrorCode.InvalidOperation),
+        retryEligible: false,
+      },
+    );
+
+    const records = serializedEvents.map((serialized) => JSON.parse(serialized) as Record<string, unknown>);
+    assert.equal(records.length, 3);
+    assert.equal(
+      records.every((record) => record.operationId === internalRejectionId),
+      true,
+    );
+    assert.equal(
+      records.every((record) => record.providerId === CLAUDE_WEB_PROVIDER_ID),
+      true,
+    );
+    assert.equal(serializedEvents.join('').includes(rendererCandidate), false);
+    assert.deepEqual(records[records.length - 1], {
+      schemaVersion: 1,
+      occurredAt: '2026-07-26T00:00:00.000Z',
+      family: 'voice',
+      providerId: 'claude-web',
+      operation: 'transcribe-stream',
+      operationId: internalRejectionId,
+      sequence: 3,
+      event: 'terminal',
+      phase: 'validation',
+      outcome: 'failure',
+      acceptedByteCount: 0,
+      chunkCount: 0,
+      durationMs: records[records.length - 1]?.durationMs,
+      frameCount: 0,
+      causeCode: 'invalid-operation',
+      errorClass: 'provider-rejection',
+      transcriptionMode: 'streaming',
+    });
+
+    const exceptionCanary =
+      'private session organization account https://private.invalid/query provider-payload message stack-private';
+    harness.provider.cacheContext = [exceptionCanary];
+    harness.provider.pushHandler = async () => {
+      throw new TypeError(exceptionCanary);
+    };
+    await harness.service.start({ owner });
+    await assertServiceRejection(
+      harness.service.sendChunk({
+        owner,
+        operationId: harness.operationId,
+        sequence: 0,
+        chunk: Uint8Array.of(31, 41),
+      }),
+      StreamingTranscriptionErrorCode.TransportFailure,
+      true,
+    );
+    assert.equal(serializedEvents.join('').includes(exceptionCanary), false);
+    assert.equal(serializedEvents.join('').includes('31,41'), false);
+  });
+
+  it('keeps provider behavior fail-open when every audit sink invocation throws', async () => {
+    const privacyCanary = 'private sink https://private.invalid stack-private';
+    const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
+      getSink: () => ({
+        error: () => {
+          throw new Error(privacyCanary);
+        },
+        info: () => {
+          throw new Error(privacyCanary);
+        },
+        warn: () => {
+          throw new Error(privacyCanary);
+        },
+      }),
+    });
+    const harness = createHarness({ audit });
+    const owner = createStreamingTranscriptionOwnerToken();
+    const finalChunk = Uint8Array.of(1, 0);
+
+    assert.deepEqual(await harness.service.start({ owner }), {
+      operationId: harness.operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Starting,
+    });
+    assert.deepEqual(
+      await harness.service.finish({
+        owner,
+        operationId: harness.operationId,
+        sequence: 0,
+        finalChunk,
+        recordingWav: createPcm16Wav(finalChunk),
+      }),
+      {
+        success: true,
+        lifecycle: StreamingTranscriptionLifecycle.Completed,
+        text: 'streamed text',
+      },
+    );
+  });
+
   it('claims the operation before provider start and returns the injected opaque ID', async () => {
     const harness = createHarness();
     const owner = createStreamingTranscriptionOwnerToken();
@@ -331,6 +476,11 @@ describe('main streaming transcription service', () => {
       lifecycle: StreamingTranscriptionLifecycle.Starting,
     });
     assert.equal(harness.provider.startCalls.length, 1);
+    assert.equal(getTerminalEvents(harness.audit.operations[0]).length, 0);
+    assert.equal(
+      getTerminalEvents(harness.audit.operations[1])[0]?.metadata?.causeCode,
+      StreamingTranscriptionErrorCode.OperationConflict,
+    );
   });
 
   it('maps provider startup failure and a provider switch during startup without retaining the operation', async () => {
@@ -364,6 +514,14 @@ describe('main streaming transcription service', () => {
     });
     await assertServiceRejection(starting, StreamingTranscriptionErrorCode.ProviderChanged);
     assert.equal(switched.provider.cancelCalls.length, 1);
+    assert.equal(
+      getTerminalEvents(failed.audit.operations[0])[0]?.metadata?.causeCode,
+      StreamingTranscriptionErrorCode.TransportFailure,
+    );
+    assert.equal(
+      getTerminalEvents(switched.audit.operations[0])[0]?.metadata?.causeCode,
+      StreamingTranscriptionErrorCode.ProviderChanged,
+    );
   });
 
   it('does not let wrong owners or unknown IDs mutate another operation', async () => {
@@ -423,6 +581,10 @@ describe('main streaming transcription service', () => {
       );
       assert.equal(harness.provider.pushCalls.length, 0);
       assert.equal(harness.provider.cancelCalls.length, 1);
+      assert.deepEqual(
+        getTerminalEvents(harness.audit.operations[0]).map((event) => event.metadata?.causeCode),
+        [StreamingTranscriptionErrorCode.InvalidSequence],
+      );
     }
 
     const replay = createHarness();
@@ -445,6 +607,10 @@ describe('main streaming transcription service', () => {
       true,
     );
     assert.equal(replay.provider.cancelCalls.length, 1);
+    assert.equal(
+      getTerminalEvents(replay.audit.operations[0])[0]?.metadata?.acceptedByteCount,
+      Uint8Array.of(1, 0).byteLength,
+    );
   });
 
   it('terminates empty, odd, oversized, and non-Uint8Array normal chunks before provider use', async () => {
@@ -469,6 +635,10 @@ describe('main streaming transcription service', () => {
       );
       assert.equal(harness.provider.pushCalls.length, 0);
       assert.equal(harness.provider.cancelCalls.length, 1);
+      assert.deepEqual(
+        getTerminalEvents(harness.audit.operations[0]).map((event) => event.metadata?.causeCode),
+        [StreamingTranscriptionErrorCode.InvalidChunk],
+      );
     }
 
     const afterAudio = createHarness();
@@ -577,6 +747,39 @@ describe('main streaming transcription service', () => {
         },
       },
     ]);
+    assert.equal(harness.audit.operations.length, 1);
+    const auditOperation = harness.audit.operations[0];
+    assert.equal(auditOperation.input.operation, 'transcribe-stream');
+    assert.equal(auditOperation.input.operationId, harness.operationId);
+    assert.deepEqual(
+      auditOperation.events.map((event) => [event.event, event.phase]),
+      [
+        ['started', 'dispatch'],
+        ['phase-entered', 'dispatch'],
+        ['phase-entered', 'streaming'],
+        ['phase-completed', 'streaming'],
+        ['phase-entered', 'result'],
+        ['phase-completed', 'result'],
+        ['phase-entered', 'cleanup'],
+        ['phase-completed', 'cleanup'],
+        ['terminal', 'cleanup'],
+      ],
+    );
+    assert.deepEqual(getTerminalEvents(auditOperation), [
+      {
+        event: 'terminal',
+        phase: 'cleanup',
+        outcome: 'success',
+        metadata: {
+          acceptedByteCount: pcm.byteLength,
+          chunkCount: 2,
+          durationMs: getTerminalEvents(auditOperation)[0]?.metadata?.durationMs,
+          frameCount: 0,
+          resultLength: 'streamed text'.length,
+          transcriptionMode: 'streaming',
+        },
+      },
+    ]);
 
     const duplicate = await harness.service.finish({
       owner,
@@ -590,6 +793,42 @@ describe('main streaming transcription service', () => {
     assert.equal(harness.clipboard.length, 1);
     assert.equal(harness.history.length, 1);
     assert.equal(harness.provider.transcribeCalls, 0);
+    assert.equal(getTerminalEvents(auditOperation).length, 1);
+  });
+
+  it('terminates the provider lifecycle before cache, clipboard, and history side effects', async () => {
+    const audit = new RecordingVoiceProviderAudit();
+    const observedTerminalCounts: number[] = [];
+    const cache = new TestCache(() => {
+      observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
+    });
+    const harness = createHarness({
+      audit,
+      cache,
+      historyRepository: new RecordingTranscriptionHistoryRepository(() => {
+        observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
+      }),
+      writeClipboardText: () => {
+        observedTerminalCounts.push(getTerminalEvents(audit.operations[0]).length);
+      },
+    });
+    const owner = createStreamingTranscriptionOwnerToken();
+    const finalChunk = Uint8Array.of(1, 0);
+    await harness.service.start({ owner });
+
+    assert.equal(
+      (
+        await harness.service.finish({
+          owner,
+          operationId: harness.operationId,
+          sequence: 0,
+          finalChunk,
+          recordingWav: createPcm16Wav(finalChunk),
+        })
+      ).success,
+      true,
+    );
+    assert.deepEqual(observedTerminalCounts, [1, 1, 1]);
   });
 
   it('supports final-only audio and an empty final fragment after streamed audio', async () => {
@@ -632,6 +871,65 @@ describe('main streaming transcription service', () => {
       ).success,
       true,
     );
+  });
+
+  it('keeps audit volume independent of chunk count and records exact aggregate counters', async () => {
+    const minimal = createHarness();
+    const minimalOwner = createStreamingTranscriptionOwnerToken();
+    const minimalFinalChunk = Uint8Array.of(1, 0);
+    await minimal.service.start({ owner: minimalOwner });
+    assert.equal(
+      (
+        await minimal.service.finish({
+          owner: minimalOwner,
+          operationId: minimal.operationId,
+          sequence: 0,
+          finalChunk: minimalFinalChunk,
+          recordingWav: createPcm16Wav(minimalFinalChunk),
+        })
+      ).success,
+      true,
+    );
+
+    const many = createHarness();
+    const manyOwner = createStreamingTranscriptionOwnerToken();
+    const fullChunks = [
+      new Uint8Array(CLAUDE_WEB_PCM_CHUNK_BYTES),
+      new Uint8Array(CLAUDE_WEB_PCM_CHUNK_BYTES),
+      new Uint8Array(CLAUDE_WEB_PCM_CHUNK_BYTES),
+    ];
+    const finalFragment = Uint8Array.of(7, 0);
+    await many.service.start({ owner: manyOwner });
+    for (const [sequence, chunk] of fullChunks.entries()) {
+      await many.service.sendChunk({
+        owner: manyOwner,
+        operationId: many.operationId,
+        sequence,
+        chunk,
+      });
+    }
+    assert.equal(
+      (
+        await many.service.finish({
+          owner: manyOwner,
+          operationId: many.operationId,
+          sequence: fullChunks.length,
+          finalChunk: finalFragment,
+          recordingWav: createPcm16Wav(combineBytes(...fullChunks, finalFragment)),
+        })
+      ).success,
+      true,
+    );
+
+    assert.equal(many.audit.operations[0].events.length, minimal.audit.operations[0].events.length);
+    assert.deepEqual(getTerminalEvents(many.audit.operations[0])[0]?.metadata, {
+      acceptedByteCount: CLAUDE_WEB_PCM_CHUNK_BYTES * fullChunks.length + finalFragment.byteLength,
+      chunkCount: fullChunks.length + 1,
+      durationMs: getTerminalEvents(many.audit.operations[0])[0]?.metadata?.durationMs,
+      frameCount: fullChunks.length,
+      resultLength: 'streamed text'.length,
+      transcriptionMode: 'streaming',
+    });
   });
 
   it('terminates invalid finish sequences and final-fragment boundaries before provider finish', async () => {
@@ -740,6 +1038,11 @@ describe('main streaming transcription service', () => {
       assert.equal(harness.cache.setCalls, 0);
       assert.equal(harness.clipboard.length, 0);
       assert.equal(harness.history.length, 0);
+      const terminal = getTerminalEvents(harness.audit.operations[0]);
+      assert.equal(terminal.length, 1);
+      assert.equal(terminal[0]?.metadata?.causeCode, StreamingTranscriptionErrorCode.InvalidAudio);
+      assert.equal(terminal[0]?.metadata?.acceptedByteCount, chunk.byteLength);
+      assert.equal(terminal[0]?.metadata?.chunkCount, 1);
     }
   });
 
@@ -907,6 +1210,13 @@ describe('main streaming transcription service', () => {
     assert.equal(finishHarness.cache.setCalls, 0);
     assert.equal(finishHarness.clipboard.length, 0);
     assert.equal(finishHarness.history.length, 0);
+    for (const audit of [startHarness.audit, pushHarness.audit, finishHarness.audit]) {
+      const terminal = getTerminalEvents(audit.operations[0]);
+      assert.equal(terminal.length, 1);
+      assert.equal(terminal[0]?.outcome, 'cancelled');
+      assert.equal(terminal[0]?.metadata?.causeCode, StreamingTranscriptionErrorCode.Cancelled);
+      assert.equal(audit.operations[0].events[audit.operations[0].events.length - 1]?.event, 'terminal');
+    }
   });
 
   it('cancels on provider-instance changes and reports retry eligibility only after live audio was attempted', async () => {
@@ -992,11 +1302,16 @@ describe('main streaming transcription service', () => {
       true,
     );
     assert.equal(pushHarness.provider.transcribeCalls, 0);
+    assert.deepEqual(
+      getTerminalEvents(pushHarness.audit.operations[0]).map((event) => event.metadata?.causeCode),
+      [StreamingTranscriptionErrorCode.TransportFailure],
+    );
 
     const finishHarness = createHarness();
     const finishOwner = createStreamingTranscriptionOwnerToken();
     const finalChunk = Uint8Array.of(1, 0);
     finishHarness.provider.finishHandler = async (input) => ({
+      auditCauseCode: 'rate-limit',
       success: false,
       operationId: input.operationId,
       error: createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
@@ -1018,6 +1333,76 @@ describe('main streaming transcription service', () => {
     assert.equal(finishHarness.cache.setCalls, 0);
     assert.equal(finishHarness.clipboard.length, 0);
     assert.equal(finishHarness.history.length, 0);
+    const finishTerminal = getTerminalEvents(finishHarness.audit.operations[0])[0];
+    assert.equal(finishTerminal?.metadata?.causeCode, 'rate-limit');
+    assert.equal(finishTerminal?.metadata?.errorClass, 'rate-limit');
+
+    const exceptionCanary = 'private exception https://private.invalid session=private stack-private';
+    const exceptionHarness = createHarness();
+    const exceptionOwner = createStreamingTranscriptionOwnerToken();
+    exceptionHarness.provider.pushHandler = async () => {
+      throw new TypeError(exceptionCanary);
+    };
+    await exceptionHarness.service.start({ owner: exceptionOwner });
+    await assertServiceRejection(
+      exceptionHarness.service.sendChunk({
+        owner: exceptionOwner,
+        operationId: exceptionHarness.operationId,
+        sequence: 0,
+        chunk: Uint8Array.of(1, 0),
+      }),
+      StreamingTranscriptionErrorCode.TransportFailure,
+      true,
+    );
+    const exceptionTerminal = getTerminalEvents(exceptionHarness.audit.operations[0])[0];
+    assert.equal(exceptionTerminal?.metadata?.causeCode, StreamingTranscriptionErrorCode.TransportFailure);
+    assert.equal(exceptionTerminal?.metadata?.exceptionType, 'TypeError');
+    assert.equal(exceptionTerminal?.metadata?.errorClass, 'internal');
+    assert.equal(JSON.stringify(exceptionHarness.audit.operations).includes(exceptionCanary), false);
+  });
+
+  it('audits malformed provider contracts and empty results with closed error causes', async () => {
+    const malformed = createHarness();
+    const malformedOwner = createStreamingTranscriptionOwnerToken();
+    malformed.provider.startHandler = async () => ({
+      operationId: asOperationId('22222222-3333-4444-8555-000000000004'),
+      lifecycle: StreamingTranscriptionLifecycle.Starting,
+    });
+    await assertServiceRejection(
+      malformed.service.start({ owner: malformedOwner }),
+      StreamingTranscriptionErrorCode.TransportFailure,
+    );
+    const malformedTerminal = getTerminalEvents(malformed.audit.operations[0])[0];
+    assert.equal(malformedTerminal?.metadata?.causeCode, 'provider-contract-changed');
+    assert.equal(malformedTerminal?.metadata?.errorClass, 'contract');
+
+    const empty = createHarness();
+    const emptyOwner = createStreamingTranscriptionOwnerToken();
+    const finalChunk = Uint8Array.of(1, 0);
+    empty.provider.finishHandler = async (input) => ({
+      success: true,
+      operationId: input.operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Completed,
+      text: '   ',
+    });
+    await empty.service.start({ owner: emptyOwner });
+    assert.deepEqual(
+      await empty.service.finish({
+        owner: emptyOwner,
+        operationId: empty.operationId,
+        sequence: 0,
+        finalChunk,
+        recordingWav: createPcm16Wav(finalChunk),
+      }),
+      {
+        success: false,
+        error: createStreamingError(StreamingTranscriptionErrorCode.TransportFailure),
+        retryEligible: true,
+      },
+    );
+    const emptyTerminal = getTerminalEvents(empty.audit.operations[0])[0];
+    assert.equal(emptyTerminal?.metadata?.causeCode, 'empty-result');
+    assert.equal(emptyTerminal?.metadata?.errorClass, 'provider-rejection');
   });
 
   it('makes explicit and lifecycle cancellation idempotent and reusable', async () => {
@@ -1035,6 +1420,39 @@ describe('main streaming transcription service', () => {
 
     await harness.service.start({ owner });
     assert.equal(harness.provider.startCalls.length, 3);
+    assert.deepEqual(
+      harness.audit.operations.map((operation) =>
+        getTerminalEvents(operation).map((event) => [event.outcome, event.metadata?.causeCode]),
+      ),
+      [
+        [['cancelled', StreamingTranscriptionErrorCode.Cancelled]],
+        [['cancelled', StreamingTranscriptionErrorCode.Cancelled]],
+        [],
+      ],
+    );
+  });
+
+  it('keeps cancellation behavior while auditing cleanup uncertainty as an error', async () => {
+    const privacyCanary = 'private cancel exception https://private.invalid stack-private';
+    const harness = createHarness();
+    const owner = createStreamingTranscriptionOwnerToken();
+    harness.provider.cancelHandler = async () => {
+      throw new TypeError(privacyCanary);
+    };
+    await harness.service.start({ owner });
+
+    assert.deepEqual(await harness.service.cancel({ owner, operationId: harness.operationId }), {
+      operationId: harness.operationId,
+      lifecycle: StreamingTranscriptionLifecycle.Cancelled,
+    });
+    const terminal = getTerminalEvents(harness.audit.operations[0]);
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.phase, 'cleanup');
+    assert.equal(terminal[0]?.outcome, 'failure');
+    assert.equal(terminal[0]?.metadata?.causeCode, 'cleanup-failed');
+    assert.equal(terminal[0]?.metadata?.exceptionType, 'TypeError');
+    assert.equal(terminal[0]?.metadata?.errorClass, 'cleanup');
+    assert.equal(JSON.stringify(harness.audit.operations).includes(privacyCanary), false);
   });
 
   it('emits only privacy-safe diagnostic fields before and after accepted live audio', async () => {

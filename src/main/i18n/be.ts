@@ -1,4 +1,8 @@
 export default {
+  'translate.provider': 'Пастаўшчык перакладу',
+  'translate.saving': 'Захаванне...',
+  'translate.settingsSaveFailed': 'Не ўдалося захаваць налады перакладу',
+
   // Status messages
   'status.pressToRecord': 'Націсніце {hotkey} для пачатку запісу',
   'status.recording': 'Запіс...',
@@ -38,6 +42,18 @@ export default {
   'notification.translationCopied': 'Пераклад скапіяваны',
   'notification.prettifyFailed': 'Не ўдалося палепшыць тэкст',
   'notification.textPrettified': 'Тэкст палепшаны',
+  'notification.translationSettingsRepaired': 'Налады перакладу абноўлены',
+  'notification.translationSettingsRepairedBody':
+    'Няправільныя або састарэлыя налады перакладу заменены бяспечнымі значэннямі.',
+  'error.translationUnsupportedSelection': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
+  'error.translationTextTooLong': 'Выбраны тэкст занадта доўгі для {provider}: {actual} сімвалаў, максімум {max}.',
+  'error.translationConnectionFailed': 'Не ўдалося падключыцца да сэрвісу перакладу. Паўтарыце спробу.',
+  'error.translationConsentOrChallenge': 'Сэрвіс перакладу патрабуе згоды або праверкі. Паўтарыце спробу пазней.',
+  'error.translationPageChanged': 'Старонка сэрвісу перакладу змянілася. Паўтарыце спробу пазней.',
+  'error.translationResultUnavailable': 'Вынік перакладу не быў атрыманы да заканчэння часу чакання.',
+  'error.translationCleanupFailed': 'Не ўдалося ачысціць даныя перакладу. Вынік не скапіраваны.',
+  'error.translationSettingsInvalid': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
+  'error.translationSettingsSaveFailed': 'Не ўдалося захаваць налады перакладу. Папярэдні выбар застаецца актыўным.',
 
   // Login button
   'login.loggingIn': 'Уваход...',
@@ -52,6 +68,14 @@ export default {
   'provider.connect': 'Падключыць',
   'provider.configure': 'Наладзіць',
   'provider.connected': 'Падключана',
+  'provider.notConnected': 'Не падключана',
+  'provider.connectionChecking': 'Праверка',
+  'provider.connectionReadyTooltip': 'Правайдар гатовы да працы.',
+  'provider.connectionCheckingTooltip': 'Адкрываецца падключэнне да правайдара.',
+  'provider.browserUnavailableTooltip': 'Не ўдалося адкрыць сесію браўзера правайдара.',
+  'provider.sessionMissingTooltip': 'Сесія браўзера недаступная. Падключыце правайдара, каб працягнуць.',
+  'translate.connectionDisabledTooltip': 'Пераклад адключаны, таму сесія правайдара не была запушчана.',
+  'translate.connectionNotStartedTooltip': 'Ініцыялізацыя правайдара перакладу яшчэ не запускалася.',
   'provider.connectionReady': 'Гатова',
   'provider.connectionSetupRequired': 'Патрэбная наладка',
   'provider.claudeWeb.name': 'Claude Web',
@@ -145,10 +169,15 @@ export default {
   'mainDock.title': 'Панэль каманд',
   'mainDock.subtitle': 'GPT-Voice',
   'mainDock.providerLabel': 'Правайдар распазнавання',
-  'mainDock.prettifyProviderLabel': 'Паляпшэнне',
+  'mainDock.prettifyProviderLabel': 'Правайдар паляпшэння',
   'mainDock.prettifyModelLabel': 'Мадэль',
   'mainDock.prettifyNotConfigured': 'Не наладжана',
   'mainDock.prettifyConfigured': 'Наладжана',
+  'mainDock.prettifyOllamaNotConfiguredTooltip': 'Выберыце мадэль Ollama ў наладах Prettify.',
+  'mainDock.prettifyOllamaLoadedTooltip': 'Выбраная мадэль Ollama загружана і гатова да працы.',
+  'mainDock.prettifyOllamaNotLoadedTooltip': 'Выбраная мадэль Ollama не загружана.',
+  'mainDock.prettifyVllmConfiguredTooltip': 'Мадэль vLLM наладжана; даступнасць правяраецца пры выкарыстанні.',
+  'mainDock.prettifyVllmNotConfiguredTooltip': 'Выберыце мадэль vLLM у наладах Prettify.',
   'mainDock.prettifyChecking': 'Праверка',
   'mainDock.prettifySignIn': 'Увайсці',
   'mainDock.prettifySignInHelp': 'Увайдзіце ў выбранай CLI, затым выберыце яе зноў.',
@@ -196,14 +225,75 @@ export default {
   'settingsSection.prettify': 'Паляпшэнне тэксту',
   'settingsSection.browser': 'Браўзер',
   'settingsSection.network': 'Сетка',
+  'settingsSection.auditLog': 'Журнал аўдыту',
+
+  // Налады журнала аўдыту
+  'auditLog.title': 'Журнал аўдыту',
+  'auditLog.description':
+    'Пры неабходнасці захоўвайце зыходны і выніковы тэкст паспяховых аперацый перакладу і паляпшэння для лакальнай дыягностыкі.',
+  'auditLog.captureTranslation': 'Захоўваць дыягностыку перакладу',
+  'auditLog.captureTranslationDescription':
+    'Захоўваць зыходны і выніковы тэкст паспяховых перакладаў, уключаючы трапленні ў кэш.',
+  'auditLog.capturePrettify': 'Захоўваць дыягностыку паляпшэння тэксту',
+  'auditLog.capturePrettifyDescription':
+    'Захоўваць зыходны і выніковы тэкст паспяховага паляпшэння, уключаючы трапленні ў кэш.',
+  'auditLog.privacyTitle': 'Канфідэнцыяльная дыягностыка ў адкрытым выглядзе',
+  'auditLog.sensitiveDataWarning':
+    'Захаваныя зыходныя даныя і вынікі могуць змяшчаць асабісты або канфідэнцыяльны тэкст.',
+  'auditLog.plaintextStorageWarning':
+    'Даныя захоўваюцца ў SQLite ў адкрытым выглядзе пасля максімальна магчымага рэдагавання і абаронены правамі файлавай сістэмы карыстальніка. Шыфраванне не выкарыстоўваецца.',
+  'auditLog.redactionLimitWarning':
+    'Рэдагаванне можа не выявіць адвольныя ўбудаваныя сакрэты. Лічыце захаваныя даныя канфідэнцыяльнымі.',
+  'auditLog.archiveInclusionWarning': 'Уключаныя катэгорыі аўтаматычна дадаюцца ў архівы дыягностыкі.',
+  'auditLog.archiveEncryptionWarning': 'Архівы дыягностыкі не шыфруюцца.',
+  'auditLog.clearTitle': 'Выдаліць захаваныя даныя',
+  'auditLog.clearDescription': 'Выдаленне даных незваротнае і не змяняе пераключальнікі захавання.',
+  'auditLog.clear.translation': 'Ачысціць пераклады',
+  'auditLog.clear.prettify': 'Ачысціць паляпшэнні',
+  'auditLog.clear.all': 'Ачысціць усё',
+  'auditLog.disableConfirm.title': 'Адключыць захаванне і выдаліць даныя?',
+  'auditLog.disableConfirm.translation':
+    'Захаванне налад адключыць дыягностыку перакладу і назаўсёды выдаліць усе захаваныя даныя перакладу.',
+  'auditLog.disableConfirm.prettify':
+    'Захаванне налад адключыць дыягностыку паляпшэння і назаўсёды выдаліць усе захаваныя даныя паляпшэння.',
+  'auditLog.disableConfirm.all':
+    'Захаванне налад адключыць абедзве катэгорыі і назаўсёды выдаліць усе захаваныя даныя перакладу і паляпшэння.',
+  'auditLog.disableConfirm.action': 'Адключыць і выдаліць',
+  'auditLog.clearConfirm.translation.title': 'Ачысціць дыягностыку перакладу?',
+  'auditLog.clearConfirm.translation.description':
+    'Усе захаваныя даныя перакладу будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.prettify.title': 'Ачысціць дыягностыку паляпшэння?',
+  'auditLog.clearConfirm.prettify.description':
+    'Усе захаваныя даныя паляпшэння будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.all.title': 'Ачысціць усю дыягностыку?',
+  'auditLog.clearConfirm.all.description':
+    'Усе захаваныя даныя перакладу і паляпшэння будуць назаўсёды выдалены без змены налад захавання.',
+  'auditLog.clearConfirm.action': 'Выдаліць даныя',
+  'auditLog.cancel': 'Адмена',
+  'auditLog.processing': 'Апрацоўка...',
+  'auditLog.error.invalid-request': 'Недапушчальны запыт дыягностыкі.',
+  'auditLog.error.confirmation-required': 'Пацвердзіце дакладныя катэгорыі дыягностыкі, якія будуць выдалены.',
+  'auditLog.error.storage-unavailable': 'Сховішча дыягностыкі недаступнае. Паўтарыце спробу.',
+  'auditLog.error.storage-failed': 'Не ўдалося абнавіць сховішча дыягностыкі. Паўтарыце спробу.',
+  'auditLog.error.save-failed':
+    'Абслугоўванне даных завершана, але налады захавання не ўдалося запісаць. Папярэднія налады застаюцца актыўнымі.',
 
   // About
   'about.open': 'Пра праграму',
   'about.version': 'Версія {version}',
   'about.license': 'Ліцэнзія',
   'about.copyright': 'Аўтарскія правы',
+  'about.project': 'Праект',
   'about.loading': 'Загрузка звестак пра праграму...',
   'about.loadFailed': 'Не ўдалося загрузіць звесткі пра праграму.',
+  'auditLog.exportAction': 'Экспартаваць дыягностыку',
+  'auditLog.exportPending': 'Экспарт дыягностыкі...',
+  'auditLog.exportDialogTitle': 'Экспарт архіва дыягностыкі',
+  'auditLog.exportDescription': 'Захавайце лакальны архіў дыягностыкі для пошуку і выпраўлення праблем.',
+  'notification.diagnosticsExportSaved': 'Дыягностыка экспартаваная',
+  'notification.diagnosticsExportSavedBody': 'Архіў дыягностыкі захаваны.',
+  'notification.diagnosticsExportFailed': 'Не ўдалося экспартаваць дыягностыку',
+  'notification.diagnosticsExportFailedBody': 'Не ўдалося захаваць архіў дыягностыкі. Паспрабуйце яшчэ раз.',
 
   // History
   'history.open': 'Гісторыя',
@@ -302,6 +392,8 @@ export default {
   'prettify.codexCli.reasoningEffort.medium': 'Сярэдні',
   'prettify.codexCli.reasoningEffort.high': 'Высокі',
   'prettify.codexCli.reasoningEffort.xhigh': 'Вельмі высокі',
+  'prettify.codexCli.reasoningEffort.max': 'Максімальны',
+  'prettify.codexCli.reasoningEffort.ultra': 'Ультра',
   'prettify.codexCli.verbosity': 'Падрабязнасць адказу',
   'prettify.codexCli.verbosityHelp': 'Кіруе падрабязнасцю адказу, калі выбраная мадэль Codex гэта падтрымлівае.',
   'prettify.codexCli.verbosity.low': 'Нізкая',
