@@ -33,6 +33,8 @@ export default {
   'status.providerNotConfigured': '{provider}は設定されていません',
   'status.settingsSaved': '設定を保存しました',
   'notification.textCopied': 'テキストをコピーしました',
+  'notification.prettifyProfileCatalogRepaired': 'Prettify プロファイルを修復しました',
+  'notification.prettifyProfileCatalogRepairedBody': '無効な Prettify プロファイル設定を安全な既定値で修復しました。',
   'notification.textCopiedNoTranslation': 'テキストをコピーしました（翻訳なし）',
   'notification.transcriptionFailed': '認識に失敗しました',
   'notification.translationFailed': '翻訳に失敗しました',

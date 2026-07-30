@@ -33,6 +33,9 @@ export default {
   'status.providerNotConfigured': '{provider} कॉन्फ़िगर नहीं है',
   'status.settingsSaved': 'सेटिंग्स सहेज ली गई',
   'notification.textCopied': 'टेक्स्ट कॉपी किया गया',
+  'notification.prettifyProfileCatalogRepaired': 'Prettify प्रोफ़ाइल सुधारी गईं',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'अमान्य Prettify प्रोफ़ाइल सेटिंग को सुरक्षित डिफ़ॉल्ट से सुधारा गया।',
   'notification.textCopiedNoTranslation': 'टेक्स्ट कॉपी किया गया (कोई अनुवाद नहीं)',
   'notification.transcriptionFailed': 'पहचान विफल रही',
   'notification.translationFailed': 'अनुवाद विफल रहा',

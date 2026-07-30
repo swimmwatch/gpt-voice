@@ -229,7 +229,7 @@ export type MainProcessCompositionEnvironment = Omit<
     CloakBrowserSettingsRepositoryDependencies,
     'config' | 'logger' | 'secureStorage' | 'settingsFile' | 'writeFileAtomically'
   >;
-  readonly config: Omit<AppConfigStoreDependencies, 'logger'> & {
+  readonly config: Omit<AppConfigStoreDependencies, 'generatePrettifyProfileUuid' | 'logger'> & {
     readonly fileSystem: AppConfigStoreDependencies['fileSystem'] &
       FileClaudeWebPrivateJsonRepositoryDependencies['fileSystem'] &
       OpenAIApiSettingsRepositoryDependencies['fileSystem'];
@@ -342,6 +342,7 @@ export class MainProcessCompositionRoot {
     };
     const configStore = new AppConfigStore({
       ...this.environment.config,
+      generatePrettifyProfileUuid: this.environment.randomUUID,
       logger: loggerFactory.getLogger('config'),
     });
     const database = new AppDatabaseCoordinator(configStore.paths.databaseFile, this.environment.databaseDependencies);

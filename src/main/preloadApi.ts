@@ -19,6 +19,7 @@ import type {
   PrettifyCliConnectionResult,
   PrettifyCliProviderId,
   KnownPrettifyProviderId,
+  PrettifyProviderSettingsInput,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -320,7 +321,7 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
       return ipcRenderer.invoke('check-prettify-cli-connection', providerId);
     },
     setPrettifySettings: (
-      settings: PrettifySettingsInput,
+      settings: PrettifyProviderSettingsInput,
     ): Promise<{ success: boolean; settings: PrettifySettings; error?: string }> => {
       return ipcRenderer.invoke('set-prettify-settings', settings);
     },

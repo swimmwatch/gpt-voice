@@ -151,6 +151,10 @@ const REQUIRED_TRANSLATION_SETTINGS_KEYS = [
   'error.translationSettingsInvalid',
   'error.translationSettingsSaveFailed',
 ] as const;
+const REQUIRED_PRETTIFY_PROFILE_REPAIR_KEYS = [
+  'notification.prettifyProfileCatalogRepaired',
+  'notification.prettifyProfileCatalogRepairedBody',
+] as const;
 const REQUIRED_CENTRAL_STATUS_KEYS = [
   'status.translatingSelection',
   'status.translationCopied',
@@ -265,6 +269,22 @@ describe('i18n', () => {
         assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
         assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
         assert.doesNotMatch(message, /deepl-private|secret-target|https?:\/\/|\/home\//iu, `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('localizes bounded Prettify profile repair messages without private details', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_PRETTIFY_PROFILE_REPAIR_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
+        assert.doesNotMatch(
+          message,
+          /https?:\/\/|\/home\/|custom:|prompt-ready|polish|professional|natural/iu,
+          `${locale}:${key}`,
+        );
       }
     }
   });

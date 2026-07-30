@@ -16,6 +16,7 @@ export class TestAppConfigStore extends AppConfigStore {
     super({
       fileSystem: fs,
       generateFingerprintSeed: () => TEST_FINGERPRINT_SEED,
+      generatePrettifyProfileUuid: () => '00000000-0000-0000-0000-000000000001',
       logger: { error: () => undefined, info: () => undefined, warn: () => undefined },
       paths: resolveAppConfigPaths({
         environment: { XDG_CONFIG_HOME: TEST_CONFIG_DIRECTORY },

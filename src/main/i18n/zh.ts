@@ -33,6 +33,8 @@ export default {
   'status.providerNotConfigured': '{provider} 未配置',
   'status.settingsSaved': '设置已保存',
   'notification.textCopied': '文本已复制',
+  'notification.prettifyProfileCatalogRepaired': 'Prettify 配置文件已修复',
+  'notification.prettifyProfileCatalogRepairedBody': '无效的 Prettify 配置文件设置已使用安全默认值修复。',
   'notification.textCopiedNoTranslation': '文本已复制（无翻译）',
   'notification.transcriptionFailed': '识别失败',
   'notification.translationFailed': '翻译失败',

@@ -23,8 +23,8 @@ import {
   type CodexCliPrettifyReasoningEffort,
   type CodexCliPrettifyVerbosity,
   type KnownPrettifyProviderId,
+  type PrettifyProviderSettingsInput,
   type PrettifySettings,
-  type PrettifySettingsInput,
   type PrettifyBaseUrlValidationErrorCode,
 } from '@shared/prettifySettings';
 import type { TextActionSettings } from '@shared/textActionSettings';
@@ -174,6 +174,43 @@ export type PrettifySettingsDraft = Omit<PrettifySettings, 'providerId'> & {
   providerId: KnownPrettifyProviderId;
 };
 
+export function createPrettifyProviderSettingsInput(settings: PrettifySettingsDraft): PrettifyProviderSettingsInput {
+  return {
+    claudeCli: {
+      effort: settings.claudeCli.effort,
+      executablePath: settings.claudeCli.executablePath,
+      fallbackModel: settings.claudeCli.fallbackModel,
+      model: settings.claudeCli.model,
+      timeoutSeconds: settings.claudeCli.timeoutSeconds,
+    },
+    codexCli: {
+      executablePath: settings.codexCli.executablePath,
+      model: settings.codexCli.model,
+      reasoningEffort: settings.codexCli.reasoningEffort,
+      timeoutSeconds: settings.codexCli.timeoutSeconds,
+      verbosity: settings.codexCli.verbosity,
+    },
+    maxOutputTokens: settings.maxOutputTokens,
+    minP: settings.minP,
+    ollama: {
+      baseUrl: settings.ollama.baseUrl,
+      model: settings.ollama.model,
+    },
+    providerId: settings.providerId,
+    repeatPenalty: settings.repeatPenalty,
+    seed: settings.seed,
+    temperature: settings.temperature,
+    topK: settings.topK,
+    topP: settings.topP,
+    vllm: {
+      apiKey: settings.vllm.apiKey,
+      baseUrl: settings.vllm.baseUrl,
+      clearApiKey: settings.vllm.clearApiKey,
+      model: settings.vllm.model,
+    },
+  };
+}
+
 export const PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS = [
   'prettifyBaseUrl',
   'prettifyModel',
@@ -211,7 +248,7 @@ export interface AppSettingsSaveDependencies {
     settings: CloakBrowserSettingsInput,
   ) => Promise<{ success: boolean; settings?: CloakBrowserSettingsView; error?: string }>;
   setPrettifySettings: (
-    settings: PrettifySettingsInput,
+    settings: PrettifyProviderSettingsInput,
   ) => Promise<{ success: boolean; settings?: PrettifySettings; error?: string }>;
   setTextActionSettings: (
     settings: TextActionSettings,
@@ -1009,7 +1046,7 @@ export async function saveAppSettingsState(
   };
 
   if (shouldSavePrettify) {
-    const prettifyResult = await deps.setPrettifySettings(input.prettifySettings);
+    const prettifyResult = await deps.setPrettifySettings(createPrettifyProviderSettingsInput(input.prettifySettings));
     if (prettifyResult.success && prettifyResult.settings) {
       result.prettifySettings = prettifyResult.settings;
       result.prettifySettingsSaved = true;

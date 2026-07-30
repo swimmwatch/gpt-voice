@@ -31,6 +31,7 @@ import {
   MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
   MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  type PrettifyProviderSettingsInput,
   type KnownPrettifyProviderId,
   type PrettifySettings,
 } from '@shared/prettifySettings';
@@ -820,6 +821,8 @@ describe('appSettingsUtils', () => {
   it('saves prettify-only changes without saving CloakBrowser settings', async () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const calls: string[] = [];
+    let savedInput: PrettifyProviderSettingsInput | null = null;
+    const authoritativeSettings = prettifySettings({ prompt: 'catalog-owned projection' });
 
     const result = await saveAppSettingsState(
       {
@@ -839,7 +842,8 @@ describe('appSettingsUtils', () => {
         setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings: settings as PrettifySettings };
+          savedInput = settings;
+          return { success: true, settings: authoritativeSettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -851,7 +855,11 @@ describe('appSettingsUtils', () => {
     assert.equal(result.success, true);
     assert.equal(result.prettifySettingsSaved, true);
     assert.deepEqual(calls, ['prettify']);
-    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt' }));
+    assert.deepEqual(result.prettifySettings, authoritativeSettings);
+    const serializedInput = savedInput as PrettifyProviderSettingsInput | null;
+    assert.ok(serializedInput);
+    assert.equal('prompt' in serializedInput, false);
+    assert.equal('hasApiKey' in (serializedInput.vllm ?? {}), false);
   });
 
   it('passes a valid CLI draft to persistence without enabling CLI selection', async () => {
@@ -1049,6 +1057,10 @@ describe('appSettingsUtils', () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const changedSettings = createEditableSettings(cloakBrowserSettings({ backgroundMode: 'visible' }));
     const calls: string[] = [];
+    const authoritativeSettings = prettifySettings({
+      prompt: 'catalog-owned projection',
+      providerId: 'vllm',
+    });
 
     const result = await saveAppSettingsState(
       {
@@ -1072,7 +1084,8 @@ describe('appSettingsUtils', () => {
         setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings: settings as PrettifySettings };
+          assert.equal('prompt' in settings, false);
+          return { success: true, settings: authoritativeSettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -1086,7 +1099,7 @@ describe('appSettingsUtils', () => {
     assert.equal(result.prettifySettingsSaved, true);
     assert.equal(result.settingsSaved, undefined);
     assert.deepEqual(calls, ['prettify', 'cloakbrowser']);
-    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }));
+    assert.deepEqual(result.prettifySettings, authoritativeSettings);
   });
 
   it('saves the Audit Log group after existing groups with the exact purge confirmation', async () => {

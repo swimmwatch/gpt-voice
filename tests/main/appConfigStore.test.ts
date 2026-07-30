@@ -8,6 +8,8 @@ import { writeTextFileAtomically } from '@main/translationSettings';
 import { DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS } from '@shared/diagnosticCaptureSettings';
 import { DEFAULT_CANCEL_HOTKEY, DEFAULT_RECORD_HOTKEY, DEFAULT_RETRY_TRANSCRIPTION_HOTKEY } from '@shared/hotkeys';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
+import { getPrettifyBuiltInProfileDefinition } from '@main/services/prettifyProfileInstruction';
+import { PRETTIFY_BUILT_IN_PROFILE_IDS, PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION } from '@shared/prettifyProfiles';
 
 const GENERATED_FINGERPRINT_SEED = '54321';
 const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
@@ -34,6 +36,7 @@ class AppConfigStoreFixture {
     this.dependencies = {
       fileSystem: fs,
       generateFingerprintSeed: () => GENERATED_FINGERPRINT_SEED,
+      generatePrettifyProfileUuid: () => '00000000-0000-0000-0000-000000000001',
       logger: {
         error: (...args) => this.errors.push(args),
         info: () => undefined,
@@ -114,6 +117,9 @@ describe('AppConfigStore', () => {
     assert.equal(Object.isFrozen(snapshot.prettifySettings.codexCli), true);
     assert.equal(Object.isFrozen(snapshot.prettifySettings.ollama), true);
     assert.equal(Object.isFrozen(snapshot.prettifySettings.vllm), true);
+    assert.equal(Object.isFrozen(snapshot.prettifyProfileCatalog), true);
+    assert.equal(Object.isFrozen(snapshot.prettifyProfileCatalog.chooserOrder), true);
+    assert.equal(Object.isFrozen(snapshot.prettifyProfileCatalog.customProfiles), true);
     assert.equal(Object.isFrozen(snapshot.translationSettings), true);
     assert.equal(Object.isFrozen(snapshot.translationSettings.targetLanguageByProvider), true);
 
@@ -166,6 +172,7 @@ describe('AppConfigStore', () => {
       'retryTranscriptionHotkey',
       'translateEnabled',
       'prettifyEnabled',
+      'prettifyProfileCatalog',
       'translationSettings',
       'provider',
       'locale',
@@ -178,6 +185,34 @@ describe('AppConfigStore', () => {
     const loaded = fixture.createStore();
     loaded.load();
     assert.deepEqual(loaded.getSnapshot(), fixture.store.getSnapshot());
+  });
+
+  it('keeps config load and save failures out of runtime logs', () => {
+    const loadFixture = createFixture();
+    const privateLoadError = 'private-profile-instruction';
+    fs.mkdirSync(loadFixture.paths.appDirectory, { recursive: true });
+    fs.writeFileSync(
+      loadFixture.paths.configFile,
+      `{"prettifyProfileCatalog":{"customProfiles":[{"instruction":"${privateLoadError}"}`,
+      'utf8',
+    );
+
+    loadFixture.store.load();
+
+    assert.deepEqual(loadFixture.errors, [['Failed to load application config']]);
+    assert.equal(JSON.stringify(loadFixture.errors).includes(privateLoadError), false);
+    assert.equal(JSON.stringify(loadFixture.errors).includes(loadFixture.paths.configFile), false);
+
+    const privateSaveError = 'private-config-write-error';
+    const saveFixture = createFixture({
+      writeFileAtomically: () => {
+        throw new Error(privateSaveError);
+      },
+    });
+
+    assert.throws(() => saveFixture.store.save(), new RegExp(privateSaveError));
+    assert.deepEqual(saveFixture.errors, [['Failed to save application config']]);
+    assert.equal(JSON.stringify(saveFixture.errors).includes(privateSaveError), false);
   });
 
   it('isolates corrupt fields while migrating hotkeys, fingerprint state, and Translation settings', () => {
@@ -330,6 +365,210 @@ describe('AppConfigStore', () => {
 
   it('preserves the complete default Prettify settings shape', () => {
     const fixture = createFixture();
-    assert.deepEqual(fixture.store.getSnapshot().prettifySettings, DEFAULT_PRETTIFY_SETTINGS);
+    assert.deepEqual(fixture.store.getSnapshot().prettifySettings, {
+      ...DEFAULT_PRETTIFY_SETTINGS,
+      prompt: getPrettifyBuiltInProfileDefinition('prompt-ready').instruction,
+    });
+  });
+
+  it('initializes and persists a new installation with Prompt-ready as the explicit default', () => {
+    const fixture = createFixture();
+
+    fixture.store.load();
+    const snapshot = fixture.store.getSnapshot();
+    const persisted = fixture.readPersistedConfig();
+
+    assert.equal(snapshot.prettifyProfileCatalog.defaultProfileId, 'prompt-ready');
+    assert.deepEqual(snapshot.prettifyProfileCatalog.chooserOrder, PRETTIFY_BUILT_IN_PROFILE_IDS);
+    assert.equal(snapshot.prettifySettings.prompt, getPrettifyBuiltInProfileDefinition('prompt-ready').instruction);
+    assert.deepEqual(persisted.prettifyProfileCatalog, snapshot.prettifyProfileCatalog);
+    assert.deepEqual(persisted.prettifySettings, snapshot.prettifySettings);
+  });
+
+  it('migrates a recognized legacy prompt to Polish idempotently while preserving unrelated settings', () => {
+    const fixture = createFixture();
+    fixture.writePersistedConfig({
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+      locale: 'ru',
+      localeExplicit: true,
+      prettifySettings: {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        providerId: 'vllm',
+      },
+      provider: 'openai-api',
+      translationSettings: {
+        providerId: 'bing',
+        targetLanguageByProvider: {
+          bing: 'ru',
+          google: 'uk',
+          yandex: 'be',
+        },
+      },
+    });
+
+    fixture.store.load();
+    const first = fixture.store.getSnapshot();
+
+    assert.equal(first.prettifyProfileCatalog.defaultProfileId, 'polish');
+    assert.equal(first.prettifyProfileCatalog.customProfiles.length, 0);
+    assert.equal(first.prettifySettings.providerId, 'vllm');
+    assert.equal(first.prettifySettings.prompt, getPrettifyBuiltInProfileDefinition('polish').instruction);
+    assert.equal(first.provider, 'openai-api');
+    assert.equal(first.locale, 'ru');
+    assert.equal(first.translationSettings.providerId, 'bing');
+    assert.deepEqual(
+      (fixture.readPersistedConfig().translationSettings as { providerId?: unknown }).providerId,
+      'bing',
+    );
+
+    const reloaded = fixture.createStore();
+    reloaded.load();
+    assert.deepEqual(reloaded.getSnapshot().prettifyProfileCatalog, first.prettifyProfileCatalog);
+    assert.equal(reloaded.getSnapshot().prettifySettings.prompt, first.prettifySettings.prompt);
+  });
+
+  it('migrates one customized legacy prompt byte-for-byte without creating another copy', () => {
+    const fixture = createFixture();
+    const legacyPrompt = '  Preserve my private custom prompt.  \n';
+    fixture.writePersistedConfig({
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+      prettifySettings: {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        prompt: legacyPrompt,
+      },
+    });
+
+    fixture.store.load();
+    const first = fixture.store.getSnapshot();
+
+    assert.equal(first.prettifyProfileCatalog.customProfiles.length, 1);
+    assert.equal(first.prettifyProfileCatalog.defaultProfileId, first.prettifyProfileCatalog.customProfiles[0]?.id);
+    assert.equal(first.prettifyProfileCatalog.customProfiles[0]?.instruction, legacyPrompt);
+    assert.equal(first.prettifySettings.prompt, legacyPrompt);
+
+    const reloaded = fixture.createStore();
+    reloaded.load();
+    assert.equal(reloaded.getSnapshot().prettifyProfileCatalog.customProfiles.length, 1);
+    assert.equal(
+      reloaded.getSnapshot().prettifyProfileCatalog.customProfiles[0]?.id,
+      first.prettifyProfileCatalog.customProfiles[0]?.id,
+    );
+  });
+
+  it('repairs a corrupt catalog without resetting unrelated application settings', () => {
+    const fixture = createFixture();
+    const customId = 'custom:00000000-0000-0000-0000-000000000099';
+    fixture.writePersistedConfig({
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+      hotkey: 'Alt+Space',
+      prettifyProfileCatalog: {
+        chooserOrder: ['unknown', customId, 'natural', customId],
+        customProfiles: [
+          { id: customId, instruction: 'Keep valid profile', name: 'Valid profile' },
+          { id: customId, instruction: 'Duplicate', name: 'Duplicate' },
+        ],
+        defaultProfileId: 'missing',
+        schemaVersion: 99,
+      },
+      prettifySettings: {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        providerId: 'claude-cli',
+      },
+      provider: 'claude-web',
+    });
+
+    fixture.store.load();
+    const snapshot = fixture.store.getSnapshot();
+
+    assert.equal(snapshot.provider, 'claude-web');
+    assert.equal(snapshot.hotkey, 'Alt+Space');
+    assert.equal(snapshot.prettifySettings.providerId, 'claude-cli');
+    assert.equal(snapshot.prettifyProfileCatalog.customProfiles.length, 1);
+    assert.equal(snapshot.prettifyProfileCatalog.defaultProfileId, 'prompt-ready');
+    assert.deepEqual(snapshot.prettifyProfileCatalog.chooserOrder, [
+      customId,
+      'natural',
+      'prompt-ready',
+      'polish',
+      'professional',
+    ]);
+    assert.deepEqual(fixture.store.consumePendingPrettifyProfileCatalogRepairNotice(), {
+      repaired: true,
+    });
+    assert.equal(fixture.store.consumePendingPrettifyProfileCatalogRepairNotice(), null);
+    assert.deepEqual(fixture.readPersistedConfig().prettifyProfileCatalog, snapshot.prettifyProfileCatalog);
+  });
+
+  it('keeps catalog, projection, and persisted bytes unchanged when atomic catalog save fails', () => {
+    let shouldFail = false;
+    const fixture = createFixture({
+      writeFileAtomically: (filePath, contents) => {
+        if (shouldFail) throw new Error('synthetic catalog save failure');
+        writeTextFileAtomically(filePath, contents, {
+          createTemporaryPath: (target) => `${target}.pending`,
+          fileSystem: fs,
+        });
+      },
+    });
+    fixture.store.load();
+    const previousSnapshot = fixture.store.getSnapshot();
+    const previousBytes = fs.readFileSync(fixture.paths.configFile, 'utf8');
+    const customId = 'custom:00000000-0000-0000-0000-000000000077';
+    shouldFail = true;
+
+    assert.throws(
+      () =>
+        fixture.store.savePrettifyProfileCatalog({
+          chooserOrder: [...PRETTIFY_BUILT_IN_PROFILE_IDS, customId],
+          customProfiles: [{ id: customId, instruction: 'Custom instruction', name: 'Custom' }],
+          defaultProfileId: customId,
+          schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+        }),
+      /synthetic catalog save failure/u,
+    );
+    assert.equal(fixture.store.getSnapshot().prettifyProfileCatalog, previousSnapshot.prettifyProfileCatalog);
+    assert.equal(fixture.store.getSnapshot().prettifySettings.prompt, previousSnapshot.prettifySettings.prompt);
+    assert.equal(fs.readFileSync(fixture.paths.configFile, 'utf8'), previousBytes);
+  });
+
+  it('does not publish a migrated catalog or legacy projection when migration persistence fails', () => {
+    const fixture = createFixture({
+      writeFileAtomically: () => {
+        throw new Error('synthetic migration persistence failure');
+      },
+    });
+    fixture.writePersistedConfig({
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+      prettifySettings: {
+        ...DEFAULT_PRETTIFY_SETTINGS,
+        prompt: 'private legacy prompt',
+        providerId: 'vllm',
+      },
+    });
+    const previousBytes = fs.readFileSync(fixture.paths.configFile, 'utf8');
+
+    fixture.store.load();
+    const snapshot = fixture.store.getSnapshot();
+
+    assert.equal(snapshot.prettifyProfileCatalog.defaultProfileId, 'prompt-ready');
+    assert.equal(snapshot.prettifyProfileCatalog.customProfiles.length, 0);
+    assert.equal(snapshot.prettifySettings.prompt, getPrettifyBuiltInProfileDefinition('prompt-ready').instruction);
+    assert.equal(snapshot.prettifySettings.providerId, DEFAULT_PRETTIFY_SETTINGS.providerId);
+    assert.equal(fs.readFileSync(fixture.paths.configFile, 'utf8'), previousBytes);
+    assert.equal(fixture.errors.length, 1);
+  });
+
+  it('preserves the catalog-owned projection across provider-only configuration updates', () => {
+    const fixture = createFixture();
+    fixture.store.load();
+    const projection = fixture.store.getSnapshot().prettifySettings.prompt;
+
+    fixture.store.setPrettifySettings({
+      prompt: 'stale renderer prompt',
+      providerId: 'codex-cli',
+    } as never);
+
+    assert.equal(fixture.store.getSnapshot().prettifySettings.providerId, 'codex-cli');
+    assert.equal(fixture.store.getSnapshot().prettifySettings.prompt, projection);
   });
 });

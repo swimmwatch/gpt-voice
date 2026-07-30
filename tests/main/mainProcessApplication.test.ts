@@ -24,6 +24,7 @@ import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
+import type { PrettifyProfileCatalogRepairNotice } from '@main/prettifyProfileCatalogState';
 import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 
@@ -416,6 +417,10 @@ class RecordingConfigStore extends TestAppConfigStore {
   public override consumePendingTranslationSettingsRepairNotice(): TranslationSettingsRepairNotice {
     return { categories: ['shape'], providers: [] };
   }
+
+  public override consumePendingPrettifyProfileCatalogRepairNotice(): PrettifyProfileCatalogRepairNotice {
+    return { repaired: true };
+  }
 }
 
 class RecordingI18nService extends I18nService {
@@ -532,6 +537,7 @@ describe('main process application lifecycle', () => {
       'desktop-ready',
       'config-load',
       'locale-initialize',
+      'settings-notice',
       'settings-notice',
       'runtime-create',
       'diagnostic-prune',

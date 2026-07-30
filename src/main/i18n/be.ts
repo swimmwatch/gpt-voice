@@ -36,6 +36,9 @@ export default {
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
+  'notification.prettifyProfileCatalogRepaired': 'Профілі Prettify адноўлены',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'Няправільныя налады профіляў Prettify адноўлены з бяспечнымі значэннямі па змаўчанні.',
   'notification.textCopiedNoTranslation': 'Тэкст скапіяваны (без перакладу)',
   'notification.transcriptionFailed': 'Не ўдалося распазнаць тэкст',
   'notification.translationFailed': 'Не ўдалося перакласці',

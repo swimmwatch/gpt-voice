@@ -198,7 +198,7 @@ export function normalizePrettifyProfileInstruction(value: unknown): ValidatedPr
   return value as ValidatedPrettifyProfileInstruction;
 }
 
-function normalizeCustomProfile(value: unknown): PrettifyCustomProfile {
+export function normalizePrettifyCustomProfile(value: unknown): PrettifyCustomProfile {
   if (!isPlainRecord(value)) fail('invalid-type', 'customProfiles');
   assertOnlyProperties(value, CUSTOM_PROFILE_PROPERTY_NAMES, 'customProfiles');
 
@@ -255,7 +255,7 @@ export function normalizePrettifyProfileCatalog(value: unknown): PrettifyProfile
   const customIds = new Set<PrettifyCustomProfileId>();
   const customNames = new Set<string>();
   for (const rawProfile of rawCustomProfiles) {
-    const profile = normalizeCustomProfile(rawProfile);
+    const profile = normalizePrettifyCustomProfile(rawProfile);
     if (customIds.has(profile.id)) fail('duplicate-id', 'customProfiles.id');
     const normalizedName = normalizePrettifyCustomProfileNameForUniqueness(profile.name);
     if (customNames.has(normalizedName)) fail('duplicate-name', 'customProfiles.name');

@@ -12,6 +12,7 @@ import type { AppConfigStore } from './config';
 import type { I18nService } from './i18n';
 import { resolveStartupLocale } from './startupLocale';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
+import { presentPendingPrettifyProfileCatalogRepairNotice } from './prettifyProfileCatalogState';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -72,7 +73,13 @@ export interface MainProcessApplicationDependencies {
   readonly app: MainProcessElectronApplication;
   readonly appProtocolController: AppProtocolController;
   readonly backgroundBrowserService: BackgroundBrowserService;
-  readonly config: Pick<AppConfigStore, 'consumePendingTranslationSettingsRepairNotice' | 'getSnapshot' | 'load'>;
+  readonly config: Pick<
+    AppConfigStore,
+    | 'consumePendingPrettifyProfileCatalogRepairNotice'
+    | 'consumePendingTranslationSettingsRepairNotice'
+    | 'getSnapshot'
+    | 'load'
+  >;
   readonly configureCloakBrowserRuntime: () => void;
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly localization: I18nService;
@@ -154,6 +161,11 @@ export class MainProcessApplication {
     );
     presentPendingTranslationSettingsRepairNotice({
       notice: dependencies.config.consumePendingTranslationSettingsRepairNotice(),
+      notify: dependencies.notify,
+      translate: dependencies.localization.translate,
+    });
+    presentPendingPrettifyProfileCatalogRepairNotice({
+      notice: dependencies.config.consumePendingPrettifyProfileCatalogRepairNotice(),
       notify: dependencies.notify,
       translate: dependencies.localization.translate,
     });

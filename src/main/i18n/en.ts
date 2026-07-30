@@ -36,6 +36,9 @@ export default {
 
   // Notifications
   'notification.textCopied': 'Text copied',
+  'notification.prettifyProfileCatalogRepaired': 'Prettify profiles repaired',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'Invalid Prettify profile settings were repaired using safe defaults.',
   'notification.textCopiedNoTranslation': 'Text copied (no translation)',
   'notification.transcriptionFailed': 'Recognition failed',
   'notification.translationFailed': 'Translation failed',

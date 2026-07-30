@@ -2,12 +2,14 @@ import type * as fs from 'node:fs';
 import type { AppConfigStore } from '@main/config';
 import {
   DEFAULT_PRETTIFY_SETTINGS,
+  assertValidPrettifyProviderSettingsInput,
   assertValidPrettifySettingsInput,
   getPrettifyBaseUrlValidationError,
   getPrettifyProviderCapabilities,
   normalizePrettifySettings,
   type PrettifySettings,
   type PrettifySettingsInput,
+  type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 
 interface StoredPrettifyProviderSettings {
@@ -105,8 +107,8 @@ export class PrettifySettingsStorage {
     };
   }
 
-  public save(input: PrettifySettingsInput = {}): PrettifySettings {
-    assertValidPrettifySettingsInput(input);
+  public save(input: PrettifyProviderSettingsInput = {}): PrettifySettings {
+    assertValidPrettifyProviderSettingsInput(input);
     const stored = this.readStoredSettings();
     const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
     const nextStored: StoredPrettifyProviderSettings = { ...stored };

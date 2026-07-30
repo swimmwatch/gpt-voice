@@ -26,6 +26,7 @@ import {
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   assertValidKnownPrettifySettingsInput,
+  assertValidPrettifyProviderSettingsInput,
   getPrettifyProviderCapabilities,
   isPrettifyCliProviderId,
   isKnownPrettifyProviderId,
@@ -34,8 +35,7 @@ import {
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
-  type PrettifySettingsInput,
-  assertValidPrettifySettingsInput,
+  type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
@@ -232,10 +232,9 @@ function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) 
   };
 }
 
-function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
+function summarizePrettifySettingsInput(settings: PrettifyProviderSettingsInput = {}) {
   return {
     providerId: settings.providerId,
-    promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : undefined,
     temperature: settings.temperature,
     claudeCli: {
       hasExecutablePath: Boolean(settings.claudeCli?.executablePath?.trim()),
@@ -878,14 +877,13 @@ export class MainIpcController {
 
     this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) => {
       try {
-        assertValidPrettifySettingsInput(settings);
+        assertValidPrettifyProviderSettingsInput(settings);
         const previous = dependencies.prettifySettings.getView();
         log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
         const savedSettings = dependencies.prettifySettings.save(settings);
         log.info('Prettify settings saved:', {
           providerId: savedSettings.providerId,
           providerChanged: savedSettings.providerId !== previous.providerId,
-          promptLength: savedSettings.prompt.length,
           temperature: savedSettings.temperature,
           ollamaModelLength: savedSettings.ollama.model.length,
           vllmModelLength: savedSettings.vllm.model.length,

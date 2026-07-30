@@ -33,6 +33,9 @@ export default {
   'status.providerNotConfigured': '{provider} no está configurado',
   'status.settingsSaved': 'Configuración guardada',
   'notification.textCopied': 'Texto copiado',
+  'notification.prettifyProfileCatalogRepaired': 'Perfiles de Prettify reparados',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'La configuración no válida de los perfiles de Prettify se reparó con valores predeterminados seguros.',
   'notification.textCopiedNoTranslation': 'Texto copiado (sin traducción)',
   'notification.transcriptionFailed': 'Reconocimiento fallido',
   'notification.translationFailed': 'Traducción fallida',

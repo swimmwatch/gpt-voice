@@ -109,7 +109,6 @@ describe('prettify settings storage', () => {
 
     const saved = fixture.storage.save({
       providerId: 'vllm',
-      prompt: 'Improve this text',
       vllm: {
         apiKey: 'private-api-key',
         baseUrl: 'https://models.example.com/v1',
@@ -124,6 +123,21 @@ describe('prettify settings storage', () => {
     assert.equal(fixture.storage.getWithSecret().vllm.apiKey, 'private-api-key');
     assert.equal(fixture.config.getSnapshot().prettifySettings.vllm.hasApiKey, true);
     assert.equal('apiKey' in fixture.config.getSnapshot().prettifySettings.vllm, false);
+  });
+
+  it('rejects stale renderer payloads that contain a prompt without mutating settings', () => {
+    const fixture = new PrettifySettingsStorageFixture();
+    const before = fixture.config.getSnapshot().prettifySettings;
+
+    assert.throws(
+      () =>
+        fixture.storage.save({
+          prompt: 'private stale prompt',
+          providerId: 'vllm',
+        } as never),
+      /prettify-provider-settings-unknown-property/u,
+    );
+    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, before);
   });
 
   it('clears encrypted keys and keeps independently constructed stores isolated', () => {
@@ -142,6 +156,7 @@ describe('prettify settings storage', () => {
 
   it('rejects unsafe provider URLs before mutating settings or secret storage', () => {
     const fixture = new PrettifySettingsStorageFixture();
+    const before = fixture.config.getSnapshot().prettifySettings;
 
     assert.throws(
       () =>
@@ -155,6 +170,6 @@ describe('prettify settings storage', () => {
       /Non-local provider URLs must use HTTPS/,
     );
     assert.equal(fixture.fileSystem.files.size, 0);
-    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, DEFAULT_PRETTIFY_SETTINGS);
+    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, before);
   });
 });

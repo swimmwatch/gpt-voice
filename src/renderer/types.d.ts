@@ -13,6 +13,7 @@ import type {
   PrettifyCliConnectionResult,
   PrettifyCliProviderId,
   KnownPrettifyProviderId,
+  PrettifyProviderSettingsInput,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -182,7 +183,7 @@ export interface ElectronAPI {
   getPrettifySettings: () => Promise<PrettifySettings>;
   checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
   setPrettifySettings: (
-    settings: PrettifySettingsInput,
+    settings: PrettifyProviderSettingsInput,
   ) => Promise<{ success: boolean; settings: PrettifySettings; error?: string }>;
   listPrettifyModels: (
     providerId: KnownPrettifyProviderId,

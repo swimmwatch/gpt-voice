@@ -36,6 +36,9 @@ export default {
 
   // Notifications
   'notification.textCopied': 'Текст скопійовано',
+  'notification.prettifyProfileCatalogRepaired': 'Профілі Prettify відновлено',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'Некоректні налаштування профілів Prettify відновлено з безпечними типовими значеннями.',
   'notification.textCopiedNoTranslation': 'Текст скопійовано (без перекладу)',
   'notification.transcriptionFailed': 'Не вдалося розпізнати текст',
   'notification.translationFailed': 'Не вдалося перекласти',
