@@ -16,17 +16,21 @@ describe('App Settings hotkeys', () => {
 
     assert.match(section, /HOTKEY_TARGETS\.map\(\(target\)/u);
     assert.match(section, /label=\{t\(`hotkey\.\$\{target\}`\)\}/u);
-    assert.doesNotMatch(section, /prettifyQuick/u);
+    assert.match(section, /target === 'prettifyQuick'/u);
     assert.match(modal, /type HotkeyTarget/u);
     assert.match(modal, /t\(`hotkey\.\$\{target\}`\)/u);
   });
 
-  it('reads the quick value without adding a second enable toggle', () => {
+  it('reads the quick value and binds its independent enable toggle', () => {
     const settingsWindow = readProjectFile('src/renderer/AppSettingsWindow.tsx');
     const section = readProjectFile('src/renderer/components/settings/ShortcutsSection.tsx');
 
     assert.match(settingsWindow, /case 'prettifyQuick':\s+return hotkeySettings\.prettifyQuickHotkey;/u);
     assert.match(section, /target === 'prettify'\s+\? textActionSettings\.prettifyEnabled/u);
-    assert.doesNotMatch(section, /target === 'prettifyQuick'/u);
+    assert.match(section, /target === 'prettifyQuick'\s+\? textActionSettings\.prettifyQuickEnabled/u);
+    assert.match(
+      section,
+      /target === 'prettifyQuick'\s+\? \(enabled\) => onTextActionEnabledChange\('prettifyQuickEnabled', enabled\)/u,
+    );
   });
 });

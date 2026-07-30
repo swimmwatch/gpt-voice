@@ -148,7 +148,11 @@ describe('AppConfigStore', () => {
       stopHotkey: 'Alt+S',
       translateHotkey: 'Alt+T',
     });
-    fixture.store.setTextActionSettings({ prettifyEnabled: false, translateEnabled: false });
+    fixture.store.setTextActionSettings({
+      prettifyEnabled: false,
+      prettifyQuickEnabled: false,
+      translateEnabled: false,
+    });
     fixture.store.setProvider('openai-api');
     fixture.store.setLocalePreference('uk');
     fixture.store.setPrettifySettings({
@@ -179,6 +183,7 @@ describe('AppConfigStore', () => {
       'retryTranscriptionHotkey',
       'translateEnabled',
       'prettifyEnabled',
+      'prettifyQuickEnabled',
       'prettifyProfileCatalog',
       'translationSettings',
       'provider',
@@ -224,6 +229,25 @@ describe('AppConfigStore', () => {
     assert.equal(fixture.readPersistedConfig().prettifyQuickHotkey, DEFAULT_PRETTIFY_QUICK_HOTKEY);
   });
 
+  it('migrates a missing Quick Prettify enabled flag to the enabled default', () => {
+    const fixture = createFixture();
+    fixture.store.getFingerprintSeed();
+    fixture.store.setTextActionSettings({ prettifyEnabled: false, prettifyQuickEnabled: false });
+    fixture.store.save();
+    const persisted = fixture.readPersistedConfig();
+    delete persisted.prettifyQuickEnabled;
+    fixture.writePersistedConfig(persisted);
+    fixture.writes.length = 0;
+
+    const loaded = fixture.createStore();
+    loaded.load();
+
+    assert.equal(loaded.getTextActionSettings().prettifyEnabled, false);
+    assert.equal(loaded.getTextActionSettings().prettifyQuickEnabled, true);
+    assert.equal(fixture.writes.length, 1);
+    assert.equal(fixture.readPersistedConfig().prettifyQuickEnabled, true);
+  });
+
   it('keeps config load and save failures out of runtime logs', () => {
     const loadFixture = createFixture();
     const privateLoadError = 'private-profile-instruction';
@@ -261,6 +285,7 @@ describe('AppConfigStore', () => {
       locale: 'ru',
       localeExplicit: 'yes',
       prettifyEnabled: false,
+      prettifyQuickEnabled: 'yes',
       provider: [],
       retryTranscriptionHotkey: LEGACY_RETRY_TRANSCRIPTION_HOTKEY,
       translateEnabled: 'yes',
@@ -283,6 +308,7 @@ describe('AppConfigStore', () => {
     assert.equal(snapshot.locale, 'en');
     assert.equal(snapshot.localeExplicit, false);
     assert.equal(snapshot.prettifyEnabled, false);
+    assert.equal(snapshot.prettifyQuickEnabled, true);
     assert.equal(snapshot.provider, 'chatgpt');
     assert.equal(snapshot.retryTranscriptionHotkey, DEFAULT_RETRY_TRANSCRIPTION_HOTKEY);
     assert.equal(snapshot.translateEnabled, true);

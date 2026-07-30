@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: ShortcutSettingsSnapshot = {
   hotkey: 'F9',
   prettifyEnabled: true,
   prettifyHotkey: 'F12',
+  prettifyQuickEnabled: true,
   prettifyQuickHotkey: 'Ctrl+F12',
   retryTranscriptionHotkey: 'F8',
   stopHotkey: 'F10',
@@ -244,13 +245,21 @@ describe('ShortcutController', () => {
     assert.deepEqual(harness.trayStates, []);
   });
 
-  it('gates both Prettify targets with recording state and the shared enabled setting', () => {
-    const disabled = new ShortcutControllerHarness({ settings: { prettifyEnabled: false } });
-    disabled.controller.register();
-    disabled.globalShortcuts.callbacks.get('F12')?.();
-    disabled.globalShortcuts.callbacks.get('Ctrl+F12')?.();
-    assert.equal(disabled.chooserCalls, 0);
-    assert.equal(disabled.quickCalls, 0);
+  it('gates the Prettify targets with independent enabled settings', () => {
+    const chooserDisabled = new ShortcutControllerHarness({ settings: { prettifyEnabled: false } });
+    chooserDisabled.controller.register();
+    chooserDisabled.globalShortcuts.callbacks.get('F12')?.();
+    chooserDisabled.globalShortcuts.callbacks.get('Ctrl+F12')?.();
+    assert.equal(chooserDisabled.chooserCalls, 0);
+    assert.equal(chooserDisabled.quickCalls, 1);
+
+    const quickDisabled = new ShortcutControllerHarness({ settings: { prettifyQuickEnabled: false } });
+    quickDisabled.controller.register();
+    quickDisabled.globalShortcuts.callbacks.get('F12')?.();
+    quickDisabled.globalShortcuts.callbacks.get('Ctrl+F12')?.();
+    assert.equal(quickDisabled.chooserCalls, 1);
+    assert.equal(quickDisabled.quickCalls, 0);
+    assert.equal(quickDisabled.chooserFocusCalls, 1);
 
     const recording = new ShortcutControllerHarness();
     recording.controller.setRecordingLifecycleState('recording');

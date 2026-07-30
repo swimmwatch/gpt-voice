@@ -115,6 +115,7 @@ export interface AppConfigSnapshot {
   readonly localeExplicit: boolean;
   readonly prettifyEnabled: boolean;
   readonly prettifyHotkey: string;
+  readonly prettifyQuickEnabled: boolean;
   readonly prettifyQuickHotkey: string;
   readonly prettifyProfileCatalog: PrettifyProfileCatalog;
   readonly prettifySettings: PrettifySettings;
@@ -128,6 +129,7 @@ export interface AppConfigSnapshot {
 
 export interface TextActionSettingsSnapshot {
   readonly prettifyEnabled: boolean;
+  readonly prettifyQuickEnabled: boolean;
   readonly translateEnabled: boolean;
 }
 
@@ -212,6 +214,7 @@ export class AppConfigStore {
   private localeWasExplicitlySelected = false;
   private prettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
   private prettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+  private prettifyQuickEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
   private prettifyQuickHotkey = DEFAULT_PRETTIFY_QUICK_HOTKEY;
   private prettifySettings: PrettifySettings;
   private provider = DEFAULT_VOICE_PROVIDER_ID;
@@ -247,6 +250,7 @@ export class AppConfigStore {
       localeExplicit: this.localeWasExplicitlySelected,
       prettifyEnabled: this.prettifyEnabled,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
       prettifyQuickHotkey: this.prettifyQuickHotkey,
       prettifyProfileCatalog: this.prettifyProfileCatalogState.getSnapshot(),
       prettifySettings: createImmutablePrettifySettings(this.prettifySettings),
@@ -274,6 +278,7 @@ export class AppConfigStore {
   public getTextActionSettings(): TextActionSettingsSnapshot {
     return Object.freeze({
       prettifyEnabled: this.prettifyEnabled,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
       translateEnabled: this.translateEnabled,
     });
   }
@@ -321,6 +326,7 @@ export class AppConfigStore {
   public setTextActionSettings(settings: Partial<TextActionSettingsSnapshot>): void {
     if (settings.translateEnabled !== undefined) this.translateEnabled = settings.translateEnabled;
     if (settings.prettifyEnabled !== undefined) this.prettifyEnabled = settings.prettifyEnabled;
+    if (settings.prettifyQuickEnabled !== undefined) this.prettifyQuickEnabled = settings.prettifyQuickEnabled;
   }
 
   public setPrettifySettings(settings: PrettifyProviderSettingsInput = {}): void {
@@ -448,6 +454,9 @@ export class AppConfigStore {
       getConfigString(config, 'retryTranscriptionHotkey') ?? this.retryTranscriptionHotkey;
     this.translateEnabled = getConfigBoolean(config, 'translateEnabled') ?? this.translateEnabled;
     this.prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled') ?? this.prettifyEnabled;
+    const persistedPrettifyQuickEnabled = getConfigBoolean(config, 'prettifyQuickEnabled');
+    this.prettifyQuickEnabled = persistedPrettifyQuickEnabled ?? DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
+    if (persistedPrettifyQuickEnabled === undefined) shouldSaveConfig = true;
     this.provider = getConfigString(config, 'provider') ?? this.provider;
     if (locale && localeExplicit === true) {
       this.locale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
@@ -516,6 +525,7 @@ export class AppConfigStore {
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
       translateEnabled: this.translateEnabled,
       prettifyEnabled: this.prettifyEnabled,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
       prettifyProfileCatalog,
       translationSettings,
       provider: this.provider,

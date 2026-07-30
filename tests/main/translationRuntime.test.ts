@@ -47,8 +47,12 @@ class MutableTranslationConfig {
     private translateEnabled = true,
   ) {}
 
-  public getTextActionSettings(): { prettifyEnabled: boolean; translateEnabled: boolean } {
-    return { prettifyEnabled: true, translateEnabled: this.translateEnabled };
+  public getTextActionSettings(): {
+    prettifyEnabled: boolean;
+    prettifyQuickEnabled: boolean;
+    translateEnabled: boolean;
+  } {
+    return { prettifyEnabled: true, prettifyQuickEnabled: true, translateEnabled: this.translateEnabled };
   }
 
   public getTranslationSettings(): TranslationSettings {

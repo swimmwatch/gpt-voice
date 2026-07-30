@@ -9,12 +9,27 @@ import {
 describe('textActionSettings', () => {
   it('normalizes legacy settings safely on read', () => {
     assert.deepEqual(normalizeTextActionSettings({ translateEnabled: 'yes' }), DEFAULT_TEXT_ACTION_SETTINGS);
+    assert.deepEqual(normalizeTextActionSettings({ prettifyQuickEnabled: false }), {
+      ...DEFAULT_TEXT_ACTION_SETTINGS,
+      prettifyQuickEnabled: false,
+    });
   });
 
   it('rejects malformed settings writes', () => {
     assert.equal(getTextActionSettingsInputError(null), 'Text action settings must be an object');
     assert.equal(getTextActionSettingsInputError({ translateEnabled: 'yes' }), 'Translate enabled must be a boolean');
     assert.equal(getTextActionSettingsInputError({ prettifyEnabled: 1 }), 'Prettify enabled must be a boolean');
-    assert.equal(getTextActionSettingsInputError({ translateEnabled: false, prettifyEnabled: true }), null);
+    assert.equal(
+      getTextActionSettingsInputError({ prettifyQuickEnabled: 1 }),
+      'Quick Prettify enabled must be a boolean',
+    );
+    assert.equal(
+      getTextActionSettingsInputError({
+        prettifyEnabled: true,
+        prettifyQuickEnabled: false,
+        translateEnabled: false,
+      }),
+      null,
+    );
   });
 });

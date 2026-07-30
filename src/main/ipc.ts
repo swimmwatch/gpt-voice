@@ -947,6 +947,7 @@ export class MainIpcController {
           from: {
             translateEnabled: previous.translateEnabled,
             prettifyEnabled: previous.prettifyEnabled,
+            prettifyQuickEnabled: previous.prettifyQuickEnabled,
           },
           to: normalized,
         });

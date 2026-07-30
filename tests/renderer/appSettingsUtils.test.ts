@@ -67,7 +67,11 @@ function prettifySettingsDraft(
 }
 
 const VALID_PRETTIFY_SETTINGS = prettifySettingsDraft('ollama');
-const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true };
+const VALID_TEXT_ACTION_SETTINGS = {
+  prettifyEnabled: true,
+  prettifyQuickEnabled: true,
+  translateEnabled: true,
+};
 const VALID_PRETTIFY_PROFILE_CATALOG: PrettifyProfileCatalog = {
   chooserOrder: [...PRETTIFY_BUILT_IN_PROFILE_IDS],
   customProfiles: [],
@@ -247,7 +251,7 @@ describe('appSettingsUtils', () => {
         },
       }),
       initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-      textActionSettings: { translateEnabled: false, prettifyEnabled: true },
+      textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
       initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
     });
     const serialized = JSON.stringify(summary);
@@ -792,8 +796,15 @@ describe('appSettingsUtils', () => {
     assert.equal(areTextActionSettingsEqual(VALID_TEXT_ACTION_SETTINGS, VALID_TEXT_ACTION_SETTINGS), true);
     assert.equal(
       areTextActionSettingsEqual(
-        { translateEnabled: false, prettifyEnabled: true },
-        { translateEnabled: true, prettifyEnabled: true },
+        { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
+        VALID_TEXT_ACTION_SETTINGS,
+      ),
+      false,
+    );
+    assert.equal(
+      areTextActionSettingsEqual(
+        { ...VALID_TEXT_ACTION_SETTINGS, prettifyQuickEnabled: false },
+        VALID_TEXT_ACTION_SETTINGS,
       ),
       false,
     );
@@ -952,7 +963,7 @@ describe('appSettingsUtils', () => {
         initialSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
         initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-        textActionSettings: { translateEnabled: false, prettifyEnabled: true },
+        textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
       {
@@ -978,6 +989,7 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(result.textActionSettings, {
       translateEnabled: false,
       prettifyEnabled: true,
+      prettifyQuickEnabled: true,
     });
   });
 
@@ -1134,7 +1146,7 @@ describe('appSettingsUtils', () => {
         prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
         prettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
         settings: initialSettings,
-        textActionSettings: { prettifyEnabled: true, translateEnabled: false },
+        textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
       },
       {
         saveCloakBrowserSettings: async () => {
@@ -1276,7 +1288,7 @@ describe('appSettingsUtils', () => {
           prettifyProfileCatalog: CHANGED_PRETTIFY_PROFILE_CATALOG,
           prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
           settings: initialSettings,
-          textActionSettings: { prettifyEnabled: true, translateEnabled: false },
+          textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
         },
         {
           saveCloakBrowserSettings: async () => ({ settings: cloakBrowserSettings(), success: true }),

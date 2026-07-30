@@ -502,6 +502,10 @@ function collectTextActionChangedFields(input: AppSettingsSaveInput): string[] {
       'translateEnabled',
     ],
     [input.textActionSettings.prettifyEnabled !== input.initialTextActionSettings.prettifyEnabled, 'prettifyEnabled'],
+    [
+      input.textActionSettings.prettifyQuickEnabled !== input.initialTextActionSettings.prettifyQuickEnabled,
+      'prettifyQuickEnabled',
+    ],
   ]);
 }
 
@@ -996,7 +1000,11 @@ export function arePrettifySettingsEqual(left: PrettifySettingsDraft, right: Pre
 }
 
 export function areTextActionSettingsEqual(left: TextActionSettings, right: TextActionSettings): boolean {
-  return left.translateEnabled === right.translateEnabled && left.prettifyEnabled === right.prettifyEnabled;
+  return (
+    left.translateEnabled === right.translateEnabled &&
+    left.prettifyEnabled === right.prettifyEnabled &&
+    left.prettifyQuickEnabled === right.prettifyQuickEnabled
+  );
 }
 
 /** Restores only the diagnostic toggles covered by a cancelled destructive confirmation. */

@@ -45,6 +45,7 @@ export interface TextActionStatusResolution {
 
 export interface ShortcutSettingsSnapshot extends HotkeySettings {
   readonly prettifyEnabled: boolean;
+  readonly prettifyQuickEnabled: boolean;
   readonly translateEnabled: boolean;
 }
 
@@ -268,15 +269,22 @@ export class ShortcutController {
   }
 
   private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+    const currentSettings = this.dependencies.config.getSnapshot();
+    const targetEnabled =
+      target === 'prettify' ? currentSettings.prettifyEnabled : currentSettings.prettifyQuickEnabled;
+    if (target === 'prettifyQuick' && !targetEnabled) {
+      this.dependencies.logger.info(`${hotkey} pressed while prettify is disabled`, { target });
+      return;
+    }
+
     if (this.dependencies.selectedTextPrettifyService.focusExistingChooser()) {
       this.dependencies.logger.info(`${hotkey} pressed, focusing active Prettify chooser`, { target });
       return;
     }
 
     const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-    const currentSettings = this.dependencies.config.getSnapshot();
-    if (!canRunPrettifyShortcut(this.recordingLifecycleState, currentSettings.prettifyEnabled, selectedTextBusy)) {
-      if (currentSettings.prettifyEnabled) {
+    if (!canRunPrettifyShortcut(this.recordingLifecycleState, targetEnabled, selectedTextBusy)) {
+      if (targetEnabled) {
         this.dependencies.logger.info(`${hotkey} pressed while prettify cannot run`, {
           recordingLifecycleState: this.recordingLifecycleState,
           selectedTextBusy,

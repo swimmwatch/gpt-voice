@@ -1,16 +1,19 @@
 export interface TextActionSettings {
   translateEnabled: boolean;
   prettifyEnabled: boolean;
+  prettifyQuickEnabled: boolean;
 }
 
 export interface TextActionSettingsInput {
   translateEnabled?: unknown;
   prettifyEnabled?: unknown;
+  prettifyQuickEnabled?: unknown;
 }
 
 export const DEFAULT_TEXT_ACTION_SETTINGS: TextActionSettings = {
   translateEnabled: true,
   prettifyEnabled: true,
+  prettifyQuickEnabled: true,
 };
 
 function isTextActionSettingsInput(value: unknown): value is TextActionSettingsInput {
@@ -26,6 +29,9 @@ export function getTextActionSettingsInputError(input: unknown = {}): string | n
   }
   if (input.prettifyEnabled !== undefined && typeof input.prettifyEnabled !== 'boolean') {
     return 'Prettify enabled must be a boolean';
+  }
+  if (input.prettifyQuickEnabled !== undefined && typeof input.prettifyQuickEnabled !== 'boolean') {
+    return 'Quick Prettify enabled must be a boolean';
   }
   return null;
 }
@@ -43,5 +49,9 @@ export function normalizeTextActionSettings(input: TextActionSettingsInput = {})
         : DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled,
     prettifyEnabled:
       typeof input.prettifyEnabled === 'boolean' ? input.prettifyEnabled : DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled,
+    prettifyQuickEnabled:
+      typeof input.prettifyQuickEnabled === 'boolean'
+        ? input.prettifyQuickEnabled
+        : DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled,
   };
 }
