@@ -3,6 +3,7 @@ import type * as fs from 'node:fs';
 import {
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
+  DEFAULT_PRETTIFY_QUICK_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -114,6 +115,7 @@ export interface AppConfigSnapshot {
   readonly localeExplicit: boolean;
   readonly prettifyEnabled: boolean;
   readonly prettifyHotkey: string;
+  readonly prettifyQuickHotkey: string;
   readonly prettifyProfileCatalog: PrettifyProfileCatalog;
   readonly prettifySettings: PrettifySettings;
   readonly provider: string;
@@ -210,6 +212,7 @@ export class AppConfigStore {
   private localeWasExplicitlySelected = false;
   private prettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
   private prettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+  private prettifyQuickHotkey = DEFAULT_PRETTIFY_QUICK_HOTKEY;
   private prettifySettings: PrettifySettings;
   private provider = DEFAULT_VOICE_PROVIDER_ID;
   private retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
@@ -244,6 +247,7 @@ export class AppConfigStore {
       localeExplicit: this.localeWasExplicitlySelected,
       prettifyEnabled: this.prettifyEnabled,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
       prettifyProfileCatalog: this.prettifyProfileCatalogState.getSnapshot(),
       prettifySettings: createImmutablePrettifySettings(this.prettifySettings),
       provider: this.provider,
@@ -260,6 +264,7 @@ export class AppConfigStore {
       cancelHotkey: this.cancelHotkey,
       hotkey: this.hotkey,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
       stopHotkey: this.stopHotkey,
       translateHotkey: this.translateHotkey,
@@ -307,6 +312,7 @@ export class AppConfigStore {
     if (settings.stopHotkey !== undefined) this.stopHotkey = settings.stopHotkey;
     if (settings.translateHotkey !== undefined) this.translateHotkey = settings.translateHotkey;
     if (settings.prettifyHotkey !== undefined) this.prettifyHotkey = settings.prettifyHotkey;
+    if (settings.prettifyQuickHotkey !== undefined) this.prettifyQuickHotkey = settings.prettifyQuickHotkey;
     if (settings.retryTranscriptionHotkey !== undefined) {
       this.retryTranscriptionHotkey = settings.retryTranscriptionHotkey;
     }
@@ -435,6 +441,9 @@ export class AppConfigStore {
     this.stopHotkey = getConfigString(config, 'stopHotkey') ?? this.stopHotkey;
     this.translateHotkey = getConfigString(config, 'translateHotkey') ?? this.translateHotkey;
     this.prettifyHotkey = getConfigString(config, 'prettifyHotkey') ?? this.prettifyHotkey;
+    const persistedPrettifyQuickHotkey = getConfigString(config, 'prettifyQuickHotkey');
+    this.prettifyQuickHotkey = persistedPrettifyQuickHotkey ?? DEFAULT_PRETTIFY_QUICK_HOTKEY;
+    if (!persistedPrettifyQuickHotkey) shouldSaveConfig = true;
     this.retryTranscriptionHotkey =
       getConfigString(config, 'retryTranscriptionHotkey') ?? this.retryTranscriptionHotkey;
     this.translateEnabled = getConfigBoolean(config, 'translateEnabled') ?? this.translateEnabled;
@@ -503,6 +512,7 @@ export class AppConfigStore {
       stopHotkey: this.stopHotkey,
       translateHotkey: this.translateHotkey,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
       translateEnabled: this.translateEnabled,
       prettifyEnabled: this.prettifyEnabled,

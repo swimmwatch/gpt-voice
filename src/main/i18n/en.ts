@@ -332,6 +332,7 @@ export default {
   'hotkey.cancel': 'Cancel',
   'hotkey.translate': 'Translate',
   'hotkey.prettify': 'Prettify',
+  'hotkey.prettifyQuick': 'Quick Prettify',
   'hotkey.retryTranscription': 'Resend transcription',
   'hotkey.change': 'Change',
   'hotkey.enabled': '{target} enabled',

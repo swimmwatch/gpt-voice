@@ -6,6 +6,7 @@ import {
   canRunTranslateHotkey,
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
+  DEFAULT_PRETTIFY_QUICK_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -24,16 +25,26 @@ describe('hotkeys', () => {
     assert.equal(DEFAULT_CANCEL_HOTKEY, 'Escape');
     assert.equal(DEFAULT_TRANSLATE_HOTKEY, 'F11');
     assert.equal(DEFAULT_PRETTIFY_HOTKEY, 'F12');
+    assert.equal(DEFAULT_PRETTIFY_QUICK_HOTKEY, 'Ctrl+F12');
     assert.equal(DEFAULT_RETRY_TRANSCRIPTION_HOTKEY, 'Ctrl+F8');
   });
 
   it('recognizes every supported hotkey target', () => {
-    assert.deepEqual(HOTKEY_TARGETS, ['record', 'stop', 'cancel', 'translate', 'prettify', 'retryTranscription']);
+    assert.deepEqual(HOTKEY_TARGETS, [
+      'record',
+      'stop',
+      'cancel',
+      'translate',
+      'prettify',
+      'prettifyQuick',
+      'retryTranscription',
+    ]);
     assert.equal(isHotkeyTarget('record'), true);
     assert.equal(isHotkeyTarget('stop'), true);
     assert.equal(isHotkeyTarget('cancel'), true);
     assert.equal(isHotkeyTarget('translate'), true);
     assert.equal(isHotkeyTarget('prettify'), true);
+    assert.equal(isHotkeyTarget('prettifyQuick'), true);
     assert.equal(isHotkeyTarget('retryTranscription'), true);
     assert.equal(isHotkeyTarget('missing'), false);
   });
@@ -62,6 +73,7 @@ describe('hotkeys', () => {
       cancelHotkey: 'Escape',
       hotkey: 'F9',
       prettifyHotkey: 'F12',
+      prettifyQuickHotkey: 'Ctrl+F12',
       retryTranscriptionHotkey: 'Ctrl+F8',
       stopHotkey: 'F10',
       translateHotkey: 'F11',
@@ -70,6 +82,27 @@ describe('hotkeys', () => {
     assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F9', settings), 'record');
     assert.equal(getHotkeyConflict('retryTranscription', 'Shift+F9', settings), 'record');
     assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F8', settings), null);
+  });
+
+  it('allows only distinct Prettify sibling accelerators to share F12', () => {
+    const settings = {
+      cancelHotkey: 'Escape',
+      hotkey: 'F9',
+      prettifyHotkey: 'F12',
+      prettifyQuickHotkey: 'Ctrl+F12',
+      retryTranscriptionHotkey: 'Ctrl+F8',
+      stopHotkey: 'F10',
+      translateHotkey: 'F11',
+    };
+
+    assert.equal(getHotkeyConflict('prettify', settings.prettifyHotkey, settings), null);
+    assert.equal(getHotkeyConflict('prettifyQuick', settings.prettifyQuickHotkey, settings), null);
+    assert.equal(getHotkeyConflict('prettifyQuick', 'F12', settings), 'prettify');
+    assert.equal(getHotkeyConflict('prettify', 'Ctrl+F12', settings), 'prettifyQuick');
+
+    const thirdTargetOwnsF12 = { ...settings, hotkey: 'F12' };
+    assert.equal(getHotkeyConflict('prettify', 'Alt+F12', thirdTargetOwnsF12), 'record');
+    assert.equal(getHotkeyConflict('prettifyQuick', 'Ctrl+F12', thirdTargetOwnsF12), 'record');
   });
 
   it('allows selected-text hotkeys only when recording is idle', () => {

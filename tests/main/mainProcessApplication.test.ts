@@ -348,6 +348,8 @@ class RecordingShortcutController extends ShortcutController {
       selectedTextPrettifyService: {
         cancel: () => null,
         applyDefaultProfileToSelectedText: async () => ({ success: true, status: '' }),
+        chooseProfileForSelectedText: async () => ({ success: true, status: '' }),
+        focusExistingChooser: () => false,
       },
       selectedTextTranslationService: {
         translateSelectedTextToClipboard: async () => ({ success: true }),

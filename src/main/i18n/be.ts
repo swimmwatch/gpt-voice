@@ -337,6 +337,7 @@ export default {
   'hotkey.cancel': 'Скасаваць',
   'hotkey.translate': 'Пераклад',
   'hotkey.prettify': 'Паляпшэнне',
+  'hotkey.prettifyQuick': 'Хуткае паляпшэнне',
   'hotkey.retryTranscription': 'Адправіць транскрыпцыю зноў',
   'hotkey.change': 'Змяніць',
   'hotkey.enabled': '{target}: уключана',

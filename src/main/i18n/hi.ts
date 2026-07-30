@@ -304,6 +304,7 @@ export default {
   'hotkey.cancel': 'रद्द करें',
   'hotkey.translate': 'अनुवाद करें',
   'hotkey.prettify': 'सुधारें',
+  'hotkey.prettifyQuick': 'त्वरित सुधार',
   'hotkey.retryTranscription': 'ट्रांसक्रिप्शन पुनः भेजें',
   'hotkey.change': 'बदलें',
   'hotkey.enabled': '{target} सक्षम',

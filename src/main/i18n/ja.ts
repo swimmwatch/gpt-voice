@@ -301,6 +301,7 @@ export default {
   'hotkey.cancel': 'キャンセル',
   'hotkey.translate': '翻訳',
   'hotkey.prettify': '整える',
+  'hotkey.prettifyQuick': 'クイック整形',
   'hotkey.retryTranscription': '文字起こしを再送信',
   'hotkey.change': '変更',
   'hotkey.enabled': '{target}有効',

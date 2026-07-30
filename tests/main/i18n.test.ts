@@ -205,6 +205,26 @@ describe('i18n', () => {
     assert.deepEqual(i18n.getSupportedLocales(), APP_LOCALE_IDS);
   });
 
+  it('localizes the quick Prettify hotkey label in every supported catalog', () => {
+    const expected: Record<AppLocaleId, string> = {
+      be: 'Хуткае паляпшэнне',
+      de: 'Schnell verbessern',
+      en: 'Quick Prettify',
+      es: 'Mejora rápida',
+      fr: 'Amélioration rapide',
+      hi: 'त्वरित सुधार',
+      ja: 'クイック整形',
+      'pt-BR': 'Aprimoramento rápido',
+      ru: 'Быстрое улучшение',
+      uk: 'Швидке покращення',
+      zh: '快速润色',
+    };
+
+    for (const locale of APP_LOCALE_IDS) {
+      assert.equal(TRANSLATIONS_BY_LOCALE[locale]['hotkey.prettifyQuick'], expected[locale]);
+    }
+  });
+
   it('keeps locale state isolated between services and catalogs immutable', () => {
     const first = new I18nService('ru');
     const second = new I18nService('uk');

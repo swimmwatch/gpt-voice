@@ -378,12 +378,22 @@ const AppSettingsWindow: React.FC = () => {
 
   const getHotkeyValue = (target: HotkeyTarget): string => {
     if (!hotkeySettings) return '';
-    if (target === 'record') return hotkeySettings.hotkey;
-    if (target === 'stop') return hotkeySettings.stopHotkey;
-    if (target === 'cancel') return hotkeySettings.cancelHotkey;
-    if (target === 'translate') return hotkeySettings.translateHotkey;
-    if (target === 'retryTranscription') return hotkeySettings.retryTranscriptionHotkey;
-    return hotkeySettings.prettifyHotkey;
+    switch (target) {
+      case 'record':
+        return hotkeySettings.hotkey;
+      case 'stop':
+        return hotkeySettings.stopHotkey;
+      case 'cancel':
+        return hotkeySettings.cancelHotkey;
+      case 'translate':
+        return hotkeySettings.translateHotkey;
+      case 'prettify':
+        return hotkeySettings.prettifyHotkey;
+      case 'prettifyQuick':
+        return hotkeySettings.prettifyQuickHotkey;
+      case 'retryTranscription':
+        return hotkeySettings.retryTranscriptionHotkey;
+    }
   };
 
   const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {

@@ -290,6 +290,7 @@ export default {
   'hotkey.cancel': '取消',
   'hotkey.translate': '翻译',
   'hotkey.prettify': '润色',
+  'hotkey.prettifyQuick': '快速润色',
   'hotkey.retryTranscription': '重发转录',
   'hotkey.change': '更改',
   'hotkey.enabled': '{target} 已启用',

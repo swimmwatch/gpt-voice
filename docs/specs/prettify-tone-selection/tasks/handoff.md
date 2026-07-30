@@ -13,82 +13,67 @@
 - [`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md) —
   committed atomically as `b87f71a`.
 - [`06_chooser_renderer_exact_design.md`](./06_chooser_renderer_exact_design.md) —
+  committed atomically as `80d9cd6`.
+- [`07_quick_apply_shortcut.md`](./07_quick_apply_shortcut.md) —
   complete and intentionally uncommitted for review.
 
 ## Changed Files
 
 - Authorization: `decisions.yaml`.
-- Renderer:
-  `src/renderer/PrettifyProfileChooserWindow.tsx`,
-  `components/prettify/PrettifyProfileChooser.tsx`,
-  `entries/prettifyProfileChooser.tsx`,
-  `hooks/usePrettifyProfileChooserI18n.tsx`, and
-  `prettifyProfileChooserState.ts`.
-- Localization: all 11 files in `src/main/i18n/`.
-- Build and packaging: `webpack.config.js` and
-  `scripts/packaged-runtime-policy.mjs`.
-- Tests: chooser renderer/state, localization, webpack, renderer-bundle, and
-  packaged-runtime policy coverage.
+- Shared/config: `src/shared/hotkeys.ts` and `src/main/config.ts`.
+- Main orchestration: `src/main/shortcuts.ts`,
+  `services/selectedTextPrettify.ts`, and hotkey handling in `ipc.ts`.
+- Settings/localization: `AppSettingsWindow.tsx` and all 11 locale catalogs;
+  the existing generic `ShortcutsSection` and `HotkeyModal` render the new
+  adjacent target without another enable toggle.
+- Tests: hotkey/config/shortcut/selected-text/application/i18n/preload coverage,
+  plus focused hotkey IPC and Settings contracts.
 - Completion state: `tasks/todo.md` and this file.
 
-## Renderer, Accessibility, And Privacy Evidence
+## Runtime, Settings, And Privacy Evidence
 
-- The dedicated functional renderer imports only
-  `PrettifyProfileChooserAPI`; it does not use the general bootstrap,
-  `ElectronAPI`, Node, raw IPC, Settings, provider, clipboard, filesystem,
-  logging, or profile instructions.
-- Runtime payload validation accepts only token, source, ordered safe summaries,
-  and optional initial ID. It freezes defensive clones and uses one
-  content-free malformed-payload error.
-- Source and summaries are cleared before Apply, Cancel, Manage, fallback close,
-  or unmount. Selection never invokes provider work; only explicit Apply
-  submits an allow-listed snapshotted profile ID.
-- The approved four-row layout, repository primitives/tokens, mixed ordering,
-  shared normalized search, listbox/option semantics, polite result count,
-  source-region labeling, keyboard movement, responsive footer, and
-  selection-without-glyph contract are implemented unchanged.
-- Chooser-only localization reads only translations, locale, and locale-change
-  events. All catalogs contain the exact chooser copy and preserve `{profile}`
-  and `{count}` placeholders; Packet 01 built-in metadata remains reused.
-- Production output includes `dist/prettify-profile-chooser.html`,
-  `dist/prettify-profile-chooser-preload.js`, and
-  `dist/renderer/prettifyProfileChooser.js`; each omission fails policy tests.
+- `prettifyQuick` defaults to `Ctrl+F12`; missing persisted state is repaired
+  through the existing atomic config path without changing F12 or another
+  accelerator.
+- Only the `prettify` and `prettifyQuick` sibling pair may share F12 with
+  distinct modifiers. Exact duplicates and conflicts with every other target
+  retain the previous behavior.
+- F12 opens/focuses the chooser and Ctrl+F12 runs the current explicit default
+  windowlessly. Both share `prettifyEnabled`, recording/Translation gates,
+  capture suspension, cancellation, and single-flight suppression.
+- Working status and the Prettify tray icon start only when the selected-text
+  service enters generation. Chooser opening, selection, close, and cancel do
+  not claim provider work.
+- Runtime logs contain only action target/accelerator state. Observer failures
+  use content-free metadata and cannot interrupt generation.
+- Existing typed IPC/preload methods carry the new target and field; no IPC
+  channel, renderer privilege, provider behavior, dependency, or enable state
+  was added.
 
 ## Checks
 
-- Packet-focused chooser renderer/state, preload-minimality, i18n, webpack,
-  renderer-bundle, and packaged-runtime policy tests — passed.
+- Packet-focused hotkey, shortcut, selected-text, config, preload/IPC,
+  application lifecycle, Settings, and localization tests — passed.
 - `rtk npm run typecheck` — passed.
 - `rtk npm run test:types` — passed.
-- `rtk npm run build:prod` — passed; all chooser artifacts emitted, with only
-  existing webpack size warnings.
 - `rtk npm run format:check` — passed.
 - `rtk npm run lint -- --max-warnings 0` — passed.
 - `rtk git diff --check` — passed.
 
 ## Manual Gates
 
-- DSF=1 screenshots at 620×640 and 440×520 were captured to temporary storage
-  and inspected against the approved PNG; no P0–P2 fidelity difference was
-  found and no screenshot was added to the repository.
-- Selected, filter-empty, long-source, 200-custom, Russian long-copy,
-  keyboard-only, accessibility-tree naming, reduced-motion, and responsive
-  footer states were exercised. The final local page reported zero console
-  errors or warnings.
-- Native platform chrome, real screen-reader announcement quality, and
-  multi-display focus remain platform gates for packet 10.
-- Non-English copy passes catalog and placeholder checks but has not received a
-  human localization review because the configured DeepL quota was exhausted.
+- Packaged Windows and Linux registration/dispatch for F12 and Ctrl+F12 remains
+  a Packet 10 manual gate.
 - No live desktop/provider, credential, external endpoint, private user data,
-  dependency, packaging, Packet 06 commit, push, pull request, or release gate
+  dependency, Packet 07 commit, push, pull request, packaging, or release gate
   was crossed.
 
 ## Exact Next Packet
 
-Review packet 06 while it remains uncommitted. After its commit boundary is
+Review Packet 07 while it remains uncommitted. After its commit boundary is
 explicitly resolved and a separate `incremental-implementation` authorization
 is given, start
-[`07_quick_apply_shortcut.md`](./07_quick_apply_shortcut.md).
+[`08_profile_import_export_services.md`](./08_profile_import_export_services.md).
 
 ## Blockers
 

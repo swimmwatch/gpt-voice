@@ -157,6 +157,7 @@ function createTestService(options: TestServiceOptions = {}) {
   const waitCalls: number[] = [];
   const chooserRequests: PrettifyProfileChooserRequest[] = [];
   const prepareCalls: PrettifyExecutionInstruction[] = [];
+  const warnings: unknown[][] = [];
   const prettifyCalls: Array<{
     text: string;
     providerId: PrettifyProviderId;
@@ -202,7 +203,7 @@ function createTestService(options: TestServiceOptions = {}) {
     getCacheContext: () => options.cacheContext || [],
     logger: {
       info: () => {},
-      warn: () => {},
+      warn: (...args) => warnings.push(args),
     },
     localization,
     notify: (title, body, options) => {
@@ -299,6 +300,7 @@ function createTestService(options: TestServiceOptions = {}) {
     getProfileManagementOpens: () => profileManagementOpens,
     service: new SelectedTextPrettifyService(deps),
     waitCalls,
+    warnings,
   };
 }
 
@@ -343,6 +345,67 @@ describe('selectedTextPrettify', () => {
         options: { sound: 'error' },
       },
     ]);
+  });
+
+  it('notifies generation start exactly once before quick provider preparation', async () => {
+    const events: string[] = [];
+    const runtime: SelectedTextPrettifyDependencies['runtime'] = {
+      prepare: async () => {
+        events.push('prepare');
+        return { success: false, error: 'synthetic preparation failure' };
+      },
+    };
+    const { service } = createTestService({ runtime, selectionText: 'selected source' });
+
+    const result = await service.applyDefaultProfileToSelectedText({
+      onGenerationStarted: () => events.push('generation-started'),
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(events, ['generation-started', 'prepare']);
+  });
+
+  it('does not present chooser generation until Apply resolves a snapshotted profile', async () => {
+    const deferredChooser = createDeferredChooser();
+    const events: string[] = [];
+    const runtime: SelectedTextPrettifyDependencies['runtime'] = {
+      prepare: async () => {
+        events.push('prepare');
+        return { success: false, error: 'synthetic preparation failure' };
+      },
+    };
+    const { chooserRequests, service } = createTestService({
+      chooser: deferredChooser.chooser,
+      runtime,
+      selectionText: 'selected source',
+    });
+
+    const run = service.chooseProfileForSelectedText({
+      onGenerationStarted: () => events.push('generation-started'),
+    });
+    await waitForCondition(() => chooserRequests.length === 1, 'chooser did not open');
+    assert.deepEqual(events, []);
+
+    deferredChooser.resolve({ type: 'apply', profileId: TEST_PROFILE_ID });
+    const result = await run;
+
+    assert.equal(result.success, false);
+    assert.deepEqual(events, ['generation-started', 'prepare']);
+  });
+
+  it('keeps observer failures content-free and does not interrupt generation', async () => {
+    const privateObserverError = 'private-observer-message';
+    const { service, warnings } = createTestService({ selectionText: 'selected source' });
+
+    const result = await service.applyDefaultProfileToSelectedText({
+      onGenerationStarted: () => {
+        throw new Error(privateObserverError);
+      },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(warnings.length, 1);
+    assert.doesNotMatch(JSON.stringify(warnings), new RegExp(privateObserverError));
   });
 
   it('reads the authoritative catalog once and executes its default profile without the legacy prompt', async () => {

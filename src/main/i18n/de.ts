@@ -315,6 +315,7 @@ export default {
   'hotkey.cancel': 'Abbrechen',
   'hotkey.translate': 'Übersetzen',
   'hotkey.prettify': 'Verbessern',
+  'hotkey.prettifyQuick': 'Schnell verbessern',
   'hotkey.retryTranscription': 'Transkript erneut senden',
   'hotkey.change': 'Ändern',
   'hotkey.enabled': '{target} aktiviert',

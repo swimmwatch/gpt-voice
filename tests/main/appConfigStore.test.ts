@@ -6,7 +6,12 @@ import { afterEach, describe, it } from 'node:test';
 import { AppConfigStore, resolveAppConfigPaths, type AppConfigStoreDependencies } from '@main/config';
 import { writeTextFileAtomically } from '@main/translationSettings';
 import { DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS } from '@shared/diagnosticCaptureSettings';
-import { DEFAULT_CANCEL_HOTKEY, DEFAULT_RECORD_HOTKEY, DEFAULT_RETRY_TRANSCRIPTION_HOTKEY } from '@shared/hotkeys';
+import {
+  DEFAULT_CANCEL_HOTKEY,
+  DEFAULT_PRETTIFY_QUICK_HOTKEY,
+  DEFAULT_RECORD_HOTKEY,
+  DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
+} from '@shared/hotkeys';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 import { getPrettifyBuiltInProfileDefinition } from '@main/services/prettifyProfileInstruction';
 import { PRETTIFY_BUILT_IN_PROFILE_IDS, PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION } from '@shared/prettifyProfiles';
@@ -138,6 +143,7 @@ describe('AppConfigStore', () => {
       cancelHotkey: 'Alt+Escape',
       hotkey: 'Alt+Space',
       prettifyHotkey: 'Alt+P',
+      prettifyQuickHotkey: 'Alt+Q',
       retryTranscriptionHotkey: 'Alt+R',
       stopHotkey: 'Alt+S',
       translateHotkey: 'Alt+T',
@@ -169,6 +175,7 @@ describe('AppConfigStore', () => {
       'stopHotkey',
       'translateHotkey',
       'prettifyHotkey',
+      'prettifyQuickHotkey',
       'retryTranscriptionHotkey',
       'translateEnabled',
       'prettifyEnabled',
@@ -185,6 +192,36 @@ describe('AppConfigStore', () => {
     const loaded = fixture.createStore();
     loaded.load();
     assert.deepEqual(loaded.getSnapshot(), fixture.store.getSnapshot());
+  });
+
+  it('migrates a missing quick Prettify hotkey without changing configured accelerators', () => {
+    const fixture = createFixture();
+    fixture.store.getFingerprintSeed();
+    fixture.store.setHotkeys({
+      cancelHotkey: 'Alt+Escape',
+      hotkey: 'Alt+Space',
+      prettifyHotkey: 'Alt+P',
+      prettifyQuickHotkey: 'Alt+Q',
+      retryTranscriptionHotkey: 'Alt+R',
+      stopHotkey: 'Alt+S',
+      translateHotkey: 'Alt+T',
+    });
+    fixture.store.save();
+    const expectedHotkeys = fixture.store.getHotkeySettings();
+    const persisted = fixture.readPersistedConfig();
+    delete persisted.prettifyQuickHotkey;
+    fixture.writePersistedConfig(persisted);
+    fixture.writes.length = 0;
+
+    const loaded = fixture.createStore();
+    loaded.load();
+
+    assert.deepEqual(loaded.getHotkeySettings(), {
+      ...expectedHotkeys,
+      prettifyQuickHotkey: DEFAULT_PRETTIFY_QUICK_HOTKEY,
+    });
+    assert.equal(fixture.writes.length, 1);
+    assert.equal(fixture.readPersistedConfig().prettifyQuickHotkey, DEFAULT_PRETTIFY_QUICK_HOTKEY);
   });
 
   it('keeps config load and save failures out of runtime logs', () => {

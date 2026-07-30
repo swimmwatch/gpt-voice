@@ -53,11 +53,13 @@ describe('preload API factory', () => {
 
     assert.equal(await api.getActiveProvider(), 'chatgpt');
     await api.setActiveProvider('claude-web');
+    await api.setHotkey('prettifyQuick', 'Ctrl+F12');
     await api.translateText('private-source-canary', 'ru');
 
     assert.deepEqual(renderer.invocations, [
       { args: [], channel: 'get-active-provider' },
       { args: ['claude-web'], channel: 'set-active-provider' },
+      { args: ['prettifyQuick', 'Ctrl+F12'], channel: 'set-hotkey' },
       { args: ['private-source-canary', 'ru'], channel: 'translate-text' },
     ]);
   });

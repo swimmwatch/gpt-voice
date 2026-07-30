@@ -63,7 +63,7 @@ export interface ShortcutControllerDependencies {
   readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
   readonly selectedTextPrettifyService: Pick<
     SelectedTextPrettifyService,
-    'applyDefaultProfileToSelectedText' | 'cancel'
+    'applyDefaultProfileToSelectedText' | 'cancel' | 'chooseProfileForSelectedText' | 'focusExistingChooser'
   >;
   readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
@@ -141,6 +141,7 @@ export class ShortcutController {
     const cancelHotkey = this.normalizeHotkeyForPlatform(settings.cancelHotkey);
     const translateHotkey = this.normalizeHotkeyForPlatform(settings.translateHotkey);
     const prettifyHotkey = this.normalizeHotkeyForPlatform(settings.prettifyHotkey);
+    const prettifyQuickHotkey = this.normalizeHotkeyForPlatform(settings.prettifyQuickHotkey);
 
     const recordRegistered = this.registerConfiguredShortcut('record', recordHotkey, () => {
       const window = this.dependencies.windowManager.getMainWindow();
@@ -225,31 +226,17 @@ export class ShortcutController {
     this.dependencies.logger.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 
     const prettifyRegistered = this.registerConfiguredShortcut('prettify', prettifyHotkey, () => {
-      const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-      const currentSettings = this.dependencies.config.getSnapshot();
-      if (!canRunPrettifyShortcut(this.recordingLifecycleState, currentSettings.prettifyEnabled, selectedTextBusy)) {
-        if (currentSettings.prettifyEnabled) {
-          this.dependencies.logger.info(`${prettifyHotkey} pressed while prettify cannot run`, {
-            recordingLifecycleState: this.recordingLifecycleState,
-            selectedTextBusy,
-          });
-        } else {
-          this.dependencies.logger.info(`${prettifyHotkey} pressed while prettify is disabled`);
-        }
-        return;
-      }
-
-      this.dependencies.logger.info(`${prettifyHotkey} pressed, prettifying selected text`);
-      const resultPromise = this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText();
-      this.dependencies.trayController.updateIcon('prettifying');
-      this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
-      void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
-        this.reportTextActionFailure(resolution.failureLogMetadata);
-        this.sendTextActionStatus(resolution.status);
-        this.updateTrayIconForRecordingLifecycle();
-      });
+      this.runPrettifyShortcut('prettify', prettifyHotkey);
     });
     this.dependencies.logger.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
+
+    const prettifyQuickRegistered = this.registerConfiguredShortcut('prettifyQuick', prettifyQuickHotkey, () => {
+      this.runPrettifyShortcut('prettifyQuick', prettifyQuickHotkey);
+    });
+    this.dependencies.logger.info(
+      `${prettifyQuickHotkey} quick prettify shortcut registered:`,
+      prettifyQuickRegistered,
+    );
 
     this.syncRetryTranscriptionShortcut();
   }
@@ -278,6 +265,52 @@ export class ShortcutController {
       return false;
     }
     return this.dependencies.globalShortcut.register(hotkey, callback);
+  }
+
+  private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+    if (this.dependencies.selectedTextPrettifyService.focusExistingChooser()) {
+      this.dependencies.logger.info(`${hotkey} pressed, focusing active Prettify chooser`, { target });
+      return;
+    }
+
+    const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
+    const currentSettings = this.dependencies.config.getSnapshot();
+    if (!canRunPrettifyShortcut(this.recordingLifecycleState, currentSettings.prettifyEnabled, selectedTextBusy)) {
+      if (currentSettings.prettifyEnabled) {
+        this.dependencies.logger.info(`${hotkey} pressed while prettify cannot run`, {
+          recordingLifecycleState: this.recordingLifecycleState,
+          selectedTextBusy,
+          target,
+        });
+      } else {
+        this.dependencies.logger.info(`${hotkey} pressed while prettify is disabled`, { target });
+      }
+      return;
+    }
+
+    this.dependencies.logger.info(
+      target === 'prettify'
+        ? `${hotkey} pressed, starting Prettify chooser action`
+        : `${hotkey} pressed, starting quick Prettify action`,
+    );
+    let generationPresentationStarted = false;
+    const observer = {
+      onGenerationStarted: (): void => {
+        if (generationPresentationStarted) return;
+        generationPresentationStarted = true;
+        this.dependencies.trayController.updateIcon('prettifying');
+        this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
+      },
+    };
+    const resultPromise =
+      target === 'prettify'
+        ? this.dependencies.selectedTextPrettifyService.chooseProfileForSelectedText(observer)
+        : this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText(observer);
+    void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
+      this.reportTextActionFailure(resolution.failureLogMetadata);
+      this.sendTextActionStatus(resolution.status);
+      if (generationPresentationStarted) this.updateTrayIconForRecordingLifecycle();
+    });
   }
 
   private unregisterRetryTranscriptionShortcut(): void {

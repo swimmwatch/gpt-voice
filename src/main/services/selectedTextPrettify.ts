@@ -49,6 +49,10 @@ export interface SelectedTextPrettifyResult {
   skipped?: true;
 }
 
+export interface SelectedTextPrettifyRunObserver {
+  readonly onGenerationStarted: () => void;
+}
+
 export interface SelectedTextPrettifyClipboard {
   readText(type?: ClipboardType): string;
   writeText(text: string, type?: ClipboardType): void;
@@ -115,6 +119,8 @@ interface SelectedTextPrettifyRun {
   clipboardRestored: boolean;
   completionPromise: Promise<SelectedTextPrettifyResult> | null;
   gateReleased: boolean;
+  generationStarted: boolean;
+  observer: SelectedTextPrettifyRunObserver | null;
   phase: SelectedTextPrettifyRunPhase;
   previousClipboardText: string | null;
   resultWritten: boolean;
@@ -201,10 +207,13 @@ export class SelectedTextPrettifyService {
 
   public constructor(private readonly dependencies: SelectedTextPrettifyDependencies) {}
 
-  public readonly chooseProfileForSelectedText = (): Promise<SelectedTextPrettifyResult> => this.startRun('chooser');
+  public readonly chooseProfileForSelectedText = (
+    observer?: SelectedTextPrettifyRunObserver,
+  ): Promise<SelectedTextPrettifyResult> => this.startRun('chooser', observer);
 
-  /** Retains the existing immediate action until Packet 07 routes F12 to the chooser entry. */
-  public readonly applyDefaultProfileToSelectedText = (): Promise<SelectedTextPrettifyResult> => this.startRun('quick');
+  public readonly applyDefaultProfileToSelectedText = (
+    observer?: SelectedTextPrettifyRunObserver,
+  ): Promise<SelectedTextPrettifyResult> => this.startRun('quick', observer);
 
   public focusExistingChooser(): boolean {
     const run = this.activeRun;
@@ -247,7 +256,10 @@ export class SelectedTextPrettifyService {
     this.cancel();
   }
 
-  private startRun(entry: SelectedTextPrettifyEntry): Promise<SelectedTextPrettifyResult> {
+  private startRun(
+    entry: SelectedTextPrettifyEntry,
+    observer?: SelectedTextPrettifyRunObserver,
+  ): Promise<SelectedTextPrettifyResult> {
     if (this.disposed) return Promise.resolve(createSkippedResult());
     if (this.activeRun) {
       if (this.activeRun.phase === 'choosing') this.focusExistingChooser();
@@ -265,6 +277,8 @@ export class SelectedTextPrettifyService {
       clipboardRestored: false,
       completionPromise: null,
       gateReleased: false,
+      generationStarted: false,
+      observer: observer ?? null,
       phase: 'capturing',
       previousClipboardText: null,
       resultWritten: false,
@@ -400,6 +414,7 @@ export class SelectedTextPrettifyService {
     instruction: PrettifyExecutionInstruction,
   ): Promise<SelectedTextPrettifyResult> {
     run.phase = 'generating';
+    this.notifyGenerationStarted(run);
     const preparation = await this.dependencies.runtime.prepare(instruction, {}, run.abortController.signal);
     if (!this.canContinue(run)) return this.createCancelledResult();
     if (!preparation.success) {
@@ -457,8 +472,22 @@ export class SelectedTextPrettifyService {
     this.notifyPrettifySuccess();
   }
 
+  private notifyGenerationStarted(run: SelectedTextPrettifyRun): void {
+    if (run.generationStarted) return;
+    run.generationStarted = true;
+    try {
+      run.observer?.onGenerationStarted();
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not present Prettify generation start:',
+        this.presentPrettifyError(error).safeLogMetadata,
+      );
+    }
+  }
+
   private clearRunSensitiveState(run: SelectedTextPrettifyRun, preserveClipboard = false): void {
     if (!preserveClipboard) run.previousClipboardText = null;
+    run.observer = null;
     run.snapshot = null;
     run.sourceText = null;
     run.summaries = EMPTY_CHOOSER_SUMMARIES;

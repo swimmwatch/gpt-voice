@@ -338,6 +338,7 @@ export default {
   'hotkey.cancel': 'Скасувати',
   'hotkey.translate': 'Переклад',
   'hotkey.prettify': 'Покращення',
+  'hotkey.prettifyQuick': 'Швидке покращення',
   'hotkey.retryTranscription': 'Надіслати транскрипцію знову',
   'hotkey.change': 'Змінити',
   'hotkey.enabled': '{target}: увімкнено',

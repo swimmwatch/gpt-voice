@@ -784,6 +784,14 @@ export class MainIpcController {
           normalizedHotkey,
         );
         dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
+      } else if (target === 'prettifyQuick') {
+        log.info(
+          'Changing quick prettify hotkey from',
+          dependencies.config.getHotkeySettings().prettifyQuickHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ prettifyQuickHotkey: normalizedHotkey });
       } else if (target === 'retryTranscription') {
         log.info(
           'Changing retry transcription hotkey from',

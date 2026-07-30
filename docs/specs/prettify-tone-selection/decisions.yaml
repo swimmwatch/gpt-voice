@@ -2224,3 +2224,65 @@ decisions:
     rationale: 'The atomic commit closes the reviewed Packet 06 boundary before Packet 07 changes shared hotkeys, shortcut orchestration, configuration, and Settings UI.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.packet-07
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 was committed atomically before Packet 07 started.'
+      - 'The user authorized Packet 07 through the persistent implementation interview on 2026-07-30 and then explicitly requested implementation of the approved plan.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: packet-07-transition:v1
+      question_id: execution.packet-07
+      idempotency_key: execution.packet-07:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 07 — Quick-Apply Shortcut — after the Packet 06 atomic commit?'
+      kind: single
+      options:
+        - id: authorize_packet_07
+          label: 'Authorize Packet 07'
+          description: 'After the Packet 06 atomic commit, implement only Packet 07, verify it, update todo and handoff, and leave Packet 07 uncommitted.'
+        - id: commit_packet_06_only
+          label: 'Commit Packet 06 only'
+          description: 'Commit Packet 06 only and stop without starting Packet 07.'
+    answer:
+      selected_ids: [authorize_packet_07]
+      text: ''
+    rationale: 'The next incremental implementation is bounded to the approved quick-apply shortcut packet and excludes profile import/export, Settings profile management, dependencies, publishing, and release work.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.commit.packet-07
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 was complete, verified, and intentionally uncommitted before the next incremental-implementation invocation.'
+      - 'The user authorized its atomic commit through the persistent implementation interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: authorization.commit.packet-07
+      idempotency_key: authorization.commit.packet-07:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize creating one atomic commit containing only the completed and verified Packet 07 changes before Packet 08 starts?'
+      kind: single
+      options:
+        - id: authorize_atomic_commit
+          label: 'Authorize Packet 07 commit'
+          description: 'Stage only the verified Packet 07 files and commit them as one conventional atomic commit; then proceed to the separate Packet 08 authorization.'
+        - id: hold_uncommitted
+          label: 'Hold for review'
+          description: 'Leave Packet 07 uncommitted and do not authorize Packet 08 execution.'
+    answer:
+      selected_ids: [authorize_atomic_commit]
+      text: ''
+    rationale: 'The atomic commit closes the reviewed Packet 07 boundary before Packet 08 adds portable profile contracts, privileged filesystem flows, and new Settings-only IPC.'
+    supersedes_revision: null
+    requirement_ids: []

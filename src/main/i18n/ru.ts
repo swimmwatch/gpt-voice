@@ -339,6 +339,7 @@ export default {
   'hotkey.cancel': 'Отмена',
   'hotkey.translate': 'Перевод',
   'hotkey.prettify': 'Улучшение',
+  'hotkey.prettifyQuick': 'Быстрое улучшение',
   'hotkey.retryTranscription': 'Отправить транскрипцию снова',
   'hotkey.change': 'Изменить',
   'hotkey.enabled': '{target}: включено',
