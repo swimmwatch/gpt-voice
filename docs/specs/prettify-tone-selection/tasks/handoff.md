@@ -7,73 +7,55 @@
 - [`02_catalog_persistence_and_migration.md`](./02_catalog_persistence_and_migration.md) —
   committed as `f1b4a16`.
 - [`03_provider_profile_execution.md`](./03_provider_profile_execution.md) —
+  committed atomically as `764a4c8`.
+- [`04_selected_text_profile_orchestration.md`](./04_selected_text_profile_orchestration.md) —
   complete and intentionally uncommitted for review.
 
 ## Changed Files
 
-- Planning boundary:
-  `decisions.yaml`, `03_provider_profile_execution.md`, and
-  `04_selected_text_profile_orchestration.md`.
-- Main execution:
-  `src/main/services/prettifyProfileInstruction.ts`,
-  `prettifyProviderBase.ts`, `prettifyProviders.ts`,
-  `prettifyOneShotExecution.ts`, `prettifySettingsStorage.ts`, and
-  `selectedTextPrettify.ts`.
-- Provider adapters:
-  `src/main/services/prettifyHttpProviders.ts`,
-  `prettifyCliProviders.ts`, `prettifyClaudeCli.ts`, and
-  `prettifyCodexCli.ts`.
-- Composition:
-  `src/main/di/mainProcessCompositionRoot.ts`.
-- Tests:
-  `tests/main/prettifyProfileInstruction.test.ts`,
-  `prettifyProviders.test.ts`, `prettifyClaudeCli.test.ts`,
-  `prettifyCodexCli.test.ts`, `prettifyRuntimeTestUtils.ts`,
-  `prettifySettingsStorage.test.ts`, `selectedTextPrettify.test.ts`, and
-  `textActionCache.test.ts`.
-- Completion state:
-  `tasks/todo.md` and this file.
+- Authorization: `decisions.yaml`.
+- Chooser contract: `src/shared/prettifyProfileChooser.ts`.
+- Main orchestration: `src/main/services/selectedTextPrettify.ts`.
+- Ownership and compatibility:
+  `src/main/di/mainProcessCompositionRoot.ts`,
+  `src/main/mainProcessApplication.ts`, and `src/main/shortcuts.ts`.
+- Tests: `tests/main/selectedTextPrettify.test.ts`,
+  `mainProcessApplication.test.ts`, and `shortcutController.test.ts`.
+- Completion state: `tasks/todo.md` and this file.
 
-## Execution, Cache, And Privacy Evidence
+## Orchestration And Privacy Evidence
 
-- Runtime accepts only a strict main-owned contract-version-1 instruction that
-  contains the product invariant prefix and one validated profile instruction;
-  malformed values fail before settings resolution, audit creation, or provider
-  preparation.
-- The immediate selected-text action reads the authoritative catalog once after
-  source validation, resolves only `defaultProfileId`, and never reads the
-  legacy prompt projection.
-- Runtime provider settings are prompt-free. Discovery, readiness, connection,
-  model lifecycle, and shutdown use the prompt-free projection. Claude model
-  listing prepares only
-  `PRETTIFY_CLI_MODEL_VALIDATION_INSTRUCTION = "Return the provided text unchanged."`
-  and never executes it.
-- Ollama and vLLM send the exact effective instruction as the system message and
-  source as one user message. Claude and Codex use the effective instruction as
-  the isolated prompt argument and source only as stdin.
-- Provider capability version and instruction contract version remain
-  independent. Diagnostic `contractVersion` still receives only provider
-  capability version; instruction version and exact instruction affect only
-  execution cache identity.
-- Cache tests prove source and instruction are hashed into a 64-character
-  SHA-256 key, retained keys contain neither value, capability/instruction
-  version changes miss independently, and profile ID/name/description/default
-  marker/order changes hit when effective semantics are unchanged.
-- Audit, default diagnostics, errors, notifications, and runtime status remain
-  content-free. Existing explicitly enabled local source/result diagnostic
-  capture is unchanged and never records profile instructions.
+- The service owns explicit `capturing`, `choosing`, and `generating` phases,
+  one abortable active run, and idempotent cancellation/disposal.
+- Capture restores the previous clipboard exactly once before chooser or
+  provider waiting. Later close, cancellation, failure, shutdown, and provider
+  completion never restore that old value.
+- Chooser requests contain source plus frozen localized summaries only. Main
+  retains a defensively normalized, frozen full-profile snapshot with
+  instructions and validates Apply exclusively against that snapshot.
+- Deferred tests prove that live-object mutation and committed catalog
+  replacement cannot change an open chooser. Deleted profiles retain their
+  opening semantics, newly added IDs are rejected, and later chooser/quick
+  operations observe the new catalog.
+- Quick apply resolves the current explicit default and shares the exact
+  composer, provider, cache, result-validation, clipboard-write, notification,
+  and cancellation path with chooser Apply.
+- Last chooser selection exists only in process memory, is eligible only in a
+  later snapshot that still contains it, and never affects quick/default
+  behavior or cache identity.
+- Reentry focuses the existing chooser without recapture; generation reentry is
+  skipped. Late or duplicate results cannot write the clipboard.
+- The current production F12 remains on the immediate default path until packet
+  07. The graph-owned temporary chooser port closes without work until packet
+  05 supplies the real window controller.
+- Logs, notifications, normal diagnostics, and errors remain free of source,
+  profile names, descriptions, instructions, and result content.
 
 ## Checks
 
-- Packet-focused provider/profile/storage/cache/selected-text tests passed:
-  `prettifyProfileInstruction`, `prettifyProviders`, `prettifyClaudeCli`,
-  `prettifyCodexCli`, `textActionCache`, `selectedTextPrettify`, and
-  `prettifySettingsStorage`.
-- Audit/diagnostic/readiness/connection/composition tests passed:
-  `prettifyHttpReadiness`, `providerAuditPrivacy`,
-  `diagnosticCaptureIntegration`, `prettifyIpcPrivacyContract`,
-  `prettifyConnectionCheckCoordinator`, `mainProcessCompositionRoot`,
-  `mainProcessApplication`, and renderer `mainPrettifyCliConnection`.
+- `selectedTextPrettify`, `shortcutController`,
+  `selectedTextTranslation`, `mainProcessCompositionRoot`, and
+  `mainProcessApplication` tests — passed.
 - `rtk npm run typecheck` — passed.
 - `rtk npm run test:types` — passed.
 - `rtk npm run format:check` — passed.
@@ -82,17 +64,19 @@
 
 ## Manual Gates
 
-- Tests used deterministic synthetic sources, instructions, settings, endpoints,
-  provider results, and process runners only.
-- No live provider, credential, CLI login, external endpoint, private user data,
-  dependency, packaging, commit, push, pull request, or release gate was crossed.
+- Tests used deterministic synthetic source, clipboard, profile, provider,
+  cache, chooser, and lifecycle fixtures only.
+- Packaged Windows and Linux clipboard/selection verification remains assigned
+  to packet 10.
+- No live provider, credential, external endpoint, private user data,
+  dependency, packaging, push, pull request, or release gate was crossed.
 
 ## Exact Next Packet
 
-Review packet 03 while it remains uncommitted. After its commit boundary is
+Review packet 04 while it remains uncommitted. After its commit boundary is
 explicitly resolved and a separate `incremental-implementation` authorization
 is given, start
-[`04_selected_text_profile_orchestration.md`](./04_selected_text_profile_orchestration.md).
+[`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md).
 
 ## Blockers
 

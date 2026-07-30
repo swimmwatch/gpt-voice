@@ -185,11 +185,13 @@ export interface MainProcessPrettifyEnvironment {
     SelectedTextPrettifyDependencies,
     | 'actionGate'
     | 'cache'
+    | 'chooser'
     | 'clipboard'
     | 'diagnosticCapture'
     | 'localization'
     | 'logger'
     | 'notify'
+    | 'openProfileManagement'
     | 'profileCatalog'
     | 'runtime'
     | 'textAutomation'
@@ -293,6 +295,7 @@ type ConstructedDesktopDependencyKeys =
   | 'desktopRuntimeController'
   | 'linuxDesktopIntegrationController'
   | 'runtimeFactory'
+  | 'selectedTextPrettifyService'
   | 'shortcutController'
   | 'prettifyRuntime'
   | 'translationRuntime'
@@ -312,6 +315,7 @@ export type MainProcessApplicationEnvironment = Omit<
 interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
   readonly appProtocolController: AppProtocolController;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
+  readonly selectedTextPrettifyService: SelectedTextPrettifyService;
   readonly trayController: TrayController;
 }
 
@@ -557,25 +561,6 @@ export class MainProcessCompositionRoot {
       registry: prettifyProviderRegistry,
       settings: prettifySettingsStorage,
     });
-    const selectedTextPrettifyService = new SelectedTextPrettifyService({
-      ...this.environment.prettify.selectedText,
-      actionGate: selectedTextActionGate,
-      cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
-        maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
-        now: this.environment.cacheNow,
-      }),
-      clipboard: {
-        readText: electronRuntime.readClipboardText,
-        writeText: electronRuntime.writeTypedClipboardText,
-      },
-      diagnosticCapture,
-      logger: loggerFactory.getLogger('selection-prettify'),
-      localization,
-      notify: electronRuntime.showSystemNotification,
-      profileCatalog: configStore,
-      runtime: prettifyRuntime,
-      textAutomation,
-    });
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
@@ -584,6 +569,31 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('window'),
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
+    });
+    const selectedTextPrettifyService = new SelectedTextPrettifyService({
+      ...this.environment.prettify.selectedText,
+      actionGate: selectedTextActionGate,
+      cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
+        maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
+        now: this.environment.cacheNow,
+      }),
+      chooser: {
+        cancel: () => undefined,
+        focus: () => false,
+        open: () => Promise.resolve({ type: 'close' }),
+      },
+      clipboard: {
+        readText: electronRuntime.readClipboardText,
+        writeText: electronRuntime.writeTypedClipboardText,
+      },
+      diagnosticCapture,
+      logger: loggerFactory.getLogger('selection-prettify'),
+      localization,
+      notify: electronRuntime.showSystemNotification,
+      openProfileManagement: () => windowManager.showSettingsWindow('prettify'),
+      profileCatalog: configStore,
+      runtime: prettifyRuntime,
+      textAutomation,
     });
     translationRuntime.subscribeConnectionState(windowManager.publishTranslationProviderConnectionState);
     const cloakBrowserSettingsReset = new CloakBrowserSettingsResetService({
@@ -651,6 +661,7 @@ export class MainProcessCompositionRoot {
       diagnosticsExport,
       historyRepository,
       prettifyRuntime,
+      selectedTextPrettifyService,
       shortcutController,
       translationRuntime,
       trayController,

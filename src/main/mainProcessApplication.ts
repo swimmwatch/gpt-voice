@@ -8,6 +8,7 @@ import type { WindowManager } from './window';
 import type { BackgroundBrowserService } from './browser';
 import type { TranslationRuntime } from './services/translation';
 import type { PrettifyRuntime } from './services/prettifyProviders';
+import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
 import type { AppConfigStore } from './config';
 import type { I18nService } from './i18n';
 import { resolveStartupLocale } from './startupLocale';
@@ -17,6 +18,7 @@ import { presentPendingPrettifyProfileCatalogRepairNotice } from './prettifyProf
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
 const PRETTIFY_CLEANUP_FAILURE_LOG = 'Failed to unload Ollama prettify model during quit';
+const PRETTIFY_SELECTION_CLEANUP_FAILURE_LOG = 'Selected-text Prettify cleanup failed during quit';
 const TRANSLATION_INITIALIZATION_FAILURE_LOG = 'Translation provider initialization failed during startup';
 const TRANSLATION_CLEANUP_INCOMPLETE_LOG = 'Translation provider cleanup incomplete during quit:';
 const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed during quit';
@@ -88,6 +90,7 @@ export interface MainProcessApplicationDependencies {
   readonly notify: (title: string, body: string) => void;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'shutdown'>;
   readonly runtimeFactory: MainProcessRuntimeFactory;
+  readonly selectedTextPrettifyService: Pick<SelectedTextPrettifyService, 'dispose'>;
   readonly shortcutController: ShortcutController;
   readonly translationRuntime: Pick<TranslationRuntime, 'initializeSelectedProvider' | 'shutdown'>;
   readonly trayController: TrayController;
@@ -233,6 +236,12 @@ export class MainProcessApplication {
       this.dependencies.shortcutController.dispose();
     } catch {
       this.dependencies.logger.warn(QUIT_CLEANUP_FAILURE_LOG);
+    }
+
+    try {
+      this.dependencies.selectedTextPrettifyService.dispose();
+    } catch {
+      this.dependencies.logger.warn(PRETTIFY_SELECTION_CLEANUP_FAILURE_LOG);
     }
 
     try {

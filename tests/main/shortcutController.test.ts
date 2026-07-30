@@ -50,7 +50,7 @@ class ShortcutControllerHarness {
     selectedTextActionGate: { getActive: () => null },
     selectedTextPrettifyService: {
       cancel: () => null,
-      prettifySelectedText: async () => ({ success: true, status: '' }),
+      applyDefaultProfileToSelectedText: async () => ({ success: true, status: '' }),
     },
     selectedTextTranslationService: {
       translateSelectedTextToClipboard: async () => ({ success: true }),

@@ -347,7 +347,7 @@ class RecordingShortcutController extends ShortcutController {
       },
       selectedTextPrettifyService: {
         cancel: () => null,
-        prettifySelectedText: async () => ({ success: true, status: '' }),
+        applyDefaultProfileToSelectedText: async () => ({ success: true, status: '' }),
       },
       selectedTextTranslationService: {
         translateSelectedTextToClipboard: async () => ({ success: true }),
@@ -478,6 +478,9 @@ class MainProcessApplicationHarness {
       },
       notify: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
+      selectedTextPrettifyService: {
+        dispose: () => this.events.push('prettify-selection-dispose'),
+      },
       shortcutController,
       translationRuntime: {
         initializeSelectedProvider: async () => {
@@ -630,6 +633,7 @@ describe('main process application lifecycle', () => {
     assert.deepEqual(harness.events, [
       'set-quitting',
       'shortcuts-dispose',
+      'prettify-selection-dispose',
       'ipc-dispose',
       'prettify-shutdown',
       'translation-shutdown',

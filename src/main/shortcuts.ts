@@ -61,7 +61,10 @@ export interface ShortcutControllerDependencies {
   };
   readonly platform: NodeJS.Platform;
   readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
-  readonly selectedTextPrettifyService: Pick<SelectedTextPrettifyService, 'cancel' | 'prettifySelectedText'>;
+  readonly selectedTextPrettifyService: Pick<
+    SelectedTextPrettifyService,
+    'applyDefaultProfileToSelectedText' | 'cancel'
+  >;
   readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
@@ -237,7 +240,7 @@ export class ShortcutController {
       }
 
       this.dependencies.logger.info(`${prettifyHotkey} pressed, prettifying selected text`);
-      const resultPromise = this.dependencies.selectedTextPrettifyService.prettifySelectedText();
+      const resultPromise = this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText();
       this.dependencies.trayController.updateIcon('prettifying');
       this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
       void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
