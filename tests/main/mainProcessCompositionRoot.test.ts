@@ -22,6 +22,7 @@ import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProvide
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -485,6 +486,14 @@ class MainProcessCompositionHarness {
             unref: () => undefined,
           }),
         },
+        prettifyProfileChooser: {
+          preloadPath: '/app/prettify-profile-chooser-preload.js',
+          screen: {
+            getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+            getDisplayNearestPoint: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
+            getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
+          },
+        },
         shortcuts: {
           globalShortcut: {
             register: () => true,
@@ -771,6 +780,11 @@ describe('main process composition root', () => {
 
     assert.equal(harness.state.createCount, 1);
     assert.equal(harness.state.ipcHandlers.size > 0, true);
+    for (const channel of Object.values(PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS)) {
+      if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
+        assert.equal(harness.state.ipcHandlers.has(channel), true);
+      }
+    }
 
     harness.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();

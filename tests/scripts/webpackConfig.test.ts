@@ -23,10 +23,34 @@ test('uses ESM only for the renderer TypeScript compilation', async () => {
   });
   assert.equal(mainConfig.target, 'electron-main');
   assert.equal(preloadConfig.target, 'electron-preload');
+  assert.deepEqual(preloadConfig.entry, {
+    preload: './src/main/preload.ts',
+    'prettify-profile-chooser-preload': './src/main/prettifyProfileChooserPreload.ts',
+  });
+  assert.equal((preloadConfig.output as { filename?: string }).filename, '[name].js');
+  assert.equal(webpackConfigs.length, 3);
   assert.deepEqual(rendererRule?.use, {
     loader: 'ts-loader',
     options: { configFile: path.join(rootDirectory, 'tsconfig.renderer.json') },
   });
+});
+
+test('keeps the chooser renderer and HTML out while emitting both isolated preload entry names', () => {
+  const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
+  const preloadConfig = webpackConfigs[1];
+  const rendererWebpackConfig = webpackConfigs[2];
+  const rendererEntries = rendererWebpackConfig.entry as Record<string, string>;
+  const plugins = rendererWebpackConfig.plugins as Array<{ options?: { filename?: string } }>;
+
+  assert.deepEqual(Object.keys(preloadConfig.entry as Record<string, string>).sort(), [
+    'preload',
+    'prettify-profile-chooser-preload',
+  ]);
+  assert.equal('prettifyProfileChooser' in rendererEntries, false);
+  assert.equal(
+    plugins.some((plugin) => plugin.options?.filename === 'prettify-profile-chooser.html'),
+    false,
+  );
 });
 
 test('emits the live PCM worklet as one local renderer asset under the strict startup CSP', async () => {

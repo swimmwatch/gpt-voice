@@ -105,6 +105,10 @@ import { APP_DATABASE_SCHEMA_VERSION, AppDatabaseCoordinator } from '../reposito
 import { SqliteDiagnosticCaptureRepository } from '../repositories/sqlite/sqliteDiagnosticCaptureRepository';
 import { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
 import { DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION } from '@shared/diagnosticsArchive';
+import {
+  PrettifyProfileChooserWindowController,
+  type PrettifyProfileChooserWindowControllerDependencies,
+} from '../prettifyProfileChooserWindowController';
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
@@ -267,6 +271,7 @@ export interface MainProcessDesktopControllerEnvironment {
     LinuxDesktopIntegrationControllerDependencies,
     'getAppIconPath' | 'getAssetPath' | 'logger'
   >;
+  readonly prettifyProfileChooser: Pick<PrettifyProfileChooserWindowControllerDependencies, 'preloadPath' | 'screen'>;
   readonly shortcuts: Omit<
     ShortcutControllerDependencies,
     | 'selectedTextActionGate'
@@ -294,6 +299,7 @@ type ConstructedDesktopDependencyKeys =
   | 'backgroundBrowserService'
   | 'desktopRuntimeController'
   | 'linuxDesktopIntegrationController'
+  | 'prettifyProfileChooserWindow'
   | 'runtimeFactory'
   | 'selectedTextPrettifyService'
   | 'shortcutController'
@@ -570,6 +576,15 @@ export class MainProcessCompositionRoot {
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
+    const prettifyProfileChooserWindow = new PrettifyProfileChooserWindowController({
+      ...desktopEnvironment.prettifyProfileChooser,
+      createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
+      getAppIconPath: assetPaths.getAppIconPath,
+      getAppUrl: desktopEnvironment.window.getAppUrl,
+      logger: loggerFactory.getLogger('prettify-profile-chooser'),
+      openExternal: electronRuntime.openExternal,
+      randomUUID: this.environment.randomUUID,
+    });
     const selectedTextPrettifyService = new SelectedTextPrettifyService({
       ...this.environment.prettify.selectedText,
       actionGate: selectedTextActionGate,
@@ -577,11 +592,7 @@ export class MainProcessCompositionRoot {
         maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
         now: this.environment.cacheNow,
       }),
-      chooser: {
-        cancel: () => undefined,
-        focus: () => false,
-        open: () => Promise.resolve({ type: 'close' }),
-      },
+      chooser: prettifyProfileChooserWindow,
       clipboard: {
         readText: electronRuntime.readClipboardText,
         writeText: electronRuntime.writeTypedClipboardText,
@@ -660,6 +671,7 @@ export class MainProcessCompositionRoot {
       diagnosticsArchive,
       diagnosticsExport,
       historyRepository,
+      prettifyProfileChooserWindow,
       prettifyRuntime,
       selectedTextPrettifyService,
       shortcutController,

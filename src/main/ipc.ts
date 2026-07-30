@@ -64,6 +64,8 @@ import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCapt
 import type { DiagnosticsExportService } from './services/diagnosticsExport';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
+import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
 
 const TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG = 'Translation provider connection refresh failed';
 
@@ -132,6 +134,8 @@ export interface MainIpcControllerDependencies {
     show(title: string, body: string, options?: SystemNotificationOptions): void;
   };
   readonly platform: NodeJS.Platform;
+  readonly prettifyProfileChooserIpc: Pick<PrettifyProfileChooserIpcRegistrar, 'dispose' | 'register'>;
+  readonly prettifyProfileChooserWindow: Pick<PrettifyProfileChooserWindowController, 'publishLocaleChanged'>;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly prettifySettings: MainIpcPrettifySettingsRepository;
   readonly shortcutController: ShortcutController;
@@ -288,6 +292,7 @@ export class MainIpcController {
     const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
       dependencies.prettifyRuntime,
     );
+    dependencies.prettifyProfileChooserIpc.register();
     this.prettifyConnectionCoordinator = prettifyConnectionCoordinator;
     this.streamingTranscriptionController = dependencies.createStreamingTranscriptionController({
       addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
@@ -999,6 +1004,7 @@ export class MainIpcController {
         dependencies.config.setLocalePreference(locale);
         dependencies.config.save();
         dependencies.windowManager.broadcastLocaleChanged(locale);
+        dependencies.prettifyProfileChooserWindow.publishLocaleChanged(locale);
         log.info('Locale saved:', { locale: dependencies.localization.getLocale() });
         return { success: true };
       } catch (error: unknown) {
@@ -1015,6 +1021,7 @@ export class MainIpcController {
   public dispose(): Promise<void> {
     if (this.disposalPromise) return this.disposalPromise;
     this.disposed = true;
+    this.dependencies.prettifyProfileChooserIpc.dispose();
     this.trustedIpc.dispose();
     this.prettifyConnectionCoordinator?.dispose();
     this.disposalPromise = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();

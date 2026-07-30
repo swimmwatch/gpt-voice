@@ -19,6 +19,7 @@ import {
   Notification,
   protocol,
   safeStorage,
+  screen,
   session,
   shell,
   Tray,
@@ -370,6 +371,10 @@ function bootstrapMainProcess(): void {
         homeDirectory: os.homedir,
         platform: process.platform,
         spawn: (command, args, options) => spawn(command, [...args], options),
+      },
+      prettifyProfileChooser: {
+        preloadPath: path.join(__dirname, 'prettify-profile-chooser-preload.js'),
+        screen,
       },
       shortcuts: {
         globalShortcut,

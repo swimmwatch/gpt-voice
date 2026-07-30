@@ -46,7 +46,10 @@ module.exports = [
   // Preload script
   {
     mode,
-    entry: './src/main/preload.ts',
+    entry: {
+      preload: './src/main/preload.ts',
+      'prettify-profile-chooser-preload': './src/main/prettifyProfileChooserPreload.ts',
+    },
     target: 'electron-preload',
     node: {
       __dirname: false,
@@ -67,7 +70,7 @@ module.exports = [
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: 'preload.js',
+      filename: '[name].js',
     },
   },
   // Renderer process

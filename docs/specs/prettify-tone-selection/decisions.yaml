@@ -2100,3 +2100,65 @@ decisions:
     rationale: 'The atomic commit closes the reviewed Packet 04 boundary before the next packet replaces the temporary chooser port and extends overlapping composition/lifecycle files.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 was committed atomically before Packet 05 started.'
+      - 'The user authorized Packet 05 through the persistent implementation interview on 2026-07-30 and then explicitly requested implementation of the approved plan.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: execution.packet-05
+      idempotency_key: execution.packet-05:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 05 — Chooser Window and Isolated IPC — after the Packet 04 atomic commit?'
+      kind: single
+      options:
+        - id: authorize_packet_05
+          label: 'Authorize Packet 05'
+          description: 'Implement only Packet 05, verify it, update todo and handoff, and leave Packet 05 uncommitted.'
+        - id: commit_packet_04_only
+          label: 'Commit Packet 04 only'
+          description: 'Commit the authorized Packet 04 boundary and stop without starting Packet 05.'
+    answer:
+      selected_ids: [authorize_packet_05]
+      text: ''
+    rationale: 'The next incremental implementation is bounded to the approved chooser window and isolated IPC packet and excludes renderer UI, hotkey routing, dependencies, publishing, and release work.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.commit.packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 was complete, verified, and intentionally uncommitted before the next incremental-implementation invocation.'
+      - 'The user authorized its atomic commit through the persistent implementation interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: authorization.commit.packet-05
+      idempotency_key: authorization.commit.packet-05:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize creating one atomic commit containing only completed Packet 05 before Packet 06 starts?'
+      kind: single
+      options:
+        - id: authorize_atomic_commit
+          label: 'Authorize Packet 05 commit'
+          description: 'Commit only the verified Packet 05 changes as one conventional atomic commit, then allow Packet 06 authorization.'
+        - id: hold_uncommitted
+          label: 'Hold for review'
+          description: 'Leave Packet 05 uncommitted and do not start Packet 06.'
+    answer:
+      selected_ids: [authorize_atomic_commit]
+      text: ''
+    rationale: 'The atomic commit closes the reviewed Packet 05 boundary before Packet 06 adds the renderer and packaged entry on top of its window, preload, and IPC contracts.'
+    supersedes_revision: null
+    requirement_ids: []

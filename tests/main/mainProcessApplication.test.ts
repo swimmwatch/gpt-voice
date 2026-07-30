@@ -476,6 +476,9 @@ class MainProcessApplicationHarness {
           this.events.push('prettify-shutdown');
         },
       },
+      prettifyProfileChooserWindow: {
+        dispose: () => this.events.push('prettify-chooser-dispose'),
+      },
       notify: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
       selectedTextPrettifyService: {
@@ -634,6 +637,7 @@ describe('main process application lifecycle', () => {
       'set-quitting',
       'shortcuts-dispose',
       'prettify-selection-dispose',
+      'prettify-chooser-dispose',
       'ipc-dispose',
       'prettify-shutdown',
       'translation-shutdown',

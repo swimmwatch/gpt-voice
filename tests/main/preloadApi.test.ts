@@ -134,6 +134,8 @@ describe('preload API factory', () => {
     assert.match(preload, /contextBridge\.exposeInMainWorld\('electronAPI', createElectronApi\(ipcRenderer\)\)/u);
     assert.doesNotMatch(preload, /ipcRenderer\.invoke|ipcRenderer\.on/u);
     assert.match(factory, /export function createElectronApi/u);
+    assert.doesNotMatch(preload, /prettifyProfileChooser|prettify-profile-chooser/u);
+    assert.doesNotMatch(factory, /prettifyProfileChooser|prettify-profile-chooser/u);
     assert.doesNotMatch(factory, /contextBridge|exposeInMainWorld/u);
   });
 });

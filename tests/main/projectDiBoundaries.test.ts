@@ -285,6 +285,7 @@ describe('project dependency injection boundaries', () => {
     assert.deepEqual(electronValueImports, [
       'src/main/main.ts',
       'src/main/preload.ts',
+      'src/main/prettifyProfileChooserPreload.ts',
       'src/renderer/bootstrapWindow.tsx',
     ]);
   });

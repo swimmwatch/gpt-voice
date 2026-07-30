@@ -9,74 +9,86 @@
 - [`03_provider_profile_execution.md`](./03_provider_profile_execution.md) —
   committed atomically as `764a4c8`.
 - [`04_selected_text_profile_orchestration.md`](./04_selected_text_profile_orchestration.md) —
+  committed atomically as `c9bbb69`.
+- [`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md) —
   complete and intentionally uncommitted for review.
 
 ## Changed Files
 
 - Authorization: `decisions.yaml`.
-- Chooser contract: `src/shared/prettifyProfileChooser.ts`.
-- Main orchestration: `src/main/services/selectedTextPrettify.ts`.
-- Ownership and compatibility:
-  `src/main/di/mainProcessCompositionRoot.ts`,
-  `src/main/mainProcessApplication.ts`, and `src/main/shortcuts.ts`.
-- Tests: `tests/main/selectedTextPrettify.test.ts`,
-  `mainProcessApplication.test.ts`, and `shortcutController.test.ts`.
+- Shared/renderer-safe contracts:
+  `src/shared/prettifyProfileChooser.ts` and
+  `src/renderer/prettifyProfileChooserTypes.ts`.
+- Chooser window and IPC:
+  `src/main/prettifyProfileChooserWindowController.ts`,
+  `prettifyProfileChooserIpcRegistrar.ts`,
+  `prettifyProfileChooserPreloadApi.ts`, and
+  `prettifyProfileChooserPreload.ts`.
+- Graph/lifecycle integration:
+  `src/main/ipc.ts`, `main.ts`, `mainProcessApplication.ts`,
+  `di/mainProcessCompositionRoot.ts`, and `di/mainProcessRuntimeFactory.ts`.
+- Build: `webpack.config.js`.
+- Tests: chooser window/IPC/preload tests plus WindowManager, general preload,
+  application/composition, DI-boundary, and webpack contract updates.
 - Completion state: `tasks/todo.md` and this file.
 
-## Orchestration And Privacy Evidence
+## Window, Trust, And Privacy Evidence
 
-- The service owns explicit `capturing`, `choosing`, and `generating` phases,
-  one abortable active run, and idempotent cancellation/disposal.
-- Capture restores the previous clipboard exactly once before chooser or
-  provider waiting. Later close, cancellation, failure, shutdown, and provider
-  completion never restore that old value.
-- Chooser requests contain source plus frozen localized summaries only. Main
-  retains a defensively normalized, frozen full-profile snapshot with
-  instructions and validates Apply exclusively against that snapshot.
-- Deferred tests prove that live-object mutation and committed catalog
-  replacement cannot change an open chooser. Deleted profiles retain their
-  opening semantics, newly added IDs are rejected, and later chooser/quick
-  operations observe the new catalog.
-- Quick apply resolves the current explicit default and shares the exact
-  composer, provider, cache, result-validation, clipboard-write, notification,
-  and cancellation path with chooser Apply.
-- Last chooser selection exists only in process memory, is eligible only in a
-  later snapshot that still contains it, and never affects quick/default
-  behavior or cache identity.
-- Reentry focuses the existing chooser without recapture; generation reentry is
-  skipped. Late or duplicate results cannot write the clipboard.
-- The current production F12 remains on the immediate default path until packet
-  07. The graph-owned temporary chooser port closes without work until packet
-  05 supplies the real window controller.
-- Logs, notifications, normal diagnostics, and errors remain free of source,
-  profile names, descriptions, instructions, and result content.
+- The graph-owned controller provides one fixed native 620×640 chooser,
+  cursor-display placement with primary fallback and constrained/tiny work-area
+  bounds, dedicated sandboxed preload preferences, exact navigation guards, and
+  hidden-until-payload/renderer/native readiness.
+- Each operation uses a branded UUID token, frozen cloned source/summary
+  payload, and private profile-ID allow-list. Reentry retains the same promise
+  and payload; Apply, Cancel, Manage, native close, load failure, crash,
+  unresponsive, and dispose share one exact-once terminal cleanup.
+- The dedicated registrar registers only chooser-namespaced load, ready, apply,
+  cancel, manage, translation-read, and locale-read channels directly on
+  `MainIpcTransport`. It requires the exact live window/WebContents object and
+  ID, mandatory exact frame URL, exact token, argument count, and allowed
+  profile ID.
+- Invalid, stale, malformed, duplicate, wrong-window, and wrong-profile calls
+  use one content-free rejection and leave a valid operation unchanged.
+  Generic, Settings-only, and streaming trust continue to reject the chooser;
+  `WindowManager` trust and window enumeration remain unchanged.
+- The chooser preload exposes only eight minimal API methods. General
+  localization and preload APIs remain unchanged; locale updates are published
+  only to the current chooser through its namespaced event.
+- Shutdown order is selected-text cancellation, chooser disposal, IPC disposal,
+  then provider shutdown. Logs and errors contain no source/profile content.
+- Webpack retains three configurations, emits `dist/preload.js` and
+  `dist/prettify-profile-chooser-preload.js`, and adds no chooser renderer or
+  HTML before packet 06.
 
 ## Checks
 
-- `selectedTextPrettify`, `shortcutController`,
-  `selectedTextTranslation`, `mainProcessCompositionRoot`, and
-  `mainProcessApplication` tests — passed.
+- Packet-focused chooser window, IPC, preload, WindowManager, general preload,
+  application/composition, webpack, DI-boundary, selected-text, and affected
+  generic/Settings/streaming IPC tests — passed.
 - `rtk npm run typecheck` — passed.
 - `rtk npm run test:types` — passed.
+- `rtk npm run build:prod` — passed; both preload bundles emitted, with only
+  existing webpack size warnings.
 - `rtk npm run format:check` — passed.
 - `rtk npm run lint -- --max-warnings 0` — passed.
 - `rtk git diff --check` — passed.
 
 ## Manual Gates
 
-- Tests used deterministic synthetic source, clipboard, profile, provider,
-  cache, chooser, and lifecycle fixtures only.
-- Packaged Windows and Linux clipboard/selection verification remains assigned
-  to packet 10.
-- No live provider, credential, external endpoint, private user data,
-  dependency, packaging, push, pull request, or release gate was crossed.
+- Tests used deterministic synthetic display, window, WebContents, token,
+  source, profile, locale, IPC, and lifecycle fixtures only.
+- Multi-display focus and native platform chrome verification remain assigned
+  to packets 06/10.
+- No live desktop/provider, credential, external endpoint, private user data,
+  dependency, packaging, Packet 05 commit, push, pull request, or release gate
+  was crossed.
 
 ## Exact Next Packet
 
-Review packet 04 while it remains uncommitted. After its commit boundary is
+Review packet 05 while it remains uncommitted. After its commit boundary is
 explicitly resolved and a separate `incremental-implementation` authorization
 is given, start
-[`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md).
+[`06_chooser_renderer_exact_design.md`](./06_chooser_renderer_exact_design.md).
 
 ## Blockers
 

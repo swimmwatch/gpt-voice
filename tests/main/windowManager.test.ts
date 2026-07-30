@@ -187,7 +187,7 @@ describe('WindowManager', () => {
     assert.deepEqual(harness.created[0]?.sent, [[TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state]]);
   });
 
-  it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', () => {
+  it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {
     const harness = new WindowManagerHarness();
     harness.manager.createMainWindow();
     harness.manager.showSettingsWindow('shortcuts');
@@ -217,11 +217,18 @@ describe('WindowManager', () => {
       harness.manager.getTrustedSettingsWindow(settingsWindow?.webContents, 'app://gpt-voice/settings.html'),
       null,
     );
+    const chooserWindow = new RecordingBrowserWindow(99, {});
+    await chooserWindow.loadURL('app://gpt-voice/prettify-profile-chooser.html');
+    assert.equal(
+      harness.manager.isTrustedAppWindow(chooserWindow.webContents, 'app://gpt-voice/prettify-profile-chooser.html'),
+      false,
+    );
 
     harness.manager.broadcastLocaleChanged('en');
     for (const window of harness.created) {
       assert.deepEqual(window.sent[window.sent.length - 1], ['locale-changed', 'en']);
     }
+    assert.deepEqual(chooserWindow.sent, []);
     assert.equal(mainWindow?.sent.length, 1);
 
     harness.manager.closeSettingsWindow();
