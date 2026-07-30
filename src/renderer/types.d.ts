@@ -55,6 +55,13 @@ import type {
   PrettifyProfileImportResult,
 } from '@shared/prettifyProfilePortability';
 import type {
+  PrettifyCustomProfileIdAllocationRequest,
+  PrettifyCustomProfileIdAllocationResult,
+  PrettifyProfileCatalogSaveResult,
+  PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
   VoiceProviderCategory,
@@ -130,6 +137,11 @@ export interface ElectronAPI {
   exportPrettifyProfiles: (request: PrettifyProfileExportRequest) => Promise<PrettifyProfileExportResult>;
   importPrettifyProfiles: (request: PrettifyProfileImportRequest) => Promise<PrettifyProfileImportResult>;
   applyPrettifyProfileImport: (request: PrettifyProfileImportApplyRequest) => Promise<PrettifyProfileImportApplyResult>;
+  getPrettifyProfileCatalog: () => Promise<PrettifyProfileCatalogSettingsSnapshot>;
+  savePrettifyProfileCatalog: (catalog: PrettifyProfileCatalog) => Promise<PrettifyProfileCatalogSaveResult>;
+  allocatePrettifyCustomProfileId: (
+    request: PrettifyCustomProfileIdAllocationRequest,
+  ) => Promise<PrettifyCustomProfileIdAllocationResult>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;

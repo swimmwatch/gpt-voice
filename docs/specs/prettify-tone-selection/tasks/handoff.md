@@ -2,90 +2,88 @@
 
 ## Completed Packets
 
-- [`01_profile_domain_and_instructions.md`](./01_profile_domain_and_instructions.md) —
-  committed as `fe3cd45`.
-- [`02_catalog_persistence_and_migration.md`](./02_catalog_persistence_and_migration.md) —
-  committed as `f1b4a16`.
-- [`03_provider_profile_execution.md`](./03_provider_profile_execution.md) —
-  committed atomically as `764a4c8`.
-- [`04_selected_text_profile_orchestration.md`](./04_selected_text_profile_orchestration.md) —
-  committed atomically as `c9bbb69`.
-- [`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md) —
-  committed atomically as `b87f71a`.
-- [`06_chooser_renderer_exact_design.md`](./06_chooser_renderer_exact_design.md) —
-  committed atomically as `80d9cd6`.
-- [`07_quick_apply_shortcut.md`](./07_quick_apply_shortcut.md) —
-  committed atomically as `53e0d8a`.
+- Packets 01–07 are committed through `53e0d8a`.
 - [`08_profile_import_export_services.md`](./08_profile_import_export_services.md) —
+  committed atomically as `4efcfac`.
+- [`09_settings_profile_management_exact_design.md`](./09_settings_profile_management_exact_design.md) —
   complete and intentionally uncommitted for review.
 
-## Changed Files
+## Packet 09 Changed Files
 
 - Authorization and completion state: `decisions.yaml`, `tasks/todo.md`, and
   this file.
-- Portable contract: `src/shared/prettifyProfilePortability.ts`.
-- Main service and process wiring:
-  `src/main/services/prettifyProfilePortability.ts`, composition/runtime
-  factories, `main.ts`, and all 11 locale catalogs.
-- Trusted renderer boundary: `src/main/ipc.ts`, `src/main/preloadApi.ts`, and
-  `src/renderer/types.d.ts`.
-- Tests: strict shared-document parsing/serialization, main file and merge
-  flows, Settings-only IPC/preload privacy, and composition ownership.
+- Catalog contract and trusted boundary:
+  `src/shared/prettifyProfileCatalogIpc.ts`, `src/main/ipc.ts`,
+  `src/main/preloadApi.ts`, and `src/renderer/types.d.ts`.
+- Transactional renderer state and save integration:
+  `src/renderer/prettifyProfilesDraft.ts`, `AppSettingsWindow.tsx`,
+  `appSettingsUtils.ts`, validation/model helpers, and the prompt-free
+  `PrettifySection.tsx`.
+- Exact Settings surface:
+  `src/renderer/components/settings/PrettifyProfilesSettingsSection.tsx`.
+- Localization: the English catalog, all ten non-English catalogs, and
+  `src/main/i18n/prettifyProfileSettingsTranslations.ts`.
+- Tests: profile reducer/surface contracts, partial-save reconciliation, and
+  Settings-only catalog IPC/preload coverage.
 
-## Contract, Merge, And Privacy Evidence
+## Implemented Contract
 
-- Portable files are fatal-UTF-8 JSON with exact schema
-  `gpt-voice.prettify-profiles`, version `1`, at most 200 custom records, and a
-  4 MiB raw-byte limit applied before decode or parse.
-- Export revalidates the complete Settings draft and explicit custom-ID
-  selection, requires `confirmedPlaintext: true`, preserves selection order,
-  and writes deterministic two-space JSON plus a trailing newline through an
-  atomic private-mode `0o600` adapter.
-- Import reads through a bounded main-owned adapter and returns only frozen
-  validated records, profile-ID conflict descriptors, allowed actions, and a
-  localized dual-target Replace reason. Paths, raw JSON, parser/OS details,
-  profile contents, and instructions never enter logs or failure results.
-- Apply revalidates the draft, records, conflicts, and decisions. Replace
-  preserves the local ID and chooser position; Skip is inert; new and Rename
-  profiles append in original file order. Dual-target Replace, repeated
-  targets, incomplete/extra decisions, duplicate names, invalid capacity, and
-  allocator exhaustion fail transactionally.
-- Rename uses only `AppConfigStore.allocatePrettifyCustomProfileId`. Each call
-  receives a deduplicated set of current draft IDs, retained no-conflict IDs,
-  and earlier allocated IDs; the persisted/process reservation remains
-  authoritative.
-- Local default and every existing chooser position remain unchanged. No
-  catalog persistence is performed by Packet 08.
-- Channels `prettify-profile-portability:export`, `:import`, and
-  `:apply-import` are registered only through
-  `TrustedIpcRegistrar.handleSettingsWindow`; the chooser preload remains
-  unchanged.
+- Profiles use a dedicated draft/baseline reducer. CRUD, default, mixed order,
+  and import are draft-only; search, dialogs, and export remain clean.
+- The save coordinator attempts provider settings first, catalog second, then
+  every later dirty group. Each baseline reconciles only from its own
+  authoritative success, including both partial-failure directions.
+- Renderer provider drafts no longer contain `prompt`; provider IPC omits it,
+  while main validation still rejects stale payloads that supply it. The
+  catalog-owned rollback projection remains unchanged.
+- Catalog get/save/allocation channels are registered only through the exact
+  live Settings sender boundary. Allocation accepts one unique IDs-only list
+  of at most 200 entries and delegates to the existing process-owned allocator.
+- The production section reproduces the approved mixed 72 px list, search,
+  disabled reorder paths while filtering, native drag, keyboard/menu reorder,
+  action matrix, editors, delete/default replacement, explicit export
+  selection, and main-authoritative import preview. No row selection glyph was
+  introduced.
+- All mutations are disabled during an active Settings save. Profile values,
+  instructions, paths, and full order arrays remain absent from logs and
+  content-free failures.
+- All 93 new profile-management messages are localized in every supported
+  catalog with English placeholder parity; existing built-in metadata remains
+  localized through its canonical keys.
 
 ## Checks
 
-- Packet-focused shared parser/serializer, main import/export/merge,
-  Settings-only IPC/preload, composition, diagnostics export, catalog/config,
-  and i18n tests — passed.
+- Packet-focused renderer reducer/UI/save/model/close tests; main
+  catalog/portability/IPC/preload/config/i18n tests; and shared
+  catalog/portability/provider-setting tests — passed.
 - `rtk npm run typecheck` — passed.
 - `rtk npm run test:types` — passed.
+- `rtk npm run build:prod` — passed; existing Webpack size recommendations
+  only.
 - `rtk npm run format:check` — passed.
-- `rtk npm run lint -- --max-warnings 0` — passed.
+- `rtk npm run lint -- --max-warnings 0` — passed with zero warnings.
 - `rtk git diff --check` — passed.
 
-## Manual Gates
+## Visual And Manual Gates
 
-- Packaged Windows and Linux native open/save dialog, permission, and atomic
-  replacement behavior remains a Packet 10 manual gate.
-- Tests used synthetic paths and profiles only. No live desktop/provider,
-  credential, external endpoint, private user data, dependency, Packet 08
+- Production renderer was exercised with synthetic, local-only data at DSF=1.
+  Temporary uncommitted screenshots at 760×720, 440×520, and the 760×720
+  Create editor matched the approved main/search/editor references with no
+  unresolved P0–P2 difference. The persistent footer and fixed-scope helper
+  remained visible, and the final browser console had zero errors or warnings.
+- Packaged Windows/Linux native file dialogs, pointer drag, full menu/dialog
+  matrix, screen-reader/reduced-motion behavior, long localized content, and a
+  200-custom-profile stress pass remain Packet 10 manual gates.
+- Only synthetic profiles and localhost assets were used. No live provider,
+  credential, external endpoint, private user data, dependency, Packet 09
   commit, push, pull request, packaging, or release gate was crossed.
 
 ## Exact Next Packet
 
-Review Packet 08 while it remains uncommitted. After its atomic commit boundary
+Review Packet 09 while it remains uncommitted. After its atomic commit boundary
 is explicitly authorized and a separate `incremental-implementation`
-authorization is given, start
-[`09_settings_profile_management_exact_design.md`](./09_settings_profile_management_exact_design.md).
+authorization is recorded, start
+[`10_integration_privacy_docs_and_release_readiness.md`](./10_integration_privacy_docs_and_release_readiness.md).
 
 ## Blockers
 

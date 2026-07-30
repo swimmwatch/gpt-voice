@@ -1,4 +1,7 @@
+import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+
 export default {
+  ...getPrettifyProfileSettingsTranslations('hi'),
   'translate.provider': 'अनुवाद प्रदाता',
   'translate.saving': 'सहेजा जा रहा है...',
   'translate.settingsSaveFailed': 'अनुवाद सेटिंग सहेजी नहीं जा सकीं',

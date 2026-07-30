@@ -28,8 +28,6 @@ const VALIDATION_TRANSLATION_KEYS = {
   'prettify-codex-model-invalid': 'appSettings.validation.codexModelInvalid',
   'prettify-codex-reasoning-invalid': 'appSettings.validation.codexReasoningInvalid',
   'prettify-codex-verbosity-invalid': 'appSettings.validation.codexVerbosityInvalid',
-  'prettify-prompt-required': 'appSettings.validation.promptRequired',
-  'prettify-prompt-too-long': 'appSettings.validation.promptTooLong',
   'prettify-provider-invalid': 'appSettings.validation.providerInvalid',
   'locale-required': 'appSettings.validation.localeRequired',
   'locale-unsupported': 'appSettings.validation.localeUnsupported',

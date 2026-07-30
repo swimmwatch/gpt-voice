@@ -68,6 +68,21 @@ import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
+import {
+  PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
+  type PrettifyCustomProfileIdAllocationResult,
+  type PrettifyProfileCatalogSaveResult,
+  type PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
+import {
+  PRETTIFY_BUILT_IN_PROFILES,
+  type PrettifyBuiltInProfileDefinition,
+} from './services/prettifyProfileInstruction';
+import {
+  PRETTIFY_PROFILE_ID_ALLOCATION_EXHAUSTED,
+  PrettifyProfileIdAllocationError,
+} from './prettifyProfileCatalogState';
 
 const TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG = 'Translation provider connection refresh failed';
 
@@ -80,15 +95,18 @@ export type MainIpcConfigRepository = Pick<
   AppConfigStore,
   | 'getHotkeySettings'
   | 'getDiagnosticCaptureSettings'
+  | 'getPrettifyProfileCatalog'
   | 'getSnapshot'
   | 'getTextActionSettings'
   | 'getTranslationSettings'
   | 'save'
   | 'saveDiagnosticCaptureSettings'
+  | 'savePrettifyProfileCatalog'
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
   | 'setTextActionSettings'
+  | 'allocatePrettifyCustomProfileId'
 >;
 
 export type MainIpcLocalization = Pick<
@@ -161,6 +179,40 @@ type TrustedSettingsIpcListener<Args extends unknown[]> = (
   settingsWindow: BrowserWindow,
   ...args: Args
 ) => unknown;
+
+function createPrettifyProfileCatalogSettingsSnapshot(
+  catalog: ReturnType<MainIpcConfigRepository['getPrettifyProfileCatalog']>,
+  builtInProfiles: readonly PrettifyBuiltInProfileDefinition[] = PRETTIFY_BUILT_IN_PROFILES,
+): PrettifyProfileCatalogSettingsSnapshot {
+  return Object.freeze({
+    builtInProfiles: Object.freeze(
+      builtInProfiles.map(({ id, instruction }) =>
+        Object.freeze({
+          id,
+          instruction,
+        }),
+      ),
+    ),
+    catalog,
+  });
+}
+
+function readForbiddenCustomProfileIdsRequest(value: unknown): unknown {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Reflect.ownKeys(value).length !== 1
+  ) {
+    throw new TypeError('Invalid Prettify profile ID allocation request');
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'forbiddenCustomProfileIds');
+  if (!descriptor || !('value' in descriptor)) {
+    throw new TypeError('Invalid Prettify profile ID allocation request');
+  }
+  return descriptor.value;
+}
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
 export class TrustedIpcRegistrar {
@@ -573,6 +625,43 @@ export class MainIpcController {
         return dependencies.prettifyProfilePortability.applyImport(settingsWindow, request);
       },
     );
+    this.trustedIpc.handleSettingsWindow(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.get, () => {
+      return createPrettifyProfileCatalogSettingsSnapshot(dependencies.config.getPrettifyProfileCatalog());
+    });
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.save,
+      (_event, _settingsWindow, candidate: unknown): PrettifyProfileCatalogSaveResult => {
+        try {
+          return {
+            catalog: dependencies.config.savePrettifyProfileCatalog(candidate),
+            success: true,
+          };
+        } catch (error: unknown) {
+          const code = error instanceof PrettifyProfileValidationError ? 'invalid-catalog' : 'save-failed';
+          log.warn('Prettify profile catalog save failed', { code });
+          return { code, success: false };
+        }
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.allocateCustomId,
+      (_event, _settingsWindow, request: unknown): PrettifyCustomProfileIdAllocationResult => {
+        try {
+          const forbiddenCustomProfileIds = readForbiddenCustomProfileIdsRequest(request);
+          return {
+            profileId: dependencies.config.allocatePrettifyCustomProfileId(forbiddenCustomProfileIds),
+            success: true,
+          };
+        } catch (error: unknown) {
+          const code =
+            error instanceof PrettifyProfileIdAllocationError && error.code === PRETTIFY_PROFILE_ID_ALLOCATION_EXHAUSTED
+              ? 'allocation-exhausted'
+              : 'invalid-request';
+          log.warn('Prettify custom profile ID allocation failed', { code });
+          return { code, success: false };
+        }
+      },
+    );
 
     this.trustedIpc.handle('get-cloakbrowser-settings', () => {
       return dependencies.cloakBrowserSettings.getView();
@@ -910,7 +999,7 @@ export class MainIpcController {
         if (!isPrettifyCliProviderId(providerId)) {
           return dependencies.prettifyRuntime.checkCliConnection(providerId);
         }
-        return prettifyConnectionCoordinator.check(event.sender, providerId, dependencies.prettifySettings.getView());
+        return prettifyConnectionCoordinator.check(event.sender, providerId, {});
       },
     );
 

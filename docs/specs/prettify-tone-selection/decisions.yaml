@@ -2348,3 +2348,34 @@ decisions:
     rationale: 'The atomic commit closes the reviewed import/export service boundary before Packet 09 adds transactional Settings profile management and its renderer-facing catalog APIs.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.packet-09
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 08 was committed atomically as 4efcfac before Packet 09 started.'
+      - 'The user authorized Packet 09 through the persistent implementation interview on 2026-07-30 and then explicitly requested implementation of the approved plan.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: implementation.packet-09-gates:v1
+      question_id: execution.packet-09
+      idempotency_key: execution.packet-09:v1
+      last_status: answered
+    question:
+      text: 'If the Packet 08 commit is authorized and succeeds, do you authorize implementation and verification of only Packet 09 — exact Settings profile management — leaving Packet 09 uncommitted?'
+      kind: single
+      options:
+        - id: authorize_packet_09
+          label: 'Authorize Packet 09'
+          description: 'Implement the approved transactional Settings UI exactly from the blueprint and PNG references, verify it, update todo and handoff, and stop before Packet 10.'
+        - id: commit_packet_08_only
+          label: 'Commit Packet 08 only'
+          description: 'Stop after the atomic Packet 08 commit without implementing Packet 09.'
+    answer:
+      selected_ids: [authorize_packet_09]
+      text: ''
+    rationale: 'The next incremental implementation is bounded to transactional Settings profile management, exact approved UI reproduction, catalog Settings IPC, localization, and verification; integration/release readiness remains Packet 10.'
+    supersedes_revision: null
+    requirement_ids: []

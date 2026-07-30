@@ -1,4 +1,7 @@
+import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+
 export default {
+  ...getPrettifyProfileSettingsTranslations('es'),
   'translate.provider': 'Proveedor de traducción',
   'translate.saving': 'Guardando...',
   'translate.settingsSaveFailed': 'No se pudo guardar la configuración de traducción',

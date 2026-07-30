@@ -15,6 +15,10 @@ import {
   type PrettifyProfileImportRequest,
 } from '@shared/prettifyProfilePortability';
 import {
+  PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
+  type PrettifyCustomProfileIdAllocationRequest,
+} from '@shared/prettifyProfileCatalogIpc';
+import {
   normalizePrettifyProfileCatalog,
   PRETTIFY_BUILT_IN_PROFILE_IDS,
   PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
@@ -22,6 +26,10 @@ import {
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const SETTINGS_URL = 'app://gpt-voice/settings.html';
+const ALL_PRETTIFY_PROFILE_SETTINGS_CHANNELS = [
+  ...Object.values(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS),
+  ...Object.values(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS),
+] as const;
 
 interface SenderFixture {
   readonly id: number;
@@ -112,12 +120,15 @@ function createDraft() {
 }
 
 describe('Prettify profile portability IPC contract', () => {
-  it('registers all three channels only through the Settings-window boundary', () => {
+  it('registers all portability and catalog channels only through the Settings-window boundary', () => {
     const source = readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
     for (const pattern of [
       /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS\.export/u,
       /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS\.import/u,
       /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS\.applyImport/u,
+      /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS\.get/u,
+      /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS\.save/u,
+      /handleSettingsWindow\([\s\S]{0,100}PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS\.allocateCustomId/u,
     ]) {
       assert.match(source, pattern);
     }
@@ -141,19 +152,19 @@ describe('Prettify profile portability IPC contract', () => {
     };
     const registrar = new TrustedIpcRegistrar(transport, logger, trustPolicy as unknown as WindowManager);
     const calls: Array<{ readonly args: readonly unknown[]; readonly window: BrowserWindow }> = [];
-    for (const channel of Object.values(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS)) {
+    for (const channel of ALL_PRETTIFY_PROFILE_SETTINGS_CHANNELS) {
       registrar.handleSettingsWindow(channel, (_event, window, ...args) => {
         calls.push({ args, window });
         return { status: 'cancelled' };
       });
     }
 
-    for (const channel of Object.values(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS)) {
+    for (const channel of ALL_PRETTIFY_PROFILE_SETTINGS_CHANNELS) {
       assert.deepEqual(await transport.invoke(channel, trustPolicy.liveSettings, SETTINGS_URL, { synthetic: true }), {
         status: 'cancelled',
       });
     }
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 6);
     assert.equal(
       calls.every(({ window }) => window === trustPolicy.liveSettingsWindow),
       true,
@@ -180,7 +191,7 @@ describe('Prettify profile portability IPC contract', () => {
       ),
       /Settings-only IPC sender/u,
     );
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 6);
     assert.doesNotMatch(JSON.stringify(warnings), /alice|private|app:\/\/|settings\.html/u);
   });
 
@@ -199,10 +210,16 @@ describe('Prettify profile portability IPC contract', () => {
       draft,
       profiles: [],
     };
+    const allocationRequest: PrettifyCustomProfileIdAllocationRequest = {
+      forbiddenCustomProfileIds: [],
+    };
 
     await api.exportPrettifyProfiles(exportRequest);
     await api.importPrettifyProfiles(importRequest);
     await api.applyPrettifyProfileImport(applyRequest);
+    await api.getPrettifyProfileCatalog();
+    await api.savePrettifyProfileCatalog(draft);
+    await api.allocatePrettifyCustomProfileId(allocationRequest);
 
     assert.deepEqual(renderer.invocations, [
       {
@@ -217,7 +234,28 @@ describe('Prettify profile portability IPC contract', () => {
         args: [applyRequest],
         channel: PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport,
       },
+      {
+        args: [],
+        channel: PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.get,
+      },
+      {
+        args: [draft],
+        channel: PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.save,
+      },
+      {
+        args: [allocationRequest],
+        channel: PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.allocateCustomId,
+      },
     ]);
+  });
+
+  it('keeps catalog allocation main-authoritative and content-free', () => {
+    const ipc = readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
+    assert.match(ipc, /readForbiddenCustomProfileIdsRequest\(request\)/u);
+    assert.match(ipc, /config\.allocatePrettifyCustomProfileId\(forbiddenCustomProfileIds\)/u);
+    assert.match(ipc, /Reflect\.ownKeys\(value\)\.length !== 1/u);
+    assert.match(ipc, /Prettify custom profile ID allocation failed/u);
+    assert.doesNotMatch(ipc, /Prettify custom profile ID allocation failed['"`][\s\S]{0,120}request/u);
   });
 
   it('keeps renderer contracts path-free and does not expand the isolated chooser preload', () => {

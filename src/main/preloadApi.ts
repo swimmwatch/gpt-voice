@@ -66,6 +66,14 @@ import {
   type PrettifyProfileImportRequest,
   type PrettifyProfileImportResult,
 } from '@shared/prettifyProfilePortability';
+import {
+  PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
+  type PrettifyCustomProfileIdAllocationRequest,
+  type PrettifyCustomProfileIdAllocationResult,
+  type PrettifyProfileCatalogSaveResult,
+  type PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -181,6 +189,17 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
       request: PrettifyProfileImportApplyRequest,
     ): Promise<PrettifyProfileImportApplyResult> => {
       return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport, request);
+    },
+    getPrettifyProfileCatalog: (): Promise<PrettifyProfileCatalogSettingsSnapshot> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.get);
+    },
+    savePrettifyProfileCatalog: (catalog: PrettifyProfileCatalog): Promise<PrettifyProfileCatalogSaveResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.save, catalog);
+    },
+    allocatePrettifyCustomProfileId: (
+      request: PrettifyCustomProfileIdAllocationRequest,
+    ): Promise<PrettifyCustomProfileIdAllocationResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.allocateCustomId, request);
     },
     getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
       return ipcRenderer.invoke('get-cloakbrowser-settings');

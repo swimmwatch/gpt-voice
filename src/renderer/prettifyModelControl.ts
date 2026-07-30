@@ -81,7 +81,9 @@ export function createPrettifyProviderModelStates(): PrettifyProviderModelStates
   };
 }
 
-export function createPrettifyProviderModelOptions(settings: PrettifySettings): PrettifyProviderModelOptions {
+export function createPrettifyProviderModelOptions(
+  settings: Pick<PrettifySettings, 'claudeCli' | 'codexCli' | 'ollama' | 'providerId' | 'vllm'>,
+): PrettifyProviderModelOptions {
   const claudeAliases = CLAUDE_CLI_PRETTIFY_MODEL_ALIASES.map((id) => ({ id, name: id }));
   return {
     ollama: [],
