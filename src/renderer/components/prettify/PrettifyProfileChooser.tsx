@@ -81,6 +81,7 @@ function ProfileOption({
         selected && 'border-primary bg-[var(--primary-subtle)] hover:border-primary hover:bg-[var(--primary-subtle)]',
       )}
       onClick={onSelect}
+      onDoubleClick={onApply}
       onKeyDown={handleKeyDown}
       ref={optionRef}
       role="option"
@@ -246,7 +247,7 @@ export function PrettifyProfileChooser({
           </div>
 
           <ScrollArea className="h-full min-h-0 rounded-lg border border-border bg-surface">
-            <ScrollAreaViewport>
+            <ScrollAreaViewport className="pr-2.5">
               <div aria-label={t('prettify.chooser.listLabel')} className="min-h-full" id={listboxId} role="listbox">
                 {visibleProfiles.length > 0 ? (
                   <div className="grid gap-1 p-1">

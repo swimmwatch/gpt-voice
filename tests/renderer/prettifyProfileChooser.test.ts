@@ -173,11 +173,12 @@ describe('Prettify profile chooser renderer contract', () => {
     assert.match(source, /max-\[379px\]:grid-cols-1/u);
     assert.match(source, /max-\[479px\]:hidden/u);
     assert.match(source, /border-primary bg-\[var\(--primary-subtle\)\]/u);
+    assert.match(source, /<ScrollAreaViewport className="pr-2\.5">/u);
     assert.match(source, /<strong className="font-medium text-foreground">\{selectedProfile\.name\}<\/strong>/u);
     assert.doesNotMatch(source, /\b(?:Check|CheckCircle|CircleDot|Radio)\b|type="radio"|aria-checked/u);
   });
 
-  it('keeps exact listbox, keyboard, search, and explicit-apply behavior', async () => {
+  it('keeps exact listbox, keyboard, search, single-click selection, and double-click apply behavior', async () => {
     const source = await readFile(COMPONENT_PATH, 'utf8');
 
     assert.match(source, /role="listbox"/u);
@@ -193,6 +194,7 @@ describe('Prettify profile chooser renderer contract', () => {
     assert.match(source, /event\.key === 'Escape'/u);
     assert.match(source, /const firstVisibleProfileId = visibleProfiles\[0\]\?\.id/u);
     assert.match(source, /onClick=\{onSelect\}/u);
+    assert.match(source, /onDoubleClick=\{onApply\}/u);
     assert.doesNotMatch(source, /onClick=\{onApply\}/u);
   });
 
