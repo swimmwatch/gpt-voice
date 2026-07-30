@@ -352,6 +352,16 @@ export default {
 
   // Prettify
   'prettify.prompt': 'Prompt паляпшэння тэксту',
+  'prettify.profile.promptReady.name': 'Гатовы промпт',
+  'prettify.profile.promptReady.description': 'Ператварае чарнавы тэкст у зразумелы, структураваны промпт для ШІ.',
+  'prettify.profile.polish.name': 'Рэдагаванне',
+  'prettify.profile.polish.description':
+    'Выпраўляе граматыку, прыбірае словы-паразіты і ўдакладняе тэкст, не змяняючы сэнс.',
+  'prettify.profile.professional.name': 'Прафесійны',
+  'prettify.profile.professional.description':
+    'Выкарыстоўвае фармальную і дакладную мову для працоўных і тэхнічных задач.',
+  'prettify.profile.natural.name': 'Натуральны',
+  'prettify.profile.natural.description': 'Прыбірае артэфакты дыктоўкі, захоўваючы ваш стыль.',
   'prettify.reasoning': 'Reasoning',
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',

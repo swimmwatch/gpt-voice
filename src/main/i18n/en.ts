@@ -347,6 +347,14 @@ export default {
 
   // Prettify
   'prettify.prompt': 'Prettify prompt',
+  'prettify.profile.promptReady.name': 'Prompt-ready',
+  'prettify.profile.promptReady.description': 'Turn rough input into a clear, structured AI prompt.',
+  'prettify.profile.polish.name': 'Polish',
+  'prettify.profile.polish.description': 'Correct grammar, remove filler, and clarify without changing meaning.',
+  'prettify.profile.professional.name': 'Professional',
+  'prettify.profile.professional.description': 'Use formal, precise language for work and technical contexts.',
+  'prettify.profile.natural.name': 'Natural',
+  'prettify.profile.natural.description': 'Remove dictation artifacts while keeping your voice.',
   'prettify.reasoning': 'Reasoning',
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',

@@ -20,6 +20,7 @@ import {
   CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES,
   CODEX_CLI_PRETTIFY_VERBOSITY_VALUES,
 } from '@shared/prettifySettings';
+import { PRETTIFY_BUILT_IN_PROFILE_METADATA } from '@shared/prettifyProfiles';
 import { APP_LOCALE_IDS, type AppLocaleId } from '@shared/appLocale';
 
 const CLAUDE_WEB_ERROR_KEY_PREFIX = 'error.claudeWeb.';
@@ -123,6 +124,9 @@ const REQUIRED_MAIN_PRETTIFY_BAND_KEYS = [
   'mainDock.prettifyLoad',
   'mainDock.prettifyFree',
 ] as const;
+const REQUIRED_PRETTIFY_PROFILE_METADATA_KEYS = PRETTIFY_BUILT_IN_PROFILE_METADATA.flatMap(
+  ({ descriptionKey, nameKey }) => [nameKey, descriptionKey],
+);
 const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.system',
   'appSettings.language',
@@ -224,6 +228,17 @@ describe('i18n', () => {
     for (const locale of APP_LOCALE_IDS) {
       i18n.setLocale(locale);
       for (const key of REQUIRED_MAIN_PRETTIFY_BAND_KEYS) {
+        const message = i18n.translate(key);
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.notEqual(message, key, `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('resolves every built-in Prettify profile name and description in every locale', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      i18n.setLocale(locale);
+      for (const key of REQUIRED_PRETTIFY_PROFILE_METADATA_KEYS) {
         const message = i18n.translate(key);
         assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
         assert.notEqual(message, key, `${locale}:${key}`);

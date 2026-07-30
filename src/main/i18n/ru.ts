@@ -354,6 +354,15 @@ export default {
 
   // Prettify
   'prettify.prompt': 'Prompt улучшения текста',
+  'prettify.profile.promptReady.name': 'Готовый промпт',
+  'prettify.profile.promptReady.description': 'Преобразует черновой текст в понятный, структурированный промпт для ИИ.',
+  'prettify.profile.polish.name': 'Редактура',
+  'prettify.profile.polish.description':
+    'Исправляет грамматику, убирает слова-паразиты и проясняет текст, не меняя смысл.',
+  'prettify.profile.professional.name': 'Профессиональный',
+  'prettify.profile.professional.description': 'Использует формальный и точный язык для рабочих и технических задач.',
+  'prettify.profile.natural.name': 'Естественный',
+  'prettify.profile.natural.description': 'Убирает артефакты диктовки, сохраняя ваш стиль.',
   'prettify.reasoning': 'Reasoning',
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',

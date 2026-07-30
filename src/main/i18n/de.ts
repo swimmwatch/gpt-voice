@@ -326,6 +326,16 @@ export default {
   'translate.belarusian': 'Belarusch',
   'translate.targetLanguage': 'Zielsprache',
   'prettify.prompt': 'Verbesserungs-Prompt',
+  'prettify.profile.promptReady.name': 'Prompt-fertig',
+  'prettify.profile.promptReady.description': 'Verwandelt einen Rohtext in einen klaren, strukturierten KI-Prompt.',
+  'prettify.profile.polish.name': 'Überarbeiten',
+  'prettify.profile.polish.description':
+    'Korrigiert Grammatik, entfernt Füllwörter und präzisiert, ohne die Bedeutung zu ändern.',
+  'prettify.profile.professional.name': 'Professionell',
+  'prettify.profile.professional.description':
+    'Verwendet formelle, präzise Sprache für berufliche und technische Kontexte.',
+  'prettify.profile.natural.name': 'Natürlich',
+  'prettify.profile.natural.description': 'Entfernt Diktierartefakte und bewahrt dabei deinen persönlichen Ton.',
   'prettify.reasoning': 'Begründung',
   'prettify.reasoning.instant': 'Sofort',
   'prettify.reasoning.standard': 'Standard',
