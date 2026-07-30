@@ -1,9 +1,9 @@
 # Prettify Transformation Profiles — Task Checklist
 
-Plan status: Approved; packet 01 implemented and pending review
+Plan status: Approved; packets 01–02 complete, packet 03 pending execution authorization
 
 - [x] [`01_profile_domain_and_instructions.md`](./01_profile_domain_and_instructions.md)
-- [ ] [`02_catalog_persistence_and_migration.md`](./02_catalog_persistence_and_migration.md)
+- [x] [`02_catalog_persistence_and_migration.md`](./02_catalog_persistence_and_migration.md)
 - [ ] [`03_provider_profile_execution.md`](./03_provider_profile_execution.md)
 - [ ] [`04_selected_text_profile_orchestration.md`](./04_selected_text_profile_orchestration.md)
 - [ ] [`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md)
