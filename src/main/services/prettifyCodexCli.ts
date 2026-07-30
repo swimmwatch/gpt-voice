@@ -141,9 +141,9 @@ export type CodexCliModelListResult = CodexCliModelListSuccess | CodexCliModelDi
 
 export interface CodexCliPreparedPrettify {
   cacheContext: readonly string[];
-  capabilityVersion: string;
   execute(text: string, auditContext?: PrettifyAuditOperationContext): Promise<CodexCliPrettifyResult>;
   models: readonly CodexCliModelCapability[];
+  providerCapabilityVersion: string;
   source: CodexCliModelDiscoverySuccess['source'];
 }
 
@@ -151,7 +151,7 @@ export type CodexCliPrepareResult = { prepared: CodexCliPreparedPrettify; succes
 
 export interface CodexCliPrettifyInput {
   auditContext?: PrettifyAuditOperationContext;
-  prompt: string;
+  effectiveInstruction: string;
   settings: CodexCliPrettifySettings;
   signal: AbortSignal;
   text: string;
@@ -164,7 +164,7 @@ export interface CodexCliAvailabilityInput {
 }
 
 export interface CodexCliPrepareInput extends CodexCliAvailabilityInput {
-  prompt: string;
+  effectiveInstruction: string;
 }
 
 export interface CodexCliProcessRunner {
@@ -409,7 +409,7 @@ function appendModelSettings(
 
 /** Builds the fixed, fail-closed Codex invocation from an already validated schema path. */
 export function buildCodexCliPrettifyArguments(
-  prompt: string,
+  effectiveInstruction: string,
   outputSchemaPath: string,
   settings: CodexCliPrettifySettings,
   modelCapability?: CodexCliModelCapability,
@@ -433,16 +433,15 @@ export function buildCodexCliPrettifyArguments(
   for (const config of REQUIRED_CONFIG_OVERRIDES) args.push('--config', config);
   for (const feature of REQUIRED_DISABLED_FEATURES) args.push('--disable', feature);
   if (!appendModelSettings(args, settings, modelCapability)) return null;
-  args.push(prompt);
+  args.push(effectiveInstruction);
   return args;
 }
 
 export function getCodexCliPrettifyCacheContext(
-  capabilityVersion: string,
-  prompt: string,
+  providerCapabilityVersion: string,
   settings: CodexCliPrettifySettings,
 ): readonly string[] {
-  return ['codex-cli', capabilityVersion, settings.model, settings.reasoningEffort, settings.verbosity, prompt];
+  return ['codex-cli', providerCapabilityVersion, settings.model, settings.reasoningEffort, settings.verbosity];
 }
 
 /** Executes the internal, capability-gated Codex CLI Prettify contract. */
@@ -592,6 +591,7 @@ export class CodexCliPrettifyAdapter {
   public async listModels(input: CodexCliAvailabilityInput): Promise<CodexCliModelListResult> {
     const availability = await this.checkAvailability(input);
     if (!availability.success) return availability;
+    const providerCapabilityVersion = availability.capabilityVersion;
 
     const outputSchemaPath = this.resolveOutputSchemaPath();
     if (!outputSchemaPath || !(await this.hasValidSchema(outputSchemaPath))) {
@@ -600,12 +600,13 @@ export class CodexCliPrettifyAdapter {
 
     const discovered = await this.discoverModels(input.settings, input.signal, input.auditContext);
     if (!discovered.success) return discovered;
-    return { ...discovered, capabilityVersion: availability.capabilityVersion };
+    return { ...discovered, capabilityVersion: providerCapabilityVersion };
   }
 
   public async prepare(input: CodexCliPrepareInput): Promise<CodexCliPrepareResult> {
     const availability = await this.checkAvailability(input);
     if (!availability.success) return availability;
+    const providerCapabilityVersion = availability.capabilityVersion;
     if (input.settings.model && !isValidCodexCliModel(input.settings.model)) {
       return { error: CodexCliPrettifyErrorCode.InvalidModel, success: false };
     }
@@ -620,15 +621,19 @@ export class CodexCliPrettifyAdapter {
     const modelCapability = input.settings.model
       ? findModelCapability(input.settings.model, discovered.models)
       : undefined;
-    const args = buildCodexCliPrettifyArguments(input.prompt, outputSchemaPath, input.settings, modelCapability);
+    const args = buildCodexCliPrettifyArguments(
+      input.effectiveInstruction,
+      outputSchemaPath,
+      input.settings,
+      modelCapability,
+    );
     if (!args) return { error: CodexCliPrettifyErrorCode.InvalidModel, success: false };
 
     let consumed = false;
     return {
       success: true,
       prepared: {
-        cacheContext: getCodexCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
-        capabilityVersion: availability.capabilityVersion,
+        cacheContext: getCodexCliPrettifyCacheContext(providerCapabilityVersion, input.settings),
         execute: async (text, auditContext) => {
           if (consumed) return { error: CodexCliPrettifyErrorCode.ProcessFailed, success: false };
           consumed = true;
@@ -640,12 +645,13 @@ export class CodexCliPrettifyAdapter {
           const envelope = parseCodexCliEnvelope(result.stdout);
           if (!envelope.success) return envelope;
           return {
-            capabilityVersion: availability.capabilityVersion,
+            capabilityVersion: providerCapabilityVersion,
             success: true,
             text: envelope.text,
           };
         },
         models: discovered.models,
+        providerCapabilityVersion,
         source: discovered.source,
       },
     };

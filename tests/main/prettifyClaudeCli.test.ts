@@ -186,7 +186,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
     const source = ['synthetic', 'input'].join('-');
 
     const result = await adapter.prettify({
-      prompt: PROTECTED_PROMPT,
+      effectiveInstruction: PROTECTED_PROMPT,
       settings,
       signal: controller.signal,
       text: source,
@@ -247,7 +247,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
     ]);
     const adapter = new ClaudeCliPrettifyAdapter({ audit: new RecordingPrettifyProviderAudit(), runner });
     const prepared = await adapter.prepare({
-      prompt: PROTECTED_PROMPT,
+      effectiveInstruction: PROTECTED_PROMPT,
       settings: getSettings(),
       signal: new AbortController().signal,
     });
@@ -333,7 +333,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
 
     assert.deepEqual(
       await adapter.prepare({
-        prompt: PROTECTED_PROMPT,
+        effectiveInstruction: PROTECTED_PROMPT,
         settings: getSettings({ model: 'invalid model' }),
         signal: new AbortController().signal,
       }),
@@ -383,7 +383,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
       });
       assert.deepEqual(
         await adapter.prettify({
-          prompt: PROTECTED_PROMPT,
+          effectiveInstruction: PROTECTED_PROMPT,
           settings: getSettings(),
           signal: controller.signal,
           text: 'synthetic',
@@ -410,7 +410,7 @@ describe('ClaudeCliPrettifyAdapter', () => {
     const prepareContext = audit.startPrepare('claude-cli');
     const prepared = await adapter.prepare({
       auditContext: prepareContext,
-      prompt: privateCanaries.prompt,
+      effectiveInstruction: privateCanaries.prompt,
       settings: getSettings({
         executablePath: privateCanaries.executablePath,
         model: privateCanaries.model,
@@ -472,9 +472,9 @@ describe('ClaudeCliPrettifyAdapter', () => {
 
   it('builds a cache context without executable path, timeout, auth, source, or output values', () => {
     const settings = getSettings({ effort: 'low', fallbackModel: 'opus', model: 'sonnet' });
-    const context = getClaudeCliPrettifyCacheContext('2.1.71', PROTECTED_PROMPT, settings);
+    const context = getClaudeCliPrettifyCacheContext('2.1.71', settings);
 
-    assert.deepEqual(context, ['claude-cli', '2.1.71', 'sonnet', 'opus', 'low', PROTECTED_PROMPT]);
+    assert.deepEqual(context, ['claude-cli', '2.1.71', 'sonnet', 'opus', 'low']);
     assert.equal(context.includes(String(settings.timeoutSeconds)), false);
     assert.equal(context.includes(settings.executablePath), false);
   });

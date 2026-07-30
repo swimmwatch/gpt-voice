@@ -15,7 +15,7 @@ import {
   type PrettifySettingsStorage,
   type PrettifySettingsWithSecret,
 } from '@main/services/prettifySettingsStorage';
-import { getPrettifyBaseUrlValidationError, type PrettifySettingsInput } from '@shared/prettifySettings';
+import { getPrettifyBaseUrlValidationError, type PrettifyProviderSettingsInput } from '@shared/prettifySettings';
 import { I18nService } from '@main/i18n';
 import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
@@ -26,13 +26,13 @@ type PrettifyRuntimeFixtureOptions = {
   readonly diagnosticCapture?: RecordingDiagnosticCapture;
   readonly fetch?: PrettifyProviderFactoryDependencies['fetch'];
   readonly httpReadiness?: Omit<PrettifyHttpReadinessDependencies, 'audit' | 'fetch'>;
-  readonly settings?: Pick<PrettifySettingsStorage, 'getWithSecret'>;
+  readonly settings?: Pick<PrettifySettingsStorage, 'getProviderSettingsWithSecret'>;
 };
 
 export class TestPrettifySettingsStorage {
-  public constructor(private readonly storedSettings: PrettifySettingsInput = {}) {}
+  public constructor(private readonly storedSettings: PrettifyProviderSettingsInput = {}) {}
 
-  public getWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+  public getProviderSettingsWithSecret(input: PrettifyProviderSettingsInput = {}): PrettifySettingsWithSecret {
     const settings = createPrettifySettingsWithSecret({
       ...this.storedSettings,
       ...input,

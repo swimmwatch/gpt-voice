@@ -4,11 +4,46 @@ import { createTextActionCacheKey, createTextActionResultCache } from '@main/ser
 
 describe('textActionCache', () => {
   it('hashes cache keys instead of retaining source text', () => {
-    const key = createTextActionCacheKey(['prettify', 'sensitive selected text']);
+    const key = createTextActionCacheKey([
+      'prettify',
+      'sensitive selected text',
+      'instruction-contract-version',
+      '1',
+      'sensitive effective instruction',
+    ]);
 
     assert.match(key, /^[a-f0-9]{64}$/);
     assert.equal(key.includes('sensitive selected text'), false);
-    assert.equal(key, createTextActionCacheKey(['prettify', 'sensitive selected text']));
+    assert.equal(key.includes('sensitive effective instruction'), false);
+    assert.equal(
+      key,
+      createTextActionCacheKey([
+        'prettify',
+        'sensitive selected text',
+        'instruction-contract-version',
+        '1',
+        'sensitive effective instruction',
+      ]),
+    );
+  });
+
+  it('varies provider capability and instruction contract versions independently', () => {
+    const createKey = (providerCapabilityVersion: string, instructionContractVersion: string) =>
+      createTextActionCacheKey([
+        'prettify',
+        'source',
+        'claude-cli',
+        providerCapabilityVersion,
+        'instruction-contract-version',
+        instructionContractVersion,
+        'effective-instruction',
+        'same instruction',
+      ]);
+    const baseline = createKey('2.1.71', '1');
+
+    assert.equal(createKey('2.1.71', '1'), baseline);
+    assert.notEqual(createKey('2.1.72', '1'), baseline);
+    assert.notEqual(createKey('2.1.71', '2'), baseline);
   });
 
   it('returns null for cache misses and stores non-empty results', () => {

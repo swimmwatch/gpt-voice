@@ -3,14 +3,19 @@ import assert from 'node:assert/strict';
 import {
   composePrettifyProfileInstruction,
   getPrettifyBuiltInProfileDefinition,
+  normalizePrettifyExecutionInstruction,
   PRETTIFY_BUILT_IN_PROFILES,
+  PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR,
   PRETTIFY_PROFILE_INSTRUCTION_DELIMITER,
   PRETTIFY_PROFILE_PRODUCT_INVARIANTS,
+  resolvePrettifyExecutionInstruction,
 } from '@main/services/prettifyProfileInstruction';
 import {
+  normalizePrettifyProfileCatalog,
   normalizePrettifyProfileInstruction,
   PRETTIFY_BUILT_IN_PROFILE_IDS,
   PRETTIFY_INSTRUCTION_CONTRACT_VERSION,
+  PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
 } from '@shared/prettifyProfiles';
 
 describe('prettifyProfileInstruction', () => {
@@ -91,5 +96,69 @@ describe('prettifyProfileInstruction', () => {
     const result = composePrettifyProfileInstruction(getPrettifyBuiltInProfileDefinition('natural').instruction);
 
     assert.doesNotMatch(result.effectiveInstruction, new RegExp(sourceMarker, 'u'));
+  });
+
+  it('strictly validates the main-only execution instruction without exposing content', () => {
+    const valid = composePrettifyProfileInstruction(getPrettifyBuiltInProfileDefinition('natural').instruction);
+    assert.deepEqual(normalizePrettifyExecutionInstruction(valid), valid);
+    assert.equal(Object.isFrozen(normalizePrettifyExecutionInstruction(valid)), true);
+
+    const privateCanary = 'private-instruction-canary';
+    const invalidValues: unknown[] = [
+      null,
+      [],
+      { effectiveInstruction: '', instructionContractVersion: PRETTIFY_INSTRUCTION_CONTRACT_VERSION },
+      { effectiveInstruction: privateCanary, instructionContractVersion: PRETTIFY_INSTRUCTION_CONTRACT_VERSION },
+      { effectiveInstruction: privateCanary, instructionContractVersion: 2 },
+      {
+        effectiveInstruction: privateCanary,
+        extra: true,
+        instructionContractVersion: PRETTIFY_INSTRUCTION_CONTRACT_VERSION,
+      },
+      Object.create(null),
+      Object.defineProperty(
+        { instructionContractVersion: PRETTIFY_INSTRUCTION_CONTRACT_VERSION },
+        'effectiveInstruction',
+        {
+          get: () => privateCanary,
+        },
+      ),
+    ];
+
+    for (const value of invalidValues) {
+      assert.throws(
+        () => normalizePrettifyExecutionInstruction(value),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message === PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR &&
+          !error.message.includes(privateCanary),
+      );
+    }
+  });
+
+  it('resolves built-in and custom instructions from the authoritative normalized catalog', () => {
+    const customId = 'custom:00000000-0000-4000-8000-000000000001' as const;
+    const customInstruction = normalizePrettifyProfileInstruction('Use compact technical prose.');
+    const catalog = normalizePrettifyProfileCatalog({
+      chooserOrder: [...PRETTIFY_BUILT_IN_PROFILE_IDS, customId],
+      customProfiles: [{ id: customId, instruction: customInstruction, name: 'Technical' }],
+      defaultProfileId: customId,
+      schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+    });
+
+    assert.equal(
+      resolvePrettifyExecutionInstruction(catalog, 'polish').effectiveInstruction.endsWith(
+        getPrettifyBuiltInProfileDefinition('polish').instruction,
+      ),
+      true,
+    );
+    assert.equal(
+      resolvePrettifyExecutionInstruction(catalog, customId).effectiveInstruction.endsWith(customInstruction),
+      true,
+    );
+    assert.throws(
+      () => resolvePrettifyExecutionInstruction(catalog, 'custom:00000000-0000-4000-8000-000000000002'),
+      /^Error: Prettify profile instruction is unavailable$/u,
+    );
   });
 });

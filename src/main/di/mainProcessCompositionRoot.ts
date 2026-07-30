@@ -190,8 +190,8 @@ export interface MainProcessPrettifyEnvironment {
     | 'localization'
     | 'logger'
     | 'notify'
+    | 'profileCatalog'
     | 'runtime'
-    | 'settings'
     | 'textAutomation'
   >;
 }
@@ -572,8 +572,8 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('selection-prettify'),
       localization,
       notify: electronRuntime.showSystemNotification,
+      profileCatalog: configStore,
       runtime: prettifyRuntime,
-      settings: prettifySettingsStorage,
       textAutomation,
     });
     const windowManager = new WindowManager({

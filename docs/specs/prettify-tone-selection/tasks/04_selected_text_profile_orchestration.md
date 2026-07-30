@@ -25,6 +25,10 @@ change the meaning of an in-flight Apply.
   session.
 - Use planning decision `workflow.chooser-concurrent-catalog:v1`: an open
   chooser applies its immutable opening snapshot.
+- Use planning decision `planning.packet-03-default-resolution-bridge:v1`:
+  packet 03 already resolves the authoritative default for the current
+  immediate action; this packet extends that seam to the full chooser/quick
+  coordinator.
 
 ## Owned Requirements
 
@@ -40,7 +44,8 @@ change the meaning of an in-flight Apply.
 
 - One phase-aware selected-text Prettify coordinator/service.
 - Capture/validate/early-restore behavior.
-- Profile resolution for chooser selection and explicit default.
+- Extension of packet 03's explicit-default resolver to chooser selection and
+  the final quick-apply coordinator.
 - Immutable operation-scoped full-profile snapshots for chooser execution.
 - Shared provider/cache/result delivery, cancellation, shutdown, reentry, and
   session-only one-off memory.
@@ -127,7 +132,9 @@ change the meaning of an in-flight Apply.
 10. Quick behavior resolves the current explicit default at execution time and
     never opens a chooser. If the default cannot be resolved, recover/notify
     generically and do not run any profile until packet 02 repair is
-    authoritative. It never reuses a prior chooser snapshot.
+    authoritative. It never reuses a prior chooser snapshot. Reuse packet 03's
+    resolver/composer/runtime contract rather than adding a second default
+    resolution path.
 11. Remember only the last profile that was explicitly applied from the chooser
     in a private in-memory field. On a later chooser open, preselect it only if
     still valid in that new operation's snapshot; otherwise send no initial
@@ -255,7 +262,8 @@ Mandatory:
 - Planning decisions `workflow.clipboard-lifecycle:v1`,
   `workflow.chooser-selection-memory:v1`,
   `workflow.chooser-concurrent-catalog:v1`, and
-  `failure.chooser-reentry:v1`.
+  `failure.chooser-reentry:v1`, plus
+  `planning.packet-03-default-resolution-bridge:v1`.
 - Current `src/main/services/selectedTextPrettify.ts` and
   `src/main/services/selectedTextTranslation.ts` precedents.
 

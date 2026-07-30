@@ -43,12 +43,18 @@ cache keys.
 - Profile-independent model listing, readiness, and validation paths.
 - Equivalent HTTP, Claude CLI, and Codex CLI propagation.
 - Cache context/key changes and privacy-safe audit/diagnostic metadata.
+- Minimal authoritative-default resolution for the existing immediate
+  selected-text action so production has no legacy-prompt compatibility gap.
+- Non-visual prompt-free provider DTO serialization/type adaptation required
+  by readiness, discovery, and lifecycle paths.
 - Adapter/runtime/cache/privacy tests.
 
 ## Out Of Scope
 
-- Selected-text capture, clipboard, chooser, quick hotkey, renderer, Settings,
-  catalog persistence, and import/export.
+- Selected-text capture/clipboard lifecycle, chooser, quick hotkey, visual
+  renderer/Settings work, catalog persistence, and import/export. The minimal
+  current-default resolution and non-visual prompt-free DTO adaptations named
+  above are the only selected-text/renderer seams owned here.
 - Provider/model/generation-setting redesign, fallback, tools, browser changes,
   new network destinations, or new dependencies.
 - Changing explicit diagnostic text-capture opt-in behavior.
@@ -65,8 +71,11 @@ cache keys.
    }
    ```
 
-   The selected-text coordinator in packet 04 will resolve a profile and pass
-   this value to `PrettifyRuntime.prepare`. Renderer IPC must never construct
+   The existing immediate selected-text action in this packet reads the
+   authoritative catalog once after source validation, resolves its current
+   default profile, composes this value, and passes it to
+   `PrettifyRuntime.prepare`. Packet 04 extends this seam to immutable chooser
+   snapshots and one-off profile selection. Renderer IPC must never construct
    or submit it. `instructionContractVersion` is the product-owned version of
    effective-instruction composition and execution semantics. It is not a
    provider or CLI capability version and must not use the generic name
@@ -167,6 +176,17 @@ cache keys.
 13. Update all public type exports and factory dependencies exhaustively.
     Stateful providers remain graph-owned; do not add constructed module-level
     instances or pass-through wrappers.
+14. Close the packet-order bridge without implementing packet 04:
+    - add one strict main-owned resolver for a profile instruction from an
+      authoritative normalized catalog;
+    - inject catalog authority into the existing selected-text service and
+      resolve only `defaultProfileId` once per current invocation;
+    - compose and pass the explicit instruction to runtime without reading
+      `PrettifySettings.prompt`;
+    - retain the current capture, clipboard restoration, single-flight,
+      notification, and immediate-action behavior;
+    - leave chooser outcomes, operation snapshots, phase refactoring, and
+      quick/chooser entry separation to packet 04.
 
 ## Contracts And Boundaries
 
@@ -194,8 +214,13 @@ Expected direct changes:
 - `src/main/services/prettifyCliProviders.ts`
 - `src/main/services/prettifyClaudeCli.ts`
 - `src/main/services/prettifyCodexCli.ts`
-- `src/main/services/selectedTextPrettify.ts` only for compiling the changed
-  runtime interface; behavior refactor belongs to packet 04.
+- `src/main/services/selectedTextPrettify.ts` for the minimal authoritative
+  default-resolution bridge and changed runtime interface only; the
+  capture/clipboard/chooser behavior refactor belongs to packet 04.
+- `src/main/di/mainProcessCompositionRoot.ts` only to inject catalog authority
+  into that bridge.
+- Existing non-visual IPC/preload/renderer serialization seams only where
+  required to reuse `PrettifyProviderSettingsInput`; do not change UI.
 - `src/main/services/textActionCache.ts` only if a named instruction-context
   digest helper is justified; preserve Translation behavior.
 
@@ -236,6 +261,10 @@ Expected tests:
   contain none of the prohibited profile/source/result values.
 - Current failure/cancellation/provider-specific errors and no-fallback
   behavior remain unchanged.
+- The existing immediate selected-text action executes the authoritative
+  default profile through the packet 01 composer and never reads the legacy
+  projection. Packet 04 can replace this direct path with its coordinator
+  without changing runtime/provider contracts.
 
 ## Verification
 
@@ -282,6 +311,7 @@ Mandatory:
   Privacy**, and **Failure And Recovery**.
 - `docs/specs/prettify-prompt-hardening/spec.md` for current provider/source
   isolation precedent.
+- Planning decision `planning.packet-03-default-resolution-bridge:v1`.
 
 ## Completion And Handoff
 

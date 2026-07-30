@@ -1956,3 +1956,85 @@ decisions:
     rationale: 'The approved plan is ready for separately authorized one-packet-at-a-time execution.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: planning.packet-03-default-resolution-bridge
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 removes implicit legacy prompt execution before packet 04 originally introduced selected/default profile resolution.'
+      - 'The user selected the minimal authoritative-default bridge through the persistent implementation interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: planning.packet-03-default-resolution-bridge
+      idempotency_key: planning.packet-03-default-resolution-bridge:v1
+      last_status: answered
+    question:
+      text: 'How should the plan close the production call-site gap when packet 03 removes implicit settings.prompt execution before packet 04 adds profile resolution?'
+      kind: single
+      options:
+        - id: move_minimal_default_resolution_to_packet_03
+          label: 'Add minimal default bridge'
+          description: 'Packet 03 resolves and composes only the authoritative current default profile for the existing immediate action; packet 04 extends that seam to chooser and one-off selection.'
+        - id: implement_orchestration_before_runtime
+          label: 'Reorder packets 03 and 04'
+          description: 'Revise dependencies so selected/default profile resolution lands first while providers temporarily keep the old runtime contract.'
+        - id: merge_packets_03_and_04
+          label: 'Merge packets 03 and 04'
+          description: 'Revise the plan into one larger packet covering provider execution and selected-text profile orchestration together.'
+    answer:
+      selected_ids: [move_minimal_default_resolution_to_packet_03]
+      text: ''
+    rationale: 'The minimal bridge removes the legacy fallback immediately while preserving packet 04 ownership of chooser snapshots, quick/chooser orchestration, and clipboard lifecycle.'
+    supersedes_revision: null
+    requirement_ids: [FLOW-004, FLOW-005, ARCH-001, SAFE-003, COMP-003]
+
+  - id: execution.packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requested implementation of Packet 03 — Explicit Provider Profile Execution and required it to remain uncommitted.'
+      - 'The requested authorization identifier was execution.packet-03:v1.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Implement only Packet 03, verify it, update todo.md and handoff.md, and leave it uncommitted.'
+    rationale: 'Execution was bounded to one approved packet and excluded commits, live providers, dependencies, publishing, and release actions.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.commit.packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 was complete, verified, and intentionally uncommitted before the next incremental-implementation invocation.'
+      - 'The user authorized its atomic commit through the persistent implementation interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: authorization.commit.packet-03
+      idempotency_key: authorization.commit.packet-03:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize creating one atomic commit containing only completed Packet 03 before Packet 04 starts?'
+      kind: single
+      options:
+        - id: authorize_atomic_commit
+          label: 'Authorize Packet 03 commit'
+          description: 'Commit only the verified Packet 03 changes as one conventional commit, then allow Packet 04 to start.'
+        - id: hold_uncommitted
+          label: 'Hold for review'
+          description: 'Leave Packet 03 uncommitted and do not start Packet 04.'
+    answer:
+      selected_ids: [authorize_atomic_commit]
+      text: ''
+    rationale: 'The atomic commit closes the reviewed Packet 03 boundary before the next packet modifies overlapping orchestration files.'
+    supersedes_revision: null
+    requirement_ids: []

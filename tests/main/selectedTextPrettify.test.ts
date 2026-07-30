@@ -8,21 +8,45 @@ import {
 } from '@main/services/selectedTextPrettify';
 import { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionResultCache, type TextActionResultCache } from '@main/services/textActionCache';
+import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { ClipboardType } from '@main/electronRuntime';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifyProviderId, type PrettifySettings } from '@shared/prettifySettings';
+import {
+  normalizePrettifyProfileCatalog,
+  normalizePrettifyProfileInstruction,
+  PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+  type PrettifyCustomProfileId,
+  type PrettifyProfileCatalog,
+} from '@shared/prettifyProfiles';
 import { RecordingPrettifyProviderAudit } from './prettifyAuditTestUtils';
-import { PrettifyRuntimeFixture } from './prettifyRuntimeTestUtils';
+import { PrettifyRuntimeFixture, TestPrettifySettingsStorage } from './prettifyRuntimeTestUtils';
 import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 
 const localization = new I18nService();
+const TEST_PROFILE_ID = 'custom:00000000-0000-4000-8000-000000000001' as const;
 
-class TestPrettifySettingsStorage {
-  public constructor(private readonly settings: PrettifySettings) {}
-
-  public getView(): PrettifySettings {
-    return this.settings;
-  }
+function createTestProfileCatalog(options: {
+  description?: string;
+  id: PrettifyCustomProfileId;
+  instruction: string;
+  name: string;
+  reverseOrder?: boolean;
+}): PrettifyProfileCatalog {
+  const order = ['prompt-ready', 'polish', 'professional', 'natural', options.id] as const;
+  return normalizePrettifyProfileCatalog({
+    chooserOrder: options.reverseOrder ? [...order].reverse() : order,
+    customProfiles: [
+      {
+        ...(options.description === undefined ? {} : { description: options.description }),
+        id: options.id,
+        instruction: normalizePrettifyProfileInstruction(options.instruction),
+        name: options.name,
+      },
+    ],
+    defaultProfileId: options.id,
+    schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+  });
 }
 
 interface TestServiceOptions {
@@ -32,7 +56,9 @@ interface TestServiceOptions {
   copiedText?: string;
   copyError?: Error;
   diagnosticCapture?: RecordingDiagnosticCapture;
+  legacyPrompt?: string;
   platform?: NodeJS.Platform;
+  profileCatalog?: SelectedTextPrettifyDependencies['profileCatalog'];
   runtime?: SelectedTextPrettifyDependencies['runtime'];
   prompt?: string;
   providerId?: PrettifyProviderId;
@@ -70,7 +96,7 @@ function createPrettifySettings(options: TestServiceOptions = {}): PrettifySetti
     ...DEFAULT_PRETTIFY_SETTINGS,
     maxOutputTokens: options.maxOutputTokens ?? DEFAULT_PRETTIFY_SETTINGS.maxOutputTokens,
     minP: options.minP ?? DEFAULT_PRETTIFY_SETTINGS.minP,
-    prompt: options.prompt || 'prompt',
+    prompt: options.legacyPrompt || 'legacy prompt projection',
     providerId,
     repeatPenalty: options.repeatPenalty ?? DEFAULT_PRETTIFY_SETTINGS.repeatPenalty,
     seed: options.seed ?? DEFAULT_PRETTIFY_SETTINGS.seed,
@@ -91,11 +117,11 @@ function createTestService(options: TestServiceOptions = {}) {
   const notifications: Array<{ title: string; body: string; options?: SystemNotificationOptions }> = [];
   const automationCalls: string[] = [];
   const waitCalls: number[] = [];
-  const prepareCalls: PrettifySettings[] = [];
+  const prepareCalls: PrettifyExecutionInstruction[] = [];
   const prettifyCalls: Array<{
     text: string;
     providerId: PrettifyProviderId;
-    prompt: string;
+    effectiveInstruction: string;
     model: string;
     baseUrl: string;
     maxOutputTokens: number;
@@ -108,6 +134,12 @@ function createTestService(options: TestServiceOptions = {}) {
     signal?: AbortSignal;
   }> = [];
   const prettifySettings = createPrettifySettings(options);
+  let profileCatalogReads = 0;
+  const profileCatalog = createTestProfileCatalog({
+    id: TEST_PROFILE_ID,
+    instruction: options.prompt || 'prompt',
+    name: 'Test profile',
+  });
 
   const deps: SelectedTextPrettifyDependencies = {
     actionGate: options.actionGate || new SelectedTextActionGate(),
@@ -129,44 +161,55 @@ function createTestService(options: TestServiceOptions = {}) {
       notifications.push({ title, body, options });
     },
     platform: options.platform || 'linux',
+    profileCatalog: {
+      getPrettifyProfileCatalog: () => {
+        profileCatalogReads += 1;
+        return options.profileCatalog?.getPrettifyProfileCatalog() ?? profileCatalog;
+      },
+    },
     runtime: options.runtime ?? {
-      prepare: async (settings, signal) => {
-        const typedSettings = settings;
-        prepareCalls.push(typedSettings);
+      prepare: async (instruction, _draftSettings, signal) => {
+        prepareCalls.push(instruction);
         await options.prepareWait;
         if (options.prepareResult) return options.prepareResult;
-        const providerSettings = typedSettings.providerId === 'vllm' ? typedSettings.vllm : typedSettings.ollama;
+        const providerSettings =
+          prettifySettings.providerId === 'vllm' ? prettifySettings.vllm : prettifySettings.ollama;
         return {
           success: true as const,
           prepared: {
-            providerId: typedSettings.providerId,
-            cacheContext: options.providerCacheContext ?? [
-              typedSettings.providerId,
-              providerSettings.baseUrl,
-              providerSettings.model,
-              typedSettings.prompt,
-              String(typedSettings.temperature),
-              String(typedSettings.topP),
-              String(typedSettings.topK),
-              String(typedSettings.minP),
-              String(typedSettings.repeatPenalty),
-              String(typedSettings.maxOutputTokens),
-              typedSettings.seed === null ? '' : String(typedSettings.seed),
+            providerId: prettifySettings.providerId,
+            cacheContext: [
+              ...(options.providerCacheContext ?? [
+                prettifySettings.providerId,
+                providerSettings.baseUrl,
+                providerSettings.model,
+                String(prettifySettings.temperature),
+                String(prettifySettings.topP),
+                String(prettifySettings.topK),
+                String(prettifySettings.minP),
+                String(prettifySettings.repeatPenalty),
+                String(prettifySettings.maxOutputTokens),
+                prettifySettings.seed === null ? '' : String(prettifySettings.seed),
+              ]),
+              'instruction-contract-version',
+              String(instruction.instructionContractVersion),
+              'effective-instruction',
+              instruction.effectiveInstruction,
             ],
             execute: async (text: string) => {
               prettifyCalls.push({
                 text,
-                providerId: typedSettings.providerId,
-                prompt: typedSettings.prompt,
+                providerId: prettifySettings.providerId,
+                effectiveInstruction: instruction.effectiveInstruction,
                 model: providerSettings.model,
                 baseUrl: providerSettings.baseUrl,
-                maxOutputTokens: typedSettings.maxOutputTokens,
-                minP: typedSettings.minP,
-                repeatPenalty: typedSettings.repeatPenalty,
-                seed: typedSettings.seed,
-                temperature: typedSettings.temperature,
-                topK: typedSettings.topK,
-                topP: typedSettings.topP,
+                maxOutputTokens: prettifySettings.maxOutputTokens,
+                minP: prettifySettings.minP,
+                repeatPenalty: prettifySettings.repeatPenalty,
+                seed: prettifySettings.seed,
+                temperature: prettifySettings.temperature,
+                topK: prettifySettings.topK,
+                topP: prettifySettings.topP,
                 signal,
               });
               await options.prettifyWait;
@@ -176,7 +219,6 @@ function createTestService(options: TestServiceOptions = {}) {
         };
       },
     },
-    settings: new TestPrettifySettingsStorage(prettifySettings),
     textAutomation: {
       run: async (action) => {
         automationCalls.push(action);
@@ -201,6 +243,7 @@ function createTestService(options: TestServiceOptions = {}) {
     notifications,
     prepareCalls,
     prettifyCalls,
+    getProfileCatalogReads: () => profileCatalogReads,
     service: new SelectedTextPrettifyService(deps),
     waitCalls,
   };
@@ -212,20 +255,21 @@ describe('selectedTextPrettify', () => {
   });
 
   it('keeps the clipboard and fails clearly when no text is selected', async () => {
-    const { clipboard, notifications, service } = createTestService();
+    const { clipboard, getProfileCatalogReads, notifications, service } = createTestService();
 
     const result = await service.prettifySelectedText();
 
     assert.equal(result.success, false);
     assert.equal(result.error, 'No text selected to prettify');
     assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.equal(getProfileCatalogReads(), 0);
     assert.deepEqual(notifications, [
       { title: 'Prettify failed', body: 'No text selected to prettify', options: { sound: 'error' } },
     ]);
   });
 
   it('rejects selected text over the inference limit before calling the provider', async () => {
-    const { clipboard, notifications, prettifyCalls, service } = createTestService({
+    const { clipboard, getProfileCatalogReads, notifications, prettifyCalls, service } = createTestService({
       selectionText: 'x'.repeat(MAX_PRETTIFY_SELECTED_TEXT_LENGTH + 1),
     });
 
@@ -237,6 +281,7 @@ describe('selectedTextPrettify', () => {
       `Selected text is too long to prettify (maximum ${MAX_PRETTIFY_SELECTED_TEXT_LENGTH} characters)`,
     );
     assert.equal(clipboard.clipboard, 'previous clipboard');
+    assert.equal(getProfileCatalogReads(), 0);
     assert.deepEqual(prettifyCalls, []);
     assert.deepEqual(notifications, [
       {
@@ -245,6 +290,21 @@ describe('selectedTextPrettify', () => {
         options: { sound: 'error' },
       },
     ]);
+  });
+
+  it('reads the authoritative catalog once and executes its default profile without the legacy prompt', async () => {
+    const { getProfileCatalogReads, prepareCalls, service } = createTestService({
+      legacyPrompt: 'private-legacy-prompt-canary',
+      prompt: 'private-default-profile-instruction-canary',
+      selectionText: 'selected text',
+    });
+
+    assert.equal((await service.prettifySelectedText()).success, true);
+    assert.equal(getProfileCatalogReads(), 1);
+    assert.equal(prepareCalls.length, 1);
+    assert.equal(prepareCalls[0]?.effectiveInstruction.includes('private-default-profile-instruction-canary'), true);
+    assert.equal(prepareCalls[0]?.effectiveInstruction.includes('private-legacy-prompt-canary'), false);
+    assert.equal(prepareCalls[0]?.instructionContractVersion, 1);
   });
 
   it('uses the Linux selection clipboard', async () => {
@@ -261,7 +321,7 @@ describe('selectedTextPrettify', () => {
     assert.deepEqual(waitCalls, []);
     assert.equal(prettifyCalls.length, 1);
     assert.equal(prettifyCalls[0]?.text, 'primary selection');
-    assert.equal(prettifyCalls[0]?.prompt, 'prompt');
+    assert.equal(prettifyCalls[0]?.effectiveInstruction.endsWith('prompt'), true);
     assert.equal(prettifyCalls[0]?.providerId, 'ollama');
     assert.equal(prettifyCalls[0]?.model, 'llama3.2');
     assert.equal(prettifyCalls[0]?.signal instanceof AbortSignal, true);
@@ -402,6 +462,94 @@ describe('selectedTextPrettify', () => {
     ]);
   });
 
+  it('keeps profile presentation, ID, default marker, and chooser order out of cache identity', async () => {
+    const cache = createTextActionResultCache(20);
+    const instruction = 'Use the same exact transformation semantics.';
+    const firstCatalog = createTestProfileCatalog({
+      description: 'First description',
+      id: 'custom:00000000-0000-4000-8000-000000000010',
+      instruction,
+      name: 'First name',
+    });
+    const secondCatalog = createTestProfileCatalog({
+      description: 'Second description',
+      id: 'custom:00000000-0000-4000-8000-000000000011',
+      instruction,
+      name: 'Second name',
+      reverseOrder: true,
+    });
+    const first = createTestService({
+      cache,
+      profileCatalog: { getPrettifyProfileCatalog: () => firstCatalog },
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'cached result' },
+    });
+    const second = createTestService({
+      cache,
+      profileCatalog: { getPrettifyProfileCatalog: () => secondCatalog },
+      selectionText: 'selected text',
+    });
+
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
+
+    assert.equal(first.prettifyCalls.length, 1);
+    assert.equal(second.prettifyCalls.length, 0);
+    assert.equal(second.clipboard.clipboard, 'cached result');
+  });
+
+  it('misses cache when the exact effective instruction changes', async () => {
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({
+      cache,
+      prompt: 'Use concise prose.',
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'first result' },
+    });
+    const second = createTestService({
+      cache,
+      prompt: 'Use detailed prose.',
+      selectionText: 'selected text',
+      prettifyResult: { success: true, text: 'second result' },
+    });
+
+    await first.service.prettifySelectedText();
+    await second.service.prettifySelectedText();
+
+    assert.equal(first.prettifyCalls.length, 1);
+    assert.equal(second.prettifyCalls.length, 1);
+    assert.equal(second.clipboard.clipboard, 'second result');
+  });
+
+  it('retains only digest cache keys without raw source or instruction', async () => {
+    const retained = new Map<string, string>();
+    const cache: TextActionResultCache = {
+      clear: () => retained.clear(),
+      get: (key) => retained.get(key) ?? null,
+      set: (key, value) => {
+        retained.set(key, value);
+      },
+      size: () => retained.size,
+    };
+    const source = 'private-source-cache-canary';
+    const instruction = 'private-instruction-cache-canary';
+    const service = createTestService({
+      cache,
+      prompt: instruction,
+      selectionText: source,
+      prettifyResult: { success: true, text: 'safe cached result' },
+    }).service;
+
+    await service.prettifySelectedText();
+
+    assert.equal(retained.size, 1);
+    const serializedEntries = JSON.stringify([...retained.entries()]);
+    const [key] = retained.keys();
+    assert.match(key ?? '', /^[a-f0-9]{64}$/u);
+    assert.equal(serializedEntries.includes(source), false);
+    assert.equal(serializedEntries.includes(instruction), false);
+  });
+
   it('keeps cache hits free of prettify provider operations', async () => {
     const audit = new RecordingPrettifyProviderAudit();
     const { diagnosticCapture, service } = createTestService({
@@ -411,6 +559,10 @@ describe('selectedTextPrettify', () => {
         fetch: async () => ({
           status: 200,
           text: async () => JSON.stringify({ message: { content: 'cached prettified text' } }),
+        }),
+        settings: new TestPrettifySettingsStorage({
+          ollama: { baseUrl: 'http://127.0.0.1:11434', model: 'llama3.2' },
+          providerId: 'ollama',
         }),
       }).runtime,
     });
@@ -467,12 +619,12 @@ describe('selectedTextPrettify', () => {
           prepare: async () => ({
             prepared: {
               cacheContext: ['claude-cli', '2.1.71', 'safe-capability-context'],
-              capabilityVersion: '2.1.71',
               execute: async () => ({
                 capabilityVersion: '2.1.71',
                 success: true as const,
                 text: 'cached prettified text',
               }),
+              providerCapabilityVersion: '2.1.71',
             },
             success: true as const,
           }),
@@ -480,6 +632,7 @@ describe('selectedTextPrettify', () => {
         fetch: async () => {
           throw new Error('HTTP must not run for CLI providers');
         },
+        settings: new TestPrettifySettingsStorage({ providerId: 'claude-cli' }),
       }).runtime,
     });
 

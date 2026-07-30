@@ -1,5 +1,6 @@
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
+import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type { I18nService } from '@main/i18n';
 import {
@@ -40,6 +41,7 @@ export interface PrettifyProviderDependencies {
 
 export interface PrettifyProviderRequest {
   auditContext?: PrettifyAuditOperationContext;
+  instruction: PrettifyExecutionInstruction;
   text: string;
   signal?: AbortSignal;
   settings: PrettifySettingsWithSecret;
@@ -108,6 +110,7 @@ export abstract class BasePrettifyProvider {
 
   public prepare(
     _settings: PrettifySettingsWithSecret,
+    _instruction: PrettifyExecutionInstruction,
     _signal: AbortSignal,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {

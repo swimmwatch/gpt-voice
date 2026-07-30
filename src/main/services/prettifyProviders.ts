@@ -25,6 +25,11 @@ import {
   type PrettifyProviderDependencies,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
+import {
+  PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR,
+  normalizePrettifyExecutionInstruction,
+  type PrettifyExecutionInstruction,
+} from '@main/services/prettifyProfileInstruction';
 import type { PrettifyHttpReadiness } from '@main/services/prettifyHttpReadiness';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsStorage, PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
@@ -38,7 +43,7 @@ import {
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
-  type PrettifySettingsInput,
+  type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 
 export {
@@ -49,6 +54,7 @@ export {
   PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   VllmPrettifyProvider,
 };
+export type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 export type {
   PreparedPrettifyExecution,
   PrettifyProviderDependencies,
@@ -65,7 +71,7 @@ export interface PrettifyProviderFactoryDependencies {
   readonly fetch: PrettifyFetch;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly readiness: PrettifyHttpReadiness;
-  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
+  readonly settings: Pick<PrettifySettingsStorage, 'getProviderSettingsWithSecret'>;
 }
 
 /** Exhaustively constructs graph-owned Prettify providers and their stateful adapters. */
@@ -139,7 +145,7 @@ export interface PrettifyRuntimeDependencies {
   readonly audit: PrettifyProviderAudit;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly registry: PrettifyProviderRegistry;
-  readonly settings: Pick<PrettifySettingsStorage, 'getWithSecret'>;
+  readonly settings: Pick<PrettifySettingsStorage, 'getProviderSettingsWithSecret'>;
 }
 
 /** Owns Prettify dispatch, settings resolution, audit correlation, and model shutdown. */
@@ -148,7 +154,7 @@ export class PrettifyRuntime {
 
   public async checkCliConnection(
     providerId: unknown,
-    draftSettings: PrettifySettingsInput = {},
+    draftSettings: PrettifyProviderSettingsInput = {},
     signal: AbortSignal = new AbortController().signal,
   ): Promise<PrettifyCliConnectionResult> {
     if (!isPrettifyCliProviderId(providerId)) {
@@ -180,7 +186,7 @@ export class PrettifyRuntime {
 
   public async listModels(
     providerId: unknown,
-    draftSettings: PrettifySettingsInput = {},
+    draftSettings: PrettifyProviderSettingsInput = {},
   ): Promise<PrettifyModelListResult> {
     const audit = this.dependencies.audit;
     if (!isKnownPrettifyProviderId(providerId)) {
@@ -231,7 +237,7 @@ export class PrettifyRuntime {
 
   public async loadModel(
     providerId: unknown,
-    draftSettings: PrettifySettingsInput = {},
+    draftSettings: PrettifyProviderSettingsInput = {},
   ): Promise<PrettifyModelLoadResult> {
     const audit = this.dependencies.audit;
     if (!isKnownPrettifyProviderId(providerId)) {
@@ -255,7 +261,7 @@ export class PrettifyRuntime {
 
   public async unloadModel(
     providerId: unknown,
-    draftSettings: PrettifySettingsInput = {},
+    draftSettings: PrettifyProviderSettingsInput = {},
   ): Promise<PrettifyModelUnloadResult> {
     const audit = this.dependencies.audit;
     if (!isKnownPrettifyProviderId(providerId)) {
@@ -282,9 +288,16 @@ export class PrettifyRuntime {
   }
 
   public async prepare(
-    draftSettings: PrettifySettingsInput = {},
+    instruction: unknown,
+    draftSettings: PrettifyProviderSettingsInput = {},
     signal: AbortSignal = new AbortController().signal,
   ): Promise<PreparePrettifyExecutionResult> {
+    let normalizedInstruction: PrettifyExecutionInstruction;
+    try {
+      normalizedInstruction = normalizePrettifyExecutionInstruction(instruction);
+    } catch {
+      return { success: false, error: PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR };
+    }
     const audit = this.dependencies.audit;
     const requestedProvider = draftSettings.providerId;
     if (requestedProvider !== undefined && !isKnownPrettifyProviderId(requestedProvider)) {
@@ -296,7 +309,7 @@ export class PrettifyRuntime {
     try {
       settings = isKnownPrettifyProviderId(requestedProvider)
         ? this.getSettingsForKnownProvider(requestedProvider, draftSettings)
-        : this.dependencies.settings.getWithSecret(draftSettings);
+        : this.dependencies.settings.getProviderSettingsWithSecret(draftSettings);
     } catch (error: unknown) {
       if (isKnownPrettifyProviderId(requestedProvider)) {
         const context = audit.startPrepare(requestedProvider);
@@ -319,7 +332,7 @@ export class PrettifyRuntime {
     });
 
     try {
-      return await provider.prepare(settings, signal, auditContext);
+      return await provider.prepare(settings, normalizedInstruction, signal, auditContext);
     } catch (error: unknown) {
       if (signal.aborted) {
         audit.terminalCancelled(auditContext, 'cleanup');
@@ -346,22 +359,23 @@ export class PrettifyRuntime {
 
   public async run(
     text: string,
-    draftSettings: PrettifySettingsInput = {},
+    instruction: unknown,
+    draftSettings: PrettifyProviderSettingsInput = {},
     signal?: AbortSignal,
   ): Promise<TextProcessingResult> {
-    const prepared = await this.prepare(draftSettings, signal);
+    const prepared = await this.prepare(instruction, draftSettings, signal);
     return prepared.success ? prepared.prepared.execute(text) : prepared;
   }
 
   private getSettingsForKnownProvider(
     providerId: KnownPrettifyProviderId,
-    draftSettings: PrettifySettingsInput,
+    draftSettings: PrettifyProviderSettingsInput,
   ): PrettifySettingsWithSecret {
     if (isPrettifyProviderId(providerId)) {
-      return this.dependencies.settings.getWithSecret({ ...draftSettings, providerId });
+      return this.dependencies.settings.getProviderSettingsWithSecret({ ...draftSettings, providerId });
     }
     const { providerId: _ignoredProviderId, ...settingsWithoutProvider } = draftSettings;
-    return this.dependencies.settings.getWithSecret(settingsWithoutProvider);
+    return this.dependencies.settings.getProviderSettingsWithSecret(settingsWithoutProvider);
   }
 
   private getModelListFailureMessage(
@@ -380,7 +394,7 @@ export class PrettifyRuntime {
 
   private resolveSettingsForAuditedOperation(
     providerId: KnownPrettifyProviderId,
-    draftSettings: PrettifySettingsInput,
+    draftSettings: PrettifyProviderSettingsInput,
     auditContext?: PrettifyAuditOperationContext,
   ): PrettifySettingsWithSecret {
     try {

@@ -285,7 +285,7 @@ describe('CodexCliPrettifyAdapter', () => {
     });
 
     const result = await adapter.prettify({
-      prompt: PROTECTED_PROMPT,
+      effectiveInstruction: PROTECTED_PROMPT,
       settings,
       signal: controller.signal,
       text: source,
@@ -406,7 +406,7 @@ describe('CodexCliPrettifyAdapter', () => {
       schemaFileSystem: createFakeSchemaFileSystem().fileSystem,
     });
     const prepared = await adapter.prepare({
-      prompt: PROTECTED_PROMPT,
+      effectiveInstruction: PROTECTED_PROMPT,
       settings: getSettings({ model: 'gpt-synthetic-codex' }),
       signal: new AbortController().signal,
     });
@@ -628,7 +628,7 @@ describe('CodexCliPrettifyAdapter', () => {
     });
 
     const result = await adapter.prettify({
-      prompt: PROTECTED_PROMPT,
+      effectiveInstruction: PROTECTED_PROMPT,
       settings,
       signal: new AbortController().signal,
       text: 'synthetic-input',
@@ -663,7 +663,7 @@ describe('CodexCliPrettifyAdapter', () => {
     const invalidAdapter = invalidRunner.createAdapter();
     assert.deepEqual(
       await invalidAdapter.prepare({
-        prompt: PROTECTED_PROMPT,
+        effectiveInstruction: PROTECTED_PROMPT,
         settings: getSettings({ model: 'invalid model with spaces' }),
         signal: new AbortController().signal,
       }),
@@ -754,7 +754,7 @@ describe('CodexCliPrettifyAdapter', () => {
       });
       assert.deepEqual(
         await adapter.prettify({
-          prompt: PROTECTED_PROMPT,
+          effectiveInstruction: PROTECTED_PROMPT,
           settings: getSettings(),
           signal: controller.signal,
           text: 'synthetic',
@@ -790,7 +790,7 @@ describe('CodexCliPrettifyAdapter', () => {
       });
       assert.deepEqual(
         await adapter.prettify({
-          prompt: PROTECTED_PROMPT,
+          effectiveInstruction: PROTECTED_PROMPT,
           settings: getSettings(),
           signal: controller.signal,
           text: 'synthetic',
@@ -822,7 +822,7 @@ describe('CodexCliPrettifyAdapter', () => {
     const prepareContext = audit.startPrepare('codex-cli');
     const prepared = await adapter.prepare({
       auditContext: prepareContext,
-      prompt: privateCanaries.prompt,
+      effectiveInstruction: privateCanaries.prompt,
       settings: getSettings({
         executablePath: privateCanaries.executablePath,
         model: privateCanaries.model,
@@ -862,9 +862,9 @@ describe('CodexCliPrettifyAdapter', () => {
       reasoningEffort: 'high',
       verbosity: 'medium',
     });
-    const context = getCodexCliPrettifyCacheContext('0.144.3', PROTECTED_PROMPT, settings);
+    const context = getCodexCliPrettifyCacheContext('0.144.3', settings);
 
-    assert.deepEqual(context, ['codex-cli', '0.144.3', 'gpt-synthetic-codex', 'high', 'medium', PROTECTED_PROMPT]);
+    assert.deepEqual(context, ['codex-cli', '0.144.3', 'gpt-synthetic-codex', 'high', 'medium']);
     assert.equal(context.includes(settings.executablePath), false);
     assert.equal(context.includes(String(settings.timeoutSeconds)), false);
   });

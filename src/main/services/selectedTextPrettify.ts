@@ -1,7 +1,11 @@
 import type { ClipboardType } from '@main/electronRuntime';
+import type { AppConfigStore } from '@main/config';
 import type { I18nService } from '@main/i18n';
 import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
-import type { PrettifySettingsStorage } from '@main/services/prettifySettingsStorage';
+import {
+  resolvePrettifyExecutionInstruction,
+  type PrettifyExecutionInstruction,
+} from '@main/services/prettifyProfileInstruction';
 import type { PreparePrettifyExecutionResult } from '@main/services/prettifyProviders';
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
@@ -12,7 +16,7 @@ import {
   type PresentedNotificationError,
   type SystemNotificationOptions,
 } from '@shared/notifications';
-import type { KnownPrettifyProviderId, PrettifySettings } from '@shared/prettifySettings';
+import type { KnownPrettifyProviderId, PrettifyProviderSettingsInput } from '@shared/prettifySettings';
 
 export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES = 20;
@@ -33,7 +37,11 @@ export interface SelectedTextPrettifyClipboard {
 }
 
 export interface SelectedTextPrettifyRuntime {
-  prepare(settings: PrettifySettings, signal: AbortSignal): Promise<PreparePrettifyExecutionResult>;
+  prepare(
+    instruction: PrettifyExecutionInstruction,
+    settings: PrettifyProviderSettingsInput,
+    signal: AbortSignal,
+  ): Promise<PreparePrettifyExecutionResult>;
 }
 
 export interface SelectedTextPrettifyDependencies {
@@ -49,8 +57,8 @@ export interface SelectedTextPrettifyDependencies {
   readonly localization: Pick<I18nService, 'translate'>;
   readonly notify: (title: string, body: string, options?: SystemNotificationOptions) => void;
   readonly platform: NodeJS.Platform;
+  readonly profileCatalog: Pick<AppConfigStore, 'getPrettifyProfileCatalog'>;
   readonly runtime: SelectedTextPrettifyRuntime;
-  readonly settings: Pick<PrettifySettingsStorage, 'getView'>;
   readonly textAutomation: Pick<TextAutomationService, 'run'>;
   readonly wait: (delayMs: number) => Promise<void>;
 }
@@ -133,8 +141,9 @@ export class SelectedTextPrettifyService {
         return createFailureResult(presented.userMessage);
       }
 
-      const settings = this.dependencies.settings.getView();
-      const preparation = await this.dependencies.runtime.prepare(settings, run.abortController.signal);
+      const catalog = this.dependencies.profileCatalog.getPrettifyProfileCatalog();
+      const instruction = resolvePrettifyExecutionInstruction(catalog, catalog.defaultProfileId);
+      const preparation = await this.dependencies.runtime.prepare(instruction, {}, run.abortController.signal);
       if (run.cancelled || run.abortController.signal.aborted) {
         this.restoreClipboard(run.previousClipboardText);
         return this.createCancelledResult();
