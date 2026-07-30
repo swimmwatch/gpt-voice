@@ -35,22 +35,28 @@ test('uses ESM only for the renderer TypeScript compilation', async () => {
   });
 });
 
-test('keeps the chooser renderer and HTML out while emitting both isolated preload entry names', () => {
+test('emits the isolated chooser preload, renderer entry, and exact HTML chunk', () => {
   const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
   const preloadConfig = webpackConfigs[1];
   const rendererWebpackConfig = webpackConfigs[2];
   const rendererEntries = rendererWebpackConfig.entry as Record<string, string>;
-  const plugins = rendererWebpackConfig.plugins as Array<{ options?: { filename?: string } }>;
+  const plugins = rendererWebpackConfig.plugins as Array<{
+    options?: { filename?: string };
+    userOptions?: { chunks?: string[]; filename?: string };
+  }>;
 
   assert.deepEqual(Object.keys(preloadConfig.entry as Record<string, string>).sort(), [
     'preload',
     'prettify-profile-chooser-preload',
   ]);
-  assert.equal('prettifyProfileChooser' in rendererEntries, false);
-  assert.equal(
-    plugins.some((plugin) => plugin.options?.filename === 'prettify-profile-chooser.html'),
-    false,
+  assert.equal(rendererEntries.prettifyProfileChooser, './src/renderer/entries/prettifyProfileChooser.tsx');
+  const chooserPlugin = plugins.find(
+    (plugin) =>
+      plugin.options?.filename === 'prettify-profile-chooser.html' ||
+      plugin.userOptions?.filename === 'prettify-profile-chooser.html',
   );
+  assert.ok(chooserPlugin);
+  assert.deepEqual(chooserPlugin.userOptions?.chunks, ['prettifyProfileChooser']);
 });
 
 test('emits the live PCM worklet as one local renderer asset under the strict startup CSP', async () => {

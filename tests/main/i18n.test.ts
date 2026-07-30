@@ -127,6 +127,25 @@ const REQUIRED_MAIN_PRETTIFY_BAND_KEYS = [
 const REQUIRED_PRETTIFY_PROFILE_METADATA_KEYS = PRETTIFY_BUILT_IN_PROFILE_METADATA.flatMap(
   ({ descriptionKey, nameKey }) => [nameKey, descriptionKey],
 );
+const REQUIRED_PRETTIFY_CHOOSER_KEYS = [
+  'prettify.chooser.title',
+  'prettify.chooser.description',
+  'prettify.chooser.originalText',
+  'prettify.chooser.readOnly',
+  'prettify.chooser.profiles',
+  'prettify.chooser.selected',
+  'prettify.chooser.searchProfiles',
+  'prettify.chooser.profilesAvailable',
+  'prettify.chooser.default',
+  'prettify.chooser.builtIn',
+  'prettify.chooser.custom',
+  'prettify.chooser.listLabel',
+  'prettify.chooser.noProfilesFound',
+  'prettify.chooser.tryDifferentSearch',
+  'prettify.chooser.manageProfiles',
+  'prettify.chooser.cancel',
+  'prettify.chooser.apply',
+] as const;
 const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.system',
   'appSettings.language',
@@ -246,6 +265,17 @@ describe('i18n', () => {
         const message = i18n.translate(key);
         assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
         assert.notEqual(message, key, `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('localizes the complete chooser copy and preserves its placeholders in every locale', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_PRETTIFY_CHOOSER_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), getPlaceholders(en[key]), `${locale}:${key}`);
       }
     }
   });

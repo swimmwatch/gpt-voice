@@ -39,10 +39,13 @@ const requiredPaths = [
   'dist/index.html',
   'dist/main.js',
   'dist/preload.js',
+  'dist/prettify-profile-chooser.html',
+  'dist/prettify-profile-chooser-preload.js',
   'dist/provider-settings.html',
   'dist/renderer/about.js',
   'dist/renderer/history.js',
   'dist/renderer/main.js',
+  'dist/renderer/prettifyProfileChooser.js',
   'dist/renderer/providerSettings.js',
   'dist/renderer/runtime.js',
   'dist/renderer/settings.js',
@@ -124,10 +127,13 @@ describe('packaged runtime policy', () => {
         'dist\\index.html',
         'dist\\main.js',
         'dist\\preload.js',
+        'dist\\prettify-profile-chooser.html',
+        'dist\\prettify-profile-chooser-preload.js',
         'dist\\provider-settings.html',
         'dist\\renderer/about.js',
         'dist\\renderer/history.js',
         'dist\\renderer/main.js',
+        'dist\\renderer/prettifyProfileChooser.js',
         'dist\\renderer/providerSettings.js',
         'dist\\renderer/runtime.js',
         'dist\\renderer/settings.js',
@@ -193,6 +199,24 @@ describe('packaged runtime policy', () => {
       'stale renderer asset: dist/renderer.old.js',
       'unexpected runtime module: unapproved-package',
     ]);
+  });
+
+  it('requires every chooser runtime artifact independently', async () => {
+    const importedModule: unknown = await import(pathToFileURL(modulePath).href);
+    assert.ok(isPackagedRuntimePolicyModule(importedModule));
+
+    for (const chooserPath of [
+      'dist/prettify-profile-chooser.html',
+      'dist/prettify-profile-chooser-preload.js',
+      'dist/renderer/prettifyProfileChooser.js',
+    ]) {
+      assert.deepEqual(
+        importedModule.getPackagedRuntimeViolations(
+          requiredPaths.filter((requiredPath) => requiredPath !== chooserPath),
+        ),
+        [`missing required path: ${chooserPath}`],
+      );
+    }
   });
 
   it('requires the exact runtime asset set and rejects duplicate ASAR assets', async () => {

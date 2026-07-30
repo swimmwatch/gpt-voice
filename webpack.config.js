@@ -81,6 +81,7 @@ module.exports = [
       about: './src/renderer/entries/about.tsx',
       history: './src/renderer/entries/history.tsx',
       main: './src/renderer/entries/main.tsx',
+      prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
       providerSettings: './src/renderer/entries/providerSettings.tsx',
       settings: './src/renderer/entries/settings.tsx',
     },
@@ -159,6 +160,12 @@ module.exports = [
         filename: 'provider-settings.html',
         title: 'Provider settings',
         chunks: ['providerSettings'],
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'prettify-profile-chooser.html',
+        title: 'Choose a Prettify profile',
+        chunks: ['prettifyProfileChooser'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
