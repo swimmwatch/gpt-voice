@@ -312,6 +312,10 @@ describe('BingTranslateProvider', () => {
       success: true,
       value: 'translated',
     });
+    assert.deepEqual(classifyBingResultSnapshot(createResult('  # Heading\r\n\r\n- First\r\n- Second  ')), {
+      success: true,
+      value: '  # Heading\n\n- First\n- Second  ',
+    });
   });
 
   it('binds shared Bing metadata and validates target and length before browser creation', async () => {

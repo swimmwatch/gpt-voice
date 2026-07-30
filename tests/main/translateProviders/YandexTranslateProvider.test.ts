@@ -653,7 +653,14 @@ describe('YandexTranslateProvider', () => {
         destinationVisible: true,
       }),
     );
-    assert.equal(normalized.success ? normalized.value : null, 'translated result');
+    assert.equal(normalized.success ? normalized.value : null, '  translated \n result  ');
+    const markdown = classifyYandexResult(
+      createEditors({
+        destinationText: '# Heading\r\n\r\n- First\r\n- Second\n  continuation',
+        destinationVisible: true,
+      }),
+    );
+    assert.equal(markdown.success ? markdown.value : null, '# Heading\n\n- First\n- Second\n  continuation');
     assert.equal(classifyYandexResult(createEditors()).success, true);
 
     for (const result of [

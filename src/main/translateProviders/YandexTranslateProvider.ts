@@ -15,6 +15,7 @@ import {
   translationHookSuccess,
   type TranslationProviderHookResult,
 } from '@main/translateProviders/translationProviderContracts';
+import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 
 const YANDEX_TRANSLATE_URL = 'https://translate.yandex.com/en/translator';
@@ -158,7 +159,7 @@ async function getVisibleLocators(locator: Locator): Promise<VisibleLocatorSnaps
 }
 
 function normalizeResultText(text: string): string {
-  return text.replace(/\s+/gu, ' ').trim();
+  return normalizeTranslationResultText(text);
 }
 
 export function createYandexRouteSnapshot(rawUrl: string): YandexRouteSnapshot {
@@ -225,7 +226,7 @@ export function classifyYandexEditors(snapshot: YandexEditorSnapshot): Translati
     snapshot.sourceResolution === 'invalid' ||
     snapshot.sourceTextLength === null ||
     snapshot.visibleForbiddenTextareas > 0 ||
-    (!snapshot.destinationVisible && normalizeResultText(snapshot.destinationText).length > 0)
+    (!snapshot.destinationVisible && normalizeResultText(snapshot.destinationText).trim().length > 0)
   ) {
     return translationHookFailure('pageContractFailure');
   }
@@ -383,9 +384,9 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
     ]);
     const [destinationVisible, destinationText, sourceText] = await Promise.all([
       destination.locator ? destination.locator.isVisible().catch(() => false) : Promise.resolve(false),
-      destination.locator ? destination.locator.textContent().catch(() => null) : Promise.resolve<string | null>(null),
+      destination.locator ? destination.locator.innerText().catch(() => null) : Promise.resolve<string | null>(null),
       sourceEditors.length === 1
-        ? (sourceEditors[0]?.locator.textContent().catch(() => null) ?? Promise.resolve(null))
+        ? (sourceEditors[0]?.locator.innerText().catch(() => null) ?? Promise.resolve(null))
         : Promise.resolve(null),
     ]);
     const sourceResolution: YandexEditorResolution =
@@ -743,7 +744,7 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
       editors.success &&
       snapshot.editors.sourceTextLength === 0 &&
       !snapshot.editors.destinationVisible &&
-      normalizeResultText(snapshot.editors.destinationText).length === 0 &&
+      normalizeResultText(snapshot.editors.destinationText).trim().length === 0 &&
       snapshot.route.route === 'translator' &&
       !snapshot.route.hasTextParameter &&
       snapshot.route.targetLanguage === targetLanguage &&

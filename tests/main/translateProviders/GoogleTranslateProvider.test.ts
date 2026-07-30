@@ -390,7 +390,7 @@ describe('GoogleTranslateProvider', () => {
     }
   });
 
-  it('excludes listitem alternatives and concatenates one primary branch in DOM order', async () => {
+  it('excludes listitem alternatives and preserves Markdown line breaks in one primary branch', async () => {
     const audit = new RecordingTranslationProviderAudit();
     const classified = classifyGoogleResultSnapshot(
       createResult([
@@ -402,17 +402,28 @@ describe('GoogleTranslateProvider', () => {
     );
 
     assert.equal(classified.success, true);
-    assert.equal(classified.success ? classified.value : null, 'Firstsecond');
+    assert.equal(classified.success ? classified.value : null, 'First second');
+    const markdownResult = createResult([
+      createFragment('  # Heading\r\n\r\n'),
+      createFragment('- First item\r\n- Second item\n  continuation  '),
+    ]);
+    const markdown = classifyGoogleResultSnapshot(markdownResult);
+    assert.equal(
+      markdown.success ? markdown.value : null,
+      '  # Heading\n\n- First item\n- Second item\n  continuation  ',
+    );
 
     const harness = createHarness();
-    harness.adapter.resultReadsAfterInsertion = [
-      createResult([createFragment('First '), createFragment(' second')]),
-      createResult([createFragment('First '), createFragment(' second')]),
-    ];
+    harness.adapter.resultReadsAfterInsertion = [markdownResult, markdownResult];
+    const sourceText = '# Заголовок\r\n\r\n- Первый пункт\r\n- Второй пункт';
     const outcome = await harness.provider.translate(
-      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create(),
+      new TranslationProviderRequestFixture(requestFixture.defaults, audit).create({ sourceText }),
     );
-    assert.equal(outcome.success ? outcome.text : null, 'Firstsecond');
+    assert.equal(
+      outcome.success ? outcome.text : null,
+      '  # Heading\r\n\r\n- First item\r\n- Second item\r\n  continuation  ',
+    );
+    assert.deepEqual(harness.adapter.insertedTexts, [sourceText]);
     assert.equal(audit.events.filter((event) => event.event === 'terminal').length, 1);
     assert.equal(audit.events[audit.events.length - 1]?.outcome, 'success');
   });

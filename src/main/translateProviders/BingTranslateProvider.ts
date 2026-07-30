@@ -15,6 +15,7 @@ import {
   translationHookSuccess,
   type TranslationProviderHookResult,
 } from '@main/translateProviders/translationProviderContracts';
+import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 
 const BING_TRANSLATE_URL = 'https://www.bing.com/translator';
@@ -236,8 +237,9 @@ export function classifyBingResultSnapshot(snapshot: BingResultSnapshot): Transl
   if (snapshot.visibleOutputControls !== 1 || snapshot.visibleEnabledOutputControls !== 1) {
     return translationHookFailure('pageContractFailure');
   }
-  const normalizedText = snapshot.text.trim();
-  return translationHookSuccess(normalizedText === '...' || normalizedText === '…' ? '' : normalizedText);
+  const normalizedText = normalizeTranslationResultText(snapshot.text);
+  const statusText = normalizedText.trim();
+  return translationHookSuccess(statusText === '...' || statusText === '…' ? '' : normalizedText);
 }
 
 /** Restricts Playwright access to the researched public Bing controls. */
@@ -364,7 +366,7 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
     }
     return {
       outputLanguage: await outputs[0].locator.getAttribute('lang'),
-      text: (await outputs[0].locator.textContent()) ?? '',
+      text: await outputs[0].locator.innerText(),
       visibleEnabledOutputControls: outputs[0].enabled ? 1 : 0,
       visibleOutputControls: 1,
     };
@@ -638,7 +640,7 @@ export class BingTranslateProvider extends BaseTranslateProvider {
       controls.success &&
       result.success &&
       snapshot.controls.sourceTextLength === 0 &&
-      result.value.length === 0 &&
+      result.value.trim().length === 0 &&
       this.selectionMatches(snapshot.selection, targetLanguage) &&
       snapshot.visibleClearControls === 0 &&
       snapshot.visibleClearWrappers === 1 &&
