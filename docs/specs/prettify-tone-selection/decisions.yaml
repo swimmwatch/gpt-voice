@@ -1,0 +1,1958 @@
+schema_version: 1
+spec_slug: prettify-tone-selection
+interview_id: spec:prettify-tone-selection
+created_at: '2026-07-30'
+updated_at: '2026-07-30'
+
+decisions:
+  - id: outcome.primary-purpose
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User request on 2026-07-30: optimize first for creating AI prompts and second for general voice-entered text.'
+      - 'README.md: Prettify turns rough selected text into a strong prompt.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The feature primarily assists creation of AI prompts; general voice-text editing is secondary.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: outcome.selectable-tone
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User request on 2026-07-30: let users choose how tone is applied by Prettify.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Prettify must expose a user-selectable transformation choice instead of always applying one undifferentiated instruction.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-002]
+
+  - id: research.telegram-editor
+    revision: 1
+    category: evidence
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'User-supplied Telegram AI Editor screenshot on 2026-07-30.'
+      - 'https://telegram.org/blog/ai-editor-mighty-polls-and-more#ai-text-editor'
+      - 'https://telegram.org/blog/ai-bot-revolution-11-new-features#custom-ai-styles'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Telegram separates Fix, Style, and Translate; offers Formal, Short, Tribal, Corp, Zen, Biblical, and Viking styles; shows source/result context; and later added prompt-defined custom styles with preview and local editor installation.'
+    rationale: 'This is interaction evidence, not a requirement to clone Telegram or its entertainment-oriented catalog.'
+    supersedes_revision: null
+    requirement_ids: [EVID-001]
+
+  - id: research.apple-writing-tools
+    revision: 1
+    category: evidence
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'https://support.apple.com/guide/mac-help/find-the-right-words-with-writing-tools-mchldcd6c260/mac'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Apple Writing Tools separates proofreading, rewriting, tone changes, free-form change descriptions, and summarization/organization; it supports original comparison, regeneration, revert, copy, and replace.'
+    rationale: 'This independently supports separating transformation purpose from tone and making destructive replacement explicit.'
+    supersedes_revision: null
+    requirement_ids: [EVID-002]
+
+  - id: current.selected-text-workflow
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'README.md: Prettify selection defaults to F12 and copies the improved result to the clipboard.'
+      - 'src/main/shortcuts.ts:224'
+      - 'src/main/services/selectedTextPrettify.ts:80'
+      - 'tests/main/selectedTextPrettify.test.ts'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The global shortcut runs Prettify without opening a chooser, reads the current desktop selection through clipboard automation, and writes a successful result to the clipboard with a system notification.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-001]
+
+  - id: current.settings-model
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/shared/prettifySettings.ts:170'
+      - 'src/main/services/prettifySettingsStorage.ts:81'
+      - 'src/renderer/components/settings/PrettifySection.tsx:129'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'One global Prettify prompt, capped at 4,000 characters, is persisted alongside provider and generation settings and is used by Ollama, vLLM, Claude CLI, and Codex CLI.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-001, COMP-002]
+
+  - id: current.safety-and-cache
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - 'docs/specs/prettify-prompt-hardening/spec.md'
+      - 'src/main/services/prettifyHttpProviders.ts:85'
+      - 'src/main/services/selectedTextPrettify.ts:19'
+      - 'src/main/services/selectedTextPrettify.ts:127'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Selected text is treated as inert source data, requests are limited to 16,000 characters, failed or cancelled runs restore the clipboard, and successful results use a one-minute in-memory cache whose context already includes result-affecting provider settings and the prompt.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SAFE-001, COMP-003]
+
+  - id: current.privacy-routing
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - 'README.md: Privacy And Local Data.'
+      - 'docs/specs/prettify-prompt-hardening/spec.md'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: "Only the action's selected text and configured Prettify instruction are sent to the selected provider; diagnostic text capture is local, independent, and disabled by default."
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PRIV-001]
+
+  - id: current.main-window-layout
+    revision: 1
+    category: interface
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/renderer/components/MainPrettifyProviderBand.tsx'
+      - 'tests/renderer/mainPrettifyProviderBand.test.ts'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The fixed 520 by 420 main window reserves a 60-pixel Prettify provider band for provider, model/status, model action, and settings access; it has no current transformation selector.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-001]
+
+  - id: workflow.invocation-model
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current F12 behavior is one-step and windowless.'
+      - 'The stated primary prompt-authoring use benefits from deliberate selection and review.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: product-model-round-01
+      question_id: workflow.invocation-model
+      idempotency_key: workflow.invocation-model:v1
+      last_status: answered
+    question:
+      text: 'How should users choose a Prettify transformation when starting the action?'
+      kind: single
+      options:
+        - id: dual-path
+          label: 'Quick apply plus editor (Recommended)'
+          description: 'F12 immediately applies the active profile, while an explicit editor action opens profile selection, source review, and preview.'
+        - id: persistent-quick
+          label: 'Persistent quick selection'
+          description: 'Users select an active profile in the app, and every F12 press applies it immediately without an editor.'
+        - id: choose-every-time
+          label: 'Choose every time'
+          description: 'F12 always opens a Telegram-like chooser before any provider request.'
+    answer:
+      selected_ids: []
+      text: 'F12 opens a profile chooser and applies the selected profile. A separate configurable shortcut, initially exemplified as Ctrl+F12, immediately applies the default profile without opening the chooser.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, FLOW-002]
+
+  - id: scope.transformation-model
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Tone alone does not express prompt structure, level of detail, or intended AI task.'
+      - 'Telegram and Apple distinguish operation purpose from tone.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: product-model-round-01
+      question_id: scope.transformation-model
+      idempotency_key: scope.transformation-model:v1
+      last_status: answered
+    question:
+      text: 'What should each selectable Prettify item represent?'
+      kind: single
+      options:
+        - id: transformation-profile
+          label: 'Prompt transformation profile (Recommended)'
+          description: 'A reusable profile controls purpose, tone, structure, length, and output constraints for prompt-oriented editing.'
+        - id: tone-overlay
+          label: 'Tone overlay'
+          description: 'A small tone or length modifier is appended to the one existing global Prettify prompt.'
+        - id: broad-editor-mode
+          label: 'Broad AI editor modes'
+          description: 'Expand Prettify into Telegram-like Fix, Style, Translate, and related operations in one feature.'
+    answer:
+      selected_ids: [transformation-profile]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-001]
+
+  - id: workflow.result-review
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current behavior copies immediately.'
+      - 'Telegram and Apple expose source/result review and retry controls.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: product-model-round-01
+      question_id: workflow.result-review
+      idempotency_key: workflow.result-review:v1
+      last_status: answered
+    question:
+      text: 'How should generated results be reviewed and delivered?'
+      kind: single
+      options:
+        - id: path-specific
+          label: 'Review only in editor path (Recommended)'
+          description: 'Quick apply keeps immediate clipboard delivery; the editor path shows original/result, retry, and explicit copy.'
+        - id: immediate-only
+          label: 'Immediate clipboard only'
+          description: 'Every path copies the first successful result without a preview.'
+        - id: preview-always
+          label: 'Preview every result'
+          description: 'Every Prettify request requires review and confirmation before copying.'
+    answer:
+      selected_ids: [immediate-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-003]
+
+  - id: customization.profile-support
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The app currently supports one custom global prompt.'
+      - 'Telegram later added prompt-defined custom styles.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: product-model-round-01
+      question_id: customization.profile-support
+      idempotency_key: customization.profile-support:v1
+      last_status: answered
+    question:
+      text: 'Which profile customization model should the first version support?'
+      kind: single
+      options:
+        - id: built-in-and-custom
+          label: 'Built-in and custom profiles (Recommended)'
+          description: 'Ship a prompt-focused starter catalog and let users create, edit, duplicate, reorder, and delete local reusable profiles.'
+        - id: built-in-only
+          label: 'Built-in profiles only'
+          description: 'Ship a fixed catalog and retain the existing global prompt only as an advanced setting.'
+        - id: custom-only
+          label: 'Custom profiles only'
+          description: 'Provide profile management but no product-owned starter catalog.'
+    answer:
+      selected_ids: [built-in-and-custom]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-002]
+
+  - id: quality.content-fidelity
+    revision: 1
+    category: quality
+    state: answered
+    provenance: user
+    evidence:
+      - 'The current hardened prompt preserves intent, requests, commands, details, formatting, code, URLs, and identifiers.'
+      - 'Prompt-authoring workflows can be damaged by silent semantic changes.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: product-model-round-01
+      question_id: quality.content-fidelity
+      idempotency_key: quality.content-fidelity:v1
+      last_status: answered
+    question:
+      text: 'May a style change the source meaning or requested task?'
+      kind: single
+      options:
+        - id: preserve-intent
+          label: 'Preserve intent in every profile (Recommended)'
+          description: 'Profiles may change wording, tone, structure, and useful detail but must preserve task, constraints, facts, code, identifiers, and deliberate emphasis.'
+        - id: explicit-creative-profiles
+          label: 'Allow explicit creative profiles'
+          description: 'Some clearly labeled profiles may intentionally reinterpret or embellish content, while normal profiles preserve intent.'
+        - id: unrestricted-per-profile
+          label: 'Let every profile decide'
+          description: 'Profile authors define fidelity without a product-level invariant.'
+    answer:
+      selected_ids: [preserve-intent]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SAFE-001]
+
+  - id: catalog.built-in-profiles
+    revision: 1
+    category: catalog
+    state: answered
+    provenance: user
+    evidence:
+      - 'The primary product outcome is creating strong AI prompts.'
+      - 'The secondary outcome is general cleanup of voice-entered text.'
+      - "Telegram and Apple both mix practical transformation purposes with tone choices, but Telegram's novelty styles do not directly serve the primary outcome."
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profiles-and-delivery-round-01
+      question_id: catalog.built-in-profiles
+      idempotency_key: catalog.built-in-profiles:v1
+      last_status: answered
+    question:
+      text: 'Which built-in transformation profiles should ship in the first version? Select all that apply.'
+      kind: multiple
+      options:
+        - id: prompt-ready
+          label: 'Prompt-ready (Recommended)'
+          description: 'Turn rough dictation into a clear AI task with goal, context, constraints, and expected output when those elements are present.'
+        - id: polish
+          label: 'Polish'
+          description: 'Correct grammar, remove filler and repetition, and clarify wording without materially restructuring the source.'
+        - id: concise
+          label: 'Concise'
+          description: 'Minimize tokens while preserving every task, constraint, fact, identifier, and important detail.'
+        - id: structured
+          label: 'Structured'
+          description: 'Reorganize the source into readable sections, steps, or lists without adding facts.'
+        - id: detailed
+          label: 'Detailed'
+          description: 'Make existing requirements and relationships explicit and surface unresolved placeholders without inventing answers.'
+        - id: professional
+          label: 'Professional'
+          description: 'Use a formal, precise tone suitable for workplace or technical communication.'
+        - id: natural
+          label: 'Natural'
+          description: 'Produce clear conversational text suitable for general voice input.'
+    answer:
+      selected_ids: [prompt-ready, polish, professional, natural]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CAT-001, CAT-002, CAT-003, CAT-004, CAT-005]
+
+  - id: customization.authoring-model
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The current product exposes one free-form Prettify instruction.'
+      - 'A product-owned source-data guard must remain outside user-controlled profile content.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profiles-and-delivery-round-01
+      question_id: customization.authoring-model
+      idempotency_key: customization.authoring-model:v1
+      last_status: answered
+    question:
+      text: 'How should users define a custom transformation profile?'
+      kind: single
+      options:
+        - id: metadata-and-instruction
+          label: 'Name, description, and instruction (Recommended)'
+          description: 'Each profile stores user-facing metadata and one free-form transformation instruction; invariant safety rules remain product-owned.'
+        - id: structured-controls
+          label: 'Structured controls only'
+          description: 'Users choose purpose, tone, length, and formatting fields; the app compiles the profile without exposing a raw instruction.'
+        - id: hybrid-controls
+          label: 'Controls plus advanced instruction'
+          description: 'Provide structured fields and an optional free-form advanced instruction, with conflict validation.'
+    answer:
+      selected_ids: [metadata-and-instruction]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-003, DATA-002]
+
+  - id: compatibility.legacy-prompt-migration
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'Existing installations may contain a user-authored global prompt.'
+      - 'Silent loss or reinterpretation of that prompt would change established Prettify behavior.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profiles-and-delivery-round-01
+      question_id: compatibility.legacy-prompt-migration
+      idempotency_key: compatibility.legacy-prompt-migration:v1
+      last_status: answered
+    question:
+      text: 'What should happen to the existing global Prettify prompt during migration?'
+      kind: single
+      options:
+        - id: migrate-to-profile
+          label: 'Migrate it to the default profile (Recommended)'
+          description: 'Map the unchanged built-in prompt to its equivalent built-in profile; preserve any customized prompt as a local migrated profile and make it the default.'
+        - id: retain-as-base
+          label: 'Keep it as a global base instruction'
+          description: 'Apply the old prompt under every selected profile, even when profile instructions overlap or conflict.'
+        - id: replace-with-catalog
+          label: 'Replace it with the new catalog'
+          description: 'Reset behavior to the new built-ins and do not preserve a customized legacy prompt.'
+    answer:
+      selected_ids: [migrate-to-profile]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-001]
+
+  - id: workflow.default-profile
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The dedicated quick shortcut must have deterministic behavior.'
+      - 'A one-off chooser selection and a persistent default serve different user intentions.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profiles-and-delivery-round-01
+      question_id: workflow.default-profile
+      idempotency_key: workflow.default-profile:v1
+      last_status: answered
+    question:
+      text: 'How should the profile used by the quick shortcut be selected?'
+      kind: single
+      options:
+        - id: explicit-default
+          label: 'Explicit default (Recommended)'
+          description: 'Users deliberately mark one profile as default; choosing another profile in the F12 dialog is one-off and does not change it.'
+        - id: last-used
+          label: 'Last used profile'
+          description: 'Every chooser selection becomes the profile used by the next quick-shortcut invocation.'
+        - id: chooser-choice
+          label: 'Ask after first use'
+          description: 'The quick shortcut is unavailable until the user has made an initial chooser selection, which then persists.'
+    answer:
+      selected_ids: [explicit-default]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-004]
+
+  - id: workflow.output-destination
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current Prettify copies results to the clipboard and never automates replacement.'
+      - 'Clipboard-only delivery avoids injecting generated text into an unintended application.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profiles-and-delivery-round-01
+      question_id: workflow.output-destination
+      idempotency_key: workflow.output-destination:v1
+      last_status: answered
+    question:
+      text: 'Where should a successful Prettify result go?'
+      kind: single
+      options:
+        - id: clipboard-only
+          label: 'Clipboard only (Recommended)'
+          description: 'Preserve the current safe behavior: copy the result and show a success notification.'
+        - id: replace-selection
+          label: 'Replace selected text'
+          description: 'Automate paste into the active application after generation.'
+        - id: configurable-destination
+          label: 'User-configurable destination'
+          description: 'Let users choose globally between clipboard delivery and automatic replacement.'
+    answer:
+      selected_ids: [clipboard-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-004, FLOW-006]
+
+  - id: interface.chooser-host
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'F12 is a global shortcut invoked while another desktop application may own focus.'
+      - 'The fixed main window has no space for a full profile chooser.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: chooser-experience-round-01
+      question_id: interface.chooser-host
+      idempotency_key: interface.chooser-host:v1
+      last_status: answered
+    question:
+      text: 'Where should the F12 profile chooser appear?'
+      kind: single
+      options:
+        - id: transient-active-display
+          label: 'Foreground dialog on active display (Recommended)'
+          description: 'Open a compact transient window above the currently active display without moving or resizing the main GPT-Voice window.'
+        - id: main-window-panel
+          label: 'Inside the main window'
+          description: 'Bring GPT-Voice to the foreground and replace or expand its current content with the chooser.'
+        - id: tray-menu
+          label: 'Tray menu'
+          description: 'Expose profiles as a native tray or context menu instead of a renderer dialog.'
+    answer:
+      selected_ids: [transient-active-display]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-001]
+
+  - id: interface.profile-activation
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'Selecting a profile can start a local or remote provider request and may consume provider quota.'
+      - 'The Telegram reference uses profile selection followed by an explicit action button.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: chooser-experience-round-01
+      question_id: interface.profile-activation
+      idempotency_key: interface.profile-activation:v1
+      last_status: answered
+    question:
+      text: 'What interaction should start the provider request from the chooser?'
+      kind: single
+      options:
+        - id: select-then-apply
+          label: 'Select, then Apply (Recommended)'
+          description: 'Single-click or keyboard navigation selects a profile; an explicit Apply button or Enter starts the request.'
+        - id: single-activate
+          label: 'Single action immediately runs'
+          description: 'Clicking or pressing Enter on a profile immediately closes the chooser and starts processing.'
+        - id: double-activate
+          label: 'Select or double-click'
+          description: 'Single-click selects; double-click runs immediately; the Apply button remains available.'
+    answer:
+      selected_ids: [select-then-apply]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-002]
+
+  - id: interface.source-preview
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The chooser is opened after clipboard automation captures the current desktop selection.'
+      - 'The Telegram reference displays the original text before transformation.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: chooser-experience-round-01
+      question_id: interface.source-preview
+      idempotency_key: interface.source-preview:v1
+      last_status: answered
+    question:
+      text: 'Should the chooser display the captured source text?'
+      kind: single
+      options:
+        - id: readonly-preview
+          label: 'Read-only preview (Recommended)'
+          description: 'Show a bounded, scrollable original-text preview so users can verify the captured selection before applying a profile.'
+        - id: no-preview
+          label: 'No source preview'
+          description: 'Show only profile names and descriptions for the smallest and fastest dialog.'
+        - id: editable-source
+          label: 'Editable source'
+          description: 'Allow users to modify the captured text in the chooser before processing it.'
+    answer:
+      selected_ids: [readonly-preview]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-003, PRIV-002]
+
+  - id: customization.management-surface
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Provider and prompt configuration currently lives in App Settings > Prettify.'
+      - 'The chooser should remain bounded for a global-shortcut workflow.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: chooser-experience-round-01
+      question_id: customization.management-surface
+      idempotency_key: customization.management-surface:v1
+      last_status: answered
+    question:
+      text: 'Where should users create and manage custom profiles?'
+      kind: single
+      options:
+        - id: settings-with-chooser-link
+          label: 'App Settings with chooser link (Recommended)'
+          description: 'Keep full profile CRUD in App Settings > Prettify and add a Manage profiles shortcut in the chooser.'
+        - id: chooser-inline-management
+          label: 'Directly in the chooser'
+          description: 'Let the global-shortcut dialog create, edit, reorder, and delete profiles in place.'
+        - id: separate-profile-window
+          label: 'Separate Profiles window'
+          description: 'Open a dedicated management window from both Settings and the chooser.'
+    answer:
+      selected_ids: [settings-with-chooser-link]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-004, PROF-006]
+
+  - id: catalog.prompt-ready-missing-information
+    revision: 1
+    category: catalog
+    state: answered
+    provenance: user
+    evidence:
+      - 'Prompt-ready must create a useful AI instruction without inventing source facts or requirements.'
+      - 'Immediate clipboard delivery provides no intermediate clarification conversation.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: chooser-experience-round-01
+      question_id: catalog.prompt-ready-missing-information
+      idempotency_key: catalog.prompt-ready-missing-information:v1
+      last_status: answered
+    question:
+      text: 'How should Prompt-ready handle missing information that materially affects the requested task?'
+      kind: single
+      options:
+        - id: preserve-and-ask
+          label: 'Tell the target AI to clarify (Recommended)'
+          description: 'Preserve the unknown and add a concise instruction to ask focused clarifying questions when proceeding would require invention.'
+        - id: leave-unspecified
+          label: 'Leave it unspecified'
+          description: 'Do not add placeholders or clarification behavior; only restructure information already present.'
+        - id: visible-placeholders
+          label: 'Insert visible placeholders'
+          description: 'Add clearly marked placeholders such as [specify audience] for the user to fill before submitting the prompt.'
+    answer:
+      selected_ids: [leave-unspecified]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CAT-002]
+
+  - id: workflow.new-install-default
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The quick shortcut requires one explicit default profile.'
+      - 'Prompt creation is the stated primary product outcome.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: compatibility-and-scope-round-01
+      question_id: workflow.new-install-default
+      idempotency_key: workflow.new-install-default:v1
+      last_status: answered
+    question:
+      text: 'Which profile should be the default on a new installation?'
+      kind: single
+      options:
+        - id: prompt-ready
+          label: 'Prompt-ready (Recommended)'
+          description: 'Make the primary AI-prompt workflow available immediately through the quick shortcut.'
+        - id: polish
+          label: 'Polish'
+          description: "Default to the closest continuation of today's conservative Prettify behavior."
+        - id: require-choice
+          label: 'Require first-run choice'
+          description: 'Do not enable the quick shortcut until the user explicitly chooses a default profile.'
+    answer:
+      selected_ids: [prompt-ready]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-002, PROF-004]
+
+  - id: workflow.quick-hotkey-default
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requested a second shortcut and offered Ctrl+F12 as the example.'
+      - 'All existing action hotkeys are configurable and conflict-checked.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: compatibility-and-scope-round-01
+      question_id: workflow.quick-hotkey-default
+      idempotency_key: workflow.quick-hotkey-default:v1
+      last_status: answered
+    question:
+      text: 'What should the default quick-apply shortcut be?'
+      kind: single
+      options:
+        - id: control-f12
+          label: 'Ctrl+F12 (Recommended)'
+          description: 'Use the suggested accelerator by default and expose it through the existing configurable hotkey UI and conflict checks.'
+        - id: shift-f12
+          label: 'Shift+F12'
+          description: 'Keep the quick action adjacent to F12 with a single modifier that may be easier on some keyboards.'
+        - id: unassigned
+          label: 'Unassigned'
+          description: 'Add the action but require users to choose a shortcut before quick apply is available.'
+    answer:
+      selected_ids: [control-f12]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, COMP-005]
+
+  - id: customization.built-in-mutability
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Built-in profile behavior must remain testable and recoverable across upgrades.'
+      - 'Custom profiles already cover user-authored variants.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: compatibility-and-scope-round-01
+      question_id: customization.built-in-mutability
+      idempotency_key: customization.built-in-mutability:v1
+      last_status: answered
+    question:
+      text: 'How should built-in profiles be customized?'
+      kind: single
+      options:
+        - id: immutable-duplicate
+          label: 'Immutable; duplicate to customize (Recommended)'
+          description: 'Built-ins can be selected and inspected but not edited or deleted; Duplicate creates an independent custom profile.'
+        - id: editable-with-reset
+          label: 'Editable with Reset'
+          description: 'Users may override built-in instructions and restore the product version later.'
+        - id: fully-mutable
+          label: 'Treat them like custom profiles'
+          description: 'Allow editing, reordering, hiding, and deleting built-ins with no protected catalog.'
+    answer:
+      selected_ids: [immutable-duplicate]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-005]
+
+  - id: scope.language-policy
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Current Prettify preserves source language and Translation is a separate F11 action.'
+      - 'Free-form custom instructions could otherwise duplicate or blur the Translation contract.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: compatibility-and-scope-round-01
+      question_id: scope.language-policy
+      idempotency_key: scope.language-policy:v1
+      last_status: answered
+    question:
+      text: 'May custom Prettify profiles intentionally translate the source?'
+      kind: single
+      options:
+        - id: preserve-language
+          label: 'Always preserve source language (Recommended)'
+          description: 'All built-in and custom profiles remain editing operations; users continue to use Translation for language changes.'
+        - id: custom-may-translate
+          label: 'Custom profiles may translate'
+          description: 'Built-ins preserve language, but a custom instruction may explicitly request another language.'
+        - id: profile-language-field
+          label: 'Add a target-language field'
+          description: 'Make language transformation a first-class optional profile property.'
+    answer:
+      selected_ids: [preserve-language]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SAFE-002, SCOPE-003]
+
+  - id: customization.portability
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Telegram supports shareable custom-style links.'
+      - 'GPT-Voice stores settings locally and does not currently operate a profile-sharing service.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: compatibility-and-scope-round-01
+      question_id: customization.portability
+      idempotency_key: customization.portability:v1
+      last_status: answered
+    question:
+      text: 'Should custom-profile portability be included in the first version?'
+      kind: single
+      options:
+        - id: local-only
+          label: 'Local only (Recommended)'
+          description: 'Keep profiles in local app settings; defer export, import, and sharing.'
+        - id: file-import-export
+          label: 'JSON import and export'
+          description: 'Support explicit local file transfer with schema validation and confirmation before overwrite.'
+        - id: shareable-links
+          label: 'Shareable links'
+          description: 'Add a link-based sharing and preview workflow comparable to Telegram.'
+    answer:
+      selected_ids: [file-import-export]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PORT-001]
+
+  - id: portability.export-scope
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'Built-in profiles are product-owned and can be reconstructed by every compatible installation.'
+      - 'Custom instructions may contain user-authored, potentially private text.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: portability-and-failure-round-01
+      question_id: portability.export-scope
+      idempotency_key: portability.export-scope:v1
+      last_status: answered
+    question:
+      text: 'What should the profile export UI support?'
+      kind: single
+      options:
+        - id: selectable-custom
+          label: 'Select one or more custom profiles (Recommended)'
+          description: 'Show an explicit selection step, default to no profiles selected, and export only chosen custom profiles.'
+        - id: all-custom
+          label: 'Export all custom profiles'
+          description: 'One action writes every custom profile without per-profile selection.'
+        - id: single-profile
+          label: 'One profile at a time'
+          description: 'Expose Export only on an individual custom profile.'
+    answer:
+      selected_ids: [selectable-custom]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PORT-002]
+
+  - id: portability.import-conflicts
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'Imported stable IDs or names may collide with local profiles.'
+      - 'Silent overwrite could destroy locally authored instructions.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: portability-and-failure-round-01
+      question_id: portability.import-conflicts
+      idempotency_key: portability.import-conflicts:v1
+      last_status: answered
+    question:
+      text: 'How should import handle conflicts with existing custom profiles?'
+      kind: single
+      options:
+        - id: preview-per-profile
+          label: 'Preview with per-profile choices (Recommended)'
+          description: 'Validate first, then let the user Rename, Replace, or Skip each conflict before one atomic import.'
+        - id: auto-rename
+          label: 'Always import as copies'
+          description: 'Generate new IDs and unique names automatically; never replace local profiles.'
+        - id: overwrite-by-id
+          label: 'Replace matching IDs'
+          description: 'Silently overwrite a local custom profile when the imported stable ID matches.'
+    answer:
+      selected_ids: [preview-per-profile]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PORT-003]
+
+  - id: portability.import-default
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'The quick shortcut must remain deterministic after import.'
+      - "An exported file can originate from another user's installation."
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: portability-and-failure-round-01
+      question_id: portability.import-default
+      idempotency_key: portability.import-default:v1
+      last_status: answered
+    question:
+      text: 'May importing profiles change the local default profile?'
+      kind: single
+      options:
+        - id: never-change
+          label: 'Never change it automatically (Recommended)'
+          description: 'Import only profile records; the user must explicitly select a new local default afterward.'
+        - id: optional-confirmed
+          label: 'Offer a confirmed default change'
+          description: 'If the file marks a default, show a separate unchecked option to adopt it.'
+        - id: preserve-exported
+          label: 'Always adopt the exported default'
+          description: 'Replace the local default whenever the imported package identifies one.'
+    answer:
+      selected_ids: [never-change]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PORT-004]
+
+  - id: failure.default-profile-deletion
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - 'A custom profile can be the explicit default and custom profiles are deletable.'
+      - 'The quick shortcut must never reference a missing profile.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: portability-and-failure-round-01
+      question_id: failure.default-profile-deletion
+      idempotency_key: failure.default-profile-deletion:v1
+      last_status: answered
+    question:
+      text: 'What should happen when a user deletes the current default custom profile?'
+      kind: single
+      options:
+        - id: require-replacement
+          label: 'Require a replacement first (Recommended)'
+          description: 'The delete confirmation requires selecting another profile as default, then performs both changes atomically.'
+        - id: fallback-prompt-ready
+          label: 'Fall back to Prompt-ready'
+          description: 'Deletion automatically assigns the built-in Prompt-ready profile as default.'
+        - id: disable-quick-action
+          label: 'Disable quick apply'
+          description: 'Delete the profile and leave the quick shortcut unavailable until a new default is chosen.'
+    answer:
+      selected_ids: [require-replacement]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, PROF-004]
+
+  - id: interface.chooser-submit-lifecycle
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected result flow is immediate clipboard delivery without result preview.'
+      - 'Provider preparation or generation can fail after submission.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: portability-and-failure-round-01
+      question_id: interface.chooser-submit-lifecycle
+      idempotency_key: interface.chooser-submit-lifecycle:v1
+      last_status: answered
+    question:
+      text: 'When should the F12 chooser close after Apply?'
+      kind: single
+      options:
+        - id: close-on-submit
+          label: 'Close immediately on submit (Recommended)'
+          description: 'Return focus to the previous workflow, show working state through existing app/tray status, and report success or failure by notification.'
+        - id: close-on-success
+          label: 'Stay open until success'
+          description: 'Show progress in the dialog; close only after the result reaches the clipboard and keep errors visible for retry.'
+        - id: close-after-prepare
+          label: 'Close after provider preflight'
+          description: 'Keep the dialog open for validation/readiness failures, then close once generation starts.'
+    answer:
+      selected_ids: [close-on-submit]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-005, UI-005]
+
+  - id: scope.voice-transcription-integration
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Prettify currently operates only on desktop-selected text through F12.'
+      - 'The user identified general voice-entered text as a secondary product purpose.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: scope-and-resilience-round-01
+      question_id: scope.voice-transcription-integration
+      idempotency_key: scope.voice-transcription-integration:v1
+      last_status: answered
+    question:
+      text: 'Should this version apply profiles directly in the voice transcription completion flow?'
+      kind: single
+      options:
+        - id: selected-text-only
+          label: 'Selected-text Prettify only (Recommended)'
+          description: 'Keep recording/transcription behavior unchanged; users may select dictated text afterward and invoke F12 or Ctrl+F12.'
+        - id: optional-auto-prettify
+          label: 'Optional automatic profile'
+          description: 'Add a setting that runs the default Prettify profile automatically after every successful transcription.'
+        - id: post-transcription-chooser
+          label: 'Chooser after transcription'
+          description: 'Offer or open the profile chooser when a voice transcription completes.'
+    answer:
+      selected_ids: [selected-text-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001]
+
+  - id: interface.main-window-profile
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The fixed 520 by 420 main window already reserves the 60-pixel Prettify band for provider, model/status, and controls.'
+      - 'Profile choice is available through F12 and App Settings.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: scope-and-resilience-round-01
+      question_id: interface.main-window-profile
+      idempotency_key: interface.main-window-profile:v1
+      last_status: answered
+    question:
+      text: 'How should the active default profile appear in the main window?'
+      kind: single
+      options:
+        - id: no-main-window-control
+          label: 'Chooser and Settings only (Recommended)'
+          description: 'Preserve the fixed Prettify band; expose the default in the F12 chooser, hotkey help, and App Settings.'
+        - id: compact-indicator
+          label: 'Compact read-only indicator'
+          description: 'Add the default profile name to the main Prettify band without allowing selection there.'
+        - id: full-main-selector
+          label: 'Full selector in main window'
+          description: 'Add a persistent profile selector to the main Prettify band and revise its fixed layout.'
+    answer:
+      selected_ids: [no-main-window-control]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-002, UI-010]
+
+  - id: customization.capacity-limits
+    revision: 1
+    category: customization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Custom instructions and imported files are untrusted, persistent input.'
+      - 'The existing global prompt limit is 4,000 characters.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: scope-and-resilience-round-01
+      question_id: customization.capacity-limits
+      idempotency_key: customization.capacity-limits:v1
+      last_status: answered
+    question:
+      text: 'Which capacity limits should the first version use?'
+      kind: single
+      options:
+        - id: standard-bounds
+          label: '50 profiles and 1 MiB import (Recommended)'
+          description: 'Limit names to 64 characters, descriptions to 240, each instruction to 4,000, custom profiles to 50, and an import file to 1 MiB.'
+        - id: large-bounds
+          label: '200 profiles and 4 MiB import'
+          description: 'Use the same field limits but permit a substantially larger local catalog and import package.'
+        - id: field-limits-only
+          label: 'No profile or file-count bound'
+          description: 'Validate individual fields but allow an unbounded number of profiles and package size.'
+    answer:
+      selected_ids: [large-bounds]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-001, PORT-005]
+
+  - id: compatibility.downgrade-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'Older releases understand one Prettify prompt but not profile records.'
+      - 'Retaining a legacy projection can make rollback usable without teaching an old release about new schemas.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: scope-and-resilience-round-01
+      question_id: compatibility.downgrade-policy
+      idempotency_key: compatibility.downgrade-policy:v1
+      last_status: answered
+    question:
+      text: 'What downgrade compatibility should profile persistence provide?'
+      kind: single
+      options:
+        - id: retain-legacy-projection
+          label: 'Keep a legacy default-prompt projection (Recommended)'
+          description: 'Continue storing the current default profile instruction in the legacy prompt field so an older release has meaningful quick behavior after rollback.'
+        - id: one-way-migration
+          label: 'One-way migration'
+          description: 'Stop maintaining the legacy prompt; an older release falls back to its built-in default after downgrade.'
+        - id: backup-before-migration
+          label: 'Write a migration backup'
+          description: 'Create a separate local backup of old settings but do not keep the legacy prompt synchronized.'
+    answer:
+      selected_ids: [retain-legacy-projection]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-003]
+
+  - id: failure.chooser-reentry
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - "Opening another chooser could capture the chooser's own text instead of the original external selection."
+      - 'Selected-text actions already enforce single-flight execution.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: scope-and-resilience-round-01
+      question_id: failure.chooser-reentry
+      idempotency_key: failure.chooser-reentry:v1
+      last_status: answered
+    question:
+      text: 'What should happen if F12 or Ctrl+F12 is pressed while the chooser is already open?'
+      kind: single
+      options:
+        - id: focus-existing
+          label: 'Focus the existing chooser (Recommended)'
+          description: 'Keep the original captured source, bring the existing chooser forward, and start no second clipboard or provider operation.'
+        - id: refresh-source
+          label: 'Replace it with a new capture'
+          description: 'Recapture the current desktop selection and reset the open chooser to that source.'
+        - id: ignore-reentry
+          label: 'Ignore the shortcut'
+          description: 'Leave the existing chooser unchanged without focusing it or showing feedback.'
+    answer:
+      selected_ids: [focus-existing]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FAIL-002]
+
+  - id: scope.non-goals
+    revision: 1
+    category: scope
+    state: not_applicable
+    provenance: user
+    evidence:
+      - 'scope.voice-transcription-integration:v1 selected selected-text-only.'
+      - 'interface.main-window-profile:v1 selected no-main-window-control.'
+      - 'workflow.result-review:v1 selected immediate-only.'
+      - 'scope.language-policy:v1 selected preserve-language.'
+      - 'customization.portability:v1 selected file-import-export rather than shareable-links.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'This version does not auto-prettify voice transcription, add result preview/diff or automatic paste, expand Translation, add shareable links, change providers/models/generation controls, or redesign the main window.'
+    rationale: 'These areas were explicitly excluded or are unaffected by the selected product model.'
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, SCOPE-002]
+
+  - id: architecture.profile-boundaries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - 'AGENTS.md: renderer uses only window.electronAPI and main owns privileged operations.'
+      - 'docs/agent-guides/project-conventions.md: Electron And Providers.'
+      - 'src/main/ipc.ts: TrustedIpcRegistrar.'
+      - 'src/main/di/mainProcessCompositionRoot.ts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Main owns global shortcuts, clipboard capture, profile persistence, import/export filesystem access, provider execution, cache, and chooser-window lifecycle. A trusted isolated renderer owns chooser and Settings UI through typed preload IPC with sender validation.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-003]
+
+  - id: data.profile-schema
+    revision: 1
+    category: data
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'customization.authoring-model:v1 selected metadata-and-instruction.'
+      - 'customization.built-in-mutability:v1 selected immutable-duplicate.'
+      - 'customization.capacity-limits:v1 selected large-bounds.'
+      - 'Existing project settings use shared strict validation and normalization.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Profiles use stable IDs and a versioned schema. Product-owned built-ins use stable IDs and localized metadata; custom records contain ID, trimmed name, optional trimmed description, instruction, and user order. Custom IDs are generated locally; custom names are unique after case-insensitive Unicode normalization. Limits are 64 name characters, 240 description characters, 4,000 instruction characters, and 200 custom profiles.'
+    rationale: 'This is the smallest deterministic schema that supports the selected UI, migration, ordering, conflict handling, and bounded persistence.'
+    supersedes_revision: null
+    requirement_ids: [DATA-001, DATA-002, DATA-003]
+
+  - id: workflow.clipboard-lifecycle
+    revision: 1
+    category: workflow
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'Current selected-text service preserves the previous clipboard on failure and cancellation.'
+      - 'interface.source-preview:v1 selected readonly-preview.'
+      - 'workflow.output-destination:v1 selected clipboard-only.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Capture the selected source into main-process memory, restore the previous clipboard before showing the chooser or awaiting generation, and write only a successful result to the clipboard. Closing, cancelling, invalid input, provider failure, or app shutdown leaves the restored/current clipboard intact.'
+    rationale: 'A chooser can remain open indefinitely; early restoration prevents source text from occupying the clipboard and prevents late failure from overwriting clipboard changes made afterward.'
+    supersedes_revision: null
+    requirement_ids: [FLOW-006, PRIV-002, FAIL-003]
+
+  - id: failure.preserved-text-action-contract
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/main/services/selectedTextPrettify.ts.'
+      - 'src/main/shortcuts.ts.'
+      - 'tests/main/selectedTextPrettify.test.ts.'
+      - 'tests/main/shortcutController.test.ts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'No selection, over-limit source, provider unavailability, generation failure, cancellation, duplicate selected-text actions, and translation/recording concurrency remain bounded and localized. The chooser opens only after valid text capture; Escape closes the chooser or cancels the active provider run; corrupt or missing default-profile state recovers to Prompt-ready.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FAIL-003, FAIL-004, FAIL-005, FAIL-006, COMP-004]
+
+  - id: security.effective-profile-instruction
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'quality.content-fidelity:v1 selected preserve-intent.'
+      - 'scope.language-policy:v1 selected preserve-language.'
+      - 'docs/specs/prettify-prompt-hardening/spec.md.'
+      - 'src/main/services/prettifyHttpProviders.ts:85.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The effective provider instruction has product-owned source-data, fidelity, output-only, and language-preservation invariants at higher priority than the selected built-in or custom profile instruction. Selected text remains a dedicated inert user payload. Profiles cannot select providers, enable tools, weaken process isolation, or override these invariants.'
+    rationale: 'Free-form custom instructions require a non-user-controlled invariant layer to preserve the existing trust boundary.'
+    supersedes_revision: null
+    requirement_ids: [SAFE-001, SAFE-002, SAFE-003]
+
+  - id: privacy.profile-data
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'README.md: Privacy And Local Data.'
+      - 'customization.portability:v1 selected file-import-export.'
+      - 'Existing Prettify diagnostic capture is opt-in and local.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Profile names, descriptions, and instructions are local plaintext settings, not secrets. The UI discloses that the selected instruction is sent with source text to the configured provider and that exported JSON is plaintext. Runtime logs, metadata-only audit, cache diagnostics, and default diagnostics never contain source text, result text, profile name, description, instruction, or imported file contents; existing explicit text capture remains unchanged.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PRIV-003, PRIV-004, SAFE-004]
+
+  - id: portability.file-contract
+    revision: 1
+    category: portability
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'portability.export-scope:v1 selected selectable-custom.'
+      - 'portability.import-conflicts:v1 selected preview-per-profile.'
+      - 'portability.import-default:v1 selected never-change.'
+      - 'customization.capacity-limits:v1 selected large-bounds.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Export writes a versioned UTF-8 JSON document containing only explicitly selected custom profile records. It excludes default selection, built-ins, provider/generation settings, hotkeys, keys, source/result text, diagnostics, paths, and account data. Import rejects files over 4 MiB, unsupported versions, unknown required structures, malformed fields, excessive counts, and duplicate package identities before preview; confirmed Rename/Replace/Skip changes commit atomically.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PORT-001, PORT-002, PORT-003, PORT-004, PORT-005]
+
+  - id: interface.catalog-navigation
+    revision: 1
+    category: interface
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'customization.capacity-limits:v1 permits 200 custom profiles.'
+      - 'interface.profile-activation:v1 selected select-then-apply.'
+      - 'workflow.default-profile:v1 selected explicit-default.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The chooser lists immutable built-ins in fixed product order, followed by custom profiles in user order; marks the default; supports text search across visible name and description; restores the last one-off selection only for chooser convenience without changing the default; and keeps Apply disabled until a valid profile is selected.'
+    rationale: 'Search and deterministic grouping are required for the selected 200-profile capacity.'
+    supersedes_revision: null
+    requirement_ids: [UI-006, UI-007]
+
+  - id: quality.accessibility-localization
+    revision: 1
+    category: quality
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/main/i18n contains 12 supported locale modules.'
+      - 'Existing renderer controls use accessible Radix primitives and keyboard focus coordination.'
+      - 'Project conventions require localized, actionable user states.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'All new product copy and built-in profile metadata are localized in every supported locale. Chooser, profile CRUD, import preview, confirmations, search, and errors are fully keyboard operable, screen-reader labeled, focus-contained, contrast-safe, and compatible with reduced motion.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-008, UI-009, QUAL-001]
+
+  - id: quality.verification
+    revision: 1
+    category: quality
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'package.json scripts: typecheck, test:types, test:unit, lint, format:check, build:prod.'
+      - 'Existing focused Prettify, shortcut, settings, IPC privacy, and window tests.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Verification covers shared schema and migration, built-in instructions, all provider prompt composition and cache separation, shortcuts/conflicts, clipboard and single-flight behavior, chooser window and trusted IPC, Settings CRUD, import/export atomicity, privacy/logging contracts, localization, production build, and representative packaged Windows and Linux manual flows.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [QUAL-002, QUAL-003, QUAL-004]
+
+  - id: operations.dependencies-and-packaging
+    revision: 1
+    category: operations
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - 'The repository already contains renderer, window, JSON, validation, file-dialog, and UI primitives needed by this feature.'
+      - 'AGENTS.md forbids dependency and package-target changes without explicit scope.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'No new runtime dependency, external service, provider, browser session, installer target, release process, or generated artifact is required. Packaged Windows and Linux builds must include the new chooser renderer entry and preserve existing shutdown/resource ownership.'
+    rationale: 'No selected requirement needs a new dependency or service.'
+    supersedes_revision: null
+    requirement_ids: [OPS-001, OPS-002]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/prettify-tone-selection/spec.md'
+      - 'All 30 material interview questions are answered and the final six-perspective gap analysis is complete.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the Prettify Transformation Profiles draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve'
+          description: 'Set Status to Approved and treat this specification as ready for a separate planning invocation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep Status as Draft and reopen the affected decisions for revision.'
+        - id: leave-draft
+          label: 'Leave as Draft'
+          description: 'Stop specification work without approval or further changes.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: interface.chooser-order-customization
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User request on 2026-07-30: add the ability to configure the order in which profiles appear in the chooser window.'
+      - 'The approved draft already allows custom-profile reordering but fixes built-ins first in product order.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Users can persistently configure the order in which profiles are displayed in the F12 chooser.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-007, UI-011, DATA-004]
+
+  - id: interface.profile-order-scope
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'CAT-001 and UI-006 currently fix built-ins first in product order.'
+      - 'PROF-003 and DATA-002 currently persist user order only for custom profiles.'
+      - 'Built-in instruction immutability is independent from presentation order.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profile-order-round-01
+      question_id: interface.profile-order-scope
+      idempotency_key: interface.profile-order-scope:v1
+      last_status: answered
+    question:
+      text: 'Which profiles may users reorder for display in the F12 chooser?'
+      kind: single
+      options:
+        - id: unified-order
+          label: 'One order for all profiles (Recommended)'
+          description: 'Built-in and custom profiles share one persisted order and may be interleaved; built-in content remains immutable.'
+        - id: grouped-order
+          label: 'Reorder within fixed groups'
+          description: 'Built-ins remain before custom profiles, but users may reorder profiles inside both groups.'
+        - id: custom-only
+          label: 'Custom profiles only'
+          description: 'Keep built-ins first in fixed product order and allow only custom-profile reordering, matching the current draft.'
+    answer:
+      selected_ids: [unified-order]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CAT-001, PROF-005, UI-006, UI-011]
+
+  - id: interface.profile-order-surface
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'PROF-006 assigns full profile management to App Settings > Prettify.'
+      - 'The chooser is optimized for source verification, search, selection, and explicit Apply.'
+      - 'UI-008 requires every reorder operation to be keyboard accessible.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profile-order-round-01
+      question_id: interface.profile-order-surface
+      idempotency_key: interface.profile-order-surface:v1
+      last_status: answered
+    question:
+      text: 'Where should users configure chooser profile order?'
+      kind: single
+      options:
+        - id: settings-only
+          label: 'Settings only (Recommended)'
+          description: 'Add accessible reorder controls to App Settings > Prettify and keep the chooser focused on selecting and applying a profile.'
+        - id: chooser-mode
+          label: 'Chooser reorder mode'
+          description: 'Add an inline management mode to the chooser for changing persistent order without opening Settings.'
+        - id: settings-and-chooser
+          label: 'Settings and chooser'
+          description: 'Expose the same persistent ordering controls in both surfaces.'
+    answer:
+      selected_ids: [settings-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PROF-006, PROF-007, UI-008, UI-011]
+
+  - id: portability.profile-order
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'PORT-002 exports only explicitly selected custom profiles.'
+      - 'PORT-003 requires atomic conflict resolution.'
+      - 'PORT-004 prevents import from changing the local default profile.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: profile-order-round-01
+      question_id: portability.profile-order
+      idempotency_key: portability.profile-order:v1
+      last_status: answered
+    question:
+      text: 'How should chooser order interact with custom-profile JSON import and export?'
+      kind: single
+      options:
+        - id: local-only
+          label: 'Keep order local (Recommended)'
+          description: 'Export no ordering preference; import appends new profiles in file order, keeps replacement positions, and never reorders existing profiles.'
+        - id: relative-export-order
+          label: 'Preserve exported relative order'
+          description: 'Export relative order among selected custom profiles and append newly imported profiles in that order without moving existing profiles.'
+        - id: import-order-preview
+          label: 'Offer order during import'
+          description: 'Include ordering metadata and let import preview explicitly reconcile or apply it to the local chooser order.'
+    answer:
+      selected_ids: [local-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-004, PORT-002, PORT-003, PORT-004]
+
+  - id: data.profile-schema
+    revision: 2
+    category: data
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'interface.profile-order-scope:v1 selected unified-order.'
+      - 'portability.profile-order:v1 selected local-only.'
+      - 'Built-in and custom profiles already use stable IDs.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The catalog stores one default profile ID, immutable product-owned built-ins reconstructed by stable ID, custom records without embedded order, and one local chooser-order array containing every valid built-in and custom ID exactly once. Main removes unknown and duplicate IDs, preserves valid relative order, appends missing IDs deterministically, appends newly created or imported profiles, preserves replacement position, and removes deleted IDs.'
+    rationale: 'One stable-ID order array is the smallest schema that supports interleaving without duplicating presentation position across records.'
+    supersedes_revision: 1
+    requirement_ids: [DATA-002, DATA-003, DATA-004]
+
+  - id: interface.catalog-navigation
+    revision: 2
+    category: interface
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'interface.profile-order-scope:v1 selected unified-order.'
+      - 'interface.profile-order-surface:v1 selected settings-only.'
+      - 'interface.profile-activation:v1 selected select-then-apply.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The chooser renders one persisted list where built-in and custom profiles may interleave, marks identity and default, and preserves relative order while filtering by visible name and description. Reordering is available only in App Settings > Prettify through localized keyboard-operable controls and remains transactional with Settings Save/Discard.'
+    rationale: 'A single list makes the selected unified order visible without adding management complexity to the chooser.'
+    supersedes_revision: 1
+    requirement_ids: [PROF-006, PROF-007, UI-006, UI-007, UI-008, UI-011]
+
+  - id: portability.file-contract
+    revision: 2
+    category: portability
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'portability.profile-order:v1 selected local-only.'
+      - 'portability.export-scope:v1 selected selectable-custom.'
+      - 'portability.import-conflicts:v1 selected preview-per-profile.'
+      - 'portability.import-default:v1 selected never-change.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Export writes only explicitly selected custom profile identity, metadata, instruction, and schema version; it excludes chooser order. Import never reorders existing profiles: Replace keeps its local position, Skip changes nothing, and newly created Rename or non-conflicting profiles append at the end in file order. All confirmed changes remain atomic.'
+    rationale: 'Chooser order is a local workflow preference and must not be changed by portable profile content.'
+    supersedes_revision: 1
+    requirement_ids: [PORT-001, PORT-002, PORT-003, PORT-004, PORT-005]
+
+  - id: failure.chooser-order-recovery
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'DATA-003 already requires authoritative main-process validation.'
+      - 'failure.preserved-text-action-contract:v1 requires corrupt profile recovery without resetting unrelated settings.'
+      - 'data.profile-schema:v2 defines deterministic order normalization.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Malformed order data cannot block valid profile use or reset unrelated settings. Main retains valid relative positions, removes duplicate and unknown IDs, appends missing profiles deterministically, persists the repaired catalog atomically, and shows one bounded settings warning.'
+    rationale: 'Ordering is presentation-only, so recoverable order corruption must not destroy valid profile content.'
+    supersedes_revision: null
+    requirement_ids: [DATA-004, FAIL-006, COMP-004]
+
+  - id: compatibility.profile-order-migration
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'The current application has no unified chooser-order array.'
+      - 'CAT-001 defines a canonical built-in order.'
+      - 'Existing draft custom records already have deterministic user order.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Migration without a chooser-order array initializes canonical built-ins followed by custom profiles in their existing order and is idempotent. Reordering changes neither legacy prompt projection nor unrelated settings. Older releases may ignore the array; the current release repairs missing IDs while preserving valid relative positions.'
+    rationale: 'This preserves all prior visible ordering until the user deliberately customizes it.'
+    supersedes_revision: null
+    requirement_ids: [COMP-001, COMP-004, COMP-006]
+
+  - id: quality.verification
+    revision: 2
+    category: quality
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'interface.profile-order-scope:v1 selected unified-order.'
+      - 'interface.profile-order-surface:v1 selected settings-only.'
+      - 'portability.profile-order:v1 selected local-only.'
+      - 'The repository quality gates and packaged Windows/Linux manual checks remain unchanged.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Verification additionally covers unified stable-ID order schema and repair, mixed built-in/custom persistence, filtered relative order, keyboard-operable Settings reordering, atomic Save/Discard, cache neutrality, import/export order exclusion and append semantics, migration, long localized catalogs, and packaged chooser behavior.'
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [QUAL-001, QUAL-002, QUAL-003, QUAL-004]
+
+  - id: privacy.chooser-order
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'portability.profile-order:v1 selected local-only.'
+      - 'Chooser order contains stable IDs rather than profile content.'
+      - 'Existing privacy requirements minimize profile metadata in logs and provider payloads.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Chooser order is local settings data containing stable profile IDs only. It is not sent to providers or included in profile export, and the complete ordered list is absent from runtime logs and default diagnostics.'
+    rationale: 'Presentation order is not required for execution, support telemetry, or portability.'
+    supersedes_revision: null
+    requirement_ids: [PORT-002, PRIV-004, PRIV-005, QUAL-003]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'docs/specs/prettify-tone-selection/spec.md is Status: Draft.'
+      - 'Profile-order scope, management surface, and portability decisions are answered.'
+      - 'The revision passed user, operator, implementer, tester, security-reviewer, and maintainer gap analysis.'
+    prompt_mcp:
+      interview_id: spec:prettify-tone-selection
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: 'Do you approve the revised Prettify Transformation Profiles specification with configurable unified chooser order?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve'
+          description: 'Set Status to Approved and treat the revised specification as ready for a separate planning invocation.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep Status as Draft and reopen the affected decisions for revision.'
+        - id: leave-draft
+          label: 'Leave as Draft'
+          description: 'Stop specification work without approval or further changes.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: interface.settings-profile-search
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requested profile-name search in App Settings because the chooser already exposes search.'
+      - 'UI-006 already defines normalized name-and-description search behavior for the chooser.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'App Settings > Prettify includes the same normalized multi-term profile name-and-description search as the chooser. Results preserve persisted relative order. Any non-empty query temporarily disables all reorder mechanisms until the query is cleared, preventing hidden profiles from moving unexpectedly.'
+    rationale: 'Matching chooser search behavior keeps profile discovery consistent, while disabling reorder during filtering avoids ambiguous position changes.'
+    supersedes_revision: null
+    requirement_ids: [UI-012]
+
+  - id: architecture.profile-catalog-persistence
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'src/main/config.ts persists one atomic plaintext application snapshot.'
+      - 'COMP-003 requires the profile default and legacy prompt projection to update atomically.'
+      - 'The planning interview selected the repository-aligned integrated state.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: null
+      question_id: architecture.profile-catalog-persistence
+      idempotency_key: architecture.profile-catalog-persistence:v1
+      last_status: answered
+    question:
+      text: 'Where should the versioned Prettify profile catalog be persisted?'
+      kind: single
+      options:
+        - id: integrated_config_state
+          label: 'Inside atomic app config (Recommended)'
+          description: 'Add a dedicated catalog state owned by AppConfigStore so catalog/default/order and legacy prompt projection commit in one atomic config.json write.'
+        - id: dedicated_catalog_file
+          label: 'Dedicated catalog file'
+          description: 'Store profiles in a separate plaintext JSON file, requiring explicit reconciliation with config.json for the legacy prompt projection.'
+        - id: leave_planner_choice
+          label: 'Leave to planner'
+          description: 'Allow the implementation plan to select the repository-aligned option based on current persistence precedents.'
+    answer:
+      selected_ids: [integrated_config_state]
+      text: ''
+    rationale: 'This preserves catalog/default/order and rollback projection atomically without introducing a second plaintext settings file.'
+    supersedes_revision: null
+    requirement_ids: [DATA-002, DATA-004, ARCH-001, COMP-003, COMP-004, COMP-006]
+
+  - id: portability.export-draft-source
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'Profile management participates in the existing transactional App Settings draft and snapshot model.'
+      - 'The export picker should represent the profiles currently visible to the user.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: plan-local-contracts-01
+      question_id: portability.export-draft-source
+      idempotency_key: portability.export-draft-source:v1
+      last_status: answered
+    question:
+      text: 'Which profile state should Export use while App Settings has unsaved profile changes?'
+      kind: single
+      options:
+        - id: current_draft
+          label: 'Current Settings draft (Recommended)'
+          description: 'The export picker mirrors the profiles currently visible in Settings, including valid unsaved edits and newly created drafts, after main-process revalidation.'
+        - id: last_saved
+          label: 'Last saved catalog'
+          description: 'Export only the authoritative persisted catalog; unsaved edits and new draft profiles are excluded until Save changes succeeds.'
+        - id: block_when_dirty
+          label: 'Block while dirty'
+          description: 'Disable Export whenever profile changes are unsaved and require Save or discard first.'
+    answer:
+      selected_ids: [current_draft]
+      text: ''
+    rationale: 'Export remains consistent with the visible transactional draft while main retains authoritative validation and filesystem ownership.'
+    supersedes_revision: null
+    requirement_ids: [PROF-003, PORT-001, PORT-002, PORT-005]
+
+  - id: workflow.chooser-selection-memory
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'UI-007 permits remembering the last chooser selection without changing the explicit default.'
+      - 'Operation-scoped and process-owned state avoids adding another persisted catalog field.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: plan-local-contracts-01
+      question_id: workflow.chooser-selection-memory
+      idempotency_key: workflow.chooser-selection-memory:v1
+      last_status: answered
+    question:
+      text: 'Should the chooser remember the last one-off profile selection?'
+      kind: single
+      options:
+        - id: session_only
+          label: 'Current app session (Recommended)'
+          description: 'Remember only in main-process memory until quit; it never changes the explicit default or persisted catalog.'
+        - id: do_not_remember
+          label: 'Do not remember'
+          description: 'Every chooser opens with no selection and Apply disabled.'
+        - id: persist_locally
+          label: 'Persist across restarts'
+          description: 'Store a separate convenience selection ID in local settings without changing the default.'
+    answer:
+      selected_ids: [session_only]
+      text: ''
+    rationale: 'This provides chooser convenience without expanding persistence, migration, cache identity, or default semantics.'
+    supersedes_revision: null
+    requirement_ids: [PROF-004, UI-002, UI-007]
+
+  - id: portability.import-dual-conflict
+    revision: 1
+    category: portability
+    state: answered
+    provenance: user
+    evidence:
+      - 'PORT-003 requires an explicit choice for ID or normalized-name conflicts.'
+      - 'Replacing one of two different local targets would otherwise leave an unresolved duplicate identity or name.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: plan-local-contracts-01
+      question_id: portability.import-dual-conflict
+      idempotency_key: portability.import-dual-conflict:v1
+      last_status: answered
+    question:
+      text: 'How should import handle one record whose ID and normalized name conflict with two different local custom profiles?'
+      kind: single
+      options:
+        - id: rename_or_skip_only
+          label: 'Rename or Skip only (Recommended)'
+          description: 'Treat Replace as ambiguous and disable it; Rename creates a fresh ID and unique name, while Skip leaves both locals untouched.'
+        - id: choose_replace_target
+          label: 'Choose a replace target'
+          description: 'Require the user to select which conflicting local profile to replace, then separately resolve any remaining name collision.'
+        - id: reject_import_document
+          label: 'Reject whole import'
+          description: 'Fail the complete import preview when any record has this dual-target conflict.'
+    answer:
+      selected_ids: [rename_or_skip_only]
+      text: ''
+    rationale: 'Disabling ambiguous replacement preserves both local profiles and keeps the conflict workflow deterministic.'
+    supersedes_revision: null
+    requirement_ids: [DATA-003, PORT-003]
+
+  - id: workflow.chooser-concurrent-catalog
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The chooser is operation-scoped and may remain open while App Settings changes the authoritative catalog.'
+      - 'The planning interview selected deterministic opening-snapshot behavior.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: null
+      question_id: workflow.chooser-concurrent-catalog
+      idempotency_key: workflow.chooser-concurrent-catalog:v1
+      last_status: answered
+    question:
+      text: 'How should an already open chooser behave if profiles change in Settings before Apply?'
+      kind: single
+      options:
+        - id: use_opening_snapshot
+          label: 'Use opening snapshot (Recommended)'
+          description: 'Apply the validated instruction shown when the chooser opened; Settings changes affect the next invocation.'
+        - id: resolve_live_catalog
+          label: 'Use live catalog'
+          description: 'Resolve the profile again on Apply, so the instruction may differ from the state shown when the chooser opened.'
+        - id: cancel_if_catalog_changed
+          label: 'Cancel if changed'
+          description: 'Close without execution and require the user to reopen the chooser after any catalog change.'
+    answer:
+      selected_ids: [use_opening_snapshot]
+      text: ''
+    rationale: 'An immutable main-owned operation snapshot keeps the visible chooser state and applied instruction consistent while retaining current Settings changes for later invocations.'
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, UI-002, ARCH-001, ARCH-003]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The 10-packet implementation plan passed requirement traceability, packet executability, and architecture audits.'
+      - 'The user approved the plan through the persistent planning interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: plan:prettify-tone-selection
+      batch_id: null
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the 10-packet implementation plan for Prettify Transformation Profiles?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan'
+          description: 'Mark the plan Approved; implementation remains separately gated.'
+        - id: request_changes
+          label: 'Request changes'
+          description: 'Keep the plan unapproved and return to specific revisions.'
+        - id: leave_unapproved
+          label: 'Leave unapproved'
+          description: 'Stop planning without approval or further changes.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The approved plan is ready for separately authorized one-packet-at-a-time execution.'
+    supersedes_revision: null
+    requirement_ids: []
