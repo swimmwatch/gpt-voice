@@ -5,6 +5,8 @@ import type {
   BrowserWindow,
   BrowserWindowConstructorOptions,
   Display,
+  Point,
+  Rectangle,
   WebContents,
   WindowOpenHandlerResponse,
 } from 'electron';
@@ -30,6 +32,7 @@ const TOKEN = '00000000-0000-4000-8000-000000000009';
 
 class RecordingChooserWindow {
   public closeCount = 0;
+  public readonly contentBounds: Rectangle[] = [];
   public destroyed = false;
   public focusCount = 0;
   public loadUrls: string[] = [];
@@ -105,6 +108,10 @@ class RecordingChooserWindow {
   }
 
   public setMenuBarVisibility(): void {}
+
+  public setContentBounds(bounds: Rectangle): void {
+    this.contentBounds.push({ ...bounds });
+  }
 
   public show(): void {
     this.showCount += 1;
@@ -185,6 +192,8 @@ function createRequest(): PrettifyProfileChooserRequest {
 
 class ChooserHarness {
   public readonly created: RecordingChooserWindow[] = [];
+  public cursorPoint: Point;
+  public cursorWorkArea: Display['workArea'];
   public readonly externalUrls: string[] = [];
   public primaryCalls = 0;
   public readonly controller: PrettifyProfileChooserWindowController;
@@ -192,7 +201,10 @@ class ChooserHarness {
   public constructor(
     cursorWorkArea: Display['workArea'] = { height: 900, width: 1200, x: 100, y: 200 },
     primaryWorkArea: Display['workArea'] = { height: 800, width: 1000, x: 0, y: 0 },
+    cursorPoint: Point = { x: 200, y: 300 },
   ) {
+    this.cursorPoint = cursorPoint;
+    this.cursorWorkArea = cursorWorkArea;
     this.controller = new PrettifyProfileChooserWindowController({
       createBrowserWindow: (options) => {
         const window = new RecordingChooserWindow(options, this.created.length + 41);
@@ -208,8 +220,8 @@ class ChooserHarness {
       preloadPath: '/app/prettify-profile-chooser-preload.js',
       randomUUID: () => TOKEN,
       screen: {
-        getCursorScreenPoint: () => ({ x: 200, y: 300 }),
-        getDisplayNearestPoint: () => createDisplay(cursorWorkArea),
+        getCursorScreenPoint: () => this.cursorPoint,
+        getDisplayNearestPoint: () => createDisplay(this.cursorWorkArea),
         getPrimaryDisplay: () => {
           this.primaryCalls += 1;
           return createDisplay(primaryWorkArea);
@@ -232,7 +244,7 @@ class ChooserHarness {
 }
 
 describe('PrettifyProfileChooserWindowController', () => {
-  it('calculates preferred, constrained, and tiny centered content bounds', () => {
+  it('calculates centered fallback bounds and cursor-anchored bounds constrained to one display', () => {
     assert.deepEqual(calculatePrettifyProfileChooserBounds({ height: 672, width: 652, x: 100, y: 200 }), {
       height: 640,
       width: 620,
@@ -251,6 +263,24 @@ describe('PrettifyProfileChooserWindowController', () => {
       x: 7,
       y: 5,
     });
+    assert.deepEqual(
+      calculatePrettifyProfileChooserBounds({ height: 900, width: 1200, x: 1920, y: 0 }, { x: 2520, y: 450 }),
+      {
+        height: 640,
+        width: 620,
+        x: 2210,
+        y: 130,
+      },
+    );
+    assert.deepEqual(
+      calculatePrettifyProfileChooserBounds({ height: 900, width: 1200, x: 1920, y: 0 }, { x: 3115, y: 895 }),
+      {
+        height: 640,
+        width: 620,
+        x: 2484,
+        y: 244,
+      },
+    );
     assert.equal(calculatePrettifyProfileChooserBounds({ height: 0, width: 10, x: 0, y: 0 }), null);
   });
 
@@ -317,6 +347,7 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.equal(harness.controller.rendererReady(payload.token), true);
     assert.equal(window.showCount, 1);
     assert.equal(window.focusCount, 1);
+    assert.deepEqual(window.contentBounds, [{ height: 640, width: 620, x: 116, y: 216 }]);
     assert.equal(harness.controller.isTrustedSender(window.webContents, CHOOSER_URL), true);
     assert.equal(
       harness.controller.isTrustedSender(
@@ -337,6 +368,8 @@ describe('PrettifyProfileChooserWindowController', () => {
     const window = harness.created[0];
     assert.ok(window);
     window.minimized = true;
+    harness.cursorPoint = { x: 2500, y: 450 };
+    harness.cursorWorkArea = { height: 900, width: 1200, x: 1920, y: 0 };
 
     const secondPromise = harness.controller.open({
       profiles: [{ id: 'natural', isDefault: true, kind: 'built-in', name: 'Replacement' }],
@@ -348,6 +381,12 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.equal(window.restoreCount, 1);
     assert.equal(window.showCount, 2);
     assert.equal(window.focusCount, 2);
+    assert.deepEqual(window.contentBounds[window.contentBounds.length - 1], {
+      height: 640,
+      width: 620,
+      x: 2190,
+      y: 130,
+    });
     harness.controller.cancel();
     assert.deepEqual(await firstPromise, { type: 'cancel' });
   });

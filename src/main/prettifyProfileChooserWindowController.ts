@@ -69,7 +69,27 @@ function isValidWorkArea(workArea: Rectangle): boolean {
   );
 }
 
-export function calculatePrettifyProfileChooserBounds(workArea: Rectangle): PrettifyProfileChooserBounds | null {
+function calculateAnchoredCoordinate(
+  areaStart: number,
+  areaSize: number,
+  chooserSize: number,
+  inset: number,
+  anchorCoordinate: number | undefined,
+): number {
+  const centeredCoordinate = areaStart + (areaSize - chooserSize) / 2;
+  if (anchorCoordinate === undefined || !Number.isFinite(anchorCoordinate)) return Math.round(centeredCoordinate);
+
+  const availableSpace = Math.max(0, areaSize - chooserSize);
+  const effectiveInset = Math.min(inset, availableSpace / 2);
+  const minimum = areaStart + effectiveInset;
+  const maximum = areaStart + areaSize - chooserSize - effectiveInset;
+  return Math.round(Math.min(maximum, Math.max(minimum, anchorCoordinate - chooserSize / 2)));
+}
+
+export function calculatePrettifyProfileChooserBounds(
+  workArea: Rectangle,
+  anchorPoint?: Point,
+): PrettifyProfileChooserBounds | null {
   if (!isValidWorkArea(workArea)) return null;
 
   const preferredFits =
@@ -86,8 +106,8 @@ export function calculatePrettifyProfileChooserBounds(workArea: Rectangle): Pret
   return Object.freeze({
     height,
     width,
-    x: Math.round(workArea.x + (workArea.width - width) / 2),
-    y: Math.round(workArea.y + (workArea.height - height) / 2),
+    x: calculateAnchoredCoordinate(workArea.x, workArea.width, width, inset, anchorPoint?.x),
+    y: calculateAnchoredCoordinate(workArea.y, workArea.height, height, inset, anchorPoint?.y),
   });
 }
 
@@ -248,6 +268,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
     if (!window || !operation || window.isDestroyed()) return false;
     if (!operation.shown) return true;
     if (window.isMinimized()) window.restore();
+    this.positionAtCursor(window);
     window.show();
     window.focus();
     return true;
@@ -340,14 +361,19 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
 
   private resolveBounds(): PrettifyProfileChooserBounds | null {
     let workArea: Rectangle | null = null;
+    let anchorPoint: Point | undefined;
     try {
       const cursorPoint = this.dependencies.screen.getCursorScreenPoint();
       if (isFinitePoint(cursorPoint)) {
         const cursorDisplay = this.dependencies.screen.getDisplayNearestPoint(cursorPoint);
-        if (isValidWorkArea(cursorDisplay.workArea)) workArea = cursorDisplay.workArea;
+        if (isValidWorkArea(cursorDisplay.workArea)) {
+          workArea = cursorDisplay.workArea;
+          anchorPoint = cursorPoint;
+        }
       }
     } catch {
       workArea = null;
+      anchorPoint = undefined;
     }
     if (!workArea) {
       try {
@@ -357,7 +383,16 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
         workArea = null;
       }
     }
-    return workArea ? calculatePrettifyProfileChooserBounds(workArea) : null;
+    return workArea ? calculatePrettifyProfileChooserBounds(workArea, anchorPoint) : null;
+  }
+
+  private positionAtCursor(window: BrowserWindow): void {
+    try {
+      const bounds = this.resolveBounds();
+      if (bounds) window.setContentBounds(bounds);
+    } catch {
+      // Keep the last valid bounds if the native window or display topology changes during focus.
+    }
   }
 
   private registerWindowLifecycle(window: BrowserWindow): void {
@@ -410,6 +445,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
       return;
     }
     operation.shown = true;
+    this.positionAtCursor(window);
     window.show();
     window.focus();
   }
