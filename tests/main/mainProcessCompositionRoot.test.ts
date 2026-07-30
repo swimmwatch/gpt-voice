@@ -23,6 +23,7 @@ import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProvi
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
+import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -252,6 +253,17 @@ class MainProcessCompositionHarness {
         },
         platform: 'linux',
         randomBytes: () => Buffer.from([0x01, 0x02, 0x03, 0x04]),
+      },
+      prettifyProfilePortability: {
+        dialog: {
+          showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+          showSaveDialog: async () => ({ canceled: true, filePath: '' }),
+        },
+        fileSystem: {
+          pathExists: async () => false,
+          readFileBounded: async () => new Uint8Array(),
+          writeFileAtomically: async () => undefined,
+        },
       },
       electronRuntime: {
         loadModule: () => ({
@@ -784,6 +796,9 @@ describe('main process composition root', () => {
       if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
         assert.equal(harness.state.ipcHandlers.has(channel), true);
       }
+    }
+    for (const channel of Object.values(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS)) {
+      assert.equal(harness.state.ipcHandlers.has(channel), true);
     }
 
     harness.app.emitWillQuit({ preventDefault: () => undefined });

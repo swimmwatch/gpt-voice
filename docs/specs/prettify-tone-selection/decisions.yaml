@@ -2286,3 +2286,65 @@ decisions:
     rationale: 'The atomic commit closes the reviewed Packet 07 boundary before Packet 08 adds portable profile contracts, privileged filesystem flows, and new Settings-only IPC.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.packet-08
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 was committed atomically before Packet 08 started.'
+      - 'The user authorized Packet 08 through the persistent implementation interview on 2026-07-30 and then explicitly requested implementation of the approved plan.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: null
+      question_id: execution.packet-08
+      idempotency_key: execution.packet-08:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 08 — Profile Import And Export Services — after the Packet 07 atomic commit?'
+      kind: single
+      options:
+        - id: authorize_packet_08
+          label: 'Authorize Packet 08'
+          description: 'After committing Packet 07, implement and verify only Packet 08, update todo and handoff, and leave Packet 08 uncommitted.'
+        - id: commit_packet_07_only
+          label: 'Commit Packet 07 only'
+          description: 'Commit Packet 07 and stop without implementing Packet 08.'
+    answer:
+      selected_ids: [authorize_packet_08]
+      text: ''
+    rationale: 'The next incremental implementation is bounded to portable profile contracts, main-owned import/export services, deterministic draft merging, and Settings-only IPC; visible Settings UI remains Packet 09.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.commit.packet-08
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 08 was complete, verified, and intentionally uncommitted before the next incremental-implementation invocation.'
+      - 'The user authorized its atomic commit through the persistent implementation interview on 2026-07-30.'
+    prompt_mcp:
+      interview_id: implementation:prettify-tone-selection
+      batch_id: implementation.packet-09-gates:v1
+      question_id: authorization.commit.packet-08
+      idempotency_key: authorization.commit.packet-08:v1
+      last_status: answered
+    question:
+      text: 'Packet 08 is fully verified and remains the only current worktree diff. Do you authorize staged verification and one atomic Packet 08 commit before the next packet?'
+      kind: single
+      options:
+        - id: authorize_commit_packet_08
+          label: 'Authorize Packet 08 commit'
+          description: 'Create one atomic commit containing only the verified Packet 08 changes.'
+        - id: keep_packet_08_uncommitted
+          label: 'Keep Packet 08 uncommitted'
+          description: 'Do not commit Packet 08 and do not begin the next packet.'
+    answer:
+      selected_ids: [authorize_commit_packet_08]
+      text: ''
+    rationale: 'The atomic commit closes the reviewed import/export service boundary before Packet 09 adds transactional Settings profile management and its renderer-facing catalog APIs.'
+    supersedes_revision: null
+    requirement_ids: []

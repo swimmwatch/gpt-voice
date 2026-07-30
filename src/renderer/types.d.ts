@@ -47,6 +47,14 @@ import type {
 } from '@shared/streamingTranscription';
 import type { DiagnosticsExportResult } from '@shared/diagnosticsArchive';
 import type {
+  PrettifyProfileExportRequest,
+  PrettifyProfileExportResult,
+  PrettifyProfileImportApplyRequest,
+  PrettifyProfileImportApplyResult,
+  PrettifyProfileImportRequest,
+  PrettifyProfileImportResult,
+} from '@shared/prettifyProfilePortability';
+import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
   VoiceProviderCategory,
@@ -119,6 +127,9 @@ export interface ElectronAPI {
   closeAbout: () => Promise<{ success: boolean }>;
   getAppInfo: () => Promise<AppInfo>;
   exportDiagnostics: () => Promise<DiagnosticsExportResult>;
+  exportPrettifyProfiles: (request: PrettifyProfileExportRequest) => Promise<PrettifyProfileExportResult>;
+  importPrettifyProfiles: (request: PrettifyProfileImportRequest) => Promise<PrettifyProfileImportResult>;
+  applyPrettifyProfileImport: (request: PrettifyProfileImportApplyRequest) => Promise<PrettifyProfileImportApplyResult>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;

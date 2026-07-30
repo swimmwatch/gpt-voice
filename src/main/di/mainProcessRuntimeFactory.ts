@@ -31,6 +31,7 @@ import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIp
 import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
 import type { DiagnosticsExportService } from '../services/diagnosticsExport';
+import type { PrettifyProfilePortabilityService } from '../services/prettifyProfilePortability';
 import type { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
 import { PrettifyProfileChooserIpcRegistrar } from '../prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from '../prettifyProfileChooserWindowController';
@@ -51,6 +52,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'historyController'
   | 'prettifyProfileChooserIpc'
   | 'prettifyProfileChooserWindow'
+  | 'prettifyProfilePortability'
   | 'prettifyRuntime'
   | 'shortcutController'
   | 'streamingTranscriptionService'
@@ -94,6 +96,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
+  readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
@@ -164,6 +167,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       historyController,
       prettifyProfileChooserIpc,
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
+      prettifyProfilePortability: this.controllers.prettifyProfilePortability,
       prettifyRuntime: this.controllers.prettifyRuntime,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,

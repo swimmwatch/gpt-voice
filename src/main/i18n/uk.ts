@@ -299,6 +299,17 @@ export default {
   'notification.diagnosticsExportFailed': 'Не вдалося експортувати діагностику',
   'notification.diagnosticsExportFailedBody': 'Не вдалося зберегти архів діагностики. Спробуйте ще раз.',
 
+  'prettify.profilePortability.exportDialogTitle': 'Експорт профілів Prettify',
+  'prettify.profilePortability.importDialogTitle': 'Імпорт профілів Prettify',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Заміна недоступна: ID і назва збігаються з різними локальними профілями.',
+  'notification.prettifyProfilesExportSaved': 'Профілі Prettify експортовано',
+  'notification.prettifyProfilesExportSavedBody': 'Вибрані профілі збережено у відкритому форматі JSON.',
+  'notification.prettifyProfilesExportFailed': 'Не вдалося експортувати профілі Prettify',
+  'notification.prettifyProfilesExportFailedBody': 'Не вдалося зберегти вибрані профілі. Спробуйте ще раз.',
+  'notification.prettifyProfilesImportFailed': 'Не вдалося імпортувати профілі Prettify',
+  'notification.prettifyProfilesImportFailedBody': 'Не вдалося імпортувати файл профілів.',
+
   // History
   'history.open': 'Історія',
   'history.title': 'Історія транскрибувань',

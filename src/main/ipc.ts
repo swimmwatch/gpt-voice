@@ -63,6 +63,8 @@ import type { DiagnosticCaptureSettingsService } from './services/diagnosticCapt
 import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
 import type { DiagnosticsExportService } from './services/diagnosticsExport';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
+import type { PrettifyProfilePortabilityService } from './services/prettifyProfilePortability';
+import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
@@ -126,6 +128,7 @@ export interface MainIpcControllerDependencies {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
@@ -184,7 +187,11 @@ export class TrustedIpcRegistrar {
     listener: TrustedSettingsIpcListener<Args>,
   ): void {
     this.handle(channel, (event, ...args) => {
-      const senderUrl = event.senderFrame?.url || event.sender.getURL();
+      const senderUrl = event.senderFrame?.url;
+      if (!senderUrl) {
+        this.logger.warn('Rejected Settings-only IPC sender');
+        throw new Error('Rejected Settings-only IPC sender');
+      }
       const settingsWindow = this.windowManager.getTrustedSettingsWindow(event.sender, senderUrl);
       if (!settingsWindow) {
         this.logger.warn('Rejected Settings-only IPC sender');
@@ -547,6 +554,25 @@ export class MainIpcController {
     this.trustedIpc.handleSettingsWindow(DIAGNOSTICS_EXPORT_IPC_CHANNEL, (_event, settingsWindow) => {
       return dependencies.diagnosticsExport.export(settingsWindow);
     });
+
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.export,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.exportProfiles(settingsWindow, request);
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.import,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.importProfiles(settingsWindow, request);
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.applyImport(settingsWindow, request);
+      },
+    );
 
     this.trustedIpc.handle('get-cloakbrowser-settings', () => {
       return dependencies.cloakBrowserSettings.getView();

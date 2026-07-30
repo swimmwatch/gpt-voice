@@ -57,6 +57,15 @@ import {
   type StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL, type DiagnosticsExportResult } from '@shared/diagnosticsArchive';
+import {
+  PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS,
+  type PrettifyProfileExportRequest,
+  type PrettifyProfileExportResult,
+  type PrettifyProfileImportApplyRequest,
+  type PrettifyProfileImportApplyResult,
+  type PrettifyProfileImportRequest,
+  type PrettifyProfileImportResult,
+} from '@shared/prettifyProfilePortability';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -161,6 +170,17 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     exportDiagnostics: (): Promise<DiagnosticsExportResult> => {
       return ipcRenderer.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL);
+    },
+    exportPrettifyProfiles: (request: PrettifyProfileExportRequest): Promise<PrettifyProfileExportResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.export, request);
+    },
+    importPrettifyProfiles: (request: PrettifyProfileImportRequest): Promise<PrettifyProfileImportResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.import, request);
+    },
+    applyPrettifyProfileImport: (
+      request: PrettifyProfileImportApplyRequest,
+    ): Promise<PrettifyProfileImportApplyResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport, request);
     },
     getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
       return ipcRenderer.invoke('get-cloakbrowser-settings');

@@ -48,6 +48,10 @@ import {
 } from '../services/diagnosticsManifest';
 import { DiagnosticsExportService, type DiagnosticsExportServiceDependencies } from '../services/diagnosticsExport';
 import {
+  PrettifyProfilePortabilityService,
+  type PrettifyProfilePortabilityServiceDependencies,
+} from '../services/prettifyProfilePortability';
+import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
   type SelectedTextTranslationDependencies,
@@ -216,6 +220,11 @@ export type MainProcessDiagnosticsExportEnvironment = Omit<
   'archive' | 'localization' | 'logger' | 'notification' | 'now'
 >;
 
+export type MainProcessPrettifyProfilePortabilityEnvironment = Pick<
+  PrettifyProfilePortabilityServiceDependencies,
+  'dialog' | 'fileSystem'
+>;
+
 type RootOwnedRuntimeDependencyKeys =
   | 'databasePath'
   | 'diagnosticLogger'
@@ -242,6 +251,7 @@ export type MainProcessCompositionEnvironment = Omit<
   };
   readonly diagnosticsArchive: MainProcessDiagnosticsArchiveEnvironment;
   readonly diagnosticsExport: MainProcessDiagnosticsExportEnvironment;
+  readonly prettifyProfilePortability: MainProcessPrettifyProfilePortabilityEnvironment;
   readonly electronRuntime: Omit<ElectronRuntimeLoaderDependencies, 'logger'>;
   readonly ipc: Omit<
     MainProcessRuntimeFactoryDependencies['ipc'],
@@ -628,6 +638,16 @@ export class MainProcessCompositionRoot {
       },
       now: this.environment.now,
     });
+    const prettifyProfilePortability = new PrettifyProfilePortabilityService({
+      ...this.environment.prettifyProfilePortability,
+      allocateCustomProfileId: (additionalForbiddenIds) =>
+        configStore.allocatePrettifyCustomProfileId(additionalForbiddenIds),
+      localization,
+      logger: loggerFactory.getLogger('prettify-profile-portability'),
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+    });
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
       getAssetPath: assetPaths.getAssetPath,
@@ -672,6 +692,7 @@ export class MainProcessCompositionRoot {
       diagnosticsExport,
       historyRepository,
       prettifyProfileChooserWindow,
+      prettifyProfilePortability,
       prettifyRuntime,
       selectedTextPrettifyService,
       shortcutController,

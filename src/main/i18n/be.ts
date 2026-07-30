@@ -298,6 +298,17 @@ export default {
   'notification.diagnosticsExportFailed': 'Не ўдалося экспартаваць дыягностыку',
   'notification.diagnosticsExportFailedBody': 'Не ўдалося захаваць архіў дыягностыкі. Паспрабуйце яшчэ раз.',
 
+  'prettify.profilePortability.exportDialogTitle': 'Экспартаваць профілі Prettify',
+  'prettify.profilePortability.importDialogTitle': 'Імпартаваць профілі Prettify',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Замена недаступная: ID і назва супадаюць з рознымі лакальнымі профілямі.',
+  'notification.prettifyProfilesExportSaved': 'Профілі Prettify экспартаваныя',
+  'notification.prettifyProfilesExportSavedBody': 'Выбраныя профілі захаваныя ў адкрытым фармаце JSON.',
+  'notification.prettifyProfilesExportFailed': 'Не ўдалося экспартаваць профілі Prettify',
+  'notification.prettifyProfilesExportFailedBody': 'Не ўдалося захаваць выбраныя профілі. Паспрабуйце яшчэ раз.',
+  'notification.prettifyProfilesImportFailed': 'Не ўдалося імпартаваць профілі Prettify',
+  'notification.prettifyProfilesImportFailedBody': 'Не ўдалося імпартаваць файл профіляў.',
+
   // History
   'history.open': 'Гісторыя',
   'history.title': 'Гісторыя транскрыбаванняў',

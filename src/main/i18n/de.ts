@@ -282,6 +282,16 @@ export default {
   'notification.diagnosticsExportFailed': 'Diagnoseexport fehlgeschlagen',
   'notification.diagnosticsExportFailedBody':
     'Das Diagnosearchiv konnte nicht gespeichert werden. Bitte erneut versuchen.',
+  'prettify.profilePortability.exportDialogTitle': 'Prettify-Profile exportieren',
+  'prettify.profilePortability.importDialogTitle': 'Prettify-Profile importieren',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Ersetzen ist nicht verfügbar, weil ID und Name zu verschiedenen lokalen Profilen passen.',
+  'notification.prettifyProfilesExportSaved': 'Prettify-Profile exportiert',
+  'notification.prettifyProfilesExportSavedBody': 'Die ausgewählten Profile wurden als Klartext-JSON gespeichert.',
+  'notification.prettifyProfilesExportFailed': 'Export der Prettify-Profile fehlgeschlagen',
+  'notification.prettifyProfilesExportFailedBody': 'Die ausgewählten Profile konnten nicht gespeichert werden.',
+  'notification.prettifyProfilesImportFailed': 'Import der Prettify-Profile fehlgeschlagen',
+  'notification.prettifyProfilesImportFailedBody': 'Die Profildatei konnte nicht importiert werden.',
   'history.open': 'Verlauf',
   'history.title': 'Transkriptionsverlauf',
   'history.count': '{count} Einträge',

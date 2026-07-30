@@ -293,6 +293,17 @@ export default {
   'notification.diagnosticsExportFailed': 'Diagnostics export failed',
   'notification.diagnosticsExportFailedBody': 'The diagnostics archive could not be saved. Try again.',
 
+  'prettify.profilePortability.exportDialogTitle': 'Export Prettify profiles',
+  'prettify.profilePortability.importDialogTitle': 'Import Prettify profiles',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Replace is unavailable because the ID and name match different local profiles.',
+  'notification.prettifyProfilesExportSaved': 'Prettify profiles exported',
+  'notification.prettifyProfilesExportSavedBody': 'The selected profiles were saved as plaintext JSON.',
+  'notification.prettifyProfilesExportFailed': 'Prettify profile export failed',
+  'notification.prettifyProfilesExportFailedBody': 'The selected profiles could not be saved. Try again.',
+  'notification.prettifyProfilesImportFailed': 'Prettify profile import failed',
+  'notification.prettifyProfilesImportFailedBody': 'The profile file could not be imported.',
+
   // History
   'history.open': 'History',
   'history.title': 'Transcription history',

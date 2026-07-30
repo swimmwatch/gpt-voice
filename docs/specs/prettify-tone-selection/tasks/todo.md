@@ -1,6 +1,6 @@
 # Prettify Transformation Profiles — Task Checklist
 
-Plan status: Approved; packets 01–07 complete, packet 08 pending execution authorization
+Plan status: Approved; packets 01–08 complete, packet 09 pending execution authorization
 
 - [x] [`01_profile_domain_and_instructions.md`](./01_profile_domain_and_instructions.md)
 - [x] [`02_catalog_persistence_and_migration.md`](./02_catalog_persistence_and_migration.md)
@@ -9,7 +9,7 @@ Plan status: Approved; packets 01–07 complete, packet 08 pending execution aut
 - [x] [`05_chooser_window_and_ipc.md`](./05_chooser_window_and_ipc.md)
 - [x] [`06_chooser_renderer_exact_design.md`](./06_chooser_renderer_exact_design.md)
 - [x] [`07_quick_apply_shortcut.md`](./07_quick_apply_shortcut.md)
-- [ ] [`08_profile_import_export_services.md`](./08_profile_import_export_services.md)
+- [x] [`08_profile_import_export_services.md`](./08_profile_import_export_services.md)
 - [ ] [`09_settings_profile_management_exact_design.md`](./09_settings_profile_management_exact_design.md)
 - [ ] [`10_integration_privacy_docs_and_release_readiness.md`](./10_integration_privacy_docs_and_release_readiness.md)
 

@@ -282,6 +282,17 @@ export default {
   'notification.diagnosticsExportSavedBody': "L'archive de diagnostics a été enregistrée.",
   'notification.diagnosticsExportFailed': "Échec de l'exportation des diagnostics",
   'notification.diagnosticsExportFailedBody': "L'archive de diagnostics n'a pas pu être enregistrée. Réessayez.",
+  'prettify.profilePortability.exportDialogTitle': 'Exporter les profils Prettify',
+  'prettify.profilePortability.importDialogTitle': 'Importer les profils Prettify',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    "Le remplacement est indisponible car l'ID et le nom correspondent à deux profils locaux différents.",
+  'notification.prettifyProfilesExportSaved': 'Profils Prettify exportés',
+  'notification.prettifyProfilesExportSavedBody':
+    'Les profils sélectionnés ont été enregistrés au format JSON en clair.',
+  'notification.prettifyProfilesExportFailed': "Échec de l'exportation des profils Prettify",
+  'notification.prettifyProfilesExportFailedBody': "Les profils sélectionnés n'ont pas pu être enregistrés.",
+  'notification.prettifyProfilesImportFailed': "Échec de l'importation des profils Prettify",
+  'notification.prettifyProfilesImportFailedBody': "Le fichier de profils n'a pas pu être importé.",
   'history.open': 'Historique',
   'history.title': 'Historique de transcription',
   'history.count': 'Entrées {count}',
