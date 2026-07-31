@@ -15,7 +15,10 @@ describe('hotkey IPC contract', () => {
     const handler = ipc.slice(ipc.indexOf("handle('set-hotkey'"), ipc.indexOf("handle('get-translate-settings'"));
 
     assert.match(handler, /isHotkeyTarget\(key\)/u);
-    assert.match(handler, /getHotkeyConflict\(target, normalizedHotkey/u);
+    assert.match(
+      handler,
+      /getHotkeyConflict\(\s*target,\s*normalizedHotkey,\s*dependencies\.config\.getHotkeySettings\(\),\s*dependencies\.platform/u,
+    );
     assert.match(handler, /target === 'prettifyQuick'/u);
     assert.match(handler, /setHotkeys\(\{ prettifyQuickHotkey: normalizedHotkey \}\)/u);
     assert.match(handler, /dependencies\.config\.save\(\)/u);

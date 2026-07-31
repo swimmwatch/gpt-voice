@@ -858,7 +858,12 @@ export class MainIpcController {
         };
       }
 
-      const conflict = getHotkeyConflict(target, normalizedHotkey, dependencies.config.getHotkeySettings());
+      const conflict = getHotkeyConflict(
+        target,
+        normalizedHotkey,
+        dependencies.config.getHotkeySettings(),
+        dependencies.platform,
+      );
       if (conflict) {
         return {
           success: false,

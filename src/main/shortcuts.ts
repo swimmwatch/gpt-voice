@@ -2,6 +2,7 @@ import {
   canRunRetryTranscriptionHotkey,
   canRunTextActionHotkey,
   getConflictingHotkeyTargets,
+  normalizeHotkeyForPlatform,
   type HotkeySettings,
   type HotkeyTarget,
 } from '@shared/hotkeys';
@@ -130,7 +131,7 @@ export class ShortcutController {
     const settings = this.dependencies.config.getSnapshot();
     this.dependencies.globalShortcut.unregisterAll();
     this.registeredRetryTranscriptionHotkey = null;
-    this.conflictingHotkeyTargets = new Set(getConflictingHotkeyTargets(settings));
+    this.conflictingHotkeyTargets = new Set(getConflictingHotkeyTargets(settings, this.dependencies.platform));
 
     if (this.shortcutsSuspended) {
       this.dependencies.logger.info('Skipped global shortcut registration while hotkey capture is active');
@@ -251,10 +252,7 @@ export class ShortcutController {
   }
 
   private normalizeHotkeyForPlatform(hotkey: string): string {
-    if (this.dependencies.platform === 'darwin') {
-      return hotkey.replace(/\bSuper\b/g, 'Command');
-    }
-    return hotkey.replace(/\bCommand\b/g, 'Super');
+    return normalizeHotkeyForPlatform(hotkey, this.dependencies.platform) ?? hotkey;
   }
 
   private registerConfiguredShortcut(target: HotkeyTarget, hotkey: string, callback: () => void): boolean {

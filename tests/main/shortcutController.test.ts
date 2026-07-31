@@ -294,7 +294,29 @@ describe('ShortcutController', () => {
     harness.controller.register();
 
     assert.equal(harness.globalShortcuts.callbacks.has('Super+F12'), true);
-    assert.equal(harness.globalShortcuts.callbacks.has('Super+Shift+F12'), true);
+    assert.equal(harness.globalShortcuts.callbacks.has('Shift+Super+F12'), true);
+  });
+
+  it('skips shortcuts that become identical on the current platform', () => {
+    const mac = new ShortcutControllerHarness({
+      platform: 'darwin',
+      settings: {
+        hotkey: 'CommandOrControl+K',
+        translateHotkey: 'Super+K',
+      },
+    });
+    mac.controller.register();
+    assert.equal(mac.globalShortcuts.callbacks.has('Command+K'), false);
+
+    const linux = new ShortcutControllerHarness({
+      platform: 'linux',
+      settings: {
+        hotkey: 'CommandOrControl+K',
+        translateHotkey: 'Ctrl+K',
+      },
+    });
+    linux.controller.register();
+    assert.equal(linux.globalShortcuts.callbacks.has('Ctrl+K'), false);
   });
 
   it('keeps independently failed registrations unregistered', () => {

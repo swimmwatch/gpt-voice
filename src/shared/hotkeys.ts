@@ -130,6 +130,16 @@ export function normalizeHotkey(hotkey: string): string | null {
   return parseHotkey(hotkey)?.accelerator ?? null;
 }
 
+export function normalizeHotkeyForPlatform(hotkey: string, platform: NodeJS.Platform): string | null {
+  const normalized = normalizeHotkey(hotkey);
+  if (!normalized) return null;
+  const platformSpecific =
+    platform === 'darwin'
+      ? normalized.replace(/\bCommandOrControl\b/gu, 'Command').replace(/\bSuper\b/gu, 'Command')
+      : normalized.replace(/\bCommandOrControl\b/gu, 'Ctrl').replace(/\bCommand\b/gu, 'Super');
+  return normalizeHotkey(platformSpecific);
+}
+
 export function getHotkeyFromKeyboardEvent(event: HotkeyKeyboardEvent, platform: NodeJS.Platform): string | null {
   if (MODIFIER_EVENT_KEYS.has(event.key)) return null;
 
@@ -146,13 +156,16 @@ export function getHotkeyConflict(
   target: HotkeyTarget,
   candidate: string,
   settings: HotkeySettings,
+  platform: NodeJS.Platform,
 ): HotkeyTarget | null {
-  const parsedCandidate = parseHotkey(candidate);
+  const parsedCandidate = parseHotkey(normalizeHotkeyForPlatform(candidate, platform) ?? '');
   if (!parsedCandidate) return null;
 
   for (const existingTarget of HOTKEY_TARGETS) {
     if (existingTarget === target) continue;
-    const existing = parseHotkey(getHotkeyForTarget(settings, existingTarget));
+    const existing = parseHotkey(
+      normalizeHotkeyForPlatform(getHotkeyForTarget(settings, existingTarget), platform) ?? '',
+    );
     if (!existing || existing.key !== parsedCandidate.key) continue;
     if (existing.accelerator === parsedCandidate.accelerator) return existingTarget;
     if (arePrettifySiblingTargets(target, existingTarget)) continue;
@@ -164,9 +177,9 @@ export function getHotkeyConflict(
   return null;
 }
 
-export function getConflictingHotkeyTargets(settings: HotkeySettings): HotkeyTarget[] {
+export function getConflictingHotkeyTargets(settings: HotkeySettings, platform: NodeJS.Platform): HotkeyTarget[] {
   return HOTKEY_TARGETS.filter((target) =>
-    Boolean(getHotkeyConflict(target, getHotkeyForTarget(settings, target), settings)),
+    Boolean(getHotkeyConflict(target, getHotkeyForTarget(settings, target), settings, platform)),
   );
 }
 

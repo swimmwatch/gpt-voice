@@ -16,6 +16,7 @@ import {
   HOTKEY_TARGETS,
   isHotkeyTarget,
   normalizeHotkey,
+  normalizeHotkeyForPlatform,
 } from '@shared/hotkeys';
 
 describe('hotkeys', () => {
@@ -79,9 +80,9 @@ describe('hotkeys', () => {
       translateHotkey: 'F11',
     };
 
-    assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F9', settings), 'record');
-    assert.equal(getHotkeyConflict('retryTranscription', 'Shift+F9', settings), 'record');
-    assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F8', settings), null);
+    assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F9', settings, 'linux'), 'record');
+    assert.equal(getHotkeyConflict('retryTranscription', 'Shift+F9', settings, 'linux'), 'record');
+    assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F8', settings, 'linux'), null);
   });
 
   it('allows only distinct Prettify sibling accelerators to share F12', () => {
@@ -95,14 +96,40 @@ describe('hotkeys', () => {
       translateHotkey: 'F11',
     };
 
-    assert.equal(getHotkeyConflict('prettify', settings.prettifyHotkey, settings), null);
-    assert.equal(getHotkeyConflict('prettifyQuick', settings.prettifyQuickHotkey, settings), null);
-    assert.equal(getHotkeyConflict('prettifyQuick', 'F12', settings), 'prettify');
-    assert.equal(getHotkeyConflict('prettify', 'Ctrl+F12', settings), 'prettifyQuick');
+    assert.equal(getHotkeyConflict('prettify', settings.prettifyHotkey, settings, 'linux'), null);
+    assert.equal(getHotkeyConflict('prettifyQuick', settings.prettifyQuickHotkey, settings, 'linux'), null);
+    assert.equal(getHotkeyConflict('prettifyQuick', 'F12', settings, 'linux'), 'prettify');
+    assert.equal(getHotkeyConflict('prettify', 'Ctrl+F12', settings, 'linux'), 'prettifyQuick');
 
     const thirdTargetOwnsF12 = { ...settings, hotkey: 'F12' };
-    assert.equal(getHotkeyConflict('prettify', 'Alt+F12', thirdTargetOwnsF12), 'record');
-    assert.equal(getHotkeyConflict('prettifyQuick', 'Ctrl+F12', thirdTargetOwnsF12), 'record');
+    assert.equal(getHotkeyConflict('prettify', 'Alt+F12', thirdTargetOwnsF12, 'linux'), 'record');
+    assert.equal(getHotkeyConflict('prettifyQuick', 'Ctrl+F12', thirdTargetOwnsF12, 'linux'), 'record');
+  });
+
+  it('detects accelerators that become identical after platform normalization', () => {
+    const settings = {
+      cancelHotkey: 'Escape',
+      hotkey: 'CommandOrControl+K',
+      prettifyHotkey: 'F12',
+      prettifyQuickHotkey: 'Ctrl+F12',
+      retryTranscriptionHotkey: 'Ctrl+F8',
+      stopHotkey: 'F10',
+      translateHotkey: 'F11',
+    };
+
+    assert.equal(normalizeHotkeyForPlatform('Super+K', 'darwin'), 'Command+K');
+    assert.equal(normalizeHotkeyForPlatform('CommandOrControl+K', 'darwin'), 'Command+K');
+    assert.equal(getHotkeyConflict('translate', 'Super+K', settings, 'darwin'), 'record');
+
+    assert.equal(normalizeHotkeyForPlatform('Command+K', 'linux'), 'Super+K');
+    assert.equal(normalizeHotkeyForPlatform('CommandOrControl+K', 'linux'), 'Ctrl+K');
+    assert.equal(getHotkeyConflict('translate', 'Ctrl+K', settings, 'linux'), 'record');
+    assert.equal(getHotkeyConflict('translate', 'Super+K', settings, 'linux'), null);
+
+    assert.equal(normalizeHotkeyForPlatform('Command+K', 'win32'), 'Super+K');
+    assert.equal(normalizeHotkeyForPlatform('CommandOrControl+K', 'win32'), 'Ctrl+K');
+    assert.equal(getHotkeyConflict('translate', 'Ctrl+K', settings, 'win32'), 'record');
+    assert.equal(getHotkeyConflict('translate', 'Super+K', settings, 'win32'), null);
   });
 
   it('allows selected-text hotkeys only when recording is idle', () => {
