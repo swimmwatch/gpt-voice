@@ -54,7 +54,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui
 import type { TranslationFunction } from '@renderer/components/settings/types';
 import { cn } from '@renderer/lib/cn';
 import {
-  MAX_PRETTIFY_CUSTOM_PROFILES,
+  validatePrettifyProfileImportPreview,
+  type PrettifyProfileImportDecisionDraft,
+  type PrettifyProfileImportPreview,
+} from '@renderer/prettifyProfileImportValidation';
+import {
   MAX_PRETTIFY_PROFILE_DESCRIPTION_CODE_POINTS,
   MAX_PRETTIFY_PROFILE_INSTRUCTION_CODE_POINTS,
   MAX_PRETTIFY_PROFILE_NAME_CODE_POINTS,
@@ -70,12 +74,7 @@ import {
   type PrettifyProfileId,
   type PrettifyProfileKind,
 } from '@shared/prettifyProfiles';
-import type {
-  PrettifyPortableProfile,
-  PrettifyProfileImportAction,
-  PrettifyProfileImportConflict,
-  PrettifyProfileImportDecision,
-} from '@shared/prettifyProfilePortability';
+import type { PrettifyProfileImportAction, PrettifyProfileImportDecision } from '@shared/prettifyProfilePortability';
 import type {
   PrettifyProfilesDraftControllerAction,
   PrettifyProfilesDraftState,
@@ -101,26 +100,13 @@ interface ProfileEditorState {
   readonly profileId?: PrettifyProfileId;
 }
 
-interface ImportPreviewState {
-  readonly conflicts: readonly PrettifyProfileImportConflict[];
-  readonly profiles: readonly PrettifyPortableProfile[];
-}
-
-interface ImportDecisionState {
-  readonly action?: PrettifyProfileImportAction;
-  readonly name: string;
-}
+type ImportPreviewState = PrettifyProfileImportPreview;
+type ImportDecisionState = PrettifyProfileImportDecisionDraft;
 
 interface EditorValidationErrors {
   readonly description?: string;
   readonly instruction?: string;
   readonly name?: string;
-}
-
-interface ImportValidationResult {
-  readonly capacityValid: boolean;
-  readonly complete: boolean;
-  readonly renameErrors: ReadonlySet<PrettifyCustomProfileId>;
 }
 
 interface PrettifyProfilesSettingsSectionProps {
@@ -272,54 +258,6 @@ function getEditorTitleKey(
     default:
       return 'prettify.profiles.editor.editTitle';
   }
-}
-
-function getImportValidation(
-  preview: ImportPreviewState | null,
-  decisions: Readonly<Record<PrettifyCustomProfileId, ImportDecisionState>>,
-  customProfiles: readonly PrettifyCustomProfile[],
-): ImportValidationResult {
-  if (!preview) {
-    return {
-      capacityValid: false,
-      complete: false,
-      renameErrors: new Set<PrettifyCustomProfileId>(),
-    };
-  }
-  const conflictsById = new Map(preview.conflicts.map((conflict) => [conflict.importedProfileId, conflict]));
-  const reservedNames = new Set(
-    customProfiles.map(({ name }) => normalizePrettifyCustomProfileNameForUniqueness(name)),
-  );
-  for (const profile of preview.profiles) {
-    if (!conflictsById.has(profile.id)) {
-      reservedNames.add(normalizePrettifyCustomProfileNameForUniqueness(profile.name));
-    }
-  }
-  const renameErrors = new Set<PrettifyCustomProfileId>();
-  let complete = true;
-  let appendedCount = preview.profiles.length - preview.conflicts.length;
-  for (const conflict of preview.conflicts) {
-    const decision = decisions[conflict.importedProfileId];
-    if (!decision?.action || !conflict.allowedActions.includes(decision.action)) {
-      complete = false;
-      continue;
-    }
-    if (decision.action !== 'rename') continue;
-    appendedCount += 1;
-    const name = decision.name.trim();
-    const normalizedName = normalizePrettifyCustomProfileNameForUniqueness(name);
-    if (!name || countCodePoints(name) > MAX_PRETTIFY_PROFILE_NAME_CODE_POINTS || reservedNames.has(normalizedName)) {
-      renameErrors.add(conflict.importedProfileId);
-      complete = false;
-    } else {
-      reservedNames.add(normalizedName);
-    }
-  }
-  return {
-    capacityValid: customProfiles.length + appendedCount <= MAX_PRETTIFY_CUSTOM_PROFILES,
-    complete,
-    renameErrors,
-  };
 }
 
 /** Renders one profile in the mixed, ordered Settings management list. */
@@ -706,7 +644,7 @@ export function PrettifyProfilesSettingsSection({
   };
 
   const importValidation = useMemo(
-    () => getImportValidation(importPreview, importDecisions, state.draft.customProfiles),
+    () => validatePrettifyProfileImportPreview(importPreview, importDecisions, state.draft.customProfiles),
     [importDecisions, importPreview, state.draft.customProfiles],
   );
 
