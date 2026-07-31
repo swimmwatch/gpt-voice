@@ -17,8 +17,10 @@ import {
 } from '@shared/recordingLifecycle';
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
 import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
+import type { I18nService } from './i18n';
 import type { SelectedTextActionGate } from './services/selectedTextActionState';
 import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
+import type { PrettifyRuntime } from './services/prettifyProviders';
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
@@ -61,7 +63,12 @@ export interface ShortcutControllerDependencies {
     info(...args: unknown[]): void;
     warn(...args: unknown[]): void;
   };
+  readonly localization: Pick<I18nService, 'translate'>;
+  readonly notification: {
+    show(title: string, body: string): void;
+  };
   readonly platform: NodeJS.Platform;
+  readonly prettifyRuntime: Pick<PrettifyRuntime, 'isProviderConnected'>;
   readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
   readonly selectedTextPrettifyService: Pick<
     SelectedTextPrettifyService,
@@ -275,6 +282,17 @@ export class ShortcutController {
       return;
     }
 
+    const providerId = currentSettings.prettifySettings.providerId;
+    if (!this.dependencies.prettifyRuntime.isProviderConnected(providerId)) {
+      this.dependencies.logger.info(`${hotkey} pressed while Prettify provider is not connected`, {
+        providerId,
+        target,
+      });
+      this.sendTextActionStatus({ action: 'prettify', phase: 'failed' });
+      this.showPrettifyDisconnectedNotification();
+      return;
+    }
+
     if (this.dependencies.selectedTextPrettifyService.focusExistingChooser()) {
       this.dependencies.logger.info(`${hotkey} pressed, focusing active Prettify chooser`, { target });
       return;
@@ -373,6 +391,16 @@ export class ShortcutController {
   private reportTextActionFailure(failureLogMetadata: TextActionStatusResolution['failureLogMetadata']): void {
     if (failureLogMetadata) {
       this.dependencies.logger.warn('Selected-text action shortcut failed:', failureLogMetadata);
+    }
+  }
+
+  private showPrettifyDisconnectedNotification(): void {
+    try {
+      const failure = this.dependencies.localization.translate('status.prettifyFailed');
+      const disconnected = this.dependencies.localization.translate('provider.notConnected');
+      this.dependencies.notification.show('GPT-Voice', `${failure}: ${disconnected}`);
+    } catch {
+      this.dependencies.logger.warn('Failed to show disconnected Prettify provider notification');
     }
   }
 

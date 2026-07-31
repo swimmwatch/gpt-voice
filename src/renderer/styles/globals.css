@@ -562,6 +562,10 @@
   grid-template-columns: minmax(0, 1fr) 37px;
 }
 
+.command-dock-prettify-controls[data-has-model-action='true'] {
+  grid-template-columns: minmax(0, 1fr) 37px 37px;
+}
+
 .command-dock-prettify-connection {
   justify-self: start;
   white-space: nowrap;
@@ -580,18 +584,21 @@
 }
 
 .command-dock .command-dock-prettify-model-action {
-  width: 68px;
-  height: 27px;
-  gap: 5px;
-  padding: 0 4px;
+  width: 37px;
+  height: 34px;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
   border-color: var(--dock-control-border);
   border-radius: 3.5px;
   background: var(--dock-surface);
-  color: var(--dock-foreground);
+  color: var(--dock-icon);
   cursor: pointer;
-  font-size: 10.51px;
-  font-weight: 500;
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
 }
 
@@ -601,14 +608,12 @@
 }
 
 .command-dock .command-dock-prettify-model-action svg {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
 }
 
-.command-dock .command-dock-prettify-model-action span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.command-dock-prettify-controls[data-has-model-action='true'] .command-dock-prettify-settings-shortcut {
+  grid-column: 3;
 }
 
 .command-dock .command-dock-prettify-settings-shortcut {
@@ -898,6 +903,14 @@
   .command-dock-prettify-summary,
   .command-dock .command-dock-prettify-model-action {
     display: none;
+  }
+
+  .command-dock-prettify-controls[data-has-model-action='true'] {
+    grid-template-columns: minmax(0, 1fr) 37px;
+  }
+
+  .command-dock-prettify-controls[data-has-model-action='true'] .command-dock-prettify-settings-shortcut {
+    grid-column: 2;
   }
 
   .command-dock .command-dock-prettify-provider-trigger {

@@ -10,6 +10,7 @@ import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import { getOllamaModelControl } from './prettifyModelControl';
 import {
+  getMainPrettifyHttpConnectionStatus,
   MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
   reduceMainPrettifyProviderSelection,
   type MainPrettifyHttpConnectionState,
@@ -32,6 +33,7 @@ import {
   type ProviderSelectionCoordinator,
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
+import { createPrettifyProviderSettingsInput } from './appSettingsUtils';
 import {
   createBrowserProviderFailurePresentation,
   notificationErrorStatus,
@@ -219,14 +221,12 @@ const App: React.FC = () => {
         status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Checking,
       });
       try {
-        const result = await desktopApi.listPrettifyModels(providerId, settings);
+        const result = await desktopApi.listPrettifyModels(providerId, createPrettifyProviderSettingsInput(settings));
         if (refreshId === prettifyModelRefreshIdRef.current) {
           setOllamaModelOptions(providerId === 'ollama' && result.success ? result.models : []);
           setPrettifyHttpConnection({
             providerId,
-            status: result.success
-              ? MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
-              : MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+            status: getMainPrettifyHttpConnectionStatus(settings, result.success),
           });
           setPrettifyConnectionError(
             result.success
@@ -691,9 +691,10 @@ const App: React.FC = () => {
     setPrettifyModelActionError('');
 
     try {
+      const providerSettingsInput = createPrettifyProviderSettingsInput(prettifySettings);
       const result = isLoaded
-        ? await desktopApi.unloadPrettifyModel('ollama', prettifySettings)
-        : await desktopApi.loadPrettifyModel('ollama', prettifySettings);
+        ? await desktopApi.unloadPrettifyModel('ollama', providerSettingsInput)
+        : await desktopApi.loadPrettifyModel('ollama', providerSettingsInput);
       if (refreshId !== prettifyModelRefreshIdRef.current) {
         return;
       }

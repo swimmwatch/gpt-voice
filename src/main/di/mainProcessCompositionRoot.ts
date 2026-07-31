@@ -290,7 +290,10 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'trayController'
     | 'windowManager'
     | 'config'
+    | 'localization'
     | 'logger'
+    | 'notification'
+    | 'prettifyRuntime'
   >;
   readonly tray: Omit<TrayControllerDependencies, 'getAssetPath' | 'localization' | 'windowManager'>;
   readonly window: Omit<
@@ -657,6 +660,11 @@ export class MainProcessCompositionRoot {
     const shortcutController = new ShortcutController({
       ...desktopEnvironment.shortcuts,
       config: configStore,
+      localization,
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+      prettifyRuntime,
       selectedTextActionGate,
       selectedTextPrettifyService,
       selectedTextTranslationService,

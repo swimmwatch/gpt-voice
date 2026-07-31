@@ -1,4 +1,4 @@
-import { BrainCircuit, Gauge, LoaderCircle, Settings } from 'lucide-react';
+import { BrainCircuit, HardDriveDownload, LoaderCircle, PowerOff, Settings } from 'lucide-react';
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
@@ -64,7 +64,6 @@ function MainPrettifyProviderBand({
   const hasModelAction = Boolean(viewState.ollamaControl);
   const model = viewState.model || t(viewState.modelFallbackKey);
   const providerSettingsLabel = t('mainDock.openPrettifySettings');
-  const modelActionLabel = t(viewState.ollamaControl?.isLoaded ? 'mainDock.prettifyFree' : 'mainDock.prettifyLoad');
   const modelActionTitle = t(viewState.ollamaControl?.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle');
   const providerConnectionTooltip =
     error ||
@@ -113,7 +112,7 @@ function MainPrettifyProviderBand({
           <strong title={model}>{model}</strong>
         </div>
 
-        <div className="command-dock-prettify-controls">
+        <div className="command-dock-prettify-controls" data-has-model-action={hasModelAction}>
           {viewState.ollamaControl && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -122,15 +121,17 @@ function MainPrettifyProviderBand({
                   className="command-dock-prettify-model-action"
                   disabled={isModelActionRunning}
                   onClick={onModelAction}
+                  size="icon"
                   title={modelActionTitle}
                   variant="outline"
                 >
                   {isModelActionRunning ? (
                     <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
+                  ) : viewState.ollamaControl.isLoaded ? (
+                    <PowerOff aria-hidden="true" strokeWidth={1.75} />
                   ) : (
-                    <Gauge aria-hidden="true" strokeWidth={1.75} />
+                    <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
                   )}
-                  <span>{isModelActionRunning ? t('prettify.loadingModel') : modelActionLabel}</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{modelActionTitle}</TooltipContent>

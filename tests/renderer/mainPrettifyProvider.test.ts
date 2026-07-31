@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  getMainPrettifyHttpConnectionStatus,
   getMainPrettifyProviderViewState,
   MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
   reduceMainPrettifyProviderSelection,
@@ -137,6 +138,35 @@ describe('main Prettify provider view state', () => {
       }).connection?.labelKey,
       'mainDock.prettifyChecking',
     );
+  });
+
+  it('requires an explicit HTTP model before reporting execution readiness', () => {
+    for (const providerId of ['ollama', 'vllm'] as const) {
+      assert.equal(
+        getMainPrettifyHttpConnectionStatus(createSettings({ providerId }), true),
+        MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+      );
+      assert.equal(
+        getMainPrettifyHttpConnectionStatus(
+          createSettings({
+            providerId,
+            [providerId]: { ...DEFAULT_PRETTIFY_SETTINGS[providerId], model: 'configured-model' },
+          }),
+          true,
+        ),
+        MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+      );
+      assert.equal(
+        getMainPrettifyHttpConnectionStatus(
+          createSettings({
+            providerId,
+            [providerId]: { ...DEFAULT_PRETTIFY_SETTINGS[providerId], model: 'configured-model' },
+          }),
+          false,
+        ),
+        MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
+      );
+    }
   });
 });
 

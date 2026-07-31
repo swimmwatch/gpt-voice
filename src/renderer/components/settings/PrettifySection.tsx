@@ -1,12 +1,4 @@
-import {
-  ChevronDown,
-  CircleHelp,
-  LoaderCircle,
-  MemoryStick,
-  MoreHorizontal,
-  RefreshCw,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { ChevronDown, CircleHelp, MemoryStick, MoreHorizontal, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { formatByteSize } from '@renderer/byteFormatting';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
@@ -382,11 +374,10 @@ function PrettifySection({
                   title={t('prettify.refreshModels')}
                   variant="outline"
                 >
-                  {isLoadingModels ? (
-                    <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-                  ) : (
-                    <RefreshCw aria-hidden="true" />
-                  )}
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={isLoadingModels ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>

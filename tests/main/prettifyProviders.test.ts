@@ -240,6 +240,8 @@ describe('prettifyProviders', () => {
       await runtime.checkCliConnection('codex-cli', { codexCli: { executablePath: '/opt/Codex CLI' } }),
       { providerId: 'codex-cli', status: 'login-required' },
     );
+    assert.equal(runtime.isProviderConnected('claude-cli'), true);
+    assert.equal(runtime.isProviderConnected('codex-cli'), false);
     assert.equal(claudeChecks, 1);
     assert.equal(codexChecks, 1);
     assert.equal(unrelatedCalls, 0);
@@ -476,7 +478,7 @@ describe('prettifyProviders', () => {
     });
     assert.equal(validationExecutionCalls, 0);
 
-    const codex = await new PrettifyRuntimeFixture({
+    const codexFixture = new PrettifyRuntimeFixture({
       codexCliAdapter: {
         listModels: async () => ({
           success: true as const,
@@ -494,7 +496,8 @@ describe('prettifyProviders', () => {
         prepare: async () => ({ error: CodexCliPrettifyErrorCode.ProcessFailed, success: false as const }),
       },
       fetch: async () => response(200, {}),
-    }).runtime.listModels('codex-cli', {});
+    });
+    const codex = await codexFixture.runtime.listModels('codex-cli', {});
     assert.deepEqual(codex, {
       availability: { status: 'available', capabilityVersion: '0.144.3' },
       models: [
@@ -509,11 +512,12 @@ describe('prettifyProviders', () => {
       source: 'bundled',
       success: true,
     });
+    assert.equal(codexFixture.runtime.isProviderConnected('codex-cli'), true);
   });
 
   it('lists Ollama models from /api/tags', async () => {
     const calls: FetchCall[] = [];
-    const models = await new PrettifyRuntimeFixture({
+    const fixture = new PrettifyRuntimeFixture({
       fetch: async (url, init) => {
         calls.push({ url, init });
         if (url.endsWith('/api/ps')) {
@@ -528,7 +532,9 @@ describe('prettifyProviders', () => {
           ],
         });
       },
-    }).runtime.listModels('ollama', {
+    });
+    assert.equal(fixture.runtime.isProviderConnected('ollama'), false);
+    const models = await fixture.runtime.listModels('ollama', {
       providerId: 'ollama',
       ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
     });
@@ -549,8 +555,36 @@ describe('prettifyProviders', () => {
       source: 'http',
       success: true,
     });
+    assert.equal(fixture.runtime.isProviderConnected('ollama'), true);
     assert.equal(calls[0]?.url, 'http://localhost:11434/api/tags');
     assert.equal(calls[1]?.url, 'http://localhost:11434/api/ps');
+  });
+
+  it('keeps HTTP model discovery successful but execution disconnected without a selected model', async () => {
+    const ollamaFixture = new PrettifyRuntimeFixture({
+      fetch: async (url) =>
+        url.endsWith('/api/ps') ? response(200, { models: [] }) : response(200, { models: [{ model: 'llama3.2' }] }),
+    });
+    const ollamaModels = await ollamaFixture.runtime.listModels('ollama', {
+      providerId: 'ollama',
+      ollama: { baseUrl: 'http://localhost:11434', model: '' },
+    });
+
+    assert.equal(ollamaModels.success, true);
+    assert.deepEqual(ollamaModels.models, [{ id: 'llama3.2', name: 'llama3.2' }]);
+    assert.equal(ollamaFixture.runtime.isProviderConnected('ollama'), false);
+
+    const vllmFixture = new PrettifyRuntimeFixture({
+      fetch: async () => response(200, { data: [{ id: 'qwen2.5' }] }),
+    });
+    const vllmModels = await vllmFixture.runtime.listModels('vllm', {
+      providerId: 'vllm',
+      vllm: { baseUrl: 'http://localhost:8000/v1', model: '' },
+    });
+
+    assert.equal(vllmModels.success, true);
+    assert.deepEqual(vllmModels.models, [{ id: 'qwen2.5', name: 'qwen2.5' }]);
+    assert.equal(vllmFixture.runtime.isProviderConnected('vllm'), false);
   });
 
   it('prettifies through non-streaming Ollama /api/chat', async () => {
@@ -671,7 +705,7 @@ describe('prettifyProviders', () => {
     assert.equal(JSON.parse(String(calls[4]?.init?.body)).keep_alive, 0);
   });
 
-  it('does not load a duplicate Ollama model already in memory', async () => {
+  it('pins a running Ollama model once and avoids duplicate lifecycle commands after taking ownership', async () => {
     const calls: FetchCall[] = [];
     const deps = {
       fetch: async (url: string, init?: RequestInit) => {
@@ -695,24 +729,19 @@ describe('prettifyProviders', () => {
 
     assert.equal(firstResult.success, true);
     assert.equal(secondResult.success, true);
-    assert.equal(
-      calls.every((call) => call.url === 'http://localhost:11434/api/ps'),
-      true,
+    assert.deepEqual(
+      calls.map((call) => call.url),
+      ['http://localhost:11434/api/ps', 'http://localhost:11434/api/chat', 'http://localhost:11434/api/ps'],
     );
-    assert.equal(calls.length, 2);
+    assert.equal(JSON.parse(String(calls[1]?.init?.body)).keep_alive, -1);
     await runtime.shutdown();
   });
 
-  it('unloads the selected Ollama model with keep_alive 0', async () => {
+  it('always sends the selected Ollama model an unload command with keep_alive 0', async () => {
     const calls: FetchCall[] = [];
     const result = await new PrettifyRuntimeFixture({
       fetch: async (url, init) => {
         calls.push({ url, init });
-        if (url.endsWith('/api/ps')) {
-          return response(200, {
-            models: [{ model: 'llama3.2', size_vram: 2_500_000_000 }],
-          });
-        }
         return response(200, { message: { content: '' } });
       },
     }).runtime.unloadModel('ollama', {
@@ -721,9 +750,88 @@ describe('prettifyProviders', () => {
     });
 
     assert.deepEqual(result, { success: true, providerId: 'ollama', model: 'llama3.2' });
-    assert.equal(calls[0]?.url, 'http://localhost:11434/api/ps');
-    assert.equal(calls[1]?.url, 'http://localhost:11434/api/chat');
-    assert.equal(JSON.parse(String(calls[1]?.init?.body)).keep_alive, 0);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[0]?.init?.body)).keep_alive, 0);
+  });
+
+  it('releases the selected Ollama model before leaving the provider', async () => {
+    const calls: FetchCall[] = [];
+    const fixture = new PrettifyRuntimeFixture({
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        return response(200, { message: { content: '' } });
+      },
+      settings: new TestPrettifySettingsStorage({
+        providerId: 'ollama',
+        ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+      }),
+    });
+
+    assert.deepEqual(await fixture.runtime.releaseProviderResources('ollama'), { success: true });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.url, 'http://localhost:11434/api/chat');
+    assert.equal(JSON.parse(String(calls[0]?.init?.body)).keep_alive, 0);
+  });
+
+  it('sleeps a vLLM server at level 2 before leaving it and wakes it before reuse', async () => {
+    const calls: FetchCall[] = [];
+    const fixture = new PrettifyRuntimeFixture({
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        if (url === 'http://localhost:8000/sleep?level=2') return response(200, {});
+        if (url === 'http://localhost:8000/wake_up') return response(200, {});
+        if (url === 'http://localhost:8000/v1/models') {
+          return response(200, { data: [{ id: 'qwen2.5' }] });
+        }
+        throw new Error('Unexpected vLLM request');
+      },
+      settings: new TestPrettifySettingsStorage({
+        providerId: 'vllm',
+        vllm: {
+          apiKey: 'private-vllm-key',
+          baseUrl: 'http://localhost:8000/v1',
+          model: 'qwen2.5',
+        },
+      }),
+    });
+
+    const initialModels = await fixture.runtime.listModels('vllm', { providerId: 'vllm' });
+    assert.equal(initialModels.success, true);
+    assert.equal(fixture.runtime.isProviderConnected('vllm'), true);
+    assert.deepEqual(await fixture.runtime.releaseProviderResources('vllm'), { success: true });
+    assert.equal(fixture.runtime.isProviderConnected('vllm'), false);
+    const models = await fixture.runtime.listModels('vllm', { providerId: 'vllm' });
+
+    assert.equal(models.success, true);
+    assert.deepEqual(
+      calls.map(({ url }) => url),
+      [
+        'http://localhost:8000/v1/models',
+        'http://localhost:8000/sleep?level=2',
+        'http://localhost:8000/wake_up',
+        'http://localhost:8000/v1/models',
+      ],
+    );
+    assert.equal(calls[1]?.init?.method, 'POST');
+    assert.equal(calls[2]?.init?.method, 'POST');
+    assert.equal((calls[1]?.init?.headers as Record<string, string>).Authorization, 'Bearer private-vllm-key');
+    assert.equal((calls[2]?.init?.headers as Record<string, string>).Authorization, 'Bearer private-vllm-key');
+  });
+
+  it('allows leaving vLLM with a warning when the server cannot release GPU resources', async () => {
+    const fixture = new PrettifyRuntimeFixture({
+      fetch: async () => response(404, {}),
+      settings: new TestPrettifySettingsStorage({
+        providerId: 'vllm',
+        vllm: { baseUrl: 'http://localhost:8000/v1', model: 'qwen2.5' },
+      }),
+    });
+
+    const result = await fixture.runtime.releaseProviderResources('vllm');
+
+    assert.deepEqual(result, { success: true, warning: 'vllm-gpu-release-failed' });
+    assert.equal(fixture.runtime.isProviderConnected('vllm'), false);
   });
 
   it('unloads the saved Ollama model after the in-memory load state is lost', async () => {

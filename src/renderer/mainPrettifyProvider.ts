@@ -69,6 +69,16 @@ function getActiveModel(settings: PrettifySettings): string {
   }
 }
 
+export function getMainPrettifyHttpConnectionStatus(
+  settings: PrettifySettings,
+  modelDiscoverySucceeded: boolean,
+): MainPrettifyHttpConnectionStatus {
+  const isHttpProvider = settings.providerId === 'ollama' || settings.providerId === 'vllm';
+  return modelDiscoverySucceeded && isHttpProvider && Boolean(getActiveModel(settings).trim())
+    ? MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
+    : MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected;
+}
+
 export function getMainPrettifyCliConnectionViewState(
   providerId: PrettifyProviderId,
   connection: MainPrettifyCliConnectionState | null,

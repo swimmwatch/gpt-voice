@@ -53,6 +53,7 @@ class RecordingGlobalShortcuts {
 
 interface ShortcutControllerHarnessOptions {
   readonly platform?: NodeJS.Platform;
+  readonly prettifyConnected?: boolean;
   readonly settings?: Partial<ShortcutSettingsSnapshot>;
 }
 
@@ -69,6 +70,8 @@ class ShortcutControllerHarness {
   public readonly globalShortcuts = new RecordingGlobalShortcuts();
   public quickCalls = 0;
   public quickResult: Promise<SelectedTextPrettifyResult> = Promise.resolve(SUCCESSFUL_PRETTIFY_RESULT);
+  public readonly connectionChecks: unknown[] = [];
+  public readonly notifications: Array<readonly [string, string]> = [];
   public readonly sent: Array<readonly unknown[]> = [];
   public readonly trayStates: string[] = [];
 
@@ -80,7 +83,19 @@ class ShortcutControllerHarness {
       config: this.config,
       globalShortcut: this.globalShortcuts,
       logger: { info: () => undefined, warn: () => undefined },
+      localization: {
+        translate: (key) => key,
+      },
+      notification: {
+        show: (title, body) => this.notifications.push([title, body]),
+      },
       platform: options.platform ?? 'linux',
+      prettifyRuntime: {
+        isProviderConnected: (providerId) => {
+          this.connectionChecks.push(providerId);
+          return options.prettifyConnected ?? true;
+        },
+      },
       selectedTextActionGate: { getActive: () => this.actionGateActive },
       selectedTextPrettifyService: {
         cancel: () => {
@@ -194,6 +209,30 @@ describe('ShortcutController', () => {
     assert.deepEqual(harness.sent, [
       ['translation-status', { action: 'prettify', phase: 'working' }],
       ['translation-status', { action: 'prettify', phase: 'completed' }],
+    ]);
+  });
+
+  it('notifies and blocks both Prettify shortcuts while the active provider is disconnected', () => {
+    const harness = new ShortcutControllerHarness({ prettifyConnected: false });
+    harness.chooserFocusResult = true;
+    harness.actionGateActive = 'prettify';
+    harness.controller.setRecordingLifecycleState('recording');
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('F12')?.();
+    harness.globalShortcuts.callbacks.get('Ctrl+F12')?.();
+
+    assert.equal(harness.chooserCalls, 0);
+    assert.equal(harness.quickCalls, 0);
+    assert.equal(harness.chooserFocusCalls, 0);
+    assert.equal(harness.connectionChecks.length, 2);
+    assert.deepEqual(harness.sent, [
+      ['translation-status', { action: 'prettify', phase: 'failed' }],
+      ['translation-status', { action: 'prettify', phase: 'failed' }],
+    ]);
+    assert.deepEqual(harness.notifications, [
+      ['GPT-Voice', 'status.prettifyFailed: provider.notConnected'],
+      ['GPT-Voice', 'status.prettifyFailed: provider.notConnected'],
     ]);
   });
 

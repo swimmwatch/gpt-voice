@@ -341,7 +341,10 @@ class RecordingShortcutController extends ShortcutController {
         unregisterAll: () => undefined,
       },
       logger: { info: () => undefined, warn: () => undefined },
+      localization: new I18nService(),
+      notification: { show: () => undefined },
       platform: 'linux',
+      prettifyRuntime: { isProviderConnected: () => true },
       selectedTextActionGate: {
         getActive: () => null,
       },

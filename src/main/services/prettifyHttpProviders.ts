@@ -40,6 +40,9 @@ interface ParsedPrettifyText {
 export type HttpPrettifyProviderId = PrettifyHttpProviderId;
 const OLLAMA_PRETTIFY_PROVIDER_ID = 'ollama' as const;
 const VLLM_PRETTIFY_PROVIDER_ID = 'vllm' as const;
+const VLLM_GPU_SLEEP_LEVEL = 2;
+const VLLM_SLEEP_PATH = 'sleep';
+const VLLM_WAKE_PATH = 'wake_up';
 
 export interface HttpPrettifyProviderDependencies extends PrettifyProviderDependencies {
   readonly fetch: PrettifyFetch;
@@ -49,6 +52,16 @@ export interface HttpPrettifyProviderDependencies extends PrettifyProviderDepend
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
+function createVllmLifecycleUrl(baseUrl: string, path: string, sleepLevel?: number): string {
+  const url = new URL(baseUrl);
+  const basePath = url.pathname.replace(/\/+$/u, '').replace(/\/v1$/u, '');
+  url.pathname = `${basePath}/${path}`.replace(/\/{2,}/gu, '/');
+  url.search = '';
+  url.hash = '';
+  if (sleepLevel !== undefined) url.searchParams.set('level', String(sleepLevel));
+  return url.toString();
 }
 
 function safeJsonParse(body: string): unknown {
@@ -464,6 +477,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         replacementCleanupActive = false;
       }
       if (runningSelectedModel) {
+        await setOllamaModelKeepAlive(nextModel, -1, this.dependencies);
         this.loadedModel = nextModel;
         audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
         return {
@@ -529,19 +543,8 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     context.lifecycle.phaseCompleted('configuration', modelMetadata);
     const model = { baseUrl: settings.ollama.baseUrl, model: settings.ollama.model };
     try {
-      context.lifecycle.phaseEntered('model-discovery', modelMetadata);
-      let shouldUnload = isSameOllamaModel(this.loadedModel, model);
-      try {
-        shouldUnload =
-          shouldUnload || (await getRunningOllamaModels(model.baseUrl, this.dependencies)).has(model.model);
-      } catch {
-        shouldUnload = true;
-      }
-      context.lifecycle.phaseCompleted('model-discovery', modelMetadata);
       context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
-      if (shouldUnload) {
-        await setOllamaModelKeepAlive(model, 0, this.dependencies);
-      }
+      await setOllamaModelKeepAlive(model, 0, this.dependencies);
       if (isSameOllamaModel(this.loadedModel, model)) this.loadedModel = null;
       audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
       return { success: true, providerId: this.id, model: model.model };
@@ -556,9 +559,12 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
     }
   }
 
-  public async unloadLoadedModel(fallbackSettings: PrettifySettingsInput = {}): Promise<void> {
+  public async unloadLoadedModel(
+    fallbackSettings: PrettifySettingsInput = {},
+    auditContext?: PrettifyAuditOperationContext,
+  ): Promise<void> {
     const audit = this.audit;
-    const context = audit.startShutdown(this.id);
+    const context = auditContext ?? audit.startShutdown(this.id);
     context.lifecycle.phaseEntered('configuration');
     let savedSettings: PrettifySettingsWithSecret;
     try {
@@ -617,6 +623,8 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
 
 /** HTTP-backed OpenAI-compatible vLLM provider. */
 export class VllmPrettifyProvider extends BasePrettifyProvider {
+  private sleepingBaseUrl: string | null = null;
+
   public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
     super(VLLM_PRETTIFY_PROVIDER_ID, dependencies.audit);
   }
@@ -626,6 +634,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     signal: AbortSignal,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderAvailability> {
+    await this.wakeIfSleeping(settings, signal);
     return this.dependencies.readiness.checkAvailability({
       apiKey: settings.vllm.apiKey,
       auditContext,
@@ -639,6 +648,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     settings: PrettifySettingsWithSecret,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PrettifyProviderModelList> {
+    await this.wakeIfSleeping(settings);
     return this.dependencies.readiness.listModels({
       apiKey: settings.vllm.apiKey,
       auditContext,
@@ -710,6 +720,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     context.lifecycle.phaseEntered('submission', sourceMetadata);
     let response;
     try {
+      await this.wakeIfSleeping(settings, signal);
       response = await this.dependencies.fetch(joinUrl(settings.vllm.baseUrl, '/chat/completions'), {
         method: 'POST',
         headers: createJsonHeaders(settings.vllm.apiKey),
@@ -766,7 +777,54 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
     return { success: true, text: result.text };
   }
 
+  public async releaseGpuResources(
+    settings: PrettifySettingsWithSecret,
+    auditContext?: PrettifyAuditOperationContext,
+  ): Promise<void> {
+    const audit = this.audit;
+    const modelMetadata = this.getModelMetadata(settings);
+    const context = auditContext ?? audit.startModelUnload(this.id);
+    context.lifecycle.phaseEntered('configuration', modelMetadata);
+    context.lifecycle.phaseCompleted('configuration', modelMetadata);
+    context.lifecycle.phaseEntered('model-lifecycle', modelMetadata);
+    let terminalRecorded = false;
+    try {
+      const response = await this.dependencies.fetch(
+        createVllmLifecycleUrl(settings.vllm.baseUrl, VLLM_SLEEP_PATH, VLLM_GPU_SLEEP_LEVEL),
+        {
+          method: 'POST',
+          headers: createJsonHeaders(settings.vllm.apiKey),
+        },
+      );
+      if (response.status !== Number(StatusCodes.OK)) {
+        terminalRecorded = true;
+        audit.terminalFailure(context, 'model-lifecycle', 'model-lifecycle-failed', {
+          httpStatus: response.status,
+        });
+        throw new Error('vLLM GPU release failed');
+      }
+      this.sleepingBaseUrl = settings.vllm.baseUrl;
+      audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
+    } catch (error: unknown) {
+      if (!terminalRecorded) {
+        audit.terminalException(context, 'model-lifecycle', error);
+      }
+      throw error;
+    }
+  }
+
   protected getConfiguredModel(settings: PrettifySettingsWithSecret): string {
     return settings.vllm.model;
+  }
+
+  private async wakeIfSleeping(settings: PrettifySettingsWithSecret, signal?: AbortSignal): Promise<void> {
+    if (this.sleepingBaseUrl !== settings.vllm.baseUrl) return;
+    const response = await this.dependencies.fetch(createVllmLifecycleUrl(settings.vllm.baseUrl, VLLM_WAKE_PATH), {
+      method: 'POST',
+      headers: createJsonHeaders(settings.vllm.apiKey),
+      signal,
+    });
+    if (response.status !== Number(StatusCodes.OK)) throw new Error('vLLM GPU wake failed');
+    this.sleepingBaseUrl = null;
   }
 }
