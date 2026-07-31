@@ -44,12 +44,8 @@ GPT-Voice is a desktop app that controls a browser session and handles voice inp
 
 ## Known production advisory exceptions
 
-| Advisory | Locked production path | Severity | Impact | Override policy | Responsible upstream dependency | Last reviewed | Recheck triggers |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `GHSA-r292-9mhp-454m` | `cloakbrowser@0.5.2 -> tar@7.5.19` | moderate | Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member selection. | No compatible CloakBrowser resolution has been validated; a forced transitive override can break its archive/runtime behavior. | `cloakbrowser` | `2026-07-29` | Any CloakBrowser or lockfile change, advisory update, or compatible upstream fix. |
+No production advisory exceptions are currently approved.
 
-The advisory above is separate from the `archiver -> tar-stream -> bare-fs`
-archive-creation closure and predates the reviewed six-commit range.
 Dependency evidence is kept in three distinct tiers:
 
 1. Host-independent lockfile analysis proves complete production closure for

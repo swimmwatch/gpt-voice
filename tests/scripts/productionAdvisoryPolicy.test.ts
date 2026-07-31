@@ -19,11 +19,8 @@ import {
   type ArtifactDirectoryEntry,
 } from '../../scripts/dependency-policy/packageArtifactClassifier';
 import {
-  KNOWN_PRODUCTION_ADVISORY_EXCEPTION,
-  KNOWN_PRODUCTION_ADVISORY_HEADING,
-  KNOWN_PRODUCTION_ADVISORY_ROW,
-  KNOWN_PRODUCTION_ADVISORY_TABLE_HEADER,
-  KNOWN_PRODUCTION_ADVISORY_TABLE_SEPARATOR,
+  NO_PRODUCTION_ADVISORY_EXCEPTIONS,
+  PRODUCTION_ADVISORY_EXCEPTIONS_HEADING,
   ProductionAdvisoryPolicy,
 } from '../../scripts/dependency-policy/productionAdvisoryPolicy';
 
@@ -55,6 +52,8 @@ const FIXTURE_PACKAGE: LockedPackage = {
   path: 'node_modules/fixture-package',
   version: '1.0.0',
 };
+const CLOAKBROWSER_VERSION = '0.5.3';
+const TAR_VERSION = '7.5.22';
 const NATIVE_MAGIC_FIXTURES = {
   'elf-without-suffix': [0x7f, 0x45, 0x4c, 0x46],
   'fat-32-be': [0xca, 0xfe, 0xba, 0xbe],
@@ -85,7 +84,7 @@ class DependencyPolicyFixture {
         '': {
           dependencies: {
             archiver: '1.0.0',
-            cloakbrowser: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.parentVersion,
+            cloakbrowser: CLOAKBROWSER_VERSION,
             'cycle-a': '1.0.0',
             'parent-a': '1.0.0',
             'parent-b': '1.0.0',
@@ -122,7 +121,7 @@ class DependencyPolicyFixture {
         'node_modules/arm-helper': { cpu: ['arm64'], optional: true, version: '1.0.0' },
         'node_modules/cloakbrowser': {
           dependencies: { tar: '^7.0.0' },
-          version: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.parentVersion,
+          version: CLOAKBROWSER_VERSION,
         },
         'node_modules/cycle-a': { dependencies: { 'cycle-b': '1.0.0' }, version: '1.0.0' },
         'node_modules/cycle-b': { dependencies: { 'cycle-a': '1.0.0' }, version: '1.0.0' },
@@ -134,7 +133,7 @@ class DependencyPolicyFixture {
         'node_modules/parent-b': { dependencies: { hoisted: '1.0.0' }, version: '1.0.0' },
         'node_modules/required-peer': { version: '1.0.0' },
         'node_modules/tar': {
-          version: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.dependencyVersion,
+          version: TAR_VERSION,
         },
         'node_modules/windows-helper': { optional: true, os: ['win32'], version: '1.0.0' },
         'node_modules/x64-helper': { cpu: ['x64'], optional: true, version: '1.0.0' },
@@ -254,11 +253,9 @@ function createSecurityPolicy(): string {
   return [
     '# Security Policy',
     '',
-    KNOWN_PRODUCTION_ADVISORY_HEADING,
+    PRODUCTION_ADVISORY_EXCEPTIONS_HEADING,
     '',
-    KNOWN_PRODUCTION_ADVISORY_TABLE_HEADER,
-    KNOWN_PRODUCTION_ADVISORY_TABLE_SEPARATOR,
-    KNOWN_PRODUCTION_ADVISORY_ROW,
+    NO_PRODUCTION_ADVISORY_EXCEPTIONS,
     '',
   ].join('\n');
 }
@@ -266,27 +263,7 @@ function createSecurityPolicy(): string {
 function createAuditReport(): Record<string, unknown> {
   return {
     auditReportVersion: 2,
-    vulnerabilities: {
-      cloakbrowser: {
-        name: 'cloakbrowser',
-        nodes: ['node_modules/cloakbrowser'],
-        severity: 'moderate',
-        via: ['tar'],
-      },
-      tar: {
-        name: 'tar',
-        nodes: ['node_modules/tar'],
-        severity: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.severity,
-        via: [
-          {
-            dependency: 'tar',
-            name: 'tar',
-            severity: KNOWN_PRODUCTION_ADVISORY_EXCEPTION.severity,
-            url: `https://github.com/advisories/${KNOWN_PRODUCTION_ADVISORY_EXCEPTION.advisoryId}`,
-          },
-        ],
-      },
-    },
+    vulnerabilities: {},
   };
 }
 
@@ -581,7 +558,7 @@ describe('package artifact classifier', () => {
 });
 
 describe('production advisory policy', () => {
-  it('matches the canonical row, exact locked path, both targets, and synthetic audit evidence', () => {
+  it('requires a clean production audit and verifies both target closures', () => {
     const fixture = new DependencyPolicyFixture();
     const result = new ProductionAdvisoryPolicy({
       closurePolicy: fixture.policy,
@@ -589,47 +566,20 @@ describe('production advisory policy', () => {
       readSecurityPolicy: createSecurityPolicy,
     }).verify();
 
-    assert.equal(result.advisoryId, KNOWN_PRODUCTION_ADVISORY_EXCEPTION.advisoryId);
+    assert.deepEqual(result.advisoryExceptions, []);
     assert.deepEqual(result.verifiedTargets, ['linux-x64', 'win32-x64']);
   });
 
-  it('fails changed lock versions, paths, audit identity, severity, rows, missing evidence, and new advisories', () => {
+  it('fails unresolved closures, malformed audits, advisories, and inconsistent documentation', () => {
     const fixture = new DependencyPolicyFixture();
     const failures: Array<{ audit: unknown; lockfile: FixtureLockfile; security: string }> = [];
 
-    const changedVersion = fixture.cloneLockfile();
-    changedVersion.packages['node_modules/tar'].version = '7.5.20';
-    failures.push({ audit: createAuditReport(), lockfile: changedVersion, security: createSecurityPolicy() });
-
-    const changedPath = fixture.cloneLockfile();
-    changedPath.packages['node_modules/cloakbrowser'].dependencies = {};
-    failures.push({ audit: createAuditReport(), lockfile: changedPath, security: createSecurityPolicy() });
-
-    const changedId = createAuditReport();
-    (
-      ((changedId.vulnerabilities as Record<string, unknown>).tar as Record<string, unknown>).via as Array<
-        Record<string, unknown>
-      >
-    )[0].url = 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc';
-    failures.push({ audit: changedId, lockfile: fixture.cloneLockfile(), security: createSecurityPolicy() });
-
-    const changedSeverity = createAuditReport();
-    ((changedSeverity.vulnerabilities as Record<string, unknown>).tar as Record<string, unknown>).severity = 'high';
-    failures.push({ audit: changedSeverity, lockfile: fixture.cloneLockfile(), security: createSecurityPolicy() });
+    const unresolved = fixture.cloneLockfile();
+    delete unresolved.packages['node_modules/cloakbrowser'];
+    failures.push({ audit: createAuditReport(), lockfile: unresolved, security: createSecurityPolicy() });
 
     const newAdvisory = createAuditReport();
-    (newAdvisory.vulnerabilities as Record<string, unknown>).other = {
-      name: 'other',
-      nodes: ['node_modules/other'],
-      severity: 'low',
-      via: [
-        {
-          dependency: 'other',
-          severity: 'low',
-          url: 'https://github.com/advisories/GHSA-dddd-eeee-ffff',
-        },
-      ],
-    };
+    (newAdvisory.vulnerabilities as Record<string, unknown>).tar = {};
     failures.push({ audit: newAdvisory, lockfile: fixture.cloneLockfile(), security: createSecurityPolicy() });
     failures.push({
       audit: { auditReportVersion: 2 },
@@ -639,12 +589,12 @@ describe('production advisory policy', () => {
     failures.push({
       audit: createAuditReport(),
       lockfile: fixture.cloneLockfile(),
-      security: createSecurityPolicy().replace(KNOWN_PRODUCTION_ADVISORY_ROW, ''),
+      security: createSecurityPolicy().replace(NO_PRODUCTION_ADVISORY_EXCEPTIONS, ''),
     });
     failures.push({
       audit: createAuditReport(),
       lockfile: fixture.cloneLockfile(),
-      security: `${createSecurityPolicy()}${KNOWN_PRODUCTION_ADVISORY_HEADING}\n`,
+      security: `${createSecurityPolicy()}${PRODUCTION_ADVISORY_EXCEPTIONS_HEADING}\n`,
     });
 
     for (const failure of failures) {

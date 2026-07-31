@@ -142,13 +142,12 @@ defined below.
     | Agent/tool-managed archive inspection lacks deterministic hostile-container, authenticity, stable-file, parser-resource, complete-schema, prompt-injection, temporary-data, and cross-platform guarantees | `architecture.archive-analysis-engine` revision 1 | `security.archive-boundary` revision 2; `security.archive-resource-envelope` revision 2; `security.temporary-data-strategy` revision 2; `security.untrusted-metadata-policy` revision 2 |
     | Agent-written local report uses procedural filesystem, permission, collision, replacement, formatting, redaction, cleanup, and Windows safeguards rather than an owned safe writer                        | `security.report-publication` revision 3          | `security.report-existing-target` revision 2                                                                                                                                            |
     | Native Linux/Windows evidence remains manual instead of mandatory platform CI                                                                                                                             | `acceptance.platform-ci` revision 2               | None; this decision does **not** waive or pass a blocked `AC-MAN-*` gate                                                                                                                |
-    | Existing `tar@7.5.19` advisory through `cloakbrowser@0.4.12` remains a tracked exception                                                                                                                  | `security.production-advisory` revision 1         | The canonical `SECURITY.md` row and current locked/audit evidence must still match                                                                                                      |
 
 13. The two primary citations required by the Merge Gate are
     `architecture.archive-analysis-engine` revision 1 and, for every local-report risk,
     `security.report-publication` revision 3. A supplemental decision cannot replace either primary citation.
-14. The known advisory authority applies only to the exact locked path/version/advisory and recheck conditions. It
-    cannot accept a changed path, new advisory, increased severity, or newly blocking audit result.
+14. The production-advisory policy must retain an empty exception set and reject any non-empty or malformed audit
+    result.
 15. Any retained blocking/important risk not fully covered by the exact answered revisions above requires a new
     explicit user decision through the specification workflow before merge. Do not invent a revision, cite a
     superseded answer, broaden an answer by analogy, or treat agent-authored text as approval.
@@ -222,7 +221,7 @@ verification commands.
   application/package evidence is accepted.
 - The report names no unaccepted blocking/important finding. Any retained such risk cites the exact primary decision
   revision and all applicable supplemental revision(s).
-- `GHSA-r292-9mhp-454m` remains visible and accurately attributed; no new blocking advisory exists.
+- `cloakbrowser@0.5.3 -> tar@7.5.22` remains free of `GHSA-r292-9mhp-454m`; no production advisory exception exists.
 - The review confirms Electron/IPC/privacy, OOP/DI/repository, functional renderer, named-constant, documentation,
   packaging, and compatibility standards.
 - The original review and historical evidence remain unchanged.
