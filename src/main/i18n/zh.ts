@@ -426,6 +426,7 @@ export default {
   'prettify.modelNotLoaded': '{model} 未加载到内存中',
   'prettify.modelLoadFailed': '无法加载模型',
   'prettify.modelUnloadFailed': '无法释放模型',
+  'prettify.vllmGpuReleaseWarning': '提供程序已更改，但 vLLM 无法释放 GPU 内存。请启用 vLLM 睡眠模式以便自动清理。',
   'error.notLoggedIn': '未登录。请先登录。',
   'error.noAccessToken': '没有访问令牌或API密钥。请配置提供商并重试。',
   'error.chatGptAsrFailure': 'ChatGPT 无法处理录制的音频 ({mimeType})。请重试录音。',

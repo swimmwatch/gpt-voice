@@ -486,6 +486,8 @@ export default {
   'prettify.modelNotLoaded': 'Модель {model} не загружена в память',
   'prettify.modelLoadFailed': 'Не удалось загрузить модель',
   'prettify.modelUnloadFailed': 'Не удалось выгрузить модель',
+  'prettify.vllmGpuReleaseWarning':
+    'Провайдер изменён, но vLLM не освободил память GPU. Включите sleep mode в vLLM для автоматической очистки.',
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',

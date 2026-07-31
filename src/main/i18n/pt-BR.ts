@@ -456,6 +456,8 @@ export default {
   'prettify.modelNotLoaded': '{model} não está carregado na memória',
   'prettify.modelLoadFailed': 'Não foi possível carregar o modelo',
   'prettify.modelUnloadFailed': 'Não foi possível liberar o modelo',
+  'prettify.vllmGpuReleaseWarning':
+    'O provedor foi alterado, mas o vLLM não liberou a memória da GPU. Ative o modo de suspensão do vLLM.',
   'error.notLoggedIn': 'Não está logado. Faça login primeiro.',
   'error.noAccessToken': 'Nenhum token de acesso ou chave de API. Configure o provedor e tente novamente.',
   'error.chatGptAsrFailure': 'O ChatGPT não conseguiu processar o áudio gravado ({mimeType}). Tente gravar novamente.',

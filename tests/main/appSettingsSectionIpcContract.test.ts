@@ -45,6 +45,28 @@ describe('App Settings section IPC contract', () => {
     assert.match(prettifyController, /applyExternalPrettifyProviderSelection\(current, snapshot\.providerId\)/u);
   });
 
+  it('releases previous Prettify provider resources before publishing a provider change', () => {
+    const ipc = readProjectFile('src/main/ipc.ts');
+    const handler = ipc.slice(
+      ipc.indexOf("handle('set-prettify-settings'"),
+      ipc.indexOf("handle(\n      'list-prettify-models'"),
+    );
+    const releaseIndex = handler.indexOf('releaseProviderResources(previous.providerId)');
+    const saveIndex = handler.indexOf('prettifySettings.save(settings)');
+    const publishIndex = handler.indexOf('publishPrettifySettingsChanged(savedSettings)');
+    const warningIndex = handler.indexOf("translate('prettify.vllmGpuReleaseWarning')");
+
+    assert.match(handler, /nextProviderId !== previous\.providerId/u);
+    assert.match(handler, /enqueuePrettifySettingsMutation/u);
+    assert.ok(releaseIndex >= 0);
+    assert.ok(saveIndex > releaseIndex);
+    assert.ok(publishIndex > saveIndex);
+    assert.ok(warningIndex > publishIndex);
+    assert.match(handler, /if \(!releaseResult\.success\) throw new Error\(releaseResult\.error\)/u);
+    assert.match(handler, /resourceReleaseWarning = releaseResult\.warning/u);
+    assert.match(handler, /dependencies\.notification\.show\(\s*'GPT-Voice'/u);
+  });
+
   it('broadcasts application-language changes through the typed preload contract', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const preload = readProjectFile('src/main/preloadApi.ts');

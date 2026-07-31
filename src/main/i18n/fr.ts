@@ -463,6 +463,8 @@ export default {
   'prettify.modelNotLoaded': "{model} n'est pas chargé en mémoire",
   'prettify.modelLoadFailed': 'Impossible de charger le modèle',
   'prettify.modelUnloadFailed': 'Impossible de libérer le modèle',
+  'prettify.vllmGpuReleaseWarning':
+    'Le fournisseur a changé, mais vLLM n’a pas pu libérer la mémoire GPU. Activez le mode veille de vLLM.',
   'error.notLoggedIn': "Non connecté. Veuillez vous connecter d'abord.",
   'error.noAccessToken': "Aucun jeton d'accès ou clé API. Configurez le fournisseur et réessayez.",
   'error.chatGptAsrFailure':

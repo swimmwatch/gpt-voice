@@ -442,6 +442,8 @@ export default {
   'prettify.modelNotLoaded': '{model}はメモリにロードされていません',
   'prettify.modelLoadFailed': 'モデルの読み込みに失敗しました',
   'prettify.modelUnloadFailed': 'モデルの解放に失敗しました',
+  'prettify.vllmGpuReleaseWarning':
+    'プロバイダーは変更されましたが、vLLM は GPU メモリを解放できませんでした。vLLM のスリープモードを有効にしてください。',
   'error.notLoggedIn': 'ログインしていません。先にログインしてください。',
   'error.noAccessToken': 'アクセストークンまたはAPIキーがありません。プロバイダーを設定して再試行してください。',
   'error.chatGptAsrFailure': 'ChatGPTが録音された音声（{mimeType}）を処理できませんでした。再度録音を試してください。',

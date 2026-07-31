@@ -447,6 +447,8 @@ export default {
   'prettify.modelNotLoaded': '{model} मेमोरी में लोड नहीं है',
   'prettify.modelLoadFailed': 'मॉडल लोड नहीं किया जा सका',
   'prettify.modelUnloadFailed': 'मॉडल को मुक्त नहीं किया जा सका',
+  'prettify.vllmGpuReleaseWarning':
+    'प्रोवाइडर बदल गया, लेकिन vLLM GPU मेमोरी खाली नहीं कर सका। स्वचालित सफ़ाई के लिए vLLM स्लीप मोड चालू करें।',
   'error.notLoggedIn': 'लॉग इन नहीं हैं। कृपया पहले लॉग इन करें।',
   'error.noAccessToken': 'कोई एक्सेस टोकन या API कुंजी नहीं है। प्रदाता कॉन्फ़िगर करें और पुनः प्रयास करें।',
   'error.chatGptAsrFailure':

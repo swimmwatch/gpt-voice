@@ -463,6 +463,8 @@ export default {
   'prettify.modelNotLoaded': '{model} ist nicht im Speicher geladen',
   'prettify.modelLoadFailed': 'Modell konnte nicht geladen werden',
   'prettify.modelUnloadFailed': 'Modell konnte nicht freigegeben werden',
+  'prettify.vllmGpuReleaseWarning':
+    'Der Anbieter wurde geändert, aber vLLM konnte den GPU-Speicher nicht freigeben. Aktivieren Sie den vLLM-Ruhemodus.',
   'error.notLoggedIn': 'Nicht angemeldet. Bitte melden Sie sich zuerst an.',
   'error.noAccessToken':
     'Kein Zugriffstoken oder API-Schlüssel vorhanden. Konfigurieren Sie den Anbieter und versuchen Sie es erneut.',

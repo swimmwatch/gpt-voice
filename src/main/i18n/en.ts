@@ -577,6 +577,8 @@ export default {
   'prettify.modelNotLoaded': '{model} is not loaded in memory',
   'prettify.modelLoadFailed': 'Could not load model',
   'prettify.modelUnloadFailed': 'Could not free model',
+  'prettify.vllmGpuReleaseWarning':
+    'Provider changed, but vLLM could not release GPU memory. Enable vLLM sleep mode for automatic cleanup.',
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
