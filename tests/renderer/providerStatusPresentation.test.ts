@@ -66,9 +66,53 @@ describe('provider status presentation', () => {
 
     assert.match(equalMarkup, /aria-label="Connected"/u);
     assert.doesNotMatch(equalMarkup, /aria-label="Connected\. Connected"/u);
+    assert.match(equalMarkup, /border-0/u);
+    assert.match(equalMarkup, /bg-transparent/u);
+    assert.match(equalMarkup, /provider-status-badge/u);
+    assert.match(equalMarkup, /lucide-circle-check/u);
+    assert.doesNotMatch(equalMarkup, />Connected</u);
     assert.match(distinctMarkup, /aria-label="Not connected\. The browser is unavailable"/u);
+    assert.match(distinctMarkup, /border-0/u);
+    assert.match(distinctMarkup, /bg-transparent/u);
+    assert.match(distinctMarkup, /provider-status-badge/u);
+    assert.match(distinctMarkup, /lucide-circle-off/u);
+    assert.doesNotMatch(distinctMarkup, />Not connected</u);
     assert.match(distinctMarkup, /role="status"/u);
     assert.match(distinctMarkup, /tabindex="0"/u);
+  });
+
+  it('uses a fixed icon-only badge and preserves localized loading feedback', () => {
+    const loadingMarkup = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(ProviderStatusIndicator, {
+          dataSlot: 'loading-status',
+          label: 'Checking connection',
+          loading: true,
+          tone: 'neutral',
+          tooltip: 'Opening provider',
+        }),
+      ),
+    );
+
+    assert.match(loadingMarkup, /provider-status-badge/u);
+    assert.match(loadingMarkup, /lucide-loader-circle/u);
+    assert.match(loadingMarkup, /animate-spin/u);
+    assert.match(loadingMarkup, /aria-label="Checking connection\. Opening provider"/u);
+    assert.doesNotMatch(loadingMarkup, />Checking connection</u);
+  });
+
+  it('keeps Prettify status out of the model summary and surfaces errors through the connection indicator', () => {
+    const providerBand = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
+
+    assert.doesNotMatch(providerBand, /dataSlot="prettify-provider-state"/u);
+    assert.doesNotMatch(providerBand, /command-dock-prettify-state/u);
+    assert.match(
+      providerBand,
+      /const providerConnectionTooltip =\s*error \|\|\s*connectionError \|\|\s*\(viewState\.connection/u,
+    );
+    assert.match(providerBand, /dataSlot="prettify-provider-connection"/u);
   });
 
   it('uses one sanitized browser failure descriptor for Voice status and tooltip state', () => {

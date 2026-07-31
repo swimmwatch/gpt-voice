@@ -66,6 +66,7 @@ function MainToolbar({
   providers,
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
+  const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';
   const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
   const providerStatusTooltip =
@@ -194,12 +195,14 @@ function MainToolbar({
                 <Button
                   aria-label={providerActionLabel}
                   className="command-dock-provider-action"
+                  data-icon-only={isBrowserSessionProvider}
                   disabled={isLoggingIn}
                   onClick={onProviderLogin}
+                  size={isBrowserSessionProvider ? 'icon' : 'default'}
                   variant="outline"
                 >
                   {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
-                  <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>
+                  {!isBrowserSessionProvider && <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{providerStatusTooltip}</TooltipContent>

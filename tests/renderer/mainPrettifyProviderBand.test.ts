@@ -148,7 +148,7 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /const providerConnectionTooltip =/u);
     assert.match(band, /connectionError \|\|/u);
     assert.match(band, /tooltip=\{providerConnectionTooltip\}/u);
-    assert.match(band, /dataSlot="prettify-provider-state"/u);
+    assert.doesNotMatch(band, /dataSlot="prettify-provider-state"/u);
     assert.doesNotMatch(band, /connectionError\s+\?\s+t\('provider\.notConnected'\)/u);
     assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);

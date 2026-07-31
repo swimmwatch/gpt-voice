@@ -23,6 +23,7 @@ describe('main Prettify provider view state', () => {
     assert.deepEqual(getMainPrettifyProviderViewState(createSettings(), []), {
       connection: {
         labelKey: 'mainDock.prettifyChecking',
+        loading: true,
         tone: 'neutral',
         tooltipKey: 'provider.connectionCheckingTooltip',
       },
@@ -31,18 +32,16 @@ describe('main Prettify provider view state', () => {
       ollamaControl: null,
       providerId: 'ollama',
       providerLabelKey: 'prettify.provider.ollama',
-      status: {
-        labelKey: 'mainDock.prettifyNotConfigured',
-        tone: 'neutral',
-        tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
-      },
     });
 
     const configured = createSettings({ ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, model: 'gemma3:1b' } });
-    assert.equal(
-      getMainPrettifyProviderViewState(configured, [{ id: 'gemma3:1b', isLoaded: true, name: 'Gemma' }]).status
-        ?.labelKey,
-      'modelMemory.loaded',
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(configured, [{ id: 'gemma3:1b', isLoaded: true, name: 'Gemma' }]).ollamaControl,
+      {
+        isLoaded: true,
+        model: 'gemma3:1b',
+        vramSizeBytes: undefined,
+      },
     );
   });
 
@@ -52,11 +51,6 @@ describe('main Prettify provider view state', () => {
       [],
     );
     assert.equal(vllm.model, 'qwen');
-    assert.deepEqual(vllm.status, {
-      labelKey: 'mainDock.prettifyConfigured',
-      tone: 'success',
-      tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
-    });
 
     const claudeSettings = createSettings({
       providerId: 'claude-cli',
@@ -67,7 +61,6 @@ describe('main Prettify provider view state', () => {
       status: 'connected',
     });
     assert.equal(claude.modelFallbackKey, 'prettify.providerDefault');
-    assert.equal(claude.status, null);
     assert.deepEqual(claude.connection, {
       labelKey: 'provider.connected',
       tone: 'success',
@@ -78,7 +71,6 @@ describe('main Prettify provider view state', () => {
       providerId: 'codex-cli',
       status: 'login-required',
     });
-    assert.equal(codex.status, null);
     assert.deepEqual(codex.connection, {
       labelKey: 'provider.notConnected',
       tone: 'warning',
@@ -90,6 +82,7 @@ describe('main Prettify provider view state', () => {
     const settings = createSettings({ providerId: 'claude-cli' });
     assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
       labelKey: 'mainDock.prettifyChecking',
+      loading: true,
       tone: 'neutral',
       tooltipKey: 'prettify.cli.statusChecking',
     });
@@ -111,6 +104,7 @@ describe('main Prettify provider view state', () => {
     const settings = createSettings({ providerId: 'vllm' });
     assert.deepEqual(getMainPrettifyProviderViewState(settings, []).connection, {
       labelKey: 'mainDock.prettifyChecking',
+      loading: true,
       tone: 'neutral',
       tooltipKey: 'provider.connectionCheckingTooltip',
     });

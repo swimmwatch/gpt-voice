@@ -61,25 +61,18 @@ function MainPrettifyProviderBand({
 }: MainPrettifyProviderBandProps): React.JSX.Element {
   const { t } = useI18n();
   const viewState = getMainPrettifyProviderViewState(settings, ollamaModels, cliConnection, httpConnection);
-  const providerStatus = viewState.status;
   const hasModelAction = Boolean(viewState.ollamaControl);
   const model = viewState.model || t(viewState.modelFallbackKey);
   const providerSettingsLabel = t('mainDock.openPrettifySettings');
   const modelActionLabel = t(viewState.ollamaControl?.isLoaded ? 'mainDock.prettifyFree' : 'mainDock.prettifyLoad');
   const modelActionTitle = t(viewState.ollamaControl?.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle');
-  const providerStatusLabel =
-    error ||
-    (providerStatus
-      ? `${t(providerStatus.labelKey)}${providerStatus.valueKey ? `: ${t(providerStatus.valueKey)}` : ''}`
-      : '');
-  const providerStatusTooltip =
-    error || (providerStatus ? t(providerStatus.tooltipKey ?? providerStatus.valueKey ?? providerStatus.labelKey) : '');
-  const providerStatusHasError = Boolean(error);
   const providerConnectionTooltip =
+    error ||
     connectionError ||
     (viewState.connection
       ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
       : '');
+  const providerConnectionHasError = Boolean(error);
 
   return (
     <section className="command-dock-prettify-band" data-slot="prettify-provider-band">
@@ -118,16 +111,6 @@ function MainPrettifyProviderBand({
         <div className="command-dock-prettify-summary">
           <span className="command-dock-model-label">{t('mainDock.prettifyModelLabel')}</span>
           <strong title={model}>{model}</strong>
-          {providerStatusLabel && (
-            <ProviderStatusIndicator
-              className="command-dock-prettify-state"
-              dataSlot="prettify-provider-state"
-              label={providerStatusLabel}
-              role={providerStatusHasError ? 'alert' : 'status'}
-              tone={providerStatusHasError ? 'error' : (providerStatus?.tone ?? 'neutral')}
-              tooltip={providerStatusTooltip}
-            />
-          )}
         </div>
 
         <div className="command-dock-prettify-controls">
@@ -159,7 +142,9 @@ function MainPrettifyProviderBand({
               className="command-dock-provider-state command-dock-prettify-connection"
               dataSlot="prettify-provider-connection"
               label={t(viewState.connection.labelKey)}
-              tone={viewState.connection.tone}
+              loading={!providerConnectionHasError && viewState.connection.loading}
+              role={providerConnectionHasError ? 'alert' : 'status'}
+              tone={providerConnectionHasError ? 'error' : viewState.connection.tone}
               tooltip={providerConnectionTooltip}
             />
           )}
