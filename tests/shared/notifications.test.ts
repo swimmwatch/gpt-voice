@@ -69,10 +69,11 @@ describe('notifications', () => {
   });
 
   it('turns provider connection failures into service-specific guidance', () => {
-    const presented = presentNotificationError(
-      'Failed to connect to Ollama at http://127.0.0.1:11434: TypeError: fetch failed',
-      { context: 'prettify', fallback: 'Prettify failed', t },
-    );
+    const presented = presentNotificationError('Failed to connect to Ollama', {
+      context: 'prettify',
+      fallback: 'Prettify failed',
+      t,
+    });
 
     assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
     assert.equal(presented.userMessage, 'Could not connect to Ollama. Make sure it is running and the URL is correct.');

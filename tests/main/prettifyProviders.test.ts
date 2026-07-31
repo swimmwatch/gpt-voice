@@ -1048,15 +1048,15 @@ describe('prettifyProviders', () => {
 
     const networkFailure = await new PrettifyRuntimeFixture({
       fetch: async () => {
-        throw new TypeError('fetch failed');
+        throw new TypeError('fetch failed for /private/network-path-canary');
       },
     }).runtime.run('text', TEST_EXECUTION_INSTRUCTION, {
       providerId: 'vllm',
-      vllm: { baseUrl: 'http://localhost:8000/v1', model: 'qwen2.5' },
+      vllm: { baseUrl: 'https://provider.example/private?token=endpoint-canary', model: 'qwen2.5' },
     });
     assert.deepEqual(networkFailure, {
       success: false,
-      error: 'Failed to connect to vLLM at http://localhost:8000/v1: fetch failed',
+      error: 'Failed to connect to vLLM',
     });
   });
 });

@@ -67,20 +67,8 @@ function createHttpError(providerName: string, status: number): string {
   return `${providerName} request failed (${status})`;
 }
 
-function sanitizeBaseUrlForMessage(baseUrl: string): string {
-  try {
-    const url = new URL(baseUrl);
-    url.username = '';
-    url.password = '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return baseUrl;
-  }
-}
-
-export function createConnectionError(providerName: string, baseUrl: string, error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return `Failed to connect to ${providerName} at ${sanitizeBaseUrlForMessage(baseUrl)}: ${message}`;
+export function createConnectionError(providerName: string): string {
+  return `Failed to connect to ${providerName}`;
 }
 
 function createMessages(
@@ -261,13 +249,6 @@ export function getHttpPrettifyProviderName(providerId: HttpPrettifyProviderId):
   return providerId === 'ollama' ? 'Ollama' : 'vLLM';
 }
 
-export function getHttpPrettifyProviderBaseUrl(
-  settings: PrettifySettingsWithSecret,
-  providerId: HttpPrettifyProviderId,
-): string {
-  return providerId === 'ollama' ? settings.ollama.baseUrl : settings.vllm.baseUrl;
-}
-
 /** HTTP-backed local Ollama provider with loaded-model lifecycle support. */
 export class OllamaPrettifyProvider extends BasePrettifyProvider {
   private loadedModel: LoadedOllamaPrettifyModel | null = null;
@@ -335,12 +316,12 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         execute: async (text, auditContext) => {
           try {
             return await this.prettify({ auditContext, instruction, text, signal, settings });
-          } catch (error: unknown) {
+          } catch {
             return {
               success: false,
               error: signal.aborted
                 ? this.dependencies.localization.translate('status.prettifyCancelled')
-                : createConnectionError('Ollama', settings.ollama.baseUrl, error),
+                : createConnectionError('Ollama'),
             };
           }
         },
@@ -502,7 +483,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
       };
       audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
       return result;
-    } catch (error: unknown) {
+    } catch {
       audit.terminalFailure(
         context,
         replacementCleanupActive ? 'cleanup' : 'model-lifecycle',
@@ -516,7 +497,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         success: false,
         providerId: this.id,
         model: nextModel.model,
-        error: createConnectionError('Ollama', nextModel.baseUrl, error),
+        error: createConnectionError('Ollama'),
       };
     }
   }
@@ -564,13 +545,13 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
       if (isSameOllamaModel(this.loadedModel, model)) this.loadedModel = null;
       audit.terminalSuccess(context, 'model-lifecycle', modelMetadata);
       return { success: true, providerId: this.id, model: model.model };
-    } catch (error: unknown) {
+    } catch {
       audit.terminalFailure(context, 'model-lifecycle', 'model-lifecycle-failed', modelMetadata);
       return {
         success: false,
         providerId: this.id,
         model: model.model,
-        error: createConnectionError('Ollama', model.baseUrl, error),
+        error: createConnectionError('Ollama'),
       };
     }
   }
@@ -701,12 +682,12 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
         execute: async (text, auditContext) => {
           try {
             return await this.prettify({ auditContext, instruction, text, signal, settings });
-          } catch (error: unknown) {
+          } catch {
             return {
               success: false,
               error: signal.aborted
                 ? this.dependencies.localization.translate('status.prettifyCancelled')
-                : createConnectionError('vLLM', settings.vllm.baseUrl, error),
+                : createConnectionError('vLLM'),
             };
           }
         },

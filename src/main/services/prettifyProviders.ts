@@ -13,7 +13,6 @@ import {
   OllamaPrettifyProvider,
   VllmPrettifyProvider,
   createConnectionError,
-  getHttpPrettifyProviderBaseUrl,
   getHttpPrettifyProviderName,
   isHttpPrettifyProviderId,
 } from '@main/services/prettifyHttpProviders';
@@ -348,11 +347,7 @@ export class PrettifyRuntime {
       audit.terminalException(auditContext, 'readiness', error);
       return {
         success: false,
-        error: createConnectionError(
-          getHttpPrettifyProviderName(providerId),
-          getHttpPrettifyProviderBaseUrl(settings, providerId),
-          error,
-        ),
+        error: createConnectionError(getHttpPrettifyProviderName(providerId)),
       };
     }
   }

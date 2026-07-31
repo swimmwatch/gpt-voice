@@ -525,7 +525,7 @@ describe('selectedTextPrettify', () => {
   });
 
   it('restores the clipboard and shows provider errors', async () => {
-    const cooldownError = 'Failed to connect to Ollama at http://127.0.0.1:11434: fetch failed';
+    const cooldownError = 'Failed to connect to Ollama';
     const { clipboard, notifications, service } = createTestService({
       selectionText: 'selected text',
       prettifyResult: { success: false, error: cooldownError },
