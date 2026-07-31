@@ -57,10 +57,7 @@ describe('renderer status presentation', () => {
   });
 
   it('preserves classified notification metadata without preserving localized text', () => {
-    const presented = presentNotificationError(
-      'Failed to connect to Ollama at http://127.0.0.1:11434: TypeError: fetch failed',
-      { context: 'generic' },
-    );
+    const presented = presentNotificationError('Failed to connect to Ollama', { context: 'generic' });
     assert.equal(presented.code, NotificationErrorCode.ConnectionFailed);
 
     const status = notificationErrorStatus(presented);

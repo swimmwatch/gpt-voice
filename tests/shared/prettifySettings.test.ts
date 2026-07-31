@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   assertValidKnownPrettifySettingsInput,
+  assertValidPrettifyProviderSettingsInput,
   DEFAULT_PRETTIFY_CLI_TIMEOUT_SECONDS,
   DEFAULT_OLLAMA_PRETTIFY_BASE_URL,
   DEFAULT_PRETTIFY_REASONING,
@@ -10,6 +11,8 @@ import {
   KNOWN_PRETTIFY_PROVIDER_IDS,
   MAX_PRETTIFY_PROMPT_LENGTH,
   PRETTIFY_PROVIDER_CAPABILITIES,
+  PRETTIFY_PROVIDER_SETTINGS_INVALID_SHAPE,
+  PRETTIFY_PROVIDER_SETTINGS_UNKNOWN_PROPERTY,
   PRETTIFY_CLI_PROVIDER_IDS,
   getPrettifyBaseUrlValidationError,
   getPrettifySettingsInputError,
@@ -353,6 +356,39 @@ describe('prettifySettings', () => {
       null,
     );
     assert.equal(getPrettifySettingsInputError({ providerId: 'ollama', topP: 0 }), 'Top P must be between 0.05 and 1');
+  });
+
+  it('enforces a strict prompt-free provider settings save boundary', () => {
+    assert.doesNotThrow(() =>
+      assertValidPrettifyProviderSettingsInput({
+        providerId: 'vllm',
+        vllm: {
+          apiKey: 'private-key',
+          baseUrl: 'https://models.example.com/v1',
+          clearApiKey: false,
+          model: 'model',
+        },
+      }),
+    );
+    assert.throws(
+      () => assertValidPrettifyProviderSettingsInput('invalid'),
+      (error: unknown) => error instanceof Error && error.message === PRETTIFY_PROVIDER_SETTINGS_INVALID_SHAPE,
+    );
+    for (const value of [
+      { prompt: 'private prompt' },
+      { reasoning: 'extended' },
+      { unknown: true },
+      { vllm: { hasApiKey: true } },
+      { ollama: { baseUrl: 'http://127.0.0.1:11434', extra: 'private' } },
+    ]) {
+      assert.throws(
+        () => assertValidPrettifyProviderSettingsInput(value),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message === PRETTIFY_PROVIDER_SETTINGS_UNKNOWN_PROPERTY &&
+          !error.message.includes('private'),
+      );
+    }
   });
 
   it('keeps legacy reasoning helpers available without affecting normalized settings', () => {

@@ -8,25 +8,36 @@ import {
   type DiagnosticCaptureAttemptResult,
   type DiagnosticCaptureService,
 } from '@main/services/diagnosticCapture';
+import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { KnownPrettifyProviderId } from '@shared/prettifySettings';
 
 export interface OneShotPrettifyExecutionDependencies {
   readonly audit: PrettifyProviderAudit;
-  readonly contractVersion?: string;
   readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'capturePrettifyProviderSuccess'>;
   readonly execute: (text: string, auditContext: PrettifyAuditOperationContext) => Promise<TextProcessingResult>;
+  readonly providerCapabilityVersion?: string;
 }
 
 /** Owns one-shot, audited capture invariants for a prepared Prettify execution. */
 export class OneShotPrettifyExecution implements PreparedPrettifyExecution {
+  public readonly cacheContext: readonly string[];
   private consumed = false;
 
   public constructor(
     public readonly providerId: KnownPrettifyProviderId,
-    public readonly cacheContext: readonly string[],
+    providerCacheContext: readonly string[],
+    instruction: PrettifyExecutionInstruction,
     private readonly dependencies: OneShotPrettifyExecutionDependencies,
-  ) {}
+  ) {
+    this.cacheContext = Object.freeze([
+      ...providerCacheContext,
+      'instruction-contract-version',
+      String(instruction.instructionContractVersion),
+      'effective-instruction',
+      instruction.effectiveInstruction,
+    ]);
+  }
 
   public async execute(text: string): Promise<TextProcessingResult> {
     if (this.consumed) return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
@@ -59,9 +70,9 @@ export class OneShotPrettifyExecution implements PreparedPrettifyExecution {
   ): Promise<DiagnosticCaptureAttemptResult> {
     try {
       return await this.dependencies.diagnosticCapture.capturePrettifyProviderSuccess({
-        ...(this.dependencies.contractVersion === undefined
+        ...(this.dependencies.providerCapabilityVersion === undefined
           ? {}
-          : { contractVersion: this.dependencies.contractVersion }),
+          : { contractVersion: this.dependencies.providerCapabilityVersion }),
         providerId: this.providerId,
         providerOperationId,
         resultText,

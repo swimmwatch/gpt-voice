@@ -99,6 +99,7 @@ describe('config translation settings', () => {
       'retryTranscriptionHotkey',
       'translateEnabled',
       'prettifyEnabled',
+      'prettifyQuickEnabled',
       'provider',
       'locale',
       'localeExplicit',

@@ -24,6 +24,7 @@ import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
+import type { PrettifyProfileCatalogRepairNotice } from '@main/prettifyProfileCatalogState';
 import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 
@@ -340,13 +341,18 @@ class RecordingShortcutController extends ShortcutController {
         unregisterAll: () => undefined,
       },
       logger: { info: () => undefined, warn: () => undefined },
+      localization: new I18nService(),
+      notification: { show: () => undefined },
       platform: 'linux',
+      prettifyRuntime: { isProviderConnected: () => true },
       selectedTextActionGate: {
         getActive: () => null,
       },
       selectedTextPrettifyService: {
         cancel: () => null,
-        prettifySelectedText: async () => ({ success: true, status: '' }),
+        applyDefaultProfileToSelectedText: async () => ({ success: true, status: '' }),
+        chooseProfileForSelectedText: async () => ({ success: true, status: '' }),
+        focusExistingChooser: () => false,
       },
       selectedTextTranslationService: {
         translateSelectedTextToClipboard: async () => ({ success: true }),
@@ -416,6 +422,10 @@ class RecordingConfigStore extends TestAppConfigStore {
   public override consumePendingTranslationSettingsRepairNotice(): TranslationSettingsRepairNotice {
     return { categories: ['shape'], providers: [] };
   }
+
+  public override consumePendingPrettifyProfileCatalogRepairNotice(): PrettifyProfileCatalogRepairNotice {
+    return { repaired: true };
+  }
 }
 
 class RecordingI18nService extends I18nService {
@@ -471,8 +481,14 @@ class MainProcessApplicationHarness {
           this.events.push('prettify-shutdown');
         },
       },
+      prettifyProfileChooserWindow: {
+        dispose: () => this.events.push('prettify-chooser-dispose'),
+      },
       notify: () => this.events.push('settings-notice'),
       runtimeFactory: this.runtimeFactory,
+      selectedTextPrettifyService: {
+        dispose: () => this.events.push('prettify-selection-dispose'),
+      },
       shortcutController,
       translationRuntime: {
         initializeSelectedProvider: async () => {
@@ -532,6 +548,7 @@ describe('main process application lifecycle', () => {
       'desktop-ready',
       'config-load',
       'locale-initialize',
+      'settings-notice',
       'settings-notice',
       'runtime-create',
       'diagnostic-prune',
@@ -624,6 +641,8 @@ describe('main process application lifecycle', () => {
     assert.deepEqual(harness.events, [
       'set-quitting',
       'shortcuts-dispose',
+      'prettify-selection-dispose',
+      'prettify-chooser-dispose',
       'ipc-dispose',
       'prettify-shutdown',
       'translation-shutdown',

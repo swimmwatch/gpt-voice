@@ -15,6 +15,7 @@ import {
   translationHookSuccess,
   type TranslationProviderHookResult,
 } from '@main/translateProviders/translationProviderContracts';
+import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 
 const GOOGLE_TRANSLATE_ORIGIN = 'https://translate.google.ru';
@@ -193,22 +194,27 @@ export function classifyGoogleResultSnapshot(snapshot: GoogleResultSnapshot): Tr
     return translationHookFailure('pageContractFailure');
   }
 
-  const primaryFragments = snapshot.fragments
-    .filter((fragment) => fragment.visible && !fragment.insideListItem)
-    .map((fragment) => ({
-      branchIndex: fragment.branchIndex,
-      text: fragment.text.replace(/\s+/gu, ' ').trim(),
-    }))
-    .filter((fragment) => fragment.text.length > 0);
-  if (primaryFragments.length === 0) {
+  const visibleFragments = snapshot.fragments.filter((fragment) => fragment.visible && !fragment.insideListItem);
+  const contentFragments = visibleFragments.filter((fragment) => fragment.text.trim().length > 0);
+  if (contentFragments.length === 0) {
     return translationHookSuccess('');
   }
 
-  const primaryBranches = new Set(primaryFragments.map((fragment) => fragment.branchIndex));
+  const primaryBranches = new Set(contentFragments.map((fragment) => fragment.branchIndex));
   if (primaryBranches.size !== 1 || primaryBranches.has(-1)) {
     return translationHookFailure('pageContractFailure');
   }
-  return translationHookSuccess(primaryFragments.map((fragment) => fragment.text).join(''));
+  const [primaryBranch] = primaryBranches;
+  const primaryText = visibleFragments
+    .filter((fragment) => fragment.branchIndex === primaryBranch)
+    .reduce((combined, fragment) => {
+      const text =
+        /[^\S\r\n]$/u.test(combined) && /^[^\S\r\n]/u.test(fragment.text)
+          ? fragment.text.replace(/^[^\S\r\n]+/u, '')
+          : fragment.text;
+      return combined + text;
+    }, '');
+  return translationHookSuccess(normalizeTranslationResultText(primaryText));
 }
 
 async function getVisibleLocators(locator: Locator): Promise<VisibleLocatorSnapshot[]> {
@@ -307,7 +313,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
           branchIndex:
             primaryBranch?.parentElement === region ? Array.from(region.children).indexOf(primaryBranch) : -1,
           insideListItem: fragment.closest('[role="listitem"]') !== null,
-          text: fragment.textContent ?? '',
+          text: fragment instanceof HTMLElement ? fragment.innerText : (fragment.textContent ?? ''),
           visible: (() => {
             const style = window.getComputedStyle(fragment);
             return style.display !== 'none' && style.visibility !== 'hidden' && fragment.getClientRects().length > 0;

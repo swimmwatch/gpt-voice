@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState, type KeyboardEvent } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
@@ -6,6 +6,7 @@ import BrowserSection from '@renderer/components/settings/BrowserSection';
 import AuditLogSection from '@renderer/components/settings/AuditLogSection';
 import NetworkSection from '@renderer/components/settings/NetworkSection';
 import PrettifySection from '@renderer/components/settings/PrettifySection';
+import PrettifyProfilesSettingsSection from '@renderer/components/settings/PrettifyProfilesSettingsSection';
 import SettingsFooter from '@renderer/components/settings/SettingsFooter';
 import SettingsNavigation, { type SettingsSectionId } from '@renderer/components/settings/SettingsNavigation';
 import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
@@ -24,10 +25,12 @@ import {
 } from '@renderer/components/ui/alert-dialog';
 import { Button } from '@renderer/components/ui/button';
 import { Spinner } from '@renderer/components/ui/spinner';
+import { Separator } from '@renderer/components/ui/separator';
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs';
 import {
   createAppSettingsLogSummary,
   createEditableSettings,
+  createPrettifySettingsDraft,
   getCloakBrowserLocaleOptions,
   getCloakBrowserTimezoneOptions,
   getAppSettingsFormState,
@@ -40,6 +43,7 @@ import {
   type AppSettingsFieldKey,
   type EditableCloakBrowserSettings,
 } from '@renderer/appSettingsUtils';
+import { prettifyProfilesDraftControllerReducer } from '@renderer/prettifyProfilesDraft';
 import { presentAppSettingsFieldErrors } from '@renderer/appSettingsValidationPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { usePrettifySettingsController } from '@renderer/hooks/usePrettifySettingsController';
@@ -92,10 +96,12 @@ interface AppSettingsFormInputCandidates {
   readonly diagnosticCaptureSettings: AppSettingsSaveInput['diagnosticCaptureSettings'] | null;
   readonly initialDiagnosticCaptureSettings: AppSettingsSaveInput['initialDiagnosticCaptureSettings'] | null;
   readonly initialPrettifySettings: AppSettingsSaveInput['initialPrettifySettings'] | null;
+  readonly initialPrettifyProfileCatalog: AppSettingsSaveInput['initialPrettifyProfileCatalog'] | null;
   readonly initialSettings: AppSettingsSaveInput['initialSettings'] | null;
   readonly initialTextActionSettings: AppSettingsSaveInput['initialTextActionSettings'] | null;
   readonly localeValues: readonly string[];
   readonly prettifySettings: AppSettingsSaveInput['prettifySettings'] | null;
+  readonly prettifyProfileCatalog: AppSettingsSaveInput['prettifyProfileCatalog'] | null;
   readonly settings: AppSettingsSaveInput['settings'] | null;
   readonly textActionSettings: AppSettingsSaveInput['textActionSettings'] | null;
   readonly timezoneValues: readonly string[];
@@ -106,9 +112,11 @@ function createLoadedAppSettingsFormInput(input: AppSettingsFormInputCandidates)
     !input.diagnosticCaptureSettings ||
     !input.initialDiagnosticCaptureSettings ||
     !input.initialPrettifySettings ||
+    !input.initialPrettifyProfileCatalog ||
     !input.initialSettings ||
     !input.initialTextActionSettings ||
     !input.prettifySettings ||
+    !input.prettifyProfileCatalog ||
     !input.settings ||
     !input.textActionSettings
   ) {
@@ -119,10 +127,12 @@ function createLoadedAppSettingsFormInput(input: AppSettingsFormInputCandidates)
     diagnosticCaptureSettings: input.diagnosticCaptureSettings,
     initialDiagnosticCaptureSettings: input.initialDiagnosticCaptureSettings,
     initialPrettifySettings: input.initialPrettifySettings,
+    initialPrettifyProfileCatalog: input.initialPrettifyProfileCatalog,
     initialSettings: input.initialSettings,
     initialTextActionSettings: input.initialTextActionSettings,
     localeValues: input.localeValues,
     prettifySettings: input.prettifySettings,
+    prettifyProfileCatalog: input.prettifyProfileCatalog,
     settings: input.settings,
     textActionSettings: input.textActionSettings,
     timezoneValues: input.timezoneValues,
@@ -214,6 +224,7 @@ const AppSettingsWindow: React.FC = () => {
   const [initialDiagnosticCaptureSettings, setInitialDiagnosticCaptureSettings] =
     useState<DiagnosticCaptureSettings | null>(null);
   const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [prettifyProfilesState, dispatchPrettifyProfiles] = useReducer(prettifyProfilesDraftControllerReducer, null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
@@ -266,6 +277,7 @@ const AppSettingsWindow: React.FC = () => {
         const [
           nextSettings,
           nextPrettifySettings,
+          nextPrettifyProfiles,
           nextTextActionSettings,
           nextDiagnosticCaptureSettings,
           nextHotkeySettings,
@@ -273,6 +285,7 @@ const AppSettingsWindow: React.FC = () => {
         ] = await Promise.all([
           desktopApi.getCloakBrowserSettings(),
           desktopApi.getPrettifySettings(),
+          desktopApi.getPrettifyProfileCatalog(),
           desktopApi.getTextActionSettings(),
           desktopApi.getDiagnosticCaptureSettings(),
           desktopApi.getHotkey(),
@@ -283,7 +296,8 @@ const AppSettingsWindow: React.FC = () => {
         const editableSettings = createEditableSettings(nextSettings);
         setSettings(editableSettings);
         setInitialSettings(editableSettings);
-        initializePrettifySettingsEvent(nextPrettifySettings);
+        initializePrettifySettingsEvent(createPrettifySettingsDraft(nextPrettifySettings));
+        dispatchPrettifyProfiles({ snapshot: nextPrettifyProfiles, type: 'initialize' });
         setTextActionSettings(nextTextActionSettings);
         setInitialTextActionSettings(nextTextActionSettings);
         setDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
@@ -378,12 +392,22 @@ const AppSettingsWindow: React.FC = () => {
 
   const getHotkeyValue = (target: HotkeyTarget): string => {
     if (!hotkeySettings) return '';
-    if (target === 'record') return hotkeySettings.hotkey;
-    if (target === 'stop') return hotkeySettings.stopHotkey;
-    if (target === 'cancel') return hotkeySettings.cancelHotkey;
-    if (target === 'translate') return hotkeySettings.translateHotkey;
-    if (target === 'retryTranscription') return hotkeySettings.retryTranscriptionHotkey;
-    return hotkeySettings.prettifyHotkey;
+    switch (target) {
+      case 'record':
+        return hotkeySettings.hotkey;
+      case 'stop':
+        return hotkeySettings.stopHotkey;
+      case 'cancel':
+        return hotkeySettings.cancelHotkey;
+      case 'translate':
+        return hotkeySettings.translateHotkey;
+      case 'prettify':
+        return hotkeySettings.prettifyHotkey;
+      case 'prettifyQuick':
+        return hotkeySettings.prettifyQuickHotkey;
+      case 'retryTranscription':
+        return hotkeySettings.retryTranscriptionHotkey;
+    }
   };
 
   const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
@@ -452,6 +476,7 @@ const AppSettingsWindow: React.FC = () => {
       !initialSettings ||
       !prettifySettings ||
       !initialPrettifySettings ||
+      !prettifyProfilesState ||
       !textActionSettings ||
       !initialTextActionSettings ||
       !diagnosticCaptureSettings ||
@@ -475,6 +500,8 @@ const AppSettingsWindow: React.FC = () => {
       localeValues: localeOptions,
       prettifySettings,
       initialPrettifySettings,
+      prettifyProfileCatalog: prettifyProfilesState.draft,
+      initialPrettifyProfileCatalog: prettifyProfilesState.baseline,
       textActionSettings,
       initialTextActionSettings,
       timezoneValues: timezoneOptions,
@@ -492,6 +519,7 @@ const AppSettingsWindow: React.FC = () => {
         saveCloakBrowserSettings: desktopApi.saveCloakBrowserSettings,
         setDiagnosticCaptureSettings: desktopApi.setDiagnosticCaptureSettings,
         setPrettifySettings: desktopApi.setPrettifySettings,
+        savePrettifyProfileCatalog: desktopApi.savePrettifyProfileCatalog,
         setTextActionSettings: desktopApi.setTextActionSettings,
       });
     } catch {
@@ -502,6 +530,12 @@ const AppSettingsWindow: React.FC = () => {
     }
     if (saveResult.prettifySettings) {
       applySavedPrettifySnapshot(saveResult.prettifySettings, Boolean(saveResult.prettifySettingsSaved));
+    }
+    if (saveResult.prettifyProfileCatalog && saveResult.prettifyProfileCatalogSaved) {
+      dispatchPrettifyProfiles({
+        catalog: saveResult.prettifyProfileCatalog,
+        type: 'reconcile-saved',
+      });
     }
     if (saveResult.textActionSettings) {
       setTextActionSettings(saveResult.textActionSettings);
@@ -538,13 +572,17 @@ const AppSettingsWindow: React.FC = () => {
         diagnosticCaptureSettingsSaved: Boolean(saveResult.diagnosticCaptureSettingsSaved),
         error: saveResult.error,
         prettifySettingsSaved: Boolean(saveResult.prettifySettingsSaved),
+        prettifyProfileCatalogSaved: Boolean(saveResult.prettifyProfileCatalogSaved),
+        prettifyProfileCatalogErrorCode: saveResult.prettifyProfileCatalogErrorCode,
         textActionSettingsSaved: Boolean(saveResult.textActionSettingsSaved),
         cloakBrowserSettingsSaved: Boolean(saveResult.settingsSaved),
       });
       setError(
         saveResult.diagnosticCaptureErrorCode
           ? t(getDiagnosticCaptureErrorTranslationKey(saveResult.diagnosticCaptureErrorCode))
-          : saveResult.error || t('appSettings.saveFailed'),
+          : saveResult.prettifyProfileCatalogErrorCode
+            ? t('prettify.profiles.error.catalogSave')
+            : saveResult.error || t('appSettings.saveFailed'),
       );
       return saveResult;
     }
@@ -552,6 +590,7 @@ const AppSettingsWindow: React.FC = () => {
       changedGroups: logSummary.changedGroups,
       diagnosticCaptureSettingsSaved: Boolean(saveResult.diagnosticCaptureSettingsSaved),
       prettifySettingsSaved: Boolean(saveResult.prettifySettingsSaved),
+      prettifyProfileCatalogSaved: Boolean(saveResult.prettifyProfileCatalogSaved),
       textActionSettingsSaved: Boolean(saveResult.textActionSettingsSaved),
       cloakBrowserSettingsSaved: Boolean(saveResult.settingsSaved),
     });
@@ -672,11 +711,13 @@ const AppSettingsWindow: React.FC = () => {
   const loadedFormInput = createLoadedAppSettingsFormInput({
     diagnosticCaptureSettings,
     initialDiagnosticCaptureSettings,
+    initialPrettifyProfileCatalog: prettifyProfilesState?.baseline ?? null,
     initialPrettifySettings,
     initialSettings,
     initialTextActionSettings,
     localeValues: localeOptions,
     prettifySettings,
+    prettifyProfileCatalog: prettifyProfilesState?.draft ?? null,
     settings,
     textActionSettings,
     timezoneValues: timezoneOptions,
@@ -773,6 +814,7 @@ const AppSettingsWindow: React.FC = () => {
           initialSettings &&
           prettifySettings &&
           initialPrettifySettings &&
+          prettifyProfilesState &&
           textActionSettings &&
           initialTextActionSettings &&
           diagnosticCaptureSettings &&
@@ -809,70 +851,81 @@ const AppSettingsWindow: React.FC = () => {
                       />
                     </TabsContent>
                     <TabsContent className="mt-0" value="prettify">
-                      <PrettifySection
-                        availability={prettifyProviderModelStates[prettifySettings.providerId].availability}
-                        fieldError={renderFieldError}
-                        isLoadingModel={isLoadingPrettifyModel}
-                        isLoadingModels={isLoadingPrettifyModels}
-                        isModelActionMenuOpen={isPrettifyModelActionMenuOpen}
-                        modelCheckStatus={prettifyProviderModelStates[prettifySettings.providerId].checkStatus}
-                        modelLoadError={prettifyModelLoadError}
-                        modelLoadStatus={prettifyModelLoadStatus}
-                        modelOptions={prettifyModelOptions[prettifySettings.providerId]}
-                        modelRefreshError={prettifyModelError}
-                        onBaseUrlChange={(value) =>
-                          updateHttpPrettifyProviderSetting('baseUrl', value, 'prettifyBaseUrl')
-                        }
-                        onClaudeEffortChange={(value) => updateClaudeCliSetting('effort', value, 'prettifyEffort')}
-                        onClearVllmApiKey={clearVllmApiKey}
-                        onCodexReasoningEffortChange={(value) =>
-                          updateCodexCliSetting('reasoningEffort', value, 'prettifyReasoningEffort')
-                        }
-                        onCodexVerbosityChange={(value) =>
-                          updateCodexCliSetting('verbosity', value, 'prettifyVerbosity')
-                        }
-                        onExecutablePathChange={(value) => {
-                          if (prettifySettings.providerId === 'claude-cli') {
-                            updateClaudeCliSetting('executablePath', value, 'prettifyExecutablePath');
-                          } else if (prettifySettings.providerId === 'codex-cli') {
-                            updateCodexCliSetting('executablePath', value, 'prettifyExecutablePath');
+                      <section aria-labelledby="prettify-heading" className="grid gap-5 pb-4">
+                        <h2 className="text-base font-semibold text-foreground" id="prettify-heading">
+                          {t('appSettings.prettify')}
+                        </h2>
+                        <PrettifyProfilesSettingsSection
+                          disabled={isSaving}
+                          dispatch={dispatchPrettifyProfiles}
+                          state={prettifyProfilesState}
+                          t={t}
+                        />
+                        <Separator />
+                        <PrettifySection
+                          availability={prettifyProviderModelStates[prettifySettings.providerId].availability}
+                          fieldError={renderFieldError}
+                          isLoadingModel={isLoadingPrettifyModel}
+                          isLoadingModels={isLoadingPrettifyModels}
+                          isModelActionMenuOpen={isPrettifyModelActionMenuOpen}
+                          modelCheckStatus={prettifyProviderModelStates[prettifySettings.providerId].checkStatus}
+                          modelLoadError={prettifyModelLoadError}
+                          modelLoadStatus={prettifyModelLoadStatus}
+                          modelOptions={prettifyModelOptions[prettifySettings.providerId]}
+                          modelRefreshError={prettifyModelError}
+                          onBaseUrlChange={(value) =>
+                            updateHttpPrettifyProviderSetting('baseUrl', value, 'prettifyBaseUrl')
                           }
-                        }}
-                        onFallbackModelChange={(value) =>
-                          updateClaudeCliSetting('fallbackModel', value, 'prettifyFallbackModel')
-                        }
-                        onLoadModel={() => void loadSelectedOllamaModel()}
-                        onMaxOutputTokensChange={(value) =>
-                          updatePrettifySetting('maxOutputTokens', value, 'prettifyMaxOutputTokens')
-                        }
-                        onMinPChange={(value) => updatePrettifySetting('minP', value, 'prettifyMinP')}
-                        onModelActionMenuOpenChange={setIsPrettifyModelActionMenuOpen}
-                        onModelChange={updatePrettifyModel}
-                        onPromptChange={(value) => updatePrettifySetting('prompt', value, 'prettifyPrompt')}
-                        onProviderChange={changePrettifyProvider}
-                        onRefreshModels={() => void refreshPrettifyModels()}
-                        onRepeatPenaltyChange={(value) =>
-                          updatePrettifySetting('repeatPenalty', value, 'prettifyRepeatPenalty')
-                        }
-                        onSeedChange={(value) => updatePrettifySetting('seed', value, 'prettifySeed')}
-                        onTemperatureChange={(value) =>
-                          updatePrettifySetting('temperature', value, 'prettifyTemperature')
-                        }
-                        onTimeoutChange={(value) => {
-                          if (prettifySettings.providerId === 'claude-cli') {
-                            updateClaudeCliSetting('timeoutSeconds', value, 'prettifyTimeout');
-                          } else if (prettifySettings.providerId === 'codex-cli') {
-                            updateCodexCliSetting('timeoutSeconds', value, 'prettifyTimeout');
+                          onClaudeEffortChange={(value) => updateClaudeCliSetting('effort', value, 'prettifyEffort')}
+                          onClearVllmApiKey={clearVllmApiKey}
+                          onCodexReasoningEffortChange={(value) =>
+                            updateCodexCliSetting('reasoningEffort', value, 'prettifyReasoningEffort')
                           }
-                        }}
-                        onTopKChange={(value) => updatePrettifySetting('topK', value, 'prettifyTopK')}
-                        onTopPChange={(value) => updatePrettifySetting('topP', value, 'prettifyTopP')}
-                        onUnloadModel={() => void unloadSelectedOllamaModel()}
-                        onVllmApiKeyChange={updateVllmApiKey}
-                        prettifySettings={prettifySettings}
-                        selectedOllamaModelLoaded={selectedOllamaModelLoaded}
-                        t={t}
-                      />
+                          onCodexVerbosityChange={(value) =>
+                            updateCodexCliSetting('verbosity', value, 'prettifyVerbosity')
+                          }
+                          onExecutablePathChange={(value) => {
+                            if (prettifySettings.providerId === 'claude-cli') {
+                              updateClaudeCliSetting('executablePath', value, 'prettifyExecutablePath');
+                            } else if (prettifySettings.providerId === 'codex-cli') {
+                              updateCodexCliSetting('executablePath', value, 'prettifyExecutablePath');
+                            }
+                          }}
+                          onFallbackModelChange={(value) =>
+                            updateClaudeCliSetting('fallbackModel', value, 'prettifyFallbackModel')
+                          }
+                          onLoadModel={() => void loadSelectedOllamaModel()}
+                          onMaxOutputTokensChange={(value) =>
+                            updatePrettifySetting('maxOutputTokens', value, 'prettifyMaxOutputTokens')
+                          }
+                          onMinPChange={(value) => updatePrettifySetting('minP', value, 'prettifyMinP')}
+                          onModelActionMenuOpenChange={setIsPrettifyModelActionMenuOpen}
+                          onModelChange={updatePrettifyModel}
+                          onProviderChange={changePrettifyProvider}
+                          onRefreshModels={() => void refreshPrettifyModels()}
+                          onRepeatPenaltyChange={(value) =>
+                            updatePrettifySetting('repeatPenalty', value, 'prettifyRepeatPenalty')
+                          }
+                          onSeedChange={(value) => updatePrettifySetting('seed', value, 'prettifySeed')}
+                          onTemperatureChange={(value) =>
+                            updatePrettifySetting('temperature', value, 'prettifyTemperature')
+                          }
+                          onTimeoutChange={(value) => {
+                            if (prettifySettings.providerId === 'claude-cli') {
+                              updateClaudeCliSetting('timeoutSeconds', value, 'prettifyTimeout');
+                            } else if (prettifySettings.providerId === 'codex-cli') {
+                              updateCodexCliSetting('timeoutSeconds', value, 'prettifyTimeout');
+                            }
+                          }}
+                          onTopKChange={(value) => updatePrettifySetting('topK', value, 'prettifyTopK')}
+                          onTopPChange={(value) => updatePrettifySetting('topP', value, 'prettifyTopP')}
+                          onUnloadModel={() => void unloadSelectedOllamaModel()}
+                          onVllmApiKeyChange={updateVllmApiKey}
+                          prettifySettings={prettifySettings}
+                          selectedOllamaModelLoaded={selectedOllamaModelLoaded}
+                          t={t}
+                        />
+                      </section>
                     </TabsContent>
                     <TabsContent className="mt-0" value="browser">
                       <BrowserSection

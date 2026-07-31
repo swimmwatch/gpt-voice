@@ -9,6 +9,7 @@ import {
   createAppSettingsLogSummary,
   createCloakBrowserSettingsInput,
   createEditableSettings,
+  createPrettifySettingsDraft,
   createPrettifyProviderTransitionState,
   createSanitizedCloakBrowserSettingsSummary,
   getAppSettingsFormState,
@@ -29,11 +30,17 @@ import {
 import {
   DEFAULT_PRETTIFY_SETTINGS,
   MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
-  MAX_PRETTIFY_PROMPT_LENGTH,
   MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
+  type PrettifyProviderSettingsInput,
   type KnownPrettifyProviderId,
   type PrettifySettings,
 } from '@shared/prettifySettings';
+import {
+  PRETTIFY_BUILT_IN_PROFILE_IDS,
+  PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+  normalizePrettifyProfileInstruction,
+  type PrettifyProfileCatalog,
+} from '@shared/prettifyProfiles';
 
 function prettifySettings(overrides: Partial<PrettifySettings> = {}): PrettifySettings {
   return {
@@ -56,19 +63,40 @@ function prettifySettingsDraft(
   providerId: KnownPrettifyProviderId,
   overrides: Partial<Omit<PrettifySettingsDraft, 'providerId'>> = {},
 ): PrettifySettingsDraft {
-  return {
-    ...prettifySettings(),
-    ...overrides,
-    providerId,
-  };
+  return createPrettifySettingsDraft(prettifySettings({ ...overrides, providerId }));
 }
 
-const VALID_PRETTIFY_SETTINGS = prettifySettings();
-const VALID_TEXT_ACTION_SETTINGS = { translateEnabled: true, prettifyEnabled: true };
+const VALID_PRETTIFY_SETTINGS = prettifySettingsDraft('ollama');
+const VALID_TEXT_ACTION_SETTINGS = {
+  prettifyEnabled: true,
+  prettifyQuickEnabled: true,
+  translateEnabled: true,
+};
+const VALID_PRETTIFY_PROFILE_CATALOG: PrettifyProfileCatalog = {
+  chooserOrder: [...PRETTIFY_BUILT_IN_PROFILE_IDS],
+  customProfiles: [],
+  defaultProfileId: 'prompt-ready',
+  schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+};
+const CHANGED_PRETTIFY_PROFILE_CATALOG: PrettifyProfileCatalog = {
+  chooserOrder: [...PRETTIFY_BUILT_IN_PROFILE_IDS, 'custom:00000000-0000-4000-8000-000000000009'],
+  customProfiles: [
+    {
+      description: 'Profile description',
+      id: 'custom:00000000-0000-4000-8000-000000000009',
+      instruction: normalizePrettifyProfileInstruction('Rewrite as a focused implementation request.'),
+      name: 'Implementation request',
+    },
+  ],
+  defaultProfileId: 'prompt-ready',
+  schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
+};
 const UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT = {
   confirmedDiagnosticPurgeCategories: [],
   diagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
   initialDiagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
+  initialPrettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
+  prettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
 } as const;
 const SAVE_DIAGNOSTIC_CAPTURE_SETTINGS = async (
   request: DiagnosticCaptureSettingsMutationRequest,
@@ -126,7 +154,9 @@ describe('appSettingsUtils', () => {
         initialPrettifySettings,
         initialSettings,
         initialTextActionSettings,
-        prettifySettings: prettifySettings({ prompt: '' }),
+        prettifySettings: prettifySettingsDraft('ollama', {
+          ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, baseUrl: '', model: 'llama3.2' },
+        }),
         settings: initialSettings,
         textActionSettings: initialTextActionSettings,
       }),
@@ -134,7 +164,7 @@ describe('appSettingsUtils', () => {
         isDirty: true,
         isValid: false,
         validationErrors: {
-          prettifyPrompt: createAppSettingsValidationError('prettify-prompt-required'),
+          prettifyBaseUrl: createAppSettingsValidationError('prettify-base-url-required'),
         },
       },
     );
@@ -204,7 +234,6 @@ describe('appSettingsUtils', () => {
       settings: changedSettings,
       initialSettings,
       prettifySettings: prettifySettings({
-        prompt: 'secret prompt text',
         maxOutputTokens: 512,
         minP: 0.05,
         providerId: 'vllm',
@@ -222,14 +251,13 @@ describe('appSettingsUtils', () => {
         },
       }),
       initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-      textActionSettings: { translateEnabled: false, prettifyEnabled: true },
+      textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
       initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
     });
     const serialized = JSON.stringify(summary);
 
     assert.deepEqual(summary.changedGroups, ['prettify', 'textActions', 'cloakBrowser']);
     assert.deepEqual(summary.changedFields, [
-      'prettifyPrompt',
       'prettifyProvider',
       'prettifyTemperature',
       'prettifyTopP',
@@ -247,8 +275,7 @@ describe('appSettingsUtils', () => {
       'proxyUsername',
       'proxyPassword',
     ]);
-    assert.equal(summary.prettifyPromptChanged, true);
-    assert.equal(summary.prettifyPromptLength, 'secret prompt text'.length);
+    assert.equal(summary.prettifyProfilesChanged, false);
     assert.equal(summary.prettifyProviderId, 'vllm');
     assert.equal(summary.prettifyModelLength, 'qwen3'.length);
     assert.equal(summary.prettifyTemperature, 0.4);
@@ -262,7 +289,6 @@ describe('appSettingsUtils', () => {
     assert.equal(summary.cloakBrowser.hasProxyServer, true);
     assert.equal(summary.cloakBrowser.hasProxyUsername, true);
     assert.equal(summary.cloakBrowser.hasProxyPasswordUpdate, true);
-    assert.equal(serialized.includes('secret prompt text'), false);
     assert.equal(serialized.includes('secret-proxy.example.com'), false);
     assert.equal(serialized.includes('secret-user'), false);
     assert.equal(serialized.includes('secret-pass'), false);
@@ -360,12 +386,6 @@ describe('appSettingsUtils', () => {
   });
 
   it('validates required and structured App Settings fields', () => {
-    const emptyPromptErrors = validateAppSettings({
-      settings: createEditableSettings(cloakBrowserSettings()),
-      prettifySettings: prettifySettings({ prompt: '   ' }),
-    });
-    assert.deepEqual(emptyPromptErrors.prettifyPrompt, createAppSettingsValidationError('prettify-prompt-required'));
-
     const invalidBaseUrlErrors = validateAppSettings({
       settings: createEditableSettings(cloakBrowserSettings()),
       prettifySettings: prettifySettings({
@@ -409,17 +429,6 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(
       credentialUrlErrors.prettifyBaseUrl,
       createAppSettingsValidationError('prettify-base-url-credentials'),
-    );
-
-    const longPromptErrors = validateAppSettings({
-      settings: createEditableSettings(cloakBrowserSettings()),
-      prettifySettings: prettifySettings({ prompt: 'x'.repeat(MAX_PRETTIFY_PROMPT_LENGTH + 1) }),
-    });
-    assert.deepEqual(
-      longPromptErrors.prettifyPrompt,
-      createAppSettingsValidationError('prettify-prompt-too-long', {
-        max: String(MAX_PRETTIFY_PROMPT_LENGTH),
-      }),
     );
 
     const missingModelErrors = validateAppSettings({
@@ -699,7 +708,6 @@ describe('appSettingsUtils', () => {
 
   it('synchronizes an external provider choice without discarding dirty provider drafts', () => {
     const current = prettifySettingsDraft('claude-cli', {
-      prompt: 'unsaved prompt',
       claudeCli: { ...DEFAULT_PRETTIFY_SETTINGS.claudeCli, model: 'unsaved-claude-model' },
       codexCli: { ...DEFAULT_PRETTIFY_SETTINGS.codexCli, model: 'unsaved-codex-model' },
     });
@@ -710,7 +718,6 @@ describe('appSettingsUtils', () => {
 
     assert.equal(synchronizedCurrent.providerId, 'vllm');
     assert.equal(synchronizedInitial.providerId, 'vllm');
-    assert.equal(synchronizedCurrent.prompt, 'unsaved prompt');
     assert.equal(synchronizedCurrent.claudeCli.model, 'unsaved-claude-model');
     assert.equal(synchronizedCurrent.codexCli.model, 'unsaved-codex-model');
     assert.equal(synchronizedCurrent.claudeCli, current.claudeCli);
@@ -789,8 +796,15 @@ describe('appSettingsUtils', () => {
     assert.equal(areTextActionSettingsEqual(VALID_TEXT_ACTION_SETTINGS, VALID_TEXT_ACTION_SETTINGS), true);
     assert.equal(
       areTextActionSettingsEqual(
-        { translateEnabled: false, prettifyEnabled: true },
-        { translateEnabled: true, prettifyEnabled: true },
+        { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
+        VALID_TEXT_ACTION_SETTINGS,
+      ),
+      false,
+    );
+    assert.equal(
+      areTextActionSettingsEqual(
+        { ...VALID_TEXT_ACTION_SETTINGS, prettifyQuickEnabled: false },
+        VALID_TEXT_ACTION_SETTINGS,
       ),
       false,
     );
@@ -820,14 +834,16 @@ describe('appSettingsUtils', () => {
   it('saves prettify-only changes without saving CloakBrowser settings', async () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const calls: string[] = [];
+    let savedInput: PrettifyProviderSettingsInput | null = null;
+    const authoritativeSettings = prettifySettings({ prompt: 'catalog-owned projection' });
 
     const result = await saveAppSettingsState(
       {
         ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
-        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
+        initialPrettifySettings: prettifySettingsDraft('ollama', { temperature: 0.2 }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -839,7 +855,8 @@ describe('appSettingsUtils', () => {
         setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings: settings as PrettifySettings };
+          savedInput = settings;
+          return { success: true, settings: authoritativeSettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -851,7 +868,11 @@ describe('appSettingsUtils', () => {
     assert.equal(result.success, true);
     assert.equal(result.prettifySettingsSaved, true);
     assert.deepEqual(calls, ['prettify']);
-    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt' }));
+    assert.deepEqual(result.prettifySettings, createPrettifySettingsDraft(authoritativeSettings));
+    const serializedInput = savedInput as PrettifyProviderSettingsInput | null;
+    assert.ok(serializedInput);
+    assert.equal('prompt' in serializedInput, false);
+    assert.equal('hasApiKey' in (serializedInput.vllm ?? {}), false);
   });
 
   it('passes a valid CLI draft to persistence without enabling CLI selection', async () => {
@@ -904,8 +925,8 @@ describe('appSettingsUtils', () => {
         ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
-        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
+        initialPrettifySettings: prettifySettingsDraft('ollama', { temperature: 0.2 }),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -942,7 +963,7 @@ describe('appSettingsUtils', () => {
         initialSettings,
         prettifySettings: VALID_PRETTIFY_SETTINGS,
         initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
-        textActionSettings: { translateEnabled: false, prettifyEnabled: true },
+        textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
       {
@@ -968,6 +989,7 @@ describe('appSettingsUtils', () => {
     assert.deepEqual(result.textActionSettings, {
       translateEnabled: false,
       prettifyEnabled: true,
+      prettifyQuickEnabled: true,
     });
   });
 
@@ -980,8 +1002,10 @@ describe('appSettingsUtils', () => {
         ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: initialSettings,
         initialSettings,
-        prettifySettings: prettifySettings({ prompt: '' }),
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        prettifySettings: prettifySettingsDraft('ollama', {
+          ollama: { ...DEFAULT_PRETTIFY_SETTINGS.ollama, baseUrl: '', model: 'llama3.2' },
+        }),
+        initialPrettifySettings: prettifySettingsDraft('ollama'),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -1003,7 +1027,10 @@ describe('appSettingsUtils', () => {
     );
 
     assert.equal(result.success, false);
-    assert.deepEqual(result.fieldErrors?.prettifyPrompt, createAppSettingsValidationError('prettify-prompt-required'));
+    assert.deepEqual(
+      result.fieldErrors?.prettifyBaseUrl,
+      createAppSettingsValidationError('prettify-base-url-required'),
+    );
     assert.deepEqual(calls, []);
   });
 
@@ -1049,14 +1076,18 @@ describe('appSettingsUtils', () => {
     const initialSettings = createEditableSettings(cloakBrowserSettings());
     const changedSettings = createEditableSettings(cloakBrowserSettings({ backgroundMode: 'visible' }));
     const calls: string[] = [];
+    const authoritativeSettings = prettifySettings({
+      prompt: 'catalog-owned projection',
+      providerId: 'vllm',
+    });
 
     const result = await saveAppSettingsState(
       {
         ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
         settings: changedSettings,
         initialSettings,
-        prettifySettings: prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }),
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        prettifySettings: prettifySettingsDraft('vllm'),
+        initialPrettifySettings: prettifySettingsDraft('ollama'),
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -1072,7 +1103,8 @@ describe('appSettingsUtils', () => {
         setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
         setPrettifySettings: async (settings) => {
           calls.push('prettify');
-          return { success: true, settings: settings as PrettifySettings };
+          assert.equal('prompt' in settings, false);
+          return { success: true, settings: authoritativeSettings };
         },
         setTextActionSettings: async (settings) => {
           calls.push('text-actions');
@@ -1086,7 +1118,7 @@ describe('appSettingsUtils', () => {
     assert.equal(result.prettifySettingsSaved, true);
     assert.equal(result.settingsSaved, undefined);
     assert.deepEqual(calls, ['prettify', 'cloakbrowser']);
-    assert.deepEqual(result.prettifySettings, prettifySettings({ prompt: 'new prompt', providerId: 'vllm' }));
+    assert.deepEqual(result.prettifySettings, createPrettifySettingsDraft(authoritativeSettings));
   });
 
   it('saves the Audit Log group after existing groups with the exact purge confirmation', async () => {
@@ -1107,12 +1139,14 @@ describe('appSettingsUtils', () => {
         confirmedDiagnosticPurgeCategories: ['translation'],
         diagnosticCaptureSettings,
         initialDiagnosticCaptureSettings,
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        initialPrettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
+        initialPrettifySettings: prettifySettingsDraft('ollama', { temperature: 0.2 }),
         initialSettings,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
-        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
+        prettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
         settings: initialSettings,
-        textActionSettings: { prettifyEnabled: true, translateEnabled: false },
+        textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
       },
       {
         saveCloakBrowserSettings: async () => {
@@ -1158,10 +1192,12 @@ describe('appSettingsUtils', () => {
         confirmedDiagnosticPurgeCategories: [],
         diagnosticCaptureSettings,
         initialDiagnosticCaptureSettings: DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS,
-        initialPrettifySettings: prettifySettings({ prompt: 'old prompt' }),
+        initialPrettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
+        initialPrettifySettings: prettifySettingsDraft('ollama', { temperature: 0.2 }),
         initialSettings,
         initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
-        prettifySettings: prettifySettings({ prompt: 'new prompt' }),
+        prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
+        prettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
         settings: initialSettings,
         textActionSettings: VALID_TEXT_ACTION_SETTINGS,
       },
@@ -1200,10 +1236,12 @@ describe('appSettingsUtils', () => {
       confirmedDiagnosticPurgeCategories: ['prettify'] as const,
       diagnosticCaptureSettings,
       initialDiagnosticCaptureSettings,
+      initialPrettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
       initialPrettifySettings: VALID_PRETTIFY_SETTINGS,
       initialSettings,
       initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
       prettifySettings: VALID_PRETTIFY_SETTINGS,
+      prettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
       settings: initialSettings,
       textActionSettings: VALID_TEXT_ACTION_SETTINGS,
     };
@@ -1228,5 +1266,57 @@ describe('appSettingsUtils', () => {
     assert.equal(result.diagnosticCaptureSettingsSaved, undefined);
     assert.equal(result.diagnosticCaptureErrorCode, 'storage-failed');
     assert.deepEqual(result.diagnosticCaptureSettings, initialDiagnosticCaptureSettings);
+  });
+
+  it('saves provider then profiles and reconciles each group independently while later groups continue', async () => {
+    const initialSettings = createEditableSettings(cloakBrowserSettings());
+    const scenarios = [
+      { profileSuccess: false, providerSuccess: true },
+      { profileSuccess: true, providerSuccess: false },
+      { profileSuccess: true, providerSuccess: true },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      const calls: string[] = [];
+      const result = await saveAppSettingsState(
+        {
+          ...UNCHANGED_DIAGNOSTIC_CAPTURE_INPUT,
+          initialPrettifyProfileCatalog: VALID_PRETTIFY_PROFILE_CATALOG,
+          initialPrettifySettings: prettifySettingsDraft('ollama', { temperature: 0.2 }),
+          initialSettings,
+          initialTextActionSettings: VALID_TEXT_ACTION_SETTINGS,
+          prettifyProfileCatalog: CHANGED_PRETTIFY_PROFILE_CATALOG,
+          prettifySettings: prettifySettingsDraft('ollama', { temperature: 0.7 }),
+          settings: initialSettings,
+          textActionSettings: { ...VALID_TEXT_ACTION_SETTINGS, translateEnabled: false },
+        },
+        {
+          saveCloakBrowserSettings: async () => ({ settings: cloakBrowserSettings(), success: true }),
+          savePrettifyProfileCatalog: async () => {
+            calls.push('profiles');
+            return scenario.profileSuccess
+              ? { catalog: CHANGED_PRETTIFY_PROFILE_CATALOG, success: true }
+              : { code: 'save-failed', success: false };
+          },
+          setDiagnosticCaptureSettings: SAVE_DIAGNOSTIC_CAPTURE_SETTINGS,
+          setPrettifySettings: async () => {
+            calls.push('provider');
+            return scenario.providerSuccess
+              ? { settings: prettifySettings({ temperature: 0.7 }), success: true }
+              : { error: 'provider-save-failed', success: false };
+          },
+          setTextActionSettings: async (settings) => {
+            calls.push('text-actions');
+            return { settings, success: true };
+          },
+        },
+      );
+
+      assert.deepEqual(calls, ['provider', 'profiles', 'text-actions']);
+      assert.equal(Boolean(result.prettifySettingsSaved), scenario.providerSuccess);
+      assert.equal(Boolean(result.prettifyProfileCatalogSaved), scenario.profileSuccess);
+      assert.equal(result.textActionSettingsSaved, true);
+      assert.equal(result.success, scenario.providerSuccess && scenario.profileSuccess);
+    }
   });
 });

@@ -3,6 +3,7 @@ import type * as fs from 'node:fs';
 import {
   DEFAULT_CANCEL_HOTKEY,
   DEFAULT_PRETTIFY_HOTKEY,
+  DEFAULT_PRETTIFY_QUICK_HOTKEY,
   DEFAULT_RECORD_HOTKEY,
   DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
   DEFAULT_STOP_HOTKEY,
@@ -12,9 +13,10 @@ import {
 import {
   DEFAULT_PRETTIFY_SETTINGS,
   normalizePrettifySettings,
+  type PrettifyProviderSettingsInput,
   type PrettifySettings,
-  type PrettifySettingsInput,
 } from '@shared/prettifySettings';
+import type { PrettifyCustomProfileId, PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 import { DEFAULT_TEXT_ACTION_SETTINGS } from '@shared/textActionSettings';
 import { DEFAULT_APP_LOCALE, normalizeAppLocale, type AppLocaleId } from '@shared/appLocale';
 import type { TranslationSettings } from '@shared/translationProvider';
@@ -26,9 +28,15 @@ import {
 } from '@shared/diagnosticCaptureSettings';
 import {
   TranslationSettingsState,
+  normalizePersistedTranslationSettings,
   type AtomicFileSystem,
   type TranslationSettingsRepairNotice,
 } from './translationSettings';
+import {
+  PrettifyProfileCatalogState,
+  getPrettifyProfileCatalogLegacyPromptProjection,
+  type PrettifyProfileCatalogRepairNotice,
+} from './prettifyProfileCatalogState';
 
 const APP_DIRECTORY_NAME = 'GPT-Voice';
 const BROWSER_CACHE_DIRECTORY_NAME = 'browser-cache';
@@ -51,6 +59,8 @@ const MIGRATED_LEGACY_ENTRIES = [
 const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
 const DEFAULT_VOICE_PROVIDER_ID = 'chatgpt';
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
+const CONFIG_LOAD_FAILED_LOG_MESSAGE = 'Failed to load application config';
+const CONFIG_SAVE_FAILED_LOG_MESSAGE = 'Failed to save application config';
 
 export interface AppConfigPaths {
   readonly appDirectory: string;
@@ -89,6 +99,7 @@ export interface AppConfigLogger {
 export interface AppConfigStoreDependencies {
   readonly fileSystem: AppConfigFileSystem;
   readonly generateFingerprintSeed: () => string;
+  readonly generatePrettifyProfileUuid: () => string;
   readonly logger: AppConfigLogger;
   readonly paths: AppConfigPaths;
   readonly writeFileAtomically: (filePath: string, contents: string) => void;
@@ -104,6 +115,9 @@ export interface AppConfigSnapshot {
   readonly localeExplicit: boolean;
   readonly prettifyEnabled: boolean;
   readonly prettifyHotkey: string;
+  readonly prettifyQuickEnabled: boolean;
+  readonly prettifyQuickHotkey: string;
+  readonly prettifyProfileCatalog: PrettifyProfileCatalog;
   readonly prettifySettings: PrettifySettings;
   readonly provider: string;
   readonly retryTranscriptionHotkey: string;
@@ -115,6 +129,7 @@ export interface AppConfigSnapshot {
 
 export interface TextActionSettingsSnapshot {
   readonly prettifyEnabled: boolean;
+  readonly prettifyQuickEnabled: boolean;
   readonly translateEnabled: boolean;
 }
 
@@ -154,10 +169,6 @@ function isValidFingerprintSeed(value: string): boolean {
   return FINGERPRINT_SEED_PATTERN.test(value);
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -182,6 +193,13 @@ function createImmutablePrettifySettings(settings: PrettifySettings): PrettifySe
   });
 }
 
+function createPrettifySettingsWithPrompt(settings: PrettifySettings, prompt: string): PrettifySettings {
+  return createImmutablePrettifySettings({
+    ...settings,
+    prompt,
+  });
+}
+
 /**
  * Owns the mutable persisted application configuration for one application
  * graph. Construction is side-effect free; filesystem preparation happens
@@ -196,15 +214,26 @@ export class AppConfigStore {
   private localeWasExplicitlySelected = false;
   private prettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
   private prettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
-  private prettifySettings = createImmutablePrettifySettings(DEFAULT_PRETTIFY_SETTINGS);
+  private prettifyQuickEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
+  private prettifyQuickHotkey = DEFAULT_PRETTIFY_QUICK_HOTKEY;
+  private prettifySettings: PrettifySettings;
   private provider = DEFAULT_VOICE_PROVIDER_ID;
   private retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
   private stopHotkey = DEFAULT_STOP_HOTKEY;
   private translateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
   private translateHotkey = DEFAULT_TRANSLATE_HOTKEY;
+  private readonly prettifyProfileCatalogState: PrettifyProfileCatalogState;
   private readonly translationSettingsState = new TranslationSettingsState();
 
-  public constructor(private readonly dependencies: AppConfigStoreDependencies) {}
+  public constructor(private readonly dependencies: AppConfigStoreDependencies) {
+    this.prettifyProfileCatalogState = new PrettifyProfileCatalogState({
+      generateUuid: dependencies.generatePrettifyProfileUuid,
+    });
+    this.prettifySettings = createPrettifySettingsWithPrompt(
+      DEFAULT_PRETTIFY_SETTINGS,
+      getPrettifyProfileCatalogLegacyPromptProjection(this.prettifyProfileCatalogState.getSnapshot()),
+    );
+  }
 
   public get paths(): AppConfigPaths {
     return this.dependencies.paths;
@@ -221,6 +250,9 @@ export class AppConfigStore {
       localeExplicit: this.localeWasExplicitlySelected,
       prettifyEnabled: this.prettifyEnabled,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
+      prettifyProfileCatalog: this.prettifyProfileCatalogState.getSnapshot(),
       prettifySettings: createImmutablePrettifySettings(this.prettifySettings),
       provider: this.provider,
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
@@ -236,6 +268,7 @@ export class AppConfigStore {
       cancelHotkey: this.cancelHotkey,
       hotkey: this.hotkey,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
       stopHotkey: this.stopHotkey,
       translateHotkey: this.translateHotkey,
@@ -245,6 +278,7 @@ export class AppConfigStore {
   public getTextActionSettings(): TextActionSettingsSnapshot {
     return Object.freeze({
       prettifyEnabled: this.prettifyEnabled,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
       translateEnabled: this.translateEnabled,
     });
   }
@@ -255,6 +289,10 @@ export class AppConfigStore {
 
   public getTranslationSettings(): TranslationSettings {
     return this.translationSettingsState.getSnapshot();
+  }
+
+  public getPrettifyProfileCatalog(): PrettifyProfileCatalog {
+    return this.prettifyProfileCatalogState.getSnapshot();
   }
 
   public getFingerprintSeed(): string {
@@ -269,12 +307,17 @@ export class AppConfigStore {
     return this.translationSettingsState.consumeRepairNotice();
   }
 
+  public consumePendingPrettifyProfileCatalogRepairNotice(): PrettifyProfileCatalogRepairNotice | null {
+    return this.prettifyProfileCatalogState.consumeRepairNotice();
+  }
+
   public setHotkeys(settings: Partial<HotkeySettings>): void {
     if (settings.hotkey !== undefined) this.hotkey = settings.hotkey;
     if (settings.cancelHotkey !== undefined) this.cancelHotkey = settings.cancelHotkey;
     if (settings.stopHotkey !== undefined) this.stopHotkey = settings.stopHotkey;
     if (settings.translateHotkey !== undefined) this.translateHotkey = settings.translateHotkey;
     if (settings.prettifyHotkey !== undefined) this.prettifyHotkey = settings.prettifyHotkey;
+    if (settings.prettifyQuickHotkey !== undefined) this.prettifyQuickHotkey = settings.prettifyQuickHotkey;
     if (settings.retryTranscriptionHotkey !== undefined) {
       this.retryTranscriptionHotkey = settings.retryTranscriptionHotkey;
     }
@@ -283,13 +326,15 @@ export class AppConfigStore {
   public setTextActionSettings(settings: Partial<TextActionSettingsSnapshot>): void {
     if (settings.translateEnabled !== undefined) this.translateEnabled = settings.translateEnabled;
     if (settings.prettifyEnabled !== undefined) this.prettifyEnabled = settings.prettifyEnabled;
+    if (settings.prettifyQuickEnabled !== undefined) this.prettifyQuickEnabled = settings.prettifyQuickEnabled;
   }
 
-  public setPrettifySettings(settings: PrettifySettingsInput = {}): void {
+  public setPrettifySettings(settings: PrettifyProviderSettingsInput = {}): void {
     this.prettifySettings = createImmutablePrettifySettings(
       normalizePrettifySettings({
         ...this.prettifySettings,
         ...settings,
+        prompt: this.prettifySettings.prompt,
         claudeCli: {
           ...this.prettifySettings.claudeCli,
           ...settings.claudeCli,
@@ -308,6 +353,23 @@ export class AppConfigStore {
         },
       }),
     );
+  }
+
+  public allocatePrettifyCustomProfileId(additionalForbiddenIds: unknown): PrettifyCustomProfileId {
+    return this.prettifyProfileCatalogState.allocateCustomProfileId(additionalForbiddenIds);
+  }
+
+  public savePrettifyProfileCatalog(candidate: unknown): PrettifyProfileCatalog {
+    return this.prettifyProfileCatalogState.save(candidate, (catalog, legacyPromptProjection) => {
+      const nextPrettifySettings = createPrettifySettingsWithPrompt(this.prettifySettings, legacyPromptProjection);
+      this.persistSnapshot(
+        this.translationSettingsState.getSnapshot(),
+        this.diagnosticCaptureSettings,
+        catalog,
+        nextPrettifySettings,
+      );
+      this.prettifySettings = nextPrettifySettings;
+    });
   }
 
   public setProvider(providerId: string): void {
@@ -335,6 +397,11 @@ export class AppConfigStore {
 
   public load(): void {
     this.diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
+    this.prettifyProfileCatalogState.resetToFreshCatalog();
+    this.prettifySettings = createPrettifySettingsWithPrompt(
+      DEFAULT_PRETTIFY_SETTINGS,
+      getPrettifyProfileCatalogLegacyPromptProjection(this.prettifyProfileCatalogState.getSnapshot()),
+    );
     this.initializeFileSystem();
     try {
       if (this.dependencies.fileSystem.existsSync(this.paths.configFile)) {
@@ -347,8 +414,8 @@ export class AppConfigStore {
         this.fingerprintSeed = this.dependencies.generateFingerprintSeed();
         this.save();
       }
-    } catch (error) {
-      this.dependencies.logger.error('Failed to load config:', getErrorMessage(error));
+    } catch {
+      this.dependencies.logger.error(CONFIG_LOAD_FAILED_LOG_MESSAGE);
     }
   }
 
@@ -357,7 +424,7 @@ export class AppConfigStore {
     try {
       this.persistSnapshot();
     } catch (error) {
-      this.dependencies.logger.error('Failed to save config:', getErrorMessage(error));
+      this.dependencies.logger.error(CONFIG_SAVE_FAILED_LOG_MESSAGE);
       throw error;
     }
   }
@@ -368,6 +435,10 @@ export class AppConfigStore {
     const localeExplicit = getConfigBoolean(config, 'localeExplicit');
     const prettifySettings = config.prettifySettings;
     const prettifyPrompt = getConfigString(config, 'prettifyPrompt');
+    const rawLegacyPrettifyPrompt =
+      isRecord(prettifySettings) && typeof prettifySettings.prompt === 'string'
+        ? prettifySettings.prompt
+        : prettifyPrompt;
     let shouldSaveConfig = false;
 
     this.diagnosticCaptureSettings = normalizeDiagnosticCaptureSettings(config);
@@ -376,20 +447,25 @@ export class AppConfigStore {
     this.stopHotkey = getConfigString(config, 'stopHotkey') ?? this.stopHotkey;
     this.translateHotkey = getConfigString(config, 'translateHotkey') ?? this.translateHotkey;
     this.prettifyHotkey = getConfigString(config, 'prettifyHotkey') ?? this.prettifyHotkey;
+    const persistedPrettifyQuickHotkey = getConfigString(config, 'prettifyQuickHotkey');
+    this.prettifyQuickHotkey = persistedPrettifyQuickHotkey ?? DEFAULT_PRETTIFY_QUICK_HOTKEY;
+    if (!persistedPrettifyQuickHotkey) shouldSaveConfig = true;
     this.retryTranscriptionHotkey =
       getConfigString(config, 'retryTranscriptionHotkey') ?? this.retryTranscriptionHotkey;
     this.translateEnabled = getConfigBoolean(config, 'translateEnabled') ?? this.translateEnabled;
     this.prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled') ?? this.prettifyEnabled;
+    const persistedPrettifyQuickEnabled = getConfigBoolean(config, 'prettifyQuickEnabled');
+    this.prettifyQuickEnabled = persistedPrettifyQuickEnabled ?? DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
+    if (persistedPrettifyQuickEnabled === undefined) shouldSaveConfig = true;
     this.provider = getConfigString(config, 'provider') ?? this.provider;
     if (locale && localeExplicit === true) {
       this.locale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
       this.localeWasExplicitlySelected = true;
     }
     this.fingerprintSeed = getConfigString(config, 'fingerprintSeed') ?? this.fingerprintSeed;
-    this.prettifySettings = createImmutablePrettifySettings(
+    const loadedPrettifySettings = createImmutablePrettifySettings(
       normalizePrettifySettings(isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt }),
     );
-
     if (this.hotkey === DEFAULT_RECORD_HOTKEY && this.retryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY) {
       this.retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
       this.dependencies.logger.info(
@@ -403,15 +479,39 @@ export class AppConfigStore {
       shouldSaveConfig = true;
     }
 
-    this.translationSettingsState.load(config.translationSettings, targetLang, (settings) =>
-      this.persistSnapshot(settings),
+    const normalizedTranslationSettings = normalizePersistedTranslationSettings(config.translationSettings, targetLang);
+    let persistedDuringLoad = false;
+    const profileCatalog = this.prettifyProfileCatalogState.load(
+      config.prettifyProfileCatalog,
+      rawLegacyPrettifyPrompt,
+      (catalog, legacyPromptProjection) => {
+        this.persistSnapshot(
+          normalizedTranslationSettings.settings,
+          this.diagnosticCaptureSettings,
+          catalog,
+          createPrettifySettingsWithPrompt(loadedPrettifySettings, legacyPromptProjection),
+        );
+        persistedDuringLoad = true;
+      },
     );
-    if (shouldSaveConfig) this.save();
+    this.prettifySettings = createPrettifySettingsWithPrompt(
+      loadedPrettifySettings,
+      getPrettifyProfileCatalogLegacyPromptProjection(profileCatalog),
+    );
+
+    this.translationSettingsState.load(config.translationSettings, targetLang, (settings) => {
+      if (persistedDuringLoad) return;
+      this.persistSnapshot(settings);
+      persistedDuringLoad = true;
+    });
+    if (shouldSaveConfig && !persistedDuringLoad) this.save();
   }
 
   private createPersistedSnapshot(
     translationSettings = this.translationSettingsState.getSnapshot(),
     diagnosticCaptureSettings = this.diagnosticCaptureSettings,
+    prettifyProfileCatalog = this.prettifyProfileCatalogState.getSnapshot(),
+    prettifySettings = this.prettifySettings,
   ): Record<string, unknown> {
     return {
       hotkey: this.hotkey,
@@ -421,26 +521,40 @@ export class AppConfigStore {
       stopHotkey: this.stopHotkey,
       translateHotkey: this.translateHotkey,
       prettifyHotkey: this.prettifyHotkey,
+      prettifyQuickHotkey: this.prettifyQuickHotkey,
       retryTranscriptionHotkey: this.retryTranscriptionHotkey,
       translateEnabled: this.translateEnabled,
       prettifyEnabled: this.prettifyEnabled,
+      prettifyQuickEnabled: this.prettifyQuickEnabled,
+      prettifyProfileCatalog,
       translationSettings,
       provider: this.provider,
       locale: this.locale,
       localeExplicit: this.localeWasExplicitlySelected,
       fingerprintSeed: this.fingerprintSeed,
-      prettifySettings: this.prettifySettings,
+      prettifySettings,
     };
   }
 
   private persistSnapshot(
     translationSettings = this.translationSettingsState.getSnapshot(),
     diagnosticCaptureSettings = this.diagnosticCaptureSettings,
+    prettifyProfileCatalog = this.prettifyProfileCatalogState.getSnapshot(),
+    prettifySettings = this.prettifySettings,
   ): void {
     this.ensureAppDirectory();
     this.dependencies.writeFileAtomically(
       this.paths.configFile,
-      JSON.stringify(this.createPersistedSnapshot(translationSettings, diagnosticCaptureSettings), null, 2),
+      JSON.stringify(
+        this.createPersistedSnapshot(
+          translationSettings,
+          diagnosticCaptureSettings,
+          prettifyProfileCatalog,
+          prettifySettings,
+        ),
+        null,
+        2,
+      ),
     );
   }
 

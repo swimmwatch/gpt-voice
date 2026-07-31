@@ -2,23 +2,22 @@ import type * as fs from 'node:fs';
 import type { AppConfigStore } from '@main/config';
 import {
   DEFAULT_PRETTIFY_SETTINGS,
-  assertValidPrettifySettingsInput,
+  assertValidPrettifyProviderSettingsInput,
   getPrettifyBaseUrlValidationError,
   getPrettifyProviderCapabilities,
   normalizePrettifySettings,
   type PrettifySettings,
   type PrettifySettingsInput,
+  type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 
 interface StoredPrettifyProviderSettings {
   encryptedVllmApiKey?: string;
 }
 
-export interface PrettifySettingsWithSecret extends PrettifySettings {
-  vllm: PrettifySettings['vllm'] & {
-    apiKey: string;
-  };
-}
+export type PrettifySettingsWithSecret = Omit<PrettifySettings, 'prompt' | 'vllm'> & {
+  vllm: PrettifySettings['vllm'] & { apiKey: string };
+};
 
 export interface PrettifySettingsStorageDependencies {
   readonly config: Pick<AppConfigStore, 'getSnapshot' | 'save' | 'setPrettifySettings'>;
@@ -66,9 +65,48 @@ export function mergePrettifySettingsForStorage(
   });
 }
 
-export function createPrettifySettingsWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
+function mergePrettifyProviderSettingsForRuntime(
+  currentSettings: PrettifySettings,
+  input: PrettifyProviderSettingsInput = {},
+  hasApiKey = false,
+): Omit<PrettifySettings, 'prompt'> {
+  const normalized = normalizePrettifySettings({
+    claudeCli: {
+      ...currentSettings.claudeCli,
+      ...input.claudeCli,
+    },
+    codexCli: {
+      ...currentSettings.codexCli,
+      ...input.codexCli,
+    },
+    maxOutputTokens: input.maxOutputTokens ?? currentSettings.maxOutputTokens,
+    minP: input.minP ?? currentSettings.minP,
+    ollama: {
+      ...currentSettings.ollama,
+      ...input.ollama,
+    },
+    prompt: DEFAULT_PRETTIFY_SETTINGS.prompt,
+    providerId: input.providerId ?? currentSettings.providerId,
+    repeatPenalty: input.repeatPenalty ?? currentSettings.repeatPenalty,
+    seed: input.seed ?? currentSettings.seed,
+    temperature: input.temperature ?? currentSettings.temperature,
+    topK: input.topK ?? currentSettings.topK,
+    topP: input.topP ?? currentSettings.topP,
+    vllm: {
+      ...currentSettings.vllm,
+      ...input.vllm,
+      hasApiKey,
+    },
+  });
+  const { prompt: _syntheticPrompt, ...providerSettings } = normalized;
+  return providerSettings;
+}
+
+export function createPrettifySettingsWithSecret(
+  input: PrettifyProviderSettingsInput = {},
+): PrettifySettingsWithSecret {
   const apiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
-  const settings = mergePrettifySettingsForStorage(DEFAULT_PRETTIFY_SETTINGS, input, Boolean(apiKey));
+  const settings = mergePrettifyProviderSettingsForRuntime(DEFAULT_PRETTIFY_SETTINGS, input, Boolean(apiKey));
   return {
     ...settings,
     vllm: {
@@ -87,13 +125,17 @@ export class PrettifySettingsStorage {
     return this.mergeSettings({}, Boolean(this.decryptApiKey(stored.encryptedVllmApiKey)));
   }
 
-  public getWithSecret(input: PrettifySettingsInput = {}): PrettifySettingsWithSecret {
-    assertValidPrettifySettingsInput(input);
+  public getProviderSettingsWithSecret(input: PrettifyProviderSettingsInput = {}): PrettifySettingsWithSecret {
+    assertValidPrettifyProviderSettingsInput(input);
     const stored = this.readStoredSettings();
     const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
     const savedApiKey = input.vllm?.clearApiKey ? '' : this.decryptApiKey(stored.encryptedVllmApiKey);
     const apiKey = draftApiKey || savedApiKey;
-    const settings = this.mergeSettings(input, Boolean(apiKey));
+    const settings = mergePrettifyProviderSettingsForRuntime(
+      this.dependencies.config.getSnapshot().prettifySettings,
+      input,
+      Boolean(apiKey),
+    );
     this.assertValidProviderUrls(settings);
 
     return {
@@ -105,8 +147,8 @@ export class PrettifySettingsStorage {
     };
   }
 
-  public save(input: PrettifySettingsInput = {}): PrettifySettings {
-    assertValidPrettifySettingsInput(input);
+  public save(input: PrettifyProviderSettingsInput = {}): PrettifySettings {
+    assertValidPrettifyProviderSettingsInput(input);
     const stored = this.readStoredSettings();
     const draftApiKey = typeof input.vllm?.apiKey === 'string' ? input.vllm.apiKey.trim() : '';
     const nextStored: StoredPrettifyProviderSettings = { ...stored };
@@ -170,7 +212,7 @@ export class PrettifySettingsStorage {
     }
   }
 
-  private assertValidProviderUrls(settings: PrettifySettings): void {
+  private assertValidProviderUrls(settings: Pick<PrettifySettings, 'ollama' | 'vllm'>): void {
     const baseUrls = [
       ['ollama', settings.ollama.baseUrl],
       ['vllm', settings.vllm.baseUrl],

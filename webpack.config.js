@@ -46,7 +46,10 @@ module.exports = [
   // Preload script
   {
     mode,
-    entry: './src/main/preload.ts',
+    entry: {
+      preload: './src/main/preload.ts',
+      'prettify-profile-chooser-preload': './src/main/prettifyProfileChooserPreload.ts',
+    },
     target: 'electron-preload',
     node: {
       __dirname: false,
@@ -67,7 +70,7 @@ module.exports = [
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: 'preload.js',
+      filename: '[name].js',
     },
   },
   // Renderer process
@@ -78,6 +81,7 @@ module.exports = [
       about: './src/renderer/entries/about.tsx',
       history: './src/renderer/entries/history.tsx',
       main: './src/renderer/entries/main.tsx',
+      prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
       providerSettings: './src/renderer/entries/providerSettings.tsx',
       settings: './src/renderer/entries/settings.tsx',
     },
@@ -156,6 +160,12 @@ module.exports = [
         filename: 'provider-settings.html',
         title: 'Provider settings',
         chunks: ['providerSettings'],
+      }),
+      new HtmlWebpackPlugin({
+        template: './src/renderer/index.html',
+        filename: 'prettify-profile-chooser.html',
+        title: 'Choose a Prettify profile',
+        chunks: ['prettifyProfileChooser'],
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',

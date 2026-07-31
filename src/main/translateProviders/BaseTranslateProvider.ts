@@ -24,6 +24,7 @@ import {
   type TranslationProviderAudit,
   type TranslationProviderAuditOperationContext,
 } from './translationProviderAudit';
+import { matchTranslationResultLineEndings } from './translationResultText';
 
 export const TRANSLATION_RESULT_TIMEOUT_MS = 15_000;
 export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
@@ -306,14 +307,15 @@ export abstract class BaseTranslateProvider {
     this.phaseEntered('result', activeState, { postSubmission: true });
     const result = await this.awaitStableResult(preparation.page, preparation.previousResult, activeState);
     if (!result.success) return result;
+    const resultText = matchTranslationResultLineEndings(rawSourceText, result.text);
     this.phaseCompleted('result', activeState, {
       postSubmission: true,
-      resultLength: result.text.length,
+      resultLength: resultText.length,
     });
 
     this.phaseEntered('cleanup', activeState, {
       postSubmission: true,
-      resultLength: result.text.length,
+      resultLength: resultText.length,
     });
     const clear = await this.invokeHook(() => this.clearVisibleState(preparation.page), 'cleanupFailure');
     if (!this.isOperationActive(activeState)) {
@@ -323,7 +325,7 @@ export abstract class BaseTranslateProvider {
     if (!clear.success) {
       const closed = await this.closeOwnedResources();
       if (!closed) {
-        return this.createFailure('cleanupFailure', 'cleanup', activeState, result.text.length, {
+        return this.createFailure('cleanupFailure', 'cleanup', activeState, resultText.length, {
           exceptionType: clear.exceptionType,
           pageClosed: false,
         });
@@ -332,10 +334,10 @@ export abstract class BaseTranslateProvider {
     this.phaseCompleted('cleanup', activeState, {
       pageClosed: !clear.success,
       postSubmission: true,
-      resultLength: result.text.length,
+      resultLength: resultText.length,
     });
 
-    return this.createSuccess(result.text, activeState, !clear.success);
+    return this.createSuccess(resultText, activeState, !clear.success);
   }
 
   /** Runs the bounded pre-submission page preparation and recovery sequence. */

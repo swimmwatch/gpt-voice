@@ -2,7 +2,7 @@ import type { PrettifyRuntime } from '@main/services/prettifyProviders';
 import type {
   PrettifyCliConnectionResult,
   PrettifyCliProviderId,
-  PrettifySettingsInput,
+  PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 
 export interface PrettifyConnectionCheckOwner {
@@ -20,7 +20,7 @@ export class PrettifyConnectionCheckCoordinator<Owner extends PrettifyConnection
   public async check(
     owner: Owner,
     providerId: PrettifyCliProviderId,
-    draftSettings: PrettifySettingsInput,
+    draftSettings: PrettifyProviderSettingsInput,
   ): Promise<PrettifyCliConnectionResult> {
     if (this.disposed) throw new Error('Prettify connection coordinator is disposed');
 

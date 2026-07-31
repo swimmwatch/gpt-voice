@@ -154,6 +154,7 @@ const TranslateSection = ({
         className="command-dock-provider-state command-dock-translation-connection"
         dataSlot="translation-provider-connection"
         label={t(connectionPresentation.labelKey)}
+        loading={connectionState?.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking}
         tone={connectionPresentation.tone}
         tooltip={t(connectionPresentation.tooltipKey)}
       />

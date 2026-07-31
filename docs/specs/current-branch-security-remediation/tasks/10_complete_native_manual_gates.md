@@ -188,8 +188,8 @@ promoting simulation, source inspection, or another platform's result into a pas
 27. Inspect and record detection coverage for install scripts, native-build metadata, PE, ELF, Mach-O, WebAssembly,
     executable scripts, and applicable packaged executables without relying only on filename suffixes. Record
     non-applicable signatures for the current host as non-applicable, not passed through absence.
-28. Reconcile `GHSA-r292-9mhp-454m` separately as the accepted CloakBrowser `tar` path. Do not attribute it to
-    `archiver`, hide it because `audit:prod` exits successfully at the blocking threshold, or accept any new advisory.
+28. Confirm `cloakbrowser@0.5.3 -> tar@7.5.22` remains free of `GHSA-r292-9mhp-454m` and that the production
+    advisory policy rejects every non-empty audit result.
 
 ## Contracts And Boundaries
 

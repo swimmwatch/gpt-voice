@@ -1,4 +1,7 @@
+import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+
 export default {
+  ...getPrettifyProfileSettingsTranslations('uk'),
   'translate.provider': 'Постачальник перекладу',
   'translate.saving': 'Збереження...',
   'translate.settingsSaveFailed': 'Не вдалося зберегти налаштування перекладу',
@@ -36,6 +39,9 @@ export default {
 
   // Notifications
   'notification.textCopied': 'Текст скопійовано',
+  'notification.prettifyProfileCatalogRepaired': 'Профілі Prettify відновлено',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'Некоректні налаштування профілів Prettify відновлено з безпечними типовими значеннями.',
   'notification.textCopiedNoTranslation': 'Текст скопійовано (без перекладу)',
   'notification.transcriptionFailed': 'Не вдалося розпізнати текст',
   'notification.translationFailed': 'Не вдалося перекласти',
@@ -296,6 +302,17 @@ export default {
   'notification.diagnosticsExportFailed': 'Не вдалося експортувати діагностику',
   'notification.diagnosticsExportFailedBody': 'Не вдалося зберегти архів діагностики. Спробуйте ще раз.',
 
+  'prettify.profilePortability.exportDialogTitle': 'Експорт профілів Prettify',
+  'prettify.profilePortability.importDialogTitle': 'Імпорт профілів Prettify',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Заміна недоступна: ID і назва збігаються з різними локальними профілями.',
+  'notification.prettifyProfilesExportSaved': 'Профілі Prettify експортовано',
+  'notification.prettifyProfilesExportSavedBody': 'Вибрані профілі збережено у відкритому форматі JSON.',
+  'notification.prettifyProfilesExportFailed': 'Не вдалося експортувати профілі Prettify',
+  'notification.prettifyProfilesExportFailedBody': 'Не вдалося зберегти вибрані профілі. Спробуйте ще раз.',
+  'notification.prettifyProfilesImportFailed': 'Не вдалося імпортувати профілі Prettify',
+  'notification.prettifyProfilesImportFailedBody': 'Не вдалося імпортувати файл профілів.',
+
   // History
   'history.open': 'Історія',
   'history.title': 'Історія транскрибувань',
@@ -335,6 +352,7 @@ export default {
   'hotkey.cancel': 'Скасувати',
   'hotkey.translate': 'Переклад',
   'hotkey.prettify': 'Покращення',
+  'hotkey.prettifyQuick': 'Швидке покращення',
   'hotkey.retryTranscription': 'Надіслати транскрипцію знову',
   'hotkey.change': 'Змінити',
   'hotkey.enabled': '{target}: увімкнено',
@@ -353,6 +371,32 @@ export default {
 
   // Prettify
   'prettify.prompt': 'Prompt покращення тексту',
+  'prettify.profile.promptReady.name': 'Готовий промпт',
+  'prettify.profile.promptReady.description': 'Перетворює чернетку на чіткий, структурований промпт для ШІ.',
+  'prettify.profile.polish.name': 'Редагування',
+  'prettify.profile.polish.description':
+    'Виправляє граматику, прибирає слова-паразити й уточнює текст, не змінюючи зміст.',
+  'prettify.profile.professional.name': 'Професійний',
+  'prettify.profile.professional.description': 'Використовує формальну й точну мову для робочих і технічних завдань.',
+  'prettify.profile.natural.name': 'Природний',
+  'prettify.profile.natural.description': 'Прибирає артефакти диктування, зберігаючи ваш стиль.',
+  'prettify.chooser.title': 'Виберіть профіль Prettify',
+  'prettify.chooser.description': 'Виберіть, як GPT-Voice має перетворити виділений текст.',
+  'prettify.chooser.originalText': 'Вихідний текст',
+  'prettify.chooser.readOnly': 'Лише для читання',
+  'prettify.chooser.profiles': 'Профілі',
+  'prettify.chooser.selected': 'Вибрано: {profile}',
+  'prettify.chooser.searchProfiles': 'Пошук профілів',
+  'prettify.chooser.profilesAvailable': 'Доступно профілів: {count}.',
+  'prettify.chooser.default': 'За замовчуванням',
+  'prettify.chooser.builtIn': 'Вбудований',
+  'prettify.chooser.custom': 'Користувацький',
+  'prettify.chooser.listLabel': 'Профілі Prettify',
+  'prettify.chooser.noProfilesFound': 'Профілі не знайдено',
+  'prettify.chooser.tryDifferentSearch': 'Спробуйте іншу назву або опис.',
+  'prettify.chooser.manageProfiles': 'Керування профілями',
+  'prettify.chooser.cancel': 'Скасувати',
+  'prettify.chooser.apply': 'Застосувати',
   'prettify.reasoning': 'Reasoning',
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',
@@ -440,6 +484,8 @@ export default {
   'prettify.modelNotLoaded': 'Модель {model} не завантажено в памʼять',
   'prettify.modelLoadFailed': 'Не вдалося завантажити модель',
   'prettify.modelUnloadFailed': 'Не вдалося вивантажити модель',
+  'prettify.vllmGpuReleaseWarning':
+    'Провайдера змінено, але vLLM не звільнив пам’ять GPU. Увімкніть sleep mode у vLLM для автоматичного очищення.',
 
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',

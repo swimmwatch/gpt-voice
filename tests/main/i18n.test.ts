@@ -20,6 +20,7 @@ import {
   CODEX_CLI_PRETTIFY_REASONING_EFFORT_VALUES,
   CODEX_CLI_PRETTIFY_VERBOSITY_VALUES,
 } from '@shared/prettifySettings';
+import { PRETTIFY_BUILT_IN_PROFILE_METADATA } from '@shared/prettifyProfiles';
 import { APP_LOCALE_IDS, type AppLocaleId } from '@shared/appLocale';
 
 const CLAUDE_WEB_ERROR_KEY_PREFIX = 'error.claudeWeb.';
@@ -123,6 +124,28 @@ const REQUIRED_MAIN_PRETTIFY_BAND_KEYS = [
   'mainDock.prettifyLoad',
   'mainDock.prettifyFree',
 ] as const;
+const REQUIRED_PRETTIFY_PROFILE_METADATA_KEYS = PRETTIFY_BUILT_IN_PROFILE_METADATA.flatMap(
+  ({ descriptionKey, nameKey }) => [nameKey, descriptionKey],
+);
+const REQUIRED_PRETTIFY_CHOOSER_KEYS = [
+  'prettify.chooser.title',
+  'prettify.chooser.description',
+  'prettify.chooser.originalText',
+  'prettify.chooser.readOnly',
+  'prettify.chooser.profiles',
+  'prettify.chooser.selected',
+  'prettify.chooser.searchProfiles',
+  'prettify.chooser.profilesAvailable',
+  'prettify.chooser.default',
+  'prettify.chooser.builtIn',
+  'prettify.chooser.custom',
+  'prettify.chooser.listLabel',
+  'prettify.chooser.noProfilesFound',
+  'prettify.chooser.tryDifferentSearch',
+  'prettify.chooser.manageProfiles',
+  'prettify.chooser.cancel',
+  'prettify.chooser.apply',
+] as const;
 const REQUIRED_SYSTEM_LANGUAGE_KEYS = [
   'appSettings.system',
   'appSettings.language',
@@ -146,6 +169,10 @@ const REQUIRED_TRANSLATION_SETTINGS_KEYS = [
   'notification.translationSettingsRepairedBody',
   'error.translationSettingsInvalid',
   'error.translationSettingsSaveFailed',
+] as const;
+const REQUIRED_PRETTIFY_PROFILE_REPAIR_KEYS = [
+  'notification.prettifyProfileCatalogRepaired',
+  'notification.prettifyProfileCatalogRepairedBody',
 ] as const;
 const REQUIRED_CENTRAL_STATUS_KEYS = [
   'status.translatingSelection',
@@ -176,6 +203,26 @@ describe('i18n', () => {
 
   it('lists the supported locales in registry order', () => {
     assert.deepEqual(i18n.getSupportedLocales(), APP_LOCALE_IDS);
+  });
+
+  it('localizes the quick Prettify hotkey label in every supported catalog', () => {
+    const expected: Record<AppLocaleId, string> = {
+      be: 'Хуткае паляпшэнне',
+      de: 'Schnell verbessern',
+      en: 'Quick Prettify',
+      es: 'Mejora rápida',
+      fr: 'Amélioration rapide',
+      hi: 'त्वरित सुधार',
+      ja: 'クイック整形',
+      'pt-BR': 'Aprimoramento rápido',
+      ru: 'Быстрое улучшение',
+      uk: 'Швидке покращення',
+      zh: '快速润色',
+    };
+
+    for (const locale of APP_LOCALE_IDS) {
+      assert.equal(TRANSLATIONS_BY_LOCALE[locale]['hotkey.prettifyQuick'], expected[locale]);
+    }
   });
 
   it('keeps locale state isolated between services and catalogs immutable', () => {
@@ -231,6 +278,28 @@ describe('i18n', () => {
     }
   });
 
+  it('resolves every built-in Prettify profile name and description in every locale', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      i18n.setLocale(locale);
+      for (const key of REQUIRED_PRETTIFY_PROFILE_METADATA_KEYS) {
+        const message = i18n.translate(key);
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.notEqual(message, key, `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('localizes the complete chooser copy and preserves its placeholders in every locale', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_PRETTIFY_CHOOSER_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), getPlaceholders(en[key]), `${locale}:${key}`);
+      }
+    }
+  });
+
   it('localizes every System language setting without runtime placeholders', () => {
     for (const locale of APP_LOCALE_IDS) {
       const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
@@ -250,6 +319,22 @@ describe('i18n', () => {
         assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
         assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
         assert.doesNotMatch(message, /deepl-private|secret-target|https?:\/\/|\/home\//iu, `${locale}:${key}`);
+      }
+    }
+  });
+
+  it('localizes bounded Prettify profile repair messages without private details', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_PRETTIFY_PROFILE_REPAIR_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), [], `${locale}:${key}`);
+        assert.doesNotMatch(
+          message,
+          /https?:\/\/|\/home\/|custom:|prompt-ready|polish|professional|natural/iu,
+          `${locale}:${key}`,
+        );
       }
     }
   });

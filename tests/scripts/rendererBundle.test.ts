@@ -106,6 +106,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     about: './src/renderer/entries/about.tsx',
     history: './src/renderer/entries/history.tsx',
     main: './src/renderer/entries/main.tsx',
+    prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
     providerSettings: './src/renderer/entries/providerSettings.tsx',
     settings: './src/renderer/entries/settings.tsx',
   });
@@ -125,6 +126,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
   );
   assert.deepEqual(htmlChunks.get('index.html'), ['main']);
   assert.deepEqual(htmlChunks.get('provider-settings.html'), ['providerSettings']);
+  assert.deepEqual(htmlChunks.get('prettify-profile-chooser.html'), ['prettifyProfileChooser']);
   assert.deepEqual(htmlChunks.get('settings.html'), ['settings']);
   assert.deepEqual(htmlChunks.get('history.html'), ['history']);
   assert.deepEqual(htmlChunks.get('about.html'), ['about']);
@@ -147,6 +149,7 @@ test('emits renderer bundles under a separate nested path from Electron main', a
     const windows = [
       ['index.html', 'main'],
       ['provider-settings.html', 'providerSettings'],
+      ['prettify-profile-chooser.html', 'prettifyProfileChooser'],
       ['settings.html', 'settings'],
       ['history.html', 'history'],
       ['about.html', 'about'],

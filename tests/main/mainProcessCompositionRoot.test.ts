@@ -22,6 +22,8 @@ import { createPlaywrightBingTranslatePageAdapter } from '@main/translateProvide
 import { createPlaywrightGoogleTranslatePageAdapter } from '@main/translateProviders/GoogleTranslateProvider';
 import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProviders/YandexTranslateProvider';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
+import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -251,6 +253,17 @@ class MainProcessCompositionHarness {
         },
         platform: 'linux',
         randomBytes: () => Buffer.from([0x01, 0x02, 0x03, 0x04]),
+      },
+      prettifyProfilePortability: {
+        dialog: {
+          showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+          showSaveDialog: async () => ({ canceled: true, filePath: '' }),
+        },
+        fileSystem: {
+          pathExists: async () => false,
+          readFileBounded: async () => new Uint8Array(),
+          writeFileAtomically: async () => undefined,
+        },
       },
       electronRuntime: {
         loadModule: () => ({
@@ -484,6 +497,14 @@ class MainProcessCompositionHarness {
             once: () => undefined,
             unref: () => undefined,
           }),
+        },
+        prettifyProfileChooser: {
+          preloadPath: '/app/prettify-profile-chooser-preload.js',
+          screen: {
+            getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+            getDisplayNearestPoint: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
+            getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
+          },
         },
         shortcuts: {
           globalShortcut: {
@@ -771,6 +792,14 @@ describe('main process composition root', () => {
 
     assert.equal(harness.state.createCount, 1);
     assert.equal(harness.state.ipcHandlers.size > 0, true);
+    for (const channel of Object.values(PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS)) {
+      if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
+        assert.equal(harness.state.ipcHandlers.has(channel), true);
+      }
+    }
+    for (const channel of Object.values(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS)) {
+      assert.equal(harness.state.ipcHandlers.has(channel), true);
+    }
 
     harness.app.emitWillQuit({ preventDefault: () => undefined });
     await flushAsyncWork();

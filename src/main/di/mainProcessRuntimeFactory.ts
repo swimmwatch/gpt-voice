@@ -31,7 +31,10 @@ import { StreamingTranscriptionIpcController } from '../streamingTranscriptionIp
 import type { DiagnosticCaptureSettingsService } from '../services/diagnosticCaptureSettings';
 import type { DiagnosticsArchiveService } from '../services/diagnosticsArchive';
 import type { DiagnosticsExportService } from '../services/diagnosticsExport';
+import type { PrettifyProfilePortabilityService } from '../services/prettifyProfilePortability';
 import type { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
+import { PrettifyProfileChooserIpcRegistrar } from '../prettifyProfileChooserIpcRegistrar';
+import type { PrettifyProfileChooserWindowController } from '../prettifyProfileChooserWindowController';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -47,6 +50,9 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'diagnosticCaptureSettings'
   | 'diagnosticsExport'
   | 'historyController'
+  | 'prettifyProfileChooserIpc'
+  | 'prettifyProfileChooserWindow'
+  | 'prettifyProfilePortability'
   | 'prettifyRuntime'
   | 'shortcutController'
   | 'streamingTranscriptionService'
@@ -89,6 +95,8 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
+  readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
+  readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
@@ -140,6 +148,12 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       this.dependencies.ipc.logger,
       this.controllers.windowManager,
     );
+    const prettifyProfileChooserIpc = new PrettifyProfileChooserIpcRegistrar({
+      controller: this.controllers.prettifyProfileChooserWindow,
+      ipc: this.dependencies.ipc.ipc,
+      localization: this.dependencies.ipc.localization,
+      logger: this.dependencies.ipc.logger,
+    });
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
@@ -151,6 +165,9 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticCaptureSettings,
       diagnosticsExport: this.controllers.diagnosticsExport,
       historyController,
+      prettifyProfileChooserIpc,
+      prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
+      prettifyProfilePortability: this.controllers.prettifyProfilePortability,
       prettifyRuntime: this.controllers.prettifyRuntime,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,

@@ -26,6 +26,7 @@ import {
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   assertValidKnownPrettifySettingsInput,
+  assertValidPrettifyProviderSettingsInput,
   getPrettifyProviderCapabilities,
   isPrettifyCliProviderId,
   isKnownPrettifyProviderId,
@@ -34,8 +35,7 @@ import {
   type PrettifyModelListResult,
   type PrettifyModelLoadResult,
   type PrettifyModelUnloadResult,
-  type PrettifySettingsInput,
-  assertValidPrettifySettingsInput,
+  type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
@@ -63,7 +63,26 @@ import type { DiagnosticCaptureSettingsService } from './services/diagnosticCapt
 import { DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS } from '@shared/diagnosticCaptureSettings';
 import type { DiagnosticsExportService } from './services/diagnosticsExport';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL } from '@shared/diagnosticsArchive';
+import type { PrettifyProfilePortabilityService } from './services/prettifyProfilePortability';
+import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
+import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
+import {
+  PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
+  type PrettifyCustomProfileIdAllocationResult,
+  type PrettifyProfileCatalogSaveResult,
+  type PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
+import {
+  PRETTIFY_BUILT_IN_PROFILES,
+  type PrettifyBuiltInProfileDefinition,
+} from './services/prettifyProfileInstruction';
+import {
+  PRETTIFY_PROFILE_ID_ALLOCATION_EXHAUSTED,
+  PrettifyProfileIdAllocationError,
+} from './prettifyProfileCatalogState';
 
 const TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG = 'Translation provider connection refresh failed';
 
@@ -76,15 +95,18 @@ export type MainIpcConfigRepository = Pick<
   AppConfigStore,
   | 'getHotkeySettings'
   | 'getDiagnosticCaptureSettings'
+  | 'getPrettifyProfileCatalog'
   | 'getSnapshot'
   | 'getTextActionSettings'
   | 'getTranslationSettings'
   | 'save'
   | 'saveDiagnosticCaptureSettings'
+  | 'savePrettifyProfileCatalog'
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
   | 'setTextActionSettings'
+  | 'allocatePrettifyCustomProfileId'
 >;
 
 export type MainIpcLocalization = Pick<
@@ -124,6 +146,7 @@ export interface MainIpcControllerDependencies {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
@@ -132,6 +155,8 @@ export interface MainIpcControllerDependencies {
     show(title: string, body: string, options?: SystemNotificationOptions): void;
   };
   readonly platform: NodeJS.Platform;
+  readonly prettifyProfileChooserIpc: Pick<PrettifyProfileChooserIpcRegistrar, 'dispose' | 'register'>;
+  readonly prettifyProfileChooserWindow: Pick<PrettifyProfileChooserWindowController, 'publishLocaleChanged'>;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly prettifySettings: MainIpcPrettifySettingsRepository;
   readonly shortcutController: ShortcutController;
@@ -154,6 +179,40 @@ type TrustedSettingsIpcListener<Args extends unknown[]> = (
   settingsWindow: BrowserWindow,
   ...args: Args
 ) => unknown;
+
+function createPrettifyProfileCatalogSettingsSnapshot(
+  catalog: ReturnType<MainIpcConfigRepository['getPrettifyProfileCatalog']>,
+  builtInProfiles: readonly PrettifyBuiltInProfileDefinition[] = PRETTIFY_BUILT_IN_PROFILES,
+): PrettifyProfileCatalogSettingsSnapshot {
+  return Object.freeze({
+    builtInProfiles: Object.freeze(
+      builtInProfiles.map(({ id, instruction }) =>
+        Object.freeze({
+          id,
+          instruction,
+        }),
+      ),
+    ),
+    catalog,
+  });
+}
+
+function readForbiddenCustomProfileIdsRequest(value: unknown): unknown {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Reflect.ownKeys(value).length !== 1
+  ) {
+    throw new TypeError('Invalid Prettify profile ID allocation request');
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'forbiddenCustomProfileIds');
+  if (!descriptor || !('value' in descriptor)) {
+    throw new TypeError('Invalid Prettify profile ID allocation request');
+  }
+  return descriptor.value;
+}
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
 export class TrustedIpcRegistrar {
@@ -180,7 +239,11 @@ export class TrustedIpcRegistrar {
     listener: TrustedSettingsIpcListener<Args>,
   ): void {
     this.handle(channel, (event, ...args) => {
-      const senderUrl = event.senderFrame?.url || event.sender.getURL();
+      const senderUrl = event.senderFrame?.url;
+      if (!senderUrl) {
+        this.logger.warn('Rejected Settings-only IPC sender');
+        throw new Error('Rejected Settings-only IPC sender');
+      }
       const settingsWindow = this.windowManager.getTrustedSettingsWindow(event.sender, senderUrl);
       if (!settingsWindow) {
         this.logger.warn('Rejected Settings-only IPC sender');
@@ -232,10 +295,9 @@ function summarizeOpenAIApiSettingsInput(settings: OpenAIApiSettingsInput = {}) 
   };
 }
 
-function summarizePrettifySettingsInput(settings: PrettifySettingsInput = {}) {
+function summarizePrettifySettingsInput(settings: PrettifyProviderSettingsInput = {}) {
   return {
     providerId: settings.providerId,
-    promptLength: typeof settings.prompt === 'string' ? settings.prompt.length : undefined,
     temperature: settings.temperature,
     claudeCli: {
       hasExecutablePath: Boolean(settings.claudeCli?.executablePath?.trim()),
@@ -269,6 +331,7 @@ export class MainIpcController {
   private disposalPromise: Promise<void> | null = null;
   private disposed = false;
   private prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents> | null = null;
+  private prettifySettingsMutation: Promise<void> = Promise.resolve();
   private registered = false;
   private streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents> | null = null;
   private readonly trustedIpc: TrustedIpcRegistrar;
@@ -289,6 +352,7 @@ export class MainIpcController {
     const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
       dependencies.prettifyRuntime,
     );
+    dependencies.prettifyProfileChooserIpc.register();
     this.prettifyConnectionCoordinator = prettifyConnectionCoordinator;
     this.streamingTranscriptionController = dependencies.createStreamingTranscriptionController({
       addSenderDestroyedListener: (sender, listener) => sender.once('destroyed', listener),
@@ -544,6 +608,62 @@ export class MainIpcController {
       return dependencies.diagnosticsExport.export(settingsWindow);
     });
 
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.export,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.exportProfiles(settingsWindow, request);
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.import,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.importProfiles(settingsWindow, request);
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport,
+      (_event, settingsWindow, request: unknown) => {
+        return dependencies.prettifyProfilePortability.applyImport(settingsWindow, request);
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.get, () => {
+      return createPrettifyProfileCatalogSettingsSnapshot(dependencies.config.getPrettifyProfileCatalog());
+    });
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.save,
+      (_event, _settingsWindow, candidate: unknown): PrettifyProfileCatalogSaveResult => {
+        try {
+          return {
+            catalog: dependencies.config.savePrettifyProfileCatalog(candidate),
+            success: true,
+          };
+        } catch (error: unknown) {
+          const code = error instanceof PrettifyProfileValidationError ? 'invalid-catalog' : 'save-failed';
+          log.warn('Prettify profile catalog save failed', { code });
+          return { code, success: false };
+        }
+      },
+    );
+    this.trustedIpc.handleSettingsWindow(
+      PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.allocateCustomId,
+      (_event, _settingsWindow, request: unknown): PrettifyCustomProfileIdAllocationResult => {
+        try {
+          const forbiddenCustomProfileIds = readForbiddenCustomProfileIdsRequest(request);
+          return {
+            profileId: dependencies.config.allocatePrettifyCustomProfileId(forbiddenCustomProfileIds),
+            success: true,
+          };
+        } catch (error: unknown) {
+          const code =
+            error instanceof PrettifyProfileIdAllocationError && error.code === PRETTIFY_PROFILE_ID_ALLOCATION_EXHAUSTED
+              ? 'allocation-exhausted'
+              : 'invalid-request';
+          log.warn('Prettify custom profile ID allocation failed', { code });
+          return { code, success: false };
+        }
+      },
+    );
+
     this.trustedIpc.handle('get-cloakbrowser-settings', () => {
       return dependencies.cloakBrowserSettings.getView();
     });
@@ -739,7 +859,12 @@ export class MainIpcController {
         };
       }
 
-      const conflict = getHotkeyConflict(target, normalizedHotkey, dependencies.config.getHotkeySettings());
+      const conflict = getHotkeyConflict(
+        target,
+        normalizedHotkey,
+        dependencies.config.getHotkeySettings(),
+        dependencies.platform,
+      );
       if (conflict) {
         return {
           success: false,
@@ -780,6 +905,14 @@ export class MainIpcController {
           normalizedHotkey,
         );
         dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
+      } else if (target === 'prettifyQuick') {
+        log.info(
+          'Changing quick prettify hotkey from',
+          dependencies.config.getHotkeySettings().prettifyQuickHotkey,
+          'to',
+          normalizedHotkey,
+        );
+        dependencies.config.setHotkeys({ prettifyQuickHotkey: normalizedHotkey });
       } else if (target === 'retryTranscription') {
         log.info(
           'Changing retry transcription hotkey from',
@@ -820,6 +953,7 @@ export class MainIpcController {
           from: {
             translateEnabled: previous.translateEnabled,
             prettifyEnabled: previous.prettifyEnabled,
+            prettifyQuickEnabled: previous.prettifyQuickEnabled,
           },
           to: normalized,
         });
@@ -872,32 +1006,51 @@ export class MainIpcController {
         if (!isPrettifyCliProviderId(providerId)) {
           return dependencies.prettifyRuntime.checkCliConnection(providerId);
         }
-        return prettifyConnectionCoordinator.check(event.sender, providerId, dependencies.prettifySettings.getView());
+        return prettifyConnectionCoordinator.check(event.sender, providerId, {});
       },
     );
 
-    this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) => {
-      try {
-        assertValidPrettifySettingsInput(settings);
-        const previous = dependencies.prettifySettings.getView();
-        log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
-        const savedSettings = dependencies.prettifySettings.save(settings);
-        log.info('Prettify settings saved:', {
-          providerId: savedSettings.providerId,
-          providerChanged: savedSettings.providerId !== previous.providerId,
-          promptLength: savedSettings.prompt.length,
-          temperature: savedSettings.temperature,
-          ollamaModelLength: savedSettings.ollama.model.length,
-          vllmModelLength: savedSettings.vllm.model.length,
-          vllmHasApiKey: savedSettings.vllm.hasApiKey,
-        });
-        dependencies.windowManager.publishPrettifySettingsChanged(savedSettings);
-        return { success: true, settings: savedSettings };
-      } catch (error: unknown) {
-        log.error('Prettify settings save error:', getErrorMessage(error));
-        return { success: false, settings: dependencies.prettifySettings.getView(), error: getErrorMessage(error) };
-      }
-    });
+    this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) =>
+      this.enqueuePrettifySettingsMutation(async () => {
+        try {
+          assertValidPrettifyProviderSettingsInput(settings);
+          const previous = dependencies.prettifySettings.getView();
+          const nextProviderId = settings.providerId ?? previous.providerId;
+          let resourceReleaseWarning: 'vllm-gpu-release-failed' | undefined;
+          if (nextProviderId !== previous.providerId) {
+            const releaseResult = await dependencies.prettifyRuntime.releaseProviderResources(previous.providerId);
+            if (!releaseResult.success) throw new Error(releaseResult.error);
+            resourceReleaseWarning = releaseResult.warning;
+          }
+          log.info('Saving Prettify settings:', summarizePrettifySettingsInput(settings));
+          const savedSettings = dependencies.prettifySettings.save(settings);
+          log.info('Prettify settings saved:', {
+            providerId: savedSettings.providerId,
+            providerChanged: savedSettings.providerId !== previous.providerId,
+            temperature: savedSettings.temperature,
+            ollamaModelLength: savedSettings.ollama.model.length,
+            vllmModelLength: savedSettings.vllm.model.length,
+            vllmHasApiKey: savedSettings.vllm.hasApiKey,
+          });
+          dependencies.windowManager.publishPrettifySettingsChanged(savedSettings);
+          if (resourceReleaseWarning === 'vllm-gpu-release-failed') {
+            log.warn('vLLM GPU resources were not released during the Prettify provider switch');
+            try {
+              dependencies.notification.show(
+                'GPT-Voice',
+                dependencies.localization.translate('prettify.vllmGpuReleaseWarning'),
+              );
+            } catch {
+              log.warn('Could not show the vLLM GPU release warning');
+            }
+          }
+          return { success: true, settings: savedSettings };
+        } catch (error: unknown) {
+          log.error('Prettify settings save error:', getErrorMessage(error));
+          return { success: false, settings: dependencies.prettifySettings.getView(), error: getErrorMessage(error) };
+        }
+      }),
+    );
 
     this.trustedIpc.handle(
       'list-prettify-models',
@@ -1001,6 +1154,7 @@ export class MainIpcController {
         dependencies.config.setLocalePreference(locale);
         dependencies.config.save();
         dependencies.windowManager.broadcastLocaleChanged(locale);
+        dependencies.prettifyProfileChooserWindow.publishLocaleChanged(locale);
         log.info('Locale saved:', { locale: dependencies.localization.getLocale() });
         return { success: true };
       } catch (error: unknown) {
@@ -1017,10 +1171,21 @@ export class MainIpcController {
   public dispose(): Promise<void> {
     if (this.disposalPromise) return this.disposalPromise;
     this.disposed = true;
+    this.dependencies.prettifyProfileChooserIpc.dispose();
     this.trustedIpc.dispose();
     this.prettifyConnectionCoordinator?.dispose();
-    this.disposalPromise = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
+    const streamingDisposal = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
+    this.disposalPromise = Promise.all([streamingDisposal, this.prettifySettingsMutation]).then(() => undefined);
     return this.disposalPromise;
+  }
+
+  private enqueuePrettifySettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const result = this.prettifySettingsMutation.then(operation, operation);
+    this.prettifySettingsMutation = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private getProviderSettingsSnapshot(providerId: string) {

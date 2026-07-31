@@ -19,6 +19,7 @@ import type {
   PrettifyCliConnectionResult,
   PrettifyCliProviderId,
   KnownPrettifyProviderId,
+  PrettifyProviderSettingsInput,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -56,6 +57,23 @@ import {
   type StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
 import { DIAGNOSTICS_EXPORT_IPC_CHANNEL, type DiagnosticsExportResult } from '@shared/diagnosticsArchive';
+import {
+  PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS,
+  type PrettifyProfileExportRequest,
+  type PrettifyProfileExportResult,
+  type PrettifyProfileImportApplyRequest,
+  type PrettifyProfileImportApplyResult,
+  type PrettifyProfileImportRequest,
+  type PrettifyProfileImportResult,
+} from '@shared/prettifyProfilePortability';
+import {
+  PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
+  type PrettifyCustomProfileIdAllocationRequest,
+  type PrettifyCustomProfileIdAllocationResult,
+  type PrettifyProfileCatalogSaveResult,
+  type PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -160,6 +178,28 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     exportDiagnostics: (): Promise<DiagnosticsExportResult> => {
       return ipcRenderer.invoke(DIAGNOSTICS_EXPORT_IPC_CHANNEL);
+    },
+    exportPrettifyProfiles: (request: PrettifyProfileExportRequest): Promise<PrettifyProfileExportResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.export, request);
+    },
+    importPrettifyProfiles: (request: PrettifyProfileImportRequest): Promise<PrettifyProfileImportResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.import, request);
+    },
+    applyPrettifyProfileImport: (
+      request: PrettifyProfileImportApplyRequest,
+    ): Promise<PrettifyProfileImportApplyResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS.applyImport, request);
+    },
+    getPrettifyProfileCatalog: (): Promise<PrettifyProfileCatalogSettingsSnapshot> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.get);
+    },
+    savePrettifyProfileCatalog: (catalog: PrettifyProfileCatalog): Promise<PrettifyProfileCatalogSaveResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.save, catalog);
+    },
+    allocatePrettifyCustomProfileId: (
+      request: PrettifyCustomProfileIdAllocationRequest,
+    ): Promise<PrettifyCustomProfileIdAllocationResult> => {
+      return ipcRenderer.invoke(PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS.allocateCustomId, request);
     },
     getCloakBrowserSettings: (): Promise<CloakBrowserSettingsView> => {
       return ipcRenderer.invoke('get-cloakbrowser-settings');
@@ -320,7 +360,7 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
       return ipcRenderer.invoke('check-prettify-cli-connection', providerId);
     },
     setPrettifySettings: (
-      settings: PrettifySettingsInput,
+      settings: PrettifyProviderSettingsInput,
     ): Promise<{ success: boolean; settings: PrettifySettings; error?: string }> => {
       return ipcRenderer.invoke('set-prettify-settings', settings);
     },

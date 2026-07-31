@@ -7,6 +7,7 @@ import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 const config = new AppConfigStore({
   fileSystem: fs,
   generateFingerprintSeed: () => '12345',
+  generatePrettifyProfileUuid: () => '00000000-0000-0000-0000-000000000001',
   logger: { error: () => undefined, info: () => undefined, warn: () => undefined },
   paths: resolveAppConfigPaths({
     environment: { XDG_CONFIG_HOME: '/unused' },

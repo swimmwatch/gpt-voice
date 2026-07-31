@@ -83,15 +83,15 @@ export type ClaudeCliPrettifyResult = ClaudeCliPrettifySuccess | ClaudeCliPretti
 
 export interface ClaudeCliPreparedPrettify {
   cacheContext: readonly string[];
-  capabilityVersion: string;
   execute(text: string, auditContext?: PrettifyAuditOperationContext): Promise<ClaudeCliPrettifyResult>;
+  providerCapabilityVersion: string;
 }
 
 export type ClaudeCliPrepareResult = { prepared: ClaudeCliPreparedPrettify; success: true } | ClaudeCliPrettifyFailure;
 
 export interface ClaudeCliPrettifyInput {
   auditContext?: PrettifyAuditOperationContext;
-  prompt: string;
+  effectiveInstruction: string;
   settings: ClaudeCliPrettifySettings;
   signal: AbortSignal;
   text: string;
@@ -104,7 +104,7 @@ export interface ClaudeCliAvailabilityInput {
 }
 
 export interface ClaudeCliPrepareInput extends ClaudeCliAvailabilityInput {
-  prompt: string;
+  effectiveInstruction: string;
 }
 
 export interface ClaudeCliProcessRunner {
@@ -233,7 +233,7 @@ function appendEffortArgument(args: string[], effort: ClaudeCliPrettifyEffort): 
 }
 
 export function buildClaudeCliPrettifyArguments(
-  prompt: string,
+  effectiveInstruction: string,
   settings: ClaudeCliPrettifySettings,
 ): readonly string[] | null {
   const args = [
@@ -257,18 +257,17 @@ export function buildClaudeCliPrettifyArguments(
     '--permission-mode',
     'dontAsk',
     '--system-prompt',
-    prompt,
+    effectiveInstruction,
   ];
   if (!appendModelArguments(args, settings) || !appendEffortArgument(args, settings.effort)) return null;
   return args;
 }
 
 export function getClaudeCliPrettifyCacheContext(
-  capabilityVersion: string,
-  prompt: string,
+  providerCapabilityVersion: string,
   settings: ClaudeCliPrettifySettings,
 ): readonly string[] {
-  return ['claude-cli', capabilityVersion, settings.model, settings.fallbackModel, settings.effort, prompt];
+  return ['claude-cli', providerCapabilityVersion, settings.model, settings.fallbackModel, settings.effort];
 }
 
 /** Executes Claude CLI preflight and isolated print-mode prettification. */
@@ -339,16 +338,16 @@ export class ClaudeCliPrettifyAdapter {
   public async prepare(input: ClaudeCliPrepareInput): Promise<ClaudeCliPrepareResult> {
     const availability = await this.checkAvailability(input);
     if (!availability.success) return availability;
+    const providerCapabilityVersion = availability.capabilityVersion;
 
-    const args = buildClaudeCliPrettifyArguments(input.prompt, input.settings);
+    const args = buildClaudeCliPrettifyArguments(input.effectiveInstruction, input.settings);
     if (!args) return { error: ClaudeCliPrettifyErrorCode.InvalidModel, success: false };
 
     let consumed = false;
     return {
       success: true,
       prepared: {
-        cacheContext: getClaudeCliPrettifyCacheContext(availability.capabilityVersion, input.prompt, input.settings),
-        capabilityVersion: availability.capabilityVersion,
+        cacheContext: getClaudeCliPrettifyCacheContext(providerCapabilityVersion, input.settings),
         execute: async (text, auditContext) => {
           if (consumed) return { error: ClaudeCliPrettifyErrorCode.ProcessFailed, success: false };
           consumed = true;
@@ -358,11 +357,12 @@ export class ClaudeCliPrettifyAdapter {
           const envelope = parseClaudeCliEnvelope(result.stdout);
           if (!envelope.success) return envelope;
           return {
-            capabilityVersion: availability.capabilityVersion,
+            capabilityVersion: providerCapabilityVersion,
             success: true,
             text: envelope.text,
           };
         },
+        providerCapabilityVersion,
       },
     };
   }

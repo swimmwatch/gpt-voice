@@ -19,6 +19,7 @@ import {
   Notification,
   protocol,
   safeStorage,
+  screen,
   session,
   shell,
   Tray,
@@ -110,6 +111,26 @@ async function diagnosticsExportPathExists(filePath: string): Promise<boolean> {
   }
 }
 
+async function readPrettifyProfileFileBounded(filePath: string, maxBytes: number): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
+    throw new Error('Invalid bounded read limit');
+  }
+  const file = await fs.promises.open(filePath, 'r');
+  try {
+    const buffer = Buffer.allocUnsafe(maxBytes + 1);
+    let byteLength = 0;
+    while (byteLength < buffer.byteLength) {
+      const { bytesRead } = await file.read(buffer, byteLength, buffer.byteLength - byteLength, byteLength);
+      if (bytesRead === 0) break;
+      byteLength += bytesRead;
+    }
+    if (byteLength > maxBytes) throw new Error('Prettify profile file exceeds the byte limit');
+    return buffer.subarray(0, byteLength);
+  } finally {
+    await file.close();
+  }
+}
+
 function runTextAutomationCommand(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     execFile(command, args, { windowsHide: true }, (error) => {
@@ -175,6 +196,24 @@ function bootstrapMainProcess(): void {
       },
       platform: process.platform,
       randomBytes,
+    },
+    prettifyProfilePortability: {
+      dialog: {
+        showOpenDialog: (parentWindow, options) => dialog.showOpenDialog(parentWindow, options),
+        showSaveDialog: (parentWindow, options) => dialog.showSaveDialog(parentWindow, options),
+      },
+      fileSystem: {
+        pathExists: diagnosticsExportPathExists,
+        readFileBounded: readPrettifyProfileFileBounded,
+        writeFileAtomically: (filePath, contents, mode) => {
+          if (mode !== 0o600) throw new Error('Invalid private file mode');
+          writeTextFileAtomically(filePath, contents, {
+            createTemporaryPath: (target) => `${target}.${randomUUID()}.tmp`,
+            fileSystem: fs,
+          });
+          return Promise.resolve();
+        },
+      },
     },
     cloakBrowserRuntime: {
       environment: process.env,
@@ -370,6 +409,10 @@ function bootstrapMainProcess(): void {
         homeDirectory: os.homedir,
         platform: process.platform,
         spawn: (command, args, options) => spawn(command, [...args], options),
+      },
+      prettifyProfileChooser: {
+        preloadPath: path.join(__dirname, 'prettify-profile-chooser-preload.js'),
+        screen,
       },
       shortcuts: {
         globalShortcut,

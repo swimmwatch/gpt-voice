@@ -29,6 +29,7 @@ export interface MainPrettifyHttpConnectionState {
 
 export interface MainPrettifyProviderStatus {
   labelKey: TranslationKey;
+  loading?: boolean;
   tone: MainPrettifyProviderStatusTone;
   tooltipKey?: TranslationKey;
   valueKey?: TranslationKey;
@@ -41,7 +42,6 @@ export interface MainPrettifyProviderViewState {
   ollamaControl: OllamaModelControl | null;
   providerId: PrettifyProviderId;
   providerLabelKey: string;
-  status: MainPrettifyProviderStatus | null;
 }
 
 export interface MainPrettifyProviderSelectionState {
@@ -69,47 +69,14 @@ function getActiveModel(settings: PrettifySettings): string {
   }
 }
 
-function getProviderStatus(
+export function getMainPrettifyHttpConnectionStatus(
   settings: PrettifySettings,
-  ollamaControl: OllamaModelControl | null,
-): MainPrettifyProviderStatus | null {
-  switch (settings.providerId) {
-    case 'ollama':
-      if (!settings.ollama.model) {
-        return {
-          labelKey: 'mainDock.prettifyNotConfigured',
-          tone: 'neutral',
-          tooltipKey: 'mainDock.prettifyOllamaNotConfiguredTooltip',
-        };
-      }
-      return ollamaControl?.isLoaded
-        ? {
-            labelKey: 'modelMemory.loaded',
-            tone: 'success',
-            tooltipKey: 'mainDock.prettifyOllamaLoadedTooltip',
-          }
-        : {
-            labelKey: 'modelMemory.notLoaded',
-            tone: 'neutral',
-            tooltipKey: 'mainDock.prettifyOllamaNotLoadedTooltip',
-          };
-    case 'vllm':
-      return settings.vllm.model
-        ? {
-            labelKey: 'mainDock.prettifyConfigured',
-            tone: 'success',
-            tooltipKey: 'mainDock.prettifyVllmConfiguredTooltip',
-          }
-        : {
-            labelKey: 'mainDock.prettifyNotConfigured',
-            tone: 'neutral',
-            tooltipKey: 'mainDock.prettifyVllmNotConfiguredTooltip',
-          };
-    case 'claude-cli':
-      return null;
-    case 'codex-cli':
-      return null;
-  }
+  modelDiscoverySucceeded: boolean,
+): MainPrettifyHttpConnectionStatus {
+  const isHttpProvider = settings.providerId === 'ollama' || settings.providerId === 'vllm';
+  return modelDiscoverySucceeded && isHttpProvider && Boolean(getActiveModel(settings).trim())
+    ? MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected
+    : MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected;
 }
 
 export function getMainPrettifyCliConnectionViewState(
@@ -120,6 +87,7 @@ export function getMainPrettifyCliConnectionViewState(
   if (!connection || connection.providerId !== providerId || connection.status === 'checking') {
     return {
       labelKey: 'mainDock.prettifyChecking',
+      loading: true,
       tone: 'neutral',
       tooltipKey: 'prettify.cli.statusChecking',
     };
@@ -158,6 +126,7 @@ export function getMainPrettifyHttpConnectionViewState(
   ) {
     return {
       labelKey: 'mainDock.prettifyChecking',
+      loading: true,
       tone: 'neutral',
       tooltipKey: 'provider.connectionCheckingTooltip',
     };
@@ -192,7 +161,6 @@ export function getMainPrettifyProviderViewState(
     ollamaControl,
     providerId: settings.providerId,
     providerLabelKey: MAIN_PRETTIFY_PROVIDER_LABEL_KEYS[settings.providerId],
-    status: getProviderStatus(settings, ollamaControl),
   };
 }
 

@@ -48,6 +48,10 @@ import {
 } from '../services/diagnosticsManifest';
 import { DiagnosticsExportService, type DiagnosticsExportServiceDependencies } from '../services/diagnosticsExport';
 import {
+  PrettifyProfilePortabilityService,
+  type PrettifyProfilePortabilityServiceDependencies,
+} from '../services/prettifyProfilePortability';
+import {
   SelectedTextTranslationService,
   SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES,
   type SelectedTextTranslationDependencies,
@@ -105,6 +109,10 @@ import { APP_DATABASE_SCHEMA_VERSION, AppDatabaseCoordinator } from '../reposito
 import { SqliteDiagnosticCaptureRepository } from '../repositories/sqlite/sqliteDiagnosticCaptureRepository';
 import { SqliteTranscriptionHistoryRepository } from '../repositories/sqlite/sqliteTranscriptionHistoryRepository';
 import { DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION } from '@shared/diagnosticsArchive';
+import {
+  PrettifyProfileChooserWindowController,
+  type PrettifyProfileChooserWindowControllerDependencies,
+} from '../prettifyProfileChooserWindowController';
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
@@ -185,13 +193,15 @@ export interface MainProcessPrettifyEnvironment {
     SelectedTextPrettifyDependencies,
     | 'actionGate'
     | 'cache'
+    | 'chooser'
     | 'clipboard'
     | 'diagnosticCapture'
     | 'localization'
     | 'logger'
     | 'notify'
+    | 'openProfileManagement'
+    | 'profileCatalog'
     | 'runtime'
-    | 'settings'
     | 'textAutomation'
   >;
 }
@@ -208,6 +218,11 @@ export interface MainProcessDiagnosticsArchiveEnvironment {
 export type MainProcessDiagnosticsExportEnvironment = Omit<
   DiagnosticsExportServiceDependencies,
   'archive' | 'localization' | 'logger' | 'notification' | 'now'
+>;
+
+export type MainProcessPrettifyProfilePortabilityEnvironment = Pick<
+  PrettifyProfilePortabilityServiceDependencies,
+  'dialog' | 'fileSystem'
 >;
 
 type RootOwnedRuntimeDependencyKeys =
@@ -229,13 +244,14 @@ export type MainProcessCompositionEnvironment = Omit<
     CloakBrowserSettingsRepositoryDependencies,
     'config' | 'logger' | 'secureStorage' | 'settingsFile' | 'writeFileAtomically'
   >;
-  readonly config: Omit<AppConfigStoreDependencies, 'logger'> & {
+  readonly config: Omit<AppConfigStoreDependencies, 'generatePrettifyProfileUuid' | 'logger'> & {
     readonly fileSystem: AppConfigStoreDependencies['fileSystem'] &
       FileClaudeWebPrivateJsonRepositoryDependencies['fileSystem'] &
       OpenAIApiSettingsRepositoryDependencies['fileSystem'];
   };
   readonly diagnosticsArchive: MainProcessDiagnosticsArchiveEnvironment;
   readonly diagnosticsExport: MainProcessDiagnosticsExportEnvironment;
+  readonly prettifyProfilePortability: MainProcessPrettifyProfilePortabilityEnvironment;
   readonly electronRuntime: Omit<ElectronRuntimeLoaderDependencies, 'logger'>;
   readonly ipc: Omit<
     MainProcessRuntimeFactoryDependencies['ipc'],
@@ -265,6 +281,7 @@ export interface MainProcessDesktopControllerEnvironment {
     LinuxDesktopIntegrationControllerDependencies,
     'getAppIconPath' | 'getAssetPath' | 'logger'
   >;
+  readonly prettifyProfileChooser: Pick<PrettifyProfileChooserWindowControllerDependencies, 'preloadPath' | 'screen'>;
   readonly shortcuts: Omit<
     ShortcutControllerDependencies,
     | 'selectedTextActionGate'
@@ -273,7 +290,10 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'trayController'
     | 'windowManager'
     | 'config'
+    | 'localization'
     | 'logger'
+    | 'notification'
+    | 'prettifyRuntime'
   >;
   readonly tray: Omit<TrayControllerDependencies, 'getAssetPath' | 'localization' | 'windowManager'>;
   readonly window: Omit<
@@ -292,7 +312,9 @@ type ConstructedDesktopDependencyKeys =
   | 'backgroundBrowserService'
   | 'desktopRuntimeController'
   | 'linuxDesktopIntegrationController'
+  | 'prettifyProfileChooserWindow'
   | 'runtimeFactory'
+  | 'selectedTextPrettifyService'
   | 'shortcutController'
   | 'prettifyRuntime'
   | 'translationRuntime'
@@ -312,6 +334,7 @@ export type MainProcessApplicationEnvironment = Omit<
 interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
   readonly appProtocolController: AppProtocolController;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
+  readonly selectedTextPrettifyService: SelectedTextPrettifyService;
   readonly trayController: TrayController;
 }
 
@@ -342,6 +365,7 @@ export class MainProcessCompositionRoot {
     };
     const configStore = new AppConfigStore({
       ...this.environment.config,
+      generatePrettifyProfileUuid: this.environment.randomUUID,
       logger: loggerFactory.getLogger('config'),
     });
     const database = new AppDatabaseCoordinator(configStore.paths.databaseFile, this.environment.databaseDependencies);
@@ -556,25 +580,6 @@ export class MainProcessCompositionRoot {
       registry: prettifyProviderRegistry,
       settings: prettifySettingsStorage,
     });
-    const selectedTextPrettifyService = new SelectedTextPrettifyService({
-      ...this.environment.prettify.selectedText,
-      actionGate: selectedTextActionGate,
-      cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
-        maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
-        now: this.environment.cacheNow,
-      }),
-      clipboard: {
-        readText: electronRuntime.readClipboardText,
-        writeText: electronRuntime.writeTypedClipboardText,
-      },
-      diagnosticCapture,
-      logger: loggerFactory.getLogger('selection-prettify'),
-      localization,
-      notify: electronRuntime.showSystemNotification,
-      runtime: prettifyRuntime,
-      settings: prettifySettingsStorage,
-      textAutomation,
-    });
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
@@ -583,6 +588,36 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('window'),
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
+    });
+    const prettifyProfileChooserWindow = new PrettifyProfileChooserWindowController({
+      ...desktopEnvironment.prettifyProfileChooser,
+      createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
+      getAppIconPath: assetPaths.getAppIconPath,
+      getAppUrl: desktopEnvironment.window.getAppUrl,
+      logger: loggerFactory.getLogger('prettify-profile-chooser'),
+      openExternal: electronRuntime.openExternal,
+      randomUUID: this.environment.randomUUID,
+    });
+    const selectedTextPrettifyService = new SelectedTextPrettifyService({
+      ...this.environment.prettify.selectedText,
+      actionGate: selectedTextActionGate,
+      cache: createTextActionResultCache(SELECTED_TEXT_PRETTIFY_CACHE_MAX_ENTRIES, {
+        maxAgeMs: SELECTED_TEXT_PRETTIFY_CACHE_MAX_AGE_MS,
+        now: this.environment.cacheNow,
+      }),
+      chooser: prettifyProfileChooserWindow,
+      clipboard: {
+        readText: electronRuntime.readClipboardText,
+        writeText: electronRuntime.writeTypedClipboardText,
+      },
+      diagnosticCapture,
+      logger: loggerFactory.getLogger('selection-prettify'),
+      localization,
+      notify: electronRuntime.showSystemNotification,
+      openProfileManagement: () => windowManager.showSettingsWindow('prettify'),
+      profileCatalog: configStore,
+      runtime: prettifyRuntime,
+      textAutomation,
     });
     translationRuntime.subscribeConnectionState(windowManager.publishTranslationProviderConnectionState);
     const cloakBrowserSettingsReset = new CloakBrowserSettingsResetService({
@@ -606,6 +641,16 @@ export class MainProcessCompositionRoot {
       },
       now: this.environment.now,
     });
+    const prettifyProfilePortability = new PrettifyProfilePortabilityService({
+      ...this.environment.prettifyProfilePortability,
+      allocateCustomProfileId: (additionalForbiddenIds) =>
+        configStore.allocatePrettifyCustomProfileId(additionalForbiddenIds),
+      localization,
+      logger: loggerFactory.getLogger('prettify-profile-portability'),
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+    });
     const trayController = new TrayController({
       ...desktopEnvironment.tray,
       getAssetPath: assetPaths.getAssetPath,
@@ -615,6 +660,11 @@ export class MainProcessCompositionRoot {
     const shortcutController = new ShortcutController({
       ...desktopEnvironment.shortcuts,
       config: configStore,
+      localization,
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+      prettifyRuntime,
       selectedTextActionGate,
       selectedTextPrettifyService,
       selectedTextTranslationService,
@@ -649,7 +699,10 @@ export class MainProcessCompositionRoot {
       diagnosticsArchive,
       diagnosticsExport,
       historyRepository,
+      prettifyProfileChooserWindow,
+      prettifyProfilePortability,
       prettifyRuntime,
+      selectedTextPrettifyService,
       shortcutController,
       translationRuntime,
       trayController,

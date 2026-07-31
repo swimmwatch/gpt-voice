@@ -109,7 +109,6 @@ describe('prettify settings storage', () => {
 
     const saved = fixture.storage.save({
       providerId: 'vllm',
-      prompt: 'Improve this text',
       vllm: {
         apiKey: 'private-api-key',
         baseUrl: 'https://models.example.com/v1',
@@ -121,9 +120,54 @@ describe('prettify settings storage', () => {
     assert.equal(saved.providerId, 'vllm');
     assert.equal(saved.vllm.hasApiKey, true);
     assert.equal(storedSecret.includes('private-api-key'), false);
-    assert.equal(fixture.storage.getWithSecret().vllm.apiKey, 'private-api-key');
+    const runtimeSettings = fixture.storage.getProviderSettingsWithSecret();
+    assert.equal(runtimeSettings.vllm.apiKey, 'private-api-key');
+    assert.equal('prompt' in runtimeSettings, false);
     assert.equal(fixture.config.getSnapshot().prettifySettings.vllm.hasApiKey, true);
     assert.equal('apiKey' in fixture.config.getSnapshot().prettifySettings.vllm, false);
+  });
+
+  it('rejects stale renderer payloads that contain a prompt without mutating settings', () => {
+    const fixture = new PrettifySettingsStorageFixture();
+    const before = fixture.config.getSnapshot().prettifySettings;
+
+    assert.throws(
+      () =>
+        fixture.storage.save({
+          prompt: 'private stale prompt',
+          providerId: 'vllm',
+        } as never),
+      /prettify-provider-settings-unknown-property/u,
+    );
+    assert.throws(
+      () => fixture.storage.getProviderSettingsWithSecret({ prompt: 'private stale prompt' } as never),
+      /prettify-provider-settings-unknown-property/u,
+    );
+    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, before);
+  });
+
+  it('builds runtime provider settings without reading the legacy prompt projection', () => {
+    const fixture = new PrettifySettingsStorageFixture();
+    const snapshot = fixture.config.getSnapshot();
+    const { prompt: _knownPrompt, ...providerSettings } = snapshot.prettifySettings;
+    const guardedSettings = Object.defineProperty(providerSettings, 'prompt', {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        throw new Error('legacy prompt projection must not be read');
+      },
+    });
+    Object.defineProperty(fixture.config, 'getSnapshot', {
+      value: () => ({ ...snapshot, prettifySettings: guardedSettings }),
+    });
+
+    const runtimeSettings = fixture.storage.getProviderSettingsWithSecret({
+      ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+      providerId: 'ollama',
+    });
+
+    assert.equal('prompt' in runtimeSettings, false);
+    assert.equal(runtimeSettings.ollama.model, 'llama3.2');
   });
 
   it('clears encrypted keys and keeps independently constructed stores isolated', () => {
@@ -131,17 +175,18 @@ describe('prettify settings storage', () => {
     const second = new PrettifySettingsStorageFixture('/second/settings.json');
 
     first.storage.save({ vllm: { apiKey: 'first-private-key' } });
-    assert.equal(first.storage.getWithSecret().vllm.apiKey, 'first-private-key');
-    assert.equal(second.storage.getWithSecret().vllm.apiKey, '');
+    assert.equal(first.storage.getProviderSettingsWithSecret().vllm.apiKey, 'first-private-key');
+    assert.equal(second.storage.getProviderSettingsWithSecret().vllm.apiKey, '');
 
     first.storage.save({ vllm: { clearApiKey: true } });
-    assert.equal(first.storage.getWithSecret().vllm.apiKey, '');
+    assert.equal(first.storage.getProviderSettingsWithSecret().vllm.apiKey, '');
     assert.equal(first.storage.getView().vllm.hasApiKey, false);
     assert.equal(second.fileSystem.files.size, 0);
   });
 
   it('rejects unsafe provider URLs before mutating settings or secret storage', () => {
     const fixture = new PrettifySettingsStorageFixture();
+    const before = fixture.config.getSnapshot().prettifySettings;
 
     assert.throws(
       () =>
@@ -155,6 +200,6 @@ describe('prettify settings storage', () => {
       /Non-local provider URLs must use HTTPS/,
     );
     assert.equal(fixture.fileSystem.files.size, 0);
-    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, DEFAULT_PRETTIFY_SETTINGS);
+    assert.deepEqual(fixture.config.getSnapshot().prettifySettings, before);
   });
 });

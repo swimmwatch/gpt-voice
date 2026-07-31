@@ -13,6 +13,7 @@ import type {
   PrettifyCliConnectionResult,
   PrettifyCliProviderId,
   KnownPrettifyProviderId,
+  PrettifyProviderSettingsInput,
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
@@ -45,6 +46,21 @@ import type {
   StreamingTranscriptionOperationId,
 } from '@shared/streamingTranscription';
 import type { DiagnosticsExportResult } from '@shared/diagnosticsArchive';
+import type {
+  PrettifyProfileExportRequest,
+  PrettifyProfileExportResult,
+  PrettifyProfileImportApplyRequest,
+  PrettifyProfileImportApplyResult,
+  PrettifyProfileImportRequest,
+  PrettifyProfileImportResult,
+} from '@shared/prettifyProfilePortability';
+import type {
+  PrettifyCustomProfileIdAllocationRequest,
+  PrettifyCustomProfileIdAllocationResult,
+  PrettifyProfileCatalogSaveResult,
+  PrettifyProfileCatalogSettingsSnapshot,
+} from '@shared/prettifyProfileCatalogIpc';
+import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
@@ -118,6 +134,14 @@ export interface ElectronAPI {
   closeAbout: () => Promise<{ success: boolean }>;
   getAppInfo: () => Promise<AppInfo>;
   exportDiagnostics: () => Promise<DiagnosticsExportResult>;
+  exportPrettifyProfiles: (request: PrettifyProfileExportRequest) => Promise<PrettifyProfileExportResult>;
+  importPrettifyProfiles: (request: PrettifyProfileImportRequest) => Promise<PrettifyProfileImportResult>;
+  applyPrettifyProfileImport: (request: PrettifyProfileImportApplyRequest) => Promise<PrettifyProfileImportApplyResult>;
+  getPrettifyProfileCatalog: () => Promise<PrettifyProfileCatalogSettingsSnapshot>;
+  savePrettifyProfileCatalog: (catalog: PrettifyProfileCatalog) => Promise<PrettifyProfileCatalogSaveResult>;
+  allocatePrettifyCustomProfileId: (
+    request: PrettifyCustomProfileIdAllocationRequest,
+  ) => Promise<PrettifyCustomProfileIdAllocationResult>;
   getCloakBrowserSettings: () => Promise<CloakBrowserSettingsView>;
   saveCloakBrowserSettings: (settings: CloakBrowserSettingsInput) => Promise<{
     success: boolean;
@@ -182,7 +206,7 @@ export interface ElectronAPI {
   getPrettifySettings: () => Promise<PrettifySettings>;
   checkPrettifyCliConnection: (providerId: PrettifyCliProviderId) => Promise<PrettifyCliConnectionResult>;
   setPrettifySettings: (
-    settings: PrettifySettingsInput,
+    settings: PrettifyProviderSettingsInput,
   ) => Promise<{ success: boolean; settings: PrettifySettings; error?: string }>;
   listPrettifyModels: (
     providerId: KnownPrettifyProviderId,

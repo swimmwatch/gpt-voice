@@ -42,12 +42,7 @@ const TRANSLATIONS_BY_LOCALE = {
   uk,
   zh,
 } as const;
-const CANONICAL_ADVISORY_ROW =
-  '| `GHSA-r292-9mhp-454m` | `cloakbrowser@0.5.2 -> tar@7.5.19` | moderate | ' +
-  'Uncontrolled recursion and uncatchable stack-overflow denial of service for crafted long-path tar member ' +
-  'selection. | No compatible CloakBrowser resolution has been validated; a forced transitive override can break ' +
-  'its archive/runtime behavior. | `cloakbrowser` | `2026-07-29` | Any CloakBrowser or lockfile change, advisory ' +
-  'update, or compatible upstream fix. |';
+const NO_PRODUCTION_ADVISORY_EXCEPTIONS = 'No production advisory exceptions are currently approved.';
 
 interface RepositoryHistoryReader {
   isTracked(relativePath: string): boolean;
@@ -182,20 +177,18 @@ describe('current branch remediation documentation contract', () => {
     }
   });
 
-  it('separates dependency evidence tiers and preserves the canonical advisory', () => {
+  it('separates dependency evidence tiers and records a clean production advisory state', () => {
     const security = readText(SECURITY_PATH);
     const normalizedSecurity = normalizeText(security);
 
-    assert.equal(security.split(/\r?\n/u).filter((line) => line === CANONICAL_ADVISORY_ROW).length, 1);
+    assert.equal(security.split(/\r?\n/u).filter((line) => line === NO_PRODUCTION_ADVISORY_EXCEPTIONS).length, 1);
     assertContainsEvery(normalizedSecurity, [
+      'no production advisory exceptions are currently approved',
       'host-independent lockfile analysis',
       'linux x64 and windows x64',
       'installed-artifact inspection proves only the current matching host target',
       'native installed and packaged-runtime proof',
       'remediation packet 10',
-      'archiver -> tar-stream -> bare-fs',
-      'predates the reviewed six-commit range',
-      'any cloakbrowser or lockfile change, advisory update, or compatible upstream fix',
       'mach-o classifier fixtures do not imply current macos packaging evidence',
       'macos distribution remains paused',
     ]);

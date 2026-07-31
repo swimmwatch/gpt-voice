@@ -53,11 +53,13 @@ describe('preload API factory', () => {
 
     assert.equal(await api.getActiveProvider(), 'chatgpt');
     await api.setActiveProvider('claude-web');
+    await api.setHotkey('prettifyQuick', 'Ctrl+F12');
     await api.translateText('private-source-canary', 'ru');
 
     assert.deepEqual(renderer.invocations, [
       { args: [], channel: 'get-active-provider' },
       { args: ['claude-web'], channel: 'set-active-provider' },
+      { args: ['prettifyQuick', 'Ctrl+F12'], channel: 'set-hotkey' },
       { args: ['private-source-canary', 'ru'], channel: 'translate-text' },
     ]);
   });
@@ -134,6 +136,8 @@ describe('preload API factory', () => {
     assert.match(preload, /contextBridge\.exposeInMainWorld\('electronAPI', createElectronApi\(ipcRenderer\)\)/u);
     assert.doesNotMatch(preload, /ipcRenderer\.invoke|ipcRenderer\.on/u);
     assert.match(factory, /export function createElectronApi/u);
+    assert.doesNotMatch(preload, /prettifyProfileChooser|prettify-profile-chooser/u);
+    assert.doesNotMatch(factory, /prettifyProfileChooser|prettify-profile-chooser/u);
     assert.doesNotMatch(factory, /contextBridge|exposeInMainWorld/u);
   });
 });

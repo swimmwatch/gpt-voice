@@ -20,6 +20,7 @@ import {
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
 import { OneShotPrettifyExecution } from '@main/services/prettifyOneShotExecution';
+import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { PrettifyAuditOperationContext } from '@main/services/prettifyProviderAudit';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
 import type { PrettifyModelOption, PrettifyProviderAvailability } from '@shared/prettifySettings';
@@ -56,6 +57,8 @@ const CODEX_CLI_ERROR_KEYS: Record<CodexCliPrettifyErrorCode, TranslationKey> = 
   [CodexCliPrettifyErrorCode.NoToolsUnavailable]: 'error.prettify.codexCli.no-tools-unavailable',
   [CodexCliPrettifyErrorCode.ModelDiscoveryFailed]: 'error.prettify.codexCli.model-discovery-failed',
 };
+
+export const PRETTIFY_CLI_MODEL_VALIDATION_INSTRUCTION = 'Return the provided text unchanged.';
 
 export interface ClaudeCliPrettifyProviderDependencies extends PrettifyProviderDependencies {
   readonly adapter: Pick<ClaudeCliPrettifyAdapter, 'checkAvailability' | 'prepare'>;
@@ -138,7 +141,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
     try {
       const prepared = await this.dependencies.adapter.prepare({
         auditContext: context,
-        prompt: settings.prompt,
+        effectiveInstruction: PRETTIFY_CLI_MODEL_VALIDATION_INSTRUCTION,
         settings: settings.claudeCli,
         signal: new AbortController().signal,
       });
@@ -149,7 +152,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
       }
       return {
         availability: prepared.success
-          ? { status: 'available', capabilityVersion: prepared.prepared.capabilityVersion }
+          ? { status: 'available', capabilityVersion: prepared.prepared.providerCapabilityVersion }
           : { status: 'unavailable', errorCode: prepared.error },
         models: getClaudeCliModelOptions(settings.claudeCli.model),
         source,
@@ -162,6 +165,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 
   public async prepare(
     settings: PrettifySettingsWithSecret,
+    instruction: PrettifyExecutionInstruction,
     signal: AbortSignal,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
@@ -184,7 +188,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
     try {
       const result = await this.dependencies.adapter.prepare({
         auditContext: context,
-        prompt: settings.prompt,
+        effectiveInstruction: instruction.effectiveInstruction,
         settings: settings.claudeCli,
         signal,
       });
@@ -196,9 +200,8 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 
       return {
         success: true,
-        prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, {
+        prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, instruction, {
           audit,
-          contractVersion: result.prepared.capabilityVersion,
           diagnosticCapture: this.dependencies.diagnosticCapture,
           execute: async (text, executionContext) => {
             executionContext.lifecycle.phaseEntered('submission');
@@ -222,6 +225,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
               throw error;
             }
           },
+          providerCapabilityVersion: result.prepared.providerCapabilityVersion,
         }),
       };
     } catch (error: unknown) {
@@ -231,11 +235,12 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
   }
 
   public async prettify({
+    instruction,
     text,
     signal = new AbortController().signal,
     settings,
   }: PrettifyProviderRequest): Promise<TextProcessingResult> {
-    const prepared = await this.prepare(settings, signal);
+    const prepared = await this.prepare(settings, instruction, signal);
     return prepared.success ? prepared.prepared.execute(text) : prepared;
   }
 
@@ -333,6 +338,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
 
   public async prepare(
     settings: PrettifySettingsWithSecret,
+    instruction: PrettifyExecutionInstruction,
     signal: AbortSignal,
     auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
@@ -352,7 +358,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
     try {
       const result = await this.dependencies.adapter.prepare({
         auditContext: context,
-        prompt: settings.prompt,
+        effectiveInstruction: instruction.effectiveInstruction,
         settings: settings.codexCli,
         signal,
       });
@@ -367,9 +373,8 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
 
       return {
         success: true,
-        prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, {
+        prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, instruction, {
           audit,
-          contractVersion: result.prepared.capabilityVersion,
           diagnosticCapture: this.dependencies.diagnosticCapture,
           execute: async (text, executionContext) => {
             executionContext.lifecycle.phaseEntered('submission');
@@ -393,6 +398,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
               throw error;
             }
           },
+          providerCapabilityVersion: result.prepared.providerCapabilityVersion,
         }),
       };
     } catch (error: unknown) {
@@ -402,11 +408,12 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
   }
 
   public async prettify({
+    instruction,
     text,
     signal = new AbortController().signal,
     settings,
   }: PrettifyProviderRequest): Promise<TextProcessingResult> {
-    const prepared = await this.prepare(settings, signal);
+    const prepared = await this.prepare(settings, instruction, signal);
     return prepared.success ? prepared.prepared.execute(text) : prepared;
   }
 

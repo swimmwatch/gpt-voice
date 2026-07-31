@@ -3,6 +3,7 @@ import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import {
   applyExternalPrettifyProviderSelection,
   createAppSettingsValidationError,
+  createPrettifyProviderSettingsInput,
   createPrettifyProviderTransitionState,
   PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS,
   type AppSettingsFieldErrors,
@@ -93,15 +94,16 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
       const providerId = settingsSnapshot.providerId;
       const requestId = ++modelRequestRef.current;
       setIsLoadingModels(true);
-      setModelError('');
-      clearFieldErrors('prettifyModel');
       setProviderModelStates((current) => ({
         ...current,
         [providerId]: { ...current[providerId], checkStatus: 'checking' },
       }));
 
       try {
-        const result = await desktopApi.listPrettifyModels(providerId, settingsSnapshot);
+        const result = await desktopApi.listPrettifyModels(
+          providerId,
+          createPrettifyProviderSettingsInput(settingsSnapshot),
+        );
         if (disposedRef.current || requestId !== modelRequestRef.current) return;
         setProviderModelStates((current) => ({
           ...current,
@@ -116,6 +118,8 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
           return;
         }
 
+        setModelError('');
+        clearFieldErrors('prettifyModel');
         const configuredModel = getConfiguredPrettifyModel(settingsSnapshot, providerId);
         const nextModels = mergePrettifyProviderModelOptions(result.models, configuredModel);
         setModelOptions((current) => ({ ...current, [providerId]: nextModels }));
@@ -188,6 +192,9 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
     resetModelActionState();
     clearFieldErrors('prettifyProvider', ...transition.clearFieldErrors);
     setPrettifySettings(transition.settings);
+    if (getPrettifyProviderCapabilities(providerId).baseUrl) {
+      void requestModels(transition.settings, true);
+    }
   };
 
   const updateHttpSetting = <Key extends 'baseUrl' | 'model'>(
@@ -308,7 +315,10 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
     clearFieldErrors('prettifyModel');
     try {
       const selectedModel = prettifySettings.ollama.model;
-      const result = await desktopApi.loadPrettifyModel('ollama', prettifySettings);
+      const result = await desktopApi.loadPrettifyModel(
+        'ollama',
+        createPrettifyProviderSettingsInput(prettifySettings),
+      );
       if (!result.success) {
         setModelLoadError(result.error || t('prettify.modelLoadFailed'));
         return;
@@ -356,7 +366,10 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
     clearFieldErrors('prettifyModel');
     try {
       const selectedModel = prettifySettings.ollama.model;
-      const result = await desktopApi.unloadPrettifyModel('ollama', prettifySettings);
+      const result = await desktopApi.unloadPrettifyModel(
+        'ollama',
+        createPrettifyProviderSettingsInput(prettifySettings),
+      );
       if (!result.success) {
         setModelLoadError(result.error || t('prettify.modelUnloadFailed'));
         return;

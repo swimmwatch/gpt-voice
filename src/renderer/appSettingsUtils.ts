@@ -8,7 +8,6 @@ import {
 } from '@shared/cloakBrowserSettings';
 import {
   MAX_PRETTIFY_CLI_TIMEOUT_SECONDS,
-  MAX_PRETTIFY_PROMPT_LENGTH,
   MIN_PRETTIFY_CLI_TIMEOUT_SECONDS,
   getPrettifyBaseUrlValidationErrorCode,
   getPrettifyProviderCapabilities,
@@ -23,10 +22,16 @@ import {
   type CodexCliPrettifyReasoningEffort,
   type CodexCliPrettifyVerbosity,
   type KnownPrettifyProviderId,
+  type PrettifyProviderSettingsInput,
   type PrettifySettings,
-  type PrettifySettingsInput,
   type PrettifyBaseUrlValidationErrorCode,
 } from '@shared/prettifySettings';
+import { isValidPrettifyProfileCatalog, type PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import type {
+  PrettifyProfileCatalogSaveFailureCode,
+  PrettifyProfileCatalogSaveResult,
+} from '@shared/prettifyProfileCatalogIpc';
+import { arePrettifyProfileCatalogsEqual } from './prettifyProfilesDraft';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import {
   areDiagnosticCaptureSettingsEqual,
@@ -51,7 +56,6 @@ export const CLOAK_BROWSER_FALLBACK_TIMEZONE_VALUES = [
 ] as const;
 
 export type AppSettingsFieldKey =
-  | 'prettifyPrompt'
   | 'prettifyProvider'
   | 'prettifyBaseUrl'
   | 'prettifyModel'
@@ -99,8 +103,6 @@ export type AppSettingsValidationErrorCode =
   | 'prettify-codex-model-invalid'
   | 'prettify-codex-reasoning-invalid'
   | 'prettify-codex-verbosity-invalid'
-  | 'prettify-prompt-required'
-  | 'prettify-prompt-too-long'
   | 'prettify-provider-invalid'
   | 'locale-required'
   | 'locale-unsupported'
@@ -138,8 +140,6 @@ export const APP_SETTINGS_VALIDATION_ERROR_CODES = [
   'prettify-codex-model-invalid',
   'prettify-codex-reasoning-invalid',
   'prettify-codex-verbosity-invalid',
-  'prettify-prompt-required',
-  'prettify-prompt-too-long',
   'prettify-provider-invalid',
   'locale-required',
   'locale-unsupported',
@@ -170,9 +170,66 @@ export function createAppSettingsValidationError(
   return params ? { code, params } : { code };
 }
 
-export type PrettifySettingsDraft = Omit<PrettifySettings, 'providerId'> & {
+export type PrettifySettingsDraft = Omit<PrettifySettings, 'prompt' | 'providerId'> & {
   providerId: KnownPrettifyProviderId;
 };
+
+export function createPrettifySettingsDraft(settings: PrettifySettings): PrettifySettingsDraft {
+  if (!isKnownPrettifyProviderId(settings.providerId)) {
+    throw new Error('Unsupported Prettify provider');
+  }
+  return {
+    claudeCli: { ...settings.claudeCli },
+    codexCli: { ...settings.codexCli },
+    maxOutputTokens: settings.maxOutputTokens,
+    minP: settings.minP,
+    ollama: { ...settings.ollama },
+    providerId: settings.providerId,
+    repeatPenalty: settings.repeatPenalty,
+    seed: settings.seed,
+    temperature: settings.temperature,
+    topK: settings.topK,
+    topP: settings.topP,
+    vllm: { ...settings.vllm },
+  };
+}
+
+export function createPrettifyProviderSettingsInput(settings: PrettifySettingsDraft): PrettifyProviderSettingsInput {
+  return {
+    claudeCli: {
+      effort: settings.claudeCli.effort,
+      executablePath: settings.claudeCli.executablePath,
+      fallbackModel: settings.claudeCli.fallbackModel,
+      model: settings.claudeCli.model,
+      timeoutSeconds: settings.claudeCli.timeoutSeconds,
+    },
+    codexCli: {
+      executablePath: settings.codexCli.executablePath,
+      model: settings.codexCli.model,
+      reasoningEffort: settings.codexCli.reasoningEffort,
+      timeoutSeconds: settings.codexCli.timeoutSeconds,
+      verbosity: settings.codexCli.verbosity,
+    },
+    maxOutputTokens: settings.maxOutputTokens,
+    minP: settings.minP,
+    ollama: {
+      baseUrl: settings.ollama.baseUrl,
+      model: settings.ollama.model,
+    },
+    providerId: settings.providerId,
+    repeatPenalty: settings.repeatPenalty,
+    seed: settings.seed,
+    temperature: settings.temperature,
+    topK: settings.topK,
+    topP: settings.topP,
+    vllm: {
+      apiKey: settings.vllm.apiKey,
+      baseUrl: settings.vllm.baseUrl,
+      clearApiKey: settings.vllm.clearApiKey,
+      model: settings.vllm.model,
+    },
+  };
+}
 
 export const PRETTIFY_PROVIDER_SPECIFIC_FIELD_KEYS = [
   'prettifyBaseUrl',
@@ -211,8 +268,9 @@ export interface AppSettingsSaveDependencies {
     settings: CloakBrowserSettingsInput,
   ) => Promise<{ success: boolean; settings?: CloakBrowserSettingsView; error?: string }>;
   setPrettifySettings: (
-    settings: PrettifySettingsInput,
+    settings: PrettifyProviderSettingsInput,
   ) => Promise<{ success: boolean; settings?: PrettifySettings; error?: string }>;
+  savePrettifyProfileCatalog?: (catalog: PrettifyProfileCatalog) => Promise<PrettifyProfileCatalogSaveResult>;
   setTextActionSettings: (
     settings: TextActionSettings,
   ) => Promise<{ success: boolean; settings?: TextActionSettings; error?: string }>;
@@ -226,10 +284,12 @@ export interface AppSettingsSaveInput {
   diagnosticCaptureSettings: DiagnosticCaptureSettings;
   initialDiagnosticCaptureSettings: DiagnosticCaptureSettings;
   initialPrettifySettings: PrettifySettingsDraft;
+  initialPrettifyProfileCatalog: PrettifyProfileCatalog;
   initialSettings: EditableCloakBrowserSettings;
   initialTextActionSettings: TextActionSettings;
   localeValues?: readonly string[];
   prettifySettings: PrettifySettingsDraft;
+  prettifyProfileCatalog: PrettifyProfileCatalog;
   settings: EditableCloakBrowserSettings;
   textActionSettings: TextActionSettings;
   timezoneValues?: readonly string[];
@@ -243,7 +303,10 @@ export interface AppSettingsSaveResult {
   error?: string;
   fieldErrors?: AppSettingsFieldErrors;
   prettifySettingsSaved?: boolean;
-  prettifySettings?: PrettifySettings;
+  prettifySettings?: PrettifySettingsDraft;
+  prettifyProfileCatalogSaved?: boolean;
+  prettifyProfileCatalog?: PrettifyProfileCatalog;
+  prettifyProfileCatalogErrorCode?: PrettifyProfileCatalogSaveFailureCode;
   textActionSettingsSaved?: boolean;
   textActionSettings?: TextActionSettings;
   settingsSaved?: boolean;
@@ -256,7 +319,7 @@ export interface AppSettingsFormState {
   validationErrors: AppSettingsFieldErrors;
 }
 
-export type AppSettingsChangedGroup = 'prettify' | 'textActions' | 'cloakBrowser' | 'auditLog';
+export type AppSettingsChangedGroup = 'prettify' | 'prettifyProfiles' | 'textActions' | 'cloakBrowser' | 'auditLog';
 
 export interface SanitizedCloakBrowserSettingsSummary {
   humanize: boolean;
@@ -299,8 +362,7 @@ export interface AppSettingsLogSummary extends SanitizedPrettifyProviderSummary 
   changedFields: string[];
   diagnosticCaptureChangedCategories: DiagnosticCaptureCategory[];
   diagnosticCaptureSettings: DiagnosticCaptureSettings;
-  prettifyPromptChanged: boolean;
-  prettifyPromptLength: number;
+  prettifyProfilesChanged: boolean;
   prettifyProviderId: KnownPrettifyProviderId;
   textActions: TextActionSettings;
   cloakBrowser: SanitizedCloakBrowserSettingsSummary;
@@ -375,10 +437,7 @@ function collectChangedFields(changes: ReadonlyArray<readonly [boolean, string]>
 
 function collectPrettifyChangedFields(input: AppSettingsSaveInput): string[] {
   const { initialPrettifySettings: initial, prettifySettings: current } = input;
-  const commonChanges = collectChangedFields([
-    [current.prompt !== initial.prompt, 'prettifyPrompt'],
-    [current.providerId !== initial.providerId, 'prettifyProvider'],
-  ]);
+  const commonChanges = collectChangedFields([[current.providerId !== initial.providerId, 'prettifyProvider']]);
 
   const httpGenerationChanges = (): string[] =>
     collectChangedFields([
@@ -443,6 +502,10 @@ function collectTextActionChangedFields(input: AppSettingsSaveInput): string[] {
       'translateEnabled',
     ],
     [input.textActionSettings.prettifyEnabled !== input.initialTextActionSettings.prettifyEnabled, 'prettifyEnabled'],
+    [
+      input.textActionSettings.prettifyQuickEnabled !== input.initialTextActionSettings.prettifyQuickEnabled,
+      'prettifyQuickEnabled',
+    ],
   ]);
 }
 
@@ -553,6 +616,10 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
     changedGroups.push('prettify');
     changedFields.push(...prettifyChangedFields);
   }
+  if (!arePrettifyProfileCatalogsEqual(input.prettifyProfileCatalog, input.initialPrettifyProfileCatalog)) {
+    changedGroups.push('prettifyProfiles');
+    changedFields.push('prettifyProfiles');
+  }
   appendChangedGroup(changedGroups, changedFields, 'textActions', collectTextActionChangedFields(input));
   appendChangedGroup(changedGroups, changedFields, 'cloakBrowser', collectCloakBrowserChangedFields(input));
   const diagnosticCaptureChangedCategories = collectDiagnosticCaptureChangedCategories(input);
@@ -564,8 +631,10 @@ export function createAppSettingsLogSummary(input: AppSettingsSaveInput): AppSet
     changedFields,
     diagnosticCaptureChangedCategories,
     diagnosticCaptureSettings: input.diagnosticCaptureSettings,
-    prettifyPromptChanged: input.prettifySettings.prompt !== input.initialPrettifySettings.prompt,
-    prettifyPromptLength: input.prettifySettings.prompt.length,
+    prettifyProfilesChanged: !arePrettifyProfileCatalogsEqual(
+      input.prettifyProfileCatalog,
+      input.initialPrettifyProfileCatalog,
+    ),
     prettifyProviderId: input.prettifySettings.providerId,
     textActions: input.textActionSettings,
     cloakBrowser: createSanitizedCloakBrowserSettingsSummary(input.settings),
@@ -780,13 +849,6 @@ function validateCodexCliPrettifyProvider(
 }
 
 function validatePrettifySettings(settings: PrettifySettingsDraft, errors: AppSettingsFieldErrors): void {
-  const prompt = settings.prompt.trim();
-  if (!prompt) errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-required');
-  else if (prompt.length > MAX_PRETTIFY_PROMPT_LENGTH) {
-    errors.prettifyPrompt = createAppSettingsValidationError('prettify-prompt-too-long', {
-      max: String(MAX_PRETTIFY_PROMPT_LENGTH),
-    });
-  }
   if (!isKnownPrettifyProviderId(settings.providerId)) {
     errors.prettifyProvider = createAppSettingsValidationError('prettify-provider-invalid');
     return;
@@ -897,17 +959,18 @@ export function getAppSettingsFormState(input: AppSettingsSaveInput): AppSetting
   return {
     isDirty:
       !arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings) ||
+      !arePrettifyProfileCatalogsEqual(input.prettifyProfileCatalog, input.initialPrettifyProfileCatalog) ||
       !areTextActionSettingsEqual(input.textActionSettings, input.initialTextActionSettings) ||
       !areCloakBrowserSettingsEqual(input.settings, input.initialSettings) ||
       !areDiagnosticCaptureSettingsEqual(input.diagnosticCaptureSettings, input.initialDiagnosticCaptureSettings),
-    isValid: !hasAppSettingsFieldErrors(validationErrors),
+    isValid:
+      !hasAppSettingsFieldErrors(validationErrors) && isValidPrettifyProfileCatalog(input.prettifyProfileCatalog),
     validationErrors,
   };
 }
 
 export function arePrettifySettingsEqual(left: PrettifySettingsDraft, right: PrettifySettingsDraft): boolean {
   return (
-    left.prompt === right.prompt &&
     left.providerId === right.providerId &&
     left.temperature === right.temperature &&
     left.topP === right.topP &&
@@ -937,7 +1000,11 @@ export function arePrettifySettingsEqual(left: PrettifySettingsDraft, right: Pre
 }
 
 export function areTextActionSettingsEqual(left: TextActionSettings, right: TextActionSettings): boolean {
-  return left.translateEnabled === right.translateEnabled && left.prettifyEnabled === right.prettifyEnabled;
+  return (
+    left.translateEnabled === right.translateEnabled &&
+    left.prettifyEnabled === right.prettifyEnabled &&
+    left.prettifyQuickEnabled === right.prettifyQuickEnabled
+  );
 }
 
 /** Restores only the diagnostic toggles covered by a cancelled destructive confirmation. */
@@ -996,8 +1063,18 @@ export async function saveAppSettingsState(
       fieldErrors,
     };
   }
+  if (!isValidPrettifyProfileCatalog(input.prettifyProfileCatalog)) {
+    return {
+      success: false,
+      prettifyProfileCatalogErrorCode: 'invalid-catalog',
+    };
+  }
 
   const shouldSavePrettify = !arePrettifySettingsEqual(input.prettifySettings, input.initialPrettifySettings);
+  const shouldSavePrettifyProfiles = !arePrettifyProfileCatalogsEqual(
+    input.prettifyProfileCatalog,
+    input.initialPrettifyProfileCatalog,
+  );
   const shouldSaveTextActions = !areTextActionSettingsEqual(input.textActionSettings, input.initialTextActionSettings);
   const shouldSaveCloakBrowser = !areCloakBrowserSettingsEqual(input.settings, input.initialSettings);
   const shouldSaveDiagnosticCapture = !areDiagnosticCaptureSettingsEqual(
@@ -1009,13 +1086,29 @@ export async function saveAppSettingsState(
   };
 
   if (shouldSavePrettify) {
-    const prettifyResult = await deps.setPrettifySettings(input.prettifySettings);
+    const prettifyResult = await deps.setPrettifySettings(createPrettifyProviderSettingsInput(input.prettifySettings));
     if (prettifyResult.success && prettifyResult.settings) {
-      result.prettifySettings = prettifyResult.settings;
+      result.prettifySettings = createPrettifySettingsDraft(prettifyResult.settings);
       result.prettifySettingsSaved = true;
     } else {
       result.success = false;
       result.error = prettifyResult.error;
+    }
+  }
+
+  if (shouldSavePrettifyProfiles) {
+    if (!deps.savePrettifyProfileCatalog) {
+      result.success = false;
+      result.prettifyProfileCatalogErrorCode = 'save-failed';
+    } else {
+      const profileResult = await deps.savePrettifyProfileCatalog(input.prettifyProfileCatalog);
+      if (profileResult.success) {
+        result.prettifyProfileCatalog = profileResult.catalog;
+        result.prettifyProfileCatalogSaved = true;
+      } else {
+        result.success = false;
+        result.prettifyProfileCatalogErrorCode = profileResult.code;
+      }
     }
   }
 

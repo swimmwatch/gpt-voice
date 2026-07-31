@@ -18,7 +18,7 @@ describe('App Settings prettify models', () => {
     assert.match(prettifyController, /createPrettifyProviderModelOptions\(snapshot\)/u);
   });
 
-  it('runs CLI preflight only through an explicit list open or Refresh and ignores stale results', () => {
+  it('loads HTTP models on provider change while keeping CLI preflight explicit and ignoring stale results', () => {
     const prettifyController = readFileSync(PRETTIFY_CONTROLLER_PATH, 'utf8');
     const prettifySection = readFileSync(PRETTIFY_SECTION_PATH, 'utf8');
     const prettifyPanels = readFileSync(PRETTIFY_PANELS_PATH, 'utf8');
@@ -32,14 +32,55 @@ describe('App Settings prettify models', () => {
       prettifyController.indexOf('const initialize'),
     );
 
-    assert.doesNotMatch(providerChange, /listPrettifyModels/u);
     assert.match(providerChange, /modelRequestRef\.current \+= 1/u);
-    assert.match(refresh, /desktopApi\.listPrettifyModels\(providerId, settingsSnapshot\)/u);
+    assert.match(providerChange, /getPrettifyProviderCapabilities\(providerId\)\.baseUrl/u);
+    assert.match(providerChange, /requestModels\(transition\.settings, true\)/u);
+    assert.match(
+      refresh,
+      /desktopApi\.listPrettifyModels\(\s*providerId,\s*createPrettifyProviderSettingsInput\(settingsSnapshot\)/u,
+    );
     assert.match(refresh, /requestId !== modelRequestRef\.current/u);
     assert.match(refresh, /checkStatus: result\.success \? 'available' : 'unavailable'/u);
     assert.match(prettifySection, /onOpen=\{refreshCliModelsOnOpen\}/u);
     assert.equal((prettifyPanels.match(/if \(open\) onModelsOpen\(\);/gu) || []).length, 2);
     assert.match(searchableSelect, /if \(nextOpen && !isOpenRef\.current\) onOpen\?\.\(\);/u);
+  });
+
+  it('uses the strict prompt-free provider DTO for model discovery and lifecycle actions', () => {
+    const prettifyController = readFileSync(PRETTIFY_CONTROLLER_PATH, 'utf8');
+
+    assert.equal(
+      (
+        prettifyController.match(
+          /desktopApi\.(?:listPrettifyModels|loadPrettifyModel|unloadPrettifyModel)\([\s\S]{0,120}createPrettifyProviderSettingsInput\(/gu,
+        ) || []
+      ).length,
+      3,
+    );
+  });
+
+  it('keeps Refresh feedback layout stable until the model request settles', () => {
+    const prettifyController = readFileSync(PRETTIFY_CONTROLLER_PATH, 'utf8');
+    const prettifySection = readFileSync(PRETTIFY_SECTION_PATH, 'utf8');
+    const requestModels = prettifyController.slice(
+      prettifyController.indexOf('const requestModels'),
+      prettifyController.indexOf('const initialize'),
+    );
+    const pendingTransition = requestModels.slice(
+      requestModels.indexOf('setIsLoadingModels(true)'),
+      requestModels.indexOf('try {'),
+    );
+
+    assert.doesNotMatch(pendingTransition, /setModelError\(''\)|clearFieldErrors\('prettifyModel'\)/u);
+    assert.match(
+      requestModels,
+      /if \(!result\.success\) \{[\s\S]*setModelError\([\s\S]*return;[\s\S]*setModelError\(''\);[\s\S]*clearFieldErrors\('prettifyModel'\)/u,
+    );
+    assert.doesNotMatch(prettifySection, /LoaderCircle/u);
+    assert.match(
+      prettifySection,
+      /<RefreshCw[\s\S]*className=\{isLoadingModels \? 'animate-spin motion-reduce:animate-none' : undefined\}/u,
+    );
   });
 
   it('synchronizes an external provider selection without replacing dirty provider drafts', () => {

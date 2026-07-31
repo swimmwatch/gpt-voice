@@ -1,4 +1,12 @@
-export const HOTKEY_TARGETS = ['record', 'stop', 'cancel', 'translate', 'prettify', 'retryTranscription'] as const;
+export const HOTKEY_TARGETS = [
+  'record',
+  'stop',
+  'cancel',
+  'translate',
+  'prettify',
+  'prettifyQuick',
+  'retryTranscription',
+] as const;
 
 export type HotkeyTarget = (typeof HOTKEY_TARGETS)[number];
 
@@ -7,6 +15,7 @@ export const DEFAULT_STOP_HOTKEY = 'F10';
 export const DEFAULT_CANCEL_HOTKEY = 'Escape';
 export const DEFAULT_TRANSLATE_HOTKEY = 'F11';
 export const DEFAULT_PRETTIFY_HOTKEY = 'F12';
+export const DEFAULT_PRETTIFY_QUICK_HOTKEY = 'Ctrl+F12';
 export const DEFAULT_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F8';
 
 export interface HotkeySettings {
@@ -15,6 +24,7 @@ export interface HotkeySettings {
   stopHotkey: string;
   translateHotkey: string;
   prettifyHotkey: string;
+  prettifyQuickHotkey: string;
   retryTranscriptionHotkey: string;
 }
 
@@ -45,6 +55,7 @@ const MODIFIER_ALIASES: Record<string, string> = {
 
 const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Command', 'Super', 'CommandOrControl'];
 const MODIFIER_EVENT_KEYS = new Set(['Alt', 'Control', 'Meta', 'Shift']);
+const PRETTIFY_HOTKEY_TARGETS: ReadonlySet<HotkeyTarget> = new Set(['prettify', 'prettifyQuick']);
 const KEY_ALIASES: Record<string, string> = {
   ' ': 'Space',
   ArrowDown: 'Down',
@@ -58,12 +69,26 @@ const KEY_ALIASES: Record<string, string> = {
 };
 
 function getHotkeyForTarget(settings: HotkeySettings, target: HotkeyTarget): string {
-  if (target === 'record') return settings.hotkey;
-  if (target === 'stop') return settings.stopHotkey;
-  if (target === 'cancel') return settings.cancelHotkey;
-  if (target === 'translate') return settings.translateHotkey;
-  if (target === 'prettify') return settings.prettifyHotkey;
-  return settings.retryTranscriptionHotkey;
+  switch (target) {
+    case 'record':
+      return settings.hotkey;
+    case 'stop':
+      return settings.stopHotkey;
+    case 'cancel':
+      return settings.cancelHotkey;
+    case 'translate':
+      return settings.translateHotkey;
+    case 'prettify':
+      return settings.prettifyHotkey;
+    case 'prettifyQuick':
+      return settings.prettifyQuickHotkey;
+    case 'retryTranscription':
+      return settings.retryTranscriptionHotkey;
+  }
+}
+
+function arePrettifySiblingTargets(first: HotkeyTarget, second: HotkeyTarget): boolean {
+  return first !== second && PRETTIFY_HOTKEY_TARGETS.has(first) && PRETTIFY_HOTKEY_TARGETS.has(second);
 }
 
 function normalizeHotkeyKey(key: string): string | null {
@@ -105,6 +130,16 @@ export function normalizeHotkey(hotkey: string): string | null {
   return parseHotkey(hotkey)?.accelerator ?? null;
 }
 
+export function normalizeHotkeyForPlatform(hotkey: string, platform: NodeJS.Platform): string | null {
+  const normalized = normalizeHotkey(hotkey);
+  if (!normalized) return null;
+  const platformSpecific =
+    platform === 'darwin'
+      ? normalized.replace(/\bCommandOrControl\b/gu, 'Command').replace(/\bSuper\b/gu, 'Command')
+      : normalized.replace(/\bCommandOrControl\b/gu, 'Ctrl').replace(/\bCommand\b/gu, 'Super');
+  return normalizeHotkey(platformSpecific);
+}
+
 export function getHotkeyFromKeyboardEvent(event: HotkeyKeyboardEvent, platform: NodeJS.Platform): string | null {
   if (MODIFIER_EVENT_KEYS.has(event.key)) return null;
 
@@ -121,19 +156,20 @@ export function getHotkeyConflict(
   target: HotkeyTarget,
   candidate: string,
   settings: HotkeySettings,
+  platform: NodeJS.Platform,
 ): HotkeyTarget | null {
-  const parsedCandidate = parseHotkey(candidate);
+  const parsedCandidate = parseHotkey(normalizeHotkeyForPlatform(candidate, platform) ?? '');
   if (!parsedCandidate) return null;
 
   for (const existingTarget of HOTKEY_TARGETS) {
     if (existingTarget === target) continue;
-    const existing = parseHotkey(getHotkeyForTarget(settings, existingTarget));
+    const existing = parseHotkey(
+      normalizeHotkeyForPlatform(getHotkeyForTarget(settings, existingTarget), platform) ?? '',
+    );
     if (!existing || existing.key !== parsedCandidate.key) continue;
-    if (
-      existing.accelerator === parsedCandidate.accelerator ||
-      existing.modifiers.length === 0 ||
-      parsedCandidate.modifiers.length === 0
-    ) {
+    if (existing.accelerator === parsedCandidate.accelerator) return existingTarget;
+    if (arePrettifySiblingTargets(target, existingTarget)) continue;
+    if (existing.modifiers.length === 0 || parsedCandidate.modifiers.length === 0) {
       return existingTarget;
     }
   }
@@ -141,9 +177,9 @@ export function getHotkeyConflict(
   return null;
 }
 
-export function getConflictingHotkeyTargets(settings: HotkeySettings): HotkeyTarget[] {
+export function getConflictingHotkeyTargets(settings: HotkeySettings, platform: NodeJS.Platform): HotkeyTarget[] {
   return HOTKEY_TARGETS.filter((target) =>
-    Boolean(getHotkeyConflict(target, getHotkeyForTarget(settings, target), settings)),
+    Boolean(getHotkeyConflict(target, getHotkeyForTarget(settings, target), settings, platform)),
   );
 }
 

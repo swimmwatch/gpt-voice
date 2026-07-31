@@ -7,7 +7,7 @@ import type { TextActionSettings } from '@shared/textActionSettings';
 interface ShortcutsSectionProps {
   getHotkeyValue: (target: HotkeyTarget) => string;
   onHotkeyChange: (target: HotkeyTarget) => void;
-  onTextActionEnabledChange: (key: 'prettifyEnabled' | 'translateEnabled', enabled: boolean) => void;
+  onTextActionEnabledChange: (key: keyof TextActionSettings, enabled: boolean) => void;
   t: TranslationFunction;
   textActionSettings: TextActionSettings;
 }
@@ -32,7 +32,9 @@ function ShortcutsSection({
                 ? textActionSettings.translateEnabled
                 : target === 'prettify'
                   ? textActionSettings.prettifyEnabled
-                  : undefined
+                  : target === 'prettifyQuick'
+                    ? textActionSettings.prettifyQuickEnabled
+                    : undefined
             }
             key={target}
             label={t(`hotkey.${target}`)}
@@ -42,7 +44,9 @@ function ShortcutsSection({
                 ? (enabled) => onTextActionEnabledChange('translateEnabled', enabled)
                 : target === 'prettify'
                   ? (enabled) => onTextActionEnabledChange('prettifyEnabled', enabled)
-                  : undefined
+                  : target === 'prettifyQuick'
+                    ? (enabled) => onTextActionEnabledChange('prettifyQuickEnabled', enabled)
+                    : undefined
             }
             value={getHotkeyValue(target)}
           />

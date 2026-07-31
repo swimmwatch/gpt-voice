@@ -1,12 +1,4 @@
-import {
-  ChevronDown,
-  CircleHelp,
-  LoaderCircle,
-  MemoryStick,
-  MoreHorizontal,
-  RefreshCw,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { ChevronDown, CircleHelp, MemoryStick, MoreHorizontal, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { formatByteSize } from '@renderer/byteFormatting';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
@@ -32,7 +24,6 @@ import { Field } from '@renderer/components/ui/field';
 import { Input } from '@renderer/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import { Slider } from '@renderer/components/ui/slider';
-import { Textarea } from '@renderer/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import {
   getCodexCliModelControls,
@@ -84,7 +75,6 @@ interface PrettifySectionProps {
   onMinPChange: (value: number) => void;
   onModelActionMenuOpenChange: (open: boolean) => void;
   onModelChange: (value: string) => void;
-  onPromptChange: (value: string) => void;
   onProviderChange: (providerId: PrettifyProviderId) => void;
   onRefreshModels: () => void;
   onRepeatPenaltyChange: (value: number) => void;
@@ -151,7 +141,6 @@ function PrettifySection({
   onMinPChange,
   onModelActionMenuOpenChange,
   onModelChange,
-  onPromptChange,
   onProviderChange,
   onRefreshModels,
   onRepeatPenaltyChange,
@@ -229,10 +218,10 @@ function PrettifySection({
           : t('prettify.cli.statusUnchecked');
 
   return (
-    <section aria-labelledby="prettify-heading" className="grid gap-5 pb-4">
-      <h2 className="text-base font-semibold text-foreground" id="prettify-heading">
-        {t('appSettings.prettify')}
-      </h2>
+    <section aria-labelledby="prettify-provider-heading" className="grid gap-4">
+      <h3 className="text-sm font-semibold text-foreground" id="prettify-provider-heading">
+        {t('prettify.profiles.providerAndGeneration')}
+      </h3>
 
       <div className="grid gap-4">
         <Field error={providerError} id="prettify-provider" label={t('prettify.provider')}>
@@ -385,11 +374,10 @@ function PrettifySection({
                   title={t('prettify.refreshModels')}
                   variant="outline"
                 >
-                  {isLoadingModels ? (
-                    <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-                  ) : (
-                    <RefreshCw aria-hidden="true" />
-                  )}
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={isLoadingModels ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -545,14 +533,6 @@ function PrettifySection({
             </CollapsibleContent>
           </div>
         </Collapsible>
-
-        <Field error={fieldError('prettifyPrompt')} label={t('prettify.prompt')} required>
-          <Textarea
-            className="min-h-40"
-            onChange={(event) => onPromptChange(event.target.value)}
-            value={prettifySettings.prompt}
-          />
-        </Field>
       </div>
     </section>
   );

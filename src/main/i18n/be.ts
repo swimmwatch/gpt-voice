@@ -1,4 +1,7 @@
+import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+
 export default {
+  ...getPrettifyProfileSettingsTranslations('be'),
   'translate.provider': 'Пастаўшчык перакладу',
   'translate.saving': 'Захаванне...',
   'translate.settingsSaveFailed': 'Не ўдалося захаваць налады перакладу',
@@ -36,6 +39,9 @@ export default {
 
   // Notifications
   'notification.textCopied': 'Тэкст скапіяваны',
+  'notification.prettifyProfileCatalogRepaired': 'Профілі Prettify адноўлены',
+  'notification.prettifyProfileCatalogRepairedBody':
+    'Няправільныя налады профіляў Prettify адноўлены з бяспечнымі значэннямі па змаўчанні.',
   'notification.textCopiedNoTranslation': 'Тэкст скапіяваны (без перакладу)',
   'notification.transcriptionFailed': 'Не ўдалося распазнаць тэкст',
   'notification.translationFailed': 'Не ўдалося перакласці',
@@ -295,6 +301,17 @@ export default {
   'notification.diagnosticsExportFailed': 'Не ўдалося экспартаваць дыягностыку',
   'notification.diagnosticsExportFailedBody': 'Не ўдалося захаваць архіў дыягностыкі. Паспрабуйце яшчэ раз.',
 
+  'prettify.profilePortability.exportDialogTitle': 'Экспартаваць профілі Prettify',
+  'prettify.profilePortability.importDialogTitle': 'Імпартаваць профілі Prettify',
+  'prettify.profilePortability.replaceUnavailableDualConflict':
+    'Замена недаступная: ID і назва супадаюць з рознымі лакальнымі профілямі.',
+  'notification.prettifyProfilesExportSaved': 'Профілі Prettify экспартаваныя',
+  'notification.prettifyProfilesExportSavedBody': 'Выбраныя профілі захаваныя ў адкрытым фармаце JSON.',
+  'notification.prettifyProfilesExportFailed': 'Не ўдалося экспартаваць профілі Prettify',
+  'notification.prettifyProfilesExportFailedBody': 'Не ўдалося захаваць выбраныя профілі. Паспрабуйце яшчэ раз.',
+  'notification.prettifyProfilesImportFailed': 'Не ўдалося імпартаваць профілі Prettify',
+  'notification.prettifyProfilesImportFailedBody': 'Не ўдалося імпартаваць файл профіляў.',
+
   // History
   'history.open': 'Гісторыя',
   'history.title': 'Гісторыя транскрыбаванняў',
@@ -334,6 +351,7 @@ export default {
   'hotkey.cancel': 'Скасаваць',
   'hotkey.translate': 'Пераклад',
   'hotkey.prettify': 'Паляпшэнне',
+  'hotkey.prettifyQuick': 'Хуткае паляпшэнне',
   'hotkey.retryTranscription': 'Адправіць транскрыпцыю зноў',
   'hotkey.change': 'Змяніць',
   'hotkey.enabled': '{target}: уключана',
@@ -352,6 +370,33 @@ export default {
 
   // Prettify
   'prettify.prompt': 'Prompt паляпшэння тэксту',
+  'prettify.profile.promptReady.name': 'Гатовы промпт',
+  'prettify.profile.promptReady.description': 'Ператварае чарнавы тэкст у зразумелы, структураваны промпт для ШІ.',
+  'prettify.profile.polish.name': 'Рэдагаванне',
+  'prettify.profile.polish.description':
+    'Выпраўляе граматыку, прыбірае словы-паразіты і ўдакладняе тэкст, не змяняючы сэнс.',
+  'prettify.profile.professional.name': 'Прафесійны',
+  'prettify.profile.professional.description':
+    'Выкарыстоўвае фармальную і дакладную мову для працоўных і тэхнічных задач.',
+  'prettify.profile.natural.name': 'Натуральны',
+  'prettify.profile.natural.description': 'Прыбірае артэфакты дыктоўкі, захоўваючы ваш стыль.',
+  'prettify.chooser.title': 'Выберыце профіль Prettify',
+  'prettify.chooser.description': 'Выберыце, як GPT-Voice павінен пераўтварыць вылучаны тэкст.',
+  'prettify.chooser.originalText': 'Зыходны тэкст',
+  'prettify.chooser.readOnly': 'Толькі для чытання',
+  'prettify.chooser.profiles': 'Профілі',
+  'prettify.chooser.selected': 'Выбрана: {profile}',
+  'prettify.chooser.searchProfiles': 'Пошук профіляў',
+  'prettify.chooser.profilesAvailable': 'Даступна профіляў: {count}.',
+  'prettify.chooser.default': 'Па змаўчанні',
+  'prettify.chooser.builtIn': 'Убудаваны',
+  'prettify.chooser.custom': 'Карыстальніцкі',
+  'prettify.chooser.listLabel': 'Профілі Prettify',
+  'prettify.chooser.noProfilesFound': 'Профілі не знойдзены',
+  'prettify.chooser.tryDifferentSearch': 'Паспрабуйце іншую назву або апісанне.',
+  'prettify.chooser.manageProfiles': 'Кіраванне профілямі',
+  'prettify.chooser.cancel': 'Адмена',
+  'prettify.chooser.apply': 'Прымяніць',
   'prettify.reasoning': 'Reasoning',
   'prettify.reasoning.instant': 'Instant',
   'prettify.reasoning.standard': 'Standard',
@@ -440,6 +485,8 @@ export default {
   'prettify.modelNotLoaded': 'Мадэль {model} не загружана ў памяць',
   'prettify.modelLoadFailed': 'Не ўдалося загрузіць мадэль',
   'prettify.modelUnloadFailed': 'Не ўдалося выгрузіць мадэль',
+  'prettify.vllmGpuReleaseWarning':
+    'Правайдар зменены, але vLLM не вызваліў памяць GPU. Уключыце sleep mode у vLLM для аўтаматычнай ачысткі.',
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',

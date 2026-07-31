@@ -1,5 +1,7 @@
-import { Circle } from 'lucide-react';
+import { CircleCheck, CircleOff, LoaderCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { Badge } from '@renderer/components/ui/badge';
+import { cn } from '@renderer/lib/cn';
 
 export type ProviderStatusTone = 'error' | 'neutral' | 'success' | 'warning';
 
@@ -9,6 +11,7 @@ interface ProviderStatusIndicatorProps {
   readonly className?: string;
   readonly dataSlot: string;
   readonly label: string;
+  readonly loading?: boolean;
   readonly role?: 'alert' | 'status';
   readonly tone: ProviderStatusTone;
   readonly tooltip: string;
@@ -27,25 +30,30 @@ export function ProviderStatusIndicator({
   className = '',
   dataSlot,
   label,
+  loading = false,
   role = 'status',
   tone,
   tooltip,
 }: ProviderStatusIndicatorProps): React.JSX.Element {
   const accessibleName = getProviderStatusAccessibleName(label, tooltip);
+  const StatusIcon = loading ? LoaderCircle : tone === 'success' ? CircleCheck : CircleOff;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
+        <Badge
           aria-label={accessibleName}
-          className={`${className} is-${tone}`.trim()}
+          className={cn('provider-status-badge border-0 bg-transparent', className, `is-${tone}`)}
           data-slot={dataSlot}
           role={role}
           tabIndex={0}
         >
-          <Circle aria-hidden="true" fill="currentColor" strokeWidth={0} />
-          <span>{label}</span>
-        </span>
+          <StatusIcon
+            aria-hidden="true"
+            className={loading ? 'animate-spin motion-reduce:animate-none' : undefined}
+            strokeWidth={1.75}
+          />
+        </Badge>
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>

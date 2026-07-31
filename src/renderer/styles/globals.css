@@ -323,39 +323,70 @@
 
 .command-dock-provider-state {
   display: inline-flex;
-  min-width: 0;
+  width: 37px;
+  height: 34px;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
   align-items: center;
-  gap: 7px;
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: var(--dock-muted);
-  font-size: 11.92px;
-  font-weight: 500;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
   grid-column: 1;
   grid-row: 1;
-  line-height: 1.2;
 }
 
 .command-dock-provider-state svg {
-  width: 8px;
-  height: 8px;
+  width: 22px;
+  height: 22px;
   flex: none;
 }
 
-.command-dock-provider-state > span {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.provider-status-badge {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  gap: 0;
+  padding: 0;
+}
+
+.provider-status-badge.command-dock-provider-state {
+  width: 37px;
+  height: 34px;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
+}
+
+.provider-status-badge.is-neutral {
+  color: var(--dock-muted);
+}
+
+.provider-status-badge.is-success {
+  color: var(--dock-success);
+}
+
+.provider-status-badge.is-warning {
+  color: var(--warning);
+}
+
+.provider-status-badge.is-error {
+  color: var(--destructive);
 }
 
 .command-dock-provider-state-success {
   color: var(--dock-success);
 }
 
-.command-dock-provider-state:focus-visible,
-.command-dock-prettify-state:focus-visible {
+.command-dock-provider-state:focus-visible {
   border-radius: 3px;
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -372,6 +403,34 @@
   font-size: 10.51px;
   grid-column: 1;
   grid-row: 1;
+}
+
+.command-dock .command-dock-provider-action[data-icon-only='true'] {
+  width: 37px;
+  height: 34px;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--dock-control-border);
+  border-radius: 3.5px;
+  background: var(--dock-surface);
+  color: var(--dock-icon);
+  justify-self: start;
+}
+
+.command-dock .command-dock-provider-action[data-icon-only='true']:not(:disabled):hover {
+  background: var(--surface-raised);
+  color: var(--dock-foreground);
+}
+
+.command-dock .command-dock-provider-action[data-icon-only='true'] svg,
+.command-dock .command-dock-provider-action[data-icon-only='true'] [data-slot='spinner'] {
+  width: 22px;
+  height: 22px;
 }
 
 .command-dock .command-dock-provider-action span {
@@ -494,42 +553,6 @@
   white-space: nowrap;
 }
 
-.command-dock-prettify-state {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 5px;
-  color: var(--dock-muted);
-  font-size: 9.81px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.command-dock-prettify-state > svg {
-  width: 7px;
-  height: 7px;
-  flex: none;
-}
-
-.command-dock-prettify-state > span {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-dock-prettify-state.is-success {
-  color: var(--dock-success);
-}
-
-.command-dock-prettify-state.is-warning {
-  color: var(--warning);
-}
-
-.command-dock-prettify-state.is-error {
-  color: var(--destructive);
-}
-
 .command-dock-prettify-controls {
   display: grid;
   width: var(--dock-provider-controls-width);
@@ -537,6 +560,10 @@
   align-items: center;
   gap: 7px;
   grid-template-columns: minmax(0, 1fr) 37px;
+}
+
+.command-dock-prettify-controls[data-has-model-action='true'] {
+  grid-template-columns: minmax(0, 1fr) 37px 37px;
 }
 
 .command-dock-prettify-connection {
@@ -557,18 +584,21 @@
 }
 
 .command-dock .command-dock-prettify-model-action {
-  width: 68px;
-  height: 27px;
-  gap: 5px;
-  padding: 0 4px;
+  width: 37px;
+  height: 34px;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
   border-color: var(--dock-control-border);
   border-radius: 3.5px;
   background: var(--dock-surface);
-  color: var(--dock-foreground);
+  color: var(--dock-icon);
   cursor: pointer;
-  font-size: 10.51px;
-  font-weight: 500;
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
 }
 
@@ -578,14 +608,12 @@
 }
 
 .command-dock .command-dock-prettify-model-action svg {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
 }
 
-.command-dock .command-dock-prettify-model-action span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.command-dock-prettify-controls[data-has-model-action='true'] .command-dock-prettify-settings-shortcut {
+  grid-column: 3;
 }
 
 .command-dock .command-dock-prettify-settings-shortcut {
@@ -801,14 +829,11 @@
 }
 
 .command-dock-translation-connection {
-  width: 100%;
-  overflow: hidden;
+  width: 37px;
   color: var(--destructive);
   grid-column: 4;
   grid-row: 1;
-  justify-self: stretch;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  justify-self: start;
 }
 
 .command-dock-translation-connection.is-success {
@@ -878,6 +903,14 @@
   .command-dock-prettify-summary,
   .command-dock .command-dock-prettify-model-action {
     display: none;
+  }
+
+  .command-dock-prettify-controls[data-has-model-action='true'] {
+    grid-template-columns: minmax(0, 1fr) 37px;
+  }
+
+  .command-dock-prettify-controls[data-has-model-action='true'] .command-dock-prettify-settings-shortcut {
+    grid-column: 2;
   }
 
   .command-dock .command-dock-prettify-provider-trigger {
