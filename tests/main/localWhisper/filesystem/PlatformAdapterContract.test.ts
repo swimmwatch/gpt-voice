@@ -36,7 +36,18 @@ describe('platform adapter contract', () => {
   });
 
   test('keeps the Windows guard on handle-relative and identity-aware primitives', () => {
-    const source = readFileSync(path.resolve('runtime', 'local-whisper', 'fs-guard', 'windows_main.cpp'), 'utf8');
+    const source = readFileSync(
+      path.resolve(
+        'runtime',
+        'local-whisper',
+        'fs-guard',
+        'src',
+        'platform',
+        'windows',
+        'windows_backend.cpp',
+      ),
+      'utf8',
+    );
 
     for (const primitive of [
       'NtCreateFile',
@@ -46,8 +57,8 @@ describe('platform adapter contract', () => {
       'FileStreamInfo',
       'GetProcessTimes',
       'PROTECTED_DACL_SECURITY_INFORMATION',
-      'DELETE_STAGING_FILE',
-      'REMOVE_STAGING',
+      'delete_staging_file',
+      'remove_staging',
     ]) {
       assert.ok(source.includes(primitive), `missing Windows guard primitive: ${primitive}`);
     }
@@ -55,7 +66,18 @@ describe('platform adapter contract', () => {
   });
 
   test('keeps the Linux guard on openat2 and descriptor-relative mutation primitives', () => {
-    const source = readFileSync(path.resolve('runtime', 'local-whisper', 'fs-guard', 'main.cpp'), 'utf8');
+    const source = readFileSync(
+      path.resolve(
+        'runtime',
+        'local-whisper',
+        'fs-guard',
+        'src',
+        'platform',
+        'linux',
+        'linux_backend.cpp',
+      ),
+      'utf8',
+    );
 
     for (const primitive of [
       'SYS_openat2',

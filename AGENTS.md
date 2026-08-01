@@ -38,6 +38,16 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Stateful business services access external sources through domain repository interfaces; concrete SQLite, HTTP, browser, CLI, and filesystem adapters have focused integration tests.
 - Do not create module-level containers or constructed mutable runtime instances. A process-owned composition root transfers them to the application lifecycle; immutable constants, pure functions, readonly lookups, and React contexts remain allowed.
 
+### C++
+
+- Write modular C++20 with high cohesion, low coupling, and clear ownership; optimize for cognitive clarity before cleverness.
+- Use OOP for state, lifecycle, and resource ownership, and pure functions for genuinely stateless transformations. Inject dependencies through narrow testable interfaces.
+- Apply every SOLID principle, DRY only for stable shared behavior, and YAGNI; do not add speculative layers or pass-through abstractions.
+- Use RAII for every native resource, deterministic non-throwing cleanup, explicit safe error contracts, and no mutable global runtime state or raw resource ownership.
+- Isolate platform APIs behind Linux/Windows backends and preserve shared contract tests. Integration tests use validated temporary roots only and never broad recursive actions against user data.
+- Treat warnings as errors; require clang-format, clang-tidy, Linux sanitizers, native unit/integration tests, and equivalent Windows MSVC tests for changed native code.
+- Preserve filesystem/process trust boundaries and privacy: no unchecked path traversal, shell execution, sensitive stdout/logging, or generated build artifacts in commits.
+
 ## State And Handoffs
 
 - For a global task, use one `docs/specs/<slug>/` directory with `spec.md`, `tasks/plan.md`, `tasks/todo.md`, `tasks/handoff.md`, and one `tasks/NN_<slug>.md` packet per executable task.

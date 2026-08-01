@@ -21,6 +21,73 @@ env:
   CLOAKBROWSER_AUTO_UPDATE: 'false'
 
 jobs:
+  native-quality-linux:
+    name: Local Whisper Native Quality (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CXX: clang++-18
+      CLANG_FORMAT: clang-format-18
+      CLANG_TIDY: clang-tidy-18
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install native toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build clang-18 clang-format-18 clang-tidy-18
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Check native formatting
+        run: npm run format:check:local-whisper:fs-guard
+
+      - name: Run clang-tidy
+        run: npm run lint:local-whisper:fs-guard
+
+      - name: Run sanitized native unit and integration tests
+        run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run Node/native filesystem compatibility tests
+        run: npm run test:local-whisper:filesystem
+
+      - name: Verify Linux filesystem fixture
+        run: npm run verify:local-whisper:filesystem -- --fixture
+
+  native-quality-windows:
+    name: Local Whisper Native Quality (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Run MSVC native unit and integration tests
+        run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run Windows Node/native filesystem compatibility tests
+        run: npm run test:local-whisper:filesystem
+
   quality:
     name: Quality Gates
     runs-on: ubuntu-latest
