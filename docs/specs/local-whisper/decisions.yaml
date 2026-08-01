@@ -1799,3 +1799,75 @@ decisions:
     rationale: The user explicitly approved the revised 16-packet implementation contract; approval does not authorize Task 01 or any implementation action.
     supersedes_revision: 1
     requirement_ids: []
+
+  - id: execution.task-01
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Specification and plan revision 2 are approved, and Task 01 is the first unchecked packet.
+      - Task 01 is self-contained shared TypeScript domain and validation work with no dependency, IPC, process, download, publication, or release scope.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 01 and does not authorize Task 02, a commit, push, pull request, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-01-authorization-round-07
+      question_id: execution.task-01
+      idempotency_key: execution.task-01:v2
+      last_status: answered
+      revision: 2
+    question:
+      text: Should Task 01 Shared Local Whisper Domain Contracts be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-01
+          label: Authorize Task 01 (Recommended)
+          description: Implement and verify only Task 01, update todo and handoff, then stop without committing or starting Task 02.
+        - id: do-not-authorize-task-01
+          label: Do not authorize
+          description: Make no production-code changes and leave Task 01 incomplete.
+        - id: revise-task-01
+          label: Revise Task 01
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-01]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 01 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: commit.task-01
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 01 is complete and its handoff checks were repeated successfully at the next incremental-implementation boundary.
+      - The Task 01 file set is separable from existing unrelated changes in one main-process controller and two main-process tests.
+      - Authorization covers one isolated Task 01 commit only and does not authorize Task 02 execution, a push, pull request, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-01-commit-round-08
+      question_id: commit.task-01
+      idempotency_key: commit.task-01:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should the completed Task 01 be committed in isolation before the next packet starts?
+      kind: single
+      options:
+        - id: authorize-task-01-commit
+          label: Authorize commit (Recommended)
+          description: Commit only Local Whisper Task 01, its tests, and task/decision artifacts; exclude the three unrelated modified files.
+        - id: do-not-commit
+          label: Do not commit
+          description: Stop, leave Task 01 uncommitted, and do not begin Task 02.
+        - id: revise-before-commit
+          label: Review first
+          description: Do not commit and stop for separate Task 01 review or revision.
+    answer:
+      selected_ids: [authorize-task-01-commit]
+      text: ''
+    rationale: The user explicitly authorized one isolated commit containing only the completed Task 01 file set.
+    supersedes_revision: null
+    requirement_ids: []

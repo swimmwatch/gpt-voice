@@ -1,10 +1,11 @@
 # Todo: Local Whisper
 
 Plan gate: revision 2 is approved after adding six-family approximate RAM/VRAM
-guidance and exact selected-configuration estimate rules. Task 01 execution
-remains unauthorized and no packet execution has started.
+guidance and exact selected-configuration estimate rules. Task 01 was
+authorized through `execution.task-01` revision 2 and is complete; Task 02 is
+not authorized.
 
-- [ ] [01 Shared domain contracts](01_shared_domain_contracts.md)
+- [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [ ] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)
 - [ ] [03 Trusted catalog, settings, and inventory](03_trusted_catalog_settings_and_inventory.md)
 - [ ] [04 Managed filesystem safety](04_managed_filesystem_safety.md)
