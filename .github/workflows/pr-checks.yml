@@ -51,11 +51,23 @@ jobs:
       - name: Check native formatting
         run: npm run format:check:local-whisper:fs-guard
 
+      - name: Check launcher formatting
+        run: npm run format:check:local-whisper:launcher
+
       - name: Run clang-tidy
         run: npm run lint:local-whisper:fs-guard
 
+      - name: Run launcher clang-tidy
+        run: npm run lint:local-whisper:launcher
+
       - name: Run sanitized native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run sanitized launcher unit and process-tree integration tests
+        run: npm run test:local-whisper:launcher:native
+
+      - name: Run Local Whisper supervisor conformance tests
+        run: npm run test:local-whisper:supervisor
 
       - name: Run Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
@@ -84,6 +96,12 @@ jobs:
 
       - name: Run MSVC native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run MSVC launcher unit and Job Object integration tests
+        run: npm run test:local-whisper:launcher:native
+
+      - name: Run Local Whisper supervisor conformance tests
+        run: npm run test:local-whisper:supervisor
 
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem

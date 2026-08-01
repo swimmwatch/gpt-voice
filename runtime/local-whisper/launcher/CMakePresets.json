@@ -1,0 +1,86 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-release",
+      "displayName": "Linux production Local Whisper launcher",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-linux-release",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-test",
+      "displayName": "Linux sanitized Local Whisper launcher tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-linux-test",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "windows-release",
+      "displayName": "Windows production Local Whisper launcher",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-windows-release",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF"
+      }
+    },
+    {
+      "name": "windows-test",
+      "displayName": "Windows MSVC Local Whisper launcher tests",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-windows-test",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "linux-test",
+      "configurePreset": "linux-test"
+    },
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-test",
+      "configurePreset": "windows-test",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-unit",
+      "configurePreset": "linux-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "windows-unit",
+      "configurePreset": "windows-test",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    }
+  ]
+}

@@ -1,4 +1,21 @@
-import { hasLocalWhisperControlCharacter, isLocalWhisperFailureCode, type LocalWhisperFailureCode } from './domain';
+import {
+  LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS,
+  isLocalWhisperModelIdentity,
+  type LocalWhisperResidencyKey,
+} from './catalog';
+import {
+  hasLocalWhisperControlCharacter,
+  isLocalWhisperBackend,
+  isLocalWhisperEngine,
+  isLocalWhisperFailureCode,
+  isLocalWhisperTarget,
+  toLocalWhisperOpaqueDeviceId,
+  toLocalWhisperRevisionId,
+  type LocalWhisperBackend,
+  type LocalWhisperEngine,
+  type LocalWhisperFailureCode,
+  type LocalWhisperRevisionId,
+} from './domain';
 import {
   getLocalWhisperPromptValidationError,
   LOCAL_WHISPER_MAX_CANDIDATE_COUNT,
@@ -11,13 +28,44 @@ export const LOCAL_WHISPER_WORKER_PROTOCOL_VERSION = 1 as const;
 export const LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES = 1024 * 1024;
 export const LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES = 1024 * 1024;
 export const LOCAL_WHISPER_FRAME_LENGTH_BYTES = 4;
+export const LOCAL_WHISPER_FRAME_KIND_BYTES = 1;
+export const LOCAL_WHISPER_FRAME_HEADER_BYTES = LOCAL_WHISPER_FRAME_LENGTH_BYTES + LOCAL_WHISPER_FRAME_KIND_BYTES;
+export const LOCAL_WHISPER_CONTROL_FRAME_KIND = 0x01 as const;
+export const LOCAL_WHISPER_AUDIO_FRAME_KIND = 0x02 as const;
+export const LOCAL_WHISPER_MAX_REQUEST_ID_BYTES = 128;
+export const LOCAL_WHISPER_MAX_CAPABILITY_COUNT = 32;
+export const LOCAL_WHISPER_MAX_CAPABILITY_BYTES = 64;
+export const LOCAL_WHISPER_MAX_MODEL_PATH_BYTES = 32 * 1024;
+
+const AUDIO_BODY_FIXED_BYTES = 1 + 1 + 4 + 2;
+const AUDIO_BODY_VERSION_OFFSET = LOCAL_WHISPER_FRAME_HEADER_BYTES;
+const AUDIO_BODY_FINAL_OFFSET = AUDIO_BODY_VERSION_OFFSET + 1;
+const AUDIO_BODY_SEQUENCE_OFFSET = AUDIO_BODY_FINAL_OFFSET + 1;
+const AUDIO_BODY_REQUEST_LENGTH_OFFSET = AUDIO_BODY_SEQUENCE_OFFSET + 4;
+const AUDIO_BODY_REQUEST_OFFSET = AUDIO_BODY_REQUEST_LENGTH_OFFSET + 2;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const CAPABILITY_PATTERN = /^[\w.:+-]+$/u;
+
+export type LocalWhisperFrameKind = typeof LOCAL_WHISPER_AUDIO_FRAME_KIND | typeof LOCAL_WHISPER_CONTROL_FRAME_KIND;
 
 export interface LocalWhisperWorkerTranscriptionOptions {
   readonly language: string | null;
   readonly initialPrompt: string;
   readonly temperatureHundredths: number;
-  readonly strategy: 'greedy' | 'beamSearch' | 'bestOfSampling';
+  readonly strategy: 'beamSearch' | 'bestOfSampling' | 'greedy';
   readonly candidateCount: number | null;
+}
+
+export interface LocalWhisperWorkerHelloAck {
+  readonly type: 'helloAck';
+  readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
+  readonly engine: LocalWhisperEngine;
+  readonly runtimeRevision: LocalWhisperRevisionId;
+  readonly runtimeBuildDigest: string;
+  readonly backend: LocalWhisperBackend;
+  readonly capabilities: readonly string[];
+  readonly maxControlFrameBytes: typeof LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES;
+  readonly maxAudioChunkBytes: typeof LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES;
 }
 
 export type LocalWhisperWorkerClientMessage =
@@ -25,63 +73,30 @@ export type LocalWhisperWorkerClientMessage =
       readonly type: 'hello';
       readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
     }
-  | {
-      readonly type: 'load';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-      readonly residencyKey: string;
-    }
-  | {
-      readonly type: 'unload';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-    }
-  | {
-      readonly type: 'transcribe';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
+  | LocalWhisperWorkerRequest<'probe'>
+  | (LocalWhisperWorkerRequest<'load'> & {
+      readonly modelPath: string;
+      readonly residency: LocalWhisperResidencyKey;
+    })
+  | LocalWhisperWorkerRequest<'warmup'>
+  | LocalWhisperWorkerRequest<'unload'>
+  | (LocalWhisperWorkerRequest<'transcribe'> & {
       readonly settingsEpoch: number;
       readonly audioByteLength: number;
       readonly options: LocalWhisperWorkerTranscriptionOptions;
-    }
-  | {
-      readonly type: 'cancel';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-    }
-  | {
-      readonly type: 'shutdown';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-    };
+    })
+  | (LocalWhisperWorkerRequest<'cancel'> & { readonly targetRequestId: string })
+  | LocalWhisperWorkerRequest<'shutdown'>;
 
 export type LocalWhisperWorkerServerMessage =
-  | {
-      readonly type: 'helloAck';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-    }
-  | {
-      readonly type: 'loaded';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-      readonly residencyKey: string;
-    }
-  | {
-      readonly type: 'unloaded';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-    }
-  | {
-      readonly type: 'transcript';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-      readonly text: string;
-    }
-  | {
-      readonly type: 'cancelled';
-      readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
-      readonly requestId: string;
-    }
+  | LocalWhisperWorkerHelloAck
+  | LocalWhisperWorkerRequest<'probed'>
+  | (LocalWhisperWorkerRequest<'loaded'> & { readonly residency: LocalWhisperResidencyKey })
+  | LocalWhisperWorkerRequest<'warmed'>
+  | LocalWhisperWorkerRequest<'unloaded'>
+  | (LocalWhisperWorkerRequest<'transcript'> & { readonly text: string })
+  | (LocalWhisperWorkerRequest<'cancelled'> & { readonly targetRequestId: string })
+  | LocalWhisperWorkerRequest<'shutdownAck'>
   | {
       readonly type: 'failure';
       readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
@@ -98,10 +113,31 @@ export interface LocalWhisperWorkerAudioChunk {
   readonly bytes: Uint8Array;
 }
 
-const PROTOCOL_ONLY_KEYS = ['type', 'protocolVersion'] as const;
+interface LocalWhisperWorkerRequest<TType extends string> {
+  readonly type: TType;
+  readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
+  readonly requestId: string;
+}
+
+const HELLO_KEYS = ['type', 'protocolVersion'] as const;
 const REQUEST_KEYS = ['type', 'protocolVersion', 'requestId'] as const;
-const LOAD_KEYS = [...REQUEST_KEYS, 'residencyKey'] as const;
+const LOAD_KEYS = [...REQUEST_KEYS, 'modelPath', 'residency'] as const;
 const TRANSCRIBE_KEYS = [...REQUEST_KEYS, 'settingsEpoch', 'audioByteLength', 'options'] as const;
+const CANCEL_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
+const HELLO_ACK_KEYS = [
+  'type',
+  'protocolVersion',
+  'engine',
+  'runtimeRevision',
+  'runtimeBuildDigest',
+  'backend',
+  'capabilities',
+  'maxControlFrameBytes',
+  'maxAudioChunkBytes',
+] as const;
+const LOADED_KEYS = [...REQUEST_KEYS, 'residency'] as const;
+const TRANSCRIPT_KEYS = [...REQUEST_KEYS, 'text'] as const;
+const CANCELLED_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
 const FAILURE_KEYS = [...REQUEST_KEYS, 'code'] as const;
 const TRANSCRIPTION_OPTIONS_KEYS = [
   'language',
@@ -110,7 +146,16 @@ const TRANSCRIPTION_OPTIONS_KEYS = [
   'strategy',
   'candidateCount',
 ] as const;
-const AUDIO_HEADER_FIXED_BYTES = 1 + 4 + 2;
+const RESIDENCY_KEYS = [
+  'engine',
+  'runtimePackRevision',
+  'target',
+  'backend',
+  'deviceId',
+  'model',
+  'precision',
+  'resolvedCpuThreads',
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -121,20 +166,30 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
   return actual.length === keys.length && actual.every((key) => keys.includes(key));
 }
 
-function isRequestId(value: unknown): value is string {
-  return (
-    typeof value === 'string' && value.length > 0 && value.length <= 128 && !hasLocalWhisperControlCharacter(value)
-  );
-}
-
-function isResidencyKey(value: unknown): value is string {
-  return (
-    typeof value === 'string' && value.length > 0 && value.length <= 2_048 && !hasLocalWhisperControlCharacter(value)
-  );
-}
-
 function hasProtocolVersion(value: Record<string, unknown>): boolean {
   return value.protocolVersion === LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
+}
+
+function utf8Length(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function isRequestId(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    utf8Length(value) <= LOCAL_WHISPER_MAX_REQUEST_ID_BYTES &&
+    !hasLocalWhisperControlCharacter(value)
+  );
+}
+
+function isModelPath(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    utf8Length(value) <= LOCAL_WHISPER_MAX_MODEL_PATH_BYTES &&
+    !hasLocalWhisperControlCharacter(value)
+  );
 }
 
 function isCandidateCount(value: unknown): value is number {
@@ -147,7 +202,7 @@ function isCandidateCount(value: unknown): value is number {
 
 function isTranscriptionOptions(value: unknown): value is LocalWhisperWorkerTranscriptionOptions {
   if (!isRecord(value) || !hasExactKeys(value, TRANSCRIPTION_OPTIONS_KEYS)) return false;
-  if (!(value.language === null || isRequestId(value.language))) return false;
+  if (value.language !== null && !isRequestId(value.language)) return false;
   if (getLocalWhisperPromptValidationError(value.initialPrompt) !== null) return false;
   if (!Number.isSafeInteger(value.temperatureHundredths)) return false;
   if (value.strategy === 'greedy') {
@@ -167,17 +222,63 @@ function isTranscriptionOptions(value: unknown): value is LocalWhisperWorkerTran
   return false;
 }
 
+function isResidency(value: unknown): value is LocalWhisperResidencyKey {
+  if (!isRecord(value) || !hasExactKeys(value, RESIDENCY_KEYS)) return false;
+  if (
+    !isLocalWhisperEngine(value.engine) ||
+    toLocalWhisperRevisionId(value.runtimePackRevision) === null ||
+    !isLocalWhisperTarget(value.target) ||
+    !isLocalWhisperBackend(value.backend) ||
+    !isLocalWhisperModelIdentity(value.model) ||
+    value.model.engine !== value.engine
+  ) {
+    return false;
+  }
+  const isCpu = value.target === 'cpu';
+  if (isCpu !== (value.backend === 'cpu') || isCpu !== (value.deviceId === null)) return false;
+  if (value.deviceId !== null && toLocalWhisperOpaqueDeviceId(value.deviceId) === null) return false;
+  if (
+    isCpu !==
+    (Number.isSafeInteger(value.resolvedCpuThreads) &&
+      (value.resolvedCpuThreads as number) >= 1 &&
+      (value.resolvedCpuThreads as number) <= 256)
+  ) {
+    return false;
+  }
+  if (value.engine === 'whisperCpp') return value.precision === null;
+  return LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS.some((precision) => precision === value.precision);
+}
+
+function isCapabilities(value: unknown): value is readonly string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > LOCAL_WHISPER_MAX_CAPABILITY_COUNT) {
+    return false;
+  }
+  const capabilities = value.filter(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' &&
+      utf8Length(candidate) <= LOCAL_WHISPER_MAX_CAPABILITY_BYTES &&
+      CAPABILITY_PATTERN.test(candidate),
+  );
+  return capabilities.length === value.length && new Set(capabilities).size === capabilities.length;
+}
+
 export function isLocalWhisperWorkerClientMessage(value: unknown): value is LocalWhisperWorkerClientMessage {
   if (!isRecord(value) || !hasProtocolVersion(value)) return false;
   switch (value.type) {
     case 'hello':
-      return hasExactKeys(value, PROTOCOL_ONLY_KEYS);
-    case 'load':
-      return hasExactKeys(value, LOAD_KEYS) && isRequestId(value.requestId) && isResidencyKey(value.residencyKey);
+      return hasExactKeys(value, HELLO_KEYS);
+    case 'probe':
+    case 'warmup':
     case 'unload':
-    case 'cancel':
     case 'shutdown':
       return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
+    case 'load':
+      return (
+        hasExactKeys(value, LOAD_KEYS) &&
+        isRequestId(value.requestId) &&
+        isModelPath(value.modelPath) &&
+        isResidency(value.residency)
+      );
     case 'transcribe':
       return (
         hasExactKeys(value, TRANSCRIBE_KEYS) &&
@@ -188,6 +289,13 @@ export function isLocalWhisperWorkerClientMessage(value: unknown): value is Loca
         (value.audioByteLength as number) >= 0 &&
         isTranscriptionOptions(value.options)
       );
+    case 'cancel':
+      return (
+        hasExactKeys(value, CANCEL_KEYS) &&
+        isRequestId(value.requestId) &&
+        isRequestId(value.targetRequestId) &&
+        value.requestId !== value.targetRequestId
+      );
     default:
       return false;
   }
@@ -197,15 +305,32 @@ export function isLocalWhisperWorkerServerMessage(value: unknown): value is Loca
   if (!isRecord(value) || !hasProtocolVersion(value)) return false;
   switch (value.type) {
     case 'helloAck':
-      return hasExactKeys(value, PROTOCOL_ONLY_KEYS);
-    case 'loaded':
-      return hasExactKeys(value, LOAD_KEYS) && isRequestId(value.requestId) && isResidencyKey(value.residencyKey);
-    case 'unloaded':
-    case 'cancelled':
-      return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
-    case 'transcript':
       return (
-        hasExactKeys(value, [...REQUEST_KEYS, 'text']) && isRequestId(value.requestId) && typeof value.text === 'string'
+        hasExactKeys(value, HELLO_ACK_KEYS) &&
+        isLocalWhisperEngine(value.engine) &&
+        toLocalWhisperRevisionId(value.runtimeRevision) !== null &&
+        typeof value.runtimeBuildDigest === 'string' &&
+        SHA256_PATTERN.test(value.runtimeBuildDigest) &&
+        isLocalWhisperBackend(value.backend) &&
+        isCapabilities(value.capabilities) &&
+        value.maxControlFrameBytes === LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES &&
+        value.maxAudioChunkBytes === LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES
+      );
+    case 'probed':
+    case 'warmed':
+    case 'unloaded':
+    case 'shutdownAck':
+      return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
+    case 'loaded':
+      return hasExactKeys(value, LOADED_KEYS) && isRequestId(value.requestId) && isResidency(value.residency);
+    case 'transcript':
+      return hasExactKeys(value, TRANSCRIPT_KEYS) && isRequestId(value.requestId) && typeof value.text === 'string';
+    case 'cancelled':
+      return (
+        hasExactKeys(value, CANCELLED_KEYS) &&
+        isRequestId(value.requestId) &&
+        isRequestId(value.targetRequestId) &&
+        value.requestId !== value.targetRequestId
       );
     case 'failure':
       return (
@@ -222,38 +347,204 @@ export function isLocalWhisperWorkerControlMessage(value: unknown): value is Loc
   return isLocalWhisperWorkerClientMessage(value) || isLocalWhisperWorkerServerMessage(value);
 }
 
-export function encodeLocalWhisperControlFrame(message: LocalWhisperWorkerControlMessage): Uint8Array {
-  if (!isLocalWhisperWorkerControlMessage(message)) throw new Error('Invalid Local Whisper control message');
-  const payload = new TextEncoder().encode(JSON.stringify(message));
-  if (payload.byteLength > LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES) {
-    throw new Error('Local Whisper control frame exceeds the maximum size');
+/** Parses the strict JSON subset accepted by the worker control protocol. */
+class StrictJsonParser {
+  private offset = 0;
+
+  public constructor(private readonly source: string) {}
+
+  public parse(): unknown {
+    const value = this.parseValue();
+    this.skipWhitespace();
+    if (this.offset !== this.source.length) throw new Error('Invalid JSON');
+    return value;
   }
-  const frame = new Uint8Array(LOCAL_WHISPER_FRAME_LENGTH_BYTES + payload.byteLength);
-  new DataView(frame.buffer).setUint32(0, payload.byteLength, false);
-  frame.set(payload, LOCAL_WHISPER_FRAME_LENGTH_BYTES);
+
+  private parseValue(): unknown {
+    this.skipWhitespace();
+    const token = this.source[this.offset];
+    if (token === '{') return this.parseObject();
+    if (token === '[') return this.parseArray();
+    if (token === '"') return this.parseString();
+    if (token === '-' || (token !== undefined && token >= '0' && token <= '9')) {
+      return this.parseNumber();
+    }
+    if (this.consumeLiteral('true')) return true;
+    if (this.consumeLiteral('false')) return false;
+    if (this.consumeLiteral('null')) return null;
+    throw new Error('Invalid JSON');
+  }
+
+  private parseObject(): Record<string, unknown> {
+    this.offset += 1;
+    const result: Record<string, unknown> = {};
+    const keys = new Set<string>();
+    this.skipWhitespace();
+    if (this.source[this.offset] === '}') {
+      this.offset += 1;
+      return result;
+    }
+    while (true) {
+      this.skipWhitespace();
+      if (this.source[this.offset] !== '"') throw new Error('Invalid JSON');
+      const key = this.parseString();
+      if (keys.has(key)) throw new Error('Duplicate JSON key');
+      keys.add(key);
+      this.skipWhitespace();
+      if (this.source[this.offset] !== ':') throw new Error('Invalid JSON');
+      this.offset += 1;
+      Object.defineProperty(result, key, {
+        configurable: true,
+        enumerable: true,
+        value: this.parseValue(),
+        writable: true,
+      });
+      this.skipWhitespace();
+      const separator = this.source[this.offset];
+      if (separator === '}') {
+        this.offset += 1;
+        return result;
+      }
+      if (separator !== ',') throw new Error('Invalid JSON');
+      this.offset += 1;
+    }
+  }
+
+  private parseArray(): unknown[] {
+    this.offset += 1;
+    const result: unknown[] = [];
+    this.skipWhitespace();
+    if (this.source[this.offset] === ']') {
+      this.offset += 1;
+      return result;
+    }
+    while (true) {
+      result.push(this.parseValue());
+      this.skipWhitespace();
+      const separator = this.source[this.offset];
+      if (separator === ']') {
+        this.offset += 1;
+        return result;
+      }
+      if (separator !== ',') throw new Error('Invalid JSON');
+      this.offset += 1;
+    }
+  }
+
+  private parseString(): string {
+    const start = this.offset;
+    this.offset += 1;
+    let escaped = false;
+    while (this.offset < this.source.length) {
+      const character = this.source[this.offset];
+      this.offset += 1;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (character === '"') {
+        const parsed = JSON.parse(this.source.slice(start, this.offset)) as unknown;
+        if (typeof parsed !== 'string') throw new Error('Invalid JSON');
+        return parsed;
+      }
+      if (character !== undefined && character.charCodeAt(0) <= 0x1f) throw new Error('Invalid JSON');
+    }
+    throw new Error('Invalid JSON');
+  }
+
+  private parseNumber(): number {
+    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:e[+-]?\d+)?/iu.exec(this.source.slice(this.offset));
+    if (!match) throw new Error('Invalid JSON');
+    this.offset += match[0].length;
+    const value = Number(match[0]);
+    if (!Number.isFinite(value)) throw new Error('Invalid JSON');
+    return value;
+  }
+
+  private consumeLiteral(literal: string): boolean {
+    if (!this.source.startsWith(literal, this.offset)) return false;
+    this.offset += literal.length;
+    return true;
+  }
+
+  private skipWhitespace(): void {
+    while (true) {
+      const character = this.source[this.offset];
+      if (character !== ' ' && character !== '\t' && character !== '\n' && character !== '\r') return;
+      this.offset += 1;
+    }
+  }
+}
+
+function createFrame(kind: LocalWhisperFrameKind, body: Uint8Array): Uint8Array {
+  const frame = new Uint8Array(LOCAL_WHISPER_FRAME_HEADER_BYTES + body.byteLength);
+  const view = new DataView(frame.buffer);
+  view.setUint32(0, body.byteLength, false);
+  view.setUint8(LOCAL_WHISPER_FRAME_LENGTH_BYTES, kind);
+  frame.set(body, LOCAL_WHISPER_FRAME_HEADER_BYTES);
   return frame;
 }
 
-export function decodeLocalWhisperControlFrame(frame: Uint8Array): LocalWhisperWorkerControlMessage {
-  if (!(frame instanceof Uint8Array) || frame.byteLength < LOCAL_WHISPER_FRAME_LENGTH_BYTES) {
-    throw new Error('Malformed Local Whisper control frame');
+function readFrameBody(frame: Uint8Array, expectedKind: LocalWhisperFrameKind): Uint8Array {
+  if (frame.byteLength < LOCAL_WHISPER_FRAME_HEADER_BYTES) {
+    throw new Error('Malformed Local Whisper frame');
   }
-  const payloadLength = new DataView(frame.buffer, frame.byteOffset, frame.byteLength).getUint32(0, false);
+  const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+  const bodyLength = view.getUint32(0, false);
   if (
-    payloadLength > LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES ||
-    payloadLength !== frame.byteLength - LOCAL_WHISPER_FRAME_LENGTH_BYTES
+    bodyLength !== frame.byteLength - LOCAL_WHISPER_FRAME_HEADER_BYTES ||
+    view.getUint8(LOCAL_WHISPER_FRAME_LENGTH_BYTES) !== expectedKind
   ) {
-    throw new Error('Malformed Local Whisper control frame length');
+    throw new Error('Malformed Local Whisper frame');
+  }
+  return frame.subarray(LOCAL_WHISPER_FRAME_HEADER_BYTES);
+}
+
+export function getLocalWhisperFrameKind(frame: Uint8Array): LocalWhisperFrameKind {
+  if (frame.byteLength < LOCAL_WHISPER_FRAME_HEADER_BYTES) {
+    throw new Error('Malformed Local Whisper frame');
+  }
+  const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+  if (view.getUint32(0, false) !== frame.byteLength - LOCAL_WHISPER_FRAME_HEADER_BYTES) {
+    throw new Error('Malformed Local Whisper frame');
+  }
+  const kind = view.getUint8(LOCAL_WHISPER_FRAME_LENGTH_BYTES);
+  if (kind !== LOCAL_WHISPER_CONTROL_FRAME_KIND && kind !== LOCAL_WHISPER_AUDIO_FRAME_KIND) {
+    throw new Error('Unknown Local Whisper frame kind');
+  }
+  return kind;
+}
+
+export function encodeLocalWhisperControlFrame(message: LocalWhisperWorkerControlMessage): Uint8Array {
+  if (!isLocalWhisperWorkerControlMessage(message)) {
+    throw new Error('Invalid Local Whisper control message');
+  }
+  const body = new TextEncoder().encode(JSON.stringify(message));
+  if (body.byteLength > LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES) {
+    throw new Error('Local Whisper control frame too large');
+  }
+  return createFrame(LOCAL_WHISPER_CONTROL_FRAME_KIND, body);
+}
+
+export function decodeLocalWhisperControlFrame(frame: Uint8Array): LocalWhisperWorkerControlMessage {
+  const body = readFrameBody(frame, LOCAL_WHISPER_CONTROL_FRAME_KIND);
+  if (body.byteLength > LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES) {
+    throw new Error('Local Whisper control frame too large');
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(
-      new TextDecoder('utf-8', { fatal: true }).decode(frame.subarray(LOCAL_WHISPER_FRAME_LENGTH_BYTES)),
-    ) as unknown;
+    const json = new TextDecoder('utf-8', { fatal: true }).decode(body);
+    parsed = new StrictJsonParser(json).parse();
   } catch {
     throw new Error('Malformed Local Whisper control frame payload');
   }
-  if (!isLocalWhisperWorkerControlMessage(parsed)) throw new Error('Invalid Local Whisper control message');
+  if (!isLocalWhisperWorkerControlMessage(parsed)) {
+    throw new Error('Invalid Local Whisper control message');
+  }
   return parsed;
 }
 
@@ -265,12 +556,13 @@ export function createLocalWhisperAudioChunk(
 ): LocalWhisperWorkerAudioChunk {
   if (
     !isRequestId(requestId) ||
-    !Number.isSafeInteger(sequence) ||
+    !Number.isInteger(sequence) ||
     sequence < 0 ||
     sequence > 0xffffffff ||
     typeof final !== 'boolean' ||
     !(bytes instanceof Uint8Array) ||
-    bytes.byteLength > LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES
+    bytes.byteLength > LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES ||
+    (bytes.byteLength === 0 && !final)
   ) {
     throw new Error('Invalid Local Whisper audio chunk');
   }
@@ -279,42 +571,43 @@ export function createLocalWhisperAudioChunk(
 
 export function encodeLocalWhisperAudioFrame(chunk: LocalWhisperWorkerAudioChunk): Uint8Array {
   const safeChunk = createLocalWhisperAudioChunk(chunk.requestId, chunk.sequence, chunk.final, chunk.bytes);
-  const requestIdBytes = new TextEncoder().encode(safeChunk.requestId);
-  if (requestIdBytes.byteLength > 0xffff) throw new Error('Local Whisper request ID is too long');
-  const payloadLength = AUDIO_HEADER_FIXED_BYTES + requestIdBytes.byteLength + safeChunk.bytes.byteLength;
-  const frame = new Uint8Array(LOCAL_WHISPER_FRAME_LENGTH_BYTES + payloadLength);
-  const view = new DataView(frame.buffer);
-  view.setUint32(0, payloadLength, false);
-  view.setUint8(4, safeChunk.final ? 1 : 0);
-  view.setUint32(5, safeChunk.sequence, false);
-  view.setUint16(9, requestIdBytes.byteLength, false);
-  frame.set(requestIdBytes, 11);
-  frame.set(safeChunk.bytes, 11 + requestIdBytes.byteLength);
-  return frame;
+  const requestId = new TextEncoder().encode(safeChunk.requestId);
+  const body = new Uint8Array(AUDIO_BODY_FIXED_BYTES + requestId.byteLength + safeChunk.bytes.byteLength);
+  const view = new DataView(body.buffer);
+  view.setUint8(0, LOCAL_WHISPER_WORKER_PROTOCOL_VERSION);
+  view.setUint8(1, safeChunk.final ? 1 : 0);
+  view.setUint32(2, safeChunk.sequence, false);
+  view.setUint16(6, requestId.byteLength, false);
+  body.set(requestId, AUDIO_BODY_FIXED_BYTES);
+  body.set(safeChunk.bytes, AUDIO_BODY_FIXED_BYTES + requestId.byteLength);
+  return createFrame(LOCAL_WHISPER_AUDIO_FRAME_KIND, body);
 }
 
 export function decodeLocalWhisperAudioFrame(frame: Uint8Array): LocalWhisperWorkerAudioChunk {
-  const minimumLength = LOCAL_WHISPER_FRAME_LENGTH_BYTES + AUDIO_HEADER_FIXED_BYTES;
-  if (!(frame instanceof Uint8Array) || frame.byteLength < minimumLength) {
-    throw new Error('Malformed Local Whisper audio frame');
-  }
+  const body = readFrameBody(frame, LOCAL_WHISPER_AUDIO_FRAME_KIND);
+  if (body.byteLength < AUDIO_BODY_FIXED_BYTES) throw new Error('Malformed Local Whisper audio frame');
   const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
-  const payloadLength = view.getUint32(0, false);
-  const flag = view.getUint8(4);
-  const sequence = view.getUint32(5, false);
-  const requestIdLength = view.getUint16(9, false);
-  const audioOffset = 11 + requestIdLength;
+  const version = view.getUint8(AUDIO_BODY_VERSION_OFFSET);
+  const flag = view.getUint8(AUDIO_BODY_FINAL_OFFSET);
+  const sequence = view.getUint32(AUDIO_BODY_SEQUENCE_OFFSET, false);
+  const requestIdLength = view.getUint16(AUDIO_BODY_REQUEST_LENGTH_OFFSET, false);
+  const audioOffset = AUDIO_BODY_REQUEST_OFFSET + requestIdLength;
   if (
-    payloadLength !== frame.byteLength - LOCAL_WHISPER_FRAME_LENGTH_BYTES ||
+    version !== LOCAL_WHISPER_WORKER_PROTOCOL_VERSION ||
     (flag !== 0 && flag !== 1) ||
+    requestIdLength === 0 ||
+    requestIdLength > LOCAL_WHISPER_MAX_REQUEST_ID_BYTES ||
     audioOffset > frame.byteLength ||
-    frame.byteLength - audioOffset > LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES
+    frame.byteLength - audioOffset > LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES ||
+    (frame.byteLength === audioOffset && flag !== 1)
   ) {
     throw new Error('Malformed Local Whisper audio frame');
   }
   let requestId: string;
   try {
-    requestId = new TextDecoder('utf-8', { fatal: true }).decode(frame.subarray(11, audioOffset));
+    requestId = new TextDecoder('utf-8', { fatal: true }).decode(
+      frame.subarray(AUDIO_BODY_REQUEST_OFFSET, audioOffset),
+    );
   } catch {
     throw new Error('Malformed Local Whisper audio frame request ID');
   }

@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": 1,
+  "control": [
+    {
+      "name": "hello",
+      "message": { "type": "hello", "protocolVersion": 1 },
+      "binaryFile": "control/hello.bin",
+      "frameHex": "00000024017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d"
+    },
+    {
+      "name": "helloAck",
+      "message": {
+        "type": "helloAck",
+        "protocolVersion": 1,
+        "engine": "whisperCpp",
+        "runtimeRevision": "runtime-pack-v1",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backend": "cuda",
+        "capabilities": ["cuda-sm-75", "cuda-sm-86"],
+        "maxControlFrameBytes": 1048576,
+        "maxAudioChunkBytes": 1048576
+      },
+      "binaryFile": "control/helloAck.bin",
+      "frameHex": "00000131017b2274797065223a2268656c6c6f41636b222c2270726f746f636f6c56657273696f6e223a312c22656e67696e65223a2277686973706572437070222c2272756e74696d655265766973696f6e223a2272756e74696d652d7061636b2d7631222c2272756e74696d654275696c64446967657374223a2261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c226261636b656e64223a2263756461222c226361706162696c6974696573223a5b22637564612d736d2d3735222c22637564612d736d2d3836225d2c226d6178436f6e74726f6c4672616d654279746573223a313034383537362c226d6178417564696f4368756e6b4279746573223a313034383537367d"
+    },
+    {
+      "name": "probe",
+      "message": { "type": "probe", "protocolVersion": 1, "requestId": "probe-1" },
+      "binaryFile": "control/probe.bin",
+      "frameHex": "0000003a017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d31227d"
+    },
+    {
+      "name": "probed",
+      "message": { "type": "probed", "protocolVersion": 1, "requestId": "probe-1" },
+      "binaryFile": "control/probed.bin",
+      "frameHex": "0000003b017b2274797065223a2270726f626564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d31227d"
+    },
+    {
+      "name": "load",
+      "message": {
+        "type": "load",
+        "protocolVersion": 1,
+        "requestId": "load-1",
+        "modelPath": "/private/fixture/model.bin",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "gpu",
+          "backend": "cuda",
+          "deviceId": "fixture-gpu",
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "precision": null,
+          "resolvedCpuThreads": null
+        }
+      },
+      "binaryFile": "control/load.bin",
+      "frameHex": "000001ba017b2274797065223a226c6f6164222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c226d6f64656c50617468223a222f707269766174652f666978747572652f6d6f64656c2e62696e222c227265736964656e6379223a7b22656e67696e65223a2277686973706572437070222c2272756e74696d655061636b5265766973696f6e223a2272756e74696d652d7061636b2d7631222c22746172676574223a22677075222c226261636b656e64223a2263756461222c226465766963654964223a22666978747572652d677075222c226d6f64656c223a7b22656e67696e65223a2277686973706572437070222c226c6f676963616c4d6f64656c223a2274696e79222c22736f75726365436865636b706f696e745265766973696f6e223a22636865636b706f696e742d7631222c2261727469666163745265766973696f6e223a2261727469666163742d7631222c226e6174697665466f726d6174223a2267676d6c222c2276617269616e74223a2266756c6c227d2c22707265636973696f6e223a6e756c6c2c227265736f6c76656443707554687265616473223a6e756c6c7d7d"
+    },
+    {
+      "name": "loaded",
+      "message": {
+        "type": "loaded",
+        "protocolVersion": 1,
+        "requestId": "load-1",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "gpu",
+          "backend": "cuda",
+          "deviceId": "fixture-gpu",
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "precision": null,
+          "resolvedCpuThreads": null
+        }
+      },
+      "binaryFile": "control/loaded.bin",
+      "frameHex": "00000193017b2274797065223a226c6f61646564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c227265736964656e6379223a7b22656e67696e65223a2277686973706572437070222c2272756e74696d655061636b5265766973696f6e223a2272756e74696d652d7061636b2d7631222c22746172676574223a22677075222c226261636b656e64223a2263756461222c226465766963654964223a22666978747572652d677075222c226d6f64656c223a7b22656e67696e65223a2277686973706572437070222c226c6f676963616c4d6f64656c223a2274696e79222c22736f75726365436865636b706f696e745265766973696f6e223a22636865636b706f696e742d7631222c2261727469666163745265766973696f6e223a2261727469666163742d7631222c226e6174697665466f726d6174223a2267676d6c222c2276617269616e74223a2266756c6c227d2c22707265636973696f6e223a6e756c6c2c227265736f6c76656443707554687265616473223a6e756c6c7d7d"
+    },
+    {
+      "name": "warmup",
+      "message": { "type": "warmup", "protocolVersion": 1, "requestId": "warm-1" },
+      "binaryFile": "control/warmup.bin",
+      "frameHex": "0000003a017b2274797065223a227761726d7570222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a227761726d2d31227d"
+    },
+    {
+      "name": "warmed",
+      "message": { "type": "warmed", "protocolVersion": 1, "requestId": "warm-1" },
+      "binaryFile": "control/warmed.bin",
+      "frameHex": "0000003a017b2274797065223a227761726d6564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a227761726d2d31227d"
+    },
+    {
+      "name": "transcribe",
+      "message": {
+        "type": "transcribe",
+        "protocolVersion": 1,
+        "requestId": "tx-1",
+        "settingsEpoch": 9,
+        "audioByteLength": 4,
+        "options": {
+          "language": null,
+          "initialPrompt": "",
+          "temperatureHundredths": 0,
+          "strategy": "greedy",
+          "candidateCount": null
+        }
+      },
+      "binaryFile": "control/transcribe.bin",
+      "frameHex": "000000d5017b2274797065223a227472616e736372696265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2274782d31222c2273657474696e677345706f6368223a392c22617564696f427974654c656e677468223a342c226f7074696f6e73223a7b226c616e6775616765223a6e756c6c2c22696e697469616c50726f6d7074223a22222c2274656d706572617475726548756e64726564746873223a302c227374726174656779223a22677265656479222c2263616e646964617465436f756e74223a6e756c6c7d7d"
+    },
+    {
+      "name": "transcript",
+      "message": { "type": "transcript", "protocolVersion": 1, "requestId": "tx-1", "text": "synthetic result" },
+      "binaryFile": "control/transcript.bin",
+      "frameHex": "00000056017b2274797065223a227472616e736372697074222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2274782d31222c2274657874223a2273796e74686574696320726573756c74227d"
+    },
+    {
+      "name": "cancel",
+      "message": { "type": "cancel", "protocolVersion": 1, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancel.bin",
+      "frameHex": "00000055017b2274797065223a2263616e63656c222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2263616e63656c2d31222c22746172676574526571756573744964223a2274782d31227d"
+    },
+    {
+      "name": "cancelled",
+      "message": { "type": "cancelled", "protocolVersion": 1, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancelled.bin",
+      "frameHex": "00000058017b2274797065223a2263616e63656c6c6564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2263616e63656c2d31222c22746172676574526571756573744964223a2274782d31227d"
+    },
+    {
+      "name": "unload",
+      "message": { "type": "unload", "protocolVersion": 1, "requestId": "free-1" },
+      "binaryFile": "control/unload.bin",
+      "frameHex": "0000003a017b2274797065223a22756e6c6f6164222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a22667265652d31227d"
+    },
+    {
+      "name": "unloaded",
+      "message": { "type": "unloaded", "protocolVersion": 1, "requestId": "free-1" },
+      "binaryFile": "control/unloaded.bin",
+      "frameHex": "0000003c017b2274797065223a22756e6c6f61646564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a22667265652d31227d"
+    },
+    {
+      "name": "shutdown",
+      "message": { "type": "shutdown", "protocolVersion": 1, "requestId": "stop-1" },
+      "binaryFile": "control/shutdown.bin",
+      "frameHex": "0000003c017b2274797065223a2273687574646f776e222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2273746f702d31227d"
+    },
+    {
+      "name": "shutdownAck",
+      "message": { "type": "shutdownAck", "protocolVersion": 1, "requestId": "stop-1" },
+      "binaryFile": "control/shutdownAck.bin",
+      "frameHex": "0000003f017b2274797065223a2273687574646f776e41636b222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2273746f702d31227d"
+    },
+    {
+      "name": "failure",
+      "message": { "type": "failure", "protocolVersion": 1, "requestId": "load-1", "code": "MODEL_LOAD_FAILED" },
+      "binaryFile": "control/failure.bin",
+      "frameHex": "00000056017b2274797065223a226661696c757265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c22636f6465223a224d4f44454c5f4c4f41445f4641494c4544227d"
+    }
+  ],
+  "audio": [
+    {
+      "name": "first",
+      "requestId": "tx-1",
+      "sequence": 0,
+      "final": false,
+      "bytesHex": "0102",
+      "binaryFile": "audio/first.bin",
+      "frameHex": "0000000e02010000000000000474782d310102"
+    },
+    {
+      "name": "middle",
+      "requestId": "tx-1",
+      "sequence": 1,
+      "final": false,
+      "bytesHex": "0304",
+      "binaryFile": "audio/middle.bin",
+      "frameHex": "0000000e02010000000001000474782d310304"
+    },
+    {
+      "name": "final",
+      "requestId": "tx-1",
+      "sequence": 2,
+      "final": true,
+      "bytesHex": "0506",
+      "binaryFile": "audio/final.bin",
+      "frameHex": "0000000e02010100000002000474782d310506"
+    },
+    {
+      "name": "empty-final",
+      "requestId": "empty-1",
+      "sequence": 0,
+      "final": true,
+      "bytesHex": "",
+      "binaryFile": "audio/empty-final.bin",
+      "frameHex": "0000000f020101000000000007656d7074792d31"
+    }
+  ],
+  "malformed": [
+    { "name": "truncated-control", "binaryFile": "malformed/truncated-control.bin", "frameHex": "00000008017b" },
+    { "name": "unknown-kind", "binaryFile": "malformed/unknown-kind.bin", "frameHex": "000000007f" },
+    {
+      "name": "oversized-control-prefix",
+      "binaryFile": "malformed/oversized-control-prefix.bin",
+      "frameHex": "0010000101"
+    },
+    {
+      "name": "oversized-audio-prefix",
+      "binaryFile": "malformed/oversized-audio-prefix.bin",
+      "frameHex": "0010008902"
+    },
+    { "name": "invalid-control-utf8", "binaryFile": "malformed/invalid-control-utf8.bin", "frameHex": "0000000101ff" },
+    {
+      "name": "duplicate-control-key",
+      "binaryFile": "malformed/duplicate-control-key.bin",
+      "frameHex": "00000033017b2274797065223a2268656c6c6f222c2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d"
+    },
+    {
+      "name": "unknown-control-key",
+      "binaryFile": "malformed/unknown-control-key.bin",
+      "frameHex": "00000033017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a312c22756e6b6e6f776e223a747275657d"
+    },
+    {
+      "name": "trailing-control-byte",
+      "binaryFile": "malformed/trailing-control-byte.bin",
+      "frameHex": "00000024017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d00"
+    },
+    {
+      "name": "invalid-audio-version",
+      "binaryFile": "malformed/invalid-audio-version.bin",
+      "frameHex": "0000000e02020000000000000474782d310102"
+    },
+    {
+      "name": "invalid-audio-final-flag",
+      "binaryFile": "malformed/invalid-audio-final-flag.bin",
+      "frameHex": "0000000e02010200000000000474782d310102"
+    },
+    {
+      "name": "empty-audio-request-id",
+      "binaryFile": "malformed/empty-audio-request-id.bin",
+      "frameHex": "0000000e02010000000000000074782d310102"
+    },
+    {
+      "name": "nonterminal-empty-audio",
+      "binaryFile": "malformed/nonterminal-empty-audio.bin",
+      "frameHex": "0000000c02010000000000000474782d31"
+    }
+  ],
+  "streams": [
+    {
+      "name": "duplicate-audio-sequence",
+      "frameNames": ["first", "first"],
+      "frameHex": ["0000000e02010000000000000474782d310102", "0000000e02010000000000000474782d310102"]
+    },
+    {
+      "name": "audio-after-terminal",
+      "frameNames": ["empty-final", "first"],
+      "frameHex": ["0000000f020101000000000007656d7074792d31", "0000000e02010000000000000474782d310102"]
+    }
+  ]
+}
