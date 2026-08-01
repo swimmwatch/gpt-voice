@@ -1943,3 +1943,75 @@ decisions:
     rationale: The user explicitly authorized one isolated commit containing only the completed Task 02 file set.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-03
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 02 was committed in isolation as d516d03 before the next packet was opened.
+      - Task 03 is the first unchecked packet and is self-contained catalog trust, private settings persistence, inventory reconstruction, deterministic signed fixtures, and package-exclusion work.
+      - The approved fixture-only publication decision remains active; production origins, keys, credentials, network transfer, publication, dependencies, and Task 04 are outside this authorization.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-03-authorization-round-12
+      question_id: execution.task-03
+      idempotency_key: execution.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 03 Trusted Catalog, Settings, And Inventory be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-03
+          label: Authorize Task 03 (Recommended)
+          description: Implement and verify only Task 03 signed catalog trust, private settings repository, inventory reconstruction, deterministic test fixtures, and package-exclusion checks, then stop without committing.
+        - id: do-not-authorize-task-03
+          label: Do not authorize
+          description: Stop after the Task 02 commit and make no Task 03 implementation changes.
+        - id: revise-task-03
+          label: Revise Task 03
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-03]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 03 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-03
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 is complete, uncommitted, and its focused tests and diff check match the handoff.
+      - The isolated commit will exclude the three unrelated modified controller and test files.
+      - Commit authorization will not authorize Task 04, push, pull request, publication, or release actions.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-03-commit-round-13
+      question_id: commit.task-03
+      idempotency_key: commit.task-03:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should the completed Task 03 be committed in isolation before the next packet starts?
+      kind: single
+      options:
+        - id: authorize-task-03-commit
+          label: Authorize commit (Recommended)
+          description: Commit only Local Whisper Task 03 code, tests, and task/decision artifacts; exclude the three unrelated modified files.
+        - id: do-not-commit
+          label: Do not commit
+          description: Stop and leave Task 03 uncommitted; do not begin Task 04.
+        - id: revise-before-commit
+          label: Review first
+          description: Stop for a separate Task 03 review or revision before committing.
+    answer:
+      selected_ids: [authorize-task-03-commit]
+      text: ''
+    rationale: The user explicitly authorized one isolated commit containing only completed Task 03 files and excluding unrelated worktree changes.
+    supersedes_revision: null
+    requirement_ids: []
