@@ -1,0 +1,1 @@
+export const MANAGED_ARTIFACT_REMOVAL_CLEARANCE_AUTHORITY = Symbol('ManagedArtifactRemovalClearanceAuthority');

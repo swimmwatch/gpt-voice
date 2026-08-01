@@ -1,0 +1,646 @@
+import { createHash } from 'node:crypto';
+
+import { toLocalWhisperArtifactId, type LocalWhisperArtifactId } from '@shared/localWhisper';
+
+import {
+  getLocalWhisperModelIdentityKey,
+  getLocalWhisperRuntimeIdentityKey,
+  type LocalWhisperAuthenticatedCatalog,
+  type LocalWhisperCatalogModelEntry,
+  type LocalWhisperCatalogModelFileIdentity,
+  type LocalWhisperCatalogRuntimeEntry,
+} from '../catalog/LocalWhisperCatalogTypes';
+import type {
+  LocalWhisperManagedArtifactEvidence,
+  LocalWhisperManagedFileEvidence,
+  LocalWhisperManagedStorageEvidencePort,
+} from '../inventory/LocalWhisperInventoryRepository';
+import { ManagedArtifactEvidenceSnapshot, type ManagedArtifactEvidenceRecord } from './ManagedArtifactEvidenceSnapshot';
+import {
+  ManagedArtifactLease,
+  type ManagedArtifactIdentitySnapshot,
+  type ManagedArtifactKind,
+  type ManagedArtifactLeasePurpose,
+} from './ManagedArtifactLease';
+import { ManagedArtifactLockRepository, type ManagedArtifactLockLease } from './ManagedArtifactLockRepository';
+import type { ManagedArtifactRootResolution } from './ManagedArtifactPathResolver';
+import type { ManagedArtifactRemovalClearance } from './ManagedArtifactRemovalClearance';
+import { ManagedArtifactStoreError, type ManagedArtifactStoreErrorCode } from './ManagedArtifactStoreError';
+import {
+  ManagedFilesystemAdapterError,
+  type ManagedArtifactNamespace,
+  type ManagedFilesystemDirectoryEntry,
+  type ManagedFilesystemOpenResult,
+  type ManagedFilesystemPlatformAdapter,
+} from './ManagedFilesystemPlatformAdapter';
+
+export { ManagedArtifactRemovalClearance } from './ManagedArtifactRemovalClearance';
+export { ManagedArtifactRemovalClearanceIssuer } from './ManagedArtifactRemovalClearanceIssuer';
+export { ManagedArtifactStoreError } from './ManagedArtifactStoreError';
+export type { ManagedArtifactStoreErrorCode } from './ManagedArtifactStoreError';
+
+const CANONICAL_ARTIFACT_NAME_PATTERN = /^(?:model|runtime)-[a-f0-9]{64}$/;
+const CANONICAL_FILE_NAME_PATTERN = /^file-[\w-]{1,192}$/;
+const OPERATION_NONCE_PATTERN = /^[\w-]{16,128}$/;
+const MANAGED_MANIFEST_NAME = 'managed-manifest-v1';
+const MANAGED_MANIFEST_MODE = 0o600;
+
+export type ManagedArtifactExpectedFile =
+  LocalWhisperCatalogModelFileIdentity | LocalWhisperCatalogRuntimeEntry['identity']['expectedFiles'][number];
+
+export interface ManagedArtifactDescriptor {
+  readonly artifactId: LocalWhisperArtifactId;
+  readonly canonicalName: string;
+  readonly catalogDigest: string;
+  readonly expectedFiles: readonly ManagedArtifactExpectedFile[];
+  readonly identityKey: string;
+  readonly kind: ManagedArtifactKind;
+  readonly namespace: ManagedArtifactNamespace;
+}
+
+export interface ManagedArtifactStoreDependencies {
+  readonly adapter: ManagedFilesystemPlatformAdapter;
+  readonly generateOperationNonce: () => string;
+  readonly lockRepository: ManagedArtifactLockRepository;
+  readonly rootResolution: ManagedArtifactRootResolution;
+}
+
+interface LeaseAuthority {
+  readonly descriptor: ManagedArtifactDescriptor;
+  readonly lock: ManagedArtifactLockLease | null;
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function descriptorCatalogDigest(identityKey: string, expectedFiles: readonly ManagedArtifactExpectedFile[]): string {
+  return sha256(
+    JSON.stringify({
+      expectedFiles: expectedFiles.map(({ fileId, kind, mode, sha256: digest, sizeBytes }) => ({
+        fileId,
+        kind,
+        mode,
+        sha256: digest,
+        sizeBytes,
+      })),
+      identityKey,
+    }),
+  );
+}
+
+function managedManifestBytes(descriptor: ManagedArtifactDescriptor): Buffer {
+  return Buffer.from(
+    JSON.stringify({
+      canonicalName: descriptor.canonicalName,
+      catalogDigest: descriptor.catalogDigest,
+      expectedFiles: descriptor.expectedFiles.map(({ fileId, kind, mode, sha256: digest, sizeBytes }) => ({
+        fileId,
+        kind,
+        mode,
+        sha256: digest,
+        sizeBytes,
+      })),
+      identityKey: descriptor.identityKey,
+      kind: descriptor.kind,
+      schemaVersion: 1,
+    }),
+    'utf8',
+  );
+}
+
+function canonicalArtifactName(kind: ManagedArtifactKind, identityKey: string): string {
+  const value = `${kind}-${sha256(identityKey)}`;
+  if (!CANONICAL_ARTIFACT_NAME_PATTERN.test(value)) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  return value;
+}
+
+export function getManagedArtifactFileName(fileId: LocalWhisperArtifactId): string {
+  const encoded = Buffer.from(fileId, 'utf8').toString('base64url');
+  const value = `file-${encoded}`;
+  if (
+    !CANONICAL_FILE_NAME_PATTERN.test(value) ||
+    Buffer.from(encoded, 'base64url').toString('utf8') !== fileId ||
+    Buffer.from(Buffer.from(encoded, 'base64url')).toString('base64url') !== encoded
+  ) {
+    throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  }
+  return value;
+}
+
+function artifactIdFromCanonicalName(value: string): LocalWhisperArtifactId {
+  const artifactId = toLocalWhisperArtifactId(value);
+  if (!artifactId) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  return artifactId;
+}
+
+function freezeDescriptor(input: Omit<ManagedArtifactDescriptor, 'artifactId'>): ManagedArtifactDescriptor {
+  return Object.freeze({ ...input, artifactId: artifactIdFromCanonicalName(input.canonicalName) });
+}
+
+export function createManagedRuntimeDescriptor(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  entry: LocalWhisperCatalogRuntimeEntry,
+): ManagedArtifactDescriptor {
+  if (!catalog.payload.runtimes.includes(entry)) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  const identityKey = getLocalWhisperRuntimeIdentityKey(entry.identity);
+  const name = canonicalArtifactName('runtime', identityKey);
+  const expectedFiles = Object.freeze([...entry.identity.expectedFiles]);
+  return freezeDescriptor({
+    canonicalName: name,
+    catalogDigest: descriptorCatalogDigest(identityKey, expectedFiles),
+    expectedFiles,
+    identityKey,
+    kind: 'runtime',
+    namespace: 'runtimes',
+  });
+}
+
+export function createManagedModelDescriptor(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  entry: LocalWhisperCatalogModelEntry,
+): ManagedArtifactDescriptor {
+  if (!catalog.payload.models.includes(entry)) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  const identityKey = getLocalWhisperModelIdentityKey(entry.identity);
+  const name = canonicalArtifactName('model', identityKey);
+  const expectedFiles = Object.freeze([...entry.expectedFiles]);
+  return freezeDescriptor({
+    canonicalName: name,
+    catalogDigest: descriptorCatalogDigest(identityKey, expectedFiles),
+    expectedFiles,
+    identityKey,
+    kind: 'model',
+    namespace: 'models',
+  });
+}
+
+function assertDescriptor(descriptor: ManagedArtifactDescriptor): void {
+  if (
+    canonicalArtifactName(descriptor.kind, descriptor.identityKey) !== descriptor.canonicalName ||
+    artifactIdFromCanonicalName(descriptor.canonicalName) !== descriptor.artifactId ||
+    descriptor.namespace !== (descriptor.kind === 'model' ? 'models' : 'runtimes') ||
+    !/^[a-f0-9]{64}$/.test(descriptor.catalogDigest)
+  ) {
+    throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  }
+  const fileNames = descriptor.expectedFiles.map(({ fileId }) => getManagedArtifactFileName(fileId));
+  if (new Set(fileNames).size !== fileNames.length) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+}
+
+function findExpectedFile(
+  descriptor: ManagedArtifactDescriptor,
+  fileId: LocalWhisperArtifactId,
+): ManagedArtifactExpectedFile {
+  const expected = descriptor.expectedFiles.find((candidate) => candidate.fileId === fileId);
+  if (!expected) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  return expected;
+}
+
+function validateDirectoryEntries(
+  descriptor: ManagedArtifactDescriptor,
+  entries: readonly ManagedFilesystemDirectoryEntry[],
+): ReadonlyMap<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry> {
+  if (entries.length !== descriptor.expectedFiles.length + 1) {
+    throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  }
+  const entriesByName = new Map(entries.map((entry) => [entry.canonicalName, entry]));
+  if (entriesByName.size !== entries.length) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  const manifest = entriesByName.get(MANAGED_MANIFEST_NAME);
+  const manifestBytes = managedManifestBytes(descriptor);
+  if (
+    !manifest ||
+    manifest.identity.type !== 'regular' ||
+    manifest.identity.linkCount !== 1 ||
+    manifest.identity.mode !== MANAGED_MANIFEST_MODE ||
+    manifest.identity.sizeBytes !== manifestBytes.byteLength ||
+    manifest.sha256 !== sha256(manifestBytes.toString('utf8'))
+  ) {
+    throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  }
+  const validated = new Map<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>();
+  for (const expected of descriptor.expectedFiles) {
+    const entry = entriesByName.get(getManagedArtifactFileName(expected.fileId));
+    if (
+      !entry ||
+      entry.identity.type !== 'regular' ||
+      entry.identity.linkCount !== 1 ||
+      entry.identity.mode !== expected.mode ||
+      entry.identity.sizeBytes !== expected.sizeBytes ||
+      entry.sha256 !== expected.sha256
+    ) {
+      throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    }
+    validated.set(expected.fileId, entry);
+  }
+  return validated;
+}
+
+function expectedDirectoryEntries(descriptor: ManagedArtifactDescriptor) {
+  return [
+    Object.freeze({ canonicalName: MANAGED_MANIFEST_NAME, mode: MANAGED_MANIFEST_MODE }),
+    ...descriptor.expectedFiles.map((expected) =>
+      Object.freeze({ canonicalName: getManagedArtifactFileName(expected.fileId), mode: expected.mode }),
+    ),
+  ];
+}
+
+function toManagedFileEvidence(
+  expected: ManagedArtifactExpectedFile,
+  entry: ManagedFilesystemDirectoryEntry,
+): LocalWhisperManagedFileEvidence {
+  return Object.freeze({
+    fileId: expected.fileId,
+    kind: expected.kind,
+    mode: entry.identity.mode,
+    sizeBytes: entry.identity.sizeBytes,
+    sha256: entry.sha256 ?? '',
+  });
+}
+
+function mapAdapterError(error: unknown, fallback: ManagedArtifactStoreErrorCode): ManagedArtifactStoreError {
+  if (error instanceof ManagedArtifactStoreError) return error;
+  if (error instanceof ManagedFilesystemAdapterError && error.code === 'CONFLICT') {
+    return new ManagedArtifactStoreError('OPERATION_CONFLICT');
+  }
+  return new ManagedArtifactStoreError(fallback);
+}
+
+function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperManagedArtifactEvidence {
+  return Object.freeze({
+    kind: 'installed',
+    manifestIdentityKey: descriptor.identityKey,
+    manifestValid: false,
+    files: Object.freeze([]),
+  });
+}
+
+function isUnsafeEvidenceError(error: unknown): boolean {
+  return (
+    error instanceof ManagedFilesystemAdapterError &&
+    (error.code === 'IDENTITY_CHANGED' || error.code === 'UNSAFE_ENTRY')
+  );
+}
+
+/**
+ * Main-owned managed artifact authority. All path use is delegated to the
+ * held-descriptor/handle adapter; this class never reopens an absolute path.
+ */
+export class ManagedArtifactStore {
+  private readonly authorities = new WeakMap<ManagedArtifactLease, LeaseAuthority>();
+  private root: ManagedFilesystemOpenResult | null = null;
+  private readonly leaseOwner = Symbol('ManagedArtifactStoreLeaseOwner');
+
+  public constructor(private readonly dependencies: ManagedArtifactStoreDependencies) {}
+
+  public async initialize(): Promise<void> {
+    if (this.root) return;
+    if (this.dependencies.rootResolution.availability !== 'available') {
+      throw new ManagedArtifactStoreError(
+        this.dependencies.rootResolution.availability === 'planned' ? 'PLANNED_UNAVAILABLE' : 'UNSUPPORTED_PLATFORM',
+      );
+    }
+    try {
+      this.root = await this.dependencies.adapter.initialize(this.dependencies.rootResolution.managedRoot);
+    } catch (error) {
+      throw mapAdapterError(error, 'STORAGE_UNAVAILABLE');
+    }
+  }
+
+  public async createStaging(descriptor: ManagedArtifactDescriptor): Promise<ManagedArtifactLease> {
+    assertDescriptor(descriptor);
+    const root = this.requireRoot();
+    const lock = await this.acquireLock(descriptor, 'staging', 'INSTALL_FAILED');
+    let native: ManagedFilesystemOpenResult | null = null;
+    try {
+      const nonce = this.generateNonce();
+      native = await this.dependencies.adapter.createStagingDirectory(
+        root.token,
+        descriptor.kind,
+        descriptor.canonicalName,
+        nonce,
+      );
+      await this.writeManagedManifest(native.token, descriptor);
+      return this.createLease(descriptor, native, 'staging', lock);
+    } catch (error) {
+      if (native) await this.dependencies.adapter.release(native.token).catch(() => undefined);
+      await lock.release();
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    }
+  }
+
+  public async createStagedFile(
+    stagingLease: ManagedArtifactLease,
+    fileId: LocalWhisperArtifactId,
+  ): Promise<ManagedArtifactLease> {
+    const authority = this.requireAuthority(stagingLease, 'staging');
+    const expected = findExpectedFile(authority.descriptor, fileId);
+    try {
+      const native = await this.dependencies.adapter.createStagedFile(
+        this.token(stagingLease),
+        getManagedArtifactFileName(expected.fileId),
+        expected.mode,
+      );
+      return this.createLease(authority.descriptor, native, 'staging', null);
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    }
+  }
+
+  public async appendStagedFile(fileLease: ManagedArtifactLease, chunk: Uint8Array): Promise<void> {
+    this.requireAuthority(fileLease, 'staging');
+    if (chunk.byteLength === 0) return;
+    try {
+      await this.dependencies.adapter.appendStagedFile(this.token(fileLease), chunk);
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    }
+  }
+
+  public async sealStagedFile(fileLease: ManagedArtifactLease): Promise<ManagedArtifactIdentitySnapshot> {
+    this.requireAuthority(fileLease, 'staging');
+    try {
+      return await this.dependencies.adapter.sealStagedFile(this.token(fileLease));
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    } finally {
+      await fileLease.release();
+    }
+  }
+
+  public async promote(descriptor: ManagedArtifactDescriptor, stagingLease: ManagedArtifactLease): Promise<void> {
+    assertDescriptor(descriptor);
+    const authority = this.requireAuthority(stagingLease, 'staging');
+    if (authority.descriptor.artifactId !== descriptor.artifactId || !authority.lock) {
+      throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    }
+    try {
+      const entries = await this.dependencies.adapter.inspectDirectory(
+        this.token(stagingLease),
+        expectedDirectoryEntries(descriptor),
+      );
+      validateDirectoryEntries(descriptor, entries);
+      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
+      await this.dependencies.adapter.promoteStagingDirectory(
+        this.requireRoot().token,
+        this.token(stagingLease),
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    } finally {
+      await stagingLease.release();
+    }
+  }
+
+  public async leaseInstalledArtifact(
+    descriptor: ManagedArtifactDescriptor,
+    purpose: Extract<ManagedArtifactLeasePurpose, 'integrity' | 'load' | 'verify'>,
+  ): Promise<ManagedArtifactLease> {
+    assertDescriptor(descriptor);
+    const lock = await this.acquireLock(descriptor, purpose, 'ARTIFACT_UNPROVABLE');
+    try {
+      const native = await this.dependencies.adapter.openArtifactDirectory(
+        this.requireRoot().token,
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+      if (!native) throw new ManagedArtifactStoreError('ARTIFACT_MISSING');
+      const lease = this.createLease(descriptor, native, purpose, lock);
+      validateDirectoryEntries(
+        descriptor,
+        await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor)),
+      );
+      await this.dependencies.adapter.revalidate(native.token, native.identity);
+      return lease;
+    } catch (error) {
+      await lock.release();
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
+  }
+
+  public async deleteArtifact(
+    descriptor: ManagedArtifactDescriptor,
+    clearance: ManagedArtifactRemovalClearance,
+  ): Promise<void> {
+    assertDescriptor(descriptor);
+    if (!clearance.authorizes(descriptor.artifactId)) throw new ManagedArtifactStoreError('INVALID_CLEARANCE');
+    const lock = await this.acquireLock(descriptor, 'delete', 'DELETE_FAILED');
+    let artifactToken: string | null = null;
+    let quarantineToken: string | null = null;
+    try {
+      const opened = await this.dependencies.adapter.openArtifactDirectory(
+        this.requireRoot().token,
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+      if (!opened) throw new ManagedArtifactStoreError('ARTIFACT_MISSING');
+      artifactToken = opened.token;
+      await this.dependencies.adapter.revalidate(opened.token, opened.identity);
+      const quarantined = await this.dependencies.adapter.quarantineArtifactDirectory(
+        this.requireRoot().token,
+        opened.token,
+        descriptor.namespace,
+        descriptor.canonicalName,
+        this.generateNonce(),
+      );
+      quarantineToken = quarantined.token;
+      const entries = await this.dependencies.adapter.inspectDirectory(
+        quarantined.token,
+        expectedDirectoryEntries(descriptor),
+      );
+      const proven = validateDirectoryEntries(descriptor, entries);
+      for (const expected of descriptor.expectedFiles) {
+        const entry = proven.get(expected.fileId);
+        if (!entry) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+        await this.dependencies.adapter.deleteQuarantinedFile(
+          quarantined.token,
+          getManagedArtifactFileName(expected.fileId),
+          entry.identity,
+        );
+      }
+      const manifest = entries.find(({ canonicalName }) => canonicalName === MANAGED_MANIFEST_NAME);
+      if (!manifest) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      await this.dependencies.adapter.deleteQuarantinedFile(
+        quarantined.token,
+        MANAGED_MANIFEST_NAME,
+        manifest.identity,
+      );
+      if ((await this.dependencies.adapter.inspectDirectory(quarantined.token)).length !== 0) {
+        throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      }
+      await this.dependencies.adapter.removeEmptyQuarantineDirectory(this.requireRoot().token, quarantined.token);
+      await this.dependencies.adapter.release(quarantined.token);
+      quarantineToken = null;
+    } catch (error) {
+      throw mapAdapterError(error, 'DELETE_FAILED');
+    } finally {
+      if (quarantineToken) await this.dependencies.adapter.release(quarantineToken).catch(() => undefined);
+      if (artifactToken) await this.dependencies.adapter.release(artifactToken).catch(() => undefined);
+      await lock.release().catch(() => undefined);
+    }
+  }
+
+  public async buildEvidenceSnapshot(
+    catalog: LocalWhisperAuthenticatedCatalog,
+  ): Promise<LocalWhisperManagedStorageEvidencePort> {
+    const descriptors = [
+      ...catalog.payload.runtimes.map((entry) => createManagedRuntimeDescriptor(catalog, entry)),
+      ...catalog.payload.models.map((entry) => createManagedModelDescriptor(catalog, entry)),
+    ];
+    const records: ManagedArtifactEvidenceRecord[] = [];
+    for (const descriptor of descriptors) {
+      records.push({ descriptor, evidence: await this.readEvidence(descriptor) });
+    }
+    const knownByNamespace = new Map<ManagedArtifactNamespace, ReadonlySet<string>>([
+      ['models', new Set(descriptors.filter(({ kind }) => kind === 'model').map(({ canonicalName }) => canonicalName))],
+      [
+        'runtimes',
+        new Set(descriptors.filter(({ kind }) => kind === 'runtime').map(({ canonicalName }) => canonicalName)),
+      ],
+    ]);
+    let unmanagedCount = 0;
+    for (const namespace of ['models', 'runtimes'] as const) {
+      const names = await this.dependencies.adapter.listArtifactDirectoryNames(this.requireRoot().token, namespace);
+      const known = knownByNamespace.get(namespace);
+      unmanagedCount += names.filter((name) => !known?.has(name)).length;
+    }
+    return new ManagedArtifactEvidenceSnapshot(records, unmanagedCount);
+  }
+
+  public async dispose(): Promise<void> {
+    const root = this.root;
+    this.root = null;
+    if (root) await this.dependencies.adapter.release(root.token).catch(() => undefined);
+    await this.dependencies.adapter.dispose();
+  }
+
+  private async readEvidence(descriptor: ManagedArtifactDescriptor): Promise<LocalWhisperManagedArtifactEvidence> {
+    const lock = await this.acquireLock(descriptor, 'integrity', 'ARTIFACT_UNPROVABLE');
+    let opened: ManagedFilesystemOpenResult | null = null;
+    try {
+      try {
+        opened = await this.dependencies.adapter.openArtifactDirectory(
+          this.requireRoot().token,
+          descriptor.namespace,
+          descriptor.canonicalName,
+        );
+      } catch (error) {
+        if (isUnsafeEvidenceError(error)) return corruptEvidence(descriptor);
+        throw error;
+      }
+      if (!opened) return Object.freeze({ kind: 'missing' });
+      let entries: readonly ManagedFilesystemDirectoryEntry[];
+      try {
+        entries = await this.dependencies.adapter.inspectDirectory(opened.token, expectedDirectoryEntries(descriptor));
+      } catch (error) {
+        if (isUnsafeEvidenceError(error)) return corruptEvidence(descriptor);
+        throw error;
+      }
+      let proven: ReadonlyMap<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>;
+      try {
+        proven = validateDirectoryEntries(descriptor, entries);
+      } catch {
+        return corruptEvidence(descriptor);
+      }
+      return Object.freeze({
+        kind: 'installed',
+        manifestIdentityKey: descriptor.identityKey,
+        manifestValid: true,
+        files: Object.freeze(
+          descriptor.expectedFiles.map((expected) => {
+            const entry = proven.get(expected.fileId);
+            if (!entry) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+            return toManagedFileEvidence(expected, entry);
+          }),
+        ),
+      });
+    } finally {
+      if (opened) await this.dependencies.adapter.release(opened.token).catch(() => undefined);
+      await lock.release().catch(() => undefined);
+    }
+  }
+
+  private createLease(
+    descriptor: ManagedArtifactDescriptor,
+    native: ManagedFilesystemOpenResult,
+    purpose: ManagedArtifactLeasePurpose,
+    lock: ManagedArtifactLockLease | null,
+  ): ManagedArtifactLease {
+    const lease = new ManagedArtifactLease(
+      Object.freeze({
+        artifactId: descriptor.artifactId,
+        artifactKind: descriptor.kind,
+        canonicalName: descriptor.canonicalName,
+        catalogDigest: descriptor.catalogDigest,
+        identity: native.identity,
+        purpose,
+      }),
+      native.token,
+      async (token) => {
+        await this.dependencies.adapter.release(token);
+        await lock?.release();
+      },
+    );
+    this.authorities.set(lease, { descriptor, lock });
+    return lease;
+  }
+
+  private async writeManagedManifest(stagingToken: string, descriptor: ManagedArtifactDescriptor): Promise<void> {
+    const file = await this.dependencies.adapter.createStagedFile(
+      stagingToken,
+      MANAGED_MANIFEST_NAME,
+      MANAGED_MANIFEST_MODE,
+    );
+    try {
+      await this.dependencies.adapter.appendStagedFile(file.token, managedManifestBytes(descriptor));
+      await this.dependencies.adapter.sealStagedFile(file.token);
+    } finally {
+      await this.dependencies.adapter.release(file.token).catch(() => undefined);
+    }
+  }
+
+  private requireAuthority(lease: ManagedArtifactLease, purpose: ManagedArtifactLeasePurpose): LeaseAuthority {
+    lease.assertActive();
+    const authority = this.authorities.get(lease);
+    if (!authority || lease.metadata.purpose !== purpose) throw new ManagedArtifactStoreError('INVALID_LEASE');
+    return authority;
+  }
+
+  private token(lease: ManagedArtifactLease): string {
+    return lease.nativeToken(this.leaseOwner, this.leaseOwner);
+  }
+
+  private requireRoot(): ManagedFilesystemOpenResult {
+    if (!this.root) throw new ManagedArtifactStoreError('STORAGE_UNAVAILABLE');
+    return this.root;
+  }
+
+  private requireLocks(): ManagedArtifactLockRepository {
+    this.requireRoot();
+    return this.dependencies.lockRepository;
+  }
+
+  private async acquireLock(
+    descriptor: ManagedArtifactDescriptor,
+    purpose: ManagedArtifactLeasePurpose,
+    fallback: ManagedArtifactStoreErrorCode,
+  ): Promise<ManagedArtifactLockLease> {
+    try {
+      return await this.requireLocks().acquire(
+        this.requireRoot().token,
+        descriptor.artifactId,
+        descriptor.canonicalName,
+        purpose,
+      );
+    } catch (error) {
+      throw mapAdapterError(error, fallback);
+    }
+  }
+
+  private generateNonce(): string {
+    const value = this.dependencies.generateOperationNonce();
+    if (!OPERATION_NONCE_PATTERN.test(value)) throw new ManagedArtifactStoreError('INVALID_NONCE');
+    return value;
+  }
+}

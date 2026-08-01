@@ -2015,3 +2015,75 @@ decisions:
     rationale: The user explicitly authorized one isolated commit containing only completed Task 03 files and excluding unrelated worktree changes.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-04
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 03 was committed in isolation as 14749e8 before the next packet was opened.
+      - Task 04 is the first unchecked packet and is self-contained managed-filesystem safety, cross-process locking, stable leases, atomic promotion and quarantine, and manifest-owned deletion work.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 04 and does not authorize external native dependencies, prebuilt binaries, elevated helpers, packaging changes, production data removal, Task 05, a commit, push, pull request, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-04-authorization-round-14
+      question_id: execution.task-04
+      idempotency_key: execution.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 04 Managed Filesystem Safety be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-04
+          label: Authorize Task 04 (Recommended)
+          description: Implement and verify only Task 04 managed storage safety, locking, stable leases, atomic promotion and quarantine, manifest-owned deletion, and the macOS unavailable skeleton; update todo and handoff, then stop without committing.
+        - id: do-not-authorize-task-04
+          label: Do not authorize
+          description: Stop after the Task 03 commit and make no Task 04 implementation changes.
+        - id: revise-task-04
+          label: Revise Task 04
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-04]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 04 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-04
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 is complete, uncommitted, and its focused tests, full tests, platform evidence, and diff check match the handoff.
+      - The isolated commit will exclude the three unrelated modified controller and test files.
+      - Commit authorization will not authorize Task 05, push, pull request, publication, packaging, or release actions.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-04-commit-round-15
+      question_id: commit.task-04
+      idempotency_key: commit.task-04:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should the completed Task 04 be committed in isolation before the next packet starts?
+      kind: single
+      options:
+        - id: authorize-task-04-commit
+          label: Authorize commit (Recommended)
+          description: Commit only Local Whisper Task 04 code, native sources, scripts, tests, and task/decision artifacts; exclude the three unrelated modified files.
+        - id: do-not-commit
+          label: Do not commit
+          description: Stop and leave Task 04 uncommitted; do not begin Task 05.
+        - id: revise-before-commit
+          label: Review first
+          description: Stop for a separate Task 04 review or revision before committing.
+    answer:
+      selected_ids: [authorize-task-04-commit]
+      text: ''
+    rationale: The user explicitly authorized one isolated commit containing only completed Task 04 files and excluding unrelated worktree changes.
+    supersedes_revision: null
+    requirement_ids: []

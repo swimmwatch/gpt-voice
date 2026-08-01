@@ -1,15 +1,15 @@
 # Todo: Local Whisper
 
 Plan gate: revision 2 is approved after adding six-family approximate RAM/VRAM
-guidance and exact selected-configuration estimate rules. Task 01 is committed
-as `d008325`; Task 02 is committed as `d516d03`. Task 03 was authorized through
-`execution.task-03` revision 1, is complete, and its isolated commit is
-authorized through `commit.task-03` revision 1.
+guidance and exact selected-configuration estimate rules. Tasks 01, 02, and 03
+are committed as `d008325`, `d516d03`, and `14749e8`. Task 04 was authorized
+through `execution.task-04` revision 1, is complete and verified, and its
+isolated commit is authorized through `commit.task-04` revision 1.
 
 - [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [x] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)
 - [x] [03 Trusted catalog, settings, and inventory](03_trusted_catalog_settings_and_inventory.md)
-- [ ] [04 Managed filesystem safety](04_managed_filesystem_safety.md)
+- [x] [04 Managed filesystem safety](04_managed_filesystem_safety.md)
 - [ ] [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md)
 - [ ] [06 Framed worker supervisor](06_framed_worker_supervisor.md)
 - [ ] [07 Hardened whisper.cpp runtime](07_hardened_whisper_cpp_runtime.md)
