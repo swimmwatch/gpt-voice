@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import type {
+  LocalWhisperCatalogModelEntry,
   LocalWhisperCatalogOrigin,
   LocalWhisperCatalogRuntimeEntry,
 } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
@@ -120,6 +121,21 @@ describe('LocalWhisperCatalogRepository', () => {
       'https://local-whisper-fixtures.invalid/downloads';
 
     for (const payload of [languageAlias, unallowlistedOrigin, actionablePath]) {
+      assert.deepEqual(createRepository(signFixtureCatalog(payload)).load(), {
+        success: false,
+        code: 'CATALOG_INVALID',
+      });
+    }
+  });
+
+  it('requires an exact lowercase SHA-256 transfer digest for every model artifact', () => {
+    const missing = createFixtureCatalogPayload();
+    delete (missing.models[0] as Partial<Mutable<LocalWhisperCatalogModelEntry>>).transferSha256;
+
+    const malformed = createFixtureCatalogPayload();
+    (malformed.models[0] as Mutable<LocalWhisperCatalogModelEntry>).transferSha256 = 'A'.repeat(64);
+
+    for (const payload of [missing, malformed]) {
       assert.deepEqual(createRepository(signFixtureCatalog(payload)).load(), {
         success: false,
         code: 'CATALOG_INVALID',

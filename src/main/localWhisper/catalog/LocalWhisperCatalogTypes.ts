@@ -38,6 +38,7 @@ export interface LocalWhisperCatalogModelEntry {
   readonly originId: LocalWhisperArtifactId;
   readonly expectedFiles: readonly LocalWhisperCatalogModelFileIdentity[];
   readonly transferSizeBytes: number;
+  readonly transferSha256: string;
   readonly installedSizeBytes: number;
   readonly compatibleRuntimePackRevisions: readonly LocalWhisperRevisionId[];
   readonly recommended: boolean;

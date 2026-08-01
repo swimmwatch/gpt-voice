@@ -46,6 +46,8 @@ describe('platform adapter contract', () => {
       'FileStreamInfo',
       'GetProcessTimes',
       'PROTECTED_DACL_SECURITY_INFORMATION',
+      'DELETE_STAGING_FILE',
+      'REMOVE_STAGING',
     ]) {
       assert.ok(source.includes(primitive), `missing Windows guard primitive: ${primitive}`);
     }

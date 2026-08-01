@@ -57,6 +57,7 @@ const MODEL_ENTRY_KEYS = [
   'originId',
   'expectedFiles',
   'transferSizeBytes',
+  'transferSha256',
   'installedSizeBytes',
   'compatibleRuntimePackRevisions',
   'recommended',
@@ -227,6 +228,8 @@ function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
     value.expectedFiles.length === 0 ||
     !value.expectedFiles.every(isModelFile) ||
     !isPositiveSafeInteger(value.transferSizeBytes) ||
+    typeof value.transferSha256 !== 'string' ||
+    !SHA256_PATTERN.test(value.transferSha256) ||
     !isPositiveSafeInteger(value.installedSizeBytes) ||
     !isRevisionIdList(value.compatibleRuntimePackRevisions) ||
     typeof value.recommended !== 'boolean' ||

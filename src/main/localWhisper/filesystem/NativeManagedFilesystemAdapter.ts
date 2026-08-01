@@ -189,8 +189,24 @@ export abstract class NativeManagedFilesystemAdapter implements ManagedFilesyste
     ]);
   }
 
+  public async deleteStagingFile(
+    stagingToken: string,
+    canonicalFileName: string,
+    expectedIdentity: ManagedArtifactIdentitySnapshot,
+  ): Promise<void> {
+    await this.transport.request('DELETE_STAGING_FILE', [
+      stagingToken,
+      canonicalFileName,
+      serializeIdentity(expectedIdentity),
+    ]);
+  }
+
   public async removeEmptyQuarantineDirectory(rootToken: string, quarantineToken: string): Promise<void> {
     await this.transport.request('REMOVE_QUARANTINE', [rootToken, quarantineToken]);
+  }
+
+  public async removeEmptyStagingDirectory(rootToken: string, stagingToken: string): Promise<void> {
+    await this.transport.request('REMOVE_STAGING', [rootToken, stagingToken]);
   }
 
   public async revalidate(token: string, expectedIdentity: ManagedArtifactIdentitySnapshot): Promise<void> {

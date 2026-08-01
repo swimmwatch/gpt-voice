@@ -57,7 +57,15 @@ export class MacOSManagedFilesystemAdapter implements ManagedFilesystemPlatformA
     return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
   }
 
+  public deleteStagingFile(): Promise<never> {
+    return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
+  }
+
   public removeEmptyQuarantineDirectory(): Promise<never> {
+    return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
+  }
+
+  public removeEmptyStagingDirectory(): Promise<never> {
     return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
   }
 

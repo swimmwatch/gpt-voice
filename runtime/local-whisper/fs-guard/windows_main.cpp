@@ -1003,6 +1003,29 @@ std::vector<std::string> dispatch(const std::string& command,
     CloseHandle(file);
     return {};
   }
+  if (command == "DELETE_STAGING_FILE") {
+    if (arguments.size() != 3 || !is_file_name(arguments[1])) throw GuardError("INVALID_INPUT");
+    Lease& directory = require_lease(arguments[0]);
+    if (directory.kind != LeaseKind::kDirectory ||
+        wide_to_utf8(directory.name).rfind("stage-", 0) != 0) {
+      throw GuardError("INVALID_INPUT");
+    }
+    bool created = false;
+    HANDLE file = relative_open(directory.handle, utf8_to_wide(arguments[1]),
+                                kFileAccess, FILE_OPEN, kFileOptions, created);
+    if (file == INVALID_HANDLE_VALUE) throw GuardError("IDENTITY_CHANGED");
+    const auto expected = split(arguments[2], '|');
+    const unsigned int mode = expected.size() == 7
+                                  ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
+                                  : 0;
+    if (expected.size() != 7 || identity_string(file, directory.handle, mode) != arguments[2]) {
+      CloseHandle(file);
+      throw GuardError("IDENTITY_CHANGED");
+    }
+    set_disposition(file);
+    CloseHandle(file);
+    return {};
+  }
   if (command == "REMOVE_QUARANTINE") {
     if (arguments.size() != 2) throw GuardError("INVALID_INPUT");
     Lease& root = require_root(arguments[0]);
@@ -1010,6 +1033,19 @@ std::vector<std::string> dispatch(const std::string& command,
     if (directory.kind != LeaseKind::kDirectory ||
         directory.root_volume != root.root_volume ||
         wide_to_utf8(directory.name).rfind("quarantine-", 0) != 0) {
+      throw GuardError("INVALID_INPUT");
+    }
+    if (!directory_names(directory.handle).empty()) throw GuardError("UNSAFE_ENTRY");
+    set_disposition(directory.handle);
+    return {};
+  }
+  if (command == "REMOVE_STAGING") {
+    if (arguments.size() != 2) throw GuardError("INVALID_INPUT");
+    Lease& root = require_root(arguments[0]);
+    Lease& directory = require_lease(arguments[1]);
+    if (directory.kind != LeaseKind::kDirectory ||
+        directory.root_volume != root.root_volume ||
+        wide_to_utf8(directory.name).rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
     if (!directory_names(directory.handle).empty()) throw GuardError("UNSAFE_ENTRY");

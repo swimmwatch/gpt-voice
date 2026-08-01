@@ -393,6 +393,52 @@ export class ManagedArtifactStore {
     }
   }
 
+  public async discardStaging(stagingLease: ManagedArtifactLease): Promise<void> {
+    const authority = this.requireAuthority(stagingLease, 'staging');
+    if (!authority.lock) throw new ManagedArtifactStoreError('INVALID_LEASE');
+    try {
+      const entries = await this.dependencies.adapter.inspectDirectory(this.token(stagingLease));
+      const expectedByName = new Map<string, ManagedArtifactExpectedFile | null>([
+        [MANAGED_MANIFEST_NAME, null],
+        ...authority.descriptor.expectedFiles.map(
+          (expected) => [getManagedArtifactFileName(expected.fileId), expected] as const,
+        ),
+      ]);
+      for (const entry of entries) {
+        const expected = expectedByName.get(entry.canonicalName);
+        const expectedMode = expected === null ? MANAGED_MANIFEST_MODE : expected?.mode;
+        const maximumSize =
+          expected === null ? managedManifestBytes(authority.descriptor).byteLength : expected?.sizeBytes;
+        if (
+          expectedMode === undefined ||
+          maximumSize === undefined ||
+          entry.identity.type !== 'regular' ||
+          entry.identity.linkCount !== 1 ||
+          entry.identity.mode !== expectedMode ||
+          entry.identity.sizeBytes > maximumSize
+        ) {
+          throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+        }
+      }
+      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
+      for (const entry of entries) {
+        await this.dependencies.adapter.deleteStagingFile(
+          this.token(stagingLease),
+          entry.canonicalName,
+          entry.identity,
+        );
+      }
+      if ((await this.dependencies.adapter.inspectDirectory(this.token(stagingLease))).length !== 0) {
+        throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      }
+      await this.dependencies.adapter.removeEmptyStagingDirectory(this.requireRoot().token, this.token(stagingLease));
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    } finally {
+      await stagingLease.release().catch(() => undefined);
+    }
+  }
+
   public async leaseInstalledArtifact(
     descriptor: ManagedArtifactDescriptor,
     purpose: Extract<ManagedArtifactLeasePurpose, 'integrity' | 'load' | 'verify'>,

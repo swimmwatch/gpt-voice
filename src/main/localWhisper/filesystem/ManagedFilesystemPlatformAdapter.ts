@@ -75,7 +75,13 @@ export interface ManagedFilesystemPlatformAdapter {
     canonicalFileName: string,
     expectedIdentity: ManagedArtifactIdentitySnapshot,
   ): Promise<void>;
+  deleteStagingFile(
+    stagingToken: string,
+    canonicalFileName: string,
+    expectedIdentity: ManagedArtifactIdentitySnapshot,
+  ): Promise<void>;
   removeEmptyQuarantineDirectory(rootToken: string, quarantineToken: string): Promise<void>;
+  removeEmptyStagingDirectory(rootToken: string, stagingToken: string): Promise<void>;
   revalidate(token: string, expectedIdentity: ManagedArtifactIdentitySnapshot): Promise<void>;
   release(token: string): Promise<void>;
   dispose(): Promise<void>;

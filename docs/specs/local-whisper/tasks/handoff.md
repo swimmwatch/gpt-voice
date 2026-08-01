@@ -3,12 +3,11 @@
 ## Status
 
 Task 05 was authorized through `execution.task-05` revision 1, implemented,
-and verified. It remains uncommitted. The revised 18-packet plan is approved
-through `approval.plan` revision 3 and inserts native C++ modularization as Task
-06. Its isolated commit is authorized through `commit.task-05` revision 1 and
-follows the separate plan-revision commit. Task 06 execution, production
-artifact publication/download, push, pull request, packaging, and release are
-not authorized.
+verified, and included in its authorized isolated implementation commit. The
+revised 18-packet plan is approved through `approval.plan` revision 3 and was
+committed as `a239274`; it inserts native C++ modularization as Task 06. Task 06
+execution, production artifact publication/download, push, pull request,
+packaging, and release are not authorized.
 
 ## Completed Packets
 
@@ -16,7 +15,7 @@ not authorized.
 - [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)
 - [03 Trusted catalog, settings, and inventory](03_trusted_catalog_settings_and_inventory.md)
 - [04 Managed filesystem safety](04_managed_filesystem_safety.md), committed as `649ec3b9`
-- [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md), uncommitted
+- [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md), committed in this transition
 
 ## Implemented Contract
 
@@ -112,10 +111,7 @@ not authorized.
 
 ## Exact Next Packet
 
-- Review the uncommitted Task 05 diff and deterministic evidence.
-- Commit Task 05 in the separately authorized isolated implementation commit;
-  exclude the three unrelated modified Prettify/composition-root files.
-- Only after that commit and a separate execution decision, start
+- Obtain a separate execution decision before starting
   [06 Native C++ modularization](06_native_cpp_modularization.md).
 
 ## Rollback State

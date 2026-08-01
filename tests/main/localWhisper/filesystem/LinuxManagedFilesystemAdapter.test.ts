@@ -211,6 +211,21 @@ describe('LinuxManagedFilesystemAdapter real openat2 contract', { skip: process.
     await harness.store.dispose();
   });
 
+  test('discards only a proven partial staging tree through anchored file identities', async () => {
+    const harness = createHarness('discard-partial');
+    await harness.store.initialize();
+    const staging = await harness.store.createStaging(harness.descriptor);
+    const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
+    await harness.store.appendStagedFile(file, CONTENT.subarray(0, 7));
+    await harness.store.sealStagedFile(file);
+
+    await harness.store.discardStaging(staging);
+
+    assert.deepEqual(readdirSync(path.join(harness.managedRoot, 'staging')), []);
+    assert.equal(existsSync(path.join(harness.managedRoot, 'models', harness.descriptor.canonicalName)), false);
+    await harness.store.dispose();
+  });
+
   test('anchors a managed root beneath an ordinary path containing spaces', async () => {
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
     temporaryRoots.push(temporaryRoot);

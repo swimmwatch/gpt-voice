@@ -112,6 +112,7 @@ export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {
           },
         ],
         transferSizeBytes: 150,
+        transferSha256: 'd'.repeat(64),
         installedSizeBytes: 200,
         compatibleRuntimePackRevisions: [RUNTIME_REVISION],
         recommended: true,

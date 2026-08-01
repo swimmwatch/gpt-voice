@@ -967,11 +967,47 @@ std::vector<std::string> dispatch(const std::string& command,
     if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0) throw GuardError("IO_FAILED");
     return {};
   }
+  if (command == "DELETE_STAGING_FILE") {
+    if (arguments.size() != 3 || !is_file_name(arguments[1])) throw GuardError("INVALID_INPUT");
+    Lease& directory = require_lease(arguments[0]);
+    if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("stage-", 0) != 0) {
+      throw GuardError("INVALID_INPUT");
+    }
+    const int fd = openat2_relative(directory.fd, arguments[1],
+                                    O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0,
+                                    kResolveManaged);
+    if (fd < 0) throw GuardError("IDENTITY_CHANGED");
+    checked_stat(fd, directory.root_device, false, true);
+    const std::string current = identity_string(fd, directory.fd);
+    close(fd);
+    if (current != arguments[2]) throw GuardError("IDENTITY_CHANGED");
+    if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0) throw GuardError("IO_FAILED");
+    return {};
+  }
   if (command == "REMOVE_QUARANTINE") {
     if (arguments.size() != 2) throw GuardError("INVALID_INPUT");
     Lease& root = require_root(arguments[0]);
     Lease& directory = require_lease(arguments[1]);
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("quarantine-", 0) != 0 ||
+        directory.root_device != root.root_device) {
+      throw GuardError("INVALID_INPUT");
+    }
+    if (!list_directory(directory).empty()) throw GuardError("UNSAFE_ENTRY");
+    struct stat held {};
+    struct stat named {};
+    if (fstat(directory.fd, &held) != 0 ||
+        fstatat(directory.parent_fd, directory.name.c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
+        held.st_dev != named.st_dev || held.st_ino != named.st_ino ||
+        unlinkat(directory.parent_fd, directory.name.c_str(), AT_REMOVEDIR) != 0) {
+      throw GuardError("IDENTITY_CHANGED");
+    }
+    return {};
+  }
+  if (command == "REMOVE_STAGING") {
+    if (arguments.size() != 2) throw GuardError("INVALID_INPUT");
+    Lease& root = require_root(arguments[0]);
+    Lease& directory = require_lease(arguments[1]);
+    if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("stage-", 0) != 0 ||
         directory.root_device != root.root_device) {
       throw GuardError("INVALID_INPUT");
     }

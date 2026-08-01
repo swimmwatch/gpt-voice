@@ -4,9 +4,9 @@ Plan gate: revision 3 is approved with native C++ modularization as Task 06 and
 future non-release-blocking hardening as Task 18. Tasks 01, 02, and 03 are
 committed as `d008325`, `d516d03`, and `14749e8`; Task 04 is committed as
 `649ec3b9`. Task 05 was authorized through `execution.task-05` revision 1 and is
-complete and verified but uncommitted. Its isolated commit is authorized through
-`commit.task-05` revision 1 and follows the separate plan-revision commit; Task
-06 still requires explicit execution authorization.
+complete, verified, and included in its authorized isolated implementation
+commit after plan revision commit `a239274`. Task 06 still requires explicit
+execution authorization.
 
 - [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [x] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)

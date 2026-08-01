@@ -56,6 +56,7 @@
     "verify:size": "node scripts/build-size-cli.mjs verify",
     "verify:diagnostics-dependencies": "node --import tsx scripts/verify-diagnostics-dependency-policy.ts",
     "build:local-whisper:fs-guard": "node scripts/local-whisper/build-fs-guard.mjs",
+    "test:local-whisper:artifacts": "node --import tsx --test \"tests/main/localWhisper/artifacts/*.test.ts\"",
     "test:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx --test \"tests/main/localWhisper/filesystem/*.test.ts\"",
     "verify:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx scripts/local-whisper/verify-filesystem.ts",
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
