@@ -1,4 +1,4 @@
-# 06 Framed Worker Supervisor
+# 07 Framed Worker Supervisor
 
 ## Outcome
 
@@ -11,22 +11,24 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 06 has separate execution
+- The Local Whisper plan is approved and Task 07 has separate execution
   authorization.
-- Tasks 01, 03, and 04 are complete:
+- Tasks 01, 03, 04, and 06 are complete:
   - Task 01 supplies versioned protocol messages, canonical states/failures,
     frame limits, and settings identities;
   - Task 03 supplies authenticated runtime/expected-file/build/protocol
     manifests;
   - Task 04 supplies stable executable/library/model leases, per-artifact
     locks, and revalidation immediately before spawn/load.
+  - Task 06 supplies the modular native build/test conventions and the
+    production-quality filesystem-guard baseline reused by native launchers.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
 - Planning decision `planning.openwhispr-adaptation-boundary` remains
   `hardened-openwhispr-pattern`: only pinned backend-specific packs and a
   persistent main-owned process are reusable ideas. OpenWhispr HTTP/ports,
   shared mutable `bin`, model path in argv, mutable unsigned assets, and
   GPU-to-CPU fallback are forbidden.
-- Actual `whisper.cpp` and Faster-Whisper worker peers belong to Tasks 07 and 08. This packet uses a deterministic non-inference conformance worker.
+- Actual `whisper.cpp` and Faster-Whisper worker peers belong to Tasks 08 and 09. This packet uses a deterministic non-inference conformance worker.
 
 ## Owned Requirements
 
@@ -34,7 +36,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
   `RUN-004`, `RUN-005`, `SEC-005`, `SEC-007`, `PRIV-001`, `FAIL-005`, and
   `FAIL-007`
 - Process-owned lifecycle portions of `ARCH-003`, `ARCH-006`, and `LIFE-001`;
-  Task 10 owns coordinator state and orchestration
+  Task 11 owns coordinator state and orchestration
 - `AC-AUTO-024`
 - Process-tree/ownership portion of `AC-AUTO-040`
 - Supervisor/privacy/protocol portions of `AC-AUTO-026`, `AC-AUTO-030`,
@@ -43,7 +45,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 ## In Scope
 
 - A strict incremental length-framed stdin/stdout transport over Task 01
-  messages, with golden conformance vectors for Tasks 07/08.
+  messages, with golden conformance vectors for Tasks 08/09.
 - Authenticated runtime spawn, sanitized environment/argv/cwd, handshake, and
   exact engine/runtime/backend/protocol confirmation.
 - Bounded probe/load/warm-up/transcription/cancel/unload/shutdown requests with
@@ -60,7 +62,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 - Actual inference engines, model decoding, language/strategy mapping, runtime
   pack builds, Python/CTranslate2/PyAV, or `whisper.cpp` API adaptation; Tasks
-  07/08 own peers.
+  08/09 own peers.
 - Catalog publication, artifact download/extraction, filesystem deletion,
   hardware support policy, capability probing, coordinator state, IPC, UI, or
   provider dispatch.
@@ -105,7 +107,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 1. Implement one state-owning `LocalWhisperWorkerSupervisor` per
    main-process composition graph. It owns at most one child tree, framed
    transport, request registry, stderr ring, stage deadline, cancellation, and
-   cleanup promise. It is injected into Task 10; no module-level singleton or
+   cleanup promise. It is injected into Task 11; no module-level singleton or
    pass-through wrapper.
 2. Start only an absolute executable and reviewed libraries supplied by Task
    04's still-valid manifest-backed lease. Revalidate file/directory identity
@@ -132,7 +134,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 1. Consume the canonical versioned control/message schemas from Task 01 and
    implement one incremental binary framing codec. Freeze the exact byte layout
-   with checked-in golden vectors before Tasks 07/08 implement peers. The codec
+   with checked-in golden vectors before Tasks 08/09 implement peers. The codec
    must support strict control frames and bounded binary audio chunks without
    base64/full-audio buffering.
 2. Every frame has an unambiguous length, kind, protocol version, request ID,
@@ -151,7 +153,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
    capabilities, and maximum frame sizes. Mismatch is
    `WORKER_PROTOCOL_MISMATCH`; terminate before model data or private payloads
    are accepted.
-5. Keep the transport engine-neutral. Tasks 07/08 implement the same
+5. Keep the transport engine-neutral. Tasks 08/09 implement the same
    handshake and request semantics independently; Faster-Whisper never shares
    an OpenWhispr/whisper.cpp server or fallback process.
 6. Apply backpressure to stdin and stdout. Bound queued outgoing audio/control
@@ -237,8 +239,8 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 - Task 04's still-held/revalidated lease is required for spawn and model-path
   handoff. A string path alone is not authority.
-- Task 06 owns process/framing/deadline/cleanup mechanics. Tasks 07/08 own
-  engine peers; Task 10 owns readiness/residency/activity and operation policy.
+- Task 07 owns process/framing/deadline/cleanup mechanics. Tasks 08/09 own
+  engine peers; Task 11 owns readiness/residency/activity and operation policy.
 - `src/main/services/prettifyCliRunner.ts` may inform abort and first-terminal
   patterns only. It must not be reused directly: it accepts user/PATH
   executables, buffers whole output, uses PID-based `taskkill`, and has no
@@ -267,13 +269,13 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
   - `runtime/local-whisper/launcher/windows/` for race-free Job Object
     ownership.
 - Deterministic build/verification scripts under `scripts/local-whisper/`;
-  generated binaries remain ignored until Task 14 packages reviewed fixtures.
+  generated binaries remain ignored until Task 15 packages reviewed fixtures.
 - A non-inference conformance worker under
   `tests/fixtures/local-whisper/worker/` supporting scripted handshake,
   response, malformed/oversized/out-of-order, flood, hang, crash, descendant,
   and stream-close modes.
 - Tests under `tests/main/localWhisper/supervisor/` and checked-in protocol
-  golden vectors consumable by Tasks 07/08.
+  golden vectors consumable by Tasks 08/09.
 - Expected package scripts:
   - `build:local-whisper:launcher`;
   - `verify:local-whisper:launcher`;
@@ -304,7 +306,7 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
   or native exception; fixture inference opens no network endpoint
   (`AC-AUTO-026` supervisor portion).
 - Golden protocol vectors pass both the main codec and conformance peer and are
-  ready for Tasks 07/08; no production runtime pack/publication claim is made.
+  ready for Tasks 08/09; no production runtime pack/publication claim is made.
 
 ## Verification
 
@@ -337,7 +339,7 @@ short fixture-specific injected bounds without changing production constants.
   protocol.
 - A cleanup failure keeps the child/artifact state unusable and blocks retry;
   never force tests green by reporting `Unloaded` without confirmed exit.
-- Rollback disables supervisor composition and removes only Task 06 source,
+- Rollback disables supervisor composition and removes only Task 07 source,
   tests, and generated local launcher fixtures. Do not kill an unproven PID or
   delete installed artifacts/settings.
 
@@ -351,13 +353,13 @@ short fixture-specific injected bounds without changing production constants.
   crash before Linux support qualification.
 - `MANUAL GATE — lifecycle/offline qualification`: the supervisor portions of
   `AC-MAN-005` (orphan/allocation cleanup) and `AC-MAN-006` (offline/no
-  inference egress) remain Task 16 gates with real engine/runtime evidence;
+  inference egress) remain Task 17 gates with real engine/runtime evidence;
   conformance-worker success cannot close them.
 - `MANUAL GATE — native helper/dependency`: any external native package,
   prebuilt helper, elevated service, or packaging change requires explicit
   approval and later license/SBOM review.
 - No real inference runtime/model, production signing, upload, commit, push,
-  release, or Task 07 execution is authorized.
+  release, or Task 08 execution is authorized.
 
 ## References
 
@@ -373,22 +375,23 @@ short fixture-specific injected bounds without changing production constants.
   - `01_shared_domain_contracts.md`;
   - `03_trusted_catalog_settings_and_inventory.md`;
   - `04_managed_filesystem_safety.md`.
+  - `06_native_cpp_modularization.md`.
 - Local background only:
   - `src/main/services/prettifyCliRunner.ts` for abort/terminal-cause lessons,
     not as a compliant process runner;
   - `src/main/di/mainProcessCompositionRoot.ts` and
     `src/main/mainProcessApplication.ts` for process ownership and shutdown.
-- Downstream consumers: `07_hardened_whisper_cpp_runtime.md`, Task 08, Task 09,
-  and Task 10.
+- Downstream consumers: `08_hardened_whisper_cpp_runtime.md`, Task 09, Task 10,
+  and Task 11.
 
 ## Completion And Handoff
 
-- Mark Task 06 complete in `todo.md` only when protocol, cleanup, privacy, and
+- Mark Task 07 complete in `todo.md` only when protocol, cleanup, privacy, and
   all available real platform evidence are recorded; otherwise leave the exact
   platform feasibility blocker.
 - Update `handoff.md` with framing byte layout/golden vectors, public
   supervisor interfaces, production bounds, platform ownership mechanism,
   final files, generated fixture outputs, exact commands, and open gates.
-- Name Task 07 as the exact next packet.
-- Present the Task 06 diff/evidence and stop. Do not commit, publish, or begin
-  Task 07 in the same invocation.
+- Name Task 08 as the exact next packet.
+- Present the Task 07 diff/evidence and stop. Do not commit, publish, or begin
+  Task 08 in the same invocation.

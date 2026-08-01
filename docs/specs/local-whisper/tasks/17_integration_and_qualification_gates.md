@@ -1,4 +1,4 @@
-# 16 Integration And Qualification Gates
+# 17 Integration And Qualification Gates
 
 ## Outcome
 
@@ -6,16 +6,16 @@ The completed Local Whisper implementation is wired through one signed-fixture
 cross-layer harness, every automated acceptance ID is traceable to an owning
 test/command, release-qualification profile/result schemas reject incomplete or
 post-hoc evidence, and the complete project quality/package gate runs without
-duplicating exhaustive tests already owned by Tasks 01–15. Automated success
+duplicating exhaustive tests already owned by Tasks 01–16. Automated success
 does not publish artifacts or promote conditional/Preview platform claims.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 16 has separate execution
+- The Local Whisper plan is approved and Task 17 has separate execution
   authorization.
-- Tasks 01 through 15 are complete. `todo.md` and `handoff.md` identify their
+- Tasks 01 through 16 are complete. `todo.md` and `handoff.md` identify their
   final file/test ownership and any unavailable platform evidence.
-- Task 14's signed local fixture pipeline is usable without production
+- Task 15's signed local fixture pipeline is usable without production
   credentials/network and production publication Manual Gates remain closed
   unless separately documented as satisfied.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved` and no owner
@@ -64,7 +64,7 @@ does not publish artifacts or promote conditional/Preview platform claims.
 
 - Rewriting exhaustive domain, IPC, settings, UI, downloader, filesystem,
   worker, capability, lifecycle, privacy, packaging, or migration test matrices
-  owned by Tasks 01–15.
+  owned by Tasks 01–16.
 - Adding a second implementation of catalog verification, worker supervisor,
   engine mapping, coordinator state, or settings UI for integration tests.
 - Fabricating Production profiles, hardware measurements, signatures,
@@ -80,7 +80,7 @@ does not publish artifacts or promote conditional/Preview platform claims.
 
 1. Add a checked-in machine-readable manifest with exactly one primary owner
    for every `AC-AUTO-001` through `AC-AUTO-049`. Assign `AC-AUTO-049` to
-   Task 13's assembled-screen suite with Tasks 01, 03, 09, 11, 12, and 14 as
+   Task 14's assembled-screen suite with Tasks 01, 03, 10, 12, 13, and 15 as
    supporting owner tests. An AC may name supporting
    tests, but only one packet/file is primary to prevent duplicate exhaustive
    suites.
@@ -90,18 +90,18 @@ does not publish artifacts or promote conditional/Preview platform claims.
    - test file(s) and exact command;
    - deterministic platform (`all`, `linux`, `win32`, or compile-only macOS
      fixture);
-   - whether Task 16 merely runs it or supplies one cross-layer assertion.
+   - whether Task 17 merely runs it or supplies one cross-layer assertion.
 3. Validator fails for missing/unknown/duplicate IDs, nonexistent files,
    commands not present in `package.json`, a manual-only assertion listed as
    automated, or an AC silently marked skipped.
-4. Task 16's representative wiring smoke is not a second exhaustive
+4. Task 17's representative wiring smoke is not a second exhaustive
    implementation of `AC-AUTO-027` or `AC-AUTO-044`. It runs those primary
    owner suites unchanged, then imports their production boundaries/fixtures
    only to prove the completed graph composes.
 
 ### Signed-fixture cross-layer harness
 
-1. Generate Task 14's ephemeral signed catalog and small runtime/model fixtures
+1. Generate Task 15's ephemeral signed catalog and small runtime/model fixtures
    in an owner-private temporary root. Inject the fixture byte transport; no
    network request or real user storage is allowed.
 2. Construct the actual main-process Local Whisper composition graph with test
@@ -188,7 +188,7 @@ repository through the corresponding Manual Gate and separate authorization.
 3. AMD remains explicitly untested Preview until AC-MAN-010 physical evidence;
    Faster-Whisper AMD remains absent/Unsupported.
 4. macOS remains Planned/unavailable and has no runtime/model catalog action.
-5. Production hosting/publication remains blocked until Task 14's origin,
+5. Production hosting/publication remains blocked until Task 15's origin,
    signing, redistribution, and real-download Manual Gates are satisfied.
 
 ### Aggregate quality gate
@@ -209,7 +209,7 @@ repository through the corresponding Manual Gate and separate authorization.
 
 ## Contracts And Boundaries
 
-- Owner packets remain authoritative for exhaustive tests. Task 16 imports
+- Owner packets remain authoritative for exhaustive tests. Task 17 imports
   their public harnesses/fixtures or runs their commands; it does not copy test
   tables into a monolithic suite.
 - Cross-layer tests use production composition and state owners with injected
@@ -267,14 +267,14 @@ are acceptable only when handoff records the canonical mapping.
   be interpreted as Production evidence.
 - Evidence summary leaves every cell unpromoted unless the exact OS/engine/
   backend/profile result is present and approved.
-- `verify:local-whisper` runs owner commands plus only focused Task-16 tests and
+- `verify:local-whisper` runs owner commands plus only focused Task-17 tests and
   fails on the first substantive failure without rewriting snapshots/baselines.
 - The full project quality/build gate passes; platform-only unavailable checks
   are reported rather than mocked as evidence.
 
 ## Verification
 
-Run Task-16-focused checks first:
+Run Task-17-focused checks first:
 
 ```text
 rtk npm run verify:local-whisper:acceptance
@@ -303,22 +303,22 @@ rtk npm run verify:packaged
 rtk npm run dist:win -- --dir
 ```
 
-Use the exact commands supplied by Tasks 01–15 for owner-specific runtime/UI/
-package tests; do not create duplicate Task-16 variants. Record all commands,
+Use the exact commands supplied by Tasks 01–16 for owner-specific runtime/UI/
+package tests; do not create duplicate Task-17 variants. Record all commands,
 versions, and unavailable platform checks in `handoff.md`.
 
 ## Failure And Rollback
 
 - Any unmapped AC, conflicting owner assertion, cross-layer contract mismatch,
-  privacy leak, remote-provider regression, or unbounded cleanup blocks Task 16.
+  privacy leak, remote-provider regression, or unbounded cleanup blocks Task 17.
   Repair the owning packet through planning/authorized implementation; do not
   weaken the aggregate gate.
 - An incomplete qualification profile/result never becomes warning-only and
   never promotes a tier.
 - If fixture and production evidence cannot be distinguished mechanically,
-  block release and return to Task 14 planning; do not accept reviewer memory as
+  block release and return to Task 15 planning; do not accept reviewer memory as
   the boundary.
-- Rollback removes only Task-16 integration/coverage/schema/runner additions.
+- Rollback removes only Task-17 integration/coverage/schema/runner additions.
   It does not delete installed artifacts, rewrite user settings, alter support
   tiers, or publish anything.
 - A prior immutable app/catalog/runtime/model revision remains the rollback
@@ -349,7 +349,7 @@ versions, and unavailable platform checks in `handoff.md`.
   release evidence, then separately authorize publication. Until then only
   signed local fixtures are valid and no Local Whisper-enabled Production
   release may be published.
-- Execution of Task 16 authorizes none of these external/hardware/destructive
+- Execution of Task 17 authorizes none of these external/hardware/destructive
   actions and does not authorize commit, push, tag, release, upload, or publish.
 
 ## References
@@ -362,15 +362,15 @@ versions, and unavailable platform checks in `handoff.md`.
     `planning.artifact-publishing-target`, and
     `planning.openwhispr-adaptation-boundary`, plus
     `resources.model-estimate-presentation`.
-- Task 14 signed fixture/package outputs and final ownership/test commands from
-  Tasks 01–15 as recorded in `handoff.md`.
+- Task 15 signed fixture/package outputs and final ownership/test commands from
+  Tasks 01–16 as recorded in `handoff.md`.
 - Current quality/package entry points in `package.json`,
   `.github/workflows/pr-checks.yml`, and
   `.github/workflows/release-builds.yml`.
 
 ## Completion And Handoff
 
-- Mark Task 16 complete in `todo.md` only after deterministic automated gates
+- Mark Task 17 complete in `todo.md` only after deterministic automated gates
   pass. Record exact commands, tool versions, platform coverage, unresolved
   Manual Gates, and explicit “no publication performed” in `handoff.md`.
 - Do not mark conditional Production matrix cells promoted without separately

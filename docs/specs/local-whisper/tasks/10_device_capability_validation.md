@@ -1,4 +1,4 @@
-# 09 Current-Device Capability Validation
+# 10 Current-Device Capability Validation
 
 ## Outcome
 
@@ -11,9 +11,9 @@ untested Preview and macOS remains a non-executable Planned skeleton.
 ## Prerequisites
 
 - The Local Whisper plan is approved.
-- Tasks 01, 03, 04, 06, 07, and 08 are complete and committed through their
-  packet boundaries.
-- Task 09 has separate execution authorization.
+- Tasks 01, 03, 04, and 06–09 are complete and committed through their packet
+  boundaries.
+- Task 10 has separate execution authorization.
 - Runtime/model repositories can provide verified identity and compatibility
   snapshots; worker adapters can expose probe/load/warm-up fakes.
 
@@ -57,7 +57,7 @@ untested Preview and macOS remains a non-executable Planned skeleton.
 1. Implement an immutable support matrix keyed by OS/architecture, engine,
    target, backend, and reviewed device class. Probes may lower operational
    capability but never promote `Production | Preview | Planned | Unsupported`.
-   Production labels remain conditional until Task 16 records the exact manual
+   Production labels remain conditional until Task 17 records the exact manual
    profile evidence.
 2. Enumerate physical devices in main and return only a sanitized display name,
    vendor class, eligible backend list, and stable opaque ID. Raw serials,
@@ -117,7 +117,7 @@ untested Preview and macOS remains a non-executable Planned skeleton.
     driver/runtime/ISA/topology, and resolved load-affecting settings. Mark
     evidence stale after any component change, artifact mutation/denylist,
     suspend/resume, topology/hot-plug, driver reset, or process restart.
-12. Expose one typed `CapabilityService` port for Task 10 with separate methods
+12. Expose one typed `CapabilityService` port for Task 11 with separate methods
     for enumeration, estimate-only check, short-lived probe, full-proof stage
     assistance, fingerprint capture, and invalidation. No getter causes a deep
     probe.
@@ -129,7 +129,7 @@ untested Preview and macOS remains a non-executable Planned skeleton.
 
 - All OS commands, native APIs, device files, drivers, and runtime libraries
   are accessed by focused main adapters behind repository interfaces. The
-  renderer receives sanitized values only through Task 11.
+  renderer receives sanitized values only through Task 12.
 - Runtime libraries are resolved from verified packs or explicitly declared
   system prerequisites, never user `PATH`, `LD_LIBRARY_PATH`, `PYTHONPATH`, or
   arbitrary environment values.
@@ -166,7 +166,7 @@ untested Preview and macOS remains a non-executable Planned skeleton.
   advisory metadata without changing capability.
 - Every fingerprint component and platform lifecycle event invalidates prior
   evidence; intentional same-process unload alone may retain `Validated`
-  evidence for Task 10 to display.
+  evidence for Task 11 to display.
 - `Check compatibility` never leaves a worker or allocation and never reports
   `Ready`.
 - macOS arm64 and Faster-Whisper AMD cannot reach download, spawn, load, or
@@ -201,7 +201,7 @@ packet.
 ## Manual Gates
 
 - NVIDIA Linux/Windows, CPU, AMD, and macOS hardware gates remain deferred to
-  Task 16 and require the exact environments in `AC-MAN-001`–`AC-MAN-011`.
+  Task 17 and require the exact environments in `AC-MAN-001`–`AC-MAN-011`.
 - AMD review in this packet is code/manifest-only and must remain labeled
   untested Preview.
 - No driver/permission change, elevation, pack publication, commit, or next
@@ -218,8 +218,8 @@ packet.
 
 ## Completion And Handoff
 
-- Mark Task 09 complete in `todo.md`; record adapters, fixtures, and exact
+- Mark Task 10 complete in `todo.md`; record adapters, fixtures, and exact
   checks in `handoff.md`.
-- Name Task 10 as next.
+- Name Task 11 as next.
 - Present only synthetic capability evidence and stop. Do not claim platform
-  qualification, commit, or begin Task 10.
+  qualification, commit, or begin Task 11.

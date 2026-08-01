@@ -1,4 +1,4 @@
-# 14 Packaging And Signed Fixture Pipeline
+# 15 Packaging And Signed Fixture Pipeline
 
 ## Outcome
 
@@ -12,15 +12,16 @@ Gates.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 14 has separate execution
+- The Local Whisper plan is approved and Task 15 has separate execution
   authorization.
-- Tasks 03, 04, 05, 06, 07, and 08 are complete:
+- Tasks 03 through 09 are complete:
   - Task 03 owns catalog/keyring/manifest schemas and authenticated inventory;
   - Task 04 owns safe managed paths and exact-file identities;
   - Task 05 owns streaming download/install/resume verification;
-  - Task 06 supplies the protocol-conformant fixture worker used by small
+  - Task 06 supplies deterministic native CMake output and quality metadata;
+  - Task 07 supplies the protocol-conformant fixture worker used by small
     automated runtime fixtures;
-  - Tasks 07/08 define the real runtime content-tree contracts and local build
+  - Tasks 08/09 define the real runtime content-tree contracts and local build
     inputs for each engine.
 - Real engine binaries and model weights are not required for package smoke or
   trust-negative tests.
@@ -51,6 +52,9 @@ Gates.
   artifact, closed memory estimates, denylist, signature/hash, protocol/app
   compatibility, and unsafe archive cases.
 - Package staging of the immutable main-only catalog/keyring/schema resources.
+- Deterministic release-preset build, staging, integrity metadata, and packaged
+  resolver coverage for Task 06's small native filesystem guard on Windows and
+  Linux; test binaries and CMake build trees remain excluded.
 - Linux AppImage/deb/rpm and Windows NSIS package policy/verifier extensions.
 - Package-smoke CI using fixture mode without credentials or external network.
 - Release-workflow guards that prevent fixture trust roots/catalogs or bundled
@@ -72,7 +76,7 @@ Gates.
 - Download/install implementation already owned by Task 05 or catalog business
   logic owned by Task 03.
 - Committing generated catalogs, fixture private keys, archives, model bytes,
-  runtime binaries, release artifacts, or signing output.
+  inference runtime binaries, release artifacts, or signing output.
 
 ## Task Contract
 
@@ -103,7 +107,7 @@ Gates.
 Generate bounded local fixtures for both engine IDs:
 
 - one protocol-conformant runtime archive per `whisperCpp` and
-  `fasterWhisper`, containing the Task-06 fixture peer—not a real inference
+  `fasterWhisper`, containing the Task-07 fixture peer—not a real inference
   claim;
 - one small engine-native-shaped model artifact per engine with non-model
   synthetic bytes and explicit `fixture` provenance;
@@ -141,7 +145,7 @@ promotable or executable.
    validate schema/signature/app version/protocol/purpose, and reject unexpected
    files. Installer checks must verify the same files after real extraction or
    silent install.
-5. Explicitly reject any base package containing Local Whisper worker
+5. Explicitly reject any base package containing Local Whisper inference worker
    executables, CUDA/cuDNN/ROCm/Vulkan runtime libraries, Python environment,
    model weights/conversions, staging partials, fixture private key, or
    production secret.
@@ -150,6 +154,25 @@ promotable or executable.
 7. Add a separate size metric for the catalog resource. Do not hide a base-app
    size regression by changing the global threshold or baseline without
    reviewed evidence.
+
+### Native filesystem helper packaging
+
+1. Build Task 06's `fs-guard` from its checked-in CMake release preset on the
+   target OS; never cross-label a Linux artifact as Windows or vice versa.
+2. Stage exactly one production helper outside ASAR at
+   `resources/local-whisper/native/<platform>-x64/fs-guard[.exe]` with an
+   app-owned build/protocol/SHA-256 manifest. Do not stage GoogleTest, CTest,
+   fuzz, coverage, debug, compiler, CMake, or intermediate files.
+3. Resolve the helper through one main-owned packaged-resource resolver and pass
+   only its absolute verified path to the existing Task 04 transport. Renderer
+   and preload receive neither the path nor execution authority.
+4. Package verification must hash the helper and validate its build/protocol
+   manifest in unpacked Linux/Windows layouts and extracted/silently installed
+   artifacts. A missing, extra, changed, wrong-platform, or non-executable
+   helper fails package verification.
+5. This helper is application infrastructure, not a downloadable inference
+   runtime. It does not weaken the ban on bundled models or unrequested
+   accelerator packs and does not create a macOS executable path.
 
 ### Workflow contract
 
@@ -177,7 +200,7 @@ promotable or executable.
 
 ### License, SBOM, and provenance contract
 
-1. Validate every real staging pack from Tasks 07/08 contains an exact
+1. Validate every real staging pack from Tasks 08/09 contains an exact
    expected-file manifest, `sbom.spdx.json`, provenance, notices, and license
    inventory before it can be signed even as a local fixture.
 2. Fixture SBOM/provenance clearly identifies synthetic fixture components and
@@ -197,7 +220,7 @@ promotable or executable.
 - Task 03 remains authoritative for catalog parsing/trust and Task 05 for
   download/install behavior. Fixture tools consume those public contracts; they
   do not fork validators.
-- Runtime fixture peers conform to Task 06 but do not prove Tasks 07/08 real
+- Runtime fixture peers conform to Task 07 but do not prove Tasks 08/09 real
   inference. Manifests label them unqualified fixtures.
 - Package scripts may read generated catalog resources but must not download or
   sign during Electron application startup.
@@ -220,6 +243,8 @@ promotable or executable.
 - generated package inputs under `build/generated/common/local-whisper/`
 - a dedicated main-owned catalog resource resolver under
   `src/main/localWhisper/` and focused resolver tests
+- Task 06 release-preset helper staging plus a main-owned native-helper resolver,
+  exact build/protocol/hash manifest, and focused packaged-path tests
 - updates to:
   - `package.json` build scripts and main-only `extraResources` mapping;
   - `scripts/packaged-runtime-policy.mjs`;
@@ -253,13 +278,17 @@ Expected commands added to `package.json`:
   estimate mutation fails catalog verification before packaging or execution.
 - Linux and Windows package-smoke layouts contain the same catalog digest and
   no Local Whisper runtime, model, staging, private key, or unlisted resource.
+- Linux and Windows package-smoke layouts contain exactly one Task 06
+  `fs-guard` at the canonical outside-ASAR path; its build/protocol/hash manifest
+  verifies, main alone resolves it, and no native test/build artifact is shipped.
 - AppImage/deb/rpm/NSIS verification checks catalog presence, purpose,
   signature, app/protocol compatibility, and base-installer exclusions.
 - A release-mode invocation with fixture purpose, fixture key ID, missing frozen
   catalog, mutable origin, or absent Manual Gate evidence stops before package
   collection/publication.
-- The current release collector cannot pick up a worker `.exe`; worker/runtime
-  output is isolated outside `release/`.
+- The current release collector cannot pick up an inference-worker `.exe`;
+  worker/runtime output is isolated outside `release/`. The packaged
+  infrastructure `fs-guard.exe` is collected only inside the verified installer.
 - macOS packaging fixtures expose only Planned/unavailable types and contain no
   executable/model catalog entry.
 - Catalog verification and ordinary application startup do not probe hardware,
@@ -275,6 +304,8 @@ Run fixture and package-policy checks without secrets or network:
 rtk npm run generate:local-whisper:fixtures
 rtk npm run verify:local-whisper:fixtures
 rtk npm run verify:local-whisper:catalog -- --mode=fixture
+rtk npm run build:local-whisper:fs-guard
+rtk npm run verify:packaged
 rtk node --import tsx --test tests/scripts/localWhisperSignedFixtures.test.ts
 rtk node --import tsx --test tests/scripts/packagedRuntimePolicy.test.ts
 rtk npm run typecheck
@@ -333,7 +364,7 @@ checks in `handoff.md`.
   Authenticode, signed-update, or universal base-app verification that current
   packaging does not provide (`AC-AUTO-048`).
 - No upload, release mutation, tag, publication, signing credential, or public
-  endpoint action is authorized by Task 14 execution.
+  endpoint action is authorized by Task 15 execution.
 
 ## References
 
@@ -354,15 +385,15 @@ checks in `handoff.md`.
   - `scripts/verify-packaged-runtime.mjs`;
   - `scripts/verify-installers.mjs`;
   - `build/fedora-release/fedora-release-entrypoint.mjs`.
-- Runtime content contracts from Tasks 07/08 and artifact/path contracts from
-  Tasks 03–05.
+- Runtime content contracts from Tasks 08/09, native build/output contract from
+  Task 06, and artifact/path contracts from Tasks 03–05.
 
 ## Completion And Handoff
 
-- Mark Task 14 complete in `todo.md` and record fixture mode, catalog digest,
+- Mark Task 15 complete in `todo.md` and record fixture mode, catalog digest,
   exact generated/ignored outputs, package-smoke evidence, unavailable platform
   checks, and every still-closed production Manual Gate in `handoff.md`.
-- Name Task 15 as the next packet if it remains unchecked. Do not execute it.
+- Name Task 16 as the next packet if it remains unchecked. Do not execute it.
 - Present the packaging/fixture diff and verification evidence, then stop. Do
   not commit, publish, upload, mutate a release, or begin another packet in the
   same invocation.

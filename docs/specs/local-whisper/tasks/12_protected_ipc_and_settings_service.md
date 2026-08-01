@@ -1,11 +1,11 @@
-# 11 Protected IPC And Settings Service
+# 12 Protected IPC And Settings Service
 
 ## Outcome
 
 Local Whisper's existing provider, catalog, artifact, capability, and
 coordinator contracts are connected to one protected renderer surface. A
 main-owned IPC controller validates every renderer command authoritatively,
-delegates settings save/reset and state ownership to the packet-10
+delegates settings save/reset and state ownership to the packet-11
 coordinator, bridges its sanitized ordered snapshots, and rejects every
 privileged command whose sender is not the exact Local Whisper
 provider-settings window.
@@ -14,14 +14,14 @@ Packet 02 already owns the provider ID and real `localRuntime` metadata/readines
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 11 has separate execution
+- The Local Whisper plan is approved and Task 12 has separate execution
   authorization.
 - Packet [01 Shared Domain Contracts](./01_shared_domain_contracts.md) is complete. Reuse its canonical Local Whisper enums, state machines, failure union, artifact identities, and renderer-safe snapshot shapes; do not define parallel domain unions.
 - Packet [02 Provider Dispatch And Cache](./02_provider_dispatch_and_cache.md) is complete. Consume its canonical provider ID, `localRuntime` metadata/readiness branch, `canAttempt` semantics, and dispatch port without redefining them.
-- Packet [03 Trusted Catalog, Settings, And Inventory](./03_trusted_catalog_settings_and_inventory.md) is complete. Consume its canonical types and coordinator-facing behavior through packet 10; do not inject or call its `LocalWhisperSettingsRepository` from this IPC packet.
+- Packet [03 Trusted Catalog, Settings, And Inventory](./03_trusted_catalog_settings_and_inventory.md) is complete. Consume its canonical types and coordinator-facing behavior through packet 11; do not inject or call its `LocalWhisperSettingsRepository` from this IPC packet.
 - Packet [05 Streaming Artifact Lifecycle](./05_streaming_artifact_lifecycle.md) is complete. IPC commands delegate download/install/remove work to that process-owned service.
-- Packet [09 Device Capability Validation](./09_device_capability_validation.md) is complete. IPC reads and commands delegate probing to that service and expose only its sanitized result.
-- Packet [10 Coordinator Residency And Lifecycle](./10_coordinator_residency_and_lifecycle.md) is complete. Consume its authoritative settings command/query/event port, coherent sanitized snapshots, and monotonic epochs. The coordinator alone owns save/reset orchestration, active normalized settings, `configurationEpoch`, and snapshot publication.
+- Packet [10 Device Capability Validation](./10_device_capability_validation.md) is complete. IPC reads and commands delegate probing to that service and expose only its sanitized result.
+- Packet [11 Coordinator Residency And Lifecycle](./11_coordinator_residency_and_lifecycle.md) is complete. Consume its authoritative settings command/query/event port, coherent sanitized snapshots, and monotonic epochs. The coordinator alone owns save/reset orchestration, active normalized settings, `configurationEpoch`, and snapshot publication.
 - Read the Electron, provider, privacy, and state-management sections of [project conventions](../../../agent-guides/project-conventions.md) before implementation.
 - Inspect only the current contracts directly involved in this packet: `src/shared/voiceProvider.ts`, `src/main/ipc.ts`, `src/main/preloadApi.ts`, `src/main/preload.ts`, `src/renderer/types.d.ts`, `src/main/providerSettingsWindowController.ts`, `src/main/window.ts`, the composition root, and their focused tests.
 - The specification is approved as `APPROVAL-001`; this packet does not reopen product choices.
@@ -33,15 +33,15 @@ Primary requirement ownership:
 - `IPC-001`, `SEC-001`, `ARCH-004`, `IPC-002`: main retains all privileged authority; preload and renderer receive a typed, sanitized API; every call is sender- and payload-validated.
 - IPC validation/delegation portions of `SET-004`, `SET-006`, `SET-007`,
   `VAL-001`, and `VAL-003`: validate external commands, preserve private prompt
-  mutation semantics, and delegate one canonical command to packet 10. Packet
+  mutation semantics, and delegate one canonical command to packet 11. Packet
   10 owns activation/epochs; packet 03 owns persistence/default/migration.
 - IPC portions of `LIFE-004`: forward expected epochs, preserve exact stale or
-  conflict results, and never queue or partially apply a command. Packet 10
+  conflict results, and never queue or partially apply a command. Packet 11
   owns classification, unload/commit/activation, immutable request epochs, and
   worker lifecycle behavior.
-- IPC/snapshot integration portions of `CAP-001`, `CAP-011`, `LIFE-005`, and `UI-006`. Packet 02 owns provider metadata/readiness/dispatch; packets 09 and 10 own probe and residency behavior.
+- IPC/snapshot integration portions of `CAP-001`, `CAP-011`, `LIFE-005`, and `UI-006`. Packet 02 owns provider metadata/readiness/dispatch; packets 10 and 11 own probe and residency behavior.
 - Snapshot-bridge portions of `MODEL-010`, `CAP-013`, and `UI-007`; packet 01
-  owns family guidance, packet 03 owns catalog validation, and packets 09/10
+  owns family guidance, packet 03 owns catalog validation, and packets 10/11
   own exact resource selection and state.
 - Prompt projection and IPC privacy portions of `PRIV-002`, `SEC-002`, `DIAG-001`, and Sections 15-17. Packet 03 owns prompt persistence.
 - Section 14's expected configuration/inventory epoch fields and exact result
@@ -56,12 +56,12 @@ Acceptance ownership:
 ## In Scope
 
 - Consume packet 02's `localRuntime` provider/readiness contract and packet 01's canonical Local Whisper settings/state types; add only the renderer-safe command, result, event, and subscription DTOs not already supplied by those packets.
-- Implement one main-owned Local Whisper IPC controller over packet 10's
+- Implement one main-owned Local Whisper IPC controller over packet 11's
   command/query/event port. It owns sender/payload validation and subscription
   lifecycle only; it does not own settings state or transaction serialization.
 - Implement authoritative external-command validation and private prompt
   write-only mutation forwarding. Pass the complete candidate and expected
-  epochs once to packet 10; return its exact save/reset result and snapshot
+  epochs once to packet 11; return its exact save/reset result and snapshot
   without recomputing sequencing, epochs, defaults, or readiness.
 - Implement exact Local Whisper provider-settings sender ownership in `ProviderSettingsWindowController` and require it for every privileged Local Whisper settings/artifact/capability/residency command.
 - Preserve the six-family approximate guidance plus matching
@@ -73,18 +73,18 @@ Acceptance ownership:
 - Remove any successful no-op path for an unknown or unhandled editable provider. Local Whisper and malformed provider IDs must be handled explicitly and exhaustively.
 - Add focused command-validation, IPC authorization, preload parity,
   privacy-projection, event-bridging, and epoch-pass-through tests using an
-  injected fake packet-10 coordinator port.
+  injected fake packet-11 coordinator port.
 
 ## Out Of Scope
 
-- React fields, layout, validation presentation, artifact rows, progress UI, confirmation dialogs, or main-window toolbar changes; packets 12 and 13 own those.
+- React fields, layout, validation presentation, artifact rows, progress UI, confirmation dialogs, or main-window toolbar changes; packets 13 and 14 own those.
 - Provider registration, provider ID, `localRuntime` metadata/readiness union, dispatch/cache ordering, or provider construction; packet 02 owns those.
 - Settings repository implementation, schema/defaults, migration/downgrade handling, owner-private file creation, atomic replacement, unknown-field preservation, or repository unit tests; packet 03 owns those.
 - Settings transaction ordering, repository commit/reset, lifecycle
   classification, configuration/snapshot epoch increments, readiness
-  derivation, or coherent snapshot composition; packet 10 owns those.
+  derivation, or coherent snapshot composition; packet 11 owns those.
 - Download transport, hashing, extraction, promotion, quarantine deletion, catalog signing, or filesystem-containment implementation; packets 03-05 own those.
-- GPU/CPU enumeration, capability probes, worker spawn, model load/warm-up, transcription, or resource release; packets 06-10 own those.
+- GPU/CPU enumeration, capability probes, worker spawn, model load/warm-up, transcription, or resource release; packets 07-11 own those.
 - New dependencies, renderer filesystem access, arbitrary storage selection, raw native diagnostics, or any renderer-supplied URL/path/hash/executable/argv.
 - Migration of unrelated provider settings or authentication data.
 - macOS executable catalogs, downloads, spawn, load, or inference. Only typed `metal`/Planned results pass through this surface.
@@ -94,7 +94,7 @@ Acceptance ownership:
 
 ### Consumed settings contract and command validation
 
-Use packet 01's canonical enums/normalizer and packet 10's sanitized settings
+Use packet 01's canonical enums/normalizer and packet 11's sanitized settings
 snapshot without copying either schema. The IPC controller receives untrusted
 renderer command payloads, validates them from `unknown`, and passes only one
 canonical candidate plus expected epochs to the coordinator command port.
@@ -146,7 +146,7 @@ preservation are consumed results, not reimplemented here.
 
 ### Coordinator command boundary
 
-- Constructor-inject packet 10's narrow Local Whisper command/query/event port;
+- Constructor-inject packet 11's narrow Local Whisper command/query/event port;
   do not inject packet 03's repository or add another persistence adapter,
   schema module, lifecycle lock, state store, or migration.
 - Reading settings or a snapshot calls the coordinator query port only and
@@ -186,7 +186,7 @@ preservation are consumed results, not reimplemented here.
 - Forward a save candidate, prompt mutation, and expected configuration/
   inventory epochs exactly once to coordinator `saveSettings`. Do not classify
   fields, acquire a lifecycle lock, unload, commit, activate, or increment
-  `configurationEpoch`; packet 10 owns that complete transaction.
+  `configurationEpoch`; packet 11 owns that complete transaction.
 - An app-shipped adapter may make a field load-affecting only through packet
   10's canonical classification and result. This IPC layer does not maintain a
   second classification list.
@@ -197,18 +197,18 @@ preservation are consumed results, not reimplemented here.
 ### Consumed local-runtime readiness and snapshot projection
 
 - Consume packet 02's existing `localRuntime` readiness discriminator and `canAttempt` semantics. Do not edit provider registration or introduce another metadata/readiness union.
-- Forward packet 10's already coherent sanitized snapshot and monotonic revision
+- Forward packet 11's already coherent sanitized snapshot and monotonic revision
   without composing repository/capability/residency fragments or minting a new
   snapshot epoch. Preserve canonical discriminants and the safe reason/recovery
   tuple byte-for-byte at the typed DTO boundary.
 - Preserve packet 01's exact six-family approximate RAM/VRAM guidance and the
-  packet-10 selected-configuration projection: matching catalog estimate,
+  packet-11 selected-configuration projection: matching catalog estimate,
   separate qualified peak, evidence/methodology label, CPU VRAM
   `notApplicable`, and `Exact estimate unavailable`. Do not infer a value from
   artifact size, reuse a stale record, calculate headroom, or accept any of
   these read-only values from an inbound renderer command.
 - `Ready`, `Busy`, `Validated · Unloaded`, Not ready, Planned, Unsupported, and
-  `canAttempt` remain derived by their owner packets and assembled by packet 10. This controller only bridges current snapshots/events.
+  `canAttempt` remain derived by their owner packets and assembled by packet 11. This controller only bridges current snapshots/events.
 - No projected Local Whisper state may enter login, API-key, or browser-session behavior, and no authentication material is read, written, cleared, or requested.
 
 ### IPC and preload surface
@@ -239,7 +239,7 @@ For every operation:
 ### Required tests
 
 - Table-test every field boundary and malformed direct-IPC value, including non-safe/fractional/off-grid numbers, unknown union members, forged devices/artifacts, prompt lengths 0/1,000/1,001 code points, NUL, cross-field errors, and inactive control omission.
-- With an injected fake packet-10 coordinator port, test that defaults, 0/1/N
+- With an injected fake packet-11 coordinator port, test that defaults, 0/1/N
   initialization, remembered keys, missing selections, future-schema states,
   epochs, and readiness are forwarded unchanged rather than recalculated.
 - Assert the renderer DTO preserves every non-private canonical value and only
@@ -263,7 +263,7 @@ For every operation:
 - Renderer-safe data must exclude absolute paths, usernames, URLs, request headers, executable/library names, argv/environment, hashes/signatures, raw native errors, stdout/stderr, prompts, audio, transcripts, serials, and full device UUIDs.
 - A sanitized storage label/app-relative description and aggregate/per-artifact byte counts are allowed. Folder opening is a main-only action with no returned path.
 - Configuration, inventory, and snapshot epochs are monotonic process-local
-  concurrency tokens owned by packet 10, not persisted truth. This IPC layer
+  concurrency tokens owned by packet 11, not persisted truth. This IPC layer
   validates/forwards expected values and never increments or republishes them.
 - Settings validation is authoritative in main even when renderer validation already passed.
 - No localRuntime branch may read, write, clear, or request authentication material.
@@ -277,8 +277,8 @@ Exact names may be adapted only to the canonical modules established by packets 
 - Consume without redefining:
   - packet 01's canonical Local Whisper settings/state/failure modules;
   - packet 02's provider ID and `localRuntime` metadata/readiness types;
-  - packet 10's coordinator command/query/event port and sanitized snapshot;
-  - packet 03 repository types only through packet 10, never as an injected
+  - packet 11's coordinator command/query/event port and sanitized snapshot;
+  - packet 03 repository types only through packet 11, never as an injected
     IPC dependency.
 - Add main IPC/controller components:
   - `src/main/localWhisperIpcController.ts`
@@ -287,26 +287,26 @@ Exact names may be adapted only to the canonical modules established by packets 
   - `src/main/providerSettingsWindowController.ts`
   - `src/main/ipc.ts`
   - `src/main/window.ts`
-  - the packet-10 coordinator and process composition-root wiring
+  - the packet-11 coordinator and process composition-root wiring
 - Preload/renderer contract:
   - `src/main/preloadApi.ts`
   - `src/main/preload.ts`
   - `src/renderer/types.d.ts`
   - renderer API contract declarations only; packet 02's localRuntime discriminator is consumed unchanged
 - Focused tests under `tests/main/localWhisper/ipc` and renderer API contract
-  tests, covering command forwarding with a fake packet-10 coordinator,
+  tests, covering command forwarding with a fake packet-11 coordinator,
   external payload validation, exact sender ownership, preload parity,
   prompt/privacy projection, epoch pass-through, and subscription disposal. Do
-  not add transaction/repository/state-machine tests owned by packets 03/10.
+  not add transaction/repository/state-machine tests owned by packets 03/11.
 
 ## Acceptance Criteria
 
-- A snapshot read consumes packet 10's current coherent safe snapshot without
+- A snapshot read consumes packet 11's current coherent safe snapshot without
   creating a second repository/state store or invoking probe/download/worker/
   allocation work.
 - Every invalid direct IPC payload is rejected before coordinator/repository
   effects, including a 1,001-code-point replacement prompt and unsafe/off-grid
-  numerics. A valid candidate is sent exactly once only to packet 10.
+  numerics. A valid candidate is sent exactly once only to packet 11.
 - Defaults, remembered/missing selections, repair state,
   `SETTINGS_VERSION_UNSUPPORTED`, transaction failures, epochs, and readiness
   pass through unchanged; this controller performs no migration, repair,
@@ -348,22 +348,22 @@ If implementation uses different packet-01 canonical filenames, replace only the
   its specific safe result and attached truthful snapshot unchanged; do not
   retry or present rollback-loaded state.
 - On listener failure or window close, detach only that renderer subscription. Do not stop a shared operation.
-- If packet 10 reports packet-03 repository/schema/containment failure,
+- If packet 11 reports packet-03 repository/schema/containment failure,
   propagate its read-only/Not-ready typed state; do not call the repository,
   relocate, migrate, or weaken the boundary.
 - If preload/main/renderer type parity cannot be maintained, stop and repair the shared contract; do not cast through `unknown` or expose the service object.
 - Roll back implementation by reverting only IPC/preload integration and
-  focused tests owned here. Do not alter packet-02 provider metadata, packet-10
+  focused tests owned here. Do not alter packet-02 provider metadata, packet-11
   coordinator state, remove packet-03 repository, delete user settings/
   artifacts, or run a migration as rollback.
-- If a prerequisite packet lacks a required canonical type/service, mark packet 11 blocked in `todo.md`/`handoff.md` and return to planning. Do not reconstruct that prerequisite here.
+- If a prerequisite packet lacks a required canonical type/service, mark packet 12 blocked in `todo.md`/`handoff.md` and return to planning. Do not reconstruct that prerequisite here.
 
 ## Manual Gates
 
 - No GPU, AMD, Apple Silicon, real model, credential, or network access is required for this packet; use fakes and temporary private directories only.
 - Before completion, manually inspect the registered IPC channel list and one serialized success and failure snapshot to confirm that no path, URL, executable, argv, hash, native error, prompt, audio/transcript, serial, or UUID crosses IPC.
 - In an Electron development smoke check, prove that the Local Whisper settings window can call the safe snapshot API while the main window and another provider's settings window cannot invoke privileged Local Whisper commands. Do not perform downloads or load a model.
-- Release/hardware gates remain in packet 16 and must not be claimed by this packet.
+- Release/hardware gates remain in packet 17 and must not be claimed by this packet.
 
 ## References
 
@@ -371,18 +371,18 @@ If implementation uses different packet-01 canonical filenames, replace only the
   8.1-8.6 including 8.1.1, 9.2, 10.5, 14-17.1, and acceptance criteria `AC-AUTO-002`, `003`,
   `007`, `025`, `036`, `037`, `044`, and `045`. Packet-02-owned
   `AC-AUTO-035` and packet-03-owned `AC-AUTO-001`/`AC-AUTO-029` are
-  consumed regression assertions only, not packet-11 ownership. This packet
+  consumed regression assertions only, not packet-12 ownership. This packet
   owns the DTO-bridge slice of `AC-AUTO-049`.
 - Approved decisions: `architecture.runtime-ownership`, `current.electron-boundaries`, `current.provider-metadata`, `current.provider-settings-contract`, `acceptance.device-capability-validation`, `settings.normalized-defaults`, `settings.dependent-selection-keys`, `settings.initial-prompt-persistence`, `compatibility.common-language-catalog`, `architecture.runtime-state-separation`, `operations.cancel-switch-exit`, and `resources.model-estimate-presentation` in `../decisions.yaml`.
 - Mandatory project rules: repository `AGENTS.md` and the Electron/provider/privacy/state sections of `docs/agent-guides/project-conventions.md`.
-- Local precedents: packet 10's coordinator command/query/event port,
+- Local precedents: packet 11's coordinator command/query/event port,
   `src/main/providerSettingsWindowController.ts`, `src/main/preloadApi.ts`,
   `src/renderer/types.d.ts`, and focused tests.
-- Dependency packets: [01](./01_shared_domain_contracts.md), [02](./02_provider_dispatch_and_cache.md), [03](./03_trusted_catalog_settings_and_inventory.md), [05](./05_streaming_artifact_lifecycle.md), [09](./09_device_capability_validation.md), and [10](./10_coordinator_residency_and_lifecycle.md).
+- Dependency packets: [01](./01_shared_domain_contracts.md), [02](./02_provider_dispatch_and_cache.md), [03](./03_trusted_catalog_settings_and_inventory.md), [05](./05_streaming_artifact_lifecycle.md), [10](./10_device_capability_validation.md), and [11](./11_coordinator_residency_and_lifecycle.md).
 
 ## Completion And Handoff
 
-- Implement and verify only packet 11.
-- Mark only packet 11 complete in `tasks/todo.md` after every automated check and manual packet gate passes.
-- Update `tasks/handoff.md` with the exact changed files, concise verification results, known limitations, and packet 12 as the next packet.
-- Present the packet for review and stop. Do not commit, push, open a PR, publish, or begin packet 12 without a later explicit incremental-implementation authorization.
+- Implement and verify only packet 12.
+- Mark only packet 12 complete in `tasks/todo.md` after every automated check and manual packet gate passes.
+- Update `tasks/handoff.md` with the exact changed files, concise verification results, known limitations, and packet 13 as the next packet.
+- Present the packet for review and stop. Do not commit, push, open a PR, publish, or begin packet 13 without a later explicit incremental-implementation authorization.

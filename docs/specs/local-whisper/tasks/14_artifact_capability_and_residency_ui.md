@@ -1,4 +1,4 @@
-# 13 Artifact Capability And Residency UI
+# 14 Artifact Capability And Residency UI
 
 ## Outcome
 
@@ -8,14 +8,14 @@ The main window also understands `localRuntime` readiness. Local Whisper remains
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 13 has separate execution
+- The Local Whisper plan is approved and Task 14 has separate execution
   authorization.
 - Packet [05 Streaming Artifact Lifecycle](./05_streaming_artifact_lifecycle.md) is complete and supplies exact artifact state/progress/actions and process-owned operations.
-- Packet [09 Device Capability Validation](./09_device_capability_validation.md) is complete and supplies sanitized support, setup, estimate/validation, resource, device, and recovery snapshots.
-- Packet [10 Coordinator Residency And Lifecycle](./10_coordinator_residency_and_lifecycle.md) is complete and supplies serialized load/unload/cancel/provider-switch state and derived readiness.
-- Packet [11 Protected IPC And Settings Service](./11_protected_ipc_and_settings_service.md) is complete and supplies exact-sender commands, monotonic snapshots/epochs, safe errors, and subscriptions.
-- Packet [12 Provider Settings UI](./12_provider_settings_ui.md) is complete and supplies the Local Whisper form, controller hook, responsive sections, and accessibility/error patterns.
-- Inspect only the target renderer files and directly related tests: Local Whisper components/hook from packet 12, `src/renderer/App.tsx`, `providerState.ts`, `providerSelectionCoordinator.ts`, `statusPresentation.ts`, `components/MainToolbar.tsx`, existing progress/dialog/badge/tooltip primitives, locale dictionaries, and relevant main-window/provider tests.
+- Packet [10 Device Capability Validation](./10_device_capability_validation.md) is complete and supplies sanitized support, setup, estimate/validation, resource, device, and recovery snapshots.
+- Packet [11 Coordinator Residency And Lifecycle](./11_coordinator_residency_and_lifecycle.md) is complete and supplies serialized load/unload/cancel/provider-switch state and derived readiness.
+- Packet [12 Protected IPC And Settings Service](./12_protected_ipc_and_settings_service.md) is complete and supplies exact-sender commands, monotonic snapshots/epochs, safe errors, and subscriptions.
+- Packet [13 Provider Settings UI](./13_provider_settings_ui.md) is complete and supplies the Local Whisper form, controller hook, responsive sections, and accessibility/error patterns.
+- Inspect only the target renderer files and directly related tests: Local Whisper components/hook from packet 13, `src/renderer/App.tsx`, `providerState.ts`, `providerSelectionCoordinator.ts`, `statusPresentation.ts`, `components/MainToolbar.tsx`, existing progress/dialog/badge/tooltip primitives, locale dictionaries, and relevant main-window/provider tests.
 - Use pure presentation/reducer tests and `react-dom/server`; do not add jsdom or a UI-test dependency.
 
 ## Owned Requirements
@@ -33,7 +33,7 @@ Primary UI/presentation ownership:
 
 Acceptance ownership is explicitly presentation-only where a prerequisite packet owns the operation:
 
-- Full assembled-screen ownership of `AC-AUTO-004`, including packet 12's
+- Full assembled-screen ownership of `AC-AUTO-004`, including packet 13's
   settings-form regression plus progress, actions, disabled reasons, support
   badges, minimum dimensions, keyboard reachability, and screen-reader labels.
 - Support/readiness presentation: `AC-AUTO-005`, `AC-AUTO-006`, `AC-AUTO-014`, `AC-AUTO-015`, `AC-AUTO-016`, `AC-AUTO-028`, `AC-AUTO-031`, `AC-AUTO-034`, `AC-AUTO-035`, `AC-AUTO-037`, `AC-AUTO-039`, `AC-AUTO-042`, and `AC-AUTO-047`.
@@ -63,19 +63,19 @@ Acceptance ownership is explicitly presentation-only where a prerequisite packet
 
 - Network download/resume implementation, streaming/hash/extraction/install, inventory reconstruction, quarantine deletion, filesystem locks, or path safety.
 - GPU/CPU probing, allowlist evaluation, memory measurement, worker spawn/handshake, allocation/load/warm-up, transcription, unload/kill, or cache ordering.
-- Changing packet-05/09/10 state machines or making renderer state authoritative.
+- Changing packet-05/10/11 state machines or making renderer state authoritative.
 - Auto-download, auto-update, auto-select, auto-fallback, hidden retry queues, or implicit compatibility checks.
 - Renderer-supplied filesystem paths, URLs, executable data, hashes, native device structures, or raw errors.
 - New model families/variants, settings fields, runtime packs, support tiers, or production claims.
 - Actual AMD or Apple Silicon inference testing. Faster-Whisper AMD and all release-1 macOS execution stay unavailable.
-- Documentation/release qualification owned by packets 15 and 16, new dependencies, commits, pushes, PRs, publication, or release work.
+- Documentation/release qualification owned by packets 16 and 17, new dependencies, commits, pushes, PRs, publication, or release work.
 
 ## Task Contract
 
 ### Snapshot reconciliation and operations
 
-- Extend packet 12's controller; do not create a second Local Whisper subscription or independent state authority.
-- Seed from packet 11's full sanitized snapshot. Accept an event only when `snapshotEpoch` is newer; preserve the latest `configurationEpoch` and `inventoryEpoch` for every command.
+- Extend packet 13's controller; do not create a second Local Whisper subscription or independent state authority.
+- Seed from packet 12's full sanitized snapshot. Accept an event only when `snapshotEpoch` is newer; preserve the latest `configurationEpoch` and `inventoryEpoch` for every command.
 - Treat event snapshots and command-return snapshots as the only truth. Local optimistic state may mark the clicked action pending, but may never advance setup/capability/residency or claim deletion/install/load success.
 - If a command returns `STALE_CONFIGURATION`, install its newer safe snapshot, clear only the local pending marker, retain user selections/draft, and require explicit retry. A live `OPERATION_CONFLICT` is not queued.
 - Closing/unmounting removes only this renderer listener. Downloads remain process-owned. Reopening fetches current inventory/progress and must not restart or cancel them.
@@ -114,8 +114,8 @@ Every stable failure code maps to packet 01's deterministic retryability and rec
 
 ### Compatibility, load, and unload actions
 
-- `Check compatibility` is available only for an actionable non-Planned configuration and invokes packet 09's non-resident estimate path. During Checking show text and busy semantics. Its result is at most `EstimateOnly`; it must never display Ready, Loaded, or imply that a worker remains.
-- `Load now` invokes packet 10's full proof. It is the definitive exact-device operation: verified artifacts, backend/device, resources, allocation, full load, warm-up, and no-fallback confirmation. UI enters Loading only from coordinator snapshots and shows Ready only after `Validated` + `Loaded`.
+- `Check compatibility` is available only for an actionable non-Planned configuration and invokes packet 10's non-resident estimate path. During Checking show text and busy semantics. Its result is at most `EstimateOnly`; it must never display Ready, Loaded, or imply that a worker remains.
+- `Load now` invokes packet 11's full proof. It is the definitive exact-device operation: verified artifacts, backend/device, resources, allocation, full load, warm-up, and no-fallback confirmation. UI enters Loading only from coordinator snapshots and shows Ready only after `Validated` + `Loaded`.
 - `Unload` is available for Loaded/eligible failure cleanup when main permits it, rejects active transcription/conflict, shows Unloading, and completes only from a confirmed Unloaded snapshot. Same-fingerprint capability may remain `Validated`; display `Validated · Unloaded`, never Ready.
 - Missing/corrupt/blocked artifacts, known insufficient resources, absent device, unsupported/planned paths, and conflicts show the exact reason and appropriate setup/recovery action. No compatibility/load action starts a download.
 - A failed/cancelled load leaves Unloaded and preserves selections/artifacts. A confirmed inference cancellation may leave Loaded/Ready; unhealthy/uncertain cancellation becomes Unloaded. Render the returned snapshot rather than guessing.
@@ -184,7 +184,7 @@ Deleting an unselected, nonresident revision does not affect the active worker. 
 - Extend `providerState`/presentation with an explicit local-runtime branch. Do not reuse authentication-oriented `isReady` to block Local Whisper.
 - Selecting Local Whisper is allowed in Planned, Unsupported, missing, corrupt, blocked, unloaded, or otherwise Not-ready states. The toolbar/status shows the exact safe state and a settings/recovery affordance, never Login/Relogin/API key/session copy.
 - `canAttempt` controls whether a transcription request may reach the coordinator. Eligible Unloaded may serve a cache hit or lazy-load on a miss; it is still not visually Ready. Structurally invalid/current-conflict state may disable attempt with a visible reason.
-- Provider-switch UI waits for the typed packet-10 result. On `OPERATION_CONFLICT` during Loading/Unloading/Transcribing, keep the current provider selected, show refresh/retry guidance, and do not optimistically switch or queue.
+- Provider-switch UI waits for the typed packet-11 result. On `OPERATION_CONFLICT` during Loading/Unloading/Transcribing, keep the current provider selected, show refresh/retry guidance, and do not optimistically switch or queue.
 - Present cancellation from returned lifecycle state: cancelled lazy load becomes Unloaded; confirmed healthy inference cancellation may remain Loaded; uncertain worker cleanup becomes Unloaded/failed. Never show partial success.
 - Existing browser/API provider readiness, login, selection, recording, retry, and toolbar behavior remains unchanged.
 
@@ -203,7 +203,7 @@ Deleting an unselected, nonresident revision does not affect the active worker. 
 - Render representative sections with `react-dom/server` and assert headings, labels, progress semantics, disabled reasons, action names, support badges, and confirmation descriptions.
 - Test main-window provider states and selection/transcription guards for loaded, unloaded, missing, unsupported, invalid, conflict, cancellation, and provider-switch outcomes. Assert no local case maps to authentication.
 - Test AMD Preview/untested and macOS Planned copy/action absence. Add locale-key parity tests.
-- Use fakes for packet-05/09/10 services; this packet does not need real artifacts, workers, GPUs, or network.
+- Use fakes for packet-05/10/11 services; this packet does not need real artifacts, workers, GPUs, or network.
 
 ## Contracts And Boundaries
 
@@ -218,7 +218,7 @@ Deleting an unselected, nonresident revision does not affect the active worker. 
 
 ## Expected Files Or Components
 
-Adapt names only to extend canonical packet-12 modules rather than duplicate them:
+Adapt names only to extend canonical packet-13 modules rather than duplicate them:
 
 - Pure renderer state/presentation:
   - `src/renderer/localWhisperArtifactViewState.ts`
@@ -230,7 +230,7 @@ Adapt names only to extend canonical packet-12 modules rather than duplicate the
   - `src/renderer/components/localWhisper/LocalWhisperModelSection.tsx`
   - `src/renderer/components/localWhisper/LocalWhisperResidencyActions.tsx`
   - one reusable artifact confirmation/progress component where appropriate
-  - extend packet-12 `LocalWhisperSettingsForm.tsx` and `useLocalWhisperSettingsController.ts`
+  - extend packet-13 `LocalWhisperSettingsForm.tsx` and `useLocalWhisperSettingsController.ts`
 - Reuse an existing progress primitive; add `src/renderer/components/ui/progress.tsx` only if the repository has no accessible equivalent and do not add a dependency.
 - Main-window integration:
   - `src/renderer/App.tsx`
@@ -239,11 +239,11 @@ Adapt names only to extend canonical packet-12 modules rather than duplicate the
   - `src/renderer/statusPresentation.ts`
   - `src/renderer/components/MainToolbar.tsx`
 - Locale dictionaries and focused tests under `tests/renderer` for artifacts, capability/failure presentation, Local Whisper rendering, main-window readiness/selection, subscriptions, and accessibility contracts.
-- Packet 11's IPC controller may be touched only to complete an already-specified sanitized broadcast hookup; do not add privileged semantics here.
+- Packet 12's IPC controller may be touched only to complete an already-specified sanitized broadcast hookup; do not add privileged semantics here.
 
 ## Acceptance Criteria
 
-- The fully assembled screen, including packet-12 settings fields plus every
+- The fully assembled screen, including packet-13 settings fields plus every
   progress row, action, disabled reason, and support badge, renders at 560×680
   and 440×520 with no horizontal clipping; all content is scroll/keyboard
   reachable and has screen-reader-perceivable names, states, and descriptions.
@@ -284,16 +284,16 @@ Run existing focused provider-state/toolbar/selection tests even if their filena
 - A stale, conflicting, failed, or cancelled command clears only local pending presentation and applies the returned newer safe snapshot. It never advances state, changes selection/provider, or assumes file/resource release.
 - If an operation stream disconnects, fetch a fresh snapshot and show a safe refresh state; do not restart, cancel, or infer the process-owned operation.
 - If a failure code lacks reviewed presentation, use a generic local-runtime failure and deterministic safe recovery; never display raw/native text or collapse to login.
-- If packet 05/09/10/11 lacks a state/command needed here, stop and repair planning/prerequisite contracts. Do not implement backend authority in renderer.
-- Rollback reverts only packet-owned renderer/localization/tests (and any narrow packet-11 broadcast hookup). It must not issue unload/delete/cancel/reset commands or modify persisted state.
+- If packet 05/10/11/12 lacks a state/command needed here, stop and repair planning/prerequisite contracts. Do not implement backend authority in renderer.
+- Rollback reverts only packet-owned renderer/localization/tests (and any narrow packet-12 broadcast hookup). It must not issue unload/delete/cancel/reset commands or modify persisted state.
 
 ## Manual Gates
 
 - Execute the complete `AC-MAN-008` Local Whisper settings flow at 560×680 and 440×520 with keyboard-only navigation and the available screen reader/accessibility tree. Include long labels, all tier badges, determinate/indeterminate/queued progress, errors, disabled reasons, confirmations, focus restoration, and load/unload status.
-- For the UI portion of `AC-MAN-007`, use a controlled fixture service to interrupt/resume/cancel, show an update beside an old selected revision, and delete a selected loaded model. Real-origin/network/filesystem behavior remains packet 16's gate.
+- For the UI portion of `AC-MAN-007`, use a controlled fixture service to interrupt/resume/cancel, show an update beside an old selected revision, and delete a selected loaded model. Real-origin/network/filesystem behavior remains packet 17's gate.
 - Perform the `AC-MAN-009` claims review without AMD execution: every AMD path says Preview and untested, Faster-Whisper AMD is absent/Unsupported, and no hardware-success or Production statement appears.
 - Run the `AC-MAN-011` UI/build fixture when available: macOS arm64 shows Planned/unavailable and exposes no download, Ready, execution, or CPU bypass. This is not Apple Silicon support evidence.
-- Real GPU load/unload, AMD qualification, Apple Silicon inference, artifact publication, and release claims remain deferred to packet 16 and are not authorized here.
+- Real GPU load/unload, AMD qualification, Apple Silicon inference, artifact publication, and release claims remain deferred to packet 17 and are not authorized here.
 
 ## References
 
@@ -305,12 +305,12 @@ Run existing focused provider-state/toolbar/selection tests even if their filena
   and 19.3 (`AC-MAN-007`-`009`, `011`).
 - Approved decisions: `scope.model-lifecycle`, `models.version-update-policy`, `models.delete-policy`, `operations.runtime-removal`, `acceptance.capability-gate`, `vram.residency-policy`, `architecture.runtime-state-separation`, `operations.concurrency-policy`, `operations.cancel-switch-exit`, `failure.resource-estimate-policy`, `compatibility.release-tiers`, `compatibility.amd-backend`, `compatibility.macos-execution`, and `resources.model-estimate-presentation` in `../decisions.yaml`.
 - Mandatory project rules: repository `AGENTS.md` and renderer/provider/privacy/accessibility sections of `docs/agent-guides/project-conventions.md`.
-- Local precedents: packet-12 Local Whisper form/controller; existing `App.tsx`, `providerState.ts`, `providerSelectionCoordinator.ts`, `statusPresentation.ts`, `MainToolbar.tsx`, AlertDialog, Badge, Spinner, Tooltip, and focused renderer tests.
-- Dependency packets: [05](./05_streaming_artifact_lifecycle.md), [09](./09_device_capability_validation.md), [10](./10_coordinator_residency_and_lifecycle.md), [11](./11_protected_ipc_and_settings_service.md), and [12](./12_provider_settings_ui.md).
+- Local precedents: packet-13 Local Whisper form/controller; existing `App.tsx`, `providerState.ts`, `providerSelectionCoordinator.ts`, `statusPresentation.ts`, `MainToolbar.tsx`, AlertDialog, Badge, Spinner, Tooltip, and focused renderer tests.
+- Dependency packets: [05](./05_streaming_artifact_lifecycle.md), [10](./10_device_capability_validation.md), [11](./11_coordinator_residency_and_lifecycle.md), [12](./12_protected_ipc_and_settings_service.md), and [13](./13_provider_settings_ui.md).
 
 ## Completion And Handoff
 
-- Implement and verify only packet 13.
-- Mark only packet 13 complete in `tasks/todo.md` after automated checks and packet-level manual UI gates pass or are explicitly recorded as release-deferred by packet 16.
-- Update `tasks/handoff.md` with exact changed files, concise checks, viewport/accessibility evidence, deferred physical/network gates, limitations, and packet 14 as the next planned packet.
-- Present the packet for review and stop. Do not commit, push, open a PR, publish, or begin packet 14 without a later explicit incremental-implementation authorization.
+- Implement and verify only packet 14.
+- Mark only packet 14 complete in `tasks/todo.md` after automated checks and packet-level manual UI gates pass or are explicitly recorded as release-deferred by packet 17.
+- Update `tasks/handoff.md` with exact changed files, concise checks, viewport/accessibility evidence, deferred physical/network gates, limitations, and packet 15 as the next planned packet.
+- Present the packet for review and stop. Do not commit, push, open a PR, publish, or begin packet 15 without a later explicit incremental-implementation authorization.

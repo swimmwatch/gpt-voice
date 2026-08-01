@@ -160,7 +160,7 @@ readiness, download an artifact, or execute code.
    data. A newer unsupported schema opens read-only and returns
    `SETTINGS_VERSION_UNSUPPORTED`; no save or migration may overwrite it.
    Explicit reset is the only later operation allowed to replace that file,
-   and Task 10/11 owns the confirmation and unload transaction.
+   and Tasks 11/12 own the confirmation and unload transaction.
 8. Treat the initial prompt as unchanged private local text. Persist at most
    1,000 valid Unicode code points, reject NUL/invalid scalar sequences and
    overflow without trimming or truncation, never log/export/name files from

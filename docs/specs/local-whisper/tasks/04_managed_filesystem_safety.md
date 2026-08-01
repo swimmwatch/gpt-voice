@@ -57,7 +57,7 @@ operation.
 - Catalog signing/settings persistence, hardware probing, worker protocol,
   inference, coordinator unload decisions, IPC, UI, or provider registration.
 - Killing/adopting a process, Job Objects, Linux parent-death supervision, or
-  worker termination; Task 06 owns process-tree semantics.
+  worker termination; Task 07 owns process-tree semantics.
 - Custom/imported paths, user-selected directories, removable-volume
   migration, secure SSD erasure, broad repair cleanup, or elevated service.
 - Production artifact bytes or destructive tests against a user's real data
@@ -165,7 +165,7 @@ operation.
    identity checks. Unknown directories/entries remain unmanaged evidence and
    cannot become `Installed`, executable, loadable, or deletable.
 5. Runtime executable/library leases preserve enough identity evidence for
-   Task 06 to revalidate immediately before spawn and for the handshake digest
+   Task 07 to revalidate immediately before spawn and for the handshake digest
    comparison. Model-file leases preserve enough evidence for full hash before
    first load in each process.
 
@@ -194,7 +194,8 @@ operation.
 
 - This adapter is the only component allowed to turn catalog identities into
   large-artifact filesystem authority. Task 03 supplies authenticated data;
-  Task 05/06/10 consume leases, not arbitrary paths.
+  Tasks 05, 07, and 11 consume leases, not arbitrary paths. Task 06 may
+  modularize this helper only while preserving the same lease contract.
 - Validation and use must share a held OS identity. A check-then-use design
   that closes the descriptor/handle and later reopens by path violates this
   packet.
@@ -222,7 +223,7 @@ operation.
 - If the feasibility checkpoint requires native code, a minimal owned helper
   under `runtime/local-whisper/fs-guard/` plus deterministic build/verification
   scripts under `scripts/local-whisper/`. Generated helper binaries remain
-  ignored local artifacts; Task 14 later owns packaging.
+  ignored local artifacts; Task 15 later owns packaging.
 - Tests under `tests/main/localWhisper/filesystem/`, including platform
   contract fakes, temporary-root integration tests, lock races, identity-swap
   hooks, and exact-deletion fixtures.
@@ -303,7 +304,7 @@ this packet, record it as an open Manual Gate rather than substituting Linux.
   prebuilt binary, elevated component, or new packaging target requires
   separate approval and later redistribution review.
 - `MANUAL GATE — real artifact removal`: the exact-delete slice of
-  `AC-MAN-007` remains a Task 16 integration gate using a real allowlisted
+  `AC-MAN-007` remains a Task 17 integration gate using a real allowlisted
   origin and coordinator unload; Task 04 temporary-root evidence cannot close
   it.
 - Do not run destructive tests outside a validated temporary directory. No

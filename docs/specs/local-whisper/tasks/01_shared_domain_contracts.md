@@ -40,7 +40,7 @@ allocation can occur.
   typed selected-configuration memory-estimate records, and app-versioned
   common language catalog.
 - Versioned, length-framed worker control/message schemas as types and pure
-  codecs only; transport and processes belong to Task 06.
+  codecs only; transport and processes belong to Task 07.
 - Focused shared tests, including exhaustive invalid-input tables.
 
 ## Out Of Scope
@@ -136,7 +136,7 @@ allocation can occur.
 - Renderer-safe device and storage values are opaque IDs and sanitized labels,
   never authorities.
 - Protocol constants are versioned, JSON/control frames are bounded to 1 MiB,
-  and audio is represented as bounded binary chunks. Task 06 owns enforcement.
+  and audio is represented as bounded binary chunks. Task 07 owns enforcement.
 - State dimensions remain independent: support, setup, capability, residency,
   and activity are not collapsed into one boolean.
 - Keep business validation in cohesive classes or pure stateless functions;
@@ -153,7 +153,7 @@ allocation can occur.
   - `failures.ts`.
 - Add focused tests under `tests/shared/localWhisper/`.
 - Equivalent focused filenames are acceptable when the handoff records the
-  final ownership and Task 11 can import one canonical public surface.
+  final ownership and Task 12 can import one canonical public surface.
 
 ## Acceptance Criteria
 

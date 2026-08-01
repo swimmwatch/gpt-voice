@@ -1,4 +1,4 @@
-# 08 Isolated Faster-Whisper Runtime
+# 09 Isolated Faster-Whisper Runtime
 
 ## Outcome
 
@@ -11,20 +11,21 @@ precision.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 08 has separate execution
+- The Local Whisper plan is approved and Task 09 has separate execution
   authorization.
-- Tasks 01, 03, 04, and 06 are complete and provide the same shared
-  domain/catalog/path/supervisor contracts consumed by Task 07.
+- Tasks 01, 03, 04, 06, and 07 are complete and provide the same shared
+  domain/catalog/path/supervisor and native-quality contracts consumed by Task
+  08.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
 - Faster-Whisper remains pinned initially to v1.2.1 with one reviewed, exact
   CTranslate2 revision and a complete dependency lock. The pack manifest—not
   a floating Python index—owns every transitive revision and wheel/archive
   hash.
-- Task 08 may execute in parallel with Task 07 after shared prerequisites, but
+- Task 09 may execute in parallel with Task 08 after shared prerequisites, but
   it must not import or route through the `whisperCpp` adapter.
 - Production hosting/publication is deferred by
   `planning.artifact-publishing-target`. This packet produces deterministic
-  unsigned staging trees that Task 14 later consumes/signs; no Task-14 output
+  unsigned staging trees that Task 15 later consumes/signs; no Task-15 output
   or production credential is needed here.
 
 ## Owned Requirements
@@ -54,8 +55,8 @@ precision.
   path and final-text-only output.
 - Reproducible dependency locks, pack content manifests, provenance, SBOM and
   license inputs, deterministic local verification against Task-03 signed
-  metadata fakes and Task-06 protocol fixtures, and unsigned staging output for
-  later Task-14 consumption.
+  metadata fakes and Task-07 protocol fixtures, and unsigned staging output for
+  later Task-15 consumption.
 
 ## Out Of Scope
 
@@ -77,7 +78,7 @@ precision.
 
 ### Separate persistent worker
 
-1. Implement an engine-specific peer for the canonical Task-01/06 framed
+1. Implement an engine-specific peer for the canonical Task-01/07 framed
    protocol. The worker has engine identity `fasterWhisper`; it does not share
    mutable state with the `whisperCpp` peer.
 2. Launch only a manifest-owned worker entry/executable and embedded interpreter
@@ -93,7 +94,7 @@ precision.
    uncertain.
 5. A dedicated protocol-reader/control path must remain responsive while
    inference runs. If CTranslate2 cannot confirm cancellation before the
-   canonical bound, report no partial result and let Task 06 terminate the
+   canonical bound, report no partial result and let Task 07 terminate the
    worker. Never replay on CPU or another precision.
 
 ### Python and native isolation
@@ -159,7 +160,7 @@ precision.
 
 ### Pack output contract
 
-Each local build emits an unsigned staging directory for Task 14 with:
+Each local build emits an unsigned staging directory for Task 15 with:
 
 - `bin/local-whisper-faster-worker` or `.exe`, or a fixed pack-owned launcher;
 - isolated interpreter/runtime files under a pack-private directory;
@@ -170,12 +171,12 @@ Each local build emits an unsigned staging directory for Task 14 with:
 - `sbom.spdx.json`, `THIRD_PARTY_NOTICES.txt`, and all required license texts.
 
 The staging output contains no model weights, cache, downloaded hub metadata,
-credentials, signature, or production URL. Task 14 archives/signs local
+credentials, signature, or production URL. Task 15 archives/signs local
 fixtures; production signing and publication remain blocked.
 
 ## Contracts And Boundaries
 
-- Task 06 owns process execution/framing/deadlines/cleanup; this packet owns the
+- Task 07 owns process execution/framing/deadlines/cleanup; this packet owns the
   Faster-Whisper protocol peer and main adapter only.
 - Task 03 owns authenticated artifact identity; Task 04 supplies verified
   managed paths. The worker never resolves a renderer-provided path.
@@ -283,7 +284,7 @@ platform/backend verification is recorded explicitly in `handoff.md`.
 - AC-MAN-009 must confirm Faster-Whisper AMD is absent from catalog/UI claims.
 - Production hosting, signing credentials, uploads, release mutation, tags, and
   publication remain deferred. This task produces only unsigned local staging
-  outputs consumed by Task 14 fixtures.
+  outputs consumed by Task 15 fixtures.
 
 ## References
 
@@ -298,15 +299,16 @@ platform/backend verification is recorded explicitly in `handoff.md`.
 - Evidence baseline:
   - `../../../researches/local-whisper/main.md` Faster-Whisper/CTranslate2,
     packaging/license, device-validation, and platform sections.
-- Dependency outputs: protocol/conformance vectors from Tasks 01/06 and
-  authenticated runtime/model/path contracts from Tasks 03/04.
+- Dependency outputs: protocol/conformance vectors from Tasks 01/07,
+  authenticated runtime/model/path contracts from Tasks 03/04, and native
+  build/test/lint conventions from Task 06 for any native pack components.
 
 ## Completion And Handoff
 
-- Mark Task 08 complete in `todo.md` and record changed files, dependency lock,
+- Mark Task 09 complete in `todo.md` and record changed files, dependency lock,
   generated local pack profiles, commands, unavailable platform checks, and
   blockers in `handoff.md`.
-- Name the exact next unchecked task from `todo.md`; completing Task 08 does not
-  authorize Task 09 or Task 14.
+- Name the exact next unchecked task from `todo.md`; completing Task 09 does not
+  authorize Task 10 or Task 15.
 - Present the adapter/runtime diff and local verification evidence, then stop.
   Do not commit, publish, upload, or begin another packet in the same invocation.

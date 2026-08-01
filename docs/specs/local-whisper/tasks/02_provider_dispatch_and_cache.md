@@ -14,7 +14,7 @@ remote-provider behavior.
 - Task 01 is complete, reviewed, and committed through the normal packet
   boundary.
 - Task 02 has separate execution authorization.
-- A fake/in-memory `LocalWhisperCoordinatorPort` can be used until Task 10
+- A fake/in-memory `LocalWhisperCoordinatorPort` can be used until Task 11
   supplies the process-owned implementation.
 
 ## Owned Requirements
@@ -26,7 +26,7 @@ remote-provider behavior.
 - `CAP-011`, `LIFE-005`, `UI-006`
 - Dispatch portions of `CAP-008`, `SEC-002`, `DIAG-001`
 - `AC-AUTO-016`, `AC-AUTO-027`, `AC-AUTO-035`, `AC-AUTO-039`
-- Main-input validation ownership for `AC-AUTO-033`; Tasks 07 and 08 retain
+- Main-input validation ownership for `AC-AUTO-033`; Tasks 08 and 09 retain
   worker-side defense-in-depth validation
 
 ## In Scope
@@ -84,7 +84,7 @@ remote-provider behavior.
    - build the full private cache context from the same epochs;
    - on an eligible hit, complete through the existing success flow exactly
      once without worker load and without changing residency;
-   - on a miss, delegate one request to the coordinator, which Task 10 will
+   - on a miss, delegate one request to the coordinator, which Task 11 will
      recheck under its lifecycle lock and lazy-load if needed.
 7. Validate Local Whisper audio before its eligibility gate and before any
    cache lookup. Accept only a structurally complete mono PCM16, 16 kHz WAV
@@ -107,7 +107,7 @@ remote-provider behavior.
 10. Preserve the current remote-provider cache-before-reinitialization behavior
     unless a focused regression proves an existing bug. The local branch alone
     owns its stricter eligibility-before-cache rule.
-11. Provider switching uses a coordinator hook. Until Task 10 implements the
+11. Provider switching uses a coordinator hook. Until Task 11 implements the
     lifecycle, tests use a fake that can accept an idle switch or return
     `OPERATION_CONFLICT`; no test or temporary adapter silently cancels active
     work or selects a fallback provider.

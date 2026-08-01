@@ -1,4 +1,4 @@
-# 10 Coordinator, Residency, And Lifecycle
+# 11 Coordinator, Residency, And Lifecycle
 
 ## Outcome
 
@@ -12,8 +12,8 @@ hot-plug, and application-exit cleanup.
 ## Prerequisites
 
 - The Local Whisper plan is approved.
-- Tasks 01–09 are complete and committed through their packet boundaries.
-- Task 10 has separate execution authorization.
+- Tasks 01–10 are complete and committed through their packet boundaries.
+- Task 11 has separate execution authorization.
 - The packet begins with conformance fakes for every dependency and integrates
   real adapters only after state-machine tests pass.
 
@@ -49,7 +49,7 @@ hot-plug, and application-exit cleanup.
 - Multiple resident models, hidden lifecycle queues, transparent retries,
   automatic fallback/reload/download/update, or partial transcription.
 - Persisting `Ready`, `Loaded`, worker PID, or capability evidence as truth.
-- IPC/preload sender validation or renderer event delivery; Task 11 owns that
+- IPC/preload sender validation or renderer event delivery; Task 12 owns that
   narrow transport boundary and may not create parallel settings/epoch state.
 
 ## Task Contract
@@ -84,7 +84,7 @@ hot-plug, and application-exit cleanup.
    worker after successful final-text inference. It never downloads. An
    eligible cache hit is already completed by Task 02 and does not enter the
    lifecycle lock.
-6. Enforce the supervisor bounds from Task 06: handshake 10 seconds, backend
+6. Enforce the supervisor bounds from Task 07: handshake 10 seconds, backend
    probe 30 seconds, load 5 minutes, warm-up 2 minutes, graceful unload 15
    seconds, terminate and kill-confirmation stages 5 seconds each. Inference
    uses `max(120 seconds, 10 * validated audio duration)` capped at 30 minutes.
@@ -94,7 +94,7 @@ hot-plug, and application-exit cleanup.
    stops the child and confirms exit. Forced confirmed cleanup may succeed with
    a sanitized warning. Unconfirmed exit is `CLEANUP_FAILED`, leaves residency
    failed/unusable, and blocks destructive artifact actions.
-8. Expose one authoritative main-only `saveSettings` command consumed by Task 11. It validates the canonical candidate and expected configuration/
+8. Expose one authoritative main-only `saveSettings` command consumed by Task 12. It validates the canonical candidate and expected configuration/
    inventory epochs again. Load-affecting fields are engine, runtime, target,
    backend, device, model, variant, Faster-Whisper precision, and CPU threads:
    acquire the lifecycle lock, unload old residency, recheck epochs, commit
@@ -133,7 +133,7 @@ hot-plug, and application-exit cleanup.
     require explicit/lazy reload. Hot-unplug or driver reset during activity
     fails the operation and uses the same Stale/Unloaded boundary. Never
     auto-reload or fall back.
-15. Expose one authoritative `resetSettings` command. After Tasks 11/12 provide
+15. Expose one authoritative `resetSettings` command. After Tasks 12/13 provide
     the explicit confirmation and expected epochs, reject conflicts, unload,
     invoke Task 03's reset primitive, clear the prompt/provider settings only,
     increment `configurationEpoch` exactly once, and publish the coherent
@@ -141,7 +141,7 @@ hot-plug, and application-exit cleanup.
 16. Publish immutable sanitized snapshots with monotonic revisions from this
     coordinator only. Snapshots combine its current normalized settings,
     inventory, support/setup/capability/residency/activity, progress, and safe
-    errors. Getters do not start probes/downloads/workers. Task 11 only bridges
+    errors. Getters do not start probes/downloads/workers. Task 12 only bridges
     these snapshots to authorized renderer subscribers; closing a renderer
     subscription never cancels process-owned activity.
 
@@ -150,7 +150,7 @@ hot-plug, and application-exit cleanup.
 - The coordinator is the single owner of current normalized settings,
   configuration epoch, support/setup/capability/residency/activity state,
   lifecycle locking, and coherent sanitized snapshots. Task 03 owns durable
-  repository mechanics; Task 11 owns IPC/preload validation and event bridging
+  repository mechanics; Task 12 owns IPC/preload validation and event bridging
   only. Neither may activate parallel state or increment a second epoch.
 - It never receives renderer-provided URL/path/executable/hash/argv/environment.
 - Worker crashes, protocol violations, allocation uncertainty, and cleanup
@@ -192,7 +192,7 @@ hot-plug, and application-exit cleanup.
 - Forced cleanup is bounded and cannot claim release without confirmed child
   exit.
 - No operation automatically changes engine, target, backend, device, model,
-  revision, variant, precision, or provider. Tests prove Task 11 can only call
+  revision, variant, precision, or provider. Tests prove Task 12 can only call
   the coordinator command port and cannot publish or increment parallel state.
 
 ## Verification
@@ -226,10 +226,10 @@ power-monitor wiring.
 ## Manual Gates
 
 - Packaged Windows/Linux process-tree and GPU-allocation settling tests are
-  deferred to Task 16. Synthetic coordinator tests are mandatory here.
+  deferred to Task 17. Synthetic coordinator tests are mandatory here.
 - Do not suspend the user's host, kill unrelated processes, change drivers, or
-  run destructive real-artifact tests without the explicit Task 16 gate.
-- No commit, push, publication, or Task 11 execution is authorized.
+  run destructive real-artifact tests without the explicit Task 17 gate.
+- No commit, push, publication, or Task 12 execution is authorized.
 
 ## References
 
@@ -242,12 +242,12 @@ power-monitor wiring.
 - Local precedents:
   - `src/main/di/mainProcessCompositionRoot.ts` for process ownership;
   - `src/main/mainProcessApplication.ts` for quit ordering;
-  - Task 02 provider/dispatch port and Tasks 05–09 service interfaces.
+  - Task 02 provider/dispatch port and Tasks 05–10 service interfaces.
 
 ## Completion And Handoff
 
-- Mark Task 10 complete in `todo.md`; update `handoff.md` with state-machine,
+- Mark Task 11 complete in `todo.md`; update `handoff.md` with state-machine,
   wiring, and exact checks.
-- Name Task 11 as next.
-- Present lifecycle evidence and stop. Do not commit or begin Task 11 in the
+- Name Task 12 as next.
+- Present lifecycle evidence and stop. Do not commit or begin Task 12 in the
   same invocation.

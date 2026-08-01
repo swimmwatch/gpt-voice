@@ -1,112 +1,129 @@
-# Handoff: Local Whisper Task 04 Complete
+# Handoff: Local Whisper Task 05 Complete
 
 ## Status
 
-Task 04 was authorized through `execution.task-04` revision 1, implemented, and
-verified. Its isolated commit is authorized through `commit.task-04` revision
-
-1. Task 05 execution, push, pull request, packaging, publication, and release
-   actions are not authorized.
+Task 05 was authorized through `execution.task-05` revision 1, implemented,
+and verified. It remains uncommitted. The revised 18-packet plan is approved
+through `approval.plan` revision 3 and inserts native C++ modularization as Task
+06. Its isolated commit is authorized through `commit.task-05` revision 1 and
+follows the separate plan-revision commit. Task 06 execution, production
+artifact publication/download, push, pull request, packaging, and release are
+not authorized.
 
 ## Completed Packets
 
 - [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)
 - [03 Trusted catalog, settings, and inventory](03_trusted_catalog_settings_and_inventory.md)
-- [04 Managed filesystem safety](04_managed_filesystem_safety.md)
+- [04 Managed filesystem safety](04_managed_filesystem_safety.md), committed as `649ec3b9`
+- [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md), uncommitted
 
-## Changed Files
+## Implemented Contract
 
-- Recorded Task 04 execution authorization in `../decisions.yaml`; updated
-  `todo.md` and this handoff.
-- Added fixed non-roaming Linux/Windows path resolution, the planned-only macOS
-  resolver/adapter, non-serializable artifact and lock leases, coordinator-issued
-  removal clearance, and the main-owned managed artifact store under
-  `src/main/localWhisper/filesystem/`.
-- Added catalog-derived canonical artifact/file names, an exact private managed
-  manifest, authenticated inventory evidence, per-artifact cross-process locks,
-  same-filesystem no-overwrite promotion, quarantine, and manifest-owned exact
-  deletion. Unknown, swapped, linked, reparse/symlink, or partially deleted data
-  never receives installed/loadable/deletable authority.
-- Added a narrow repository-owned C++20 guard under
-  `runtime/local-whisper/fs-guard/`. Linux uses `openat2` with
-  the `RESOLVE_BENEATH`, `RESOLVE_NO_SYMLINKS`, `RESOLVE_NO_MAGICLINKS`, and
-  `RESOLVE_NO_XDEV` flags, held descriptors, `fstat`,
-  `renameat2(RENAME_NOREPLACE)`, and exact `unlinkat`. Windows source uses
-  handle-relative `NtCreateFile`, reparse, ADS, ACL, volume/file-ID checks,
-  handle-based rename/disposition, and process creation identity; its real
-  Windows gate remains open.
-- Added deterministic source build and fixture verification commands under
-  `scripts/local-whisper/` and `package.json`. Generated helper binaries stay
-  under ignored `.cache/local-whisper/fs-guard/` and are not packaged by Task 04.
-- Added Linux temporary-root integration/race/destructive tests, Windows real
-  conditional tests, platform source-contract checks, and macOS no-storage
-  coverage under `tests/main/localWhisper/filesystem/`.
-- No dependency, renderer/IPC, composition-root wiring, artifact network
-  transfer, worker runtime, production artifact removal, package target, or
-  release change was made.
+- Added the injected, process-owned artifact lifecycle boundary under
+  `src/main/localWhisper/artifacts/`: exact authenticated catalog resolution,
+  explicit Download/Resume/Retry/Cancel/Remove commands, immutable operation
+  IDs, a two-active-transfer FIFO, duplicate/destructive conflicts, immutable
+  rate-limited progress, disk preflight, streaming verification/extraction,
+  atomic Task 04 promotion, inventory refresh, and exact-clearance removal.
+- Added HTTPS origin/redirect/range enforcement and safe client-error mapping.
+  Connection, no-progress, total-transfer, and cancellation timeouts abort the
+  injected transport/helper instead of leaving a privileged operation live.
+- Added journal schema version 1 containing only operation/artifact/catalog
+  identity, expected length/hash, origin ID, received length, strong ETag,
+  spool ID, state, and safe timestamps. Exact strong-validator `Downloading`
+  or `Resumable` journals may resume after interruption; changed or weak
+  evidence fails closed and never retargets.
+- Added manifest-first extraction validation for exact names, regular-file
+  types, case collisions, modes, sizes, streaming SHA-256, file count, and
+  expanded bytes. Traversal, absolute paths, links, devices, FIFOs, sockets,
+  sparse files, undeclared entries, and content mismatches never promote.
+- Added model `transferSha256` to the authenticated catalog contract and
+  deterministic signed fixture. Missing or malformed values fail catalog load.
+- Extended Task 04 staging cleanup with anchored partial-file and empty-staging
+  deletion across the TypeScript adapters and Linux/Windows native guard
+  source. Linux executes this path in temporary fixture roots; Windows remains
+  a source/conditional-test gate; macOS remains planned and unavailable.
+- Added deterministic tests under `tests/main/localWhisper/artifacts/` for
+  valid model/runtime install, length/hash/signature failures, explicit retry,
+  restart resume, changed ETag, active/queued cancellation, two-transfer FIFO,
+  stale/forged requests, disk preflight, exact removal, adversarial manifests,
+  bounded multi-GiB generated streaming, progress throttling, heartbeat, and
+  five-second forced helper termination.
 
-## Platform Evidence
+## Fixed Operational Constants
 
-- Linux native guard built and ran on Linux x64 kernel `7.0.0-28-generic` over
-  an ext-family temporary filesystem. Release qualification assumes Linux kernel
-  5.6+ with `openat2` and `renameat2`; unsupported primitives fail closed.
-- Windows x64 source and a real conditional suite are checked in. They were not
-  compiled or executed because this environment has no Windows host or
-  cross-compiler. Do not claim Windows qualification until the manual gate below
-  is completed on representative Windows 10/11 x64 storage.
-- macOS returns `PLANNED_UNAVAILABLE` and creates no Local Whisper storage.
+- Connection timeout: 20 seconds.
+- No-progress timeout: 60 seconds.
+- Redirect limit: 5.
+- Total transfer timeout: 12 hours, measured from transport open.
+- Active unrelated transfers: 2 per application process.
+- Aggregate reported buffering: at most 32 MiB per transfer.
+- Helper cancellation grace: 5 seconds.
+- Progress interval: 100 ms.
+- Disk margin: at least `max(10% expanded size, 512 MiB)`.
+
+## Fixture-Only Boundary
+
+- The HTTP client, streaming artifact reader/worker, signature verifier,
+  journal persistence, disk-space source, inventory, logger, and store are
+  injected ports in Task 05 tests. No production origin, archive codec,
+  credential, signing key, model, runtime pack, real artifact download, new
+  dependency, or production composition-root wiring was added.
+- The synthetic multi-GiB test reuses generated 1 MiB chunks and creates no
+  multi-GiB file or whole-object buffer.
+- Task 07 owns the framed worker supervisor; later packets own hardened runtime
+  implementations, coordinator/IPC/UI wiring, publication, and qualification.
 
 ## Checks
 
-- `rtk npm run build:local-whisper:fs-guard`: passed; the generated Linux
-  helper remains in the ignored local cache only.
-- `rtk npm run test:local-whisper:filesystem`: 22 Linux/platform assertions
-  passed; the real Windows suite is present and platform-skipped here.
-- `rtk npm run verify:local-whisper:filesystem -- --fixture`: passed with the
-  Linux kernel/filesystem evidence above.
-- `rtk npm run test:unit`: 1,421 passed.
+- `rtk npm run test:local-whisper:artifacts`: 24 passed.
+- `rtk node --import tsx --test tests/main/localWhisper/artifacts/*.test.ts`: 24 passed.
+- `rtk npm run test:local-whisper:filesystem`: 23 passed; real Windows suite skipped on Linux.
+- `rtk npm run verify:local-whisper:filesystem -- --fixture`: passed on Linux
+  x64 kernel `7.0.0-28-generic`, filesystem type `61267`.
 - `rtk npm run typecheck`: passed.
 - `rtk npm run test:types`: passed.
-- Project DI-boundary tests: 2 passed.
-- Scoped ESLint and Prettier checks for Task 04 files: passed with no issues.
-- `rtk node scripts/verify-packaged-runtime.mjs`: passed; no generated helper is
-  included in current packaged runtime inputs.
+- `rtk npm run test:unit`: passed.
+- Task 05 scoped ESLint and Prettier checks: passed.
+- `rtk node scripts/verify-packaged-runtime.mjs`: passed; no Local Whisper
+  helper/artifact was added to current package inputs.
 - `rtk git diff --check`: passed.
-- Full `rtk npm run lint` remains red only because of the pre-existing
-  `no-useless-assignment` error in unrelated modified
+- Full `rtk npm run lint` remains red only for the unrelated modified
   `src/main/prettifyProfileChooserWindowController.ts:373`.
-- Full `rtk npm run format:check` remains red only for unrelated modified
+- Full `rtk npm run format:check` remains red only for the unrelated modified
   `tests/main/prettifyProfileChooserWindowController.test.ts`.
 
 ## Open Manual Gates
 
-- `MANUAL GATE — Windows handle semantics`: compile with MSVC and run/review the
-  checked-in Windows x64 promotion, junction/reparse, ADS, file-ID, volume, and
-  duplicate-lock suite on representative Windows 10/11 hardware. Mock or Wine
-  evidence is insufficient.
-- `MANUAL GATE — Linux kernel/filesystem semantics`: retain and review the
-  recorded real `openat2` result when setting the release minimum kernel and
-  filesystem support policy.
-- `MANUAL GATE — native helper packaging`: Task 14 must provide deterministic
-  Windows/Linux release builds, integrity/provenance review, package placement,
-  and redistribution evidence; no prebuilt helper was added here.
-- `MANUAL GATE — real artifact removal`: Task 16 must run exact deletion only
-  after coordinator unload and allowlisted-origin integration. Task 04 touched
-  freshly created temporary roots only.
+- `MANUAL GATE — production publication`: select and authorize the origin,
+  archive codec, credentials, signing, upload, retention, and catalog promotion
+  through Tasks 15/17. `AC-MAN-007` cannot run before that.
+- `MANUAL GATE — dependencies/licenses`: approve and review any future HTTP,
+  archive, native, or redistributed codec dependency through `AC-MAN-012`.
+- `MANUAL GATE — Windows handle semantics`: compile and run the checked-in
+  Windows x64 native/conditional staging, promotion, junction/reparse, ADS,
+  file-ID, volume, and removal tests on representative Windows 10/11 hardware.
+- `MANUAL GATE — native helper packaging`: Task 15 owns deterministic release
+  builds, integrity/provenance, placement, and redistribution review.
+- `MANUAL GATE — destructive evidence`: Task 17 may test real artifact removal
+  only after coordinator unload and allowlisted-origin integration. Task 05
+  deleted only proven entries under freshly created temporary fixture roots.
 
 ## Exact Next Packet
 
-- Review the uncommitted Task 04 diff and evidence.
-- After separate authorization, commit Task 04 in isolation while excluding the
-  three unrelated modified files.
-- Only after that review/commit and a separate execution decision, start
-  [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md).
+- Review the uncommitted Task 05 diff and deterministic evidence.
+- Commit Task 05 in the separately authorized isolated implementation commit;
+  exclude the three unrelated modified Prettify/composition-root files.
+- Only after that commit and a separate execution decision, start
+  [06 Native C++ modularization](06_native_cpp_modularization.md).
 
 ## Rollback State
 
-- Rollback removes only Task 04 TypeScript adapters/store, native guard sources,
-  scripts, tests, package scripts, and task/decision updates.
-- The locally generated helper is an ignored cache artifact. No real Local
-  Whisper root, model, runtime, settings, production data, or user-selected path
-  was created, migrated, or deleted.
+- Rollback removes the new Task 05 artifact modules/tests, model transfer hash
+  catalog field, staging-cleanup extension, package test script, and task
+  artifacts only.
+- The native helper under `.cache/local-whisper/fs-guard/` is ignored and
+  regenerable. No real Local Whisper root, artifact, settings, selected model,
+  production origin, or user data was created, migrated, downloaded, or
+  deleted.

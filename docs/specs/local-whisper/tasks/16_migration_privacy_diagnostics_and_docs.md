@@ -1,4 +1,4 @@
-# 15 Migration, Privacy, Diagnostics, And Documentation
+# 16 Migration, Privacy, Diagnostics, And Documentation
 
 ## Outcome
 
@@ -11,8 +11,8 @@ clipboard/history/cache guidance.
 ## Prerequisites
 
 - The Local Whisper plan is approved.
-- Tasks 01–14 are complete and committed through their packet boundaries.
-- Task 15 has separate execution authorization.
+- Tasks 01–15 are complete and committed through their packet boundaries.
+- Task 16 has separate execution authorization.
 - The actual settings schema, state/error unions, artifact layout, UI labels,
   packaging policy, and support matrix are stable enough to document and test.
 
@@ -69,7 +69,7 @@ clipboard/history/cache guidance.
 4. Every process starts `Unloaded`; disk never restores Ready/Loaded or treats
    historical capability evidence as current. Startup classifies journals via
    Task 05, marks changed/corrupt/blocked artifacts unusable, and handles a
-   prior worker only through Task 04/06 proven ownership. Unknown data is not
+   prior worker only through Tasks 04/07 proven ownership. Unknown data is not
    deleted and no artifact is selected automatically.
 5. On app upgrade, retain incompatible packs but block execution and show
    Runtime incompatible/missing until explicit selection/download. Reuse a
@@ -134,7 +134,7 @@ clipboard/history/cache guidance.
     packaging does not establish a universal verified code-signing root.
     Never imply otherwise.
 14. Keep repository prose in English. Add/update localization keys only for
-    actual renderer text already implemented by Tasks 12–13; all locale
+    actual renderer text already implemented by Tasks 13–14; all locale
     dictionaries remain structurally complete.
 
 ## Contracts And Boundaries
@@ -160,7 +160,7 @@ clipboard/history/cache guidance.
   - `README.md`;
   - privacy/security/provider/setup/troubleshooting documents discovered in
     the repository;
-  - package description source only when Task 14 did not already own it.
+  - package description source only when Task 15 did not already own it.
 - Add migration, previous-binary contract, diagnostics, audit, privacy, and
   documentation assertions under `tests/main/`, `tests/shared/`, and
   `tests/scripts/` as appropriate.
@@ -198,7 +198,7 @@ rtk prettier --check
 rtk git diff --check
 ```
 
-Run repository local-link/documentation checks and the Task 14 packaged trust
+Run repository local-link/documentation checks and the Task 15 packaged trust
 text fixture. Record the exact previous-binary command/artifact in the handoff;
 do not silently substitute the current binary twice.
 
@@ -219,8 +219,8 @@ do not silently substitute the current binary twice.
   artifact and nonprivate fixture profile. Record version/hash and recovery
   result; do not publish or download an untrusted binary implicitly.
 - Screen-reader, real offline-origin, hardware, signing-key, license, AMD, and
-  macOS gates remain Task 16 responsibilities.
-- No diagnostics upload, external message, release, commit, push, or Task 16
+  macOS gates remain Task 17 responsibilities.
+- No diagnostics upload, external message, release, commit, push, or Task 17
   execution is authorized.
 
 ## References
@@ -239,8 +239,8 @@ do not silently substitute the current binary twice.
 
 ## Completion And Handoff
 
-- Mark Task 15 complete in `todo.md`; record changed docs/code/tests,
+- Mark Task 16 complete in `todo.md`; record changed docs/code/tests,
   previous-binary evidence, and exact checks in `handoff.md`.
-- Name Task 16 as next.
+- Name Task 17 as next.
 - Present privacy/migration/documentation evidence and stop. Do not commit,
-  publish, or begin Task 16 in the same invocation.
+  publish, or begin Task 17 in the same invocation.

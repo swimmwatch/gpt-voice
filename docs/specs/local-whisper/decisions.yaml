@@ -2087,3 +2087,222 @@ decisions:
     rationale: The user explicitly authorized one isolated commit containing only completed Task 04 files and excluding unrelated worktree changes.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 04 was committed in isolation as 649ec3b9 before the next packet was opened.
+      - Task 05 is the first unchecked packet and is self-contained fixture-backed streaming transfer, journal recovery, bounded queueing, verification, promotion, and exact removal orchestration work.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 05 and does not authorize a production origin or codec, new dependencies, credentials, real artifact transfer, Task 06, a commit, push, pull request, publication, packaging, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-05-authorization-round-16
+      question_id: execution.task-05
+      idempotency_key: execution.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 05 Streaming Artifact Lifecycle be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-05
+          label: Authorize Task 05 (Recommended)
+          description: Implement and verify only Task 05 explicit fixture-backed streaming downloads, bounded queueing, resume journals, manifest-first verification and promotion, and exact removal orchestration; update todo and handoff, then stop without committing.
+        - id: do-not-authorize-task-05
+          label: Do not authorize
+          description: Stop after the Task 04 commit and make no Task 05 implementation changes.
+        - id: revise-task-05
+          label: Revise Task 05
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-05]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 05 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.native-cpp-toolchain
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The native guard is currently built by one direct compiler invocation and has no reusable build graph or native test dependency.
+      - The user explicitly requested a widely used C++ test framework, linters, unit tests, integration tests, and Windows/Linux CI.
+      - CMake provides the narrowest conventional cross-platform build and test integration for MSVC and Linux toolchains.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: native-cpp-planning-round-17
+      question_id: planning.native-cpp-toolchain
+      idempotency_key: planning.native-cpp-toolchain:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which native build and test dependency strategy should the Local Whisper C++ refactor use?
+      kind: single
+      options:
+        - id: cmake-googletest-pinned
+          label: CMake + GoogleTest (Recommended)
+          description: Use CMake/CTest with a pinned GoogleTest FetchContent revision, preserving reproducible Windows/Linux targets and a conventional xUnit-style test API.
+        - id: cmake-catch2-pinned
+          label: CMake + Catch2
+          description: Use CMake/CTest with a pinned Catch2 revision and its concise test API while retaining the same platform targets.
+        - id: cmake-system-googletest
+          label: System GoogleTest
+          description: Use CMake find_package and require developers and CI images to provision a compatible GoogleTest package separately.
+    answer:
+      selected_ids: [cmake-googletest-pinned]
+      text: ''
+    rationale: The user selected the recommended conventional cross-platform CMake and pinned GoogleTest toolchain.
+    supersedes_revision: null
+    requirement_ids: [SEC-007, RUN-004, PKG-001, AC-AUTO-040]
+
+  - id: planning.native-cpp-ci-depth
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Linux is the only native guard currently compiled and executed by local verification; Windows source is only conditionally tested.
+      - Pull-request CI already has Linux and Windows runners but neither builds or tests the native guard.
+      - The user explicitly requested native linters and tests in CI for the supported Windows and Linux implementations.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: native-cpp-planning-round-17
+      question_id: planning.native-cpp-ci-depth
+      idempotency_key: planning.native-cpp-ci-depth:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How strict should the first native C++ pull-request CI gate be?
+      kind: single
+      options:
+        - id: dual-platform-full-gate
+          label: Full dual-platform gate (Recommended)
+          description: Require clang-format, clang-tidy, Linux ASan/UBSan unit and integration tests, and Windows MSVC warning-as-error unit and integration tests on every pull request.
+        - id: dual-build-linux-analysis
+          label: Dual build, Linux analysis
+          description: Compile on both platforms but run linters, sanitizers, and integration tests only on Linux to reduce Windows CI time.
+        - id: linux-gate-windows-manual
+          label: Linux gate only
+          description: Gate Linux native quality in CI and retain Windows compilation and integration as a manual qualification step.
+    answer:
+      selected_ids: [dual-platform-full-gate]
+      text: ''
+    rationale: The user selected the full Windows and Linux pull-request quality gate.
+    supersedes_revision: null
+    requirement_ids: [SEC-007, RUN-004, PKG-001, AC-AUTO-040]
+
+  - id: planning.native-cpp-task-order
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is complete but uncommitted and must cross its separate review and commit gate before another packet executes.
+      - The native filesystem guard is a dependency of the existing framed worker supervisor and later native runtime tasks.
+      - Executing the modularization before those consumers avoids extending the current monolith and immediately applies the requested C++ rules.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: native-cpp-planning-round-17
+      question_id: planning.native-cpp-task-order
+      idempotency_key: planning.native-cpp-task-order:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Where should the native C++ modularization packet be placed in the approved Local Whisper sequence?
+      kind: single
+      options:
+        - id: insert-before-supervisor
+          label: Insert before supervisor (Recommended)
+          description: Make native modularization the new Task 06, renumber current Tasks 06–16 to 07–17, and require it before new native launcher/runtime work.
+        - id: execute-new-task-17-next
+          label: Add Task 17 next
+          description: Keep existing packet numbers, add a non-linear Task 17, and execute it before current Task 06 without renumbering files.
+        - id: defer-to-packaging
+          label: Defer to packaging
+          description: Keep current task order and fold the refactor into packaging work, allowing current supervisor/runtime tasks to build on the monolith meanwhile.
+    answer:
+      selected_ids: [insert-before-supervisor]
+      text: ''
+    rationale: The user selected immediate insertion before the framed supervisor, with existing Tasks 06–16 renumbered to 07–17.
+    supersedes_revision: null
+    requirement_ids: [SEC-007, RUN-004, PKG-001, AC-AUTO-040]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The revised plan contains 18 independently executable packets with native C++ modularization inserted as Task 06 before the framed worker supervisor.
+      - Task 06 preserves the native protocol and filesystem security contract while adding CMake, pinned GoogleTest, RAII modules, native README and AGENTS.md guidance, clang-format, clang-tidy, sanitizers, dual-platform tests, and required CI gates.
+      - Task 18 is explicitly future and non-release-blocking; its macOS work is compile-only and unavailable, with a new /spec decision required before any executable Apple Silicon path.
+      - Automated audits cover all 193 active specification IDs; packet numbering, required headings, local links, YAML parsing, Markdown formatting, and whitespace checks pass.
+      - Approval remains separate from Task 05 commit authority, Task 06 execution authorization, dependency fetching during implementation, push, pull request, publication, packaging, and release actions.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-18
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+      revision: 3
+    question:
+      text: How should Local Whisper implementation plan revision 3 proceed?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan (Recommended)
+          description: Approve the 18-packet plan with native C++ Task 06 and future hardening Task 18; this does not authorize a commit or implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep the plan Draft and revise the requested architecture, packet scope, sequencing, tooling, CI, testing, documentation, or future-platform work.
+        - id: leave-plan-draft
+          label: Leave plan as Draft
+          description: Stop with the current inspectable plan without approving it or authorizing implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved the revised 18-packet Local Whisper implementation plan; approval does not authorize the pending Task 05 commit or Task 06 execution.
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: commit.task-05
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 05 is complete, uncommitted, and its focused, type, full unit, packaging-boundary, formatting, lint, and whitespace checks match the handoff.
+      - Local Whisper plan revision 3 is approved but its planning artifacts are also uncommitted and must be preserved before Task 06 can execute from a committed packet.
+      - The three unrelated modified Prettify/composition-root files will be excluded from every commit.
+      - Commit authorization will not authorize Task 06 implementation, push, pull request, publication, packaging, or release actions.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-05-commit-round-19
+      question_id: commit.task-05
+      idempotency_key: commit.task-05:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the approved plan revision and completed Task 05 be committed before Task 06 starts?
+      kind: single
+      options:
+        - id: authorize-separate-plan-and-task-05-commits
+          label: Two isolated commits (Recommended)
+          description: Commit approved plan revision 3 artifacts first, then commit only Task 05 code, tests, and completion-state artifacts; exclude unrelated user changes.
+        - id: authorize-combined-task-05-transition-commit
+          label: One combined commit
+          description: Commit approved plan revision 3 artifacts and completed Task 05 code, tests, and completion state together; exclude unrelated user changes.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave the approved plan and Task 05 uncommitted and do not begin Task 06.
+    answer:
+      selected_ids: [authorize-separate-plan-and-task-05-commits]
+      text: ''
+    rationale: The user authorized two isolated commits: approved plan revision 3 artifacts first, followed by completed Task 05 code, tests, and completion-state artifacts, with unrelated user changes excluded.
+    supersedes_revision: null
+    requirement_ids: []

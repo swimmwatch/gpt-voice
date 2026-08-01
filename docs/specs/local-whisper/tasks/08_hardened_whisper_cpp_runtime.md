@@ -1,4 +1,4 @@
-# 07 Hardened Whisper.cpp Runtime
+# 08 Hardened Whisper.cpp Runtime
 
 ## Outcome
 
@@ -11,13 +11,15 @@ approved framed-stdio, immutable-revision, no-fallback contract.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 07 has separate execution
+- The Local Whisper plan is approved and Task 08 has separate execution
   authorization.
-- Tasks 01, 03, 04, and 06 are complete:
+- Tasks 01, 03, 04, 06, and 07 are complete:
   - Task 01 supplies the canonical engine/settings/protocol/error vocabulary;
   - Task 03 supplies authenticated catalog and runtime/model manifest contracts;
   - Task 04 supplies anchored managed-file identities and safe runtime paths;
-  - Task 06 supplies the process-owned supervisor, framed transport, ownership
+  - Task 06 supplies the native C++ modularity, build, test, lint, and CI
+    conventions this worker must follow;
+  - Task 07 supplies the process-owned supervisor, framed transport, ownership
     nonce/process identity, deadlines, cancellation, and graceful/forced cleanup.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
 - Initial build inputs remain pinned to `whisper.cpp` v1.9.1. A different
@@ -26,7 +28,7 @@ approved framed-stdio, immutable-revision, no-fallback contract.
 - Planning decisions `planning.openwhispr-adaptation-boundary` and
   `planning.artifact-publishing-target` remain active. Production hosting and
   publication are not prerequisites. This packet produces deterministic
-  unsigned staging trees that Task 14 will later consume and sign; no Task-14
+  unsigned staging trees that Task 15 will later consume and sign; no Task-15
   output is a prerequisite here.
 
 ## Owned Requirements
@@ -56,7 +58,7 @@ approved framed-stdio, immutable-revision, no-fallback contract.
   `whisper.cpp` parameters and final-text-only results.
 - Reproducible build-input locks, expected-file manifests, provenance inputs,
   license inventory inputs, deterministic pack verification, and focused tests.
-- Deterministic unsigned staging trees and manifest inputs for later Task-14
+- Deterministic unsigned staging trees and manifest inputs for later Task-15
   signing/package tests; no signed fixture consumption or public upload here.
 
 ## Out Of Scope
@@ -67,13 +69,13 @@ approved framed-stdio, immutable-revision, no-fallback contract.
   model residency.
 - Importing OpenWhispr's manager, ports, GitHub API downloader, shared `bin`
   directory, mutable release assets, or GPU-to-CPU recovery behavior.
-- Faster-Whisper, Python/CTranslate2/PyAV, or any engine routing; Task 08 owns
+- Faster-Whisper, Python/CTranslate2/PyAV, or any engine routing; Task 09 owns
   that separate runtime.
 - Catalog signing, fixture key generation, installer integration, production
-  hosting, publication, or release promotion; Task 14 owns the fixture/package
+  hosting, publication, or release promotion; Task 15 owns the fixture/package
   pipeline and production publication remains a `MANUAL GATE`.
 - Capability-policy decisions, support-tier computation, UI, IPC, settings,
-  downloads, managed deletion, or coordinator lifecycle owned by Tasks 09–13.
+  downloads, managed deletion, or coordinator lifecycle owned by Tasks 10–14.
 - macOS Metal runtime execution. No macOS worker or runtime pack is produced.
 
 ## Task Contract
@@ -115,7 +117,7 @@ approved framed-stdio, immutable-revision, no-fallback contract.
    load/inference is a protocol violation or conflict, never a hidden queue.
 5. `unload` frees the context with the upstream release API. Worker exit remains
    the hard release boundary; if free, cancel, or shutdown does not complete
-   within Task 06's bound, the supervisor terminates the process tree.
+   within Task 07's bound, the supervisor terminates the process tree.
 6. Stdout is protocol-only. Stderr contains bounded generic stage/build codes
    only—never prompt, audio, transcript, full model path, environment, argv,
    device UUID, or raw native exception text.
@@ -172,7 +174,7 @@ Build outputs are separate content trees, never base-installer payloads:
 
 ### Pack output contract
 
-Each local build emits an unsigned staging directory for Task 14, containing:
+Each local build emits an unsigned staging directory for Task 15, containing:
 
 - `bin/local-whisper-whisper-cpp-worker` or `.exe`;
 - only the reviewed backend libraries required by that profile under `lib/` or
@@ -185,13 +187,13 @@ Each local build emits an unsigned staging directory for Task 14, containing:
 - license texts for `whisper.cpp` and every redistributed dependency.
 
 The build script verifies the upstream v1.9.1 source archive/hash and locked
-toolchain inputs. It never writes a signature or production origin. Task 14
+toolchain inputs. It never writes a signature or production origin. Task 15
 archives and signs local fixtures; production signing/publication remains
 blocked by its Manual Gate.
 
 ## Contracts And Boundaries
 
-- Task 06 owns process spawning, framing transport, timeouts, stderr capture,
+- Task 07 owns process spawning, framing transport, timeouts, stderr capture,
   parent-death launcher/Job Object behavior, and force cleanup. This task owns
   only the `whisperCpp` peer and its engine adapter.
 - Task 03 owns catalog truth and Task 04 owns safe path handles. The worker may
@@ -204,9 +206,9 @@ blocked by its Manual Gate.
 - No new module-level mutable service or manager is allowed. The process-owned
   coordinator receives the adapter through constructor injection.
 - Engine-specific tests must use public, synthetic, non-personal audio, Task
-  03's injected signed catalog/manifest fakes, Task 06 protocol fixtures, and
+  03's injected signed catalog/manifest fakes, Task 07 protocol fixtures, and
   the directly verified unsigned staging tree produced in this packet. They
-  must not consume Task-14 outputs or download upstream assets implicitly.
+  must not consume Task-15 outputs or download upstream assets implicitly.
 
 ## Expected Files Or Components
 
@@ -243,7 +245,7 @@ ignored artifacts and are not committed.
 - CPU, CUDA, Vulkan, and HIP failures return exact engine-stage errors and never
   initialize another profile or CPU fallback.
 - Cancellation returns no partial text. Confirmed cancellation may keep the
-  worker healthy; unconfirmed cancellation is resolved by Task 06 termination.
+  worker healthy; unconfirmed cancellation is resolved by Task 07 termination.
 - Every output tree matches its expected-files manifest and contains no
   undeclared binary, dependency, install script, model, or production secret.
 - HIP descriptors fail closed for an unlisted OS/ROCm/device/`gfx`
@@ -301,7 +303,7 @@ than substituting the Linux CPU fixture.
   is required for any future promotion.
 - Production hosting, signing credentials, upload, release mutation, tag, and
   publication are explicitly deferred. Task execution may create only local
-  unsigned staging packs; Task 14 later consumes/signs them under its own
+  unsigned staging packs; Task 15 later consumes/signs them under its own
   authorization.
 
 ## References
@@ -318,15 +320,16 @@ than substituting the Linux CPU fixture.
     test-environment sections;
   - OpenWhispr commit `bf8b7e0` as a pattern reference only. Its HTTP,
     fallback, argv, downloader, and shared-bin choices are explicitly rejected.
-- Dependency outputs: canonical protocol/conformance vectors from Tasks 01/06
-  and authenticated runtime/path contracts from Tasks 03/04.
+- Dependency outputs: canonical protocol/conformance vectors from Tasks 01/07,
+  authenticated runtime/path contracts from Tasks 03/04, and native build/test/
+  lint conventions from Task 06.
 
 ## Completion And Handoff
 
-- Mark Task 07 complete in `todo.md` and record changed files, generated local
+- Mark Task 08 complete in `todo.md` and record changed files, generated local
   pack profiles, exact commands, unavailable platform checks, and blockers in
   `handoff.md`.
-- Name Task 08 as the next packet if it remains unchecked; Task 07 does not
+- Name Task 09 as the next packet if it remains unchecked; Task 08 does not
   authorize executing it.
 - Present the adapter/runtime diff and local verification evidence, then stop.
   Do not commit, publish, upload, or begin another packet in the same invocation.
