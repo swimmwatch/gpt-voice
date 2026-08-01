@@ -12,6 +12,7 @@ import {
   type LocalWhisperResidencyKey,
   type LocalWhisperRevisionId,
   type LocalWhisperWorkerClientMessage,
+  type LocalWhisperWorkerDeviceBinding,
 } from '@shared/localWhisper';
 import { ManagedArtifactLease } from '@main/localWhisper/filesystem/ManagedArtifactLease';
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
@@ -31,6 +32,7 @@ import {
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 
 type WorkerMode =
+  | 'bindingMismatch'
   | 'cancel'
   | 'cleanupFailure'
   | 'handshakeMismatch'
@@ -41,7 +43,23 @@ type WorkerMode =
   | 'hangUnload'
   | 'hangWarmup'
   | 'happy'
+  | 'loadBindingMismatch'
   | 'outOfOrder';
+
+const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
+
+function bindingAuthority(
+  revalidateDeviceBinding: () => Promise<LocalWhisperWorkerDeviceBinding | null> = async () => GPU_DEVICE_BINDING,
+) {
+  return { deviceBinding: GPU_DEVICE_BINDING, revalidateDeviceBinding } as const;
+}
+
+function probeRequest(
+  configurationEpoch: number,
+  revalidateDeviceBinding?: () => Promise<LocalWhisperWorkerDeviceBinding | null>,
+) {
+  return { configurationEpoch, ...bindingAuthority(revalidateDeviceBinding) } as const;
+}
 
 function revision(value: string): LocalWhisperRevisionId {
   const result = toLocalWhisperRevisionId(value);
@@ -194,10 +212,15 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         break;
       case 'probe':
         if (this.mode === 'hangProbe') break;
+        if (this.mode === 'outOfOrder') {
+          this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+          break;
+        }
         this.respond({
-          type: this.mode === 'outOfOrder' ? 'warmed' : 'probed',
+          type: 'probed',
           protocolVersion: 1,
           requestId: message.requestId,
+          deviceBinding: this.mode === 'bindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
         });
         break;
       case 'load':
@@ -206,6 +229,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           type: 'loaded',
           protocolVersion: 1,
           requestId: message.requestId,
+          deviceBinding: this.mode === 'loadBindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
           residency: message.residency,
         });
         break;
@@ -354,10 +378,11 @@ function harness(mode: WorkerMode): {
 async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness>> {
   const value = harness(mode);
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
-  assert.equal((await value.supervisor.probe(7)).success, true);
+  assert.equal((await value.supervisor.probe(probeRequest(7))).success, true);
   assert.equal(
     (
       await value.supervisor.load({
+        ...bindingAuthority(),
         configurationEpoch: 7,
         modelLease: value.modelLease,
         modelPath: '/private/model/model.bin',
@@ -394,6 +419,100 @@ test('supervisor enforces handshake, probe, load, warm-up, transcription, unload
   assert.equal(value.recordStore.record, null);
 });
 
+test('supervisor revalidates the private binding before and after probe and load', async () => {
+  const value = harness('happy');
+  let probeChecks = 0;
+  let loadChecks = 0;
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  assert.equal(
+    (
+      await value.supervisor.probe(
+        probeRequest(7, async () => {
+          probeChecks += 1;
+          return GPU_DEVICE_BINDING;
+        }),
+      )
+    ).success,
+    true,
+  );
+  assert.equal(probeChecks, 2);
+  assert.equal(
+    (
+      await value.supervisor.load({
+        ...bindingAuthority(async () => {
+          loadChecks += 1;
+          return GPU_DEVICE_BINDING;
+        }),
+        configurationEpoch: 7,
+        modelLease: value.modelLease,
+        modelPath: '/private/model/model.bin',
+        residency: selectedResidency(),
+        revalidate: async () => undefined,
+      })
+    ).success,
+    true,
+  );
+  assert.equal(loadChecks, 2);
+  assert.equal((await value.supervisor.forceCleanup()).success, true);
+});
+
+test('supervisor cleans up changed or disappeared binding authority and rejects peer mismatch', async () => {
+  const disappeared = harness('happy');
+  let probeChecks = 0;
+  assert.equal((await disappeared.supervisor.startAndHandshake(disappeared.authority)).success, true);
+  const disappearedResult = await disappeared.supervisor.probe(
+    probeRequest(7, async () => {
+      probeChecks += 1;
+      return probeChecks === 1 ? GPU_DEVICE_BINDING : null;
+    }),
+  );
+  assert.equal(disappearedResult.success, false);
+  if (!disappearedResult.success) assert.equal(disappearedResult.error.code, 'DEVICE_NOT_FOUND');
+  assert.equal(disappeared.releasedRuntime.value, 1);
+
+  const changed = harness('happy');
+  assert.equal((await changed.supervisor.startAndHandshake(changed.authority)).success, true);
+  assert.equal((await changed.supervisor.probe(probeRequest(7))).success, true);
+  let loadChecks = 0;
+  const changedResult = await changed.supervisor.load({
+    ...bindingAuthority(async () => {
+      loadChecks += 1;
+      return loadChecks === 1 ? GPU_DEVICE_BINDING : { kind: 'gpuIndex', index: 1 };
+    }),
+    configurationEpoch: 7,
+    modelLease: changed.modelLease,
+    modelPath: '/private/model/model.bin',
+    residency: selectedResidency(),
+    revalidate: async () => undefined,
+  });
+  assert.equal(changedResult.success, false);
+  if (!changedResult.success) assert.equal(changedResult.error.code, 'DEVICE_NOT_FOUND');
+  assert.equal(changed.releasedRuntime.value, 1);
+  assert.equal(changed.releasedModel.value, 1);
+
+  for (const mode of ['bindingMismatch', 'loadBindingMismatch'] as const) {
+    const peer = harness(mode);
+    assert.equal((await peer.supervisor.startAndHandshake(peer.authority)).success, true);
+    const peerResult =
+      mode === 'bindingMismatch'
+        ? await peer.supervisor.probe(probeRequest(7))
+        : await (async () => {
+            assert.equal((await peer.supervisor.probe(probeRequest(7))).success, true);
+            return peer.supervisor.load({
+              ...bindingAuthority(),
+              configurationEpoch: 7,
+              modelLease: peer.modelLease,
+              modelPath: '/private/model/model.bin',
+              residency: selectedResidency(),
+              revalidate: async () => undefined,
+            });
+          })();
+    assert.equal(peerResult.success, false, mode);
+    if (!peerResult.success) assert.equal(peerResult.error.code, 'WORKER_PROTOCOL_VIOLATION', mode);
+    assert.equal(peer.releasedRuntime.value, 1, mode);
+  }
+});
+
 test('supervisor rejects handshake mismatch and out-of-order stage result then proves cleanup', async () => {
   const mismatch = harness('handshakeMismatch');
   const mismatchResult = await mismatch.supervisor.startAndHandshake(mismatch.authority);
@@ -403,7 +522,7 @@ test('supervisor rejects handshake mismatch and out-of-order stage result then p
 
   const outOfOrder = harness('outOfOrder');
   assert.equal((await outOfOrder.supervisor.startAndHandshake(outOfOrder.authority)).success, true);
-  const probe = await outOfOrder.supervisor.probe(7);
+  const probe = await outOfOrder.supervisor.probe(probeRequest(7));
   assert.equal(probe.success, false);
   if (!probe.success) assert.equal(probe.error.code, 'WORKER_PROTOCOL_VIOLATION');
   assert.equal(outOfOrder.recordStore.record, null);
@@ -412,9 +531,8 @@ test('supervisor rejects handshake mismatch and out-of-order stage result then p
 test('supervisor attributes probe timeout exactly and never falls back', async () => {
   const value = harness('hangProbe');
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
-  const probe = value.supervisor.probe(7);
-  await Promise.resolve();
-  value.clock.fire(30_000);
+  const probe = value.supervisor.probe(probeRequest(7));
+  await fireTimer(value.clock, 30_000);
   const result = await probe;
   assert.equal(result.success, false);
   if (!result.success) {
@@ -438,8 +556,9 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
 
   const load = harness('hangLoad');
   assert.equal((await load.supervisor.startAndHandshake(load.authority)).success, true);
-  assert.equal((await load.supervisor.probe(7)).success, true);
+  assert.equal((await load.supervisor.probe(probeRequest(7))).success, true);
   const loadResult = load.supervisor.load({
+    ...bindingAuthority(),
     configurationEpoch: 7,
     modelLease: load.modelLease,
     modelPath: '/private/model/model.bin',
@@ -457,10 +576,11 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
 
   const warmup = harness('hangWarmup');
   assert.equal((await warmup.supervisor.startAndHandshake(warmup.authority)).success, true);
-  assert.equal((await warmup.supervisor.probe(7)).success, true);
+  assert.equal((await warmup.supervisor.probe(probeRequest(7))).success, true);
   assert.equal(
     (
       await warmup.supervisor.load({
+        ...bindingAuthority(),
         configurationEpoch: 7,
         modelLease: warmup.modelLease,
         modelPath: '/private/model/model.bin',

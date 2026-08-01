@@ -24,12 +24,21 @@ import {
   toLocalWhisperRevisionId,
   type LocalWhisperResidencyKey,
   type LocalWhisperRevisionId,
+  type LocalWhisperWorkerDeviceBinding,
 } from '@shared/localWhisper';
 
 type WorkerMode =
   'crash' | 'flood' | 'hang' | 'happy' | 'malformed' | 'out-of-order' | 'oversized' | 'stream-close' | 'unknown-kind';
 
 const WORKER_PATH = resolve('tests/fixtures/local-whisper/worker/conformance-worker.ts');
+const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
+
+function bindingAuthority() {
+  return {
+    deviceBinding: GPU_DEVICE_BINDING,
+    revalidateDeviceBinding: async () => GPU_DEVICE_BINDING,
+  } as const;
+}
 
 function revision(value: string): LocalWhisperRevisionId {
   const parsed = toLocalWhisperRevisionId(value);
@@ -266,10 +275,11 @@ test('standalone conformance worker consumes every checked-in golden vector', ()
 test('standalone conformance worker completes the canonical lifecycle without inference', async () => {
   const value = harness('happy');
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
-  assert.equal((await value.supervisor.probe(1)).success, true);
+  assert.equal((await value.supervisor.probe({ configurationEpoch: 1, ...bindingAuthority() })).success, true);
   assert.equal(
     (
       await value.supervisor.load({
+        ...bindingAuthority(),
         configurationEpoch: 1,
         modelLease: value.modelLease,
         modelPath: '/private/conformance/model.bin',
@@ -321,7 +331,7 @@ test('standalone conformance worker bounds malformed, oversized, unknown, flood,
 test('standalone conformance worker exposes deterministic out-of-order and hang scenarios', async () => {
   const outOfOrder = harness('out-of-order');
   assert.equal((await outOfOrder.supervisor.startAndHandshake(outOfOrder.authority)).success, true);
-  const probe = await outOfOrder.supervisor.probe(1);
+  const probe = await outOfOrder.supervisor.probe({ configurationEpoch: 1, ...bindingAuthority() });
   assert.equal(probe.success, false);
   if (!probe.success) assert.equal(probe.error.code, 'WORKER_PROTOCOL_VIOLATION');
 

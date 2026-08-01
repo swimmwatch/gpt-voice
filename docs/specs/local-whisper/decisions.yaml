@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-01'
+updated_at: '2026-08-02'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -1653,6 +1653,77 @@ decisions:
     supersedes_revision: null
     requirement_ids: []
 
+  - id: execution.task-08
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Local Whisper plan revision 8 is approved and uncommitted; Task 07 remains committed as `31c13c54`.
+      - Revised Task 08 owns the targeted unreleased protocol-v1 native binding repair, affected supervisor/conformance fixtures, modular `whisper.cpp` worker and adapter, deterministic backend-pack inputs, locked fail-closed upstream patch, pinned duplicate-aware JSON codec, tests, and handoff.
+      - All representative Windows execution remains exclusively in Task 17 under `planning.native-cpp-windows-gate` revision 2.
+      - Authorization does not cover Task 09, a commit, push, pull request, production download, signing, packaging, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: execution.task-08-native-device-repair
+      idempotency_key: execution.task-08-native-device-repair:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Authorize execution of revised Task 08 after plan revision 8, limited to the canonical device-binding repair and hardened whisper.cpp runtime packet?
+      kind: single
+      options:
+        - id: authorize-task-08
+          label: Authorize Task 08 (Recommended)
+          description: Implement and verify only revised Task 08; keep every representative Windows check in Task 17 and stop before commit or Task 09.
+        - id: do-not-authorize-task-08
+          label: Do not authorize
+          description: Leave the approved plan unimplemented and Task 08 unchecked.
+        - id: revise-task-08
+          label: Revise Task 08
+          description: Return the packet to planning for further scope or contract changes.
+    answer:
+      selected_ids: [authorize-task-08]
+      text: ''
+    rationale: User explicitly authorized exactly revised Task 08 after approving plan revision 8; all other packet, commit, Windows, publication, and release boundaries remain closed.
+    supersedes_revision: 1
+    requirement_ids:
+      - SCOPE-001
+      - RUNTIME-001
+      - MODEL-004
+      - VRAM-001
+      - ARCH-005
+      - RUN-001
+      - RUN-002
+      - RUN-003
+      - RUN-005
+      - SEC-005
+      - PRIV-001
+      - PKG-002
+      - PKG-003
+      - PKG-004
+      - SEC-003
+      - COMP-006
+      - COMP-009
+      - AMD-003
+      - AMD-004
+      - AMD-006
+      - CAP-007
+      - CAP-009
+      - FAIL-005
+      - FAIL-007
+      - AC-AUTO-002
+      - AC-AUTO-008
+      - AC-AUTO-010
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-013
+      - AC-AUTO-024
+      - AC-AUTO-026
+      - AC-AUTO-028
+      - AC-AUTO-033
+      - AC-AUTO-044
+
   - id: execution.task-01
     revision: 1
     category: execution
@@ -2870,3 +2941,919 @@ decisions:
       - AC-AUTO-028
       - AC-AUTO-033
       - AC-AUTO-044
+
+  - id: planning.native-device-binding-contract
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The canonical protocol-v1 `probe` and `load` messages did not carry a native runtime device selector; `LocalWhisperResidencyKey.deviceId` is deliberately opaque outside main.
+      - Pinned `whisper.cpp` v1.9.1 commit `f049fff95a089aa9969deb009cdd4892b3e74916` requires zero-based `whisper_context_params.gpu_device` and otherwise can retain a CPU backend when requested GPU initialization fails.
+      - Task 10 remains the owner of physical-device enumeration, stable opaque IDs, topology state, and opaque-to-runtime binding revalidation.
+      - The selected design keeps native indices private to main/worker frames, uses one engine-neutral bounded binding schema, and records a deterministic fail-closed upstream patch in build provenance.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.native-device-binding-contract
+      idempotency_key: planning.native-device-binding-contract:v1
+      last_status: answered
+    question:
+      text: Which fail-closed native device-binding design should the revised Local Whisper plan use?
+      kind: single
+      options:
+        - id: canonical-runtime-index-and-pinned-patch
+          label: Canonical private index + pinned patch (Recommended)
+          description: Extend probe/load results with a bounded runtime-local device index, keep renderer IDs opaque, revalidate mapping in main, and apply a hashed provenance-tracked v1.9.1 patch that rejects GPU initialization fallback.
+        - id: worker-resolves-opaque-id
+          label: Worker resolves opaque ID
+          description: Move platform device enumeration and opaque-ID interpretation into each worker, increasing coupling and duplicating Task 10 responsibilities.
+        - id: cpu-only-until-upstream-support
+          label: Defer GPU runtimes
+          description: Implement only CPU now and return CUDA/Vulkan/HIP support to specification because pinned upstream lacks fail-closed selected-device confirmation.
+    answer:
+      selected_ids: [canonical-runtime-index-and-pinned-patch]
+      text: ''
+    rationale: A private runtime-local index preserves opaque renderer identities, keeps platform enumeration in main, works for both pinned engines, and permits deterministic no-fallback verification without a worker-specific protocol dialect.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-005
+      - RUN-002
+      - SEC-005
+      - PRIV-001
+      - CAP-004
+      - CAP-007
+      - CAP-009
+      - CAP-010
+      - AC-AUTO-002
+      - AC-AUTO-010
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-024
+
+  - id: planning.native-device-protocol-version
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - No Local Whisper worker runtime pack, signed catalog entry, or public protocol-v1 compatibility surface has shipped.
+      - Existing protocol-v1 peers and binary vectors are repository-only Task 07 fixtures.
+      - The native binding repair changes strict exact-key schemas and therefore must regenerate every affected fixture and conformance assertion atomically before either production engine peer is built.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.native-device-protocol-version
+      idempotency_key: planning.native-device-protocol-version:v1
+      last_status: answered
+    question:
+      text: How should the native device-binding repair version the worker protocol?
+      kind: single
+      options:
+        - id: revise-unreleased-v1
+          label: Repair unreleased v1 (Recommended)
+          description: Regenerate the checked-in v1 schemas and golden fixtures atomically because no Local Whisper runtime pack or public catalog has shipped.
+        - id: introduce-v2
+          label: Introduce protocol v2
+          description: Preserve fixture-only v1 and add v2 compatibility machinery before any production runtime exists, increasing implementation and testing scope.
+        - id: leave-unresolved
+          label: Keep plan blocked
+          description: Do not choose a protocol version yet; Task 08 remains blocked.
+    answer:
+      selected_ids: [revise-unreleased-v1]
+      text: ''
+    rationale: Atomically repairing the unreleased version-1 contract avoids carrying compatibility machinery for a fixture-only schema while preserving strict versioned framing for the first shipped runtime.
+    supersedes_revision: null
+    requirement_ids:
+      - RUN-002
+      - RUN-003
+      - AC-AUTO-024
+
+  - id: planning.native-worker-json-parser
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Canonical control frames require strict UTF-8 JSON, exact schemas, duplicate-key rejection, bounded allocation, and language-neutral conformance with Task 07/08 vectors.
+      - A custom parser would create a permanent security-sensitive Unicode, number, and duplicate-key maintenance surface inside the worker.
+      - nlohmann/json v3.12.0 resolves to commit `55f93686c01528224f448c19128836e7df245f72`; the reviewed commit archive SHA-256 is `914bbfe45fe571e5aa20164403051419bab00dd8d4de2e5ff7fcc35040c3d7cc`.
+      - The selected design exposes no library DOM type across module boundaries and uses a bounded duplicate-aware SAX adapter with MIT license/provenance/SBOM accounting.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.native-worker-json-parser
+      idempotency_key: planning.native-worker-json-parser:v1
+      last_status: answered
+    question:
+      text: Which strict JSON implementation should the C++ worker use for canonical control frames?
+      kind: single
+      options:
+        - id: pinned-nlohmann-sax
+          label: Pinned nlohmann SAX (Recommended)
+          description: Use an immutable nlohmann/json source pin with a duplicate-aware bounded SAX adapter, include its MIT license/SBOM provenance, and never expose its DOM across module boundaries.
+        - id: custom-recursive-descent
+          label: Custom strict parser
+          description: Avoid a production dependency but own a security-sensitive JSON parser and Unicode/number/duplicate-key behavior indefinitely.
+        - id: leave-parser-blocked
+          label: Keep parser unresolved
+          description: Leave Task 08 blocked until a parser decision is made.
+    answer:
+      selected_ids: [pinned-nlohmann-sax]
+      text: ''
+    rationale: The pinned SAX adapter reduces parser risk while preserving exact schema ownership and adds one widely reviewed dependency with explicit provenance and license controls.
+    supersedes_revision: null
+    requirement_ids:
+      - RUN-002
+      - SEC-005
+      - AC-AUTO-024
+      - AC-AUTO-026
+
+  - id: approval.plan
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 8 closes the discovered native device-selector gap without changing the approved product specification, supported platforms, or support tiers.
+      - Task 08 owns one atomic unreleased protocol-v1 binding repair, supervisor/conformance updates, exact pinned-source runtime, provenance-tracked fail-closed GPU patch, modular C++ worker, and pinned duplicate-aware SAX codec.
+      - Task 09 follows Task 08 and consumes the same canonical binding; Task 10 owns opaque-ID-to-runtime-index resolution/revalidation; Task 11 consumes the authority through the capability service.
+      - Exact source pins and archive SHA-256 values are recorded for `whisper.cpp` v1.9.1 and nlohmann/json v3.12.0; no build script may download them implicitly.
+      - YAML, Prettier, link, 18-packet required-heading, and 193-ID specification coverage audits passed before approval.
+      - Every representative Windows build, runtime, lifecycle, packaging, and hardware execution remains exclusively in Task 17 under `planning.native-cpp-windows-gate` revision 2.
+      - Approval does not authorize implementation, commit, push, pull request, packaging, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: approval.plan-native-device-repair
+      idempotency_key: approval.plan-native-device-repair:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Approve Local Whisper plan revision 8 with the canonical private device binding, pinned fail-closed whisper.cpp patch, and pinned nlohmann SAX codec?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan (Recommended)
+          description: Approve the revised Task 08/09/10/11 contracts while keeping all representative Windows execution exclusively in Task 17.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 8 unapproved and revise the task contracts again.
+        - id: leave-plan-draft
+          label: Leave as draft
+          description: Stop with the audited revision 8 draft and do not authorize implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: User explicitly approved the audited native-device repair plan while preserving the existing specification and deferred Windows gate.
+    supersedes_revision: 7
+    requirement_ids: []
+
+  - id: research.github-generated-source-archives
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - GitHub documents that an archive requested by commit ID preserves the extracted file contents while the exact compression settings and outer byte layout may change.
+      - GitHub states that checksum stability is not guaranteed for automatically generated Source code zip/tar archives and recommends an uploaded release asset when a stable transport checksum is required.
+      - On 2026-08-01, two complete downloads for each approved dependency commit produced valid source trees but outer SHA-256 values different from the locked Task 08 values.
+      - https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives
+      - https://github.blog/changelog/2023-01-30-git-archive-checksums-may-change/
+    answer:
+      selected_ids: [generated-archive-bytes-are-not-a-stable-source-identity]
+      text: ''
+    rationale: GitHub-generated archive bytes may remain useful as an untrusted transport, but their SHA-256 cannot be the durable identity or sole trust anchor for a reproducible native source input.
+    supersedes_revision: null
+    requirement_ids: [SEC-009, PKG-006, AC-AUTO-050]
+
+  - id: research.pinned-native-source-objects
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - The GitHub plugin verified whisper.cpp commit f049fff95a089aa9969deb009cdd4892b3e74916 and exact source files at that ref; GitHub object metadata identifies tree f49541eaed447bce9b5e3598cc7a487ce5e54678.
+      - The GitHub plugin verified nlohmann/json commit 55f93686c01528224f448c19128836e7df245f72 and exact source files at that ref; GitHub object metadata identifies tree 1eb780542e829bf1615828ed0d5f407497bbce7b.
+      - Exact whisper.cpp source confirms use_gpu/gpu_device selection, persistent context creation/free, abort callbacks, and the current GPU-init-to-CPU fallback that the approved minimal patch must close.
+      - Exact nlohmann/json v3.12.0 source confirms strict SAX trailing-input rejection and UTF-8 parse failures; duplicate-key rejection remains the responsibility of the project-owned SAX adapter.
+      - https://github.com/ggml-org/whisper.cpp/commit/f049fff95a089aa9969deb009cdd4892b3e74916
+      - https://github.com/nlohmann/json/commit/55f93686c01528224f448c19128836e7df245f72
+    answer:
+      selected_ids: [exact-commit-tree-and-reviewed-content-are-available]
+      text: ''
+    rationale: Stable Git object identities and independently hashed reviewed file content can replace mutable outer archive bytes without changing the selected library revisions or the approved runtime behavior.
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, RUN-002, SEC-009, PKG-006]
+
+  - id: security.native-source-acquisition
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - GitHub-generated source archive checksums are explicitly not stable, while commit-addressed extracted contents remain stable.
+      - Task 08 must consume both pinned native dependencies offline, fail closed on any source change, preserve license/provenance evidence, and avoid configure-time downloads.
+      - The exact upstream commit and tree identities for both dependencies have been verified through the GitHub plugin and GitHub object metadata.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: native-source-integrity-round-03
+      question_id: security.native-source-acquisition
+      idempotency_key: security.native-source-acquisition:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which source-integrity contract should replace byte hashes of GitHub-generated archives for the pinned Local Whisper native dependencies?
+      kind: single
+      options:
+        - id: git-object-content-manifest
+          label: Git objects + content manifest (Recommended)
+          description: Pin repository, commit, tree, canonical path/mode/content SHA-256 manifest, patch digest, and tool versions; accept only explicit local Git objects or an additional byte-hashed project snapshot, with all builds network-disabled.
+        - id: project-release-snapshots
+          label: Project release snapshots
+          description: Require project-produced immutable uploaded source assets with transport SHA-256 plus upstream commit/tree/provenance before any build, adding a snapshot publication prerequisite to Task 08.
+        - id: vendor-source-trees
+          label: Vendor source trees
+          description: Commit the reviewed upstream source trees into this repository with manifests and licenses, accepting repository growth and an ongoing vendoring-update workflow.
+    answer:
+      selected_ids: [git-object-content-manifest]
+      text: ''
+    rationale: Stable Git commit/tree identities plus a canonical path/type/mode/content manifest make reviewed source content independent of mutable transport compression. Explicit local inputs and disconnected builds prevent configure-time network access; a project-controlled transport hash remains additive when such a snapshot is later supplied.
+    supersedes_revision: null
+    requirement_ids: [SEC-009, PKG-006, AC-AUTO-050]
+
+  - id: architecture.worker-device-proof
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The approved specification requires confirmation that the exact selected physical target/backend/device was activated without fallback.
+      - The current unreleased protocol carries only a filtered GPU ordinal; the same ordinal can identify another physical device after a topology/order change, and an ordinal echo does not prove activation.
+      - Task 10 owns opaque physical-device identity and runtime-registry mapping, while workers can expose backend-native activation and model-allocation evidence without exposing private identifiers to renderer or logs.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: worker-authority-round-04
+      question_id: architecture.worker-device-proof
+      idempotency_key: architecture.worker-device-proof:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which private device-proof contract should bind a selected physical GPU to Task 08 probe and load results?
+      kind: single
+      options:
+        - id: topology-bound-authority-and-native-proof
+          label: Bound authority + native proof (Recommended)
+          description: Bind an ephemeral authority to engine/runtime/backend/topology, opaque device identity, ordered registry fingerprint, and ordinal; require worker-native activation and model-allocation proof and reject any mismatch before success.
+        - id: revalidated-index-only
+          label: Revalidated index only
+          description: Keep only the current ordinal and pre/post main revalidation, accepting that equal numeric indices and echoed values cannot independently prove the same physical device.
+        - id: cpu-only-until-native-proof
+          label: CPU only for now
+          description: Remove release-1 GPU execution until every backend exposes an upstream stable physical-device proof API without a project-owned binding contract.
+    answer:
+      selected_ids: [topology-bound-authority-and-native-proof]
+      text: ''
+    rationale: An ordinal remains private and ephemeral, while the topology-bound authority and backend-native proof together bind the result to the selected physical device and actual model-backed allocation without exposing device internals to renderer or routine diagnostics.
+    supersedes_revision: null
+    requirement_ids: [CAP-014, RUN-002, SEC-005, PRIV-001, AC-AUTO-051]
+
+  - id: security.worker-model-handoff
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - The approved managed-filesystem contract requires validation and use to share a still-held descriptor/handle identity and explicitly rejects close-then-reopen-by-path authority.
+      - The current worker load message carries only modelPath even though Task 04 leases are main-owned and non-serializable.
+      - The pinned whisper.cpp public API supports a custom whisper_model_loader, so a worker can load from a pre-opened read-only OS file authority without exposing a path or buffering the complete model.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: worker-authority-round-04
+      question_id: security.worker-model-handoff
+      idempotency_key: security.worker-model-handoff:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should a native worker receive the verified model while preserving the held filesystem identity through use?
+      kind: single
+      options:
+        - id: inherited-readonly-handle-custom-loader
+          label: Inherited handle + custom loader (Recommended)
+          description: Launch the full-load worker with one explicitly inherited read-only descriptor/handle from the active lease and load through the engine custom-loader API; paths remain non-authoritative metadata.
+        - id: brokered-model-stream
+          label: Brokered model stream
+          description: Stream model bytes from the held main-owned lease through a bounded private channel into the worker loader, avoiding inherited handles but adding multi-gigabyte transfer and backpressure complexity.
+        - id: worker-secure-reopen-and-rehash
+          label: Worker reopens and rehashes
+          description: Let the worker reopen a path with no-follow checks and rehash the full file, revising the existing same-open-identity requirement and accepting a second platform filesystem boundary.
+    answer:
+      selected_ids: [inherited-readonly-handle-custom-loader]
+      text: ''
+    rationale: A pre-opened read-only descriptor/handle preserves the authenticated file identity through engine use, avoids a path reopen race and a multi-gigabyte protocol copy, and is supported by the pinned engine's custom model-loader API.
+    supersedes_revision: null
+    requirement_ids: [SEC-010, SEC-007, RUN-004, AC-AUTO-052]
+
+  - id: protocol.worker-audio-envelope
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The approved specification says the worker receives the existing canonical in-memory mono PCM16 16 kHz WAV recording through bounded stdin frames.
+      - The current protocol declares only an unbounded safe-integer audioByteLength, while Task 08 prose alternates between WAV and raw PCM samples.
+      - Preserving the canonical WAV envelope permits both workers to validate one identical byte contract before inference; raw PCM would require main to own a new conversion boundary and metadata schema.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: worker-authority-round-04
+      question_id: protocol.worker-audio-envelope
+      idempotency_key: protocol.worker-audio-envelope:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which exact audio representation should the private worker protocol carry?
+      kind: single
+      options:
+        - id: canonical-wav-bytes
+          label: Canonical WAV bytes (Recommended)
+          description: Preserve the approved complete RIFF/WAVE PCM16 mono 16 kHz envelope, add exact header/sample/total-duration bounds, and require each worker to parse it without temporary files.
+        - id: raw-pcm16-with-metadata
+          label: Raw PCM16 samples
+          description: Validate and strip WAV in main, then send raw little-endian PCM16 plus an explicit versioned sample-format/count schema to both workers.
+        - id: engine-specific-audio
+          label: Engine-specific audio
+          description: Permit each engine adapter to choose WAV or raw samples privately, increasing conformance and cross-engine behavior differences.
+    answer:
+      selected_ids: [canonical-wav-bytes]
+      text: ''
+    rationale: Preserving one exact canonical WAV envelope keeps both engine workers conformant with the existing recording boundary. Strict header, sample-count, duration, and total-byte validation closes the current unbounded-length ambiguity without adding a new renderer/main audio format.
+    supersedes_revision: null
+    requirement_ids: [AUDIO-001, RUN-006, AC-AUTO-053]
+
+  - id: protocol.worker-audio-limit
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - Canonical mono PCM16 16 kHz audio consumes exactly 32000 sample bytes per second plus the fixed 44-byte WAV header.
+      - The approved Local Whisper inference deadline is capped at 30 minutes, while the current private protocol has no finite total-audio bound below Number.MAX_SAFE_INTEGER.
+      - A finite duration/byte ceiling is required before either worker can allocate an input buffer or accept the declared audio length.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: worker-audio-limit-round-05
+      question_id: protocol.worker-audio-limit
+      idempotency_key: protocol.worker-audio-limit:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What maximum canonical WAV duration should one Local Whisper transcription request accept in release 1?
+      kind: single
+      options:
+        - id: thirty-minutes
+          label: 30 minutes (Recommended)
+          description: Align with the existing inference-deadline ceiling; cap sample data at 57,600,000 bytes and the complete fixed-header WAV at 57,600,044 bytes.
+        - id: fifteen-minutes
+          label: 15 minutes
+          description: Reduce per-request buffering to 28,800,044 WAV bytes but reject longer existing recordings earlier.
+        - id: sixty-minutes
+          label: 60 minutes
+          description: Permit 115,200,044 WAV bytes but require revising the existing 30-minute inference deadline and increasing worker memory/cleanup qualification scope.
+    answer:
+      selected_ids: [thirty-minutes]
+      text: ''
+    rationale: >-
+      The 30-minute ceiling matches the existing inference-deadline cap and
+      provides an exact bounded allocation contract: at most 28,800,000 PCM16
+      samples, 57,600,000 sample bytes, and 57,600,044 total canonical WAV
+      bytes.
+    supersedes_revision: null
+    requirement_ids: [AUDIO-001, RUN-006, AC-AUTO-053]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 3 replaces mutable generated-archive byte pins with exact Git commit/tree identities, canonical SHA-256 content manifests, explicit source materialization, and network-denied first configure/build requirements.
+      - Revision 3 binds GPU success to a topology-bound private authority and backend-native activation/model-allocation proof rather than an echoed runtime ordinal.
+      - Revision 3 preserves the held model filesystem identity through an inherited read-only descriptor/handle and the engine custom-loader boundary; a path no longer authorizes worker load.
+      - Revision 3 preserves canonical PCM16 mono 16 kHz WAV on the worker protocol and caps one request at 30 minutes or 57,600,044 complete bytes.
+      - YAML parsing, decision-to-requirement coverage, AC-AUTO-001..053 and AC-MAN-001..012 continuity, local links, Prettier, and git diff whitespace checks pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+      revision: 3
+    question:
+      text: How should Local Whisper specification revision 3 proceed?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Draft (Recommended)
+          description: Approve the repaired source/device/model/audio contract as authoritative; planning must still be revised and approved separately before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status, reopen the affected decisions, and revise the contract before planning.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval; the current plan and Task 08 remain blocked.
+    answer:
+      selected_ids: []
+      text: >-
+        For each task (begin from 8), check that the plan is correct and that
+        there are no ill-considered points that could cause another blocker.
+        For the remaining tasks, go through the plan and, if necessary, run the
+        code or minimal examples to ensure that the plan works and the
+        implementation will actually work. Do this up to task 16. Check each
+        task separately, and only then update the plan with a working
+        implementation.
+    rationale: The custom approval response requests a Task 08 through Task 16 feasibility audit before plan revision; it is a requested change, not specification approval, so Status remains Draft.
+    supersedes_revision: 2
+    requirement_ids: [APPROVAL-001]
+
+  - id: audit.tasks-08-through-16-feasibility
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The revision-3 approval response explicitly required every packet from Task 08 through Task 16 to be checked separately before the implementation plan is revised.
+      - The user required focused code execution or minimal examples where useful and asked that avoidable implementation blockers be removed before planning resumes.
+      - The user requires every representative Windows check to remain in Task 17 and prohibits Chrome MCP.
+      - Exact upstream source inspection used the GitHub connector; Context7 was used only for library-documentation corroboration.
+    answer:
+      selected_ids: [audit-each-packet-before-plan]
+      text: ''
+    rationale: The specification must incorporate material contract gaps found by the audit before a new plan can be approved or any packet can be reauthorized.
+    supersedes_revision: null
+    requirement_ids: [APPROVAL-001]
+
+  - id: architecture.model-authority-handoff
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The authenticated model descriptor or handle is held inside the persistent native filesystem guard; Electron owns only an opaque lease token.
+      - The separate native launcher currently receives no model authority and starts the probe worker before a model lease exists.
+      - A descriptor or handle can be inherited only when the full-load worker is created, while a probe-only worker is forbidden from receiving model authority.
+      - A temporary Linux C++20 proof passed exact-one read-only descriptor transfer, fixed descriptor 3, exec inheritance, unrelated-descriptor closure, and offset-safe pread behavior.
+      - Existing decision security.worker-model-handoff already requires an inherited read-only authority and rejects path authorization.
+    answer:
+      selected_ids: [one-use-native-handoff-and-fresh-load-worker]
+      text: ''
+    rationale: A narrowly authenticated native handoff plus separate probe-only and full-load launches is the smallest design that makes the already-approved handle contract executable without reopening paths or buffering a multi-gigabyte model.
+    supersedes_revision: null
+    requirement_ids: [SEC-011, RUN-007, AC-AUTO-054]
+
+  - id: architecture.faster-whisper-native-adaptation
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - GitHub-connector inspection of Faster-Whisper v1.2.1 confirms local-directory and files-map loading, explicit device/index/compute settings, NumPy audio input, and lazy generator execution.
+      - GitHub-connector inspection of representative CTranslate2 v4.6.0 confirms a public custom ModelReader seam and explicit model unload, but its stock Python files bridge eagerly reads every file-like object into memory.
+      - Stock CTranslate2 bindings expose configured device/index values but not the physical-device proof or positive GPU model-weight allocation required by CAP-014.
+      - The existing product contract keeps Faster-Whisper as a separate release-1 engine and prohibits path authorization, fallback, and full multi-gigabyte buffering.
+    answer:
+      selected_ids: [pinned-native-model-reader-and-proof-bridge]
+      text: ''
+    rationale: A minimal provenance-tracked native adapter or patch is required to stream exact files relative to the inherited model-root authority and expose backend-native proof without weakening the approved engine scope or filesystem boundary.
+    supersedes_revision: null
+    requirement_ids: [RUN-008, PKG-007, AC-AUTO-055]
+
+  - id: security.worker-codec-resource-bounds
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - A compiled nlohmann SAX proof confirmed that ordinary SAX parsing accepts duplicate keys unless the application maintains a duplicate-aware object stack.
+      - The current one-MiB control-frame limit does not independently bound nesting, parser events, members, arrays, keys, or decoded strings.
+      - The current TypeScript decoder and worker fixtures have no shipped compatibility consumer, so unreleased protocol v1 can be repaired atomically.
+      - The exact canonical WAV ceiling implies at most 57,600,044 input bytes and 115,200,000 float32 conversion bytes.
+    answer:
+      selected_ids: [bounded-duplicate-aware-canonical-codec]
+      text: ''
+    rationale: Explicit parser and audio-buffer bounds make allocation and failure behavior deterministic across TypeScript, C++, and Python peers without changing any user-facing valid setting.
+    supersedes_revision: null
+    requirement_ids: [RUN-009, AUDIO-002, AC-AUTO-056]
+
+  - id: packaging.catalog-envelope-modes
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Completed Task 03 implements one strict canonical Ed25519 signed-envelope format with an app-owned keyring; no Local Whisper catalog has shipped.
+      - Task 15's detached catalog-signature tuple conflicts with that repository contract and lacks the authenticated fixture/production purpose required to prevent trust-root confusion.
+      - The repository already ships a fail-closed deferred-publication sentinel, and the user-approved publication target remains fixture-only with production hosting deferred.
+    answer:
+      selected_ids: [repair-unreleased-signed-envelope]
+      text: ''
+    rationale: Atomically extend the existing unshipped signed payload with an authenticated purpose while retaining the envelope, disabled sentinel, and separate public keyring; do not introduce a second detached-signature format.
+    supersedes_revision: null
+    requirement_ids: [PKG-008, SEC-012, AC-AUTO-057]
+
+  - id: privacy.local-whisper-diagnostics-v2
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The diagnostics archive schema-v1 member inventory, manifest, writer, validator, analyzer skill, and reference are closed and cannot accept an additional Local Whisper snapshot compatibly.
+      - The approved privacy contract permits a user-generated export to contain reviewed non-unique vendor/device IDs and driver/runtime versions while prohibiting serials, full UUIDs, paths, private text, and raw native structures.
+      - Task 16 requires an explicit bounded Local Whisper snapshot even when no provider operation has emitted an audit event.
+    answer:
+      selected_ids: [schema-v2-bounded-sanitized-snapshot]
+      text: ''
+    rationale: Archive schema v2 with continued schema-v1 reading is the fail-closed additive path. Only non-unique numeric vendor/product IDs and reviewed versions are support-relevant; opaque app IDs, topology, authority, proof, location, serial, and private data remain excluded.
+    supersedes_revision: null
+    requirement_ids: [DIAG-002, PRIV-003, AC-AUTO-058]
+
+  - id: failure.native-evidence-and-resource-mapping
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The Task 08 through Task 16 audit found that invalid model authority, backend-native device proof, and bounded codec/audio allocation failures lacked deterministic renderer-safe mappings.
+      - Existing requirements already distinguish installed model corruption from one-use authority transfer, preflight resource insufficiency from a failed valid allocation, and invalid canonical audio from an untrusted worker protocol exchange.
+      - The approved no-fallback contract requires every such failure to invalidate only the affected capability/residency state, close uncertain authority, and return a stable code rather than collapse to a generic model-load failure.
+    answer:
+      selected_ids: [specific-fail-closed-runtime-mapping]
+      text: ''
+    rationale: Specific deterministic codes and state effects make the repaired native contracts testable without exposing raw errors or introducing a new recovery/fallback policy.
+    supersedes_revision: null
+    requirement_ids: [FAIL-008, AC-AUTO-051, AC-AUTO-052, AC-AUTO-053, AC-AUTO-056]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 4 incorporates the separately performed feasibility audit of Tasks 08 through 16 without revising the stale implementation plan or executing another packet.
+      - The repaired contract defines fresh probe/full-load worker lifecycles, exact guard-to-launcher model-authority transfer, descriptor-relative Faster-Whisper loading, topology-bound native device proof, bounded codecs/audio memory, separate renderer IPC surfaces, signed-envelope package modes, and diagnostics schema v2.
+      - Linux uses an unnamed preconnected descriptor-transfer channel; Windows uses an owner-private one-use guard endpoint and launcher-owned fixed-slot inheritance. Neither path creates a resident service, and representative Windows execution remains exclusively in Task 17.
+      - Invalid model content, model authority, device proof, protocol limits, canonical audio, and valid bounded allocation now have deterministic renderer-safe codes, recovery actions, and state effects.
+      - YAML parsing, active decision-to-requirement coverage, AC-AUTO-001..059 and AC-MAN-001..013 continuity, local links, Prettier, and git diff whitespace checks pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+      revision: 4
+    question:
+      text: How should Local Whisper specification revision 4 proceed after the Task 08 through Task 16 feasibility audit and contract repair?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Draft (Recommended)
+          description: Approve revision 4 as the authoritative implementation contract; the stale plan must still be rebuilt and approved separately before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status, reopen the affected decisions, and revise the specification before planning.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval; the existing plan and prior Task 08 authorization remain stale and blocked.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 4 through the persistent specification interview after the Task 08 through Task 16 feasibility audit and contract repair.
+    supersedes_revision: 3
+    requirement_ids: [APPROVAL-001]
+
+  - id: architecture.model-authority-handoff
+    revision: 2
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Windows DuplicateHandle creates a valid target-process handle but cannot select or guarantee numeric OS handle value 3; PROC_THREAD_ATTRIBUTE_HANDLE_LIST only restricts which inheritable handles reach the child.
+      - Linux SO_PEERCRED on a pre-created socket pair is not sufficient per-message sender authentication; SO_PASSCRED and kernel-validated SCM_CREDENTIALS bind credentials to the recvmsg record.
+      - Linux descriptor transfer can realize actual fd 3 with dup3 immediately before exec, while Windows requires an authenticated logical-slot-to-arbitrary-HANDLE binding.
+      - https://learn.microsoft.com/windows/win32/api/handleapi/nf-handleapi-duplicatehandle
+      - https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute
+      - https://learn.microsoft.com/windows/win32/procthread/inheritance
+      - https://www.man7.org/linux/man-pages/man7/unix.7.html
+      - https://www.man7.org/linux/man-pages/man2/recvmsg.2.html
+    answer:
+      selected_ids: [platform-specific-logical-slot-and-message-credentials]
+      text: ''
+    rationale: Logical slot 3 preserves one cross-platform protocol concept without asserting an impossible Windows handle value. Bidirectional per-message credentials bind the one-use Linux request and descriptor response to the expected post-exec processes.
+    supersedes_revision: 1
+    requirement_ids: [SEC-010, SEC-011, RUN-007, AC-AUTO-054]
+
+  - id: architecture.faster-whisper-native-adaptation
+    revision: 2
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Faster-Whisper v1.2.1 accepts CTranslate2 versions from 4.0 to below 5, so CTranslate2 v4.8.1 is compatible with its declared range.
+      - CTranslate2 v4.6.0 predates loader-length hardening d9b991e0700933a0c05373df8b52ed89cdcab96d and Whisper zero-frame fix f0265420caf1ad654befd94ea99124cdf440e829.
+      - CTranslate2 v4.8.1 exposes a native ModelReader seam, while its stock Python files bridge calls read and copies complete file contents into ModelMemoryReader.
+      - CTranslate2 unload_model can return without unloading when work or its try-lock is active, and its reviewed async result exposes no cancel operation.
+      - Faster-Whisper can accept NumPy audio but its path/PyAV/model-hub fallbacks are not bounded or offline authority mechanisms.
+      - https://github.com/SYSTRAN/faster-whisper/blob/65882eee9f5cdbeeb2d877f1131d48cf241b327d/requirements.txt
+      - https://github.com/OpenNMT/CTranslate2/blob/0d8bcd362ac75ef860ef161d6f0efad0ae439ff0/include/ctranslate2/models/model_reader.h
+      - https://github.com/OpenNMT/CTranslate2/blob/0d8bcd362ac75ef860ef161d6f0efad0ae439ff0/python/cpp/replica_pool.h
+      - https://github.com/SYSTRAN/faster-whisper/blob/65882eee9f5cdbeeb2d877f1131d48cf241b327d/faster_whisper/transcribe.py
+    answer:
+      selected_ids: [ctranslate2-4-8-1-streaming-reader-and-process-lifecycle]
+      text: ''
+    rationale: Pinning the compatible security-hardened baseline, bypassing eager/path/network/media fallbacks, and treating fresh worker creation/termination as load/unload authority is the smallest fail-closed production contract supported by the inspected APIs.
+    supersedes_revision: 1
+    requirement_ids: [RUN-008, RUN-010, PKG-007, CAP-017, LIFE-006, AC-AUTO-047, AC-AUTO-055]
+
+  - id: architecture.whisper-cpp-native-hardening
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - The pinned whisper_model_loader is sequential and closes after synchronous initialization, but upstream read_safe and tensor reads do not consistently require exact byte counts or checked arithmetic before using untrusted lengths.
+      - Pinned whisper.cpp selects GPU/IGPU by ordinal, appends CPU fallback, independently selects state backends, and exposes no public post-load proof that the selected device owns weights and primary execution.
+      - The public abort callback is not installed on every scheduled backend graph and checks occur only at coarse stages; forced process termination remains necessary for an unresponsive backend.
+      - The upstream dynamic backend loader searches executable/current directories and honors GGML_BACKEND_PATH.
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/src/whisper.cpp
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-backend-reg.cpp
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/include/ggml-backend.h
+    answer:
+      selected_ids: [bounded-loader-exact-device-proof-and-cancel-patch]
+      text: ''
+    rationale: A checksummed minimal patch series is required to make valid load, selected-device activation, cancellation, and ambient-library rejection testable and fail closed; successful upstream context creation alone is insufficient evidence.
+    supersedes_revision: null
+    requirement_ids: [RUN-011, RUN-012, SEC-013, CAP-017, AC-AUTO-051, AC-AUTO-052, AC-AUTO-060, AC-AUTO-062]
+
+  - id: packaging.backend-specific-build-closure
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Pinned whisper.cpp defaults GGML_NATIVE on and contains optional FetchContent paths for KleidiAI and CUDA CCCL; dynamic backend discovery can consume the current directory or environment.
+      - CUDA requires an explicit toolkit/compiler/architecture contract, Vulkan requires pinned build-time glslc/SPIR-V inputs, and HIP rejects static ggml and requires a shared dependency closure.
+      - Upstream install rules and successful linking do not prove the complete relocatable Windows/Linux runtime dependency set.
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/CMakeLists.txt
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-cuda/CMakeLists.txt
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-hip/CMakeLists.txt
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-vulkan/CMakeLists.txt
+    answer:
+      selected_ids: [explicit-offline-backend-builds-and-relocation-proof]
+      text: ''
+    rationale: Backend-specific explicit options, manifest-owned library loading, and clean relocation/closure tests prevent host-dependent or ambient build/runtime behavior without adding another product backend.
+    supersedes_revision: null
+    requirement_ids: [PKG-010, SEC-013, AMD-006, AC-AUTO-050, AC-AUTO-061]
+
+  - id: research.amd-platform-reality
+    revision: 2
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Pinned whisper.cpp HIP requires ROCm/HIP 6.1 or newer, explicit AMDGPU_TARGETS, and a non-static shared dependency closure.
+      - A safe Linux HIP row must bind distro/kernel/amdgpu ABI, exact ROCm packages and SONAME/build identities, PCI device/gfx target, applicable PCIe atomics, and KFD/render-node permissions.
+      - Pinned Vulkan requires build-time loader/headers/SPIR-V/glslc inputs and currently generates shaders for Vulkan 1.3; the SDK/compiler are not runtime-pack dependencies.
+      - CTranslate2 v4.8.1 contains HIP build support but its Python-facing device label may remain cuda; this does not establish Faster-Whisper AMD product support.
+      - https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html
+      - https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibility.html
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-hip/CMakeLists.txt
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-vulkan/CMakeLists.txt
+      - https://github.com/OpenNMT/CTranslate2/commit/68917da93177d6de5e4d9e135ac84071a40c2e4d
+    answer:
+      selected_ids: [version-qualified-preview-with-exact-build-and-runtime-matrices]
+      text: ''
+    rationale: The source and platform evidence narrows how an AMD Preview pack could be built and validated but provides no physical AMD execution evidence and does not justify Faster-Whisper AMD exposure.
+    supersedes_revision: 1
+    requirement_ids:
+      [AMD-001, AMD-002, AMD-003, AMD-004, AMD-006, PKG-003, CAP-009, AC-AUTO-005, AC-AUTO-012, AC-MAN-009, AC-MAN-010]
+
+  - id: failure.native-evidence-and-resource-mapping
+    revision: 2
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The bounded whisper.cpp loader distinguishes a changed/short held object from a structurally invalid but catalog-hash-matching model.
+      - Existing MODEL_CORRUPT recovery requires redownload/removal, while MODEL_LOAD_FAILED preserves bytes and blocks the same artifact/runtime pair pending an update or selection change.
+      - Cooperative cancellation must remain distinct from compute failure, and an unconfirmed unload must remain CLEANUP_FAILED.
+    answer:
+      selected_ids: [corrupt-object-versus-bounded-format-failure]
+      text: ''
+    rationale: Specific state and recovery mappings prevent unsafe malformed model input from collapsing into a retry loop while avoiding deletion of hash-matching catalog content.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-008, RUN-011, RUN-012, AC-AUTO-052, AC-AUTO-060, AC-AUTO-062]
+
+  - id: current.no-local-whisper
+    revision: 2
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - Completed packets have added shared domain/settings/catalog, artifact/inventory/filesystem, framed worker protocol, platform launcher, supervisor, tests, and CI checkpoints.
+      - The active Task 08 protocol checkpoint is uncommitted and preserves a modelPath field that revision 5 prohibits from authorizing native load.
+      - No qualified whisper.cpp or Faster-Whisper engine worker, published production catalog, accelerator runtime pack, or release support claim exists.
+    answer:
+      selected_ids: [partial-unshipped-foundation-without-qualified-inference]
+      text: ''
+    rationale: The specification baseline must acknowledge implemented foundation code without treating partial checkpoints or source-only Windows coverage as a working Local Whisper release.
+    supersedes_revision: 1
+    requirement_ids: [BASE-001, DOC-001]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 5 corrects Windows numeric-handle assumptions by defining logical authority slot 3 and binds its arbitrary inherited HANDLE through authenticated bootstrap acknowledgement and suspended Job-owned launch.
+      - Revision 5 requires bidirectional Linux SO_PASSCRED/SCM_CREDENTIALS authentication around the same-message SCM_RIGHTS transfer and maps only the validated descriptor to actual fd 3.
+      - Commit-pinned GitHub source audits require bounded whisper.cpp loading/cancellation/device proof, CTranslate2 4.8.1 security fixes, a native streaming Faster-Whisper reader, fresh-worker lifecycle, and explicit offline backend builds.
+      - AMD remains untested Preview under exact version-qualified Linux HIP and Windows Vulkan matrices; Faster-Whisper AMD remains excluded and macOS remains an unavailable skeleton.
+      - YAML parsing, decision revision/supersession checks, AC-AUTO-001..062 and AC-MAN-001..013 continuity, local links, Prettier, and git diff whitespace checks pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-05
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+      revision: 5
+    question:
+      text: How should Local Whisper specification revision 5 proceed after the commit-pinned runtime and platform contract repair?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Draft (Recommended)
+          description: Approve revision 5 as the authoritative contract; the stale plan must then be rebuilt and approved separately before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status and revise the affected contract before planning.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval; the existing plan and prior Task 08 authorization remain stale.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 5 through the persistent specification interview after the commit-pinned runtime and platform contract repair.
+    supersedes_revision: 4
+    requirement_ids: [APPROVAL-001]
+
+  - id: research.revision-6-source-and-platform-clarifications
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Commit-pinned nlohmann/json SAX callbacks receive normalized numeric values and therefore cannot alone prove that an integer lexeme was not `-0`, decimal, or exponent notation; the bounded project codec must validate lexical tokens before or alongside SAX.
+      - Linux `dup3(oldfd, newfd, flags)` fails with `EINVAL` when `oldfd == newfd`; an authenticated transferred descriptor already numbered 3 therefore needs an explicit collision-safe branch.
+      - A Windows process created suspended cannot acknowledge its private logical-slot bootstrap until it is resumed; Job assignment must precede resume, while bootstrap acknowledgement must precede ordinary worker handshake or model parsing.
+      - Pinned whisper.cpp requires HIP 6.1 or newer to compile, but AMD product compatibility is an exact ROCm/GPU/OS/driver matrix intersection rather than an open-ended minimum-version range.
+      - Pinned whisper.cpp can discover backend modules from the working directory and `GGML_BACKEND_PATH`; production accelerator workers therefore require `GGML_BACKEND_DL=OFF`, exactly one explicitly enabled accelerator, and all other optional backend/build targets disabled.
+      - https://github.com/nlohmann/json/blob/55f93686c01528224f448c19128836e7df245f72/single_include/nlohmann/json.hpp
+      - https://man7.org/linux/man-pages/man2/dup.2.html
+      - https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags
+      - https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects
+      - https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html
+      - https://github.com/ggml-org/whisper.cpp/blob/f049fff95a089aa9969deb009cdd4892b3e74916/ggml/src/ggml-backend-reg.cpp
+    answer:
+      selected_ids: [make-existing-contracts-directly-executable-and-fail-closed]
+      text: ''
+    rationale: These corrections remove implementation ambiguity without expanding platform support, changing the selected engines, or weakening the approved fail-closed boundary.
+    supersedes_revision: null
+    requirement_ids:
+      [AMD-006, PKG-003, CAP-009, SEC-011, RUN-007, RUN-009, PKG-010, AC-AUTO-054, AC-AUTO-056, AC-AUTO-061]
+
+  - id: approval.spec
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 6 requires a bounded project lexical validator before or alongside SAX so canonical numeric spellings are directly enforceable.
+      - Revision 6 makes Linux model-authority fd 3 mapping collision-safe and orders Windows Job assignment, resume, private bootstrap acknowledgement, ordinary handshake, and parsing correctly.
+      - Revision 6 distinguishes whisper.cpp's HIP 6.1 compilation floor from exact product compatibility rows and disables ambient/dynamic backend discovery in production builds.
+      - AMD remains untested Preview, Faster-Whisper AMD remains unsupported, macOS remains Planned/unavailable, and all representative Windows execution remains deferred to final Task 17.
+      - YAML parsing, scoped Prettier, and git diff whitespace checks passed before approval.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-06
+      question_id: approval.spec
+      idempotency_key: approval.spec:v6
+      last_status: answered
+      revision: 6
+    question:
+      text: How should Local Whisper specification revision 6 proceed after the second commit-pinned and platform audit?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 6 (Recommended)
+          description: Make the five bounded audit clarifications authoritative, then finish and separately approve the rebuilt implementation plan.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 6 in Draft and revise the specification before rebuilding the plan.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop with revision 6 unapproved; the current plan and prior Task 08 authorization remain stale.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 6 through the persistent specification interview after the second commit-pinned and platform audit.
+    supersedes_revision: 5
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.faster-windows-directory-authority
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Faster-Whisper requires an authenticated directory-relative reader on Windows; an absolute path, ambient working directory, reparse traversal, or path-only post-open check cannot satisfy the approved model-authority contract.
+      - '`NtCreateFile` accepts an `OBJECT_ATTRIBUTES.RootDirectory` handle and can restrict each manifest-declared direct child to an authority-relative open without granting ambient path authority.'
+      - The implementation packet must pin the supported Windows floor, direct-child naming policy, reparse behavior, directory and file identity checks, size/hash checks, and typed failures; representative execution remains exclusively in final Task 19.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.faster-windows-directory-authority
+      idempotency_key: planning.faster-windows-directory-authority:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which Windows mechanism should the revised plan require for Faster-Whisper to open authenticated model-directory children without path authority?
+      kind: single
+      options:
+        - id: ntcreatefile-root-directory
+          label: NtCreateFile relative authority
+          description: Use NtCreateFile with OBJECT_ATTRIBUTES.RootDirectory, enforce direct manifest children, reject reparses, and revalidate file identity on the supported Windows floor.
+        - id: inherit-every-child-handle
+          label: Inherit every child handle
+          description: Open and authenticate every model child in main/native guard and transfer a bounded handle table, increasing bootstrap and lifecycle complexity.
+        - id: leave-windows-faster-blocked
+          label: Leave Windows Faster blocked
+          description: Do not select an authority mechanism yet; keep the Windows Faster-Whisper packet and production claim blocked.
+    answer:
+      selected_ids: [ntcreatefile-root-directory]
+      text: ''
+    rationale: A held directory handle plus direct-child `NtCreateFile` opens preserves the approved no-path authority boundary with less bootstrap surface than transferring every child handle, while final Windows evidence remains deferred to Task 19.
+    supersedes_revision: null
+    requirement_ids: [RUN-008, SEC-007, SEC-010, AC-AUTO-052, AC-AUTO-055]
+
+  - id: planning.revision-9-plan-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 9 contains exactly 19 numbered packets; Tasks 01–07 remain complete and replacement Tasks 08–19 each contain all 14 mandatory packet sections.
+      - The machine-readable registry maps all 62 canonical automated acceptance IDs to exactly one primary task and to packet-local exact `rtk` verification commands.
+      - The rebuilt graph has no dependency cycle, all 238 active specification and acceptance IDs have packet coverage, and all local Markdown links resolve.
+      - Revision 9 isolates deterministic source/toolchain locks, shared authority/protocol, Whisper.cpp CPU/CUDA/AMD packs, Faster-Whisper, coordination, protected IPC, UI, packaging, migration/privacy/diagnostics/macOS skeleton, and final qualification into separately executable packets.
+      - Every representative Windows execution remains exclusive to Task 19; AMD remains Preview and untested, Faster-Whisper AMD remains Unsupported, and macOS remains a non-executable Planned/unavailable skeleton.
+      - YAML parsing and revision/supersession checks, scoped Prettier, ESLint for the plan validator, task-plan validation, and `git diff --check` pass.
+      - Plan approval remains separate from Task 08 execution authorization and from source import, implementation, commit, push, pull request, signing, packaging, publication, or release.
+    answer:
+      selected_ids: [nineteen-packet-graph-audited]
+      text: ''
+    rationale: The rebuilt plan is internally consistent, traceable, platform-honest, and executable one authorized packet at a time against approved specification revision 6.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 9 rebuilds the stale post-Task-07 graph as 12 independently executable replacement packets, Tasks 08–19, while preserving completed Tasks 01–07 and the dirty protocol/supervisor checkpoint for Task 09.
+      - Exact native-source/toolchain, worker-authority, Whisper.cpp, Faster-Whisper, AMD Preview, coordinator, IPC, UI, packaging, migration/privacy/diagnostics/macOS skeleton, and final qualification ownership is recorded in packet-local contracts.
+      - The acceptance registry validates exactly 19 packets and one primary owner for each `AC-AUTO-001` through `AC-AUTO-062`; coverage, links, dependency DAG, YAML, formatting, ESLint, and whitespace audits pass.
+      - Every representative Windows execution remains exclusively in Task 19; AMD remains untested Preview, Faster-Whisper AMD remains Unsupported, and macOS remains Planned/unavailable.
+      - Approval is separate from Task 08 execution authorization and does not authorize source import, implementation, commit, push, pull request, signing, packaging, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: approval.plan-revision-9
+      idempotency_key: approval.plan-revision-9:v1
+      last_status: answered
+      sequence: 40
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 9 proceed after the 19-packet rebuild and audit?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan (Recommended)
+          description: Approve revision 9 as the implementation contract; Task 08 execution remains separately gated.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 9 in Draft and revise the affected packets before implementation.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the audited plan unapproved and do not authorize implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved audited Local Whisper plan revision 9 through the durable persistent planning interview; replacement Task 08 remains separately gated.
+    supersedes_revision: 8
+    requirement_ids: []

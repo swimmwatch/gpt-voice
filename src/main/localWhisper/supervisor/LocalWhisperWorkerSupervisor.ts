@@ -11,6 +11,7 @@ import {
   type LocalWhisperResidencyKey,
   type LocalWhisperStateImpact,
   type LocalWhisperWorkerClientMessage,
+  type LocalWhisperWorkerDeviceBinding,
   type LocalWhisperWorkerHelloAck,
   type LocalWhisperWorkerServerMessage,
   type LocalWhisperWorkerTranscriptionOptions,
@@ -86,7 +87,16 @@ export interface LocalWhisperWorkerSupervisorDependencies {
   readonly ownership: WorkerProcessOwnership;
 }
 
-export interface LocalWhisperLoadRequest {
+export interface LocalWhisperDeviceBindingAuthority {
+  readonly deviceBinding: LocalWhisperWorkerDeviceBinding;
+  readonly revalidateDeviceBinding: () => Promise<LocalWhisperWorkerDeviceBinding | null>;
+}
+
+export interface LocalWhisperProbeRequest extends LocalWhisperDeviceBindingAuthority {
+  readonly configurationEpoch: number;
+}
+
+export interface LocalWhisperLoadRequest extends LocalWhisperDeviceBindingAuthority {
   readonly configurationEpoch: number;
   readonly modelLease: ManagedArtifactLease;
   readonly modelPath: string;
@@ -105,6 +115,7 @@ export interface LocalWhisperTranscriptionRequest {
 type LocalWhisperSupervisorFailureResult = Extract<LocalWhisperSupervisorResult<unknown>, { readonly success: false }>;
 
 interface PendingRequest {
+  readonly afterReceive?: () => Promise<boolean>;
   readonly complete: (message: LocalWhisperWorkerServerMessage) => void;
   readonly expectedType: LocalWhisperWorkerServerMessage['type'];
   readonly fail: (result: LocalWhisperSupervisorFailureResult) => void;
@@ -121,6 +132,7 @@ interface PendingHandshake {
 }
 
 interface SupervisorRequest<T> {
+  readonly afterReceive?: () => Promise<boolean>;
   readonly afterSend?: () => Promise<void>;
   readonly allowAlongsideTranscription?: boolean;
   readonly expectedType: LocalWhisperWorkerServerMessage['type'];
@@ -142,6 +154,10 @@ function sameResidency(left: LocalWhisperResidencyKey, right: LocalWhisperReside
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameDeviceBinding(left: LocalWhisperWorkerDeviceBinding, right: LocalWhisperWorkerDeviceBinding): boolean {
+  return left.kind === right.kind && (left.kind === 'cpu' || (right.kind === 'gpuIndex' && left.index === right.index));
+}
+
 /** Owns one worker tree, request registry, exact stage timers, and cleanup promise. */
 export class LocalWhisperWorkerSupervisor {
   private readonly pending = new Map<string, PendingRequest>();
@@ -149,6 +165,7 @@ export class LocalWhisperWorkerSupervisor {
   private readonly stderrRing = new BoundedStderrRing();
   private activeEpoch: number | null = null;
   private activeModelLease: ManagedArtifactLease | null = null;
+  private probedDeviceBinding: LocalWhisperWorkerDeviceBinding | null = null;
   private cleanupPromise: Promise<boolean> | null = null;
   private expectedHandshake: LocalWhisperExpectedHandshake | null = null;
   private handshake: PendingHandshake | null = null;
@@ -204,27 +221,41 @@ export class LocalWhisperWorkerSupervisor {
     return result;
   }
 
-  public probe(configurationEpoch: number): Promise<LocalWhisperSupervisorResult> {
-    if (!this.hasEpoch(configurationEpoch)) return Promise.resolve(this.failure('STALE_CONFIGURATION'));
+  public async probe(request: LocalWhisperProbeRequest): Promise<LocalWhisperSupervisorResult> {
+    if (!this.hasEpoch(request.configurationEpoch)) return this.failure('STALE_CONFIGURATION');
     if (this.stateValue !== 'handshaken') {
-      return Promise.resolve(this.failure('OPERATION_CONFLICT', 'backendInitialization'));
+      return this.failure('OPERATION_CONFLICT', 'backendInitialization');
+    }
+    if (!this.isBindingCompatibleWithExpectedBackend(request.deviceBinding)) {
+      return this.failBindingAuthority('backendInitialization');
+    }
+    if (!(await this.revalidateDeviceBinding(request))) {
+      return this.failBindingAuthority('backendInitialization');
     }
     this.stateValue = 'probing';
     const requestId = this.reserveRequestId();
-    return this.request({
+    const result = await this.request({
+      afterReceive: () => this.revalidateDeviceBinding(request),
       expectedType: 'probed',
-      message: { type: 'probe', protocolVersion: 1, requestId },
+      message: { type: 'probe', protocolVersion: 1, requestId, deviceBinding: request.deviceBinding },
       stage: 'backendInitialization',
       successState: 'probed',
       timeoutMs: LOCAL_WHISPER_PROBE_TIMEOUT_MS,
       transform: () => EMPTY_VALUE,
+      validate: (message) =>
+        message.type === 'probed' && sameDeviceBinding(message.deviceBinding, request.deviceBinding),
     });
+    if (result.success) this.probedDeviceBinding = request.deviceBinding;
+    return result;
   }
 
   public async load(request: LocalWhisperLoadRequest): Promise<LocalWhisperSupervisorResult> {
     if (!this.hasEpoch(request.configurationEpoch)) return this.failure('STALE_CONFIGURATION');
     if (this.stateValue !== 'probed' || this.activeModelLease) {
       return this.failure('OPERATION_CONFLICT', 'modelLoad');
+    }
+    if (!this.probedDeviceBinding || !sameDeviceBinding(this.probedDeviceBinding, request.deviceBinding)) {
+      return this.failBindingAuthority('modelLoad');
     }
     try {
       request.modelLease.assertActive();
@@ -236,15 +267,18 @@ export class LocalWhisperWorkerSupervisor {
     } catch {
       return this.failure('MODEL_LOAD_FAILED', 'modelLoad');
     }
+    if (!(await this.revalidateDeviceBinding(request))) return this.failBindingAuthority('modelLoad');
     this.activeModelLease = request.modelLease;
     this.stateValue = 'loading';
     const requestId = this.reserveRequestId();
     return this.request({
+      afterReceive: () => this.revalidateDeviceBinding(request),
       expectedType: 'loaded',
       message: {
         type: 'load',
         protocolVersion: 1,
         requestId,
+        deviceBinding: request.deviceBinding,
         modelPath: request.modelPath,
         residency: request.residency,
       },
@@ -252,7 +286,10 @@ export class LocalWhisperWorkerSupervisor {
       successState: 'loaded',
       timeoutMs: LOCAL_WHISPER_LOAD_TIMEOUT_MS,
       transform: () => EMPTY_VALUE,
-      validate: (message) => message.type === 'loaded' && sameResidency(message.residency, request.residency),
+      validate: (message) =>
+        message.type === 'loaded' &&
+        sameDeviceBinding(message.deviceBinding, request.deviceBinding) &&
+        sameResidency(message.residency, request.residency),
     });
   }
 
@@ -378,7 +415,7 @@ export class LocalWhisperWorkerSupervisor {
   }
 
   private async request<T>(request: SupervisorRequest<T>): Promise<LocalWhisperSupervisorResult<T>> {
-    const { expectedType, message, stage, successState, timeoutMs, transform, validate } = request;
+    const { afterReceive, expectedType, message, stage, successState, timeoutMs, transform, validate } = request;
     const allowAlongsideTranscription = request.allowAlongsideTranscription ?? false;
     if (this.terminal || (!allowAlongsideTranscription && this.pending.size !== 0)) {
       return this.failure('OPERATION_CONFLICT', stage);
@@ -392,6 +429,7 @@ export class LocalWhisperWorkerSupervisor {
       this.pending.set(
         requestId,
         Object.freeze({
+          afterReceive,
           complete: (serverMessage: LocalWhisperWorkerServerMessage) => resolve(this.success(transform(serverMessage))),
           expectedType,
           fail: (failure: LocalWhisperSupervisorFailureResult) => resolve(failure),
@@ -450,11 +488,28 @@ export class LocalWhisperWorkerSupervisor {
       void this.failTerminal('WORKER_PROTOCOL_VIOLATION', 'protocol');
       return;
     }
+    void this.completePending(pending, message);
+  };
+
+  private async completePending(pending: PendingRequest, message: LocalWhisperWorkerServerMessage): Promise<void> {
+    if (pending.afterReceive) {
+      let valid = false;
+      try {
+        valid = await pending.afterReceive();
+      } catch {
+        valid = false;
+      }
+      if (!valid) {
+        await this.failTerminal('DEVICE_NOT_FOUND', pending.stage);
+        return;
+      }
+    }
+    if (this.terminal || this.pending.get(pending.requestId) !== pending) return;
     this.pending.delete(pending.requestId);
     this.dependencies.clock.clearTimeout(pending.timer);
     this.stateValue = pending.successState;
     pending.complete(message);
-  };
+  }
 
   private handleHandshake(message: LocalWhisperWorkerHelloAck): void {
     const handshake = this.handshake;
@@ -566,6 +621,7 @@ export class LocalWhisperWorkerSupervisor {
     this.process = null;
     this.expectedHandshake = null;
     this.activeEpoch = null;
+    this.probedDeviceBinding = null;
     this.stderrRing.clear();
     this.stateValue = 'idle';
     this.terminal = false;
@@ -613,9 +669,29 @@ export class LocalWhisperWorkerSupervisor {
   private resetForNewWorker(authority: LocalWhisperWorkerLaunchAuthority): void {
     this.activeEpoch = authority.configurationEpoch;
     this.expectedHandshake = authority.expectedHandshake;
+    this.probedDeviceBinding = null;
     this.usedRequestIds.clear();
     this.stderrRing.clear();
     this.terminal = false;
+  }
+
+  private isBindingCompatibleWithExpectedBackend(binding: LocalWhisperWorkerDeviceBinding): boolean {
+    return this.expectedHandshake?.backend === 'cpu' ? binding.kind === 'cpu' : binding.kind === 'gpuIndex';
+  }
+
+  private async revalidateDeviceBinding(authority: LocalWhisperDeviceBindingAuthority): Promise<boolean> {
+    try {
+      const current = await authority.revalidateDeviceBinding();
+      return current !== null && sameDeviceBinding(current, authority.deviceBinding);
+    } catch {
+      return false;
+    }
+  }
+
+  private async failBindingAuthority(stage: LocalWhisperFailureStage): Promise<LocalWhisperSupervisorFailureResult> {
+    this.terminal = true;
+    const cleaned = await this.cleanupOwnedProcess();
+    return this.failureResult(cleaned ? 'DEVICE_NOT_FOUND' : 'CLEANUP_FAILED', cleaned ? stage : 'cleanup');
   }
 
   private hasEpoch(configurationEpoch: number): boolean {

@@ -12,6 +12,7 @@ import {
   toLocalWhisperRevisionId,
   type LocalWhisperResidencyKey,
   type LocalWhisperWorkerClientMessage,
+  type LocalWhisperWorkerDeviceBinding,
   type LocalWhisperWorkerServerMessage,
 } from '@shared/localWhisper';
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
@@ -105,6 +106,7 @@ class ConformanceWorker {
   private activeRequestId: string | null = null;
   private activeSequence = 0;
   private descendant: ChildProcess | null = null;
+  private probedDeviceBinding: LocalWhisperWorkerDeviceBinding | null = null;
   private residency: LocalWhisperResidencyKey | null = null;
   private state: 'handshaken' | 'loaded' | 'probed' | 'spawned' | 'warmed' = 'spawned';
 
@@ -142,18 +144,31 @@ class ConformanceWorker {
         this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
         return;
       }
+      this.probedDeviceBinding = message.deviceBinding;
       this.state = 'probed';
-      this.respond({ type: 'probed', protocolVersion: 1, requestId: message.requestId });
+      this.respond({
+        type: 'probed',
+        protocolVersion: 1,
+        requestId: message.requestId,
+        deviceBinding: this.probedDeviceBinding,
+      });
       return;
     }
     if (message.type === 'load') {
-      if (this.state !== 'probed') return this.exit(11);
+      if (
+        this.state !== 'probed' ||
+        !this.probedDeviceBinding ||
+        JSON.stringify(message.deviceBinding) !== JSON.stringify(this.probedDeviceBinding)
+      ) {
+        return this.exit(11);
+      }
       this.residency = message.residency;
       this.state = 'loaded';
       this.respond({
         type: 'loaded',
         protocolVersion: 1,
         requestId: message.requestId,
+        deviceBinding: this.probedDeviceBinding,
         residency: message.residency,
       });
       return;
@@ -228,6 +243,7 @@ class ConformanceWorker {
               type: 'probed',
               protocolVersion: 1,
               requestId: `flood-${index}`,
+              deviceBinding: { kind: 'gpuIndex', index: 0 },
             }),
           ),
         ),

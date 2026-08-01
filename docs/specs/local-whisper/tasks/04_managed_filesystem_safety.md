@@ -22,7 +22,7 @@ operation.
 - This packet begins with the platform-adapter feasibility design and available
   Linux proof below. Node's high-level path APIs are not presumed sufficient
   for Linux `openat2` or Windows reparse/file-ID guarantees; representative
-  Windows execution is deferred to Task 17.
+  Windows execution is deferred to Task 19.
 - macOS remains a typed path-resolver skeleton only and must not create or
   populate executable Local Whisper storage in this release.
 
@@ -71,7 +71,7 @@ operation.
 1. Before implementing product-facing storage methods, establish a narrow
    adapter design that can enforce the complete contract on supported Windows
    x64 and Linux x64. Prove it through real Linux execution and Windows
-   implementation/source-contract fixtures in this packet; Task 17 owns the
+   implementation/source-contract fixtures in this packet; Task 19 owns the
    representative Windows execution proof. Coverage includes open/create,
    component traversal, identity capture, rename/promotion, quarantine, exact
    unlink, lock ownership, and a held lease across check/use. Record the OS
@@ -96,7 +96,7 @@ operation.
 5. If implementation or source-contract review shows that neither direct
    bindings nor the reviewed helper can meet the contract on either platform,
    stop the packet and return to `/plan`. An unavailable representative
-   Windows host defers execution to Task 17 and is not such a design failure.
+   Windows host defers execution to Task 19 and is not such a design failure.
    Do not weaken the approved requirements or mark the platform qualified based
    on mocked tests.
 
@@ -246,7 +246,7 @@ operation.
   accepts renderer/catalog/user path authority; macOS creates nothing.
 - The available Linux feasibility suite and Windows source-contract coverage
   prove the designed held-identity no-follow behavior. Representative Windows
-  execution remains a mandatory Task 17 release gate; high-level path/string
+  execution remains a mandatory Task 19 release gate; high-level path/string
   checks alone cannot satisfy either platform contract.
 - Synthetic symlink, hard-link, junction/reparse, mount/volume, case/alternate
   name, rename, parent-swap, and file-ID races all fail before execution or
@@ -282,14 +282,14 @@ rtk prettier --check
 On Linux, run the real adapter contract on the supported kernel/filesystem in
 addition to fakes and record kernel/filesystem details. Keep the Windows suite
 checked in and deterministic/source-contract coverage green, but execute the
-real suite only in Task 17 on representative Windows x64. Linux, mocks, Wine,
+real suite only in Task 19 on representative Windows x64. Linux, mocks, Wine,
 source inspection, or a cross-build cannot substitute for that final gate.
 
 ## Failure And Rollback
 
 - Failure to prove the available Linux descriptor semantics or a discovered
   Windows design/source-contract defect blocks the packet. Unavailable real
-  Windows execution is deferred to Task 17; a later failure there returns the
+  Windows execution is deferred to Task 19; a later failure there returns the
   defect to an authorized Task 04/06 repair. Do not silently downgrade to
   `realpath`, `lstat`, string containment, or recursive deletion.
 - An unreviewed native dependency, elevated helper, driver, service, or
@@ -304,7 +304,7 @@ source inspection, or a cross-build cannot substitute for that final gate.
 
 ## Manual Gates
 
-- `MANUAL GATE — Windows handle semantics (Task 17 only)`: Task 17 runs and
+- `MANUAL GATE — Windows handle semantics (Task 19 only)`: Task 19 runs and
   reviews the real Windows x64 reparse/junction/file-ID/volume/lock race suite
   before any Windows qualification or release claim. It is not a Task 04
   completion gate; mocked or Wine-only evidence is insufficient.
@@ -315,7 +315,7 @@ source inspection, or a cross-build cannot substitute for that final gate.
   prebuilt binary, elevated component, or new packaging target requires
   separate approval and later redistribution review.
 - `MANUAL GATE — real artifact removal`: the exact-delete slice of
-  `AC-MAN-007` remains a Task 17 integration gate using a real allowlisted
+  `AC-MAN-007` remains a Task 19 integration gate using a real allowlisted
   origin and coordinator unload; Task 04 temporary-root evidence cannot close
   it.
 - Do not run destructive tests outside a validated temporary directory. No

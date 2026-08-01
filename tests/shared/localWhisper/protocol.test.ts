@@ -22,6 +22,7 @@ import {
   type LocalWhisperResidencyKey,
   type LocalWhisperRevisionId,
   type LocalWhisperWorkerControlMessage,
+  type LocalWhisperWorkerDeviceBinding,
 } from '@shared/localWhisper';
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
 
@@ -63,6 +64,12 @@ interface GoldenManifest {
 }
 
 const GOLDEN_DIRECTORY = 'tests/fixtures/local-whisper/protocol/v1';
+const CPU_DEVICE_BINDING = Object.freeze({ kind: 'cpu' }) satisfies LocalWhisperWorkerDeviceBinding;
+const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
+const MAX_GPU_DEVICE_BINDING = Object.freeze({
+  kind: 'gpuIndex',
+  index: 255,
+}) satisfies LocalWhisperWorkerDeviceBinding;
 
 function revision(value: string): LocalWhisperRevisionId {
   const result = toLocalWhisperRevisionId(value);
@@ -117,12 +124,47 @@ function fixtureMessages(): readonly LocalWhisperWorkerControlMessage[] {
       maxControlFrameBytes: LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
       maxAudioChunkBytes: LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
     },
-    { type: 'probe', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'probe-1' },
-    { type: 'probed', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'probe-1' },
+    {
+      type: 'probe',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-1',
+      deviceBinding: GPU_DEVICE_BINDING,
+    },
+    {
+      type: 'probed',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-1',
+      deviceBinding: GPU_DEVICE_BINDING,
+    },
+    {
+      type: 'probe',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-cpu-1',
+      deviceBinding: CPU_DEVICE_BINDING,
+    },
+    {
+      type: 'probed',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-cpu-1',
+      deviceBinding: CPU_DEVICE_BINDING,
+    },
+    {
+      type: 'probe',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-gpu-max-1',
+      deviceBinding: MAX_GPU_DEVICE_BINDING,
+    },
+    {
+      type: 'probed',
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      requestId: 'probe-gpu-max-1',
+      deviceBinding: MAX_GPU_DEVICE_BINDING,
+    },
     {
       type: 'load',
       protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'load-1',
+      deviceBinding: GPU_DEVICE_BINDING,
       modelPath: '/private/fixture/model.bin',
       residency: sharedResidency,
     },
@@ -130,6 +172,7 @@ function fixtureMessages(): readonly LocalWhisperWorkerControlMessage[] {
       type: 'loaded',
       protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'load-1',
+      deviceBinding: GPU_DEVICE_BINDING,
       residency: sharedResidency,
     },
     { type: 'warmup', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'warm-1' },
@@ -209,6 +252,7 @@ test('client and server validators reject unknown, cross-field, and stale shapes
       type: 'load',
       protocolVersion: 1,
       requestId: 'load-1',
+      deviceBinding: GPU_DEVICE_BINDING,
       modelPath: '/model',
       residency: { ...sharedResidency, backend: 'cpu' },
     }),
@@ -225,6 +269,38 @@ test('client and server validators reject unknown, cross-field, and stale shapes
       capabilities: ['cuda-sm-86', 'cuda-sm-86'],
       maxControlFrameBytes: LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
       maxAudioChunkBytes: LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
+    }),
+    false,
+  );
+  for (const index of [-1, 0.5, 256]) {
+    assert.equal(
+      isLocalWhisperWorkerClientMessage({
+        type: 'probe',
+        protocolVersion: 1,
+        requestId: 'probe-invalid',
+        deviceBinding: { kind: 'gpuIndex', index },
+      }),
+      false,
+    );
+  }
+  assert.equal(
+    isLocalWhisperWorkerClientMessage({
+      type: 'load',
+      protocolVersion: 1,
+      requestId: 'load-mismatch',
+      deviceBinding: CPU_DEVICE_BINDING,
+      modelPath: '/model',
+      residency: sharedResidency,
+    }),
+    false,
+  );
+  assert.equal(
+    isLocalWhisperWorkerServerMessage({
+      type: 'loaded',
+      protocolVersion: 1,
+      requestId: 'load-mismatch',
+      deviceBinding: CPU_DEVICE_BINDING,
+      residency: sharedResidency,
     }),
     false,
   );

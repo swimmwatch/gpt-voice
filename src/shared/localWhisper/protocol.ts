@@ -48,6 +48,9 @@ const CAPABILITY_PATTERN = /^[\w.:+-]+$/u;
 
 export type LocalWhisperFrameKind = typeof LOCAL_WHISPER_AUDIO_FRAME_KIND | typeof LOCAL_WHISPER_CONTROL_FRAME_KIND;
 
+export type LocalWhisperWorkerDeviceBinding =
+  { readonly kind: 'cpu' } | { readonly kind: 'gpuIndex'; readonly index: number };
+
 export interface LocalWhisperWorkerTranscriptionOptions {
   readonly language: string | null;
   readonly initialPrompt: string;
@@ -73,8 +76,9 @@ export type LocalWhisperWorkerClientMessage =
       readonly type: 'hello';
       readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
     }
-  | LocalWhisperWorkerRequest<'probe'>
+  | (LocalWhisperWorkerRequest<'probe'> & { readonly deviceBinding: LocalWhisperWorkerDeviceBinding })
   | (LocalWhisperWorkerRequest<'load'> & {
+      readonly deviceBinding: LocalWhisperWorkerDeviceBinding;
       readonly modelPath: string;
       readonly residency: LocalWhisperResidencyKey;
     })
@@ -90,8 +94,11 @@ export type LocalWhisperWorkerClientMessage =
 
 export type LocalWhisperWorkerServerMessage =
   | LocalWhisperWorkerHelloAck
-  | LocalWhisperWorkerRequest<'probed'>
-  | (LocalWhisperWorkerRequest<'loaded'> & { readonly residency: LocalWhisperResidencyKey })
+  | (LocalWhisperWorkerRequest<'probed'> & { readonly deviceBinding: LocalWhisperWorkerDeviceBinding })
+  | (LocalWhisperWorkerRequest<'loaded'> & {
+      readonly deviceBinding: LocalWhisperWorkerDeviceBinding;
+      readonly residency: LocalWhisperResidencyKey;
+    })
   | LocalWhisperWorkerRequest<'warmed'>
   | LocalWhisperWorkerRequest<'unloaded'>
   | (LocalWhisperWorkerRequest<'transcript'> & { readonly text: string })
@@ -121,7 +128,8 @@ interface LocalWhisperWorkerRequest<TType extends string> {
 
 const HELLO_KEYS = ['type', 'protocolVersion'] as const;
 const REQUEST_KEYS = ['type', 'protocolVersion', 'requestId'] as const;
-const LOAD_KEYS = [...REQUEST_KEYS, 'modelPath', 'residency'] as const;
+const PROBE_KEYS = [...REQUEST_KEYS, 'deviceBinding'] as const;
+const LOAD_KEYS = [...REQUEST_KEYS, 'deviceBinding', 'modelPath', 'residency'] as const;
 const TRANSCRIBE_KEYS = [...REQUEST_KEYS, 'settingsEpoch', 'audioByteLength', 'options'] as const;
 const CANCEL_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
 const HELLO_ACK_KEYS = [
@@ -135,7 +143,8 @@ const HELLO_ACK_KEYS = [
   'maxControlFrameBytes',
   'maxAudioChunkBytes',
 ] as const;
-const LOADED_KEYS = [...REQUEST_KEYS, 'residency'] as const;
+const PROBED_KEYS = [...REQUEST_KEYS, 'deviceBinding'] as const;
+const LOADED_KEYS = [...REQUEST_KEYS, 'deviceBinding', 'residency'] as const;
 const TRANSCRIPT_KEYS = [...REQUEST_KEYS, 'text'] as const;
 const CANCELLED_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
 const FAILURE_KEYS = [...REQUEST_KEYS, 'code'] as const;
@@ -156,6 +165,8 @@ const RESIDENCY_KEYS = [
   'precision',
   'resolvedCpuThreads',
 ] as const;
+const CPU_DEVICE_BINDING_KEYS = ['kind'] as const;
+const GPU_INDEX_DEVICE_BINDING_KEYS = ['kind', 'index'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -197,6 +208,18 @@ function isCandidateCount(value: unknown): value is number {
     Number.isSafeInteger(value) &&
     (value as number) >= LOCAL_WHISPER_MIN_CANDIDATE_COUNT &&
     (value as number) <= LOCAL_WHISPER_MAX_CANDIDATE_COUNT
+  );
+}
+
+export function isLocalWhisperWorkerDeviceBinding(value: unknown): value is LocalWhisperWorkerDeviceBinding {
+  if (!isRecord(value)) return false;
+  if (value.kind === 'cpu') return hasExactKeys(value, CPU_DEVICE_BINDING_KEYS);
+  return (
+    value.kind === 'gpuIndex' &&
+    hasExactKeys(value, GPU_INDEX_DEVICE_BINDING_KEYS) &&
+    Number.isSafeInteger(value.index) &&
+    (value.index as number) >= 0 &&
+    (value.index as number) <= 255
   );
 }
 
@@ -249,6 +272,14 @@ function isResidency(value: unknown): value is LocalWhisperResidencyKey {
   return LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS.some((precision) => precision === value.precision);
 }
 
+function isDeviceBindingCompatibleWithResidency(
+  binding: unknown,
+  residency: LocalWhisperResidencyKey,
+): binding is LocalWhisperWorkerDeviceBinding {
+  if (!isLocalWhisperWorkerDeviceBinding(binding)) return false;
+  return residency.target === 'cpu' ? binding.kind === 'cpu' : binding.kind === 'gpuIndex';
+}
+
 function isCapabilities(value: unknown): value is readonly string[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > LOCAL_WHISPER_MAX_CAPABILITY_COUNT) {
     return false;
@@ -267,18 +298,26 @@ export function isLocalWhisperWorkerClientMessage(value: unknown): value is Loca
   switch (value.type) {
     case 'hello':
       return hasExactKeys(value, HELLO_KEYS);
-    case 'probe':
     case 'warmup':
     case 'unload':
     case 'shutdown':
       return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
-    case 'load':
+    case 'probe':
       return (
-        hasExactKeys(value, LOAD_KEYS) &&
+        hasExactKeys(value, PROBE_KEYS) &&
         isRequestId(value.requestId) &&
-        isModelPath(value.modelPath) &&
-        isResidency(value.residency)
+        isLocalWhisperWorkerDeviceBinding(value.deviceBinding)
       );
+    case 'load':
+      if (
+        !hasExactKeys(value, LOAD_KEYS) ||
+        !isRequestId(value.requestId) ||
+        !isModelPath(value.modelPath) ||
+        !isResidency(value.residency)
+      ) {
+        return false;
+      }
+      return isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency);
     case 'transcribe':
       return (
         hasExactKeys(value, TRANSCRIBE_KEYS) &&
@@ -316,13 +355,21 @@ export function isLocalWhisperWorkerServerMessage(value: unknown): value is Loca
         value.maxControlFrameBytes === LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES &&
         value.maxAudioChunkBytes === LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES
       );
-    case 'probed':
     case 'warmed':
     case 'unloaded':
     case 'shutdownAck':
       return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
+    case 'probed':
+      return (
+        hasExactKeys(value, PROBED_KEYS) &&
+        isRequestId(value.requestId) &&
+        isLocalWhisperWorkerDeviceBinding(value.deviceBinding)
+      );
     case 'loaded':
-      return hasExactKeys(value, LOADED_KEYS) && isRequestId(value.requestId) && isResidency(value.residency);
+      if (!hasExactKeys(value, LOADED_KEYS) || !isRequestId(value.requestId) || !isResidency(value.residency)) {
+        return false;
+      }
+      return isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency);
     case 'transcript':
       return hasExactKeys(value, TRANSCRIPT_KEYS) && isRequestId(value.requestId) && typeof value.text === 'string';
     case 'cancelled':

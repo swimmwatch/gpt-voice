@@ -15,10 +15,17 @@ import {
   type LocalWhisperResidencyKey,
   type LocalWhisperRevisionId,
   type LocalWhisperWorkerControlMessage,
+  type LocalWhisperWorkerDeviceBinding,
 } from '@shared/localWhisper';
 
 const OUTPUT_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v1');
 const OUTPUT_PATH = resolve(OUTPUT_DIRECTORY, 'manifest.json');
+const CPU_DEVICE_BINDING = Object.freeze({ kind: 'cpu' }) satisfies LocalWhisperWorkerDeviceBinding;
+const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
+const MAX_GPU_DEVICE_BINDING = Object.freeze({
+  kind: 'gpuIndex',
+  index: 255,
+}) satisfies LocalWhisperWorkerDeviceBinding;
 
 function frame(kind: number, body: Uint8Array, declaredLength = body.byteLength): Uint8Array {
   const result = new Uint8Array(5 + body.byteLength);
@@ -93,19 +100,39 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
         maxAudioChunkBytes: LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
       },
     ],
-    ['probe', { type: 'probe', protocolVersion: 1, requestId: 'probe-1' }],
-    ['probed', { type: 'probed', protocolVersion: 1, requestId: 'probe-1' }],
+    ['probe', { type: 'probe', protocolVersion: 1, requestId: 'probe-1', deviceBinding: GPU_DEVICE_BINDING }],
+    ['probed', { type: 'probed', protocolVersion: 1, requestId: 'probe-1', deviceBinding: GPU_DEVICE_BINDING }],
+    ['probe-cpu', { type: 'probe', protocolVersion: 1, requestId: 'probe-cpu-1', deviceBinding: CPU_DEVICE_BINDING }],
+    ['probed-cpu', { type: 'probed', protocolVersion: 1, requestId: 'probe-cpu-1', deviceBinding: CPU_DEVICE_BINDING }],
+    [
+      'probe-gpu-max',
+      { type: 'probe', protocolVersion: 1, requestId: 'probe-gpu-max-1', deviceBinding: MAX_GPU_DEVICE_BINDING },
+    ],
+    [
+      'probed-gpu-max',
+      { type: 'probed', protocolVersion: 1, requestId: 'probe-gpu-max-1', deviceBinding: MAX_GPU_DEVICE_BINDING },
+    ],
     [
       'load',
       {
         type: 'load',
         protocolVersion: 1,
         requestId: 'load-1',
+        deviceBinding: GPU_DEVICE_BINDING,
         modelPath: '/private/fixture/model.bin',
         residency: selectedResidency,
       },
     ],
-    ['loaded', { type: 'loaded', protocolVersion: 1, requestId: 'load-1', residency: selectedResidency }],
+    [
+      'loaded',
+      {
+        type: 'loaded',
+        protocolVersion: 1,
+        requestId: 'load-1',
+        deviceBinding: GPU_DEVICE_BINDING,
+        residency: selectedResidency,
+      },
+    ],
     ['warmup', { type: 'warmup', protocolVersion: 1, requestId: 'warm-1' }],
     ['warmed', { type: 'warmed', protocolVersion: 1, requestId: 'warm-1' }],
     [
@@ -181,6 +208,37 @@ const malformed = [
   ['invalid-control-utf8', frame(0x01, Uint8Array.from([0xff]))],
   ['duplicate-control-key', controlJson('{"type":"hello","type":"hello","protocolVersion":1}')],
   ['unknown-control-key', controlJson('{"type":"hello","protocolVersion":1,"unknown":true}')],
+  [
+    'negative-device-index',
+    controlJson(
+      '{"type":"probe","protocolVersion":1,"requestId":"probe-bad","deviceBinding":{"kind":"gpuIndex","index":-1}}',
+    ),
+  ],
+  [
+    'fractional-device-index',
+    controlJson(
+      '{"type":"probe","protocolVersion":1,"requestId":"probe-bad","deviceBinding":{"kind":"gpuIndex","index":0.5}}',
+    ),
+  ],
+  [
+    'oversized-device-index',
+    controlJson(
+      '{"type":"probe","protocolVersion":1,"requestId":"probe-bad","deviceBinding":{"kind":"gpuIndex","index":256}}',
+    ),
+  ],
+  [
+    'cpu-gpu-residency-mismatch',
+    controlJson(
+      JSON.stringify({
+        type: 'load',
+        protocolVersion: 1,
+        requestId: 'load-bad',
+        deviceBinding: CPU_DEVICE_BINDING,
+        modelPath: '/private/fixture/model.bin',
+        residency: residency(),
+      }),
+    ),
+  ],
   [
     'trailing-control-byte',
     Uint8Array.from([...encodeLocalWhisperControlFrame({ type: 'hello', protocolVersion: 1 }), 0]),
