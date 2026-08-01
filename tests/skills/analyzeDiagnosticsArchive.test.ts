@@ -219,7 +219,7 @@ describe('diagnostics archive closed schema reference', () => {
       'diagnosticrow: 1',
       'provideraudit: 1',
       'redactor: 1',
-      'voice: `chatgpt`, `openai-api`, `claude-web`',
+      'voice: `chatgpt`, `openai-api`, `claude-web`, `local-whisper`',
       'prettify: `ollama`, `vllm`, `claude-cli`, `codex-cli`',
       'translation: `google`, `bing`, `yandex`',
       '`selectedproviderid` is either `null`',

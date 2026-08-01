@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from 'playwright-core';
 
 import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
+import type { LocalWhisperRendererSafeFailure } from '@shared/localWhisper';
 
 export type { VoiceProviderAuthType, VoiceProviderCategory, VoiceTranscriptionMode } from '@shared/voiceProvider';
 
@@ -13,6 +14,7 @@ export interface TranscriptionResult {
   text?: string;
   error?: string;
   raw?: string;
+  failure?: LocalWhisperRendererSafeFailure;
 }
 
 /** Shared lifecycle and transcription contract for every supported voice provider. */
@@ -56,11 +58,15 @@ export abstract class BaseVoiceProvider {
     return [];
   }
 
-  /** Check if this provider has a valid session file */
-  abstract hasSession(): boolean;
+  /** Check if this provider has a valid session file. Local runtimes never invoke this method. */
+  hasSession(): boolean {
+    throw new Error('Voice provider does not support session state');
+  }
 
-  /** Remove persisted session data when it is invalid or expired */
-  abstract clearSession(): void;
+  /** Remove persisted session data when it is invalid or expired. Local runtimes never invoke this method. */
+  clearSession(): void {
+    throw new Error('Voice provider does not support session state');
+  }
 
   /** Save session state from a login browser context */
   saveSession(_context: BrowserContext): Promise<void> {
@@ -70,6 +76,11 @@ export abstract class BaseVoiceProvider {
   /** Load persisted session cookies into the given context */
   loadSession(_context: BrowserContext): Promise<boolean> {
     return Promise.resolve(this.hasSession());
+  }
+
+  /** Cancel provider-owned in-flight work when supported. */
+  cancel(): Promise<void> {
+    return Promise.resolve();
   }
 
   /** Cleanup provider-specific resources */

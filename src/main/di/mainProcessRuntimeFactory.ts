@@ -13,6 +13,7 @@ import {
   type MainStreamingTranscriptionServiceDependencies,
 } from '../services/streamingTranscription';
 import { TranscriptionService } from '../services/transcription';
+import { LocalWhisperTranscriptionDispatch } from '../services/localWhisperTranscriptionDispatch';
 import { TranscriptionHistoryIpcController } from '../services/transcriptionHistoryIpcController';
 import { createTranscriptionResultCache } from '../services/transcriptionResultCache';
 import type { DesktopRuntimeController } from '../desktopRuntimeController';
@@ -128,6 +129,10 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       backgroundBrowserService: this.controllers.backgroundBrowserService,
       getRequestedAt: this.dependencies.getRequestedAt,
       localization: this.dependencies.localization,
+      localWhisperDispatch: new LocalWhisperTranscriptionDispatch({
+        ...completionDependencies,
+        audit: this.controllers.voiceProviderAudit,
+      }),
     });
     const streamingTranscriptionService = new StreamingTranscriptionService({
       ...completionDependencies,

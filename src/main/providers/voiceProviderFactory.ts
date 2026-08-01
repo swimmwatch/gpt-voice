@@ -21,12 +21,21 @@ import { CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
 import { OPENAI_API_PROVIDER_ID } from './openaiApiSettingsUtils';
 import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 import type { I18nService } from '@main/i18n';
+import {
+  LOCAL_WHISPER_RENDERER_PROVIDER_INFO,
+  LocalWhisperVoiceProvider,
+  type LocalWhisperCoordinatorPort,
+} from './LocalWhisperVoiceProvider';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 
 export interface VoiceProviderFactoryDependencies {
   readonly audit: VoiceProviderAudit;
   readonly chatGPT: Omit<ChatGPTVoiceProviderDependencies, 'audit' | 'localization'>;
   readonly claudeWeb: Omit<ClaudeWebVoiceProviderDependencies, 'audit' | 'localization'>;
   readonly localization: Pick<I18nService, 'translate'>;
+  readonly localWhisper: {
+    readonly coordinator: LocalWhisperCoordinatorPort;
+  };
   readonly openAIApi: Omit<OpenAIApiVoiceProviderDependencies, 'audit' | 'localization'>;
 }
 
@@ -55,6 +64,8 @@ export class VoiceProviderFactory {
           localization: this.dependencies.localization,
           navigationService: this.dependencies.claudeWeb.navigationService,
         });
+      case LOCAL_WHISPER_PROVIDER_ID:
+        return new LocalWhisperVoiceProvider(this.dependencies.localWhisper.coordinator);
     }
   }
 
@@ -66,6 +77,8 @@ export class VoiceProviderFactory {
         return OPENAI_API_RENDERER_PROVIDER_INFO;
       case CLAUDE_WEB_PROVIDER_ID:
         return CLAUDE_WEB_RENDERER_PROVIDER_INFO;
+      case LOCAL_WHISPER_PROVIDER_ID:
+        return LOCAL_WHISPER_RENDERER_PROVIDER_INFO;
     }
   }
 }

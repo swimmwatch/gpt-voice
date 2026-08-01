@@ -111,6 +111,13 @@ export function getLocalWhisperFailureDescriptor(code: unknown): LocalWhisperFai
   return isLocalWhisperFailureCode(code) ? LOCAL_WHISPER_FAILURE_DESCRIPTORS[code] : undefined;
 }
 
+export function createLocalWhisperRendererSafeFailure(
+  code: LocalWhisperFailureCode,
+  context: LocalWhisperSafeFailureContext = {},
+): LocalWhisperRendererSafeFailure {
+  return Object.freeze({ code, ...LOCAL_WHISPER_FAILURE_DESCRIPTORS[code], ...context });
+}
+
 export function createLocalWhisperActionFailure(
   action: LocalWhisperActionId,
   code: LocalWhisperFailureCode,
@@ -121,7 +128,7 @@ export function createLocalWhisperActionFailure(
     success: false,
     action,
     snapshot,
-    error: Object.freeze({ code, ...LOCAL_WHISPER_FAILURE_DESCRIPTORS[code], ...context }),
+    error: createLocalWhisperRendererSafeFailure(code, context),
   });
 }
 

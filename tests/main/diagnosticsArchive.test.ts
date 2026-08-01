@@ -161,7 +161,7 @@ function createEnvironment(): DiagnosticsArchiveEnvironmentSnapshot {
         configured: true,
         readinessKnown: true,
         ready: true,
-        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web'],
+        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'],
         selectedProviderId: 'chatgpt',
       },
       prettify: {

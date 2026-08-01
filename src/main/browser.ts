@@ -2,6 +2,7 @@
 import type { BrowserContext } from 'playwright-core';
 import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import type { BaseVoiceProvider } from '@main/providers/BaseVoiceProvider';
+import { isLocalRuntimeVoiceProvider } from '@main/providers/voiceProviderGuards';
 import type {
   VoiceAuditLifecycle,
   VoiceAuditMetadata,
@@ -183,7 +184,13 @@ export class BackgroundBrowserService {
 
   public ensure(options: BackgroundBrowserLaunchOptions = {}): Promise<void> {
     return this.operationQueue.run(async () => {
-      if (this.ready && this.activeProvider?.isReady()) return;
+      if (
+        this.ready &&
+        this.activeProvider &&
+        (isLocalRuntimeVoiceProvider(this.activeProvider) || this.activeProvider.isReady())
+      ) {
+        return;
+      }
       await this.initializeNow(options);
     });
   }
@@ -201,6 +208,13 @@ export class BackgroundBrowserService {
     return this.operationQueue.run(async () => {
       if (!this.dependencies.providerRegistry.isKnownProviderId(providerId)) {
         this.dependencies.providerRegistry.createProvider(providerId);
+      }
+      if (this.activeProvider && isLocalRuntimeVoiceProvider(this.activeProvider)) {
+        const switchResult = await this.activeProvider.prepareProviderSwitch(providerId);
+        if (!switchResult.success) {
+          this.error = switchResult.error.code;
+          return this.getStatus();
+        }
       }
       await this.shutdownNow();
       this.dependencies.config.setProvider(providerId);
@@ -291,6 +305,21 @@ export class BackgroundBrowserService {
     if (!provider) return this.getStatus();
     const audit = this.dependencies.audit;
     const settingsAudit = audit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
+    if (isLocalRuntimeVoiceProvider(provider)) {
+      try {
+        provider.getLocalRuntimeReadiness();
+        settingsAudit.lifecycle.phaseCompleted('configuration');
+        settingsAudit.lifecycle.terminal('configuration', 'success');
+        const readinessAudit = audit.startOperation(provider.info.id, 'readiness', 'readiness');
+        readinessAudit.lifecycle.phaseCompleted('readiness');
+        readinessAudit.lifecycle.terminal('readiness', 'success');
+        if (this.isInitializationActive(state)) this.ready = true;
+        return this.getStatus();
+      } catch (error: unknown) {
+        audit.terminalException(settingsAudit, 'configuration', error);
+        return this.failInitialization(state, error);
+      }
+    }
     let hasSession: boolean;
     try {
       hasSession = provider.hasSession();

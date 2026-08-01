@@ -1,6 +1,6 @@
 import type { I18nService } from '../i18n';
 import type { BaseVoiceProvider, TranscriptionResult } from '../providers/BaseVoiceProvider';
-import { isBatchVoiceProvider } from '../providers/voiceProviderGuards';
+import { isBatchVoiceProvider, isLocalRuntimeVoiceProvider } from '../providers/voiceProviderGuards';
 import { type VoiceProviderAudit, type VoiceBatchAuditContext } from '../providers/voiceProviderAudit';
 import {
   completeBatchTranscription,
@@ -11,6 +11,7 @@ import {
 } from './transcriptionCompletion';
 import { presentNotificationError } from '@shared/notifications';
 import { normalizeProviderAuditExceptionType } from '@main/providerAudit';
+import type { LocalWhisperTranscriptionDispatch } from './localWhisperTranscriptionDispatch';
 
 export interface TranscriptionBackgroundBrowser {
   ensure(): Promise<void>;
@@ -23,19 +24,21 @@ export interface TranscriptionServiceDependencies extends TranscriptionCompletio
   backgroundBrowserService: TranscriptionBackgroundBrowser;
   getRequestedAt: () => string;
   localization: Pick<I18nService, 'translate'>;
+  localWhisperDispatch: Pick<LocalWhisperTranscriptionDispatch, 'transcribe'>;
 }
 
 /** Owns one main-process batch transcription flow and its injected completion state. */
 export class TranscriptionService {
   public constructor(private readonly dependencies: TranscriptionServiceDependencies) {}
 
+  /** Dispatches one batch recording through the selected provider and its completion policy. */
   public transcribe = async (buffer: ArrayBuffer, mimeType: string): Promise<TranscriptionResult> => {
     const requestedAt = this.dependencies.getRequestedAt();
     let auditContext: VoiceBatchAuditContext | undefined;
 
     try {
       const providerBeforeEnsure = this.dependencies.backgroundBrowserService.getActiveProvider();
-      if (providerBeforeEnsure) {
+      if (providerBeforeEnsure && !isLocalRuntimeVoiceProvider(providerBeforeEnsure)) {
         const snapshot = createTranscriptionCompletionSnapshot(providerBeforeEnsure, requestedAt);
         const cachedText = readCachedTranscription(this.dependencies, snapshot, buffer, mimeType);
         if (cachedText) {
@@ -47,6 +50,10 @@ export class TranscriptionService {
       const provider = this.dependencies.backgroundBrowserService.getActiveProvider();
       if (!provider) {
         return { success: false, error: this.dependencies.localization.translate('error.notLoggedIn') };
+      }
+
+      if (isLocalRuntimeVoiceProvider(provider)) {
+        return await this.dependencies.localWhisperDispatch.transcribe(provider, buffer, mimeType, requestedAt);
       }
 
       if (provider !== providerBeforeEnsure) {

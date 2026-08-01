@@ -87,8 +87,8 @@ Accept for reasoning only:
   `captureSettings.capturePrettifyDiagnostics` as booleans;
 - `audit.duplicateRecordCount`, `audit.invalidRecordCount`, and
   `audit.validRecordCount` as safe counts;
-- `schemaVersions` exactly `{ database: 2, diagnosticRow: 1,
-  providerAudit: 1, redactor: 1 }`;
+- `schemaVersions` exactly
+  `{ database: 2, diagnosticRow: 1, providerAudit: 1, redactor: 1 }`;
 - `sensitivity.containsDiagnosticText` as a boolean and its warning only when
   it is exactly the producer warning or `null`;
 - diagnostic summary counts, byte lengths, and timestamp range only when they
@@ -102,7 +102,7 @@ Provider family fields are exactly `capabilityAvailable`, `configured`,
 `selectedProviderId`. Boolean fields are strict. The exact registered-provider
 orders are:
 
-- Voice: `chatgpt`, `openai-api`, `claude-web`;
+- Voice: `chatgpt`, `openai-api`, `claude-web`, `local-whisper`;
 - Prettify: `ollama`, `vllm`, `claude-cli`, `codex-cli`;
 - Translation: `google`, `bing`, `yandex`.
 

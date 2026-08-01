@@ -14,6 +14,7 @@ import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } f
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import { UnavailableLocalWhisperCoordinatorPort } from '../providers/LocalWhisperVoiceProvider';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
@@ -116,7 +117,7 @@ import {
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
-  'audit' | 'chatGPT' | 'claudeWeb' | 'localization' | 'openAIApi'
+  'audit' | 'chatGPT' | 'claudeWeb' | 'localWhisper' | 'localization' | 'openAIApi'
 > & {
   readonly chatGPT: Omit<
     ChatGPTVoiceProviderDependencies,
@@ -448,6 +449,9 @@ export class MainProcessCompositionRoot {
         writeClipboardText: electronRuntime.writeClipboardText,
       },
       localization,
+      localWhisper: {
+        coordinator: new UnavailableLocalWhisperCoordinatorPort(),
+      },
       openAIApi: {
         ...openAIApi,
         getSettings: openAIApiSettings.getSettingsWithSecret,

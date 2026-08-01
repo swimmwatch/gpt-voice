@@ -45,7 +45,7 @@ export const DIAGNOSTICS_ARCHIVE_PAYLOAD_MEMBER_NAMES = [
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
 ] as const;
 
-export const DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS = ['chatgpt', 'openai-api', 'claude-web'] as const;
+export const DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS = ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'] as const;
 export const DIAGNOSTICS_ARCHIVE_SENSITIVITY_WARNING =
   'Diagnostic text may contain private or unrecognized secret data; treat this archive as sensitive.' as const;
 

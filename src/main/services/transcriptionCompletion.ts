@@ -25,9 +25,10 @@ export interface TranscriptionCompletionSnapshot {
 export function createTranscriptionCompletionSnapshot(
   provider: BaseVoiceProvider,
   requestedAt: string,
+  providerContext: readonly string[] = provider.getTranscriptionCacheContext(),
 ): TranscriptionCompletionSnapshot {
   return Object.freeze({
-    providerContext: Object.freeze(Array.from(provider.getTranscriptionCacheContext())),
+    providerContext: Object.freeze(Array.from(providerContext)),
     providerId: provider.info.id,
     providerName: provider.info.name,
     requestedAt,
@@ -127,7 +128,9 @@ export function completeBatchTranscription(
   buffer: ArrayBuffer,
   mimeType: string,
   text: string,
+  options: { readonly writeClipboard?: boolean } = {},
 ): void {
+  if (options.writeClipboard && text) deps.writeClipboardText(text);
   if (text.trim()) cacheTranscriptionResult(deps, snapshot, buffer, mimeType, text);
   if (text) recordTranscriptionHistory(deps, snapshot, text);
 }

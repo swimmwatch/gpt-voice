@@ -1871,3 +1871,75 @@ decisions:
     rationale: The user explicitly authorized one isolated commit containing only the completed Task 01 file set.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-02
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 01 was committed in isolation as d008325 before the next packet was opened.
+      - Task 02 is the first unchecked packet and is self-contained provider registration, dispatch/cache ordering, canonical WAV validation, and injected coordinator-port work.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 02 and does not authorize Task 03, a commit, push, pull request, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-02-authorization-round-09
+      question_id: execution.task-02
+      idempotency_key: execution.task-02:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 02 Provider Dispatch And Cache Seam be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-02
+          label: Authorize Task 02 (Recommended)
+          description: Implement and verify only Task 02 provider registration, local dispatch/cache seam, and WAV validation, update todo and handoff, then stop without committing.
+        - id: do-not-authorize-task-02
+          label: Do not authorize
+          description: Stop after the Task 01 commit and make no Task 02 code changes.
+        - id: revise-task-02
+          label: Revise Task 02
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-02]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 02 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-02
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 02 is complete, uncommitted, and its focused, unit, type, scoped style, and diff checks match the handoff.
+      - The isolated commit will exclude the unrelated modified controller and its two tests.
+      - Commit authorization does not authorize Task 03, push, pull request, publication, or release actions.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-02-commit-round-11
+      question_id: commit.task-02
+      idempotency_key: commit.task-02:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should the completed Task 02 be committed in isolation before the next packet starts?
+      kind: single
+      options:
+        - id: authorize-task-02-commit
+          label: Authorize commit (Recommended)
+          description: Commit only Local Whisper Task 02, its tests, and task/decision artifacts; exclude the three unrelated modified files.
+        - id: do-not-commit
+          label: Do not commit
+          description: Stop, leave Task 02 uncommitted, and do not begin Task 03.
+        - id: revise-before-commit
+          label: Review first
+          description: Do not commit and stop for separate Task 02 review or revision.
+    answer:
+      selected_ids: [authorize-task-02-commit]
+      text: ''
+    rationale: The user explicitly authorized one isolated commit containing only the completed Task 02 file set.
+    supersedes_revision: null
+    requirement_ids: []

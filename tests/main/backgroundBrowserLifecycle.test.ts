@@ -5,11 +5,14 @@ import type { BrowserContext } from 'playwright-core';
 import { BackgroundBrowserService } from '@main/browser';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
+import { LocalWhisperVoiceProvider } from '@main/providers/LocalWhisperVoiceProvider';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
+import { READY_LOCAL_WHISPER_SNAPSHOT, RecordingLocalWhisperCoordinator } from './providers/localWhisperTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
+import { createLocalWhisperActionFailure } from '@shared/localWhisper';
 
 class Deferred {
   public readonly promise: Promise<void>;
@@ -68,6 +71,83 @@ class FailingShutdownLifecycleProvider extends ReadyLifecycleProvider {
   }
 }
 
+class SessionTrapLocalWhisperProvider extends LocalWhisperVoiceProvider {
+  public override clearSession(): never {
+    throw new Error('Local Whisper clearSession must not be called');
+  }
+
+  public override fetchAccessToken(): never {
+    throw new Error('Local Whisper fetchAccessToken must not be called');
+  }
+
+  public override getLoginUrl(): never {
+    throw new Error('Local Whisper getLoginUrl must not be called');
+  }
+
+  public override hasSession(): never {
+    throw new Error('Local Whisper hasSession must not be called');
+  }
+
+  public override initPage(): never {
+    throw new Error('Local Whisper initPage must not be called');
+  }
+
+  public override isReady(): never {
+    throw new Error('Local Whisper isReady must not be called as an authentication gate');
+  }
+
+  public override loadSession(): never {
+    throw new Error('Local Whisper loadSession must not be called');
+  }
+
+  public override refreshAccessToken(): never {
+    throw new Error('Local Whisper refreshAccessToken must not be called');
+  }
+
+  public override saveSession(): never {
+    throw new Error('Local Whisper saveSession must not be called');
+  }
+}
+
+interface LocalLifecycleHarness {
+  readonly config: TestAppConfigStore;
+  readonly coordinator: RecordingLocalWhisperCoordinator;
+  readonly localProvider: SessionTrapLocalWhisperProvider;
+  readonly service: BackgroundBrowserService;
+  readonly state: { backgroundContexts: number; loginContexts: number };
+}
+
+function createLocalLifecycleHarness(): LocalLifecycleHarness {
+  const config = new TestAppConfigStore('local-whisper');
+  const coordinator = new RecordingLocalWhisperCoordinator();
+  const localProvider = new SessionTrapLocalWhisperProvider(coordinator);
+  const remoteProvider = new ReadyLifecycleProvider();
+  const state = { backgroundContexts: 0, loginContexts: 0 };
+  const context = { close: async () => undefined } as unknown as BrowserContext;
+  const service = new BackgroundBrowserService({
+    audit: new RecordingVoiceProviderAudit(),
+    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+    config,
+    createBackgroundContext: async () => {
+      state.backgroundContexts += 1;
+      return context;
+    },
+    createLoginContext: async () => {
+      state.loginContexts += 1;
+      return context;
+    },
+    localization: new I18nService(),
+    logger: { info: () => {} },
+    providerRegistry: {
+      createProvider: (providerId) => (providerId === 'local-whisper' ? localProvider : remoteProvider),
+      isKnownProviderId: (providerId): providerId is VoiceProviderAuditId =>
+        providerId === 'local-whisper' || providerId === 'openai-api',
+    },
+    readinessDeadline: new InitialProviderReadinessTestDependencies(),
+  });
+  return { config, coordinator, localProvider, service, state };
+}
+
 function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserService {
   const context = { close: async () => undefined } as unknown as BrowserContext;
   return new BackgroundBrowserService({
@@ -90,6 +170,59 @@ function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserServ
 }
 
 describe('background browser lifecycle hooks', () => {
+  it('initializes Local Whisper without browser, login, session, or authentication readiness work', async () => {
+    const harness = createLocalLifecycleHarness();
+
+    const status = await harness.service.initialize();
+    await harness.service.ensure();
+
+    assert.deepEqual(status, { providerId: 'local-whisper', ready: true, error: undefined, authExpired: undefined });
+    assert.equal(harness.service.getActiveProvider(), harness.localProvider);
+    assert.deepEqual(harness.coordinator.calls, ['readiness']);
+    assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+  });
+
+  it('switches an idle Local Whisper provider only after its coordinator accepts the transition', async () => {
+    const harness = createLocalLifecycleHarness();
+    await harness.service.initialize();
+
+    const status = await harness.service.switchProvider('openai-api');
+
+    assert.deepEqual(status, { providerId: 'openai-api', ready: true, error: undefined, authExpired: undefined });
+    assert.equal(harness.config.getSnapshot().provider, 'openai-api');
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch', 'shutdown']);
+    assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+  });
+
+  it('keeps the active Local Whisper provider and configuration when switching conflicts', async () => {
+    const harness = createLocalLifecycleHarness();
+    harness.coordinator.switchResult = createLocalWhisperActionFailure(
+      'shutdown',
+      'OPERATION_CONFLICT',
+      Object.freeze({
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        activity: 'Transcribing',
+        operationalStatus: 'Busy',
+        canAttempt: false,
+        blockingCode: 'OPERATION_CONFLICT',
+      }),
+    );
+    await harness.service.initialize();
+
+    const status = await harness.service.switchProvider('openai-api');
+
+    assert.deepEqual(status, {
+      providerId: 'local-whisper',
+      ready: true,
+      error: 'OPERATION_CONFLICT',
+      authExpired: undefined,
+    });
+    assert.equal(harness.config.getSnapshot().provider, 'local-whisper');
+    assert.equal(harness.service.getActiveProvider(), harness.localProvider);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch']);
+    assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+  });
+
   it('runs registered hooks before teardown and removes them idempotently', async () => {
     const service = createService();
     const calls: string[] = [];

@@ -11,6 +11,7 @@ import { VoiceProviderFactory } from '@main/providers/voiceProviderFactory';
 import { I18nService } from '@main/i18n';
 import { VoiceProviderRegistry } from '@main/providers/voiceProviderRegistry';
 import { DEFAULT_OPENAI_API_SETTINGS } from '@main/providers/openaiApiSettingsUtils';
+import { UnavailableLocalWhisperCoordinatorPort } from '@main/providers/LocalWhisperVoiceProvider';
 import { RecordingVoiceProviderAudit } from './voiceAuditTestUtils';
 
 class MemoryChatGPTSessionStore implements ChatGPTSessionStore {
@@ -70,6 +71,9 @@ export class VoiceProviderRegistryFixture {
     this.factory = new VoiceProviderFactory({
       audit,
       localization: new I18nService(),
+      localWhisper: {
+        coordinator: new UnavailableLocalWhisperCoordinatorPort(),
+      },
       chatGPT: {
         logger: { info: () => undefined, warn: () => undefined },
         now: () => 0,
