@@ -1,14 +1,13 @@
-# Handoff: Local Whisper Plan Revision 6 Approved
+# Handoff: Task 07 Complete, Windows Checks Deferred
 
 ## Status
 
-Approved plan revision 4 and completed Task 06 are committed as `9e65fea` and
-`e294e8a`. Plan revision 6 is approved through `approval.plan` revision 6 after
-the requested OpenWhispr reference review. It applies answered decision
-`planning.worker-protocol-repair-ownership` revision 1 and extends Task 07
-without renumbering downstream packets. Task 07 remains unchecked. Task 08,
-commit, push, pull request, packaging, publication, and release are not
-authorized.
+Plan revision 6 is committed as `fd0f942`; revision 7 is approved and
+uncommitted. `planning.native-cpp-windows-gate` revision 2 applies the user's
+directive that all representative Windows checks execute only in Task 17.
+Task 07's implementation, automated/source-contract checks, and available
+Linux evidence are complete and uncommitted. Task 08, commit, push, pull
+request, packaging, publication, and release are not authorized.
 
 ## Completed Packets
 
@@ -18,68 +17,88 @@ authorized.
 - [04 Managed filesystem safety](04_managed_filesystem_safety.md), `649ec3b9`
 - [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md), `32440674`
 - [06 Native C++ modularization](06_native_cpp_modularization.md), `e294e8a`
+- [07 Framed worker supervisor](07_framed_worker_supervisor.md), uncommitted
 
-## Revision 5 Repair
+## Task 07 Implementation
 
-- Task 07 now first owns the canonical shared worker protocol completion gate,
-  including exact control/audio frame layouts, full handshake identity,
-  distinct probe/load/warm-up/shutdown request/result pairs, legal sequencing,
-  request-registry failure-stage attribution, and language-neutral version-1
-  golden vectors.
-- The same packet then owns the transport, supervisor, Windows/Linux launchers,
-  deterministic conformance worker, privacy/deadline/cleanup behavior, and
-  tests. Tasks 08/09 consume its shared contract and may not create private
-  variants.
-- Protocol version stays at 1 because no production peer/runtime has shipped.
-  The incomplete Task 01 layout is replaced atomically with its tests/vectors.
-- No Task 07 production source, native launcher, fixture, test, package script,
-  dependency, or generated binary has been added.
+- Protocol v1 is `[uint32-be bodyLength][uint8 frameKind][body]`; kinds are
+  `0x01` strict control JSON and `0x02` versioned sequenced audio. Checked-in
+  binary/hex vectors cover every lifecycle message, representative audio, and
+  malformed/stream-order cases.
+- `LocalWhisperWorkerSupervisor` exposes `startAndHandshake`, `probe`, `load`,
+  `warmup`, `transcribe`, `cancel`, `unload`, `shutdown`, and `forceCleanup`.
+  Transport construction, clocks, request IDs, and process ownership are
+  injected; durable ownership records bind nonce, PID/start identity,
+  executable identity/build, runtime identity, and configuration epoch.
+- Bounds are 10-second handshake, 30-second probe, 5-minute load, 2-minute
+  warm-up, 15-second unload, two 5-second cleanup stages, 1 MiB control/audio
+  bodies, 64 KiB stderr, and `max(120s, 10x audio duration)` inference capped
+  at 30 minutes.
+- Linux uses held executable identity, `openat2`, `PDEATHSIG`, a subreaper, and
+  a dedicated process group. Windows source uses suspended creation,
+  restricted inherited handles, assign-before-resume, and a kill-on-close Job
+  Object; it has source-contract evidence only.
+- The standalone non-inference worker covers lifecycle, malformed, oversized,
+  flood, hang, crash, out-of-order, descendant, and stream-close modes. No
+  runtime/model, inference, listener, fallback, or publication claim exists.
 
-## Revision 6 Reference Review
+## Changed Components
 
-- Inspected user-supplied OpenWhispr application commit
-  `bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c` and OpenWhispr whisper.cpp fork
-  commit `dd18d1107cf20feb58f11b2719d66a5bfeaff0dc`.
-- Added a non-normative specification reference boundary and pinned source
-  paths in Tasks 07/08. Reusable evidence is limited to persistent state
-  ownership, serialized `whisper_context` lifecycle/abort/free, and separate
-  CPU/CUDA/Vulkan build/packaging inputs.
-- Explicitly rejected loopback HTTP/uploads, model/private argv and multipart
-  transport, inherited environment, temporary audio conversion, raw/private
-  logging, automatic GPU-to-CPU retry, mutable GitHub release lookup/shared
-  bin, PID-file/`taskkill` cleanup, published binaries, and support claims.
-- Completed Task 07's load contract with the structured shared residency
-  identity and distinct cancel/target request IDs so Tasks 08/09 can consume
-  the protocol without a private configuration dialect.
+- Shared protocol and tests: `src/shared/localWhisper/protocol.ts`,
+  `tests/shared/localWhisper/protocol.test.ts`, and
+  `tests/fixtures/local-whisper/protocol/v1/`.
+- Supervisor and tests: `src/main/localWhisper/supervisor/`,
+  `tests/main/localWhisper/supervisor/`, and the conformance worker under
+  `tests/fixtures/local-whisper/worker/`.
+- Native launcher: `runtime/local-whisper/launcher/` with CMake presets,
+  clang-format/clang-tidy, GoogleTest, Linux/Windows backends, fixtures, and a
+  concise human/LLM README.
+- Build/verification integration: `scripts/local-whisper/`, `package.json`,
+  and Linux/Windows jobs in `.github/workflows/pr-checks.yml`.
+- Generated launcher binaries/build trees remain ignored under
+  `.cache/local-whisper/launcher/`; protocol `.bin` fixtures and their manifest
+  are intentional checked-in golden vectors.
 
-## Plan Validation
+## Verification Evidence
 
-- Scoped Prettier: passed for the specification, decision ledger, plan, todo,
-  handoff, and Tasks 07/08.
-- Decision-ledger YAML parse: passed.
-- Executability audit: 18 linked packets, all 14 required headings per packet,
-  all 191 requirement/acceptance IDs mapped, and complete plan/todo links.
-- `git diff --check`: passed.
-- External reference review pinned exact commits and source paths; it did not
-  import source, binaries, dependencies, support claims, or release evidence.
+- Protocol: 6/6 passed; supervisor/conformance/ownership: 22/22 passed.
+- `npm run typecheck`, `npm run test:types`, and `npm run test:unit` passed;
+  the full unit suite is 1470/1470.
+- Task-owned production TypeScript ESLint and scoped Prettier passed. Full
+  repository lint remains blocked only by the preserved user-owned
+  `prettifyProfileChooserWindowController.ts` error. Full format check also
+  reports pre-existing formatting in `PlatformAdapterContract.test.ts` and the
+  preserved user-owned chooser test.
+- Linux C++ strict GCC ASan/UBSan build and GoogleTest passed 5/5;
+  clang-format and clang-tidy passed. The real launcher verified immediate
+  descendants, control closure, parent death, ignored `SIGTERM` hard cleanup,
+  confirmed group exit, and survival of an unrelated process.
+- Commands: `node --import tsx --test tests/shared/localWhisper/protocol.test.ts`,
+  `npm run test:local-whisper:supervisor`, `npm run typecheck`,
+  `npm run test:types`, `npm run test:unit`, and the launcher
+  format/lint/native package scripts. Local native commands used the temporary
+  CMake/Ninja/clang-format/clang-tidy tools recorded in the prior session.
 
 ## Exact Continuation
 
-- Review the approved revision 6 plan/reference diff. It remains uncommitted;
-  this planning invocation does not authorize a commit.
-- Resume Task 07 only through a new `incremental-implementation` invocation and
-  a fresh execution authorization. The prior `execution.task-07` revision 1 was
-  consumed by the feasibility checkpoint and does not cover the expanded
-  packet.
-- Do not commit the plan, implement Task 07, or start Task 08 in this planning
-  invocation.
+- Review the uncommitted Task 07 plus revision 7 plan diff without mixing the
+  unrelated chooser and composition-root test changes, then obtain separate
+  commit authorization.
+- Task 08 is the exact next packet, but requires a new explicit
+  `incremental-implementation` invocation and execution authorization after
+  the completed Task 07 changes are reviewed and committed.
 - Preserve the unrelated user-owned changes in
   `src/main/prettifyProfileChooserWindowController.ts`,
   `tests/main/mainProcessCompositionRoot.test.ts`, and
   `tests/main/prettifyProfileChooserWindowController.test.ts`.
 
-## Deferred Platform Gate
+## Open Gates
 
-Task 17 retains representative Windows 10/11 x64 Visual Studio 2022/MSVC
-native/filesystem evidence for Task 06. Linux evidence cannot substitute and no
-Windows support claim is made.
+- Task 17 owns every representative Windows check from Tasks 01–16:
+  filesystem, MSVC native quality, launcher/Job Object behavior, supervisor
+  conformance, whisper.cpp/Faster-Whisper CPU/GPU runtimes, device capability
+  and lifecycle, package/install evidence, and applicable hardware
+  qualification. No Windows qualification claim is made before those gates
+  pass; physical AMD evidence remains a future-promotion gate for the current
+  untested Preview tier.
+- Task 17 also owns real-engine lifecycle/offline qualification.

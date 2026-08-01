@@ -270,10 +270,11 @@ rtk lint
 rtk prettier --check
 ```
 
-Run backend compilation only on the matching pinned toolchain/host or builder
-image. A successful compile or mocked protocol test is not hardware evidence.
-Record unavailable Windows, CUDA, Vulkan, and HIP builds in the handoff rather
-than substituting the Linux CPU fixture.
+Run non-Windows backend compilation only on the matching pinned toolchain/host
+or builder image. Keep Windows pack definitions, source-contract fixtures, and
+CI commands checked in, but execute every real Windows CPU/CUDA/Vulkan build,
+worker, and hardware check only in Task 17. A successful compile or mocked
+protocol test is not hardware evidence; never substitute the Linux CPU fixture.
 
 ## Failure And Rollback
 
@@ -295,12 +296,15 @@ than substituting the Linux CPU fixture.
   signature, and key ID before catalog inclusion.
 - `MANUAL GATE — Linux NVIDIA`: AC-MAN-001, AC-MAN-004, and AC-MAN-005 on the
   available NVIDIA laptop are required before a Linux CUDA Production label.
-- `MANUAL GATE — Windows NVIDIA`: AC-MAN-003 requires separate representative
-  Windows x64 NVIDIA hardware; Linux evidence cannot substitute.
-- `MANUAL GATE — CPU`: AC-MAN-002 runs separately for Windows/Linux x64.
+- `MANUAL GATE — Windows NVIDIA (Task 17 only)`: Task 17 owns AC-MAN-003 on
+  separate representative Windows x64 NVIDIA hardware; Linux evidence cannot
+  substitute.
+- `MANUAL GATE — CPU`: the Linux x64 slice of AC-MAN-002 may run with this
+  packet's available evidence; the Windows x64 slice executes only in Task 17.
 - `MANUAL GATE — AMD`: AC-MAN-009 permits only explicitly untested Preview
-  claims. AC-MAN-010 on physical Windows Vulkan and Linux Vulkan/HIP hardware
-  is required for any future promotion.
+  claims. Any physical Windows Vulkan AC-MAN-010 check executes only in Task
+  17; Windows and Linux physical evidence remains required only for a future
+  promotion, not for the current untested Preview tier.
 - Production hosting, signing credentials, upload, release mutation, tag, and
   publication are explicitly deferred. Task execution may create only local
   unsigned staging packs; Task 15 later consumes/signs them under its own
@@ -339,8 +343,8 @@ than substituting the Linux CPU fixture.
 ## Completion And Handoff
 
 - Mark Task 08 complete in `todo.md` and record changed files, generated local
-  pack profiles, exact commands, unavailable platform checks, and blockers in
-  `handoff.md`.
+  pack profiles, exact commands, deliberately deferred Windows checks, other
+  unavailable platform checks, and blockers in `handoff.md`.
 - Name Task 09 as the next packet if it remains unchecked; Task 08 does not
   authorize executing it.
 - Present the adapter/runtime diff and local verification evidence, then stop.

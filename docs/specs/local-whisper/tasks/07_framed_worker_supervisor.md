@@ -6,17 +6,18 @@ Task 07 first completes the one canonical engine-neutral Local Whisper worker
 protocol shared by Electron main and both future engine peers. Electron main
 then owns one supervisor that starts only an authenticated immutable runtime
 executable, communicates over that strict bounded framed-stdio contract,
-enforces every stage deadline, and proves complete Windows/Linux child-tree
-termination before releasing uncertain resources. The protocol and supervisor
-have no listening service, private argv values, divergent engine-private
-messages, automatic restart/replay, PID-only cleanup, or
-backend/engine/model fallback.
+enforces every stage deadline, implements complete Windows/Linux child-tree
+ownership, and proves the available Linux termination boundary before
+releasing uncertain resources. Representative Windows execution is deferred
+to Task 17. The protocol and supervisor have no listening service, private argv
+values, divergent engine-private messages, automatic restart/replay, PID-only
+cleanup, or backend/engine/model fallback.
 
 ## Prerequisites
 
-- Local Whisper plan revision 5 is approved and Task 07 has new separate
-  execution authorization. `execution.task-07` revision 1 was consumed by the
-  feasibility checkpoint and does not authorize this expanded packet.
+- Local Whisper plan revision 7 is approved. `execution.task-07` revision 2
+  separately authorized this expanded packet; representative Windows execution
+  is deferred to Task 17 under `planning.native-cpp-windows-gate` revision 2.
 - Tasks 01, 03, 04, and 06 are complete:
   - Task 01 supplies the initial versioned protocol types, canonical
     states/failures, frame limits, and settings identities. Its incomplete
@@ -170,14 +171,17 @@ backend/engine/model fallback.
     values and are consumed unchanged by the TypeScript codec/conformance
     worker in this task and by the C++ and Python peers in Tasks 08/09.
 
-### Mandatory process-ownership feasibility checkpoint
+### Process-ownership implementation checkpoint
 
-1. After the shared-protocol completion gate passes, prove race-free
-   process-tree ownership on supported Windows x64 and Linux x64. Node's
-   ordinary `spawn` plus later PID cleanup is not presumed sufficient. The
-   proof must cover a worker that immediately creates descendants, parent
-   crash/stream closure, PID reuse, hung graceful exit, and confirmation that
-   no unrelated process can be killed.
+1. After the shared-protocol completion gate passes, implement race-free
+   process-tree ownership for Windows x64 and Linux x64. Prove the complete
+   behavior on the available Linux host in this packet; representative Windows
+   execution is deferred intact to Task 17 under
+   `planning.native-cpp-windows-gate` revision 2. Node's ordinary `spawn` plus
+   later PID cleanup is not presumed sufficient. The fixtures cover a worker
+   that immediately creates descendants, parent crash/stream closure, PID
+   reuse, hung graceful exit, and confirmation that no unrelated process can
+   be killed.
 2. Windows must place the complete tree in a Job Object with
    kill-on-job-close before untrusted worker code can escape ownership. Use a
    race-free create-suspended/assign/resume or equivalent reviewed mechanism;
@@ -194,8 +198,10 @@ backend/engine/model fallback.
    narrow protocol. Do not add an elevated service, general process manager,
    prebuilt opaque helper, or external native dependency without explicit
    approval.
-5. If either production platform cannot prove this boundary, stop and return
-   to `/plan`; do not substitute `taskkill`, process-name matching, PID-only
+5. A Linux implementation or evidence failure blocks this packet. A discovered
+   Windows design/source defect also blocks it, but unavailable Windows runtime
+   evidence alone is recorded for Task 17 and does not block Task 07
+   completion. Do not substitute `taskkill`, process-name matching, PID-only
    cleanup, or mocked success.
 
 ### Supervisor ownership and spawn contract
@@ -400,10 +406,11 @@ backend/engine/model fallback.
   failed free; hung exit; and parent stream closure all produce bounded exact
   outcomes with no orphan, listener, fallback, replay, or partial result
   (`AC-AUTO-024`).
-- Windows force-closing main/job and Linux parent/control-stream death terminate
-  descendants. Restart fixtures with stale locks, reused PID, wrong start
-  identity, and forged nonce never kill an unrelated process
-  (`AC-AUTO-040` process portion).
+- Linux parent/control-stream death terminates descendants, and source-contract
+  tests prove the Windows assign-before-resume/kill-on-close design. Restart
+  fixtures with stale locks, reused PID, wrong start identity, and forged nonce
+  never kill an unrelated process. Task 17 owns representative Windows runtime
+  execution of this `AC-AUTO-040` process portion.
 - Protocol/control allocation never exceeds declared bounds; JSON/control
   frames over 1 MiB fail before allocation; stderr remains capped at 64 KiB;
   outgoing audio observes backpressure.
@@ -437,15 +444,18 @@ rtk prettier --check
 ```
 
 Run the real Linux launcher descendant/parent-death suite on supported Linux.
-Run the real Windows Job Object descendant/main-kill suite on representative
-Windows x64. Use fake clocks for long stage bounds; platform cleanup tests use
-short fixture-specific injected bounds without changing production constants.
+Task 17 runs the real Windows Job Object descendant/main-kill suite on
+representative Windows x64. Use fake clocks for long stage bounds; platform
+cleanup tests use short fixture-specific injected bounds without changing
+production constants.
 
 ## Failure And Rollback
 
-- If Job Object assignment has an escape race, Linux parent-death ownership is
-  not atomic/rechecked, executable check/use identity cannot be held, or tree
-  exit cannot be proven, block the packet and return to `/plan`. Do not use
+- If source review finds a Job Object assignment escape race, Linux
+  parent-death ownership is not atomic/rechecked, executable check/use identity
+  cannot be held, or the available Linux tree exit cannot be proven, block the
+  packet and return to `/plan`. A later Windows runtime failure in Task 17
+  returns the defect to a separately authorized Task 07 repair. Do not use
   `taskkill`, PID-only signals, shell wrappers, or optimistic release.
 - If Task 01 framing schemas cannot express strict sequencing/binary chunks,
   stop before supervisor code. Any further behavior or compatibility change
@@ -460,9 +470,10 @@ short fixture-specific injected bounds without changing production constants.
 
 ## Manual Gates
 
-- `MANUAL GATE — Windows Job Object`: real Windows x64 evidence must prove
-  race-free assignment, kill-on-job-close descendants, bounded confirmation,
-  and no unrelated-PID cleanup before Windows support qualification.
+- `DEFERRED TO TASK 17 — Windows Job Object`: real Windows x64 evidence must
+  prove race-free assignment, kill-on-job-close descendants, bounded
+  confirmation, and no unrelated-PID cleanup before Windows support
+  qualification. Its absence does not block Task 07 completion.
 - `MANUAL GATE — Linux parent death`: real supported Linux evidence must prove
   PDEATHSIG/process-group/control-stream behavior for descendants and parent
   crash before Linux support qualification.
@@ -513,10 +524,11 @@ short fixture-specific injected bounds without changing production constants.
 
 ## Completion And Handoff
 
-- Mark Task 07 complete in `todo.md` only when the canonical shared protocol,
-  vectors, supervisor, cleanup, privacy, and all available real platform
-  evidence are recorded; otherwise leave the exact protocol or platform
-  feasibility blocker.
+- Mark Task 07 complete in `todo.md` when the canonical shared protocol,
+  vectors, supervisor, cleanup, privacy, deterministic/source-contract tests,
+  and available Linux evidence are recorded. Carry every representative
+  Windows execution check explicitly into Task 17 without making a Windows
+  qualification claim.
 - Update `handoff.md` with framing byte layout/golden vectors, public
   supervisor interfaces, production bounds, platform ownership mechanism,
   final files, generated fixture outputs, exact commands, and open gates.

@@ -225,9 +225,11 @@ a third generic filesystem layer that merely forwards to a backend.
    clang-tidy uses the generated compile database and includes at least bugprone,
    performance, portability, readability, and modernize checks, with explicit
    narrow exclusions documented in `.clang-tidy`.
-6. Linux unit and integration suites run under ASan/UBSan. Windows unit and
-   integration suites compile and run under `/W4 /WX`. Existing Node filesystem
-   integration/race tests remain required on both OS runners.
+6. Linux unit and integration suites run under ASan/UBSan in this packet.
+   Windows unit and integration suites are configured for `/W4 /WX` and execute
+   only in Task 17. Existing Node filesystem integration/race tests remain
+   required on both OS runners, with representative Windows execution likewise
+   deferred to Task 17.
 
 ### README and agent rules
 
@@ -271,6 +273,9 @@ a third generic filesystem layer that merely forwards to a backend.
 4. CI may fetch only the pinned GoogleTest source required by this packet. It
    must not download a Local Whisper runtime/model, contact a production origin,
    or change package/release artifacts.
+5. Task 06 owns the Windows job definition and deterministic configuration
+   assertions only. Required representative execution of that job and its
+   equivalent local commands is a Task 17 completion gate.
 
 ## Contracts And Boundaries
 
@@ -339,7 +344,7 @@ rtk git diff --check
 
 The equivalent checked-in Windows preset/commands and existing Windows
 Node/native filesystem suite are deferred to Task 17 by
-`planning.native-cpp-windows-gate` revision 1. Record the missing evidence in
+`planning.native-cpp-windows-gate` revision 2. Record the missing evidence in
 `handoff.md`; Task 17 must later record Windows version, MSVC, CMake,
 GoogleTest commit, CTest labels, and exact pass/skip counts without private
 paths or logs.
@@ -383,7 +388,7 @@ paths or logs.
 - Mandatory decisions: `../decisions.yaml`
   `planning.native-cpp-toolchain`, `planning.native-cpp-ci-depth`, and
   `planning.native-cpp-task-order`, plus
-  `planning.native-cpp-windows-gate` revision 1.
+  `planning.native-cpp-windows-gate` revision 2.
 - Mandatory dependency packet: `04_managed_filesystem_safety.md`; current
   continuation state: `handoff.md` and `todo.md`.
 - Current implementation surfaces:
@@ -399,7 +404,7 @@ paths or logs.
 - Mark only Task 06 complete in `todo.md` after every available Linux automated
   check, dependency/license review, and checked-in dual-platform CI contract is
   recorded. Record the deferred Windows gate explicitly; it does not block
-  Task 06 completion under `planning.native-cpp-windows-gate` revision 1 but
+  Task 06 completion under `planning.native-cpp-windows-gate` revision 2 but
   remains a mandatory Task 17/release gate.
 - Update `handoff.md` with final module map, public internal interfaces, toolchain
   versions, GoogleTest commit, changed files, native/Node checks, platform

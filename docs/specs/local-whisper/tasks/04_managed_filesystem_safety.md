@@ -19,9 +19,10 @@ operation.
   - Task 03 supplies authenticated catalog/manifests and the inventory
     evidence port.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
-- This packet begins with the platform-adapter feasibility proof below. Node's
-  high-level path APIs are not presumed sufficient for Linux `openat2` or
-  Windows reparse/file-ID guarantees.
+- This packet begins with the platform-adapter feasibility design and available
+  Linux proof below. Node's high-level path APIs are not presumed sufficient
+  for Linux `openat2` or Windows reparse/file-ID guarantees; representative
+  Windows execution is deferred to Task 17.
 - macOS remains a typed path-resolver skeleton only and must not create or
   populate executable Local Whisper storage in this release.
 
@@ -67,12 +68,14 @@ operation.
 
 ### Mandatory platform feasibility checkpoint
 
-1. Before implementing product-facing storage methods, prove a narrow adapter
-   can enforce the complete contract on supported Windows x64 and Linux x64.
-   The proof must cover open/create, component traversal, identity capture,
-   rename/promotion, quarantine, exact unlink, lock ownership, and a held lease
-   across check/use. Record the OS primitives and race guarantees in tests and
-   source comments.
+1. Before implementing product-facing storage methods, establish a narrow
+   adapter design that can enforce the complete contract on supported Windows
+   x64 and Linux x64. Prove it through real Linux execution and Windows
+   implementation/source-contract fixtures in this packet; Task 17 owns the
+   representative Windows execution proof. Coverage includes open/create,
+   component traversal, identity capture, rename/promotion, quarantine, exact
+   unlink, lock ownership, and a held lease across check/use. Record the OS
+   primitives and race guarantees in tests and source comments.
 2. Linux must use descriptor-relative operations rooted at an already opened
    managed directory. Prefer `openat2` with the equivalent of
    `RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_XDEV`,
@@ -90,9 +93,12 @@ operation.
    and deterministic build/test entry point. Do not invoke a shell, general
    system utility, privileged/elevated service, or unreviewed third-party
    binary. A new external dependency requires its own explicit approval.
-5. If neither direct bindings nor the reviewed helper can meet the contract on
-   either platform, stop the packet and return to `/plan`. Do not weaken the
-   approved requirements or mark the platform supported based on mocked tests.
+5. If implementation or source-contract review shows that neither direct
+   bindings nor the reviewed helper can meet the contract on either platform,
+   stop the packet and return to `/plan`. An unavailable representative
+   Windows host defers execution to Task 17 and is not such a design failure.
+   Do not weaken the approved requirements or mark the platform qualified based
+   on mocked tests.
 
 ### Roots, layout, and authority
 
@@ -238,9 +244,10 @@ operation.
 
 - Root resolution yields the exact non-roaming Windows/Linux layout and never
   accepts renderer/catalog/user path authority; macOS creates nothing.
-- The platform feasibility suite proves held-identity no-follow behavior or
-  the packet is explicitly blocked. High-level path/string checks alone cannot
-  satisfy acceptance.
+- The available Linux feasibility suite and Windows source-contract coverage
+  prove the designed held-identity no-follow behavior. Representative Windows
+  execution remains a mandatory Task 17 release gate; high-level path/string
+  checks alone cannot satisfy either platform contract.
 - Synthetic symlink, hard-link, junction/reparse, mount/volume, case/alternate
   name, rename, parent-swap, and file-ID races all fail before execution or
   out-of-scope deletion (`AC-AUTO-041`).
@@ -273,15 +280,18 @@ rtk prettier --check
 ```
 
 On Linux, run the real adapter contract on the supported kernel/filesystem in
-addition to fakes and record kernel/filesystem details. On Windows, run the
-same checked-in suite on representative Windows x64; if unavailable during
-this packet, record it as an open Manual Gate rather than substituting Linux.
+addition to fakes and record kernel/filesystem details. Keep the Windows suite
+checked in and deterministic/source-contract coverage green, but execute the
+real suite only in Task 17 on representative Windows x64. Linux, mocks, Wine,
+source inspection, or a cross-build cannot substitute for that final gate.
 
 ## Failure And Rollback
 
-- Failure to prove race-free handle/descriptor semantics on either production
-  platform blocks the packet. Stop and return to `/plan`; do not silently
-  downgrade to `realpath`, `lstat`, string containment, or recursive deletion.
+- Failure to prove the available Linux descriptor semantics or a discovered
+  Windows design/source-contract defect blocks the packet. Unavailable real
+  Windows execution is deferred to Task 17; a later failure there returns the
+  defect to an authorized Task 04/06 repair. Do not silently downgrade to
+  `realpath`, `lstat`, string containment, or recursive deletion.
 - An unreviewed native dependency, elevated helper, driver, service, or
   installer change is not an implementation workaround and requires explicit
   authorization.
@@ -294,9 +304,10 @@ this packet, record it as an open Manual Gate rather than substituting Linux.
 
 ## Manual Gates
 
-- `MANUAL GATE — Windows handle semantics`: run and review the real Windows x64
-  reparse/junction/file-ID/volume/lock race suite before claiming the Windows
-  adapter complete. Mocked or Wine-only evidence is insufficient.
+- `MANUAL GATE — Windows handle semantics (Task 17 only)`: Task 17 runs and
+  reviews the real Windows x64 reparse/junction/file-ID/volume/lock race suite
+  before any Windows qualification or release claim. It is not a Task 04
+  completion gate; mocked or Wine-only evidence is insufficient.
 - `MANUAL GATE — Linux kernel/filesystem semantics`: review the real supported
   Linux `openat2`/descriptor-relative test result and any minimum kernel/filesystem
   prerequisite before release qualification.

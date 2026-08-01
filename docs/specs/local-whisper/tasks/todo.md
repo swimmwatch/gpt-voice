@@ -1,19 +1,11 @@
 # Todo: Local Whisper
 
-Plan revision 6 is approved through `approval.plan` revision 6. It records the
-requested pinned OpenWhispr commits `bf8b7e0` and `dd18d11` in the specification
-and Tasks 07/08, adopts only persistent state ownership, serialized native
-context lifecycle, and separate backend-pack build evidence, and explicitly
-rejects their HTTP, private argv/environment/temp/logging, fallback,
-PID/`taskkill`, mutable download, and published-binary choices. Task 07 owns
-canonical protocol completion before supervisor implementation under
-`planning.worker-protocol-repair-ownership` revision 1; numbering is unchanged.
-Plan revision 4 and Task 06 remain committed as `9e65fea` and `e294e8a`;
-representative Windows evidence remains mandatory in Task 17. Revision 6 plan
-and reference files are approved but uncommitted.
-`execution.task-07` revision 1 was consumed by the feasibility checkpoint and
-does not authorize expanded Task 07. Keep Task 07 unchecked and do not start
-Task 08.
+Plan revision 7 is approved and uncommitted. Under
+`planning.native-cpp-windows-gate` revision 2, all representative Windows
+checks execute only in Task 17 and remain mandatory before release. Task 07's
+implementation, deterministic/source-contract checks, and available Linux
+verification are complete and uncommitted. Task 08, push, pull request,
+packaging, publication, and release are not authorized.
 
 - [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [x] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)
@@ -21,7 +13,7 @@ Task 08.
 - [x] [04 Managed filesystem safety](04_managed_filesystem_safety.md)
 - [x] [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md)
 - [x] [06 Native C++ modularization](06_native_cpp_modularization.md)
-- [ ] [07 Framed worker supervisor](07_framed_worker_supervisor.md)
+- [x] [07 Framed worker supervisor](07_framed_worker_supervisor.md)
 - [ ] [08 Hardened whisper.cpp runtime](08_hardened_whisper_cpp_runtime.md)
 - [ ] [09 Isolated Faster-Whisper runtime](09_isolated_faster_whisper_runtime.md)
 - [ ] [10 Current-device capability validation](10_device_capability_validation.md)

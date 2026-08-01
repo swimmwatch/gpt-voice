@@ -2694,3 +2694,108 @@ decisions:
       - AC-AUTO-032
       - AC-AUTO-040
       - AC-AUTO-048
+
+  - id: planning.native-cpp-windows-gate
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly directed that all representative Windows checks execute only in the final qualification task.
+      - Task 07 implementation, deterministic/source-contract tests, and available Linux process-tree evidence are complete, while no representative Windows environment is available.
+      - The directive applies across Tasks 01–16, including filesystem/native, launcher/Job Object, engine CPU/GPU runtime, capability/lifecycle, and package/install verification; owner packets still implement Windows code, deterministic contracts, and CI definitions.
+      - Task 17 is the single execution and release-qualification owner for representative Windows evidence.
+    question:
+      text: Where should all representative Windows verification for completed implementation packets execute?
+      kind: single
+      options:
+        - id: defer-all-windows-to-task-17
+          label: Defer all to Task 17
+          description: Close implementation packets on available evidence while preserving every real Windows check as a mandatory final qualification gate.
+        - id: keep-per-packet-windows-gates
+          label: Keep packet gates
+          description: Leave each implementation packet open until its representative Windows checks can run.
+    answer:
+      selected_ids: [defer-all-windows-to-task-17]
+      text: ''
+    rationale: Task 17 becomes the only owner of representative Windows execution evidence; Tasks 01–16 may close on their completed implementation, deterministic/source-contract tests, checked-in Windows CI definitions, and available non-Windows evidence without making a Windows qualification claim.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        RUNTIME-001,
+        RUNTIME-002,
+        COMP-004,
+        NVIDIA-001,
+        CPU-001,
+        AMD-001,
+        AMD-002,
+        SEC-007,
+        RUN-004,
+        PKG-001,
+        AC-AUTO-024,
+        AC-AUTO-032,
+        AC-AUTO-040,
+        AC-AUTO-041,
+      ]
+
+  - id: approval.plan
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 7 applies the explicit user directive in `planning.native-cpp-windows-gate` revision 2 without changing product behavior, supported-platform claims, task numbering, or implementation scope.
+      - Tasks 01–16 close on their implementation, deterministic/source-contract and available non-Windows evidence; Task 17 gains every representative Windows filesystem, launcher/Job Object, supervisor, engine runtime, capability/lifecycle, native-quality, packaging/install, and hardware gate.
+      - Approval does not authorize a commit, Task 08 execution, push, pull request, publication, or release.
+    question:
+      text: Should plan revision 7 apply the directive that all representative Windows checks execute only in Task 17?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan
+          description: Approve the exact Windows-gate ownership correction and keep every release qualification requirement intact.
+        - id: request-plan-changes
+          label: Request changes
+          description: Leave revision 7 unapproved and revise the gate ownership again.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user's direct instruction approves the exact delivery-plan correction that centralizes all representative Windows verification in Task 17.
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: commit.task-07
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved Local Whisper plan revision 7 and completed Task 07 are both uncommitted.
+      - The first isolated commit contains only revision 7 planning artifacts; the second contains only Task 07 implementation artifacts.
+      - Unrelated user-owned changes in `src/main/prettifyProfileChooserWindowController.ts`, `tests/main/mainProcessCompositionRoot.test.ts`, and `tests/main/prettifyProfileChooserWindowController.test.ts` remain excluded.
+      - Authorization does not cover Task 08 execution, push, pull request, publication, packaging, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-07-commit-round-29
+      question_id: commit.task-07
+      idempotency_key: commit.task-07:v1
+      last_status: answered
+    question:
+      text: How should approved Local Whisper plan revision 7 and the completed Task 07 be committed before Task 08 starts?
+      kind: single
+      options:
+        - id: authorize-separate-plan-and-task-07-commits
+          label: Two isolated commits (Recommended)
+          description: Commit revision 7 planning artifacts first, then only Task 07 implementation artifacts; exclude the three unrelated user-owned files.
+        - id: authorize-combined-task-07-transition-commit
+          label: One combined commit
+          description: Commit revision 7 planning artifacts and completed Task 07 together while excluding the unrelated user-owned files.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave Task 07 and revision 7 uncommitted and do not begin Task 08.
+    answer:
+      selected_ids: [authorize-separate-plan-and-task-07-commits]
+      text: ''
+    rationale: The user explicitly authorized two isolated commits, with plan revision 7 committed before the completed Task 07 implementation and all unrelated changes excluded.
+    supersedes_revision: null
+    requirement_ids: []

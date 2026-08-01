@@ -314,13 +314,17 @@ rtk lint
 rtk prettier --check
 ```
 
-On matching package hosts additionally run:
+On a matching Linux package host additionally run:
 
 ```text
 rtk npm run smoke:fedora
-rtk npm run dist:win -- --dir
 rtk npm run verify:packaged
 ```
+
+Task 17 alone runs `rtk npm run dist:win -- --dir`, the Windows packaged
+resolver/verifier, and real NSIS install/uninstall checks on representative
+Windows x64. Task 15 still owns their checked-in definitions and deterministic
+source/configuration assertions.
 
 Do not run a release event, production-mode signing, upload, or external origin
 test as automated completion of this packet. Record unavailable platform smoke
@@ -357,9 +361,10 @@ checks in `handoff.md`.
   Faster-Whisper, CTranslate2, Python, NumPy, PyAV, CUDA/cuBLAS/cuDNN, ROCm/HIP,
   Vulkan-related payloads, model checkpoints/conversions, notices, SBOM, and
   provenance.
-- `MANUAL GATE — platform packages`: run real Linux AppImage/deb/rpm and Windows
-  NSIS install/uninstall verification. A successful host cannot substitute for
-  the other OS.
+- `MANUAL GATE — platform packages`: run real Linux AppImage/deb/rpm in this
+  packet when available. Task 17 alone runs Windows NSIS build,
+  install/uninstall, packaged resolver, and exclusion verification. A
+  successful host cannot substitute for the other OS.
 - `MANUAL GATE — base trust disclosure`: confirm release UI/docs do not claim
   Authenticode, signed-update, or universal base-app verification that current
   packaging does not provide (`AC-AUTO-048`).
@@ -391,8 +396,9 @@ checks in `handoff.md`.
 ## Completion And Handoff
 
 - Mark Task 15 complete in `todo.md` and record fixture mode, catalog digest,
-  exact generated/ignored outputs, package-smoke evidence, unavailable platform
-  checks, and every still-closed production Manual Gate in `handoff.md`.
+  exact generated/ignored outputs, available package-smoke evidence,
+  deliberately deferred Windows checks, other unavailable platform checks, and
+  every still-closed production Manual Gate in `handoff.md`.
 - Name Task 16 as the next packet if it remains unchecked. Do not execute it.
 - Present the packaging/fixture diff and verification evidence, then stop. Do
   not commit, publish, upload, mutate a release, or begin another packet in the

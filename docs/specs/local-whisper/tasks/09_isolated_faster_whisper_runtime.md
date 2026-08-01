@@ -14,8 +14,7 @@ precision.
 - The Local Whisper plan is approved and Task 09 has separate execution
   authorization.
 - Tasks 01, 03, 04, 06, and 07 are complete and provide the same shared
-  domain/catalog/path/supervisor and native-quality contracts consumed by Task
-  08.
+  domain/catalog/path/supervisor and native-quality contracts consumed by Task 08.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
 - Faster-Whisper remains pinned initially to v1.2.1 with one reviewed, exact
   CTranslate2 revision and a complete dependency lock. The pack manifest—not
@@ -251,9 +250,11 @@ rtk lint
 rtk prettier --check
 ```
 
-Build CPU/CUDA packs only with their pinned matching toolchain or builder image.
-Do not treat a Linux CPU build as Windows or CUDA evidence. Any unavailable
-platform/backend verification is recorded explicitly in `handoff.md`.
+Build non-Windows CPU/CUDA packs only with their pinned matching toolchain or
+builder image. Keep Windows pack definitions, source-contract fixtures, and CI
+commands checked in, but execute every real Windows CPU/CUDA build, worker, and
+hardware check only in Task 17. Do not treat a Linux CPU build as Windows or
+CUDA evidence.
 
 ## Failure And Rollback
 
@@ -275,10 +276,11 @@ platform/backend verification is recorded explicitly in `handoff.md`.
   files, notices, provenance, SBOM, signatures, and key IDs.
 - `MANUAL GATE — Linux NVIDIA`: AC-MAN-001 and AC-MAN-005 are required on the
   available Linux NVIDIA laptop before a Linux CUDA Production label.
-- `MANUAL GATE — Windows NVIDIA`: AC-MAN-003 requires separate Windows x64
-  NVIDIA hardware; Linux results cannot substitute.
-- `MANUAL GATE — CPU`: AC-MAN-002 runs separately for Faster-Whisper on Windows
-  and Linux x64.
+- `MANUAL GATE — Windows NVIDIA (Task 17 only)`: Task 17 owns AC-MAN-003 on
+  separate Windows x64 NVIDIA hardware; Linux results cannot substitute.
+- `MANUAL GATE — CPU`: the Faster-Whisper Linux x64 slice of AC-MAN-002 may run
+  with this packet's available evidence; the Windows x64 slice executes only
+  in Task 17.
 - `MANUAL GATE — offline`: AC-MAN-006 must confirm installed-artifact inference
   succeeds with network disconnected and emits no request.
 - AC-MAN-009 must confirm Faster-Whisper AMD is absent from catalog/UI claims.
@@ -306,8 +308,8 @@ platform/backend verification is recorded explicitly in `handoff.md`.
 ## Completion And Handoff
 
 - Mark Task 09 complete in `todo.md` and record changed files, dependency lock,
-  generated local pack profiles, commands, unavailable platform checks, and
-  blockers in `handoff.md`.
+  generated local pack profiles, commands, deliberately deferred Windows
+  checks, other unavailable platform checks, and blockers in `handoff.md`.
 - Name the exact next unchecked task from `todo.md`; completing Task 09 does not
   authorize Task 10 or Task 15.
 - Present the adapter/runtime diff and local verification evidence, then stop.
