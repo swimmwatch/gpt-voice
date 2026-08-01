@@ -1,0 +1,1801 @@
+schema_version: 1
+spec_slug: local-whisper
+interview_id: spec:local-whisper
+updated_at: '2026-08-01'
+decisions:
+  - id: outcome.local-voice-provider
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested Local Whisper as a local Voice provider that runs a Whisper model on the user's GPU.
+    answer:
+      selected_ids: [local-whisper-voice-provider]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: scope.model-lifecycle
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The requested scope includes model selection, parameter configuration, model-version download and deletion, and explicit VRAM load and unload operations.
+    answer:
+      selected_ids: [select-configure-download-delete-load-unload]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-001, MODEL-002, VRAM-001]
+
+  - id: scope.provider-settings-detail
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested a detailed provider-settings screen contract, including every option, input constraint, and validation rule.
+    answer:
+      selected_ids: [detailed-local-provider-settings]
+      text: ''
+    rationale: The exact meaning of the phrase "local dispart provider" remains a separate terminology decision.
+    supersedes_revision: null
+    requirement_ids: [UI-001, VAL-001]
+
+  - id: compatibility.amd-research-boundary
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - AMD feasibility and recommended approaches must be researched and included in the specification.
+      - No AMD hardware testing is authorized or available for this specification task.
+    answer:
+      selected_ids: [research-without-amd-validation]
+      text: ''
+    rationale: The specification must distinguish documented feasibility from tested product support.
+    supersedes_revision: null
+    requirement_ids: [AMD-001, AMD-002]
+
+  - id: compatibility.nvidia-test-environment
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user identified the available test laptop as NVIDIA-based.
+      - A read-only probe on 2026-07-31 reported Linux x86_64, NVIDIA GeForce RTX 5070 Ti Laptop GPU, driver 595.84, compute capability 12.0, and 12,227 MiB total VRAM.
+    answer:
+      selected_ids: [nvidia-linux-only-hardware-evidence]
+      text: ''
+    rationale: This evidence does not validate Windows, AMD, or Apple Silicon behavior.
+    supersedes_revision: null
+    requirement_ids: [NVIDIA-001, AC-MAN-001]
+
+  - id: compatibility.macos-non-production
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly excluded production-ready macOS M1+ execution from the current release.
+      - Code-level stubs or a skeleton for future macOS work are permitted.
+    answer:
+      selected_ids: [skeleton-only]
+      text: ''
+    rationale: The feature must not advertise or imply current macOS production support.
+    supersedes_revision: null
+    requirement_ids: [MAC-001, NONGOAL-001]
+
+  - id: acceptance.device-capability-validation
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly required validation of whether a local Whisper model can run on the current device.
+    answer:
+      selected_ids: [validate-current-device]
+      text: ''
+    rationale: The exact probe depth and blocking policy remain unresolved decisions.
+    supersedes_revision: null
+    requirement_ids: [CAP-001]
+
+  - id: current.voice-provider-contract
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/providers/BaseVoiceProvider.ts defines the shared transcription, readiness, session, cache-context, and shutdown contract.
+      - src/main/providers/BatchVoiceProvider.ts defines buffered batch transcription; Local Whisper naturally fits this mode for the requested release.
+      - src/main/providers/voiceProviderFactory.ts and voiceProviderRegistry.ts own exhaustive provider construction and renderer-safe registration.
+    answer:
+      selected_ids: [main-owned-batch-provider]
+      text: ''
+    rationale: A new provider requires additive exhaustive registration and lifecycle ownership in Electron main.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002]
+
+  - id: current.electron-boundaries
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md and docs/agent-guides/project-conventions.md require renderer access through window.electronAPI and privileged filesystem, process, provider, and lifecycle work in main.
+      - IPC contract changes must update src/main/ipc.ts, src/main/preload.ts, and src/renderer/types.d.ts together with trusted-sender validation.
+    answer:
+      selected_ids: [typed-trusted-main-owned-ipc]
+      text: ''
+    rationale: Model files, native runtimes, downloads, GPU probes, and worker processes cannot be renderer-owned.
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, IPC-001, SEC-001]
+
+  - id: current.provider-metadata
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/shared/voiceProvider.ts already permits provider category "local" and batch transcription metadata.
+      - Renderer-safe provider metadata currently supports auth types browserSession and apiKey only.
+      - tests/renderer/providerGrouping.test.ts already verifies a synthetic local-category provider group.
+    answer:
+      selected_ids: [local-category-exists-auth-contract-needs-extension]
+      text: ''
+    rationale: Local Whisper needs an explicit no-auth or local-runtime readiness contract rather than pretending to use a browser session or API key.
+    supersedes_revision: null
+    requirement_ids: [ARCH-004, COMP-001]
+
+  - id: current.provider-settings-contract
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/renderer/components/ProviderSettingsForm.tsx currently branches between browser-session, OpenAI API, and Claude language settings.
+      - src/renderer/types.d.ts defines an exhaustive ProviderSettings union and typed settings IPC methods.
+      - src/main/providers/openaiApiSettingsUtils.ts provides the closest voice-settings precedent for defaults, normalization, validation, and sanitized renderer views.
+    answer:
+      selected_ids: [additive-settings-union-and-provider-form]
+      text: ''
+    rationale: Local model state and runtime actions require a richer sanitized view than the current authentication-oriented forms.
+    supersedes_revision: null
+    requirement_ids: [SET-001, UI-002, IPC-002]
+
+  - id: current.packaging-platforms
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - README.md states that Linux and Windows are supported release platforms and macOS release builds are paused pending signing and notarization.
+      - package.json builds x64 Linux AppImage, deb, and rpm artifacts plus a Windows NSIS installer; a macOS DMG target exists but is not currently a supported release.
+      - Packaged files are allowlisted and ASAR/runtime integrity fuses are enabled.
+    answer:
+      selected_ids: [windows-linux-current-release-baseline]
+      text: ''
+    rationale: Adding native GPU runtimes or model assets has explicit packaging, integrity, installer-size, and per-platform verification consequences.
+    supersedes_revision: null
+    requirement_ids: [PKG-001, COMP-002]
+
+  - id: current.privacy-and-diagnostics
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - Project rules prohibit logging audio, transcripts, prompts, credentials, sessions, or raw provider responses.
+      - Successful transcription history is persisted locally while the short-lived transcription cache retains no raw audio.
+      - Provider audit events are metadata-only and already model provider lifecycle phases.
+    answer:
+      selected_ids: [local-audio-private-metadata-only-diagnostics]
+      text: ''
+    rationale: Local inference must preserve existing clipboard/history behavior without turning model operations into sensitive logging surfaces.
+    supersedes_revision: null
+    requirement_ids: [SEC-002, DIAG-001, COMP-003]
+
+  - id: current.no-local-whisper
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - The repository has no Local Whisper provider, model repository, GPU runtime, native inference dependency, or local model-management IPC contract.
+      - README.md currently promises that packaged builds require no local Whisper model, CUDA setup, or GPU.
+    answer:
+      selected_ids: [greenfield-local-runtime]
+      text: ''
+    rationale: Documentation and packaging behavior must change explicitly; compatibility cannot be inferred from an existing implementation.
+    supersedes_revision: null
+    requirement_ids: [BASE-001, DOC-001]
+
+  - id: research.whisper-cpp-runtime
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - whisper.cpp v1.9.1 was released on 2026-06-19 under MIT and provides a C API with explicit context creation and release.
+      - Its v1.9.1 documentation supports NVIDIA CUDA, cross-vendor Vulkan, AMD HIP/ROCm, CPU execution, and first-class Apple Silicon Metal with optional Core ML encoder acceleration.
+      - https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.1
+      - https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/README.md
+      - https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/include/whisper.h
+    answer:
+      selected_ids: [one-native-cross-platform-engine]
+      text: ''
+    rationale: This is evidence for the whisper.cpp adapter, not a normative single-engine limit. The later user decision architecture.inference-engine adds Faster-Whisper behind the same supervised-sidecar boundary.
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, RUNTIME-001]
+
+  - id: research.faster-whisper-alternative
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - faster-whisper v1.2.1 documents GPU execution with NVIDIA CUDA 12 and cuDNN 9 and provides strong NVIDIA performance and Distil-Whisper compatibility.
+      - CTranslate2 added ROCm in v4.7.0 and released Linux and Windows ROCm wheels in v4.8.1 on 2026-07-03, but faster-whisper does not yet document that route as its supported AMD GPU contract.
+      - https://github.com/SYSTRAN/faster-whisper/blob/v1.2.1/README.md#gpu
+      - https://github.com/OpenNMT/CTranslate2/releases/tag/v4.7.0
+      - https://github.com/OpenNMT/CTranslate2/releases/tag/v4.8.1
+    answer:
+      selected_ids: [nvidia-optimized-but-amd-route-immature]
+      text: ''
+    rationale: It would add Python, CTranslate2, and cuDNN packaging while producing a less settled common AMD and Apple path.
+    supersedes_revision: null
+    requirement_ids: [RUNTIME-002]
+
+  - id: research.amd-platform-reality
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - whisper.cpp v1.9.1 documents Vulkan as cross-vendor and HIP builds as requiring an explicit AMDGPU_TARGETS architecture.
+      - Current AMD Linux ROCm documentation states that an unlisted GPU is not officially supported and requires an exact GPU and OS intersection plus device-node permissions.
+      - Current AMD Windows HIP SDK documentation supports only a subset of ROCm components and GPU families; CMake HIP Language and AI frameworks remain unavailable on Windows.
+      - whisper.cpp Vulkan initialization requires Vulkan 1.2 and storageBuffer16BitAccess; enumeration alone does not prove a runnable compute path.
+      - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html
+      - https://rocm.docs.amd.com/projects/install-on-windows/en/latest/reference/system-requirements.html
+      - https://rocm.docs.amd.com/projects/install-on-windows/en/latest/conceptual/component-support.html
+      - https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+    answer:
+      selected_ids: [feasible-but-preview-until-hardware-validated]
+      text: ''
+    rationale: AMD vendor detection is insufficient; the exact backend, GPU target, driver, OS, allocation, model load, and warm-up must succeed.
+    supersedes_revision: null
+    requirement_ids: [AMD-001, AMD-002, CAP-002]
+
+  - id: research.model-artifacts
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - whisper.cpp v1.9.1 publishes a ggml model catalog with pinned hashes and artifact sizes from 75 MiB to 2.9 GiB; its approximate runtime memory table ranges from 273 MB to 3.9 GB before application headroom.
+      - Distilled-model support is described as initial and potentially suboptimal because the chunk-based transcription strategy is not implemented.
+      - https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/models/README.md
+      - https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/README.md#memory-usage
+    answer:
+      selected_ids: [pinned-ggml-artifacts-with-distil-caveat]
+      text: ''
+    rationale: The ggml evidence applies to the whisper.cpp adapter. Faster-Whisper uses separately pinned CTranslate2 artifacts; for both formats, file size is only an estimate and actual warm-up is the definitive compatibility gate.
+    supersedes_revision: null
+    requirement_ids: [MODEL-003, CAP-003]
+
+  - id: research.directml-non-direction
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Microsoft describes DirectML as being in sustained engineering and directs new Windows AI work to Windows ML.
+      - DirectML or Windows ML would require a second ONNX model and decoder path rather than reusing the selected whisper.cpp model/runtime contract.
+      - https://github.com/microsoft/DirectML#readme
+      - https://learn.microsoft.com/windows/ai/new-windows-ml/overview
+    answer:
+      selected_ids: [exclude-directml-from-v1]
+      text: ''
+    rationale: A second inference stack does not improve the current untested AMD confidence boundary.
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-002]
+
+  - id: architecture.runtime-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - VoiceProviderFactory intentionally creates fresh provider instances, including instances used for settings snapshots.
+      - Active-provider switch and application shutdown already serialize provider shutdown and surface cleanup failures.
+      - Linux Chromium GPU acceleration is disabled, so Electron renderer GPU status is not an inference capability contract.
+    answer:
+      selected_ids: [composition-root-owned-supervised-worker]
+      text: ''
+    rationale: Model inventory, worker ownership, GPU state, and downloads must live in main-owned services; provider snapshots must remain side-effect free.
+    supersedes_revision: null
+    requirement_ids: [ARCH-006, LIFE-001]
+
+  - id: scope.provider-identity
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The request consistently names the feature Local Whisper but once asks for a "local dispart provider" settings screen.
+      - The repository contains neither "dispart" nor a Distil-Whisper provider.
+      - whisper.cpp v1.9.1 calls distilled-model support initial and potentially suboptimal.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: technical-scope-round-01
+      question_id: scope.provider-identity
+      idempotency_key: scope.provider-identity:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should "local dispart provider" mean in this specification?
+      kind: single
+      options:
+        - id: local-whisper-canonical
+          label: Local Whisper only (Recommended)
+          description: Treat "dispart" as a typo, define one Local Whisper provider, and keep Distil-Whisper artifacts out of the first release because upstream support is still qualified.
+        - id: local-whisper-with-distil
+          label: Include Distil models
+          description: Keep one Local Whisper provider but include curated Distil-Whisper artifacts with an explicit quality and support caveat.
+        - id: separate-local-distil
+          label: Separate Distil provider
+          description: Define canonical Local Whisper and Local Distil-Whisper as separate providers with separate settings and acceptance contracts.
+    answer:
+      selected_ids: [canonical-and-faster-whisper]
+      text: Build the architecture for both canonical Whisper and Faster-Whisper variants.
+    rationale: The committed custom answer expands the first release beyond canonical whisper.cpp artifacts; exact provider and engine selection UX requires a follow-up decision.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001]
+
+  - id: architecture.inference-engine
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - whisper.cpp v1.9.1 provides one MIT native engine across CUDA, Vulkan, HIP/ROCm, and future Metal.
+      - faster-whisper currently documents NVIDIA CUDA and cuDNN while its AMD dependency path is recent and not yet a documented faster-whisper support contract.
+      - The Electron main-process boundary favors an isolated, supervised worker over a native Node addon.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: technical-scope-round-01
+      question_id: architecture.inference-engine
+      idempotency_key: architecture.inference-engine:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which inference-engine contract should the first Local Whisper implementation use?
+      kind: single
+      options:
+        - id: whisper-cpp-sidecar
+          label: whisper.cpp sidecar (Recommended)
+          description: Pin one whisper.cpp release and run it in a supervised native worker with framed stdio, common model artifacts, and process-level crash and VRAM isolation.
+        - id: faster-whisper-sidecar
+          label: faster-whisper sidecar
+          description: Optimize around Python, CTranslate2, CUDA, and cuDNN, accepting a newer and less settled AMD route plus a separate future Apple strategy.
+        - id: external-runtime
+          label: User-managed runtime
+          description: Connect to an independently installed local service or executable, reducing packaged native code while making setup, versioning, and lifecycle externally owned.
+    answer:
+      selected_ids: [whisper-cpp-and-faster-whisper]
+      text: Include both whisper.cpp and Faster-Whisper rather than selecting only one engine.
+    rationale: This supersedes the evidence-backed single-engine recommendation and requires two isolated runtime adapters, model formats, dependency packs, capability probes, and acceptance matrices behind one shared domain contract.
+    supersedes_revision: null
+    requirement_ids: [RUNTIME-001]
+
+  - id: compatibility.release-tiers
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The project releases Windows x64 and Linux x64 artifacts, but the available hardware evidence is one NVIDIA Linux laptop only.
+      - AMD and Apple Silicon hardware testing is unavailable for this task.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: technical-scope-round-01
+      question_id: compatibility.release-tiers
+      idempotency_key: compatibility.release-tiers:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which support tiers should gate the first Local Whisper release?
+      kind: single
+      options:
+        - id: nvidia-production-amd-preview
+          label: NVIDIA production, AMD Preview (Recommended)
+          description: Target NVIDIA CUDA on Windows and Linux for production only after each OS passes its hardware gate; expose AMD as Preview and macOS arm64 as planned but unavailable.
+        - id: linux-nvidia-production
+          label: Linux NVIDIA production
+          description: Make only tested Linux x64 NVIDIA production-ready; keep Windows NVIDIA and all AMD paths in Preview until representative hardware is available.
+        - id: all-windows-linux-preview
+          label: Preview everywhere
+          description: Keep every Windows and Linux GPU path in Preview until representative NVIDIA and AMD hardware has passed the complete acceptance matrix.
+    answer:
+      selected_ids: [nvidia-production-amd-preview]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-004, NVIDIA-001, AMD-003, MAC-001]
+
+  - id: compatibility.amd-backend
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Windows HIP is a subset of ROCm with material component and GPU-family limits.
+      - Linux HIP requires an exact supported GPU, OS, compiled gfx target, and device permissions.
+      - whisper.cpp Vulkan is cross-vendor but still requires a real feature, dispatch, and model-load probe.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: technical-scope-round-01
+      question_id: compatibility.amd-backend
+      idempotency_key: compatibility.amd-backend:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which AMD backend policy should the Preview contract use?
+      kind: single
+      options:
+        - id: windows-vulkan-linux-hip-vulkan
+          label: Vulkan Windows, HIP Linux (Recommended)
+          description: Prefer Vulkan on Windows; on Linux prefer HIP only for the exact supported ROCm matrix and compiled gfx target, with explicitly selected Vulkan as a probed fallback.
+        - id: vulkan-both-platforms
+          label: Vulkan on both
+          description: Use one cross-vendor Vulkan backend on Windows and Linux, simplifying distribution while accepting a different performance and compatibility profile from CUDA or HIP.
+        - id: hip-both-platforms
+          label: HIP on both
+          description: Standardize on HIP/ROCm for AMD despite the narrower Windows component, build, and supported-device matrix.
+    answer:
+      selected_ids: [windows-vulkan-linux-hip-vulkan]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AMD-004]
+
+  - id: compatibility.cpu-fallback
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The requested outcome specifically targets execution on the user's GPU.
+      - Silent CPU fallback would make device validation misleading and can turn an expected fast local action into prolonged CPU and battery use.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: technical-scope-round-01
+      question_id: compatibility.cpu-fallback
+      idempotency_key: compatibility.cpu-fallback:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen when no compatible GPU backend can run the selected model?
+      kind: single
+      options:
+        - id: gpu-only-no-fallback
+          label: Block without GPU (Recommended)
+          description: Mark Local Whisper unavailable with an actionable reason and never fall back silently to CPU; other Voice providers remain selectable.
+        - id: explicit-cpu-preview
+          label: Opt-in CPU Preview
+          description: Block by default but expose a clearly warned, manually enabled CPU mode outside the production GPU support tier.
+        - id: automatic-cpu-fallback
+          label: Automatic CPU fallback
+          description: Continue transcription on CPU whenever GPU probing or loading fails, favoring completion over predictable latency and resource use.
+    answer:
+      selected_ids: [gpu-and-cpu-supported]
+      text: Support execution through either a GPU or the CPU.
+    rationale: The committed custom answer authorizes CPU execution, but whether selection is explicit or an automatic failure fallback remains a separate material decision.
+    supersedes_revision: null
+    requirement_ids: [CAP-004, COMP-005]
+
+  - id: architecture.engine-exposure
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The committed engine decision requires both whisper.cpp and Faster-Whisper.
+      - The two engines use different runtime dependencies, model artifacts, compute modes, and platform matrices while serving the same Voice outcome.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: runtime-selection-round-02
+      question_id: architecture.engine-exposure
+      idempotency_key: architecture.engine-exposure:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should users choose between whisper.cpp and Faster-Whisper?
+      kind: single
+      options:
+        - id: one-provider-explicit-engine
+          label: One provider, engine setting (Recommended)
+          description: Keep one Local Whisper provider and require an explicit engine selection; filter models and compute options by that engine and never switch engines after an operation starts.
+        - id: two-separate-providers
+          label: Two Voice providers
+          description: Expose Local Whisper (whisper.cpp) and Faster-Whisper as separate Voice providers with independent settings, readiness, and model inventories.
+        - id: automatic-engine-routing
+          label: Automatic engine routing
+          description: Keep one provider and let the application select an engine from device and model capabilities, accepting that upgrades may change the resolved runtime and output.
+    answer:
+      selected_ids: [one-provider-explicit-engine]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-007, UI-003]
+
+  - id: scope.model-families
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - Both engines can run canonical Whisper families but require different artifact formats.
+      - Faster-Whisper is especially compatible with Distil-Whisper; whisper.cpp describes its own distilled path as initial and potentially suboptimal.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: runtime-selection-round-02
+      question_id: scope.model-families
+      idempotency_key: scope.model-families:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which model families should the first catalog expose across the two engines?
+      kind: single
+      options:
+        - id: canonical-whisper-both-engines
+          label: Canonical Whisper only (Recommended)
+          description: Offer a curated set of canonical Whisper models in each engine's native format; defer Distil-Whisper until separate quality evidence exists.
+        - id: canonical-plus-distil-faster
+          label: Add Distil to Faster-Whisper
+          description: Offer canonical models for both engines and curated Distil-Whisper models only when Faster-Whisper is selected.
+        - id: broad-upstream-catalog
+          label: Broad upstream catalog
+          description: Expose canonical, English-only, quantized, Distil, and other upstream-compatible variants, increasing inventory, validation, and support surface.
+    answer:
+      selected_ids: [canonical-whisper-both-engines]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-004]
+
+  - id: compatibility.execution-target-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The committed custom answer requires both GPU and CPU execution.
+      - Automatic CPU fallback can materially change latency, battery use, thermals, and whether a compatibility result is truthful.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: runtime-selection-round-02
+      question_id: compatibility.execution-target-policy
+      idempotency_key: compatibility.execution-target-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should GPU versus CPU execution be selected?
+      kind: single
+      options:
+        - id: explicit-gpu-or-cpu
+          label: Explicit target (Recommended)
+          description: Expose GPU and CPU as explicit settings, default to GPU, validate the chosen target, and never change target automatically during transcription.
+        - id: visible-auto-gpu-then-cpu
+          label: Visible Auto mode
+          description: Add Auto that prefers a validated GPU and resolves to CPU before recording when GPU is unavailable; always show the resolved target and never switch after audio submission.
+        - id: silent-runtime-fallback
+          label: Silent fallback
+          description: Retry on CPU when GPU setup or inference fails, favoring completion while allowing latency and output path to change during one operation.
+    answer:
+      selected_ids: [explicit-gpu-or-cpu]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SET-002, CAP-005, RUN-001]
+
+  - id: operations.runtime-distribution
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Supporting both engines adds native whisper.cpp builds plus Faster-Whisper Python, CTranslate2, CUDA, and cuDNN assets.
+      - Packaging every accelerator stack can add hundreds of megabytes before any model weights, while downloading executable code introduces a new integrity and rollback boundary.
+      - Current application packaging uses an explicit allowlist and ASAR integrity fuses.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: runtime-selection-round-02
+      question_id: operations.runtime-distribution
+      idempotency_key: operations.runtime-distribution:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the application distribute the two local inference runtimes?
+      kind: single
+      options:
+        - id: signed-on-demand-runtime-packs
+          label: On-demand runtime packs (Recommended)
+          description: Keep the base installer smaller and download an app-version-pinned, hash-verified, signed engine/backend pack only after explicit user action; manage it separately from model weights.
+        - id: bundle-all-runtime-packs
+          label: Bundle in installers
+          description: Ship every supported engine/backend runtime inside each platform installer, simplifying trust and offline setup while substantially increasing artifact size and verification work.
+        - id: require-user-runtime
+          label: Require user installation
+          description: Package only integration code and require users to install and maintain Python, Faster-Whisper, CUDA/ROCm, and whisper.cpp-compatible runtimes themselves.
+    answer:
+      selected_ids: [signed-on-demand-runtime-packs]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PKG-002, SEC-003, OPS-001]
+
+  - id: compatibility.engine-platform-matrix
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - whisper.cpp has documented CUDA, Vulkan, HIP/ROCm, CPU, and Metal backends.
+      - Faster-Whisper documents NVIDIA CUDA and CPU; its CTranslate2 ROCm path is recent and does not yet form a documented Faster-Whisper AMD support contract.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: runtime-selection-round-02
+      question_id: compatibility.engine-platform-matrix
+      idempotency_key: compatibility.engine-platform-matrix:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should engine availability differ by device in the first release?
+      kind: single
+      options:
+        - id: whisper-cpp-all-faster-nvidia-cpu
+          label: Limit Faster-Whisper (Recommended)
+          description: Use whisper.cpp for NVIDIA, AMD Preview, and CPU; expose Faster-Whisper only for validated NVIDIA CUDA and CPU paths, with AMD routed only by explicit engine choice to whisper.cpp.
+        - id: faster-whisper-amd-preview
+          label: Preview Faster-Whisper on AMD
+          description: Add CTranslate2 ROCm as another AMD Preview route despite its recent release and missing Faster-Whisper support documentation.
+        - id: require-engine-parity
+          label: Require engine parity
+          description: Do not ship until both engines can satisfy the same NVIDIA, AMD, CPU, Windows, and Linux matrix.
+    answer:
+      selected_ids: [whisper-cpp-all-faster-nvidia-cpu]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-006, AMD-005]
+
+  - id: models.initial-catalog
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The committed scope limits the first release to canonical Whisper families exposed through both engines.
+      - Upstream multilingual artifacts span tiny, base, small, medium, large-v3, and large-v3-turbo; whisper.cpp also publishes selected q5_0 variants.
+      - Full artifacts range from 75 MiB to 2.9 GiB, so catalog breadth directly affects download, storage, and compatibility UX.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: settings-lifecycle-round-03
+      question_id: models.initial-catalog
+      idempotency_key: models.initial-catalog:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How broad should the curated canonical model catalog be in the first release?
+      kind: single
+      options:
+        - id: balanced-multilingual-catalog
+          label: Balanced multilingual set (Recommended)
+          description: Offer tiny, base, small, medium, large-v3, and large-v3-turbo logical models; expose only reviewed engine-specific precision or q5 variants with exact size and memory metadata.
+        - id: lean-three-model-catalog
+          label: Lean three-model set
+          description: Offer base, small, and large-v3-turbo only, minimizing catalog and acceptance work while covering low, medium, and high capability devices.
+        - id: full-canonical-catalog
+          label: Full canonical catalog
+          description: Include all multilingual and English-only canonical releases, legacy large versions, and available quantized variants, maximizing choice and support surface.
+    answer:
+      selected_ids: [balanced-multilingual-catalog]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-005]
+
+  - id: ui.settings-depth
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested a detailed option and validation contract for the Local Whisper provider settings screen.
+      - Two engines expose overlapping core parameters and different expert parameters; showing unsupported controls would imply behavior that is not applied.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: settings-lifecycle-round-03
+      question_id: ui.settings-depth
+      idempotency_key: ui.settings-depth:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How much inference tuning should the Local Whisper settings screen expose?
+      kind: single
+      options:
+        - id: basic-plus-advanced
+          label: Basic plus Advanced (Recommended)
+          description: Always show engine, target, device, model, language, prompt, and temperature; place validated engine-specific precision, decoding strategy, beam or best-of, and CPU threads in an Advanced disclosure.
+        - id: basic-only
+          label: Basic controls only
+          description: Expose engine, target, device, model, language, prompt, and temperature and keep all remaining runtime parameters on reviewed defaults.
+        - id: full-expert-surface
+          label: Full expert controls
+          description: Expose most upstream thresholds, context, fallback, VAD, segmentation, and backend flags, accepting a larger validation and compatibility contract.
+    answer:
+      selected_ids: [basic-plus-advanced]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-004, SET-003]
+
+  - id: scope.extra-inference-features
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The current GPT-Voice outcome consumes final transcript text only.
+      - Translation-to-English changes the product outcome, VAD requires another reviewed model asset or engine-specific implementation, and timestamps or diarization require new result contracts.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: settings-lifecycle-round-03
+      question_id: scope.extra-inference-features
+      idempotency_key: scope.extra-inference-features:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which non-core Whisper features should be included in the first release?
+      kind: single
+      options:
+        - id: transcription-only
+          label: Transcription only (Recommended)
+          description: Return final text only; defer translate-to-English, VAD, timestamps, and diarization so both engines share one deterministic result contract.
+        - id: transcription-with-vad
+          label: Add VAD
+          description: Include reviewed voice-activity detection behavior and any required VAD artifact, while still deferring translation, timestamps, and diarization.
+        - id: transcription-vad-translation
+          label: Add VAD and translation
+          description: Include voice-activity detection and an explicit transcribe-versus-translate-to-English task setting; timestamps and diarization remain deferred.
+    answer:
+      selected_ids: [transcription-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-002, NONGOAL-003]
+
+  - id: models.storage-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Model artifacts can consume several GiB and must support exact safe deletion.
+      - A fixed application-owned root is simplest to secure; custom roots improve disk placement but require migration, symlink, permission, removable-volume, and destructive-path handling.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: settings-lifecycle-round-03
+      question_id: models.storage-policy
+      idempotency_key: models.storage-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Where should downloaded model artifacts be stored?
+      kind: single
+      options:
+        - id: fixed-app-managed-root
+          label: App-managed storage (Recommended)
+          description: Use one private application-owned model directory, show its path and disk usage, and support only catalog downloads and exact managed-file deletion in the first release.
+        - id: selectable-managed-root
+          label: Selectable model directory
+          description: Default to app storage but allow one validated dedicated directory with an explicit move workflow and removable-volume recovery.
+        - id: managed-plus-import
+          label: Custom storage and import
+          description: Also allow importing compatible user model files, adding provenance, format, hash, ownership, and deletion-policy choices.
+    answer:
+      selected_ids: [fixed-app-managed-root]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-006, SEC-004]
+
+  - id: vram.residency-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The requested scope requires explicit load-to-VRAM and unload-from-VRAM operations.
+      - Model loading can take time; eager residency consumes GPU memory even when no transcription follows, while manual-only loading adds a failure-prone prerequisite.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: settings-lifecycle-round-03
+      question_id: vram.residency-policy
+      idempotency_key: vram.residency-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: When should the selected model be loaded and unloaded?
+      kind: single
+      options:
+        - id: lazy-auto-with-manual-controls
+          label: Lazy load plus controls (Recommended)
+          description: Auto-load on first transcription, also offer Load now and Unload, and always unload on engine, model, device, or provider change and application exit.
+        - id: eager-on-provider-selection
+          label: Load on provider selection
+          description: Load during Local Whisper activation so the first recording is warm, accepting startup delay and immediate VRAM use.
+        - id: manual-only-residency
+          label: Manual load only
+          description: Require Load now before Local Whisper becomes ready and never load automatically from a transcription request.
+    answer:
+      selected_ids: [lazy-auto-with-manual-controls]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [VRAM-002, LIFE-002]
+
+  - id: acceptance.capability-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Vendor or API enumeration cannot prove kernel compatibility, available memory, model integrity, or a functional inference path.
+      - Free VRAM and available RAM are dynamic; static model-size estimates can only be advisory.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: failure-acceptance-round-04
+      question_id: acceptance.capability-gate
+      idempotency_key: acceptance.capability-gate:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How strict should the "Can this device run Local Whisper?" result be?
+      kind: single
+      options:
+        - id: probe-load-warmup-gate
+          label: Load and warm-up gate (Recommended)
+          description: Show an advisory pre-download estimate, but report Ready only after the pinned runtime and model pass backend initialization, allocation, full model load, and a bounded local warm-up on the selected target.
+        - id: backend-probe-gate
+          label: Backend probe only
+          description: Report Ready after driver, device, feature, and memory checks even before the selected model has loaded successfully.
+        - id: advisory-only
+          label: Advisory compatibility
+          description: Never block activation from a probe; show warnings and let the first transcription attempt determine whether the configuration works.
+    answer:
+      selected_ids: [probe-load-warmup-gate]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CAP-006, CAP-007]
+
+  - id: models.version-update-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Model and runtime revisions can change output, compatibility, licensing evidence, disk use, and cache identity.
+      - The selected on-demand runtime-pack approach creates an executable update boundary distinct from model-weight downloads.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: failure-acceptance-round-04
+      question_id: models.version-update-policy
+      idempotency_key: models.version-update-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should model and runtime-pack revisions be updated?
+      kind: single
+      options:
+        - id: explicit-pinned-updates
+          label: Explicit pinned updates (Recommended)
+          description: Use an app-shipped immutable manifest; show available revisions, download only on user action, keep old artifacts until explicitly removed, and never change the selected revision automatically.
+        - id: automatic-compatible-updates
+          label: Automatic compatible updates
+          description: Download approved newer revisions in the background and switch after verification when the manifest marks them compatible.
+        - id: floating-latest
+          label: Always use latest
+          description: Resolve upstream latest versions at download or launch time, minimizing catalog maintenance while weakening reproducibility and rollback.
+    answer:
+      selected_ids: [explicit-pinned-updates]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-007, RUNTIME-003, COMP-007]
+
+  - id: models.delete-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Deleting a loaded or selected artifact intersects VRAM cleanup, active inference, cache identity, and readiness.
+      - Silent fallback to another model or engine would change transcription behavior without a settings decision.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: failure-acceptance-round-04
+      question_id: models.delete-policy
+      idempotency_key: models.delete-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What should happen when the user deletes the selected or loaded model revision?
+      kind: single
+      options:
+        - id: confirm-unload-delete-stay-selected
+          label: Unload, delete, stay selected (Recommended)
+          description: Require confirmation, reject while transcription is active, unload first, delete only exact managed files, and keep the selection in a Model missing state until redownloaded or changed.
+        - id: confirm-delete-auto-select
+          label: Delete and select fallback
+          description: Unload and delete after confirmation, then automatically select another installed compatible model.
+        - id: block-until-deselected
+          label: Require manual deselection
+          description: Disable Delete for the selected or loaded model until the user explicitly unloads it and selects another model.
+    answer:
+      selected_ids: [confirm-unload-delete-stay-selected]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MODEL-008, VRAM-003, FAIL-001]
+
+  - id: operations.concurrency-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Load, unload, delete, runtime replacement, model replacement, and transcription can contend for one worker and its files.
+      - Downloads do not consume the active worker unless they target an artifact being deleted or replaced.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: failure-acceptance-round-04
+      question_id: operations.concurrency-policy
+      idempotency_key: operations.concurrency-policy:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should conflicting model and runtime operations behave?
+      kind: single
+      options:
+        - id: reject-conflicts-explicit-retry
+          label: Reject conflicts (Recommended)
+          description: Serialize one worker lifecycle operation, disable conflicting actions, reject stale IPC with a safe conflict result, and require an explicit retry; unrelated downloads may continue.
+        - id: queue-all-conflicts
+          label: Queue operations
+          description: Queue load, unload, delete, update, and transcription requests in submission order, which can make destructive actions occur well after the click.
+        - id: cancel-active-for-lifecycle
+          label: Cancel active work
+          description: Let load, unload, delete, or update cancel the current transcription or download automatically before continuing.
+    answer:
+      selected_ids: [reject-conflicts-explicit-retry]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [LIFE-003, FAIL-002]
+
+  - id: ui.unsupported-device-visibility
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Hiding the provider prevents users from seeing why GPU mode is unavailable or choosing the explicitly supported CPU target.
+      - macOS remains planned but unavailable for this release even though a typed Metal skeleton is in scope.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: failure-acceptance-round-04
+      question_id: ui.unsupported-device-visibility
+      idempotency_key: ui.unsupported-device-visibility:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should Local Whisper appear when the current platform or selected target is unsupported?
+      kind: single
+      options:
+        - id: visible-with-readiness-reason
+          label: Visible with status (Recommended)
+          description: Keep the provider and settings visible, show Production, Preview, Planned, or Unsupported plus exact safe reasons, and disable only actions that cannot pass validation.
+        - id: hide-unsupported-provider
+          label: Hide the provider
+          description: Omit Local Whisper entirely when the initial platform probe finds no currently supported execution path.
+        - id: selectable-then-fail
+          label: Allow selection
+          description: Let users activate Local Whisper even when validation fails and surface the problem only when loading or transcribing.
+    answer:
+      selected_ids: [selectable-then-fail]
+      text: ''
+    rationale: The provider remains selectable even when validation fails; it must remain visibly Not ready and fail safely at load or transcription rather than imply readiness or switch targets automatically.
+    supersedes_revision: null
+    requirement_ids: [UI-005, CAP-008, MAC-002]
+
+  - id: compatibility.cpu-support-tier
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Both selected engines have documented CPU execution paths on Windows and Linux x64, and CPU is an explicit target rather than an automatic fallback.
+      - The available hardware evidence covers Linux x64 with NVIDIA only; every Production claim still requires correctness and performance gates on the named operating system.
+      - macOS execution is excluded from the current release even when the host has a CPU-capable architecture.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: compatibility-round-05
+      question_id: compatibility.cpu-support-tier
+      idempotency_key: compatibility.cpu-support-tier:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: What support tier should CPU execution have in the first Local Whisper release?
+      kind: single
+      options:
+        - id: both-engines-production-after-gates
+          label: Both engines Production after gates (Recommended)
+          description: Target whisper.cpp and Faster-Whisper CPU as Production on Windows and Linux x64 only after each operating system passes defined correctness and performance gates; macOS remains unavailable.
+        - id: whisper-cpp-production-faster-preview
+          label: Split Production and Preview
+          description: Target whisper.cpp CPU as Production after platform gates and keep Faster-Whisper CPU as Preview, reducing the initial production acceptance surface.
+        - id: all-cpu-preview
+          label: All CPU paths Preview
+          description: Mark CPU execution for both engines as Preview on Windows and Linux, even after functional validation, until a later release establishes broader performance evidence.
+    answer:
+      selected_ids: [both-engines-production-after-gates]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CPU-001, COMP-008, AC-MAN-002]
+
+  - id: compatibility.amd-hip-packaging-matrix
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Linux AMD HIP binaries are tied to ROCm, operating-system, and compiled GPU architecture targets, while this release has no AMD hardware validation.
+      - AMD support is Preview and must not silently try an unreviewed device or fall back to another backend or CPU.
+      - Runtime packs are app-version-pinned, signed, hash-verified, and installed only after explicit user action.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: compatibility-round-05
+      question_id: compatibility.amd-hip-packaging-matrix
+      idempotency_key: compatibility.amd-hip-packaging-matrix:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should Linux AMD HIP runtime packs be selected and constrained in the first release?
+      kind: single
+      options:
+        - id: versioned-family-packs-strict-manifest
+          label: Versioned family packs with allowlist (Recommended)
+          description: Publish reviewed packs per pinned ROCm and OS family; an immutable app manifest lists exact OS, ROCm, GPU device IDs, and compiled gfx targets, and every unlisted combination fails closed.
+        - id: one-pack-per-gfx-target
+          label: One pack per gfx target
+          description: Probe the device and download a narrowly compiled pack for its gfx target, increasing catalog and signing granularity while limiting each binary's compatibility surface.
+        - id: generic-detected-hip-device
+          label: Try any detected HIP device
+          description: Install one broader HIP pack and try every detected HIP device without a hard device allowlist, accepting higher Preview failure and support risk.
+    answer:
+      selected_ids: [versioned-family-packs-strict-manifest]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AMD-006, PKG-003, CAP-009]
+
+  - id: architecture.device-backend-selection
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The user selected an explicit GPU or CPU target and prohibited automatic target or engine fallback.
+      - AMD Linux may expose both HIP and Vulkan, and the available NVIDIA laptop also contains an integrated GPU, so vendor-only selection is ambiguous.
+      - A missing persisted device must not silently redirect work to another accelerator.
+    answer:
+      selected_ids: [explicit-catalog-backend-and-device]
+      text: ''
+    rationale: Expose only catalog-compatible backends and opaque device IDs, choose a deterministic initial default only for a previously unconfigured profile, and require an explicit user change thereafter.
+    supersedes_revision: null
+    requirement_ids: [SET-004, CAP-010, LIFE-004]
+
+  - id: settings.normalized-defaults
+    revision: 1
+    category: configuration
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The selected Basic plus Advanced UI needs deterministic initial values and main-process validation.
+      - A small multilingual model and greedy decoding minimize the first download and avoid hidden compute expansion.
+      - Numeric controls require one canonical range shared by renderer and main.
+    answer:
+      selected_ids: [conservative-deterministic-defaults]
+      text: ''
+    rationale: Default to whisper.cpp, GPU, base, automatic language, empty prompt, zero temperature, greedy decoding, and automatic CPU threads; expose only reviewed precision and model variants.
+    supersedes_revision: null
+    requirement_ids: [SET-005, VAL-002]
+
+  - id: architecture.runtime-state-separation
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Support tier, installed artifacts, a successful capability proof, and current model residency answer different user questions.
+      - Ready requires a full load and warm-up, while the selected lazy policy permits intentional unload without forgetting that the same fingerprint previously validated.
+    answer:
+      selected_ids: [separate-support-setup-capability-residency]
+      text: ''
+    rationale: Keep a validated capability result for the exact fingerprint after intentional unload, but report the provider as unloaded rather than Ready until the model is resident and warmed again.
+    supersedes_revision: null
+    requirement_ids: [CAP-011, LIFE-005, UI-006]
+
+  - id: models.native-artifact-identity
+    revision: 1
+    category: interfaces
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - One logical Whisper family maps to incompatible ggml and CTranslate2 artifacts, and reviewed quantization variants can differ by engine.
+      - Updates and cache entries must not float across runtime, format, conversion, or model revisions.
+    answer:
+      selected_ids: [immutable-engine-native-artifact-tuple]
+      text: ''
+    rationale: Identify a selectable model by engine, logical model, source revision, artifact revision, format, and variant; keep runtime revision and output-affecting settings in the execution/cache fingerprint.
+    supersedes_revision: null
+    requirement_ids: [MODEL-009, CACHE-001]
+
+  - id: operations.download-recovery
+    revision: 1
+    category: operations
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Runtime and model archives can be multiple GiB and must survive crashes without exposing partially installed artifacts.
+      - The selected update policy requires explicit user actions and immutable old revisions.
+    answer:
+      selected_ids: [journaled-resume-verify-atomic-promote]
+      text: ''
+    rationale: Use app-owned staging and validators for safe resume after restart, discard staging on explicit Cancel, require explicit Retry after failure, and make verified atomic promotion the only path to Installed.
+    supersedes_revision: null
+    requirement_ids: [DL-001, DL-002, FAIL-003]
+
+  - id: security.worker-protocol-boundary
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Native sidecars process private audio and prompts and contain executable code with crash and output-flood risk.
+      - Main owns privileged process execution and the feature does not need a listening network service.
+    answer:
+      selected_ids: [framed-stdio-no-port-no-shell]
+      text: ''
+    rationale: Use one supervised child with a versioned bounded framed-stdio protocol, shell disabled, private payloads on stdin only, capped sanitized stderr, and graceful-then-forced termination.
+    supersedes_revision: null
+    requirement_ids: [RUN-002, SEC-005, PRIV-001]
+
+  - id: compatibility.runtime-prerequisites
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - GPU drivers cannot be redistributed by the application, CUDA redistribution is limited to named components, and Linux HIP compatibility depends on an exact system matrix and permissions.
+      - Runtime packs are explicitly downloaded and must describe every external prerequisite they do not own.
+    answer:
+      selected_ids: [pack-reviewed-libraries-require-system-driver]
+      text: ''
+    rationale: Bundle only reviewed redistributable engine dependencies; never install a driver or toolkit, and fail validation with actionable prerequisites when a required driver, Linux ROCm component, or device permission is absent.
+    supersedes_revision: null
+    requirement_ids: [PKG-004, COMP-009]
+
+  - id: settings.initial-prompt-persistence
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Provider settings are persisted across application restarts, and the requested initial-prompt control would otherwise behave differently from the other settings without explanation.
+      - Prompts can contain private vocabulary even though they are not credentials.
+    answer:
+      selected_ids: [persist-as-private-local-setting]
+      text: ''
+    rationale: Persist the prompt in the namespaced local settings object, never log or export its value, never place it in process arguments, and clear it through the normal Local Whisper settings reset.
+    supersedes_revision: null
+    requirement_ids: [SET-006, PRIV-002]
+
+  - id: compatibility.macos-execution
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - The user authorized only a future-facing Apple Silicon skeleton and explicitly excluded production-ready macOS execution.
+      - The project currently publishes no macOS application artifact and has no Apple Silicon test evidence.
+    answer:
+      selected_ids: [no-macos-execution-in-release]
+      text: ''
+    rationale: Neither CPU nor GPU runtime download, load, warm-up, or transcription is available on macOS in this release; only typed Metal-facing skeletons and unavailable-state tests apply.
+    supersedes_revision: null
+    requirement_ids: [MAC-003]
+
+  - id: security.local-authentication
+    revision: 1
+    category: security
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - Local Whisper performs no remote inference and owns no browser session or provider API credential.
+      - Existing readiness types currently assume browser-session or API-key authentication and therefore need an additive local-runtime contract.
+    answer:
+      selected_ids: [no-authentication-secret]
+      text: ''
+    rationale: Do not create or persist a dummy token, API key, cookie, or browser session; readiness is derived from local setup, capability, and residency state.
+    supersedes_revision: null
+    requirement_ids: [ARCH-008, SEC-006]
+
+  - id: operations.runtime-removal
+    revision: 1
+    category: operations
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Runtime updates remain pinned and old revisions remain until removed, so old executable packs need an explicit safe-removal contract as well as model artifacts.
+      - A selected or active runtime cannot be deleted without invalidating the worker and capability proof.
+    answer:
+      selected_ids: [confirm-idle-exact-runtime-removal]
+      text: ''
+    rationale: Confirm removal, reject it during inference or lifecycle work, unload and stop the worker first, delete only the exact managed revision, preserve the selection as Runtime missing, and never choose another revision automatically.
+    supersedes_revision: null
+    requirement_ids: [RUNTIME-004, FAIL-004]
+
+  - id: failure.worker-retry-policy
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Automatic replay after a native crash could duplicate a transcription and obscure a deterministic failure boundary.
+      - Process exit is the hard resource-release boundary and a later explicit action can start a clean worker.
+    answer:
+      selected_ids: [fail-once-explicit-retry-fresh-worker]
+      text: ''
+    rationale: A crash, hang, protocol mismatch, load failure, or warm-up failure terminates the operation, invalidates readiness, cleans up the child, and requires an explicit retry; there is no transparent inference replay or target fallback.
+    supersedes_revision: null
+    requirement_ids: [RUN-003, FAIL-005]
+
+  - id: architecture.local-dispatch-cache-order
+    revision: 1
+    category: architecture
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The current shared transcription flow checks cache before provider readiness and maps failed readiness to authentication.
+      - Local lazy loading requires an unloaded provider to receive an eligible cache-miss request, while missing, corrupt, blocked, or unsupported state must not be bypassed by cache.
+    answer:
+      selected_ids: [local-state-gate-before-cache-lazy-on-miss]
+      text: ''
+    rationale: Dispatch Local Whisper through its local-runtime state gate before cache; allow an eligible cache hit without residency and lazy-load only an eligible miss.
+    supersedes_revision: null
+    requirement_ids: [ARCH-009, CACHE-002]
+
+  - id: security.path-and-worker-ownership
+    revision: 1
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Executable verification and destructive deletion are vulnerable to path-swap, junction, reparse-point, mount, and PID-reuse races if they rely on strings or PID alone.
+      - Process exit is the hard resource-release boundary and must remain true when Electron main crashes.
+    answer:
+      selected_ids: [anchored-paths-quarantine-owned-child-tree]
+      text: ''
+    rationale: Require stable handle-backed file identities and atomic quarantine for deletion, plus Windows Job Object and Linux parent-death/process-group ownership with PID/start/nonce verification.
+    supersedes_revision: null
+    requirement_ids: [SEC-007, RUN-004]
+
+  - id: operations.artifact-work-bounds
+    revision: 1
+    category: operations
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Runtime/model artifacts may be multiple GiB and hashing or extraction on the Electron event loop could freeze the application.
+      - Network and helper operations need bounded cancellation and slow-transfer behavior.
+    answer:
+      selected_ids: [streaming-off-main-bounded-transfers]
+      text: ''
+    rationale: Stream large-artifact work off main with backpressure, concurrency/memory limits, explicit connect/idle/redirect/overall bounds, and bounded helper cancellation.
+    supersedes_revision: null
+    requirement_ids: [DL-003, PERF-001]
+
+  - id: compatibility.downgrade-recovery
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The current preceding application stores provider IDs as strings, rejects an unknown provider during construction, remains Not ready, and keeps known providers available for selection.
+      - Dedicated Local Whisper settings/artifact namespaces are unknown to and not removed by that preceding version.
+    answer:
+      selected_ids: [manual-known-provider-recovery]
+      text: ''
+    rationale: Before or after downgrade, the user selects a provider known to the old version; previous-binary verification and documentation are required, and unknown behavior blocks rollback support.
+    supersedes_revision: null
+    requirement_ids: [COMP-010]
+
+  - id: settings.dependent-selection-keys
+    revision: 1
+    category: configuration
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Engine, target, backend, device, runtime, model revision, variant, precision, and thread controls form dependent selections whose values should survive deliberate switching without becoming fallback.
+    answer:
+      selected_ids: [restore-keyed-values-initialize-once]
+      text: ''
+    rationale: Restore saved child values by stable engine/target/backend/model keys and apply catalog defaults only the first time a key is created; zero/one/multiple eligible devices have deterministic rules.
+    supersedes_revision: null
+    requirement_ids: [SET-007, VAL-003]
+
+  - id: failure.resource-estimate-policy
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - A trustworthy measurement below the required headroom predicts unsafe allocation, while some backends cannot expose reliable current free memory.
+      - Actual allocation remains more authoritative than every estimate.
+    answer:
+      selected_ids: [block-known-insufficient-warn-unknown]
+      text: ''
+    rationale: Block known insufficient RAM/VRAM without a release-1 override; permit an actual attempt with an explicit warning only when the metric is unavailable.
+    supersedes_revision: null
+    requirement_ids: [CAP-012, FAIL-006]
+
+  - id: security.application-trust-boundary
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - Current Windows packaging disables certificate auto-discovery and Linux packaging has no universal application code-signing verification gate.
+      - Signed runtime packs can authenticate downloads only under the assumption that the installed application and embedded verifier key are trusted.
+    answer:
+      selected_ids: [trusted-installed-app-no-base-signing-claim]
+      text: ''
+    rationale: Do not claim application-distribution authenticity in this feature; app code signing remains a separate packaging/release decision.
+    supersedes_revision: null
+    requirement_ids: [SEC-008, PKG-005]
+
+  - id: operations.transcription-deadline
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The current shared batch transcription service has no global provider inference deadline.
+      - Native inference and cleanup must remain bounded for hangs on CPU and GPU.
+    answer:
+      selected_ids: [local-stage-and-duration-derived-deadlines]
+      text: ''
+    rationale: Add Local Whisper stage bounds plus a duration-derived, capped inference deadline and bounded cancellation/cleanup.
+    supersedes_revision: null
+    requirement_ids: [RUN-005, FAIL-007]
+
+  - id: compatibility.common-language-catalog
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The two engines may use different language aliases, while one provider setting needs stable cross-engine semantics.
+    answer:
+      selected_ids: [versioned-mapped-engine-intersection]
+      text: ''
+    rationale: Persist only stable IDs from an app-versioned common language catalog with tested mappings for both workers.
+    supersedes_revision: null
+    requirement_ids: [SET-008, COMP-011]
+
+  - id: operations.cancel-switch-exit
+    revision: 1
+    category: failure
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The committed concurrency decision rejects conflicts and requires explicit retry.
+      - Application exit still requires authoritative bounded resource cleanup.
+    answer:
+      selected_ids: [cancel-keeps-healthy-worker-switch-rejects-exit-forces]
+      text: ''
+    rationale: Cancellation may retain a confirmed healthy loaded worker, provider switch rejects active work, and app exit cancels then forcibly cleans up within bounds.
+    supersedes_revision: null
+    requirement_ids: [LIFE-006]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - The Draft specification incorporates every committed interview answer and maps every active ledger decision to normative requirements.
+      - YAML parsing, requirement-ID coverage, Markdown formatting, whitespace checks, and local-link checks passed.
+      - Independent architecture, user/tester, and security/operator reviews found no remaining material blocker after revision.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the Local Whisper Draft specification proceed?
+      kind: single
+      options:
+        - id: approve
+          label: Approve Draft (Recommended)
+          description: Approve docs/specs/local-whisper/spec.md as the authoritative implementation contract; planning still requires a separate invocation.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status, reopen the affected decisions, and revise the specification from your requested changes.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop with the current inspectable Draft and do not approve it as the implementation contract.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.artifact-publishing-target
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The approved contract requires project-controlled HTTPS origins, signed runtime packs, an immutable app-shipped catalog, and explicit release automation, but it does not select the concrete hosting service.
+      - The initial catalog includes model artifacts that may exceed ordinary single-asset limits of the existing GitHub Release path, while no project-controlled object-storage target is established in the repository.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: implementation-local-round-01
+      question_id: planning.artifact-publishing-target
+      idempotency_key: planning.artifact-publishing-target:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which publication target should the Local Whisper implementation plan use for signed runtime packs, model artifacts, and immutable catalogs?
+      kind: single
+      options:
+        - id: project-object-storage
+          label: Project object storage (Recommended)
+          description: Use a project-controlled HTTPS bucket/CDN for every artifact size, adding protected publishing credentials, retention, and origin operations as manual gates.
+        - id: github-releases
+          label: GitHub Releases
+          description: Reuse current release automation where possible, but require a validated strategy for model artifacts that exceed the service's per-asset limits.
+        - id: fixture-only-deferred-publication
+          label: Defer publication
+          description: Build and test against signed local fixtures while leaving production hosting and release qualification behind an explicit manual gate.
+    answer:
+      selected_ids: [fixture-only-deferred-publication]
+      text: ''
+    rationale: Implement deterministic signed local fixtures and the complete protected publishing contract, but keep real hosting, credentials, immutable-origin validation, and publication outside implementation until a separately authorized manual gate selects and provisions the production origin.
+    supersedes_revision: null
+    requirement_ids: [PKG-002, PKG-005, SEC-008]
+
+  - id: planning.runtime-source-toolchain
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The approved contract fixes supervised sidecars, framed stdio, an app-owned Linux launcher, and an isolated Faster-Whisper Python environment, but it does not select where their source and build definitions live.
+      - Keeping protocol peers and launcher code with the Electron contracts provides one review and compatibility boundary; a separate repository adds cross-repository release coordination.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: implementation-local-round-01
+      question_id: planning.runtime-source-toolchain
+      idempotency_key: planning.runtime-source-toolchain:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Where should the Local Whisper workers, supervisor launcher, and deterministic runtime build definitions live?
+      kind: single
+      options:
+        - id: in-repo-owned-workers
+          label: In-repo workers (Recommended)
+          description: Own CMake/C++ native worker and launcher sources plus the Faster-Whisper worker and isolated Python build definitions in this repository.
+        - id: separate-runtime-repository
+          label: Separate runtime repository
+          description: Build signed packs in a dedicated repository with a pinned protocol contract, adding coordinated releases and cross-repository compatibility gates.
+        - id: wrap-upstream-clis
+          label: Wrap upstream CLIs
+          description: Minimize owned native code by adapting pinned upstream executables, accepting substantial protocol, lifecycle, and load/unload contract gaps to close.
+    answer:
+      selected_ids: [wrap-upstream-clis]
+      text: ''
+    rationale: >-
+      The later OpenWhispr feasibility audit refines this answer: reuse pinned
+      upstream/forked server build inputs and minimize owned inference code,
+      but add the compliant framed-stdio adapter and controls required by
+      `planning.openwhispr-adaptation-boundary`; an unmodified CLI is not
+      treated as sufficient.
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, RUN-002, PKG-004]
+
+  - id: planning.runtime-cli-feasibility-resolution
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The selected pinned whisper.cpp v1.9.1 whisper-cli creates one model context, processes its invocation, frees the context, and exits; it has no persistent framed-stdio request loop.
+      - The pinned whisper.cpp server keeps a model context resident but exposes an HTTP listener, which the approved no-listening-service worker boundary forbids.
+      - Faster-Whisper v1.2.1 is a Python library and declares no official console-script entry point to wrap.
+      - A thin project-owned adapter can use the pinned whisper.cpp C API and Faster-Whisper Python API without owning either inference engine, while satisfying explicit context load/free and the common framed protocol.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: runtime-feasibility-round-02
+      question_id: planning.runtime-cli-feasibility-resolution
+      idempotency_key: planning.runtime-cli-feasibility-resolution:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should planning resolve the incompatibility between unmodified upstream CLIs and the approved persistent-worker contract?
+      kind: single
+      options:
+        - id: thin-in-repo-api-adapters
+          label: Thin API adapters (Recommended)
+          description: Keep inference upstream but own minimal in-repo C++ and Python protocol adapters over pinned public APIs so load, unload, framed stdio, and cleanup remain compliant.
+        - id: feasibility-gate-then-stop
+          label: CLI feasibility gate
+          description: Start with a bounded CLI-only proof packet and stop the workstream for replanning if it cannot meet every existing contract without a listener or semantic downgrade.
+        - id: reopen-spec-for-cli-semantics
+          label: Reopen specification
+          description: Return to /spec to relax persistent VRAM residency or the no-listener boundary before producing this implementation plan.
+    answer:
+      selected_ids: []
+      text: |-
+        https://github.com/OpenWhispr/openwhispr
+
+        Посмотри, как здесь реализовано, и давай сделаем так же. Здесь тоже можно запускать локально GPU.
+    rationale: The requested OpenWhispr reference needs a separate normalization decision because its literal process and fallback behavior conflicts with the approved Local Whisper contract.
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, RUN-001, RUN-002, VRAM-001]
+
+  - id: planning.openwhispr-adaptation-boundary
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - OpenWhispr commit bf8b7e0 uses a pinned OpenWhispr/whisper.cpp fork and prebuilt whisper-server binaries, bundles CPU binaries, downloads separate CUDA and Vulkan binaries from GitHub Releases, and keeps the selected model resident in a child server process.
+      - Its Electron manager passes the model path in argv, listens on 127.0.0.1 HTTP ports 8178-8199, sends private audio and prompts through multipart HTTP, and automatically falls back from GPU to CPU after startup or inference failure.
+      - Its downloader notes that binaries are unsigned and release assets mutable, accepts a GitHub API digest fallback, and copies extracted files into a shared userData/bin directory; these choices are intentionally weaker than the approved signed-catalog, framed-stdio, no-fallback, and anchored-artifact contracts.
+      - OpenWhispr implements whisper.cpp only; the approved GPT-Voice contract still requires a separate Faster-Whisper runtime and worker.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: openwhispr-boundary-round-03
+      question_id: planning.openwhispr-adaptation-boundary
+      idempotency_key: planning.openwhispr-adaptation-boundary:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which parts of the OpenWhispr design should this plan adopt?
+      kind: single
+      options:
+        - id: hardened-openwhispr-pattern
+          label: Hardened pattern (Recommended)
+          description: Reuse pinned backend-specific runtime packs and a persistent process manager, but replace HTTP/fallback/shared-bin behavior with the approved framed stdio, explicit backend, signed manifests, and isolated revisions; keep Faster-Whisper separate.
+        - id: thin-upstream-api-adapters
+          label: Thin API adapters
+          description: Use OpenWhispr only as UX and lifecycle reference while building minimal compliant workers directly over pinned whisper.cpp and Faster-Whisper APIs.
+        - id: literal-openwhispr-parity
+          label: Literal parity
+          description: Adopt loopback HTTP, bundled CPU runtime, and automatic GPU-to-CPU fallback, which requires returning to /spec before planning can continue.
+    answer:
+      selected_ids: [hardened-openwhispr-pattern]
+      text: ''
+    rationale: Preserve the proven high-level OpenWhispr pattern of pinned backend-specific packs and a persistent main-owned process while retaining every approved GPT-Voice security, lifecycle, no-fallback, and dual-engine contract.
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, RUN-002, PKG-002, SEC-003, SEC-005, VRAM-001]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - The approved specification is decomposed into 16 independently executable packets with explicit dependencies, ownership, verification, rollback, platform coverage, and Manual Gates.
+      - Automated audits confirm all 187 active specification IDs, AC-AUTO-001 through AC-AUTO-048, and AC-MAN-001 through AC-MAN-012 have packet coverage; packet headings, links, decision references, YAML, Markdown formatting, whitespace, and the dependency DAG pass.
+      - Independent review findings on coordinator/IPC ownership, runtime-fixture sequencing, canonical WAV validation, complete settings-screen ownership, authorization gates, and reference paths have been incorporated.
+      - Plan approval is intentionally separate from authorization to execute Task 01.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-04
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should the Local Whisper implementation plan proceed?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan (Recommended)
+          description: Approve the 16-packet plan as the implementation contract; this does not authorize Task 01 execution.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep the plan in Draft and revise the identified decomposition, ownership, sequencing, or verification details.
+        - id: leave-plan-draft
+          label: Leave plan unapproved
+          description: Stop with the current inspectable Draft and do not authorize implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved the 16-packet Local Whisper implementation plan; Task 01 execution remains a separate authorization decision.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-01
+    revision: 1
+    category: execution
+    state: superseded
+    provenance: null
+    evidence:
+      - The Local Whisper plan is approved through approval.plan revision 1.
+      - Task 01 is the first unchecked packet and owns shared domain contracts, pure validation, canonical identities, worker message types, deterministic defaults, and focused tests only.
+      - Authorization applies to exactly one future incremental-implementation invocation for Task 01; it does not authorize Task 02, commits, pushes, pull requests, publication, or release actions.
+      - This planning turn will stop before implementation regardless of the selected option.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-01-authorization-round-05
+      question_id: execution.task-01
+      idempotency_key: execution.task-01:v1
+      last_status: cancelled
+      revision: 1
+    question:
+      text: Should Task 01 Shared domain contracts be authorized for a later incremental-implementation invocation?
+      kind: single
+      options:
+        - id: authorize-task-01
+          label: Authorize Task 01 (Recommended)
+          description: Authorize exactly Task 01 for the next explicit incremental-implementation invocation; do not commit or begin Task 02.
+        - id: do-not-authorize-task-01
+          label: Do not authorize
+          description: Stop with the approved plan and make no production-code changes.
+        - id: revise-task-01
+          label: Revise Task 01
+          description: Keep execution blocked and return to planning to change Task 01's scope, ownership, or verification contract.
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The Prompt MCP execution-authorization attempt was cancelled, which is not an answer and grants no implementation authority; specification and plan revision 2 also supersede this baseline-specific request.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: resources.model-estimate-presentation
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - The user requires approximate VRAM and RAM requirements for every curated Whisper model before selection or execution.
+      - The pinned whisper.cpp documentation publishes approximate model memory, while Faster-Whisper publishes representative configuration-specific RAM/VRAM measurements rather than one complete six-model table.
+      - Engine, target, backend, model variant, and Faster-Whisper compute precision can materially change peak memory, so an unexplained universal exact value would be misleading.
+      - Current-device validation already treats measured or catalog peak memory plus explicit headroom as advisory and makes a real allocation/load result authoritative.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: resource-estimates-round-02
+      question_id: resources.model-estimate-presentation
+      idempotency_key: resources.model-estimate-presentation:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should approximate RAM and VRAM requirements be presented for the six Local Whisper model families?
+      kind: single
+      options:
+        - id: layered-family-and-configuration
+          label: Layered estimates
+          description: Show one conservative six-model capacity table for advance guidance, then refine it for the selected engine, artifact variant, precision, and qualified peak; runtime validation remains authoritative.
+        - id: engine-specific-defaults
+          label: Engine-specific defaults
+          description: Show separate six-model estimates for whisper.cpp and Faster-Whisper defaults, with variant and precision refinements only after selection.
+        - id: single-family-estimate
+          label: One estimate per family
+          description: Show only one conservative RAM/VRAM estimate for each logical family across every engine and variant, accepting that some configurations will be overstated.
+    answer:
+      selected_ids: [layered-family-and-configuration]
+      text: ''
+    rationale: Preserve an immediately understandable model-family comparison without treating it as an allocation guarantee; the selected immutable configuration supplies the narrower catalog or qualified peak used by current-device validation.
+    supersedes_revision: null
+    requirement_ids: [MODEL-010, CAP-013, UI-007]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The revised Draft adds approximate RAM and VRAM capacity guidance for all six curated Whisper model families before selection.
+      - The Draft distinguishes family guidance, exact selected-configuration catalog estimates, qualified peaks, current free-memory blocking, and authoritative real allocation/load results.
+      - YAML parsing, decision-to-requirement coverage, acceptance-ID continuity, local links, six-model coverage, and Markdown formatting pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+      revision: 2
+    question:
+      text: How should the revised Local Whisper Draft specification proceed?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Draft
+          description: Approve docs/specs/local-whisper/spec.md as the authoritative contract, permitting a separate planning revision next.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status, reopen the affected decision, and revise the model-memory requirements.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approving this revision or changing the implementation plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the revised model-memory estimate contract through the persistent specification interview.
+    supersedes_revision: 1
+    requirement_ids: [APPROVAL-001]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 2 is approved with six-family approximate RAM/VRAM guidance, exact selected-configuration estimate rules, and AC-AUTO-049.
+      - The existing 16-packet plan is revised in place: Tasks 01, 03, 09, and 11 through 16 own the new domain, catalog, resource-gate, IPC, UI, fixture, documentation, and qualification work.
+      - Automated audits cover all 191 active specification IDs, AC-AUTO-001 through AC-AUTO-049, and AC-MAN-001 through AC-MAN-012; packet headings, task links, decision mappings, YAML, and Prettier pass.
+      - Plan approval remains separate from Task 01 execution authorization and from any commit, push, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-06
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+      revision: 2
+    question:
+      text: How should Local Whisper implementation plan revision 2 proceed?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan
+          description: Approve the updated 16-packet implementation contract; this does not authorize Task 01 execution.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep the plan Draft and revise ownership, sequencing, packet scope, or verification.
+        - id: leave-plan-draft
+          label: Leave plan as Draft
+          description: Stop without approving revision 2 or authorizing implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved the revised 16-packet implementation contract; approval does not authorize Task 01 or any implementation action.
+    supersedes_revision: 1
+    requirement_ids: []
