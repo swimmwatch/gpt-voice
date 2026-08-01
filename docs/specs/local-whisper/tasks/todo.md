@@ -1,22 +1,19 @@
 # Todo: Local Whisper
 
-Plan gate: revision 4 is approved and committed as `9e65fea`. It retains native C++
-modularization as Task 06, defers unavailable representative Windows native
-evidence to mandatory Task 17 qualification, and keeps future
-non-release-blocking hardening as Task 18. Tasks 01, 02, and 03 are
-committed as `d008325`, `d516d03`, and `14749e8`; Task 04 is committed as
-`649ec3b9`. Task 05 was authorized through `execution.task-05` revision 1 and is
-complete, verified, and included in its authorized isolated implementation
-commit `32440674` after plan revision commit `a2392742`. Task 06 was authorized
-through `execution.task-06` revision 1, completed and verified on Linux, and is
-included in its authorized isolated implementation commit from this transition.
-An isolated Ubuntu 24.04 Clang 18 run passed the sanitized native build,
-unit/integration tests, clang-format, and clang-tidy. Required
-Windows/MSVC native, reparse, file-ID, volume, lock, promotion, and deletion
-evidence remains outstanding and is assigned to mandatory Task 17 qualification
-by `planning.native-cpp-windows-gate` revision 1. Task 06 commit authority is
-recorded by `commit.task-06` revision 1. Do not start Task 07 without separate
-authorization.
+Plan revision 6 is approved through `approval.plan` revision 6. It records the
+requested pinned OpenWhispr commits `bf8b7e0` and `dd18d11` in the specification
+and Tasks 07/08, adopts only persistent state ownership, serialized native
+context lifecycle, and separate backend-pack build evidence, and explicitly
+rejects their HTTP, private argv/environment/temp/logging, fallback,
+PID/`taskkill`, mutable download, and published-binary choices. Task 07 owns
+canonical protocol completion before supervisor implementation under
+`planning.worker-protocol-repair-ownership` revision 1; numbering is unchanged.
+Plan revision 4 and Task 06 remain committed as `9e65fea` and `e294e8a`;
+representative Windows evidence remains mandatory in Task 17. Revision 6 plan
+and reference files are approved but uncommitted.
+`execution.task-07` revision 1 was consumed by the feasibility checkpoint and
+does not authorize expanded Task 07. Keep Task 07 unchecked and do not start
+Task 08.
 
 - [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [x] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)

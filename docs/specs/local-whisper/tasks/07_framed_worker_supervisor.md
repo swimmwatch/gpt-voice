@@ -2,20 +2,26 @@
 
 ## Outcome
 
-Electron main owns one engine-neutral Local Whisper worker supervisor that
-starts only an authenticated immutable runtime executable, communicates over a
-strict bounded framed-stdio protocol, enforces every stage deadline, and proves
-complete Windows/Linux child-tree termination before releasing uncertain
-resources. The supervisor has no listening service, private argv values,
-automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
+Task 07 first completes the one canonical engine-neutral Local Whisper worker
+protocol shared by Electron main and both future engine peers. Electron main
+then owns one supervisor that starts only an authenticated immutable runtime
+executable, communicates over that strict bounded framed-stdio contract,
+enforces every stage deadline, and proves complete Windows/Linux child-tree
+termination before releasing uncertain resources. The protocol and supervisor
+have no listening service, private argv values, divergent engine-private
+messages, automatic restart/replay, PID-only cleanup, or
+backend/engine/model fallback.
 
 ## Prerequisites
 
-- The Local Whisper plan is approved and Task 07 has separate execution
-  authorization.
+- Local Whisper plan revision 5 is approved and Task 07 has new separate
+  execution authorization. `execution.task-07` revision 1 was consumed by the
+  feasibility checkpoint and does not authorize this expanded packet.
 - Tasks 01, 03, 04, and 06 are complete:
-  - Task 01 supplies versioned protocol messages, canonical states/failures,
-    frame limits, and settings identities;
+  - Task 01 supplies the initial versioned protocol types, canonical
+    states/failures, frame limits, and settings identities. Its incomplete
+    handshake and lifecycle schemas are inputs to the Task 07 completion gate,
+    not a frozen contract;
   - Task 03 supplies authenticated runtime/expected-file/build/protocol
     manifests;
   - Task 04 supplies stable executable/library/model leases, per-artifact
@@ -35,6 +41,8 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 - Supervisor portions of `ARCH-005`, `RUN-001`, `RUN-002`, `RUN-003`,
   `RUN-004`, `RUN-005`, `SEC-005`, `SEC-007`, `PRIV-001`, `FAIL-005`, and
   `FAIL-007`
+- Shared worker-protocol portions of `RUN-002`, `RUN-003`, `RUN-005`, and
+  `AC-AUTO-024`
 - Process-owned lifecycle portions of `ARCH-003`, `ARCH-006`, and `LIFE-001`;
   Task 11 owns coordinator state and orchestration
 - `AC-AUTO-024`
@@ -44,8 +52,11 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 ## In Scope
 
-- A strict incremental length-framed stdin/stdout transport over Task 01
-  messages, with golden conformance vectors for Tasks 08/09.
+- Completion of Task 01's shared worker protocol types, strict validators,
+  encoders/decoders, lifecycle sequencing, and checked-in version-1 golden
+  vectors before supervisor implementation begins.
+- A strict incremental length-framed stdin/stdout transport over the completed
+  shared messages, with the same golden conformance vectors for Tasks 08/09.
 - Authenticated runtime spawn, sanitized environment/argv/cwd, handshake, and
   exact engine/runtime/backend/protocol confirmation.
 - Bounded probe/load/warm-up/transcription/cancel/unload/shutdown requests with
@@ -75,13 +86,98 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 ## Task Contract
 
+### Canonical shared-protocol completion gate
+
+1. Before writing supervisor, launcher, or conformance-worker production code,
+   update `src/shared/localWhisper/protocol.ts` and its direct exports/tests so
+   one public contract expresses every approved handshake and stage. Task 07
+   owns this atomic repair under answered decision
+   `planning.worker-protocol-repair-ownership` revision 1. No supervisor,
+   whisper.cpp, or Faster-Whisper private message union or frame codec may
+   coexist with it.
+2. Retain protocol version `1`: no production worker peer or runtime pack has
+   shipped. Change the shared schemas, validators, codecs, tests, and all
+   canonical version-1 vectors atomically; do not retain compatibility with
+   the incomplete unshipped Task 01 byte layout.
+3. The exact outer frame is
+   `[uint32-be bodyLength][uint8 frameKind][body]`. `bodyLength` counts only
+   `body`, so total frame bytes are `5 + bodyLength`. Frame kind `0x01` is a
+   control body and `0x02` is an audio body; every other kind is mandatory
+   unknown input and a protocol violation. A parser reads and validates the
+   five-byte prefix and rejects a body length above the kind-specific maximum
+   before allocating the body.
+4. A control body is strict fatal UTF-8 JSON for exactly one canonical control
+   message. The JSON body remains at most 1 MiB, includes
+   `protocolVersion: 1`, rejects duplicate/unknown keys and invalid scalar
+   bounds, and never accepts trailing bytes. Length-prefix and kind bytes do
+   not count toward the 1 MiB control-body limit.
+5. The exact audio body is
+   `[uint8 protocolVersion][uint8 finalFlag][uint32-be sequence]`
+   `[uint16-be requestIdLength][requestId UTF-8][audioBytes]`. Version is `1`,
+   final flag is exactly `0` or `1`, sequence is an unsigned 32-bit integer,
+   request ID is 1–128 UTF-8 bytes with no control characters, and audio bytes
+   are at most 1 MiB. Empty audio is legal only for the terminal chunk when it
+   is needed to finish an exact declared length. The decoder rejects version,
+   length, encoding, sequence, terminal, and trailing-data violations before
+   exposing bytes to a request.
+6. `hello` carries only protocol version. `helloAck` carries exactly protocol
+   version, `engine`, immutable `runtimeRevision`, lowercase 64-hex
+   `runtimeBuildDigest`, `backend`, ordered unique `capabilities`,
+   `maxControlFrameBytes`, and `maxAudioChunkBytes`. Engine/backend reuse the
+   canonical shared closed enums. `runtimeRevision` is the manifest
+   `packRevision`, `runtimeBuildDigest` is the verified worker executable's
+   manifest SHA-256, and capabilities are the manifest's ordered
+   `computeTargets` (at most 32 unique 1–64-byte safe identifiers). The
+   supervisor compares every value and array order with the authenticated
+   runtime manifest and requires both maxima to equal the canonical 1 MiB
+   constants before any model path, prompt, or audio is sent.
+7. Add strict request/result pairs `probe`/`probed`, `load`/`loaded`,
+   `warmup`/`warmed`, and `shutdown`/`shutdownAck`; retain
+   `unload`/`unloaded`, `transcribe`/`transcript`, and
+   `cancel`/`cancelled`. Every non-handshake message carries protocol version
+   and a bounded request ID. `load` additionally carries the private managed
+   `modelPath` and the complete structured shared
+   `LocalWhisperResidencyKey` (engine, runtime pack revision, target, backend,
+   opaque device ID, immutable model identity/variant, precision, and resolved
+   CPU threads); `loaded` echoes that exact structure for identity comparison.
+   `transcribe` retains settings epoch, exact audio byte length, and validated
+   options; its binary chunks carry the same request ID, start at sequence
+   zero, increase by one, declare terminal exactly once, and sum exactly to the
+   declared audio length. `cancel` has its own unique request ID plus
+   `targetRequestId`, and `cancelled` echoes both; only the current in-flight
+   operation may be the target.
+8. Retain one typed `failure` result with protocol version, request ID, and
+   safe `LocalWhisperFailureCode`; request ID may be `null` only for a
+   pre-request handshake/fatal peer failure. The wire result never carries a
+   stage, raw backend error, path, audio, prompt, transcript, or native detail.
+   The supervisor's request registry derives the exact public failure stage
+   from the matching request type and current deadline.
+9. Freeze the `spawned`, `handshaken`, `probed`, `loaded`, and `warmed` states
+   in shared protocol tests. The only forward setup transitions are
+   `hello/helloAck`, `probe/probed`, `load/loaded`, and `warmup/warmed` in that
+   order. Transcribe is allowed only after `warmed`, and a successful transcript
+   returns to `warmed` for a later request. `unload` is allowed from `loaded` or
+   `warmed` and returns to `probed`; a later load/warm-up is explicit. `cancel`
+   targets only one currently in-flight request. `shutdown` is allowed only
+   after a valid handshake when the transport is healthy; `shutdownAck` is
+   terminal and no later frame is legal. Duplicate, unknown, stale,
+   cross-stage, and out-of-order requests/results are violations, not implicit
+   transitions.
+10. Commit language-neutral golden fixtures for every control message and
+    representative first/middle/final audio frames, plus malformed length,
+    kind, version, UTF-8, request-ID, sequence, terminal, oversize, unknown-key,
+    and trailing-data cases. Vectors contain only synthetic public fixture
+    values and are consumed unchanged by the TypeScript codec/conformance
+    worker in this task and by the C++ and Python peers in Tasks 08/09.
+
 ### Mandatory process-ownership feasibility checkpoint
 
-1. Begin by proving race-free process-tree ownership on supported Windows x64
-   and Linux x64. Node's ordinary `spawn` plus later PID cleanup is not
-   presumed sufficient. The proof must cover a worker that immediately creates
-   descendants, parent crash/stream closure, PID reuse, hung graceful exit,
-   and confirmation that no unrelated process can be killed.
+1. After the shared-protocol completion gate passes, prove race-free
+   process-tree ownership on supported Windows x64 and Linux x64. Node's
+   ordinary `spawn` plus later PID cleanup is not presumed sufficient. The
+   proof must cover a worker that immediately creates descendants, parent
+   crash/stream closure, PID reuse, hung graceful exit, and confirmation that
+   no unrelated process can be killed.
 2. Windows must place the complete tree in a Job Object with
    kill-on-job-close before untrusted worker code can escape ownership. Use a
    race-free create-suspended/assign/resume or equivalent reviewed mechanism;
@@ -132,11 +228,10 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 ### Framed stdio and handshake
 
-1. Consume the canonical versioned control/message schemas from Task 01 and
-   implement one incremental binary framing codec. Freeze the exact byte layout
-   with checked-in golden vectors before Tasks 08/09 implement peers. The codec
-   must support strict control frames and bounded binary audio chunks without
-   base64/full-audio buffering.
+1. Consume only the canonical versioned schemas and exact byte layout completed
+   by this packet and implement one incremental transport parser around them.
+   The codec supports strict control frames and bounded binary audio chunks
+   without base64/full-audio buffering.
 2. Every frame has an unambiguous length, kind, protocol version, request ID,
    and sequence/terminal semantics as applicable. JSON/control payloads are at
    most 1 MiB. Audio chunks obey Task 01's fixed binary chunk bound. Reject
@@ -149,8 +244,8 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
    frame invalid for the current state is `WORKER_PROTOCOL_VIOLATION` and
    makes the child uncertain until cleanup confirms exit.
 4. Before probe/load, require a handshake that matches the expected protocol
-   version, engine ID, immutable runtime revision/build digest, backend
-   capabilities, and maximum frame sizes. Mismatch is
+   version, engine ID, immutable runtime revision/build digest, backend,
+   ordered capabilities, and maximum frame sizes. Mismatch is
    `WORKER_PROTOCOL_MISMATCH`; terminate before model data or private payloads
    are accepted.
 5. Keep the transport engine-neutral. Tasks 08/09 implement the same
@@ -225,12 +320,17 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 ### Hardened OpenWhispr boundary
 
-1. Reuse only the architectural ideas of immutable pinned backend-specific
-   runtime packs and a persistent main-owned worker that can retain one loaded
-   model.
+1. Use only the reviewed architectural ideas from OpenWhispr application
+   commit `bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c` and OpenWhispr whisper.cpp
+   fork commit `dd18d1107cf20feb58f11b2719d66a5bfeaff0dc`: immutable
+   backend-specific runtime packs, a persistent state-owning manager that
+   retains one loaded model, serialized native context ownership, explicit
+   abort, and deterministic context free.
 2. Do not import or emulate OpenWhispr's `whisper-server`, loopback HTTP ports
    8178–8199, multipart private payloads, shared mutable `bin`, GitHub API
-   mutable asset lookup, model path in argv, or GPU-to-CPU fallback.
+   mutable asset lookup, model path in argv, inherited environment, temporary
+   audio conversion files, raw/private diagnostic logging, PID-file adoption,
+   `taskkill` cleanup, published binaries, or GPU-to-CPU fallback.
 3. A failure never changes target, backend, device, engine, runtime, model,
    variant, precision, or CPU threads. It returns the exact typed failure and
    leaves the selection for an explicit user decision.
@@ -239,8 +339,10 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
 
 - Task 04's still-held/revalidated lease is required for spawn and model-path
   handoff. A string path alone is not authority.
-- Task 07 owns process/framing/deadline/cleanup mechanics. Tasks 08/09 own
-  engine peers; Task 11 owns readiness/residency/activity and operation policy.
+- Task 07 owns the canonical shared protocol plus
+  process/framing/deadline/cleanup mechanics. Tasks 08/09 consume that contract
+  and own engine peers; Task 11 owns readiness/residency/activity and operation
+  policy.
 - `src/main/services/prettifyCliRunner.ts` may inform abort and first-terminal
   patterns only. It must not be reused directly: it accepts user/PATH
   executables, buffers whole output, uses PID-based `taskkill`, and has no
@@ -253,6 +355,13 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
   disposed on application shutdown; no constructed mutable module singleton.
 
 ## Expected Files Or Components
+
+- Shared protocol completion:
+  - `src/shared/localWhisper/protocol.ts` and direct barrel exports when needed;
+  - `tests/shared/localWhisper/protocol.test.ts`;
+  - language-neutral vectors under
+    `tests/fixtures/local-whisper/protocol/v1/`, including a manifest and exact
+    binary/hex fixtures consumable without TypeScript execution.
 
 - Main modules under `src/main/localWhisper/supervisor/`, expected to include:
   - `LocalWhisperWorkerSupervisor.ts`;
@@ -306,13 +415,17 @@ automatic restart/replay, PID-only cleanup, or backend/engine/model fallback.
   or native exception; fixture inference opens no network endpoint
   (`AC-AUTO-026` supervisor portion).
 - Golden protocol vectors pass both the main codec and conformance peer and are
-  ready for Tasks 08/09; no production runtime pack/publication claim is made.
+  ready for Tasks 08/09. Exact assertions cover the frame-kind byte, audio
+  protocol-version byte, complete handshake identity, every stage request and
+  result, shutdown acknowledgement, and legal state transitions; no production
+  runtime pack/publication claim is made.
 
 ## Verification
 
 Run deterministic fixture workers and fake-clock tests first:
 
 ```text
+rtk node --import tsx --test tests/shared/localWhisper/protocol.test.ts
 rtk npm run test:local-whisper:supervisor
 rtk node --import tsx --test tests/main/localWhisper/supervisor/*.test.ts
 rtk npm run verify:local-whisper:launcher -- --fixture
@@ -335,12 +448,14 @@ short fixture-specific injected bounds without changing production constants.
   exit cannot be proven, block the packet and return to `/plan`. Do not use
   `taskkill`, PID-only signals, shell wrappers, or optimistic release.
 - If Task 01 framing schemas cannot express strict sequencing/binary chunks,
-  repair Task 01 through planning before implementing a divergent private
+  stop before supervisor code. Any further behavior or compatibility change
+  returns to planning/specification; never implement a divergent private
   protocol.
 - A cleanup failure keeps the child/artifact state unusable and blocks retry;
   never force tests green by reporting `Unloaded` without confirmed exit.
 - Rollback disables supervisor composition and removes only Task 07 source,
-  tests, and generated local launcher fixtures. Do not kill an unproven PID or
+  tests, shared protocol/vector changes, and generated local launcher fixtures
+  as one atomic unshipped compatibility unit. Do not kill an unproven PID or
   delete installed artifacts/settings.
 
 ## Manual Gates
@@ -370,7 +485,8 @@ short fixture-specific injected bounds without changing production constants.
     `security.path-and-worker-ownership`, `failure.worker-retry-policy`,
     `operations.transcription-deadline`,
     `planning.openwhispr-adaptation-boundary`, and
-    `planning.runtime-source-toolchain`.
+    `planning.runtime-source-toolchain`, plus
+    `planning.worker-protocol-repair-ownership`.
 - Dependency contracts:
   - `01_shared_domain_contracts.md`;
   - `03_trusted_catalog_settings_and_inventory.md`;
@@ -381,14 +497,26 @@ short fixture-specific injected bounds without changing production constants.
     not as a compliant process runner;
   - `src/main/di/mainProcessCompositionRoot.ts` and
     `src/main/mainProcessApplication.ts` for process ownership and shutdown.
+- User-supplied external pattern references, pinned and non-authoritative:
+  - OpenWhispr application commit
+    [`bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c`](https://github.com/OpenWhispr/openwhispr/tree/bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c),
+    specifically `src/helpers/whisperServer.js` and `src/utils/process.js`;
+  - OpenWhispr whisper.cpp fork commit
+    [`dd18d1107cf20feb58f11b2719d66a5bfeaff0dc`](https://github.com/OpenWhispr/whisper.cpp/tree/dd18d1107cf20feb58f11b2719d66a5bfeaff0dc),
+    specifically `examples/server/server.cpp` and
+    `.github/workflows/build-binaries.yml`.
+  - These references provide implementation evidence only. Their listener,
+    HTTP/upload, argv/environment, download, fallback, logging, process-kill,
+    artifact, and support claims remain rejected by this packet.
 - Downstream consumers: `08_hardened_whisper_cpp_runtime.md`, Task 09, Task 10,
   and Task 11.
 
 ## Completion And Handoff
 
-- Mark Task 07 complete in `todo.md` only when protocol, cleanup, privacy, and
-  all available real platform evidence are recorded; otherwise leave the exact
-  platform feasibility blocker.
+- Mark Task 07 complete in `todo.md` only when the canonical shared protocol,
+  vectors, supervisor, cleanup, privacy, and all available real platform
+  evidence are recorded; otherwise leave the exact protocol or platform
+  feasibility blocker.
 - Update `handoff.md` with framing byte layout/golden vectors, public
   supervisor interfaces, production bounds, platform ownership mechanism,
   final files, generated fixture outputs, exact commands, and open gates.

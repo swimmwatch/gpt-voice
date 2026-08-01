@@ -2453,3 +2453,244 @@ decisions:
     rationale: 'The user authorized two isolated commits: approved plan revision 4 artifacts first, followed by completed Task 06 implementation and completion-state artifacts, with unrelated user changes excluded.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-07
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved Local Whisper plan revision 4 is committed as 9e65fea and completed Task 06 is committed in isolation as e294e8a.
+      - Task 07 is the first unchecked packet and is self-contained framed-worker supervisor, native launcher, deterministic conformance fixture, process-ownership, privacy, deadline, cleanup, and test work.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 07 and does not authorize real inference runtimes/models, external native dependencies, Windows support qualification, Task 08, a Task 07 commit, push, pull request, publication, packaging, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-07-authorization-round-24
+      question_id: execution.task-07
+      idempotency_key: execution.task-07:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 07 Framed Worker Supervisor be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-07
+          label: Authorize Task 07 (Recommended)
+          description: Implement only the approved framed supervisor, deterministic conformance worker, and Linux/Windows ownership launchers; run available Linux and deterministic gates, record unavailable Windows qualification evidence, update todo and handoff, then stop without committing.
+        - id: do-not-authorize-task-07
+          label: Do not authorize
+          description: Stop after the Task 06 commits and make no Task 07 implementation changes.
+        - id: revise-task-07
+          label: Revise Task 07
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-07]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 07 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.worker-protocol-repair-ownership
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The approved specification already requires identity/capability handshake fields, distinct probe/load/warm-up bounds, strict terminal sequencing, and canonical golden vectors.
+      - Completed Task 01 supplied the initial shared frame codecs, but its current `helloAck` and load-only lifecycle cannot express the complete approved contract.
+      - The current Task 07 already owns transport, handshake, stage deadlines, conformance vectors, and Tasks 08/09 peer compatibility, so completing the shared schemas there keeps one atomic compatibility boundary without renumbering downstream packets.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: worker-protocol-repair-round-25
+      question_id: planning.worker-protocol-repair-ownership
+      idempotency_key: planning.worker-protocol-repair-ownership:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Which task should own completion of the missing shared worker protocol contract?
+      kind: single
+      options:
+        - id: extend-task-07
+          label: Extend Task 07 (Recommended)
+          description: Keep numbering stable and make Task 07 first complete the canonical shared handshake/stage schemas and vectors, then implement the supervisor and conformance worker against them.
+        - id: insert-new-protocol-packet
+          label: Insert new packet
+          description: Add a dedicated shared-protocol repair packet before the supervisor and renumber current Tasks 07–18, increasing plan and dependency churn.
+        - id: leave-task-07-blocked
+          label: Leave blocked
+          description: Keep the current plan unchanged and defer Task 07 implementation indefinitely.
+    answer:
+      selected_ids: [extend-task-07]
+      text: ''
+    rationale: Task 07 will atomically complete the canonical shared protocol schemas and golden vectors before implementing the transport, supervisor, and conformance peer, preserving downstream numbering and one compatibility owner.
+    supersedes_revision: null
+    requirement_ids: [RUN-002, RUN-003, RUN-005, AC-AUTO-024]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 5 applies answered `planning.worker-protocol-repair-ownership` revision 1 without changing the approved product specification or downstream task numbering.
+      - Task 07 now first completes the canonical shared protocol, including the exact frame-kind and audio-version byte layout, full runtime handshake identity, separate probe/load/warm-up/shutdown pairs, legal sequencing, failure attribution, and language-neutral version-1 golden vectors.
+      - The same packet then implements the transport, supervisor, Windows/Linux launchers, deterministic conformance fixture, privacy/deadline/cleanup behavior, and tests; Tasks 08/09 must consume that contract without private variants.
+      - Previous `execution.task-07` revision 1 was consumed by the feasibility checkpoint and does not authorize the expanded packet; fresh execution authorization remains separate from plan approval.
+      - Approval does not authorize implementation, commit, push, pull request, packaging, publication, macOS execution, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-26
+      question_id: approval.plan
+      idempotency_key: approval.plan:v5
+      last_status: answered
+      revision: 5
+    question:
+      text: How should Local Whisper implementation plan revision 5 proceed?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan (Recommended)
+          description: Approve Task 07 as the atomic owner of canonical shared-protocol completion followed by supervisor/launcher implementation; this does not authorize execution or commit.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 5 Draft and revise protocol fields, framing, sequencing, Task 07 ownership, verification, or other plan details.
+        - id: leave-plan-draft
+          label: Leave plan as Draft
+          description: Stop with the inspectable revision 5 draft without approving it or authorizing further work.
+    answer:
+      selected_ids: []
+      text: |-
+        [OpenWhispr/whisper.cpp](https://github.com/OpenWhispr/whisper.cpp)
+        [OpenWhispr/openwhispr](https://github.com/OpenWhispr/openwhispr)
+
+        If anything is unclear, use the implementation from these two projects as a reference.If any questions remain, use the implementation from here and document it in your plans and specifications.
+    rationale: The answer selected no approval option, so revision 5 remains unapproved. It directs an immutable-source review of both OpenWhispr repositories and documentation of applicable evidence and rejected boundaries before asking for approval again.
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 5 received no approval selection and instead directed review of `OpenWhispr/openwhispr` and `OpenWhispr/whisper.cpp` as implementation references.
+      - The review pinned application commit `bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c` and whisper.cpp fork commit `dd18d1107cf20feb58f11b2719d66a5bfeaff0dc`; a non-normative source/evidence boundary is recorded in specification Section 7.5 and Tasks 07/08.
+      - Reusable evidence is limited to persistent state ownership, serialized native context initialization/inference/abort/free, and separate CPU/CUDA/Vulkan build and companion-library packaging inputs.
+      - Loopback HTTP/listeners/uploads, private argv/environment/multipart/temp/logs, automatic fallback/retry, mutable GitHub release lookup/shared bin, PID-file/`taskkill` cleanup, published binaries, and support claims are explicitly rejected.
+      - Task 07's canonical load contract carries the structured shared residency identity, audio sequencing is exact, and cancel uses distinct operation/target request IDs so Tasks 08/09 need no private configuration dialect.
+      - Previous `execution.task-07` revision 1 remains consumed by the feasibility checkpoint; approval does not authorize implementation, commit, push, pull request, packaging, publication, macOS execution, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-27
+      question_id: approval.plan
+      idempotency_key: approval.plan:v6
+      last_status: answered
+      revision: 6
+    question:
+      text: How should Local Whisper implementation plan revision 6 proceed after the requested OpenWhispr reference review?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan (Recommended)
+          description: Approve pinned OpenWhispr references and rejected boundaries plus Task 07 canonical-protocol ownership; this does not authorize execution or commit.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 6 Draft and revise reference usage, protocol fields/framing/sequencing, task ownership, verification, or other plan details.
+        - id: leave-plan-draft
+          label: Leave plan as Draft
+          description: Stop with the inspectable revision 6 draft without approving it or authorizing further work.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 6 after the requested immutable OpenWhispr source review, pinned reference documentation, rejected-boundary audit, and canonical Task 07 protocol repair.
+    supersedes_revision: 5
+    requirement_ids: []
+
+  - id: commit.plan-revision-6
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Local Whisper plan revision 6 is approved through `approval.plan` revision 6 after the canonical protocol repair and pinned OpenWhispr reference review.
+      - Scoped Prettier, decision-ledger YAML parsing, the 18-packet/14-heading/191-ID coverage audit, plan/todo link checks, and `git diff --check` passed before authorization.
+      - The isolated commit contains only `docs/specs/local-whisper/decisions.yaml`, `spec.md`, `tasks/plan.md`, `tasks/todo.md`, `tasks/handoff.md`, and Tasks 07/08.
+      - Unrelated user-owned changes in the profile chooser controller and its tests are explicitly excluded; authorization does not cover Task 07 implementation, push, pull request, packaging, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-07-start-round-28
+      question_id: commit.plan-revision-6
+      idempotency_key: commit.plan-revision-6:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: May I commit the approved Local Whisper plan revision 6 before starting Task 07?
+      kind: single
+      options:
+        - id: authorize-plan-commit
+          label: Authorize plan commit (Recommended)
+          description: Commit only the seven approved Local Whisper specification/plan files and exclude all unrelated user-owned changes.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave revision 6 uncommitted; Task 07 cannot start under the incremental workflow.
+    answer:
+      selected_ids: [authorize-plan-commit]
+      text: ''
+    rationale: The user explicitly authorized one isolated revision 6 planning/specification commit with unrelated source and test changes excluded.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-07
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 6 is approved and its isolated commit is separately authorized through `commit.plan-revision-6` revision 1.
+      - Expanded Task 07 first completes the canonical shared worker protocol and language-neutral vectors, then implements the transport, state-owning supervisor, deterministic conformance worker, and Linux/Windows ownership launchers against that same contract.
+      - Authorization covers only Task 07 and available deterministic/Linux verification. Representative Windows qualification remains a manual gate and unavailable Windows evidence must be recorded accurately.
+      - Authorization does not cover Task 08, real inference runtimes/models, external native dependencies, production packaging/signing, commit of Task 07 results, push, pull request, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-07-start-round-28
+      question_id: execution.task-07
+      idempotency_key: execution.task-07:v2
+      last_status: answered
+      revision: 2
+    question:
+      text: Should the expanded Task 07 Framed Worker Supervisor packet be executed now?
+      kind: single
+      options:
+        - id: authorize-task-07
+          label: Authorize Task 07 (Recommended)
+          description: Implement only canonical protocol completion, transport/supervisor, deterministic conformance worker, and Linux/Windows ownership launchers; verify available gates, update todo/handoff, then stop uncommitted.
+        - id: do-not-authorize-task-07
+          label: Do not authorize
+          description: Do not implement Task 07; leave it unchecked and stop after any separately authorized plan commit.
+    answer:
+      selected_ids: [authorize-task-07]
+      text: ''
+    rationale: The user explicitly authorized the expanded Task 07 packet after separately authorizing the prerequisite revision 6 planning commit.
+    supersedes_revision: 1
+    requirement_ids:
+      - ARCH-003
+      - ARCH-005
+      - ARCH-006
+      - RUN-001
+      - RUN-002
+      - RUN-003
+      - RUN-004
+      - RUN-005
+      - SEC-005
+      - SEC-007
+      - PRIV-001
+      - LIFE-001
+      - FAIL-005
+      - FAIL-007
+      - AC-AUTO-024
+      - AC-AUTO-026
+      - AC-AUTO-030
+      - AC-AUTO-032
+      - AC-AUTO-040
+      - AC-AUTO-048

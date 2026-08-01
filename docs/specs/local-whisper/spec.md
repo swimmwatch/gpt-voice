@@ -231,6 +231,22 @@ Protocol JSON/control frames SHALL be at most 1 MiB, audio SHALL be chunked into
 - Vulkan packs SHALL use the installed vendor driver/ICD and SHALL reject software implementations. They SHALL NOT bundle a vendor GPU driver.
 - CPU packs SHALL declare required ISA features and fail validation rather than risk an illegal-instruction crash.
 
+### 7.5 Non-normative implementation references
+
+The following user-supplied references were inspected at immutable commits on
+2026-08-01. They are evidence and implementation examples, not dependencies,
+security proof, qualification evidence, or permission to weaken Sections
+7.1–7.4:
+
+- [OpenWhispr application at `bf8b7e0`](https://github.com/OpenWhispr/openwhispr/tree/bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c): its state-owning persistent manager and backend-specific runtime selection illustrate retaining one loaded model; its loopback HTTP ports, model/private values in argv and multipart requests, temporary audio files, inherited environment, raw diagnostic logging, automatic GPU-to-CPU retry, mutable GitHub release lookup, PID files, and `taskkill` cleanup are explicitly not adopted.
+- [OpenWhispr whisper.cpp fork at `dd18d11`](https://github.com/OpenWhispr/whisper.cpp/tree/dd18d1107cf20feb58f11b2719d66a5bfeaff0dc): `examples/server/server.cpp` illustrates serialized `whisper_context` initialization, inference, abort callback, replacement, and final `whisper_free`; `.github/workflows/build-binaries.yml` illustrates separate CPU/CUDA/Vulkan artifacts and companion-library packaging. The HTTP server, listener, upload surface, and published binaries are not reused as the worker boundary or accepted as release evidence.
+
+For traceability, implementation packets pin the exact reviewed commits and
+paths they use as background. A later reference revision is not treated as the
+same evidence; its ideas or source require a fresh diff, provenance, license,
+build, security, and compatibility review before they can affect a runtime
+pack.
+
 ## 8. Provider Settings Screen
 
 **UI-001, VAL-001** Local Whisper SHALL have a dedicated provider-settings form with the fields, actions, conditional visibility, and renderer/main validation below. A syntactically valid but unsupported or incomplete configuration may be saved and selected; it SHALL remain visibly Not ready and fail safely if load or transcription is invoked.

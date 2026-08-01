@@ -99,11 +99,11 @@ approved framed-stdio, immutable-revision, no-fallback contract.
 
 ### Worker lifecycle and protocol
 
-1. Consume the canonical length-framed protocol and conformance vectors from
-   Tasks 01 and 06. Do not create an engine-specific framing dialect.
+1. Consume the canonical length-framed protocol and conformance vectors
+   completed by Task 07. Do not create an engine-specific framing dialect.
 2. On startup, emit no unsolicited stdout. Complete the canonical handshake
    with protocol version, engine `whisperCpp`, runtime/build digest, compiled
-   backend capabilities, frame limits, and process ownership echo.
+   backend capabilities, and frame limits.
 3. Support the canonical operations:
    - non-resident backend probe;
    - `load` with managed model identity/path, exact target/backend/device,
@@ -318,11 +318,23 @@ than substituting the Linux CPU fixture.
 - Evidence baseline:
   - `../../../researches/local-whisper/main.md` engine, AMD, packaging, and
     test-environment sections;
-  - OpenWhispr commit `bf8b7e0` as a pattern reference only. Its HTTP,
-    fallback, argv, downloader, and shared-bin choices are explicitly rejected.
-- Dependency outputs: canonical protocol/conformance vectors from Tasks 01/07,
-  authenticated runtime/path contracts from Tasks 03/04, and native build/test/
-  lint conventions from Task 06.
+  - OpenWhispr application commit
+    [`bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c`](https://github.com/OpenWhispr/openwhispr/tree/bf8b7e0b4e1de0c9779c63f4752bd80bdd39ee2c),
+    specifically `src/helpers/whisperServer.js`, as a persistent-manager and
+    backend-pack pattern reference only;
+  - OpenWhispr whisper.cpp fork commit
+    [`dd18d1107cf20feb58f11b2719d66a5bfeaff0dc`](https://github.com/OpenWhispr/whisper.cpp/tree/dd18d1107cf20feb58f11b2719d66a5bfeaff0dc),
+    specifically `examples/server/server.cpp` for serialized
+    `whisper_context`/abort/free lifecycle and
+    `.github/workflows/build-binaries.yml` for separate CPU/CUDA/Vulkan build
+    inputs and companion-library packaging.
+  - Their HTTP/listener/upload, fallback, argv/environment, temporary-file,
+    logging, PID/`taskkill`, mutable downloader/shared-bin, published artifact,
+    and support-claim choices are explicitly rejected. Reviewed source is not
+    a trusted binary or qualification result.
+- Dependency outputs: canonical protocol/conformance vectors completed by Task
+  07, authenticated runtime/path contracts from Tasks 03/04, and native
+  build/test/lint conventions from Task 06.
 
 ## Completion And Handoff
 
