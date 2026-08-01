@@ -1,4 +1,12 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, Point, Rectangle, Screen, WebContents } from 'electron';
+import type {
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  Display,
+  Point,
+  Rectangle,
+  Screen,
+  WebContents,
+} from 'electron';
 import type { AppLocaleId } from '@shared/appLocale';
 import {
   PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS,
@@ -39,7 +47,10 @@ export interface PrettifyProfileChooserWindowControllerDependencies {
   readonly openExternal: (url: string) => Promise<void>;
   readonly preloadPath: string;
   readonly randomUUID: () => string;
-  readonly screen: Pick<Screen, 'getCursorScreenPoint' | 'getDisplayNearestPoint' | 'getPrimaryDisplay'>;
+  readonly screen: Pick<
+    Screen,
+    'getAllDisplays' | 'getCursorScreenPoint' | 'getDisplayNearestPoint' | 'getPrimaryDisplay'
+  >;
 }
 
 interface PrettifyProfileChooserOperation {
@@ -69,27 +80,27 @@ function isValidWorkArea(workArea: Rectangle): boolean {
   );
 }
 
-function calculateAnchoredCoordinate(
-  areaStart: number,
-  areaSize: number,
-  chooserSize: number,
-  inset: number,
-  anchorCoordinate: number | undefined,
-): number {
-  const centeredCoordinate = areaStart + (areaSize - chooserSize) / 2;
-  if (anchorCoordinate === undefined || !Number.isFinite(anchorCoordinate)) return Math.round(centeredCoordinate);
-
-  const availableSpace = Math.max(0, areaSize - chooserSize);
-  const effectiveInset = Math.min(inset, availableSpace / 2);
-  const minimum = areaStart + effectiveInset;
-  const maximum = areaStart + areaSize - chooserSize - effectiveInset;
-  return Math.round(Math.min(maximum, Math.max(minimum, anchorCoordinate - chooserSize / 2)));
+function containsPoint(rectangle: Rectangle, point: Point): boolean {
+  return (
+    isValidWorkArea(rectangle) &&
+    isFinitePoint(point) &&
+    point.x >= rectangle.x &&
+    point.x < rectangle.x + rectangle.width &&
+    point.y >= rectangle.y &&
+    point.y < rectangle.y + rectangle.height
+  );
 }
 
-export function calculatePrettifyProfileChooserBounds(
-  workArea: Rectangle,
-  anchorPoint?: Point,
-): PrettifyProfileChooserBounds | null {
+function hasSameWorkArea(first: Display, second: Display): boolean {
+  return (
+    first.workArea.x === second.workArea.x &&
+    first.workArea.y === second.workArea.y &&
+    first.workArea.width === second.workArea.width &&
+    first.workArea.height === second.workArea.height
+  );
+}
+
+export function calculatePrettifyProfileChooserBounds(workArea: Rectangle): PrettifyProfileChooserBounds | null {
   if (!isValidWorkArea(workArea)) return null;
 
   const preferredFits =
@@ -106,8 +117,8 @@ export function calculatePrettifyProfileChooserBounds(
   return Object.freeze({
     height,
     width,
-    x: calculateAnchoredCoordinate(workArea.x, workArea.width, width, inset, anchorPoint?.x),
-    y: calculateAnchoredCoordinate(workArea.y, workArea.height, height, inset, anchorPoint?.y),
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: Math.round(workArea.y + (workArea.height - height) / 2),
   });
 }
 
@@ -221,7 +232,6 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
       shown: false,
       token: payload.token,
     };
-
     try {
       const chooserUrl = this.getChooserUrl();
       const window = this.dependencies.createBrowserWindow({
@@ -268,8 +278,8 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
     if (!window || !operation || window.isDestroyed()) return false;
     if (!operation.shown) return true;
     if (window.isMinimized()) window.restore();
-    this.positionAtCursor(window);
     window.show();
+    this.positionOnCursorDisplay(window);
     window.focus();
     return true;
   }
@@ -360,33 +370,64 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
   }
 
   private resolveBounds(): PrettifyProfileChooserBounds | null {
-    let workArea: Rectangle | null = null;
-    let anchorPoint: Point | undefined;
+    let availableDisplays: Display[] = [];
     try {
-      const cursorPoint = this.dependencies.screen.getCursorScreenPoint();
-      if (isFinitePoint(cursorPoint)) {
+      availableDisplays = this.dependencies.screen
+        .getAllDisplays()
+        .filter((display) => isValidWorkArea(display.workArea));
+    } catch {
+      availableDisplays = [];
+    }
+
+    if (availableDisplays.length === 1) {
+      return calculatePrettifyProfileChooserBounds(availableDisplays[0].workArea);
+    }
+
+    let cursorPoint: Point | null = null;
+    try {
+      const point = this.dependencies.screen.getCursorScreenPoint();
+      if (isFinitePoint(point)) cursorPoint = point;
+    } catch {
+      cursorPoint = null;
+    }
+    if (cursorPoint) {
+      try {
         const cursorDisplay = this.dependencies.screen.getDisplayNearestPoint(cursorPoint);
-        if (isValidWorkArea(cursorDisplay.workArea)) {
-          workArea = cursorDisplay.workArea;
-          anchorPoint = cursorPoint;
+        const availableCursorDisplay = availableDisplays.find((display) => hasSameWorkArea(display, cursorDisplay));
+        if (availableCursorDisplay) {
+          return calculatePrettifyProfileChooserBounds(availableCursorDisplay.workArea);
         }
+        if (availableDisplays.length === 0 && isValidWorkArea(cursorDisplay.workArea)) {
+          return calculatePrettifyProfileChooserBounds(cursorDisplay.workArea);
+        }
+      } catch {
+        // An available display containing the cursor remains the next fallback.
+      }
+      const containingDisplay = availableDisplays.find((display) => {
+        const target = isValidWorkArea(display.bounds) ? display.bounds : display.workArea;
+        return containsPoint(target, cursorPoint);
+      });
+      if (containingDisplay) {
+        return calculatePrettifyProfileChooserBounds(containingDisplay.workArea);
+      }
+    }
+
+    try {
+      const primaryDisplay = this.dependencies.screen.getPrimaryDisplay();
+      const availablePrimaryDisplay = availableDisplays.find((display) => hasSameWorkArea(display, primaryDisplay));
+      if (availablePrimaryDisplay) {
+        return calculatePrettifyProfileChooserBounds(availablePrimaryDisplay.workArea);
+      }
+      if (availableDisplays.length === 0 && isValidWorkArea(primaryDisplay.workArea)) {
+        return calculatePrettifyProfileChooserBounds(primaryDisplay.workArea);
       }
     } catch {
-      workArea = null;
-      anchorPoint = undefined;
+      // The first valid available display remains the final fallback.
     }
-    if (!workArea) {
-      try {
-        const primaryDisplay = this.dependencies.screen.getPrimaryDisplay();
-        if (isValidWorkArea(primaryDisplay.workArea)) workArea = primaryDisplay.workArea;
-      } catch {
-        workArea = null;
-      }
-    }
-    return workArea ? calculatePrettifyProfileChooserBounds(workArea, anchorPoint) : null;
+    return availableDisplays[0] ? calculatePrettifyProfileChooserBounds(availableDisplays[0].workArea) : null;
   }
 
-  private positionAtCursor(window: BrowserWindow): void {
+  private positionOnCursorDisplay(window: BrowserWindow): void {
     try {
       const bounds = this.resolveBounds();
       if (bounds) window.setContentBounds(bounds);
@@ -445,8 +486,8 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
       return;
     }
     operation.shown = true;
-    this.positionAtCursor(window);
     window.show();
+    this.positionOnCursorDisplay(window);
     window.focus();
   }
 

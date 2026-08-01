@@ -501,6 +501,12 @@ class MainProcessCompositionHarness {
         prettifyProfileChooser: {
           preloadPath: '/app/prettify-profile-chooser-preload.js',
           screen: {
+            getAllDisplays: () => [
+              {
+                bounds: { height: 800, width: 1000, x: 0, y: 0 },
+                workArea: { height: 800, width: 1000, x: 0, y: 0 },
+              } as never,
+            ],
             getCursorScreenPoint: () => ({ x: 0, y: 0 }),
             getDisplayNearestPoint: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
             getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,

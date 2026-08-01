@@ -1,11 +1,12 @@
 # Todo: Local Whisper
 
-Plan revision 7 is approved and uncommitted. Under
+Plan revision 7 is committed as `195fb076`. Under
 `planning.native-cpp-windows-gate` revision 2, all representative Windows
-checks execute only in Task 17 and remain mandatory before release. Task 07's
-implementation, deterministic/source-contract checks, and available Linux
-verification are complete and uncommitted. Task 08, push, pull request,
-packaging, publication, and release are not authorized.
+checks execute only in Task 17 and remain mandatory before release. Task 07 is
+committed as `31c13c54`. Task 08 execution is authorized by
+`execution.task-08` revision 1 but is blocked before production changes by the
+missing main-to-worker native device-selector contract. Task 09, commit, push,
+pull request, packaging, publication, and release are not authorized.
 
 - [x] [01 Shared domain contracts](01_shared_domain_contracts.md)
 - [x] [02 Provider dispatch and cache](02_provider_dispatch_and_cache.md)

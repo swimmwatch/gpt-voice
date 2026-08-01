@@ -1,13 +1,15 @@
-# Handoff: Task 07 Complete, Windows Checks Deferred
+# Handoff: Task 08 Blocked on Native Device Selection
 
 ## Status
 
-Plan revision 6 is committed as `fd0f942`; revision 7 is approved and
-uncommitted. `planning.native-cpp-windows-gate` revision 2 applies the user's
+Plan revision 7 is committed as `195fb076`, and Task 07 is committed as
+`31c13c54`. `planning.native-cpp-windows-gate` revision 2 applies the user's
 directive that all representative Windows checks execute only in Task 17.
-Task 07's implementation, automated/source-contract checks, and available
-Linux evidence are complete and uncommitted. Task 08, commit, push, pull
-request, packaging, publication, and release are not authorized.
+Task 08 execution is authorized by the uncommitted
+`execution.task-08` revision 1 ledger entry, but its protocol contract is
+incomplete and no Task 08 production code has been written. Task 09, Task 08
+commit, push, pull request, packaging, publication, and release are not
+authorized.
 
 ## Completed Packets
 
@@ -17,7 +19,7 @@ request, packaging, publication, and release are not authorized.
 - [04 Managed filesystem safety](04_managed_filesystem_safety.md), `649ec3b9`
 - [05 Streaming artifact lifecycle](05_streaming_artifact_lifecycle.md), `32440674`
 - [06 Native C++ modularization](06_native_cpp_modularization.md), `e294e8a`
-- [07 Framed worker supervisor](07_framed_worker_supervisor.md), uncommitted
+- [07 Framed worker supervisor](07_framed_worker_supervisor.md), `31c13c54`
 
 ## Task 07 Implementation
 
@@ -79,14 +81,34 @@ request, packaging, publication, and release are not authorized.
   format/lint/native package scripts. Local native commands used the temporary
   CMake/Ninja/clang-format/clang-tidy tools recorded in the prior session.
 
+## Task 08 Blocker
+
+- The canonical protocol-v1 `load` message sends `modelPath` plus
+  `LocalWhisperResidencyKey`. Its GPU identity is only the main-issued opaque
+  `deviceId`; no private native device selector is available to the worker.
+- Pinned `whisper.cpp` v1.9.1 commit
+  `f049fff95a089aa9969deb009cdd4892b3e74916` requires the integer
+  `whisper_context_params.gpu_device` selector. Task 08 therefore cannot bind
+  or prove the selected CUDA/Vulkan/HIP device from the canonical message.
+- Task 10 owns native device enumeration and opaque-ID mapping, while Task 07
+  forbids device selection through argv or environment. Inventing a
+  whisper.cpp-only frame would violate the single canonical engine-neutral
+  protocol.
+- Task 07 already defines `runtimeBuildDigest` as the verified worker
+  executable's manifest SHA-256. Task 08 should restate that meaning instead
+  of introducing a separate build digest.
+
 ## Exact Continuation
 
-- Review the uncommitted Task 07 plus revision 7 plan diff without mixing the
-  unrelated chooser and composition-root test changes, then obtain separate
-  commit authorization.
-- Task 08 is the exact next packet, but requires a new explicit
-  `incremental-implementation` invocation and execution authorization after
-  the completed Task 07 changes are reviewed and committed.
+- Return to `planning-and-task-breakdown` and revise Tasks 07, 08, and 10 so
+  main resolves the opaque selection to a validated private native selector,
+  passes it only through the bounded framed protocol, and validates the
+  worker's selected-device proof without exposing native identifiers to the
+  renderer or logs.
+- The revised plan must assign ownership and ordering for the protocol-v1
+  schema/vector/supervisor repair and specify how CUDA, Vulkan, and HIP
+  selectors are represented and revalidated. Keep Task 08 unchecked until
+  that plan is explicitly approved and execution is reauthorized as needed.
 - Preserve the unrelated user-owned changes in
   `src/main/prettifyProfileChooserWindowController.ts`,
   `tests/main/mainProcessCompositionRoot.test.ts`, and

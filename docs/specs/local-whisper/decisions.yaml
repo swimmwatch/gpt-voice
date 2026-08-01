@@ -2799,3 +2799,74 @@ decisions:
     rationale: The user explicitly authorized two isolated commits, with plan revision 7 committed before the completed Task 07 implementation and all unrelated changes excluded.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-08
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 7 is committed as `195fb076`; completed Task 07 is committed as `31c13c54`.
+      - Task 08 is a self-contained hardened whisper.cpp worker, adapter, reproducible pack-input, and deterministic verification packet.
+      - All representative Windows build, worker, package, and hardware execution remains deferred to Task 17 under `planning.native-cpp-windows-gate` revision 2.
+      - Authorization does not cover Task 09, production downloads, signing, publication, commit, push, pull request, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-08-authorization-round-30
+      question_id: execution.task-08
+      idempotency_key: execution.task-08:v1
+      last_status: answered
+    question:
+      text: Should this incremental implementation invocation execute only Task 08, the hardened whisper.cpp runtime packet, now that plan revision 7 and Task 07 are committed?
+      kind: single
+      options:
+        - id: authorize-task-08
+          label: Authorize Task 08 (Recommended)
+          description: Implement and verify only the pinned whisper.cpp worker, adapter, reproducible CPU/CUDA/Vulkan/HIP pack inputs, tests, and handoff; defer all Windows execution to Task 17 and stop uncommitted.
+        - id: do-not-authorize-task-08
+          label: Do not authorize
+          description: Stop after the two authorized commits without changing Task 08 files.
+        - id: revise-task-08
+          label: Revise Task 08
+          description: Return the packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-08]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 08 after the prerequisite plan revision 7 and Task 07 commits completed.
+    supersedes_revision: null
+    requirement_ids:
+      - SCOPE-001
+      - RUNTIME-001
+      - MODEL-004
+      - VRAM-001
+      - ARCH-005
+      - RUN-001
+      - RUN-002
+      - RUN-003
+      - RUN-005
+      - SEC-005
+      - PRIV-001
+      - PKG-002
+      - PKG-003
+      - PKG-004
+      - SEC-003
+      - COMP-006
+      - COMP-009
+      - AMD-003
+      - AMD-004
+      - AMD-006
+      - CAP-007
+      - CAP-009
+      - FAIL-005
+      - FAIL-007
+      - AC-AUTO-002
+      - AC-AUTO-008
+      - AC-AUTO-010
+      - AC-AUTO-011
+      - AC-AUTO-012
+      - AC-AUTO-013
+      - AC-AUTO-024
+      - AC-AUTO-026
+      - AC-AUTO-028
+      - AC-AUTO-033
+      - AC-AUTO-044
