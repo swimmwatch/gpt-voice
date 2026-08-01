@@ -1766,7 +1766,7 @@ decisions:
   - id: approval.plan
     revision: 2
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - Specification revision 2 is approved with six-family approximate RAM/VRAM guidance, exact selected-configuration estimate rules, and AC-AUTO-049.
@@ -2235,7 +2235,7 @@ decisions:
   - id: approval.plan
     revision: 3
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - The revised plan contains 18 independently executable packets with native C++ modularization inserted as Task 06 before the framed worker supervisor.
@@ -2303,6 +2303,153 @@ decisions:
     answer:
       selected_ids: [authorize-separate-plan-and-task-05-commits]
       text: ''
-    rationale: The user authorized two isolated commits: approved plan revision 3 artifacts first, followed by completed Task 05 code, tests, and completion-state artifacts, with unrelated user changes excluded.
+    rationale: 'The user authorized two isolated commits: approved plan revision 3 artifacts first, followed by completed Task 05 code, tests, and completion-state artifacts, with unrelated user changes excluded.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-06
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved Local Whisper plan revision 3 was committed as a2392742 and Task 05 was committed in isolation as 32440674.
+      - Task 06 is the first unchecked packet and is self-contained behavior-preserving native C++ modularization, CMake, pinned GoogleTest, lint, test, CI, README, and agent-guidance work.
+      - Authorization applies to exactly this incremental-implementation invocation for Task 06 and does not authorize packaging, runtime/model downloads, macOS execution, Task 07, a Task 06 commit, push, pull request, publication, or release action.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-06-authorization-round-20
+      question_id: execution.task-06
+      idempotency_key: execution.task-06:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Should Task 06 Native C++ Modularization be executed in this incremental-implementation session?
+      kind: single
+      options:
+        - id: authorize-task-06
+          label: Authorize Task 06 (Recommended)
+          description: Refactor only the filesystem guard into the approved C++20 modules, add CMake/GoogleTest/lint/test/CI/README/AGENTS rules, verify available Linux gates, update todo and handoff, then stop without committing.
+        - id: do-not-authorize-task-06
+          label: Do not authorize
+          description: Stop after the Task 05 commit and make no Task 06 implementation changes.
+        - id: revise-task-06
+          label: Revise Task 06
+          description: Stop implementation and return to planning to change the packet contract.
+    answer:
+      selected_ids: [authorize-task-06]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 06 through the persistent Prompt MCP interview for this incremental implementation invocation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.native-cpp-windows-gate
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Task 06 implementation and the isolated Ubuntu 24.04 Clang 18 quality gate are complete.
+      - Representative Windows 10/11 x64 hardware and MSVC filesystem evidence are currently unavailable to the user and this environment.
+      - The approved Task 06 packet currently makes Windows native and filesystem evidence a mandatory completion gate, so continuing to Task 07 requires an explicit plan decision rather than treating Linux as equivalent evidence.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: native-cpp-windows-gate-round-21
+      question_id: planning.native-cpp-windows-gate
+      idempotency_key: planning.native-cpp-windows-gate:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: Windows hardware is currently unavailable. How should the mandatory Task 06 Windows verification gate be handled?
+      kind: single
+      options:
+        - id: defer-to-qualification
+          label: Defer to qualification (Recommended)
+          description: Revise the plan so Task 06 may close on verified Linux evidence while Windows CI and filesystem evidence remain mandatory before release in Task 17; keep Windows CI configured and make no support claim yet.
+        - id: keep-task-06-open
+          label: Keep Task 06 open
+          description: Leave Task 06 uncommitted and unchecked until representative Windows evidence becomes available; do not start Task 07.
+        - id: drop-windows-gate
+          label: Drop Windows gate
+          description: Remove mandatory Windows verification from this workstream, reducing cross-platform assurance.
+    answer:
+      selected_ids: [defer-to-qualification]
+      text: ''
+    rationale: The user chose to defer representative Windows evidence to the final qualification packet while preserving required Windows CI, filesystem coverage, and the prohibition on a Windows support claim before that evidence passes.
+    supersedes_revision: null
+    requirement_ids: [SEC-007, RUN-004, PKG-001, AC-AUTO-032, AC-AUTO-040, AC-AUTO-041]
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 4 applies the answered `planning.native-cpp-windows-gate` decision without changing the approved product support matrix or specification.
+      - Task 06 may close on verified Linux Clang 18, native/Node tests, quality, and dependency evidence while retaining the required checked-in Windows native-quality CI job.
+      - Task 17 now owns mandatory Visual Studio 2022/MSVC `/W4 /WX` native tests and Windows junction/reparse, ADS, file-ID, volume, lock, promotion, and exact-deletion evidence before release; Linux cannot substitute and no Windows claim is made now.
+      - The plan audit found 18 existing packet links, all 14 required headings in each packet, 191 requirement/acceptance IDs mapped with zero missing, valid YAML, scoped Prettier compliance, and no whitespace errors.
+      - Approval does not authorize a Task 06 commit, Task 07 execution, push, pull request, packaging, publication, macOS execution, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-approval-round-22
+      question_id: approval.plan
+      idempotency_key: approval.plan:v4
+      last_status: answered
+      revision: 4
+    question:
+      text: How should Local Whisper implementation plan revision 4 proceed?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve revised plan (Recommended)
+          description: Approve moving unavailable Windows native/filesystem evidence from Task 06 completion to mandatory Task 17 qualification while retaining all Windows CI and release gates; this does not authorize commit or implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 4 Draft and revise the Windows evidence ownership, completion rule, sequencing, or other plan details.
+        - id: leave-plan-draft
+          label: Leave plan as Draft
+          description: Stop with the inspectable revision 4 draft without approving it or authorizing further work.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 4, which transfers unavailable representative Windows native/filesystem evidence to mandatory Task 17 qualification without weakening CI, release, or support-claim gates.
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: commit.task-06
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 06 is complete, verified, and uncommitted; its source, tests, build, CI, README, AGENTS.md, and handoff files match the recorded implementation scope.
+      - Plan revision 4 is approved but its decision, plan, Task 06, and Task 17 artifacts are uncommitted.
+      - The three modified Prettify/composition-root files are unrelated user-owned work and will be excluded from every commit.
+      - Commit authorization does not authorize Task 07 execution, push, pull request, packaging, publication, macOS execution, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-06-commit-round-23
+      question_id: commit.task-06
+      idempotency_key: commit.task-06:v1
+      last_status: answered
+      revision: 1
+    question:
+      text: How should approved plan revision 4 and completed Task 06 be committed before Task 07 starts?
+      kind: single
+      options:
+        - id: authorize-separate-plan-and-task-06-commits
+          label: Two isolated commits (Recommended)
+          description: Commit approved plan revision 4 artifacts first, then commit only Task 06 implementation and completion-state artifacts; exclude unrelated user changes.
+        - id: authorize-combined-task-06-transition-commit
+          label: One combined commit
+          description: Commit approved plan revision 4 and completed Task 06 implementation/completion state together; exclude unrelated user changes.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave Task 06 and plan revision 4 uncommitted and do not begin Task 07.
+    answer:
+      selected_ids: [authorize-separate-plan-and-task-06-commits]
+      text: ''
+    rationale: 'The user authorized two isolated commits: approved plan revision 4 artifacts first, followed by completed Task 06 implementation and completion-state artifacts, with unrelated user changes excluded.'
     supersedes_revision: null
     requirement_ids: []

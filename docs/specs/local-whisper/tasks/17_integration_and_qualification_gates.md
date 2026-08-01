@@ -6,7 +6,8 @@ The completed Local Whisper implementation is wired through one signed-fixture
 cross-layer harness, every automated acceptance ID is traceable to an owning
 test/command, release-qualification profile/result schemas reject incomplete or
 post-hoc evidence, and the complete project quality/package gate runs without
-duplicating exhaustive tests already owned by Tasks 01–16. Automated success
+duplicating exhaustive tests already owned by Tasks 01–16. Deferred Windows
+MSVC/native filesystem evidence is resolved before release. Automated success
 does not publish artifacts or promote conditional/Preview platform claims.
 
 ## Prerequisites
@@ -22,6 +23,9 @@ does not publish artifacts or promote conditional/Preview platform claims.
   packet weakened a requirement or acceptance assertion.
 - No hardware result is inferred from mocks, fixture workers, cross-compilation,
   package smoke, or another OS/backend.
+- Task 06 may be complete under `planning.native-cpp-windows-gate` revision 1
+  while its handoff still records missing Windows/MSVC native filesystem
+  evidence. That evidence is a mandatory Task 17 completion/release gate.
 
 ## Owned Requirements
 
@@ -34,6 +38,8 @@ does not publish artifacts or promote conditional/Preview platform claims.
   `AMD-002`, `MAC-001`, `MAC-002`, `MAC-003`, `PKG-001`, `PKG-005`, and
   `DOC-001`
 - `AC-AUTO-032` aggregate project quality/build gate
+- Deferred Windows evidence portions of `SEC-007`, `RUN-004`, `PKG-001`,
+  `AC-AUTO-032`, `AC-AUTO-040`, and `AC-AUTO-041`, shared with Tasks 04 and 06
 - Aggregate execution, not primary ownership, of Task 02's `AC-AUTO-027` and
   Task 01's `AC-AUTO-044` evidence
 - Acceptance-coverage traceability for `AC-AUTO-001` through `AC-AUTO-049`;
@@ -59,6 +65,8 @@ does not publish artifacts or promote conditional/Preview platform claims.
   claims separate.
 - Final regression checks for existing remote providers and optional feature
   behavior.
+- Required Windows native-quality execution under Visual Studio 2022/MSVC
+  `/W4 /WX`, plus the existing Windows Node/native filesystem security suite.
 
 ## Out Of Scope
 
@@ -75,6 +83,27 @@ does not publish artifacts or promote conditional/Preview platform claims.
   performance, memory, or hardware-backend proof.
 
 ## Task Contract
+
+### Deferred Task 06 Windows native gate
+
+1. Run the checked-in `native-quality-windows` CI job and equivalent commands
+   on a representative Windows 10/11 x64 host before Task 17 can complete:
+   - `rtk npm run test:local-whisper:fs-guard:native`;
+   - `rtk npm run test:local-whisper:filesystem`.
+2. Native configure/build must use Visual Studio 2022, MSVC C++20, and
+   `/W4 /WX /permissive- /EHsc`; CTest `unit` and `integration` labels must
+   both pass against the real Windows backend.
+3. The Node/native suite must exercise junction/reparse and ADS rejection,
+   stable file ID and volume checks, cross-process locks, promotion, exact
+   deletion, and the existing Windows-only race fixtures. Temporary managed
+   roots are mandatory; real user Local Whisper roots are forbidden.
+4. Record Windows version, runner/host class, Visual Studio/MSVC and CMake
+   versions, pinned GoogleTest commit, test counts, and any skipped fixture.
+   A skipped required fixture, Linux result, source inspection, or cross-build
+   cannot satisfy this gate.
+5. Any failure blocks Task 17 and release and returns the defect to an
+   authorized Task 06 repair. Do not weaken `/W4 /WX`, filesystem assertions,
+   or platform isolation to obtain a pass.
 
 ### Acceptance ownership manifest
 
@@ -203,7 +232,9 @@ repository through the corresponding Manual Gate and separate authorization.
 3. Run Linux and Windows package-smoke/packaged-runtime checks on their matching
    hosts. Cross-platform mocks are not substitutes; unavailable checks remain
    explicit handoff/manual gates.
-4. Do not weaken existing Electron fuses, trusted IPC sender validation,
+4. Run the deferred Task 06 Windows native-quality and Node/native filesystem
+   commands before treating the aggregate quality gate as release-complete.
+5. Do not weaken existing Electron fuses, trusted IPC sender validation,
    package allowlists, dependency policy, privacy assertions, size/startup
    budgets, or remote-provider regressions to obtain a pass.
 
@@ -267,6 +298,9 @@ are acceptable only when handoff records the canonical mapping.
   be interpreted as Production evidence.
 - Evidence summary leaves every cell unpromoted unless the exact OS/engine/
   backend/profile result is present and approved.
+- Visual Studio 2022/MSVC `/W4 /WX` native unit/integration tests and the
+  required Windows junction/reparse, ADS, file-ID, volume, lock, promotion, and
+  exact-deletion fixtures pass with no required skip.
 - `verify:local-whisper` runs owner commands plus only focused Task-17 tests and
   fails on the first substantive failure without rewriting snapshots/baselines.
 - The full project quality/build gate passes; platform-only unavailable checks
@@ -303,6 +337,13 @@ rtk npm run verify:packaged
 rtk npm run dist:win -- --dir
 ```
 
+On representative Windows 10/11 x64, resolve the deferred Task 06 gate:
+
+```text
+rtk npm run test:local-whisper:fs-guard:native
+rtk npm run test:local-whisper:filesystem
+```
+
 Use the exact commands supplied by Tasks 01–16 for owner-specific runtime/UI/
 package tests; do not create duplicate Task-17 variants. Record all commands,
 versions, and unavailable platform checks in `handoff.md`.
@@ -313,6 +354,9 @@ versions, and unavailable platform checks in `handoff.md`.
   privacy leak, remote-provider regression, or unbounded cleanup blocks Task 17.
   Repair the owning packet through planning/authorized implementation; do not
   weaken the aggregate gate.
+- A missing, skipped, or failed deferred Windows native/filesystem check blocks
+  Task 17 completion and every Local Whisper-enabled release. Linux evidence
+  cannot substitute.
 - An incomplete qualification profile/result never becomes warning-only and
   never promotes a tier.
 - If fixture and production evidence cannot be distinguished mechanically,
@@ -331,6 +375,10 @@ versions, and unavailable platform checks in `handoff.md`.
 - `AC-MAN-002`: CPU qualification separately for each engine on Windows and
   Linux x64.
 - `AC-MAN-003`: separate representative Windows x64 NVIDIA qualification.
+- `MANUAL GATE — deferred Task 06 Windows native evidence`: on representative
+  Windows 10/11 x64, pass the MSVC native and Windows filesystem suites defined
+  above. This gate is required even when Windows GPU qualification remains
+  separately pending under `AC-MAN-003`.
 - `AC-MAN-004`: persistent NVIDIA selection/hybrid-device behavior.
 - `AC-MAN-005`: crash, repeated load/unload/transcription, suspend/resume,
   provider switch, exit, and GPU/process cleanup.
@@ -361,7 +409,10 @@ versions, and unavailable platform checks in `handoff.md`.
     `compatibility.amd-hip-packaging-matrix`,
     `planning.artifact-publishing-target`, and
     `planning.openwhispr-adaptation-boundary`, plus
-    `resources.model-estimate-presentation`.
+    `resources.model-estimate-presentation` and
+    `planning.native-cpp-windows-gate` revision 1.
+- Task 06's final handoff and checked-in `native-quality-windows` job are
+  mandatory inputs for the deferred native gate.
 - Task 15 signed fixture/package outputs and final ownership/test commands from
   Tasks 01–16 as recorded in `handoff.md`.
 - Current quality/package entry points in `package.json`,
@@ -371,8 +422,9 @@ versions, and unavailable platform checks in `handoff.md`.
 ## Completion And Handoff
 
 - Mark Task 17 complete in `todo.md` only after deterministic automated gates
-  pass. Record exact commands, tool versions, platform coverage, unresolved
-  Manual Gates, and explicit “no publication performed” in `handoff.md`.
+  and the deferred Windows native/filesystem gate pass. Record exact commands,
+  tool versions, platform coverage, unresolved Manual Gates, and explicit “no
+  publication performed” in `handoff.md`.
 - Do not mark conditional Production matrix cells promoted without separately
   approved real profiles/results. Keep AMD Preview and macOS Planned boundaries
   explicit.

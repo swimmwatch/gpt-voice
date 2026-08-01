@@ -22,7 +22,8 @@ the architecture and extension constraints clear to both humans and LLM agents.
 - Planning decisions remain:
   - `planning.native-cpp-toolchain = cmake-googletest-pinned`;
   - `planning.native-cpp-ci-depth = dual-platform-full-gate`;
-  - `planning.native-cpp-task-order = insert-before-supervisor`.
+  - `planning.native-cpp-task-order = insert-before-supervisor`;
+  - `planning.native-cpp-windows-gate = defer-to-qualification`.
 - No AMD or Apple Silicon hardware evidence is available. This packet changes no
   support tier and makes no hardware-support claim.
 
@@ -36,6 +37,10 @@ the architecture and extension constraints clear to both humans and LLM agents.
   `planning.native-cpp-ci-depth`, and `planning.native-cpp-task-order`.
 - This packet shares those requirements with Task 04; it does not replace or
   weaken Task 04 acceptance ownership.
+- Task 06 owns the implementation and verified Linux evidence. Task 17 owns the
+  deferred Windows/MSVC and Windows filesystem evidence for the shared
+  `SEC-007`, `RUN-004`, `PKG-001`, `AC-AUTO-032`, `AC-AUTO-040`, and
+  `AC-AUTO-041` release gate.
 
 ## In Scope
 
@@ -303,8 +308,10 @@ a third generic filesystem layer that merely forwards to a backend.
 - Golden and existing Node tests prove byte-compatible protocol behavior and no
   regression in Task 04 filesystem security, race, lock, promotion, or deletion
   behavior.
-- GoogleTest unit and real temporary-root integration suites pass on Linux and
-  Windows; Linux passes ASan/UBSan and Windows passes `/W4 /WX`.
+- GoogleTest unit and real temporary-root integration suites pass on Linux
+  under ASan/UBSan. Equivalent Windows `/W4 /WX` and real-backend suites remain
+  mandatory in Task 17 before release; their current absence is recorded and
+  cannot be represented as passing evidence.
 - clang-format and clang-tidy run in CI and fail on violations.
 - The CMake production build still emits the exact executable path consumed by
   the TypeScript transport and adds no production/test dependency to installers.
@@ -330,15 +337,20 @@ rtk npm run test:unit
 rtk git diff --check
 ```
 
-Run the equivalent checked-in Windows preset/commands on the Windows CI runner.
-Record compiler, CMake, LLVM/MSVC, sanitizer, GoogleTest commit, CTest labels,
-and exact pass/skip counts in `handoff.md`; do not paste raw private paths/logs.
+The equivalent checked-in Windows preset/commands and existing Windows
+Node/native filesystem suite are deferred to Task 17 by
+`planning.native-cpp-windows-gate` revision 1. Record the missing evidence in
+`handoff.md`; Task 17 must later record Windows version, MSVC, CMake,
+GoogleTest commit, CTest labels, and exact pass/skip counts without private
+paths or logs.
 
 ## Failure And Rollback
 
 - Any protocol/output mismatch, security-semantic regression, sanitizer finding,
-  unhandled resource leak, or platform test failure blocks completion. Do not
-  weaken a check or restore duplicated platform logic to obtain a pass.
+  unhandled resource leak, or available-platform test failure blocks
+  completion. A later Windows failure blocks Task 17/release and requires an
+  authorized Task 06 repair; do not weaken a check or restore duplicated
+  platform logic to obtain a pass.
 - If the proposed common interface cannot express a real Windows/Linux security
   difference safely, keep that behavior platform-local and document it. Do not
   force unsafe unification.
@@ -350,10 +362,11 @@ and exact pass/skip counts in `handoff.md`; do not paste raw private paths/logs.
 
 ## Manual Gates
 
-- `MANUAL GATE — Windows native evidence`: required CI/representative Windows
-  x64 results must cover native unit/integration and existing junction/reparse,
-  ADS, file-ID, volume, lock, promotion, and deletion fixtures. Linux cannot
-  substitute.
+- `DEFERRED MANUAL GATE — Windows native evidence`: Task 17, not Task 06
+  completion, must obtain required CI/representative Windows x64 results for
+  native unit/integration and existing junction/reparse, ADS, file-ID, volume,
+  lock, promotion, and deletion fixtures. Linux cannot substitute, no Windows
+  result may be claimed now, and release remains blocked until this passes.
 - `MANUAL GATE — dependency/license review`: confirm pinned GoogleTest
   provenance/license and that it is test-only before Task 06 completion.
 - `MANUAL GATE — packaging`: Task 15 must separately authorize and verify helper
@@ -369,7 +382,8 @@ and exact pass/skip counts in `handoff.md`; do not paste raw private paths/logs.
   `AC-AUTO-032`, `AC-AUTO-040`, `AC-AUTO-041`.
 - Mandatory decisions: `../decisions.yaml`
   `planning.native-cpp-toolchain`, `planning.native-cpp-ci-depth`, and
-  `planning.native-cpp-task-order`.
+  `planning.native-cpp-task-order`, plus
+  `planning.native-cpp-windows-gate` revision 1.
 - Mandatory dependency packet: `04_managed_filesystem_safety.md`; current
   continuation state: `handoff.md` and `todo.md`.
 - Current implementation surfaces:
@@ -382,8 +396,11 @@ and exact pass/skip counts in `handoff.md`; do not paste raw private paths/logs.
 
 ## Completion And Handoff
 
-- Mark only Task 06 complete in `todo.md` after every available automated check
-  and required manual gate is recorded; otherwise leave the exact blocker.
+- Mark only Task 06 complete in `todo.md` after every available Linux automated
+  check, dependency/license review, and checked-in dual-platform CI contract is
+  recorded. Record the deferred Windows gate explicitly; it does not block
+  Task 06 completion under `planning.native-cpp-windows-gate` revision 1 but
+  remains a mandatory Task 17/release gate.
 - Update `handoff.md` with final module map, public internal interfaces, toolchain
   versions, GoogleTest commit, changed files, native/Node checks, platform
   evidence, generated output paths, limitations, and rollback state.
