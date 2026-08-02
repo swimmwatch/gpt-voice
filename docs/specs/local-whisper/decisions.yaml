@@ -4480,3 +4480,777 @@ decisions:
     rationale: The user explicitly authorized exactly Task 13 after the Task 12 commit boundary while preserving every later packet and external manual gate.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: architecture.engine-exposure
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested that Faster-Whisper be removed and the implementation plan be rearranged around the remaining Whisper.cpp engine.
+      - Tasks 01–12 already provide the shared runtime boundary and Whisper.cpp CPU, CUDA, and AMD Preview foundations; the blocked Faster-Whisper packet has not produced implementation code.
+    prompt_mcp: null
+    question:
+      text: Which inference engines shall Local Whisper expose after this revision?
+      kind: single
+      options:
+        - id: whisper-cpp-only
+          label: Whisper.cpp only
+          description: Remove Faster-Whisper/CTranslate2 from the product contract and continue with one native inference engine.
+        - id: dual-engine
+          label: Keep both engines
+          description: Retain the approved Whisper.cpp and Faster-Whisper/CTranslate2 architecture.
+    answer:
+      selected_ids: [whisper-cpp-only]
+      text: ''
+    rationale: The current explicit user instruction supersedes the earlier dual-engine decision.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-001, RUNTIME-001, MODEL-004, NONGOAL-004, AC-AUTO-063]
+
+  - id: compatibility.engine-discriminator
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Local Whisper has not shipped, so no production settings require migration compatibility.
+      - Tasks 01–03 introduced engine-discriminated domain, catalog, and settings contracts that planning can still simplify before UI and IPC integration.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: single-engine-round-07
+      question_id: compatibility.engine-discriminator
+      idempotency_key: compatibility.engine-discriminator:v1
+      last_status: answered
+      sequence: 35
+      revision: 1
+    question:
+      text: After Faster-Whisper is removed, how should the Local Whisper engine discriminator be represented?
+      kind: single
+      options:
+        - id: remove-engine-discriminator
+          label: Remove engine field (Recommended)
+          description: Remove the selector and persisted engine dimension; Whisper.cpp becomes an implementation detail of the single Local Whisper provider.
+        - id: retain-fixed-whisper-cpp
+          label: Retain fixed field
+          description: Keep a non-editable persisted `whisperCpp` discriminator for possible future engine expansion.
+    answer:
+      selected_ids: [retain-fixed-whisper-cpp]
+      text: ''
+    rationale: The user retained a fixed non-editable `whisperCpp` discriminator for forward-compatible contracts while removing every alternate engine from the release.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, SET-001, SET-004, SET-005, LIFE-004]
+
+  - id: scope.faster-artifact-retention
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - Task 08 committed Faster-Whisper and CTranslate2 source locks, but no Faster runtime, worker, pack, model conversion, or user-facing behavior was implemented.
+      - Git history preserves the reviewed source-lock evidence even if unused tracked files are removed from the active tree.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: single-engine-round-07
+      question_id: scope.faster-artifact-retention
+      idempotency_key: scope.faster-artifact-retention:v1
+      last_status: answered
+      sequence: 36
+      revision: 1
+    question:
+      text: What should happen to the already committed Faster-Whisper and CTranslate2 source-lock artifacts?
+      kind: single
+      options:
+        - id: remove-active-artifacts
+          label: Remove active artifacts (Recommended)
+          description: Delete Faster-specific locks, definitions, tests, and references from the active tree while preserving their history in Git.
+        - id: retain-dormant-source-locks
+          label: Retain dormant locks
+          description: Keep source-lock evidence in the active tree but exclude it from builds, packages, settings, and plans.
+    answer:
+      selected_ids: [remove-active-artifacts]
+      text: ''
+    rationale: The user chose to remove Faster-specific source locks, definitions, tests, and references from the active tree while retaining their history in Git.
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-004, PKG-010, AC-AUTO-063]
+
+  - id: research.whisper-cpp-runtime
+    revision: 2
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - whisper.cpp v1.9.1 provides the C API and the CUDA, Vulkan, HIP/ROCm, CPU, and future Metal backend structure required by the revised single-engine contract.
+      - The user's current scope decision makes this the sole Local Whisper inference runtime rather than one adapter among multiple engines.
+    prompt_mcp: null
+    question:
+      text: What runtime evidence remains authoritative for the single-engine Local Whisper contract?
+      kind: single
+      options:
+        - id: single-whisper-cpp-runtime
+          label: Single Whisper.cpp runtime
+          description: Retain the pinned native Whisper.cpp runtime evidence for every release-1 backend.
+    answer:
+      selected_ids: [single-whisper-cpp-runtime]
+      text: ''
+    rationale: The existing pinned Whisper.cpp evidence now supports the complete inference-engine scope.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-005, RUNTIME-001, COMP-006]
+
+  - id: research.faster-whisper-alternative
+    revision: 2
+    category: architecture
+    state: not_applicable
+    provenance: user
+    evidence:
+      - The user explicitly removed Faster-Whisper, CTranslate2, and their active source/runtime artifacts from Local Whisper.
+      - Prior research remains available in Git history but no longer defines an active product or implementation requirement.
+    prompt_mcp: null
+    question:
+      text: Does the earlier Faster-Whisper alternative remain applicable to this specification revision?
+      kind: single
+      options:
+        - id: removed-from-scope
+          label: Removed from scope
+          description: Keep the prior research as history only and remove it from the active contract.
+    answer:
+      selected_ids: [removed-from-scope]
+      text: ''
+    rationale: The current explicit single-engine instruction supersedes the earlier alternative-engine research outcome.
+    supersedes_revision: 1
+    requirement_ids: [NONGOAL-004, AC-AUTO-063]
+
+  - id: research.amd-platform-reality
+    revision: 3
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Pinned whisper.cpp HIP requires ROCm/HIP 6.1 or newer, explicit `AMDGPU_TARGETS`, and a non-static shared dependency closure.
+      - A safe Linux HIP row must bind distro/kernel/amdgpu ABI, exact ROCm packages and SONAME/build identities, PCI device/`gfx` target, applicable PCIe atomics, and KFD/render-node permissions.
+      - Pinned Vulkan requires build-time loader, headers, SPIR-V, and `glslc` inputs and currently generates shaders for Vulkan 1.3; the SDK/compiler are not runtime-pack dependencies.
+      - No physical AMD execution evidence exists in this workstream.
+    prompt_mcp: null
+    question:
+      text: What AMD feasibility evidence remains active for the single Whisper.cpp runtime?
+      kind: single
+      options:
+        - id: version-qualified-whisper-cpp-preview
+          label: Version-qualified Preview
+          description: Keep Windows Vulkan and exact-allowlisted Linux HIP/Vulkan as untested Whisper.cpp Preview paths.
+    answer:
+      selected_ids: [version-qualified-whisper-cpp-preview]
+      text: ''
+    rationale: The evidence narrows how Whisper.cpp AMD packs may be built and validated but does not establish production readiness.
+    supersedes_revision: 2
+    requirement_ids:
+      [AMD-001, AMD-002, AMD-003, AMD-004, AMD-006, PKG-003, CAP-009, AC-AUTO-005, AC-AUTO-012, AC-MAN-009, AC-MAN-010]
+
+  - id: research.model-artifacts
+    revision: 2
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - whisper.cpp v1.9.1 publishes pinned `ggml` artifacts and approximate model-memory guidance for the six selected multilingual families.
+      - Distilled-model support remains excluded, and artifact byte size remains advisory until allocation, full load, and warm-up succeed.
+    prompt_mcp: null
+    question:
+      text: Which model-artifact evidence remains active after the engine scope is reduced?
+      kind: single
+      options:
+        - id: pinned-ggml-only
+          label: Pinned GGML only
+          description: Use immutable reviewed GGML artifacts and treat real load evidence as authoritative.
+    answer:
+      selected_ids: [pinned-ggml-only]
+      text: ''
+    rationale: Only Whisper.cpp-native GGML artifacts remain in the Local Whisper catalog.
+    supersedes_revision: 1
+    requirement_ids: [MODEL-003, MODEL-004, CAP-003]
+
+  - id: scope.provider-identity
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly removed Faster-Whisper and retained one Local Whisper provider.
+      - The earlier custom answer that expanded the provider to two engines is therefore superseded.
+    prompt_mcp: null
+    question:
+      text: What provider and engine identity shall the revised Local Whisper specification expose?
+      kind: single
+      options:
+        - id: local-whisper-with-fixed-whisper-cpp
+          label: Local Whisper with fixed Whisper.cpp
+          description: Keep one provider and one non-editable `whisperCpp` engine discriminator.
+    answer:
+      selected_ids: [local-whisper-with-fixed-whisper-cpp]
+      text: ''
+    rationale: The current explicit request replaces the earlier dual-engine expansion.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-001, ARCH-007, UI-003, NONGOAL-004]
+
+  - id: architecture.inference-engine
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly chose to remove Faster-Whisper and continue with Whisper.cpp.
+      - The supervised sidecar, framed protocol, and process-owned residency boundaries remain unchanged.
+    prompt_mcp: null
+    question:
+      text: Which inference-engine contract shall the revised first release use?
+      kind: single
+      options:
+        - id: whisper-cpp-sidecar-only
+          label: Whisper.cpp sidecar only
+          description: Use the pinned Whisper.cpp runtime behind the existing supervised sidecar contract.
+    answer:
+      selected_ids: [whisper-cpp-sidecar-only]
+      text: ''
+    rationale: The single native runtime preserves the approved isolation and lifecycle design while removing the alternate engine.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-005, RUNTIME-001, NONGOAL-004]
+
+  - id: operations.runtime-distribution
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The prior user decision selected signed on-demand runtime packs rather than bundled or user-managed runtimes.
+      - Removing Faster-Whisper narrows those packs to backend-specific Whisper.cpp builds without changing the explicit-download, integrity, or rollback policy.
+    prompt_mcp: null
+    question:
+      text: How shall the single Whisper.cpp runtime be distributed?
+      kind: single
+      options:
+        - id: signed-on-demand-runtime-packs
+          label: Signed on-demand packs
+          description: Download app-version-pinned backend packs only after explicit user action and manage them separately from model weights.
+    answer:
+      selected_ids: [signed-on-demand-runtime-packs]
+      text: ''
+    rationale: The existing distribution decision remains valid with a smaller single-engine pack matrix.
+    supersedes_revision: 1
+    requirement_ids: [PKG-002, SEC-003, OPS-001]
+
+  - id: compatibility.engine-platform-matrix
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user removed every alternate engine while retaining Whisper.cpp support targets.
+      - Whisper.cpp remains the only runtime for NVIDIA CUDA, Windows AMD Vulkan Preview, Linux AMD HIP/Vulkan Preview, and Windows/Linux x64 CPU.
+    prompt_mcp: null
+    question:
+      text: Which engine/platform matrix shall release 1 expose after the scope reduction?
+      kind: single
+      options:
+        - id: whisper-cpp-only-matrix
+          label: Whisper.cpp-only matrix
+          description: Apply every supported, Preview, and Planned platform row only to the fixed `whisperCpp` identity.
+    answer:
+      selected_ids: [whisper-cpp-only-matrix]
+      text: ''
+    rationale: No alternate-engine platform row remains active.
+    supersedes_revision: 1
+    requirement_ids: [COMP-006, CPU-001, AMD-003, AMD-004, MAC-001]
+
+  - id: models.initial-catalog
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user retained the Local Whisper feature while removing only Faster-Whisper.
+      - The previously approved six multilingual logical families all have Whisper.cpp-native artifact paths.
+    prompt_mcp: null
+    question:
+      text: Which model families shall the single-engine catalog expose?
+      kind: single
+      options:
+        - id: balanced-multilingual-ggml-catalog
+          label: Six-model GGML catalog
+          description: Keep tiny, base, small, medium, large-v3, and large-v3-turbo with only reviewed GGML variants.
+    answer:
+      selected_ids: [balanced-multilingual-ggml-catalog]
+      text: ''
+    rationale: Engine removal does not reduce the approved logical model-family set.
+    supersedes_revision: 1
+    requirement_ids: [MODEL-004, MODEL-005]
+
+  - id: ui.settings-depth
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The earlier decision selected a basic surface plus reviewed Advanced controls.
+      - The fixed engine value is now read-only, and the Faster-Whisper compute-precision control is removed.
+    prompt_mcp: null
+    question:
+      text: How much Whisper.cpp inference tuning shall the revised settings screen expose?
+      kind: single
+      options:
+        - id: whisper-cpp-basic-plus-advanced
+          label: Basic plus Advanced
+          description: Show core settings plus only the validated Whisper.cpp decoding, variant, and CPU-thread controls defined by the specification.
+    answer:
+      selected_ids: [whisper-cpp-basic-plus-advanced]
+      text: ''
+    rationale: The screen retains its approved depth without presenting controls for a removed engine.
+    supersedes_revision: 1
+    requirement_ids: [UI-003, UI-004, SET-003]
+
+  - id: compatibility.cpu-support-tier
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Whisper.cpp has a Windows/Linux x64 CPU path, and CPU remains an explicit target rather than a fallback.
+      - The existing production label remains conditional on per-OS correctness, performance, resource, and lifecycle qualification.
+    prompt_mcp: null
+    question:
+      text: What support tier shall the remaining Whisper.cpp CPU path have?
+      kind: single
+      options:
+        - id: whisper-cpp-production-after-gates
+          label: Production after gates
+          description: Target Production on Windows and Linux x64 only after each operating-system profile passes; macOS remains unavailable.
+    answer:
+      selected_ids: [whisper-cpp-production-after-gates]
+      text: ''
+    rationale: Removing the alternate engine reduces the qualification matrix without changing the conditional CPU tier.
+    supersedes_revision: 1
+    requirement_ids: [CPU-001, COMP-008, AC-MAN-002]
+
+  - id: models.native-artifact-identity
+    revision: 2
+    category: interfaces
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Only immutable Whisper.cpp-native GGML artifacts remain selectable.
+      - Updates and cache entries must still not float across runtime, source, artifact, format, model, or variant revisions.
+    prompt_mcp: null
+    question:
+      text: How shall a selectable model artifact be identified in the single-engine contract?
+      kind: single
+      options:
+        - id: immutable-whisper-cpp-ggml-artifact-tuple
+          label: Immutable GGML tuple
+          description: Bind engine, logical model, source revision, artifact revision, GGML format, and variant.
+    answer:
+      selected_ids: [immutable-whisper-cpp-ggml-artifact-tuple]
+      text: ''
+    rationale: Retaining the fixed engine discriminator preserves forward-compatible identity without carrying a second model format.
+    supersedes_revision: 1
+    requirement_ids: [MODEL-003, MODEL-004, MODEL-009, CACHE-001]
+
+  - id: resources.model-estimate-presentation
+    revision: 2
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - The user still requires approximate RAM and VRAM guidance for every curated model before selection.
+      - Backend, target, runtime, and GGML variant can change the narrower selected-configuration estimate even with one engine.
+    prompt_mcp: null
+    question:
+      text: How shall model-memory guidance be presented after Faster-Whisper is removed?
+      kind: single
+      options:
+        - id: layered-family-and-whisper-cpp-configuration
+          label: Layered estimates
+          description: Keep the six-family approximate table and refine it with the selected Whisper.cpp configuration and qualified peak.
+    answer:
+      selected_ids: [layered-family-and-whisper-cpp-configuration]
+      text: ''
+    rationale: The approved layered presentation remains useful without an engine or compute-precision dimension.
+    supersedes_revision: 1
+    requirement_ids: [MODEL-010, CAP-013, UI-007]
+
+  - id: security.worker-codec-resource-bounds
+    revision: 2
+    category: security
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The one-MiB frame limit still requires explicit nesting, parser-event, collection, key, string, and numeric-token bounds.
+      - The active protocol peers are now TypeScript main and the C++ Whisper.cpp worker only.
+      - The canonical WAV ceiling still implies at most 57,600,044 input bytes and 115,200,000 float32 conversion bytes.
+    prompt_mcp: null
+    question:
+      text: Which peers shall enforce the bounded canonical control and audio grammar?
+      kind: single
+      options:
+        - id: bounded-typescript-cpp-codecs
+          label: Bounded TypeScript/C++ codecs
+          description: Apply the same fail-closed grammar to main and the Whisper.cpp worker.
+    answer:
+      selected_ids: [bounded-typescript-cpp-codecs]
+      text: ''
+    rationale: Removing the Python runtime removes its decoder without weakening shared protocol or memory bounds.
+    supersedes_revision: 1
+    requirement_ids: [RUN-009, AUDIO-002, AC-AUTO-056]
+
+  - id: architecture.faster-whisper-native-adaptation
+    revision: 3
+    category: architecture
+    state: not_applicable
+    provenance: user
+    evidence:
+      - The user removed Faster-Whisper/CTranslate2 from the product and chose deletion of their active source locks, definitions, tests, and references.
+      - No directory-relative CTranslate2 loader, Python bridge, precision setting, or process-lifecycle adaptation remains in scope.
+    prompt_mcp: null
+    question:
+      text: Does the prior Faster-Whisper native-adaptation decision remain applicable?
+      kind: single
+      options:
+        - id: adaptation-removed
+          label: Adaptation removed
+          description: Preserve the prior investigation only in history and remove all active implementation obligations.
+    answer:
+      selected_ids: [adaptation-removed]
+      text: ''
+    rationale: The current explicit scope decision makes the alternate-engine adaptation unnecessary.
+    supersedes_revision: 2
+    requirement_ids: [NONGOAL-004, AC-AUTO-063]
+
+  - id: approval.spec
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 7 exposes only the fixed, non-editable `whisperCpp` engine discriminator and removes every active Faster-Whisper/CTranslate2 runtime, precision, model-format, packaging, lifecycle, AMD, and acceptance obligation.
+      - The settings, approximate model-memory guidance, current-device validation, download/removal, RAM/VRAM residency, AMD Preview boundary, and macOS Planned skeleton remain complete for the single engine.
+      - Final user, operator, implementer, tester, security-reviewer, and maintainer gap analysis found no unresolved material behavior; AC-AUTO-063 makes alternate-engine rejection and active-artifact removal objective.
+      - Active specification-decision requirement coverage, YAML parsing, scoped Prettier formatting, Faster/precision reference audit, and git diff whitespace checks pass.
+      - The existing implementation plan remains intentionally unchanged and stale until this revision is approved and a separate planning invocation rearranges its packets.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-08
+      question_id: approval.spec
+      idempotency_key: approval.spec:v7
+      last_status: answered
+      sequence: 37
+      revision: 7
+    question:
+      text: How should Local Whisper specification revision 7 proceed after removing Faster-Whisper and normalizing the contract around Whisper.cpp?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 7 (Recommended)
+          description: Make the single-engine specification authoritative; the implementation plan must then be rearranged and approved in a separate planning invocation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 7 in Draft and revise the affected product contract before planning.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval; the existing plan remains stale and no implementation packet may resume.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 7 through the persistent specification interview after Faster-Whisper removal and the single-engine contract normalization.
+    supersedes_revision: 6
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.runtime-source-toolchain
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 7 fixes Local Whisper to the single `whisperCpp` engine identity and excludes Faster-Whisper, CTranslate2, and embedded Python inference.
+      - Completed Tasks 09–12 already own the in-repository C++20 protocol, hardened Whisper.cpp adapter, and CPU/CUDA/Vulkan/HIP pack boundaries.
+    prompt_mcp: null
+    question:
+      text: Which runtime source/toolchain structure remains active in plan revision 12?
+      kind: single
+      options:
+        - id: in-repo-whisper-cpp-adapter
+          label: In-repo Whisper.cpp adapter
+          description: Keep the completed project-owned C++20 adapter and backend pack definitions over pinned Whisper.cpp sources.
+    answer:
+      selected_ids: [in-repo-whisper-cpp-adapter]
+      text: ''
+    rationale: The completed native adapter satisfies the approved worker, lifecycle, and trust boundaries without an alternate Python runtime.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-005, RUNTIME-001, RUN-001, PKG-004]
+
+  - id: planning.runtime-cli-feasibility-resolution
+    revision: 2
+    category: planning
+    state: answered
+    provenance: repository
+    evidence:
+      - Completed Tasks 10–12 implement the required persistent framed worker through the pinned Whisper.cpp API rather than an unmodified CLI or HTTP server.
+      - The single-engine specification removes the unresolved alternate-engine adapter branch that existed when revision 1 recorded the OpenWhispr link.
+    prompt_mcp: null
+    question:
+      text: How is the upstream CLI incompatibility resolved in the current single-engine plan?
+      kind: single
+      options:
+        - id: completed-thin-whisper-cpp-adapter
+          label: Completed thin adapter
+          description: Retain the project-owned framed C++ adapter over the pinned Whisper.cpp API and no listener or fallback semantics.
+    answer:
+      selected_ids: [completed-thin-whisper-cpp-adapter]
+      text: ''
+    rationale: The implemented adapter is the evidence-backed resolution; no CLI feasibility blocker remains.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-005, RUN-001, RUN-002, VRAM-001]
+
+  - id: planning.openwhispr-adaptation-boundary
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - OpenWhispr remains a non-normative reference for backend-specific Whisper.cpp packs and one persistent state-owning process.
+      - Approved specification revision 7 removes Faster-Whisper and retains the stricter framed-stdio, no-listener, no-fallback, signed-artifact, and anchored-model-authority boundaries.
+    prompt_mcp: null
+    question:
+      text: Which OpenWhispr ideas remain applicable to the Whisper.cpp-only plan?
+      kind: single
+      options:
+        - id: hardened-whisper-cpp-pattern
+          label: Hardened Whisper.cpp pattern
+          description: Retain only backend-specific packs and resident process ownership while preserving every stricter GPT-Voice boundary.
+    answer:
+      selected_ids: [hardened-whisper-cpp-pattern]
+      text: ''
+    rationale: OpenWhispr remains implementation evidence for the selected engine, not authority for HTTP, fallback, mutable assets, or alternate runtimes.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-005, RUNTIME-001, PKG-002, SEC-003, SEC-005, VRAM-001]
+
+  - id: planning.faster-windows-directory-authority
+    revision: 2
+    category: planning
+    state: not_applicable
+    provenance: user
+    evidence:
+      - Approved specification revision 7 removes Faster-Whisper/CTranslate2 and every directory-model runtime obligation.
+      - Task 13 removes the active alternate-engine locks and contracts; no Windows Faster worker or model-directory authority remains to implement or qualify.
+    prompt_mcp: null
+    question:
+      text: Does the prior Windows Faster-Whisper directory-authority decision remain applicable?
+      kind: single
+      options:
+        - id: removed-with-engine
+          label: Removed with engine
+          description: Preserve the prior investigation in history only and remove its implementation and qualification obligations.
+    answer:
+      selected_ids: [removed-with-engine]
+      text: ''
+    rationale: The authority mechanism is unnecessary after the engine and directory-native model format are removed.
+    supersedes_revision: 1
+    requirement_ids: [NONGOAL-004, AC-AUTO-063]
+
+  - id: planning.native-cpp-windows-gate
+    revision: 3
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly directed that all representative Windows checks execute only in the final task.
+      - Plan revision 12 retains Task 19 as the sole representative Windows execution owner while removing only the obsolete alternate-engine Windows rows.
+      - Windows-native CI definitions remain on Windows runners; no Windows check is moved to Linux.
+    prompt_mcp: null
+    question:
+      text: Where does representative Windows execution belong in the Whisper.cpp-only plan?
+      kind: single
+      options:
+        - id: defer-all-windows-to-task-19
+          label: Defer all to Task 19
+          description: Keep source and nonexecuted workflow definitions in owner packets and execute every representative Windows check only in Task 19.
+    answer:
+      selected_ids: [defer-all-windows-to-task-19]
+      text: ''
+    rationale: The platform gate remains unchanged except that removed Faster-Whisper evidence is no longer part of it.
+    supersedes_revision: 2
+    requirement_ids:
+      [
+        RUNTIME-001,
+        COMP-004,
+        NVIDIA-001,
+        CPU-001,
+        AMD-001,
+        AMD-002,
+        SEC-007,
+        RUN-004,
+        PKG-001,
+        AC-AUTO-024,
+        AC-AUTO-032,
+        AC-AUTO-040,
+        AC-AUTO-041,
+      ]
+
+  - id: execution.task-13-revision-11
+    revision: 2
+    category: execution
+    state: not_applicable
+    provenance: user
+    evidence:
+      - The revision-11 authorization named the now-deleted Faster-Whisper/CTranslate2 packet and cannot authorize a materially different cleanup packet.
+      - Approved specification revision 7 and plan revision 12 replace that packet with single-engine cleanup and require a fresh execution decision.
+    prompt_mcp: null
+    question:
+      text: Does the old Task-13 execution authorization apply to the replacement cleanup packet?
+      kind: single
+      options:
+        - id: old-authorization-does-not-apply
+          label: Authorization does not apply
+          description: Treat the removed packet authorization as historical and require fresh authorization for revised Task 13.
+    answer:
+      selected_ids: [old-authorization-does-not-apply]
+      text: ''
+    rationale: Execution authority is packet-specific and does not transfer across the scope replacement.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: planning.revision-12-plan-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 12 preserves exactly 19 numbered packets; Tasks 01–12 retain their completed commit evidence, and replacement Tasks 13–19 contain all 14 mandatory packet sections.
+      - 'The machine-readable registry maps exactly 62 canonical automated acceptance IDs to one primary task each: `AC-AUTO-001` through `AC-AUTO-054` and `AC-AUTO-056` through `AC-AUTO-063`; removed `AC-AUTO-055` has no active owner.'
+      - All 233 active product requirement and acceptance IDs have packet coverage, the dependency graph is acyclic, and every local Markdown link resolves; approval metadata and algorithm names are excluded from this count.
+      - Replacement Task 13 exclusively owns removal of active Faster-Whisper, CTranslate2, embedded-Python inference, alternate-engine pack, precision, source-lock, model-mapping, and test artifacts plus normalization to the fixed `whisperCpp` discriminator.
+      - Every representative Windows execution remains exclusive to Task 19 and on Windows runners; AMD remains Preview and untested, and macOS remains a non-executable Planned/unavailable skeleton.
+      - Task-plan validation, scoped Prettier, decision-ledger YAML parsing, planning stale-reference auditing, and `git diff --check` pass for revision 12; the two remaining implementation references are explicitly owned by Task 13.
+      - Plan approval remains separate from replacement Task 13 execution authorization and from implementation, commit, push, pull request, signing, packaging, publication, release, or representative platform execution.
+    prompt_mcp: null
+    question:
+      text: Is Local Whisper implementation plan revision 12 complete and executable as a single-engine task graph?
+      kind: single
+      options:
+        - id: revision-12-audit-passed
+          label: Revision 12 audit passed
+          description: Record the completed structural, traceability, platform-boundary, and executability audit without authorizing implementation.
+    answer:
+      selected_ids: [revision-12-audit-passed]
+      text: ''
+    rationale: Revision 12 is internally consistent, fully traceable to approved specification revision 7, and executable one separately authorized packet at a time.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 12
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 12 removes the obsolete Faster-Whisper/CTranslate2 branch and replaces Task 13 with one atomic cleanup and fixed-`whisperCpp` contract-normalization packet.
+      - Tasks 01–12 remain completed with their existing commit evidence; Tasks 14–19 retain their numbering and dependencies after the replacement cleanup packet.
+      - The audited registry owns exactly 62 automated criteria and covers all 233 active product requirement and acceptance IDs without `AC-AUTO-055`; approval metadata is not an executable requirement.
+      - Representative Windows execution remains exclusively in Task 19 and on Windows runners; AMD remains untested Preview, and macOS remains Planned/unavailable.
+      - Approval is separate from Task 13 execution authorization and does not authorize implementation, commit, push, pull request, signing, packaging, publication, release, or representative platform execution.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: approval.plan-revision-12
+      idempotency_key: approval.plan-revision-12:v1
+      last_status: answered
+      sequence: 55
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 12 proceed after the Whisper.cpp-only rebuild and audit?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 12 (Recommended)
+          description: Approve the single-engine implementation contract; replacement Task 13 execution remains separately gated.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 12 in Draft and revise the affected packets before implementation.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the audited plan unapproved and do not authorize implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved audited Local Whisper plan revision 12 through the durable persistent planning interview; replacement Task 13 remains separately gated.
+    supersedes_revision: 11
+    requirement_ids: []
+
+  - id: commit.plan-revision-12
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 7 and plan revision 12 are approved and verified as one Whisper.cpp-only planning baseline.
+      - The scoped worktree contains only the specification, decision ledger, task packets, acceptance registry, handoff/checklist, and task-plan validator changes for that baseline.
+      - Task 13 implementation, its eventual commit, push, pull request, packaging, signing, publication, release, and representative platform execution remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-13-start-round-56
+      question_id: commit.plan-revision-12
+      idempotency_key: commit.plan-revision-12:v1
+      last_status: answered
+      sequence: 56
+      revision: 1
+    question:
+      text: How should the approved, verified, and currently uncommitted Local Whisper specification revision 7 and plan revision 12 baseline proceed before Task 13?
+      kind: single
+      options:
+        - id: authorize-plan-commit
+          label: Commit approved baseline (Recommended)
+          description: Create one scoped conventional commit containing only the approved specification/planning revision and validator changes, without pushing.
+        - id: leave-plan-uncommitted
+          label: Leave uncommitted
+          description: Keep the approved planning changes dirty and do not begin Task 13.
+        - id: revise-plan-before-commit
+          label: Revise first
+          description: Return the approved baseline for further specification or planning changes before implementation.
+    answer:
+      selected_ids: [authorize-plan-commit]
+      text: ''
+    rationale: The user explicitly authorized one atomic conventional commit for the approved single-engine specification and planning baseline without push authority.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-13-revision-12
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 12 names replacement Task 13 as the exact next packet after the approved baseline is committed.
+      - Task 13 owns only removal of active Faster-Whisper, CTranslate2, embedded-Python inference, alternate-format, and precision artifacts plus fixed-`whisperCpp` contract normalization.
+      - Task 14, Task 17, representative Windows/AMD/macOS execution, Task-13 commit, push, pull request, packaging, signing, publication, and release remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-13-start-round-56
+      question_id: execution.task-13-revision-12
+      idempotency_key: execution.task-13-revision-12:v1
+      last_status: answered
+      sequence: 57
+      revision: 1
+    question:
+      text: Should this incremental-implementation invocation execute exactly replacement Local Whisper Task 13 after the approved revision-12 baseline is committed?
+      kind: single
+      options:
+        - id: authorize-task-13
+          label: Authorize Task 13 (Recommended)
+          description: Implement and verify only the single-engine cleanup packet, update todo and handoff, then stop uncommitted before Task 14.
+        - id: do-not-authorize-task-13
+          label: Do not authorize
+          description: Keep the approved plan without changing production source or deleting the two obsolete locks.
+        - id: revise-task-13
+          label: Revise Task 13
+          description: Return the replacement packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-13]
+      text: ''
+    rationale: The user explicitly authorized exactly replacement Task 13 for this invocation after the approved revision-12 baseline commit; the packet must stop uncommitted before Task 14.
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-004, AC-AUTO-063]

@@ -10,7 +10,7 @@
       "const": 1
     },
     "planRevision": {
-      "const": 10
+      "const": 12
     },
     "taskFiles": {
       "type": "object",
@@ -58,7 +58,7 @@
         "properties": {
           "acceptanceId": {
             "type": "string",
-            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-2])$"
+            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-3])$"
           },
           "primaryTask": {
             "type": "string",

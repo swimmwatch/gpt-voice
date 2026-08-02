@@ -32,7 +32,7 @@ login, API-key, or remote-provider authentication.
 - State and support presentation: `CAP-001`, `CAP-008`, `CAP-009`, `CAP-010`,
   `CAP-011`, `CAP-012`, `CAP-013`, `LIFE-003`, `LIFE-005`, `LIFE-006`,
   `FAIL-001`, `FAIL-002`, `FAIL-004`, `FAIL-006`, `AMD-001`, `AMD-002`,
-  `AMD-003`, `AMD-004`, `AMD-005`, `AMD-006`, `MAC-001`, `MAC-002`, and
+  `AMD-003`, `AMD-004`, `AMD-006`, `MAC-001`, `MAC-002`, and
   `MAC-003`.
 - Primary acceptance: `AC-AUTO-004`, `AC-AUTO-038`, and `AC-AUTO-049`.
 - Supporting acceptance: `AC-AUTO-001`, `AC-AUTO-003`, `AC-AUTO-005`,
@@ -117,8 +117,8 @@ tests use sanitized fake IDs only.
 
 Implement these exact controls and rules:
 
-- **Engine**: required `whisperCpp | fasterWhisper`, default `whisperCpp`;
-  changing it is load-affecting.
+- **Engine**: required fixed literal `whisperCpp`, persisted and displayed as a
+  read-only compatibility field with no selector. Any other value is invalid.
 - **Execution target**: required explicit `gpu | cpu`, default `gpu`; there is
   no `auto` and no fallback.
 - **Backend**: GPU selector `cuda | hip | vulkan`; CPU is read-only `CPU`;
@@ -136,8 +136,7 @@ large-v3-turbo`, default `base`.
   selected and visible.
 - **Model variant**: visible only when multiple reviewed variants exist;
   default `full` where available. `whisperCpp` `q5_0` may appear only for a
-  catalog-qualified `large-v3` or `large-v3-turbo` entry. Faster-Whisper
-  precision is not a variant.
+  catalog-qualified `large-v3` or `large-v3-turbo` entry.
 - **Language**: required `auto` or an app-shipped common canonical language ID,
   default `auto`; persist no free text or engine-specific alias.
 - **Initial prompt**: optional Unicode, at most 1,000 code points, with a live
@@ -148,9 +147,6 @@ large-v3-turbo`, default `base`.
 - **Temperature**: locale-aware UI decimal `0.00..1.00`, normalized before IPC
   to the safe integer `temperatureHundredths` in `0..100`, divisible by `5`;
   default `0`.
-- **Compute precision**: Advanced and Faster-Whisper-only. GPU/CUDA permits
-  `float16 | int8_float16`, default `float16`; CPU permits `int8 | float32`,
-  default `int8`. An authenticated manifest may narrow, never extend, values.
 - **Decoding strategy**: Advanced `greedy | beamSearch | bestOfSampling`,
   default `greedy`.
 - **Beam size**: safe integer `1..10`, default `5`, visible and required only
@@ -176,8 +172,7 @@ Restore the last explicitly saved child value for every specification stable
 selection key, including a now-missing or unavailable value. Initialize only a
 never-seen key:
 
-- new engine -> `base` plus its recommended revision/default variant;
-- new target -> target precision/thread defaults;
+- new target -> its CPU-thread default where applicable;
 - new engine/target/backend -> app-pinned runtime recommendation;
 - new family -> recommended revision and `full` where available;
 - zero eligible GPU combinations -> backend/device unset;
@@ -206,10 +201,10 @@ qualified peaks, or guarantees:
 | `large-v3-turbo` | approximately 3-6 GiB | approximately 6-10 GiB       |
 
 For CPU, state that model VRAM is not allocated and RAM is total system
-capacity guidance. Once engine, target, backend, model revision, variant, and
-precision are known, also show exactly one matching `Estimated for selected
+capacity guidance. Once engine, target, backend, model revision, and variant
+are known, also show exactly one matching `Estimated for selected
 configuration` and, when catalog-qualified evidence exists, a separate
-`Qualified peak`; include precision/variant/backend identity and unit. Reject
+`Qualified peak`; include variant/backend identity and unit. Reject
 malformed, stale, or nonmatching records. Family guidance never blocks
 selection, download, or installation; the exact current threshold and real
 load are authoritative.
@@ -257,8 +252,8 @@ resource, load, and warm-up failures keep their exact safe state. Nothing calls
 these failures login, API key, authentication, or remote-provider errors.
 
 AMD labels are exactly `Preview · Untested on representative AMD hardware`.
-Show Windows Vulkan and exact Linux HIP/Vulkan prerequisites; never expose a
-Faster-Whisper AMD path or claim that upstream/build/mock evidence is physical
+Show Windows Vulkan and exact Linux HIP/Vulkan prerequisites; never expose an
+unlisted AMD path or claim that upstream/build/mock evidence is physical
 hardware validation. macOS arm64 is exactly `Planned · Unavailable in this
 release`, shows disabled Metal, and exposes no download, compatibility probe,
 load, Ready, or transcription action.

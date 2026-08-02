@@ -28,7 +28,7 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
 const TASK_ID_PATTERN = /^(?:0[1-9]|1\d)$/u;
 const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d)_[a-z\d_]+\.md$/u;
 const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d)-[a-z\d-]+$/u;
-const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06[0-2])$/u;
+const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06[0-3])$/u;
 
 function fail(message) {
   throw new Error(`Local Whisper task-plan validation failed: ${message}`);
@@ -48,7 +48,10 @@ function assertExactKeys(value, expectedKeys, label) {
 }
 
 function expectedAcceptanceIds() {
-  return Array.from({ length: 62 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`);
+  return [
+    ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
+    ...Array.from({ length: 8 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+  ];
 }
 
 function extractSpecificationAcceptanceIds(specification) {
@@ -82,7 +85,7 @@ function validateManifestShape(manifest, schema) {
     ['schemaVersion', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
     'manifest',
   );
-  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 10) fail('manifest version is unexpected');
+  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 12) fail('manifest version is unexpected');
   if (!Array.isArray(manifest.verificationCommands)) fail('verificationCommands must be an array');
   if (!Array.isArray(manifest.automatedAcceptanceOwners)) fail('automatedAcceptanceOwners must be an array');
 }
@@ -173,7 +176,7 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
     specificationAcceptanceIds.length !== canonicalAcceptanceIds.length ||
     specificationAcceptanceIds.some((id, index) => id !== canonicalAcceptanceIds[index])
   ) {
-    fail('specification automated acceptance IDs are not exactly AC-AUTO-001 through AC-AUTO-062');
+    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–063');
   }
 
   const ownersByAcceptanceId = new Map();
@@ -186,6 +189,9 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
     );
     if (typeof owner.acceptanceId !== 'string' || !ACCEPTANCE_ID_PATTERN.test(owner.acceptanceId)) {
       fail(`invalid canonical acceptance ID at owner index ${index}`);
+    }
+    if (owner.acceptanceId !== canonicalAcceptanceIds[index]) {
+      fail(`acceptance owner ordering differs at index ${index}`);
     }
     if (!canonicalAcceptanceIds.includes(owner.acceptanceId)) fail(`unknown acceptance ID: ${owner.acceptanceId}`);
     if (ownersByAcceptanceId.has(owner.acceptanceId)) fail(`duplicate primary owner: ${owner.acceptanceId}`);

@@ -2,8 +2,8 @@
 
 ## Outcome
 
-Task 07 first completes the one canonical engine-neutral Local Whisper worker
-protocol shared by Electron main and both future engine peers. Electron main
+Task 07 first completes the one canonical Local Whisper worker protocol shared
+by Electron main and the future `whisperCpp` peer. Electron main
 then owns one supervisor that starts only an authenticated immutable runtime
 executable, communicates over that strict bounded framed-stdio contract,
 enforces every stage deadline, implements complete Windows/Linux child-tree
@@ -35,13 +35,14 @@ cleanup, or backend/engine/model fallback.
   persistent main-owned process are reusable ideas. OpenWhispr HTTP/ports,
   shared mutable `bin`, model path in argv, mutable unsigned assets, and
   GPU-to-CPU fallback are forbidden.
-- Actual `whisper.cpp` and Faster-Whisper worker peers belong to Tasks 08 and 09. This packet uses a deterministic non-inference conformance worker.
+- Actual `whisper.cpp` worker peers belong to Tasks 10–12. This packet uses a
+  deterministic non-inference conformance worker.
 
 ### Post-completion protocol repair ownership
 
 Task 07 completed and was committed as `31c13c54`. Subsequent pinned-engine
 review found that the strict probe/load schemas lacked the private
-runtime-local device selector required by both engines. Under
+runtime-local device selector required by the Whisper.cpp GPU backends. Under
 `planning.native-device-binding-contract` and
 `planning.native-device-protocol-version` revision 1, Task 09 owns one targeted
 atomic repair of the unreleased protocol-v1 schemas, golden vectors,
@@ -85,8 +86,7 @@ implementation and does not authorize an engine-specific dialect.
 ## Out Of Scope
 
 - Actual inference engines, model decoding, language/strategy mapping, runtime
-  pack builds, Python/CTranslate2/PyAV, or `whisper.cpp` API adaptation; Tasks
-  08/09 own peers.
+  pack builds, or `whisper.cpp` API adaptation; Tasks 10–12 own peers.
 - Catalog publication, artifact download/extraction, filesystem deletion,
   hardware support policy, capability probing, coordinator state, IPC, UI, or
   provider dispatch.
@@ -106,8 +106,7 @@ implementation and does not authorize an engine-specific dialect.
    one public contract expresses every approved handshake and stage. Task 07
    owns this atomic repair under answered decision
    `planning.worker-protocol-repair-ownership` revision 1. No supervisor,
-   whisper.cpp, or Faster-Whisper private message union or frame codec may
-   coexist with it.
+   alternate-engine private message union or frame codec may coexist with it.
 2. Retain protocol version `1`: no production worker peer or runtime pack has
    shipped. Change the shared schemas, validators, codecs, tests, and all
    canonical version-1 vectors atomically; do not retain compatibility with
@@ -151,7 +150,7 @@ implementation and does not authorize an engine-specific dialect.
    and a bounded request ID. `load` additionally carries the private managed
    `modelPath` and the complete structured shared
    `LocalWhisperResidencyKey` (engine, runtime pack revision, target, backend,
-   opaque device ID, immutable model identity/variant, precision, and resolved
+   opaque device ID, immutable model identity/variant, and resolved
    CPU threads); `loaded` echoes that exact structure for identity comparison.
    `transcribe` retains settings epoch, exact audio byte length, and validated
    options; its binary chunks carry the same request ID, start at sequence
@@ -266,9 +265,9 @@ implementation and does not authorize an engine-specific dialect.
    ordered capabilities, and maximum frame sizes. Mismatch is
    `WORKER_PROTOCOL_MISMATCH`; terminate before model data or private payloads
    are accepted.
-5. Keep the transport engine-neutral. Tasks 08/09 implement the same
-   handshake and request semantics independently; Faster-Whisper never shares
-   an OpenWhispr/whisper.cpp server or fallback process.
+5. Keep the transport isolated from engine implementation details. Tasks
+   10–12 implement the same handshake and request semantics for the fixed
+   `whisperCpp` engine without an OpenWhispr server or fallback process.
 6. Apply backpressure to stdin and stdout. Bound queued outgoing audio/control
    data and parsed-but-unconsumed frames; pause/resume streams instead of
    accumulating unbounded buffers in main.
@@ -349,8 +348,8 @@ implementation and does not authorize an engine-specific dialect.
    mutable asset lookup, model path in argv, inherited environment, temporary
    audio conversion files, raw/private diagnostic logging, PID-file adoption,
    `taskkill` cleanup, published binaries, or GPU-to-CPU fallback.
-3. A failure never changes target, backend, device, engine, runtime, model,
-   variant, precision, or CPU threads. It returns the exact typed failure and
+3. A failure never changes target, backend, device, runtime, model, variant, or
+   CPU threads. It returns the exact typed failure and
    leaves the selection for an explicit user decision.
 
 ## Contracts And Boundaries
@@ -358,9 +357,9 @@ implementation and does not authorize an engine-specific dialect.
 - Task 04's still-held/revalidated lease is required for spawn and model-path
   handoff. A string path alone is not authority.
 - Task 07 owns the canonical shared protocol plus
-  process/framing/deadline/cleanup mechanics. Tasks 08/09 consume that contract
-  and own engine peers; Task 11 owns readiness/residency/activity and operation
-  policy.
+  process/framing/deadline/cleanup mechanics. Tasks 10–12 consume that contract
+  and own `whisperCpp` backend peers; Task 14 owns readiness/residency/activity
+  and operation policy.
 - `src/main/services/prettifyCliRunner.ts` may inform abort and first-terminal
   patterns only. It must not be reused directly: it accepts user/PATH
   executables, buffers whole output, uses PID-based `taskkill`, and has no

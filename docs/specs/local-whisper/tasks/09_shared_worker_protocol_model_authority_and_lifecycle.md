@@ -3,7 +3,7 @@
 ## Outcome
 
 The unreleased worker protocol v1 becomes one bounded, cross-language security
-and lifecycle contract for TypeScript, C++20, and Python peers. It has one
+and lifecycle contract for TypeScript and C++20 peers. It has one
 canonical lexical JSON grammar and event-accounting algorithm, one versioned
 device-registry/proof encoding, exact canonical WAV framing, a fresh
 probe-versus-full-load process split, authenticated Linux and Windows
@@ -11,14 +11,14 @@ model-authority handoff, and deterministic terminal-race cleanup. The packet
 preserves and repairs the existing dirty supervisor checkpoint without
 compiling an inference engine.
 
-Plan revision 11 preserves Task 09's completed implementation baseline but
-supersedes its unreleased native authority-record layout through Task 10. Task
+Plan revision 12 preserves Task 09's completed implementation baseline and
+retains the authoritative unreleased native authority-record migration from Task 10. Task
 10 atomically migrates the common binding to the sizes and artifact-evidence
 fields below before any engine work; old record lengths are then invalid.
 
 ## Prerequisites
 
-- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
+- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 7.
 - Tasks 01, 03, 04, 06, 07, and 08 are complete.
 - Task 08 has materialized and verified source locks
   `nlohmann-json-v3.12.0-subset` and
@@ -48,7 +48,7 @@ fields below before any engine work; old record lengths are then invalid.
 ## In Scope
 
 - Exact frame, JSON lexical, parser-resource, schema, device-authority, and
-  proof DTO contracts shared by TypeScript, C++, and Python.
+  proof DTO contracts shared by TypeScript and C++.
 - Duplicate-aware nlohmann SAX adapter plus a separate bounded lexical numeric
   validator; no nlohmann DOM types escape the C++ codec.
 - Project-owned CMake integration that requires the verified local GoogleTest
@@ -70,7 +70,7 @@ fields below before any engine work; old record lengths are then invalid.
 
 ## Out Of Scope
 
-- `whisper.cpp`, CTranslate2, Python inference, model parsing, physical GPU
+- `whisper.cpp` engine adaptation, model parsing, physical GPU
   enumeration, stable renderer-facing device IDs, capability state, IPC/UI,
   artifact publication, or support-tier promotion.
 - A model path in argv, protocol, bootstrap, environment, or cwd.
@@ -138,7 +138,7 @@ whitespace. The vector generator SHALL emit valid-limit and one-property-invalid
 N/N+1 vectors for raw bytes, events, depth, members, elements, key bytes,
 decoded-string bytes, duplicate keys at multiple depths, safe integer bounds,
 `-0`, leading zero, decimals, exponents, invalid UTF-8/escapes/surrogates, and
-trailing values. TypeScript, C++/nlohmann SAX, and Python SHALL consume the same
+trailing values. TypeScript and C++/nlohmann SAX SHALL consume the same
 checked-in binary vectors byte for byte.
 
 ### Device authority and proof encoding
@@ -202,7 +202,7 @@ Task 09 SHALL check in versioned golden vectors for empty/single/multiple
 registries, ordinal 0/255, GPU/IGPU, changed order, duplicate identity, every
 single-field proof mutation, probe/load field swaps, `LWDEV1P\0`/`LWDEV1L\0`
 domain swaps, challenge swaps/reuse/expiry, and `u64` boundary encoding. Each
-TypeScript/C++/Python peer must reproduce both proof digests and reject every
+TypeScript/C++ peers must reproduce both proof digests and reject every
 cross-domain vector. Task 10 supplies CPU absence-of-GPU evidence. Task 11
 supplies real CUDA registry and proof values. Later backends must define their
 canonical native-identity normalization without changing `LWREG1` or either
@@ -218,7 +218,7 @@ its distinct `loadChallenge` and expected registry fingerprint. `probed`
 reports actual binding, authority ID, registry fingerprint, activated ordinal,
 and `probeProof` only after real backend allocation/dispatch. `loaded`
 additionally reports exact model identity/digest, positive selected-device
-model-weight bytes for GPU, effective backend/precision, primary state
+model-weight bytes for GPU, effective backend, primary state
 ownership, and `loadProof`. The wrong operation's challenge/proof field is a
 schema violation. CPU probe/load requests and responses contain neither GPU
 ordinal/fingerprint nor either challenge/proof field, and later workers must
@@ -392,17 +392,16 @@ kill-on-failure. No representative Windows execution occurs before Task 19.
 - Project-owned CMake modules/arguments that bind every native test target to
   the verified `googletest-v1.17.0-52eb810` content-store root without a
   network-capable declaration or ambient package lookup.
-- Python reference codec used only for conformance until a later engine packet.
 - Authority-handoff modules under `runtime/local-whisper/fs-guard/` and
   `runtime/local-whisper/launcher/` without duplicating their composition roots.
 - Generated checked-in vectors under
   `tests/fixtures/local-whisper/protocol/v1/` and proof/bootstrap subfolders.
-- Focused TypeScript/GoogleTest/Python tests and the exact package scripts used
+- Focused TypeScript/GoogleTest tests and the exact package scripts used
   below.
 
 ## Acceptance Criteria
 
-- All three peers agree on every valid and invalid JSON N/N+1 vector; duplicate
+- Both peers agree on every valid and invalid JSON N/N+1 vector; duplicate
   keys and numeric spelling cannot be hidden by DOM normalization.
 - All peers reproduce every `LWREG1`, `LWDEV1P\0`, and `LWDEV1L\0` digest
   vector exactly; any changed encoding/order/domain/challenge/identity/weight

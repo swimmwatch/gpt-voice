@@ -8,8 +8,8 @@ supplied production. One CI producer creates and signs one fixture bundle once;
 Linux consumes that exact bundle in this packet. A reusable, non-triggered
 Windows consumer/package job is defined but never executed before Task 19.
 Base installers contain only shared Local Whisper integration and exactly two
-small native helpers; inference workers, models, accelerator libraries, and
-Python remain on-demand. Fixture trust can never enter release collection.
+small native helpers; inference workers, models, and accelerator libraries
+remain on-demand. Fixture trust can never enter release collection.
 
 ## Prerequisites
 
@@ -28,9 +28,9 @@ Python remain on-demand. Fixture trust can never enter release collection.
 
 - Primary packaging: `PKG-001`, `PKG-002`, `PKG-003`, `PKG-004`, `PKG-005`,
   `PKG-008`, `PKG-009`, `PKG-010`, `SEC-008`, and `SEC-012`.
-- Source/engine-lock packaging slices: `PKG-006` and `PKG-007`.
+- Source/engine-lock packaging slice: `PKG-006`.
 - Packaging and trust slices: `SEC-003`, `SEC-009`, `SEC-013`, `OPS-001`,
-  `RUNTIME-001`, `RUNTIME-002`, `RUNTIME-003`, `MODEL-003`, `MODEL-009`,
+  `RUNTIME-001`, `RUNTIME-003`, `MODEL-003`, `MODEL-009`,
   `MODEL-010`, `CAP-013`, `COMP-002`, `COMP-007`, `COMP-009`, `DL-001`,
   `DL-002`, and `MAC-003`.
 - Primary acceptance: `AC-AUTO-030`, `AC-AUTO-048`, `AC-AUTO-057`, and
@@ -60,8 +60,9 @@ Python remain on-demand. Fixture trust can never enter release collection.
 - Creating or storing a production private key, choosing a public production
   origin, uploading artifacts, publishing a catalog, code-signing the app,
   pushing a branch, opening a pull request, tagging, or releasing.
-- Bundling drivers, complete CUDA/Vulkan/ROCm SDKs, inference workers, embedded
-  Python, model weights, or macOS helpers in the base installer.
+- Bundling drivers, complete CUDA/Vulkan/ROCm SDKs, inference workers,
+  alternate inference runtimes, model weights, or macOS helpers in the base
+  installer.
 - Coordinator/UI work, representative Windows execution, or hardware/inference
   qualification.
 
@@ -150,7 +151,7 @@ Windows and Linux base packages may include only:
   requires them.
 
 They must exclude every inference worker; CUDA, cuBLAS, cuDNN, ROCm, HIP, and
-Vulkan inference library; embedded Python and wheels; model artifact; driver;
+Vulkan inference library; alternate inference runtime; model artifact; driver;
 full SDK/toolkit; shader compiler; package installer; cache; source tree;
 build tool; fixture private input; and arbitrary local build output. macOS gets
 no executable Local Whisper helper or runtime/model catalog action.
@@ -179,8 +180,8 @@ before first load per app process and after identity/metadata change.
 Denylisting blocks execution without auto-delete, auto-update, or fallback.
 
 Production pack assembly may consume only the canonical source/toolchain locks
-and worker/pack definitions from Tasks 09, 10, 11, 12, and 13. A successful
-CMake install, Python install, link, or build-host run is not a complete pack.
+and worker/pack definitions from Tasks 09, 10, 11, and 12. A successful CMake
+install, link, or build-host run is not a complete pack.
 Windows `whisper.cpp` staging is project-owned and must not rely on incomplete
 upstream runtime-install rules.
 
@@ -190,8 +191,8 @@ Generate deterministic per-pack notices, SPDX or CycloneDX-compatible SBOM
 data, source commit/tree/subset/patch/toolchain identities, exact build options
 and accelerator architectures, dynamic dependency closure, artifact hashes and
 signatures, redistribution-review state, and license identities. Account for
-every retained CUDA, cuBLAS, cuDNN, ROCm, HIP, Python, NumPy, CTranslate2,
-Faster-Whisper, `whisper.cpp`, nlohmann, model/conversion, and other component.
+every retained CUDA, cuBLAS, cuDNN, ROCm, HIP, `whisper.cpp`, nlohmann, model,
+quantization, and other component.
 An upstream MIT license never waives vendor or model obligations.
 
 The base application is not universally code-signed. UI, documentation, and
@@ -244,8 +245,8 @@ macOS executable claim.
   purpose/key/schema/signature/hash data, fixture trust in release collection,
   and production mode without frozen approved inputs.
 - Base-package inspection finds only shared integration and the two approved
-  helpers, and none of the prohibited workers, libraries, Python, models, SDKs,
-  private fixture material, or arbitrary build outputs.
+  helpers, and none of the prohibited workers, libraries, alternate runtimes,
+  models, SDKs, private fixture material, or arbitrary build outputs.
 - Runtime pack policy requires complete source/build/dependency/license/SBOM/
   provenance evidence and exact signed compatibility rows.
 - Release collection cannot publish fixture or incomplete production output.

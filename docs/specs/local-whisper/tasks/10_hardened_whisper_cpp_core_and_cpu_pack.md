@@ -18,7 +18,7 @@ CUDA pack belong to Task 11.
 
 ## Prerequisites
 
-- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
+- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 7.
 - Tasks 08 and 09 are complete.
 - Verified local source objects `whisper-cpp-v1.9.1-f049fff` and
   `nlohmann-json-v3.12.0-subset`, the patch-lock schema, common C++ codec, Linux
@@ -58,7 +58,7 @@ CUDA pack belong to Task 11.
   provenance, relocation, malicious-CWD/environment, and network-denied tests.
 - Windows x64 CPU source/build/CI contracts using Task 08's candidate lock;
   representative execution remains Task 19-only.
-- Atomic TypeScript/C++20/Python authority-record migration, regenerated
+- Atomic TypeScript/C++20 authority-record migration, regenerated
   vectors, and Linux executable plus Windows source-contract coverage for the
   authenticated artifact byte-count/content-digest binding.
 
@@ -69,7 +69,7 @@ CUDA pack belong to Task 11.
 - The cooperative `whisper.cpp` abort patch or retaining a CPU worker after
   cancellation; Task 11 owns that final hardening and republishes the local CPU
   staging revision after it passes.
-- Faster-Whisper, coordinator/capability policy, IPC/UI, signing, publication,
+- Alternate inference engines, coordinator/capability policy, IPC/UI, signing, publication,
   installer changes, or support-tier promotion.
 - Representative Windows execution before Task 19.
 - Any path, argv/environment field, framed JSON `load` field, or second
@@ -116,7 +116,7 @@ lease, or send them through a model path, argv, environment, cwd, framed
 control, renderer/preload IPC, logging, audit, or diagnostics.
 
 Task 10 updates `LocalWhisperModelAuthorityRecord`, the C++ common authority
-codec/bootstrap, Python reference codec, guard/launcher fixtures, generator,
+codec/bootstrap, guard/launcher fixtures, generator,
 manifest, and golden records together. Existing control-message schema and
 device proof domains do not change. Linux executes the migrated handoff;
 Windows retains compile/source/contract coverage on its Windows job and final

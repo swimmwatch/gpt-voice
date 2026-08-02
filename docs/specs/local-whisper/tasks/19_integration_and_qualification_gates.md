@@ -47,9 +47,9 @@ a guessed Pass. This packet performs no publication or release action.
   `AC-AUTO-042`, `AC-AUTO-043`, `AC-AUTO-044`, `AC-AUTO-045`,
   `AC-AUTO-046`, `AC-AUTO-047`, `AC-AUTO-048`, `AC-AUTO-049`,
   `AC-AUTO-050`, `AC-AUTO-051`, `AC-AUTO-052`, `AC-AUTO-053`,
-  `AC-AUTO-054`, `AC-AUTO-055`, `AC-AUTO-056`, `AC-AUTO-057`,
-  `AC-AUTO-058`, `AC-AUTO-059`, `AC-AUTO-060`, `AC-AUTO-061`, and
-  `AC-AUTO-062`.
+  `AC-AUTO-054`, `AC-AUTO-056`, `AC-AUTO-057`,
+  `AC-AUTO-058`, `AC-AUTO-059`, `AC-AUTO-060`, `AC-AUTO-061`,
+  `AC-AUTO-062`, and `AC-AUTO-063`.
 - Manual and hardware orchestration: `AC-MAN-001`, `AC-MAN-002`,
   `AC-MAN-003`, `AC-MAN-004`, `AC-MAN-005`, `AC-MAN-006`,
   `AC-MAN-007`, `AC-MAN-008`, `AC-MAN-009`, `AC-MAN-010`,
@@ -147,9 +147,9 @@ cover at least:
 - framed protocol/codecs, canonical WAV/resource bounds, one-use model
   authority, loader truncation/overflow, terminal races, cancellation,
   late-response handling, and process-tree cleanup;
-- `whisperCpp` and Faster-Whisper CPU/CUDA isolation, no fallback, no runtime
-  inference network, no path/eager loader/PyAV/ambient-module resolution,
-  process-exit unload, and fresh reload;
+- `whisperCpp` CPU/CUDA/Vulkan/HIP isolation, fixed-engine rejection, no
+  fallback, no runtime inference network, no path/eager loader/ambient-module
+  resolution, process-exit unload, and fresh reload;
 - pre-cache gating, full and lazy load, unload, settings/configuration epochs,
   conflicts, provider switch, suspend/resume, hot plug, app exit, typed error
   precedence, privacy, audit, and diagnostics;
@@ -167,8 +167,7 @@ hardware never substitutes for a required real-platform or real-hardware row.
 Run repository format, lint, type, unit, integration, production build, audit,
 packaging, and deterministic acceptance checks. Run C++ clang-format,
 clang-tidy, warnings-as-errors, GoogleTest unit/integration tests, Linux
-sanitizers, and the equivalent real Windows MSVC tests. Run Python format,
-lint, type, and tests for the isolated Faster-Whisper pack. Run source, patch,
+sanitizers, and the equivalent real Windows MSVC tests. Run source, patch,
 license, SBOM, provenance, expected-file, dependency-closure, relocation, and
 release-collection validators. Never suppress a diagnostic or weaken trusted
 IPC, path safety, privacy, or evidence validation to obtain green output.
@@ -183,7 +182,7 @@ Release collection must reject fixture and absent/unapproved production input.
 Every Production support-matrix cell requires a checked-in approved profile
 before its label ships. A strict profile contains exact OS build/family,
 architecture, reference hardware/device, driver/runtime/ISA, engine, backend,
-source/runtime/model/variant/precision IDs, fixture hashes/licenses,
+source/runtime/model/variant IDs, fixture hashes/licenses,
 repetitions, and pass limits. It also pins transcript normalization,
 tokenization and WER algorithm, direct pinned-engine reference build/command/
 mapping, monotonic timing and RTF, warm-up/discard rules, RAM/VRAM/process
@@ -221,10 +220,10 @@ qualification uses the fresh bounded collector and frozen profile.
 
 With separately authorized exact artifacts and toolchains:
 
-- run both CUDA engines for every Linux NVIDIA configuration claimed by the
+- run the `whisperCpp` CUDA worker for every Linux NVIDIA configuration claimed by the
   profile and prove stable NVIDIA selection while unsupported Intel remains
   unselected;
-- run each Linux CPU engine/profile with GPU explicitly absent and prove no GPU
+- run each Linux CPU profile with GPU explicitly absent and prove no GPU
   initialization;
 - execute descriptor/authority/process-group/parent-death/crash/cleanup,
   offline, artifact, UI/accessibility, diagnostics/privacy, and package gates;
@@ -268,9 +267,8 @@ Run and record:
   creation, Job assignment, resume, private bootstrap acknowledgement, normal
   handshake/parsing, nested-Job compatibility/fail-closed behavior, parent/app
   crash, descendants, ignored graceful exit, and kill-on-close cleanup;
-- native format/lint/test/build equivalents and real CPU packs for both
-  engines;
-- both CUDA engines on representative NVIDIA hardware with exact selected
+- native format/lint/test/build equivalents and real `whisperCpp` CPU packs;
+- the `whisperCpp` CUDA worker on representative NVIDIA hardware with exact selected
   device proof, load, warm-up, inference, accuracy, performance, memory,
   repeat/crash/unload/switch/suspend/exit/offline behavior;
 - Windows Vulkan worker/package behavior. Without representative AMD hardware,
@@ -306,7 +304,7 @@ downgrade run remains inside the exclusive Windows phase above.
 
 Perform `AC-MAN-009` even without AMD hardware. Exact HIP/Vulkan manifests,
 mocked failure matrices, UI, and documentation must say Preview and untested;
-Faster-Whisper AMD must be absent; no source/build/mock result may claim
+every unlisted engine/backend row must be absent; no source/build/mock result may claim
 hardware success or Production. `AC-MAN-010` physical Windows Vulkan and Linux
 HIP/Vulkan profiles remain future promotion gates. If authorized representative
 AMD hardware is unavailable, record promotion Not Run without blocking the
@@ -387,7 +385,7 @@ it must never publish, tag, upload, or release automatically.
   or prose-only ownership is rejected.
 - Every applicable deterministic row has evidence tied to the frozen candidate;
   no mock/source/compile result masquerades as platform or hardware execution.
-- Full TypeScript, native C++, Python, package, privacy, security, source,
+- Full TypeScript, native C++, package, privacy, security, source,
   license, SBOM, and provenance suites pass without weakened checks.
 - The same single fixture digest is consumed by Linux and real Windows package
   jobs; release collection rejects fixture and incomplete production inputs.

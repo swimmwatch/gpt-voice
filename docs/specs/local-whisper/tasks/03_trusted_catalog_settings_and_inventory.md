@@ -87,23 +87,22 @@ readiness, download an artifact, or execute code.
      archive size/hash/signature, expected files, external prerequisites,
      provenance, SBOM/component inventory, and licenses/notices;
    - model entries use
-     `engine + logical model + source checkpoint revision + artifact/conversion revision + native format + variant`
+     `engine + logical model + source checkpoint revision + artifact revision + native format + variant`
      and include expected files/sizes/hashes, transfer/installed sizes,
      compatibility, provenance/license, memory estimates, and qualification
      status.
 4. Require a closed memory-estimate matrix for every exposed
-   target/backend/runtime/artifact/variant combination and every exposed
-   Faster-Whisper precision. Validate exact identity keys, non-negative safe
+   target/backend/runtime/artifact/variant combination. Validate exact identity
+   keys, non-negative safe
    integer peak RAM bytes, GPU peak VRAM bytes or explicit CPU
    `notApplicable`, evidence basis, source/build revision, and renderer-safe
    methodology label. Reject missing/duplicate records, unsafe numbers,
    ambiguous units, GPU records without VRAM, CPU records with VRAM, or a
-   record keyed to another runtime/model/variant/precision/backend. Preserve a
+   record keyed to another runtime/model/variant/backend. Preserve a
    separately identified qualified peak only for its exact profile/fingerprint;
    never infer memory from transfer or installed byte size.
-5. Reject identity collisions and cross-engine format reuse. `whisperCpp`
-   `ggml` artifacts and Faster-Whisper CTranslate2 conversions are distinct;
-   Faster-Whisper precision remains a setting rather than a model identity.
+5. Reject identity collisions, every engine other than the fixed
+   `whisperCpp` literal, and every native model format other than `ggml`.
 6. Catalog origins are typed allowlisted HTTPS origins. The repository may
    expose an origin only from an authenticated entry and may never accept a
    URL, redirect target, hash, executable, or path supplied by renderer code.
@@ -122,8 +121,8 @@ readiness, download an artifact, or execute code.
    installed denylisted revision becomes `Blocked`; keep its files and stored
    selection, and never select, download, or delete a fallback automatically.
 10. Pin the common language-catalog revision from Task 01. Reject a catalog
-    that advertises an unknown language ID, an engine-only alias, or an
-    incomplete two-engine mapping.
+    that advertises an unknown language ID, an alternate-engine alias, or an
+    incomplete `whisperCpp` mapping.
 
 ### Private settings repository
 
@@ -248,7 +247,7 @@ readiness, download an artifact, or execute code.
   untrusted embedded/downloaded key all fail before exposing authority.
 - Every exposed configuration has exactly one valid matching memory estimate;
   missing, duplicate, negative, unsafe, unit-ambiguous, backend-incompatible,
-  precision-mismatched, and stale-identity fixtures fail closed. Qualified
+  configuration-mismatched and stale-identity fixtures fail closed. Qualified
   peaks remain separate and artifact sizes are never used as memory values.
 - No runtime-pack or model bytes and no actionable production origin are
   bundled. Every accepted fixture entry has exact identity, provenance,

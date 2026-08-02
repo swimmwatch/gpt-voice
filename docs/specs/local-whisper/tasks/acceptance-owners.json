@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 10,
+  "planRevision": 12,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -14,7 +14,7 @@
     "10": "10_hardened_whisper_cpp_core_and_cpu_pack.md",
     "11": "11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md",
     "12": "12_amd_vulkan_and_linux_hip_preview_packs.md",
-    "13": "13_isolated_faster_whisper_ctranslate2_worker_and_packs.md",
+    "13": "13_single_engine_cleanup_and_contract_normalization.md",
     "14": "14_capability_coordinator_residency_and_lifecycle.md",
     "15": "15_protected_ipc_composition_and_provider_selection.md",
     "16": "16_local_whisper_settings_and_status_ui.md",
@@ -129,14 +129,14 @@
       "command": "rtk npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row"
     },
     {
-      "id": "task-13-faster-whisper-tests",
+      "id": "task-13-single-engine-tests",
       "task": "13",
-      "command": "rtk npm run test:local-whisper:faster-whisper"
+      "command": "rtk npm run test:local-whisper:single-engine"
     },
     {
-      "id": "task-13-faster-whisper-reader-verification",
+      "id": "task-13-single-engine-cleanup-verification",
       "task": "13",
-      "command": "rtk npm run verify:local-whisper:faster-whisper -- --profile=reader-linux"
+      "command": "rtk npm run verify:local-whisper:single-engine-cleanup"
     },
     {
       "id": "task-14-capability-tests",
@@ -525,11 +525,6 @@
       "verificationCommandIds": ["task-09-worker-authority-tests", "task-09-launcher-native-tests"]
     },
     {
-      "acceptanceId": "AC-AUTO-055",
-      "primaryTask": "13",
-      "verificationCommandIds": ["task-13-faster-whisper-tests", "task-13-faster-whisper-reader-verification"]
-    },
-    {
       "acceptanceId": "AC-AUTO-056",
       "primaryTask": "09",
       "verificationCommandIds": ["task-09-worker-codec-tests", "task-09-worker-proof-vector-tests"]
@@ -563,6 +558,11 @@
       "acceptanceId": "AC-AUTO-062",
       "primaryTask": "11",
       "verificationCommandIds": ["task-11-whisper-cpp-cancellation-tests"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-063",
+      "primaryTask": "13",
+      "verificationCommandIds": ["task-13-single-engine-tests", "task-13-single-engine-cleanup-verification"]
     }
   ]
 }

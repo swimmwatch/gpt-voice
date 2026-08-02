@@ -14,7 +14,7 @@ contracts until representative Task-19 execution.
 
 ## Prerequisites
 
-- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
+- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 7.
 - Tasks 08, 09, and 10 are complete.
 - Toolchain profile `linux-x64-cuda-12.8.1-sm120a-v1` is executable-qualified
   with CUDA Toolkit 12.8.1, GCC 13.3.0, CMake 3.31.8, Ninja 1.12.1, requested
@@ -60,7 +60,7 @@ contracts until representative Task-19 execution.
 
 ## Out Of Scope
 
-- Vulkan, HIP/ROCm, AMD, Faster-Whisper, Metal/macOS, multi-GPU inference,
+- Vulkan, HIP/ROCm, AMD, alternate inference engines, Metal/macOS, multi-GPU inference,
   dynamic backend modules, automatic architecture selection, or another CUDA
   compute target.
 - Main-owned stable opaque IDs, support policy, capability persistence,
@@ -119,7 +119,7 @@ registry/identity/proof mismatch under an existing authority
 `RUNTIME_PREREQUISITE_MISSING`, failed activation/dispatch
 `BACKEND_INIT_FAILED`, and checked allocation
 failure `ALLOCATION_FAILED`. No failure selects CPU, another ordinal, backend,
-engine, model, or precision.
+alternate engine or model.
 
 ### Exact GPU binding and no fallback
 
@@ -131,7 +131,7 @@ only as non-primary implementation participants.
 
 Bind the same selected device through all of these actual objects:
 
-- activated CUDA backend and reported effective backend/precision;
+- activated CUDA backend and reported effective backend;
 - model-buffer priority and every GPU-owned model buffer;
 - positive byte sum of model-weight allocations owned by the selected device,
   excluding scratch, compute, KV/state, staging, and allocator-cache bytes;
@@ -145,7 +145,7 @@ different activated/state device, CPU primary, changed registry, or proof
 mismatch is `DEVICE_PROOF_FAILED`, marks evidence stale downstream, and
 terminates. Successful CUDA `loaded` reports the authenticated model identity,
 same-handle digest, actual ordinal, registry fingerprint, effective backend and
-precision, positive selected-device weight bytes, primary-state confirmation,
+positive selected-device weight bytes, primary-state confirmation,
 and `loadProof`. Raw addresses/identities are absent.
 
 ### Cooperative cancellation patch

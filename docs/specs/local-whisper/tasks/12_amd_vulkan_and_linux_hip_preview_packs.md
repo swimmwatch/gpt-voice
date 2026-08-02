@@ -12,7 +12,7 @@ intersection is reviewed and approved.
 
 ## Prerequisites
 
-- Local Whisper specification revision 6 and plan revision 9 are approved.
+- Local Whisper specification revision 7 and plan revision 12 are approved.
 - Tasks 08, 09, 10, and 11 are complete. Task 08 owns canonical sources and
   disconnected toolchains; Task 09 owns authority transfer and process lifecycle;
   Task 10 owns the hardened `whisperCpp` core/CPU pack; Task 11 owns its generic
@@ -52,7 +52,7 @@ intersection is reviewed and approved.
 ## Out Of Scope
 
 - Physical AMD qualification, Production promotion, or a working-hardware claim.
-- Windows HIP, Faster-Whisper AMD, DirectML, Windows ML, Metal, or macOS runtime.
+- Windows HIP, DirectML, Windows ML, Metal, or macOS runtime.
 - Choosing a real HIP matrix row from incomplete discovery, installing ROCm or
   drivers, changing groups/udev/device permissions, or elevating privileges.
 - Coordinator policy/state, IPC/UI, signing, catalog publication, upload, release,
@@ -160,7 +160,7 @@ Return the most specific shared failure without raw driver/native text:
 
 - absent/unapproved HIP row or mismatched PCI/`gfx` intersection:
   `DEVICE_NOT_ALLOWLISTED`;
-- excluded Windows HIP, Faster AMD, non-AMD Vulkan, or unsupported pairing:
+- excluded Windows HIP, non-AMD Vulkan, or unsupported pairing:
   `BACKEND_UNSUPPORTED` or `TARGET_UNSUPPORTED`;
 - incompatible driver/runtime family: `DRIVER_INCOMPATIBLE`;
 - missing SONAME/system component: `RUNTIME_PREREQUISITE_MISSING`;
@@ -215,7 +215,7 @@ causes transparent retry, fallback, system mutation, or tier promotion.
 ## Acceptance Criteria
 
 - The matrix exposes only Windows AMD Vulkan and Linux AMD Vulkan/HIP
-  `whisperCpp` Preview rows; Faster AMD and Windows HIP are absent.
+  `whisperCpp` Preview rows; Windows HIP and every unlisted row are absent.
 - Vulkan 1.1/1.2 under the initial 1.3 pack, software/non-AMD ICDs, target or
   feature mismatch, allocation/dispatch failure, and device/model/state proof
   mismatch fail closed; an exact mocked 1.3 AMD path remains Preview.

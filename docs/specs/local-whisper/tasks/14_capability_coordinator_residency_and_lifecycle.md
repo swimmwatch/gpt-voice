@@ -8,14 +8,14 @@ residency/activity/readiness snapshots, stable opaque device selection,
 topology-bound worker authority, artifact conflicts, and the single resident
 worker. It serializes save, reset, check, load, lazy load, transcribe, cancel,
 unload, artifact removal, provider switch, power, topology, and shutdown without
-falling back to another engine, backend, device, model, precision, or provider.
+falling back to another backend, device, model, target, or provider.
 
 ## Prerequisites
 
-- Local Whisper specification revision 6 and plan revision 9 are approved.
+- Local Whisper specification revision 7 and plan revision 12 are approved.
 - Tasks 02, 03, 05, 09, 10, 11, 12, and 13 are complete. Task 12 supplies
-  immutable AMD Preview definitions; Task 13 supplies the separate Faster
-  CPU/CUDA worker.
+  immutable AMD Preview definitions; Task 13 supplies the normalized fixed
+  `whisperCpp` domain, settings, catalog, and source contracts.
 - Task 14 has separate execution authorization.
 - The coordinator consumes workers only through Task 09's supervisor ports and
   repositories only through their domain interfaces. Deterministic tests start
@@ -33,7 +33,7 @@ falling back to another engine, backend, device, model, precision, or provider.
   `VAL-003`.
 - Orchestration/support: `ARCH-003`, `ARCH-006`, `CACHE-002`, `UI-005`,
   `UI-006`, `COMP-004`, `COMP-005`, `COMP-006`, `COMP-008`, `NVIDIA-001`,
-  `CPU-001`, `AMD-001`, `AMD-002`, `AMD-003`, `AMD-004`, `AMD-005`, `AMD-006`,
+  `CPU-001`, `AMD-001`, `AMD-002`, `AMD-003`, `AMD-004`, `AMD-006`,
   `MAC-001`, `MAC-002`, `MAC-003`, `FAIL-001`, `FAIL-002`, `FAIL-004`,
   `FAIL-005`, `FAIL-006`, `FAIL-007`, `FAIL-008`, `RUNTIME-004`, `MODEL-008`,
   `NONGOAL-002`.
@@ -43,7 +43,7 @@ falling back to another engine, backend, device, model, precision, or provider.
   `AC-AUTO-047`, `AC-AUTO-051`.
 - Supporting acceptance: `AC-AUTO-002`, `AC-AUTO-011`, `AC-AUTO-012`,
   `AC-AUTO-028`, `AC-AUTO-031`, `AC-AUTO-035`, `AC-AUTO-037`, `AC-AUTO-039`,
-  `AC-AUTO-049`, `AC-AUTO-052`, `AC-AUTO-055`, `AC-AUTO-056`, `AC-AUTO-059`.
+  `AC-AUTO-049`, `AC-AUTO-052`, `AC-AUTO-056`, `AC-AUTO-059`, `AC-AUTO-063`.
 - Manual-gate preparation: `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-003`,
   `AC-MAN-004`, `AC-MAN-005`, `AC-MAN-009`, `AC-MAN-010`, `AC-MAN-011`.
 
@@ -68,7 +68,8 @@ falling back to another engine, backend, device, model, precision, or provider.
 - A second settings repository, mutable service singleton, renderer-owned state,
   or independent component that can commit readiness/settings/epochs.
 - Automatic fallback/retry/replay, driver/toolkit/ROCm installation, permission
-  modification, elevation, Faster AMD, DirectML, Windows ML, software Vulkan,
+  modification, elevation, alternate inference engines, DirectML, Windows ML,
+  software Vulkan,
   Intel GPU execution, or macOS inference.
 
 ## Task Contract
@@ -151,7 +152,7 @@ Task-09/CAP-014 authority bound to random authority ID, epochs, exact runtime
 build, engine/backend, topology generation, selected opaque ID, ordered native
 registry fingerprint, and CPU or bounded runtime-local GPU/IGPU ordinal. Accept
 success only from actual activation, challenge-bound durable device proof,
-effective precision, positive selected-device model-weight bytes for GPU, and
+positive selected-device model-weight bytes for GPU, and
 the primary execution/state backend. Any reorder, disappearance, substitution,
 echo, zero/wrong-device allocation, or state mismatch is
 `DEVICE_PROOF_FAILED`, makes evidence Stale, terminates the worker, and ends
@@ -161,16 +162,14 @@ Unloaded.
 
 Tier comes only from immutable app/catalog policy:
 
-- Windows/Linux x64 CPU for both engines: conditional Production target only
-  after each engine/OS gate;
-- Windows/Linux x64 NVIDIA CUDA for both engines: conditional Production target
+- Windows/Linux x64 CPU for `whisperCpp`: conditional Production target only
+  after each OS gate;
+- Windows/Linux x64 NVIDIA CUDA for `whisperCpp`: conditional Production target
   only after each exact OS gate;
 - Windows x64 AMD `whisperCpp` Vulkan: `Preview · Untested`;
 - Linux x64 AMD `whisperCpp` Vulkan: `Preview · Untested`;
 - Linux x64 AMD `whisperCpp` HIP: `Preview · Untested`, visible only with one
   complete approved Task-12 immutable pre-signing/catalog intersection;
-- Faster-Whisper AMD: Unsupported even if CTranslate2 exposes HIP or labels it
-  `cuda`;
 - macOS arm64 Metal: Planned/unavailable skeleton; every CPU/other macOS route
   unavailable;
 - unlisted OS, architecture, vendor, or device: Unsupported.
@@ -179,7 +178,7 @@ Backend checks are exact:
 
 - CUDA: physical NVIDIA identity, system driver compatibility with the
   pack-pinned CUDA runtime family, compiled compute capability, manifest-owned
-  runtime dependency closure, allocation/dispatch, effective precision, and
+  runtime dependency closure, allocation/dispatch, and
   full-load proof. Never search for or require a system CUDA toolkit.
 - Vulkan: hardware AMD ICD, API at least
   `max(1.2, pack.generatedShaderTarget)` (initially 1.3), exact generated target,
@@ -201,7 +200,7 @@ macOS executable, or a conditional Production cell pass.
 
 `Check compatibility` performs OS/matrix eligibility, installed verified runtime
 and protocol, exact backend prerequisites/topology/private authority, selected
-model setup metadata, and resource policy. It may start one Task-10/12/13
+model setup metadata, and resource policy. It may start one Task-10/12
 probe-only worker with no model authority for bounded activation/allocation/
 dispatch proof. It never downloads, loads a selected model, retains a worker or
 allocation, reports Loaded/Ready, or upgrades that probe process. Its best
@@ -227,7 +226,7 @@ is created.
 ### Resource policy
 
 Use only a selected-configuration estimate whose engine, target, backend,
-runtime/model revisions, variant, precision, unit, source, and methodology all
+runtime/model revisions, variant, unit, source, and methodology all
 match. Prefer a matching qualified peak, then matching catalog peak, and add at
 least `max(20% of peak, 512 MiB)` headroom. The six family guidance ranges are
 display-only and never block.
@@ -263,8 +262,8 @@ exact Task-05 lease/lock deletion. Preserve the now-Missing selection. Never
 delete an unknown path or alternate revision.
 
 Cancellation uses one terminal arbiter across request, worker, authority, and
-epoch generations. Cancellation during Faster load/transcription terminates the
-worker. A cooperatively cancelled `whisperCpp` worker may remain only when its
+epoch generations. Cancellation during load terminates the partial worker. A
+cooperatively cancelled `whisperCpp` transcription worker may remain only when its
 health/current authority is positively revalidated; uncertainty terminates it.
 Suspend/resume, hot unplug/reset, topology/driver change, provider switch, and
 app exit cancel active work, invalidate evidence, terminate as required, release
@@ -273,7 +272,7 @@ authorities, and publish one final coherent snapshot. Shutdown runs exactly once
 ### Failure precedence and projection
 
 Preserve the exact shared code, stage, retryability, recovery action ID, and
-resulting state from Tasks 05, 08, 10, 12, and 13. Model-authority, corruption,
+resulting state from Tasks 05, 08, 10, and 12. Model-authority, corruption,
 protocol, device-proof, allocation, timeout, and cleanup errors precede generic
 worker failure. No error is mapped to authentication/login, raw exception text,
 or another configuration. No failed inference mutates clipboard, successful
@@ -286,8 +285,8 @@ history, or cache.
   `applySettingsTransaction`.
 - Task 05 owns artifact transfer/install/delete and cross-process locks. The
   coordinator sequences those ports but never accesses arbitrary paths.
-- Task 09 owns worker protocol/authority/process semantics. Tasks 10, 11, 12,
-  and 13 own engine/backend implementations and private proofs. The coordinator
+- Task 09 owns worker protocol/authority/process semantics. Tasks 10, 11, and
+  12 own `whisperCpp` backend implementations and private proofs. The coordinator
   never parses native logs or calls engine APIs directly.
 - Task 15 exposes commands/snapshots through protected IPC. For save or reset it
   must call `applySettingsTransaction` exactly once and must not call repository,
@@ -322,8 +321,9 @@ history, or cache.
 - Save and reset each execute as one atomic coordinator command. Stale,
   conflicting, invalid, or persistence-failed commands preserve prior settings/
   prompt/epoch; no caller performs an adjacent unload or repository write.
-- Support fixtures expose only the exact CPU/NVIDIA/AMD/macOS matrix. Faster AMD
-  remains Unsupported and HIP stays unavailable without a complete approved row.
+- Support fixtures expose only the exact CPU/NVIDIA/AMD/macOS matrix. Unlisted
+  engine/backend rows are unavailable and HIP stays unavailable without a
+  complete approved row.
 - No CUDA check requires a system toolkit. Vulkan 1.1/1.2/1.3, exact/unlisted
   HIP, CUDA driver/compute/dependency, CPU ISA/thread, and Metal-unavailable
   fixtures return exact results without fallback or tier promotion.

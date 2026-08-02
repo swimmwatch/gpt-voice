@@ -13,15 +13,14 @@ allocation can occur.
 - The Local Whisper plan is approved.
 - Task 01 has separate execution authorization.
 - `docs/specs/local-whisper/spec.md` remains `Status: Approved`.
-- The pinned engine baselines remain `whisper.cpp` v1.9.1 and Faster-Whisper
-  v1.2.1 with a reviewed pinned CTranslate2 revision.
+- The pinned engine baseline remains `whisper.cpp` v1.9.1.
 
 ## Owned Requirements
 
 - Domain portions of `OUT-001`, `SCOPE-001`, `SCOPE-002`, `MODEL-003`,
   `MODEL-005`, `MODEL-009`, `MODEL-010`, `VRAM-001`, `NONGOAL-003`
-- `ARCH-007`, `RUNTIME-001`, `RUNTIME-002`
-- `COMP-005`, `COMP-006`, `COMP-011`, `AMD-005`
+- `ARCH-007`, `RUNTIME-001`
+- `COMP-005`, `COMP-006`, `COMP-011`
 - `SET-002`, `SET-004`, `SET-005`, `SET-007`, `SET-008`
 - Validation portions of `SET-006`, `VAL-002`, `VAL-003`, `PRIV-002`
 - Domain portions of `CAP-003`, `CAP-010`, `CAP-013`, `CACHE-001`, `MAC-001`
@@ -57,7 +56,7 @@ allocation can occur.
 
 1. Define stable IDs and exact closed unions:
    - provider `local-whisper`;
-   - engines `whisperCpp | fasterWhisper`;
+   - fixed engine literal `whisperCpp`;
    - targets `gpu | cpu` with no `auto`;
    - backends `cuda | hip | vulkan | metal | cpu`;
    - models `tiny | base | small | medium | large-v3 | large-v3-turbo`;
@@ -73,37 +72,34 @@ allocation can occur.
    trim, normalize, truncate, log, or embed it in a public identity.
 4. Accept CPU threads only as `auto` or a safe integer from 1 through an
    injected main-authoritative logical-processor bound. GPU normalized
-   requests omit CPU threads. Faster-Whisper precision is exactly
-   `float16 | int8_float16` for CUDA and `int8 | float32` for CPU;
-   `whisperCpp` has no precision setting.
+   requests omit CPU threads. Local Whisper has no user-selectable compute
+   precision setting.
 5. Encode backend compatibility without fallback: CPU requires backend `cpu`;
    NVIDIA GPU uses CUDA; Windows AMD `whisperCpp` uses Vulkan; allowlisted
-   Linux AMD `whisperCpp` may explicitly select HIP or Vulkan; Faster-Whisper
-   AMD is invalid/unsupported; Metal is a typed Planned value only.
+   Linux AMD `whisperCpp` may explicitly select HIP or Vulkan; Metal is a
+   typed Planned value only.
 6. Implement deterministic never-configured defaults: `whisperCpp`, `gpu`,
    `base`, catalog `recommendedRevision` values, `auto` language, empty
    prompt, zero temperature, `greedy`, and `auto` CPU threads. For a new GPU
    selection key, zero or multiple eligible combinations leaves backend/device
    unset and exactly one initializes it. Defaulting is a pure operation and
    does not probe, persist, download, spawn, or allocate.
-7. Model dependent selections by stable keys: runtime/backend/device/precision
-   per engine/target/backend as applicable, device per engine/backend, model
-   family per engine, revision/variant per engine/family, threads per engine,
-   and shared request controls independently. Restore saved missing or
-   unavailable values; initialize a key only once; catalog updates never
-   rewrite an existing key.
+7. Model dependent selections by stable keys: runtime/backend per
+   engine/target/backend, device per engine/backend, model family per engine,
+   revision/variant per engine/family, threads per engine, and shared request
+   controls independently. Restore saved missing or unavailable values;
+   initialize a key only once; catalog updates never rewrite an existing key.
 8. Define immutable runtime identity with engine, platform/architecture,
    target/backend/dependency family, build inputs, compute/gfx targets,
    protocol, pack/catalog/app revisions, key ID, archive size/hash/signature,
    expected files, prerequisites, provenance, SBOM, and notices.
 9. Define model identity as
-   `engine + logical model + source checkpoint revision + artifact/conversion revision + native format + variant`.
-   Faster-Whisper precision is not part of model identity. No logical artifact
-   is shared between engine-native formats.
+   `engine + logical model + source checkpoint revision + artifact revision + native format + variant`.
+   The only valid release-1 native format is `ggml`.
 10. Define one immutable family-guidance record for each logical model with the
     exact Section 8.1.1 approximate GiB ranges. Define renderer-safe catalog
-    estimate records keyed by exact target/backend/runtime/artifact/variant and
-    Faster-Whisper precision, with safe-integer peak RAM bytes, GPU peak VRAM
+    estimate records keyed by exact target/backend/runtime/artifact/variant,
+    with safe-integer peak RAM bytes, GPU peak VRAM
     bytes or explicit CPU `notApplicable`, evidence basis
     `upstream | derived | qualified`, source/build revision, and sanitized
     methodology label. Keep qualified peaks distinct from estimates and never
@@ -114,12 +110,12 @@ allocation can occur.
     load-affecting setting changes.
 12. Define a private cache-context builder that includes all output-affecting
     settings, engine/runtime/protocol/mapping revisions, target/backend/device
-    class, model tuple, precision, and relevant threads. Prompt content may
+    class, model tuple, and relevant threads. Prompt content may
     enter only through an injected non-exported canonical digest; public debug
     strings and snapshots cannot expose it.
 13. Pin a versioned common language catalog containing `auto` plus only IDs
-    with explicit mappings for both workers. Tests enumerate every entry
-    through both mapping functions and reject incomplete aliases.
+    with an explicit `whisperCpp` mapping. Tests enumerate every entry through
+    that mapping function and reject incomplete aliases.
 14. Define every Section 15 failure code with one deterministic tuple of
     stage, retryability, recovery action ID, and resulting state impact. No
     Local Whisper code maps to login, token, browser-session, or API-key

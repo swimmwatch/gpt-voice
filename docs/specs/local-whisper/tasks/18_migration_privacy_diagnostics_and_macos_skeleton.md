@@ -70,7 +70,7 @@ every repository-supported prior schema. Defaults apply only when no value has
 ever been stored for the relevant stable key. Missing, corrupt, or newer fields
 produce typed repair state or `SETTINGS_VERSION_UNSUPPORTED`; they never
 silently change a saved engine, target, backend, device, runtime revision,
-model family/revision/variant, precision, or decoding value. Preserve or reject
+model family/revision/variant or decoding value. Preserve or reject
 unknown future fields according to the existing versioned repository contract;
 never partially rewrite them.
 
@@ -179,9 +179,9 @@ prove none survive archive, analyzer, audit, or log output.
 Document in English:
 
 - feature purpose, main-owned architecture, buffered local inference, and the
-  two engines;
+  fixed non-editable `whisperCpp` engine identity;
 - exact Windows/Linux support matrix, qualification caveats, AMD untested
-  Preview paths, Faster-Whisper AMD exclusion, and macOS
+  Preview paths, closed single-engine behavior, and macOS
   Planned/unavailable status;
 - every settings field, validation/cross-field rule, saved unavailable choice,
   compatibility check, immutable runtime/model download/resume/update/remove,
@@ -207,7 +207,7 @@ Document in English:
   storage cleanup, troubleshooting, diagnostics privacy, upgrade/downgrade,
   rollback, and every independent release blocker.
 
-Update the Local Whisper C++ and Python runtime READMEs for both humans and LLM
+Update the Local Whisper C++ runtime README for both humans and LLM
 agents with module responsibilities, authority/process boundaries, build/test
 entry points, generated versus checked-in assets, source locks, platform gates,
 and prohibited fallback behavior. Do not include ephemeral logs or private

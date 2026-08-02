@@ -12,7 +12,7 @@ renderer only after main returns success.
 
 ## Prerequisites
 
-- Local Whisper specification revision 6 and plan revision 9 are approved.
+- Local Whisper specification revision 7 and plan revision 12 are approved.
 - Tasks 01, 02, 03, 04, 05, and 14 are complete. Task 14 supplies the only
   mutable coordinator and its atomic command/query/event port.
 - Task 15 has separate execution authorization.

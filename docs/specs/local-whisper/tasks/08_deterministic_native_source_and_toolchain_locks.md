@@ -19,7 +19,7 @@ authority.
 
 ## Prerequisites
 
-- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
+- `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 7.
 - Tasks 03, 04, and 06 are complete.
 - This replacement plan and Task 08 have separate explicit authorization.
 - The existing dirty protocol/supervisor checkpoint is left untouched; this
@@ -43,11 +43,9 @@ authority.
 - A bounded Git-object importer, candidate-manifest review flow, canonical
   materializer, immutable local content store, and lock verifier.
 - Exact source locks for pinned `whisper.cpp`, the approved nlohmann/json
-  subset, GoogleTest, Faster-Whisper, and CTranslate2 roots. GoogleTest is a
-  test-only source dependency consumed explicitly by Task 09; it is not used
-  to qualify the Task 08 sanitizer profile. Faster-Whisper and CTranslate2 are
-  source foundations for later approved packets and do not authorize
-  Python/wheel resolution here.
+  subset, and GoogleTest. GoogleTest is a test-only source dependency consumed
+  explicitly by Task 09; it is not used to qualify the Task 08 sanitizer
+  profile.
 - A versioned loader-limit schema, immutable
   `whisper-cpp-loader-limits-v1` table, derivation verifier, and reviewed
   provenance record bound to the pinned v1.9.1 layouts and release-1 model
@@ -66,8 +64,8 @@ authority.
 
 - The production control-frame decoder, model-authority handoff, worker
   lifecycle, `whisper.cpp` behavioral patches, inference, or model files.
-- Faster-Whisper Python ABI, NumPy, wheelhouse, CUDA/cuDNN, or packaged-runtime
-  selection; those require a later self-contained packet.
+- Alternate inference-engine source, Python inference runtime, model
+  conversion, or packaged-runtime selection.
 - Vulkan, HIP/ROCm, AMD pack construction, macOS, signing, catalog publication,
   installer changes, or support-tier promotion.
 - Any representative Windows build or execution. Task 19 is the only owner of
@@ -79,13 +77,11 @@ authority.
 
 The checked-in source locks SHALL use these complete canonical identifiers:
 
-| Lock ID                         | Repository                                      | Commit                                     | Git tree                                   | Materialized scope          |
-| ------------------------------- | ----------------------------------------------- | ------------------------------------------ | ------------------------------------------ | --------------------------- |
-| `whisper-cpp-v1.9.1-f049fff`    | `https://github.com/ggml-org/whisper.cpp.git`   | `f049fff95a089aa9969deb009cdd4892b3e74916` | `f49541eaed447bce9b5e3598cc7a487ce5e54678` | Complete tree               |
-| `nlohmann-json-v3.12.0-subset`  | `https://github.com/nlohmann/json.git`          | `55f93686c01528224f448c19128836e7df245f72` | `1eb780542e829bf1615828ed0d5f407497bbce7b` | Exact two-file subset below |
-| `googletest-v1.17.0-52eb810`    | `https://github.com/google/googletest.git`      | `52eb8108c5bdec04579160ae17225d66034bd723` | `ad23b2ceac4a6eef2278c48545b62ffc1f0c134a` | Complete tree               |
-| `faster-whisper-v1.2.1-65882ee` | `https://github.com/SYSTRAN/faster-whisper.git` | `65882eee9f5cdbeeb2d877f1131d48cf241b327d` | `7f396ce8d3316df36f674183aea9ff00ff946637` | Complete tree               |
-| `ctranslate2-v4.8.1-0d8bcd3`    | `https://github.com/OpenNMT/CTranslate2.git`    | `0d8bcd362ac75ef860ef161d6f0efad0ae439ff0` | `3f2df7ccdec126f6d180367a9906c21221105a26` | Complete tree               |
+| Lock ID                        | Repository                                    | Commit                                     | Git tree                                   | Materialized scope          |
+| ------------------------------ | --------------------------------------------- | ------------------------------------------ | ------------------------------------------ | --------------------------- |
+| `whisper-cpp-v1.9.1-f049fff`   | `https://github.com/ggml-org/whisper.cpp.git` | `f049fff95a089aa9969deb009cdd4892b3e74916` | `f49541eaed447bce9b5e3598cc7a487ce5e54678` | Complete tree               |
+| `nlohmann-json-v3.12.0-subset` | `https://github.com/nlohmann/json.git`        | `55f93686c01528224f448c19128836e7df245f72` | `1eb780542e829bf1615828ed0d5f407497bbce7b` | Exact two-file subset below |
+| `googletest-v1.17.0-52eb810`   | `https://github.com/google/googletest.git`    | `52eb8108c5bdec04579160ae17225d66034bd723` | `ad23b2ceac4a6eef2278c48545b62ffc1f0c134a` | Complete tree               |
 
 The `whisper.cpp` lock SHALL reproduce exactly 1,882 paths, 36,382,209
 expanded regular-file bytes, 39 executable-mode files, no symlinks, no
@@ -103,10 +99,7 @@ The nlohmann subset SHALL contain only:
 | `LICENSE.MIT`                      | `a1dacc8dbbd907c4b622ff1f08e279c27465dcbc` |   1,076 | `46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603` |
 
 The subset lock SHALL record the excluded full-tree provenance and SHALL never
-be accepted as the complete nlohmann tree. Faster-Whisper and CTranslate2
-locks SHALL record their canonical path/mode/hash manifests, license hashes,
-counts, expanded limits, and recursive gitlink/LFS status before later packets
-may configure them.
+be accepted as the complete nlohmann tree.
 
 The GoogleTest lock SHALL reproduce the complete pinned v1.17.0 tree: 250
 regular paths, 4,095,045 expanded regular-file bytes, 24 executable-mode
@@ -342,8 +335,8 @@ representative execution.
   GCC/Clang profiles. Tasks 10 and 11 consume the verified `whisper.cpp` tree
   and immutable loader-limit table, then complete the patch lock without
   changing that table.
-- Later Faster-Whisper work may consume the two additional source objects but
-  must supply separately approved Python/wheel/native dependency locks.
+- Task 13 removes the obsolete alternate-engine source definitions and locks
+  from the active tree while Git history preserves their prior evidence.
 - Task 19 alone may change a Windows lock's `qualificationState` from
   `pendingWindowsFinalTask` to `qualified` after representative execution;
   Linux evidence cannot do so or select substitute versions.
@@ -356,7 +349,7 @@ representative execution.
 - `runtime/local-whisper/sources/limits/whisper-cpp-loader-limits-v1.json` and
   its pinned-layout derivation/review provenance record.
 - `runtime/local-whisper/toolchains/schema/native-toolchain-lock.schema.json`
-- `runtime/local-whisper/sources/locks/` with the five source locks and license
+- `runtime/local-whisper/sources/locks/` with the three active source locks and license
   identities.
 - `runtime/local-whisper/toolchains/profiles/` with the three Linux locks and two
   explicit Windows Task-19 candidates.
@@ -414,8 +407,6 @@ rtk npm run test:local-whisper:native-build-audits
 rtk npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 rtk npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
 rtk npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
-rtk npm run verify:local-whisper:native-source -- --lock=faster-whisper-v1.2.1-65882ee
-rtk npm run verify:local-whisper:native-source -- --lock=ctranslate2-v4.8.1-0d8bcd3
 rtk npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
 rtk npm run test:local-whisper:native-sanitizer-proof -- --profile=linux-x64-clang-18.1.3-asan-ubsan-v1
 rtk npm run verify:local-whisper:native-toolchain -- --profile=linux-x64-cpu-baseline-v1
