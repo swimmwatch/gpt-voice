@@ -71,11 +71,18 @@
     "test:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx --test \"tests/main/localWhisper/filesystem/*.test.ts\"",
     "verify:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx scripts/local-whisper/verify-filesystem.ts",
     "verify:local-whisper:launcher": "node scripts/local-whisper/native-launcher-quality.mjs integration",
+    "test:local-whisper:native-sources": "node --test \"tests/runtime/localWhisper/nativeSources/*.test.mjs\"",
+    "test:local-whisper:native-build-audits": "node --test \"tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs\"",
+    "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs",
+    "verify:local-whisper:native-source": "node scripts/local-whisper/source-import/verify-native-source.mjs",
+    "verify:local-whisper:loader-limits": "node scripts/local-whisper/native-build/verify-whisper-cpp-loader-limits.mjs",
+    "verify:local-whisper:native-toolchain": "node scripts/local-whisper/native-build/verify-native-toolchain.mjs",
+    "audit:local-whisper:disconnected-build": "node scripts/local-whisper/native-build/audit-disconnected-build.mjs",
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "verify:installers": "node scripts/verify-installers.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\""
   },
   "keywords": [
     "electron",

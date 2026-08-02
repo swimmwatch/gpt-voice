@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 9,
+  "planRevision": 10,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -62,6 +62,11 @@
       "id": "task-08-native-source-tests",
       "task": "08",
       "command": "rtk npm run test:local-whisper:native-sources"
+    },
+    {
+      "id": "task-08-native-build-audit-tests",
+      "task": "08",
+      "command": "rtk npm run test:local-whisper:native-build-audits"
     },
     {
       "id": "task-08-disconnected-cpu-build-audit",
@@ -493,7 +498,11 @@
     {
       "acceptanceId": "AC-AUTO-050",
       "primaryTask": "08",
-      "verificationCommandIds": ["task-08-native-source-tests", "task-08-disconnected-cpu-build-audit"]
+      "verificationCommandIds": [
+        "task-08-native-source-tests",
+        "task-08-native-build-audit-tests",
+        "task-08-disconnected-cpu-build-audit"
+      ]
     },
     {
       "acceptanceId": "AC-AUTO-051",

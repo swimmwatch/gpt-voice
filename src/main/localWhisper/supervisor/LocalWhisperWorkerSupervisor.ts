@@ -493,7 +493,7 @@ export class LocalWhisperWorkerSupervisor {
 
   private async completePending(pending: PendingRequest, message: LocalWhisperWorkerServerMessage): Promise<void> {
     if (pending.afterReceive) {
-      let valid = false;
+      let valid: boolean;
       try {
         valid = await pending.afterReceive();
       } catch {

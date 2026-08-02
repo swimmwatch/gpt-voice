@@ -1,0 +1,417 @@
+{
+  "$schema": "../schema/native-source-lock.schema.json",
+  "schemaId": "local-whisper-native-source-lock-v1",
+  "lockId": "faster-whisper-v1.2.1-65882ee",
+  "repository": "https://github.com/SYSTRAN/faster-whisper.git",
+  "commit": "65882eee9f5cdbeeb2d877f1131d48cf241b327d",
+  "gitTree": "7f396ce8d3316df36f674183aea9ff00ff946637",
+  "signature": {
+    "reviewResult": "reviewed-unverifiable",
+    "signerKeyFingerprint": null,
+    "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper/commit/65882eee9f5cdbeeb2d877f1131d48cf241b327d"
+  },
+  "importer": {
+    "schemaId": "local-whisper-native-importer-v1",
+    "implementationSha256": "907a50fe2a7732fe68ec63829d015ba05c40a7337cf26b565fc96315ef9ce55a",
+    "imageIdentity": "host-manual-gate-sequence-45",
+    "gitVersion": "git version 2.43.0",
+    "nodeVersion": "v24.18.0"
+  },
+  "materialization": {
+    "kind": "completeTree",
+    "rootPrefix": "",
+    "manifestSha256": "ed7abd350bfde70876202be6ee6b72085973a8724a529fe7c20df03613bfb9b7",
+    "pathCount": 40,
+    "expandedRegularBytes": 23832508,
+    "expandedRegularBytesCeiling": 268435456,
+    "executableModeCount": 0,
+    "allowedEntryTypes": ["regular"],
+    "excludedTreeProvenance": null
+  },
+  "manifest": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "3719295ef92d9c2b2595c5a9d867794f35090ac8",
+      "sizeBytes": 1781,
+      "sha256": "94055bfa68231cf0dc62c49045fe50870b46c17e863b988722e335b841157d93",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".gitignore",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "8f634c289f61452594236f753e28066cf0ef2013",
+      "sizeBytes": 177,
+      "sha256": "221a61e0d5cb00b867309753f8ba80203962f06a07602eb515d468f1aa227681",
+      "symlinkTarget": null
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "8d6a9c244689ded701cad9aab99a234096008afc",
+      "sizeBytes": 787,
+      "sha256": "259953b13c47187b792d567d84dd2016b592659b1f62b73734644555f356bd67",
+      "symlinkTarget": null
+    },
+    {
+      "path": "LICENSE",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "2d92330dc294fea86caf785fa626d22917850141",
+      "sizeBytes": 1064,
+      "sha256": "af6798135e729f8aa6c853936d037dfdea449734d26b8ea6a89805fca758c0d5",
+      "symlinkTarget": null
+    },
+    {
+      "path": "MANIFEST.in",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "304a066bcfb5d1fb960753a017344972b688fbb6",
+      "sizeBytes": 110,
+      "sha256": "336095c8de6723df74e4c1611e5d29fd3c8af77394a69221d2cb8b8ccd1d086f",
+      "symlinkTarget": null
+    },
+    {
+      "path": "README.md",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "72dfdc5e8044aa574a1cf3420f1d7dd93b044f69",
+      "sizeBytes": 15246,
+      "sha256": "5ae59e0781834e6887bbd51bda2d8bd5dfe08cd345e0c6f7f3aca455d129cc69",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/benchmark.m4a",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "66259d7e1e5245c18dfa64c5d62b4bc6c8a9c8e6",
+      "sizeBytes": 12935433,
+      "sha256": "5dedec4f587a7940cfab93ff36e5014f155f80e10b7935f67d9eee8761663c34",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/evaluate_yt_commons.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "cbdce4f1a8432a9017aa7db323082030c7799b07",
+      "sizeBytes": 2401,
+      "sha256": "92188f772f6ba0360d79fe52c96d8b4bd042b50c4a786e8f2f6bda24f44f563e",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/memory_benchmark.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "1fbdfbdf379b4a2b7c71fb192e471db01b37d579",
+      "sizeBytes": 2959,
+      "sha256": "8a1629eb0848b78ab6ec643b81091f07f9c1a14fb5d3dbbb9121203c3914c391",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/normalizer.json",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "dd6ae819ad738ac1a546e9f9282ef325c33b9ea0",
+      "sizeBytes": 52666,
+      "sha256": "bf1c507dc8724ca9cf9903640dacfb69dae2f00edee4f21ceba106a7392f26dd",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/requirements.benchmark.txt",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "674c23ec044f4e644af7aaa0837394e0b3467e0f",
+      "sizeBytes": 62,
+      "sha256": "ed21e7c4c1fff651a6ecb8988cfaa18d906b6fef626623dd6d06cdd7ef64a35d",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/speed_benchmark.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "a3d6ffbc537f5a1cd950459cc0c12a1cdbbc8971",
+      "sizeBytes": 716,
+      "sha256": "2e8d14b4cd7f8e8a99f2db4b1ebd50ef1266815967364f8e948ab359ff9210b9",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/utils.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "8e5ac466a355e62d4d1534ac4e1f1d7ae37c2d74",
+      "sizeBytes": 1016,
+      "sha256": "0c829939c35f391f64c524ec8b10b131bfbd6c84952715068b855684c8bff314",
+      "symlinkTarget": null
+    },
+    {
+      "path": "benchmark/wer_benchmark.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "2bc1bfb3adde86de96fb11d6d1c8adb14ccedc23",
+      "sizeBytes": 1917,
+      "sha256": "7227d33a823108aee7d31a3caf1fcd9938e31c69f53aca610c4df2540890108b",
+      "symlinkTarget": null
+    },
+    {
+      "path": "docker/Dockerfile",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "91ffbf6dde01a79784db74eb20821c95c0d47f50",
+      "sizeBytes": 207,
+      "sha256": "90b3f5a28aecf0a2616b263ec3c9d99ead08b0ae456fc4db3ef4207a2618055b",
+      "symlinkTarget": null
+    },
+    {
+      "path": "docker/infer.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "5d6b12cb516f3f7942798eeb41411de835cb611b",
+      "sizeBytes": 276,
+      "sha256": "e33e3c7c30b5f3d59ef929a4cc5f752c7a322e186877ff6a327f83eb7b9527fe",
+      "symlinkTarget": null
+    },
+    {
+      "path": "docker/jfk.flac",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "e44b7c13897eae7f78beb220c61fe77429a3961d",
+      "sizeBytes": 1152693,
+      "sha256": "63a4b1e4c1dc655ac70961ffbf518acd249df237e5a0152faae9a4a836949715",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/__init__.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "ad69277853742e3f9f0e0f020c0862cf4ad404fb",
+      "sizeBytes": 430,
+      "sha256": "5396c3a025a7b0cf81246fcd680c0bb7e384e2e587cc2e18f9518cef4c26d56c",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/assets/__init__.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/assets/silero_vad_v6.onnx",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "9febab9bc0aa5ae2b27e69243d813427212bfb36",
+      "sizeBytes": 1245151,
+      "sha256": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/audio.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "222e73bada36d7b451ca67218cf677777902649e",
+      "sizeBytes": 3506,
+      "sha256": "60a1d8638f718cbf6d245aed3e5a5aa61c1f822a0b0fe9b48a7c928d47c23909",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/feature_extractor.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "cfa3aee28bb2e6d08793d32d2dbd66190ce12415",
+      "sizeBytes": 7592,
+      "sha256": "e403966dbc592a53695eea2aea24fa60bab50ef6755e0076b311f907be7a397c",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/tokenizer.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "d75bbd7f207fca9d61b2bae7388e32b046f43019",
+      "sizeBytes": 8429,
+      "sha256": "614a96b6a9660096e4f4e9fbe8860cd75ad250dce8e85a847998a3d6d48165d2",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/transcribe.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "51eb1c505bf1aa5d3a9fb5b7d2cd9811845b6558",
+      "sizeBytes": 80403,
+      "sha256": "5d5ffb00018561d3d529b2c72e1d9f5fff055bea725f3cccc7c6c67f5cc8ffe4",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/utils.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "8ddbb49a8629bcc7b20b6c43a1a7ff0dee2cd997",
+      "sizeBytes": 4946,
+      "sha256": "5b36ceb9d0fd3961de8cfb144bd82f9a4ef3151b2e5958405a11efb4f3ac4f82",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/vad.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "305919db1523fd47b7fee1e078dfa4438e7ebba3",
+      "sizeBytes": 12543,
+      "sha256": "37a9c774aefdd3162d936b896c8dcf5571b2ed938d65bffecfd631770049a18d",
+      "symlinkTarget": null
+    },
+    {
+      "path": "faster_whisper/version.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "f713d5f5f8e81a378f61f601afa31b6af092bd32",
+      "sizeBytes": 50,
+      "sha256": "70ee45276562706d9787f105fb3010417fa9621fe6a9e2fad01a209f3044d9c5",
+      "symlinkTarget": null
+    },
+    {
+      "path": "requirements.conversion.txt",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "56fdf5f004baa48a8427cd1085e73244483d1b09",
+      "sizeBytes": 26,
+      "sha256": "32987bfb276e624690f4fee9097d07bd4d739e654415ecc8c46a26cdb8c05b8a",
+      "symlinkTarget": null
+    },
+    {
+      "path": "requirements.txt",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "9a15d6a03bdf438baa570a1ef716f780c90de036",
+      "sizeBytes": 95,
+      "sha256": "0a72226dc3d5cccb0d4908add58637a93546d9813ea498e41480d63237050a30",
+      "symlinkTarget": null
+    },
+    {
+      "path": "setup.cfg",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "bf2da8684c8b2df8b5d2c9b732ed23018e0763a9",
+      "sizeBytes": 101,
+      "sha256": "f23aac3e8fb845c9d02a879168838688264135fa80d7ae4834bdd1dcd69ebfe2",
+      "symlinkTarget": null
+    },
+    {
+      "path": "setup.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "e63e46ac567e3dc4d47cc34c73bcce5a83c93e39",
+      "sizeBytes": 2150,
+      "sha256": "ba954c16af3bb1577ebd57704e04c316bcd0cc9d8031b39216dc81c58a58ea9f",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/conftest.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "0c0f42483b021a80c00bcda32e35f1107058f72b",
+      "sizeBytes": 328,
+      "sha256": "1015871409a1d02c608924e3c08bcaa8e52c75b9352ddefa97c0808c600782a5",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/data/hotwords.mp3",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "d435e1c8089b2bd3b50ed2d7e507aeb800859e0d",
+      "sizeBytes": 65129,
+      "sha256": "6b22277eae04a054e47264e9e5b53d41f965b46a04055e643699f145c863eb58",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/data/jfk.flac",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "e44b7c13897eae7f78beb220c61fe77429a3961d",
+      "sizeBytes": 1152693,
+      "sha256": "63a4b1e4c1dc655ac70961ffbf518acd249df237e5a0152faae9a4a836949715",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/data/multilingual.mp3",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "6e7537063975b0f466290c7d4e7d69e560a5b819",
+      "sizeBytes": 240045,
+      "sha256": "717fe3e42d425ed1c9fc55c424f32ac0cf82ba3c64d0fc4b2a09a441e059f865",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/data/physicsworks.wav",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "885b6c1c88f3a0baea7738a7d8f6fc68ef277b49",
+      "sizeBytes": 6505148,
+      "sha256": "329d029898a53fcc1d79be9d38f23268704bd896c65928719e41593b1d9c5578",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/data/stereo_diarization.wav",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "3f5ae75dac40be2b33c2c76ac291a4d147b0b47d",
+      "sizeBytes": 320044,
+      "sha256": "e882e9639fbd6a03a32c01ac2e92977d350f7bc5351d6a5a39859d0e6f481341",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/test_tokenizer.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "1a1e27b616a1aa144f1703aef92b3a6c88669045",
+      "sizeBytes": 2254,
+      "sha256": "4d2cd6870d8ef9009e29b19d8e30e7ad995a9d3591b6721f9bdf3afb7607814b",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/test_transcribe.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "ccbaba0063c12f672b5c580b25f7c5bc9bce7617",
+      "sizeBytes": 11179,
+      "sha256": "b3cf3565a886e0bae941fd62a97b4203fdff80893aac1344039aa9edf56f762f",
+      "symlinkTarget": null
+    },
+    {
+      "path": "tests/test_utils.py",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "bb488feca5c95c75b6be03ce93e4c90ddd4d0587",
+      "sizeBytes": 755,
+      "sha256": "2e14fb0736983479e0c995b0490c077ee8cf20d2c0f55ad55609c18c85890400",
+      "symlinkTarget": null
+    }
+  ],
+  "transportObject": null,
+  "license": {
+    "path": "LICENSE",
+    "gitBlob": "2d92330dc294fea86caf785fa626d22917850141",
+    "sizeBytes": 1064,
+    "sha256": "af6798135e729f8aa6c853936d037dfdea449734d26b8ea6a89805fca758c0d5",
+    "provenance": "https://github.com/SYSTRAN/faster-whisper.git@65882eee9f5cdbeeb2d877f1131d48cf241b327d:LICENSE",
+    "sbomComponent": "faster-whisper-v1.2.1"
+  },
+  "recursiveInputs": {
+    "gitlinks": [],
+    "lfsPointers": []
+  },
+  "provenance": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-08-02T08:54:03.000Z",
+    "reviewedBy": "Codex agent under explicit user authorization",
+    "sourceEvidence": ["https://github.com/SYSTRAN/faster-whisper/commit/65882eee9f5cdbeeb2d877f1131d48cf241b327d"]
+  },
+  "contentStore": {
+    "algorithm": "sha256",
+    "identity": "ed7abd350bfde70876202be6ee6b72085973a8724a529fe7c20df03613bfb9b7",
+    "relativeDestination": "sha256/ed7abd350bfde70876202be6ee6b72085973a8724a529fe7c20df03613bfb9b7"
+  }
+}

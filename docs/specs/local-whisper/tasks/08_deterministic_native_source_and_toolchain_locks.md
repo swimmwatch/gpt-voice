@@ -8,8 +8,11 @@ Exact Git objects are converted into canonical content-addressed source
 objects, licenses and patch inputs are mandatory identities, and a reviewed
 immutable loader-limit table exists before loader implementation. Linux CPU,
 Clang sanitizer, and Blackwell CUDA build profiles are qualified with network
-denied from the first configure, while exactly pinned Windows profiles remain explicit
-non-production candidates for representative qualification in Task 19.
+denied from the first configure. The Clang profile proves the exact sanitizer
+toolchain with a dependency-free activation fixture; Task 09 later consumes a
+reviewed offline GoogleTest source object for its real common-code suites.
+Exactly pinned Windows profiles remain explicit non-production candidates for
+representative qualification in Task 19.
 GitHub-generated archive bytes, ambient tools, host-native architecture
 detection, dynamic backend discovery, and implicit downloads are never
 authority.
@@ -40,9 +43,11 @@ authority.
 - A bounded Git-object importer, candidate-manifest review flow, canonical
   materializer, immutable local content store, and lock verifier.
 - Exact source locks for pinned `whisper.cpp`, the approved nlohmann/json
-  subset, Faster-Whisper, and CTranslate2 roots. Only the first two are build
-  dependencies of Tasks 09-11; the latter two are source foundations for later
-  approved packets and do not authorize Python/wheel resolution here.
+  subset, GoogleTest, Faster-Whisper, and CTranslate2 roots. GoogleTest is a
+  test-only source dependency consumed explicitly by Task 09; it is not used
+  to qualify the Task 08 sanitizer profile. Faster-Whisper and CTranslate2 are
+  source foundations for later approved packets and do not authorize
+  Python/wheel resolution here.
 - A versioned loader-limit schema, immutable
   `whisper-cpp-loader-limits-v1` table, derivation verifier, and reviewed
   provenance record bound to the pinned v1.9.1 layouts and release-1 model
@@ -78,6 +83,7 @@ The checked-in source locks SHALL use these complete canonical identifiers:
 | ------------------------------- | ----------------------------------------------- | ------------------------------------------ | ------------------------------------------ | --------------------------- |
 | `whisper-cpp-v1.9.1-f049fff`    | `https://github.com/ggml-org/whisper.cpp.git`   | `f049fff95a089aa9969deb009cdd4892b3e74916` | `f49541eaed447bce9b5e3598cc7a487ce5e54678` | Complete tree               |
 | `nlohmann-json-v3.12.0-subset`  | `https://github.com/nlohmann/json.git`          | `55f93686c01528224f448c19128836e7df245f72` | `1eb780542e829bf1615828ed0d5f407497bbce7b` | Exact two-file subset below |
+| `googletest-v1.17.0-52eb810`    | `https://github.com/google/googletest.git`      | `52eb8108c5bdec04579160ae17225d66034bd723` | `ad23b2ceac4a6eef2278c48545b62ffc1f0c134a` | Complete tree               |
 | `faster-whisper-v1.2.1-65882ee` | `https://github.com/SYSTRAN/faster-whisper.git` | `65882eee9f5cdbeeb2d877f1131d48cf241b327d` | `7f396ce8d3316df36f674183aea9ff00ff946637` | Complete tree               |
 | `ctranslate2-v4.8.1-0d8bcd3`    | `https://github.com/OpenNMT/CTranslate2.git`    | `0d8bcd362ac75ef860ef161d6f0efad0ae439ff0` | `3f2df7ccdec126f6d180367a9906c21221105a26` | Complete tree               |
 
@@ -101,6 +107,17 @@ be accepted as the complete nlohmann tree. Faster-Whisper and CTranslate2
 locks SHALL record their canonical path/mode/hash manifests, license hashes,
 counts, expanded limits, and recursive gitlink/LFS status before later packets
 may configure them.
+
+The GoogleTest lock SHALL reproduce the complete pinned v1.17.0 tree: 250
+regular paths, 4,095,045 expanded regular-file bytes, 24 executable-mode
+files, no symlinks, no gitlinks, and no Git LFS pointers. Its BSD-3-Clause
+`LICENSE` is mandatory and additionally bound to Git blob
+`1941a11f8ce94389160b458927a29ba217542818`, 1,475 bytes, and SHA-256
+`9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138`.
+Task 09 SHALL supply this verified local source root directly to CMake through
+a required project-owned path and `add_subdirectory`; no Git URL,
+`FetchContent`, `find_package`, package registry, or ambient system GoogleTest
+may remain in the configure graph.
 
 ### Source-object lock and import protocol
 
@@ -198,7 +215,8 @@ working-tree-dependent application is allowed.
 Use schema `local-whisper-native-toolchain-lock-v1`. Every executable profile
 SHALL pin target OS/architecture, compiler executable and complete version,
 C/C++ runtime, CMake, Ninja/generator, SDK/toolkit, linker, architecture code
-targets, environment allowlist, source/patch lock IDs, complete CMake cache,
+targets, environment allowlist, profile-applicable source/patch lock IDs or an
+immutable project qualification-fixture identity, complete CMake cache,
 expected build graph, output files, dynamic dependencies, license identities,
 SBOM components, and a `qualificationState` enum of `candidate-unqualified`,
 `pendingWindowsFinalTask`, or `qualified` with its evidence digest. No value
@@ -211,7 +229,7 @@ The initial candidate matrix is:
 | Profile ID                                           | Candidate inputs                                                                                                                                                                                                                     | Qualification state in this packet                                                                                                                      |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `linux-x64-cpu-baseline-v1`                          | Ubuntu 24.04 x64 build ABI; GCC 13.3.0; CMake 3.31.8; Ninja 1.12.1; x86-64 ABI/SSE2 baseline; OpenMP off                                                                                                                             | Must pass the executable disconnected smoke before Task 10                                                                                              |
-| `linux-x64-clang-18.1.3-asan-ubsan-v1`               | Ubuntu 24.04 x64 build ABI; Clang/clang++ 18.1.3; LLVM lld, ASan, and UBSan runtimes 18.1.3; GNU libstdc++/libgcc 13.3.0; CMake 3.31.8; Ninja 1.12.1                                                                                 | Must pass executable warnings-as-errors and ASan/UBSan common-codec/authority suites before Task 09                                                     |
+| `linux-x64-clang-18.1.3-asan-ubsan-v1`               | Ubuntu 24.04 x64 build ABI; Clang/clang++ 18.1.3; LLVM lld, ASan, and UBSan runtimes 18.1.3; GNU libstdc++/libgcc 13.3.0; CMake 3.31.8; Ninja 1.12.1                                                                                 | Must pass the dependency-free clean/ASan/UBSan activation fixture before Task 09                                                                        |
 | `linux-x64-cuda-12.8.1-sm120a-v1`                    | Ubuntu 24.04 x64 build ABI; GCC 13.3.0; CUDA Toolkit 12.8.1; CMake 3.31.8; Ninja 1.12.1; requested and effective `CMAKE_CUDA_ARCHITECTURES=120a-real`; shared CUDA runtime closure                                                   | Must pass the executable disconnected smoke before Task 11                                                                                              |
 | `windows-x64-cpu-candidate-task19-v1`                | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1                                                                                                   | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 19 |
 | `windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1` | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1; CUDA Toolkit/shared runtime 12.8.1; requested and effective `CMAKE_CUDA_ARCHITECTURES=120a-real` | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 19 |
@@ -230,10 +248,26 @@ does not select or silently replace them. The representative host's installed
 NVIDIA driver is qualification evidence, not an unpinned build input.
 
 The Clang profile SHALL hash and qualify Clang, clang++, lld, ASan, UBSan,
-libstdc++, and libgcc as one executable set. Its disconnected smoke SHALL run
-the common protocol/authority GoogleTest suites with warnings as errors under
-both ASan and UBSan; a missing, skipped, incompatible, or non-executed
-sanitizer is a failed profile and blocks Task 09.
+libstdc++, and libgcc as one executable set. Its disconnected qualification
+SHALL compile one dependency-free C++20 sanitizer fixture with warnings as
+errors and produce three explicit targets: a clean control, an intentional
+ASan heap-use-after-free trigger, and an intentional UBSan signed-overflow
+trigger. The clean control must exit zero without sanitizer diagnostics; each
+trigger must exit nonzero with the expected sanitizer family and defect marker.
+The audit SHALL reject a missing, skipped, incompatible, non-executed, or
+unexpectedly successful trigger. These fixtures prove toolchain activation
+only and contain no worker protocol, model authority, inference, or GoogleTest
+code. Task 09 owns the real common protocol/authority GoogleTest suites and
+runs them under this exact qualified profile.
+
+The Clang profile SHALL not list nlohmann, GoogleTest, or another upstream
+source lock as a qualification input. Its `sourceLockIds` and `patchLockIds`
+are empty and it instead binds one immutable project fixture ID and canonical
+manifest digest. The toolchain schema SHALL require source locks for the CPU
+and CUDA Whisper.cpp profiles and the exact fixture identity for this Clang
+profile. Its `expectedBuildGraph` is exactly the clean, ASan-trigger, and
+UBSan-trigger targets above; naming future Task-09 common suites here is
+invalid.
 
 ### Explicit disconnected build policy
 
@@ -262,6 +296,39 @@ workers SHALL have `GGML_BACKEND_DL=OFF`; build and relocation tests SHALL prove
 that the CWD and `GGML_BACKEND_PATH` cannot add a backend. Project-owned
 staging, not upstream `cmake --install`, owns Windows `RUNTIME` artifacts.
 
+### Truthful qualification and relocation evidence
+
+Create a strict versioned qualification-evidence schema; profile qualification
+SHALL never accept booleans without the executed evidence they summarize. A
+qualified Linux profile SHALL have non-null hashes for every compiler, linker,
+build tool, inspected runtime, license, and qualification output. Evidence
+SHALL bind the candidate profile digest, source/fixture identities, configured
+and effective cache digests, generated graph digest, executed target names,
+exit statuses, sanitizer markers where applicable, staged file identities,
+observed dependency closure, relocation root identity, clean-start result, and
+the exact sanitized environment/CWD policy. Any missing, duplicate, skipped,
+or mismatched record fails qualification.
+
+Linux closure inspection SHALL use exact hashed profile tools such as
+`readelf`, never execute `ldd` against untrusted output, and resolve every
+`DT_NEEDED` entry through an explicit allowlist of staged or reviewed system
+runtime identities. Unknown, duplicate, ambient, unresolved, or
+working-directory dependencies fail. A project-owned synthetic shared-library
+fixture SHALL prove that removing a required staged library fails, adding a
+same-name malicious CWD library cannot satisfy resolution, and changing
+`LD_LIBRARY_PATH` or `GGML_BACKEND_PATH` cannot alter the accepted closure.
+
+Relocation SHALL copy only manifest-declared outputs/licenses/runtime files
+into a fresh owned root, preserve their identities and executable modes, and
+run the relocated clean smoke with network denied, an empty inherited
+environment plus the profile allowlist, no loader/backend path variables, and
+a malicious unrelated CWD. The executable must resolve only manifest-owned or
+reviewed system libraries and exit zero with its fixed public marker. The CPU
+and CUDA build smokes perform no model loading or inference; Tasks 10 and 11
+own worker/pack closure and real engine behavior. Windows defines the same
+evidence shape as contract-only candidate data, while Task 19 owns its
+representative execution.
+
 ## Contracts And Boundaries
 
 - Task 08 owns source, loader-limit-table, patch-lock, toolchain-lock,
@@ -271,9 +338,10 @@ staging, not upstream `cmake --install`, owns Windows `RUNTIME` artifacts.
   store, app installer payload, published artifact, or renderer-visible path.
 - The GitHub connector is required for commit-pinned source review; an
   explicitly authorized Git import is the only networked acquisition path.
-- Task 09 consumes the verified nlohmann subset. Tasks 10 and 11 consume the
-  verified `whisper.cpp` tree and immutable loader-limit table, then complete
-  the patch lock without changing that table.
+- Task 09 consumes the verified nlohmann subset, GoogleTest tree, and qualified
+  GCC/Clang profiles. Tasks 10 and 11 consume the verified `whisper.cpp` tree
+  and immutable loader-limit table, then complete the patch lock without
+  changing that table.
 - Later Faster-Whisper work may consume the two additional source objects but
   must supply separately approved Python/wheel/native dependency locks.
 - Task 19 alone may change a Windows lock's `qualificationState` from
@@ -288,10 +356,18 @@ staging, not upstream `cmake --install`, owns Windows `RUNTIME` artifacts.
 - `runtime/local-whisper/sources/limits/whisper-cpp-loader-limits-v1.json` and
   its pinned-layout derivation/review provenance record.
 - `runtime/local-whisper/toolchains/schema/native-toolchain-lock.schema.json`
-- `runtime/local-whisper/sources/locks/` with the four source locks and license
+- `runtime/local-whisper/sources/locks/` with the five source locks and license
   identities.
 - `runtime/local-whisper/toolchains/profiles/` with the three Linux locks and two
   explicit Windows Task-19 candidates.
+- `runtime/local-whisper/toolchains/schema/native-toolchain-evidence.schema.json`
+  plus qualification records only after the exact executable gates pass.
+- `runtime/local-whisper/toolchains/fixtures/sanitizer-proof/` with the
+  dependency-free clean, ASan-trigger, and UBSan-trigger C++20 targets and no
+  production protocol/model-authority code.
+- Synthetic staged-library/relocation fixtures that prove closure inspection,
+  missing-dependency rejection, malicious-CWD/environment resistance, and
+  network-denied clean startup without a model or engine behavior.
 - `scripts/local-whisper/source-import/` importer, candidate generator,
   materializer, and verifier.
 - `scripts/local-whisper/native-build/` disconnected configure, cache/graph
@@ -309,15 +385,18 @@ staging, not upstream `cmake --install`, owns Windows `RUNTIME` artifacts.
   mutation fails before configure.
 - Two authorized clean imports reproduce byte-identical canonical manifests
   and content-store identities without trusting generated archive bytes.
-- The nlohmann subset is locally available and verified before Task 09 starts.
+- The nlohmann subset and complete GoogleTest source object are locally
+  available and verified before Task 09 starts; Task 09 CMake has no
+  network/system-package fallback for either input.
 - The loader-limit verifier reproduces the reviewed
   `whisper-cpp-loader-limits-v1` digest from the pinned v1.9.1 layouts and
   curated family manifests; any limit, layout, family, tensor-type,
   provenance, or review-state mutation fails before Task 10 starts.
 - Linux CPU, Clang sanitizer, and CUDA profiles have complete explicit caches;
-  the Clang profile executes both sanitizers, while `native`, an unknown
-  enabled backend, `GGML_BACKEND_DL`, CCCL/KleidiAI/NCCL fetching, and every
-  network attempt fail.
+  the Clang clean/ASan/UBSan fixtures prove both sanitizer runtimes execute and
+  fail closed on skipped or unexpectedly successful triggers, while `native`,
+  an unknown enabled backend, `GGML_BACKEND_DL`, CCCL/KleidiAI/NCCL fetching,
+  and every network attempt fail.
 - The CUDA lock records both requested and effective `120a-real`; bare `120`,
   `native`, `120-virtual`, or a silently rewritten cache is rejected.
 - Malicious CWD/backend environment inputs cannot alter the backend set or
@@ -331,11 +410,14 @@ Task 08 SHALL add the named package scripts before running these exact commands:
 
 ```text
 rtk npm run test:local-whisper:native-sources
+rtk npm run test:local-whisper:native-build-audits
 rtk npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 rtk npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+rtk npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
 rtk npm run verify:local-whisper:native-source -- --lock=faster-whisper-v1.2.1-65882ee
 rtk npm run verify:local-whisper:native-source -- --lock=ctranslate2-v4.8.1-0d8bcd3
 rtk npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
+rtk npm run test:local-whisper:native-sanitizer-proof -- --profile=linux-x64-clang-18.1.3-asan-ubsan-v1
 rtk npm run verify:local-whisper:native-toolchain -- --profile=linux-x64-cpu-baseline-v1
 rtk npm run verify:local-whisper:native-toolchain -- --profile=linux-x64-clang-18.1.3-asan-ubsan-v1
 rtk npm run verify:local-whisper:native-toolchain -- --profile=linux-x64-cuda-12.8.1-sm120a-v1
@@ -391,7 +473,8 @@ Windows compiler, VM, remote runner, or representative host.
 - `../spec.md`: Sections 7.3, 18.1, and acceptance rows `AC-AUTO-050`,
   `AC-AUTO-060`, and `AC-AUTO-061`.
 - `../decisions.yaml`: commit-pinned source, nlohmann SAX, CUDA/CMake/MSVC,
-  backend-discovery, and GitHub-archive findings.
+  backend-discovery, GitHub-archive findings, and
+  `planning.task-08-sanitizer-googletest-repair`.
 - GitHub generated-archive stability documentation:
   `https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives#stability-of-source-code-archives`.
 - `.agents/references/task-packets.md` and the native/runtime section of

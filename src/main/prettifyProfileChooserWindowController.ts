@@ -370,7 +370,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
   }
 
   private resolveBounds(): PrettifyProfileChooserBounds | null {
-    let availableDisplays: Display[] = [];
+    let availableDisplays: Display[];
     try {
       availableDisplays = this.dependencies.screen
         .getAllDisplays()

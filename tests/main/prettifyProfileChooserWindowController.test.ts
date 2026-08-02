@@ -266,15 +266,12 @@ describe('PrettifyProfileChooserWindowController', () => {
       x: 7,
       y: 5,
     });
-    assert.deepEqual(
-      calculatePrettifyProfileChooserBounds({ height: 900, width: 1200, x: 1920, y: 0 }),
-      {
-        height: 640,
-        width: 620,
-        x: 2210,
-        y: 130,
-      },
-    );
+    assert.deepEqual(calculatePrettifyProfileChooserBounds({ height: 900, width: 1200, x: 1920, y: 0 }), {
+      height: 640,
+      width: 620,
+      x: 2210,
+      y: 130,
+    });
     assert.equal(calculatePrettifyProfileChooserBounds({ height: 0, width: 10, x: 0, y: 0 }), null);
   });
 

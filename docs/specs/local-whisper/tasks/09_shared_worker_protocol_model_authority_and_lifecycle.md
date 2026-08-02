@@ -15,9 +15,10 @@ compiling an inference engine.
 
 - `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
 - Tasks 01, 03, 04, 06, 07, and 08 are complete.
-- Task 08 has materialized and verified source lock
-  `nlohmann-json-v3.12.0-subset`; no generated archive or implicit download may
-  provide the C++ decoder.
+- Task 08 has materialized and verified source locks
+  `nlohmann-json-v3.12.0-subset` and
+  `googletest-v1.17.0-52eb810`; no generated archive, system package, package
+  registry, or implicit download may provide the C++ decoder or test framework.
 - Task 08's `linux-x64-cpu-baseline-v1` GCC profile and
   `linux-x64-clang-18.1.3-asan-ubsan-v1` profile are executable-qualified,
   including real ASan and UBSan execution. A candidate or skipped sanitizer
@@ -45,6 +46,11 @@ compiling an inference engine.
   proof DTO contracts shared by TypeScript, C++, and Python.
 - Duplicate-aware nlohmann SAX adapter plus a separate bounded lexical numeric
   validator; no nlohmann DOM types escape the C++ codec.
+- Project-owned CMake integration that requires the verified local GoogleTest
+  source root and adds it with `add_subdirectory` using `BUILD_GMOCK=OFF`,
+  `INSTALL_GTEST=OFF`, and `GTEST_HAS_ABSL=OFF`. Existing filesystem-guard and
+  launcher test builds SHALL migrate away from Git-based `FetchContent` in the
+  same atomic native-test graph; no URL or `find_package` fallback is allowed.
 - Canonical protocol and proof vector generation with exact N/N+1 boundaries.
 - Canonical in-memory PCM16/16-kHz WAV validation and bounded ordered audio
   accumulation.
@@ -353,7 +359,8 @@ kill-on-failure. No representative Windows execution occurs before Task 19.
   launcher and worker own only their explicitly duplicated copies. Every copy
   has one RAII owner and idempotent non-throwing cleanup.
 - Task 09 owns framing, codec, proof encoding, handoff, supervisor arbitration,
-  and fakes. It does not decide whether a physical device is product-supported.
+  native GoogleTest integration, and fakes. It does not decide whether a
+  physical device is product-supported.
 - Task 10 implements the CPU peer and exact file reader. Task 11 implements the
   CUDA peer and real `LWREG1`, `probeProof`, and `loadProof` evidence.
 - Future directory-relative model readers consume the directory authority but
@@ -368,6 +375,9 @@ kill-on-failure. No representative Windows execution occurs before Task 19.
   audio, terminal arbitration, and post-response revalidation.
 - `runtime/local-whisper/common/` C++20 frame, lexical, nlohmann SAX, proof,
   audio, and private-bootstrap modules with RAII ownership.
+- Project-owned CMake modules/arguments that bind every native test target to
+  the verified `googletest-v1.17.0-52eb810` content-store root without a
+  network-capable declaration or ambient package lookup.
 - Python reference codec used only for conformance until a later engine packet.
 - Authority-handoff modules under `runtime/local-whisper/fs-guard/` and
   `runtime/local-whisper/launcher/` without duplicating their composition roots.
@@ -404,6 +414,8 @@ kill-on-failure. No representative Windows execution occurs before Task 19.
 Task 09 SHALL add the named package scripts before running these exact commands:
 
 ```text
+rtk npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+rtk npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
 rtk npm run generate:local-whisper:worker-vectors
 rtk npm run test:local-whisper:worker-codec
 rtk npm run test:local-whisper:worker-proof-vectors
@@ -425,7 +437,10 @@ rtk git diff --check -- src/shared/localWhisper src/main/localWhisper/supervisor
 Run the native C++ suites with GCC and Clang warnings-as-errors and ASan/UBSan
 through `test:local-whisper:worker-codec` and
 `test:local-whisper:worker-authority` under the two exact Task-08 Linux
-profiles. Missing or skipped compiler/sanitizer execution is a packet blocker.
+profiles. Each configure receives only the two verified content-store roots;
+the generated graph must contain no Git URL, `FetchContent`, `find_package`,
+package-registry, or download step. Missing or skipped compiler/sanitizer
+execution is a packet blocker.
 The Windows command performs static schema/source-contract validation only; no
 Windows compiler, VM, runner, remote host, or representative binary is
 executed.
@@ -444,8 +459,9 @@ executed.
 
 ## Manual Gates
 
-- `MANUAL GATE — native test toolchain`: installation of missing Clang,
-  sanitizers, CMake, or Ninja requires explicit authorization.
+- Task 09 receives no source-import or toolchain-acquisition authority. Missing
+  GoogleTest/nlohmann objects or a no-longer-qualified GCC/Clang profile returns
+  the workstream to Task 08 instead of downloading or substituting inputs.
 - Windows representative execution is prohibited until Task 19.
 - No model, GPU, AMD, Apple Silicon, signing, packaging, upload, publication,
   commit, push, or release authority is included.

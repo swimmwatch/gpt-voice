@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the fixture doubles model distinct clock, record, process, and ownership lifecycles. */
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';

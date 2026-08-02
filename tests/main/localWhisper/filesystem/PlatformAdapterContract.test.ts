@@ -37,15 +37,7 @@ describe('platform adapter contract', () => {
 
   test('keeps the Windows guard on handle-relative and identity-aware primitives', () => {
     const source = readFileSync(
-      path.resolve(
-        'runtime',
-        'local-whisper',
-        'fs-guard',
-        'src',
-        'platform',
-        'windows',
-        'windows_backend.cpp',
-      ),
+      path.resolve('runtime', 'local-whisper', 'fs-guard', 'src', 'platform', 'windows', 'windows_backend.cpp'),
       'utf8',
     );
 
@@ -67,15 +59,7 @@ describe('platform adapter contract', () => {
 
   test('keeps the Linux guard on openat2 and descriptor-relative mutation primitives', () => {
     const source = readFileSync(
-      path.resolve(
-        'runtime',
-        'local-whisper',
-        'fs-guard',
-        'src',
-        'platform',
-        'linux',
-        'linux_backend.cpp',
-      ),
+      path.resolve('runtime', 'local-whisper', 'fs-guard', 'src', 'platform', 'linux', 'linux_backend.cpp'),
       'utf8',
     );
 

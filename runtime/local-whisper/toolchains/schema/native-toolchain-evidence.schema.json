@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-native-toolchain-evidence-v1.json",
+  "title": "Local Whisper native toolchain qualification evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "profileId",
+    "profileInputDigest",
+    "inputs",
+    "toolIdentities",
+    "runtimeIdentities",
+    "licenseIdentities",
+    "configuredCacheSha256",
+    "effectiveCacheSha256",
+    "generatedBuildGraphSha256",
+    "generatedTargets",
+    "executions",
+    "stagedFiles",
+    "dependencyClosure",
+    "relocation",
+    "networkDenial",
+    "sanitizedEnvironment"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-native-toolchain-evidence-v1" },
+    "profileId": { "$ref": "#/$defs/safeId" },
+    "profileInputDigest": { "$ref": "#/$defs/sha256" },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceLockIds", "patchLockIds", "qualificationFixture"],
+      "properties": {
+        "sourceLockIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        },
+        "patchLockIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        },
+        "qualificationFixture": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/fixtureIdentity" }]
+        }
+      }
+    },
+    "toolIdentities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/namedIdentity" }
+    },
+    "runtimeIdentities": { "type": "array", "items": { "$ref": "#/$defs/namedIdentity" } },
+    "licenseIdentities": { "type": "array", "items": { "$ref": "#/$defs/namedIdentity" } },
+    "configuredCacheSha256": { "$ref": "#/$defs/sha256" },
+    "effectiveCacheSha256": { "$ref": "#/$defs/sha256" },
+    "generatedBuildGraphSha256": { "$ref": "#/$defs/sha256" },
+    "generatedTargets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/safeId" }
+    },
+    "executions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/execution" }
+    },
+    "stagedFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "relativePath", "sha256", "mode"],
+        "properties": {
+          "id": { "$ref": "#/$defs/safeId" },
+          "relativePath": { "$ref": "#/$defs/relativePath" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "mode": { "enum": ["100644", "100755"] }
+        }
+      }
+    },
+    "dependencyClosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inspector", "records"],
+      "properties": {
+        "inspector": { "$ref": "#/$defs/pathIdentity" },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fileId", "relativePath", "sha256", "needed"],
+            "properties": {
+              "fileId": { "$ref": "#/$defs/safeId" },
+              "relativePath": { "$ref": "#/$defs/relativePath" },
+              "sha256": { "$ref": "#/$defs/sha256" },
+              "needed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["soname", "resolutionKind", "resolvedId", "sha256"],
+                  "properties": {
+                    "soname": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]{1,255}$" },
+                    "resolutionKind": { "enum": ["staged", "reviewed-system"] },
+                    "resolvedId": { "$ref": "#/$defs/safeId" },
+                    "sha256": { "$ref": "#/$defs/sha256" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootIdentity",
+        "manifestSha256",
+        "maliciousCwdIdentity",
+        "environmentAllowlist",
+        "inheritedEnvironmentKeys",
+        "forbiddenVariablesAbsent",
+        "execution"
+      ],
+      "properties": {
+        "rootIdentity": { "$ref": "#/$defs/sha256" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "maliciousCwdIdentity": { "$ref": "#/$defs/sha256" },
+        "environmentAllowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+        },
+        "inheritedEnvironmentKeys": { "type": "array", "maxItems": 0 },
+        "forbiddenVariablesAbsent": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": { "enum": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"] }
+        },
+        "execution": { "$ref": "#/$defs/execution" }
+      }
+    },
+    "networkDenial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "phases"],
+      "properties": {
+        "harness": { "$ref": "#/$defs/pathIdentity" },
+        "phases": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["phase", "commandSha256", "exitStatus", "networkNamespace"],
+            "properties": {
+              "phase": {
+                "enum": ["preflight", "configure", "build", "fixture-execution", "relocated-clean-start"]
+              },
+              "commandSha256": { "$ref": "#/$defs/sha256" },
+              "exitStatus": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "networkNamespace": { "const": "user-network-isolated" }
+            }
+          }
+        }
+      }
+    },
+    "sanitizedEnvironment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowlistedKeys", "inheritedKeys", "environmentSha256", "cwdPolicy"],
+      "properties": {
+        "allowlistedKeys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+        },
+        "inheritedKeys": { "type": "array", "maxItems": 0 },
+        "environmentSha256": { "$ref": "#/$defs/sha256" },
+        "cwdPolicy": { "const": "owned-malicious-unrelated" }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+    },
+    "fixtureIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixtureId", "manifestSha256"],
+      "properties": {
+        "fixtureId": { "$ref": "#/$defs/safeId" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "pathIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "namedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "versionOutputSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "purpose",
+        "exitStatus",
+        "signal",
+        "stdoutSha256",
+        "stderrSha256",
+        "requiredMarkers",
+        "observedMarkers",
+        "networkNamespace"
+      ],
+      "properties": {
+        "target": { "$ref": "#/$defs/safeId" },
+        "purpose": { "enum": ["clean", "asan-trigger", "ubsan-trigger", "build-smoke", "relocated-clean"] },
+        "exitStatus": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "signal": { "type": ["string", "null"], "maxLength": 64 },
+        "stdoutSha256": { "$ref": "#/$defs/sha256" },
+        "stderrSha256": { "$ref": "#/$defs/sha256" },
+        "requiredMarkers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "observedMarkers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "networkNamespace": { "const": "user-network-isolated" }
+      }
+    }
+  }
+}

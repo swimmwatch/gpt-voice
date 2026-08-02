@@ -1,0 +1,100 @@
+{
+  "$schema": "../schema/native-toolchain-lock.schema.json",
+  "schemaId": "local-whisper-native-toolchain-lock-v1",
+  "profileId": "windows-x64-cpu-candidate-task19-v1",
+  "target": { "os": "windows", "architecture": "x64", "abi": "msvc-v143-crt-14.39-windows-sdk-10.0.26100.0" },
+  "tools": [
+    {
+      "role": "cxx-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
+      "version": "Microsoft (R) C/C++ Optimizing Compiler Version 19.39 (_MSC_VER=1939)",
+      "sha256": null
+    },
+    {
+      "role": "linker",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/link.exe",
+      "version": "Microsoft (R) Incremental Linker Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "archiver",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/lib.exe",
+      "version": "Microsoft (R) Library Manager Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "cmake",
+      "pathKind": "toolchainRootRelative",
+      "path": "cmake-3.31.8/bin/cmake.exe",
+      "version": "cmake version 3.31.8",
+      "sha256": null
+    },
+    {
+      "role": "ninja",
+      "pathKind": "toolchainRootRelative",
+      "path": "ninja-1.12.1/ninja.exe",
+      "version": "1.12.1",
+      "sha256": null
+    }
+  ],
+  "runtime": [
+    {
+      "id": "msvc-crt-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "windows-sdk-10.0.26100.0",
+      "pathKind": "toolchainRootRelative",
+      "path": "windows-sdk-10.0.26100.0/Lib/um/x64/kernel32.lib",
+      "sha256": null
+    }
+  ],
+  "architectureTargets": ["x86-64-sse2"],
+  "environmentAllowlist": ["SystemRoot", "TEMP", "TMP", "WINDIR"],
+  "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+  "patchLockIds": [],
+  "qualificationFixture": null,
+  "cmakeCache": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_STANDARD": "20",
+    "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+    "GGML_BACKEND_DL": "OFF",
+    "GGML_CPU_KLEIDIAI": "OFF",
+    "GGML_CUDA": "OFF",
+    "GGML_NATIVE": "OFF",
+    "GGML_OPENMP": "OFF",
+    "GGML_RPC": "OFF",
+    "GGML_STATIC": "ON",
+    "WHISPER_BUILD_EXAMPLES": "OFF",
+    "WHISPER_BUILD_TESTS": "OFF",
+    "WHISPER_CURL": "OFF"
+  },
+  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "whisper"],
+  "outputs": [{ "id": "whisper-static", "pathKind": "outputRelative", "path": "src/whisper.lib", "sha256": null }],
+  "dynamicDependencies": [
+    {
+      "id": "msvc-crt-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "sha256": null
+    }
+  ],
+  "licenses": [
+    {
+      "id": "visual-studio-build-tools-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/license.txt",
+      "sha256": null
+    }
+  ],
+  "sbomComponents": ["msvc-14.39", "windows-sdk-10.0.26100.0", "cmake-3.31.8", "ninja-1.12.1", "whisper-cpp-v1.9.1"],
+  "qualificationState": "pendingWindowsFinalTask",
+  "evidenceDigest": null,
+  "minimumDriver": null
+}

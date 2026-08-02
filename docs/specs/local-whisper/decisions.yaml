@@ -3857,3 +3857,249 @@ decisions:
     rationale: The user explicitly approved audited Local Whisper plan revision 9 through the durable persistent planning interview; replacement Task 08 remains separately gated.
     supersedes_revision: 8
     requirement_ids: []
+
+  - id: planning.task-08-sanitizer-googletest-repair
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Task 08 currently requires common protocol and model-authority GoogleTest suites before Task 09, but Task 09 owns and creates those production modules.
+      - The Task 08 Clang profile targets `runtime/local-whisper/native-foundation`, which does not exist, while Task 08 explicitly excludes protocol and model-authority implementation.
+      - Existing native CMake files pin GoogleTest commit `52eb8108c5bdec04579160ae17225d66034bd723` but acquire it with networked `FetchContent`; Task 08 requires every build input to have an exact reviewed offline identity.
+      - The GitHub plugin verified `google/googletest` commit `52eb8108c5bdec04579160ae17225d66034bd723` as the v1.17.0 preparation commit.
+      - The prior durable decision `planning.native-cpp-toolchain` selected CMake plus pinned GoogleTest, so replacing the test framework would supersede an explicit user choice.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-08-blocker-repair-round-42
+      question_id: planning.task-08-sanitizer-googletest-repair
+      idempotency_key: planning.task-08-sanitizer-googletest-repair:v1
+      last_status: answered
+      sequence: 42
+      revision: 1
+    question:
+      text: How should plan revision 10 repair the Task 08 sanitizer and offline GoogleTest ordering blocker?
+      kind: single
+      options:
+        - id: lock-gtest-and-separate-sanitizer-probe
+          label: Lock GTest + sanitizer probe (Recommended)
+          description: Task 08 adds a fifth reviewed offline GoogleTest source lock and qualifies Clang/ASan/UBSan with a dependency-free positive/negative sanitizer activation fixture; Task 09 then runs the real common protocol and authority GoogleTest suites under that exact profile.
+        - id: move-clang-qualification-to-task-09
+          label: Qualify Clang in Task 09
+          description: Task 08 locks GoogleTest and captures the Clang toolchain as an unqualified candidate; Task 09 qualifies it only after the real common protocol and authority suites exist.
+        - id: replace-googletest
+          label: Replace GoogleTest
+          description: Remove GoogleTest from the new worker foundation and use a project-owned dependency-free harness, superseding the earlier approved CMake plus pinned GoogleTest decision.
+    answer:
+      selected_ids: [lock-gtest-and-separate-sanitizer-probe]
+      text: ''
+    rationale: The selected repair preserves the approved CMake plus pinned GoogleTest decision, makes GoogleTest a reviewed disconnected input, proves the sanitizer toolchain before production protocol work without inventing that work in Task 08, and leaves the real common protocol and authority suites with their owning Task 09.
+    supersedes_revision: null
+    requirement_ids: [SEC-009, PKG-001, PKG-006, AC-AUTO-050]
+
+  - id: planning.revision-10-plan-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Revision 10 preserves the 19-packet acyclic graph and all 62 unique automated-acceptance primary owners; Tasks 01–07 and Tasks 10–19 are unchanged.
+      - Task 08 now owns five exact native source objects, including the complete pinned GoogleTest v1.17.0 commit/tree/license identity, and qualifies Clang/ASan/UBSan through a dependency-free sanitizer activation fixture.
+      - Task 09 now owns the real common protocol/model-authority GoogleTest suites and requires explicit verified local nlohmann/GoogleTest source roots with no Git FetchContent, find_package, registry, system-package, or download fallback.
+      - Task 08 now requires evidence-bearing dependency-closure, relocation, malicious-environment, and clean-start verification; boolean-only qualification evidence is invalid.
+      - Representative Windows execution remains exclusive to Task 19, and all source review/toolchain acquisition gates remain explicit.
+      - The task-plan validator reports 19 packets and 62 unique AC-AUTO owners; scoped Prettier, validator ESLint, and git diff whitespace checks pass.
+    answer:
+      selected_ids: [task-08-blockers-repaired]
+      text: ''
+    rationale: Revision 10 removes the Task 08/09 ownership cycle without changing product behavior, platform claims, acceptance ownership, or the downstream task graph.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 10
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 10 repairs the Task 08 sanitizer and offline GoogleTest blocker through durable decision `planning.task-08-sanitizer-googletest-repair`.
+      - The repaired packets preserve all approved specification behavior, the 19-task dependency graph, acceptance ownership, Windows Task-19 boundary, and external manual gates.
+      - Structural plan validation, scoped formatting/lint, and whitespace checks pass.
+      - Approval remains separate from repaired Task 08 execution authorization and from source import, implementation, commit, push, PR, packaging, signing, publication, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-43
+      question_id: approval.plan-revision-10
+      idempotency_key: approval.plan-revision-10:v1
+      last_status: answered
+      sequence: 43
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 10 proceed after the Task 08 blocker repair and audit?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 10 (Recommended)
+          description: Approve the repaired Task 08/09 contract; repaired Task 08 implementation remains separately gated.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 10 Draft and revise the affected packets before implementation.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the audited repair unapproved and do not authorize implementation.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved audited plan revision 10 through the durable planning interview after the Task 08 sanitizer and offline GoogleTest repair; repaired Task 08 execution remains separately gated.
+    supersedes_revision: 9
+    requirement_ids: []
+
+  - id: execution.task-08-revision-10
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 10 is approved by durable answer `approval.plan-revision-10`, sequence 43, revision 1.
+      - Repaired Task 08 owns exactly the five offline source locks, loader-limit authority, dependency-free sanitizer proof, truthful toolchain/closure/relocation evidence, candidate Windows contracts, synthetic tests, and task handoff.
+      - The existing uncommitted Task 08 groundwork is preserved and must be repaired in place; Task 09 protocol/model-authority implementation remains out of scope.
+      - Networked source imports, toolchain acquisition/licenses, human lock/table review, commit, push, PR, Windows execution, packaging, signing, publication, and release remain separate manual gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: execution-round-44
+      question_id: execution.task-08-revision-10
+      idempotency_key: execution.task-08-revision-10:v1
+      last_status: answered
+      sequence: 44
+      revision: 1
+    question:
+      text: Should a later incremental-implementation invocation execute only repaired Local Whisper Task 08 from approved plan revision 10?
+      kind: single
+      options:
+        - id: authorize-task-08
+          label: Authorize repaired Task 08 (Recommended)
+          description: Repair and verify only Task 08 groundwork, stop at every external manual gate, update todo/handoff, and stop without committing or starting Task 09.
+        - id: do-not-authorize-task-08
+          label: Do not authorize
+          description: Keep the approved plan and current uncommitted checkpoint without further Task 08 implementation.
+        - id: revise-task-08
+          label: Revise Task 08
+          description: Return to planning and change the repaired packet before any implementation continues.
+    answer:
+      selected_ids: [authorize-task-08]
+      text: ''
+    rationale: The user explicitly authorized exactly repaired Task 08 for a later incremental-implementation invocation; every network import, external toolchain/license, review, Windows, commit, publication, and later-packet gate remains separate.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-08-manual-gate-scope
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 08 requires the five exact commit-pinned Git imports defined by plan revision 10 before source candidates can be reviewed.
+      - The agent-selected private import root is `.cache/local-whisper/import-candidates/round-45`; the eventual reviewed content-store destination is `.cache/local-whisper/native-sources`.
+      - The agent-selected private toolchain root is `.cache/local-whisper/toolchains`; only the exact profile versions may be acquired and their upstream licenses must be preserved.
+      - Generated source locks, loader-limit authority, qualification evidence, commit, Task 09, and representative Windows execution remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-08-manual-gate-scope-round-45
+      question_id: execution.task-08-manual-gate-scope
+      idempotency_key: execution.task-08-manual-gate-scope:v1
+      last_status: answered
+      sequence: 45
+      revision: 1
+    question:
+      text: What does your approval authorize for the remaining Task 08 manual gates?
+      kind: single
+      options:
+        - id: authorize-acquisition-only
+          label: Authorize acquisition only (Recommended)
+          description: Authorize the five exact pinned Git imports and pinned Linux toolchain downloads/licenses; generated source locks, loader limits, and qualification evidence must still be reviewed before promotion.
+        - id: checkpoint-review-only
+          label: Checkpoint review only
+          description: Approve the current implementation checkpoint without authorizing network imports, toolchain acquisition, artifact promotion, or commit.
+        - id: authorize-commit-only
+          label: Authorize checkpoint commit
+          description: Authorize committing the current incomplete Task 08 checkpoint, while all acquisition, review, qualification, and Task 09 gates remain closed.
+    answer:
+      selected_ids: [authorize-acquisition-only]
+      text: ''
+    rationale: The user explicitly authorized only exact source/toolchain acquisition and license acceptance. Candidate promotion, loader-limit authority, qualification evidence, commit, Task 09, and Windows execution remain unapproved.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-08-revision-10
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 08 is complete, reviewed/promoted under the user's explicit authorization, and remains isolated from Task 09 implementation.
+      - Native-source tests, native build audits, Linux CPU/Clang/CUDA qualification, repository-wide TypeScript quality checks, focused tests, plan validation, and whitespace checks pass.
+      - The authorized commit includes only the completed Task 08 packet and its repository-wide quality-gate fixes; push, publication, packaging, signing, release, and Windows execution remain prohibited.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-09-start-round-46
+      question_id: commit.task-08-revision-10
+      idempotency_key: commit.task-08-revision-10:v1
+      last_status: answered
+      sequence: 46
+      revision: 1
+    question:
+      text: How should the completed, verified, and currently uncommitted Local Whisper Task 08 packet proceed before Task 09?
+      kind: single
+      options:
+        - id: authorize-task-08-commit
+          label: Commit Task 08 (Recommended)
+          description: Commit only the completed Task 08 packet and its quality-gate fixes, without pushing or publishing.
+        - id: leave-task-08-uncommitted
+          label: Leave uncommitted
+          description: Keep Task 08 in the worktree and do not begin Task 09.
+        - id: revise-task-08-before-commit
+          label: Revise first
+          description: Return Task 08 for additional changes before any commit or Task 09 work.
+    answer:
+      selected_ids: [authorize-task-08-commit]
+      text: ''
+    rationale: The user explicitly authorized one scoped conventional commit for completed Task 08 and its documented quality-gate fixes, without push or publication authority.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-09-revision-10
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 6 and plan revision 10 are approved, and Tasks 01–08 are complete.
+      - Task 09 owns only the shared TypeScript/C++20/Python worker protocol, model-authority handoff, supervisor races, offline GoogleTest integration, canonical vectors, and Linux/Windows-contract verification defined by its packet.
+      - Task 10, representative Windows execution, model/GPU inference, commit, push, packaging, publication, signing, and release remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-09-start-round-46
+      question_id: execution.task-09-revision-10
+      idempotency_key: execution.task-09-revision-10:v1
+      last_status: answered
+      sequence: 47
+      revision: 1
+    question:
+      text: Should this incremental-implementation invocation execute only Local Whisper Task 09 from approved plan revision 10 after Task 08 is committed?
+      kind: single
+      options:
+        - id: authorize-task-09
+          label: Authorize Task 09 (Recommended)
+          description: Implement and verify only Task 09, update todo and handoff, then stop uncommitted before Task 10.
+        - id: do-not-authorize-task-09
+          label: Do not authorize
+          description: Stop after resolving the Task 08 commit boundary without implementing Task 09.
+        - id: revise-task-09
+          label: Revise Task 09
+          description: Return to planning and change the Task 09 packet before implementation.
+    answer:
+      selected_ids: [authorize-task-09]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 09 for this incremental-implementation invocation after the completed Task 08 packet is committed.
+    supersedes_revision: null
+    requirement_ids: []

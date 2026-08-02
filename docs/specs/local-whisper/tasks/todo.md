@@ -1,12 +1,15 @@
 # Local Whisper Task Checklist
 
-Plan revision: **9 (Approved)**
+Plan revision: **10 (Approved)**
 
 Specification baseline: **revision 6 (Approved)**
 
-Execution state: Tasks 01–07 remain complete and authoritative. The former
-Task-08 authorization is stale; the preserved dirty protocol/supervisor
-checkpoint is input to replacement Task 09, not a completed packet.
+Execution state: Tasks 01–07 remain complete and authoritative. Repaired plan
+revision 10 is approved by `approval.plan-revision-10` (sequence 43, revision
+1). The revision-9 Task 08 authorization is stale because the packet changed
+materially; the uncommitted Task 08 groundwork and preserved protocol/supervisor
+checkpoint are inputs, not completed packets. Repaired Task 08 is authorized by
+`execution.task-08-revision-10` (sequence 44, revision 1).
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -15,7 +18,7 @@ checkpoint is input to replacement Task 09, not a completed packet.
 - [x] [05 Streaming Artifact Lifecycle](05_streaming_artifact_lifecycle.md) — `32440674`
 - [x] [06 Native C++ Modularization](06_native_cpp_modularization.md) — `e294e8a`
 - [x] [07 Framed Worker Supervisor](07_framed_worker_supervisor.md) — `31c13c54`
-- [ ] [08 Deterministic Native Source Objects And Toolchain Locks](08_deterministic_native_source_and_toolchain_locks.md)
+- [x] [08 Deterministic Native Source Objects And Toolchain Locks](08_deterministic_native_source_and_toolchain_locks.md)
 - [ ] [09 Shared Worker Protocol, Model Authority, And Lifecycle](09_shared_worker_protocol_model_authority_and_lifecycle.md)
 - [ ] [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md)
 - [ ] [11 Whisper.cpp Device Proof, Cancellation, And CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md)
@@ -28,6 +31,10 @@ checkpoint is input to replacement Task 09, not a completed packet.
 - [ ] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md)
 - [ ] [19 Integration And Qualification Gates](19_integration_and_qualification_gates.md)
 
-Next gate: stop planning. Replacement Task 08 requires a later, separate
-`incremental-implementation` execution authorization; approval of this plan
-does not authorize source import, implementation, commit, or any later packet.
+Task 08 is complete and uncommitted. Acquisition, deterministic imports,
+generated locks/table, private materialization, and all three executable Linux
+qualifications passed. On 2026-08-02 the user explicitly authorized Codex to
+fix the remaining quality issues and perform the review/promotion itself; the
+generated records truthfully identify that reviewer and do not claim human
+review. Repository-wide quality checks are green. Task 09 is not started, and
+representative Windows execution remains Task 19 only.

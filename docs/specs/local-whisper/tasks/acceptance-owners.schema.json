@@ -10,7 +10,7 @@
       "const": 1
     },
     "planRevision": {
-      "const": 9
+      "const": 10
     },
     "taskFiles": {
       "type": "object",

@@ -1,0 +1,455 @@
+{
+  "$schema": "../schema/native-toolchain-evidence.schema.json",
+  "schemaId": "local-whisper-native-toolchain-evidence-v1",
+  "profileId": "linux-x64-clang-18.1.3-asan-ubsan-v1",
+  "profileInputDigest": "8a63b935b9b3b5241e989807053868976d47dda21d9f40f87cf1e91f56d8012a",
+  "inputs": {
+    "sourceLockIds": [],
+    "patchLockIds": [],
+    "qualificationFixture": {
+      "fixtureId": "local-whisper-sanitizer-proof-v1",
+      "manifestSha256": "10c616c610107c608f00e79a1ec737f601c70fe7706341ff2998457607a4a4e7"
+    }
+  },
+  "toolIdentities": [
+    {
+      "id": "c-compiler",
+      "path": "clang-18.1.3/usr/lib/llvm-18/bin/clang",
+      "sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "versionOutputSha256": "b6222e54600b0e6b110764e7e348e31f6ff660384f6a707cd4b5bf1280bbead2"
+    },
+    {
+      "id": "cxx-compiler",
+      "path": "clang-18.1.3/usr/lib/llvm-18/bin/clang++",
+      "sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "versionOutputSha256": "b6222e54600b0e6b110764e7e348e31f6ff660384f6a707cd4b5bf1280bbead2"
+    },
+    {
+      "id": "linker",
+      "path": "clang-18.1.3/usr/lib/llvm-18/bin/ld.lld",
+      "sha256": "7ad9a0e8fe6d0e79b71172d731e33872c0274e49fceb7b516d774876d5a58ade",
+      "versionOutputSha256": "437f2cfa55ea0d61f34fd9b318779c9229a7f2b3c44c9a403a753b940a571618"
+    },
+    {
+      "id": "archiver",
+      "path": "clang-18.1.3/usr/lib/llvm-18/bin/llvm-ar",
+      "sha256": "eedd2efbdee80acf60e17e10adeddf31be0347226245f935be95efa3ae00ec79",
+      "versionOutputSha256": "b4d7bedc0d026a83e54b1399b74f8e6a315a1b6fe8c4235acae5ad68780da1af"
+    },
+    {
+      "id": "ranlib",
+      "path": "clang-18.1.3/usr/lib/llvm-18/bin/llvm-ranlib",
+      "sha256": "eedd2efbdee80acf60e17e10adeddf31be0347226245f935be95efa3ae00ec79",
+      "versionOutputSha256": "b4d7bedc0d026a83e54b1399b74f8e6a315a1b6fe8c4235acae5ad68780da1af"
+    },
+    {
+      "id": "cmake",
+      "path": "cmake-3.31.8/bin/cmake",
+      "sha256": "8df68e8be95c6e8f7c329b24f38fd209dc6f57f2f22433d0f81bd43a31a8744d",
+      "versionOutputSha256": "3a89cbec6499862ef96a90e57d785ead4bcbb52d067dd18ffe26becf6b7fca29"
+    },
+    {
+      "id": "ninja",
+      "path": "ninja-1.12.1/ninja",
+      "sha256": "cf10a35d13a384fed866bcd4989c7761e8556209d195cc6d2a7c0f11cc73804c",
+      "versionOutputSha256": "b0e2efb26a08a9531ecc38f99575a8ac67e27d5da45e96f80ad8a1b2cec5a724"
+    },
+    {
+      "id": "elf-inspector",
+      "path": "/usr/bin/x86_64-linux-gnu-readelf",
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0",
+      "versionOutputSha256": "6c9ea96da96fdccf071fbe30e2d79a9e2e4ecb50d44dbd06b10b467d61468ebb"
+    },
+    {
+      "id": "network-harness",
+      "path": "/usr/bin/unshare",
+      "sha256": "51bcc77ba5db162c80028f861f0a2770d728c1de80773816d863f28d7a817adb",
+      "versionOutputSha256": "6b575db369f49f7896cde4988c96dfa0554a9ff20e8c1064490a433d9db6cee2"
+    },
+    {
+      "id": "network-probe-runtime",
+      "path": "/usr/bin/python3.12",
+      "sha256": "1643dacd9feaedc58f3cc581e4d22577dfe25c09b10282936186ccf0f2e61118",
+      "versionOutputSha256": "d083976b6846dd2f34e37889386613f8aad839a27807f610a513e90b20f3ff52"
+    }
+  ],
+  "runtimeIdentities": [
+    {
+      "id": "clang-asan-18.1.3",
+      "path": "clang-18.1.3/usr/lib/llvm-18/lib/clang/18/lib/linux/libclang_rt.asan-x86_64.so",
+      "sha256": "221c945e3742ba52aa7de6924f7008fc51bb8e84068404ea62924ca7f05b9335"
+    },
+    {
+      "id": "clang-ubsan-18.1.3",
+      "path": "clang-18.1.3/usr/lib/llvm-18/lib/clang/18/lib/linux/libclang_rt.ubsan_standalone-x86_64.so",
+      "sha256": "c02e56cac9f8fc6886db10d662e2ff7b007525585d3f984323cda31c8432b9da"
+    },
+    {
+      "id": "libstdcxx-gcc-13",
+      "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+    },
+    {
+      "id": "libgcc-s-gcc-13",
+      "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+    },
+    {
+      "id": "glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+    },
+    {
+      "id": "libm-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+      "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+    },
+    {
+      "id": "ld-linux-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+    }
+  ],
+  "licenseIdentities": [
+    {
+      "id": "llvm-apache-2-exception",
+      "path": "licenses/llvm-apache-2-exception.LICENSE",
+      "sha256": "837f5d6ac67c8f7a5f43bf675a0f8afc1564600ebdc6f350411bc5dd790c2eda"
+    },
+    {
+      "id": "cmake-bsd-3.31.8",
+      "path": "licenses/cmake-bsd-3.31.8.LICENSE",
+      "sha256": "0676e30827684487aa0ea8f72f01e9460a6320fa34a2888df0ad1dd3e8a06eb8"
+    },
+    {
+      "id": "ninja-apache-2.0-1.12.1",
+      "path": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
+      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+    }
+  ],
+  "configuredCacheSha256": "0e834cf298dbc3220001e3012485acf1b322bf01adaf63df87abe8d39621d9ff",
+  "effectiveCacheSha256": "1b3cc48ac1481d93da5026b87b4b7c7f18bc81c31dfa4b0d3e67ddfb7c342437",
+  "generatedBuildGraphSha256": "43bec4877f893379f264d530c17e801dd187198f795f0ff8078ba7f072194bcd",
+  "generatedTargets": [
+    "local-whisper-sanitizer-clean",
+    "local-whisper-sanitizer-asan-trigger",
+    "local-whisper-sanitizer-ubsan-trigger"
+  ],
+  "executions": [
+    {
+      "target": "local-whisper-sanitizer-clean",
+      "purpose": "clean",
+      "exitStatus": 0,
+      "signal": null,
+      "stdoutSha256": "6e1336720b641d870fc85b7795c786f9e0b593ce954da20a5341842c45689df5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requiredMarkers": ["LOCAL_WHISPER_SANITIZER_CLEAN_OK"],
+      "observedMarkers": ["LOCAL_WHISPER_SANITIZER_CLEAN_OK"],
+      "networkNamespace": "user-network-isolated"
+    },
+    {
+      "target": "local-whisper-sanitizer-asan-trigger",
+      "purpose": "asan-trigger",
+      "exitStatus": 1,
+      "signal": null,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "439b8a1f26f6fe13ef98f03829ef83a25065ba4e3dce7bd1f48d705d1d5c2e4d",
+      "requiredMarkers": ["AddressSanitizer", "heap-use-after-free"],
+      "observedMarkers": ["AddressSanitizer", "heap-use-after-free"],
+      "networkNamespace": "user-network-isolated"
+    },
+    {
+      "target": "local-whisper-sanitizer-ubsan-trigger",
+      "purpose": "ubsan-trigger",
+      "exitStatus": 1,
+      "signal": null,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "d60a018c35b81204e4a3249f0942a3074edb10aa9b993d64fec0826d5ddb4230",
+      "requiredMarkers": ["runtime error:", "signed integer overflow"],
+      "observedMarkers": ["runtime error:", "signed integer overflow"],
+      "networkNamespace": "user-network-isolated"
+    }
+  ],
+  "stagedFiles": [
+    {
+      "id": "sanitizer-clean",
+      "relativePath": "bin/local-whisper-sanitizer-clean",
+      "sha256": "d909aba08d5ef1423d0e64260fa4a918ddc5fb8e0e7cd0472827c933a8e36fd9",
+      "mode": "100755"
+    },
+    {
+      "id": "sanitizer-asan-trigger",
+      "relativePath": "bin/local-whisper-sanitizer-asan-trigger",
+      "sha256": "860e938cb84867a5b5b6d75b83d36aab483b6a0d47bfaed3d50d1e1f5ee18f5f",
+      "mode": "100755"
+    },
+    {
+      "id": "sanitizer-ubsan-trigger",
+      "relativePath": "bin/local-whisper-sanitizer-ubsan-trigger",
+      "sha256": "04c6c2ec3bcb03ba5c3d22b55253ea9061fb375674c86b4aa82225748c4c3761",
+      "mode": "100755"
+    },
+    {
+      "id": "clang-asan-18.1.3",
+      "relativePath": "lib/libclang_rt.asan-x86_64.so",
+      "sha256": "221c945e3742ba52aa7de6924f7008fc51bb8e84068404ea62924ca7f05b9335",
+      "mode": "100644"
+    },
+    {
+      "id": "clang-ubsan-18.1.3",
+      "relativePath": "lib/libclang_rt.ubsan_standalone-x86_64.so",
+      "sha256": "c02e56cac9f8fc6886db10d662e2ff7b007525585d3f984323cda31c8432b9da",
+      "mode": "100644"
+    },
+    {
+      "id": "llvm-apache-2-exception",
+      "relativePath": "licenses/llvm-apache-2-exception.LICENSE",
+      "sha256": "837f5d6ac67c8f7a5f43bf675a0f8afc1564600ebdc6f350411bc5dd790c2eda",
+      "mode": "100644"
+    },
+    {
+      "id": "cmake-bsd-3.31.8",
+      "relativePath": "licenses/cmake-bsd-3.31.8.LICENSE",
+      "sha256": "0676e30827684487aa0ea8f72f01e9460a6320fa34a2888df0ad1dd3e8a06eb8",
+      "mode": "100644"
+    },
+    {
+      "id": "ninja-apache-2.0-1.12.1",
+      "relativePath": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
+      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698",
+      "mode": "100644"
+    }
+  ],
+  "dependencyClosure": {
+    "inspector": {
+      "path": "/usr/bin/x86_64-linux-gnu-readelf",
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0"
+    },
+    "records": [
+      {
+        "fileId": "sanitizer-clean",
+        "relativePath": "bin/local-whisper-sanitizer-clean",
+        "sha256": "d909aba08d5ef1423d0e64260fa4a918ddc5fb8e0e7cd0472827c933a8e36fd9",
+        "needed": [
+          {
+            "soname": "libclang_rt.asan-x86_64.so",
+            "resolutionKind": "staged",
+            "resolvedId": "clang-asan-18.1.3",
+            "sha256": "221c945e3742ba52aa7de6924f7008fc51bb8e84068404ea62924ca7f05b9335"
+          },
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          }
+        ]
+      },
+      {
+        "fileId": "sanitizer-asan-trigger",
+        "relativePath": "bin/local-whisper-sanitizer-asan-trigger",
+        "sha256": "860e938cb84867a5b5b6d75b83d36aab483b6a0d47bfaed3d50d1e1f5ee18f5f",
+        "needed": [
+          {
+            "soname": "libclang_rt.asan-x86_64.so",
+            "resolutionKind": "staged",
+            "resolvedId": "clang-asan-18.1.3",
+            "sha256": "221c945e3742ba52aa7de6924f7008fc51bb8e84068404ea62924ca7f05b9335"
+          },
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          }
+        ]
+      },
+      {
+        "fileId": "sanitizer-ubsan-trigger",
+        "relativePath": "bin/local-whisper-sanitizer-ubsan-trigger",
+        "sha256": "04c6c2ec3bcb03ba5c3d22b55253ea9061fb375674c86b4aa82225748c4c3761",
+        "needed": [
+          {
+            "soname": "libclang_rt.ubsan_standalone-x86_64.so",
+            "resolutionKind": "staged",
+            "resolvedId": "clang-ubsan-18.1.3",
+            "sha256": "c02e56cac9f8fc6886db10d662e2ff7b007525585d3f984323cda31c8432b9da"
+          },
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          }
+        ]
+      },
+      {
+        "fileId": "clang-asan-18.1.3",
+        "relativePath": "lib/libclang_rt.asan-x86_64.so",
+        "sha256": "221c945e3742ba52aa7de6924f7008fc51bb8e84068404ea62924ca7f05b9335",
+        "needed": [
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          }
+        ]
+      },
+      {
+        "fileId": "clang-ubsan-18.1.3",
+        "relativePath": "lib/libclang_rt.ubsan_standalone-x86_64.so",
+        "sha256": "c02e56cac9f8fc6886db10d662e2ff7b007525585d3f984323cda31c8432b9da",
+        "needed": [
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          },
+          {
+            "soname": "ld-linux-x86-64.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "ld-linux-glibc-2.39",
+            "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+          }
+        ]
+      }
+    ]
+  },
+  "relocation": {
+    "rootIdentity": "88ea824f7943ad95162d8d28a80496415fd5c9316a4a3bd0385fa9866819be87",
+    "manifestSha256": "17c117ea02e2e9208703f14d1a5658012a8164ada2763dd422436e64980665d0",
+    "maliciousCwdIdentity": "9467c3eb600206dbaffd32da492d21c3228a8d20581ce8c856e562a04ef0b54a",
+    "environmentAllowlist": ["ASAN_OPTIONS", "LANG", "LC_ALL", "PATH", "UBSAN_OPTIONS"],
+    "inheritedEnvironmentKeys": [],
+    "forbiddenVariablesAbsent": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"],
+    "execution": {
+      "target": "local-whisper-sanitizer-clean",
+      "purpose": "relocated-clean",
+      "exitStatus": 0,
+      "signal": null,
+      "stdoutSha256": "6e1336720b641d870fc85b7795c786f9e0b593ce954da20a5341842c45689df5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requiredMarkers": ["LOCAL_WHISPER_SANITIZER_CLEAN_OK"],
+      "observedMarkers": ["LOCAL_WHISPER_SANITIZER_CLEAN_OK"],
+      "networkNamespace": "user-network-isolated"
+    }
+  },
+  "networkDenial": {
+    "harness": {
+      "path": "/usr/bin/unshare",
+      "sha256": "51bcc77ba5db162c80028f861f0a2770d728c1de80773816d863f28d7a817adb"
+    },
+    "phases": [
+      {
+        "phase": "preflight",
+        "commandSha256": "11704421e1ac6c95b28e2f50d08564d2c3872bad46aebbe9f2706b1954eb5c08",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "configure",
+        "commandSha256": "1b327e805d0dabcc05f9ea7f370d863e60830e83b631dbe882851238e8836af1",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "build",
+        "commandSha256": "192ad8c3abfe2bf6d32f3cbee63346f25936f110527df2bf4e0ac04d1a7f768a",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "fixture-execution",
+        "commandSha256": "259bd1503d0b8f6f68177289efce996d15709e1c55f17e293100816f1bc85a5c",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "relocated-clean-start",
+        "commandSha256": "b74328ac4c3a1fbb846ca2e71ed115bf51d8a691246dc35aba85473a28ed7246",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      }
+    ]
+  },
+  "sanitizedEnvironment": {
+    "allowlistedKeys": ["ASAN_OPTIONS", "LANG", "LC_ALL", "PATH", "UBSAN_OPTIONS"],
+    "inheritedKeys": [],
+    "environmentSha256": "5de9d5ce2bbf3b530fcb17ce3bde3b9fe3b52d254a08c1c433efa191df06fe57",
+    "cwdPolicy": "owned-malicious-unrelated"
+  }
+}
