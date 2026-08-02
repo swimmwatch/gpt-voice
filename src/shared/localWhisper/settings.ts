@@ -16,12 +16,7 @@ import {
   type LocalWhisperRevisionId,
   type LocalWhisperTarget,
 } from './domain';
-import {
-  LOCAL_WHISPER_MODEL_VARIANTS,
-  type LocalWhisperFasterWhisperPrecision,
-  type LocalWhisperModelIdentity,
-  type LocalWhisperModelVariant,
-} from './catalog';
+import { LOCAL_WHISPER_MODEL_VARIANTS, type LocalWhisperModelIdentity, type LocalWhisperModelVariant } from './catalog';
 import { isLocalWhisperLanguageId, type LocalWhisperLanguageId } from './languages';
 
 export const LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION = 1 as const;
@@ -69,20 +64,6 @@ export type LocalWhisperCppExecutionSettings =
       readonly cpuThreads: LocalWhisperCpuThreads;
     };
 
-export type LocalWhisperFasterWhisperExecutionSettings =
-  | {
-      readonly target: 'gpu';
-      readonly backend: 'cuda' | null;
-      readonly deviceId: LocalWhisperOpaqueDeviceId | null;
-      readonly precision: 'float16' | 'int8_float16';
-    }
-  | {
-      readonly target: 'cpu';
-      readonly backend: 'cpu';
-      readonly cpuThreads: LocalWhisperCpuThreads;
-      readonly precision: 'int8' | 'float32';
-    };
-
 interface LocalWhisperSettingsBase {
   readonly schemaVersion: typeof LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION;
   readonly runtimeRevision: LocalWhisperRevisionId | null;
@@ -97,12 +78,7 @@ export interface LocalWhisperCppSettings extends LocalWhisperSettingsBase {
   readonly execution: LocalWhisperCppExecutionSettings;
 }
 
-export interface LocalWhisperFasterWhisperSettings extends LocalWhisperSettingsBase {
-  readonly engine: 'fasterWhisper';
-  readonly execution: LocalWhisperFasterWhisperExecutionSettings;
-}
-
-export type LocalWhisperSettings = LocalWhisperCppSettings | LocalWhisperFasterWhisperSettings;
+export type LocalWhisperSettings = LocalWhisperCppSettings;
 
 export interface LocalWhisperKnownRuntimeSelection {
   readonly engine: LocalWhisperEngine;
@@ -162,7 +138,6 @@ export type LocalWhisperSelectionKey =
   | `model:${LocalWhisperEngine}`
   | `revision:${LocalWhisperEngine}:${LocalWhisperModelFamily}`
   | `variant:${LocalWhisperEngine}:${LocalWhisperModelFamily}`
-  | `precision:fasterWhisper:${LocalWhisperTarget}:${LocalWhisperBackend | 'unset'}`
   | `threads:${LocalWhisperEngine}`
   | `request:language`
   | `request:initialPrompt`
@@ -191,7 +166,6 @@ interface LocalWhisperCachePublicSnapshot {
   readonly modelSourceCheckpointRevision: LocalWhisperRevisionId;
   readonly modelArtifactRevision: LocalWhisperRevisionId;
   readonly modelNativeFormat: LocalWhisperModelIdentity['nativeFormat'];
-  readonly precision: LocalWhisperFasterWhisperPrecision | null;
   readonly language: LocalWhisperLanguageId;
   readonly temperatureHundredths: number;
   readonly strategy: LocalWhisperDecodingSettings['strategy'];
@@ -222,9 +196,7 @@ const SETTINGS_KEYS = [
 ] as const;
 const MODEL_KEYS = ['family', 'revision', 'variant'] as const;
 const GPU_EXECUTION_KEYS = ['target', 'backend', 'deviceId'] as const;
-const FASTER_GPU_EXECUTION_KEYS = [...GPU_EXECUTION_KEYS, 'precision'] as const;
 const CPU_EXECUTION_KEYS = ['target', 'backend', 'cpuThreads'] as const;
-const FASTER_CPU_EXECUTION_KEYS = [...CPU_EXECUTION_KEYS, 'precision'] as const;
 const UNSET_SELECTION_VALUE = '__unset__';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -331,13 +303,7 @@ function validateModel(
   if (toLocalWhisperRevisionId(value.revision) === null) addIssue(issues, 'model.revision', 'unknown-value');
   if (!isMember(LOCAL_WHISPER_MODEL_VARIANTS, value.variant)) addIssue(issues, 'model.variant', 'unknown-value');
   if (!isLocalWhisperEngine(engine) || !isLocalWhisperModelFamily(value.family)) return;
-  if (engine === 'fasterWhisper' && value.variant !== 'full') addIssue(issues, 'model.variant', 'cross-field-invalid');
-  if (
-    engine === 'whisperCpp' &&
-    value.variant === 'q5_0' &&
-    value.family !== 'large-v3' &&
-    value.family !== 'large-v3-turbo'
-  ) {
+  if (value.variant === 'q5_0' && value.family !== 'large-v3' && value.family !== 'large-v3-turbo') {
     addIssue(issues, 'model.variant', 'cross-field-invalid');
   }
   const known = context.knownModelSelections.some(
@@ -359,7 +325,6 @@ function getKnownDevice(
 }
 
 function validateGpuCompatibility(
-  engine: LocalWhisperEngine,
   backend: LocalWhisperGpuBackend | null,
   device: LocalWhisperDeviceDescriptor | undefined,
   context: LocalWhisperSettingsValidationContext,
@@ -370,17 +335,12 @@ function validateGpuCompatibility(
     addIssue(issues, 'execution.backend', 'cross-field-invalid');
     return;
   }
-  if (engine === 'fasterWhisper' && (backend !== 'cuda' || device.vendor !== 'nvidia')) {
-    addIssue(issues, 'execution.backend', 'cross-field-invalid');
-    return;
-  }
   const validWhisperCppRoute =
-    engine === 'whisperCpp' &&
-    ((device.vendor === 'nvidia' && backend === 'cuda') ||
-      (device.vendor === 'amd' && context.platform === 'win32' && backend === 'vulkan') ||
-      (device.vendor === 'amd' && context.platform === 'linux' && (backend === 'hip' || backend === 'vulkan')) ||
-      (device.vendor === 'apple' && context.platform === 'darwin' && backend === 'metal'));
-  if (engine === 'whisperCpp' && !validWhisperCppRoute) {
+    (device.vendor === 'nvidia' && backend === 'cuda') ||
+    (device.vendor === 'amd' && context.platform === 'win32' && backend === 'vulkan') ||
+    (device.vendor === 'amd' && context.platform === 'linux' && (backend === 'hip' || backend === 'vulkan')) ||
+    (device.vendor === 'apple' && context.platform === 'darwin' && backend === 'metal');
+  if (!validWhisperCppRoute) {
     addIssue(issues, 'execution.backend', 'cross-field-invalid');
   }
 }
@@ -427,8 +387,7 @@ function validateExecution(
     return;
   }
   if (value.target === 'cpu') {
-    const keys = engine === 'fasterWhisper' ? FASTER_CPU_EXECUTION_KEYS : CPU_EXECUTION_KEYS;
-    if (!hasExactKeys(value, keys)) addIssue(issues, 'execution', 'unknown-property');
+    if (!hasExactKeys(value, CPU_EXECUTION_KEYS)) addIssue(issues, 'execution', 'unknown-property');
     if (value.backend !== 'cpu') addIssue(issues, 'execution.backend', 'cross-field-invalid');
     if (
       value.cpuThreads !== LOCAL_WHISPER_AUTO_CPU_THREADS &&
@@ -438,28 +397,18 @@ function validateExecution(
     ) {
       addIssue(issues, 'execution.cpuThreads', 'invalid-number');
     }
-    if (engine === 'fasterWhisper' && value.precision !== 'int8' && value.precision !== 'float32') {
-      addIssue(issues, 'execution.precision', 'cross-field-invalid');
-    }
     validateRuntimeRevision(engine, 'cpu', 'cpu', runtimeRevision, context, issues);
     return;
   }
 
-  const keys = engine === 'fasterWhisper' ? FASTER_GPU_EXECUTION_KEYS : GPU_EXECUTION_KEYS;
-  if (!hasExactKeys(value, keys)) addIssue(issues, 'execution', 'unknown-property');
+  if (!hasExactKeys(value, GPU_EXECUTION_KEYS)) addIssue(issues, 'execution', 'unknown-property');
   const backend = value.backend === null ? null : isLocalWhisperGpuBackend(value.backend) ? value.backend : undefined;
   if (backend === undefined) addIssue(issues, 'execution.backend', 'unknown-value');
-  if (engine === 'fasterWhisper' && backend !== null && backend !== 'cuda') {
-    addIssue(issues, 'execution.backend', 'cross-field-invalid');
-  }
   const device = value.deviceId === null ? undefined : getKnownDevice(context, value.deviceId);
   if (value.deviceId !== null && !device) addIssue(issues, 'execution.deviceId', 'unknown-value');
   if (value.deviceId !== null && backend === null) addIssue(issues, 'execution', 'cross-field-invalid');
-  if (engine === 'fasterWhisper' && value.precision !== 'float16' && value.precision !== 'int8_float16') {
-    addIssue(issues, 'execution.precision', 'cross-field-invalid');
-  }
   if (backend !== undefined) {
-    validateGpuCompatibility(engine, backend, device, context, issues);
+    validateGpuCompatibility(backend, device, context, issues);
     validateRuntimeRevision(engine, 'gpu', backend, runtimeRevision, context, issues);
   }
 }
@@ -640,13 +589,6 @@ export function rememberLocalWhisperSettingsSelections(
   } else {
     next = rememberLocalWhisperDependentSelection(next, `threads:${settings.engine}`, execution.cpuThreads);
   }
-  if (settings.engine === 'fasterWhisper') {
-    next = rememberLocalWhisperDependentSelection(
-      next,
-      `precision:fasterWhisper:${execution.target}:${execution.backend ?? 'unset'}`,
-      settings.execution.precision,
-    );
-  }
   next = rememberLocalWhisperDependentSelection(next, 'request:language', settings.language);
   next = rememberLocalWhisperDependentSelection(next, 'request:initialPrompt', settings.initialPrompt);
   next = rememberLocalWhisperDependentSelection(
@@ -662,10 +604,6 @@ export function rememberLocalWhisperSettingsSelections(
     next = rememberLocalWhisperDependentSelection(next, 'request:bestOf', settings.decoding.bestOf);
   }
   return next;
-}
-
-function getExecutionPrecision(settings: LocalWhisperSettings): LocalWhisperFasterWhisperPrecision | null {
-  return settings.engine === 'fasterWhisper' ? settings.execution.precision : null;
 }
 
 function getCandidateCount(decoding: LocalWhisperDecodingSettings): number | null {
@@ -713,7 +651,6 @@ export class LocalWhisperCacheContext {
       modelSourceCheckpointRevision: input.modelIdentity.sourceCheckpointRevision,
       modelArtifactRevision: input.modelIdentity.artifactRevision,
       modelNativeFormat: input.modelIdentity.nativeFormat,
-      precision: getExecutionPrecision(input.settings),
       language: input.settings.language,
       temperatureHundredths: input.settings.decoding.temperatureHundredths,
       strategy: input.settings.decoding.strategy,

@@ -108,8 +108,7 @@ export function validatePreviewProfiles() {
     contract.profiles.some(
       (profile) => profile.engine !== 'whisperCpp' || profile.vendor !== 'amd' || profile.architecture !== 'x64',
     ) ||
-    !contract.excluded.includes('windows-hip') ||
-    !contract.excluded.includes('faster-whisper-amd')
+    JSON.stringify(contract.excluded) !== JSON.stringify(['windows-hip', 'directml', 'windows-ml', 'macos'])
   ) {
     throw new Error('AMD Preview matrix exposed an unsupported engine or backend');
   }

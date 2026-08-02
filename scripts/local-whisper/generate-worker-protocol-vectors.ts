@@ -104,7 +104,6 @@ function residency(target: 'cpu' | 'gpu' = 'gpu'): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     }),
-    precision: null,
     resolvedCpuThreads: target === 'cpu' ? 4 : null,
   });
 }
@@ -142,7 +141,6 @@ function proofInput(challenge: string, weightBytes: bigint): LocalWhisperDeviceP
 function loadedModelEvidence() {
   return Object.freeze({
     effectiveBackend: 'cuda' as const,
-    effectivePrecision: null,
     model: residency().model,
     modelSha256: 'b'.repeat(64),
     primaryStateOwnership: 'worker' as const,
@@ -268,7 +266,6 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
         authorityId: AUTHORITY_ID,
         deviceBinding: CPU_DEVICE_BINDING,
         effectiveBackend: 'cpu',
-        effectivePrecision: null,
         model: residency('cpu').model,
         modelSha256: 'b'.repeat(64),
         primaryStateOwnership: 'worker',

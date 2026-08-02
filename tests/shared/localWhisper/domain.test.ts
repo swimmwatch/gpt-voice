@@ -20,7 +20,7 @@ import {
 describe('Local Whisper domain contracts', () => {
   it('defines the exact provider, engine, target, backend, and six-model vocabularies', () => {
     assert.equal(LOCAL_WHISPER_PROVIDER_ID, 'local-whisper');
-    assert.deepEqual(LOCAL_WHISPER_ENGINES, ['whisperCpp', 'fasterWhisper']);
+    assert.deepEqual(LOCAL_WHISPER_ENGINES, ['whisperCpp']);
     assert.deepEqual(LOCAL_WHISPER_TARGETS, ['gpu', 'cpu']);
     assert.deepEqual(LOCAL_WHISPER_BACKENDS, ['cuda', 'hip', 'vulkan', 'metal', 'cpu']);
     assert.deepEqual(LOCAL_WHISPER_MODEL_FAMILIES, ['tiny', 'base', 'small', 'medium', 'large-v3', 'large-v3-turbo']);

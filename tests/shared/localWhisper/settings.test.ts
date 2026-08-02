@@ -61,22 +61,13 @@ function createContext(
     { engine: 'whisperCpp', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID },
   ],
 ): LocalWhisperSettingsValidationContext {
-  const knownModelSelections = LOCAL_WHISPER_MODEL_FAMILIES.flatMap((family) => [
-    {
-      engine: 'whisperCpp' as const,
-      family,
-      revision: revision(`whisper-cpp-${family}-v1`),
-      variant: 'full' as const,
-      recommended: true,
-    },
-    {
-      engine: 'fasterWhisper' as const,
-      family,
-      revision: revision(`faster-whisper-${family}-v1`),
-      variant: 'full' as const,
-      recommended: true,
-    },
-  ]);
+  const knownModelSelections = LOCAL_WHISPER_MODEL_FAMILIES.map((family) => ({
+    engine: 'whisperCpp' as const,
+    family,
+    revision: revision(`whisper-cpp-${family}-v1`),
+    variant: 'full' as const,
+    recommended: true,
+  }));
   const knownRuntimeSelections: readonly LocalWhisperKnownRuntimeSelection[] = Object.freeze([
     {
       engine: 'whisperCpp',
@@ -104,20 +95,6 @@ function createContext(
       target: 'cpu',
       backend: 'cpu',
       revision: revision('whisper-cpp-cpu-v1'),
-      recommended: true,
-    },
-    {
-      engine: 'fasterWhisper',
-      target: 'gpu',
-      backend: 'cuda',
-      revision: revision('faster-whisper-cuda-v1'),
-      recommended: true,
-    },
-    {
-      engine: 'fasterWhisper',
-      target: 'cpu',
-      backend: 'cpu',
-      revision: revision('faster-whisper-cpu-v1'),
       recommended: true,
     },
   ]);
@@ -187,33 +164,11 @@ describe('Local Whisper settings contracts', () => {
     const roundTrip = validateLocalWhisperSettings(JSON.parse(JSON.stringify(settings)) as unknown, createContext());
     assert.deepEqual(roundTrip, { success: true, settings });
     assert.equal('cpuThreads' in settings.execution, false);
-    assert.equal('precision' in settings.execution, false);
     assert.equal('beamSize' in settings.decoding, false);
     assert.equal('bestOf' in settings.decoding, false);
   });
 
-  it('accepts exact Faster-Whisper CPU precision and thread contracts', () => {
-    const candidate = {
-      schemaVersion: 1,
-      engine: 'fasterWhisper',
-      runtimeRevision: revision('faster-whisper-cpu-v1'),
-      model: {
-        family: 'medium',
-        revision: revision('faster-whisper-medium-v1'),
-        variant: 'full',
-      },
-      language: 'ru',
-      initialPrompt: '  Preserve whitespace  ',
-      decoding: { strategy: 'bestOfSampling', temperatureHundredths: 25, bestOf: 4 },
-      execution: { target: 'cpu', backend: 'cpu', cpuThreads: 8, precision: 'int8' },
-    };
-    const result = validateLocalWhisperSettings(candidate, createContext());
-    assert.equal(result.success, true);
-    if (!result.success) throw new Error('Expected valid Faster-Whisper settings');
-    assert.equal(result.settings.initialPrompt, candidate.initialPrompt);
-  });
-
-  it('round-trips every release-1 engine, target, backend, precision, model, and decoding class', () => {
+  it('round-trips every release-1 target, backend, model, and decoding class', () => {
     const context = createContext();
     const base = defaultSettings(context);
     const executions = [
@@ -237,26 +192,6 @@ describe('Local Whisper settings contracts', () => {
         runtimeRevision: revision('whisper-cpp-cpu-v1'),
         execution: { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' },
       },
-      {
-        engine: 'fasterWhisper',
-        runtimeRevision: revision('faster-whisper-cuda-v1'),
-        execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID, precision: 'float16' },
-      },
-      {
-        engine: 'fasterWhisper',
-        runtimeRevision: revision('faster-whisper-cuda-v1'),
-        execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID, precision: 'int8_float16' },
-      },
-      {
-        engine: 'fasterWhisper',
-        runtimeRevision: revision('faster-whisper-cpu-v1'),
-        execution: { target: 'cpu', backend: 'cpu', cpuThreads: 1, precision: 'int8' },
-      },
-      {
-        engine: 'fasterWhisper',
-        runtimeRevision: revision('faster-whisper-cpu-v1'),
-        execution: { target: 'cpu', backend: 'cpu', cpuThreads: 16, precision: 'float32' },
-      },
     ] as const;
     const decodings = [
       { strategy: 'greedy', temperatureHundredths: 0 },
@@ -275,7 +210,7 @@ describe('Local Whisper settings contracts', () => {
             ...executionClass,
             model: {
               family,
-              revision: revision(`${engine === 'whisperCpp' ? 'whisper-cpp' : 'faster-whisper'}-${family}-v1`),
+              revision: revision(`whisper-cpp-${family}-v1`),
               variant: 'full',
             },
             decoding,
@@ -322,17 +257,6 @@ describe('Local Whisper settings contracts', () => {
         ...valid,
         execution: { target: 'gpu', backend: 'hip', deviceId: NVIDIA_DEVICE_ID },
         runtimeRevision: revision('whisper-cpp-hip-v1'),
-      },
-      {
-        ...valid,
-        engine: 'fasterWhisper',
-        model: {
-          family: 'base',
-          revision: revision('faster-whisper-base-v1'),
-          variant: 'full',
-        },
-        execution: { target: 'gpu', backend: 'vulkan', deviceId: AMD_DEVICE_ID, precision: 'float16' },
-        runtimeRevision: revision('whisper-cpp-vulkan-v1'),
       },
     ];
     for (const candidate of invalidCandidates) expectInvalid(candidate);

@@ -118,12 +118,11 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "precision": null,
           "resolvedCpuThreads": null
         }
       },
       "binaryFile": "control/load.bin",
-      "sha256": "ceffbd6fc857ec084b6f249358f89c4e642258e006217c70b7af5dc89d1af1ce"
+      "sha256": "ecc4e408e28c82973c05c859bb0760e3b9782c14cde03dabef3ff3324e6a701e"
     },
     {
       "name": "loaded",
@@ -136,7 +135,6 @@
         "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "gpuIndex", "index": 0 },
         "effectiveBackend": "cuda",
-        "effectivePrecision": null,
         "model": {
           "engine": "whisperCpp",
           "logicalModel": "tiny",
@@ -164,13 +162,12 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "precision": null,
           "resolvedCpuThreads": null
         },
         "selectedDeviceModelWeightBytes": 1048576
       },
       "binaryFile": "control/loaded.bin",
-      "sha256": "75e8609c6da0f2a660b60936f401a9fd7b03391456608dfb5d3fd70d2511dac2"
+      "sha256": "ae850f501e7cfe93c9d4da52a50a5adc0422f92044b7647275217d4b8dcff0b5"
     },
     {
       "name": "loaded-cpu",
@@ -181,7 +178,6 @@
         "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "cpu" },
         "effectiveBackend": "cpu",
-        "effectivePrecision": null,
         "model": {
           "engine": "whisperCpp",
           "logicalModel": "tiny",
@@ -206,12 +202,11 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "precision": null,
           "resolvedCpuThreads": 4
         }
       },
       "binaryFile": "control/loaded-cpu.bin",
-      "sha256": "638ad27dcd607b83f46af217ec34ee306e6ccd492adb1074272b747f5d801d9c"
+      "sha256": "9b282fa51bce9190d54a55b7c4290267e7ff771dd9f920d0c0b64ba8e6d93cbd"
     },
     {
       "name": "warmup",
@@ -385,7 +380,7 @@
     {
       "name": "cpu-gpu-residency-mismatch",
       "binaryFile": "malformed/cpu-gpu-residency-mismatch.bin",
-      "sha256": "bf85e2ead2b4ea6306172a0feb60f311a885402b47bc97fe7769cd2fe90f8841"
+      "sha256": "a522726253e97a650e76d4c5b7fae8c6675e098b2664041c4865cfd357f21d06"
     },
     {
       "name": "trailing-control-byte",

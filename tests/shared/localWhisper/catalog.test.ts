@@ -42,7 +42,6 @@ const GPU_CONFIGURATION: LocalWhisperMemoryConfigurationIdentity = Object.freeze
   backend: 'cuda',
   runtimePackRevision: revision('runtime-cuda-v1'),
   model: MODEL_IDENTITY,
-  precision: null,
 });
 
 function estimate(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -80,17 +79,8 @@ describe('Local Whisper catalog contracts', () => {
 
   it('keeps engine-native model identities closed and immutable', () => {
     assert.equal(isLocalWhisperModelIdentity(MODEL_IDENTITY), true);
-    assert.equal(isLocalWhisperModelIdentity({ ...MODEL_IDENTITY, nativeFormat: 'ctranslate2' }), false);
-    assert.equal(isLocalWhisperModelIdentity({ ...MODEL_IDENTITY, precision: 'float16' }), false);
-    assert.equal(
-      isLocalWhisperModelIdentity({
-        ...MODEL_IDENTITY,
-        engine: 'fasterWhisper',
-        nativeFormat: 'ctranslate2',
-        variant: 'q5_0',
-      }),
-      false,
-    );
+    assert.equal(isLocalWhisperModelIdentity({ ...MODEL_IDENTITY, nativeFormat: 'unknown-format' }), false);
+    assert.equal(isLocalWhisperModelIdentity({ ...MODEL_IDENTITY, unexpectedDimension: 'legacy' }), false);
   });
 
   it('validates an exact selected-configuration memory matrix and rejects unsafe variants', () => {
@@ -104,7 +94,7 @@ describe('Local Whisper catalog contracts', () => {
       estimate({ estimatedPeakVramBytes: 'notApplicable' }),
       estimate({ estimatedPeakRamGiB: 3 }),
       estimate({ methodologyLabel: 'private\nlabel' }),
-      estimate({ precision: 'float16' }),
+      estimate({ unexpectedDimension: 'legacy' }),
     ];
     for (const invalid of invalidRecords) assert.equal(isLocalWhisperMemoryEstimateRecord(invalid), false);
 

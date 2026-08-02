@@ -12,7 +12,7 @@
   },
   "importer": {
     "schemaId": "local-whisper-native-importer-v1",
-    "implementationSha256": "907a50fe2a7732fe68ec63829d015ba05c40a7337cf26b565fc96315ef9ce55a",
+    "implementationSha256": "ca3c39a4a21d5df2ef092bae2f12c906cf820813d7d6d8900c4599d6c40abdab",
     "imageIdentity": "host-manual-gate-sequence-45",
     "gitVersion": "git version 2.43.0",
     "nodeVersion": "v24.18.0"

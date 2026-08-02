@@ -220,13 +220,13 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
   }
   auto residency = value.at("residency");
   require_exact_keys(residency, {"engine", "runtimePackRevision", "target", "backend", "deviceId",
-                                 "model", "precision", "resolvedCpuThreads"});
+                                 "model", "resolvedCpuThreads"});
   const bool cpu = backend == EngineBackend::cpu;
   if (residency.value("engine", "") != "whisperCpp" ||
       residency.value("target", "") != (cpu ? "cpu" : "gpu") ||
       residency.value("backend", "") != kRuntimeBackend ||
       residency.value("runtimePackRevision", "") != kRuntimeRevision ||
-      !residency.at("precision").is_null() || (cpu && !residency.at("deviceId").is_null()) ||
+      (cpu && !residency.at("deviceId").is_null()) ||
       (!cpu && (!residency.at("deviceId").is_string() ||
                 residency.at("deviceId").get<std::string>().empty())) ||
       (cpu && !residency.at("resolvedCpuThreads").is_number_unsigned()) ||
@@ -432,7 +432,6 @@ int WorkerApplication::run_checked() {
                                              {"index", load.device_authority->selected_ordinal}}},
       {"residency", load.residency},
       {"effectiveBackend", kRuntimeBackend},
-      {"effectivePrecision", nullptr},
       {"model", load.model},
       {"modelSha256", hex_digest(model_authority_->binding().artifact_content_sha256)},
       {"primaryStateOwnership", "worker"}};

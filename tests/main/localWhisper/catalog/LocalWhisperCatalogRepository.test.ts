@@ -87,8 +87,10 @@ describe('LocalWhisperCatalogRepository', () => {
     (staleEstimate.memoryEstimates[0] as Mutable<LocalWhisperMemoryEstimateRecord>).runtimePackRevision =
       toLocalWhisperRevisionId('different-runtime-revision')!;
 
-    const precisionMismatch = createFixtureCatalogPayload();
-    (precisionMismatch.memoryEstimates[0] as Mutable<LocalWhisperMemoryEstimateRecord>).precision = 'float16';
+    const unexpectedDimension = createFixtureCatalogPayload();
+    (unexpectedDimension.memoryEstimates[0] as Mutable<LocalWhisperMemoryEstimateRecord> & Record<string, unknown>)[
+      'legacyDimension'
+    ] = 'unexpected';
 
     const cpuVramMismatch = createFixtureCatalogPayload();
     (cpuVramMismatch.memoryEstimates[0] as Mutable<LocalWhisperMemoryEstimateRecord>).estimatedPeakVramBytes =
@@ -99,7 +101,7 @@ describe('LocalWhisperCatalogRepository', () => {
       missingEstimate,
       unsafeEstimate,
       staleEstimate,
-      precisionMismatch,
+      unexpectedDimension,
       cpuVramMismatch,
     ]) {
       assert.deepEqual(createRepository(signFixtureCatalog(payload)).load(), {
@@ -111,7 +113,9 @@ describe('LocalWhisperCatalogRepository', () => {
 
   it('requires the exact language mapping and a separately allowlisted canonical HTTPS origin', () => {
     const languageAlias = createFixtureCatalogPayload();
-    (languageAlias.languages[1] as Mutable<LocalWhisperLanguageCatalogEntry>).fasterWhisper = null;
+    (languageAlias.languages[1] as Mutable<LocalWhisperLanguageCatalogEntry> & Record<string, unknown>)[
+      'legacyMapping'
+    ] = null;
 
     const unallowlistedOrigin = createFixtureCatalogPayload();
     (unallowlistedOrigin.origins[0] as Mutable<LocalWhisperCatalogOrigin>).origin = 'https://other-fixture.invalid';

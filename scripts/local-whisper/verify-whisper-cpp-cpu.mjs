@@ -308,7 +308,6 @@ async function loadIntegration(binary, includeCancellation) {
       backend: 'cpu',
       deviceId: null,
       model,
-      precision: null,
       resolvedCpuThreads: 2,
     };
     worker.sendControl({

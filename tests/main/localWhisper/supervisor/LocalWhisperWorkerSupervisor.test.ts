@@ -97,7 +97,6 @@ function selectedResidency(): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     },
-    precision: null,
     resolvedCpuThreads: null,
   };
 }
@@ -279,7 +278,6 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           authorityId: message.authorityId,
           deviceBinding: this.mode === 'loadBindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
           effectiveBackend: message.residency.backend,
-          effectivePrecision: message.residency.precision,
           loadProof: 'd'.repeat(64),
           model: message.residency.model,
           modelSha256: 'b'.repeat(64),

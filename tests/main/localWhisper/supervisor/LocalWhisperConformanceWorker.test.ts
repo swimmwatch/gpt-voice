@@ -69,7 +69,6 @@ function residency(): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     },
-    precision: null,
     resolvedCpuThreads: null,
   };
 }

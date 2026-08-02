@@ -1,5 +1,4 @@
 import {
-  LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS,
   LOCAL_WHISPER_LANGUAGE_CATALOG,
   LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
   LOCAL_WHISPER_MODEL_FAMILIES,
@@ -73,7 +72,6 @@ const QUALIFIED_PEAK_KEYS = [
   'backend',
   'runtimePackRevision',
   'model',
-  'precision',
   'measuredPeakRamBytes',
   'measuredPeakVramBytes',
   'qualificationProfileId',
@@ -255,7 +253,7 @@ function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
 function isQualifiedMemoryPeak(value: unknown): value is LocalWhisperQualifiedMemoryPeak {
   if (!isRecord(value) || !hasExactKeys(value, QUALIFIED_PEAK_KEYS)) return false;
   const identity = Object.fromEntries(
-    ['target', 'backend', 'runtimePackRevision', 'model', 'precision'].map((key) => [key, value[key]]),
+    ['target', 'backend', 'runtimePackRevision', 'model'].map((key) => [key, value[key]]),
   );
   if (!isLocalWhisperMemoryConfigurationIdentity(identity)) return false;
   const vramValid =
@@ -280,12 +278,11 @@ function hasExactLanguages(value: unknown): boolean {
     const expected = LOCAL_WHISPER_LANGUAGE_CATALOG[index];
     return (
       isRecord(candidate) &&
-      hasExactKeys(candidate, ['id', 'fallbackLabel', 'labelKey', 'whisperCpp', 'fasterWhisper']) &&
+      hasExactKeys(candidate, ['id', 'fallbackLabel', 'labelKey', 'whisperCpp']) &&
       candidate.id === expected.id &&
       candidate.fallbackLabel === expected.fallbackLabel &&
       candidate.labelKey === expected.labelKey &&
-      candidate.whisperCpp === expected.whisperCpp &&
-      candidate.fasterWhisper === expected.fasterWhisper
+      candidate.whisperCpp === expected.whisperCpp
     );
   });
 }
@@ -367,28 +364,14 @@ function buildExpectedMemoryConfigurations(
       );
       if (compatibleRuntimes.length === 0) return null;
       for (const { identity: runtime } of compatibleRuntimes) {
-        const precisions =
-          model.identity.engine === 'whisperCpp'
-            ? ([null] as const)
-            : runtime.target === 'cpu'
-              ? LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS.filter(
-                  (precision): precision is 'int8' | 'float32' => precision === 'int8' || precision === 'float32',
-                )
-              : LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS.filter(
-                  (precision): precision is 'float16' | 'int8_float16' =>
-                    precision === 'float16' || precision === 'int8_float16',
-                );
-        for (const precision of precisions) {
-          const configuration = {
-            target: runtime.target,
-            backend: runtime.backend,
-            runtimePackRevision: runtime.packRevision,
-            model: model.identity,
-            precision,
-          } satisfies LocalWhisperMemoryConfigurationIdentity;
-          if (!isLocalWhisperMemoryConfigurationIdentity(configuration)) return null;
-          configurations.push(configuration);
-        }
+        const configuration = {
+          target: runtime.target,
+          backend: runtime.backend,
+          runtimePackRevision: runtime.packRevision,
+          model: model.identity,
+        } satisfies LocalWhisperMemoryConfigurationIdentity;
+        if (!isLocalWhisperMemoryConfigurationIdentity(configuration)) return null;
+        configurations.push(configuration);
       }
     }
   }

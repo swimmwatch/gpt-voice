@@ -182,7 +182,6 @@ class ConformanceWorker {
       this.state = 'loaded';
       const modelEvidence = {
         effectiveBackend: message.residency.backend,
-        effectivePrecision: message.residency.precision,
         model: message.residency.model,
         modelSha256: 'b'.repeat(64),
         primaryStateOwnership: 'worker' as const,

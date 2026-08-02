@@ -45,7 +45,6 @@ const CONFIGURATION: LocalWhisperMemoryConfigurationIdentity = {
     nativeFormat: 'ggml',
     variant: 'full',
   },
-  precision: null,
 };
 
 export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {

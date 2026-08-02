@@ -5,7 +5,6 @@ import {
   isLocalWhisperLanguageId,
   LOCAL_WHISPER_LANGUAGE_CATALOG,
   LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
-  mapLocalWhisperLanguageForFasterWhisper,
   mapLocalWhisperLanguageForWhisperCpp,
 } from '@shared/localWhisper';
 
@@ -17,16 +16,14 @@ describe('Local Whisper common language catalog', () => {
     assert.equal(new Set(LOCAL_WHISPER_LANGUAGE_CATALOG.map(({ id }) => id)).size, 101);
   });
 
-  it('enumerates every entry through explicit mappings for both workers', () => {
+  it('enumerates every entry through the explicit Whisper.cpp mapping', () => {
     for (const entry of LOCAL_WHISPER_LANGUAGE_CATALOG) {
       assert.equal(isLocalWhisperLanguageId(entry.id), true);
       assert.equal(getLocalWhisperLanguageEntry(entry.id), entry);
       assert.equal(mapLocalWhisperLanguageForWhisperCpp(entry.id), entry.whisperCpp);
-      assert.equal(mapLocalWhisperLanguageForFasterWhisper(entry.id), entry.fasterWhisper);
       assert.equal(entry.labelKey, `localWhisper.language.${entry.id}`);
     }
     assert.equal(mapLocalWhisperLanguageForWhisperCpp('auto'), 'auto');
-    assert.equal(mapLocalWhisperLanguageForFasterWhisper('auto'), null);
   });
 
   it('rejects unknown, localized, and engine-specific aliases', () => {
@@ -34,7 +31,6 @@ describe('Local Whisper common language catalog', () => {
       assert.equal(isLocalWhisperLanguageId(value), false);
       assert.equal(getLocalWhisperLanguageEntry(value), undefined);
       assert.equal(mapLocalWhisperLanguageForWhisperCpp(value), undefined);
-      assert.equal(mapLocalWhisperLanguageForFasterWhisper(value), undefined);
     }
   });
 });

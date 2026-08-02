@@ -54,10 +54,10 @@ must not be executed on another platform.
    or toolchain version requires a new reviewed lock/table ID and plan change.
 
 The reviewed source set is exactly `whisper.cpp`, the two-file nlohmann/json
-subset, the complete GoogleTest v1.17.0 tree, Faster-Whisper, and CTranslate2.
-Task 09 must consume nlohmann/json and GoogleTest through verified local roots
-and CMake `add_subdirectory`; network, package-registry, and system-package
-fallbacks are prohibited.
+subset, and the complete GoogleTest v1.17.0 tree. Native builds must consume
+nlohmann/json and GoogleTest through verified local roots and CMake
+`add_subdirectory`; network, package-registry, and system-package fallbacks are
+prohibited.
 
 Do not commit temporary repositories, content-store objects, build output,
 candidate review files, credentials, absolute user paths, or generated

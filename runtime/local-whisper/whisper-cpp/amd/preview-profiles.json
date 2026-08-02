@@ -34,5 +34,5 @@
       "executableState": "unavailable-no-approved-row"
     }
   ],
-  "excluded": ["windows-hip", "faster-whisper-amd", "directml", "windows-ml", "macos"]
+  "excluded": ["windows-hip", "directml", "windows-ml", "macos"]
 }

@@ -229,7 +229,6 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       backend: CUDA_BACKEND_ID,
       deviceId: 'task11-private-device-0',
       model,
-      precision: null,
       resolvedCpuThreads: null,
     };
     worker.sendControl({
@@ -250,7 +249,6 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
     );
     assert.equal(loaded.modelSha256, approvedMediumModel.sha256);
     assert.equal(loaded.effectiveBackend, CUDA_BACKEND_ID);
-    assert.equal(loaded.effectivePrecision, null);
     assert.equal(loaded.primaryStateOwnership, 'worker');
     assert.deepEqual(loaded.model, model);
     assert.equal(loaded.activatedOrdinal, 0);

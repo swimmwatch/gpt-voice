@@ -10,19 +10,18 @@ release targets, but support must be expressed per engine, execution target,
 backend, operating system, device, driver, runtime pack, and model revision.
 GPU-vendor detection alone is not a compatibility result.
 
-The selected product direction uses both engines behind one Local Whisper
-provider:
+The selected product direction uses one pinned `whisper.cpp` engine behind the
+Local Whisper provider:
 
-- a pinned `whisper.cpp` worker for NVIDIA CUDA, AMD Preview, and CPU;
-- a pinned Faster-Whisper worker for validated NVIDIA CUDA and CPU only;
-- no Faster-Whisper AMD claim in the first release;
-- no automatic cross-engine or GPU-to-CPU fallback;
+- NVIDIA CUDA, AMD Preview, and CPU are implemented as `whisper.cpp` backends;
+- the engine discriminator remains fixed to `whisperCpp` in durable contracts;
+- there is no engine selector and no automatic GPU-to-CPU fallback;
 - a typed future Metal adapter that remains unavailable on macOS in this
   release.
 
-Both engines should run as supervised sidecars rather than Node addons. A
-sidecar isolates Electron ABI and native crashes and makes worker exit the
-hard resource-release boundary after a graceful model free.
+The engine runs as a supervised sidecar rather than a Node addon. A sidecar
+isolates Electron ABI and native crashes and makes worker exit the hard
+resource-release boundary after a graceful model free.
 
 ## Engine Evidence
 
@@ -44,21 +43,22 @@ Vulkan, and HIP matrix required by GPT-Voice. Project-owned, version-pinned
 runtime packs therefore need their own build, signing, manifest, packaging,
 and installed-artifact verification.
 
-### Faster-Whisper and CTranslate2
+### Historical rejected alternative: Faster-Whisper and CTranslate2
 
-Faster-Whisper v1.2.1 is MIT and documents NVIDIA GPU execution using CUDA 12
-and cuDNN 9. It is attractive for NVIDIA performance and provides native
-support for canonical Whisper and Distil-Whisper model families.
+Earlier research evaluated Faster-Whisper v1.2.1, which is MIT and documents
+NVIDIA GPU execution using CUDA 12 and cuDNN 9. It was attractive for NVIDIA
+performance and canonical Whisper and Distil-Whisper model families.
 
 CTranslate2 introduced ROCm in v4.7.0 and published Linux and Windows ROCm
 wheels in v4.8.1 on 2026-07-03. This route is recent, uses an explicit gfx
-target list, and is not yet documented by Faster-Whisper as its AMD support
-contract. Faster-Whisper AMD is therefore excluded from the first-release
-matrix rather than inferred from the lower-level engine.
+target list, and was not documented by Faster-Whisper as its AMD support
+contract.
 
 Faster-Whisper also adds an embedded Python, CTranslate2, PyAV, CUDA, and cuDNN
-distribution surface. It needs a separate signed runtime pack, isolated
-environment, protocol handshake, and license inventory.
+distribution surface. The project rejected this additional runtime and model
+format for the current architecture. No Faster-Whisper/CTranslate2 source
+lock, runtime pack, model artifact, settings option, test fixture, or release-1
+follow-up remains active; this section is historical evidence only.
 
 ## AMD Feasibility
 
@@ -145,20 +145,17 @@ rather than present upstream process measurements as universal requirements:
 
 These are advance-planning capacity ranges, not measured peaks or hard
 allocation thresholds. They round upward from the pinned whisper.cpp model
-memory table, Faster-Whisper's representative CPU/GPU measurements and model
-parameter classes, then allow for engine/precision/quantization differences
-and host/application headroom. VRAM is not applicable to the CPU target. The
-selected immutable engine/artifact/backend/precision record must provide a
+memory table and model parameter classes, then allow for artifact/backend
+differences and host/application headroom. VRAM is not applicable to the CPU
+target. The selected immutable engine/artifact/backend record must provide a
 narrower peak estimate, and release qualification must replace derived values
 with exact measured evidence where available. Current free-memory validation
 and real allocation remain authoritative.
 
-Each engine requires a separately pinned native artifact. The whisper.cpp
-catalog may additionally expose reviewed `q5_0` variants for `large-v3` and
-`large-v3-turbo`. Faster-Whisper artifacts should be project-reviewed,
-immutable CTranslate2 conversions derived from the corresponding official
-OpenAI checkpoint; compute precision is a runtime setting rather than a model
-identity. Distil-Whisper is excluded from the first release.
+Each model requires a separately pinned native `ggml` artifact for
+`whisper.cpp`. The catalog may additionally expose reviewed `q5_0` variants
+for `large-v3` and `large-v3-turbo`. Distil-Whisper is excluded from the first
+release.
 
 Every catalog entry needs an immutable source revision, license, expected
 files, exact byte sizes, SHA-256 hashes, engine and protocol compatibility,
@@ -192,9 +189,10 @@ authoritative over an estimate.
 
 ## Packaging and License Findings
 
-- whisper.cpp, Faster-Whisper, CTranslate2, and OpenAI Whisper are MIT, but
-  every redistributed component and generated model artifact still needs a
-  checked-in notice and provenance record.
+- whisper.cpp and OpenAI Whisper are MIT, but every redistributed component
+  and generated model artifact still needs a checked-in notice and provenance
+  record. The historically evaluated Faster-Whisper/CTranslate2 stack is not
+  redistributed by the active design.
 - CUDA runtime and cuBLAS redistribution is limited to NVIDIA's named
   redistributable components and required notices. Do not redistribute a GPU
   driver or full toolkit.
@@ -231,9 +229,12 @@ production eligibility remains conditional on a separate hardware gate.
 - [whisper.cpp context API](https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/include/whisper.h)
 - [whisper.cpp Vulkan requirements](https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/ggml/src/ggml-vulkan/ggml-vulkan.cpp)
 - [OpenAI Whisper model and license documentation](https://github.com/openai/whisper/tree/v20250625)
-- [Faster-Whisper v1.2.1 GPU requirements](https://github.com/SYSTRAN/faster-whisper/blob/v1.2.1/README.md#gpu)
-- [CTranslate2 v4.7.0 ROCm introduction](https://github.com/OpenNMT/CTranslate2/releases/tag/v4.7.0)
-- [CTranslate2 v4.8.1](https://github.com/OpenNMT/CTranslate2/releases/tag/v4.8.1)
+- Historical rejected alternative:
+  [Faster-Whisper v1.2.1 GPU requirements](https://github.com/SYSTRAN/faster-whisper/blob/v1.2.1/README.md#gpu)
+- Historical rejected alternative:
+  [CTranslate2 v4.7.0 ROCm introduction](https://github.com/OpenNMT/CTranslate2/releases/tag/v4.7.0)
+- Historical rejected alternative:
+  [CTranslate2 v4.8.1](https://github.com/OpenNMT/CTranslate2/releases/tag/v4.8.1)
 - [AMD Linux ROCm system requirements](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html)
 - [AMD Linux GPU permissions](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/prerequisites.html#configuring-permissions-for-gpu-access)
 - [AMD Windows HIP SDK requirements](https://rocm.docs.amd.com/projects/install-on-windows/en/latest/reference/system-requirements.html)

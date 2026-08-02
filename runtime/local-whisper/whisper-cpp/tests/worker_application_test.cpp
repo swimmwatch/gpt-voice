@@ -192,7 +192,6 @@ nlohmann::json load_message() {
           {"artifactRevision", "test-artifact"},
           {"nativeFormat", "ggml"},
           {"variant", "full"}}},
-        {"precision", nullptr},
         {"resolvedCpuThreads", 1U}}},
   };
 }

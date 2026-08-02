@@ -5254,3 +5254,39 @@ decisions:
     rationale: The user explicitly authorized exactly replacement Task 13 for this invocation after the approved revision-12 baseline commit; the packet must stop uncommitted before Task 14.
     supersedes_revision: null
     requirement_ids: [NONGOAL-004, AC-AUTO-063]
+
+  - id: commit.task-13-revision-12
+    revision: 3
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 13 is complete and its checklist and handoff identify the packet as locally verified and intentionally uncommitted.
+      - Focused single-engine tests, active-tree cleanup verification, and `git diff --check` were rerun successfully before the commit decision.
+      - Task 14 implementation, push, pull request, packaging, signing, publication, release, remote CI, and representative Windows/AMD/macOS execution remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: commit.task-13-revision-12
+      idempotency_key: commit.task-13-revision-12:v3
+      last_status: answered
+      sequence: 61
+      revision: 3
+    question:
+      text: How should the complete, verified, and currently uncommitted Local Whisper Task 13 packet proceed before Task 14?
+      kind: single
+      options:
+        - id: authorize-task-13-commit
+          label: Commit Task 13 (Recommended)
+          description: Create one scoped conventional commit containing only Task 13 without pushing, publishing, signing, or running remote CI.
+        - id: leave-task-13-uncommitted
+          label: Leave uncommitted
+          description: Keep Task 13 in the worktree and do not begin Task 14.
+        - id: revise-task-13-before-commit
+          label: Revise Task 13
+          description: Return Task 13 for additional changes before any commit or later packet.
+    answer:
+      selected_ids: [authorize-task-13-commit]
+      text: ''
+    rationale: The user explicitly authorized one scoped conventional commit for the complete Task 13 packet without authorizing any external action or Task 14 implementation.
+    supersedes_revision: 2
+    requirement_ids: [NONGOAL-004, AC-AUTO-063]

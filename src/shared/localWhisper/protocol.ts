@@ -1,9 +1,4 @@
-import {
-  LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS,
-  isLocalWhisperModelIdentity,
-  type LocalWhisperModelIdentity,
-  type LocalWhisperResidencyKey,
-} from './catalog';
+import { isLocalWhisperModelIdentity, type LocalWhisperModelIdentity, type LocalWhisperResidencyKey } from './catalog';
 import {
   hasLocalWhisperControlCharacter,
   isLocalWhisperBackend,
@@ -111,7 +106,6 @@ export type LocalWhisperWorkerLoadEvidence =
 
 export interface LocalWhisperWorkerLoadedModelEvidence {
   readonly effectiveBackend: LocalWhisperBackend;
-  readonly effectivePrecision: string | null;
   readonly model: LocalWhisperModelIdentity;
   readonly modelSha256: string;
   readonly primaryStateOwnership: 'worker';
@@ -232,13 +226,7 @@ const PROBED_GPU_KEYS = [
   'probeProof',
   'registryFingerprint',
 ] as const;
-const LOADED_COMMON_KEYS = [
-  'effectiveBackend',
-  'effectivePrecision',
-  'model',
-  'modelSha256',
-  'primaryStateOwnership',
-] as const;
+const LOADED_COMMON_KEYS = ['effectiveBackend', 'model', 'modelSha256', 'primaryStateOwnership'] as const;
 const LOADED_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding', ...LOADED_COMMON_KEYS, 'residency'] as const;
 const LOADED_GPU_KEYS = [
   ...REQUEST_KEYS,
@@ -270,7 +258,6 @@ const RESIDENCY_KEYS = [
   'backend',
   'deviceId',
   'model',
-  'precision',
   'resolvedCpuThreads',
 ] as const;
 const CPU_DEVICE_BINDING_KEYS = ['kind'] as const;
@@ -380,7 +367,6 @@ function isLoadedModelEvidence(value: Record<string, unknown>, residency: LocalW
   return (
     isLocalWhisperBackend(value.effectiveBackend) &&
     value.effectiveBackend === residency.backend &&
-    (value.effectivePrecision === null || typeof value.effectivePrecision === 'string') &&
     isLocalWhisperModelIdentity(value.model) &&
     JSON.stringify(value.model) === JSON.stringify(residency.model) &&
     isSha256(value.modelSha256) &&
@@ -458,8 +444,7 @@ function isResidency(value: unknown): value is LocalWhisperResidencyKey {
   ) {
     return false;
   }
-  if (value.engine === 'whisperCpp') return value.precision === null;
-  return LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS.some((precision) => precision === value.precision);
+  return true;
 }
 
 function isDeviceBindingCompatibleWithResidency(

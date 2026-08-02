@@ -231,7 +231,6 @@ describe('LocalWhisperInventoryRepository', () => {
       backend: estimate.backend,
       runtimePackRevision: estimate.runtimePackRevision,
       model: estimate.model,
-      precision: estimate.precision,
     };
     const repository = new LocalWhisperInventoryRepository();
 

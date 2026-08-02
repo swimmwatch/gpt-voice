@@ -9,7 +9,6 @@ import {
   LOCAL_WHISPER_BACKENDS,
   LOCAL_WHISPER_DECODING_STRATEGIES,
   LOCAL_WHISPER_ENGINES,
-  LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS,
   LOCAL_WHISPER_GPU_BACKENDS,
   LOCAL_WHISPER_MAX_CANDIDATE_COUNT,
   LOCAL_WHISPER_MAX_TEMPERATURE_HUNDREDTHS,
@@ -74,7 +73,6 @@ const STORED_DOCUMENT_SHAPE: StoredKnownShape = Object.freeze({
       backend: null,
       deviceId: null,
       cpuThreads: null,
-      precision: null,
     }),
   }),
   dependentSelections: Object.freeze({ values: 'validated' }),
@@ -224,13 +222,7 @@ function projectSettings(value: unknown): unknown {
   );
   const execution = isRecord(settings.execution) ? settings.execution : {};
   const executionKeys =
-    execution.target === 'cpu'
-      ? settings.engine === 'fasterWhisper'
-        ? ['target', 'backend', 'cpuThreads', 'precision']
-        : ['target', 'backend', 'cpuThreads']
-      : settings.engine === 'fasterWhisper'
-        ? ['target', 'backend', 'deviceId', 'precision']
-        : ['target', 'backend', 'deviceId'];
+    execution.target === 'cpu' ? ['target', 'backend', 'cpuThreads'] : ['target', 'backend', 'deviceId'];
   settings.execution = projectObject(execution, executionKeys);
   return settings;
 }
@@ -335,13 +327,6 @@ function isSelectionKey(key: string): boolean {
         isMember(LOCAL_WHISPER_ENGINES, parts[1]) &&
         isMember(LOCAL_WHISPER_MODEL_FAMILIES, parts[2])
       );
-    case 'precision':
-      return (
-        parts.length === 4 &&
-        parts[1] === 'fasterWhisper' &&
-        isMember(LOCAL_WHISPER_TARGETS, parts[2]) &&
-        (isMember(LOCAL_WHISPER_BACKENDS, parts[3]) || parts[3] === 'unset')
-      );
     case 'threads':
       return parts.length === 2 && isMember(LOCAL_WHISPER_ENGINES, parts[1]);
     case 'request':
@@ -361,7 +346,6 @@ function isSelectionValue(key: string, value: unknown): value is string | number
   if (key.startsWith('device:')) return toLocalWhisperOpaqueDeviceId(value) !== null;
   if (key.startsWith('model:')) return isMember(LOCAL_WHISPER_MODEL_FAMILIES, value);
   if (key.startsWith('variant:')) return isMember(LOCAL_WHISPER_MODEL_VARIANTS, value);
-  if (key.startsWith('precision:')) return isMember(LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS, value);
   if (key.startsWith('threads:'))
     return value === LOCAL_WHISPER_AUTO_CPU_THREADS || (isSafeInteger(value) && value > 0);
   if (key === 'request:language') return isLocalWhisperLanguageId(value);

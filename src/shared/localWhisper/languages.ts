@@ -111,7 +111,6 @@ export interface LocalWhisperLanguageCatalogEntry {
   readonly fallbackLabel: string;
   readonly labelKey: `localWhisper.language.${LocalWhisperLanguageId}`;
   readonly whisperCpp: LocalWhisperSpokenLanguageId | 'auto';
-  readonly fasterWhisper: LocalWhisperSpokenLanguageId | null;
 }
 
 const AUTO_LANGUAGE_ENTRY: LocalWhisperLanguageCatalogEntry = Object.freeze({
@@ -119,7 +118,6 @@ const AUTO_LANGUAGE_ENTRY: LocalWhisperLanguageCatalogEntry = Object.freeze({
   fallbackLabel: 'Automatic detection',
   labelKey: 'localWhisper.language.auto',
   whisperCpp: 'auto',
-  fasterWhisper: null,
 });
 
 const SPOKEN_LANGUAGE_ENTRIES: readonly LocalWhisperLanguageCatalogEntry[] = Object.freeze(
@@ -129,7 +127,6 @@ const SPOKEN_LANGUAGE_ENTRIES: readonly LocalWhisperLanguageCatalogEntry[] = Obj
       fallbackLabel,
       labelKey: `localWhisper.language.${id}` as const,
       whisperCpp: id,
-      fasterWhisper: id,
     }),
   ),
 );
@@ -157,10 +154,4 @@ export function mapLocalWhisperLanguageForWhisperCpp(
   value: unknown,
 ): LocalWhisperSpokenLanguageId | 'auto' | undefined {
   return getLocalWhisperLanguageEntry(value)?.whisperCpp;
-}
-
-export function mapLocalWhisperLanguageForFasterWhisper(
-  value: unknown,
-): LocalWhisperSpokenLanguageId | null | undefined {
-  return getLocalWhisperLanguageEntry(value)?.fasterWhisper;
 }

@@ -1,6 +1,6 @@
 export const LOCAL_WHISPER_PROVIDER_ID = 'local-whisper' as const;
 
-export const LOCAL_WHISPER_ENGINES = ['whisperCpp', 'fasterWhisper'] as const;
+export const LOCAL_WHISPER_ENGINES = ['whisperCpp'] as const;
 export const LOCAL_WHISPER_TARGETS = ['gpu', 'cpu'] as const;
 export const LOCAL_WHISPER_BACKENDS = ['cuda', 'hip', 'vulkan', 'metal', 'cpu'] as const;
 export const LOCAL_WHISPER_GPU_BACKENDS = ['cuda', 'hip', 'vulkan', 'metal'] as const;

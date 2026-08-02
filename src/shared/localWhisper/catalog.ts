@@ -20,15 +20,13 @@ import {
   type LocalWhisperTarget,
 } from './domain';
 
-export const LOCAL_WHISPER_NATIVE_FORMATS = ['ggml', 'ctranslate2'] as const;
+export const LOCAL_WHISPER_NATIVE_FORMATS = ['ggml'] as const;
 export const LOCAL_WHISPER_MODEL_VARIANTS = ['full', 'q5_0'] as const;
 export const LOCAL_WHISPER_MEMORY_EVIDENCE_BASES = ['upstream', 'derived', 'qualified'] as const;
-export const LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS = ['float16', 'int8_float16', 'int8', 'float32'] as const;
 
 export type LocalWhisperNativeFormat = (typeof LOCAL_WHISPER_NATIVE_FORMATS)[number];
 export type LocalWhisperModelVariant = (typeof LOCAL_WHISPER_MODEL_VARIANTS)[number];
 export type LocalWhisperMemoryEvidenceBasis = (typeof LOCAL_WHISPER_MEMORY_EVIDENCE_BASES)[number];
-export type LocalWhisperFasterWhisperPrecision = (typeof LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS)[number];
 
 export interface LocalWhisperFamilyMemoryGuidance {
   readonly model: LocalWhisperModelFamily;
@@ -119,7 +117,6 @@ export interface LocalWhisperResidencyKey {
   readonly backend: LocalWhisperBackend;
   readonly deviceId: LocalWhisperOpaqueDeviceId | null;
   readonly model: LocalWhisperModelIdentity;
-  readonly precision: LocalWhisperFasterWhisperPrecision | null;
   readonly resolvedCpuThreads: number | null;
 }
 
@@ -141,7 +138,6 @@ export interface LocalWhisperCapabilityFingerprint {
   readonly topologyRevision: string;
   readonly model: LocalWhisperModelIdentity;
   readonly modelFileIdentity: string;
-  readonly precision: LocalWhisperFasterWhisperPrecision | null;
   readonly resolvedCpuThreads: number | null;
   readonly loadSettingsRevision: string;
 }
@@ -156,7 +152,6 @@ export interface LocalWhisperMemoryConfigurationIdentity {
   readonly backend: LocalWhisperBackend;
   readonly runtimePackRevision: LocalWhisperRevisionId;
   readonly model: LocalWhisperModelIdentity;
-  readonly precision: LocalWhisperFasterWhisperPrecision | null;
 }
 
 export interface LocalWhisperMemoryEstimateRecord extends LocalWhisperMemoryConfigurationIdentity {
@@ -215,7 +210,7 @@ const MODEL_IDENTITY_KEYS = [
   'nativeFormat',
   'variant',
 ] as const;
-const MEMORY_IDENTITY_KEYS = ['target', 'backend', 'runtimePackRevision', 'model', 'precision'] as const;
+const MEMORY_IDENTITY_KEYS = ['target', 'backend', 'runtimePackRevision', 'model'] as const;
 const MEMORY_ESTIMATE_KEYS = [
   ...MEMORY_IDENTITY_KEYS,
   'estimatedPeakRamBytes',
@@ -315,10 +310,7 @@ export function isLocalWhisperModelIdentity(value: unknown): value is LocalWhisp
   ) {
     return false;
   }
-  return (
-    (value.engine === 'whisperCpp' && value.nativeFormat === 'ggml') ||
-    (value.engine === 'fasterWhisper' && value.nativeFormat === 'ctranslate2' && value.variant === 'full')
-  );
+  return value.engine === 'whisperCpp' && value.nativeFormat === 'ggml';
 }
 
 export function isLocalWhisperMemoryConfigurationIdentity(
@@ -335,12 +327,7 @@ export function isLocalWhisperMemoryConfigurationIdentity(
   }
   if (value.target === 'cpu' && value.backend !== 'cpu') return false;
   if (value.target === 'gpu' && !isLocalWhisperGpuBackend(value.backend)) return false;
-  if (value.model.engine === 'whisperCpp') return value.precision === null;
-  if (!isMember(LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS, value.precision)) return false;
-  return (
-    (value.target === 'gpu' && value.backend === 'cuda' && ['float16', 'int8_float16'].includes(value.precision)) ||
-    (value.target === 'cpu' && ['int8', 'float32'].includes(value.precision))
-  );
+  return true;
 }
 
 export function isLocalWhisperMemoryEstimateRecord(value: unknown): value is LocalWhisperMemoryEstimateRecord {
@@ -372,7 +359,6 @@ export function getLocalWhisperMemoryConfigurationKey(identity: LocalWhisperMemo
     model.artifactRevision,
     model.nativeFormat,
     model.variant,
-    identity.precision ?? 'none',
   ].join('|');
 }
 
@@ -388,7 +374,6 @@ export function getLocalWhisperResidencyKey(identity: LocalWhisperResidencyKey):
     identity.model.artifactRevision,
     identity.model.nativeFormat,
     identity.model.variant,
-    identity.precision ?? 'none',
     identity.resolvedCpuThreads ?? 'none',
   ].join('|');
 }
