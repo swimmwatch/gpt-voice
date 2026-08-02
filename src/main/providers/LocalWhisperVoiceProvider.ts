@@ -4,12 +4,30 @@ import {
   createLocalWhisperActionSuccess,
   createLocalWhisperRendererSafeFailure,
   LOCAL_WHISPER_PROVIDER_ID,
+  type LocalWhisperActionId,
   type LocalWhisperActionResult,
   type LocalWhisperRendererSafeFailure,
   type LocalWhisperRuntimeSnapshot,
 } from '@shared/localWhisper';
 import { BatchVoiceProvider } from './BatchVoiceProvider';
+import type {
+  LocalWhisperCoordinatorPort,
+  LocalWhisperCoordinatorTranscriptionRequest,
+  LocalWhisperDispatchSnapshot,
+  LocalWhisperEligibilityRequest,
+  LocalWhisperProviderReadiness,
+} from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
 import type { TranscriptionResult, VoiceProviderInfo } from './BaseVoiceProvider';
+
+export type {
+  LocalWhisperCanonicalAudioDescriptor,
+  LocalWhisperCoordinatorPort,
+  LocalWhisperCoordinatorTranscriptionRequest,
+  LocalWhisperDispatchEpochs,
+  LocalWhisperDispatchSnapshot,
+  LocalWhisperEligibilityRequest,
+  LocalWhisperProviderReadiness,
+} from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
 
 export const LOCAL_WHISPER_RENDERER_PROVIDER_INFO = Object.freeze({
   id: LOCAL_WHISPER_PROVIDER_ID,
@@ -19,53 +37,6 @@ export const LOCAL_WHISPER_RENDERER_PROVIDER_INFO = Object.freeze({
   hasSettings: true,
   transcriptionMode: 'batch',
 } as const satisfies VoiceProviderInfo);
-
-export interface LocalWhisperDispatchEpochs {
-  readonly provider: number;
-  readonly configuration: number;
-  readonly inventory: number;
-}
-
-export interface LocalWhisperProviderReadiness {
-  readonly snapshot: LocalWhisperRuntimeSnapshot;
-  readonly failure: LocalWhisperRendererSafeFailure | null;
-}
-
-export interface LocalWhisperDispatchSnapshot {
-  readonly epochs: LocalWhisperDispatchEpochs;
-  readonly readiness: LocalWhisperProviderReadiness;
-  readonly cacheContext: readonly string[];
-}
-
-export interface LocalWhisperCanonicalAudioDescriptor {
-  readonly byteLength: number;
-  readonly dataOffset: number;
-  readonly dataByteLength: number;
-  readonly sampleRate: 16_000;
-  readonly channelCount: 1;
-  readonly bitsPerSample: 16;
-}
-
-export interface LocalWhisperEligibilityRequest {
-  readonly dispatch: LocalWhisperDispatchSnapshot;
-  readonly audio: LocalWhisperCanonicalAudioDescriptor;
-}
-
-export interface LocalWhisperCoordinatorTranscriptionRequest {
-  readonly dispatch: LocalWhisperDispatchSnapshot;
-  readonly buffer: ArrayBuffer;
-  readonly mimeType: string;
-}
-
-export interface LocalWhisperCoordinatorPort {
-  getReadinessSnapshot(): LocalWhisperProviderReadiness;
-  captureDispatchSnapshot(): LocalWhisperDispatchSnapshot;
-  checkEligibility(request: LocalWhisperEligibilityRequest): Promise<LocalWhisperActionResult<undefined>>;
-  transcribe(request: LocalWhisperCoordinatorTranscriptionRequest): Promise<LocalWhisperActionResult<string>>;
-  prepareProviderSwitch(nextProviderId: string): Promise<LocalWhisperActionResult<undefined>>;
-  cancel(): Promise<LocalWhisperActionResult<undefined>>;
-  shutdown(): Promise<LocalWhisperActionResult<undefined>>;
-}
 
 /** Carries one renderer-safe Local Whisper failure without native exception detail. */
 export class LocalWhisperProviderOperationError extends Error {
@@ -161,7 +132,13 @@ const UNAVAILABLE_LOCAL_WHISPER_READINESS: LocalWhisperProviderReadiness = Objec
   failure: createLocalWhisperRendererSafeFailure('INVALID_SETTINGS'),
 });
 
-/** Safe composition-root placeholder until the stateful coordinator arrives in Task 10. */
+function unavailableActionFailure<T>(action: LocalWhisperActionId): Promise<LocalWhisperActionResult<T>> {
+  return Promise.resolve(
+    createLocalWhisperActionFailure(action, 'INVALID_SETTINGS', UNAVAILABLE_LOCAL_WHISPER_SNAPSHOT),
+  );
+}
+
+/** Safe composition-root placeholder until Task 15 wires the process-owned coordinator. */
 export class UnavailableLocalWhisperCoordinatorPort implements LocalWhisperCoordinatorPort {
   public getReadinessSnapshot(): LocalWhisperProviderReadiness {
     return UNAVAILABLE_LOCAL_WHISPER_READINESS;
@@ -176,19 +153,17 @@ export class UnavailableLocalWhisperCoordinatorPort implements LocalWhisperCoord
   }
 
   public checkEligibility(): Promise<LocalWhisperActionResult<undefined>> {
-    return Promise.resolve(
-      createLocalWhisperActionFailure('checkCompatibility', 'INVALID_SETTINGS', UNAVAILABLE_LOCAL_WHISPER_SNAPSHOT),
-    );
+    return unavailableActionFailure<undefined>('transcribe');
   }
 
   public transcribe(): Promise<LocalWhisperActionResult<string>> {
-    return Promise.resolve(
-      createLocalWhisperActionFailure('transcribe', 'INVALID_SETTINGS', UNAVAILABLE_LOCAL_WHISPER_SNAPSHOT),
-    );
+    return unavailableActionFailure<string>('transcribe');
   }
 
   public prepareProviderSwitch(): Promise<LocalWhisperActionResult<undefined>> {
-    return Promise.resolve(createLocalWhisperActionSuccess('shutdown', UNAVAILABLE_LOCAL_WHISPER_SNAPSHOT, undefined));
+    return Promise.resolve(
+      createLocalWhisperActionSuccess('providerSwitch', UNAVAILABLE_LOCAL_WHISPER_SNAPSHOT, undefined),
+    );
   }
 
   public cancel(): Promise<LocalWhisperActionResult<undefined>> {

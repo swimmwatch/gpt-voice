@@ -4,8 +4,8 @@ Plan revision: **12 (Approved)**
 
 Specification baseline: **revision 7 (Approved)**
 
-Execution state: Tasks 01–12 are complete, committed, and authoritative. Task
-13 is complete, locally verified, and intentionally uncommitted for review.
+Execution state: Tasks 01–13 are complete, committed, and authoritative. Task
+14 is complete, locally verified, and intentionally uncommitted for review.
 Remote CI was not run and will execute only after a pull request is created.
 Representative Windows execution remains deferred exclusively to Task 19.
 
@@ -21,8 +21,8 @@ Representative Windows execution remains deferred exclusively to Task 19.
 - [x] [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md) — `f3fe677`
 - [x] [11 Whisper.cpp Device Proof, Cancellation, And CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md) — `24e268f`
 - [x] [12 AMD Vulkan And Linux HIP Preview Packs](12_amd_vulkan_and_linux_hip_preview_packs.md) — `916f0d9`
-- [x] [13 Single-Engine Cleanup And Contract Normalization](13_single_engine_cleanup_and_contract_normalization.md) — uncommitted
-- [ ] [14 Capability, Coordinator, Residency, And Lifecycle](14_capability_coordinator_residency_and_lifecycle.md)
+- [x] [13 Single-Engine Cleanup And Contract Normalization](13_single_engine_cleanup_and_contract_normalization.md) — `37fa79a`
+- [x] [14 Capability, Coordinator, Residency, And Lifecycle](14_capability_coordinator_residency_and_lifecycle.md) — uncommitted
 - [ ] [15 Protected IPC, Composition, And Provider Selection](15_protected_ipc_composition_and_provider_selection.md)
 - [ ] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)
 - [ ] [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md)
@@ -34,5 +34,5 @@ its native-runner CI boundary committed at `b18700e`. Task 10 and the approved
 revision-11 authority repair are committed at `f3fe677`. The Windows
 native-quality job remains on a Windows runner and owns CPU/CUDA contract-only
 checks; it was not executed. Tasks 11 and 12 are committed at `24e268f` and
-`916f0d9`. Task 13 is complete and uncommitted. No push, pull request,
-publication, or release has occurred.
+`916f0d9`. Task 13 is committed at `37fa79a`. Task 14 is complete and
+uncommitted. No push, pull request, publication, or release has occurred.

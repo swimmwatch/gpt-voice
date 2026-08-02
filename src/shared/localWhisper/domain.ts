@@ -50,6 +50,8 @@ export const LOCAL_WHISPER_OPERATIONAL_STATUSES = [
   'Unsupported',
 ] as const;
 export const LOCAL_WHISPER_ACTION_IDS = [
+  'saveSettings',
+  'resetSettings',
   'checkCompatibility',
   'downloadRuntime',
   'removeRuntime',
@@ -59,6 +61,7 @@ export const LOCAL_WHISPER_ACTION_IDS = [
   'unload',
   'transcribe',
   'cancel',
+  'providerSwitch',
   'shutdown',
 ] as const;
 export const LOCAL_WHISPER_FAILURE_STAGES = [
@@ -98,6 +101,7 @@ export const LOCAL_WHISPER_RECOVERY_ACTION_IDS = [
   'discard-and-fetch-trusted-revision',
   'refresh-and-retry',
   'retry-load-or-change-settings',
+  'update-or-change-model',
   'restart-application',
   'record-again',
   'retry-operation',
@@ -159,7 +163,9 @@ export const LOCAL_WHISPER_FAILURE_CODES = [
   'WORKER_CRASHED',
   'OPERATION_TIMEOUT',
   'BACKEND_INIT_FAILED',
+  'DEVICE_PROOF_FAILED',
   'ALLOCATION_FAILED',
+  'MODEL_AUTHORITY_INVALID',
   'MODEL_LOAD_FAILED',
   'WARMUP_FAILED',
   'CLEANUP_FAILED',

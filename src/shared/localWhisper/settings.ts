@@ -79,6 +79,7 @@ export interface LocalWhisperCppSettings extends LocalWhisperSettingsBase {
 }
 
 export type LocalWhisperSettings = LocalWhisperCppSettings;
+export type LocalWhisperPublicSettings = Omit<LocalWhisperSettings, 'initialPrompt'>;
 
 export interface LocalWhisperKnownRuntimeSelection {
   readonly engine: LocalWhisperEngine;

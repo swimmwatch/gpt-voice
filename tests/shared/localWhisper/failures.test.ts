@@ -39,6 +39,9 @@ describe('Local Whisper failure contracts', () => {
     assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.INSUFFICIENT_VRAM.recoveryAction, 'free-resources');
     assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.MODEL_MISSING.recoveryAction, 'download-selected-artifact');
     assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.MODEL_BLOCKED.retryable, false);
+    assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.DEVICE_PROOF_FAILED.stage, 'device');
+    assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.MODEL_AUTHORITY_INVALID.stage, 'modelLoad');
+    assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.MODEL_LOAD_FAILED.recoveryAction, 'update-or-change-model');
     assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.CLEANUP_FAILED.recoveryAction, 'restart-application');
     assert.equal(LOCAL_WHISPER_FAILURE_DESCRIPTORS.CLEANUP_FAILED.stateImpact, 'cleanupUncertain');
   });
@@ -57,8 +60,8 @@ describe('Local Whisper failure contracts', () => {
     assert.deepEqual(failure.error, {
       code: 'MODEL_LOAD_FAILED',
       stage: 'modelLoad',
-      retryable: true,
-      recoveryAction: 'retry-load-or-change-settings',
+      retryable: false,
+      recoveryAction: 'update-or-change-model',
       stateImpact: 'residencyFailed',
       artifactId: 'model-base-v1',
       deviceId: 'gpu:nvidia:0',

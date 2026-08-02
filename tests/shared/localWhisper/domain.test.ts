@@ -6,6 +6,7 @@ import {
   isLocalWhisperEngine,
   isLocalWhisperFailureCode,
   isLocalWhisperModelFamily,
+  LOCAL_WHISPER_ACTION_IDS,
   LOCAL_WHISPER_BACKENDS,
   LOCAL_WHISPER_ENGINES,
   LOCAL_WHISPER_FAILURE_CODES,
@@ -50,7 +51,12 @@ describe('Local Whisper domain contracts', () => {
   });
 
   it('contains every approved typed failure without authentication failures', () => {
-    assert.equal(LOCAL_WHISPER_FAILURE_CODES.length, 51);
+    assert.equal(LOCAL_WHISPER_FAILURE_CODES.length, 53);
+    assert.equal(LOCAL_WHISPER_FAILURE_CODES.includes('DEVICE_PROOF_FAILED'), true);
+    assert.equal(LOCAL_WHISPER_FAILURE_CODES.includes('MODEL_AUTHORITY_INVALID'), true);
+    assert.equal(LOCAL_WHISPER_ACTION_IDS.includes('saveSettings'), true);
+    assert.equal(LOCAL_WHISPER_ACTION_IDS.includes('resetSettings'), true);
+    assert.equal(LOCAL_WHISPER_ACTION_IDS.includes('providerSwitch'), true);
     for (const code of LOCAL_WHISPER_FAILURE_CODES) assert.equal(isLocalWhisperFailureCode(code), true);
     assert.equal(isLocalWhisperFailureCode('LOGIN_REQUIRED'), false);
     assert.doesNotMatch(JSON.stringify(LOCAL_WHISPER_FAILURE_CODES), /login|token|api.?key|browser.?session/i);

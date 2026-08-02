@@ -5290,3 +5290,66 @@ decisions:
     rationale: The user explicitly authorized one scoped conventional commit for the complete Task 13 packet without authorizing any external action or Task 14 implementation.
     supersedes_revision: 2
     requirement_ids: [NONGOAL-004, AC-AUTO-063]
+
+  - id: execution.task-14-revision-12
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 13 is complete and committed at `37fa79a`; the worktree boundary was clean before Task 14 began.
+      - Approved plan revision 12 names Task 14 as the exact next packet and makes it the sole owner of capability, coordinator, residency, resource, and lifecycle orchestration.
+      - Task 15, representative Windows/AMD/macOS execution, commit, push, pull request, packaging, signing, publication, and release remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-14-start-round-58
+      question_id: execution.task-14-revision-12
+      idempotency_key: execution.task-14-revision-12:v1
+      last_status: answered
+      sequence: 59
+      revision: 1
+    question:
+      text: After an authorized Task 13 commit, should this invocation execute exactly Local Whisper Task 14 from approved plan revision 12?
+      kind: single
+      options:
+        - id: authorize-task-14
+          label: Authorize Task 14 (Recommended)
+          description: Implement and verify only capability, coordinator, residency, and lifecycle; update todo and handoff, then stop uncommitted before Task 15.
+        - id: do-not-authorize-task-14
+          label: Do not authorize
+          description: Stop after resolving the Task 13 commit boundary without implementing Task 14.
+        - id: revise-task-14
+          label: Revise Task 14
+          description: Return Task 14 to planning before changing production source.
+    answer:
+      selected_ids: [authorize-task-14]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 14 after the scoped Task 13 commit; this invocation must stop with Task 14 uncommitted before Task 15.
+    supersedes_revision: null
+    requirement_ids:
+      - CAP-001
+      - CAP-002
+      - CAP-003
+      - CAP-004
+      - CAP-005
+      - CAP-006
+      - CAP-007
+      - CAP-008
+      - CAP-009
+      - CAP-010
+      - CAP-011
+      - CAP-012
+      - CAP-013
+      - CAP-014
+      - CAP-015
+      - CAP-016
+      - CAP-017
+      - VRAM-001
+      - VRAM-002
+      - VRAM-003
+      - LIFE-001
+      - LIFE-002
+      - LIFE-003
+      - LIFE-004
+      - LIFE-005
+      - LIFE-006
