@@ -254,6 +254,7 @@ class DiagnosticsPrivacyHarness {
           },
         ],
       }),
+      localWhisperSnapshot: { capture: () => null },
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: 2,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,

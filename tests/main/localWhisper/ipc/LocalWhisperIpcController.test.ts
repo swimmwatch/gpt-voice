@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import type { LocalWhisperCommandAuditPort } from '@main/localWhisper/audit/LocalWhisperCommandAudit';
 import { LocalWhisperIpcController } from '@main/localWhisper/ipc/LocalWhisperIpcController';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
 
@@ -22,7 +23,7 @@ import {
   revision,
 } from './localWhisperIpcTestUtils';
 
-function createHarness() {
+function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => undefined }) {
   const transport = new FakeTransport();
   const authority = new FakeAuthority();
   const coordinator = new FakeCoordinator();
@@ -30,6 +31,7 @@ function createHarness() {
   const snapshots = createSnapshotService(coordinator);
   let openSettingsCalls = 0;
   const controller = new LocalWhisperIpcController({
+    audit,
     transport,
     authority,
     coordinator,
@@ -173,6 +175,25 @@ describe('LocalWhisperIpcController', () => {
     });
     assert.equal((stale as { success: boolean }).success, false);
     assert.equal(harness.coordinator.settingsCalls.length, 2);
+  });
+
+  it('keeps the completed command authoritative when audit delivery fails', async () => {
+    let auditedSnapshotRevision: number | null = null;
+    const harness = createHarness({
+      record: (_command, snapshot) => {
+        auditedSnapshotRevision = snapshot.snapshotRevision;
+        throw new Error('private audit sink failure');
+      },
+    });
+
+    const result = (await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsCommand, fakeEvent('settings'), {
+      kind: 'checkCompatibility',
+      ...expected(harness.snapshots),
+    })) as { readonly success: boolean; readonly snapshot: { readonly snapshotRevision: number } };
+
+    assert.equal(result.success, true);
+    assert.equal(harness.coordinator.checkCalls, 1);
+    assert.equal(auditedSnapshotRevision, result.snapshot.snapshotRevision);
   });
 
   it('rejects prototypes, unknown keys, unsafe numbers, and forged artifact authority', async () => {

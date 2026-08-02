@@ -40,6 +40,7 @@ export const LOCAL_WHISPER_PRIVATE_FILE_MODE = 0o600;
 export const LOCAL_WHISPER_PRIVATE_DIRECTORY_MODE = 0o700;
 export const LOCAL_WHISPER_SETTINGS_NAMESPACE = 'local-whisper' as const;
 export const LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION = 1 as const;
+export const LOCAL_WHISPER_SETTINGS_SUPPORTED_PRIOR_DOCUMENT_SCHEMA_VERSIONS = [0] as const;
 export const LOCAL_WHISPER_SETTINGS_DIRECTORY_NAME = 'local-whisper';
 export const LOCAL_WHISPER_SETTINGS_FILE_NAME = 'settings.json';
 
@@ -380,7 +381,8 @@ function mergePreservingUnknown(previous: unknown, next: unknown): unknown {
   return merged;
 }
 
-function normalizeStoredDocument(value: unknown): Record<string, unknown> | null {
+/** Migrates only repository-owned prior schemas in memory and performs no persistence or runtime action. */
+export function migrateLocalWhisperSettingsDocument(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value) || value.namespace !== LOCAL_WHISPER_SETTINGS_NAMESPACE) return null;
   if (value.schemaVersion === 0) {
     const { configuration, ...preserved } = value;
@@ -495,7 +497,7 @@ export class LocalWhisperSettingsRepository {
         schemaVersion: read.value.schemaVersion,
       };
     }
-    const document = normalizeStoredDocument(read.value);
+    const document = migrateLocalWhisperSettingsDocument(read.value);
     if (
       !document ||
       document.schemaVersion !== LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION ||
@@ -544,7 +546,7 @@ export class LocalWhisperSettingsRepository {
     ) {
       throw new LocalWhisperSettingsRepositoryError('SETTINGS_VERSION_UNSUPPORTED');
     }
-    const previous = read.status === 'ok' ? normalizeStoredDocument(read.value) : null;
+    const previous = read.status === 'ok' ? migrateLocalWhisperSettingsDocument(read.value) : null;
     const previousSelections = readDependentSelections(previous?.dependentSelections);
     const dependentSelections = rememberLocalWhisperSettingsSelections(
       previousSelections ?? EMPTY_LOCAL_WHISPER_DEPENDENT_SELECTION_MEMORY,

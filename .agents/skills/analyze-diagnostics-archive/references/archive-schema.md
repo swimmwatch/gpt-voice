@@ -1,6 +1,6 @@
 # Diagnostics Archive Schema Reference
 
-This reference documents the app-owned schema-v1 ZIP and tar.gz producer
+This reference documents the app-owned schema-v1 and schema-v2 ZIP and tar.gz producer
 contract and is a closed reasoning allowlist for bounded agent-managed
 inspection. It is not a parser, complete schema validator, authenticity check,
 or malicious-input test. Analysis remains selective, best-effort, and
@@ -11,7 +11,7 @@ confidently establish every applicable rule below.
 
 The supported producer contract is:
 
-- archive schema: `1`;
+- archive schema: legacy `1` or additive Local Whisper `2`;
 - application database schema: `2`;
 - provider-audit schema: `1`;
 - diagnostic action row schema: `1`;
@@ -24,6 +24,7 @@ The complete member inventory is:
 manifest.json
 provider-audit/events.jsonl
 diagnostics/text-actions.jsonl  # optional, only with retained diagnostic rows
+local-whisper/snapshot.json     # optional, schema v2 only, maximum 65,536 bytes
 ```
 
 Inclusive producer ceilings are:
@@ -75,7 +76,7 @@ sensitivity
 
 Accept for reasoning only:
 
-- `schemaVersion` exactly `1`;
+- `schemaVersion` exactly `1` or `2`;
 - `archiveId` as a canonical UUID;
 - `createdAt` as a canonical timestamp;
 - `appVersion` and each runtime version only when it matches the ASCII release
@@ -87,8 +88,10 @@ Accept for reasoning only:
   `captureSettings.capturePrettifyDiagnostics` as booleans;
 - `audit.duplicateRecordCount`, `audit.invalidRecordCount`, and
   `audit.validRecordCount` as safe counts;
-- `schemaVersions` exactly
+- schema v1 `schemaVersions` exactly
   `{ database: 2, diagnosticRow: 1, providerAudit: 1, redactor: 1 }`;
+- schema v2 `schemaVersions` exactly
+  `{ database: 2, diagnosticRow: 1, localWhisperSnapshot: 1, providerAudit: 1, redactor: 1 }`;
 - `sensitivity.containsDiagnosticText` as a boolean and its warning only when
   it is exactly the producer warning or `null`;
 - diagnostic summary counts, byte lengths, and timestamp range only when they
@@ -147,8 +150,10 @@ Closed values:
 Closed family operations:
 
 - Voice: `initialize`, `settings-readiness`, `session-load`, `session-save`,
-  `session-clear`, `readiness`, `credential-refresh`, `transcribe-batch`,
-  `transcribe-stream`, `recovery`, `shutdown`;
+  `session-clear`, `readiness`, `credential-refresh`, `local-runtime-check`,
+  `local-artifact-transfer`, `local-artifact-remove`, `local-model-load`,
+  `local-model-unload`, `transcribe-batch`, `transcribe-stream`, `recovery`,
+  `shutdown`;
 - Prettify: `settings-readiness`, `availability`, `capability-check`,
   `model-list`, `model-load`, `model-unload`, `prepare`, `prettify`,
   `process-cleanup`, `shutdown`;
@@ -158,11 +163,15 @@ The only optional metadata keys are:
 
 ```text
 acceptedByteCount, attemptCount, causeCode, chunkCount, contractVersion,
-discarded, durationMs, errorClass, exceptionType, frameCount, hasFilePath,
+activityState, artifactKind, artifactRevision, backend, byteCount,
+capabilityState, discarded, durationMs, engineId, errorClass, exceptionType,
+failureCode, frameCount, hasFilePath,
 hasMessage, hasMimeType, hasStackTrace, hasUrl, httpStatus, inputByteLength,
-modelConfigured, modelNameLength, modelSource, pageClosed, postSubmission,
-providerKnown, recoveryScheduled, resultLength, retryScheduled, sourceLength,
-targetLanguage, transcriptionMode, usesDefaultModel, wasSanitized
+modelConfigured, modelFamily, modelNameLength, modelSource, pageClosed,
+postSubmission, providerKnown, recoveryScheduled, residencyState,
+resultLength, retryScheduled, runtimeRevision, setupState, sourceLength,
+supportTier, target, targetLanguage, transcriptionMode, usesDefaultModel,
+wasSanitized
 ```
 
 Counts and measurements are finite and nonnegative. Boolean-presence fields
@@ -198,6 +207,38 @@ Family cause codes are closed:
 - all families additionally allow `diagnostic-storage-unavailable`,
   `diagnostic-row-too-large`, `diagnostic-redaction-failed`, and
   `diagnostic-storage-failed`.
+
+## Local Whisper snapshot contract
+
+Schema v2 may contain at most one `local-whisper/snapshot.json`. Its manifest
+summary must have the exact name, exact encoded byte length, and exact lowercase
+SHA-256 of the member. The encoded member is at most 65,536 bytes and is one
+canonical JSON object with exactly these keys:
+
+```text
+activityState, artifactCount, backend, capabilityState, capturedAt,
+deviceDisplayLabel, deviceProductId, deviceVendorId, driverVersionLabel,
+engineId, failureCode, installedArtifactCount, modelFamily, modelRevision,
+modelSetupState, modelVariant, operationalStatus, residencyState,
+runtimeRevision, runtimeSetupState, runtimeVersionLabel, schemaVersion,
+supportTier, target
+```
+
+`schemaVersion` is exactly `1`; `engineId` is exactly `whisperCpp`; all states,
+targets, backends, families, variants, and failure codes use their closed Local
+Whisper enums. Counts are bounded nonnegative safe integers. Vendor/product IDs
+are `null` or normalized numbers from 0 through 65535. Version and display
+labels are bounded sanitized labels, never paths, URLs, commands, identities,
+or instructions.
+
+The member never contains prompt, language vocabulary, audio, transcript,
+absolute path, URL, process data, environment, opaque application device ID,
+native handle/index, bus/domain/function, UUID/LUID/serial/topology/PCI data,
+subsystem or instance identity, registry fingerprint, authority/salt/proof,
+allocation data, or artifact bytes. Treat any duplicate key, unknown key,
+invalid enum/unit/encoding, length/hash mismatch, wrong schema map, or oversize
+as snapshot state `invalid`. No member means `absent`; a fully valid member
+means `valid`. Report only that state and never repair or echo an invalid value.
 
 ## Diagnostic action contract
 

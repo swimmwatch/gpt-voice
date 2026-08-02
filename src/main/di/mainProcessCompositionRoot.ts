@@ -16,6 +16,8 @@ import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
 import type { LocalWhisperCoordinatorDependencies } from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
+import { LocalWhisperCommandAudit } from '../localWhisper/audit/LocalWhisperCommandAudit';
+import { LocalWhisperDiagnosticsSnapshotProvider } from '../localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
 import {
   LocalWhisperSnapshotService,
   type LocalWhisperSnapshotFactsPort,
@@ -518,6 +520,10 @@ export class MainProcessCompositionRoot {
       }),
       jsonl: new DiagnosticsArchiveJsonlSerializer(),
       logs: new ProviderAuditLogExtractor(loggerFactory.getMainLogFileAccessor()),
+      localWhisperSnapshot: new LocalWhisperDiagnosticsSnapshotProvider({
+        now: this.environment.now,
+        snapshots: localWhisperSnapshots,
+      }),
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: APP_DATABASE_SCHEMA_VERSION,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
@@ -620,6 +626,7 @@ export class MainProcessCompositionRoot {
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
     const localWhisperIpcController = new LocalWhisperIpcController({
+      audit: new LocalWhisperCommandAudit(voiceProviderAudit),
       transport: this.environment.ipc.ipc,
       authority: new ElectronLocalWhisperSenderAuthority(windowManager),
       coordinator: localWhisperCoordinator,

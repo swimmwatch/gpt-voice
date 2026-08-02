@@ -8,6 +8,7 @@ import {
   type ProviderAuditRecord,
 } from '../providerAudit';
 import type { DiagnosticCaptureStorage } from './diagnosticCaptureStorage';
+import type { LocalWhisperDiagnosticsSnapshotPort } from '../localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
 import { type DiagnosticsArchiveMember, type DiagnosticsArchiveFormatAdapter } from './diagnosticsArchiveFormat';
 import {
   type DiagnosticsEnvironmentSnapshotProvider,
@@ -132,6 +133,7 @@ export interface DiagnosticsArchiveServiceDependencies {
   readonly formatAdapter: Pick<DiagnosticsArchiveFormatAdapter, 'writeAndVerify'>;
   readonly jsonl: Pick<DiagnosticsArchiveJsonlSerializer, 'serializeAuditEvents' | 'serializeDiagnosticRows'>;
   readonly logs: Pick<ProviderAuditLogExtractor, 'extract'>;
+  readonly localWhisperSnapshot: LocalWhisperDiagnosticsSnapshotPort;
   readonly manifest: Pick<DiagnosticsManifestBuilder, 'build' | 'serialize'>;
   readonly now: () => Date;
   readonly platform: NodeJS.Platform;
@@ -170,6 +172,7 @@ export class DiagnosticsArchiveService {
     await Promise.all([...this.temporaryFiles].map((filePath) => this.removeTemporaryFile(filePath)));
   }
 
+  /** Builds and publishes one validated archive without exposing dependency failures. */
   private async createArchiveNow(destinationPath: string): Promise<DiagnosticsArchiveCreationResult> {
     if (!this.isValidDestinationPath(destinationPath)) return ARCHIVE_CREATION_FAILURE;
 
@@ -208,6 +211,10 @@ export class DiagnosticsArchiveService {
         this.dependencies.jsonl.serializeDiagnosticRows(diagnosticRows),
       );
     }
+    const localWhisperSnapshotPayload = this.dependencies.localWhisperSnapshot.capture();
+    if (localWhisperSnapshotPayload !== null) {
+      payloads.set(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot, localWhisperSnapshotPayload);
+    }
 
     const manifest = this.dependencies.manifest.build({
       archiveId,
@@ -233,6 +240,12 @@ export class DiagnosticsArchiveService {
       members.push({
         name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
         payload: diagnosticPayload,
+      });
+    }
+    if (localWhisperSnapshotPayload !== null) {
+      members.push({
+        name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
+        payload: localWhisperSnapshotPayload,
       });
     }
 

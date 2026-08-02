@@ -1,5 +1,8 @@
 # Local Whisper Whisper.cpp Worker
 
+See the [native runtime overview](../README.md) for the process/authority map,
+generated-versus-checked-in asset policy, and cross-module gates.
+
 This folder owns GPT-Voice's isolated C++20 `whisper.cpp` worker. The current
 implemented targets are the Linux x64 CPU baseline and the qualified CUDA
 12.8.1 `120a-real` pack for the available RTX 5070 Ti Laptop GPU. These

@@ -16,6 +16,7 @@ import type {
   LocalWhisperArtifactRemovalRequest,
   LocalWhisperSettingsTransaction,
 } from '../coordinator/LocalWhisperCoordinatorTypes';
+import type { LocalWhisperCommandAuditPort } from '../audit/LocalWhisperCommandAudit';
 import type { LocalWhisperSnapshotService } from './LocalWhisperSnapshotService';
 
 export interface LocalWhisperIpcTransport {
@@ -77,6 +78,7 @@ export interface LocalWhisperArtifactReferencePort {
 }
 
 export interface LocalWhisperIpcControllerDependencies {
+  readonly audit: LocalWhisperCommandAuditPort;
   readonly transport: LocalWhisperIpcTransport;
   readonly authority: LocalWhisperIpcSenderAuthority;
   readonly coordinator: LocalWhisperIpcCoordinatorPort;
@@ -190,7 +192,13 @@ export class LocalWhisperIpcController {
       const value = args[0];
       if (!isLocalWhisperSettingsCommand(value)) return this.failure(commandKind, 'INVALID_SETTINGS');
       commandKind = value.kind;
-      return await this.execute(value);
+      const result = await this.execute(value);
+      try {
+        this.dependencies.audit.record(value, result.snapshot, result);
+      } catch {
+        // Audit is diagnostic-only and cannot alter command results or lifecycle state.
+      }
+      return result;
     } catch {
       return this.failure(commandKind, 'OPERATION_CONFLICT');
     }
