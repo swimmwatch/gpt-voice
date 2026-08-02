@@ -66,6 +66,14 @@ import type {
   VoiceProviderAuthType,
   VoiceProviderCategory,
 } from '@shared/voiceProvider';
+import type {
+  LocalWhisperMainStatusSnapshot,
+  LocalWhisperIpcAcknowledgement,
+  LocalWhisperProviderSelectionResult,
+  LocalWhisperRendererSnapshot,
+  LocalWhisperSettingsCommand,
+  LocalWhisperSettingsCommandResult,
+} from '@shared/localWhisper';
 
 export type ProviderAuthType = VoiceProviderAuthType;
 export type ProviderCategory = VoiceProviderCategory;
@@ -155,7 +163,17 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getActiveProvider: () => Promise<string>;
-  setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
+  setActiveProvider: (providerId: string) => Promise<LocalWhisperProviderSelectionResult>;
+  getLocalWhisperSettingsSnapshot: () => Promise<LocalWhisperRendererSnapshot>;
+  subscribeLocalWhisperSettings: () => Promise<LocalWhisperRendererSnapshot>;
+  unsubscribeLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperSettingsSnapshot: (callback: (snapshot: LocalWhisperRendererSnapshot) => void) => () => void;
+  runLocalWhisperSettingsCommand: (command: LocalWhisperSettingsCommand) => Promise<LocalWhisperSettingsCommandResult>;
+  getLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  subscribeLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  unsubscribeLocalWhisperMainStatus: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void) => () => void;
+  openLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
   checkSession: () => Promise<boolean>;
   transcribeAudio: (
     buffer: ArrayBuffer,

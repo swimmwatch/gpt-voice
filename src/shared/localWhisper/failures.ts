@@ -1,5 +1,10 @@
 import {
+  LOCAL_WHISPER_FAILURE_STAGES,
+  LOCAL_WHISPER_RECOVERY_ACTION_IDS,
+  LOCAL_WHISPER_STATE_IMPACTS,
   isLocalWhisperFailureCode,
+  toLocalWhisperArtifactId,
+  toLocalWhisperOpaqueDeviceId,
   type LocalWhisperActionId,
   type LocalWhisperArtifactId,
   type LocalWhisperFailureCode,
@@ -118,6 +123,42 @@ export function createLocalWhisperRendererSafeFailure(
   context: LocalWhisperSafeFailureContext = {},
 ): LocalWhisperRendererSafeFailure {
   return Object.freeze({ code, ...LOCAL_WHISPER_FAILURE_DESCRIPTORS[code], ...context });
+}
+
+function isMember<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
+  return typeof value === 'string' && values.some((candidate) => candidate === value);
+}
+
+/** Strict decoder for the complete renderer-safe failure union. */
+export function isLocalWhisperRendererSafeFailure(value: unknown): value is LocalWhisperRendererSafeFailure {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const allowed = new Set(['code', 'stage', 'retryable', 'recoveryAction', 'stateImpact', 'artifactId', 'deviceId']);
+  if (Object.keys(record).some((key) => !allowed.has(key))) return false;
+  if (
+    !isLocalWhisperFailureCode(record.code) ||
+    !isMember(LOCAL_WHISPER_FAILURE_STAGES, record.stage) ||
+    typeof record.retryable !== 'boolean' ||
+    !isMember(LOCAL_WHISPER_RECOVERY_ACTION_IDS, record.recoveryAction) ||
+    !isMember(LOCAL_WHISPER_STATE_IMPACTS, record.stateImpact)
+  ) {
+    return false;
+  }
+  const descriptor = LOCAL_WHISPER_FAILURE_DESCRIPTORS[record.code];
+  if (
+    descriptor.stage !== record.stage ||
+    descriptor.retryable !== record.retryable ||
+    descriptor.recoveryAction !== record.recoveryAction ||
+    descriptor.stateImpact !== record.stateImpact
+  ) {
+    return false;
+  }
+  return (
+    (record.artifactId === undefined || toLocalWhisperArtifactId(record.artifactId) !== null) &&
+    (record.deviceId === undefined || toLocalWhisperOpaqueDeviceId(record.deviceId) !== null)
+  );
 }
 
 export function createLocalWhisperActionFailure(

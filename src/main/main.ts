@@ -31,6 +31,7 @@ import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
+import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
@@ -270,6 +271,12 @@ function bootstrapMainProcess(): void {
         return moduleValue;
       },
     },
+    localWhisper: createDeferredLocalWhisperEnvironment({
+      platform: process.platform,
+      architecture: process.arch,
+      logicalProcessorCount: os.cpus().length,
+      nextRequestId: randomUUID,
+    }),
     now: getCurrentDate,
     randomUUID,
     reportStreamingDiagnostic: ignoreStreamingDiagnostic,

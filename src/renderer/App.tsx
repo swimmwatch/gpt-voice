@@ -356,22 +356,46 @@ const App: React.FC = () => {
       }
       case 'switch-started':
         recordingActionsRef.current.cancelStreamingForProviderChange();
-        activeProviderIdRef.current = event.providerId;
-        activeProviderAuthTypeRef.current = event.authType;
-        setActiveProviderId(event.providerId);
         setIsLoggingIn(false);
         setIsLoading(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
         setProviderConnectionFailureStatus(null);
         return;
       case 'switch-completed': {
-        applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
-        if (!event.result.success) {
-          applyBrowserProviderFailure(event.result.error);
+        if (event.result.success) {
+          activeProviderIdRef.current = event.result.committedProviderId;
+          activeProviderAuthTypeRef.current = event.authType;
+          setActiveProviderId(event.result.committedProviderId);
+          applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
+          return;
         }
+        const committedProvider = providers.find((provider) => provider.id === event.result.committedProviderId);
+        const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
+        activeProviderIdRef.current = event.result.committedProviderId;
+        activeProviderAuthTypeRef.current = committedAuthType;
+        setActiveProviderId(event.result.committedProviderId);
+        applyProviderLoginState(committedAuthType, event.runtime.hasSession, event.runtime.backgroundStatus);
         return;
       }
       case 'switch-failed': {
+        if (event.committedProviderId && event.runtime) {
+          const committedProvider = providers.find((provider) => provider.id === event.committedProviderId);
+          const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
+          activeProviderIdRef.current = event.committedProviderId;
+          activeProviderAuthTypeRef.current = committedAuthType;
+          setActiveProviderId(event.committedProviderId);
+          applyProviderLoginState(committedAuthType, event.runtime.hasSession, event.runtime.backgroundStatus);
+          return;
+        }
+        if (activeProviderAuthTypeRef.current === 'localRuntime') {
+          setProviderConnectionReason(
+            isLoggedIn
+              ? PROVIDER_CONNECTION_REASONS.LocalRuntimeReady
+              : PROVIDER_CONNECTION_REASONS.LocalRuntimeNotReady,
+          );
+          setProviderConnectionFailureStatus(null);
+          return;
+        }
         applyBrowserProviderFailure(event.error);
         return;
       }

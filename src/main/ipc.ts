@@ -52,6 +52,7 @@ import {
   type StreamingTranscriptionIpcHandler,
 } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
+import type { VoiceProviderSelectionService } from './localWhisper/ipc/VoiceProviderSelectionService';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
@@ -105,6 +106,7 @@ export type MainIpcConfigRepository = Pick<
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
+  | 'setProvider'
   | 'setTextActionSettings'
   | 'allocatePrettifyCustomProfileId'
 >;
@@ -169,6 +171,7 @@ export interface MainIpcControllerDependencies {
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
+  readonly providerSelection: Pick<VoiceProviderSelectionService, 'getCommittedProviderId' | 'select'>;
   readonly voiceSettings: MainIpcVoiceSettingsRepository;
   readonly windowManager: WindowManager;
 }
@@ -807,18 +810,20 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('get-active-provider', () => {
-      return dependencies.config.getSnapshot().provider;
+      return dependencies.providerSelection.getCommittedProviderId();
     });
 
-    this.trustedIpc.handle('set-active-provider', async (_event, providerId: string) => {
+    this.trustedIpc.handle('set-active-provider', async (_event, providerId: unknown) => {
+      const result = await dependencies.providerSelection.select(providerId);
       try {
-        const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
-        dependencies.config.save();
-        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getSnapshot().provider);
-        return { success: !status.error, error: status.error };
-      } catch (error: unknown) {
-        return { success: false, error: getErrorMessage(error) };
+        dependencies.windowManager.publishBackgroundStatus(
+          dependencies.backgroundBrowserService.getStatus(),
+          result.committedProviderId,
+        );
+      } catch {
+        dependencies.logger.warn('Failed to publish provider status after provider selection');
       }
+      return result;
     });
 
     this.trustedIpc.handle('get-hotkey', (): HotkeySettings => {

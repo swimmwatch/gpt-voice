@@ -2,6 +2,7 @@ export * from './canonicalWav';
 export * from './catalog';
 export * from './domain';
 export * from './failures';
+export * from './ipc';
 export * from './languages';
 export * from './protocol';
 export * from './settings';

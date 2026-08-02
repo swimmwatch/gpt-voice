@@ -6,6 +6,7 @@ import type {
   LocalWhisperCapabilityStaleCause,
   LocalWhisperFailureCode,
   LocalWhisperOpaqueDeviceId,
+  LocalWhisperPromptMutation,
   LocalWhisperPublicSettings,
   LocalWhisperRendererSafeFailure,
   LocalWhisperRuntimeSnapshot,
@@ -86,9 +87,6 @@ export interface LocalWhisperCoordinatorSnapshot {
 }
 
 export type LocalWhisperCoordinatorSnapshotListener = (snapshot: LocalWhisperCoordinatorSnapshot) => void;
-
-export type LocalWhisperPromptMutation =
-  { readonly kind: 'unchanged' } | { readonly kind: 'clear' } | { readonly kind: 'replace'; readonly value: string };
 
 interface LocalWhisperSettingsTransactionEpochs {
   readonly expectedConfigurationEpoch: number;

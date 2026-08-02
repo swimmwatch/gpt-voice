@@ -80,6 +80,8 @@ export interface LocalWhisperCppSettings extends LocalWhisperSettingsBase {
 
 export type LocalWhisperSettings = LocalWhisperCppSettings;
 export type LocalWhisperPublicSettings = Omit<LocalWhisperSettings, 'initialPrompt'>;
+export type LocalWhisperPromptMutation =
+  { readonly kind: 'unchanged' } | { readonly kind: 'clear' } | { readonly kind: 'replace'; readonly value: string };
 
 export interface LocalWhisperKnownRuntimeSelection {
   readonly engine: LocalWhisperEngine;

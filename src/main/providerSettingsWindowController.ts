@@ -27,6 +27,10 @@ export class ProviderSettingsWindowController<TWindow extends ProviderSettingsWi
     return [...this.windows.values()];
   }
 
+  public get(providerId: string): TWindow | null {
+    return this.windows.get(providerId) ?? null;
+  }
+
   public dispose(): void {
     const windows = [...this.windows.values()];
     this.windows.clear();

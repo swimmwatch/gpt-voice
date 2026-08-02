@@ -1,8 +1,9 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from './aboutWindowController';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
@@ -118,6 +119,32 @@ export class WindowManager {
       return null;
     }
     return settingsWindow;
+  }
+
+  public isTrustedMainFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.mainWindow;
+    return Boolean(
+      window &&
+      !window.isDestroyed() &&
+      !webContents.isDestroyed() &&
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === this.dependencies.getAppUrl() &&
+      webContents.getURL() === frame.url,
+    );
+  }
+
+  public isTrustedLocalWhisperSettingsFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.providerSettingsWindowController.get(LOCAL_WHISPER_PROVIDER_ID);
+    if (!window || window.isDestroyed() || webContents.isDestroyed()) return false;
+    const expectedUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
+    expectedUrl.searchParams.set('providerId', LOCAL_WHISPER_PROVIDER_ID);
+    return (
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === expectedUrl.toString() &&
+      webContents.getURL() === frame.url
+    );
   }
 
   public createMainWindow(): void {

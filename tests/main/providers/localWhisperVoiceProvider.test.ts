@@ -23,7 +23,7 @@ describe('LocalWhisperVoiceProvider', () => {
     assert.deepEqual(coordinator.calls, []);
   });
 
-  it('delegates readiness, snapshots, transcription, cancellation, switching, and shutdown', async () => {
+  it('delegates operations while leaving coordinator shutdown to the process graph', async () => {
     const coordinator = new RecordingLocalWhisperCoordinator();
     const provider = new LocalWhisperVoiceProvider(coordinator);
     const audio = createCanonicalLocalWhisperWav();
@@ -47,7 +47,6 @@ describe('LocalWhisperVoiceProvider', () => {
       'transcribe',
       'cancel',
       'switch',
-      'shutdown',
     ]);
     assert.deepEqual(coordinator.lastTranscriptionRequest?.dispatch.epochs, dispatch.epochs);
   });

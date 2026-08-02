@@ -190,7 +190,7 @@ describe('background browser lifecycle hooks', () => {
 
     assert.deepEqual(status, { providerId: 'openai-api', ready: true, error: undefined, authExpired: undefined });
     assert.equal(harness.config.getSnapshot().provider, 'openai-api');
-    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch', 'shutdown']);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
   });
 

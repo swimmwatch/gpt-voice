@@ -9,6 +9,8 @@ import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
 } from '@shared/translationProvider';
+import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -49,6 +51,11 @@ describe('preload API factory', () => {
   it('routes typed invocations through an injected renderer without Electron globals', async () => {
     const renderer = new RecordingIpcRenderer();
     renderer.respond('get-active-provider', 'chatgpt');
+    renderer.respond('set-active-provider', {
+      success: true,
+      committedProviderId: 'claude-web',
+      readinessRevision: 1,
+    });
     const api = createElectronApi(renderer);
 
     assert.equal(await api.getActiveProvider(), 'chatgpt');
@@ -62,6 +69,51 @@ describe('preload API factory', () => {
       { args: ['prettifyQuick', 'Ctrl+F12'], channel: 'set-hotkey' },
       { args: ['private-source-canary', 'ru'], channel: 'translate-text' },
     ]);
+  });
+
+  it('decodes Local Whisper queries/results and drops malformed renderer events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const snapshots = createSnapshotService(new FakeCoordinator());
+    const snapshot = snapshots.snapshot;
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, snapshot);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, snapshot);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe, { success: true });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsCommand, {
+      success: true,
+      command: 'load',
+      snapshot,
+    });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusQuery, snapshots.mainStatus);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusSubscribe, snapshots.mainStatus);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusUnsubscribe, { success: true });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true });
+    const api = createElectronApi(renderer);
+    const events: number[] = [];
+    const unsubscribe = api.onLocalWhisperSettingsSnapshot((value) => events.push(value.snapshotRevision));
+
+    assert.equal((await api.getLocalWhisperSettingsSnapshot()).snapshotRevision, snapshot.snapshotRevision);
+    const command: LocalWhisperSettingsCommand = {
+      kind: 'load',
+      expectedSnapshotRevision: snapshot.snapshotRevision,
+      expectedConfigurationEpoch: snapshot.configurationEpoch,
+      expectedInventoryEpoch: snapshot.inventoryEpoch,
+    };
+    assert.equal((await api.runLocalWhisperSettingsCommand(command)).success, true);
+    assert.deepEqual(await api.unsubscribeLocalWhisperSettings(), { success: true });
+    assert.deepEqual(await api.unsubscribeLocalWhisperMainStatus(), { success: true });
+    assert.deepEqual(await api.openLocalWhisperSettings(), { success: true });
+    renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, snapshot);
+    renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, { ...snapshot, path: '/private/model' });
+    unsubscribe();
+    assert.deepEqual(events, [snapshot.snapshotRevision]);
+
+    await assert.rejects(
+      api.runLocalWhisperSettingsCommand({ ...command, path: '/forged' } as LocalWhisperSettingsCommand),
+      /Invalid Local Whisper settings command/u,
+    );
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true, path: '/private' });
+    await assert.rejects(api.openLocalWhisperSettings(), /Invalid Local Whisper open-settings response/u);
+    snapshots.dispose();
   });
 
   it('owns event listeners and unsubscribe state per factory input', () => {

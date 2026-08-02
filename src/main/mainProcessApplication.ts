@@ -25,6 +25,7 @@ const TRANSLATION_INITIALIZATION_FAILURE_LOG = 'Translation provider initializat
 const TRANSLATION_CLEANUP_INCOMPLETE_LOG = 'Translation provider cleanup incomplete during quit:';
 const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed during quit';
 const BROWSER_CLEANUP_FAILURE_LOG = 'Background browser cleanup incomplete during quit';
+const LOCAL_WHISPER_CLEANUP_FAILURE_LOG = 'Local Whisper cleanup incomplete during quit';
 const DIAGNOSTICS_ARCHIVE_CLEANUP_FAILURE_LOG = 'Diagnostics archive cleanup incomplete during quit';
 const DATABASE_CLEANUP_FAILURE_LOG = 'Application database cleanup incomplete during quit';
 const QUIT_CLEANUP_FAILURE_LOG = 'Quit cleanup failed';
@@ -65,6 +66,7 @@ export interface MainProcessOwnedRuntime {
   disposeIpc(): Promise<void>;
   pruneDiagnostics(): Promise<void>;
   registerIpc(): void;
+  shutdownLocalWhisper(): Promise<void>;
   shutdownDiagnostics(): Promise<DiagnosticCaptureMaintenanceResult>;
   shutdownDiagnosticsArchive(): Promise<void>;
 }
@@ -233,6 +235,7 @@ export class MainProcessApplication {
       });
   };
 
+  /** Releases process-owned services in dependency order while preserving best-effort cleanup. */
   private async runQuitCleanup(): Promise<void> {
     const runtime = this.runtime;
     try {
@@ -280,6 +283,12 @@ export class MainProcessApplication {
       await this.dependencies.backgroundBrowserService.shutdown();
     } catch {
       this.dependencies.logger.warn(BROWSER_CLEANUP_FAILURE_LOG);
+    }
+
+    try {
+      await runtime?.shutdownLocalWhisper();
+    } catch {
+      this.dependencies.logger.warn(LOCAL_WHISPER_CLEANUP_FAILURE_LOG);
     }
 
     if (runtime) {

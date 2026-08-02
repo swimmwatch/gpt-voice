@@ -40,6 +40,8 @@ interface MainToolbarProps {
 export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
   [PROVIDER_CONNECTION_REASONS.ApiConfigured]: 'status.providerConfigured',
   [PROVIDER_CONNECTION_REASONS.ApiNotConfigured]: 'status.providerNotConfigured',
+  [PROVIDER_CONNECTION_REASONS.LocalRuntimeNotReady]: 'status.providerNotConfigured',
+  [PROVIDER_CONNECTION_REASONS.LocalRuntimeReady]: 'status.providerConfigured',
   [PROVIDER_CONNECTION_REASONS.BrowserReady]: 'provider.connectionReadyTooltip',
   [PROVIDER_CONNECTION_REASONS.BrowserUnavailable]: 'provider.browserUnavailableTooltip',
   [PROVIDER_CONNECTION_REASONS.Checking]: 'provider.connectionCheckingTooltip',

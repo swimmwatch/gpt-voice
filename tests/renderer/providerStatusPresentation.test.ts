@@ -115,7 +115,7 @@ describe('provider status presentation', () => {
     assert.match(providerBand, /dataSlot="prettify-provider-connection"/u);
   });
 
-  it('uses one sanitized browser failure descriptor for Voice status and tooltip state', () => {
+  it('keeps browser failures sanitized while restoring main-authoritative provider state', () => {
     const localization = new I18nService('ru');
     const failure = createBrowserProviderFailurePresentation(new Error(PRIVATE_FAILURE_CANARY));
     const localizedStatus = renderRendererStatus(failure.status, localization.translate);
@@ -134,17 +134,21 @@ describe('provider status presentation', () => {
       app.indexOf('useEffect(() =>', app.indexOf('const handleProviderSelectionEvent')),
     );
     const settledCase = selectionHandler.slice(selectionHandler.indexOf("case 'switch-settled'"));
+    const completedCase = selectionHandler.slice(
+      selectionHandler.indexOf("case 'switch-completed'"),
+      selectionHandler.indexOf("case 'switch-failed'"),
+    );
 
     assert.match(failureHandler, /setIsLoggedIn\(false\)/u);
     assert.match(failureHandler, /setProviderConnectionReason\(failure\.reason\)/u);
     assert.match(failureHandler, /setProviderConnectionFailureStatus\(failure\.status\)/u);
     assert.match(failureHandler, /setStatusAndNotify\(failure\.status\)/u);
     assert.match(selectionHandler, /case 'bootstrap-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
-    assert.match(
-      selectionHandler,
-      /case 'switch-completed'[\s\S]*?if \(!event\.result\.success\)[\s\S]*?applyBrowserProviderFailure\(event\.result\.error\)/u,
-    );
+    assert.match(completedCase, /event\.result\.committedProviderId/u);
+    assert.match(completedCase, /applyProviderLoginState\(committedAuthType/u);
+    assert.doesNotMatch(completedCase, /applyBrowserProviderFailure/u);
     assert.match(selectionHandler, /case 'switch-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
+    assert.match(selectionHandler, /activeProviderAuthTypeRef\.current === 'localRuntime'/u);
     assert.doesNotMatch(settledCase, /setProviderConnectionReason|setProviderConnectionFailureStatus/u);
   });
 

@@ -109,8 +109,6 @@ export class LocalWhisperVoiceProvider extends BatchVoiceProvider {
   }
 
   public override async shutdown(): Promise<void> {
-    const result = await this.coordinator.shutdown();
-    if (!result.success) throw new LocalWhisperProviderOperationError(result.error);
     await super.shutdown();
   }
 }

@@ -3,6 +3,8 @@ import type { BackgroundBrowserStatus, ProviderAuthType, ProviderSettings } from
 export const PROVIDER_CONNECTION_REASONS = {
   ApiConfigured: 'api-configured',
   ApiNotConfigured: 'api-not-configured',
+  LocalRuntimeNotReady: 'local-runtime-not-ready',
+  LocalRuntimeReady: 'local-runtime-ready',
   BrowserReady: 'browser-ready',
   BrowserUnavailable: 'browser-unavailable',
   Checking: 'checking',
@@ -29,6 +31,17 @@ export function getProviderLoginState(
       isLoggedIn: hasSession,
       isLoading: false,
       reason: hasSession ? PROVIDER_CONNECTION_REASONS.ApiConfigured : PROVIDER_CONNECTION_REASONS.ApiNotConfigured,
+      sessionExpired: false,
+    };
+  }
+
+  if (authType === 'localRuntime') {
+    return {
+      isLoggedIn: Boolean(backgroundStatus?.ready),
+      isLoading: false,
+      reason: backgroundStatus?.ready
+        ? PROVIDER_CONNECTION_REASONS.LocalRuntimeReady
+        : PROVIDER_CONNECTION_REASONS.LocalRuntimeNotReady,
       sessionExpired: false,
     };
   }

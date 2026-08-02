@@ -74,6 +74,21 @@ import {
   type PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import {
+  LOCAL_WHISPER_IPC_CHANNELS,
+  isLocalWhisperMainStatusSnapshot,
+  isLocalWhisperIpcAcknowledgement,
+  isLocalWhisperProviderSelectionResult,
+  isLocalWhisperRendererSnapshot,
+  isLocalWhisperSettingsCommand,
+  isLocalWhisperSettingsCommandResult,
+  type LocalWhisperIpcAcknowledgement,
+  type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperProviderSelectionResult,
+  type LocalWhisperRendererSnapshot,
+  type LocalWhisperSettingsCommand,
+  type LocalWhisperSettingsCommandResult,
+} from '@shared/localWhisper';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -91,6 +106,16 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
 
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
+  };
+
+  const onDecodedEvent = <Value>(
+    channel: string,
+    decoder: (value: unknown) => value is Value,
+    callback: (value: Value) => void,
+  ): Unsubscribe => {
+    return onMainEvent<[unknown]>(channel, (value) => {
+      if (decoder(value)) callback(value);
+    });
   };
 
   return {
@@ -228,8 +253,59 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     getActiveProvider: (): Promise<string> => {
       return ipcRenderer.invoke('get-active-provider');
     },
-    setActiveProvider: (providerId: string): Promise<{ success: boolean; error?: string }> => {
-      return ipcRenderer.invoke('set-active-provider', providerId);
+    setActiveProvider: async (providerId: string): Promise<LocalWhisperProviderSelectionResult> => {
+      const result = await ipcRenderer.invoke<unknown>('set-active-provider', providerId);
+      if (!isLocalWhisperProviderSelectionResult(result)) throw new Error('Invalid provider-selection response');
+      return result;
+    },
+    getLocalWhisperSettingsSnapshot: async (): Promise<LocalWhisperRendererSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery);
+      if (!isLocalWhisperRendererSnapshot(snapshot)) throw new Error('Invalid Local Whisper settings snapshot');
+      return snapshot;
+    },
+    subscribeLocalWhisperSettings: async (): Promise<LocalWhisperRendererSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe);
+      if (!isLocalWhisperRendererSnapshot(snapshot)) throw new Error('Invalid Local Whisper settings subscription');
+      return snapshot;
+    },
+    unsubscribeLocalWhisperSettings: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper unsubscribe response');
+      return result;
+    },
+    onLocalWhisperSettingsSnapshot: (callback: (snapshot: LocalWhisperRendererSnapshot) => void): (() => void) => {
+      return onDecodedEvent(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, isLocalWhisperRendererSnapshot, callback);
+    },
+    runLocalWhisperSettingsCommand: async (
+      command: LocalWhisperSettingsCommand,
+    ): Promise<LocalWhisperSettingsCommandResult> => {
+      if (!isLocalWhisperSettingsCommand(command)) throw new Error('Invalid Local Whisper settings command');
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsCommand, command);
+      if (!isLocalWhisperSettingsCommandResult(result)) throw new Error('Invalid Local Whisper command response');
+      return result;
+    },
+    getLocalWhisperMainStatus: async (): Promise<LocalWhisperMainStatusSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusQuery);
+      if (!isLocalWhisperMainStatusSnapshot(snapshot)) throw new Error('Invalid Local Whisper main status');
+      return snapshot;
+    },
+    subscribeLocalWhisperMainStatus: async (): Promise<LocalWhisperMainStatusSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusSubscribe);
+      if (!isLocalWhisperMainStatusSnapshot(snapshot)) throw new Error('Invalid Local Whisper main subscription');
+      return snapshot;
+    },
+    unsubscribeLocalWhisperMainStatus: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusUnsubscribe);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper unsubscribe response');
+      return result;
+    },
+    onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void): (() => void) => {
+      return onDecodedEvent(LOCAL_WHISPER_IPC_CHANNELS.mainStatusChanged, isLocalWhisperMainStatusSnapshot, callback);
+    },
+    openLocalWhisperSettings: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper open-settings response');
+      return result;
     },
     checkSession: (): Promise<boolean> => {
       return ipcRenderer.invoke('check-session');

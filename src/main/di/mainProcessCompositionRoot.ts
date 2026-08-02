@@ -14,7 +14,19 @@ import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } f
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
-import { UnavailableLocalWhisperCoordinatorPort } from '../providers/LocalWhisperVoiceProvider';
+import { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
+import type { LocalWhisperCoordinatorDependencies } from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
+import {
+  LocalWhisperSnapshotService,
+  type LocalWhisperSnapshotFactsPort,
+} from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import {
+  LocalWhisperIpcController,
+  type LocalWhisperArtifactCommandPort,
+  type LocalWhisperArtifactReferencePort,
+  type LocalWhisperManagedFolderPort,
+} from '../localWhisper/ipc/LocalWhisperIpcController';
+import { ElectronLocalWhisperSenderAuthority } from '../localWhisper/ipc/ElectronLocalWhisperSenderAuthority';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
@@ -162,6 +174,14 @@ export interface MainProcessVoiceEnvironment {
   readonly providers: MainProcessVoiceProviderEnvironment;
 }
 
+export interface MainProcessLocalWhisperEnvironment {
+  readonly coordinator: LocalWhisperCoordinatorDependencies;
+  readonly facts: LocalWhisperSnapshotFactsPort;
+  readonly artifacts: LocalWhisperArtifactCommandPort;
+  readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly references: LocalWhisperArtifactReferencePort;
+}
+
 export interface MainProcessTranslationEnvironment {
   readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
   readonly now: () => number;
@@ -266,6 +286,7 @@ export type MainProcessCompositionEnvironment = Omit<
   >;
   readonly initialProviderReadiness: InitialProviderReadinessDeadlineDependencies;
   readonly logger: LoggerFactoryDependencies;
+  readonly localWhisper: MainProcessLocalWhisperEnvironment;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly textAutomation: TextAutomationServiceDependencies;
   readonly translation: MainProcessTranslationEnvironment;
@@ -421,6 +442,11 @@ export class MainProcessCompositionRoot {
       ...this.environment.voice.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const localWhisperCoordinator = new LocalWhisperCoordinator(this.environment.localWhisper.coordinator);
+    const localWhisperSnapshots = new LocalWhisperSnapshotService(
+      localWhisperCoordinator,
+      this.environment.localWhisper.facts,
+    );
     const claudeWebNavigationService = new ClaudeWebNavigationService(loggerFactory.getLogger('claude-web-provider'));
     const { chatGPT, claudeWeb, openAIApi, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
@@ -450,7 +476,7 @@ export class MainProcessCompositionRoot {
       },
       localization,
       localWhisper: {
-        coordinator: new UnavailableLocalWhisperCoordinatorPort(),
+        coordinator: localWhisperCoordinator,
       },
       openAIApi: {
         ...openAIApi,
@@ -593,6 +619,20 @@ export class MainProcessCompositionRoot {
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
+    const localWhisperIpcController = new LocalWhisperIpcController({
+      transport: this.environment.ipc.ipc,
+      authority: new ElectronLocalWhisperSenderAuthority(windowManager),
+      coordinator: localWhisperCoordinator,
+      artifacts: this.environment.localWhisper.artifacts,
+      managedFolder: this.environment.localWhisper.managedFolder,
+      references: this.environment.localWhisper.references,
+      snapshots: localWhisperSnapshots,
+      openSettings: () =>
+        windowManager.showProviderSettingsWindow(
+          'local-whisper',
+          localization.translate('providerSettings.title', { provider: 'Local Whisper' }),
+        ),
+    });
     const prettifyProfileChooserWindow = new PrettifyProfileChooserWindowController({
       ...desktopEnvironment.prettifyProfileChooser,
       createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
@@ -703,6 +743,9 @@ export class MainProcessCompositionRoot {
       diagnosticsArchive,
       diagnosticsExport,
       historyRepository,
+      localWhisperCoordinator,
+      localWhisperIpcController,
+      localWhisperSnapshots,
       prettifyProfileChooserWindow,
       prettifyProfilePortability,
       prettifyRuntime,

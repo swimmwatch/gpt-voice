@@ -96,6 +96,10 @@ class RecordingRuntime implements MainProcessOwnedRuntime {
     this.events.push('ipc-register');
   }
 
+  public async shutdownLocalWhisper(): Promise<void> {
+    this.events.push('local-whisper-shutdown');
+  }
+
   public async shutdownDiagnostics() {
     this.shutdownCount += 1;
     this.events.push('diagnostic-shutdown');
@@ -647,6 +651,7 @@ describe('main process application lifecycle', () => {
       'prettify-shutdown',
       'translation-shutdown',
       'browser-shutdown',
+      'local-whisper-shutdown',
       'diagnostics-archive-shutdown',
       'diagnostic-shutdown',
       'database-close',

@@ -24,6 +24,7 @@ import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProvi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
 import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
+import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -336,6 +337,12 @@ class MainProcessCompositionHarness {
           };
         },
       },
+      localWhisper: createDeferredLocalWhisperEnvironment({
+        platform: 'linux',
+        architecture: 'x64',
+        logicalProcessorCount: 4,
+        nextRequestId: () => '00000000-0000-4000-8000-000000000099',
+      }),
       now: () => new Date('2026-07-27T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
       reportStreamingDiagnostic: () => undefined,

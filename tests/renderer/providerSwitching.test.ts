@@ -6,6 +6,7 @@ import {
   type ProviderSelectionRuntimeState,
 } from '@renderer/providerSelectionCoordinator';
 import type { ProviderInfo } from '@renderer/types';
+import type { LocalWhisperProviderSelectionResult } from '@shared/localWhisper';
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -55,6 +56,10 @@ const READY_RUNTIME: ProviderSelectionRuntimeState = {
   hasSession: true,
 };
 
+function successfulSelection(committedProviderId: string): LocalWhisperProviderSelectionResult {
+  return { success: true, committedProviderId, readinessRevision: 1 };
+}
+
 describe('provider switching', () => {
   it('reports a bootstrap failure once without applying a partial provider snapshot', async () => {
     const events: ProviderSelectionEvent[] = [];
@@ -65,7 +70,7 @@ describe('provider switching', () => {
       },
       getProviders: async () => PROVIDERS,
       getRuntimeState: async () => READY_RUNTIME,
-      setActiveProvider: async () => ({ success: true }),
+      setActiveProvider: async (providerId) => successfulSelection(providerId),
     });
 
     await coordinator.bootstrap();
@@ -79,7 +84,7 @@ describe('provider switching', () => {
 
   it('discards a late bootstrap snapshot after switching starts', async () => {
     const activeProvider = deferred<string>();
-    const setProvider = deferred<{ success: boolean }>();
+    const setProvider = deferred<LocalWhisperProviderSelectionResult>();
     const events: ProviderSelectionEvent[] = [];
     let runtimeCalls = 0;
     const coordinator = createProviderSelectionCoordinator({
@@ -96,7 +101,7 @@ describe('provider switching', () => {
     const bootstrap = coordinator.bootstrap();
     const switching = coordinator.switchProvider('claude-web', 'browserSession');
     activeProvider.resolve('chatgpt');
-    setProvider.resolve({ success: true });
+    setProvider.resolve(successfulSelection('claude-web'));
     await Promise.all([bootstrap, switching]);
 
     assert.equal(
@@ -111,8 +116,8 @@ describe('provider switching', () => {
   });
 
   it('keeps only the latest rapid-switch result and final provider', async () => {
-    const first = deferred<{ success: boolean }>();
-    const second = deferred<{ success: boolean }>();
+    const first = deferred<LocalWhisperProviderSelectionResult>();
+    const second = deferred<LocalWhisperProviderSelectionResult>();
     const events: ProviderSelectionEvent[] = [];
     const persisted: string[] = [];
     const coordinator = createProviderSelectionCoordinator({
@@ -128,8 +133,8 @@ describe('provider switching', () => {
 
     const firstSwitch = coordinator.switchProvider('claude-web', 'browserSession');
     const secondSwitch = coordinator.switchProvider('openai-api', 'apiKey');
-    first.resolve({ success: true });
-    second.resolve({ success: true });
+    first.resolve(successfulSelection('claude-web'));
+    second.resolve(successfulSelection('openai-api'));
     await Promise.all([firstSwitch, secondSwitch]);
 
     assert.deepEqual(persisted, ['claude-web', 'openai-api']);
@@ -153,7 +158,7 @@ describe('provider switching', () => {
       getRuntimeState: async () => READY_RUNTIME,
       setActiveProvider: async (providerId) => {
         order.push(`persist:${providerId}`);
-        return { success: true };
+        return successfulSelection(providerId);
       },
     });
 
@@ -170,7 +175,7 @@ describe('provider switching', () => {
       getActiveProvider: async () => 'chatgpt',
       getProviders: async () => PROVIDERS,
       getRuntimeState: () => runtime.promise,
-      setActiveProvider: async () => ({ success: true }),
+      setActiveProvider: async (providerId) => successfulSelection(providerId),
     });
 
     const switching = coordinator.switchProvider('claude-web', 'browserSession');
@@ -203,5 +208,7 @@ describe('provider switching', () => {
       ['switch-started', 'switch-failed', 'switch-settled'],
     );
     assert.equal(events[1].type === 'switch-failed' ? events[1].providerId : undefined, 'claude-web');
+    assert.equal(events[1].type === 'switch-failed' ? events[1].committedProviderId : undefined, 'chatgpt');
+    assert.deepEqual(events[1].type === 'switch-failed' ? events[1].runtime : undefined, READY_RUNTIME);
   });
 });

@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file -- The window fake owns one isolated Electron resource fixture. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { WindowManager } from '@main/window';
@@ -29,9 +29,15 @@ class RecordingBrowserWindow {
     public readonly id: number,
     public readonly options: BrowserWindowConstructorOptions,
   ) {
+    const mainFrame = {} as WebFrameMain;
+    Object.defineProperty(mainFrame, 'url', { get: () => this.url });
     this.webContents = {
+      get mainFrame() {
+        return mainFrame;
+      },
       getURL: () => this.url,
       id,
+      isDestroyed: () => this.destroyed,
       on: (event: string, listener: WindowListener) => {
         this.addListener(this.webContentsListeners, event, listener);
         return this.webContents;
@@ -185,6 +191,34 @@ describe('WindowManager', () => {
     harness.manager.publishTranslationProviderConnectionState(state);
 
     assert.deepEqual(harness.created[0]?.sent, [[TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state]]);
+  });
+
+  it('authorizes only exact live main and Local Whisper settings frames', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    harness.manager.showProviderSettingsWindow('local-whisper', 'Local Whisper');
+    const mainWindow = harness.created[0];
+    const settingsWindow = harness.created[1];
+    assert.ok(mainWindow && settingsWindow);
+
+    assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, mainWindow.webContents.mainFrame), true);
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
+      true,
+    );
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(settingsWindow.webContents, {
+        url: settingsWindow.loadUrls[0],
+      } as WebFrameMain),
+      false,
+    );
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(mainWindow.webContents, mainWindow.webContents.mainFrame),
+      false,
+    );
   });
 
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {

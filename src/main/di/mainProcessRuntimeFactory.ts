@@ -36,6 +36,10 @@ import type { PrettifyProfilePortabilityService } from '../services/prettifyProf
 import type { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
 import { PrettifyProfileChooserIpcRegistrar } from '../prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from '../prettifyProfileChooserWindowController';
+import type { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
+import type { LocalWhisperIpcController } from '../localWhisper/ipc/LocalWhisperIpcController';
+import type { LocalWhisperSnapshotService } from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import { VoiceProviderSelectionService } from '../localWhisper/ipc/VoiceProviderSelectionService';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -55,6 +59,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'prettifyProfileChooserWindow'
   | 'prettifyProfilePortability'
   | 'prettifyRuntime'
+  | 'providerSelection'
   | 'shortcutController'
   | 'streamingTranscriptionService'
   | 'transcriptionService'
@@ -96,6 +101,9 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
+  readonly localWhisperCoordinator: LocalWhisperCoordinator;
+  readonly localWhisperIpcController: LocalWhisperIpcController;
+  readonly localWhisperSnapshots: LocalWhisperSnapshotService;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly shortcutController: ShortcutController;
@@ -113,6 +121,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     private readonly controllers: MainProcessRuntimeFactoryControllers,
   ) {}
 
+  /** Creates one application-owned runtime graph without publishing shared mutable state. */
   public create(): MainProcessOwnedRuntime {
     const { database, diagnosticCaptureSettings, diagnosticStorage, diagnosticsArchive, historyRepository } =
       this.controllers;
@@ -159,6 +168,12 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       localization: this.dependencies.ipc.localization,
       logger: this.dependencies.ipc.logger,
     });
+    const providerSelection = new VoiceProviderSelectionService({
+      config: this.dependencies.ipc.config,
+      runtime: this.controllers.backgroundBrowserService,
+      registry: this.controllers.voiceProviderRegistry,
+      getReadinessRevision: () => this.controllers.localWhisperSnapshots.snapshot.snapshotRevision,
+    });
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
@@ -174,6 +189,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
       prettifyProfilePortability: this.controllers.prettifyProfilePortability,
       prettifyRuntime: this.controllers.prettifyRuntime,
+      providerSelection,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
       transcriptionService,
@@ -189,6 +205,9 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticStorage,
       diagnosticsArchive,
       ipcController,
+      localWhisperCoordinator: this.controllers.localWhisperCoordinator,
+      localWhisperIpcController: this.controllers.localWhisperIpcController,
+      localWhisperSnapshots: this.controllers.localWhisperSnapshots,
     });
   }
 

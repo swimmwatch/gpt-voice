@@ -1,4 +1,5 @@
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo } from '@renderer/types';
+import type { LocalWhisperProviderSelectionResult } from '@shared/localWhisper';
 
 export interface ProviderSelectionRuntimeState {
   backgroundStatus: BackgroundBrowserStatus;
@@ -26,14 +27,16 @@ export type ProviderSelectionEvent =
       type: 'switch-completed';
       authType: ProviderAuthType;
       providerId: string;
-      result: { success: boolean; error?: string };
+      result: LocalWhisperProviderSelectionResult;
       runtime: ProviderSelectionRuntimeState;
     }
   | {
       type: 'switch-failed';
       authType: ProviderAuthType;
+      committedProviderId: string | null;
       error: unknown;
       providerId: string;
+      runtime: ProviderSelectionRuntimeState | null;
     }
   | {
       type: 'switch-settled';
@@ -45,7 +48,7 @@ export interface ProviderSelectionCoordinatorDependencies {
   getActiveProvider(): Promise<string>;
   getProviders(): Promise<ProviderInfo[]>;
   getRuntimeState(): Promise<ProviderSelectionRuntimeState>;
-  setActiveProvider(providerId: string): Promise<{ success: boolean; error?: string }>;
+  setActiveProvider(providerId: string): Promise<LocalWhisperProviderSelectionResult>;
 }
 
 export interface ProviderSelectionCoordinator {
@@ -109,7 +112,26 @@ export function createProviderSelectionCoordinator(
         dependencies.emit({ type: 'switch-completed', authType, providerId, result, runtime });
       } catch (error: unknown) {
         if (isCurrent(switchRequestId)) {
-          dependencies.emit({ type: 'switch-failed', authType, error, providerId });
+          let committedProviderId: string | null = null;
+          let runtime: ProviderSelectionRuntimeState | null = null;
+          try {
+            [committedProviderId, runtime] = await Promise.all([
+              dependencies.getActiveProvider(),
+              dependencies.getRuntimeState(),
+            ]);
+          } catch {
+            // The renderer still preserves its prior committed identity when recovery state cannot be queried.
+          }
+          if (isCurrent(switchRequestId)) {
+            dependencies.emit({
+              type: 'switch-failed',
+              authType,
+              committedProviderId,
+              error,
+              providerId,
+              runtime,
+            });
+          }
         }
       } finally {
         if (isCurrent(switchRequestId)) {
