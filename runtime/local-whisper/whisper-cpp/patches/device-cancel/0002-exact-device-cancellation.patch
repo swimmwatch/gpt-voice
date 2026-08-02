@@ -1,0 +1,468 @@
+diff --git a/include/whisper.h b/include/whisper.h
+index b5dcdb2..e188592 100644
+--- a/include/whisper.h
++++ b/include/whisper.h
+@@ -118,6 +118,11 @@ extern "C" {
+         bool  flash_attn;
+         int   gpu_device;  // CUDA device
+ 
++        // Local Whisper pins one already-enumerated backend device and fails
++        // closed instead of resolving the ordinal a second time.
++        void * local_whisper_selected_device;
++        bool   local_whisper_require_gpu;
++
+         // [EXPERIMENTAL] Token-level timestamps with DTW
+         bool dtw_token_timestamps;
+         enum whisper_alignment_heads_preset dtw_aheads_preset;
+@@ -128,6 +133,13 @@ extern "C" {
+         size_t dtw_mem_size; // TODO: remove
+     };
+ 
++    struct whisper_local_device_evidence {
++        const char * activated_device_id;
++        const char * primary_state_device_id;
++        uint64_t model_weight_bytes;
++        bool single_gpu_model_owner;
++    };
++
+     typedef struct whisper_token_data {
+         whisper_token id;  // token id
+         whisper_token tid; // forced timestamp token id
+@@ -270,6 +282,16 @@ extern "C" {
+     WHISPER_API void whisper_free_params(struct whisper_full_params * params);
+     WHISPER_API void whisper_free_context_params(struct whisper_context_params * params);
+ 
++    // Project-owned evidence hooks carried only by the locked Local Whisper
++    // patch series. Returned identity pointers remain owned by the backend.
++    WHISPER_API bool whisper_local_get_device_evidence(
++            struct whisper_context * ctx,
++            struct whisper_local_device_evidence * evidence);
++    WHISPER_API bool whisper_local_set_abort_callback(
++            struct whisper_context * ctx,
++            ggml_abort_callback abort_callback,
++            void * abort_callback_user_data);
++
+     // Convert RAW PCM audio to log mel spectrogram.
+     // The resulting spectrogram is stored inside the default state of the provided whisper context.
+     // Returns 0 on success
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+index d979e16..767ba7e 100644
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -191,7 +191,9 @@ static bool ggml_graph_compute_helper(
+       ggml_backend_sched_t   sched,
+         struct ggml_cgraph * graph,
+                        int   n_threads,
+-                      bool   sched_reset = true) {
++                      bool   sched_reset = true,
++       ggml_abort_callback   abort_callback = nullptr,
++                      void * abort_callback_data = nullptr) {
+     for (int i = 0; i < ggml_backend_sched_get_n_backends(sched); ++i) {
+         ggml_backend_t backend = ggml_backend_sched_get_backend(sched, i);
+         ggml_backend_dev_t dev = ggml_backend_get_device(backend);
+@@ -201,15 +203,25 @@ static bool ggml_graph_compute_helper(
+         if (fn_set_n_threads) {
+             fn_set_n_threads(backend, n_threads);
+         }
++        auto * fn_set_abort_callback = (ggml_backend_set_abort_callback_t)
++            ggml_backend_reg_get_proc_address(reg, "ggml_backend_set_abort_callback");
++        if (fn_set_abort_callback) {
++            fn_set_abort_callback(backend, abort_callback, abort_callback_data);
++        }
++    }
++
++    if (abort_callback && abort_callback(abort_callback_data)) {
++        return false;
+     }
+ 
+     const bool t = (ggml_backend_sched_graph_compute(sched, graph) == GGML_STATUS_SUCCESS);
++    const bool aborted = abort_callback && abort_callback(abort_callback_data);
+ 
+     if (!t || sched_reset) {
+         ggml_backend_sched_reset(sched);
+     }
+ 
+-    return t;
++    return t && !aborted;
+ }
+ 
+ // TODO: move these functions to ggml-base with support for ggml-backend?
+@@ -1295,30 +1307,37 @@ static size_t aheads_masks_nbytes(struct whisper_aheads_masks & aheads_masks) {
+     return size;
+ }
+ 
+-static ggml_backend_t whisper_backend_init_gpu(const whisper_context_params & params) {
+-    ggml_log_set(g_state.log_callback, g_state.log_callback_user_data);
+-
+-    ggml_backend_dev_t dev = nullptr;
++static ggml_backend_dev_t whisper_selected_gpu(const whisper_context_params & params) {
++    if (params.local_whisper_selected_device != nullptr) {
++        ggml_backend_dev_t selected = (ggml_backend_dev_t) params.local_whisper_selected_device;
++        const auto type = ggml_backend_dev_type(selected);
++        return type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU
++            ? selected
++            : nullptr;
++    }
+ 
+-    int cnt = 0;
++    ggml_backend_dev_t selected = nullptr;
++    int count = 0;
+     if (params.use_gpu) {
+         for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+-            ggml_backend_dev_t dev_cur = ggml_backend_dev_get(i);
+-            enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(dev_cur);
+-            const char * dev_name = ggml_backend_dev_name(dev_cur);
+-            WHISPER_LOG_INFO("%s: device %zu: %s (type: %d)\n", __func__, i, dev_name, dev_type);
+-            if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU || dev_type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+-                WHISPER_LOG_INFO("%s: found GPU device %zu: %s (type: %d, cnt: %d)\n", __func__, i, dev_name, dev_type, cnt);
+-                if (cnt == params.gpu_device) {
+-                    dev = dev_cur;
+-                }
+-
+-                if (++cnt > params.gpu_device) {
++            ggml_backend_dev_t candidate = ggml_backend_dev_get(i);
++            const auto type = ggml_backend_dev_type(candidate);
++            if (type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
++                if (count == params.gpu_device) {
++                    selected = candidate;
+                     break;
+                 }
++                ++count;
+             }
+         }
+     }
++    return selected;
++}
++
++static ggml_backend_t whisper_backend_init_gpu(const whisper_context_params & params) {
++    ggml_log_set(g_state.log_callback, g_state.log_callback_user_data);
++
++    ggml_backend_dev_t dev = whisper_selected_gpu(params);
+ 
+     if (dev == nullptr) {
+         WHISPER_LOG_INFO("%s: no GPU found\n", __func__);
+@@ -1341,6 +1360,8 @@ static std::vector<ggml_backend_t> whisper_backend_init(const whisper_context_pa
+ 
+     if (backend_gpu) {
+         result.push_back(backend_gpu);
++    } else if (params.local_whisper_require_gpu) {
++        return {};
+     }
+ 
+     // ACCEL backends
+@@ -1374,20 +1395,11 @@ static buft_list_t make_buft_list(whisper_context_params & params) {
+ 
+     // GPU
+     if (params.use_gpu) {
+-        int cnt = 0;
+-        for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+-            ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+-            if (ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_GPU || ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+-                if (cnt == params.gpu_device) {
+-                    auto * buft = ggml_backend_dev_buffer_type(dev);
+-                    if (buft) {
+-                        buft_list.emplace_back(dev, buft);
+-                    }
+-                }
+-
+-                if (++cnt > params.gpu_device) {
+-                    break;
+-                }
++        ggml_backend_dev_t dev = whisper_selected_gpu(params);
++        if (dev != nullptr) {
++            auto * buft = ggml_backend_dev_buffer_type(dev);
++            if (buft) {
++                buft_list.emplace_back(dev, buft);
+             }
+         }
+     }
+@@ -2410,7 +2422,8 @@ static bool whisper_encode_internal(
+         }
+ 
+         if (!whisper_encode_external(wstate)) {
+-            if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++            if (!ggml_graph_compute_helper(sched, gf, n_threads, true, abort_callback,
++                                           abort_callback_data)) {
+                 return false;
+             }
+         } else {
+@@ -2435,7 +2448,8 @@ static bool whisper_encode_internal(
+             return false;
+         }
+ 
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, true, abort_callback,
++                                       abort_callback_data)) {
+             return false;
+         }
+     }
+@@ -2451,7 +2465,8 @@ static bool whisper_encode_internal(
+             return false;
+         }
+ 
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, true, abort_callback,
++                                       abort_callback_data)) {
+             return false;
+         }
+     }
+@@ -2948,7 +2963,8 @@ static bool whisper_decode_internal(
+ 
+         logits = ggml_graph_node(gf, -1);
+ 
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, true, abort_callback,
++                                       abort_callback_data)) {
+             return false;
+         }
+     }
+@@ -3110,7 +3126,9 @@ static void fft(float* in, int N, float* out) {
+ 
+ static void log_mel_spectrogram_worker_thread(int ith, const float * hann, const std::vector<float> & samples,
+                                               int n_samples, int frame_size, int frame_step, int n_threads,
+-                                              const whisper_filters & filters, whisper_mel & mel) {
++                                              const whisper_filters & filters, whisper_mel & mel,
++                                              ggml_abort_callback abort_callback, void * abort_callback_data,
++                                              std::atomic_bool & aborted) {
+     std::vector<float> fft_in(frame_size * 2, 0.0);
+     std::vector<float> fft_out(frame_size * 2 * 2 * 2);
+ 
+@@ -3122,6 +3140,10 @@ static void log_mel_spectrogram_worker_thread(int ith, const float * hann, const
+ 
+     // calculate FFT only when fft_in are not all zero
+     for (; i < std::min(n_samples / frame_step + 1, mel.n_len); i += n_threads) {
++        if (abort_callback && abort_callback(abort_callback_data)) {
++            aborted.store(true, std::memory_order_release);
++            return;
++        }
+         const int offset = i * frame_step;
+ 
+         // apply Hann window (~10% faster)
+@@ -3167,6 +3189,10 @@ static void log_mel_spectrogram_worker_thread(int ith, const float * hann, const
+     // Otherwise fft_out are all zero
+     double sum = log10(1e-10);
+     for (; i < mel.n_len; i += n_threads) {
++        if (abort_callback && abort_callback(abort_callback_data)) {
++            aborted.store(true, std::memory_order_release);
++            return;
++        }
+         for (int j = 0; j < mel.n_mel; j++) {
+             mel.data[j * mel.n_len + i] = sum;
+         }
+@@ -3185,9 +3211,15 @@ static bool log_mel_spectrogram(
+               const int   n_threads,
+               const whisper_filters & filters,
+               const bool   debug,
+-              whisper_mel & mel) {
++              whisper_mel & mel,
++        ggml_abort_callback abort_callback,
++                       void * abort_callback_data) {
+     const int64_t t_start_us = ggml_time_us();
+ 
++    if (abort_callback && abort_callback(abort_callback_data)) {
++        return false;
++    }
++
+     // Hann window
+     WHISPER_ASSERT(frame_size == WHISPER_N_FFT && "Unsupported frame_size");
+     const float * hann = global_cache.hann_window;
+@@ -3216,20 +3248,27 @@ static bool log_mel_spectrogram(
+     mel.data.resize(mel.n_mel * mel.n_len);
+ 
+     {
++        std::atomic_bool aborted(false);
+         std::vector<std::thread> workers(n_threads - 1);
+         for (int iw = 0; iw < n_threads - 1; ++iw) {
+             workers[iw] = std::thread(
+                     log_mel_spectrogram_worker_thread, iw + 1, hann, std::cref(samples_padded),
+                     n_samples + stage_2_pad, frame_size, frame_step, n_threads,
+-                    std::cref(filters), std::ref(mel));
++                    std::cref(filters), std::ref(mel), abort_callback, abort_callback_data,
++                    std::ref(aborted));
+         }
+ 
+         // main thread
+-        log_mel_spectrogram_worker_thread(0, hann, samples_padded, n_samples + stage_2_pad, frame_size, frame_step, n_threads, filters, mel);
++        log_mel_spectrogram_worker_thread(0, hann, samples_padded, n_samples + stage_2_pad,
++                frame_size, frame_step, n_threads, filters, mel, abort_callback,
++                abort_callback_data, aborted);
+ 
+         for (int iw = 0; iw < n_threads - 1; ++iw) {
+             workers[iw].join();
+         }
++        if (aborted.load(std::memory_order_acquire)) {
++            return false;
++        }
+     }
+ 
+     // clamping and normalization
+@@ -3615,6 +3654,8 @@ struct whisper_context_params whisper_context_default_params() {
+         /*.use_gpu              =*/ true,
+         /*.flash_attn           =*/ true,
+         /*.gpu_device           =*/ 0,
++        /*.local_whisper_selected_device =*/ nullptr,
++        /*.local_whisper_require_gpu =*/ false,
+ 
+         /*.dtw_token_timestamps =*/ false,
+         /*.dtw_aheads_preset    =*/ WHISPER_AHEADS_NONE,
+@@ -3881,6 +3922,80 @@ void whisper_free(struct whisper_context * ctx) {
+     }
+ }
+ 
++bool whisper_local_get_device_evidence(
++        struct whisper_context * ctx,
++        struct whisper_local_device_evidence * evidence) {
++    if (ctx == nullptr || evidence == nullptr || ctx->state == nullptr ||
++        ctx->params.local_whisper_selected_device == nullptr || ctx->state->backends.empty()) {
++        return false;
++    }
++    ggml_backend_dev_t selected = (ggml_backend_dev_t) ctx->params.local_whisper_selected_device;
++    ggml_backend_dev_props selected_props{};
++    ggml_backend_dev_get_props(selected, &selected_props);
++    if (selected_props.device_id == nullptr) {
++        return false;
++    }
++
++    uint64_t weight_bytes = 0;
++    bool single_gpu_owner = true;
++    for (ggml_backend_buffer_t buffer : ctx->model.buffers) {
++        ggml_backend_dev_t owner = ggml_backend_buft_get_device(ggml_backend_buffer_get_type(buffer));
++        if (owner == nullptr) {
++            continue;
++        }
++        const auto type = ggml_backend_dev_type(owner);
++        if (type != GGML_BACKEND_DEVICE_TYPE_GPU && type != GGML_BACKEND_DEVICE_TYPE_IGPU) {
++            continue;
++        }
++        if (owner != selected) {
++            single_gpu_owner = false;
++            continue;
++        }
++        const size_t bytes = ggml_backend_buffer_get_size(buffer);
++        if (bytes > UINT64_MAX - weight_bytes) {
++            return false;
++        }
++        weight_bytes += bytes;
++    }
++
++    ggml_backend_dev_t primary = ggml_backend_get_device(ctx->state->backends[0]);
++    if (primary == nullptr) {
++        return false;
++    }
++    ggml_backend_dev_props primary_props{};
++    ggml_backend_dev_get_props(primary, &primary_props);
++    if (primary_props.device_id == nullptr) {
++        return false;
++    }
++    evidence->activated_device_id = selected_props.device_id;
++    evidence->primary_state_device_id = primary_props.device_id;
++    evidence->model_weight_bytes = weight_bytes;
++    evidence->single_gpu_model_owner = single_gpu_owner;
++    return true;
++}
++
++bool whisper_local_set_abort_callback(
++        struct whisper_context * ctx,
++        ggml_abort_callback abort_callback,
++        void * abort_callback_user_data) {
++    if (ctx == nullptr || ctx->state == nullptr) {
++        return false;
++    }
++    for (ggml_backend_t backend : ctx->state->backends) {
++        ggml_backend_dev_t device = ggml_backend_get_device(backend);
++        ggml_backend_reg_t registry = device ? ggml_backend_dev_backend_reg(device) : nullptr;
++        auto * set_abort_callback = registry
++            ? (ggml_backend_set_abort_callback_t) ggml_backend_reg_get_proc_address(
++                registry, "ggml_backend_set_abort_callback")
++            : nullptr;
++        if (set_abort_callback == nullptr) {
++            continue;
++        }
++        set_abort_callback(backend, abort_callback, abort_callback_user_data);
++    }
++    return true;
++}
++
+ void whisper_free_context_params(struct whisper_context_params * params) {
+     if (params) {
+         delete params;
+@@ -3893,8 +4008,12 @@ void whisper_free_params(struct whisper_full_params * params) {
+     }
+ }
+ 
+-int whisper_pcm_to_mel_with_state(struct whisper_context * ctx, struct whisper_state * state, const float * samples, int n_samples, int n_threads) {
+-    if (!log_mel_spectrogram(*state, samples, n_samples, WHISPER_SAMPLE_RATE, WHISPER_N_FFT, WHISPER_HOP_LENGTH, ctx->model.filters.n_mel, n_threads, ctx->model.filters, false, state->mel)) {
++static int whisper_pcm_to_mel_with_state_abort(struct whisper_context * ctx,
++        struct whisper_state * state, const float * samples, int n_samples, int n_threads,
++        ggml_abort_callback abort_callback, void * abort_callback_data) {
++    if (!log_mel_spectrogram(*state, samples, n_samples, WHISPER_SAMPLE_RATE, WHISPER_N_FFT,
++            WHISPER_HOP_LENGTH, ctx->model.filters.n_mel, n_threads, ctx->model.filters,
++            false, state->mel, abort_callback, abort_callback_data)) {
+         WHISPER_LOG_ERROR("%s: failed to compute mel spectrogram\n", __func__);
+         return -1;
+     }
+@@ -3902,6 +4021,11 @@ int whisper_pcm_to_mel_with_state(struct whisper_context * ctx, struct whisper_s
+     return 0;
+ }
+ 
++int whisper_pcm_to_mel_with_state(struct whisper_context * ctx, struct whisper_state * state, const float * samples, int n_samples, int n_threads) {
++    return whisper_pcm_to_mel_with_state_abort(ctx, state, samples, n_samples, n_threads,
++            nullptr, nullptr);
++}
++
+ int whisper_pcm_to_mel(struct whisper_context * ctx, const float * samples, int n_samples, int n_threads) {
+     return whisper_pcm_to_mel_with_state(ctx, ctx->state, samples, n_samples, n_threads);
+ }
+@@ -6829,7 +6953,11 @@ int whisper_full_with_state(
+ 
+     if (n_samples > 0) {
+         // compute log mel spectrogram
+-        if (whisper_pcm_to_mel_with_state(ctx, state, samples, n_samples, params.n_threads) != 0) {
++        if (params.abort_callback && params.abort_callback(params.abort_callback_user_data)) {
++            return -100;
++        }
++        if (whisper_pcm_to_mel_with_state_abort(ctx, state, samples, n_samples,
++                params.n_threads, params.abort_callback, params.abort_callback_user_data) != 0) {
+             WHISPER_LOG_ERROR("%s: failed to compute log mel spectrogram\n", __func__);
+             return -2;
+         }
+@@ -7024,6 +7152,9 @@ int whisper_full_with_state(
+ 
+     // main loop
+     while (true) {
++        if (params.abort_callback && params.abort_callback(params.abort_callback_user_data)) {
++            return -100;
++        }
+         if (params.progress_callback) {
+             const int progress_cur = (100*(seek - seek_start))/(seek_end - seek_start);
+ 
+@@ -7209,6 +7340,9 @@ int whisper_full_with_state(
+             }
+ 
+             for (int i = 0, n_max = whisper_n_text_ctx(ctx)/2 - 4; i < n_max; ++i) {
++                if (params.abort_callback && params.abort_callback(params.abort_callback_user_data)) {
++                    return -100;
++                }
+                 const int64_t t_start_sample_us = ggml_time_us();
+ 
+                 if (params.strategy == whisper_sampling_strategy::WHISPER_SAMPLING_BEAM_SEARCH) {
+@@ -7666,6 +7800,9 @@ int whisper_full_with_state(
+ 
+                             //printf("tt0 = %d, tt1 = %d, text = %s, token = %s, token_id = %d, tid = %d\n", tt0, tt1, text.c_str(), ctx->vocab.id_to_token[tokens_cur[i].id].c_str(), tokens_cur[i].id, tokens_cur[i].tid);
+ 
++                            if (params.abort_callback && params.abort_callback(params.abort_callback_user_data)) {
++                                return -100;
++                            }
+                             result_all.push_back({ tt0, tt1, text, state->no_speech_prob, {}, speaker_turn_next });
+                             for (int j = i0; j <= i; j++) {
+                                 result_all.back().tokens.push_back(tokens_cur[j]);
+@@ -7714,6 +7851,9 @@ int whisper_full_with_state(
+                         fflush(stdout);
+                     }
+ 
++                    if (params.abort_callback && params.abort_callback(params.abort_callback_user_data)) {
++                        return -100;
++                    }
+                     result_all.push_back({ tt0, tt1, text, state->no_speech_prob, {}, speaker_turn_next });
+                     for (int j = i0; j < (int) tokens_cur.size(); j++) {
+                         result_all.back().tokens.push_back(tokens_cur[j]);

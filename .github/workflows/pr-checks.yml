@@ -112,6 +112,8 @@ jobs:
         run: |
           npm run test:local-whisper:whisper-cpp-core
           npm run test:local-whisper:whisper-cpp-loader
+          npm run test:local-whisper:whisper-cpp-device-proof
+          npm run test:local-whisper:whisper-cpp-cancellation
 
       - name: Build and verify Linux Whisper.cpp CPU pack
         run: |
@@ -173,6 +175,9 @@ jobs:
 
       - name: Verify Windows Whisper.cpp CPU source contract
         run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-candidate-task19-v1 --contract-only
+
+      - name: Verify Windows Whisper.cpp CUDA source contract
+        run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1 --contract-only
 
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem

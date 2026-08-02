@@ -76,15 +76,17 @@ const limitProvenancePath = resolve(
   'limits',
   'whisper-cpp-loader-limits-v1.provenance.json',
 );
-export const patchRoot = resolve(whisperCppRoot, 'patches', 'core');
-export const patchLockPath = resolve(patchRoot, 'local-whisper-whisper-cpp-core-v1.json');
+export const patchRoot = resolve(whisperCppRoot, 'patches');
+export const patchLockPath = resolve(patchRoot, 'device-cancel', 'local-whisper-whisper-cpp-device-cancel-v1.json');
 export const patchedSourceRoot = resolve(taskCacheRoot, 'patched-source');
 export const generatedIncludeRoot = resolve(taskCacheRoot, 'generated');
 
 const allowedProfiles = new Set([
   'linux-x64-cpu-baseline-v1',
   'linux-x64-clang-18.1.3-asan-ubsan-v1',
+  'linux-x64-cuda-12.8.1-sm120a-v1',
   'windows-x64-cpu-candidate-task19-v1',
+  'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
 ]);
 
 function assertTaskOwnedPath(path) {
@@ -275,6 +277,9 @@ function profileTools(profile) {
     cmake: resolveProfileTool(profile, toolchainRoot, 'cmake'),
     cCompiler: resolveProfileTool(profile, toolchainRoot, 'c-compiler'),
     cxxCompiler: resolveProfileTool(profile, toolchainRoot, 'cxx-compiler'),
+    cudaCompiler: profile.tools.some((tool) => tool.role === 'cuda-compiler')
+      ? resolveProfileTool(profile, toolchainRoot, 'cuda-compiler')
+      : null,
     linker: resolveProfileTool(profile, toolchainRoot, 'linker'),
     ninja: resolveProfileTool(profile, toolchainRoot, 'ninja'),
     inputs,
@@ -305,10 +310,12 @@ export function configureBuild(profileId, { engine, tests }) {
     `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
     `-DLOCAL_WHISPER_BUILD_ENGINE=${engine ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`,
+    `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
     `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${profileId.includes('clang-18.1.3') ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine ? preparePatchedSource() : patchedSourceRoot}`,
-    `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity()}`,
+    `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId)}`,
   ];
+  if (tools.cudaCompiler !== null) arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
   if (engine) {
     for (const [key, value] of Object.entries(profile.cmakeCache).sort(([left], [right]) =>
       left.localeCompare(right),
@@ -361,7 +368,9 @@ export function runFormattingAndTidy(configured, engineConfigured) {
   run(resolveClangFormat(workspaceRoot, clangRoot), ['--dry-run', '--Werror', ...files], {
     label: 'Whisper.cpp project clang-format',
   });
-  const qualityFiles = files.filter((path) => path.includes('/core/') && !path.endsWith('/core/main.cpp'));
+  const qualityFiles = files.filter(
+    (path) => (path.includes('/core/') && !path.endsWith('/core/main.cpp')) || path.includes('/device/'),
+  );
   const engineFiles = files.filter((path) => path.includes('/adapter/') || path.endsWith('/core/main.cpp'));
   run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', configured.buildRoot, ...qualityFiles], {
     label: 'Whisper.cpp project core clang-tidy',
@@ -371,10 +380,10 @@ export function runFormattingAndTidy(configured, engineConfigured) {
   });
 }
 
-export function buildIdentity() {
+export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1') {
   const patchLock = readJson(patchLockPath);
   const table = readJson(limitTablePath);
-  const profile = requireProfile('linux-x64-cpu-baseline-v1');
+  const profile = requireProfile(profileId);
   return canonicalDigest({
     sourceLockId: patchLock.sourceLockId,
     patchedManifestSha256: patchLock.finalManifestSha256,

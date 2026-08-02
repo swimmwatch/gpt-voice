@@ -1,6 +1,7 @@
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 
 #include "local_whisper/common/sha256.hpp"
+#include "local_whisper/whisper_cpp/error.hpp"
 #include "test_model_source.hpp"
 
 #include <gtest/gtest.h>
@@ -12,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -71,10 +73,17 @@ public:
 
 class FakeEngine final : public SpeechEngine {
 public:
-  void load(ExactModelReader& reader, const std::string& family,
-            const std::string& variant) override {
+  [[nodiscard]] EngineBackend backend() const noexcept override { return EngineBackend::cpu; }
+  [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority&,
+                                                 const CancellationToken&) override {
+    throw std::logic_error("CPU fake cannot probe a GPU");
+  }
+  void load(ExactModelReader& reader, const std::string& family, const std::string& variant,
+            const std::optional<DeviceOperationAuthority>& authority,
+            const CancellationToken&) override {
     EXPECT_EQ(family, "tiny");
     EXPECT_EQ(variant, "full");
+    EXPECT_FALSE(authority.has_value());
     reader.skip_exact(reader.expected_bytes());
     reader.verify_complete();
     reader.close();
@@ -82,18 +91,23 @@ public:
     ++load_calls;
   }
 
-  void warm_up(std::uint32_t cpu_threads) override {
+  void warm_up(std::uint32_t cpu_threads, const CancellationToken&) override {
     EXPECT_TRUE(loaded_);
     EXPECT_EQ(cpu_threads, 1U);
     ++warm_up_calls;
   }
 
   [[nodiscard]] std::string transcribe(std::span<const float> samples,
-                                       const TranscriptionOptions& options) override {
+                                       const TranscriptionOptions& options,
+                                       const CancellationToken& cancellation) override {
     EXPECT_TRUE(loaded_);
     EXPECT_FALSE(samples.empty());
     EXPECT_EQ(options.language, "en");
     ++transcribe_calls;
+    while (block_until_cancel && !cancellation.requested())
+      std::this_thread::yield();
+    if (cancellation.requested())
+      throw CoreError(FailureCode::cancelled, "fake inference cancelled");
     return "test transcript";
   }
 
@@ -102,11 +116,15 @@ public:
     ++unload_calls;
   }
   [[nodiscard]] bool loaded() const noexcept override { return loaded_; }
+  [[nodiscard]] DeviceLoadEvidence load_evidence(const DeviceOperationAuthority&) const override {
+    throw std::logic_error("CPU fake has no GPU load evidence");
+  }
 
   std::size_t load_calls = 0U;
   std::size_t warm_up_calls = 0U;
   std::size_t transcribe_calls = 0U;
   std::size_t unload_calls = 0U;
+  bool block_until_cancel = false;
 
 private:
   bool loaded_ = false;
@@ -118,11 +136,6 @@ public:
 
 private:
   mutable std::uint64_t ticks_ = 1U;
-};
-
-class NeverCancelled final : public WorkerCancellation {
-public:
-  [[nodiscard]] bool requested() const noexcept override { return false; }
 };
 
 void write_u16(std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint16_t value) {
@@ -204,14 +217,14 @@ struct Fixture final {
   [[nodiscard]] int run() {
     CpuProbe probe;
     WorkerApplication application(WorkerRunMode::load, channel, engine, probe, clock, cancellation,
-                                  &authority);
+                                  &authority, nullptr);
     return application.run();
   }
 
   FakeChannel channel;
   FakeEngine engine;
   FakeClock clock;
-  NeverCancelled cancellation;
+  CancellationController cancellation;
   FakeAuthority authority;
 };
 
@@ -265,6 +278,31 @@ TEST(WorkerApplication, RejectsMalformedAudioBeforeInference) {
   ASSERT_FALSE(fixture.channel.sent.empty());
   EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
   EXPECT_EQ(fixture.channel.sent.back().at("code"), "AUDIO_FORMAT_UNSUPPORTED");
+}
+
+TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
+  Fixture fixture;
+  fixture.engine.block_until_cancel = true;
+  const auto wav = wav_fixture();
+  fixture.channel.controls = {
+      hello(),
+      load_message(),
+      transcribe_message(wav.size()),
+      {{"type", "cancel"},
+       {"protocolVersion", 1},
+       {"requestId", "cancel-test"},
+       {"targetRequestId", "tx-test"}},
+      {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
+  };
+  fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+
+  EXPECT_EQ(fixture.run(), 0);
+  ASSERT_EQ(fixture.channel.sent.size(), 4U);
+  EXPECT_EQ(fixture.channel.sent[0].at("type"), "helloAck");
+  EXPECT_EQ(fixture.channel.sent[1].at("type"), "loaded");
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "cancelled");
+  EXPECT_EQ(fixture.channel.sent[2].at("targetRequestId"), "tx-test");
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "unloaded");
 }
 
 } // namespace

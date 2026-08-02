@@ -9,6 +9,16 @@ FailureCode CoreError::code() const noexcept { return code_; }
 
 std::string_view failure_code_name(FailureCode code) noexcept {
   switch (code) {
+  case FailureCode::runtime_prerequisite_missing:
+    return "RUNTIME_PREREQUISITE_MISSING";
+  case FailureCode::device_not_found:
+    return "DEVICE_NOT_FOUND";
+  case FailureCode::device_feature_missing:
+    return "DEVICE_FEATURE_MISSING";
+  case FailureCode::device_proof_failed:
+    return "DEVICE_PROOF_FAILED";
+  case FailureCode::backend_init_failed:
+    return "BACKEND_INIT_FAILED";
   case FailureCode::model_authority_invalid:
     return "MODEL_AUTHORITY_INVALID";
   case FailureCode::model_corrupt:

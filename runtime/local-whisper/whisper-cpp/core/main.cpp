@@ -1,4 +1,6 @@
+#include "local_whisper/whisper_cpp/cancellation.hpp"
 #include "local_whisper/whisper_cpp/cpu_probe.hpp"
+#include "local_whisper/whisper_cpp/device_authority.hpp"
 #include "local_whisper/whisper_cpp/engine.hpp"
 #include "local_whisper/whisper_cpp/model_authority.hpp"
 #include "local_whisper/whisper_cpp/worker_application.hpp"
@@ -23,6 +25,10 @@ int main(int argc, char** argv) {
     }
     if (mode != "--probe" && mode != "--load")
       return 2;
+    std::optional<local_whisper::whisper_cpp::DeviceAuthority> device_authority;
+    if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) == "cuda")
+      device_authority.emplace(
+          local_whisper::whisper_cpp::DeviceAuthority::receive_from_standard_channel());
     std::optional<local_whisper::whisper_cpp::ModelAuthority> authority;
     if (mode == "--load")
       authority.emplace(
@@ -30,12 +36,13 @@ int main(int argc, char** argv) {
     local_whisper::whisper_cpp::NativeWorkerChannel channel;
     local_whisper::whisper_cpp::WhisperCppEngine engine;
     local_whisper::whisper_cpp::SteadyWorkerClock clock;
-    local_whisper::whisper_cpp::ProcessCancellation cancellation;
+    local_whisper::whisper_cpp::CancellationController cancellation;
     local_whisper::whisper_cpp::WorkerApplication application(
         mode == "--probe" ? local_whisper::whisper_cpp::WorkerRunMode::probe
                           : local_whisper::whisper_cpp::WorkerRunMode::load,
         channel, engine, probe, clock, cancellation,
-        authority.has_value() ? &authority.value() : nullptr);
+        authority.has_value() ? &authority.value() : nullptr,
+        device_authority.has_value() ? &device_authority->proof() : nullptr);
     return application.run();
   } catch (...) {
     return 20;

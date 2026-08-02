@@ -89,6 +89,11 @@ export function stageCpuPack(profileId, buildRoot) {
     originalManifestSha256: patchLock.originalManifestSha256,
     patchLockId: patchLock.lockId,
     patchSha256: patchLock.patches[0].sha256,
+    patches: patchLock.patches.map(({ patchId, relativePath, sha256: patchSha256 }) => ({
+      patchId,
+      relativePath,
+      sha256: patchSha256,
+    })),
     patchedManifestSha256: patchLock.finalManifestSha256,
     nlohmannSourceLockId: nlohmannLock.lockId,
     nlohmannSourceManifestSha256: nlohmannLock.materialization.manifestSha256,

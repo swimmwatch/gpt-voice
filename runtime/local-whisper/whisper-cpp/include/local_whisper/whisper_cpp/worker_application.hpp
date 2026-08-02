@@ -1,6 +1,8 @@
 #pragma once
 
+#include "local_whisper/whisper_cpp/cancellation.hpp"
 #include "local_whisper/whisper_cpp/cpu_probe.hpp"
+#include "local_whisper/whisper_cpp/device_authority.hpp"
 #include "local_whisper/whisper_cpp/engine.hpp"
 #include "local_whisper/whisper_cpp/model_authority.hpp"
 #include "local_whisper/whisper_cpp/worker_protocol.hpp"
@@ -18,27 +20,17 @@ public:
   [[nodiscard]] virtual std::uint64_t now_ticks() const noexcept = 0;
 };
 
-class WorkerCancellation {
-public:
-  virtual ~WorkerCancellation() = default;
-  [[nodiscard]] virtual bool requested() const noexcept = 0;
-};
-
 class SteadyWorkerClock final : public WorkerClock {
 public:
   [[nodiscard]] std::uint64_t now_ticks() const noexcept override;
 };
 
-class ProcessCancellation final : public WorkerCancellation {
-public:
-  [[nodiscard]] bool requested() const noexcept override;
-};
-
 class WorkerApplication final {
 public:
   WorkerApplication(WorkerRunMode mode, WorkerChannel& channel, SpeechEngine& engine,
-                    CpuProbe& probe, WorkerClock& clock, WorkerCancellation& cancellation,
-                    ModelAuthorityView* authority);
+                    CpuProbe& probe, WorkerClock& clock, CancellationController& cancellation,
+                    ModelAuthorityView* model_authority,
+                    const DeviceProofAuthority* device_authority);
 
   [[nodiscard]] int run() noexcept;
 
@@ -51,8 +43,9 @@ private:
   SpeechEngine& engine_;
   CpuProbe& probe_;
   WorkerClock& clock_;
-  WorkerCancellation& cancellation_;
-  ModelAuthorityView* authority_;
+  CancellationController& cancellation_;
+  ModelAuthorityView* model_authority_;
+  const DeviceProofAuthority* device_authority_;
   std::optional<std::string> current_request_id_;
 };
 

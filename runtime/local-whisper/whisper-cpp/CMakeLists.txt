@@ -22,8 +22,17 @@ set(LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT "" CACHE PATH "Checked-in worker protoco
 set(LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Production worker output directory")
 set(LOCAL_WHISPER_RUNTIME_BUILD_DIGEST "" CACHE STRING "Authenticated worker build digest")
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+set(LOCAL_WHISPER_BACKEND_ID "cpu" CACHE STRING "Locked worker backend")
+set_property(CACHE LOCAL_WHISPER_BACKEND_ID PROPERTY STRINGS cpu cuda)
+if(NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+  message(FATAL_ERROR "LOCAL_WHISPER_BACKEND_ID must be cpu or cuda")
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+  set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-windows-x64-cpu-candidate-task19-v1")
+elseif(LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+  set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1")
 else()
   set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-linux-x64-cpu-baseline-v1")
 endif()
@@ -58,6 +67,7 @@ endfunction()
 add_library(local_whisper_worker_common STATIC
   ../common/src/bounded_json.cpp
   ../common/src/canonical_wav.cpp
+  ../common/src/device_proof.cpp
   ../common/src/frame_codec.cpp
   ../common/src/model_authority.cpp
   ../common/src/sha256.cpp
@@ -74,6 +84,7 @@ target_include_directories(local_whisper_worker_common
 local_whisper_apply_quality(local_whisper_worker_common)
 
 add_library(local_whisper_whisper_cpp_core STATIC
+  core/cancellation.cpp
   core/cpu_probe.cpp
   core/error.cpp
   core/exact_model_reader.cpp
@@ -81,15 +92,19 @@ add_library(local_whisper_whisper_cpp_core STATIC
   core/model_format_preflight.cpp
   core/pcm_audio.cpp
   core/worker_application.cpp
+  device/device_authority.cpp
+  device/device_registry.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_sources(local_whisper_whisper_cpp_core PRIVATE
     core/model_authority_linux.cpp
     core/worker_protocol_posix.cpp
+    device/device_authority_posix.cpp
   )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   target_sources(local_whisper_whisper_cpp_core PRIVATE
     platform/windows/model_authority_windows.cpp
+    platform/windows/device_authority_windows.cpp
     platform/windows/worker_protocol_windows.cpp
   )
 endif()
@@ -97,9 +112,10 @@ target_include_directories(local_whisper_whisper_cpp_core
   PUBLIC include
   PUBLIC "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include"
   PRIVATE "${LOCAL_WHISPER_GENERATED_INCLUDE_DIR}")
-target_compile_definitions(local_whisper_whisper_cpp_core PRIVATE
+target_compile_definitions(local_whisper_whisper_cpp_core PUBLIC
   LOCAL_WHISPER_RUNTIME_BUILD_DIGEST="${LOCAL_WHISPER_RUNTIME_BUILD_DIGEST}"
-  LOCAL_WHISPER_RUNTIME_REVISION="${LOCAL_WHISPER_RUNTIME_REVISION}")
+  LOCAL_WHISPER_RUNTIME_REVISION="${LOCAL_WHISPER_RUNTIME_REVISION}"
+  LOCAL_WHISPER_BACKEND_ID="${LOCAL_WHISPER_BACKEND_ID}")
 target_link_libraries(local_whisper_whisper_cpp_core PUBLIC local_whisper_worker_common)
 local_whisper_apply_quality(local_whisper_whisper_cpp_core)
 
@@ -112,10 +128,11 @@ if(LOCAL_WHISPER_BUILD_ENGINE)
   add_library(local_whisper_whisper_cpp_adapter STATIC adapter/whisper_engine.cpp)
   target_include_directories(local_whisper_whisper_cpp_adapter PRIVATE
     include
-    "${LOCAL_WHISPER_SOURCE_ROOT}/include")
+    "${LOCAL_WHISPER_SOURCE_ROOT}/include"
+    "${LOCAL_WHISPER_SOURCE_ROOT}/ggml/include")
   target_link_libraries(local_whisper_whisper_cpp_adapter
     PUBLIC local_whisper_whisper_cpp_core
-    PRIVATE whisper)
+    PRIVATE whisper ggml)
   local_whisper_apply_quality(local_whisper_whisper_cpp_adapter)
 
   add_executable(local-whisper-whisper-cpp-worker core/main.cpp)
@@ -126,6 +143,10 @@ if(LOCAL_WHISPER_BUILD_ENGINE)
     RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+    target_link_options(local-whisper-whisper-cpp-worker PRIVATE
+      "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
+  endif()
 endif()
 
 if(LOCAL_WHISPER_BUILD_TESTS)
@@ -157,10 +178,29 @@ if(LOCAL_WHISPER_BUILD_TESTS)
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
   local_whisper_apply_quality(local_whisper_whisper_cpp_loader_tests)
 
+  add_executable(local_whisper_whisper_cpp_device_tests
+    tests/device_authority_test.cpp
+    tests/device_registry_test.cpp
+  )
+  target_link_libraries(local_whisper_whisper_cpp_device_tests
+    PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
+  local_whisper_apply_quality(local_whisper_whisper_cpp_device_tests)
+
+  add_executable(local_whisper_whisper_cpp_cancellation_tests
+    tests/cancellation_test.cpp
+  )
+  target_link_libraries(local_whisper_whisper_cpp_cancellation_tests
+    PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
+  local_whisper_apply_quality(local_whisper_whisper_cpp_cancellation_tests)
+
   include(CTest)
   include(GoogleTest)
   gtest_discover_tests(local_whisper_whisper_cpp_core_tests
     PROPERTIES LABELS core DISCOVERY_TIMEOUT 30)
   gtest_discover_tests(local_whisper_whisper_cpp_loader_tests
     PROPERTIES LABELS loader DISCOVERY_TIMEOUT 30)
+  gtest_discover_tests(local_whisper_whisper_cpp_device_tests
+    PROPERTIES LABELS device-proof DISCOVERY_TIMEOUT 30)
+  gtest_discover_tests(local_whisper_whisper_cpp_cancellation_tests
+    PROPERTIES LABELS cancellation DISCOVERY_TIMEOUT 30)
 endif()

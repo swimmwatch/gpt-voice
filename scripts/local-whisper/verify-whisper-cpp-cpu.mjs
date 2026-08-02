@@ -1,24 +1,22 @@
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  chmodSync,
-  closeSync,
-  cpSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  readSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 
 import { cpuStageRoot } from './stage-whisper-cpp-cpu.mjs';
 import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs';
 import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import {
+  approvedMediumModel,
+  canonicalSilence,
+  mediumModelIdentity,
+  modelBindingBytes,
+  modelTransferBytes,
+  sha256File,
+  transcriptionOptions,
+  WhisperCppWorkerProcess,
+} from './whisper-cpp-integration-core.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -32,29 +30,6 @@ import {
   whisperCppRoot,
   workspaceRoot,
 } from './whisper-cpp-build-core.mjs';
-
-const approvedModel = Object.freeze({
-  path: '/home/dmitry-vasiliev/.cache/openwhispr/whisper-models/ggml-medium.bin',
-  sizeBytes: 1_533_763_059,
-  sha256: '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208',
-  license: 'MIT',
-  origin: 'ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1',
-});
-
-function sha256File(path) {
-  const descriptor = openSync(path, 'r');
-  const digest = createHash('sha256');
-  const buffer = Buffer.alloc(64 * 1024);
-  try {
-    while (true) {
-      const count = readSync(descriptor, buffer, 0, buffer.length, null);
-      if (count === 0) return digest.digest('hex');
-      digest.update(buffer.subarray(0, count));
-    }
-  } finally {
-    closeSync(descriptor);
-  }
-}
 
 function assertTaskOwned(path) {
   const child = relative(taskCacheRoot, path);
@@ -225,7 +200,7 @@ function verifyLinux(profileId) {
   assert.equal(profile.cmakeCache.GGML_STATIC, 'ON');
   const engine = readFileSync(resolve(whisperCppRoot, 'adapter', 'whisper_engine.cpp'), 'utf8');
   assert.doesNotMatch(engine, /ggml_backend_load_all/u);
-  assert.match(engine, /parameters\.use_gpu = false/u);
+  assert.match(engine, /parameters\.use_gpu = kCudaWorker/u);
   assert.match(engine, /parameters\.vad_model_path = nullptr/u);
   const main = readFileSync(resolve(whisperCppRoot, 'core', 'main.cpp'), 'utf8');
   const application = readFileSync(resolve(whisperCppRoot, 'core', 'worker_application.cpp'), 'utf8');
@@ -281,181 +256,51 @@ function verifyWindowsContract(profileId, contractOnly) {
   assert.doesNotMatch(windowsJob, /linux-x64-cpu-baseline-v1/u);
 }
 
-/** Reads exact byte counts from the worker's framed output stream. */
-class BufferedReader {
-  constructor(stream) {
-    this.iterator = stream[Symbol.asyncIterator]();
-    this.buffer = Buffer.alloc(0);
-  }
-
-  async exact(size) {
-    while (this.buffer.length < size) {
-      const next = await this.iterator.next();
-      if (next.done) throw new Error('Worker output ended early');
-      this.buffer = Buffer.concat([this.buffer, next.value]);
-    }
-    const value = this.buffer.subarray(0, size);
-    this.buffer = this.buffer.subarray(size);
-    return value;
-  }
-}
-
-function controlFrame(message) {
-  const body = Buffer.from(JSON.stringify(message), 'utf8');
-  const frame = Buffer.alloc(5 + body.length);
-  frame.writeUInt32BE(body.length, 0);
-  frame[4] = 1;
-  body.copy(frame, 5);
-  return frame;
-}
-
-function audioFrame(requestId, wav) {
-  const request = Buffer.from(requestId, 'utf8');
-  const body = Buffer.alloc(8 + request.length + wav.length);
-  body[0] = 1;
-  body[1] = 1;
-  body.writeUInt32BE(0, 2);
-  body.writeUInt16BE(request.length, 6);
-  request.copy(body, 8);
-  wav.copy(body, 8 + request.length);
-  const frame = Buffer.alloc(5 + body.length);
-  frame.writeUInt32BE(body.length, 0);
-  frame[4] = 2;
-  body.copy(frame, 5);
-  return frame;
-}
-
-async function readControl(reader) {
-  const header = await reader.exact(5);
-  assert.equal(header[4], 1);
-  const body = await reader.exact(header.readUInt32BE(0));
-  return JSON.parse(body.toString('utf8'));
-}
-
-function bindingBytes(operationNonce) {
-  const binding = Buffer.alloc(226);
-  let offset = 0;
-  operationNonce.copy(binding, offset);
-  offset += 16;
-  binding.fill(2, offset, offset + 16);
-  offset += 16;
-  binding.writeBigUInt64BE(7n, offset);
-  offset += 8;
-  binding.fill(3, offset, offset + 32);
-  offset += 32;
-  binding.fill(4, offset, offset + 32);
-  offset += 32;
-  binding.writeBigUInt64BE(BigInt(approvedModel.sizeBytes), offset);
-  offset += 8;
-  Buffer.from(approvedModel.sha256, 'hex').copy(binding, offset);
-  offset += 32;
-  binding[offset++] = 1;
-  binding[offset++] = 3;
-  binding.writeBigUInt64BE(BigInt(process.pid), offset);
-  offset += 8;
-  binding.writeBigUInt64BE(BigInt(process.pid), offset);
-  offset += 8;
-  binding.fill(6, offset, offset + 32);
-  offset += 32;
-  binding.fill(7, offset, offset + 32);
-  assert.equal(offset + 32, binding.length);
-  return binding;
-}
-
-function transferBytes(binding) {
-  const transfer = Buffer.alloc(244);
-  Buffer.from('LWA' + 'T1\0\0\0', 'binary').copy(transfer, 0);
-  binding.copy(transfer, 8);
-  transfer[234] = 2;
-  transfer[235] = 3;
-  transfer.writeBigUInt64BE(3n, 236);
-  return transfer;
-}
-
-function canonicalSilence(sampleCount = 1_600) {
-  const wav = Buffer.alloc(44 + sampleCount * 2);
-  for (const [offset, text] of [
-    [0, 'RIFF'],
-    [8, 'WAVE'],
-    [12, 'fmt '],
-    [36, 'data'],
-  ])
-    wav.write(text, offset, 'ascii');
-  wav.writeUInt32LE(wav.length - 8, 4);
-  wav.writeUInt32LE(16, 16);
-  wav.writeUInt16LE(1, 20);
-  wav.writeUInt16LE(1, 22);
-  wav.writeUInt32LE(16_000, 24);
-  wav.writeUInt32LE(32_000, 28);
-  wav.writeUInt16LE(2, 32);
-  wav.writeUInt16LE(16, 34);
-  wav.writeUInt32LE(sampleCount * 2, 40);
-  return wav;
-}
-
-async function waitForExit(child) {
-  return await new Promise((resolve, reject) => {
-    child.once('error', reject);
-    child.once('exit', (code, signal) => resolve({ code, signal }));
-  });
-}
-
 async function probeIntegration(binary) {
-  const child = spawn(binary, ['--probe'], { stdio: ['pipe', 'pipe', 'ignore'] });
-  const reader = new BufferedReader(child.stdout);
-  child.stdin.write(controlFrame({ type: 'hello', protocolVersion: 1 }));
-  assert.equal((await readControl(reader)).type, 'helloAck');
-  child.stdin.write(
-    controlFrame({
-      type: 'probe',
-      protocolVersion: 1,
-      requestId: 'probe-cpu-task10',
-      authorityId: Buffer.alloc(16, 9).toString('base64url'),
-      deviceBinding: { kind: 'cpu' },
-    }),
-  );
-  const probed = await readControl(reader);
+  const worker = WhisperCppWorkerProcess.probe(binary);
+  worker.sendControl({ type: 'hello', protocolVersion: 1 });
+  assert.equal((await worker.readControl()).type, 'helloAck');
+  worker.sendControl({
+    type: 'probe',
+    protocolVersion: 1,
+    requestId: 'probe-cpu-task11',
+    authorityId: Buffer.alloc(16, 9).toString('base64url'),
+    deviceBinding: { kind: 'cpu' },
+  });
+  const probed = await worker.readControl();
   assert.equal(probed.type, 'probed');
   assert.deepEqual(probed.deviceBinding, { kind: 'cpu' });
-  child.stdin.end();
-  assert.deepEqual(await waitForExit(child), { code: 0, signal: null });
+  for (const field of [
+    'activatedOrdinal',
+    'actualNativeIdentity',
+    'primaryExecutionNativeIdentity',
+    'registryFingerprint',
+    'probeProof',
+  ])
+    assert.equal(Object.hasOwn(probed, field), false, `CPU probe leaked ${field}`);
+  worker.closeInput();
+  assert.deepEqual(await worker.waitForExit(), { code: 0, signal: null });
 }
 
-async function loadIntegration(binary) {
-  assert.equal(approvedModel.license, 'MIT');
-  assert.match(approvedModel.origin, /^ggerganov\/whisper\.cpp@/u);
-  const metadata = statSync(approvedModel.path);
-  assert.equal(metadata.size, approvedModel.sizeBytes);
-  assert.equal(sha256File(approvedModel.path), approvedModel.sha256);
-  const descriptor = openSync(approvedModel.path, 'r');
+async function loadIntegration(binary, includeCancellation) {
+  assert.equal(approvedMediumModel.license, 'MIT');
+  assert.match(approvedMediumModel.origin, /^ggerganov\/whisper\.cpp@/u);
+  const metadata = statSync(approvedMediumModel.path);
+  assert.equal(metadata.size, approvedMediumModel.sizeBytes);
+  assert.equal(sha256File(approvedMediumModel.path), approvedMediumModel.sha256);
   const operationNonce = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
-  const binding = bindingBytes(operationNonce);
-  const child = spawn(binary, ['--load'], { stdio: ['pipe', 'pipe', 'ignore', descriptor] });
-  closeSync(descriptor);
-  const reader = new BufferedReader(child.stdout);
+  const binding = modelBindingBytes(operationNonce);
+  const worker = WhisperCppWorkerProcess.load(binary, approvedMediumModel.path);
   try {
-    child.stdin.write(transferBytes(binding));
-    const acknowledgment = await reader.exact(284);
-    assert.equal(acknowledgment.subarray(0, 8).toString('binary'), 'LWAA1\0\0\0');
-    assert.deepEqual(acknowledgment.subarray(8, 234), binding);
-    assert.equal(acknowledgment[234], 2);
-    assert.equal(acknowledgment[235], 3);
-    assert.equal(acknowledgment.readBigUInt64BE(236), 3n);
-    assert.equal(acknowledgment.readBigUInt64BE(244), BigInt(child.pid));
-    child.stdin.write(Buffer.from([1]));
-    child.stdin.write(controlFrame({ type: 'hello', protocolVersion: 1 }));
-    const hello = await readControl(reader);
+    worker.write(modelTransferBytes(binding));
+    await worker.readModelAuthorityAcknowledgment(binding);
+    worker.write(Buffer.from([1]));
+    worker.sendControl({ type: 'hello', protocolVersion: 1 });
+    const hello = await worker.readControl();
     assert.equal(hello.type, 'helloAck');
     assert.equal(hello.backend, 'cpu');
     const authorityId = operationNonce.toString('base64url');
-    const model = {
-      engine: 'whisperCpp',
-      logicalModel: 'medium',
-      sourceCheckpointRevision: 'whisper-cpp-medium-fixture-5359861',
-      artifactRevision: 'ggml-medium-bin-approved-task10',
-      nativeFormat: 'ggml',
-      variant: 'full',
-    };
+    const model = mediumModelIdentity();
     const residency = {
       engine: 'whisperCpp',
       runtimePackRevision: 'whisper-cpp-linux-x64-cpu-baseline-v1',
@@ -466,58 +311,75 @@ async function loadIntegration(binary) {
       precision: null,
       resolvedCpuThreads: 2,
     };
-    child.stdin.write(
-      controlFrame({
-        type: 'load',
-        protocolVersion: 1,
-        requestId: 'load-medium-task10',
-        authorityId,
-        deviceBinding: { kind: 'cpu' },
-        residency,
-      }),
-    );
-    const loaded = await readControl(reader);
+    worker.sendControl({
+      type: 'load',
+      protocolVersion: 1,
+      requestId: 'load-medium-task11',
+      authorityId,
+      deviceBinding: { kind: 'cpu' },
+      residency,
+    });
+    const loaded = await worker.readControl();
     assert.equal(loaded.type, 'loaded');
-    assert.equal(loaded.modelSha256, approvedModel.sha256);
+    assert.equal(loaded.modelSha256, approvedMediumModel.sha256);
     assert.equal(loaded.effectiveBackend, 'cpu');
     assert.equal(loaded.primaryStateOwnership, 'worker');
-    child.stdin.write(controlFrame({ type: 'warmup', protocolVersion: 1, requestId: 'warm-task10' }));
-    assert.equal((await readControl(reader)).type, 'warmed');
+    worker.sendControl({ type: 'warmup', protocolVersion: 1, requestId: 'warm-task11' });
+    assert.equal((await worker.readControl()).type, 'warmed');
     const wav = canonicalSilence();
-    child.stdin.write(
-      controlFrame({
-        type: 'transcribe',
-        protocolVersion: 1,
-        requestId: 'tx-task10',
-        settingsEpoch: 9,
-        audioByteLength: wav.length,
-        options: {
-          language: 'en',
-          initialPrompt: '',
-          temperatureHundredths: 0,
-          strategy: 'greedy',
-          candidateCount: null,
-        },
-      }),
-    );
-    child.stdin.write(audioFrame('tx-task10', wav));
-    const transcript = await readControl(reader);
+    worker.sendControl({
+      type: 'transcribe',
+      protocolVersion: 1,
+      requestId: 'tx-task11',
+      settingsEpoch: 9,
+      audioByteLength: wav.length,
+      options: transcriptionOptions(),
+    });
+    worker.sendAudio('tx-task11', wav);
+    worker.sendControl({
+      type: 'warmup',
+      protocolVersion: 1,
+      requestId: 'post-tx-warm-task11',
+    });
+    const transcript = await worker.readControl();
     assert.equal(transcript.type, 'transcript');
     assert.equal(typeof transcript.text, 'string');
-    child.stdin.write(controlFrame({ type: 'unload', protocolVersion: 1, requestId: 'unload-task10' }));
-    assert.equal((await readControl(reader)).type, 'unloaded');
-    child.stdin.end();
-    assert.deepEqual(await waitForExit(child), { code: 0, signal: null });
+    assert.equal((await worker.readControl()).type, 'warmed');
+    if (includeCancellation) {
+      const cancellationAudio = canonicalSilence(480_000);
+      worker.sendControl({
+        type: 'transcribe',
+        protocolVersion: 1,
+        requestId: 'tx-cancel-task11',
+        settingsEpoch: 9,
+        audioByteLength: cancellationAudio.length,
+        options: transcriptionOptions(),
+      });
+      worker.sendAudio('tx-cancel-task11', cancellationAudio);
+      worker.sendControl({
+        type: 'cancel',
+        protocolVersion: 1,
+        requestId: 'cancel-task11',
+        targetRequestId: 'tx-cancel-task11',
+      });
+      const cancelled = await worker.readControl();
+      assert.equal(cancelled.type, 'cancelled');
+      assert.equal(cancelled.targetRequestId, 'tx-cancel-task11');
+    }
+    worker.sendControl({ type: 'unload', protocolVersion: 1, requestId: 'unload-task11' });
+    assert.equal((await worker.readControl()).type, 'unloaded');
+    worker.closeInput();
+    assert.deepEqual(await worker.waitForExit(), { code: 0, signal: null });
   } catch (error) {
-    child.kill('SIGKILL');
+    worker.terminate();
     throw error;
   }
 }
 
-async function integration(profileId) {
+async function integration(profileId, includeCancellation) {
   const pack = verifyStage(profileId);
   await probeIntegration(pack.binary);
-  await loadIntegration(pack.binary);
+  await loadIntegration(pack.binary, includeCancellation);
 }
 
 function audit(profileId) {
@@ -561,14 +423,18 @@ try {
   const mode = arguments_.get('mode');
   const profileId = arguments_.get('profile');
   const contractOnly = arguments_.has('contract-only');
+  const includeCancellation = arguments_.has('include-cancellation');
   if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
   if (profileId === 'windows-x64-cpu-candidate-task19-v1') {
+    if (includeCancellation) throw new Error('Windows contract cannot execute cancellation');
     if (mode !== 'verify') throw new Error('Windows contract supports verify mode only');
     verifyWindowsContract(profileId, contractOnly);
   } else if (profileId === 'linux-x64-cpu-baseline-v1') {
     if (contractOnly) throw new Error('Linux CPU verification cannot be contract-only');
+    if (includeCancellation && mode !== 'integration')
+      throw new Error('Cancellation flag is valid only for CPU integration');
     if (mode === 'verify') verifyLinux(profileId);
-    else if (mode === 'integration') await integration(profileId);
+    else if (mode === 'integration') await integration(profileId, includeCancellation);
     else if (mode === 'audit') audit(profileId);
     else throw new Error('Expected --mode=verify, integration, or audit');
   } else {

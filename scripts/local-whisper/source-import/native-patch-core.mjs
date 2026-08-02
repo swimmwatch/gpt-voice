@@ -24,7 +24,7 @@ function patchTouchedPaths(bytes) {
   return [...paths].sort();
 }
 
-export function verifyPatchLock(lock, patchRoot) {
+function verifyPatchLockHeader(lock) {
   if (
     lock?.schemaId !== 'local-whisper-native-patch-lock-v1' ||
     !SAFE_ID_PATTERN.test(lock.lockId ?? '') ||
@@ -41,24 +41,53 @@ export function verifyPatchLock(lock, patchRoot) {
   ) {
     throw new Error('Invalid native patch lock contract');
   }
-  const ids = new Set();
-  for (const patch of lock.patches) {
-    if (!SAFE_ID_PATTERN.test(patch.patchId ?? '') || ids.has(patch.patchId)) {
-      throw new Error('Invalid or duplicate native patch ID');
-    }
-    ids.add(patch.patchId);
-    validateRelativePath(patch.relativePath);
-    const absolute = resolve(patchRoot, ...patch.relativePath.split('/'));
-    const bytes = readFileSync(absolute);
-    if (bytes.byteLength !== patch.sizeBytes || sha256(bytes) !== patch.sha256) {
-      throw new Error(`Native patch identity mismatch: ${patch.patchId}`);
-    }
-    const touched = patchTouchedPaths(bytes);
-    const allowed = [...patch.allowedTouchedPaths].map(validateRelativePath).sort();
-    if (canonicalJson(touched) !== canonicalJson(allowed)) {
-      throw new Error(`Native patch touched-path allowlist mismatch: ${patch.patchId}`);
-    }
+}
+
+function verifyPatchEntry(patch, patchRoot, ids) {
+  if (!SAFE_ID_PATTERN.test(patch.patchId ?? '') || ids.has(patch.patchId))
+    throw new Error('Invalid or duplicate native patch ID');
+  ids.add(patch.patchId);
+  validateRelativePath(patch.relativePath);
+  const absolute = resolve(patchRoot, ...patch.relativePath.split('/'));
+  const bytes = readFileSync(absolute);
+  if (bytes.byteLength !== patch.sizeBytes || sha256(bytes) !== patch.sha256)
+    throw new Error(`Native patch identity mismatch: ${patch.patchId}`);
+  const touched = patchTouchedPaths(bytes);
+  const allowed = [...patch.allowedTouchedPaths].map(validateRelativePath).sort();
+  if (canonicalJson(touched) !== canonicalJson(allowed))
+    throw new Error(`Native patch touched-path allowlist mismatch: ${patch.patchId}`);
+}
+
+function verifyIntermediateManifests(lock) {
+  if (lock.intermediateManifests === undefined) return;
+  if (!Array.isArray(lock.intermediateManifests) || lock.intermediateManifests.length !== lock.patches.length - 1)
+    throw new Error('Invalid native patch intermediate manifest contract');
+  for (const [index, intermediate] of lock.intermediateManifests.entries()) {
+    if (
+      intermediate?.afterPatchId !== lock.patches[index].patchId ||
+      !SHA256_PATTERN.test(intermediate?.manifestSha256 ?? '')
+    )
+      throw new Error('Invalid native patch intermediate manifest identity');
   }
+}
+
+function verifyLicenseProvenance(lock) {
+  if (lock.licenseProvenance === undefined) return;
+  if (!Array.isArray(lock.licenseProvenance) || lock.licenseProvenance.length === 0)
+    throw new Error('Invalid native patch license provenance');
+  for (const entry of lock.licenseProvenance) {
+    if (!SAFE_ID_PATTERN.test(entry?.component ?? '') || !SAFE_ID_PATTERN.test(entry?.license ?? ''))
+      throw new Error('Invalid native patch license provenance identity');
+    validateRelativePath(entry.evidence);
+  }
+}
+
+export function verifyPatchLock(lock, patchRoot) {
+  verifyPatchLockHeader(lock);
+  const ids = new Set();
+  for (const patch of lock.patches) verifyPatchEntry(patch, patchRoot, ids);
+  verifyIntermediateManifests(lock);
+  verifyLicenseProvenance(lock);
   return true;
 }
 
@@ -88,8 +117,13 @@ export function applyPatchLock(repositoryRoot, patchRoot, lock) {
   if (original.manifestSha256 !== lock.originalManifestSha256) {
     throw new Error('Native patch input manifest mismatch');
   }
-  for (const patch of lock.patches) {
+  for (const [index, patch] of lock.patches.entries()) {
     applyExact(repositoryRoot, resolve(patchRoot, ...patch.relativePath.split('/')));
+    if (index < lock.patches.length - 1 && lock.intermediateManifests !== undefined) {
+      const intermediate = buildIndexManifest(repositoryRoot).manifestSha256;
+      if (intermediate !== lock.intermediateManifests[index].manifestSha256)
+        throw new Error('Native patch intermediate manifest mismatch');
+    }
   }
   const finalManifest = buildIndexManifest(repositoryRoot);
   if (finalManifest.manifestSha256 !== lock.finalManifestSha256) {

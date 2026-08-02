@@ -12,16 +12,23 @@ import {
 try {
   const arguments_ = parseArguments(process.argv.slice(2));
   const suite = arguments_.get('suite');
-  if (suite !== 'core' && suite !== 'loader') throw new Error('Expected --suite=core or --suite=loader');
+  if (!['cancellation', 'core', 'device-proof', 'loader'].includes(suite))
+    throw new Error('Expected --suite=core, loader, device-proof, or cancellation');
   requireVerifiedInputs();
   const gcc = configureBuild('linux-x64-cpu-baseline-v1', { engine: false, tests: true });
-  buildTargets(gcc, ['local_whisper_whisper_cpp_core_tests', 'local_whisper_whisper_cpp_loader_tests']);
+  const targets = [
+    'local_whisper_whisper_cpp_core_tests',
+    'local_whisper_whisper_cpp_loader_tests',
+    'local_whisper_whisper_cpp_device_tests',
+    'local_whisper_whisper_cpp_cancellation_tests',
+  ];
+  buildTargets(gcc, targets);
   runTests(gcc, suite);
   const clang = configureBuild('linux-x64-clang-18.1.3-asan-ubsan-v1', {
     engine: false,
     tests: true,
   });
-  buildTargets(clang, ['local_whisper_whisper_cpp_core_tests', 'local_whisper_whisper_cpp_loader_tests']);
+  buildTargets(clang, targets);
   runTests(clang, suite);
   const engine = configureBuild('linux-x64-cpu-baseline-v1', { engine: true, tests: false });
   runFormattingAndTidy(clang, engine);
