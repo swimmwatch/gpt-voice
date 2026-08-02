@@ -66,7 +66,8 @@ export type LocalWhisperArtifactAction = (typeof LOCAL_WHISPER_ARTIFACT_ACTIONS)
 export type LocalWhisperReferenceKind = (typeof LOCAL_WHISPER_REFERENCE_KINDS)[number];
 
 export interface LocalWhisperRendererOption {
-  readonly group: 'engine' | 'target' | 'backend' | 'device' | 'runtime' | 'modelFamily' | 'modelRevision';
+  readonly group:
+    'engine' | 'target' | 'backend' | 'device' | 'runtime' | 'modelFamily' | 'modelRevision' | 'modelVariant';
   readonly id: string;
   readonly label: string;
   readonly available: boolean;
@@ -123,6 +124,16 @@ export interface LocalWhisperRendererMemoryFacts {
   readonly exactEstimateUnavailable: boolean;
 }
 
+export interface LocalWhisperRendererResourceFacts {
+  readonly success: boolean;
+  readonly failureCode: Extract<LocalWhisperFailureCode, 'INSUFFICIENT_RAM' | 'INSUFFICIENT_VRAM'> | null;
+  readonly evidence: 'catalog' | 'qualified';
+  readonly requiredRamBytes: number;
+  readonly requiredVramBytes: number | 'notApplicable';
+  readonly freeRamBytes: number | null;
+  readonly freeVramBytes: number | null;
+}
+
 export interface LocalWhisperRendererSnapshot {
   readonly snapshotRevision: number;
   readonly configurationEpoch: number;
@@ -131,9 +142,14 @@ export interface LocalWhisperRendererSnapshot {
   readonly settings: LocalWhisperPublicSettings;
   readonly hasInitialPrompt: boolean;
   readonly selectedDeviceId: LocalWhisperOpaqueDeviceId | null;
+  readonly host: {
+    readonly label: string;
+    readonly logicalProcessorCount: number;
+  };
   readonly options: readonly LocalWhisperRendererOption[];
   readonly validationIssues: readonly LocalWhisperSettingsValidationIssue[];
   readonly memory: LocalWhisperRendererMemoryFacts;
+  readonly resources: LocalWhisperRendererResourceFacts | null;
   readonly storage: {
     readonly label: string;
     readonly installedArtifactCount: number;
@@ -472,7 +488,7 @@ function isRendererOption(value: unknown): value is LocalWhisperRendererOption {
       'remembered',
     ]) &&
     isMember(
-      ['engine', 'target', 'backend', 'device', 'runtime', 'modelFamily', 'modelRevision'] as const,
+      ['engine', 'target', 'backend', 'device', 'runtime', 'modelFamily', 'modelRevision', 'modelVariant'] as const,
       value.group,
     ) &&
     typeof value.id === 'string' &&
@@ -580,6 +596,34 @@ function isMemory(value: unknown): value is LocalWhisperRendererMemoryFacts {
   );
 }
 
+function isResources(value: unknown): value is LocalWhisperRendererResourceFacts | null {
+  if (value === null) return true;
+  if (
+    !isPlainRecord(value) ||
+    !hasExactKeys(value, [
+      'success',
+      'failureCode',
+      'evidence',
+      'requiredRamBytes',
+      'requiredVramBytes',
+      'freeRamBytes',
+      'freeVramBytes',
+    ]) ||
+    typeof value.success !== 'boolean' ||
+    !isMember(['catalog', 'qualified'] as const, value.evidence) ||
+    !isSafeByteCount(value.requiredRamBytes) ||
+    (value.requiredVramBytes !== 'notApplicable' && !isSafeByteCount(value.requiredVramBytes)) ||
+    (value.freeRamBytes !== null && !isSafeByteCount(value.freeRamBytes)) ||
+    (value.freeVramBytes !== null && !isSafeByteCount(value.freeVramBytes)) ||
+    (value.failureCode !== null && !isMember(['INSUFFICIENT_RAM', 'INSUFFICIENT_VRAM'] as const, value.failureCode))
+  ) {
+    return false;
+  }
+  return value.success === (value.failureCode === null);
+}
+
+/** Validates the complete renderer-safe Local Whisper snapshot at the IPC boundary. */
+// eslint-disable-next-line complexity -- exact-key DTO validation intentionally checks every closed field in one boundary.
 export function isLocalWhisperRendererSnapshot(value: unknown): value is LocalWhisperRendererSnapshot {
   if (
     !isPlainRecord(value) ||
@@ -591,9 +635,11 @@ export function isLocalWhisperRendererSnapshot(value: unknown): value is LocalWh
       'settings',
       'hasInitialPrompt',
       'selectedDeviceId',
+      'host',
       'options',
       'validationIssues',
       'memory',
+      'resources',
       'storage',
       'artifacts',
       'progress',
@@ -614,12 +660,23 @@ export function isLocalWhisperRendererSnapshot(value: unknown): value is LocalWh
     !Array.isArray(value.validationIssues) ||
     !value.validationIssues.every(isValidationIssue) ||
     !isMemory(value.memory) ||
+    !isResources(value.resources) ||
     !Array.isArray(value.artifacts) ||
     !value.artifacts.every(isArtifact) ||
     !Array.isArray(value.progress) ||
     !value.progress.every(isProgress) ||
     !isLocalWhisperRuntimeSnapshot(value.runtime) ||
     (value.failure !== null && !isLocalWhisperRendererSafeFailure(value.failure))
+  ) {
+    return false;
+  }
+  if (
+    !isPlainRecord(value.host) ||
+    !hasExactKeys(value.host, ['label', 'logicalProcessorCount']) ||
+    !isLocalWhisperRendererSafeLabel(value.host.label) ||
+    !Number.isSafeInteger(value.host.logicalProcessorCount) ||
+    (value.host.logicalProcessorCount as number) < 1 ||
+    (value.host.logicalProcessorCount as number) > 65_536
   ) {
     return false;
   }

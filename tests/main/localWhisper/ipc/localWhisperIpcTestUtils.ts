@@ -103,6 +103,7 @@ export function snapshotFacts(): LocalWhisperSnapshotFacts {
       }),
     ]),
     validationIssues: Object.freeze([]),
+    host: Object.freeze({ label: 'Test CPU · 8 logical processors', logicalProcessorCount: 8 }),
     memory: Object.freeze({ selectedEstimate: null, qualifiedPeak: null, exactEstimateUnavailable: true }),
     storage: Object.freeze({ label: 'Local Whisper managed storage', installedArtifactCount: 2, installedBytes: 30 }),
     artifacts: Object.freeze([
