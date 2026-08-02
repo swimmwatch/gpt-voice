@@ -41,7 +41,8 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(storage, /aria-live="polite"/u);
     assert.match(storage, /<progress/u);
     assert.match(storage, /removeTriggerRef\.current\?\.focus\(\)/u);
+    assert.match(indicator, /<ProviderStatusIndicator/u);
     assert.match(indicator, /role="status"/u);
-    assert.match(indicator, /TooltipContent/u);
+    assert.match(indicator, /tooltip=\{tooltip\}/u);
   });
 });

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
 import type { LocalWhisperMainStatusSnapshot, LocalWhisperRendererSnapshot } from '@shared/localWhisper';
+import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import {
   getLocalWhisperCheckAvailability,
   getLocalWhisperLoadAvailability,
@@ -39,6 +43,26 @@ describe('Local Whisper action and main status presentation', () => {
       assert.equal(presentation.label, label);
       assert.doesNotMatch(`${presentation.label} ${presentation.detail ?? ''}`, /login|api key|session/iu);
     }
+  });
+
+  it('renders unsupported Local Whisper status as a borderless icon without visible status text', () => {
+    const baseline = settingsSnapshot().runtime;
+    const markup = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(LocalWhisperMainStatusIndicator, {
+          snapshot: mainStatus({ ...baseline, operationalStatus: 'Unsupported' }),
+        }),
+      ),
+    );
+
+    assert.match(markup, /provider-status-badge/u);
+    assert.match(markup, /border-0/u);
+    assert.match(markup, /bg-transparent/u);
+    assert.match(markup, /lucide-circle-off/u);
+    assert.match(markup, /aria-label="Unsupported\./u);
+    assert.doesNotMatch(markup, />Unsupported</u);
   });
 
   it('enables load only for an exact validated unloaded configuration', () => {
