@@ -32,7 +32,8 @@ std::string canonical_pci_identity(std::string_view identity) {
       identity[domain] != ':' || !fixed_hex(identity, domain + 1U, 2U) ||
       identity[domain + 3U] != ':' || !fixed_hex(identity, domain + 4U, 2U) ||
       identity[domain + 6U] != '.' || identity[domain + 7U] < '0' || identity[domain + 7U] > '7') {
-    throw CoreError(FailureCode::device_feature_missing, "invalid durable CUDA device identity");
+    throw CoreError(FailureCode::device_feature_missing,
+                    "invalid durable accelerator device identity");
   }
   std::string result(identity);
   std::transform(result.begin(), result.end(), result.begin(),
@@ -45,13 +46,13 @@ validate_device_load_observation(const SelectedDevice& selected, std::uint16_t a
                                  const std::string& authority_registry_fingerprint,
                                  const NativeDeviceLoadObservation& observation) {
   if (observation.model_weight_bytes == 0U || !observation.single_gpu_model_owner)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA model ownership proof failed");
+    throw CoreError(FailureCode::device_proof_failed, "accelerator model ownership proof failed");
   const auto activated = canonical_pci_identity(observation.activated_native_identity);
   const auto primary = canonical_pci_identity(observation.primary_state_native_identity);
   if (activated != selected.native_identity || primary != selected.native_identity ||
       authority_ordinal != selected.ordinal ||
       authority_registry_fingerprint != selected.registry_fingerprint)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA state device proof changed");
+    throw CoreError(FailureCode::device_proof_failed, "accelerator state device proof changed");
   return {activated, primary, observation.model_weight_bytes};
 }
 
@@ -63,7 +64,8 @@ DeviceRegistry::DeviceRegistry(NativeDeviceDiscovery& discovery, std::string eng
 DeviceRegistry::Snapshot DeviceRegistry::capture_snapshot() {
   auto discovered = discovery_.enumerate();
   if (discovered.size() > 256U)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA registry exceeds authority limit");
+    throw CoreError(FailureCode::device_proof_failed,
+                    "accelerator registry exceeds authority limit");
   local_whisper::common::DeviceRegistry proof{engine_id_, runtime_build_digest_, backend_id_, {}};
   std::vector<NativeDevice> filtered;
   std::unordered_set<std::string> identities;
@@ -75,9 +77,9 @@ DeviceRegistry::Snapshot DeviceRegistry::capture_snapshot() {
       continue;
     device.native_identity = canonical_pci_identity(device.native_identity);
     if (!identities.insert(device.native_identity).second)
-      throw CoreError(FailureCode::device_proof_failed, "duplicate CUDA device identity");
+      throw CoreError(FailureCode::device_proof_failed, "duplicate accelerator device identity");
     if (filtered.size() > std::numeric_limits<std::uint16_t>::max())
-      throw CoreError(FailureCode::device_proof_failed, "CUDA registry ordinal overflow");
+      throw CoreError(FailureCode::device_proof_failed, "accelerator registry ordinal overflow");
     const auto ordinal = static_cast<std::uint16_t>(filtered.size());
     proof.entries.push_back({ordinal, device.type, device.backend_id, device.native_identity});
     filtered.push_back(std::move(device));
@@ -103,16 +105,17 @@ SelectedDevice DeviceRegistry::resolve(std::uint16_t ordinal,
                                        std::string_view expected_fingerprint) {
   auto first = capture_snapshot();
   if (first.native_devices.empty())
-    throw CoreError(FailureCode::device_not_found, "CUDA device registry is empty");
+    throw CoreError(FailureCode::device_not_found, "accelerator device registry is empty");
   const auto fingerprint = local_whisper::common::registry_fingerprint(first.proof_registry);
   if (fingerprint != expected_fingerprint)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA registry authority changed");
+    throw CoreError(FailureCode::device_proof_failed, "accelerator registry authority changed");
   if (ordinal >= first.native_devices.size())
-    throw CoreError(FailureCode::device_proof_failed, "selected CUDA ordinal is missing");
+    throw CoreError(FailureCode::device_proof_failed, "selected accelerator ordinal is missing");
   auto second = capture_snapshot();
   if (!same_snapshot(first, second) ||
       local_whisper::common::registry_fingerprint(second.proof_registry) != fingerprint)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA registry changed during activation");
+    throw CoreError(FailureCode::device_proof_failed,
+                    "accelerator registry changed during activation");
   const auto& selected = first.native_devices[ordinal];
   return {ordinal,
           selected.type,

@@ -1,0 +1,154 @@
+{
+  "$schema": "../schema/native-toolchain-lock.schema.json",
+  "schemaId": "local-whisper-native-toolchain-lock-v1",
+  "profileId": "windows-x64-amd-vulkan-preview-candidate-task19-v1",
+  "target": { "os": "windows", "architecture": "x64", "abi": "msvc-v143-crt-14.39-windows-sdk-10.0.26100.0" },
+  "tools": [
+    {
+      "role": "cxx-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
+      "version": "Microsoft C/C++ 19.39",
+      "sha256": null
+    },
+    {
+      "role": "linker",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/link.exe",
+      "version": "Microsoft Incremental Linker 14.39",
+      "sha256": null
+    },
+    {
+      "role": "cmake",
+      "pathKind": "toolchainRootRelative",
+      "path": "cmake-3.31.8/bin/cmake.exe",
+      "version": "cmake version 3.31.8",
+      "sha256": null
+    },
+    {
+      "role": "ninja",
+      "pathKind": "toolchainRootRelative",
+      "path": "ninja-1.12.1/ninja.exe",
+      "version": "1.12.1",
+      "sha256": null
+    },
+    {
+      "role": "glslc",
+      "pathKind": "toolchainRootRelative",
+      "path": "vulkan-sdk-1.3.275.0/Bin/glslc.exe",
+      "version": "shaderc 2023.8",
+      "sha256": null
+    },
+    {
+      "role": "vulkan-headers",
+      "pathKind": "toolchainRootRelative",
+      "path": "vulkan-sdk-1.3.275.0/Include/vulkan/vulkan_core.h",
+      "version": "Vulkan-Headers 1.3.275.0",
+      "sha256": null
+    }
+  ],
+  "runtime": [
+    {
+      "id": "vulkan-loader-1.3.275.0",
+      "pathKind": "toolchainRootRelative",
+      "path": "vulkan-sdk-1.3.275.0/Bin/vulkan-1.dll",
+      "sha256": null
+    },
+    {
+      "id": "msvc-crt-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "sha256": null
+    }
+  ],
+  "architectureTargets": ["vulkan-1.3-spirv-1.6"],
+  "environmentAllowlist": ["SystemRoot", "TEMP", "TMP", "WINDIR"],
+  "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+  "patchLockIds": ["local-whisper-whisper-cpp-amd-preview-v1"],
+  "qualificationFixture": null,
+  "cmakeCache": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_STANDARD": "20",
+    "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+    "GGML_ACCELERATE": "OFF",
+    "GGML_BACKEND_DL": "OFF",
+    "GGML_BLAS": "OFF",
+    "GGML_CANN": "OFF",
+    "GGML_CPU": "ON",
+    "GGML_CPU_KLEIDIAI": "OFF",
+    "GGML_CUDA": "OFF",
+    "GGML_HIP": "OFF",
+    "GGML_METAL": "OFF",
+    "GGML_MUSA": "OFF",
+    "GGML_NATIVE": "OFF",
+    "GGML_OPENCL": "OFF",
+    "GGML_OPENMP": "OFF",
+    "GGML_RPC": "OFF",
+    "GGML_STATIC": "OFF",
+    "GGML_SYCL": "OFF",
+    "GGML_VULKAN": "ON",
+    "GGML_ZDNN": "OFF",
+    "Vulkan_GLSLC_EXECUTABLE": "toolchainRoot:vulkan-sdk-1.3.275.0/Bin/glslc.exe",
+    "Vulkan_INCLUDE_DIR": "toolchainRoot:vulkan-sdk-1.3.275.0/Include",
+    "Vulkan_LIBRARY": "toolchainRoot:vulkan-sdk-1.3.275.0/Lib/vulkan-1.lib",
+    "WHISPER_BUILD_EXAMPLES": "OFF",
+    "WHISPER_BUILD_TESTS": "OFF",
+    "WHISPER_CURL": "OFF"
+  },
+  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "ggml-vulkan", "whisper"],
+  "outputs": [
+    {
+      "id": "worker",
+      "pathKind": "outputRelative",
+      "path": "bin/local-whisper-whisper-cpp-worker.exe",
+      "sha256": null
+    },
+    {
+      "id": "vulkan-loader",
+      "pathKind": "outputRelative",
+      "path": "bin/vulkan-1.dll",
+      "sha256": null
+    }
+  ],
+  "dynamicDependencies": [
+    {
+      "id": "vulkan-loader-1.3.275.0",
+      "pathKind": "toolchainRootRelative",
+      "path": "vulkan-sdk-1.3.275.0/Bin/vulkan-1.dll",
+      "sha256": null
+    },
+    {
+      "id": "msvc-crt-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "sha256": null
+    }
+  ],
+  "licenses": [
+    {
+      "id": "vulkan-loader-apache-2.0",
+      "pathKind": "toolchainRootRelative",
+      "path": "vulkan-sdk-1.3.275.0/Licenses/vulkan-loader.LICENSE",
+      "sha256": null
+    },
+    {
+      "id": "whisper-cpp-mit",
+      "pathKind": "outputRelative",
+      "path": "licenses/whisper-cpp.LICENSE",
+      "sha256": null
+    }
+  ],
+  "sbomComponents": [
+    "msvc-14.39",
+    "windows-sdk-10.0.26100.0",
+    "cmake-3.31.8",
+    "ninja-1.12.1",
+    "shaderc-2023.8",
+    "vulkan-loader-1.3.275.0",
+    "whisper-cpp-v1.9.1"
+  ],
+  "qualificationState": "pendingWindowsFinalTask",
+  "evidenceDigest": null,
+  "minimumDriver": null
+}

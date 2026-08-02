@@ -4370,3 +4370,113 @@ decisions:
     rationale: The user authorized local Task 11 qualification with the exact verified CUDA profile, current RTX 5070 Ti Laptop GPU, and existing public MIT medium model while preserving every publication and platform gate.
     supersedes_revision: null
     requirement_ids: [RUN-012, NVIDIA-001, AC-AUTO-062]
+
+  - id: execution.task-12-revision-11
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 12 is the first unchecked packet after committed Task 11 and is self-contained under approved plan revision 11.
+      - Task 12 owns only deterministic Windows/Linux AMD Vulkan Preview definitions, a fail-closed Linux HIP no-approved-row contract, synthetic proof fixtures, and non-hardware Linux verification.
+      - Physical AMD qualification, SDK or driver acquisition, representative Windows execution, Task 13, commit, push, pull request, signing, publication, and release remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-12-start-round-52
+      question_id: execution.task-12-revision-11
+      idempotency_key: execution.task-12-revision-11:v1
+      last_status: answered
+      sequence: 52
+      revision: 1
+    question:
+      text: Should this incremental-implementation invocation execute only Local Whisper Task 12 from approved plan revision 11?
+      kind: single
+      options:
+        - id: authorize-task-12
+          label: Authorize Task 12 (Recommended)
+          description: Implement and verify exactly Task 12, update todo and handoff, then stop uncommitted before Task 13.
+        - id: do-not-authorize-task-12
+          label: Do not authorize
+          description: Keep Task 12 unopened and make no implementation changes.
+        - id: revise-task-12
+          label: Revise Task 12
+          description: Return the AMD preview-pack packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-12]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 12 for this incremental-implementation invocation while preserving every hardware, platform, publication, and later-packet gate.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-12-revision-11
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Task 12 is complete, verified, reviewed, and remains isolated from Task 13 implementation.
+      - A scoped commit excludes Task 13 implementation, push, pull request, publication, signing, release, remote CI, and representative Windows or AMD execution.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-13-start-round-53
+      question_id: commit.task-12-revision-11
+      idempotency_key: commit.task-12-revision-11:v1
+      last_status: answered
+      sequence: 53
+      revision: 1
+    question:
+      text: How should the completed, verified, and reviewed Local Whisper Task 12 packet proceed before Task 13?
+      kind: single
+      options:
+        - id: authorize-task-12-commit
+          label: Commit Task 12 (Recommended)
+          description: Create one scoped conventional commit for Task 12 without pushing, publishing, signing, or running remote CI.
+        - id: leave-task-12-uncommitted
+          label: Leave uncommitted
+          description: Keep Task 12 in the worktree and do not begin Task 13.
+        - id: revise-task-12-before-commit
+          label: Revise Task 12
+          description: Return Task 12 for additional changes before any commit or later packet.
+    answer:
+      selected_ids: [authorize-task-12-commit]
+      text: ''
+    rationale: The user authorized one scoped conventional commit for the completed Task 12 packet without authorizing any external or later-packet action.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-13-revision-11
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 13 is the first unchecked packet after completed Task 12 under approved plan revision 11.
+      - Task 13 owns only the isolated Faster-Whisper/CTranslate2 worker and deterministic packs defined by its packet.
+      - Task 14, commit, push, pull request, publication, signing, release, remote CI, and representative Windows execution remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-13-start-round-53
+      question_id: execution.task-13-revision-11
+      idempotency_key: execution.task-13-revision-11:v1
+      last_status: answered
+      sequence: 54
+      revision: 1
+    question:
+      text: After an authorized Task 12 commit, should this incremental-implementation invocation execute only Local Whisper Task 13 from approved plan revision 11?
+      kind: single
+      options:
+        - id: authorize-task-13
+          label: Authorize Task 13 (Recommended)
+          description: Implement and verify exactly Task 13, update todo and handoff, then stop uncommitted before Task 14.
+        - id: do-not-authorize-task-13
+          label: Do not authorize
+          description: Stop after resolving the Task 12 commit boundary without implementing Task 13.
+        - id: revise-task-13
+          label: Revise Task 13
+          description: Return the Task 13 packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-13]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 13 after the Task 12 commit boundary while preserving every later packet and external manual gate.
+    supersedes_revision: null
+    requirement_ids: []

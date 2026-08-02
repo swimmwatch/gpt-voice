@@ -78,16 +78,31 @@ const limitProvenancePath = resolve(
 );
 export const patchRoot = resolve(whisperCppRoot, 'patches');
 export const patchLockPath = resolve(patchRoot, 'device-cancel', 'local-whisper-whisper-cpp-device-cancel-v1.json');
+export const amdPatchLockPath = resolve(patchRoot, 'amd-preview', 'local-whisper-whisper-cpp-amd-preview-v1.json');
 export const patchedSourceRoot = resolve(taskCacheRoot, 'patched-source');
+export const amdPatchedSourceRoot = resolve(taskCacheRoot, 'patched-source-amd-preview');
 export const generatedIncludeRoot = resolve(taskCacheRoot, 'generated');
 
 const allowedProfiles = new Set([
   'linux-x64-cpu-baseline-v1',
   'linux-x64-clang-18.1.3-asan-ubsan-v1',
   'linux-x64-cuda-12.8.1-sm120a-v1',
+  'linux-x64-amd-vulkan-preview-contract-v1',
+  'linux-x64-amd-hip-no-approved-row-v1',
   'windows-x64-cpu-candidate-task19-v1',
   'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
+  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
 ]);
+
+function isAmdPreviewProfile(profileId) {
+  return profileId.includes('-amd-');
+}
+
+function patchContract(profileId) {
+  return isAmdPreviewProfile(profileId)
+    ? { lockPath: amdPatchLockPath, sourceRoot: amdPatchedSourceRoot }
+    : { lockPath: patchLockPath, sourceRoot: patchedSourceRoot };
+}
 
 function assertTaskOwnedPath(path) {
   const child = relative(taskCacheRoot, path);
@@ -218,13 +233,12 @@ function git(repositoryRoot, arguments_) {
   });
 }
 
-function patchedSourceIsCurrent(lock) {
-  if (!existsSync(resolve(patchedSourceRoot, '.git')) || !existsSync(resolve(patchedSourceRoot, 'src', 'whisper.cpp')))
-    return false;
+function patchedSourceIsCurrent(lock, sourceRoot) {
+  if (!existsSync(resolve(sourceRoot, '.git')) || !existsSync(resolve(sourceRoot, 'src', 'whisper.cpp'))) return false;
   try {
-    const manifest = buildIndexManifest(patchedSourceRoot);
+    const manifest = buildIndexManifest(sourceRoot);
     const status = spawnSync('git', ['status', '--porcelain=v1'], {
-      cwd: patchedSourceRoot,
+      cwd: sourceRoot,
       encoding: 'utf8',
       shell: false,
     });
@@ -234,19 +248,20 @@ function patchedSourceIsCurrent(lock) {
   }
 }
 
-export function preparePatchedSource() {
+export function preparePatchedSource(profileId = 'linux-x64-cpu-baseline-v1') {
   const sourceLock = readJson(sourceLockPath);
-  const lock = readJson(patchLockPath);
+  const contract = patchContract(profileId);
+  const lock = readJson(contract.lockPath);
   verifyPatchLock(lock, patchRoot);
   const sourceRoot = verifyMaterializedSource(sourceStoreRoot, sourceLock);
-  if (patchedSourceIsCurrent(lock)) return realpathSync(patchedSourceRoot);
-  assertTaskOwnedPath(patchedSourceRoot);
-  rmSync(patchedSourceRoot, { force: true, recursive: true });
+  if (patchedSourceIsCurrent(lock, contract.sourceRoot)) return realpathSync(contract.sourceRoot);
+  assertTaskOwnedPath(contract.sourceRoot);
+  rmSync(contract.sourceRoot, { force: true, recursive: true });
   mkdirSync(taskCacheRoot, { mode: 0o700, recursive: true });
-  cpSync(sourceRoot, patchedSourceRoot, { recursive: true });
-  git(patchedSourceRoot, ['init', '--quiet']);
-  git(patchedSourceRoot, ['add', '--force', '.']);
-  git(patchedSourceRoot, [
+  cpSync(sourceRoot, contract.sourceRoot, { recursive: true });
+  git(contract.sourceRoot, ['init', '--quiet']);
+  git(contract.sourceRoot, ['add', '--force', '.']);
+  git(contract.sourceRoot, [
     '-c',
     'user.name=Local Whisper Build',
     '-c',
@@ -256,8 +271,8 @@ export function preparePatchedSource() {
     '-m',
     'materialized source',
   ]);
-  applyPatchLock(patchedSourceRoot, patchRoot, lock);
-  git(patchedSourceRoot, [
+  applyPatchLock(contract.sourceRoot, patchRoot, lock);
+  git(contract.sourceRoot, [
     '-c',
     'user.name=Local Whisper Build',
     '-c',
@@ -267,8 +282,9 @@ export function preparePatchedSource() {
     '-m',
     'strict core patch',
   ]);
-  if (!patchedSourceIsCurrent(lock)) throw new Error('Strict patched source did not preserve its locked manifest');
-  return realpathSync(patchedSourceRoot);
+  if (!patchedSourceIsCurrent(lock, contract.sourceRoot))
+    throw new Error('Strict patched source did not preserve its locked manifest');
+  return realpathSync(contract.sourceRoot);
 }
 
 function profileTools(profile) {
@@ -288,6 +304,9 @@ function profileTools(profile) {
 
 export function configureBuild(profileId, { engine, tests }) {
   const profile = requireProfile(profileId);
+  if (isAmdPreviewProfile(profileId)) {
+    throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
+  }
   if (profile.target.os !== 'linux') throw new Error('Local configure requires a Linux profile');
   verifyToolchainContract(profile, { allowCandidate: false, contractOnly: false });
   const tools = profileTools(profile);
@@ -312,7 +331,7 @@ export function configureBuild(profileId, { engine, tests }) {
     `-DLOCAL_WHISPER_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
     `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${profileId.includes('clang-18.1.3') ? 'ON' : 'OFF'}`,
-    `-DLOCAL_WHISPER_SOURCE_ROOT=${engine ? preparePatchedSource() : patchedSourceRoot}`,
+    `-DLOCAL_WHISPER_SOURCE_ROOT=${engine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId)}`,
   ];
   if (tools.cudaCompiler !== null) arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
@@ -369,7 +388,10 @@ export function runFormattingAndTidy(configured, engineConfigured) {
     label: 'Whisper.cpp project clang-format',
   });
   const qualityFiles = files.filter(
-    (path) => (path.includes('/core/') && !path.endsWith('/core/main.cpp')) || path.includes('/device/'),
+    (path) =>
+      (path.includes('/core/') && !path.endsWith('/core/main.cpp')) ||
+      path.includes('/device/') ||
+      path.includes('/amd/'),
   );
   const engineFiles = files.filter((path) => path.includes('/adapter/') || path.endsWith('/core/main.cpp'));
   run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', configured.buildRoot, ...qualityFiles], {
@@ -381,7 +403,7 @@ export function runFormattingAndTidy(configured, engineConfigured) {
 }
 
 export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1') {
-  const patchLock = readJson(patchLockPath);
+  const patchLock = readJson(patchContract(profileId).lockPath);
   const table = readJson(limitTablePath);
   const profile = requireProfile(profileId);
   return canonicalDigest({
@@ -394,17 +416,18 @@ export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1') {
   });
 }
 
-export function requireVerifiedInputs() {
+export function requireVerifiedInputs(profileId = 'linux-x64-cpu-baseline-v1') {
+  const contract = patchContract(profileId);
   for (const path of [
     nlohmannSource,
     googleTestSource,
     sourceLockPath,
     nlohmannSourceLockPath,
-    patchLockPath,
+    contract.lockPath,
     limitTablePath,
   ]) {
     if (!existsSync(path)) throw new Error(`Required verified Whisper.cpp input is unavailable: ${path}`);
   }
   generateLimitHeader();
-  preparePatchedSource();
+  preparePatchedSource(profileId);
 }

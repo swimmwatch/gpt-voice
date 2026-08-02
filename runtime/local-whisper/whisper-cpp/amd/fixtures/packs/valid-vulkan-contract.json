@@ -1,0 +1,29 @@
+{
+  "fixtureId": "valid-vulkan-contract",
+  "expectedCode": null,
+  "expectedFiles": [
+    "bin/local-whisper-whisper-cpp-worker",
+    "lib/libvulkan.so.1",
+    "manifest/runtime.json",
+    "manifest/expected-files.json",
+    "manifest/provenance.json",
+    "manifest/sbom.json",
+    "notices/THIRD-PARTY-NOTICES.txt",
+    "licenses/whisper-cpp.LICENSE",
+    "licenses/vulkan-loader.LICENSE"
+  ],
+  "stagedFiles": [
+    "bin/local-whisper-whisper-cpp-worker",
+    "lib/libvulkan.so.1",
+    "manifest/runtime.json",
+    "manifest/expected-files.json",
+    "manifest/provenance.json",
+    "manifest/sbom.json",
+    "notices/THIRD-PARTY-NOTICES.txt",
+    "licenses/whisper-cpp.LICENSE",
+    "licenses/vulkan-loader.LICENSE"
+  ],
+  "dynamicDependencies": [{ "soname": "libvulkan.so.1", "resolvedPath": "lib/libvulkan.so.1" }],
+  "loaderPolicy": "manifest-owned-origin-only",
+  "networkAccess": false
+}

@@ -23,14 +23,25 @@ set(LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Production worker output directory")
 set(LOCAL_WHISPER_RUNTIME_BUILD_DIGEST "" CACHE STRING "Authenticated worker build digest")
 set(LOCAL_WHISPER_BACKEND_ID "cpu" CACHE STRING "Locked worker backend")
-set_property(CACHE LOCAL_WHISPER_BACKEND_ID PROPERTY STRINGS cpu cuda)
-if(NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
-  message(FATAL_ERROR "LOCAL_WHISPER_BACKEND_ID must be cpu or cuda")
+set_property(CACHE LOCAL_WHISPER_BACKEND_ID PROPERTY STRINGS cpu cuda hip vulkan)
+if(NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu" AND
+   NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda" AND
+   NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "hip" AND
+   NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "vulkan")
+  message(FATAL_ERROR "LOCAL_WHISPER_BACKEND_ID must be cpu, cuda, hip, or vulkan")
 endif()
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "hip")
+  message(FATAL_ERROR "Windows HIP is unsupported")
+elseif(LOCAL_WHISPER_BACKEND_ID STREQUAL "hip")
+  message(FATAL_ERROR "Linux HIP is unavailable because no exact pre-signing row is approved")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "vulkan")
+  set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-windows-x64-vulkan-preview-task19-v1")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
   set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-windows-x64-cpu-candidate-task19-v1")
+elseif(LOCAL_WHISPER_BACKEND_ID STREQUAL "vulkan")
+  set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-linux-x64-vulkan-preview-v1")
 elseif(LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
   set(LOCAL_WHISPER_RUNTIME_REVISION "whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1")
 else()
@@ -84,6 +95,7 @@ target_include_directories(local_whisper_worker_common
 local_whisper_apply_quality(local_whisper_worker_common)
 
 add_library(local_whisper_whisper_cpp_core STATIC
+  amd/amd_preview.cpp
   core/cancellation.cpp
   core/cpu_probe.cpp
   core/error.cpp
@@ -143,7 +155,7 @@ if(LOCAL_WHISPER_BUILD_ENGINE)
     RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}")
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu")
     target_link_options(local-whisper-whisper-cpp-worker PRIVATE
       "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
   endif()
@@ -179,6 +191,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   local_whisper_apply_quality(local_whisper_whisper_cpp_loader_tests)
 
   add_executable(local_whisper_whisper_cpp_device_tests
+    tests/amd_preview_test.cpp
     tests/device_authority_test.cpp
     tests/device_registry_test.cpp
   )

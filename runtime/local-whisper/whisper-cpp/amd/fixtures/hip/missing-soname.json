@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-missing-soname",
+  "stage": "pre-signing",
+  "expectedCode": "RUNTIME_PREREQUISITE_MISSING",
+  "mutations": [{ "path": "rocm.sonames", "value": [] }]
+}

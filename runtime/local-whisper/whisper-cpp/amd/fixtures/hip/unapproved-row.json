@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-unapproved-row",
+  "stage": "pre-signing",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "mutations": [{ "path": "approval.status", "value": "unapproved" }]
+}

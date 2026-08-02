@@ -13,11 +13,19 @@ import { qualificationInputDigest, verifyQualificationEvidence } from './native-
 const WINDOWS_PROFILE_IDS = new Set([
   'windows-x64-cpu-candidate-task19-v1',
   'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
+  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
 ]);
 const LINUX_PROFILE_IDS = new Set([
   'linux-x64-cpu-baseline-v1',
   'linux-x64-clang-18.1.3-asan-ubsan-v1',
   'linux-x64-cuda-12.8.1-sm120a-v1',
+  'linux-x64-amd-vulkan-preview-contract-v1',
+  'linux-x64-amd-hip-no-approved-row-v1',
+]);
+const AMD_CONTRACT_PROFILE_IDS = new Set([
+  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+  'linux-x64-amd-vulkan-preview-contract-v1',
+  'linux-x64-amd-hip-no-approved-row-v1',
 ]);
 const REQUIRED_WHISPER_CACHE = Object.freeze({
   FETCHCONTENT_FULLY_DISCONNECTED: 'ON',
@@ -63,7 +71,13 @@ function assertWhisperCache(profile) {
       ([key, value]) => /^GGML_(?:BLAS|CANN|CUDA|HIP|METAL|MUSA|OPENCL|SYCL|VULKAN|ZDNN)$/u.test(key) && value === 'ON',
     )
     .map(([key]) => key);
-  const expected = profile.profileId.includes('cuda-12.8.1') ? ['GGML_CUDA'] : [];
+  const expected = profile.profileId.includes('cuda-12.8.1')
+    ? ['GGML_CUDA']
+    : profile.profileId.includes('amd-vulkan')
+      ? ['GGML_VULKAN']
+      : profile.profileId.includes('amd-hip')
+        ? ['GGML_HIP']
+        : [];
   if (canonicalJson(enabledBackends.sort()) !== canonicalJson(expected)) {
     throw new Error('Native toolchain accelerator backend set is not exact');
   }
@@ -78,6 +92,66 @@ function assertWhisperCache(profile) {
       throw new Error('CUDA profile must preserve requested/effective 120a-real and shared runtime');
     }
   }
+}
+
+function verifyAmdContract(profile, options) {
+  if (!options.contractOnly || !AMD_CONTRACT_PROFILE_IDS.has(profile.profileId)) {
+    throw new Error('AMD Preview toolchains are contract-only until their manual gates pass');
+  }
+  if (profile.evidenceDigest !== null || profile.qualificationFixture !== null) {
+    throw new Error('AMD Preview contract must not claim qualification evidence');
+  }
+  const expectedOs = profile.profileId.startsWith('windows-') ? 'windows' : 'linux';
+  if (
+    profile.target.os !== expectedOs ||
+    canonicalJson(profile.sourceLockIds) !== canonicalJson(['whisper-cpp-v1.9.1-f049fff'])
+  ) {
+    throw new Error('AMD Preview target or source lock changed');
+  }
+  if (
+    [...profile.tools, ...profile.runtime, ...profile.outputs, ...profile.licenses].some(
+      (component) => component.sha256 !== null,
+    )
+  ) {
+    throw new Error('AMD Preview contract must not contain acquired or qualified identities');
+  }
+  if (profile.patchLockIds.length !== 1 || profile.patchLockIds[0] !== 'local-whisper-whisper-cpp-amd-preview-v1') {
+    throw new Error('AMD Preview contract must use the exact Task 12 patch series');
+  }
+  if (profile.profileId.includes('hip-no-approved-row')) {
+    if (
+      profile.qualificationState !== 'candidate-unqualified' ||
+      profile.architectureTargets.length !== 1 ||
+      profile.architectureTargets[0] !== 'unavailable-no-approved-row' ||
+      profile.runtime.length !== 0 ||
+      profile.dynamicDependencies.length !== 0
+    ) {
+      throw new Error('HIP contract must remain unavailable without one approved exact row');
+    }
+  } else if (
+    canonicalJson(profile.architectureTargets) !== canonicalJson(['vulkan-1.3-spirv-1.6']) ||
+    profile.qualificationState !==
+      (profile.target.os === 'windows' ? 'pendingWindowsFinalTask' : 'candidate-unqualified')
+  ) {
+    throw new Error('AMD Vulkan contract qualification state changed');
+  }
+  for (const dependency of profile.dynamicDependencies) {
+    const runtime = profile.runtime.find(({ id }) => id === dependency.id);
+    if (
+      !runtime ||
+      runtime.pathKind !== dependency.pathKind ||
+      runtime.path !== dependency.path ||
+      runtime.sha256 !== dependency.sha256
+    ) {
+      throw new Error(`AMD Preview dependency has no matching runtime identity: ${dependency.id}`);
+    }
+  }
+  const expectedEnvironment =
+    profile.target.os === 'windows' ? WINDOWS_ENVIRONMENT_ALLOWLIST : LINUX_ENVIRONMENT_ALLOWLIST;
+  if (canonicalJson(profile.environmentAllowlist) !== canonicalJson(expectedEnvironment)) {
+    throw new Error('AMD Preview environment allowlist changed');
+  }
+  return true;
 }
 
 function verifyWindowsToolchainContract(profile, options) {
@@ -174,6 +248,7 @@ export function verifyToolchainContract(profile, options = {}) {
   assertUnique(profile.dynamicDependencies, 'id', 'dynamic dependency');
   assertUnique(profile.licenses, 'id', 'license');
   assertWhisperCache(profile);
+  if (AMD_CONTRACT_PROFILE_IDS.has(profile.profileId)) return verifyAmdContract(profile, options);
   if (WINDOWS_PROFILE_IDS.has(profile.profileId)) {
     return verifyWindowsToolchainContract(profile, options);
   }

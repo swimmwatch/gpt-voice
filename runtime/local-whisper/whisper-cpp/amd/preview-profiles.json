@@ -1,0 +1,38 @@
+{
+  "schemaId": "local-whisper-amd-preview-profiles-v1",
+  "supportTier": "preview-untested",
+  "hardwareEvidence": false,
+  "profiles": [
+    {
+      "id": "windows-x64-amd-vulkan-preview",
+      "os": "windows",
+      "architecture": "x64",
+      "engine": "whisperCpp",
+      "backend": "vulkan",
+      "vendor": "amd",
+      "toolchainProfileId": "windows-x64-amd-vulkan-preview-candidate-task19-v1",
+      "executableState": "task19-only"
+    },
+    {
+      "id": "linux-x64-amd-vulkan-preview",
+      "os": "linux",
+      "architecture": "x64",
+      "engine": "whisperCpp",
+      "backend": "vulkan",
+      "vendor": "amd",
+      "toolchainProfileId": "linux-x64-amd-vulkan-preview-contract-v1",
+      "executableState": "contract-only"
+    },
+    {
+      "id": "linux-x64-amd-hip-preview",
+      "os": "linux",
+      "architecture": "x64",
+      "engine": "whisperCpp",
+      "backend": "hip",
+      "vendor": "amd",
+      "toolchainProfileId": "linux-x64-amd-hip-no-approved-row-v1",
+      "executableState": "unavailable-no-approved-row"
+    }
+  ],
+  "excluded": ["windows-hip", "faster-whisper-amd", "directml", "windows-ml", "macos"]
+}

@@ -121,6 +121,14 @@ jobs:
           npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
           npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
 
+      - name: Verify AMD Preview contracts without hardware claims
+        run: |
+          npm run format:check:local-whisper:amd-packs
+          npm run lint:local-whisper:amd-packs
+          npm run test:local-whisper:amd-packs
+          npm run verify:local-whisper:amd-packs -- --profile=vulkan-contract-linux
+          npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row
+
       - name: Run Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
 
@@ -178,6 +186,12 @@ jobs:
 
       - name: Verify Windows Whisper.cpp CUDA source contract
         run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1 --contract-only
+
+      # Task 19 removes this guard only when representative Windows AMD
+      # execution and required SDK/driver acquisition are authorized.
+      - name: Task 19 Windows AMD Vulkan qualification placeholder
+        if: ${{ false }}
+        run: npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
 
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem

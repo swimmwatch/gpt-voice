@@ -1,0 +1,11 @@
+{
+  "fixtureId": "hip-stale-source",
+  "stage": "pre-signing",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "mutations": [
+    {
+      "path": "source.patchedManifestSha256",
+      "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

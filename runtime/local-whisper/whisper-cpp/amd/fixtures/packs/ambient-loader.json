@@ -1,0 +1,9 @@
+{
+  "fixtureId": "ambient-loader",
+  "expectedCode": "RUNTIME_PREREQUISITE_MISSING",
+  "expectedFiles": ["bin/local-whisper-whisper-cpp-worker", "lib/libvulkan.so.1"],
+  "stagedFiles": ["bin/local-whisper-whisper-cpp-worker", "lib/libvulkan.so.1"],
+  "dynamicDependencies": [{ "soname": "libvulkan.so.1", "resolvedPath": "/usr/lib/libvulkan.so.1" }],
+  "loaderPolicy": "ambient-system-search",
+  "networkAccess": false
+}

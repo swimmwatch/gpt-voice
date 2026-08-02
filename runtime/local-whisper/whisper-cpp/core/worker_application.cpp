@@ -29,6 +29,17 @@ namespace {
 constexpr std::string_view kRuntimeRevision = LOCAL_WHISPER_RUNTIME_REVISION;
 constexpr std::string_view kRuntimeBackend = LOCAL_WHISPER_BACKEND_ID;
 
+nlohmann::json backend_capabilities(EngineBackend backend) {
+  if (backend == EngineBackend::cpu)
+    return nlohmann::json::array(
+        {"cpu-baseline", "exact-model-authority", "cooperative-cancellation"});
+  const std::string backend_capability = backend == EngineBackend::cuda  ? "cuda-sm-120a"
+                                         : backend == EngineBackend::hip ? "hip-exact-row"
+                                                                         : "vulkan-1.3-amd-preview";
+  return nlohmann::json::array({backend_capability, "exact-device-proof", "exact-model-authority",
+                                "cooperative-cancellation"});
+}
+
 void require_exact_keys(const nlohmann::json& value,
                         std::initializer_list<std::string_view> expected) {
   if (!value.is_object() || value.size() != expected.size())
@@ -98,6 +109,16 @@ std::string protocol_failure(FailureCode code) {
   switch (code) {
   case FailureCode::runtime_prerequisite_missing:
     return "RUNTIME_PREREQUISITE_MISSING";
+  case FailureCode::device_not_allowlisted:
+    return "DEVICE_NOT_ALLOWLISTED";
+  case FailureCode::backend_unsupported:
+    return "BACKEND_UNSUPPORTED";
+  case FailureCode::target_unsupported:
+    return "TARGET_UNSUPPORTED";
+  case FailureCode::driver_incompatible:
+    return "DRIVER_INCOMPATIBLE";
+  case FailureCode::gpu_permission_denied:
+    return "GPU_PERMISSION_DENIED";
   case FailureCode::device_not_found:
     return "DEVICE_NOT_FOUND";
   case FailureCode::device_feature_missing:
@@ -124,6 +145,8 @@ std::string protocol_failure(FailureCode code) {
     return "CPU_FEATURE_MISSING";
   case FailureCode::model_authority_invalid:
     return "WORKER_START_FAILED";
+  case FailureCode::cleanup_failed:
+    return "CLEANUP_FAILED";
   }
   return "TRANSCRIPTION_FAILED";
 }
@@ -136,10 +159,11 @@ void require_cpu_binding(const nlohmann::json& value) {
 std::uint16_t require_gpu_binding(const nlohmann::json& value) {
   if (!value.is_object() || value.size() != 2U || value.value("kind", "") != "gpuIndex" ||
       !value.contains("index") || !value.at("index").is_number_unsigned())
-    throw CoreError(FailureCode::invalid_settings, "CUDA worker received invalid GPU binding");
+    throw CoreError(FailureCode::invalid_settings,
+                    "accelerator worker received invalid GPU binding");
   const auto index = value.at("index").get<std::uint64_t>();
   if (index > 255U)
-    throw CoreError(FailureCode::invalid_settings, "CUDA ordinal exceeds protocol limit");
+    throw CoreError(FailureCode::invalid_settings, "accelerator ordinal exceeds protocol limit");
   return static_cast<std::uint16_t>(index);
 }
 
@@ -188,7 +212,7 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
     require_cpu_binding(value.at("deviceBinding"));
   } else {
     if (device_authority == nullptr)
-      throw CoreError(FailureCode::device_proof_failed, "CUDA load lacks device authority");
+      throw CoreError(FailureCode::device_proof_failed, "accelerator load lacks device authority");
     const auto ordinal = require_gpu_binding(value.at("deviceBinding"));
     operation_authority =
         DeviceOperationAuthority{*device_authority, require_challenge(value, "loadChallenge"),
@@ -200,7 +224,7 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
   const bool cpu = backend == EngineBackend::cpu;
   if (residency.value("engine", "") != "whisperCpp" ||
       residency.value("target", "") != (cpu ? "cpu" : "gpu") ||
-      residency.value("backend", "") != (cpu ? "cpu" : "cuda") ||
+      residency.value("backend", "") != kRuntimeBackend ||
       residency.value("runtimePackRevision", "") != kRuntimeRevision ||
       !residency.at("precision").is_null() || (cpu && !residency.at("deviceId").is_null()) ||
       (!cpu && (!residency.at("deviceId").is_string() ||
@@ -227,7 +251,7 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
   const auto authority_id = require_string(value, "authorityId", 22U);
   if (operation_authority.has_value() &&
       operation_authority->proof_authority.authority_id != authority_id)
-    throw CoreError(FailureCode::device_proof_failed, "CUDA authority identity mismatch");
+    throw CoreError(FailureCode::device_proof_failed, "accelerator authority identity mismatch");
   return {authority_id,
           request_id(value),
           family,
@@ -328,21 +352,15 @@ int WorkerApplication::run_checked() {
   const auto hello = channel_.read_control();
   require_exact_keys(hello, {"type", "protocolVersion"});
   require_protocol(hello, "hello");
-  channel_.send_control(
-      {{"type", "helloAck"},
-       {"protocolVersion", 1},
-       {"engine", "whisperCpp"},
-       {"runtimeRevision", kRuntimeRevision},
-       {"runtimeBuildDigest", LOCAL_WHISPER_RUNTIME_BUILD_DIGEST},
-       {"backend", kRuntimeBackend},
-       {"capabilities",
-        engine_.backend() == EngineBackend::cpu
-            ? nlohmann::json::array(
-                  {"cpu-baseline", "exact-model-authority", "cooperative-cancellation"})
-            : nlohmann::json::array({"cuda-sm-120a", "exact-device-proof", "exact-model-authority",
-                                     "cooperative-cancellation"})},
-       {"maxControlFrameBytes", 1'048'576},
-       {"maxAudioChunkBytes", 1'048'576}});
+  channel_.send_control({{"type", "helloAck"},
+                         {"protocolVersion", 1},
+                         {"engine", "whisperCpp"},
+                         {"runtimeRevision", kRuntimeRevision},
+                         {"runtimeBuildDigest", LOCAL_WHISPER_RUNTIME_BUILD_DIGEST},
+                         {"backend", kRuntimeBackend},
+                         {"capabilities", backend_capabilities(engine_.backend())},
+                         {"maxControlFrameBytes", 1'048'576},
+                         {"maxAudioChunkBytes", 1'048'576}});
 
   if (mode_ == WorkerRunMode::probe) {
     const auto message = channel_.read_control();
@@ -367,7 +385,7 @@ int WorkerApplication::run_checked() {
       return evidence.compute_digest == 0U ? 12 : 0;
     }
     if (device_authority_ == nullptr || device_authority_->authority_id != authority_id)
-      throw CoreError(FailureCode::device_proof_failed, "CUDA probe authority mismatch");
+      throw CoreError(FailureCode::device_proof_failed, "accelerator probe authority mismatch");
     const auto ordinal = require_gpu_binding(message.at("deviceBinding"));
     const DeviceOperationAuthority authority{
         *device_authority_, require_challenge(message, "probeChallenge"),

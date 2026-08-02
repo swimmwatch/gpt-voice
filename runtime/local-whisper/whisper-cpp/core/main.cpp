@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     if (mode != "--probe" && mode != "--load")
       return 2;
     std::optional<local_whisper::whisper_cpp::DeviceAuthority> device_authority;
-    if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) == "cuda")
+    if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) != "cpu")
       device_authority.emplace(
           local_whisper::whisper_cpp::DeviceAuthority::receive_from_standard_channel());
     std::optional<local_whisper::whisper_cpp::ModelAuthority> authority;

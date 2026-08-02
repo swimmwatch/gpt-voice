@@ -1,0 +1,9 @@
+{
+  "fixtureId": "missing-loader",
+  "expectedCode": "RUNTIME_PREREQUISITE_MISSING",
+  "expectedFiles": ["bin/local-whisper-whisper-cpp-worker", "lib/libvulkan.so.1"],
+  "stagedFiles": ["bin/local-whisper-whisper-cpp-worker"],
+  "dynamicDependencies": [{ "soname": "libvulkan.so.1", "resolvedPath": null }],
+  "loaderPolicy": "manifest-owned-origin-only",
+  "networkAccess": false
+}

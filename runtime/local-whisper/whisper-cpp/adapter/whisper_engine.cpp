@@ -25,9 +25,29 @@ namespace local_whisper::whisper_cpp {
 namespace {
 
 constexpr std::string_view kEngineId = "whisperCpp";
-constexpr std::string_view kCudaBackendId = "cuda";
+constexpr std::string_view kBackendId = LOCAL_WHISPER_BACKEND_ID;
 constexpr std::string_view kRuntimeDigest = LOCAL_WHISPER_RUNTIME_BUILD_DIGEST;
-constexpr bool kCudaWorker = std::string_view(LOCAL_WHISPER_BACKEND_ID) == kCudaBackendId;
+constexpr bool kGpuWorker = kBackendId != "cpu";
+
+constexpr std::string_view backend_registry_name() {
+  if (kBackendId == "cuda")
+    return "CUDA";
+  if (kBackendId == "hip")
+    return "ROCm";
+  if (kBackendId == "vulkan")
+    return "Vulkan";
+  return {};
+}
+
+constexpr EngineBackend engine_backend() {
+  if (kBackendId == "cuda")
+    return EngineBackend::cuda;
+  if (kBackendId == "hip")
+    return EngineBackend::hip;
+  if (kBackendId == "vulkan")
+    return EngineBackend::vulkan;
+  return EngineBackend::cpu;
+}
 
 void discard_upstream_log(enum ggml_log_level, const char*, void*) {}
 
@@ -136,14 +156,14 @@ public:
         continue;
       ggml_backend_reg_t registry = ggml_backend_dev_backend_reg(device);
       const char* registry_name = registry == nullptr ? nullptr : ggml_backend_reg_name(registry);
-      if (registry_name == nullptr || std::string_view(registry_name) != "CUDA")
+      if (registry_name == nullptr || std::string_view(registry_name) != backend_registry_name())
         continue;
       ggml_backend_dev_props properties{};
       ggml_backend_dev_get_props(device, &properties);
       result.push_back({type == GGML_BACKEND_DEVICE_TYPE_GPU
                             ? local_whisper::common::RegistryDeviceType::gpu
                             : local_whisper::common::RegistryDeviceType::integrated_gpu,
-                        std::string(kCudaBackendId),
+                        std::string(kBackendId),
                         properties.device_id == nullptr ? std::string() : properties.device_id,
                         reinterpret_cast<std::uintptr_t>(device)});
     }
@@ -204,7 +224,7 @@ local_whisper::common::DeviceProofInput proof_input(const DeviceOperationAuthori
           authority.proof_authority.topology_generation,
           std::string(kEngineId),
           std::string(kRuntimeDigest),
-          std::string(kCudaBackendId),
+          std::string(kBackendId),
           evidence.registry_fingerprint,
           authority.selected_ordinal,
           evidence.activated_ordinal,
@@ -224,19 +244,19 @@ DeviceProbeEvidence base_evidence(const SelectedDevice& selection, std::string p
 void deterministic_device_dispatch(ggml_backend_t backend, ggml_backend_dev_t device,
                                    const CancellationToken& cancellation) {
   if (cancellation.requested())
-    throw CoreError(FailureCode::cancelled, "CUDA probe cancelled before dispatch");
+    throw CoreError(FailureCode::cancelled, "accelerator probe cancelled before dispatch");
   constexpr std::size_t kMetadataBytes = 16U * 1024U;
   ggml_init_params parameters{kMetadataBytes, nullptr, true};
   GgmlContextOwner context(ggml_init(parameters));
   if (context.get() == nullptr)
-    throw CoreError(FailureCode::allocation_failed, "CUDA probe graph allocation failed");
+    throw CoreError(FailureCode::allocation_failed, "accelerator probe graph allocation failed");
   ggml_tensor* left = ggml_new_tensor_1d(context.get(), GGML_TYPE_F32, 2);
   ggml_tensor* right = ggml_new_tensor_1d(context.get(), GGML_TYPE_F32, 2);
   ggml_tensor* sum = ggml_add(context.get(), left, right);
   BufferOwner buffer(ggml_backend_alloc_ctx_tensors_from_buft(
       context.get(), ggml_backend_dev_buffer_type(device)));
   if (buffer.get() == nullptr)
-    throw CoreError(FailureCode::allocation_failed, "CUDA probe buffer allocation failed");
+    throw CoreError(FailureCode::allocation_failed, "accelerator probe buffer allocation failed");
   const std::array<float, 2> left_values{1.0F, 2.0F};
   const std::array<float, 2> right_values{3.0F, 4.0F};
   std::array<float, 2> result{};
@@ -247,10 +267,10 @@ void deterministic_device_dispatch(ggml_backend_t backend, ggml_backend_dev_t de
   if (cancellation.requested() || ggml_backend_graph_compute(backend, graph) != GGML_STATUS_SUCCESS)
     throw CoreError(cancellation.requested() ? FailureCode::cancelled
                                              : FailureCode::backend_init_failed,
-                    "CUDA probe dispatch failed");
+                    "accelerator probe dispatch failed");
   ggml_backend_tensor_get(sum, result.data(), 0U, sizeof(result));
   if (result != std::array<float, 2>{4.0F, 6.0F})
-    throw CoreError(FailureCode::backend_init_failed, "CUDA probe readback mismatch");
+    throw CoreError(FailureCode::backend_init_failed, "accelerator probe readback mismatch");
 }
 
 } // namespace
@@ -259,24 +279,23 @@ class WhisperCppEngine::Impl final {
 public:
   Impl()
       : registry_(discovery_, std::string(kEngineId), std::string(kRuntimeDigest),
-                  std::string(kCudaBackendId)) {}
+                  std::string(kBackendId)) {}
 
-  [[nodiscard]] EngineBackend backend() const noexcept {
-    return kCudaWorker ? EngineBackend::cuda : EngineBackend::cpu;
-  }
+  [[nodiscard]] EngineBackend backend() const noexcept { return engine_backend(); }
 
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority& authority,
                                                  const CancellationToken& cancellation) {
-    if (!kCudaWorker)
-      throw CoreError(FailureCode::invalid_settings, "CPU worker cannot probe CUDA");
+    if (!kGpuWorker)
+      throw CoreError(FailureCode::invalid_settings, "CPU worker cannot probe an accelerator");
     const auto selected =
         registry_.resolve(authority.selected_ordinal, authority.registry_fingerprint);
     auto* device = reinterpret_cast<ggml_backend_dev_t>(selected.native_token);
     BackendOwner activated(ggml_backend_dev_init(device, nullptr));
     if (activated.get() == nullptr)
-      throw CoreError(FailureCode::backend_init_failed, "selected CUDA backend activation failed");
+      throw CoreError(FailureCode::backend_init_failed,
+                      "selected accelerator backend activation failed");
     if (ggml_backend_get_device(activated.get()) != device)
-      throw CoreError(FailureCode::device_proof_failed, "activated CUDA device changed");
+      throw CoreError(FailureCode::device_proof_failed, "activated accelerator device changed");
     deterministic_device_dispatch(activated.get(), device, cancellation);
     auto evidence = base_evidence(selected, selected.native_identity);
     evidence.probe_proof = local_whisper::common::device_proof(
@@ -289,7 +308,7 @@ public:
             const CancellationToken& cancellation) {
     if (context_.get() != nullptr)
       throw CoreError(FailureCode::model_load_failed, "engine already loaded");
-    if (kCudaWorker != authority.has_value())
+    if (kGpuWorker != authority.has_value())
       throw CoreError(FailureCode::invalid_settings, "worker backend and load authority differ");
     cancellation_checkpoint(cancellation);
     ModelFormatPreflight preflight{LoaderLimits()};
@@ -297,10 +316,10 @@ public:
     reader.rewind_after_verified_pass();
     whisper_log_set(discard_upstream_log, nullptr);
     whisper_context_params parameters = whisper_context_default_params();
-    parameters.use_gpu = kCudaWorker;
+    parameters.use_gpu = kGpuWorker;
     parameters.flash_attn = false;
     parameters.gpu_device = authority.has_value() ? authority->selected_ordinal : 0;
-    parameters.local_whisper_require_gpu = kCudaWorker;
+    parameters.local_whisper_require_gpu = kGpuWorker;
     if (authority.has_value()) {
       selected_ = registry_.resolve(authority->selected_ordinal, authority->registry_fingerprint);
       parameters.local_whisper_selected_device = reinterpret_cast<void*>(selected_->native_token);
@@ -316,8 +335,8 @@ public:
         throw CoreError(FailureCode::model_corrupt,
                         "model loader stopped before authenticated EOF");
       reader.verify_complete();
-      throw CoreError(kCudaWorker ? FailureCode::backend_init_failed
-                                  : FailureCode::model_load_failed,
+      throw CoreError(kGpuWorker ? FailureCode::backend_init_failed
+                                 : FailureCode::model_load_failed,
                       "Whisper.cpp rejected validated model or exact backend");
     }
     try {
@@ -353,12 +372,12 @@ public:
   }
 
   [[nodiscard]] DeviceLoadEvidence load_evidence(const DeviceOperationAuthority& authority) const {
-    if (!kCudaWorker || context_.get() == nullptr || !selected_.has_value())
-      throw CoreError(FailureCode::device_proof_failed, "CUDA model evidence unavailable");
+    if (!kGpuWorker || context_.get() == nullptr || !selected_.has_value())
+      throw CoreError(FailureCode::device_proof_failed, "accelerator model evidence unavailable");
     whisper_local_device_evidence native{};
     if (!whisper_local_get_device_evidence(context_.get(), &native) ||
         native.activated_device_id == nullptr || native.primary_state_device_id == nullptr)
-      throw CoreError(FailureCode::device_proof_failed, "CUDA model ownership proof failed");
+      throw CoreError(FailureCode::device_proof_failed, "accelerator model ownership proof failed");
     const auto validated = validate_device_load_observation(
         *selected_, authority.selected_ordinal, authority.registry_fingerprint,
         {native.activated_device_id, native.primary_state_device_id, native.model_weight_bytes,

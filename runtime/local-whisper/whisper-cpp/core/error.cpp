@@ -11,12 +11,22 @@ std::string_view failure_code_name(FailureCode code) noexcept {
   switch (code) {
   case FailureCode::runtime_prerequisite_missing:
     return "RUNTIME_PREREQUISITE_MISSING";
+  case FailureCode::device_not_allowlisted:
+    return "DEVICE_NOT_ALLOWLISTED";
   case FailureCode::device_not_found:
     return "DEVICE_NOT_FOUND";
   case FailureCode::device_feature_missing:
     return "DEVICE_FEATURE_MISSING";
   case FailureCode::device_proof_failed:
     return "DEVICE_PROOF_FAILED";
+  case FailureCode::backend_unsupported:
+    return "BACKEND_UNSUPPORTED";
+  case FailureCode::target_unsupported:
+    return "TARGET_UNSUPPORTED";
+  case FailureCode::driver_incompatible:
+    return "DRIVER_INCOMPATIBLE";
+  case FailureCode::gpu_permission_denied:
+    return "GPU_PERMISSION_DENIED";
   case FailureCode::backend_init_failed:
     return "BACKEND_INIT_FAILED";
   case FailureCode::model_authority_invalid:
@@ -35,6 +45,8 @@ std::string_view failure_code_name(FailureCode code) noexcept {
     return "TRANSCRIPTION_FAILED";
   case FailureCode::not_ready:
     return "NOT_READY";
+  case FailureCode::cleanup_failed:
+    return "CLEANUP_FAILED";
   case FailureCode::cancelled:
     return "CANCELLED";
   }

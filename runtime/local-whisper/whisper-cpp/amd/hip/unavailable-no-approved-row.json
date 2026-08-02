@@ -1,0 +1,15 @@
+{
+  "schemaId": "local-whisper-amd-hip-availability-v1",
+  "profileId": "linux-x64-amd-hip-no-approved-row-v1",
+  "status": "unavailable-no-approved-row",
+  "reasonCode": "DEVICE_NOT_ALLOWLISTED",
+  "approvedRowIds": [],
+  "configureAllowed": false,
+  "stageAllowed": false,
+  "catalogAllowed": false,
+  "downloadAllowed": false,
+  "loadAllowed": false,
+  "fallbackBackend": null,
+  "supportTier": "preview-untested",
+  "hardwareEvidence": false
+}

@@ -1,0 +1,24 @@
+{
+  "fixtureId": "hip-mixed-soname-source",
+  "stage": "pre-signing",
+  "expectedCode": "RUNTIME_PREREQUISITE_MISSING",
+  "mutations": [
+    {
+      "path": "rocm.sonames",
+      "value": [
+        {
+          "name": "libamdhip64.so.6",
+          "version": "6.1.2",
+          "buildId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source": "bundled"
+        },
+        {
+          "name": "libamdhip64.so.6",
+          "version": "6.1.2",
+          "buildId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source": "system"
+        }
+      ]
+    }
+  ]
+}

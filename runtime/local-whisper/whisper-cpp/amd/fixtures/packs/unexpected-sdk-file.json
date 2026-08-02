@@ -1,0 +1,9 @@
+{
+  "fixtureId": "unexpected-sdk-file",
+  "expectedCode": "RUNTIME_PREREQUISITE_MISSING",
+  "expectedFiles": ["bin/local-whisper-whisper-cpp-worker", "lib/libvulkan.so.1"],
+  "stagedFiles": ["bin/local-whisper-whisper-cpp-worker", "lib/libvulkan.so.1", "include/vulkan/vulkan.h"],
+  "dynamicDependencies": [{ "soname": "libvulkan.so.1", "resolvedPath": "lib/libvulkan.so.1" }],
+  "loaderPolicy": "manifest-owned-origin-only",
+  "networkAccess": false
+}

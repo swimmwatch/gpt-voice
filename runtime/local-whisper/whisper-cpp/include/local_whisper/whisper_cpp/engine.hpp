@@ -13,7 +13,7 @@
 namespace local_whisper::whisper_cpp {
 
 enum class DecodingStrategy { greedy, beam_search, best_of_sampling };
-enum class EngineBackend { cpu, cuda };
+enum class EngineBackend { cpu, cuda, hip, vulkan };
 
 struct DeviceOperationAuthority final {
   DeviceProofAuthority proof_authority;

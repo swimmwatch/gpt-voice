@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-missing-pcie-atomics",
+  "stage": "runtime",
+  "expectedCode": "DEVICE_FEATURE_MISSING",
+  "mutations": [{ "path": "pcieAtomicsAvailable", "value": false }]
+}
