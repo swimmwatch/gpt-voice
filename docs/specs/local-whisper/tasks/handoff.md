@@ -2,8 +2,7 @@
 
 ## Authoritative State
 
-- Specification revision 7 and plan revision 13 are Approved. Revision 13
-  splits the previous combined qualification packet into Tasks 19–21.
+- Specification revision 7 and plan revision 14 are Approved.
 - Tasks 01–18 are complete and committed; Task 17 is `b9c3e3b` and Task 18 is
   `16b32ca`.
 - The verified public fixture bundle digest is
@@ -12,67 +11,62 @@
   **Planned · Unavailable**. Representative Windows execution remains
   exclusively in Task 20.
 
-## Task 18 Completed
+## Planning Repair
 
-- Added explicit schema-0 settings migration and a deterministic legacy
-  provider chooser fixture that preserves unknown Local Whisper namespaces
-  without execution or deletion.
-- Added fail-open, closed Local Whisper lifecycle audit operations and bounded
-  enum/revision/state metadata. Command audit failures cannot replace completed
-  IPC results.
-- Added additive diagnostics schema v2 with one optional canonical,
-  manifest-bound 64 KiB Local Whisper snapshot; schema-v1 reading remains
-  supported and analyzer output is limited to `absent`, `valid`, or `invalid`.
-- Added privacy/offline canaries, complete user/operator/runtime documentation,
-  downgrade guidance, and the qualification evidence seed template consumed
-  beginning in Task 19.
-- Added the macOS arm64 `gpu`/`metal` planned skeleton. It returns
-  `PLANNED_UNAVAILABLE` before catalog, resource, helper, worker, allocation,
-  load, Ready, or transcription authority, with no CPU exception.
+- Repository inspection found that `src/main/main.ts` unconditionally injects
+  `createDeferredLocalWhisperEnvironment` on Linux and Windows.
+- The settings, catalog, inventory, managed-filesystem, artifact, capability,
+  supervisor/lifecycle, coordinator, IPC, and snapshot components exist, but
+  there is no production construction site or complete live adapter graph.
+- Missing concrete seams include authenticated packaged catalog input loading,
+  managed store/inventory/artifact composition, CPU/CUDA discovery and topology
+  authority, worker/runtime/model lease resolution, coordinator ports, dynamic
+  snapshot facts, and deterministic graph disposal.
+- The packaged production catalog remains a disabled sentinel; no authenticated
+  real model/runtime publication input is currently present. Fixture trust must
+  never substitute for that external gate.
+- Durable planning decision `planning.live-environment-packet-boundary`
+  preserves Tasks 19–21 and expands Task 19 with a production-candidate
+  activation milestone before Linux qualification.
 
-## Changed Components
+## Changed Planning Components
 
-- Migration and audit: `src/main/localWhisper/{settings,audit,ipc}/`,
-  `src/main/providerAudit/`, and their fixtures/tests.
-- Diagnostics: `src/main/localWhisper/diagnostics/`, diagnostics archive
-  services/shared contracts, and analyzer skill/reference updates.
-- Platform and composition: deferred Local Whisper environment,
-  `MainProcessCompositionRoot`, and macOS package/presentation contract tests.
-- Documentation and gates: `docs/local-whisper.md`,
-  `runtime/local-whisper/README.md`, root/native READMEs, `package.json`, and
-  `docs/specs/local-whisper/qualification/task19-evidence-template.md` (a seed
-  to split into Linux, Windows, and aggregate evidence during Tasks 19–21).
+- Revised `tasks/plan.md`, `tasks/todo.md`, and Task 19 for plan revision 14.
+- Kept Task 20 as the exclusive representative Windows execution packet and
+  Task 21 as the aggregate/release-blocker packet.
+- Updated revision metadata in Tasks 20–21, the acceptance-owner registry and
+  schema, the validator, and the decision ledger.
+- No production source, test, package, CI, or runtime artifact was changed or
+  executed by this planning revision.
 
 ## Verification
 
-- Passed every Task 18 focused command and the aggregate
-  `verify:local-whisper:migration-privacy`, including migration, audit,
-  schema-v1/v2 diagnostics, privacy, offline, macOS skeleton, and documentation
-  contracts.
-- Passed diagnostics dependency policy, source/test typechecks, ESLint with
-  zero issues, Prettier, and `git diff --check`.
-- Passed the complete unit suite (**1,593 passed**), production dependency audit
-  (**0 vulnerabilities**), and production webpack build. The build retained
-  only the repository's existing non-failing entrypoint-size warnings.
+- Passed the 233-active-requirement coverage audit, Task 19 executability and
+  local-link audits, 21-packet/62-owner task-plan validator, scoped Prettier,
+  decision-ledger YAML parse, and `git diff --check` for revision 14.
 - Remote CI, representative Windows execution, physical AMD execution, and
-  physical macOS execution were not run and are not claimed.
+  physical macOS execution are not part of this planning invocation.
 
 ## Exact Next Step
 
-- Execute [Task 19](19_linux_qualification.md) through a new
-  `incremental-implementation` invocation on Linux only.
-- Task 20 then executes every representative Windows check on Windows against
-  the unchanged Task 19 candidate. Task 21 performs final reconciliation and
-  release-blocker reporting without rerunning unchanged expensive profiles.
+- Obtain separate execution authorization, then execute
+  [Task 19](19_linux_qualification.md) on Linux. First build and prove the
+  production-candidate graph; only then freeze authenticated inputs and run the
+  Linux qualification profiles.
+- Task 20 consumes the unchanged live-composed candidate on representative
+  Windows. Task 21 reconciles both platform slices without rerunning unchanged
+  expensive profiles.
 
 ## Blockers And Manual Gates
 
-- No deterministic Task 18 implementation blocker remains.
-- Exact previous packaged-binary rollback evidence is split between Linux Task
-  19 and Windows Task 20, then reconciled in Task 21. Every representative
-  Windows check remains exclusively in Task 20.
-- Production signing inputs, approved origins, frozen production packs,
-  license/redistribution approval, AMD claims review, and physical platform
-  qualification remain external manual gates.
-- Commit, push, pull request, production signing, publication, tag, upload, and
-  release authority remain separately gated.
+- Authenticated production catalog/key/origin inputs, exact approved
+  runtime/model artifacts, licenses, and redistribution approval are required
+  before candidate freeze. Their absence does not block fail-closed composition
+  work but keeps Task 19 incomplete and real qualification rows `Pending`.
+- Exact previous packaged-binary rollback evidence remains split between Linux
+  Task 19 and Windows Task 20, then reconciled in Task 21.
+- Every representative Windows check remains exclusively in Task 20. Physical
+  AMD promotion and executable macOS work remain outside the current release.
+- Task 19 execution, commit, push, pull request, production signing,
+  publication, tag, upload, support-claim change, and release authority remain
+  separately gated.

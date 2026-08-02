@@ -5415,3 +5415,163 @@ decisions:
     rationale: The user explicitly approved revision 13 through the durable workspace interview. This approval authorizes the plan contract only and keeps each packet and every external action separately gated.
     supersedes_revision: 12
     requirement_ids: []
+
+  - id: planning.live-environment-packet-boundary
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Production startup currently injects `createDeferredLocalWhisperEnvironment` for Linux and Windows, so Task 19 cannot qualify a live application graph as written.
+      - Concrete repositories and services exist, but authenticated catalog input loading, device discovery, worker/artifact/coordinator adapters, and process-owned production composition are not connected.
+      - The user selected preservation of the Linux Task 19, Windows Task 20, and aggregate Task 21 numbering and execution boundaries.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: live-environment-boundary-round-63
+      question_id: planning.live-environment-packet-boundary
+      idempotency_key: planning.live-environment-packet-boundary:v1
+      last_status: answered
+      sequence: 63
+      revision: 1
+    question:
+      text: How should the plan add the missing non-deferred Local Whisper composition required before real platform qualification?
+      kind: single
+      options:
+        - id: preserve-platform-numbers
+          label: Preserve Tasks 19–21 (Recommended)
+          description: Expand Task 19 with a first Linux activation milestone, then qualify Linux; Task 20 remains Windows and Task 21 remains aggregate.
+        - id: insert-activation-packet
+          label: Insert activation packet
+          description: Make Task 19 composition-only and renumber Linux, Windows, and aggregate qualification to Tasks 20–22.
+        - id: leave-plan-blocked
+          label: Leave plan blocked
+          description: Keep revision 13 unchanged and do not authorize qualification until a later planning revision.
+    answer:
+      selected_ids: [preserve-platform-numbers]
+      text: ''
+    rationale: Task 19 now owns production-candidate activation followed by Linux qualification, while Tasks 20 and 21 retain their approved Windows and aggregate boundaries.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan-revision-14
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 14 preserves approved specification revision 7, completed Tasks 01–18, and the Linux Task 19, Windows Task 20, and aggregate Task 21 execution boundaries.
+      - Task 19 now first composes and proves the process-owned production-candidate graph, then freezes authenticated inputs and executes Linux qualification without representative Windows execution.
+      - The validated task graph contains 21 packets, covers all 233 active product requirement and acceptance IDs, and maps all 62 canonical automated acceptance IDs exactly once.
+      - Approval remains separate from Task 19 execution, commit, push, pull request, signing, packaging, publication, tag, upload, support-claim promotion, and release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-14-approval-round-64
+      question_id: approval.plan-revision-14
+      idempotency_key: approval.plan-revision-14:v1
+      last_status: answered
+      sequence: 64
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 14 proceed after adding the missing production-candidate activation milestone to Linux Task 19?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 14 (Recommended)
+          description: Approve Task 19 activation followed by Linux qualification; Tasks 20 and 21 and all execution/external gates remain separate.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 14 in Draft and revise the affected planning artifacts before implementation.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the validated repair unapproved and keep approved revision 13 authoritative.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 14 through the durable workspace interview. This authorizes the repaired plan contract only and leaves packet execution and every external action separately gated.
+    supersedes_revision: 13
+    requirement_ids: []
+
+  - id: commit.plan-revision-14
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 7 and plan revision 14 are approved and the worktree contains only the verified revision-14 planning repair.
+      - The planning repair preserves Tasks 19–21, adds production-candidate activation before Linux qualification, and changes no production implementation.
+      - Task 19 implementation, its eventual commit, push, pull request, packaging, signing, publication, release, and representative Windows execution remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-19-start-round-65
+      question_id: commit.plan-revision-14
+      idempotency_key: commit.plan-revision-14:v1
+      last_status: answered
+      sequence: 65
+      revision: 1
+    question:
+      text: How should the approved, verified, and currently uncommitted Local Whisper plan revision 14 baseline proceed before Task 19?
+      kind: single
+      options:
+        - id: authorize-plan-commit
+          label: Commit approved baseline (Recommended)
+          description: Create one scoped conventional commit containing only the approved revision-14 planning repair, without pushing or starting external actions.
+        - id: leave-plan-uncommitted
+          label: Leave uncommitted
+          description: Keep the approved planning repair dirty and do not begin Task 19.
+        - id: revise-plan-before-commit
+          label: Revise first
+          description: Return revision 14 for further planning changes before implementation.
+    answer:
+      selected_ids: [authorize-plan-commit]
+      text: ''
+    rationale: The user explicitly authorized one scoped conventional commit containing only the approved revision-14 planning repair, without push or external action authority.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-19-revision-14
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 14 names Task 19 as the first unchecked packet and makes production-candidate activation its first milestone before Linux qualification.
+      - Task 19 may implement fail-closed composition and Linux-owned qualification tooling, but authenticated production inputs and other manual gates cannot be substituted with fixtures.
+      - Task 20, representative Windows execution, Task-19 commit, push, pull request, signing, publication, support-claim changes, and release remain separately gated.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-19-start-round-65
+      question_id: execution.task-19-revision-14
+      idempotency_key: execution.task-19-revision-14:v1
+      last_status: answered
+      sequence: 66
+      revision: 1
+    question:
+      text: After an authorized revision-14 baseline commit, should this invocation execute exactly Local Whisper Task 19 on Linux?
+      kind: single
+      options:
+        - id: authorize-task-19
+          label: Authorize Task 19 (Recommended)
+          description: Implement and verify only production-candidate activation and truthful Linux qualification work, update todo and handoff, then stop uncommitted before Task 20.
+        - id: do-not-authorize-task-19
+          label: Do not authorize
+          description: Stop after resolving the revision-14 baseline commit without changing production source.
+        - id: revise-task-19
+          label: Revise Task 19
+          description: Return Task 19 to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-19]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 19 for this invocation after the revision-14 planning baseline commit; Task 20 and every external action remain separately gated.
+    supersedes_revision: null
+    requirement_ids:
+      - ARCH-003
+      - ARCH-004
+      - ARCH-005
+      - ARCH-006
+      - ARCH-010
+      - CAP-001
+      - CAP-011
+      - IPC-001
+      - IPC-002
+      - IPC-003
+      - LIFE-005

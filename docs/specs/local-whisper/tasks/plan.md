@@ -2,13 +2,14 @@
 
 Status: Approved
 
-Revision: 13
+Revision: 14
 
 Specification baseline: approved `spec.md` revision 7. This revision preserves
-the approved fixed `whisperCpp` implementation and Tasks 01–18, then splits the
-former combined qualification packet into independently executable Linux,
-Windows, and aggregate/release-blocker packets. No product behavior or support
-claim changes.
+the fixed `whisperCpp` implementation, completed Tasks 01–18, and the approved
+Linux/Windows/aggregate Tasks 19–21 split. It repairs Task 19 by adding the
+missing production-candidate composition milestone before Linux qualification;
+Tasks 20 and 21 keep their existing execution boundaries. No product behavior
+or support claim changes.
 
 ## Goal
 
@@ -46,7 +47,7 @@ remain in the linked packet.
 | [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)                                           | Deliver the complete accessible provider settings/management experience, approximate and exact resource guidance, explicit load controls, and compact main-window status.                                                                                             | 01, 03, 05, 14, 15                         | `UI-001`–`UI-008`, `MODEL-001`, `MODEL-007`–`MODEL-010`, `RUNTIME-003`–`RUNTIME-004`, `SET-002`–`SET-009`, `VAL-001`–`VAL-003`, `VRAM-002`–`VRAM-003`, `CAP-001`, `CAP-008`–`CAP-013`, `LIFE-003`, `LIFE-005`–`LIFE-006`, `FAIL-001`–`FAIL-002`, `FAIL-004`, `FAIL-006`, `AMD-001`–`AMD-004`, `AMD-006`, `MAC-001`–`MAC-003`; primary `AC-AUTO-004`, `AC-AUTO-038`, `AC-AUTO-049`                                                                                                                                                                                   |
 | [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md)                                   | Add disabled/fixture/production signed-envelope modes, one generate-once Linux-consumed fixture, a non-triggered Windows consumer, and minimal base packaging.                                                                                                        | 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 | `PKG-001`–`PKG-006`, `PKG-008`–`PKG-010`, `SEC-003`, `SEC-008`–`SEC-009`, `SEC-012`–`SEC-013`, `OPS-001`, `RUNTIME-001`, `RUNTIME-003`, `MODEL-003`, `MODEL-009`–`MODEL-010`, `CAP-013`, `COMP-002`, `COMP-007`, `COMP-009`, `DL-001`–`DL-002`, `MAC-003`; primary `AC-AUTO-030`, `AC-AUTO-048`, `AC-AUTO-057`, `AC-AUTO-061`                                                                                                                                                                                                                                       |
 | [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) | Close migrations, rollback guidance, private audit/diagnostics v2, docs, and an unreachable Planned/unavailable macOS arm64 skeleton.                                                                                                                                 | 01–17                                      | `DIAG-001`–`DIAG-003`, `PRIV-001`–`PRIV-004`, `COMP-010`, `DOC-001`, `MAC-001`–`MAC-003`, `BASE-001`, `COMP-003`, `SET-001`, `SET-005`, `VAL-002`, `MODEL-010`, `CAP-013`, `UI-007`, `AMD-001`–`AMD-002`, `PKG-005`, `SEC-002`, `NONGOAL-001`–`NONGOAL-002`; primary `AC-AUTO-026`, `AC-AUTO-028`, `AC-AUTO-029`, `AC-AUTO-045`, `AC-AUTO-046`, `AC-AUTO-058`                                                                                                                                                                                                       |
-| [19 Linux Qualification](19_linux_qualification.md)                                                                             | Freeze one candidate and qualification foundation, then execute the full Linux x64 CPU/CUDA, native, package, lifecycle, privacy, offline, performance, memory, and previous-binary evidence slice without Windows execution.                                         | 01–18                                      | Linux slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; platform evidence supporting applicable `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and `AC-MAN-013`                                                                                                                                                                                                          |
+| [19 Linux Candidate Activation And Qualification](19_linux_qualification.md)                                                    | Compose the existing Local Whisper components into the process-owned production-candidate graph, prove fail-closed/live Linux behavior, then freeze and qualify the full Linux x64 CPU/CUDA candidate without representative Windows execution.                       | 01–18                                      | Integration evidence for `ARCH-003`–`ARCH-006`, `ARCH-010`, `CAP-001`–`CAP-017`, `IPC-001`–`IPC-003`, `RUN-001`–`RUN-007`, `SEC-001`–`SEC-011`, `LIFE-001`–`LIFE-006`; Linux slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; applicable `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, `AC-MAN-013`                                                                                |
 | [20 Windows Qualification](20_windows_qualification.md)                                                                         | Consume the unchanged Task 19 candidate and Task 17 fixture digest on real Windows x64, executing every deferred filesystem, process, native, CPU/CUDA, package/installer, lifecycle, privacy, performance, memory, and downgrade gate.                               | 19                                         | Windows slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; platform evidence supporting applicable `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, `AC-MAN-002`–`AC-MAN-008`, and `AC-MAN-013`                                                                                                                                                                                                                                    |
 | [21 Aggregate Qualification And Release Blockers](21_aggregate_and_release_blockers.md)                                         | Reconcile immutable Linux/Windows evidence, validate deterministic ownership and remaining AMD/macOS/external gates, and produce the final privacy-safe qualification/release-blocker report without rerunning expensive profiles or publishing.                      | 19, 20                                     | Aggregate/platform-independent slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; reconciliation of `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, and `AC-MAN-001`–`AC-MAN-013`; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`                                                                                                                                                                             |
 
@@ -59,7 +60,7 @@ completed: 01–18
 03–13 -------------> 17 ---------------+-> 18 -> 19 -> 20 -> 21
 ```
 
-- Tasks 01–18 remain completed foundations. Revision 13 does not reopen or
+- Tasks 01–18 remain completed foundations. Revision 14 does not reopen or
   re-execute them.
 - Task 13 removes the active alternate-engine artifacts introduced by Tasks
   01, 03, and 08 and normalizes Task 12's closed AMD matrix. Git history
@@ -76,7 +77,10 @@ completed: 01–18
   complete.
 - Task 18 follows Tasks 01–17 and closes migration, privacy, diagnostics,
   documentation, and the unavailable macOS skeleton.
-- Task 19 freezes the candidate and records Linux qualification only.
+- Task 19 first constructs and verifies the missing production-candidate graph
+  from the existing completed components. Only then does it freeze the
+  candidate and record Linux qualification. Cross-platform composition source
+  may be added, but representative execution and claims remain Linux-only.
 - Task 20 consumes the exact Task 19 candidate, profiles, schemas, evidence
   index, and Task 17 fixture digest and records all representative Windows
   qualification only.
@@ -115,7 +119,11 @@ completed: 01–18
   dependency intersection. Synthetic fixtures do not prove hardware support.
 - `MANUAL GATE — production artifacts`: Task 17 defines a protected production
   input contract but does not choose an origin, use private signing material,
-  convert real models, upload, publish, or admit fixture trust to release.
+  convert real models, upload, publish, or admit fixture trust to release. Task
+  19 may implement and verify the fail-closed production graph without those
+  inputs, but cannot freeze a candidate or start real qualification until the
+  authenticated catalog, allowlisted origin, approved packs/models, licenses,
+  and redistribution evidence exist.
 - `MANUAL GATE — prior binary`: Tasks 19 and 20 require the exact immediately
   preceding packaged binary for Linux and Windows respectively, with recorded
   version/hash and a nonprivate fixture profile. Task 21 reconciles both
@@ -140,8 +148,8 @@ completed: 01–18
 
 ## Approval Boundary
 
-Revision 13 was explicitly approved by durable decision
-`approval.plan-revision-13` through the persistent `plan:local-whisper`
+Revision 14 was explicitly approved by durable decision
+`approval.plan-revision-14` through the persistent `plan:local-whisper`
 interview. Plan approval does not authorize Task 19 execution, commit, push,
 pull request, signing, packaging, publication, release, or representative
 Windows execution. Each later `incremental-implementation` invocation executes

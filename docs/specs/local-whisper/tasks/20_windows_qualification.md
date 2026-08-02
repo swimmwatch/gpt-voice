@@ -11,9 +11,10 @@ do not issue the final cross-platform release-blocker verdict.
 
 ## Prerequisites
 
-- Specification revision 7 and plan revision 13 are approved.
-- Task 19 is complete and its immutable handoff identifies one candidate,
-  profile set, evidence schema, and fixture bundle digest
+- Specification revision 7 and plan revision 14 are approved.
+- Task 19 production-candidate activation and Linux qualification are complete,
+  and its immutable handoff identifies one live-composed candidate, profile
+  set, evidence schema, and fixture bundle digest
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 - An authorized real representative Windows x64 host and NVIDIA device are
   available. Cross-compilation, Wine, Linux, compile-only CI, source contracts,

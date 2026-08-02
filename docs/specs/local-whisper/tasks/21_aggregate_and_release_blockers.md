@@ -10,7 +10,7 @@ external evidence as `Pending` and perform no publication or release action.
 
 ## Prerequisites
 
-- Specification revision 7 and plan revision 13 are approved.
+- Specification revision 7 and plan revision 14 are approved.
 - Tasks 19 and 20 are complete and identify the same frozen candidate, profile
   set, evidence schemas, and Task 17 fixture digest.
 - Linux and Windows evidence indexes are immutable, schema-valid, privacy-safe,
@@ -68,7 +68,7 @@ external evidence as `Pending` and perform no publication or release action.
 
 ### Ownership and deterministic aggregate
 
-The machine-readable registry must contain Tasks 01–21, plan revision 13, every
+The machine-readable registry must contain Tasks 01–21, plan revision 14, every
 canonical automated acceptance ID exactly once, and at least one exact
 verification command per task. Tasks 19 and 20 own platform evidence; Task 21
 owns the four aggregate/cross-platform primary assertions.
@@ -153,7 +153,7 @@ must not publish, sign, tag, upload, push, create/update a PR, or release.
 ## Expected Files Or Components
 
 - Updated `acceptance-owners.json`, adjacent schema, and task-plan validator for
-  plan revision 13 and Tasks 01–21.
+  plan revision 14 and Tasks 01–21.
 - Aggregate result schema/validator and privacy-safe qualification/
   release-blocker report template under `docs/specs/local-whisper/qualification/`.
 - Deterministic reconciliation, AMD-claims, macOS-unavailable, external-gate,

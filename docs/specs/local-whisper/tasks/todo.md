@@ -1,14 +1,13 @@
 # Local Whisper Task Checklist
 
-Plan revision: **13 (Approved)**
+Plan revision: **14 (Approved)**
 
 Specification baseline: **revision 7 (Approved)**
 
 Execution state: Tasks 01–18 are complete, committed, and authoritative. Remote
-CI was not run and will
-execute only after a pull request is created. Representative Windows execution
-remains deferred exclusively to Task 20. Revision 13 planning does not modify
-or execute the Task 18 implementation.
+CI was not run and will execute only after a pull request is created.
+Representative Windows execution remains deferred exclusively to Task 20.
+Revision 14 planning does not modify production code or execute Task 19.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -28,7 +27,7 @@ or execute the Task 18 implementation.
 - [x] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md) — `f9befc17`
 - [x] [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md) — `b9c3e3b`
 - [x] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) — `16b32ca`
-- [ ] [19 Linux Qualification](19_linux_qualification.md)
+- [ ] [19 Linux Candidate Activation And Qualification](19_linux_qualification.md)
 - [ ] [20 Windows Qualification](20_windows_qualification.md)
 - [ ] [21 Aggregate Qualification And Release Blockers](21_aggregate_and_release_blockers.md)
 
@@ -39,7 +38,9 @@ native-quality job remains on a Windows runner and owns CPU/CUDA contract-only
 checks; it was not executed. Tasks 11 and 12 are committed at `24e268f` and
 `916f0d9`. Task 13 is committed at `37fa79a`, and Task 14 is committed at
 `df14c118`. Task 15 is committed at `b89a412`, with its verification tooling at
-`d8ab1ba`. Task 16 is committed and pushed at `f9befc17`, and Task 17 is
-committed at `b9c3e3b`, and Task 18 is committed at `16b32ca`. Plan revision 13
-is durably approved; each qualification packet still requires separate
-execution authorization. No pull request, publication, or release has occurred.
+`d8ab1ba`. Task 16 is committed and pushed at `f9befc17`, Task 17 is committed
+at `b9c3e3b`, and Task 18 is committed at `16b32ca`. Plan revision 14 is
+durably approved. Task 19 now starts with production-candidate activation
+because the current application unconditionally injects the deferred
+environment. Every packet still requires separate execution authorization. No
+pull request, publication, or release has occurred.

@@ -85,7 +85,7 @@ function validateManifestShape(manifest, schema) {
     ['schemaVersion', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
     'manifest',
   );
-  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 13) fail('manifest version is unexpected');
+  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 14) fail('manifest version is unexpected');
   if (!Array.isArray(manifest.verificationCommands)) fail('verificationCommands must be an array');
   if (!Array.isArray(manifest.automatedAcceptanceOwners)) fail('automatedAcceptanceOwners must be an array');
 }
