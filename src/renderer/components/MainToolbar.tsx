@@ -2,6 +2,7 @@ import { AudioLines, CircleHelp, History, LogIn, Mic, Settings } from 'lucide-re
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
+import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
 import {
   Select,
@@ -18,6 +19,7 @@ import { groupProvidersByCategory } from '@renderer/providerGrouping';
 import { PROVIDER_CONNECTION_REASONS, type ProviderConnectionReason } from '@renderer/providerState';
 import type { ProviderAuthType, ProviderInfo } from '@renderer/types';
 import type { TranslationKey } from '@main/i18n';
+import { LOCAL_WHISPER_PROVIDER_ID, type LocalWhisperMainStatusSnapshot } from '@shared/localWhisper';
 
 interface MainToolbarProps {
   activeProviderAuthType: ProviderAuthType;
@@ -26,6 +28,7 @@ interface MainToolbarProps {
   activeProviderName: string;
   isLoggedIn: boolean;
   isLoggingIn: boolean;
+  localWhisperStatus: LocalWhisperMainStatusSnapshot | null;
   onOpenAbout: () => void;
   onOpenAppSettings: () => void;
   onOpenHistory: () => void;
@@ -57,6 +60,7 @@ function MainToolbar({
   activeProviderName,
   isLoggedIn,
   isLoggingIn,
+  localWhisperStatus,
   onOpenAbout,
   onOpenAppSettings,
   onOpenHistory,
@@ -69,6 +73,7 @@ function MainToolbar({
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
   const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';
+  const isLocalWhisperProvider = activeProviderId === LOCAL_WHISPER_PROVIDER_ID;
   const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
   const providerStatusTooltip =
@@ -183,7 +188,9 @@ function MainToolbar({
             </Tooltip>
           )}
 
-          {isLoggedIn ? (
+          {isLocalWhisperProvider ? (
+            <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
+          ) : isLoggedIn ? (
             <ProviderStatusIndicator
               className="command-dock-provider-state command-dock-provider-state-success"
               dataSlot="voice-provider-connection"

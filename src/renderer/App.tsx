@@ -8,6 +8,7 @@ import TranslateSection from './components/TranslateSection';
 import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
+import useLocalWhisperMainStatus from './localWhisper/useLocalWhisperMainStatus';
 import { getOllamaModelControl } from './prettifyModelControl';
 import {
   getMainPrettifyHttpConnectionStatus,
@@ -70,6 +71,7 @@ import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE, isInitialProviderStartupPe
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
+  const localWhisperStatus = useLocalWhisperMainStatus(desktopApi);
   const [isLoading, setIsLoading] = useState(true);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState<RendererStatus | null>(null);
@@ -827,6 +829,7 @@ const App: React.FC = () => {
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
+        localWhisperStatus={localWhisperStatus}
         providerConnectionFailureTooltip={
           providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
         }
