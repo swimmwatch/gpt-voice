@@ -2,78 +2,81 @@
 
 ## Authoritative State
 
-- Specification revision 6 and plan revision 11 are Approved. Tasks 01–09 are
-  committed; Task 10 is complete and intentionally uncommitted for review.
-- Task 10 was authorized by `execution.task-10-revision-11`. Prompt sequence
-  48 authorized local integration use of the exact public MIT model fixture
-  below. It was never downloaded, copied into the repository, staged, or
-  logged by Task 10.
-- Remote CI remains deferred until pull-request creation. The Windows native
-  checks remain in the `windows-latest` job, and representative Windows
-  product qualification remains Task 19-only.
+- Specification revision 6 and plan revision 11 are Approved. Tasks 01–11 are
+  committed; Task 11 is authoritative at `24e268f`.
+- Task 12 has not started and requires a new explicit incremental-implementation
+  invocation.
+- Remote CI remains deferred until pull-request creation. Windows CPU/CUDA
+  checks remain contract-only in the dedicated `windows-latest` job;
+  representative Windows execution remains Task 19-only.
 
-## Completed Task 10
+## Completed Task 11
 
-- Migrated the unreleased authority common binding to 226 bytes with positive
-  expected artifact size and authenticated content digest. Exact
-  `LWAR1`/`LWAT1`/`LWAA1` sizes are 234/244/284 bytes across TypeScript,
-  C++20, Python, Linux handoff, vectors, and tests. The vector manifest SHA-256
-  is `632ed822b6a029aa9e01a2f05e394baae44205e78fffb0c67213e13ba2a70baa`.
-- Added the modular C++20 Whisper.cpp worker: same-handle authority, checked
-  exact reads and observed EOF, immutable loader-limit enforcement, format
-  preflight, CPU proof, PCM conversion, state machine, POSIX production
-  channels, Windows source skeletons, RAII engine adapter, and deterministic
-  typed failures. Stateful worker behavior is covered by injected unit tests.
-- Locked source `whisper-cpp-v1.9.1-f049fff` has original manifest
-  `aeaed8ce38467815c0b3ee64f05bd7989bba42bb0baccd5dba853247a7f680de`.
-  Patch lock `local-whisper-whisper-cpp-core-v1` uses patch SHA-256
-  `0581d1a6eb54a4041a41a0db22b1102523eb9bf4f9b880b203e4b2598c03b27b`
-  and patched manifest
-  `22067a89df003e5b603f34c74cd6c84fc8698efe8a4c55d09523090d390fdc3e`.
-  Loader table `whisper-cpp-loader-limits-v1` has SHA-256
-  `5585ea2aeeb4d4b6a4293f8a044487e8d629d899e9d760d9f143a9fb4c702ff5`.
-- Built and staged profile `linux-x64-cpu-baseline-v1` with runtime build
-  digest `d8b8503ebf8debcb7b0b3271bc2c91263078a76e2c9b152351141a8c5171f7f7`.
-  The exact pack closure includes the worker, Whisper.cpp and nlohmann/json
-  licenses/notices, locked provenance, system runtime dependencies, SPDX 2.3
-  SBOM, and expected-files evidence. It includes no model or GPU backend.
-- Real integration fixture: `ggml-medium.bin`, 1,533,763,059 bytes, SHA-256
-  `6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208`,
-  MIT, origin
-  `ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1`.
+- Added the private 40-byte `LWDA1` device authority, canonical CUDA PCI
+  registry, stable double enumeration, exact `LWREG1`/`LWDEV1P`/`LWDEV1L`
+  proof generation, selected-device dispatch, model-buffer ownership, and
+  primary-state validation. Raw device identities stay on private worker
+  channels and are hashed in local evidence.
+- Added state-owned cooperative cancellation and terminal arbitration across
+  project checkpoints and the locked upstream abort patch. Cancellation wins
+  over later native success and emits no transcript; supervisor timeouts retain
+  the existing forced process-cleanup boundary.
+- Locked patch series `local-whisper-whisper-cpp-device-cancel-v1`: core patch
+  SHA-256
+  `0581d1a6eb54a4041a41a0db22b1102523eb9bf4f9b880b203e4b2598c03b27b`,
+  device/cancellation patch SHA-256
+  `57dd199f02d05062ef25d6599f3ff626dc30faf02c86e1de47235445ea04821b`,
+  intermediate manifest
+  `22067a89df003e5b603f34c74cd6c84fc8698efe8a4c55d09523090d390fdc3e`,
+  final manifest
+  `a6215efee754e586d7346a1d6716e3ccc4426cf38efb211c4397789fc2127404`.
+- Built and verified CUDA profile
+  `linux-x64-cuda-12.8.1-sm120a-v1`, runtime build digest
+  `6e57c20eb881e2fd17f109b14a723f0719a4fd21c2b0fa573f81b4d483b4c88a`.
+  It contains only `sm_120a` code, stages the reviewed CUDA 12.8.1 runtime
+  closure, includes no model, disables dynamic backend discovery, and records
+  source plus transformed hashes for staged NVIDIA libraries.
+- Real local evidence is limited to the available NVIDIA GeForce RTX 5070 Ti
+  Laptop GPU, driver 595.84, CUDA 12.8.1, GCC 13.3.0, and the approved medium
+  model. Three load cycles produced stable selected-device model-weight
+  evidence of 1,533,143,040 bytes, two transcriptions, one cooperative
+  cancellation, and unload memory observations. Private evidence remains under
+  ignored `.cache/local-whisper/`.
+- Rebuilt and verified CPU profile `linux-x64-cpu-baseline-v1` against the same
+  final patch series; runtime build digest is
+  `a87307c3b6cf367dd3f47df58b84cd9d8437a96bc409afc6838dbdce9866dd36`.
+  Real CPU load, warm-up, transcription, cancellation, and unload passed.
+- Hardened relocation with manifest-owned ELF RPATH. CUDA and CPU packs pass
+  network-denied malicious-CWD, `GGML_BACKEND_PATH`, `PATH`, and
+  `LD_LIBRARY_PATH` audits. Windows source contracts and CI commands were added
+  without executing a Windows host, VM, Wine, or substitute runner.
 
-## Changed Files
+## Changed Areas
 
-- Approved plan-revision artifacts under `docs/specs/local-whisper/` and the
-  Task 10 checklist/handoff.
-- Authority codecs, guard validation, supervisor DTO/tests, protocol vectors,
-  generator, and Python reference peer under `src/`, `runtime/local-whisper/`,
-  `scripts/local-whisper/`, and `tests/fixtures/local-whisper/`.
-- New `runtime/local-whisper/whisper-cpp/` modular source, patch lock, CMake,
-  GoogleTests, quality configuration, Windows skeleton, and concise README.
-- New build, verification, staging, integration, audit, and locked-source
-  provisioning scripts; package commands; and Linux/Windows-owned PR workflow
-  checks in `.github/workflows/pr-checks.yml`.
+- `runtime/local-whisper/whisper-cpp/`: modular device authority/registry,
+  cancellation, adapter evidence, Windows skeleton, GoogleTests, CMake, README,
+  and immutable upstream patch series.
+- `scripts/local-whisper/`: CPU/CUDA build, staging, verification, real
+  integration, pack audit, shared harness, and patch-lock validation.
+- `runtime/local-whisper/sources/schema/`, `package.json`, and
+  `.github/workflows/pr-checks.yml`: patch-series schema, commands, format/lint
+  coverage, and platform-owned CI contracts.
+- `docs/specs/local-whisper/tasks/todo.md` and this handoff.
 
 ## Verification
 
-- Deterministic vector generation and clean verification; TypeScript, C++20,
-  and Python authority suites; Linux executable handoff; Windows authority
-  contract-only verification; immutable loader-limit verification.
-- GCC 13 and Clang 18 ASan/UBSan core 9/9 and loader 5/5 suites with
-  warnings-as-errors, clang-format 18, and clang-tidy 18.
-- Linux CPU build, staging verification, exact ELF dependency/RPATH checks,
-  real probe/load/warm-up/transcription/unload with the approved medium model,
-  and repeated relocation/network-denied malicious-environment audit.
-- Windows CPU source/CI contract-only verification. No Windows runner, VM,
-  Wine, binary, or representative execution was used.
-- Worker codec, repeated authority, and supervisor 33/33 suites; repository
-  typecheck, type tests, lint, format check, script syntax, scoped
-  `git diff --check`, and complete `git diff --check`.
+- GCC 13 and Clang 18 ASan/UBSan: core 10/10, loader 5/5, device-proof 7/7,
+  cancellation 3/3; warnings-as-errors, clang-format 18, and clang-tidy 18.
+- Language-neutral proof vectors passed in TypeScript, C++20, and Python.
+  Supervisor conformance passed 33/33.
+- Exact CUDA build/verify/integration/audit and CPU
+  build/verify/integration-with-cancellation/audit commands passed. Both
+  Windows CPU/CUDA contract-only commands passed without Windows execution.
+- Repository typecheck, type tests, zero-warning lint, format check, scoped
+  `git diff --check`, and complete `git diff --check` passed. Remote CI was not
+  run.
 
 ## Exact Next Step
 
-- Review the uncommitted Task 10 and approved plan-revision changes. Task 11,
-  [Whisper.cpp CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md),
-  is the next packet, but must not start in this invocation. There are no Task
-  10 implementation blockers.
+- A later explicitly authorized incremental-implementation invocation may
+  implement Task 12. There are no Task 11 blockers.
