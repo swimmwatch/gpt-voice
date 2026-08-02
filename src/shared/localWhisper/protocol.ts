@@ -1,6 +1,7 @@
 import {
   LOCAL_WHISPER_FASTER_WHISPER_PRECISIONS,
   isLocalWhisperModelIdentity,
+  type LocalWhisperModelIdentity,
   type LocalWhisperResidencyKey,
 } from './catalog';
 import {
@@ -23,6 +24,7 @@ import {
   LOCAL_WHISPER_MIN_CANDIDATE_COUNT,
   LOCAL_WHISPER_TEMPERATURE_STEP_HUNDREDTHS,
 } from './settings';
+import { parseLocalWhisperWorkerJson } from './workerJson';
 
 export const LOCAL_WHISPER_WORKER_PROTOCOL_VERSION = 1 as const;
 export const LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES = 1024 * 1024;
@@ -35,7 +37,6 @@ export const LOCAL_WHISPER_AUDIO_FRAME_KIND = 0x02 as const;
 export const LOCAL_WHISPER_MAX_REQUEST_ID_BYTES = 128;
 export const LOCAL_WHISPER_MAX_CAPABILITY_COUNT = 32;
 export const LOCAL_WHISPER_MAX_CAPABILITY_BYTES = 64;
-export const LOCAL_WHISPER_MAX_MODEL_PATH_BYTES = 32 * 1024;
 
 const AUDIO_BODY_FIXED_BYTES = 1 + 1 + 4 + 2;
 const AUDIO_BODY_VERSION_OFFSET = LOCAL_WHISPER_FRAME_HEADER_BYTES;
@@ -45,11 +46,76 @@ const AUDIO_BODY_REQUEST_LENGTH_OFFSET = AUDIO_BODY_SEQUENCE_OFFSET + 4;
 const AUDIO_BODY_REQUEST_OFFSET = AUDIO_BODY_REQUEST_LENGTH_OFFSET + 2;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const CAPABILITY_PATTERN = /^[\w.:+-]+$/u;
+const AUTHORITY_ID_PATTERN = /^[\w-]{22}$/u;
+const CHALLENGE_PATTERN = /^[\w-]{43}$/u;
 
 export type LocalWhisperFrameKind = typeof LOCAL_WHISPER_AUDIO_FRAME_KIND | typeof LOCAL_WHISPER_CONTROL_FRAME_KIND;
 
 export type LocalWhisperWorkerDeviceBinding =
   { readonly kind: 'cpu' } | { readonly kind: 'gpuIndex'; readonly index: number };
+
+export type LocalWhisperWorkerProbeAuthority =
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'cpu' };
+    }
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'gpuIndex'; readonly index: number };
+      readonly probeChallenge: string;
+      readonly registryFingerprint: string;
+    };
+
+export type LocalWhisperWorkerLoadAuthority =
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'cpu' };
+    }
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'gpuIndex'; readonly index: number };
+      readonly loadChallenge: string;
+      readonly registryFingerprint: string;
+    };
+
+export type LocalWhisperWorkerProbeEvidence =
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'cpu' };
+    }
+  | {
+      readonly activatedOrdinal: number;
+      readonly actualNativeIdentity: string;
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'gpuIndex'; readonly index: number };
+      readonly primaryExecutionNativeIdentity: string;
+      readonly probeProof: string;
+      readonly registryFingerprint: string;
+    };
+
+export type LocalWhisperWorkerLoadEvidence =
+  | {
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'cpu' };
+    }
+  | {
+      readonly activatedOrdinal: number;
+      readonly actualNativeIdentity: string;
+      readonly authorityId: string;
+      readonly deviceBinding: { readonly kind: 'gpuIndex'; readonly index: number };
+      readonly loadProof: string;
+      readonly primaryExecutionNativeIdentity: string;
+      readonly registryFingerprint: string;
+      readonly selectedDeviceModelWeightBytes: number;
+    };
+
+export interface LocalWhisperWorkerLoadedModelEvidence {
+  readonly effectiveBackend: LocalWhisperBackend;
+  readonly effectivePrecision: string | null;
+  readonly model: LocalWhisperModelIdentity;
+  readonly modelSha256: string;
+  readonly primaryStateOwnership: 'worker';
+}
 
 export interface LocalWhisperWorkerTranscriptionOptions {
   readonly language: string | null;
@@ -76,12 +142,9 @@ export type LocalWhisperWorkerClientMessage =
       readonly type: 'hello';
       readonly protocolVersion: typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
     }
-  | (LocalWhisperWorkerRequest<'probe'> & { readonly deviceBinding: LocalWhisperWorkerDeviceBinding })
-  | (LocalWhisperWorkerRequest<'load'> & {
-      readonly deviceBinding: LocalWhisperWorkerDeviceBinding;
-      readonly modelPath: string;
-      readonly residency: LocalWhisperResidencyKey;
-    })
+  | (LocalWhisperWorkerRequest<'probe'> & LocalWhisperWorkerProbeAuthority)
+  | (LocalWhisperWorkerRequest<'load'> &
+      LocalWhisperWorkerLoadAuthority & { readonly residency: LocalWhisperResidencyKey })
   | LocalWhisperWorkerRequest<'warmup'>
   | LocalWhisperWorkerRequest<'unload'>
   | (LocalWhisperWorkerRequest<'transcribe'> & {
@@ -94,11 +157,11 @@ export type LocalWhisperWorkerClientMessage =
 
 export type LocalWhisperWorkerServerMessage =
   | LocalWhisperWorkerHelloAck
-  | (LocalWhisperWorkerRequest<'probed'> & { readonly deviceBinding: LocalWhisperWorkerDeviceBinding })
+  | (LocalWhisperWorkerRequest<'probed'> & LocalWhisperWorkerProbeEvidence)
   | (LocalWhisperWorkerRequest<'loaded'> & {
-      readonly deviceBinding: LocalWhisperWorkerDeviceBinding;
       readonly residency: LocalWhisperResidencyKey;
-    })
+    } & LocalWhisperWorkerLoadEvidence &
+      LocalWhisperWorkerLoadedModelEvidence)
   | LocalWhisperWorkerRequest<'warmed'>
   | LocalWhisperWorkerRequest<'unloaded'>
   | (LocalWhisperWorkerRequest<'transcript'> & { readonly text: string })
@@ -128,8 +191,23 @@ interface LocalWhisperWorkerRequest<TType extends string> {
 
 const HELLO_KEYS = ['type', 'protocolVersion'] as const;
 const REQUEST_KEYS = ['type', 'protocolVersion', 'requestId'] as const;
-const PROBE_KEYS = [...REQUEST_KEYS, 'deviceBinding'] as const;
-const LOAD_KEYS = [...REQUEST_KEYS, 'deviceBinding', 'modelPath', 'residency'] as const;
+const PROBE_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding'] as const;
+const PROBE_GPU_KEYS = [
+  ...REQUEST_KEYS,
+  'authorityId',
+  'deviceBinding',
+  'probeChallenge',
+  'registryFingerprint',
+] as const;
+const LOAD_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding', 'residency'] as const;
+const LOAD_GPU_KEYS = [
+  ...REQUEST_KEYS,
+  'authorityId',
+  'deviceBinding',
+  'loadChallenge',
+  'registryFingerprint',
+  'residency',
+] as const;
 const TRANSCRIBE_KEYS = [...REQUEST_KEYS, 'settingsEpoch', 'audioByteLength', 'options'] as const;
 const CANCEL_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
 const HELLO_ACK_KEYS = [
@@ -143,8 +221,38 @@ const HELLO_ACK_KEYS = [
   'maxControlFrameBytes',
   'maxAudioChunkBytes',
 ] as const;
-const PROBED_KEYS = [...REQUEST_KEYS, 'deviceBinding'] as const;
-const LOADED_KEYS = [...REQUEST_KEYS, 'deviceBinding', 'residency'] as const;
+const PROBED_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding'] as const;
+const PROBED_GPU_KEYS = [
+  ...REQUEST_KEYS,
+  'activatedOrdinal',
+  'actualNativeIdentity',
+  'authorityId',
+  'deviceBinding',
+  'primaryExecutionNativeIdentity',
+  'probeProof',
+  'registryFingerprint',
+] as const;
+const LOADED_COMMON_KEYS = [
+  'effectiveBackend',
+  'effectivePrecision',
+  'model',
+  'modelSha256',
+  'primaryStateOwnership',
+] as const;
+const LOADED_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding', ...LOADED_COMMON_KEYS, 'residency'] as const;
+const LOADED_GPU_KEYS = [
+  ...REQUEST_KEYS,
+  'activatedOrdinal',
+  'actualNativeIdentity',
+  'authorityId',
+  'deviceBinding',
+  ...LOADED_COMMON_KEYS,
+  'loadProof',
+  'primaryExecutionNativeIdentity',
+  'registryFingerprint',
+  'residency',
+  'selectedDeviceModelWeightBytes',
+] as const;
 const TRANSCRIPT_KEYS = [...REQUEST_KEYS, 'text'] as const;
 const CANCELLED_KEYS = [...REQUEST_KEYS, 'targetRequestId'] as const;
 const FAILURE_KEYS = [...REQUEST_KEYS, 'code'] as const;
@@ -194,12 +302,21 @@ function isRequestId(value: unknown): value is string {
   );
 }
 
-function isModelPath(value: unknown): value is string {
+function isAuthorityId(value: unknown): value is string {
+  return typeof value === 'string' && AUTHORITY_ID_PATTERN.test(value);
+}
+
+function isChallenge(value: unknown): value is string {
+  return typeof value === 'string' && CHALLENGE_PATTERN.test(value);
+}
+
+function isSha256(value: unknown): value is string {
+  return typeof value === 'string' && SHA256_PATTERN.test(value);
+}
+
+function isNativeIdentity(value: unknown): value is string {
   return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    utf8Length(value) <= LOCAL_WHISPER_MAX_MODEL_PATH_BYTES &&
-    !hasLocalWhisperControlCharacter(value)
+    typeof value === 'string' && value.length > 0 && utf8Length(value) <= 256 && !hasLocalWhisperControlCharacter(value)
   );
 }
 
@@ -220,6 +337,79 @@ export function isLocalWhisperWorkerDeviceBinding(value: unknown): value is Loca
     Number.isSafeInteger(value.index) &&
     (value.index as number) >= 0 &&
     (value.index as number) <= 255
+  );
+}
+
+function isProbeAuthority(value: Record<string, unknown>): boolean {
+  if (!isAuthorityId(value.authorityId) || !isLocalWhisperWorkerDeviceBinding(value.deviceBinding)) return false;
+  if (value.deviceBinding.kind === 'cpu') return hasExactKeys(value, PROBE_CPU_KEYS);
+  return (
+    hasExactKeys(value, PROBE_GPU_KEYS) && isChallenge(value.probeChallenge) && isSha256(value.registryFingerprint)
+  );
+}
+
+function isLoadAuthority(value: Record<string, unknown>): boolean {
+  if (
+    !isAuthorityId(value.authorityId) ||
+    !isLocalWhisperWorkerDeviceBinding(value.deviceBinding) ||
+    !isResidency(value.residency) ||
+    !isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency)
+  ) {
+    return false;
+  }
+  if (value.deviceBinding.kind === 'cpu') return hasExactKeys(value, LOAD_CPU_KEYS);
+  return hasExactKeys(value, LOAD_GPU_KEYS) && isChallenge(value.loadChallenge) && isSha256(value.registryFingerprint);
+}
+
+function isProbeEvidence(value: Record<string, unknown>): boolean {
+  if (!isAuthorityId(value.authorityId) || !isLocalWhisperWorkerDeviceBinding(value.deviceBinding)) return false;
+  if (value.deviceBinding.kind === 'cpu') return hasExactKeys(value, PROBED_CPU_KEYS);
+  return (
+    hasExactKeys(value, PROBED_GPU_KEYS) &&
+    Number.isInteger(value.activatedOrdinal) &&
+    (value.activatedOrdinal as number) >= 0 &&
+    (value.activatedOrdinal as number) <= 255 &&
+    isNativeIdentity(value.actualNativeIdentity) &&
+    isNativeIdentity(value.primaryExecutionNativeIdentity) &&
+    isSha256(value.probeProof) &&
+    isSha256(value.registryFingerprint)
+  );
+}
+
+function isLoadedModelEvidence(value: Record<string, unknown>, residency: LocalWhisperResidencyKey): boolean {
+  return (
+    isLocalWhisperBackend(value.effectiveBackend) &&
+    value.effectiveBackend === residency.backend &&
+    (value.effectivePrecision === null || typeof value.effectivePrecision === 'string') &&
+    isLocalWhisperModelIdentity(value.model) &&
+    JSON.stringify(value.model) === JSON.stringify(residency.model) &&
+    isSha256(value.modelSha256) &&
+    value.primaryStateOwnership === 'worker'
+  );
+}
+
+function isLoadEvidence(value: Record<string, unknown>): boolean {
+  if (
+    !isAuthorityId(value.authorityId) ||
+    !isLocalWhisperWorkerDeviceBinding(value.deviceBinding) ||
+    !isResidency(value.residency) ||
+    !isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency) ||
+    !isLoadedModelEvidence(value, value.residency)
+  ) {
+    return false;
+  }
+  if (value.deviceBinding.kind === 'cpu') return hasExactKeys(value, LOADED_CPU_KEYS);
+  return (
+    hasExactKeys(value, LOADED_GPU_KEYS) &&
+    Number.isInteger(value.activatedOrdinal) &&
+    (value.activatedOrdinal as number) >= 0 &&
+    (value.activatedOrdinal as number) <= 255 &&
+    isNativeIdentity(value.actualNativeIdentity) &&
+    isNativeIdentity(value.primaryExecutionNativeIdentity) &&
+    isSha256(value.loadProof) &&
+    isSha256(value.registryFingerprint) &&
+    Number.isSafeInteger(value.selectedDeviceModelWeightBytes) &&
+    (value.selectedDeviceModelWeightBytes as number) > 0
   );
 }
 
@@ -303,21 +493,9 @@ export function isLocalWhisperWorkerClientMessage(value: unknown): value is Loca
     case 'shutdown':
       return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
     case 'probe':
-      return (
-        hasExactKeys(value, PROBE_KEYS) &&
-        isRequestId(value.requestId) &&
-        isLocalWhisperWorkerDeviceBinding(value.deviceBinding)
-      );
+      return isRequestId(value.requestId) && isProbeAuthority(value);
     case 'load':
-      if (
-        !hasExactKeys(value, LOAD_KEYS) ||
-        !isRequestId(value.requestId) ||
-        !isModelPath(value.modelPath) ||
-        !isResidency(value.residency)
-      ) {
-        return false;
-      }
-      return isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency);
+      return isRequestId(value.requestId) && isLoadAuthority(value);
     case 'transcribe':
       return (
         hasExactKeys(value, TRANSCRIBE_KEYS) &&
@@ -360,16 +538,9 @@ export function isLocalWhisperWorkerServerMessage(value: unknown): value is Loca
     case 'shutdownAck':
       return hasExactKeys(value, REQUEST_KEYS) && isRequestId(value.requestId);
     case 'probed':
-      return (
-        hasExactKeys(value, PROBED_KEYS) &&
-        isRequestId(value.requestId) &&
-        isLocalWhisperWorkerDeviceBinding(value.deviceBinding)
-      );
+      return isRequestId(value.requestId) && isProbeEvidence(value);
     case 'loaded':
-      if (!hasExactKeys(value, LOADED_KEYS) || !isRequestId(value.requestId) || !isResidency(value.residency)) {
-        return false;
-      }
-      return isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency);
+      return isRequestId(value.requestId) && isLoadEvidence(value);
     case 'transcript':
       return hasExactKeys(value, TRANSCRIPT_KEYS) && isRequestId(value.requestId) && typeof value.text === 'string';
     case 'cancelled':
@@ -392,139 +563,6 @@ export function isLocalWhisperWorkerServerMessage(value: unknown): value is Loca
 
 export function isLocalWhisperWorkerControlMessage(value: unknown): value is LocalWhisperWorkerControlMessage {
   return isLocalWhisperWorkerClientMessage(value) || isLocalWhisperWorkerServerMessage(value);
-}
-
-/** Parses the strict JSON subset accepted by the worker control protocol. */
-class StrictJsonParser {
-  private offset = 0;
-
-  public constructor(private readonly source: string) {}
-
-  public parse(): unknown {
-    const value = this.parseValue();
-    this.skipWhitespace();
-    if (this.offset !== this.source.length) throw new Error('Invalid JSON');
-    return value;
-  }
-
-  private parseValue(): unknown {
-    this.skipWhitespace();
-    const token = this.source[this.offset];
-    if (token === '{') return this.parseObject();
-    if (token === '[') return this.parseArray();
-    if (token === '"') return this.parseString();
-    if (token === '-' || (token !== undefined && token >= '0' && token <= '9')) {
-      return this.parseNumber();
-    }
-    if (this.consumeLiteral('true')) return true;
-    if (this.consumeLiteral('false')) return false;
-    if (this.consumeLiteral('null')) return null;
-    throw new Error('Invalid JSON');
-  }
-
-  private parseObject(): Record<string, unknown> {
-    this.offset += 1;
-    const result: Record<string, unknown> = {};
-    const keys = new Set<string>();
-    this.skipWhitespace();
-    if (this.source[this.offset] === '}') {
-      this.offset += 1;
-      return result;
-    }
-    while (true) {
-      this.skipWhitespace();
-      if (this.source[this.offset] !== '"') throw new Error('Invalid JSON');
-      const key = this.parseString();
-      if (keys.has(key)) throw new Error('Duplicate JSON key');
-      keys.add(key);
-      this.skipWhitespace();
-      if (this.source[this.offset] !== ':') throw new Error('Invalid JSON');
-      this.offset += 1;
-      Object.defineProperty(result, key, {
-        configurable: true,
-        enumerable: true,
-        value: this.parseValue(),
-        writable: true,
-      });
-      this.skipWhitespace();
-      const separator = this.source[this.offset];
-      if (separator === '}') {
-        this.offset += 1;
-        return result;
-      }
-      if (separator !== ',') throw new Error('Invalid JSON');
-      this.offset += 1;
-    }
-  }
-
-  private parseArray(): unknown[] {
-    this.offset += 1;
-    const result: unknown[] = [];
-    this.skipWhitespace();
-    if (this.source[this.offset] === ']') {
-      this.offset += 1;
-      return result;
-    }
-    while (true) {
-      result.push(this.parseValue());
-      this.skipWhitespace();
-      const separator = this.source[this.offset];
-      if (separator === ']') {
-        this.offset += 1;
-        return result;
-      }
-      if (separator !== ',') throw new Error('Invalid JSON');
-      this.offset += 1;
-    }
-  }
-
-  private parseString(): string {
-    const start = this.offset;
-    this.offset += 1;
-    let escaped = false;
-    while (this.offset < this.source.length) {
-      const character = this.source[this.offset];
-      this.offset += 1;
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (character === '\\') {
-        escaped = true;
-        continue;
-      }
-      if (character === '"') {
-        const parsed = JSON.parse(this.source.slice(start, this.offset)) as unknown;
-        if (typeof parsed !== 'string') throw new Error('Invalid JSON');
-        return parsed;
-      }
-      if (character !== undefined && character.charCodeAt(0) <= 0x1f) throw new Error('Invalid JSON');
-    }
-    throw new Error('Invalid JSON');
-  }
-
-  private parseNumber(): number {
-    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:e[+-]?\d+)?/iu.exec(this.source.slice(this.offset));
-    if (!match) throw new Error('Invalid JSON');
-    this.offset += match[0].length;
-    const value = Number(match[0]);
-    if (!Number.isFinite(value)) throw new Error('Invalid JSON');
-    return value;
-  }
-
-  private consumeLiteral(literal: string): boolean {
-    if (!this.source.startsWith(literal, this.offset)) return false;
-    this.offset += literal.length;
-    return true;
-  }
-
-  private skipWhitespace(): void {
-    while (true) {
-      const character = this.source[this.offset];
-      if (character !== ' ' && character !== '\t' && character !== '\n' && character !== '\r') return;
-      this.offset += 1;
-    }
-  }
 }
 
 function createFrame(kind: LocalWhisperFrameKind, body: Uint8Array): Uint8Array {
@@ -584,8 +622,7 @@ export function decodeLocalWhisperControlFrame(frame: Uint8Array): LocalWhisperW
   }
   let parsed: unknown;
   try {
-    const json = new TextDecoder('utf-8', { fatal: true }).decode(body);
-    parsed = new StrictJsonParser(json).parse();
+    parsed = parseLocalWhisperWorkerJson(body);
   } catch {
     throw new Error('Malformed Local Whisper control frame payload');
   }

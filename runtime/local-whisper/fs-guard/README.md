@@ -12,7 +12,9 @@ managed root. It is not an inference worker and exposes no network service.
 - `command`, `protocol`, `validation`, and `error` contain the platform-neutral
   typed command model, version-1 codec, closed dispatch, and six safe errors.
 - `src/platform/linux` owns `openat2`, descriptor-relative operations, process
-  identity, hashing, leases, and `UniqueFd`.
+  identity, hashing, leases, and `UniqueFd`. Its model-authority server accepts
+  one credentialed `SOCK_SEQPACKET` request and transfers exactly one held
+  read-only descriptor with same-message credentials and `SCM_RIGHTS`.
 - `src/platform/windows` owns handle-relative/reparse-aware operations, ACL and
   volume/file identity, BCrypt hashing, leases, and `UniqueHandle`.
 - `tests/unit` tests common contracts and resource ownership. `tests/integration`
@@ -57,9 +59,11 @@ npm run test:local-whisper:filesystem
 
 Linux native tests use ASan/UBSan. Windows builds and tests use `/W4 /WX`.
 CTest labels `unit` and `integration` are independently runnable through the
-checked-in presets. GoogleTest v1.17.0 is test-only and fetched from immutable
-commit `52eb8108c5bdec04579160ae17225d66034bd723`; its upstream license is
-BSD-3-Clause. It is not linked into or packaged with the production helper.
+checked-in presets. GoogleTest v1.17.0 is test-only and supplied from the
+verified content-store object
+`9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c`;
+its upstream license is BSD-3-Clause. CMake has no download or ambient package
+fallback, and GoogleTest is not linked into or packaged with the helper.
 
 Generated CMake trees, binaries, test discovery files, sanitizer output, and
 compile databases belong only under ignored `.cache/local-whisper/` and must

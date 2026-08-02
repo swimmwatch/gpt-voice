@@ -10,6 +10,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(FS_GUARD_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 set(FS_GUARD_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production fs-guard executable")
+set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
+    "Verified GoogleTest complete source root")
 
 function(fs_guard_apply_quality target)
   if(MSVC)
@@ -35,16 +37,27 @@ add_library(fs_guard_core STATIC
 target_include_directories(fs_guard_core PUBLIC include)
 fs_guard_apply_quality(fs_guard_core)
 
+add_library(local_whisper_authority_records STATIC
+  ../common/src/model_authority.cpp
+  ../common/src/sha256.cpp
+)
+target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
+fs_guard_apply_quality(local_whisper_authority_records)
+
 if(WIN32)
   add_library(fs_guard_platform STATIC
     src/platform/windows/windows_backend.cpp
+    src/platform/windows/windows_model_authority_server.cpp
   )
-  target_link_libraries(fs_guard_platform PUBLIC fs_guard_core advapi32 bcrypt)
+  target_link_libraries(fs_guard_platform
+    PUBLIC fs_guard_core local_whisper_authority_records advapi32 bcrypt)
 else()
   add_library(fs_guard_platform STATIC
     src/platform/linux/linux_backend.cpp
+    src/platform/linux/model_authority_server.cpp
+    ../common/src/linux_process_identity.cpp
   )
-  target_link_libraries(fs_guard_platform PUBLIC fs_guard_core)
+  target_link_libraries(fs_guard_platform PUBLIC fs_guard_core local_whisper_authority_records)
 endif()
 target_include_directories(fs_guard_platform PUBLIC include PRIVATE src)
 fs_guard_apply_quality(fs_guard_platform)
@@ -63,15 +76,14 @@ set_target_properties(fs-guard PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
-  include(FetchContent)
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG 52eb8108c5bdec04579160ae17225d66034bd723
-    GIT_SHALLOW FALSE
-  )
+  if(NOT EXISTS "${LOCAL_WHISPER_GOOGLETEST_SOURCE}/CMakeLists.txt")
+    message(FATAL_ERROR "LOCAL_WHISPER_GOOGLETEST_SOURCE must be the verified source root")
+  endif()
+  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(googletest)
+  set(GTEST_HAS_ABSL OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${LOCAL_WHISPER_GOOGLETEST_SOURCE}"
+                   "${CMAKE_BINARY_DIR}/verified-googletest" EXCLUDE_FROM_ALL)
 
   add_executable(fs_guard_unit_tests
     tests/unit/command_test.cpp
@@ -86,7 +98,6 @@ if(BUILD_TESTING)
   add_executable(fs_guard_integration_tests
     tests/integration/backend_integration_test.cpp
   )
-  target_include_directories(fs_guard_integration_tests PRIVATE src)
   target_include_directories(fs_guard_integration_tests PRIVATE src)
   target_link_libraries(fs_guard_integration_tests PRIVATE fs_guard_platform
                                                             GTest::gtest_main)

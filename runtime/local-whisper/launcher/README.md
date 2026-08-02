@@ -14,11 +14,17 @@ stdin, stdout, stderr, and the fixed `--local-whisper-worker-v1` argument.
   executable descriptor or handle.
 - `src/platform/linux` opens the directory without symlinks, executes the held
   worker descriptor in a dedicated process group, uses parent-death signaling
-  and a subreaper, and does not exit until that group is empty.
+  and a subreaper, and does not exit until that group is empty. Its model
+  authority client authenticates the guard's credentials and one `SCM_RIGHTS`
+  descriptor, collision-safely installs logical slot 3, and completes the
+  hop-2 worker bootstrap before framed protocol traffic.
 - `src/platform/windows` holds every directory component and the worker without
   delete/write sharing, creates the worker suspended, assigns it to a
   kill-on-close Job Object, restricts inherited handles to stdio, and resumes it
   only after assignment. The launcher remains alive until the Job is empty.
+- The Windows model-authority module defines arbitrary-HANDLE duplication and
+  acknowledgment validation as a Task-09 source contract only. Representative
+  Windows execution and qualification remain Task 19.
 - `tests/unit` uses GoogleTest for the parser and SHA-256 contract.
   `tests/fixtures` contains non-production process-tree and identity probes used
   by the cross-platform integration verifier.
@@ -42,8 +48,9 @@ npm run verify:local-whisper:launcher -- --fixture
 ```
 
 Generated trees and binaries remain under ignored `.cache/local-whisper/`.
-GoogleTest is test-only and pinned to immutable commit
-`52eb8108c5bdec04579160ae17225d66034bd723` (BSD-3-Clause).
+GoogleTest is test-only and supplied from the verified content-store object
+`9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c`
+(BSD-3-Clause). CMake has no download or ambient package fallback.
 
 When changing this folder, keep platform APIs behind `PlatformLauncher`, native
 resources in RAII owners, errors sanitized, worker inheritance minimal, and

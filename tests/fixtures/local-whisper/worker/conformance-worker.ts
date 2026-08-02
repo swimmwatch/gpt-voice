@@ -31,14 +31,13 @@ type FixtureMode =
   | 'validate-vectors';
 
 interface GoldenManifest {
-  readonly audio: readonly { readonly frameHex: string }[];
-  readonly control: readonly { readonly frameHex: string }[];
+  readonly audio: readonly { readonly binaryFile: string; readonly name: string }[];
+  readonly control: readonly { readonly binaryFile: string }[];
   readonly malformed: readonly {
     readonly binaryFile: string;
-    readonly frameHex: string;
     readonly name: string;
   }[];
-  readonly streams: readonly { readonly frameHex: readonly string[]; readonly name: string }[];
+  readonly streams: readonly { readonly frameNames: readonly string[]; readonly name: string }[];
 }
 
 const PROTOCOL_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v1');
@@ -58,16 +57,14 @@ function manifest(): GoldenManifest {
 function malformedBytes(name: string): Buffer {
   const vector = manifest().malformed.find((candidate) => candidate.name === name);
   if (!vector) throw new Error('Missing malformed protocol fixture');
-  const bytes = readFileSync(resolve(PROTOCOL_DIRECTORY, vector.binaryFile));
-  if (bytes.toString('hex') !== vector.frameHex) throw new Error('Malformed fixture identity changed');
-  return bytes;
+  return readFileSync(resolve(PROTOCOL_DIRECTORY, vector.binaryFile));
 }
 
 function validateGoldenVectors(): void {
   const vectors = manifest();
   for (const vector of [...vectors.control, ...vectors.audio]) {
     const codec = new LocalWhisperFrameCodec();
-    const decoded = codec.push(Buffer.from(vector.frameHex, 'hex'));
+    const decoded = codec.push(readFileSync(resolve(PROTOCOL_DIRECTORY, vector.binaryFile)));
     codec.finish();
     if (decoded.length !== 1) throw new Error('Golden vector did not decode exactly once');
   }
@@ -75,7 +72,7 @@ function validateGoldenVectors(): void {
     let rejected = false;
     try {
       const codec = new LocalWhisperFrameCodec();
-      codec.push(Buffer.from(vector.frameHex, 'hex'));
+      codec.push(readFileSync(resolve(PROTOCOL_DIRECTORY, vector.binaryFile)));
       codec.finish();
     } catch {
       rejected = true;
@@ -86,8 +83,10 @@ function validateGoldenVectors(): void {
     let expectedSequence = 0;
     let terminal = false;
     let rejected = false;
-    for (const frameHex of vector.frameHex) {
-      const chunk = decodeLocalWhisperAudioFrame(Buffer.from(frameHex, 'hex'));
+    for (const frameName of vector.frameNames) {
+      const audio = vectors.audio.find((candidate) => candidate.name === frameName);
+      if (!audio) throw new Error(`Missing audio fixture: ${frameName}`);
+      const chunk = decodeLocalWhisperAudioFrame(readFileSync(resolve(PROTOCOL_DIRECTORY, audio.binaryFile)));
       if (terminal || chunk.sequence !== expectedSequence) {
         rejected = true;
         break;
@@ -146,31 +145,74 @@ class ConformanceWorker {
       }
       this.probedDeviceBinding = message.deviceBinding;
       this.state = 'probed';
-      this.respond({
-        type: 'probed',
-        protocolVersion: 1,
-        requestId: message.requestId,
-        deviceBinding: this.probedDeviceBinding,
-      });
+      if ('registryFingerprint' in message) {
+        this.respond({
+          type: 'probed',
+          protocolVersion: 1,
+          requestId: message.requestId,
+          activatedOrdinal: message.deviceBinding.index,
+          actualNativeIdentity: '0000:01:00.0',
+          authorityId: message.authorityId,
+          deviceBinding: message.deviceBinding,
+          primaryExecutionNativeIdentity: '0000:01:00.0',
+          probeProof: 'c'.repeat(64),
+          registryFingerprint: message.registryFingerprint,
+        });
+      } else {
+        this.respond({
+          type: 'probed',
+          protocolVersion: 1,
+          requestId: message.requestId,
+          authorityId: message.authorityId,
+          deviceBinding: message.deviceBinding,
+        });
+      }
       return;
     }
     if (message.type === 'load') {
       if (
-        this.state !== 'probed' ||
-        !this.probedDeviceBinding ||
-        JSON.stringify(message.deviceBinding) !== JSON.stringify(this.probedDeviceBinding)
+        (this.state !== 'handshaken' && this.state !== 'probed') ||
+        (this.state === 'probed' &&
+          (!this.probedDeviceBinding ||
+            JSON.stringify(message.deviceBinding) !== JSON.stringify(this.probedDeviceBinding)))
       ) {
         return this.exit(11);
       }
       this.residency = message.residency;
       this.state = 'loaded';
-      this.respond({
-        type: 'loaded',
-        protocolVersion: 1,
-        requestId: message.requestId,
-        deviceBinding: this.probedDeviceBinding,
+      const modelEvidence = {
+        effectiveBackend: message.residency.backend,
+        effectivePrecision: message.residency.precision,
+        model: message.residency.model,
+        modelSha256: 'b'.repeat(64),
+        primaryStateOwnership: 'worker' as const,
         residency: message.residency,
-      });
+      };
+      if ('registryFingerprint' in message) {
+        this.respond({
+          type: 'loaded',
+          protocolVersion: 1,
+          requestId: message.requestId,
+          activatedOrdinal: message.deviceBinding.index,
+          actualNativeIdentity: '0000:01:00.0',
+          authorityId: message.authorityId,
+          deviceBinding: message.deviceBinding,
+          ...modelEvidence,
+          loadProof: 'd'.repeat(64),
+          primaryExecutionNativeIdentity: '0000:01:00.0',
+          registryFingerprint: message.registryFingerprint,
+          selectedDeviceModelWeightBytes: 1_048_576,
+        });
+      } else {
+        this.respond({
+          type: 'loaded',
+          protocolVersion: 1,
+          requestId: message.requestId,
+          authorityId: message.authorityId,
+          deviceBinding: message.deviceBinding,
+          ...modelEvidence,
+        });
+      }
       return;
     }
     if (message.type === 'warmup') {
@@ -243,7 +285,13 @@ class ConformanceWorker {
               type: 'probed',
               protocolVersion: 1,
               requestId: `flood-${index}`,
+              activatedOrdinal: 0,
+              actualNativeIdentity: '0000:01:00.0',
+              authorityId: 'AAECAwQFBgcICQoLDA0ODw',
               deviceBinding: { kind: 'gpuIndex', index: 0 },
+              primaryExecutionNativeIdentity: '0000:01:00.0',
+              probeProof: 'c'.repeat(64),
+              registryFingerprint: 'e'.repeat(64),
             }),
           ),
         ),

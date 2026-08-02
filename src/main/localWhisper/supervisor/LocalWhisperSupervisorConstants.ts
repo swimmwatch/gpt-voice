@@ -26,14 +26,16 @@ export const LOCAL_WHISPER_MAX_FRAME_BYTES =
   Math.max(LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES, LOCAL_WHISPER_MAX_AUDIO_BODY_BYTES);
 
 export function getLocalWhisperTranscriptionTimeoutMs(audioDurationMs: number): number {
-  if (!Number.isSafeInteger(audioDurationMs) || audioDurationMs < 0) {
+  if (!Number.isFinite(audioDurationMs) || audioDurationMs < 0) {
     throw new Error('Invalid Local Whisper audio duration');
   }
-  return Math.min(
-    LOCAL_WHISPER_MAX_TRANSCRIPTION_TIMEOUT_MS,
-    Math.max(
-      LOCAL_WHISPER_MIN_TRANSCRIPTION_TIMEOUT_MS,
-      audioDurationMs * LOCAL_WHISPER_TRANSCRIPTION_DURATION_MULTIPLIER,
+  return Math.ceil(
+    Math.min(
+      LOCAL_WHISPER_MAX_TRANSCRIPTION_TIMEOUT_MS,
+      Math.max(
+        LOCAL_WHISPER_MIN_TRANSCRIPTION_TIMEOUT_MS,
+        audioDurationMs * LOCAL_WHISPER_TRANSCRIPTION_DURATION_MULTIPLIER,
+      ),
     ),
   );
 }

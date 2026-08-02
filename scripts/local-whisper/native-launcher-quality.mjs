@@ -3,6 +3,8 @@ import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
+import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
 const action = process.argv[2];
 if (!allowedActions.has(action)) {
@@ -21,8 +23,22 @@ const fixtureDirectory = resolve(outputDirectory, 'fixtures');
 const platformName = process.platform === 'win32' ? 'windows' : 'linux';
 const preset = `${platformName}-test`;
 const buildDirectory = resolve(outputDirectory, `build-${platformName}-test`);
-const cmake = process.env.CMAKE_COMMAND || 'cmake';
-const ctest = process.env.CTEST_COMMAND || 'ctest';
+const googleTestSource = resolve(
+  workspaceRoot,
+  '.cache',
+  'local-whisper',
+  'native-sources',
+  'sha256',
+  '9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c',
+);
+const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
+const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
+const cmake =
+  process.env.CMAKE_COMMAND ||
+  (process.platform === 'linux' ? resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake') : 'cmake');
+const ctest =
+  process.env.CTEST_COMMAND ||
+  (process.platform === 'linux' ? resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest') : 'ctest');
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -54,36 +70,44 @@ function configureAndBuild() {
     preset,
     `-DLOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY=${outputDirectory}`,
     `-DLOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY=${fixtureDirectory}`,
+    `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
   ];
   if (process.platform === 'linux') {
-    arguments_.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || 'clang++'}`);
-    if (process.env.NINJA_COMMAND) {
-      arguments_.push(`-DCMAKE_MAKE_PROGRAM=${process.env.NINJA_COMMAND}`);
-    }
+    arguments_.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || resolve(clangRoot, 'clang++')}`);
+    arguments_.push(
+      `-DCMAKE_MAKE_PROGRAM=${process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja')}`,
+    );
   }
   run(cmake, arguments_);
   run(cmake, ['--build', '--preset', preset]);
 }
 
-function runIntegration() {
+function runExecutableIntegration() {
   run(process.execPath, ['--import', 'tsx', 'scripts/local-whisper/verify-launcher.ts', '--fixture'], {
     cwd: workspaceRoot,
   });
 }
 
 if (action === 'format') {
-  run(process.env.CLANG_FORMAT || 'clang-format', ['--dry-run', '--Werror', ...nativeFiles(sourceDirectory)]);
+  run(resolveClangFormat(workspaceRoot, clangRoot), ['--dry-run', '--Werror', ...nativeFiles(sourceDirectory)]);
 } else if (action === 'lint') {
   if (process.platform !== 'linux') {
     process.stderr.write('clang-tidy is enforced by the Linux native-quality job\n');
     process.exit(2);
   }
   configureAndBuild();
-  run(process.env.CLANG_TIDY || 'clang-tidy', ['-p', buildDirectory, ...nativeImplementationFiles(sourceDirectory)]);
+  run(resolveClangTidy(workspaceRoot, clangRoot), [
+    '-p',
+    buildDirectory,
+    ...nativeImplementationFiles(sourceDirectory),
+  ]);
 } else {
   configureAndBuild();
   if (action === 'unit' || action === 'all') {
     run(ctest, ['--preset', `${platformName}-unit`]);
   }
-  if (action === 'integration' || action === 'all') runIntegration();
+  if (action === 'integration' || action === 'all') {
+    if (process.platform === 'linux') run(ctest, ['--preset', 'linux-integration']);
+    runExecutableIntegration();
+  }
 }

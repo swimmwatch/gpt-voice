@@ -13,6 +13,8 @@ set(LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production launcher executable")
 set(LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixtures" CACHE PATH
     "Directory containing launcher-only test fixtures")
+set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
+    "Verified GoogleTest complete source root")
 
 function(local_whisper_launcher_apply_quality target)
   if(MSVC)
@@ -35,17 +37,29 @@ add_library(local_whisper_launcher_core STATIC
 target_include_directories(local_whisper_launcher_core PUBLIC include)
 local_whisper_launcher_apply_quality(local_whisper_launcher_core)
 
+add_library(local_whisper_authority_records STATIC
+  ../common/src/model_authority.cpp
+  ../common/src/sha256.cpp
+)
+target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
+local_whisper_launcher_apply_quality(local_whisper_authority_records)
+
 if(WIN32)
   add_library(local_whisper_launcher_platform STATIC
     src/platform/windows/windows_launcher.cpp
+    src/platform/windows/windows_model_authority_client.cpp
   )
 else()
   add_library(local_whisper_launcher_platform STATIC
     src/platform/linux/linux_launcher.cpp
+    src/platform/linux/model_authority_client.cpp
+    ../common/src/authority_bootstrap.cpp
+    ../common/src/linux_process_identity.cpp
   )
 endif()
 target_include_directories(local_whisper_launcher_platform PUBLIC include)
-target_link_libraries(local_whisper_launcher_platform PUBLIC local_whisper_launcher_core)
+target_link_libraries(local_whisper_launcher_platform
+  PUBLIC local_whisper_launcher_core local_whisper_authority_records)
 local_whisper_launcher_apply_quality(local_whisper_launcher_platform)
 
 add_executable(local-whisper-launcher src/main.cpp)
@@ -61,15 +75,14 @@ set_target_properties(local-whisper-launcher PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
-  include(FetchContent)
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG 52eb8108c5bdec04579160ae17225d66034bd723
-    GIT_SHALLOW FALSE
-  )
+  if(NOT EXISTS "${LOCAL_WHISPER_GOOGLETEST_SOURCE}/CMakeLists.txt")
+    message(FATAL_ERROR "LOCAL_WHISPER_GOOGLETEST_SOURCE must be the verified source root")
+  endif()
+  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(googletest)
+  set(GTEST_HAS_ABSL OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${LOCAL_WHISPER_GOOGLETEST_SOURCE}"
+                   "${CMAKE_BINARY_DIR}/verified-googletest" EXCLUDE_FROM_ALL)
 
   add_executable(local_whisper_launcher_unit_tests
     tests/unit/launch_request_test.cpp
@@ -99,9 +112,39 @@ if(BUILD_TESTING)
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
   )
 
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(local-whisper-authority-worker-fixture
+      tests/fixtures/authority_worker.cpp
+    )
+    target_link_libraries(local-whisper-authority-worker-fixture
+      PRIVATE local_whisper_launcher_platform)
+    local_whisper_launcher_apply_quality(local-whisper-authority-worker-fixture)
+    set_target_properties(local-whisper-authority-worker-fixture PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
+    )
+
+    add_executable(local_whisper_launcher_integration_tests
+      tests/integration/model_authority_handoff_test.cpp
+      ../fs-guard/src/platform/linux/model_authority_server.cpp
+    )
+    target_include_directories(local_whisper_launcher_integration_tests
+      PRIVATE ../fs-guard/include)
+    target_compile_definitions(local_whisper_launcher_integration_tests PRIVATE
+      LOCAL_WHISPER_AUTHORITY_WORKER_FIXTURE="$<TARGET_FILE:local-whisper-authority-worker-fixture>")
+    target_link_libraries(local_whisper_launcher_integration_tests
+      PRIVATE local_whisper_launcher_platform GTest::gtest_main)
+    local_whisper_launcher_apply_quality(local_whisper_launcher_integration_tests)
+  endif()
+
   include(GoogleTest)
   gtest_discover_tests(local_whisper_launcher_unit_tests
     PROPERTIES LABELS unit
     DISCOVERY_TIMEOUT 30
   )
+  if(TARGET local_whisper_launcher_integration_tests)
+    gtest_discover_tests(local_whisper_launcher_integration_tests
+      PROPERTIES LABELS integration
+      DISCOVERY_TIMEOUT 30
+    )
+  endif()
 endif()

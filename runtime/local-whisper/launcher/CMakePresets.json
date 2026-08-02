@@ -81,6 +81,12 @@
       "configuration": "Debug",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "linux-integration",
+      "configurePreset": "linux-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "integration" } }
     }
   ]
 }

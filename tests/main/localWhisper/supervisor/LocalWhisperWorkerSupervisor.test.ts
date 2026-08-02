@@ -48,11 +48,23 @@ type WorkerMode =
   | 'outOfOrder';
 
 const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
+const AUTHORITY_ID = 'AAECAwQFBgcICQoLDA0ODw';
+const PROBE_CHALLENGE = 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8';
+const LOAD_CHALLENGE = 'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8';
+const REGISTRY_FINGERPRINT = 'e'.repeat(64);
 
 function bindingAuthority(
   revalidateDeviceBinding: () => Promise<LocalWhisperWorkerDeviceBinding | null> = async () => GPU_DEVICE_BINDING,
 ) {
-  return { deviceBinding: GPU_DEVICE_BINDING, revalidateDeviceBinding } as const;
+  return {
+    authorityId: AUTHORITY_ID,
+    deviceBinding: GPU_DEVICE_BINDING,
+    loadChallenge: LOAD_CHALLENGE,
+    probeChallenge: PROBE_CHALLENGE,
+    registryFingerprint: REGISTRY_FINGERPRINT,
+    revalidateDeviceBinding,
+    validateEvidence: async () => true,
+  } as const;
 }
 
 function probeRequest(
@@ -88,6 +100,30 @@ function selectedResidency(): LocalWhisperResidencyKey {
     precision: null,
     resolvedCpuThreads: null,
   };
+}
+
+function canonicalWav(durationMs: number): Uint8Array {
+  const sampleCount = Math.max(1, Math.round(durationMs * 16));
+  const result = new Uint8Array(44 + sampleCount * 2);
+  const view = new DataView(result.buffer);
+  for (const [offset, value] of [
+    [0, 'RIFF'],
+    [8, 'WAVE'],
+    [12, 'fmt '],
+    [36, 'data'],
+  ] as const) {
+    result.set(new TextEncoder().encode(value), offset);
+  }
+  view.setUint32(4, result.byteLength - 8, true);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 16_000, true);
+  view.setUint32(28, 32_000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(40, sampleCount * 2, true);
+  return result;
 }
 
 class FakeClock implements LocalWhisperSupervisorClock {
@@ -217,21 +253,41 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
           break;
         }
+        if (!('registryFingerprint' in message)) throw new Error('Expected GPU probe fixture');
         this.respond({
           type: 'probed',
           protocolVersion: 1,
           requestId: message.requestId,
+          activatedOrdinal: this.mode === 'bindingMismatch' ? 1 : message.deviceBinding.index,
+          actualNativeIdentity: '0000:01:00.0',
+          authorityId: message.authorityId,
           deviceBinding: this.mode === 'bindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
+          primaryExecutionNativeIdentity: '0000:01:00.0',
+          probeProof: 'c'.repeat(64),
+          registryFingerprint: message.registryFingerprint,
         });
         break;
       case 'load':
         if (this.mode === 'hangLoad') break;
+        if (!('registryFingerprint' in message)) throw new Error('Expected GPU load fixture');
         this.respond({
           type: 'loaded',
           protocolVersion: 1,
           requestId: message.requestId,
+          activatedOrdinal: this.mode === 'loadBindingMismatch' ? 1 : message.deviceBinding.index,
+          actualNativeIdentity: '0000:01:00.0',
+          authorityId: message.authorityId,
           deviceBinding: this.mode === 'loadBindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
+          effectiveBackend: message.residency.backend,
+          effectivePrecision: message.residency.precision,
+          loadProof: 'd'.repeat(64),
+          model: message.residency.model,
+          modelSha256: 'b'.repeat(64),
+          primaryExecutionNativeIdentity: '0000:01:00.0',
+          primaryStateOwnership: 'worker',
+          registryFingerprint: message.registryFingerprint,
           residency: message.residency,
+          selectedDeviceModelWeightBytes: 1_048_576,
         });
         break;
       case 'warmup':
@@ -386,7 +442,6 @@ async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness
         ...bindingAuthority(),
         configurationEpoch: 7,
         modelLease: value.modelLease,
-        modelPath: '/private/model/model.bin',
         residency: selectedResidency(),
         revalidate: async () => undefined,
       })
@@ -400,8 +455,7 @@ async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness
 test('supervisor enforces handshake, probe, load, warm-up, transcription, unload, and cleanup', async () => {
   const value = await readyHarness('happy');
   const transcription = await value.supervisor.transcribe({
-    audio: Uint8Array.from([1, 2, 3, 4]),
-    audioDurationMs: 100,
+    audio: canonicalWav(100),
     configurationEpoch: 7,
     settingsEpoch: 4,
     options: {
@@ -418,6 +472,22 @@ test('supervisor enforces handshake, probe, load, warm-up, transcription, unload
   assert.equal(value.releasedRuntime.value, 1);
   assert.equal(value.releasedModel.value, 1);
   assert.equal(value.recordStore.record, null);
+});
+
+test('fresh full-load worker loads without upgrading a probe process', async () => {
+  const value = harness('happy');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const loaded = await value.supervisor.load({
+    ...bindingAuthority(),
+    configurationEpoch: 7,
+    modelLease: value.modelLease,
+    residency: selectedResidency(),
+    revalidate: async () => undefined,
+  });
+  assert.equal(loaded.success, true);
+  assert.equal((await value.supervisor.shutdown()).success, true);
+  assert.equal(value.releasedModel.value, 1);
+  assert.equal(value.releasedRuntime.value, 1);
 });
 
 test('supervisor revalidates the private binding before and after probe and load', async () => {
@@ -446,7 +516,6 @@ test('supervisor revalidates the private binding before and after probe and load
         }),
         configurationEpoch: 7,
         modelLease: value.modelLease,
-        modelPath: '/private/model/model.bin',
         residency: selectedResidency(),
         revalidate: async () => undefined,
       })
@@ -482,7 +551,6 @@ test('supervisor cleans up changed or disappeared binding authority and rejects 
     }),
     configurationEpoch: 7,
     modelLease: changed.modelLease,
-    modelPath: '/private/model/model.bin',
     residency: selectedResidency(),
     revalidate: async () => undefined,
   });
@@ -503,7 +571,6 @@ test('supervisor cleans up changed or disappeared binding authority and rejects 
               ...bindingAuthority(),
               configurationEpoch: 7,
               modelLease: peer.modelLease,
-              modelPath: '/private/model/model.bin',
               residency: selectedResidency(),
               revalidate: async () => undefined,
             });
@@ -562,7 +629,6 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
     ...bindingAuthority(),
     configurationEpoch: 7,
     modelLease: load.modelLease,
-    modelPath: '/private/model/model.bin',
     residency: selectedResidency(),
     revalidate: async () => undefined,
   });
@@ -584,7 +650,6 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
         ...bindingAuthority(),
         configurationEpoch: 7,
         modelLease: warmup.modelLease,
-        modelPath: '/private/model/model.bin',
         residency: selectedResidency(),
         revalidate: async () => undefined,
       })
@@ -600,8 +665,7 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
 
   const transcription = await readyHarness('hangTranscription');
   const transcriptionResult = transcription.supervisor.transcribe({
-    audio: Uint8Array.from([1, 2, 3, 4]),
-    audioDurationMs: 13_000,
+    audio: canonicalWav(13_000),
     configurationEpoch: 7,
     settingsEpoch: 4,
     options: {
@@ -631,6 +695,7 @@ test('transcription deadline is duration-derived with exact floor and cap', () =
   assert.equal(getLocalWhisperTranscriptionTimeoutMs(0), 120_000);
   assert.equal(getLocalWhisperTranscriptionTimeoutMs(12_000), 120_000);
   assert.equal(getLocalWhisperTranscriptionTimeoutMs(13_000), 130_000);
+  assert.equal(getLocalWhisperTranscriptionTimeoutMs(0.0625), 120_000);
   assert.equal(getLocalWhisperTranscriptionTimeoutMs(60 * 60_000), 30 * 60_000);
   assert.throws(() => getLocalWhisperTranscriptionTimeoutMs(-1), /Invalid/u);
 });
@@ -638,8 +703,7 @@ test('transcription deadline is duration-derived with exact floor and cap', () =
 test('confirmed cancellation discards partial output and may retain warmed worker', async () => {
   const value = await readyHarness('cancel');
   const transcription = value.supervisor.transcribe({
-    audio: Uint8Array.from([1, 2, 3, 4]),
-    audioDurationMs: 100,
+    audio: canonicalWav(100),
     configurationEpoch: 7,
     settingsEpoch: 4,
     options: {

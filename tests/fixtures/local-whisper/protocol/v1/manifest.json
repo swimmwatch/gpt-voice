@@ -1,12 +1,13 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "protocolVersion": 1,
+  "limits": { "maxControlBytes": 1048576, "maxAudioChunkBytes": 1048576, "maxWavBytes": 57600044 },
   "control": [
     {
       "name": "hello",
       "message": { "type": "hello", "protocolVersion": 1 },
       "binaryFile": "control/hello.bin",
-      "frameHex": "00000024017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d"
+      "sha256": "73cd0153f0d28feed3f51b47e18a7673635c4b426f197c0ae668fbc86f99eba1"
     },
     {
       "name": "helloAck",
@@ -22,7 +23,7 @@
         "maxAudioChunkBytes": 1048576
       },
       "binaryFile": "control/helloAck.bin",
-      "frameHex": "00000131017b2274797065223a2268656c6c6f41636b222c2270726f746f636f6c56657273696f6e223a312c22656e67696e65223a2277686973706572437070222c2272756e74696d655265766973696f6e223a2272756e74696d652d7061636b2d7631222c2272756e74696d654275696c64446967657374223a2261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c226261636b656e64223a2263756461222c226361706162696c6974696573223a5b22637564612d736d2d3735222c22637564612d736d2d3836225d2c226d6178436f6e74726f6c4672616d654279746573223a313034383537362c226d6178417564696f4368756e6b4279746573223a313034383537367d"
+      "sha256": "dbd5db3367340e1f33169604ad7a861c8479fbb0e108996ac68d28db42064a8b"
     },
     {
       "name": "probe",
@@ -30,10 +31,13 @@
         "type": "probe",
         "protocolVersion": 1,
         "requestId": "probe-1",
-        "deviceBinding": { "kind": "gpuIndex", "index": 0 }
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "probeChallenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
       },
       "binaryFile": "control/probe.bin",
-      "frameHex": "00000068017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a307d7d"
+      "sha256": "65a16ab90c434b5a9d3c08f78b1b5171b7871b3a4cc0e97be3706f8848977ff1"
     },
     {
       "name": "probed",
@@ -41,10 +45,16 @@
         "type": "probed",
         "protocolVersion": 1,
         "requestId": "probe-1",
-        "deviceBinding": { "kind": "gpuIndex", "index": 0 }
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "probeProof": "c014f127f6da0b011f6178a7224827191deb2071c234b6797375fe766d498214",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
       },
       "binaryFile": "control/probed.bin",
-      "frameHex": "00000069017b2274797065223a2270726f626564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a307d7d"
+      "sha256": "a6879e16138889bdc3d9e576dc1138a32fd4f2821af4e8e71f08d43f7a06dc39"
     },
     {
       "name": "probe-cpu",
@@ -52,10 +62,11 @@
         "type": "probe",
         "protocolVersion": 1,
         "requestId": "probe-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "cpu" }
       },
       "binaryFile": "control/probe-cpu.bin",
-      "frameHex": "0000005d017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d6370752d31222c2264657669636542696e64696e67223a7b226b696e64223a22637075227d7d"
+      "sha256": "853916514cac937229f989f59c5ce79f446e9e2cb7d877ccf0b3742c6b8aab3c"
     },
     {
       "name": "probed-cpu",
@@ -63,10 +74,11 @@
         "type": "probed",
         "protocolVersion": 1,
         "requestId": "probe-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "cpu" }
       },
       "binaryFile": "control/probed-cpu.bin",
-      "frameHex": "0000005e017b2274797065223a2270726f626564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d6370752d31222c2264657669636542696e64696e67223a7b226b696e64223a22637075227d7d"
+      "sha256": "e1b8acc00b47b3ab97767c8169715b1bc2ca62af909b088b69fd6491f8f7c665"
     },
     {
       "name": "probe-gpu-max",
@@ -74,21 +86,13 @@
         "type": "probe",
         "protocolVersion": 1,
         "requestId": "probe-gpu-max-1",
-        "deviceBinding": { "kind": "gpuIndex", "index": 255 }
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 255 },
+        "probeChallenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
       },
       "binaryFile": "control/probe-gpu-max.bin",
-      "frameHex": "00000072017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d6770752d6d61782d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a3235357d7d"
-    },
-    {
-      "name": "probed-gpu-max",
-      "message": {
-        "type": "probed",
-        "protocolVersion": 1,
-        "requestId": "probe-gpu-max-1",
-        "deviceBinding": { "kind": "gpuIndex", "index": 255 }
-      },
-      "binaryFile": "control/probed-gpu-max.bin",
-      "frameHex": "00000073017b2274797065223a2270726f626564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d6770752d6d61782d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a3235357d7d"
+      "sha256": "b86e510965087ded6e319677578bc9f1bcb3174c161ad04472f1fad946c48708"
     },
     {
       "name": "load",
@@ -96,8 +100,10 @@
         "type": "load",
         "protocolVersion": 1,
         "requestId": "load-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "gpuIndex", "index": 0 },
-        "modelPath": "/private/fixture/model.bin",
+        "loadChallenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
         "residency": {
           "engine": "whisperCpp",
           "runtimePackRevision": "runtime-pack-v1",
@@ -117,7 +123,7 @@
         }
       },
       "binaryFile": "control/load.bin",
-      "frameHex": "000001e8017b2274797065223a226c6f6164222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a307d2c226d6f64656c50617468223a222f707269766174652f666978747572652f6d6f64656c2e62696e222c227265736964656e6379223a7b22656e67696e65223a2277686973706572437070222c2272756e74696d655061636b5265766973696f6e223a2272756e74696d652d7061636b2d7631222c22746172676574223a22677075222c226261636b656e64223a2263756461222c226465766963654964223a22666978747572652d677075222c226d6f64656c223a7b22656e67696e65223a2277686973706572437070222c226c6f676963616c4d6f64656c223a2274696e79222c22736f75726365436865636b706f696e745265766973696f6e223a22636865636b706f696e742d7631222c2261727469666163745265766973696f6e223a2261727469666163742d7631222c226e6174697665466f726d6174223a2267676d6c222c2276617269616e74223a2266756c6c227d2c22707265636973696f6e223a6e756c6c2c227265736f6c76656443707554687265616473223a6e756c6c7d7d"
+      "sha256": "ceffbd6fc857ec084b6f249358f89c4e642258e006217c70b7af5dc89d1af1ce"
     },
     {
       "name": "loaded",
@@ -125,7 +131,25 @@
         "type": "loaded",
         "protocolVersion": 1,
         "requestId": "load-1",
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
         "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "effectiveBackend": "cuda",
+        "effectivePrecision": null,
+        "model": {
+          "engine": "whisperCpp",
+          "logicalModel": "tiny",
+          "sourceCheckpointRevision": "checkpoint-v1",
+          "artifactRevision": "artifact-v1",
+          "nativeFormat": "ggml",
+          "variant": "full"
+        },
+        "modelSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "primaryStateOwnership": "worker",
+        "loadProof": "afbdd8326d04e2bb69f97b4844e9674e301dbcc397b828a770db6be5b78d0115",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
         "residency": {
           "engine": "whisperCpp",
           "runtimePackRevision": "runtime-pack-v1",
@@ -142,22 +166,64 @@
           },
           "precision": null,
           "resolvedCpuThreads": null
-        }
+        },
+        "selectedDeviceModelWeightBytes": 1048576
       },
       "binaryFile": "control/loaded.bin",
-      "frameHex": "000001c1017b2274797065223a226c6f61646564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a307d2c227265736964656e6379223a7b22656e67696e65223a2277686973706572437070222c2272756e74696d655061636b5265766973696f6e223a2272756e74696d652d7061636b2d7631222c22746172676574223a22677075222c226261636b656e64223a2263756461222c226465766963654964223a22666978747572652d677075222c226d6f64656c223a7b22656e67696e65223a2277686973706572437070222c226c6f676963616c4d6f64656c223a2274696e79222c22736f75726365436865636b706f696e745265766973696f6e223a22636865636b706f696e742d7631222c2261727469666163745265766973696f6e223a2261727469666163742d7631222c226e6174697665466f726d6174223a2267676d6c222c2276617269616e74223a2266756c6c227d2c22707265636973696f6e223a6e756c6c2c227265736f6c76656443707554687265616473223a6e756c6c7d7d"
+      "sha256": "75e8609c6da0f2a660b60936f401a9fd7b03391456608dfb5d3fd70d2511dac2"
+    },
+    {
+      "name": "loaded-cpu",
+      "message": {
+        "type": "loaded",
+        "protocolVersion": 1,
+        "requestId": "load-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "cpu" },
+        "effectiveBackend": "cpu",
+        "effectivePrecision": null,
+        "model": {
+          "engine": "whisperCpp",
+          "logicalModel": "tiny",
+          "sourceCheckpointRevision": "checkpoint-v1",
+          "artifactRevision": "artifact-v1",
+          "nativeFormat": "ggml",
+          "variant": "full"
+        },
+        "modelSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "primaryStateOwnership": "worker",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "cpu",
+          "backend": "cpu",
+          "deviceId": null,
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "precision": null,
+          "resolvedCpuThreads": 4
+        }
+      },
+      "binaryFile": "control/loaded-cpu.bin",
+      "sha256": "638ad27dcd607b83f46af217ec34ee306e6ccd492adb1074272b747f5d801d9c"
     },
     {
       "name": "warmup",
       "message": { "type": "warmup", "protocolVersion": 1, "requestId": "warm-1" },
       "binaryFile": "control/warmup.bin",
-      "frameHex": "0000003a017b2274797065223a227761726d7570222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a227761726d2d31227d"
+      "sha256": "8625a39ebd4c7adf65bb357f788d00966315b81b830c2b90ddd946f3858b81f7"
     },
     {
       "name": "warmed",
       "message": { "type": "warmed", "protocolVersion": 1, "requestId": "warm-1" },
       "binaryFile": "control/warmed.bin",
-      "frameHex": "0000003a017b2274797065223a227761726d6564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a227761726d2d31227d"
+      "sha256": "f391e61ff82a9ab8f7f4964037902a1df990be7a8d0058e1a0474893ece1aaee"
     },
     {
       "name": "transcribe",
@@ -166,7 +232,7 @@
         "protocolVersion": 1,
         "requestId": "tx-1",
         "settingsEpoch": 9,
-        "audioByteLength": 4,
+        "audioByteLength": 46,
         "options": {
           "language": null,
           "initialPrompt": "",
@@ -176,55 +242,55 @@
         }
       },
       "binaryFile": "control/transcribe.bin",
-      "frameHex": "000000d5017b2274797065223a227472616e736372696265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2274782d31222c2273657474696e677345706f6368223a392c22617564696f427974654c656e677468223a342c226f7074696f6e73223a7b226c616e6775616765223a6e756c6c2c22696e697469616c50726f6d7074223a22222c2274656d706572617475726548756e64726564746873223a302c227374726174656779223a22677265656479222c2263616e646964617465436f756e74223a6e756c6c7d7d"
+      "sha256": "2a0a248704f7403c23df23e0437a66b3f1ce2cf3f8b4b715a502db8de90fdffb"
     },
     {
       "name": "transcript",
       "message": { "type": "transcript", "protocolVersion": 1, "requestId": "tx-1", "text": "synthetic result" },
       "binaryFile": "control/transcript.bin",
-      "frameHex": "00000056017b2274797065223a227472616e736372697074222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2274782d31222c2274657874223a2273796e74686574696320726573756c74227d"
+      "sha256": "822bc56b034f257e821bc032b906dc9362daa6bfb55f9f9903838743ada3ddd8"
     },
     {
       "name": "cancel",
       "message": { "type": "cancel", "protocolVersion": 1, "requestId": "cancel-1", "targetRequestId": "tx-1" },
       "binaryFile": "control/cancel.bin",
-      "frameHex": "00000055017b2274797065223a2263616e63656c222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2263616e63656c2d31222c22746172676574526571756573744964223a2274782d31227d"
+      "sha256": "2312311f0a6c3b09e0c8e5d8b1bc8bd357009c48adf691203c14a948e441fa86"
     },
     {
       "name": "cancelled",
       "message": { "type": "cancelled", "protocolVersion": 1, "requestId": "cancel-1", "targetRequestId": "tx-1" },
       "binaryFile": "control/cancelled.bin",
-      "frameHex": "00000058017b2274797065223a2263616e63656c6c6564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2263616e63656c2d31222c22746172676574526571756573744964223a2274782d31227d"
+      "sha256": "5aac4339c49e612a68a5f158e8aa9138368d60d36ffa910cc6ba0b70e6266783"
     },
     {
       "name": "unload",
       "message": { "type": "unload", "protocolVersion": 1, "requestId": "free-1" },
       "binaryFile": "control/unload.bin",
-      "frameHex": "0000003a017b2274797065223a22756e6c6f6164222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a22667265652d31227d"
+      "sha256": "a19e09d5120d6a3c9d0cfa85a9760cdd2ac7c26e8005c5ea4ac537e4b18743ca"
     },
     {
       "name": "unloaded",
       "message": { "type": "unloaded", "protocolVersion": 1, "requestId": "free-1" },
       "binaryFile": "control/unloaded.bin",
-      "frameHex": "0000003c017b2274797065223a22756e6c6f61646564222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a22667265652d31227d"
+      "sha256": "ea02094dd7c16c0f38ada9981e3e66b0394abca7fc0980e79b350cb799f8e802"
     },
     {
       "name": "shutdown",
       "message": { "type": "shutdown", "protocolVersion": 1, "requestId": "stop-1" },
       "binaryFile": "control/shutdown.bin",
-      "frameHex": "0000003c017b2274797065223a2273687574646f776e222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2273746f702d31227d"
+      "sha256": "ebd375dd36a6fa2cc55531bb43210b5f78535625a8777490cb0ef40997185f51"
     },
     {
       "name": "shutdownAck",
       "message": { "type": "shutdownAck", "protocolVersion": 1, "requestId": "stop-1" },
       "binaryFile": "control/shutdownAck.bin",
-      "frameHex": "0000003f017b2274797065223a2273687574646f776e41636b222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2273746f702d31227d"
+      "sha256": "940bcef331a4c34bf0b04a36642d42ac6a4dc8a5e58f47f385390e121b5654a4"
     },
     {
       "name": "failure",
       "message": { "type": "failure", "protocolVersion": 1, "requestId": "load-1", "code": "MODEL_LOAD_FAILED" },
       "binaryFile": "control/failure.bin",
-      "frameHex": "00000056017b2274797065223a226661696c757265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d31222c22636f6465223a224d4f44454c5f4c4f41445f4641494c4544227d"
+      "sha256": "036a8cf058e12a3bfe0b09a9a054209090f9ca22eb6bce8ca4cd68b0deb42d96"
     }
   ],
   "audio": [
@@ -235,7 +301,7 @@
       "final": false,
       "bytesHex": "0102",
       "binaryFile": "audio/first.bin",
-      "frameHex": "0000000e02010000000000000474782d310102"
+      "sha256": "cf1458109ff74c8bbd2c93c76603f2e706ba6894caedaf13796ee4538dc92489"
     },
     {
       "name": "middle",
@@ -244,7 +310,7 @@
       "final": false,
       "bytesHex": "0304",
       "binaryFile": "audio/middle.bin",
-      "frameHex": "0000000e02010000000001000474782d310304"
+      "sha256": "d7d9468de45d28ab452e06f7f05e95ae04e2c64be38a05a2f923c39084dcd616"
     },
     {
       "name": "final",
@@ -253,7 +319,7 @@
       "final": true,
       "bytesHex": "0506",
       "binaryFile": "audio/final.bin",
-      "frameHex": "0000000e02010100000002000474782d310506"
+      "sha256": "037a28c7182fd1335ce65da82f642c1a478e4a6f426e227ba2497b4b7324ee71"
     },
     {
       "name": "empty-final",
@@ -262,89 +328,479 @@
       "final": true,
       "bytesHex": "",
       "binaryFile": "audio/empty-final.bin",
-      "frameHex": "0000000f020101000000000007656d7074792d31"
+      "sha256": "b0721a71e2c1d1c96bb733b9375c832b14e0e5927565c414e291ef2df6ff79a6"
     }
   ],
   "malformed": [
-    { "name": "truncated-control", "binaryFile": "malformed/truncated-control.bin", "frameHex": "00000008017b" },
-    { "name": "unknown-kind", "binaryFile": "malformed/unknown-kind.bin", "frameHex": "000000007f" },
+    {
+      "name": "truncated-control",
+      "binaryFile": "malformed/truncated-control.bin",
+      "sha256": "74df1e2ea7066c53b1afc09fe0e9f1667eaaf24b404d2d992ef2e5e4547d9a45"
+    },
+    {
+      "name": "unknown-kind",
+      "binaryFile": "malformed/unknown-kind.bin",
+      "sha256": "cc5166464b839b6eb7d428f6cc278f8bf3a66466e69120e06c942e05b16cdfb2"
+    },
     {
       "name": "oversized-control-prefix",
       "binaryFile": "malformed/oversized-control-prefix.bin",
-      "frameHex": "0010000101"
+      "sha256": "c358dd63953bfced0d3f5c880fad5fdd9d6f49d463a786baff143f892ceb46a5"
     },
     {
       "name": "oversized-audio-prefix",
       "binaryFile": "malformed/oversized-audio-prefix.bin",
-      "frameHex": "0010008902"
+      "sha256": "0d8107810dc5680573a9bb8b5eaf6488469f46bfc72f9e52111ec78694328817"
     },
-    { "name": "invalid-control-utf8", "binaryFile": "malformed/invalid-control-utf8.bin", "frameHex": "0000000101ff" },
+    {
+      "name": "invalid-control-utf8",
+      "binaryFile": "malformed/invalid-control-utf8.bin",
+      "sha256": "17d940bf0d5800f8536d1fb6a1ac6f5d8a819226e738d6871f9dff3b946f87ed"
+    },
     {
       "name": "duplicate-control-key",
       "binaryFile": "malformed/duplicate-control-key.bin",
-      "frameHex": "00000033017b2274797065223a2268656c6c6f222c2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d"
+      "sha256": "0b7ea2d6bc55e835eaf278a19fafe86d477b88a009dd58bc96e7468323afa501"
     },
     {
       "name": "unknown-control-key",
       "binaryFile": "malformed/unknown-control-key.bin",
-      "frameHex": "00000033017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a312c22756e6b6e6f776e223a747275657d"
+      "sha256": "39a8fdee5d62b907d0d86a54a7b15a5dd5ad07c3955d525de9dbdb6034311f09"
     },
     {
       "name": "negative-device-index",
       "binaryFile": "malformed/negative-device-index.bin",
-      "frameHex": "0000006b017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d626164222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a2d317d7d"
+      "sha256": "ff9ec44afa3c31bc327736b507558dce6e6036567e1a2649dfb7c2ba6858c0be"
     },
     {
       "name": "fractional-device-index",
       "binaryFile": "malformed/fractional-device-index.bin",
-      "frameHex": "0000006c017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d626164222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a302e357d7d"
+      "sha256": "c0e9512212238df8acb78da8e83a7aead088d56bb09ef5794a3a5f346fcf0821"
     },
     {
       "name": "oversized-device-index",
       "binaryFile": "malformed/oversized-device-index.bin",
-      "frameHex": "0000006c017b2274797065223a2270726f6265222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a2270726f62652d626164222c2264657669636542696e64696e67223a7b226b696e64223a22677075496e646578222c22696e646578223a3235367d7d"
+      "sha256": "d3a1cba6c4be713845412c8962b506b232fb04f7bf2c78d92ec5d752c2a8ff17"
     },
     {
       "name": "cpu-gpu-residency-mismatch",
       "binaryFile": "malformed/cpu-gpu-residency-mismatch.bin",
-      "frameHex": "000001db017b2274797065223a226c6f6164222c2270726f746f636f6c56657273696f6e223a312c22726571756573744964223a226c6f61642d626164222c2264657669636542696e64696e67223a7b226b696e64223a22637075227d2c226d6f64656c50617468223a222f707269766174652f666978747572652f6d6f64656c2e62696e222c227265736964656e6379223a7b22656e67696e65223a2277686973706572437070222c2272756e74696d655061636b5265766973696f6e223a2272756e74696d652d7061636b2d7631222c22746172676574223a22677075222c226261636b656e64223a2263756461222c226465766963654964223a22666978747572652d677075222c226d6f64656c223a7b22656e67696e65223a2277686973706572437070222c226c6f676963616c4d6f64656c223a2274696e79222c22736f75726365436865636b706f696e745265766973696f6e223a22636865636b706f696e742d7631222c2261727469666163745265766973696f6e223a2261727469666163742d7631222c226e6174697665466f726d6174223a2267676d6c222c2276617269616e74223a2266756c6c227d2c22707265636973696f6e223a6e756c6c2c227265736f6c76656443707554687265616473223a6e756c6c7d7d"
+      "sha256": "bf85e2ead2b4ea6306172a0feb60f311a885402b47bc97fe7769cd2fe90f8841"
     },
     {
       "name": "trailing-control-byte",
       "binaryFile": "malformed/trailing-control-byte.bin",
-      "frameHex": "00000024017b2274797065223a2268656c6c6f222c2270726f746f636f6c56657273696f6e223a317d00"
+      "sha256": "8f5fde04f6414413faafe348ec29854e2cc4b73bb995c180ab4c046edc9fc1d0"
     },
     {
       "name": "invalid-audio-version",
       "binaryFile": "malformed/invalid-audio-version.bin",
-      "frameHex": "0000000e02020000000000000474782d310102"
+      "sha256": "3d938a79ea68fd746370ea263e52d42052f1e0dcf1b680b5377bd02ab6e37800"
     },
     {
       "name": "invalid-audio-final-flag",
       "binaryFile": "malformed/invalid-audio-final-flag.bin",
-      "frameHex": "0000000e02010200000000000474782d310102"
+      "sha256": "b0a62861cb55bca85986bc3ab5d7c53d4b7ac302c148591054c6f52ba0e48584"
     },
     {
       "name": "empty-audio-request-id",
       "binaryFile": "malformed/empty-audio-request-id.bin",
-      "frameHex": "0000000e02010000000000000074782d310102"
+      "sha256": "ae4d7252e3a72750da13cf15df904e5c12cd5b7b5cc84a17b5706a930eff405b"
     },
     {
       "name": "nonterminal-empty-audio",
       "binaryFile": "malformed/nonterminal-empty-audio.bin",
-      "frameHex": "0000000c02010000000000000474782d31"
+      "sha256": "76b019ecad7aea4f76822abfa01bc78a4b335b0ff397ea314fe7f9a270f8342c"
     }
   ],
   "streams": [
+    { "name": "duplicate-audio-sequence", "frameNames": ["first", "first"] },
+    { "name": "audio-after-terminal", "frameNames": ["empty-final", "first"] }
+  ],
+  "lexical": [
     {
-      "name": "duplicate-audio-sequence",
-      "frameNames": ["first", "first"],
-      "frameHex": ["0000000e02010000000000000474782d310102", "0000000e02010000000000000474782d310102"]
+      "name": "safe-integer-min",
+      "valid": true,
+      "binaryFile": "json/safe-integer-min.bin",
+      "sha256": "4c933a456bb8f2e9894b2d0b26480439cd72d52fb8a27cbf8fd7f323f22c7815"
     },
     {
-      "name": "audio-after-terminal",
-      "frameNames": ["empty-final", "first"],
-      "frameHex": ["0000000f020101000000000007656d7074792d31", "0000000e02010000000000000474782d310102"]
+      "name": "safe-integer-max",
+      "valid": true,
+      "binaryFile": "json/safe-integer-max.bin",
+      "sha256": "f40b423c2dd95ff2b2f027e22208f438cf7242862e5e746860e697308c9add26"
+    },
+    {
+      "name": "safe-integer-underflow",
+      "valid": false,
+      "binaryFile": "json/safe-integer-underflow.bin",
+      "sha256": "83e109bfd7fb4984b47a46f363627c18dbbd7e57e36b05a04cd162d304df72e9"
+    },
+    {
+      "name": "safe-integer-overflow",
+      "valid": false,
+      "binaryFile": "json/safe-integer-overflow.bin",
+      "sha256": "c681da39d7273a6a24c15c9cac3a75526ff2ecf8ba4ee60346a0c70c8163bdb2"
+    },
+    {
+      "name": "negative-zero",
+      "valid": false,
+      "binaryFile": "json/negative-zero.bin",
+      "sha256": "ed79f26d03f412bde3db206601a698e0bb451bea9e3cc25289636ac17ea74b0a"
+    },
+    {
+      "name": "leading-zero",
+      "valid": false,
+      "binaryFile": "json/leading-zero.bin",
+      "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+    },
+    {
+      "name": "decimal",
+      "valid": false,
+      "binaryFile": "json/decimal.bin",
+      "sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6"
+    },
+    {
+      "name": "exponent",
+      "valid": false,
+      "binaryFile": "json/exponent.bin",
+      "sha256": "704a2369ce2da4371b814bc79e5d28ed1d43effb1f168655bd297eda01f1c315"
+    },
+    {
+      "name": "plus",
+      "valid": false,
+      "binaryFile": "json/plus.bin",
+      "sha256": "c59dc4e44ff99288156d4dff2168f6ac7ddee6b1fc7ccc0754656ffaa6d351ea"
+    },
+    {
+      "name": "duplicate-root-key",
+      "valid": false,
+      "binaryFile": "json/duplicate-root-key.bin",
+      "sha256": "1c53ee0df7b12fd4d65b976120c7fa6b847dc41dffd7f0331c3237a1ceab1756"
+    },
+    {
+      "name": "duplicate-nested-key",
+      "valid": false,
+      "binaryFile": "json/duplicate-nested-key.bin",
+      "sha256": "193179e03522e6a46c057edc9ffe5a9945bbb25d9f02e657256936640d92ec52"
+    },
+    {
+      "name": "depth-16",
+      "valid": true,
+      "binaryFile": "json/depth-16.bin",
+      "sha256": "f955de38ce972b6a49fa8fae45dd8e2eede435f0d684f7eddec46135e473d6c2"
+    },
+    {
+      "name": "depth-17",
+      "valid": false,
+      "binaryFile": "json/depth-17.bin",
+      "sha256": "9141f69529e96caa8db6218b357f341abff4e6b56a7ba2405ff3a9ec457405f9"
+    },
+    {
+      "name": "members-128",
+      "valid": true,
+      "binaryFile": "json/members-128.bin",
+      "sha256": "e155a63b9aa9251f3916fb382f135121f008ea4308cd75dba1f0c9a2aeeff6b8"
+    },
+    {
+      "name": "members-129",
+      "valid": false,
+      "binaryFile": "json/members-129.bin",
+      "sha256": "c773e6fcaa06aa973241455adc27f26357f9eb6e6efab483c63f4c2a32fdd017"
+    },
+    {
+      "name": "elements-256",
+      "valid": true,
+      "binaryFile": "json/elements-256.bin",
+      "sha256": "2d673de942048a8b5ede075bd8fc7c56c7d9cce7335d5be36ef4b87dbb16cb82"
+    },
+    {
+      "name": "elements-257",
+      "valid": false,
+      "binaryFile": "json/elements-257.bin",
+      "sha256": "c03edf94542c06d1ce116d3f0cf964b1c19e2571c07c42a52b3a2b07e3682a18"
+    },
+    {
+      "name": "events-4096",
+      "valid": true,
+      "binaryFile": "json/events-4096.bin",
+      "sha256": "ce91a193fe4bfe9777cae43fc40dc7a4abafdd58b62736ab394e5af5a6ac8f0d"
+    },
+    {
+      "name": "events-4097",
+      "valid": false,
+      "binaryFile": "json/events-4097.bin",
+      "sha256": "3053c02ee3d32b668d99c97d53c2b3e99071976cf3ddd5ca58b940e089743228"
+    },
+    {
+      "name": "key-bytes-128",
+      "valid": true,
+      "binaryFile": "json/key-bytes-128.bin",
+      "sha256": "8737df020cc77bc93e1e274838f110d9914284c608d014118f706690aaede1d2"
+    },
+    {
+      "name": "key-bytes-129",
+      "valid": false,
+      "binaryFile": "json/key-bytes-129.bin",
+      "sha256": "3445f9108b2ec46f2534fe8520a6f2c27601a19b19e1b335807e3bb6d5623513"
+    },
+    {
+      "name": "string-bytes-262144",
+      "valid": true,
+      "binaryFile": "json/string-bytes-262144.bin",
+      "sha256": "460ce9950246701bde4787d8543af0254d991857c867fb50063ea787628381f0"
+    },
+    {
+      "name": "string-bytes-262145",
+      "valid": false,
+      "binaryFile": "json/string-bytes-262145.bin",
+      "sha256": "bd9b91b3ffeded705bdc4fb723792e6f8a8a8073c0419ec07a0583737f039cfd"
+    },
+    {
+      "name": "invalid-utf8",
+      "valid": false,
+      "binaryFile": "json/invalid-utf8.bin",
+      "sha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89"
+    },
+    {
+      "name": "invalid-escape",
+      "valid": false,
+      "binaryFile": "json/invalid-escape.bin",
+      "sha256": "6802bc99fec62d9b41926005c78eb80fdba95a69b64f757fa04f4d07d781cef7"
+    },
+    {
+      "name": "lone-high-surrogate",
+      "valid": false,
+      "binaryFile": "json/lone-high-surrogate.bin",
+      "sha256": "8c0c59dd0d275aadcd462a5fe12eb352cbdfeaf961eae4f85a4660521df7d2f5"
+    },
+    {
+      "name": "lone-low-surrogate",
+      "valid": false,
+      "binaryFile": "json/lone-low-surrogate.bin",
+      "sha256": "353c7370beca95e64c258c908edac60c2ab30d355ca1b5b7fc31c5bce4a4c65a"
+    },
+    {
+      "name": "paired-surrogate",
+      "valid": true,
+      "binaryFile": "json/paired-surrogate.bin",
+      "sha256": "e30439cb87e140c0b998ad3095285abfec0294e2a8916f9a8f30d85734e6f82b"
+    },
+    {
+      "name": "trailing-value",
+      "valid": false,
+      "binaryFile": "json/trailing-value.bin",
+      "sha256": "b59cb3ab90a5eb365be1031e097300769912fb8272639b58139fca863ae23cb1"
+    }
+  ],
+  "proofs": {
+    "registry": {
+      "backendId": "cuda",
+      "engineId": "whisperCpp",
+      "entries": [
+        { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" },
+        { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" }
+      ],
+      "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+    "registries": [
+      {
+        "name": "empty",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "28db4d870011be3d6f962d6580fa0ea74097ada8bd778350899f403d95fc5849"
+      },
+      {
+        "name": "single",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [{ "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" }],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "f3cecd332bd49e1a6f7dbc1e4dbf4590e5afe6cd924ca833c05d5ea47f2141a8"
+      },
+      {
+        "name": "multiple",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [
+            { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" },
+            { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" }
+          ],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
+      },
+      {
+        "name": "changed-order",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [
+            { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" },
+            { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" }
+          ],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "3b23365b1652ce1285a6b52cbcc9bd074945120429c3d785ae718efce8a4b167"
+      }
+    ],
+    "probe": {
+      "input": {
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "backendId": "cuda",
+        "challenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "configurationEpoch": "7",
+        "engineId": "whisperCpp",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selectedDeviceModelWeightBytes": "0",
+        "selectedOrdinal": 0,
+        "topologyGeneration": "11"
+      },
+      "expectedProof": "c014f127f6da0b011f6178a7224827191deb2071c234b6797375fe766d498214"
+    },
+    "load": {
+      "input": {
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "backendId": "cuda",
+        "challenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+        "configurationEpoch": "7",
+        "engineId": "whisperCpp",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selectedDeviceModelWeightBytes": "1048576",
+        "selectedOrdinal": 0,
+        "topologyGeneration": "11"
+      },
+      "expectedProof": "afbdd8326d04e2bb69f97b4844e9674e301dbcc397b828a770db6be5b78d0115"
+    },
+    "boundaries": [
+      {
+        "name": "probe-u64-boundaries-ordinal-255",
+        "domain": "probe",
+        "input": {
+          "activatedOrdinal": 255,
+          "actualNativeIdentity": "0000:01:00.0",
+          "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+          "backendId": "cuda",
+          "challenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+          "configurationEpoch": "0",
+          "engineId": "whisperCpp",
+          "primaryExecutionNativeIdentity": "0000:01:00.0",
+          "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selectedDeviceModelWeightBytes": "0",
+          "selectedOrdinal": 255,
+          "topologyGeneration": "18446744073709551615"
+        },
+        "expectedProof": "82f7c1d81fa131fdf1c3150aa057579e97d61b4983f279e2ee5525a5d53e9fe9"
+      },
+      {
+        "name": "load-u64-boundaries-ordinal-255",
+        "domain": "load",
+        "input": {
+          "activatedOrdinal": 255,
+          "actualNativeIdentity": "0000:01:00.0",
+          "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+          "backendId": "cuda",
+          "challenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+          "configurationEpoch": "18446744073709551615",
+          "engineId": "whisperCpp",
+          "primaryExecutionNativeIdentity": "0000:01:00.0",
+          "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selectedDeviceModelWeightBytes": "18446744073709551615",
+          "selectedOrdinal": 255,
+          "topologyGeneration": "0"
+        },
+        "expectedProof": "b0f16bbb6ce9bbf41896d33fb35048f09ef69f09c5474823248c63633d5decfb"
+      }
+    ]
+  },
+  "authority": [
+    {
+      "name": "request",
+      "binaryFile": "authority/request.bin",
+      "sha256": "95e7199880e03543214d158c5821af0194f67ec188d07e0b7a2bba51c4733d1a"
+    },
+    {
+      "name": "directory-request-u64-max",
+      "binaryFile": "authority/directory-request-u64-max.bin",
+      "sha256": "32a20ac56d75470729698da2c29e9c5997d78daaa46df94a986a16615548f2da"
+    },
+    {
+      "name": "linux-hop-1",
+      "binaryFile": "authority/linux-hop-1.bin",
+      "sha256": "1cdccc7580cfeb82d0bacc9691fdf6d698c3a202158420e50395a31145227c83"
+    },
+    {
+      "name": "linux-directory-hop-1",
+      "binaryFile": "authority/linux-directory-hop-1.bin",
+      "sha256": "54df5870ff3586fd4bafb31dbe2c3bcac94df36b6622370d3e7e646e83f15ebc"
+    },
+    {
+      "name": "windows-hop-1",
+      "binaryFile": "authority/windows-hop-1.bin",
+      "sha256": "868183481efe8d6dace89377ac857abaddbbcf2b3d78da8a2b1ed96a2553e1c2"
+    },
+    {
+      "name": "linux-hop-2",
+      "binaryFile": "authority/linux-hop-2.bin",
+      "sha256": "9f2ba33d4157d0562b11729b0984ba49923623815d43cfb520b738138f334acd"
+    },
+    {
+      "name": "windows-hop-2",
+      "binaryFile": "authority/windows-hop-2.bin",
+      "sha256": "3e1681b59e3b039fc33d2cdf8e2667b3880d055208e52667ba4fc8d64f9d2eba"
+    },
+    {
+      "name": "windows-hop-2-u64-max",
+      "binaryFile": "authority/windows-hop-2-u64-max.bin",
+      "sha256": "02a223135182799765024e21862ef9f23d2efd78c23445c516595c533f139c20"
+    },
+    {
+      "name": "linux-ack",
+      "binaryFile": "authority/linux-ack.bin",
+      "sha256": "becc34689c2b3d66a152b46b7587d9e93e7491d00c70629e98a90d2eecf84142"
+    },
+    {
+      "name": "windows-ack",
+      "binaryFile": "authority/windows-ack.bin",
+      "sha256": "7f803e66be0d0d8a8a63789b64f7917c630483188c3dfcd12d5d379af8ab4d4d"
+    }
+  ],
+  "wav": [
+    {
+      "name": "minimum",
+      "valid": true,
+      "binaryFile": "wav/minimum.bin",
+      "sha256": "156075e2635b9b2c186258f4db987ed9fbdfb727f49e5eac4b9a126aefbdf727"
+    },
+    {
+      "name": "invalid-rate",
+      "valid": false,
+      "binaryFile": "wav/invalid-rate.bin",
+      "sha256": "486853611f8ae54adc7d1e3af6ad7f01ef6b1b2abbc1b8e595aa726eb4bb0b68"
+    },
+    {
+      "name": "trailing-byte",
+      "valid": false,
+      "binaryFile": "wav/trailing-byte.bin",
+      "sha256": "d3a86eec4e2089ca850498e49aa365313096254e70967a722e823f1c50dff9e0"
     }
   ]
 }

@@ -36,8 +36,13 @@ const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfi
 
 function bindingAuthority() {
   return {
+    authorityId: 'AAECAwQFBgcICQoLDA0ODw',
     deviceBinding: GPU_DEVICE_BINDING,
+    loadChallenge: 'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8',
+    probeChallenge: 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8',
+    registryFingerprint: 'e'.repeat(64),
     revalidateDeviceBinding: async () => GPU_DEVICE_BINDING,
+    validateEvidence: async () => true,
   } as const;
 }
 
@@ -67,6 +72,29 @@ function residency(): LocalWhisperResidencyKey {
     precision: null,
     resolvedCpuThreads: null,
   };
+}
+
+function canonicalWav(): Uint8Array {
+  const result = new Uint8Array(46);
+  const view = new DataView(result.buffer);
+  for (const [offset, value] of [
+    [0, 'RIFF'],
+    [8, 'WAVE'],
+    [12, 'fmt '],
+    [36, 'data'],
+  ] as const) {
+    result.set(new TextEncoder().encode(value), offset);
+  }
+  view.setUint32(4, 38, true);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 16_000, true);
+  view.setUint32(28, 32_000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(40, 2, true);
+  return result;
 }
 
 class FakeClock implements LocalWhisperSupervisorClock {
@@ -273,17 +301,15 @@ test('standalone conformance worker consumes every checked-in golden vector', ()
   assert.equal(result.stdout, '');
 });
 
-test('standalone conformance worker completes the canonical lifecycle without inference', async () => {
+test('standalone conformance worker completes a fresh full-load lifecycle without inference', async () => {
   const value = harness('happy');
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
-  assert.equal((await value.supervisor.probe({ configurationEpoch: 1, ...bindingAuthority() })).success, true);
   assert.equal(
     (
       await value.supervisor.load({
         ...bindingAuthority(),
         configurationEpoch: 1,
         modelLease: value.modelLease,
-        modelPath: '/private/conformance/model.bin',
         residency: residency(),
         revalidate: async () => undefined,
       })
@@ -292,8 +318,7 @@ test('standalone conformance worker completes the canonical lifecycle without in
   );
   assert.equal((await value.supervisor.warmup(1)).success, true);
   const transcription = await value.supervisor.transcribe({
-    audio: Uint8Array.from([1, 2, 3, 4]),
-    audioDurationMs: 100,
+    audio: canonicalWav(),
     configurationEpoch: 1,
     settingsEpoch: 1,
     options: {
@@ -312,6 +337,15 @@ test('standalone conformance worker completes the canonical lifecycle without in
   assert.equal((await value.supervisor.unload(1)).success, true);
   assert.equal(value.releasedRuntime.value, 1);
   assert.equal(value.releasedModel.value, 1);
+});
+
+test('standalone probe worker exits without becoming a full-load worker', async () => {
+  const value = harness('happy');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  assert.equal((await value.supervisor.probe({ configurationEpoch: 1, ...bindingAuthority() })).success, true);
+  assert.equal((await value.supervisor.shutdown()).success, true);
+  assert.equal(value.releasedRuntime.value, 1);
+  assert.equal(value.releasedModel.value, 0);
 });
 
 test('standalone conformance worker bounds malformed, oversized, unknown, flood, crash, and closure modes', async () => {
