@@ -24,7 +24,7 @@ exclusively to Task 19.
 - [x] [13 Single-Engine Cleanup And Contract Normalization](13_single_engine_cleanup_and_contract_normalization.md) — `37fa79a`
 - [x] [14 Capability, Coordinator, Residency, And Lifecycle](14_capability_coordinator_residency_and_lifecycle.md) — `df14c118`
 - [x] [15 Protected IPC, Composition, And Provider Selection](15_protected_ipc_composition_and_provider_selection.md) — `b89a412`, verification `d8ab1ba`
-- [ ] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)
+- [x] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)
 - [ ] [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md)
 - [ ] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md)
 - [ ] [19 Integration And Qualification Gates](19_integration_and_qualification_gates.md)
