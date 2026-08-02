@@ -735,52 +735,52 @@
     {
       "name": "request",
       "binaryFile": "authority/request.bin",
-      "sha256": "95e7199880e03543214d158c5821af0194f67ec188d07e0b7a2bba51c4733d1a"
+      "sha256": "d2cf56e9be647e8aeb9fbe9e94edaa81d5175fda63b1f8929ed07e6e5730dd91"
     },
     {
       "name": "directory-request-u64-max",
       "binaryFile": "authority/directory-request-u64-max.bin",
-      "sha256": "32a20ac56d75470729698da2c29e9c5997d78daaa46df94a986a16615548f2da"
+      "sha256": "110d0d395c4677278e7bfc46e65ac9aadc5305a9f9283188a1bb576972fcab7f"
     },
     {
       "name": "linux-hop-1",
       "binaryFile": "authority/linux-hop-1.bin",
-      "sha256": "1cdccc7580cfeb82d0bacc9691fdf6d698c3a202158420e50395a31145227c83"
+      "sha256": "3b0bd391ea2f83b0fbbdc14a7a73d5200bb2179a31d5482ede1cd64615b2c94f"
     },
     {
       "name": "linux-directory-hop-1",
       "binaryFile": "authority/linux-directory-hop-1.bin",
-      "sha256": "54df5870ff3586fd4bafb31dbe2c3bcac94df36b6622370d3e7e646e83f15ebc"
+      "sha256": "9756a8c49147380acda440741d321ca9178215cd7d9c7231943e5d79003135fc"
     },
     {
       "name": "windows-hop-1",
       "binaryFile": "authority/windows-hop-1.bin",
-      "sha256": "868183481efe8d6dace89377ac857abaddbbcf2b3d78da8a2b1ed96a2553e1c2"
+      "sha256": "b9e141b32deb3194060f1a8b9cf27dc84fd66481bef73d42bbebfce53f0bbcfb"
     },
     {
       "name": "linux-hop-2",
       "binaryFile": "authority/linux-hop-2.bin",
-      "sha256": "9f2ba33d4157d0562b11729b0984ba49923623815d43cfb520b738138f334acd"
+      "sha256": "408179507d288b5086611f4673abacacb096f7fb924a1acbec497765306c6a56"
     },
     {
       "name": "windows-hop-2",
       "binaryFile": "authority/windows-hop-2.bin",
-      "sha256": "3e1681b59e3b039fc33d2cdf8e2667b3880d055208e52667ba4fc8d64f9d2eba"
+      "sha256": "a2cb6f1b5e1c934084d8a7b725b1d5f9223d6c991a8d1a2d686c22b0a7ae1eb6"
     },
     {
       "name": "windows-hop-2-u64-max",
       "binaryFile": "authority/windows-hop-2-u64-max.bin",
-      "sha256": "02a223135182799765024e21862ef9f23d2efd78c23445c516595c533f139c20"
+      "sha256": "cf2040b67f3bdbbcba9709fabe7ba7e1821eff91e1de301fc9f8520b4a5d3c06"
     },
     {
       "name": "linux-ack",
       "binaryFile": "authority/linux-ack.bin",
-      "sha256": "becc34689c2b3d66a152b46b7587d9e93e7491d00c70629e98a90d2eecf84142"
+      "sha256": "a390cacb0251dd0c3c77a1e246827293e2a6064fc92f9664093f7d5c5827f710"
     },
     {
       "name": "windows-ack",
       "binaryFile": "authority/windows-ack.bin",
-      "sha256": "7f803e66be0d0d8a8a63789b64f7917c630483188c3dfcd12d5d379af8ab4d4d"
+      "sha256": "41f45bf6aee306d288e5d96a464326a4b81059c16da3d92af1b1f14902608eda"
     }
   ],
   "wav": [

@@ -4103,3 +4103,270 @@ decisions:
     rationale: The user explicitly authorized exactly Task 09 for this incremental-implementation invocation after the completed Task 08 packet is committed.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: execution.task-10-revision-10
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly invoked incremental implementation after the handoff named Task 10 as the exact next packet and after Tasks 01–09 were committed.
+      - Task 10 owns only the hardened Whisper.cpp core, authenticated CPU worker, unsigned local CPU staging pack, and Linux execution plus Windows contract checks defined by its packet.
+      - Task 11, representative Windows execution, commit, push, packaging, publication, signing, and release remain separate gates.
+    question:
+      text: Should this incremental-implementation invocation execute only Local Whisper Task 10 from approved plan revision 10?
+      kind: single
+      options:
+        - id: authorize-task-10
+          label: Authorize Task 10 (Recommended)
+          description: Implement and verify only Task 10, update todo and handoff, then stop uncommitted before Task 11.
+        - id: do-not-authorize-task-10
+          label: Do not authorize
+          description: Keep Task 10 unopened and make no implementation changes.
+        - id: revise-task-10
+          label: Revise Task 10
+          description: Return the Task 10 packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-10]
+      text: ''
+    rationale: The skill invocation applies to the handoff's single exact next packet, so it authorizes Task 10 without broadening scope to Task 11 or any external gate.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-10-cpu-model-fixture
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 10 requires an explicitly authorized, locally present, public, license-approved CPU model fixture and prohibits the packet from downloading a model.
+      - The local OpenWhispr cache contains `ggml-medium.bin`, size 1,533,763,059 bytes, SHA-256 `6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208`.
+      - The local bytes exactly match public Hugging Face repository `ggerganov/whisper.cpp`, commit `5359861c739e955e79d9a303bcbc70fb988958b1`, file `ggml-medium.bin`, whose repository metadata declares the MIT license.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-10-model-fixture-round-48
+      question_id: execution.task-10-cpu-model-fixture
+      idempotency_key: execution.task-10-cpu-model-fixture:v1
+      last_status: answered
+      sequence: 48
+      revision: 1
+    question:
+      text: May Task 10 use the existing local public `ggml-medium.bin` fixture for CPU load, warm-up, and transcription integration tests?
+      kind: single
+      options:
+        - id: authorize-existing-medium-fixture
+          label: Use existing medium fixture (Recommended)
+          description: Authorize local test use only of the exact MIT-licensed public bytes already present; do not copy the model into the repository or staging pack.
+        - id: do-not-use-existing-fixture
+          label: Do not use it
+          description: Leave the real CPU model integration gate blocked and keep Task 10 incomplete until another exact local fixture is approved.
+        - id: revise-model-fixture-policy
+          label: Revise fixture policy
+          description: Return to planning before any model acquisition, substitution, or integration use.
+    answer:
+      selected_ids: [authorize-existing-medium-fixture]
+      text: ''
+    rationale: The user authorized local integration-test use of the exact existing public MIT-licensed medium model fixture without repository or staging-pack inclusion.
+    supersedes_revision: null
+    requirement_ids: [AC-AUTO-060]
+
+  - id: planning.task-10-authenticated-artifact-metadata
+    revision: 1
+    category: planning
+    state: answered
+    provenance: agent-default
+    evidence:
+      - The approved specification requires main to supply immutable artifact identity, installed byte count, and SHA-256 before unsafe loader allocation, but the completed Task-09 record carries no byte count.
+      - The existing 32-byte `child_manifest_sha256` slot can be defined generically as regular-file content SHA-256 or directory child-manifest SHA-256 without adding a second digest or framed-control field.
+      - Extending the common binding with one positive `u64` keeps main, guard, launcher, and worker on one credentialed byte-for-byte authenticated record and preserves the path-free trust boundary.
+      - The user explicitly instructed Codex to fix the issue and approve the repair itself.
+    question:
+      text: Which implementation-local repair should carry authenticated artifact size and content evidence into the Task 10 worker?
+      kind: single
+      options:
+        - id: extend-native-authority-binding
+          label: Extend authority binding (Recommended)
+          description: Add one positive artifact-byte-count u64, define the existing digest generically for file or directory content, and migrate all native authority peers atomically.
+        - id: add-second-bootstrap-record
+          label: Add metadata record
+          description: Keep the old binding and authenticate a second pre-handshake record, increasing ordering, replay, and copy-equivalence complexity.
+        - id: extend-framed-load-message
+          label: Extend load JSON
+          description: Carry expected size and digest in framed control after bootstrap, widening protocol exposure and delaying authority validation.
+    answer:
+      selected_ids: [extend-native-authority-binding]
+      text: ''
+    rationale: One extended common binding is the smallest path-free repair, authenticates metadata before parsing, and avoids a second authority channel or framed-protocol expansion.
+    supersedes_revision: null
+    requirement_ids: [SEC-010, SEC-013, AC-AUTO-052, AC-AUTO-060]
+
+  - id: approval.plan
+    revision: 11
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 11 changes no approved product behavior; it repairs the implementation-local Task 09/10 metadata handoff required by existing `SEC-010`, `SEC-013`, `AC-AUTO-052`, and `AC-AUTO-060`.
+      - The record migration is exact and bounded: a 226-byte common binding and 234/244/284-byte request/transfer/acknowledgement records, with old lengths rejected.
+      - Windows native checks remain on the Windows job, representative Windows execution remains Task 19-only, and no model download, commit, push, packaging, publication, or release is authorized.
+      - The user explicitly instructed Codex to fix the issue and approve the repair itself.
+    question:
+      text: How should Local Whisper implementation plan revision 11 proceed after the authenticated artifact-metadata repair?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 11 (Recommended)
+          description: Approve the repaired Task 10 contract while preserving all later packet and external manual gates.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 11 in Draft and revise the authority-metadata repair.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the Task 10 blocker unresolved and do not execute the packet.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user's explicit self-approval delegation authorizes the evidence-backed plan repair without another prompt while retaining every implementation and external-action boundary.
+    supersedes_revision: 10
+    requirement_ids: []
+
+  - id: execution.task-10-revision-11
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 11 repairs the only discovered Task 10 packet blocker and keeps the implementation within the previously authorized CPU-worker scope.
+      - Task 10 must migrate the cross-language native authority record before Whisper.cpp engine work and then execute only its CPU worker/pack gates.
+      - Task 11, representative Windows execution, commit, push, packaging, signing, publication, and release remain separate gates.
+      - The user explicitly instructed Codex to fix the issue and approve it without requesting another permission step.
+    question:
+      text: Should a later incremental-implementation invocation execute only revised Local Whisper Task 10 from approved plan revision 11?
+      kind: single
+      options:
+        - id: authorize-task-10
+          label: Authorize revised Task 10 (Recommended)
+          description: Implement and verify only revised Task 10, update todo and handoff, then stop uncommitted before Task 11.
+        - id: do-not-authorize-task-10
+          label: Do not authorize
+          description: Keep the repaired plan approved without executing Task 10.
+        - id: revise-task-10
+          label: Revise Task 10
+          description: Return the repaired packet to planning before implementation.
+    answer:
+      selected_ids: [authorize-task-10]
+      text: ''
+    rationale: The user's explicit direction authorizes the repaired Task 10 scope while preserving the one-packet implementation boundary and every external gate.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: commit.task-10-revision-11
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 11 and completed Task 10 form one unreleased authority-layout and hardened CPU-worker compatibility boundary.
+      - Every Task 10 command, repository type/lint/format gate, scoped whitespace check, and complete whitespace check passed; handoff records the exact source, patch, model, and runtime identities.
+      - A scoped commit excludes Task 11, push, pull request, publication, signing, release, and representative Windows execution.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-11-start-round-49
+      question_id: commit.task-10-revision-11
+      idempotency_key: commit.task-10-revision-11:v1
+      last_status: answered
+      sequence: 49
+      revision: 1
+    question:
+      text: How should the completed Task 10 and its approved plan-revision-11 repair be committed before Task 11 starts?
+      kind: single
+      options:
+        - id: authorize-atomic-task-10-commit
+          label: Atomic Task 10 commit (Recommended)
+          description: Commit the approved revision-11 repair and completed Task 10 implementation as one scoped compatibility-boundary commit.
+        - id: authorize-split-task-10-commits
+          label: Split plan and implementation
+          description: Separate planning and implementation commits even though completion-state files span both boundaries.
+        - id: do-not-commit-task-10
+          label: Do not commit
+          description: Leave Task 10 uncommitted and do not begin Task 11.
+    answer:
+      selected_ids: [authorize-atomic-task-10-commit]
+      text: ''
+    rationale: The user authorized one scoped atomic commit for approved plan revision 11 and completed Task 10 before Task 11 begins.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-11-revision-11
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 11 is the first unchecked packet and is self-contained after completed Task 10.
+      - Task 11 owns only exact NVIDIA device proof, cooperative cancellation, the Linux CUDA pack, rebuilt CPU pack, and Windows source/CI contracts.
+      - AMD, macOS, Faster-Whisper, representative Windows execution, push, pull request, signing, publication, and release remain out of scope.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-11-start-round-49
+      question_id: execution.task-11-revision-11
+      idempotency_key: execution.task-11-revision-11:v1
+      last_status: answered
+      sequence: 50
+      revision: 1
+    question:
+      text: Should this incremental-implementation invocation execute only Local Whisper Task 11 from approved plan revision 11 after Task 10 is committed?
+      kind: single
+      options:
+        - id: authorize-task-11
+          label: Authorize Task 11 (Recommended)
+          description: Implement and verify exactly Task 11, update todo and handoff, then stop uncommitted before Task 12.
+        - id: do-not-authorize-task-11
+          label: Do not authorize
+          description: Stop after the Task 10 commit without implementing Task 11.
+        - id: revise-task-11
+          label: Revise Task 11
+          description: Return the packet to planning before CUDA or cancellation implementation.
+    answer:
+      selected_ids: [authorize-task-11]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 11 for this incremental-implementation invocation after the Task 10 commit boundary.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-11-cuda-fixture
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Qualified profile `linux-x64-cuda-12.8.1-sm120a-v1` verifies locally with CUDA 12.8 V12.8.93, GCC 13.3.0, CMake 3.31.8, Ninja 1.12.1, exact runtime hashes, and accepted checked-in license evidence.
+      - The current device is NVIDIA GeForce RTX 5070 Ti Laptop GPU at PCI `00000000:02:00.0`, driver 595.84, compute capability 12.0, and 12,227 MiB VRAM; the profile minimum driver is 570.26.
+      - The existing public MIT `ggml-medium.bin` is 1,533,763,059 bytes with SHA-256 `6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208`.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-11-start-round-49
+      question_id: execution.task-11-cuda-fixture
+      idempotency_key: execution.task-11-cuda-fixture:v1
+      last_status: answered
+      sequence: 51
+      revision: 1
+    question:
+      text: May Task 11 use the exact verified CUDA profile, current RTX 5070 Ti Laptop GPU, and existing public medium model for local build and integration qualification?
+      kind: single
+      options:
+        - id: authorize-existing-cuda-evidence
+          label: Use existing CUDA evidence (Recommended)
+          description: Authorize local build, probe, load, inference, cancellation, and audit only; do not download or publish, and never copy the model into repository or staging.
+        - id: do-not-use-cuda-evidence
+          label: Do not use it
+          description: Leave Task 11 blocked at its exact CUDA hardware/model manual gate.
+        - id: revise-cuda-gate
+          label: Revise CUDA gate
+          description: Return to planning before any CUDA build or physical-device execution.
+    answer:
+      selected_ids: [authorize-existing-cuda-evidence]
+      text: ''
+    rationale: The user authorized local Task 11 qualification with the exact verified CUDA profile, current RTX 5070 Ti Laptop GPU, and existing public MIT medium model while preserving every publication and platform gate.
+    supersedes_revision: null
+    requirement_ids: [RUN-012, NVIDIA-001, AC-AUTO-062]

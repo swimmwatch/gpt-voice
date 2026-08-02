@@ -285,19 +285,24 @@ class AuthorityRecord:
 def decode_authority_record(data: bytes) -> AuthorityRecord:
     """Validate exact domain, length, and hop/carrier combinations."""
 
-    if len(data) not in (226, 236, 276):
+    if len(data) not in (234, 244, 284):
         raise ProtocolError("authority length")
     domain = data[:8]
-    expected = {226: b"LWAR1\0\0\0", 236: b"LWAT1\0\0\0", 276: b"LWAA1\0\0\0"}[len(data)]
+    expected = {234: b"LWAR1\0\0\0", 244: b"LWAT1\0\0\0", 284: b"LWAA1\0\0\0"}[len(data)]
     if domain != expected:
         raise ProtocolError("authority domain")
-    binding = data[8:226]
-    if binding[136] not in (1, 2) or binding[137] != 3:
+    binding = data[8:234]
+    if (
+        int.from_bytes(binding[104:112], "big") == 0
+        or not any(binding[112:144])
+        or binding[144] not in (1, 2)
+        or binding[145] != 3
+    ):
         raise ProtocolError("authority binding")
-    if int.from_bytes(binding[138:146], "big") == 0 or int.from_bytes(binding[146:154], "big") == 0:
+    if int.from_bytes(binding[146:154], "big") == 0 or int.from_bytes(binding[154:162], "big") == 0:
         raise ProtocolError("authority PID")
-    suffix = data[226:]
-    if len(data) >= 236:
+    suffix = data[234:]
+    if len(data) >= 244:
         hop, kind = suffix[0], suffix[1]
         carrier = int.from_bytes(suffix[2:10], "big")
         valid = (
@@ -306,8 +311,8 @@ def decode_authority_record(data: bytes) -> AuthorityRecord:
             or (hop, kind, carrier) == (2, 3, 3)
             or (hop == 2 and kind == 4 and carrier != 0)
         )
-        if not valid or (len(data) == 276 and (hop != 2 or kind not in (3, 4))):
+        if not valid or (len(data) == 284 and (hop != 2 or kind not in (3, 4))):
             raise ProtocolError("authority carrier")
-        if len(data) == 276 and int.from_bytes(suffix[10:18], "big") == 0:
+        if len(data) == 284 and int.from_bytes(suffix[10:18], "big") == 0:
             raise ProtocolError("worker PID")
     return AuthorityRecord(domain, binding, suffix)

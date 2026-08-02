@@ -1,5 +1,6 @@
 #include "local_whisper/common/authority_bootstrap.hpp"
 #include "local_whisper/common/linux_process_identity.hpp"
+#include "local_whisper/common/sha256.hpp"
 #include "local_whisper/fs_guard/model_authority_server.hpp"
 #include "local_whisper/launcher/model_authority_client.hpp"
 
@@ -14,6 +15,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <fcntl.h>
@@ -78,7 +80,16 @@ AuthorityBinding make_binding(pid_t launcher_pid, pid_t guard_pid, AuthorityArti
   binding.configuration_epoch = 7;
   binding.lease_token_sha256.fill(3);
   binding.model_identity_sha256.fill(4);
-  binding.child_manifest_sha256.fill(5);
+  binding.expected_artifact_bytes =
+      kind == AuthorityArtifactKind::regular_file ? 13U : 1U;
+  if (kind == AuthorityArtifactKind::regular_file) {
+    constexpr std::string_view contents = "model-fixture";
+    binding.artifact_content_sha256 = local_whisper::common::sha256(
+        std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(contents.data()),
+                                      contents.size()));
+  } else {
+    binding.artifact_content_sha256.fill(5);
+  }
   binding.artifact_kind = kind;
   binding.expected_launcher_pid = static_cast<std::uint64_t>(launcher_pid);
   binding.expected_guard_pid = static_cast<std::uint64_t>(guard_pid);

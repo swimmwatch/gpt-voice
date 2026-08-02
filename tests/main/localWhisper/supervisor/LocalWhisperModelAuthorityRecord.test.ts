@@ -36,8 +36,15 @@ test('authority records reject truncation, trailing bytes, domains, carriers, an
   changedDomain[0] = 0;
   assert.throws(() => decodeLocalWhisperModelAuthorityRecord(changedDomain));
   const changedCarrier = new Uint8Array(transfer);
-  changedCarrier[227] = 2;
+  changedCarrier[235] = 2;
   assert.throws(() => decodeLocalWhisperModelAuthorityRecord(changedCarrier));
+  const zeroSize = new Uint8Array(request);
+  zeroSize.fill(0, 112, 120);
+  assert.throws(() => decodeLocalWhisperModelAuthorityRecord(zeroSize));
+  const zeroDigest = new Uint8Array(request);
+  zeroDigest.fill(0, 120, 152);
+  assert.throws(() => decodeLocalWhisperModelAuthorityRecord(zeroDigest));
+  assert.throws(() => decodeLocalWhisperModelAuthorityRecord(request.subarray(0, 226)));
 
   const record = decodeLocalWhisperModelAuthorityRecord(request);
   const replay = new LocalWhisperModelAuthorityReplayGuard();

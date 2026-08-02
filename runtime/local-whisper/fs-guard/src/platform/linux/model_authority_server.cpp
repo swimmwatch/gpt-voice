@@ -5,15 +5,21 @@
 #include "local_whisper/fs_guard/model_authority_server.hpp"
 
 #include "local_whisper/common/linux_process_identity.hpp"
+#include "local_whisper/common/sha256.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <span>
 #include <variant>
+#include <vector>
 
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -104,6 +110,34 @@ void send_transfer(int channel_descriptor, int model_descriptor,
   }
 }
 
+void validate_regular_file_evidence(
+    int descriptor, const local_whisper::common::AuthorityBinding& binding) {
+  if (binding.artifact_kind != local_whisper::common::AuthorityArtifactKind::regular_file)
+    return;
+  struct stat metadata {};
+  if (fstat(descriptor, &metadata) != 0 || !S_ISREG(metadata.st_mode) || metadata.st_size <= 0 ||
+      static_cast<std::uint64_t>(metadata.st_size) != binding.expected_artifact_bytes) {
+    throw std::runtime_error("guarded model size evidence mismatch");
+  }
+  local_whisper::common::Sha256 digest;
+  std::vector<std::uint8_t> buffer(64U * 1024U);
+  std::uint64_t offset = 0;
+  while (offset < binding.expected_artifact_bytes) {
+    const auto remaining = binding.expected_artifact_bytes - offset;
+    const auto requested = std::min<std::uint64_t>(remaining, buffer.size());
+    const ssize_t count = pread(descriptor, buffer.data(), static_cast<std::size_t>(requested),
+                                static_cast<off_t>(offset));
+    if (count < 0 && errno == EINTR)
+      continue;
+    if (count <= 0)
+      throw std::runtime_error("guarded model digest read failed");
+    digest.update(std::span<const std::uint8_t>(buffer.data(), static_cast<std::size_t>(count)));
+    offset += static_cast<std::uint64_t>(count);
+  }
+  if (digest.finish() != binding.artifact_content_sha256)
+    throw std::runtime_error("guarded model digest evidence mismatch");
+}
+
 } // namespace
 
 LinuxModelAuthorityServer::LinuxModelAuthorityServer(
@@ -111,6 +145,7 @@ LinuxModelAuthorityServer::LinuxModelAuthorityServer(
     : expected_binding_(std::move(expected_binding)), model_descriptor_(model_descriptor) {
   if (model_descriptor_ < 0)
     throw std::runtime_error("invalid guarded model descriptor");
+  validate_regular_file_evidence(model_descriptor_, expected_binding_);
 }
 
 void LinuxModelAuthorityServer::transfer_once(int channel_descriptor) {

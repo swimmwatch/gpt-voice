@@ -4,7 +4,11 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-const DEFAULT_LOCK_IDS = Object.freeze(['nlohmann-json-v3.12.0-subset', 'googletest-v1.17.0-52eb810']);
+const DEFAULT_LOCK_IDS = Object.freeze([
+  'nlohmann-json-v3.12.0-subset',
+  'googletest-v1.17.0-52eb810',
+  'whisper-cpp-v1.9.1-f049fff',
+]);
 const MAX_PROCESS_OUTPUT_BYTES = 4 * 1024 * 1024;
 
 function parseArguments(arguments_) {
@@ -111,7 +115,7 @@ function runCli() {
       .split(',')
       .filter((value) => value.length > 0);
     if (lockIds.length === 0 || lockIds.some((lockId) => !DEFAULT_LOCK_IDS.includes(lockId))) {
-      throw new Error('Only Task-09 native test source locks may be provisioned');
+      throw new Error('Only approved Local Whisper native test source locks may be provisioned');
     }
     new VerifiedNativeTestSourceProvisioner({
       privateRoot: resolve(

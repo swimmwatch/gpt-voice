@@ -384,8 +384,9 @@ function authorityBinding(
   return Object.freeze({
     appOwnershipNonce: fill(16, 2),
     artifactKind,
-    childManifestSha256: fill(32, 5),
+    artifactContentSha256: fill(32, 5),
     configurationEpoch,
+    expectedArtifactBytes: artifactKind === 'regularFile' ? 13n : 0xffff_ffff_ffff_ffffn,
     expectedGuardPid: 101n,
     expectedGuardStartIdentitySha256: fill(32, 7),
     expectedLauncherPid: 100n,

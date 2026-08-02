@@ -11,6 +11,11 @@ model-authority handoff, and deterministic terminal-race cleanup. The packet
 preserves and repairs the existing dirty supervisor checkpoint without
 compiling an inference engine.
 
+Plan revision 11 preserves Task 09's completed implementation baseline but
+supersedes its unreleased native authority-record layout through Task 10. Task
+10 atomically migrates the common binding to the sizes and artifact-evidence
+fields below before any engine work; old record lengths are then invalid.
+
 ## Prerequisites
 
 - `docs/specs/local-whisper/spec.md` is `Status: Approved`, revision 6.
@@ -262,7 +267,7 @@ big-endian, every SHA-256 is exactly 32 raw bytes, no record contains a string,
 and any wrong length, zero PID, reserved value, unknown value, trailing byte,
 replay, or second request is invalid. All records begin with their exact 8-byte
 ASCII domain (`LWAR1\0\0\0`, `LWAT1\0\0\0`, or `LWAA1\0\0\0`) followed by this
-218-byte common binding in exact order:
+226-byte common binding in exact order:
 
 | Bytes | Field                                                  |
 | ----: | ------------------------------------------------------ |
@@ -271,7 +276,8 @@ ASCII domain (`LWAR1\0\0\0`, `LWAT1\0\0\0`, or `LWAA1\0\0\0`) followed by this
 |     8 | configuration epoch `u64`                              |
 |    32 | lease-token SHA-256                                    |
 |    32 | model-identity SHA-256                                 |
-|    32 | child-manifest SHA-256                                 |
+|     8 | expected artifact byte count `u64`                     |
+|    32 | artifact-content SHA-256                               |
 |     1 | artifact kind: `1` regular file or `2` directory       |
 |     1 | logical model slot, exactly `3`                        |
 |     8 | expected launcher PID `u64`                            |
@@ -279,16 +285,24 @@ ASCII domain (`LWAR1\0\0\0`, `LWAT1\0\0\0`, or `LWAA1\0\0\0`) followed by this
 |    32 | SHA-256 of expected launcher OS process-start identity |
 |    32 | SHA-256 of expected guard OS process-start identity    |
 
-`LWAR1` ends after the common binding and is exactly 226 bytes. `LWAT1` appends
+The expected artifact byte count is positive. For a regular-file authority,
+artifact-content SHA-256 is the exact expected file digest. For a directory
+authority, it is the exact canonical child-manifest digest whose entries own
+the individual child sizes and SHA-256 values. Main derives both fields from
+the verified managed artifact/lease before launch; the guard validates them
+against that lease. They are never derived from worker-observed bytes or sent
+through argv, environment, cwd, framed control, or renderer/preload IPC.
+
+`LWAR1` ends after the common binding and is exactly 234 bytes. `LWAT1` appends
 one hop byte, one carrier-kind byte, and one `u64` carrier value in that order,
-so it is exactly 236 bytes. The only valid triples are: hop `1`, kind `1`,
+so it is exactly 244 bytes. The only valid triples are: hop `1`, kind `1`,
 value `0` for Linux guard-to-launcher `SCM_RIGHTS`; hop `1`, kind `2`, nonzero
 value for a Windows launcher-process HANDLE; hop `2`, kind `3`, value `3` for
 the Linux inherited worker fd; or hop `2`, kind `4`, nonzero value for the
 Windows worker-process HANDLE. `LWAA1` appends the validated hop byte exactly
 `2`, its carrier-kind byte (`3` or `4`), the identical `u64` hop-2 carrier
 value, worker PID `u64`, and the 32-byte SHA-256 of that worker's OS
-process-start identity, so it is exactly 276 bytes and acknowledges that exact
+process-start identity, so it is exactly 284 bytes and acknowledges that exact
 hop-2 transfer. Failed validation produces no acknowledgement. A
 launcher-created hop-2 record must copy the verified common binding
 byte-for-byte from hop 1 and may change only domain-owned hop/carrier fields.
@@ -313,7 +327,7 @@ Before `exec`, the launcher creates private worker stdin/stdout control pipes,
 maps only the worker ends plus model fd 3 and sanitized stderr into the child,
 and closes unrelated descriptors. After `exec`, those control pipes have a
 mandatory bootstrap phase before framed protocol. The launcher writes exact
-hop-2/kind-3 `LWAT1` to worker stdin. The worker reads exactly 236 bytes,
+hop-2/kind-3 `LWAT1` to worker stdin. The worker reads exactly 244 bytes,
 validates `LWAT1` and fd 3 regular-file/directory type, read-only access,
 identity, slot, and binding, writes exact `LWAA1` to stdout, then waits. The
 launcher validates the copied binding, echoed hop/carrier, child PID, and

@@ -3,10 +3,10 @@ import { requireLocalWhisperAuthorityBytes } from './LocalWhisperAuthorityBinary
 import { LocalWhisperAuthorityBinaryWriter } from './LocalWhisperAuthorityBinaryWriter';
 
 export const LOCAL_WHISPER_MODEL_LOGICAL_SLOT = 3 as const;
-export const LOCAL_WHISPER_AUTHORITY_COMMON_BYTES = 218;
-export const LOCAL_WHISPER_AUTHORITY_REQUEST_BYTES = 226;
-export const LOCAL_WHISPER_AUTHORITY_TRANSFER_BYTES = 236;
-export const LOCAL_WHISPER_AUTHORITY_ACK_BYTES = 276;
+export const LOCAL_WHISPER_AUTHORITY_COMMON_BYTES = 226;
+export const LOCAL_WHISPER_AUTHORITY_REQUEST_BYTES = 234;
+export const LOCAL_WHISPER_AUTHORITY_TRANSFER_BYTES = 244;
+export const LOCAL_WHISPER_AUTHORITY_ACK_BYTES = 284;
 
 const REQUEST_DOMAIN = Uint8Array.from([0x4c, 0x57, 0x41, 0x52, 0x31, 0x00, 0x00, 0x00]);
 const TRANSFER_DOMAIN = Uint8Array.from([0x4c, 0x57, 0x41, 0x54, 0x31, 0x00, 0x00, 0x00]);
@@ -15,8 +15,9 @@ const ACK_DOMAIN = Uint8Array.from([0x4c, 0x57, 0x41, 0x41, 0x31, 0x00, 0x00, 0x
 export interface LocalWhisperModelAuthorityBinding {
   readonly appOwnershipNonce: Uint8Array;
   readonly artifactKind: 'directory' | 'regularFile';
-  readonly childManifestSha256: Uint8Array;
+  readonly artifactContentSha256: Uint8Array;
   readonly configurationEpoch: bigint;
+  readonly expectedArtifactBytes: bigint;
   readonly expectedGuardPid: bigint;
   readonly expectedGuardStartIdentitySha256: Uint8Array;
   readonly expectedLauncherPid: bigint;
@@ -57,6 +58,10 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 }
 
+function isAllZero(value: Uint8Array): boolean {
+  return value.every((byte) => byte === 0);
+}
+
 function writeBinding(
   writer: LocalWhisperAuthorityBinaryWriter,
   binding: LocalWhisperModelAuthorityBinding,
@@ -68,7 +73,8 @@ function writeBinding(
     .u64(binding.configurationEpoch, 'configuration epoch')
     .bytes(binding.leaseTokenSha256, 32, 'lease-token digest')
     .bytes(binding.modelIdentitySha256, 32, 'model-identity digest')
-    .bytes(binding.childManifestSha256, 32, 'child-manifest digest')
+    .u64(binding.expectedArtifactBytes, 'expected artifact bytes', false)
+    .bytes(binding.artifactContentSha256, 32, 'artifact-content digest')
     .u8(binding.artifactKind === 'regularFile' ? 1 : 2, 'artifact kind')
     .u8(binding.logicalModelSlot, 'logical model slot')
     .u64(binding.expectedLauncherPid, 'launcher PID', false)
@@ -83,7 +89,8 @@ function readBinding(reader: LocalWhisperAuthorityBinaryReader): LocalWhisperMod
   const configurationEpoch = reader.u64();
   const leaseTokenSha256 = reader.bytes(32);
   const modelIdentitySha256 = reader.bytes(32);
-  const childManifestSha256 = reader.bytes(32);
+  const expectedArtifactBytes = reader.u64();
+  const artifactContentSha256 = reader.bytes(32);
   const artifactKindValue = reader.u8();
   const logicalModelSlot = reader.u8();
   const expectedLauncherPid = reader.u64();
@@ -93,6 +100,8 @@ function readBinding(reader: LocalWhisperAuthorityBinaryReader): LocalWhisperMod
   if (
     (artifactKindValue !== 1 && artifactKindValue !== 2) ||
     logicalModelSlot !== LOCAL_WHISPER_MODEL_LOGICAL_SLOT ||
+    expectedArtifactBytes === 0n ||
+    isAllZero(artifactContentSha256) ||
     expectedLauncherPid === 0n ||
     expectedGuardPid === 0n
   ) {
@@ -101,8 +110,9 @@ function readBinding(reader: LocalWhisperAuthorityBinaryReader): LocalWhisperMod
   return Object.freeze({
     appOwnershipNonce,
     artifactKind: artifactKindValue === 1 ? 'regularFile' : 'directory',
-    childManifestSha256,
+    artifactContentSha256,
     configurationEpoch,
+    expectedArtifactBytes,
     expectedGuardPid,
     expectedGuardStartIdentitySha256,
     expectedLauncherPid,

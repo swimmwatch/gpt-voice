@@ -91,14 +91,18 @@ private:
 };
 
 void write_binding(Writer& writer, const AuthorityBinding& binding) {
-  if (binding.expected_launcher_pid == 0U || binding.expected_guard_pid == 0U)
+  if (binding.expected_artifact_bytes == 0U ||
+      std::all_of(binding.artifact_content_sha256.begin(), binding.artifact_content_sha256.end(),
+                  [](std::uint8_t byte) { return byte == 0U; }) ||
+      binding.expected_launcher_pid == 0U || binding.expected_guard_pid == 0U)
     throw std::runtime_error("authority PID");
   writer.fixed(binding.operation_nonce);
   writer.fixed(binding.app_ownership_nonce);
   writer.u64(binding.configuration_epoch);
   writer.fixed(binding.lease_token_sha256);
   writer.fixed(binding.model_identity_sha256);
-  writer.fixed(binding.child_manifest_sha256);
+  writer.u64(binding.expected_artifact_bytes);
+  writer.fixed(binding.artifact_content_sha256);
   writer.u8(static_cast<std::uint8_t>(binding.artifact_kind));
   writer.u8(3);
   writer.u64(binding.expected_launcher_pid);
@@ -114,7 +118,8 @@ AuthorityBinding read_binding(Reader& reader) {
   binding.configuration_epoch = reader.u64();
   binding.lease_token_sha256 = reader.fixed<32>();
   binding.model_identity_sha256 = reader.fixed<32>();
-  binding.child_manifest_sha256 = reader.fixed<32>();
+  binding.expected_artifact_bytes = reader.u64();
+  binding.artifact_content_sha256 = reader.fixed<32>();
   const auto artifact_kind = reader.u8();
   const auto logical_slot = reader.u8();
   binding.expected_launcher_pid = reader.u64();
@@ -122,6 +127,9 @@ AuthorityBinding read_binding(Reader& reader) {
   binding.expected_launcher_start_identity_sha256 = reader.fixed<32>();
   binding.expected_guard_start_identity_sha256 = reader.fixed<32>();
   if ((artifact_kind != 1U && artifact_kind != 2U) || logical_slot != 3U ||
+      binding.expected_artifact_bytes == 0U ||
+      std::all_of(binding.artifact_content_sha256.begin(), binding.artifact_content_sha256.end(),
+                  [](std::uint8_t byte) { return byte == 0U; }) ||
       binding.expected_launcher_pid == 0U || binding.expected_guard_pid == 0U)
     throw std::runtime_error("authority binding");
   binding.artifact_kind = static_cast<AuthorityArtifactKind>(artifact_kind);

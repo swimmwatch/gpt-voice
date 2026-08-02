@@ -22,8 +22,17 @@ TEST(ModelAuthority, RejectsLengthDomainCarrierAndReplayMutations) {
   request = test_support::read_binary("authority/request.bin");
   request[0] = 0;
   EXPECT_THROW(static_cast<void>(decode_authority_record(request)), std::runtime_error);
-  transfer[227] = static_cast<std::uint8_t>(AuthorityCarrierKind::windows_launcher_handle);
+  transfer[235] = static_cast<std::uint8_t>(AuthorityCarrierKind::windows_launcher_handle);
   EXPECT_THROW(static_cast<void>(decode_authority_record(transfer)), std::runtime_error);
+
+  request = test_support::read_binary("authority/request.bin");
+  std::fill(request.begin() + 112, request.begin() + 120, 0U);
+  EXPECT_THROW(static_cast<void>(decode_authority_record(request)), std::runtime_error);
+  request = test_support::read_binary("authority/request.bin");
+  std::fill(request.begin() + 120, request.begin() + 152, 0U);
+  EXPECT_THROW(static_cast<void>(decode_authority_record(request)), std::runtime_error);
+  request.resize(226);
+  EXPECT_THROW(static_cast<void>(decode_authority_record(request)), std::runtime_error);
 
   const auto decoded = decode_authority_record(test_support::read_binary("authority/request.bin"));
   const auto& nonce = std::get<AuthorityRequest>(decoded).binding.operation_nonce;

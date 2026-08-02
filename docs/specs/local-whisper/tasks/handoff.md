@@ -2,81 +2,78 @@
 
 ## Authoritative State
 
-- Specification revision 6 and plan revision 10 are Approved. Tasks 01–09 are
-  committed at `d0083259`, `d516d034`, `14749e88`, `649ec3b9`, `32440674`,
-  `e294e8a`, `31c13c54`, `e3639bcc`, and Task 09 commits `2b920b0` and
-  `b18700e`.
-- Task 09 was authorized by `execution.task-09-revision-10`, sequence 47,
-  revision 1, and is complete and committed. The user authorized exact
-  dependency acquisition and Codex self-review on 2026-08-02; this record does
-  not claim human review.
-- Do not start Task 10, push, open a pull request, package, publish, or
-  run representative qualification without the matching authorization.
+- Specification revision 6 and plan revision 11 are Approved. Tasks 01–09 are
+  committed; Task 10 is complete and intentionally uncommitted for review.
+- Task 10 was authorized by `execution.task-10-revision-11`. Prompt sequence
+  48 authorized local integration use of the exact public MIT model fixture
+  below. It was never downloaded, copied into the repository, staged, or
+  logged by Task 10.
+- Remote CI remains deferred until pull-request creation. The Windows native
+  checks remain in the `windows-latest` job, and representative Windows
+  product qualification remains Task 19-only.
 
-## Completed Task 09
+## Completed Task 10
 
-- Protocol v1 has bounded duplicate-aware JSON, exact authority/proof DTOs
-  without `modelPath`, canonical PCM16/16-kHz WAV framing, bounded audio
-  accumulation, sample-derived deadlines, asynchronous evidence revalidation,
-  and fresh probe/full-load lifecycle ownership.
-- The checked-in schema-2 vector manifest has SHA-256
-  `f2cdb85c0eaf6b3f9b62057d11a38a0a9918c14d7a06fe0b6afe3f7cafb45222`.
-  TypeScript, C++20, and Python peers consume the same control, lexical, WAV,
-  registry/proof, and model-authority vectors.
-- Fixed-width authority records are `LWAR1` 226 bytes, `LWAT1` 236 bytes, and
-  `LWAA1` 276 bytes. Linux uses credentialed one-use descriptor transfer, fd 3,
-  exact worker acknowledgment/release ordering, and replay rejection. Windows
-  retains source/compile contracts; product qualification remains Task 19.
-- Native CMake requires only verified nlohmann object
-  `1bd7718fe4b5a7e2aebe60abc6f5f94c313d8f472542e715766158a738e8ea47` and
-  GoogleTest object
-  `9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c`,
-  without `FetchContent`, URLs, `find_package`, or ambient fallback.
-- The Task-08 locked importer now has a bounded Task-09 provisioning wrapper
-  for clean PR runners. Its cold path imported and verified both source objects
-  locally. The Linux native-quality job is pinned to Ubuntu 24.04; the existing
-  Windows native-quality job remains on `windows-latest` with its MSVC,
-  launcher Job Object, and Windows authority contract checks.
-- Exact Ubuntu 18.1.3 clang-format, clang-tidy, and builtin headers were
-  acquired without sudo into the ignored private toolchain cache. Package
-  scripts discover them by default and retain explicit CI overrides.
+- Migrated the unreleased authority common binding to 226 bytes with positive
+  expected artifact size and authenticated content digest. Exact
+  `LWAR1`/`LWAT1`/`LWAA1` sizes are 234/244/284 bytes across TypeScript,
+  C++20, Python, Linux handoff, vectors, and tests. The vector manifest SHA-256
+  is `632ed822b6a029aa9e01a2f05e394baae44205e78fffb0c67213e13ba2a70baa`.
+- Added the modular C++20 Whisper.cpp worker: same-handle authority, checked
+  exact reads and observed EOF, immutable loader-limit enforcement, format
+  preflight, CPU proof, PCM conversion, state machine, POSIX production
+  channels, Windows source skeletons, RAII engine adapter, and deterministic
+  typed failures. Stateful worker behavior is covered by injected unit tests.
+- Locked source `whisper-cpp-v1.9.1-f049fff` has original manifest
+  `aeaed8ce38467815c0b3ee64f05bd7989bba42bb0baccd5dba853247a7f680de`.
+  Patch lock `local-whisper-whisper-cpp-core-v1` uses patch SHA-256
+  `0581d1a6eb54a4041a41a0db22b1102523eb9bf4f9b880b203e4b2598c03b27b`
+  and patched manifest
+  `22067a89df003e5b603f34c74cd6c84fc8698efe8a4c55d09523090d390fdc3e`.
+  Loader table `whisper-cpp-loader-limits-v1` has SHA-256
+  `5585ea2aeeb4d4b6a4293f8a044487e8d629d899e9d760d9f143a9fb4c702ff5`.
+- Built and staged profile `linux-x64-cpu-baseline-v1` with runtime build
+  digest `d8b8503ebf8debcb7b0b3271bc2c91263078a76e2c9b152351141a8c5171f7f7`.
+  The exact pack closure includes the worker, Whisper.cpp and nlohmann/json
+  licenses/notices, locked provenance, system runtime dependencies, SPDX 2.3
+  SBOM, and expected-files evidence. It includes no model or GPU backend.
+- Real integration fixture: `ggml-medium.bin`, 1,533,763,059 bytes, SHA-256
+  `6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208`,
+  MIT, origin
+  `ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1`.
 
 ## Changed Files
 
-- Shared protocol/audio/JSON modules under `src/shared/localWhisper/` and
-  authority, lifecycle, deadline, and supervisor modules under
-  `src/main/localWhisper/supervisor/`.
-- Cross-language native peers under `runtime/local-whisper/common/`, plus
-  Linux/Windows authority modules in `runtime/local-whisper/fs-guard/` and
-  `runtime/local-whisper/launcher/`.
-- Protocol fixtures and focused TypeScript, C++/GoogleTest, Python, supervisor,
-  launcher, and authority tests under `tests/` and the native runtime folders.
-- Vector generation, native quality resolution, locked-source provisioning,
-  and authority verification scripts under `scripts/local-whisper/`, with
-  package commands in `package.json`.
-- Native CMake/README updates and `.github/workflows/pr-checks.yml` Linux and
-  Windows native-quality definitions.
+- Approved plan-revision artifacts under `docs/specs/local-whisper/` and the
+  Task 10 checklist/handoff.
+- Authority codecs, guard validation, supervisor DTO/tests, protocol vectors,
+  generator, and Python reference peer under `src/`, `runtime/local-whisper/`,
+  `scripts/local-whisper/`, and `tests/fixtures/local-whisper/`.
+- New `runtime/local-whisper/whisper-cpp/` modular source, patch lock, CMake,
+  GoogleTests, quality configuration, Windows skeleton, and concise README.
+- New build, verification, staging, integration, audit, and locked-source
+  provisioning scripts; package commands; and Linux/Windows-owned PR workflow
+  checks in `.github/workflows/pr-checks.yml`.
 
 ## Verification
 
-- Both verified native-source checks; provisioning reuse and cold-import paths;
-  deterministic vector generation and `--check-clean`.
-- Worker codec, proof, and authority suites under GCC 13 warnings-as-errors and
-  Clang 18 ASan/UBSan warnings-as-errors; Python reference tests pass 3/3.
-- Supervisor 33/33; direct protocol 5/5; fs-guard unit 11/11 and integration
-  4/4; launcher unit 5/5 and Linux authority integration 3/3.
-- Worker-common, fs-guard, and launcher clang-format 18 and clang-tidy 18 gates.
-- Linux executable authority and local Windows source-contract-only verification.
-  No Windows runner, Windows binary, or remote CI workflow was executed.
-- Repository `typecheck`, `test:types`, `lint`, and `format:check`; workflow YAML
-  and Linux/Windows job-boundary assertions; scoped and complete
-  `git diff --check`.
+- Deterministic vector generation and clean verification; TypeScript, C++20,
+  and Python authority suites; Linux executable handoff; Windows authority
+  contract-only verification; immutable loader-limit verification.
+- GCC 13 and Clang 18 ASan/UBSan core 9/9 and loader 5/5 suites with
+  warnings-as-errors, clang-format 18, and clang-tidy 18.
+- Linux CPU build, staging verification, exact ELF dependency/RPATH checks,
+  real probe/load/warm-up/transcription/unload with the approved medium model,
+  and repeated relocation/network-denied malicious-environment audit.
+- Windows CPU source/CI contract-only verification. No Windows runner, VM,
+  Wine, binary, or representative execution was used.
+- Worker codec, repeated authority, and supervisor 33/33 suites; repository
+  typecheck, type tests, lint, format check, script syntax, scoped
+  `git diff --check`, and complete `git diff --check`.
 
 ## Exact Next Step
 
-- Task 09 is committed. The next packet is
-  [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md),
-  but it requires a later incremental-implementation invocation and explicit
-  execution authorization.
-- Windows CI runs only after pull-request creation; Task 19 still owns final
-  representative Windows product qualification.
+- Review the uncommitted Task 10 and approved plan-revision changes. Task 11,
+  [Whisper.cpp CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md),
+  is the next packet, but must not start in this invocation. There are no Task
+  10 implementation blockers.

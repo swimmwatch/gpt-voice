@@ -83,6 +83,12 @@
     "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs",
     "verify:local-whisper:native-source": "node scripts/local-whisper/source-import/verify-native-source.mjs",
     "verify:local-whisper:loader-limits": "node scripts/local-whisper/native-build/verify-whisper-cpp-loader-limits.mjs",
+    "test:local-whisper:whisper-cpp-core": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=core",
+    "test:local-whisper:whisper-cpp-loader": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=loader",
+    "build:local-whisper:whisper-cpp-cpu": "node scripts/local-whisper/build-whisper-cpp-core.mjs",
+    "verify:local-whisper:whisper-cpp-cpu": "node scripts/local-whisper/verify-whisper-cpp-cpu.mjs --mode=verify",
+    "test:local-whisper:whisper-cpp-cpu-integration": "node scripts/local-whisper/verify-whisper-cpp-cpu.mjs --mode=integration",
+    "audit:local-whisper:whisper-cpp-pack": "node scripts/local-whisper/verify-whisper-cpp-cpu.mjs --mode=audit",
     "verify:local-whisper:native-toolchain": "node scripts/local-whisper/native-build/verify-native-toolchain.mjs",
     "verify:local-whisper:worker-authority": "node scripts/local-whisper/verify-worker-authority.mjs",
     "verify:local-whisper:worker-vectors": "node --import tsx scripts/local-whisper/generate-worker-protocol-vectors.ts",
@@ -90,8 +96,8 @@
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "verify:installers": "node scripts/verify-installers.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu}.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu}.mjs\" \"tests/runtime/localWhisper/nativeSources/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\""
   },
   "keywords": [
     "electron",

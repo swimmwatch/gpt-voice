@@ -2,14 +2,15 @@
 
 Status: Approved
 
-Revision: 10
+Revision: 11
 
 Specification baseline: approved `spec.md` revision 6. This revision repairs
-the Task 08/09 sanitizer and offline GoogleTest ordering defect discovered
-during revision-9 Task 08 execution. Completed Tasks 01–07 and their commits
-remain authoritative. The uncommitted Task 08 groundwork and preserved
-protocol/supervisor checkpoint remain inputs to Tasks 08 and 09 respectively;
-neither is a completed packet.
+the Task 10 blocker discovered after completed Tasks 08 and 09: the native
+model-authority binding authenticated identity but did not carry the expected
+artifact byte count needed for pre-parser size enforcement, and its
+child-manifest field was not defined as the regular-file content digest. Tasks
+01–09 and their commits remain authoritative; Task 10 owns the atomic
+unreleased-layout migration before engine work.
 
 ## Goal
 
@@ -38,7 +39,7 @@ remain in the linked packet.
 | [07 Framed Worker Supervisor](07_framed_worker_supervisor.md)                                                                   | Own strict framed stdio, authenticated launch, stage deadlines, and Linux/Windows process-tree termination without fallback or private argv data.                                                                                                                              | 01, 03, 04, 06                             | `ARCH-003`, `ARCH-005`–`ARCH-006`, `RUN-001`–`RUN-005`, `SEC-005`, `SEC-007`, `PRIV-001`, `FAIL-005`, `FAIL-007`, `LIFE-001`; primary `AC-AUTO-024`                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [08 Deterministic Native Source Objects And Toolchain Locks](08_deterministic_native_source_and_toolchain_locks.md)             | Establish five canonical Git content objects including offline GoogleTest, immutable source/license/patch identities, a reviewed loader-limit table, qualified disconnected Linux CPU/Clang-sanitizer/CUDA profiles, and exactly pinned Windows candidates before engine work. | 03, 04, 06                                 | `SEC-003`, `SEC-009`, `SEC-013`, `PKG-002`–`PKG-004`, `PKG-006`, `PKG-010`, `OPS-001`, `COMP-009`, support for `RUN-009`, `RUN-011`–`RUN-012`; primary `AC-AUTO-050`                                                                                                                                                                                                                                                                                                                                                                                     |
 | [09 Shared Worker Protocol, Model Authority, And Lifecycle](09_shared_worker_protocol_model_authority_and_lifecycle.md)         | Complete one bounded TypeScript/C++/Python protocol with canonical grammar, WAV framing, probe/load split, authenticated model authority, proofs, terminal cleanup, and real GoogleTest suites consuming only Task-08 verified local inputs.                                   | 01, 03, 04, 06, 07, 08                     | `ARCH-005`, `AUDIO-001`–`AUDIO-002`, `RUN-001`–`RUN-007`, `RUN-009`, `SEC-005`, `SEC-007`, `SEC-010`–`SEC-011`, `CAP-014`, `PRIV-001`, `PRIV-004`, `FAIL-005`, `FAIL-007`–`FAIL-008`; primary `AC-AUTO-053`, `AC-AUTO-054`, `AC-AUTO-056`                                                                                                                                                                                                                                                                                                                |
-| [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md)                                | Build a modular CPU-only worker and offline pack with authenticated slot-3 model access, exact-read loader hardening, bounded parsing, proof, inference, and exit unload.                                                                                                      | 08, 09                                     | `RUNTIME-001`, `RUN-011`, `SEC-013`, `SCOPE-001`, `MODEL-004`, `ARCH-005`, `RUN-001`–`RUN-006`, `SEC-005`, `SEC-010`, `CAP-007`, `CAP-009`, `CAP-017`, `CPU-001`, `FAIL-005`, `FAIL-007`–`FAIL-008`, `PKG-003`–`PKG-004`, `PKG-010`; primary `AC-AUTO-052`, `AC-AUTO-060`                                                                                                                                                                                                                                                                                |
+| [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md)                                | Atomically migrate the unreleased authority binding to authenticated artifact size/content evidence, then build a modular CPU-only worker and offline pack with slot-3 model access, exact-read loader hardening, bounded parsing, proof, inference, and exit unload.           | 08, 09                                     | `RUNTIME-001`, `RUN-011`, `SEC-013`, `SCOPE-001`, `MODEL-004`, `ARCH-005`, `RUN-001`–`RUN-006`, `SEC-005`, `SEC-010`, `CAP-007`, `CAP-009`, `CAP-017`, `CPU-001`, `FAIL-005`, `FAIL-007`–`FAIL-008`, `PKG-003`–`PKG-004`, `PKG-010`; primary `AC-AUTO-052`, `AC-AUTO-060`                                                                                                                                                                                                                                                                                |
 | [11 Whisper.cpp Device Proof, Cancellation, And CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md)           | Add exact NVIDIA binding/proof, cooperative cancellation, and a Linux CUDA 12.8.1 Blackwell pack while rebuilding the CPU pack against the same patch.                                                                                                                         | 08, 09, 10                                 | `RUN-012`, `CAP-017`, `RUNTIME-001`, `ARCH-005`, `RUN-001`–`RUN-006`, `SEC-005`, `SEC-010`, `SEC-013`, `CAP-007`, `CAP-009`, `CAP-014`, `NVIDIA-001`, `FAIL-005`, `FAIL-007`–`FAIL-008`, `PKG-003`–`PKG-004`, `PKG-010`; primary `AC-AUTO-062`                                                                                                                                                                                                                                                                                                           |
 | [12 AMD Vulkan And Linux HIP Preview Packs](12_amd_vulkan_and_linux_hip_preview_packs.md)                                       | Define deterministic Windows/Linux Vulkan and Linux HIP Preview packs without fallback, invented hardware evidence, or an unreviewed HIP catalog row.                                                                                                                          | 08, 09, 10, 11                             | `AMD-001`–`AMD-004`, `AMD-006`, `CAP-009`, `RUNTIME-001`, `RUN-001`–`RUN-003`, `RUN-005`, `SEC-003`, `SEC-005`, `SEC-013`, `CAP-007`, `CAP-017`, `FAIL-005`, `FAIL-007`–`FAIL-008`, `PKG-002`–`PKG-004`, `PKG-010`, `COMP-006`, `COMP-009`; primary `AC-AUTO-011`, `AC-AUTO-012`                                                                                                                                                                                                                                                                         |
 | [13 Isolated Faster-Whisper/CTranslate2 Worker And Packs](13_isolated_faster_whisper_ctranslate2_worker_and_packs.md)           | Build isolated Windows/Linux CPU and NVIDIA CUDA workers with authenticated directory-relative streaming, canonical PCM, real backend proof, and exit-owned unload/cancel.                                                                                                     | 08, 09                                     | `RUNTIME-002`, `RUN-008`, `RUN-010`, `PKG-007`, `SCOPE-001`, `MODEL-004`, `ARCH-005`, `RUN-001`–`RUN-007`, `RUN-009`, `SEC-005`, `SEC-010`, `SEC-013`, `CAP-007`, `CAP-017`, `PKG-002`, `PKG-004`, `PKG-010`, `CPU-001`, `AMD-005`, `FAIL-005`, `FAIL-007`–`FAIL-008`; primary `AC-AUTO-055`                                                                                                                                                                                                                                                             |
@@ -67,6 +68,13 @@ completed: 01–07
   authority, proof grammar, launcher bootstrap, terminal lifecycle, and real
   GoogleTest suites under the already-qualified Task-08 profiles. It does not
   compile an inference engine or acquire test dependencies.
+- Task 10 first migrates the unreleased native authority common binding from
+  218 to 226 bytes by adding a positive expected artifact byte count and
+  defining the existing digest slot generically as regular-file content
+  SHA-256 or directory child-manifest SHA-256. Request/transfer/acknowledgement
+  sizes become 234/244/284 bytes. Main and the guard authenticate the values;
+  every hop copies them byte-for-byte. No framed-control schema or path channel
+  is added.
 - Tasks 10–12 build the staged Whisper.cpp CPU, CUDA, Vulkan, and HIP packs.
   Task 13 is the independent Faster-Whisper/CTranslate2 worker branch.
 - Task 14 consumes both engine branches and is the sole owner of mutable
@@ -135,14 +143,13 @@ completed: 01–07
 
 ## Approval Boundary
 
-Revision 10 is Approved by durable Prompt MCP answer
-`approval.plan-revision-10`, sequence 43, revision 1. Revision 9 approval
-remains historical evidence, and its Task 08 execution authorization is stale
-because the packet changed materially. Plan approval does not authorize
-implementation, source import, commit, push, publication, or release. Repaired
-Task 08 is separately authorized for a later invocation by durable Prompt MCP
-answer `execution.task-08-revision-10`, sequence 44, revision 1. That
-authorization excludes every external manual gate and later packet. Each later
+Revision 11 is Approved by durable decision `approval.plan` revision 11 under
+the user's explicit instruction to fix and self-approve this planning repair.
+Revision 10 and its Prompt MCP approval remain historical evidence. Plan
+approval does not authorize commit, push, publication, or release. Revised
+Task 10 is separately authorized by durable decision
+`execution.task-10-revision-11`; its exact existing public CPU model fixture
+remains authorized by Prompt MCP sequence 48. Each later
 `incremental-implementation` invocation executes exactly one authorized
 packet, updates `todo.md` and `handoff.md`, and stops before commit or the next
 packet.

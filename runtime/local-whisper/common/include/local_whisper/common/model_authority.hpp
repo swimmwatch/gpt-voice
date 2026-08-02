@@ -9,9 +9,9 @@
 
 namespace local_whisper::common {
 
-constexpr std::size_t kAuthorityRequestBytes = 226;
-constexpr std::size_t kAuthorityTransferBytes = 236;
-constexpr std::size_t kAuthorityAcknowledgmentBytes = 276;
+constexpr std::size_t kAuthorityRequestBytes = 234;
+constexpr std::size_t kAuthorityTransferBytes = 244;
+constexpr std::size_t kAuthorityAcknowledgmentBytes = 284;
 
 enum class AuthorityArtifactKind : std::uint8_t { regular_file = 1, directory = 2 };
 enum class AuthorityCarrierKind : std::uint8_t {
@@ -27,7 +27,8 @@ struct AuthorityBinding {
   std::uint64_t configuration_epoch;
   std::array<std::uint8_t, 32> lease_token_sha256;
   std::array<std::uint8_t, 32> model_identity_sha256;
-  std::array<std::uint8_t, 32> child_manifest_sha256;
+  std::uint64_t expected_artifact_bytes;
+  std::array<std::uint8_t, 32> artifact_content_sha256;
   AuthorityArtifactKind artifact_kind;
   std::uint64_t expected_launcher_pid;
   std::uint64_t expected_guard_pid;

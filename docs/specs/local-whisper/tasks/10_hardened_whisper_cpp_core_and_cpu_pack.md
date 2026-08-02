@@ -2,8 +2,12 @@
 
 ## Outcome
 
-GPT-Voice owns a modular C++20 CPU-only `whisperCpp` worker built from the
-verified v1.9.1 source object. It loads one authenticated regular model file
+Before engine work, GPT-Voice atomically repairs the unreleased protocol-v1
+native model-authority binding so the authenticated main/guard/launcher/worker
+chain carries the expected artifact byte count and content digest without a
+path or framed-control change. GPT-Voice then owns a modular C++20 CPU-only
+`whisperCpp` worker built from the verified v1.9.1 source object. It loads one
+authenticated regular model file
 through logical slot 3 without a path, applies a checksummed exact-read and
 bounded-format patch before any unsafe allocation, validates the complete
 same-handle size/SHA-256, performs a real CPU-only probe/load/warm-up/inference,
@@ -54,6 +58,9 @@ CUDA pack belong to Task 11.
   provenance, relocation, malicious-CWD/environment, and network-denied tests.
 - Windows x64 CPU source/build/CI contracts using Task 08's candidate lock;
   representative execution remains Task 19-only.
+- Atomic TypeScript/C++20/Python authority-record migration, regenerated
+  vectors, and Linux executable plus Windows source-contract coverage for the
+  authenticated artifact byte-count/content-digest binding.
 
 ## Out Of Scope
 
@@ -65,8 +72,55 @@ CUDA pack belong to Task 11.
 - Faster-Whisper, coordinator/capability policy, IPC/UI, signing, publication,
   installer changes, or support-tier promotion.
 - Representative Windows execution before Task 19.
+- Any path, argv/environment field, framed JSON `load` field, or second
+  metadata channel for expected model size/digest.
 
 ## Task Contract
+
+### Repaired authenticated artifact metadata binding
+
+The unreleased `LWAR1`/`LWAT1`/`LWAA1` layout is migrated atomically before
+Whisper.cpp is configured. The 8-byte domain is followed by a 226-byte common
+binding in this exact order:
+
+| Bytes | Field                                                  |
+| ----: | ------------------------------------------------------ |
+|    16 | operation nonce                                        |
+|    16 | app-ownership nonce                                    |
+|     8 | configuration epoch `u64`                              |
+|    32 | lease-token SHA-256                                    |
+|    32 | model-identity SHA-256                                 |
+|     8 | expected artifact byte count `u64`                     |
+|    32 | artifact-content SHA-256                               |
+|     1 | artifact kind: `1` regular file or `2` directory       |
+|     1 | logical model slot, exactly `3`                        |
+|     8 | expected launcher PID `u64`                            |
+|     8 | expected guard PID `u64`                               |
+|    32 | SHA-256 of expected launcher OS process-start identity |
+|    32 | SHA-256 of expected guard OS process-start identity    |
+
+`LWAR1` is exactly 234 bytes, `LWAT1` exactly 244 bytes, and `LWAA1`
+exactly 284 bytes. The expected artifact byte count is positive. For artifact
+kind `regular file`, artifact-content SHA-256 is the exact expected file
+digest. For artifact kind `directory`, it is the canonical child-manifest
+digest whose entries own individual child sizes and SHA-256 values. The old
+226/236/276-byte records, a zero byte count, an all-zero or malformed digest,
+field reordering, and size/digest substitution are terminal authority errors.
+
+Main constructs these fields only from the already verified managed artifact
+and active lease before launch. The filesystem guard authenticates them against
+the held lease before releasing authority. Every launcher hop and worker
+acknowledgement copies the common binding byte-for-byte. No peer may derive the
+expected values from worker-observed bytes, trust an echo without the active
+lease, or send them through a model path, argv, environment, cwd, framed
+control, renderer/preload IPC, logging, audit, or diagnostics.
+
+Task 10 updates `LocalWhisperModelAuthorityRecord`, the C++ common authority
+codec/bootstrap, Python reference codec, guard/launcher fixtures, generator,
+manifest, and golden records together. Existing control-message schema and
+device proof domains do not change. Linux executes the migrated handoff;
+Windows retains compile/source/contract coverage on its Windows job and final
+representative execution in Task 19.
 
 ### Modular worker boundary
 
@@ -85,7 +139,8 @@ allowed.
 
 The worker accepts only the already inherited logical slot 3 regular-file
 authority. Before parser entry it verifies read-only access, regular-file type,
-expected lease/file identity, offset zero, and exact authenticated size. It
+expected lease/file identity, offset zero, and the binding's exact positive
+authenticated size. It
 never accepts, reconstructs, logs, or opens a path. Linux uses checked
 offset-based reads against the inherited fd; Windows code uses the inherited
 arbitrary HANDLE and checked 64-bit offsets. A read may return fewer bytes than
@@ -98,7 +153,8 @@ were consumed at a defined next-record boundary; a partial prefix is corrupt.
 No read may exceed authenticated size. When the engine loader reports success,
 the reader SHALL require offset exactly equal to authenticated size, require
 EOF at that boundary, finalize SHA-256 over exactly those bytes, and compare it
-with the expected artifact hash before `loaded`. Unconsumed tails, appended
+with the binding's artifact-content SHA-256 before `loaded`. Unconsumed tails,
+appended
 bytes, changed size/hash, partial reads, or content changes are `MODEL_CORRUPT`.
 Close is idempotent/non-throwing and the OS authority closes exactly once even
 through exception, cancel, timeout, or process exit.
@@ -133,6 +189,9 @@ the patched parser must consume and validate the count.
 
 - Missing, writable, replayed, wrong-slot, wrong-type, wrong-peer, or
   identity-mismatched authority fails before parser entry as
+  `MODEL_AUTHORITY_INVALID`.
+- Missing, zero, malformed, lease-mismatched, or substituted expected artifact
+  byte-count/content-digest binding fails before parser entry as
   `MODEL_AUTHORITY_INVALID`.
 - Same-authority size/hash change, partial scalar/header/name/body, extra tail,
   out-of-object read, or authenticated-byte mismatch is `MODEL_CORRUPT` and
@@ -211,7 +270,10 @@ unexpected `PATH` entries cannot alter loaded code.
   for device proof and cancellation but may not change, weaken, or fork the
   Task-08 table.
 - Task 09 remains the owner of framing, codec, authority handoff, proof bytes,
-  deadlines, and supervisor terminal arbitration.
+  deadlines, and supervisor terminal arbitration. Task 10 owns only the atomic
+  unreleased authority-layout migration required to make Task 09's handoff
+  satisfy the already-approved size/digest contract; later packets consume the
+  migrated layout without forking it.
 - Task 10 consumes a model lease/handle only; it never sees a managed path or
   renderer data and never downloads a model/runtime.
 - Main process remains the future owner of settings, capability policy,
@@ -227,6 +289,9 @@ unexpected `PATH` entries cannot alter loaded code.
   arithmetic, CPU evidence, PCM/inference, state machine, and RAII modules.
 - `runtime/local-whisper/whisper-cpp/patches/core/` and completed Task-08 patch
   lock.
+- Migrated authority-record modules and vectors under
+  `src/main/localWhisper/supervisor/`, `runtime/local-whisper/common/`,
+  `scripts/local-whisper/`, and `tests/fixtures/local-whisper/protocol/v1/`.
 - `runtime/local-whisper/whisper-cpp/CMakeLists.txt`, CPU presets, tests,
   `.clang-format`, `.clang-tidy`, and concise README.
 - `scripts/local-whisper/build-whisper-cpp-core.mjs`
@@ -241,6 +306,10 @@ unexpected `PATH` entries cannot alter loaded code.
 - Every byte boundary of every loader field has complete, one-byte-short, and
   error fixtures; every table limit has below/equal/above and overflow-product
   fixtures. No invalid case reaches unsafe allocation/copy.
+- Every peer accepts only 234/244/284-byte authority records with the exact
+  positive byte count and content digest, rejects the old layout and every
+  size/digest mutation, and preserves the common binding byte-for-byte across
+  both handoff hops and the acknowledgement.
 - Valid short underlying reads are accumulated exactly; partial EOF and extra
   tail fail. Successful load proves offset=size and the finalized same-handle
   digest before `loaded`. Every OS authority closes exactly once.
@@ -260,6 +329,11 @@ unexpected `PATH` entries cannot alter loaded code.
 Task 10 SHALL add the named package scripts before running these exact commands:
 
 ```text
+rtk npm run generate:local-whisper:worker-vectors
+rtk npm run verify:local-whisper:worker-vectors -- --check-clean
+rtk npm run test:local-whisper:worker-authority
+rtk npm run verify:local-whisper:worker-authority -- --platform=linux
+rtk npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
 rtk npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
 rtk npm run test:local-whisper:whisper-cpp-core
 rtk npm run test:local-whisper:whisper-cpp-loader
@@ -290,6 +364,9 @@ cross-platform substitute.
 
 - Never increase a loader limit, accept a partial digest, use a model path,
   enable a backend, or collapse typed failures merely to pass a fixture.
+- Never retain the obsolete authority-record sizes, reinterpret
+  model-identity SHA-256 as file content SHA-256, or introduce an
+  unauthenticated metadata side channel merely to unblock the loader.
 - Missing CPU toolchain/model authorization leaves Task 10 open. Do not
   download implicitly or substitute a different model/profile.
 - A failed core patch does not modify the verified original source object.

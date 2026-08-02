@@ -1,15 +1,17 @@
 # Local Whisper Task Checklist
 
-Plan revision: **10 (Approved)**
+Plan revision: **11 (Approved)**
 
 Specification baseline: **revision 6 (Approved)**
 
-Execution state: Tasks 01–09 are complete, committed, and authoritative. Repaired plan
-revision 10 is approved by `approval.plan-revision-10` (sequence 43, revision
-1). Task 09 is authorized by `execution.task-09-revision-10` (sequence 47,
-revision 1). On 2026-08-02 the user authorized dependency acquisition and Codex
-self-review; all mandatory local Task 09 gates passed. Remote CI was not run and
-will execute only after a pull request is created.
+Execution state: Tasks 01–09 are complete, committed, and authoritative. Task
+10 is complete, verified, and intentionally uncommitted for review. Plan
+revision 11 repairs the Task 10 authenticated artifact-metadata blocker and is
+approved by durable decision `approval.plan` revision 11 under the user's
+explicit self-approval delegation. Revised Task 10 is authorized by
+`execution.task-10-revision-11`; its exact existing public CPU model fixture
+remains authorized by Prompt MCP sequence 48. Remote CI was not run and will
+execute only after a pull request is created.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -20,7 +22,7 @@ will execute only after a pull request is created.
 - [x] [07 Framed Worker Supervisor](07_framed_worker_supervisor.md) — `31c13c54`
 - [x] [08 Deterministic Native Source Objects And Toolchain Locks](08_deterministic_native_source_and_toolchain_locks.md) — `e3639bcc`
 - [x] [09 Shared Worker Protocol, Model Authority, And Lifecycle](09_shared_worker_protocol_model_authority_and_lifecycle.md) — `2b920b0`, CI `b18700e`
-- [ ] [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md)
+- [x] [10 Hardened Whisper.cpp Core And CPU Worker Pack](10_hardened_whisper_cpp_core_and_cpu_pack.md) — verification complete, uncommitted
 - [ ] [11 Whisper.cpp Device Proof, Cancellation, And CUDA Pack](11_whisper_cpp_device_proof_cancellation_and_cuda_pack.md)
 - [ ] [12 AMD Vulkan And Linux HIP Preview Packs](12_amd_vulkan_and_linux_hip_preview_packs.md)
 - [ ] [13 Isolated Faster-Whisper/CTranslate2 Worker And Packs](13_isolated_faster_whisper_ctranslate2_worker_and_packs.md)
@@ -37,4 +39,7 @@ protocol, vectors, supervisor, cross-language native common library, Linux
 model-authority handoff, Clang formatting/tidy gates, and locked CI source
 provisioning pass locally. The Windows native-quality job remains on a Windows
 runner and was not executed. No Task 10 work, commit, push, pull request, or
-publication has occurred.
+publication has occurred. Revised Task 10 atomically adds authenticated
+artifact byte-count/content-digest evidence to the native authority binding
+before engine work; no path, argv/environment value, or framed-control field is
+introduced.

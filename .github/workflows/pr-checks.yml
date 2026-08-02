@@ -24,7 +24,7 @@ jobs:
   native-quality-linux:
     name: Local Whisper Native Quality (Linux)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       CXX: clang++-18
       CLANG_FORMAT: clang-format-18
@@ -64,6 +64,7 @@ jobs:
         run: |
           npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
+          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 
       - name: Verify Local Whisper worker vectors
         run: npm run verify:local-whisper:worker-vectors -- --check-clean
@@ -103,6 +104,20 @@ jobs:
 
       - name: Verify Linux model-authority handoff
         run: npm run verify:local-whisper:worker-authority -- --platform=linux
+
+      - name: Verify hardened Whisper.cpp loader limits
+        run: npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
+
+      - name: Run hardened Whisper.cpp core and loader suites
+        run: |
+          npm run test:local-whisper:whisper-cpp-core
+          npm run test:local-whisper:whisper-cpp-loader
+
+      - name: Build and verify Linux Whisper.cpp CPU pack
+        run: |
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
 
       - name: Run Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
@@ -155,6 +170,9 @@ jobs:
 
       - name: Verify Windows model-authority source contract
         run: npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+
+      - name: Verify Windows Whisper.cpp CPU source contract
+        run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-candidate-task19-v1 --contract-only
 
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
