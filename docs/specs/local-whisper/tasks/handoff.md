@@ -3,81 +3,78 @@
 ## Authoritative State
 
 - Specification revision 7 and plan revision 12 are Approved.
-- Tasks 01–13 are complete and committed; Task 13 is authoritative at
-  `37fa79a`.
-- Task 14 is complete, locally verified, and intentionally uncommitted for
-  review. Task 15 has not started and is not authorized by this handoff.
+- Tasks 01–14 are complete and committed; Task 14 is authoritative at
+  `df14c118`.
+- Task 15 is complete and committed at `b89a412`, with its verification tooling
+  committed at `d8ab1ba`. Task 16 has not started and is not authorized by this
+  handoff.
 - AMD remains **Preview · Untested**. macOS remains
   **Planned · Unavailable**. Representative Windows execution remains
   exclusively in Task 19.
 
-## Task 14 Completed
+## Task 15 Completed
 
-- Added the immutable Windows/Linux CPU, NVIDIA CUDA, AMD Vulkan/HIP Preview,
-  and Apple Metal planned/unavailable support policy; exact backend
-  prerequisite adapters; composed capability preflight; and selected-
-  configuration RAM/VRAM policy with qualified-peak precedence and required
-  headroom.
-- Added owner-private salt persistence and stable HMAC-SHA-256 opaque device
-  IDs. Raw physical identities remain main-private, are never persisted, and
-  collision/salt-loss cases fail closed.
-- Added the sole mutable `LocalWhisperCoordinator` for atomic prompt-safe
-  save/reset, epochs, immutable snapshots, disposable compatibility probes,
-  fresh full loads, residency, cache eligibility, cancellation, exact selected
-  artifact removal, provider switching, suspend/topology invalidation, and
-  exactly-once shutdown.
-- Prevented prompt propagation to capability, probe, load, and artifact ports;
-  rejected stale asynchronous results; preserved one final lifecycle snapshot;
-  and made cancellation win over late worker success.
-- Added exact failure/action contracts, capability/coordinator package scripts,
-  a profile-gated coordinator verifier, deterministic Linux integration, and
-  unit/integration coverage for resource, platform, privacy, cleanup, and
-  lifecycle boundaries.
+- Added closed shared Local Whisper IPC commands, acknowledgements, snapshots,
+  provider-selection results, prompt-free public settings, and strict runtime
+  decoders for prototypes, exact keys, bounds, IDs, revisions, epochs, prompt
+  mutations, safe failures, and renderer-returned values.
+- Added one main-owned snapshot projector, exact live main/settings window and
+  top-level frame capabilities, atomic replay/subscription ordering, targeted
+  revocation, action-authority checks, safe exception projection, and isolated
+  settings, main-status, artifact, folder, and catalog-reference routes.
+- Wired the sole process coordinator through provider dispatch, IPC,
+  composition, startup, and exactly-once shutdown. Production remains
+  fail-closed on a deferred prompt-free environment until Task 17 composes
+  authenticated catalog/package inputs; startup performs no probe, download,
+  spawn, allocation, or load.
+- Added main-authoritative provider selection with rollback, commit-on-success
+  renderer state, Local Runtime readiness semantics without login/API-key UI,
+  strict preload decoding, stale event reconciliation, and subscriber/status
+  publication failure isolation.
+- Added Task-15 IPC/composition package scripts and a deterministic verifier.
+  Its defined Windows profiles reject execution until Task 19.
 
 ## Changed Files
 
-- Capability and identity:
-  `src/main/localWhisper/capability/`,
-  `src/main/localWhisper/deviceIdentity/`.
-- Coordinator and provider seam:
-  `src/main/localWhisper/coordinator/`,
-  `src/main/providers/LocalWhisperVoiceProvider.ts`.
-- Shared contracts:
-  `src/shared/localWhisper/{domain,failures,settings}.ts`.
-- Tests:
-  `tests/main/localWhisper/{capability,coordinator}/` and focused shared
-  Local Whisper domain/failure tests.
-- Tooling and workflow state: `scripts/local-whisper/verify-coordinator.ts`,
-  `package.json`, `docs/specs/local-whisper/decisions.yaml`, `tasks/todo.md`,
-  and this handoff.
+- Shared contracts: `src/shared/localWhisper/{failures,index,ipc,settings}.ts`.
+- Main IPC and ownership: `src/main/localWhisper/ipc/`,
+  `src/main/{ipc,main,mainProcessApplication,preloadApi,window}.ts`,
+  `src/main/providerSettingsWindowController.ts`, and `src/main/di/`.
+- Provider and coordinator seams:
+  `src/main/providers/LocalWhisperVoiceProvider.ts` and
+  `src/main/localWhisper/coordinator/LocalWhisperCoordinatorTypes.ts`.
+- Renderer: `src/renderer/localWhisper/`,
+  `src/renderer/{App,providerSelectionCoordinator,providerState}.ts*`,
+  `src/renderer/types.d.ts`, and `src/renderer/components/MainToolbar.tsx`.
+- Tests: focused shared/main/preload/renderer/composition/window/provider suites
+  under `tests/`.
+- Tooling and workflow state: `scripts/local-whisper/verify-ipc.ts`,
+  `package.json`, `tasks/todo.md`, and this handoff.
 
 ## Verification
 
-- Passed every exact Task-14 command: capability tests, coordinator tests,
-  deterministic Linux coordinator verification, source and test typechecks,
-  ESLint with zero warnings, Prettier, and `git diff --check`.
-- Additional regressions passed: all shared Local Whisper tests, focused Local
-  Whisper provider/dispatch/registry tests, and the complete unit suite
-  (**1,526 passed**).
+- Passed every exact Task-15 command: IPC tests, composition tests,
+  deterministic IPC verification, source and test typechecks, ESLint with zero
+  warnings, Prettier, and `git diff --check`.
+- The complete TypeScript unit suite passed: **1,547 passed**.
+- Additional Local Whisper provider/dispatch/registry/window/provider-state
+  regressions passed. The negative `windows-cpu` verifier profile rejected
+  before execution as required.
 - Remote CI and representative Windows, AMD, and macOS execution were not run
   and are not claimed.
 
 ## Exact Next Step
 
-- Review the uncommitted Task-14 packet. A later explicitly authorized
-  `incremental-implementation` invocation may commit only this approved packet
-  before separately authorizing and starting Task 15.
+- Task 16 is the next eligible packet. Start it only through a separately
+  authorized `incremental-implementation` invocation.
 
 ## Blockers And Manual Gates
 
-- No deterministic Task-14 implementation blocker remains.
-- `real-linux-cpu` requires exact staged CPU runtime/model inputs plus explicit
-  local authorization through
-  `LOCAL_WHISPER_COORDINATOR_REAL_PROFILE_AUTHORIZED=real-linux-cpu`.
-- `real-linux-cuda` requires the exact staged CUDA runtime/model inputs, a
-  compatible NVIDIA GPU/driver, and explicit local authorization through
-  `LOCAL_WHISPER_COORDINATOR_REAL_PROFILE_AUTHORIZED=real-linux-cuda`.
-- The defined `windows-cpu`, `windows-cuda`, and `windows-vulkan` coordinator
-  profiles must not run before Task 19.
-- Commit, push, pull request, signing, packaging, publication, tag, upload, and
-  release authority remain separately gated.
+- No deterministic Task-15 implementation blocker remains.
+- Authenticated production Local Whisper catalog/package inputs and their
+  privileged artifact/reference adapters remain intentionally deferred to Task
+  17; the current production composition fails closed.
+- The defined Windows IPC profiles must not run before Task 19. Representative
+  AMD and macOS execution is not claimed.
+- Push, pull request, signing, packaging, publication, tag, upload, and release
+  authority remain separately gated.
