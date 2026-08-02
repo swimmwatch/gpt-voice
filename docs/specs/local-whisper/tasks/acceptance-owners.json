@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 12,
+  "planRevision": 13,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -20,7 +20,9 @@
     "16": "16_local_whisper_settings_and_status_ui.md",
     "17": "17_signed_envelope_packaging_and_fixture_ci.md",
     "18": "18_migration_privacy_diagnostics_and_macos_skeleton.md",
-    "19": "19_integration_and_qualification_gates.md"
+    "19": "19_linux_qualification.md",
+    "20": "20_windows_qualification.md",
+    "21": "21_aggregate_and_release_blockers.md"
   },
   "verificationCommands": [
     {
@@ -229,23 +231,23 @@
       "command": "rtk npm run verify:local-whisper:docs"
     },
     {
-      "id": "task-19-qualification-tests",
+      "id": "task-19-linux-qualification",
       "task": "19",
+      "command": "rtk npm run verify:local-whisper:qualification:linux"
+    },
+    {
+      "id": "task-20-windows-qualification",
+      "task": "20",
+      "command": "rtk npm run verify:local-whisper:qualification:windows"
+    },
+    {
+      "id": "task-21-qualification-tests",
+      "task": "21",
       "command": "rtk npm run test:local-whisper:qualification"
     },
     {
-      "id": "task-19-native-fs-guard-tests",
-      "task": "19",
-      "command": "rtk npm run test:local-whisper:fs-guard:native"
-    },
-    {
-      "id": "task-19-native-launcher-tests",
-      "task": "19",
-      "command": "rtk npm run test:local-whisper:launcher:native"
-    },
-    {
-      "id": "task-19-all-verification",
-      "task": "19",
+      "id": "task-21-all-verification",
+      "task": "21",
       "command": "rtk npm run verify:local-whisper:all"
     }
   ],
@@ -257,8 +259,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-002",
-      "primaryTask": "19",
-      "verificationCommandIds": ["task-19-qualification-tests"]
+      "primaryTask": "21",
+      "verificationCommandIds": ["task-21-qualification-tests"]
     },
     {
       "acceptanceId": "AC-AUTO-003",
@@ -362,8 +364,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-023",
-      "primaryTask": "19",
-      "verificationCommandIds": ["task-19-native-fs-guard-tests", "task-19-qualification-tests"]
+      "primaryTask": "21",
+      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-024",
@@ -407,8 +409,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-032",
-      "primaryTask": "19",
-      "verificationCommandIds": ["task-19-all-verification"]
+      "primaryTask": "21",
+      "verificationCommandIds": ["task-21-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-033",
@@ -447,8 +449,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-040",
-      "primaryTask": "19",
-      "verificationCommandIds": ["task-19-native-fs-guard-tests", "task-19-native-launcher-tests"]
+      "primaryTask": "21",
+      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-041",

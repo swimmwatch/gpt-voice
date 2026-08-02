@@ -19,7 +19,7 @@ renderer only after main returns success.
 - Existing trusted IPC sender validation and preload/main/renderer type parity
   remain mandatory. Renderer code uses only `window.electronAPI`.
 - This packet is platform-independent deterministic integration. It must not
-  execute representative Windows behavior before Task 19.
+  execute representative Windows behavior before Task 20.
 
 ## Owned Requirements
 
@@ -52,7 +52,7 @@ renderer only after main returns success.
   or publishing.
 - Renderer filesystem/process/network authority, raw coordinator exposure,
   custom paths/URLs/executables/hashes, or a second settings/state owner.
-- macOS execution or any representative Windows execution before Task 19.
+- macOS execution or any representative Windows execution before Task 20.
 
 ## Task Contract
 
@@ -236,7 +236,7 @@ main. IPC/audit/log failure cannot alter provider behavior or leak raw values.
   coordinator command. IPC never orchestrates lifecycle itself.
 - Later UI code consumes only `window.electronAPI`, sanitized DTOs, and local
   draft state. Main-window status is read-only.
-- Task 19 alone executes representative Windows application/IPC/package/hardware
+- Task 20 alone executes representative Windows application/IPC/package/hardware
   flows. Task-15 deterministic sender/DTO/composition tests make no platform or
   hardware claim.
 - Renderer/preload never receives Node/Electron objects, repositories, services,
@@ -285,7 +285,7 @@ main. IPC/audit/log failure cannot alter provider behavior or leak raw values.
   allocation. Shutdown delegates coordinator cleanup exactly once.
 - Provider selection remains prior committed value on every failure and never
   displays an authentication prompt for Local Whisper.
-- No representative Windows command is executed before Task 19.
+- No representative Windows command is executed before Task 20.
 
 ## Verification
 
@@ -309,7 +309,7 @@ artifact action isolation, provider-switch failure, startup/shutdown, preload
 parity, license/provenance sender and catalog-binding rejection, safe privileged
 adapter invocation, explicit stale/forged/unknown/cross-artifact fixtures,
 prohibited return-field absence, and DTO privacy. Define any Windows packaged-
-app IPC smoke for Task 19; do not invoke it here.
+app IPC smoke for Task 20; do not invoke it here.
 
 ## Failure And Rollback
 
@@ -327,7 +327,7 @@ app IPC smoke for Task 19; do not invoke it here.
 
 - None for deterministic packet completion.
 - Representative Windows packaged-app IPC/provider/lifecycle execution is
-  exclusively Task 19.
+  exclusively Task 20.
 - No source import, real artifact acquisition, signing, upload, publication,
   commit, push, PR, tag, release, or external communication authority.
 

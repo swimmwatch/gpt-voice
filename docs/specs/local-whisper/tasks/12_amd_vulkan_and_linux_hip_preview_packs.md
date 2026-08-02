@@ -21,7 +21,7 @@ intersection is reviewed and approved.
 - Every build input is already present under Task 08's verified local locks.
   Networked source/toolchain acquisition is a separately authorized manual gate.
 - No AMD hardware evidence is available. Representative Windows execution is
-  prohibited until Task 19.
+  prohibited until Task 20.
 
 ## Owned Requirements
 
@@ -47,7 +47,7 @@ intersection is reviewed and approved.
 - AMD backend activation, allocation/dispatch, device/model/state proof adapters
   over Tasks 10–11 shared worker seams.
 - Linux source/compile/relocation checks available without AMD hardware and
-  Windows source/workflow definitions whose execution belongs only to Task 19.
+  Windows source/workflow definitions whose execution belongs only to Task 20.
 
 ## Out Of Scope
 
@@ -188,7 +188,7 @@ causes transparent retry, fallback, system mutation, or tier promotion.
   build packs, invent HIP rows, or promote Preview.
 - Task 17's later signed-envelope packaging work may sign only a complete,
   approved pre-signing row. Task 12 never signs or publishes it.
-- Task 19 alone may execute representative Windows checks or record physical
+- Task 20 alone may execute representative Windows checks or record physical
   AMD promotion evidence. Linux source/build fixtures here are not hardware
   qualification.
 - No renderer, preload, routine log, audit, or diagnostic receives PCI IDs,
@@ -210,7 +210,7 @@ causes transparent retry, fallback, system mutation, or tier promotion.
   `lint:local-whisper:amd-packs`,
   `test:local-whisper:amd-packs`, and
   `verify:local-whisper:amd-packs`.
-- Linux CI checks and nonexecuting Task-19 Windows workflow definitions.
+- Linux CI checks and nonexecuting Task-20 Windows workflow definitions.
 
 ## Acceptance Criteria
 
@@ -228,7 +228,7 @@ causes transparent retry, fallback, system mutation, or tier promotion.
 - Packs are disconnected, relocatable, manifest-closed, and free of SDKs,
   drivers, installers, models, credentials, and ambient loader discovery.
 - No test or documentation string claims physical AMD success or Production.
-- No representative Windows command is executed before Task 19.
+- No representative Windows command is executed before Task 20.
 
 ## Verification
 
@@ -249,7 +249,7 @@ The verifier must use only synthetic/nonpersonal fixtures and Task 08's local
 source objects. If an exact approved HIP row does not exist, the HIP command
 passes only by proving fail-closed absence; it must not build a physical pack.
 
-Define, but do not invoke before Task 19:
+Define, but do not invoke before Task 20:
 
 ```text
 rtk npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
@@ -272,7 +272,7 @@ rtk npm run verify:local-whisper:amd-packs -- --profile=amd-physical-qualificati
 - Approval of one complete immutable HIP pre-signing manifest/catalog row.
 - `AC-MAN-009` claims review: AMD remains explicitly untested Preview.
 - `AC-MAN-010` physical AMD execution/promotion and every representative
-  Windows execution occur only in Task 19.
+  Windows execution occur only in Task 20.
 - `AC-MAN-012` license/SBOM/provenance/signing approval before catalog inclusion.
 - No commit, push, PR, signature, upload, publication, tag, or release authority.
 

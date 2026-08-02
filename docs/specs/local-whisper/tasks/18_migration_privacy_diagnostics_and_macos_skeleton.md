@@ -18,8 +18,9 @@ unsupported hardware success.
 - The approved specification and the plan revision containing this packet are
   authoritative.
 - Task 18 has separate execution authorization.
-- The exact immediately preceding packaged-binary execution is not performed
-  here. It belongs exclusively to Task 19 and `AC-MAN-013`.
+- Exact immediately preceding packaged-binary execution is not performed here.
+  Linux belongs to Task 19, Windows belongs to Task 20, and Task 21 reconciles
+  both platform results for `AC-MAN-013`.
 
 ## Owned Requirements
 
@@ -49,7 +50,7 @@ unsupported hardware success.
   rollback.
 - Shared macOS types, a `metal` identifier, an unavailable adapter/composition
   skeleton, package denial, and tests proving no executable path.
-- Qualification/release-blocker documentation consumed by Task 19.
+- Qualification/release-blocker documentation consumed across Tasks 19–21.
 
 ## Out Of Scope
 
@@ -90,10 +91,11 @@ no Local Whisper execution or deletion and can select an older known provider.
 Document downgrade steps: select a provider known to the older version before
 downgrade; if already downgraded with `local-whisper` selected, use its chooser
 to select one. State explicitly that a current-code fixture is not real-binary
-evidence. Task 19 must run the exact immediately preceding packaged binary with
-recorded version, hash, signature/provenance where available, and a nonprivate
-fixture. Different behavior blocks rollback support until the specification
-and guidance are corrected.
+evidence. Tasks 19 and 20 must run the exact immediately preceding Linux and
+Windows packaged binaries respectively, with recorded version, hash,
+signature/provenance where available, and a nonprivate fixture. Task 21
+reconciles both results. Different behavior blocks rollback support until the
+specification and guidance are corrected.
 
 ### Privacy and closed audit contract
 
@@ -238,7 +240,9 @@ require a new approved specification.
 - Diagnostics schema v2 is additive and schema-v1 readers remain supported.
 - macOS is a typed unavailable product state, not a partially executable
   backend; no code path or catalog content can promote it.
-- Real previous-binary and representative Windows evidence are Task 19-only.
+- Real previous-binary evidence is split between Linux Task 19 and Windows Task
+  20; representative Windows evidence is Task 20-only. Task 21 owns aggregate
+  reconciliation.
 
 ## Expected Files Or Components
 
@@ -249,7 +253,7 @@ require a new approved specification.
 - User, operator, troubleshooting, privacy, offline, and rollback documentation
   plus Local Whisper runtime READMEs.
 - macOS unavailable adapter/composition/package-policy fixtures and tests.
-- Qualification/release-blocker template consumed by Task 19.
+- Qualification evidence seed template consumed and split across Tasks 19–21.
 - `package.json` scripts `test:local-whisper:migration`,
   `test:local-whisper:audit`, `test:local-whisper:diagnostics`,
   `test:local-whisper:privacy`, `test:local-whisper:offline`,
@@ -313,9 +317,9 @@ argv, audit, log, and diagnostics projections.
 - A privacy, diagnostics, migration, or schema-v1 compatibility failure blocks
   this packet. Do not omit hashes/lengths, relax parser bounds, or drop legacy
   readability.
-- If Task 19 real-binary behavior differs, rollback support and release remain
-  blocked until the specification and documentation are revised; do not record
-  an unknown result as success.
+- If Task 19 Linux or Task 20 Windows real-binary behavior differs, rollback
+  support and release remain blocked until the specification and documentation
+  are revised; do not record an unknown result as success.
 - macOS remains unavailable if any skeleton test is incomplete; never enable a
   partial runtime path.
 - Roll back only Task 18-owned migration, diagnostics, audit, documentation,
@@ -327,8 +331,9 @@ argv, audit, log, and diagnostics projections.
   `AC-MAN-011` future physical macOS unavailable-state review are qualification
   evidence, not implementation assumptions.
 - `AC-MAN-012` remains the external license/provenance/publication review.
-- `AC-MAN-013` exact previous packaged-binary execution occurs only in Task 19.
-- Every representative Windows execution occurs only in Task 19.
+- `AC-MAN-013` exact previous packaged-binary execution occurs in Linux Task 19
+  and Windows Task 20, with aggregate reconciliation in Task 21.
+- Every representative Windows execution occurs only in Task 20.
 - No production signing, credential use, upload, commit, push, pull request,
   tag, publication, or release is authorized.
 
@@ -348,5 +353,6 @@ argv, audit, log, and diagnostics projections.
 
 After verification, update `todo.md` and `handoff.md` with migration/schema/
 documentation/macOS files, schema-v1 and schema-v2 evidence, privacy/offline
-checks, exact remaining real-binary and platform gates, and next packet Task 19. Stop before Task 19 execution, commit, push, pull request, publication, or
+checks, exact remaining real-binary and platform gates, and next packet Task 19.
+Stop before Task 19 execution, commit, push, pull request, publication, or
 release.

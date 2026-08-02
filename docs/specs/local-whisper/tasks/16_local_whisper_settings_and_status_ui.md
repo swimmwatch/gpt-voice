@@ -371,7 +371,7 @@ review may supplement these commands but never replace them.
 - `AC-MAN-009` is an AMD claims review, not hardware execution evidence.
 - `AC-MAN-011` remains a future physical Apple-host unavailable-state review;
   this packet promises no macOS execution.
-- Representative Windows execution belongs exclusively to Task 19.
+- Representative Windows execution belongs exclusively to Task 20.
 - No commit, push, pull request, packaging publication, tag, upload, or release
   is authorized by this packet.
 

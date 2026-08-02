@@ -9,7 +9,7 @@ executable, communicates over that strict bounded framed-stdio contract,
 enforces every stage deadline, implements complete Windows/Linux child-tree
 ownership, and proves the available Linux termination boundary before
 releasing uncertain resources. Representative Windows execution is deferred
-to Task 19. The protocol and supervisor have no listening service, private argv
+to Task 20. The protocol and supervisor have no listening service, private argv
 values, divergent engine-private messages, automatic restart/replay, PID-only
 cleanup, or backend/engine/model fallback.
 
@@ -17,7 +17,7 @@ cleanup, or backend/engine/model fallback.
 
 - Local Whisper plan revision 7 is approved. `execution.task-07` revision 2
   separately authorized this expanded packet; representative Windows execution
-  is deferred to Task 19 under `planning.native-cpp-windows-gate` revision 2.
+  is deferred to Task 20 under `planning.native-cpp-windows-gate` revision 2.
 - Tasks 01, 03, 04, and 06 are complete:
   - Task 01 supplies the initial versioned protocol types, canonical
     states/failures, frame limits, and settings identities. Its incomplete
@@ -187,7 +187,7 @@ implementation and does not authorize an engine-specific dialect.
 1. After the shared-protocol completion gate passes, implement race-free
    process-tree ownership for Windows x64 and Linux x64. Prove the complete
    behavior on the available Linux host in this packet; representative Windows
-   execution is deferred intact to Task 19 under
+   execution is deferred intact to Task 20 under
    `planning.native-cpp-windows-gate` revision 2. Node's ordinary `spawn` plus
    later PID cleanup is not presumed sufficient. The fixtures cover a worker
    that immediately creates descendants, parent crash/stream closure, PID
@@ -211,7 +211,7 @@ implementation and does not authorize an engine-specific dialect.
    approval.
 5. A Linux implementation or evidence failure blocks this packet. A discovered
    Windows design/source defect also blocks it, but unavailable Windows runtime
-   evidence alone is recorded for Task 19 and does not block Task 07
+   evidence alone is recorded for Task 20 and does not block Task 07
    completion. Do not substitute `taskkill`, process-name matching, PID-only
    cleanup, or mocked success.
 
@@ -420,7 +420,7 @@ implementation and does not authorize an engine-specific dialect.
 - Linux parent/control-stream death terminates descendants, and source-contract
   tests prove the Windows assign-before-resume/kill-on-close design. Restart
   fixtures with stale locks, reused PID, wrong start identity, and forged nonce
-  never kill an unrelated process. Task 19 owns representative Windows runtime
+  never kill an unrelated process. Task 20 owns representative Windows runtime
   execution of this `AC-AUTO-040` process portion.
 - Protocol/control allocation never exceeds declared bounds; JSON/control
   frames over 1 MiB fail before allocation; stderr remains capped at 64 KiB;
@@ -455,7 +455,7 @@ rtk prettier --check
 ```
 
 Run the real Linux launcher descendant/parent-death suite on supported Linux.
-Task 19 runs the real Windows Job Object descendant/main-kill suite on
+Task 20 runs the real Windows Job Object descendant/main-kill suite on
 representative Windows x64. Use fake clocks for long stage bounds; platform
 cleanup tests use short fixture-specific injected bounds without changing
 production constants.
@@ -465,7 +465,7 @@ production constants.
 - If source review finds a Job Object assignment escape race, Linux
   parent-death ownership is not atomic/rechecked, executable check/use identity
   cannot be held, or the available Linux tree exit cannot be proven, block the
-  packet and return to `/plan`. A later Windows runtime failure in Task 19
+  packet and return to `/plan`. A later Windows runtime failure in Task 20
   returns the defect to a separately authorized Task 07 repair. Do not use
   `taskkill`, PID-only signals, shell wrappers, or optimistic release.
 - If Task 01 framing schemas cannot express strict sequencing/binary chunks,
@@ -490,8 +490,9 @@ production constants.
   crash before Linux support qualification.
 - `MANUAL GATE — lifecycle/offline qualification`: the supervisor portions of
   `AC-MAN-005` (orphan/allocation cleanup) and `AC-MAN-006` (offline/no
-  inference egress) remain Task 19 gates with real engine/runtime evidence;
-  conformance-worker success cannot close them.
+  inference egress) remain platform gates in Linux Task 19 and Windows Task 20,
+  reconciled by Task 21 with real engine/runtime evidence; conformance-worker
+  success cannot close them.
 - `MANUAL GATE — native helper/dependency`: any external native package,
   prebuilt helper, elevated service, or packaging change requires explicit
   approval and later license/SBOM review.
@@ -539,7 +540,7 @@ production constants.
 - Mark Task 07 complete in `todo.md` when the canonical shared protocol,
   vectors, supervisor, cleanup, privacy, deterministic/source-contract tests,
   and available Linux evidence are recorded. Carry every representative
-  Windows execution check explicitly into Task 19 without making a Windows
+  Windows execution check explicitly into Task 20 without making a Windows
   qualification claim.
 - Update `handoff.md` with framing byte layout/golden vectors, public
   supervisor interfaces, production bounds, platform ownership mechanism,

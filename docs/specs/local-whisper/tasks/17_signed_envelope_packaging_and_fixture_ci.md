@@ -6,7 +6,7 @@ Local Whisper packaging uses the existing strict signed catalog envelope in
 three fail-closed modes: disabled, credential-free fixture, and externally
 supplied production. One CI producer creates and signs one fixture bundle once;
 Linux consumes that exact bundle in this packet. A reusable, non-triggered
-Windows consumer/package job is defined but never executed before Task 19.
+Windows consumer/package job is defined but never executed before Task 20.
 Base installers contain only shared Local Whisper integration and exactly two
 small native helpers; inference workers, models, and accelerator libraries
 remain on-demand. Fixture trust can never enter release collection.
@@ -47,7 +47,7 @@ remain on-demand. Fixture trust can never enter release collection.
 - Generate-once ephemeral fixture signing and digest-bound cross-job
   consumption.
 - Linux package-policy execution and an unexecuted Windows consumer/package
-  workflow definition whose representative execution belongs to Task 19.
+  workflow definition whose representative execution belongs to Task 20.
 - Base installer include/exclude policy and exact native-helper staging.
 - Runtime/model pack identity, keyring, hash/signature, denylist, expected-file,
   SBOM, provenance, notice, and license contracts.
@@ -130,7 +130,7 @@ job. It must require the already produced artifact and declared digest as
 inputs, have no ordinary push/pull-request trigger, and contain no producer or
 signing step. Task 17 validates only the workflow contract. Every execution of
 that Windows consumer, installer, helper, or package check occurs exclusively
-in Task 19 on the representative Windows phase.
+in Task 20 on the representative Windows phase.
 
 Release collection rejects fixture purpose, fixture key IDs/origins, synthetic
 runtime/model bytes, absent production approval metadata, and any bundle not
@@ -209,7 +209,7 @@ macOS executable claim.
 - CI transports only the public generate-once fixture bundle; signing secrets
   and private production inputs never enter ordinary jobs.
 - Linux fixture consumption is executable in Task 17. Windows consumption is
-  definition-only here and executable only in Task 19.
+  definition-only here and executable only in Task 20.
 - The base package boundary is enforced by allowlist and denylist inspection,
   including ASAR and extra-resource contents.
 
@@ -240,7 +240,7 @@ macOS executable claim.
   detached `catalog.sig` data is absent and rejected.
 - One producer creates one fixture bundle. Linux consumes that exact declared
   digest without regeneration. The Windows workflow contract requires the same
-  producer artifact/digest and cannot execute before Task 19.
+  producer artifact/digest and cannot execute before Task 20.
 - Strict envelope validation rejects duplicate, unknown, malformed, wrong
   purpose/key/schema/signature/hash data, fixture trust in release collection,
   and production mode without frozen approved inputs.
@@ -299,7 +299,7 @@ has no producer/signing or ordinary trigger. Do not run
 - `MANUAL GATE - licenses and redistribution`: `AC-MAN-012` requires approval
   for every real runtime/model component before catalog inclusion.
 - `MANUAL GATE - representative Windows`: every Windows consumer, package,
-  installer, helper, and same-digest execution is exclusively Task 19.
+  installer, helper, and same-digest execution is exclusively Task 20.
 - `MANUAL GATE - publication`: upload, publication, tag, and release remain
   separately unauthorized.
 - No commit, push, or pull request is authorized by this packet.

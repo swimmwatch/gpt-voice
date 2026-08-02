@@ -12,7 +12,7 @@ denied from the first configure. The Clang profile proves the exact sanitizer
 toolchain with a dependency-free activation fixture; Task 09 later consumes a
 reviewed offline GoogleTest source object for its real common-code suites.
 Exactly pinned Windows profiles remain explicit non-production candidates for
-representative qualification in Task 19.
+representative qualification in Task 20.
 GitHub-generated archive bytes, ambient tools, host-native architecture
 detection, dynamic backend discovery, and implicit downloads are never
 authority.
@@ -55,7 +55,7 @@ authority.
   toolchain/profile locks, followed by executable qualification when their
   authorized inputs are locally present.
 - Non-executable Windows x64 CPU/CUDA candidate locks and CI definitions whose
-  representative qualification belongs only to Task 19.
+  representative qualification belongs only to Task 20.
 - Disconnected-first configure/build-graph audits, project-owned staging
   contracts, dynamic-dependency closure, relocation, malicious-CWD/environment,
   and clean-start fixtures.
@@ -68,7 +68,7 @@ authority.
   conversion, or packaged-runtime selection.
 - Vulkan, HIP/ROCm, AMD pack construction, macOS, signing, catalog publication,
   installer changes, or support-tier promotion.
-- Any representative Windows build or execution. Task 19 is the only owner of
+- Any representative Windows build or execution. Task 20 is the only owner of
   that evidence.
 
 ## Task Contract
@@ -224,8 +224,8 @@ The initial candidate matrix is:
 | `linux-x64-cpu-baseline-v1`                          | Ubuntu 24.04 x64 build ABI; GCC 13.3.0; CMake 3.31.8; Ninja 1.12.1; x86-64 ABI/SSE2 baseline; OpenMP off                                                                                                                             | Must pass the executable disconnected smoke before Task 10                                                                                              |
 | `linux-x64-clang-18.1.3-asan-ubsan-v1`               | Ubuntu 24.04 x64 build ABI; Clang/clang++ 18.1.3; LLVM lld, ASan, and UBSan runtimes 18.1.3; GNU libstdc++/libgcc 13.3.0; CMake 3.31.8; Ninja 1.12.1                                                                                 | Must pass the dependency-free clean/ASan/UBSan activation fixture before Task 09                                                                        |
 | `linux-x64-cuda-12.8.1-sm120a-v1`                    | Ubuntu 24.04 x64 build ABI; GCC 13.3.0; CUDA Toolkit 12.8.1; CMake 3.31.8; Ninja 1.12.1; requested and effective `CMAKE_CUDA_ARCHITECTURES=120a-real`; shared CUDA runtime closure                                                   | Must pass the executable disconnected smoke before Task 11                                                                                              |
-| `windows-x64-cpu-candidate-task19-v1`                | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1                                                                                                   | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 19 |
-| `windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1` | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1; CUDA Toolkit/shared runtime 12.8.1; requested and effective `CMAKE_CUDA_ARCHITECTURES=120a-real` | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 19 |
+| `windows-x64-cpu-candidate-task19-v1`                | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1                                                                                                   | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 20 |
+| `windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1` | Windows x64; MSVC v143 compiler and CRT toolset 14.39 with `_MSC_VER=1939`; Windows SDK `10.0.26100.0`; CMake 3.31.8; Ninja 1.12.1; CUDA Toolkit/shared runtime 12.8.1; requested and effective `CMAKE_CUDA_ARCHITECTURES=120a-real` | Exact lock inputs; `qualificationState=pendingWindowsFinalTask`; schema/source/CI contract only and never executable or catalog-eligible before Task 20 |
 
 An executable Linux lock SHALL record the actual compiler/tool hashes; the
 CUDA lock additionally records the reviewed minimum NVIDIA driver/runtime
@@ -236,7 +236,7 @@ ambient substitute. Windows candidate locks
 SHALL contain the exact versions above and state
 `qualificationState=pendingWindowsFinalTask`; they are intentionally
 incomplete execution evidence and do not block Linux source-foundation
-completion. Task 19 validates these versions and may qualify the profile; it
+completion. Task 20 validates these versions and may qualify the profile; it
 does not select or silently replace them. The representative host's installed
 NVIDIA driver is qualification evidence, not an unpinned build input.
 
@@ -319,7 +319,7 @@ a malicious unrelated CWD. The executable must resolve only manifest-owned or
 reviewed system libraries and exit zero with its fixed public marker. The CPU
 and CUDA build smokes perform no model loading or inference; Tasks 10 and 11
 own worker/pack closure and real engine behavior. Windows defines the same
-evidence shape as contract-only candidate data, while Task 19 owns its
+evidence shape as contract-only candidate data, while Task 20 owns its
 representative execution.
 
 ## Contracts And Boundaries
@@ -337,7 +337,7 @@ representative execution.
   changing that table.
 - Task 13 removes the obsolete alternate-engine source definitions and locks
   from the active tree while Git history preserves their prior evidence.
-- Task 19 alone may change a Windows lock's `qualificationState` from
+- Task 20 alone may change a Windows lock's `qualificationState` from
   `pendingWindowsFinalTask` to `qualified` after representative execution;
   Linux evidence cannot do so or select substitute versions.
 
@@ -352,7 +352,7 @@ representative execution.
 - `runtime/local-whisper/sources/locks/` with the three active source locks and license
   identities.
 - `runtime/local-whisper/toolchains/profiles/` with the three Linux locks and two
-  explicit Windows Task-19 candidates.
+  explicit Windows Task-20 candidates.
 - `runtime/local-whisper/toolchains/schema/native-toolchain-evidence.schema.json`
   plus qualification records only after the exact executable gates pass.
 - `runtime/local-whisper/toolchains/fixtures/sanitizer-proof/` with the
@@ -457,7 +457,7 @@ Windows compiler, VM, remote runner, or representative host.
   authority.
 - No commit, push, publication, signing, upload, installer, or release action
   is authorized.
-- Representative Windows execution is prohibited until Task 19.
+- Representative Windows execution is prohibited until Task 20.
 
 ## References
 
@@ -476,5 +476,5 @@ Windows compiler, VM, remote runner, or representative host.
 After every mandatory Linux check passes, update `todo.md` and `handoff.md`
 with exact source/manifest/license/toolchain identities, the reviewed
 loader-limit-table identity, authorized manual inputs, verification results,
-and Windows Task-19 gates. Name Task 09 as next. Stop before Task 09,
+and Windows Task-20 gates. Name Task 09 as next. Stop before Task 09,
 production code, commit, push, packaging, publication, or release.

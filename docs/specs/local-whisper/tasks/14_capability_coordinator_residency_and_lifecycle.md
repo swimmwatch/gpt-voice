@@ -20,7 +20,7 @@ falling back to another backend, device, model, target, or provider.
 - The coordinator consumes workers only through Task 09's supervisor ports and
   repositories only through their domain interfaces. Deterministic tests start
   with injected fakes; no renderer or Electron object enters this packet.
-- Representative Windows execution is prohibited until Task 19.
+- Representative Windows execution is prohibited until Task 20.
 
 ## Owned Requirements
 
@@ -59,7 +59,7 @@ falling back to another backend, device, model, target, or provider.
 - Single-worker residency, cache pre-gate, cancellation, unload, artifact
   conflicts, provider switching, power/topology/app-exit cleanup.
 - Deterministic platform/backend/resource/state/error fixtures plus available
-  Linux integration; Windows definitions only for Task 19.
+  Linux integration; Windows definitions only for Task 20.
 
 ## Out Of Scope
 
@@ -294,7 +294,8 @@ history, or cache.
 - Later UI code renders sanitized snapshots and local drafts only; it cannot
   commit state or infer support/readiness.
 - Task 17 may package/sign immutable facts but cannot promote support. Task 19
-  alone executes representative Windows and hardware qualification gates.
+  executes Linux hardware qualification, Task 20 alone executes representative
+  Windows qualification, and Task 21 reconciles both evidence slices.
 - Only main owns private salts, canonical physical identities, native ordinals,
   authority/proof material, artifact leases, and worker handles. Snapshot DTOs
   contain sanitized stable product data only.
@@ -312,7 +313,7 @@ history, or cache.
   focused integration tests.
 - Package scripts: `test:local-whisper:capability`,
   `test:local-whisper:coordinator`, and `verify:local-whisper:coordinator`.
-- Linux checks and nonexecuting Task-19 Windows workflow definitions.
+- Linux checks and nonexecuting Task-20 Windows workflow definitions.
 
 ## Acceptance Criteria
 
@@ -335,7 +336,7 @@ history, or cache.
 - Resource known/equal/below/above/unknown cases, load/lazy/cache/unload,
   cancellation, deletion, provider switch, power/topology, and exit follow the
   exact state machines and failure precedence.
-- No representative Windows command is executed before Task 19.
+- No representative Windows command is executed before Task 20.
 
 ## Verification
 
@@ -359,7 +360,7 @@ rtk npm run verify:local-whisper:coordinator -- --profile=real-linux-cpu
 rtk npm run verify:local-whisper:coordinator -- --profile=real-linux-cuda
 ```
 
-Define, but do not invoke before Task 19:
+Define, but do not invoke before Task 20:
 
 ```text
 rtk npm run verify:local-whisper:coordinator -- --profile=windows-cpu
@@ -382,7 +383,7 @@ rtk npm run verify:local-whisper:coordinator -- --profile=windows-vulkan
 
 - Exact authorized Linux runtime/model inputs for real integration.
 - All representative Windows execution and independent Windows CPU/NVIDIA gates
-  belong exclusively to Task 19.
+  belong exclusively to Task 20.
 - AMD physical execution is future `AC-MAN-010`; absence preserves Preview.
 - Apple Silicon execution is outside scope; only Planned/unavailable remains.
 - No driver/toolkit/ROCm/permission mutation, signing, publication, commit, push,

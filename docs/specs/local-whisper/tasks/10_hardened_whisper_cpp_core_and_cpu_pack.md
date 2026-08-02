@@ -57,7 +57,7 @@ CUDA pack belong to Task 11.
 - Linux x64 CPU baseline worker/pack build, expected files, licenses, SBOM,
   provenance, relocation, malicious-CWD/environment, and network-denied tests.
 - Windows x64 CPU source/build/CI contracts using Task 08's candidate lock;
-  representative execution remains Task 19-only.
+  representative execution remains Task 20-only.
 - Atomic TypeScript/C++20 authority-record migration, regenerated
   vectors, and Linux executable plus Windows source-contract coverage for the
   authenticated artifact byte-count/content-digest binding.
@@ -71,7 +71,7 @@ CUDA pack belong to Task 11.
   staging revision after it passes.
 - Alternate inference engines, coordinator/capability policy, IPC/UI, signing, publication,
   installer changes, or support-tier promotion.
-- Representative Windows execution before Task 19.
+- Representative Windows execution before Task 20.
 - Any path, argv/environment field, framed JSON `load` field, or second
   metadata channel for expected model size/digest.
 
@@ -120,7 +120,7 @@ codec/bootstrap, guard/launcher fixtures, generator,
 manifest, and golden records together. Existing control-message schema and
 device proof domains do not change. Linux executes the migrated handoff;
 Windows retains compile/source/contract coverage on its Windows job and final
-representative execution in Task 19.
+representative execution in Task 20.
 
 ### Modular worker boundary
 
@@ -280,7 +280,7 @@ unexpected `PATH` entries cannot alter loaded code.
   residency, and support claims. A worker success is evidence, not UI state.
 - This CPU staging pack is not catalog/signing/release eligible until Task 11
   reruns CPU cancellation/closure checks and later packaging tasks approve it.
-- Windows code and CI definitions are required, but only Task 19 executes a
+- Windows code and CI definitions are required, but only Task 20 executes a
   representative Windows binary.
 
 ## Expected Files Or Components
@@ -321,7 +321,7 @@ unexpected `PATH` entries cannot alter loaded code.
   text and no private logging.
 - Relocated CPU staging starts network-denied and ignores malicious CWD/backend
   environment. Its expected-file/dependency/license/SBOM closure is exact.
-- Windows source/build contracts compile only in Task-19 jobs; no current
+- Windows source/build contracts compile only in Task-20 jobs; no current
   Windows execution evidence is claimed.
 
 ## Verification
@@ -382,7 +382,7 @@ cross-platform substitute.
   installation and license.
 - `MANUAL GATE — licenses/SBOM`: local staging is not redistribution approval.
 - No commit, push, signing, packaging, upload, publication, or release is
-  authorized. Representative Windows execution is prohibited until Task 19.
+  authorized. Representative Windows execution is prohibited until Task 20.
 
 ## References
 
@@ -398,5 +398,5 @@ cross-platform substitute.
 
 After all mandatory Linux checks pass, update `todo.md` and `handoff.md` with
 patch/manifest/profile/model-fixture identities, exact verification, private
-manual gates, and the Windows Task-19 deferral. Name Task 11 as next. Stop
+manual gates, and the Windows Task-20 deferral. Name Task 11 as next. Stop
 before Task 11, commit, push, signing, packaging, publication, or release.

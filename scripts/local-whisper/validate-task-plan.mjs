@@ -25,9 +25,9 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
   'References',
   'Completion And Handoff',
 ];
-const TASK_ID_PATTERN = /^(?:0[1-9]|1\d)$/u;
-const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d)_[a-z\d_]+\.md$/u;
-const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d)-[a-z\d-]+$/u;
+const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[01])$/u;
+const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2[01])_[a-z\d_]+\.md$/u;
+const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[01])-[a-z\d-]+$/u;
 const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06[0-3])$/u;
 
 function fail(message) {
@@ -85,7 +85,7 @@ function validateManifestShape(manifest, schema) {
     ['schemaVersion', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
     'manifest',
   );
-  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 12) fail('manifest version is unexpected');
+  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 13) fail('manifest version is unexpected');
   if (!Array.isArray(manifest.verificationCommands)) fail('verificationCommands must be an array');
   if (!Array.isArray(manifest.automatedAcceptanceOwners)) fail('automatedAcceptanceOwners must be an array');
 }
@@ -108,9 +108,9 @@ async function loadInputs() {
 async function validateTaskFiles(manifest, taskDirectoryEntries) {
   const taskFiles = assertRecord(manifest.taskFiles, 'taskFiles');
   const taskIds = Object.keys(taskFiles).sort();
-  const expectedTaskIds = Array.from({ length: 19 }, (_, index) => String(index + 1).padStart(2, '0'));
+  const expectedTaskIds = Array.from({ length: 21 }, (_, index) => String(index + 1).padStart(2, '0'));
   if (taskIds.length !== expectedTaskIds.length || taskIds.some((task, index) => task !== expectedTaskIds[index])) {
-    fail('taskFiles must contain exactly Tasks 01 through 19');
+    fail('taskFiles must contain exactly Tasks 01 through 21');
   }
 
   const numberedFiles = taskDirectoryEntries
@@ -230,7 +230,7 @@ async function main() {
   const commandById = validateVerificationCommands(manifest, packetByTask, taskIds);
   validateAcceptanceOwners(manifest, specification, packetByTask, commandById);
 
-  process.stdout.write('Local Whisper task plan is structurally valid: 19 packets, 62 unique AC-AUTO owners.\n');
+  process.stdout.write('Local Whisper task plan is structurally valid: 21 packets, 62 unique AC-AUTO owners.\n');
 }
 
 main().catch((error) => {

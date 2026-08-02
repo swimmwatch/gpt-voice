@@ -2,14 +2,13 @@
 
 Status: Approved
 
-Revision: 12
+Revision: 13
 
-Specification baseline: approved `spec.md` revision 7. This revision removes
-the obsolete Faster-Whisper/CTranslate2 implementation branch, preserves the
-fixed non-editable `whisperCpp` discriminator, and inserts one cleanup packet
-before the remaining integration work. Tasks 01–12 and their recorded commits
-remain completed and authoritative; Task 13 normalizes their unreleased active
-contracts to the approved single-engine specification.
+Specification baseline: approved `spec.md` revision 7. This revision preserves
+the approved fixed `whisperCpp` implementation and Tasks 01–18, then splits the
+former combined qualification packet into independently executable Linux,
+Windows, and aggregate/release-blocker packets. No product behavior or support
+claim changes.
 
 ## Goal
 
@@ -34,7 +33,7 @@ remain in the linked packet.
 | [03 Trusted Catalog, Settings, And Inventory](03_trusted_catalog_settings_and_inventory.md)                                     | Own private versioned settings, strict signed catalog/keyring validation, closed estimates, and reconstructed sanitized inventory in main.                                                                                                                            | 01                                         | `SET-001`, `SET-004`–`SET-008`, `VAL-002`–`VAL-003`, `PRIV-002`, `MODEL-002`–`MODEL-003`, `MODEL-007`, `MODEL-009`–`MODEL-010`, `RUNTIME-003`, `COMP-007`, `COMP-011`, `CAP-013`, `SEC-003`, `SEC-008`, `PKG-002`, `PKG-005`, `OPS-001`; primary `AC-AUTO-009`, `AC-AUTO-031`                                                                                                                                                                                                                                                                                       |
 | [04 Managed Filesystem Safety](04_managed_filesystem_safety.md)                                                                 | Provide descriptor/handle-anchored managed storage, leases, locks, quarantine, promotion, and exact deletion for Linux and Windows.                                                                                                                                   | 01, 03                                     | `MODEL-006`, `MODEL-008`, `SEC-004`, `SEC-007`, `RUN-004`, `RUNTIME-004`, `VRAM-003`, `FAIL-001`, `FAIL-004`; primary `AC-AUTO-041`                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | [05 Streaming Artifact Lifecycle](05_streaming_artifact_lifecycle.md)                                                           | Stream, resume, verify, promote, update, and remove explicitly selected immutable runtime/model revisions through bounded trusted operations.                                                                                                                         | 01, 03, 04                                 | `DL-001`–`DL-003`, `PERF-001`, `FAIL-001`, `FAIL-003`–`FAIL-004`, `PKG-002`, `SEC-003`, `OPS-001`, `MODEL-002`, `MODEL-007`–`MODEL-008`, `RUNTIME-003`–`RUNTIME-004`, `COMP-007`; primary `AC-AUTO-017`, `AC-AUTO-018`, `AC-AUTO-043`                                                                                                                                                                                                                                                                                                                               |
-| [06 Native C++ Modularization](06_native_cpp_modularization.md)                                                                 | Keep the filesystem guard as modular C++20 with RAII platform backends, CMake/GoogleTest, linting, sanitizers, CI, README, and repository rules.                                                                                                                      | 04, 05                                     | `SEC-007`, `RUN-004`, `PKG-001`; supporting acceptance only, with final Windows evidence in Task 19                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| [06 Native C++ Modularization](06_native_cpp_modularization.md)                                                                 | Keep the filesystem guard as modular C++20 with RAII platform backends, CMake/GoogleTest, linting, sanitizers, CI, README, and repository rules.                                                                                                                      | 04, 05                                     | `SEC-007`, `RUN-004`, `PKG-001`; supporting acceptance only, with final Windows evidence in Task 20                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | [07 Framed Worker Supervisor](07_framed_worker_supervisor.md)                                                                   | Own strict framed stdio, authenticated launch, stage deadlines, and Linux/Windows process-tree termination without fallback or private argv data.                                                                                                                     | 01, 03, 04, 06                             | `ARCH-003`, `ARCH-005`–`ARCH-006`, `RUN-001`–`RUN-005`, `SEC-005`, `SEC-007`, `PRIV-001`, `FAIL-005`, `FAIL-007`, `LIFE-001`; primary `AC-AUTO-024`                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | [08 Deterministic Native Source Objects And Toolchain Locks](08_deterministic_native_source_and_toolchain_locks.md)             | Establish canonical Whisper.cpp, nlohmann/json, and offline GoogleTest source objects, immutable source/license/patch identities, a reviewed loader-limit table, qualified disconnected Linux CPU/Clang-sanitizer/CUDA profiles, and exact Windows candidates.        | 03, 04, 06                                 | `SEC-003`, `SEC-009`, `SEC-013`, `PKG-002`–`PKG-004`, `PKG-006`, `PKG-010`, `OPS-001`, `COMP-009`, support for `RUN-009`, `RUN-011`–`RUN-012`; primary `AC-AUTO-050`                                                                                                                                                                                                                                                                                                                                                                                                |
 | [09 Shared Worker Protocol, Model Authority, And Lifecycle](09_shared_worker_protocol_model_authority_and_lifecycle.md)         | Complete one bounded TypeScript/C++ protocol with canonical grammar, WAV framing, probe/load split, authenticated model authority, proofs, terminal cleanup, and real GoogleTest suites consuming only Task-08 verified local inputs.                                 | 01, 03, 04, 06, 07, 08                     | `ARCH-005`, `AUDIO-001`–`AUDIO-002`, `RUN-001`–`RUN-007`, `RUN-009`, `SEC-005`, `SEC-007`, `SEC-010`–`SEC-011`, `CAP-014`, `PRIV-001`, `PRIV-004`, `FAIL-005`, `FAIL-007`–`FAIL-008`; primary `AC-AUTO-053`, `AC-AUTO-054`, `AC-AUTO-056`                                                                                                                                                                                                                                                                                                                           |
@@ -47,18 +46,20 @@ remain in the linked packet.
 | [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)                                           | Deliver the complete accessible provider settings/management experience, approximate and exact resource guidance, explicit load controls, and compact main-window status.                                                                                             | 01, 03, 05, 14, 15                         | `UI-001`–`UI-008`, `MODEL-001`, `MODEL-007`–`MODEL-010`, `RUNTIME-003`–`RUNTIME-004`, `SET-002`–`SET-009`, `VAL-001`–`VAL-003`, `VRAM-002`–`VRAM-003`, `CAP-001`, `CAP-008`–`CAP-013`, `LIFE-003`, `LIFE-005`–`LIFE-006`, `FAIL-001`–`FAIL-002`, `FAIL-004`, `FAIL-006`, `AMD-001`–`AMD-004`, `AMD-006`, `MAC-001`–`MAC-003`; primary `AC-AUTO-004`, `AC-AUTO-038`, `AC-AUTO-049`                                                                                                                                                                                   |
 | [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md)                                   | Add disabled/fixture/production signed-envelope modes, one generate-once Linux-consumed fixture, a non-triggered Windows consumer, and minimal base packaging.                                                                                                        | 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 | `PKG-001`–`PKG-006`, `PKG-008`–`PKG-010`, `SEC-003`, `SEC-008`–`SEC-009`, `SEC-012`–`SEC-013`, `OPS-001`, `RUNTIME-001`, `RUNTIME-003`, `MODEL-003`, `MODEL-009`–`MODEL-010`, `CAP-013`, `COMP-002`, `COMP-007`, `COMP-009`, `DL-001`–`DL-002`, `MAC-003`; primary `AC-AUTO-030`, `AC-AUTO-048`, `AC-AUTO-057`, `AC-AUTO-061`                                                                                                                                                                                                                                       |
 | [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) | Close migrations, rollback guidance, private audit/diagnostics v2, docs, and an unreachable Planned/unavailable macOS arm64 skeleton.                                                                                                                                 | 01–17                                      | `DIAG-001`–`DIAG-003`, `PRIV-001`–`PRIV-004`, `COMP-010`, `DOC-001`, `MAC-001`–`MAC-003`, `BASE-001`, `COMP-003`, `SET-001`, `SET-005`, `VAL-002`, `MODEL-010`, `CAP-013`, `UI-007`, `AMD-001`–`AMD-002`, `PKG-005`, `SEC-002`, `NONGOAL-001`–`NONGOAL-002`; primary `AC-AUTO-026`, `AC-AUTO-028`, `AC-AUTO-029`, `AC-AUTO-045`, `AC-AUTO-046`, `AC-AUTO-058`                                                                                                                                                                                                       |
-| [19 Integration And Qualification Gates](19_integration_and_qualification_gates.md)                                             | Freeze and exercise the release candidate across deterministic integration, Linux, every representative Windows check, previous-binary downgrade, hardware claims, and manual gates without publication.                                                              | 01–18                                      | `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; orchestration of `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, and `AC-MAN-001`–`AC-MAN-013`; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`                                                                                                                                                                                                                       |
+| [19 Linux Qualification](19_linux_qualification.md)                                                                             | Freeze one candidate and qualification foundation, then execute the full Linux x64 CPU/CUDA, native, package, lifecycle, privacy, offline, performance, memory, and previous-binary evidence slice without Windows execution.                                         | 01–18                                      | Linux slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; platform evidence supporting applicable `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and `AC-MAN-013`                                                                                                                                                                                                          |
+| [20 Windows Qualification](20_windows_qualification.md)                                                                         | Consume the unchanged Task 19 candidate and Task 17 fixture digest on real Windows x64, executing every deferred filesystem, process, native, CPU/CUDA, package/installer, lifecycle, privacy, performance, memory, and downgrade gate.                               | 19                                         | Windows slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; platform evidence supporting applicable `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, `AC-MAN-002`–`AC-MAN-008`, and `AC-MAN-013`                                                                                                                                                                                                                                    |
+| [21 Aggregate Qualification And Release Blockers](21_aggregate_and_release_blockers.md)                                         | Reconcile immutable Linux/Windows evidence, validate deterministic ownership and remaining AMD/macOS/external gates, and produce the final privacy-safe qualification/release-blocker report without rerunning expensive profiles or publishing.                      | 19, 20                                     | Aggregate/platform-independent slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`, `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–`PRIV-004`, `DIAG-001`–`DIAG-003`, `DOC-001`; reconciliation of `AC-AUTO-001`–`AC-AUTO-054`, `AC-AUTO-056`–`AC-AUTO-063`, and `AC-MAN-001`–`AC-MAN-013`; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`                                                                                                                                                                             |
 
 ## Sequencing
 
 ```text
-completed: 01–12
+completed: 01–18
 
 01,03,08,12 -> 13 -> 14 -> 15 -> 16 --+
-03–13 -------------> 17 ---------------+-> 18 -> 19
+03–13 -------------> 17 ---------------+-> 18 -> 19 -> 20 -> 21
 ```
 
-- Tasks 01–12 remain completed foundations. Revision 12 does not reopen or
+- Tasks 01–18 remain completed foundations. Revision 13 does not reopen or
   re-execute them.
 - Task 13 removes the active alternate-engine artifacts introduced by Tasks
   01, 03, and 08 and normalizes Task 12's closed AMD matrix. Git history
@@ -75,22 +76,27 @@ completed: 01–12
   complete.
 - Task 18 follows Tasks 01–17 and closes migration, privacy, diagnostics,
   documentation, and the unavailable macOS skeleton.
-- Task 19 is the sole aggregate and representative-platform qualification
-  packet.
+- Task 19 freezes the candidate and records Linux qualification only.
+- Task 20 consumes the exact Task 19 candidate, profiles, schemas, evidence
+  index, and Task 17 fixture digest and records all representative Windows
+  qualification only.
+- Task 21 validates ownership, reconciles both immutable platform slices, runs
+  the remaining platform-independent claim and external gates, and produces the
+  final release-blocker report without rerunning unchanged expensive profiles.
 
 ## Representative Windows Boundary
 
 - Every representative Windows filesystem, MSVC/native, launcher/Job Object,
   worker, device, lifecycle, package/install, privacy, diagnostics, downgrade,
-  and applicable hardware execution belongs exclusively to Task 19.
+  and applicable hardware execution belongs exclusively to Task 20.
 - Tasks 08–18 may define Windows source, deterministic source-contract tests,
   build profiles, reusable CI/job definitions, and non-executed fixtures. They
   must not trigger representative Windows checks or claim representative
   Windows evidence.
 - Completed Tasks 04, 06, and 07 retain their Linux evidence and defer their
-  representative Windows evidence to Task 19. Task 06's packaging ownership
+  representative Windows evidence to Task 20. Task 06's packaging ownership
   reference to Task 17 remains distinct from this execution boundary.
-- Windows is unavailable in the current environment. Missing Task-19 evidence
+- Windows is unavailable in the current environment. Missing Task-20 evidence
   remains a release blocker, not a reason to mock, move, or infer it earlier.
 
 ## Manual Prerequisites And Known Gates
@@ -110,10 +116,10 @@ completed: 01–12
 - `MANUAL GATE — production artifacts`: Task 17 defines a protected production
   input contract but does not choose an origin, use private signing material,
   convert real models, upload, publish, or admit fixture trust to release.
-- `MANUAL GATE — prior binary`: Task 19 requires the exact immediately
-  preceding packaged binary for each representative platform, with recorded
-  version/hash and a nonprivate fixture profile. A current-binary substitute
-  does not satisfy `AC-MAN-013`.
+- `MANUAL GATE — prior binary`: Tasks 19 and 20 require the exact immediately
+  preceding packaged binary for Linux and Windows respectively, with recorded
+  version/hash and a nonprivate fixture profile. Task 21 reconciles both
+  platform results. A current-binary substitute does not satisfy `AC-MAN-013`.
 - AMD remains `Preview · Untested`. Promotion requires representative physical
   AMD evidence in future approved work.
 - macOS remains Planned/unavailable. Task 18 contains no executable Local
@@ -134,10 +140,10 @@ completed: 01–12
 
 ## Approval Boundary
 
-Revision 12 was explicitly approved by durable decision `approval.plan`
-revision 12 through the persistent `plan:local-whisper` interview. Plan
-approval does not authorize Task 13 execution, a commit, push, pull request,
-signing, packaging, publication, release, or representative Windows execution.
-Each later `incremental-implementation` invocation executes exactly one
-separately authorized packet, updates `todo.md` and `handoff.md`, and stops
-before commit or the next packet.
+Revision 13 was explicitly approved by durable decision
+`approval.plan-revision-13` through the persistent `plan:local-whisper`
+interview. Plan approval does not authorize Task 19 execution, commit, push,
+pull request, signing, packaging, publication, release, or representative
+Windows execution. Each later `incremental-implementation` invocation executes
+exactly one separately authorized packet, updates `todo.md` and `handoff.md`,
+and stops before commit or the next packet.

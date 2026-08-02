@@ -66,7 +66,7 @@ fields below before any engine work; old record lengths are then invalid.
 - Supervisor response/revalidation/cancellation races, one writer, one
   inference owner, deadlines, bounded stderr, and complete process cleanup.
 - Linux executable integration plus Windows compile/source/contract CI
-  definitions. Representative Windows execution remains Task 19-only.
+  definitions. Representative Windows execution remains Task 20-only.
 
 ## Out Of Scope
 
@@ -363,7 +363,7 @@ Linux executable tests cover both regular-file and directory authorities,
 fd-3 collisions, credentials/rights, replay, and close-once behavior. Windows
 compile/source/contract fixtures cover arbitrary HANDLE values, regular-file
 and directory handles, assign-before-resume, bootstrap-before-handshake, and
-kill-on-failure. No representative Windows execution occurs before Task 19.
+kill-on-failure. No representative Windows execution occurs before Task 20.
 
 ## Contracts And Boundaries
 
@@ -475,7 +475,7 @@ executed.
 - Task 09 receives no source-import or toolchain-acquisition authority. Missing
   GoogleTest/nlohmann objects or a no-longer-qualified GCC/Clang profile returns
   the workstream to Task 08 instead of downloading or substituting inputs.
-- Windows representative execution is prohibited until Task 19.
+- Windows representative execution is prohibited until Task 20.
 - No model, GPU, AMD, Apple Silicon, signing, packaging, upload, publication,
   commit, push, or release authority is included.
 
@@ -492,4 +492,4 @@ executed.
 
 After all mandatory Linux checks pass, update `todo.md` and `handoff.md` with
 the repaired protocol schema/vector digest, authority record version, changed
-files, exact commands, deferred Windows Task-19 evidence, and next packet Task 10. Stop before Task 10, commit, push, packaging, publication, or release.
+files, exact commands, deferred Windows Task-20 evidence, and next packet Task 10. Stop before Task 10, commit, push, packaging, publication, or release.

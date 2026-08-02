@@ -10,7 +10,7 @@ with requested and effective `120a-real`, one linked CUDA backend, complete
 manifest-owned dependency closure, and no CPU fallback or ambient backend
 discovery. The Task-10 CPU pack is rebuilt and reverified against the same
 cancellation patch. Windows CPU/CUDA profiles remain candidate/source/CI
-contracts until representative Task-19 execution.
+contracts until representative Task-20 execution.
 
 ## Prerequisites
 
@@ -56,7 +56,7 @@ contracts until representative Task-19 execution.
 - Linux x64 CUDA Blackwell pack, dependency closure, relocation, malicious
   CWD/environment, offline, repeated lifecycle, and available-laptop evidence.
 - Windows CPU/CUDA compile/source/CI definitions only; representative execution
-  remains Task 19-only.
+  remains Task 20-only.
 
 ## Out Of Scope
 
@@ -66,7 +66,7 @@ contracts until representative Task-19 execution.
 - Main-owned stable opaque IDs, support policy, capability persistence,
   coordinator, renderer IPC/UI, signing, packaging publication, or support-tier
   promotion.
-- Any representative Windows execution before Task 19.
+- Any representative Windows execution before Task 20.
 
 ## Task Contract
 
@@ -200,7 +200,7 @@ and rerun its probe, load, cancellation, closure, and offline tests. Neither
 local staging pack is catalog/signing/release eligible here. Windows profiles
 remain `windows-x64-cpu-candidate-task19-v1` and
 `windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1`; code and CI commands are
-defined, but no representative Windows binary is executed before Task 19.
+defined, but no representative Windows binary is executed before Task 20.
 
 ## Contracts And Boundaries
 
@@ -220,7 +220,7 @@ defined, but no representative Windows binary is executed before Task 19.
   downstream coordinator work owns its single primary acceptance result.
 - `AC-AUTO-061` final packaging relocation/closure remains supporting here;
   downstream packaging owns its single primary acceptance result.
-- Representative Windows execution and promotion are exclusive to Task 19.
+- Representative Windows execution and promotion are exclusive to Task 20.
 
 ## Expected Files Or Components
 
@@ -235,7 +235,7 @@ defined, but no representative Windows binary is executed before Task 19.
 - `scripts/local-whisper/stage-whisper-cpp-cuda.mjs`
 - Focused GoogleTest/supervisor/pack fixtures under
   `tests/runtime/localWhisper/whisperCpp/`.
-- Exact package scripts used by Verification below and Windows Task-19 CI
+- Exact package scripts used by Verification below and Windows Task-20 CI
   definitions that are not executed in this packet.
 
 ## Acceptance Criteria
@@ -322,7 +322,7 @@ Wine, or substitute platform.
   publication approval.
 - No commit, push, signing, packaging publication, upload, release, AMD test,
   or Apple Silicon test is authorized.
-- Representative Windows execution is prohibited until Task 19.
+- Representative Windows execution is prohibited until Task 20.
 
 ## References
 
@@ -341,6 +341,6 @@ Wine, or substitute platform.
 
 After every mandatory Linux CPU/CUDA check passes, update `todo.md` and
 `handoff.md` with final patch/source/profile/pack/model identities, exact proof
-and cancellation evidence, licenses, deferred Windows Task-19 gates, and the
+and cancellation evidence, licenses, deferred Windows Task-20 gates, and the
 next approved packet from the revised plan. Stop before another packet, commit,
 push, signing, packaging, publication, or release.

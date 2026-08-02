@@ -37,7 +37,7 @@ the architecture and extension constraints clear to both humans and LLM agents.
   `planning.native-cpp-ci-depth`, and `planning.native-cpp-task-order`.
 - This packet shares those requirements with Task 04; it does not replace or
   weaken Task 04 acceptance ownership.
-- Task 06 owns the implementation and verified Linux evidence. Task 19 owns the
+- Task 06 owns the implementation and verified Linux evidence. Task 20 owns the
   deferred Windows/MSVC and Windows filesystem evidence for the shared
   `SEC-007`, `RUN-004`, `PKG-001`, `AC-AUTO-032`, `AC-AUTO-040`, and
   `AC-AUTO-041` release gate.
@@ -227,9 +227,9 @@ a third generic filesystem layer that merely forwards to a backend.
    narrow exclusions documented in `.clang-tidy`.
 6. Linux unit and integration suites run under ASan/UBSan in this packet.
    Windows unit and integration suites are configured for `/W4 /WX` and execute
-   only in Task 19. Existing Node filesystem integration/race tests remain
+   only in Task 20. Existing Node filesystem integration/race tests remain
    required on both OS runners, with representative Windows execution likewise
-   deferred to Task 19.
+   deferred to Task 20.
 
 ### README and agent rules
 
@@ -275,7 +275,7 @@ a third generic filesystem layer that merely forwards to a backend.
    or change package/release artifacts.
 5. Task 06 owns the Windows job definition and deterministic configuration
    assertions only. Required representative execution of that job and its
-   equivalent local commands is a Task 19 completion gate.
+   equivalent local commands is a Task 20 completion gate.
 
 ## Contracts And Boundaries
 
@@ -315,7 +315,7 @@ a third generic filesystem layer that merely forwards to a backend.
   behavior.
 - GoogleTest unit and real temporary-root integration suites pass on Linux
   under ASan/UBSan. Equivalent Windows `/W4 /WX` and real-backend suites remain
-  mandatory in Task 19 before release; their current absence is recorded and
+  mandatory in Task 20 before release; their current absence is recorded and
   cannot be represented as passing evidence.
 - clang-format and clang-tidy run in CI and fail on violations.
 - The CMake production build still emits the exact executable path consumed by
@@ -343,9 +343,9 @@ rtk git diff --check
 ```
 
 The equivalent checked-in Windows preset/commands and existing Windows
-Node/native filesystem suite are deferred to Task 19 by
+Node/native filesystem suite are deferred to Task 20 by
 `planning.native-cpp-windows-gate` revision 2. Record the missing evidence in
-`handoff.md`; Task 19 must later record Windows version, MSVC, CMake,
+`handoff.md`; Task 20 must later record Windows version, MSVC, CMake,
 GoogleTest commit, CTest labels, and exact pass/skip counts without private
 paths or logs.
 
@@ -353,7 +353,7 @@ paths or logs.
 
 - Any protocol/output mismatch, security-semantic regression, sanitizer finding,
   unhandled resource leak, or available-platform test failure blocks
-  completion. A later Windows failure blocks Task 19/release and requires an
+  completion. A later Windows failure blocks Task 20/release and requires an
   authorized Task 06 repair; do not weaken a check or restore duplicated
   platform logic to obtain a pass.
 - If the proposed common interface cannot express a real Windows/Linux security
@@ -367,7 +367,7 @@ paths or logs.
 
 ## Manual Gates
 
-- `DEFERRED MANUAL GATE — Windows native evidence`: Task 19, not Task 06
+- `DEFERRED MANUAL GATE — Windows native evidence`: Task 20, not Task 06
   completion, must obtain required CI/representative Windows x64 results for
   native unit/integration and existing junction/reparse, ADS, file-ID, volume,
   lock, promotion, and deletion fixtures. Linux cannot substitute, no Windows
@@ -405,7 +405,7 @@ paths or logs.
   check, dependency/license review, and checked-in dual-platform CI contract is
   recorded. Record the deferred Windows gate explicitly; it does not block
   Task 06 completion under `planning.native-cpp-windows-gate` revision 2 but
-  remains a mandatory Task 19/release gate.
+  remains a mandatory Task 20/release gate.
 - Update `handoff.md` with final module map, public internal interfaces, toolchain
   versions, GoogleTest commit, changed files, native/Node checks, platform
   evidence, generated output paths, limitations, and rollback state.

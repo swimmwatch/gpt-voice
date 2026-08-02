@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-02'
+updated_at: '2026-08-03'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -5353,3 +5353,65 @@ decisions:
       - LIFE-004
       - LIFE-005
       - LIFE-006
+
+  - id: planning.qualification-platform-split
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested Task 19 for Linux functionality testing, Task 20 for Windows functionality testing, and Task 21 for all remaining qualification work.
+      - The split must allow separate incremental-implementation invocations on Linux and Windows without moving representative Windows checks into Linux.
+      - One frozen candidate and the exact Task 17 fixture digest must remain stable across both platform packets so aggregate evidence is comparable.
+    prompt_mcp: null
+    question:
+      text: How should the former combined Local Whisper qualification packet be split for platform-specific execution?
+      kind: single
+      options:
+        - id: linux-windows-aggregate
+          label: Linux, Windows, aggregate
+          description: Task 19 qualifies Linux, Task 20 qualifies Windows, and Task 21 reconciles all remaining gates.
+    answer:
+      selected_ids: [linux-windows-aggregate]
+      text: ''
+    rationale: The requested split creates independently executable platform packets while keeping final acceptance ownership, AMD/macOS claim review, external gates, and release-blocker reporting in one deterministic aggregate packet.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan-revision-13
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 13 preserves approved specification revision 7 and completed Tasks 01–18 while replacing the former combined qualification packet with Linux Task 19, Windows Task 20, and aggregate/release-blocker Task 21.
+      - Task 19 freezes one candidate and Task 17 fixture identity, Task 20 consumes those immutable inputs for every representative Windows check, and Task 21 reconciles evidence without rerunning unchanged expensive profiles.
+      - The machine-readable registry contains Tasks 01–21 and all 62 canonical automated acceptance IDs exactly once; cross-platform primary owners `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, and `AC-AUTO-040` move to Task 21.
+      - Approval remains separate from packet execution, commit, push, pull request, signing, packaging, publication, tag, upload, support-claim promotion, and release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-13-approval-round-62
+      question_id: approval.plan-revision-13
+      idempotency_key: approval.plan-revision-13:v1
+      last_status: answered
+      sequence: 62
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 13 proceed after splitting qualification into Linux Task 19, Windows Task 20, and aggregate Task 21?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 13 (Recommended)
+          description: Approve the three-packet qualification structure; execution of each packet remains separately gated.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 13 in Draft and revise the packet boundaries before implementation.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with the validated plan unapproved and do not authorize qualification work.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved revision 13 through the durable workspace interview. This approval authorizes the plan contract only and keeps each packet and every external action separately gated.
+    supersedes_revision: 12
+    requirement_ids: []

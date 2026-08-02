@@ -20,7 +20,7 @@ engine remains buildable, selectable, persisted as valid, packaged, or tested.
 - The work starts from the unreleased dual-engine contracts produced by Tasks
   01, 03, and 08 plus Task 12's closed AMD profile definitions. No production
   settings or published Local Whisper artifacts require compatibility.
-- Representative Windows execution is prohibited until Task 19.
+- Representative Windows execution is prohibited until Task 20.
 
 ## Owned Requirements
 
