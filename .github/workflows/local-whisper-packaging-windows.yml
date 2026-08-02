@@ -1,0 +1,67 @@
+name: Local Whisper Windows Fixture Consumer
+
+on:
+  workflow_call:
+    inputs:
+      bundle_digest:
+        description: Exact canonical fixture bundle-manifest SHA-256 from the producer.
+        required: true
+        type: string
+      task19_authorized:
+        description: Must be true only during the representative Task 19 Windows phase.
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  windows-consumer-package:
+    name: Deferred Task 19 Windows fixture consumer/package
+    if: ${{ inputs.task19_authorized }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Download already-produced public fixture
+        uses: actions/download-artifact@v8
+        with:
+          name: local-whisper-public-fixture-v1
+          path: .cache/local-whisper/public-fixture
+
+      - name: Build application bundles
+        run: npm run build:prod
+
+      - name: Prepare bundled CloakBrowser
+        run: npm run prepare:cloakbrowser -- --target=win32
+
+      - name: Generate package metadata
+        run: npm run generate:package-metadata -- --release-date=2026-05-18
+
+      - name: Verify declared digest and stage Windows fixture resources
+        run: npm run prepare:local-whisper:packaging -- --mode=fixture --platform=win32 --bundle=.cache/local-whisper/public-fixture --bundle-digest=${{ inputs.bundle_digest }}
+
+      - name: Inspect Windows base-package policy
+        run: node --import tsx scripts/local-whisper/packaging/verify-package-policy.ts --directory=build/generated/local-whisper --mode=fixture --platform=win32
+
+      - name: Package unpacked Windows app
+        run: npx electron-builder --win dir
+
+      - name: Verify packaged runtime
+        run: npm run verify:packaged

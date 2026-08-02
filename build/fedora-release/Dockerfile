@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       atk \
       ca-certificates \
       cairo \
+      clang \
+      cmake \
       cpio \
       cups-libs \
       desktop-file-utils \
@@ -34,6 +36,7 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       mesa-libgbm \
       nodejs24 \
       nodejs24-npm \
+      ninja-build \
       nss \
       pango \
       rpm \

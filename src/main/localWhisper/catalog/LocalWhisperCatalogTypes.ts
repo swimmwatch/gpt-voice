@@ -12,10 +12,18 @@ import type {
 export const LOCAL_WHISPER_CATALOG_SCHEMA_VERSION = 1 as const;
 export const LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION = 1 as const;
 export const LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM = 'Ed25519' as const;
+export const LOCAL_WHISPER_CATALOG_PURPOSES = ['fixture', 'production'] as const;
+
+export type LocalWhisperCatalogPurpose = (typeof LOCAL_WHISPER_CATALOG_PURPOSES)[number];
 
 export interface LocalWhisperCatalogOrigin {
   readonly id: LocalWhisperArtifactId;
   readonly origin: string;
+}
+
+export interface LocalWhisperCatalogDisplayMetadata {
+  readonly title: string;
+  readonly summary: string;
 }
 
 export interface LocalWhisperCatalogModelFileIdentity {
@@ -39,6 +47,8 @@ export interface LocalWhisperCatalogModelEntry {
   readonly expectedFiles: readonly LocalWhisperCatalogModelFileIdentity[];
   readonly transferSizeBytes: number;
   readonly transferSha256: string;
+  readonly transferSignature: string;
+  readonly signingKeyId: LocalWhisperArtifactId;
   readonly installedSizeBytes: number;
   readonly compatibleRuntimePackRevisions: readonly LocalWhisperRevisionId[];
   readonly recommended: boolean;
@@ -55,7 +65,9 @@ export interface LocalWhisperCatalogDenylist {
 
 export interface LocalWhisperCatalogPayload {
   readonly schemaVersion: typeof LOCAL_WHISPER_CATALOG_SCHEMA_VERSION;
+  readonly purpose: LocalWhisperCatalogPurpose;
   readonly catalogRevision: LocalWhisperRevisionId;
+  readonly displayMetadata: LocalWhisperCatalogDisplayMetadata;
   readonly compatibleAppRevisions: readonly LocalWhisperRevisionId[];
   readonly workerProtocolVersion: number;
   readonly languageCatalogRevision: string;
@@ -88,6 +100,7 @@ export interface LocalWhisperCatalogAllowlistedOrigin {
 }
 
 export interface LocalWhisperCatalogTrustPolicy {
+  readonly purpose: LocalWhisperCatalogPurpose;
   readonly publicKeys: readonly LocalWhisperCatalogPublicKey[];
   readonly origins: readonly LocalWhisperCatalogAllowlistedOrigin[];
   readonly appRevision: LocalWhisperRevisionId;

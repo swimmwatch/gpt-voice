@@ -358,6 +358,9 @@ jobs:
       - name: Generate package metadata
         run: npm run generate:package-metadata -- --release-date=2026-05-18
 
+      - name: Prepare disabled Local Whisper package resources
+        run: npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
+
       - name: Package unpacked app
         run: npx electron-builder --win dir
 

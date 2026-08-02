@@ -45,7 +45,7 @@ export interface LocalWhisperArtifactDownloadSpec {
   readonly originId: LocalWhisperArtifactId;
   readonly origin: string;
   readonly requestUrl: string;
-  readonly runtimeSignature: {
+  readonly artifactSignature: {
     readonly keyId: LocalWhisperArtifactId;
     readonly signatureBase64: string;
   } | null;

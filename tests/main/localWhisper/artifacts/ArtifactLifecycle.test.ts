@@ -91,7 +91,7 @@ function queueSuccess(operationId: string, artifact: LocalWhisperArtifactId): Lo
 }
 
 describe('LocalWhisperArtifactService lifecycle', () => {
-  test('installs exact model and signed runtime revisions and refreshes inventory', async () => {
+  test('installs exact signed model and runtime revisions and refreshes inventory', async () => {
     const harness = createArtifactServiceHarness();
     const model = harness.service.startDownload({
       artifactId: harness.catalogFixture.model.artifactId,
@@ -118,8 +118,9 @@ describe('LocalWhisperArtifactService lifecycle', () => {
     );
     assert.equal(harness.store.promotions, 2);
     assert.equal(harness.inventory.revision, 3);
-    assert.equal(harness.signatureVerifier.calls.length, 1);
-    assert.equal(harness.signatureVerifier.calls[0].digest, harness.catalogFixture.runtime.expectedTransferSha256);
+    assert.equal(harness.signatureVerifier.calls.length, 2);
+    assert.equal(harness.signatureVerifier.calls[0].digest, harness.catalogFixture.model.expectedTransferSha256);
+    assert.equal(harness.signatureVerifier.calls[1].digest, harness.catalogFixture.runtime.expectedTransferSha256);
     const snapshot = harness.progress.get(runtime.operationId);
     assert.equal(snapshot?.state, 'Installed');
     assert.equal(Object.isFrozen(snapshot), true);

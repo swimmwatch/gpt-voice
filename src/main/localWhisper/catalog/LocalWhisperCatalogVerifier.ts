@@ -1,7 +1,11 @@
 import { createPublicKey, verify } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 
-import { toLocalWhisperArtifactId, type LocalWhisperArtifactId } from '@shared/localWhisper';
+import {
+  serializeCanonicalLocalWhisperCatalogJson,
+  toLocalWhisperArtifactId,
+  type LocalWhisperArtifactId,
+} from '@shared/localWhisper';
 
 import {
   LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
@@ -10,6 +14,9 @@ import {
 } from './LocalWhisperCatalogTypes';
 
 const ENVELOPE_KEYS = ['schemaVersion', 'algorithm', 'keyId', 'payloadBase64', 'signatureBase64'] as const;
+const MAX_CATALOG_DOCUMENT_BYTES = 12 * 1024 * 1024;
+const MAX_CATALOG_PAYLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_CATALOG_SIGNATURE_BYTES = 128;
 
 export type LocalWhisperCatalogVerificationResult =
   | { readonly success: true; readonly keyId: LocalWhisperArtifactId; readonly payload: unknown }
@@ -30,44 +37,52 @@ function decodeBase64(value: unknown): Buffer | null {
   return decoded.toString('base64') === value ? decoded : null;
 }
 
-function hasValidUnicodeScalars(value: string): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    const codeUnit = value.charCodeAt(index);
-    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
-      const next = value.charCodeAt(index + 1);
-      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
-      index += 1;
-    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      return false;
+function hasUniqueTopLevelKeys(documentText: string): boolean {
+  const keys = new Set<string>();
+  let depth = 0;
+  let expectingKey = false;
+  let inString = false;
+  let escaped = false;
+  let stringStart = -1;
+
+  for (let index = 0; index < documentText.length; index += 1) {
+    const character = documentText[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (character !== '"') continue;
+      inString = false;
+      if (depth !== 1 || !expectingKey) continue;
+      try {
+        const key = JSON.parse(documentText.slice(stringStart, index + 1)) as unknown;
+        if (typeof key !== 'string' || keys.has(key)) return false;
+        keys.add(key);
+        expectingKey = false;
+      } catch {
+        return false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      stringStart = index;
+    } else if (character === '{') {
+      depth += 1;
+      if (depth === 1) expectingKey = true;
+    } else if (character === '}') {
+      depth -= 1;
+      if (depth < 0) return false;
+    } else if (character === ',' && depth === 1) {
+      expectingKey = true;
     }
   }
-  return true;
-}
-
-/** Produces the one deterministic JSON representation accepted for signed payload bytes. */
-export function serializeCanonicalLocalWhisperCatalogJson(value: unknown): string {
-  if (value === null || typeof value === 'boolean') return JSON.stringify(value);
-  if (typeof value === 'string') {
-    if (!hasValidUnicodeScalars(value)) throw new TypeError('Invalid catalog value');
-    return JSON.stringify(value);
-  }
-  if (typeof value === 'number') {
-    if (!Number.isSafeInteger(value) || Object.is(value, -0)) throw new TypeError('Invalid catalog value');
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((entry) => serializeCanonicalLocalWhisperCatalogJson(entry)).join(',')}]`;
-  }
-  if (isRecord(value)) {
-    const entries = Object.keys(value)
-      .sort((left, right) => left.localeCompare(right, 'en'))
-      .map(
-        (key) =>
-          `${serializeCanonicalLocalWhisperCatalogJson(key)}:${serializeCanonicalLocalWhisperCatalogJson(value[key])}`,
-      );
-    return `{${entries.join(',')}}`;
-  }
-  throw new TypeError('Invalid catalog value');
+  return depth === 0 && !inString;
 }
 
 /** Authenticates exact canonical payload bytes before parsing any catalog field. */
@@ -103,9 +118,14 @@ export class LocalWhisperCatalogVerifier {
 
   public verify(documentBytes: Uint8Array): LocalWhisperCatalogVerificationResult {
     if (!this.keyRingValid) return { success: false, code: 'CATALOG_INVALID' };
+    if (documentBytes.byteLength === 0 || documentBytes.byteLength > MAX_CATALOG_DOCUMENT_BYTES) {
+      return { success: false, code: 'CATALOG_INVALID' };
+    }
     let envelope: unknown;
     try {
-      envelope = JSON.parse(this.decoder.decode(documentBytes)) as unknown;
+      const documentText = this.decoder.decode(documentBytes);
+      if (!hasUniqueTopLevelKeys(documentText)) return { success: false, code: 'CATALOG_INVALID' };
+      envelope = JSON.parse(documentText) as unknown;
     } catch {
       return { success: false, code: 'CATALOG_INVALID' };
     }
@@ -120,7 +140,9 @@ export class LocalWhisperCatalogVerifier {
       envelope.algorithm !== LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM ||
       !keyId ||
       !payloadBytes ||
-      !signature
+      payloadBytes.byteLength > MAX_CATALOG_PAYLOAD_BYTES ||
+      !signature ||
+      signature.byteLength > MAX_CATALOG_SIGNATURE_BYTES
     ) {
       return { success: false, code: 'CATALOG_INVALID' };
     }

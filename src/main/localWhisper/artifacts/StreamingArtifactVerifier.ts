@@ -95,7 +95,7 @@ export class StreamingArtifactVerifier {
       ) {
         throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
       }
-      const signature = input.spec.runtimeSignature;
+      const signature = input.spec.artifactSignature;
       if (
         signature &&
         !(await this.dependencies.signatureVerifier.verify({

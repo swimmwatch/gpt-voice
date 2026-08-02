@@ -1,3 +1,4 @@
+export * from './canonicalCatalogJson';
 export * from './canonicalWav';
 export * from './catalog';
 export * from './domain';

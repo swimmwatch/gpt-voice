@@ -1,16 +1,14 @@
-import { readFileSync } from 'node:fs';
-import * as path from 'node:path';
-import { sign } from 'node:crypto';
+import { generateKeyPairSync, sign } from 'node:crypto';
 
 import {
   LOCAL_WHISPER_LANGUAGE_CATALOG,
   LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
   LOCAL_WHISPER_MODEL_FAMILIES,
+  serializeCanonicalLocalWhisperCatalogJson,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
   type LocalWhisperMemoryConfigurationIdentity,
 } from '@shared/localWhisper';
-import { serializeCanonicalLocalWhisperCatalogJson } from '@main/localWhisper/catalog/LocalWhisperCatalogVerifier';
 import {
   LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
   LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
@@ -23,12 +21,13 @@ export const FIXTURE_CATALOG_KEY_ID = toLocalWhisperArtifactId('fixture-catalog-
 export const FIXTURE_CATALOG_ORIGIN_ID = toLocalWhisperArtifactId('fixture-origin')!;
 export const FIXTURE_CATALOG_ORIGIN = 'https://local-whisper-fixtures.invalid';
 export const FIXTURE_APP_REVISION = toLocalWhisperRevisionId('fixture-app-v1')!;
-export const FIXTURE_CATALOG_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEA5VYa+iFYh+rFU+L/Xf9at9pT/NytWZXrtBPKh/I3zbA=
------END PUBLIC KEY-----
-`;
-
-const PRIVATE_KEY_PATH = path.join(__dirname, 'fixture-private-key.txt');
+const FIXTURE_KEY_PAIR = generateKeyPairSync('ed25519');
+export const FIXTURE_CATALOG_PUBLIC_KEY_PEM = FIXTURE_KEY_PAIR.publicKey
+  .export({
+    format: 'pem',
+    type: 'spki',
+  })
+  .toString();
 const CATALOG_REVISION = toLocalWhisperRevisionId('fixture-catalog-v1')!;
 const RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cpu-pack-v1')!;
 const MODEL_REVISION = toLocalWhisperRevisionId('base-ggml-v1')!;
@@ -50,7 +49,12 @@ const CONFIGURATION: LocalWhisperMemoryConfigurationIdentity = {
 export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {
   return structuredClone({
     schemaVersion: LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
+    purpose: 'fixture',
     catalogRevision: CATALOG_REVISION,
+    displayMetadata: {
+      title: 'Synthetic Local Whisper fixture',
+      summary: 'Non-production catalog used only for deterministic trust-boundary tests.',
+    },
     compatibleAppRevisions: [FIXTURE_APP_REVISION],
     workerProtocolVersion: 1,
     languageCatalogRevision: LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
@@ -112,6 +116,8 @@ export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {
         ],
         transferSizeBytes: 150,
         transferSha256: 'd'.repeat(64),
+        transferSignature: Buffer.from('fixture model signature').toString('base64'),
+        signingKeyId: toLocalWhisperArtifactId('fixture-artifact-key-v1')!,
         installedSizeBytes: 200,
         compatibleRuntimePackRevisions: [RUNTIME_REVISION],
         recommended: true,
@@ -146,6 +152,7 @@ export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {
 
 export function createFixtureCatalogTrustPolicy(): LocalWhisperCatalogTrustPolicy {
   return {
+    purpose: 'fixture',
     publicKeys: [{ keyId: FIXTURE_CATALOG_KEY_ID, publicKeyPem: FIXTURE_CATALOG_PUBLIC_KEY_PEM }],
     origins: [{ id: FIXTURE_CATALOG_ORIGIN_ID, origin: FIXTURE_CATALOG_ORIGIN }],
     appRevision: FIXTURE_APP_REVISION,
@@ -155,8 +162,7 @@ export function createFixtureCatalogTrustPolicy(): LocalWhisperCatalogTrustPolic
 
 export function signFixtureCatalog(payload: unknown, keyId = FIXTURE_CATALOG_KEY_ID): Uint8Array {
   const payloadBytes = Buffer.from(serializeCanonicalLocalWhisperCatalogJson(payload), 'utf8');
-  const privateKey = readFileSync(PRIVATE_KEY_PATH, 'utf8');
-  const signature = sign(null, payloadBytes, privateKey);
+  const signature = sign(null, payloadBytes, FIXTURE_KEY_PAIR.privateKey);
   return Buffer.from(
     JSON.stringify({
       schemaVersion: LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,

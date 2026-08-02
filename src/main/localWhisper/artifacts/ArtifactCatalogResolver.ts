@@ -107,7 +107,7 @@ export class ArtifactCatalogResolver {
       originId: identity.originId,
       origin: origin.origin,
       requestUrl: requestUrl(origin, descriptor.artifactId),
-      runtimeSignature: Object.freeze({
+      artifactSignature: Object.freeze({
         keyId: identity.signingKeyId,
         signatureBase64: identity.archiveSignature,
       }),
@@ -138,7 +138,10 @@ export class ArtifactCatalogResolver {
       originId: entry.originId,
       origin: origin.origin,
       requestUrl: requestUrl(origin, descriptor.artifactId),
-      runtimeSignature: null,
+      artifactSignature: Object.freeze({
+        keyId: entry.signingKeyId,
+        signatureBase64: entry.transferSignature,
+      }),
     });
   }
 

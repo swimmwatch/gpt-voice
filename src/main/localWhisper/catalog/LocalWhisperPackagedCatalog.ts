@@ -8,7 +8,7 @@ import type { LocalWhisperCatalogTrustPolicy } from './LocalWhisperCatalogTypes'
  * origin allowlist, and signed catalog are authorized.
  */
 export const PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT = Buffer.from(
-  '{"publicationState":"fixture-only-deferred-publication","schemaVersion":1}',
+  '{"mode":"disabled","publicationState":"disabled-deferred-publication","schemaVersion":1}',
   'utf8',
 );
 
@@ -22,6 +22,7 @@ export function createPackagedLocalWhisperCatalogTrustPolicy(
   const revision = toLocalWhisperRevisionId(appRevision);
   if (!revision || !Number.isSafeInteger(workerProtocolVersion) || workerProtocolVersion <= 0) return null;
   return Object.freeze({
+    purpose: 'production',
     publicKeys: PACKAGED_LOCAL_WHISPER_CATALOG_PUBLIC_KEYS,
     origins: PACKAGED_LOCAL_WHISPER_CATALOG_ORIGINS,
     appRevision: revision,

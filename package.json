@@ -36,12 +36,12 @@
     "monitor:translation-languages": "tsx scripts/translation-language-monitor.ts",
     "smoke:fedora": "node scripts/build-fedora-release.mjs --mode=smoke",
     "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
-    "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder --dir",
-    "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder",
-    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && electron-builder --linux",
+    "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=current && electron-builder --dir",
+    "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=current && electron-builder",
+    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=linux && electron-builder --linux",
     "dist:fedora": "node scripts/build-fedora-release.mjs --mode=release",
-    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && electron-builder --win",
-    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && electron-builder --mac",
+    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32 && electron-builder --win",
+    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=darwin && electron-builder --mac",
     "lint": "eslint src/ tests/ scripts/ eslint.config.mjs webpack.config.js",
     "lint:fix": "eslint src/ tests/ scripts/ eslint.config.mjs webpack.config.js --fix",
     "typecheck": "tsc --noEmit",
@@ -90,6 +90,14 @@
     "verify:local-whisper:coordinator": "node --import tsx scripts/local-whisper/verify-coordinator.ts",
     "verify:local-whisper:ipc": "node --import tsx scripts/local-whisper/verify-ipc.ts",
     "verify:local-whisper:ui": "npm run test:local-whisper:ui && npm run test:local-whisper:ui:contracts && npm run test:local-whisper:ui:accessibility",
+    "generate:local-whisper:packaging:fixture": "node --import tsx scripts/local-whisper/packaging/generate-fixture-bundle.ts",
+    "prepare:local-whisper:packaging": "node --import tsx scripts/local-whisper/packaging/prepare-package.ts",
+    "test:local-whisper:packaging": "node --import tsx --test tests/scripts/localWhisper/packaging/CatalogPackagingContract.test.ts tests/scripts/localWhisper/packaging/PackagePolicy.test.ts tests/scripts/localWhisper/packaging/PackagedResourceResolver.test.ts tests/scripts/localWhisper/packaging/ReleaseCollectionGuard.test.ts tests/scripts/localWhisper/packaging/WorkflowPolicy.test.ts",
+    "test:local-whisper:packaging:fixtures": "node --import tsx --test tests/scripts/localWhisper/packaging/FixtureBundlePipeline.test.ts",
+    "verify:local-whisper:packaging:policy": "node --import tsx scripts/local-whisper/packaging/verify-package-policy.ts && node --import tsx scripts/local-whisper/packaging/verify-workflow-policy.ts",
+    "verify:local-whisper:packaging:linux": "node --import tsx scripts/local-whisper/packaging/verify-linux-packaging.ts",
+    "verify:local-whisper:packaging:release-guard": "node --import tsx scripts/local-whisper/packaging/verify-release-guard.ts",
+    "verify:local-whisper:packaging": "npm run test:local-whisper:packaging && npm run test:local-whisper:packaging:fixtures && npm run verify:local-whisper:packaging:policy && npm run verify:local-whisper:packaging:linux && npm run verify:local-whisper:packaging:release-guard",
     "test:local-whisper:native-sources": "node --test \"tests/runtime/localWhisper/nativeSources/*.test.mjs\"",
     "test:local-whisper:native-build-audits": "node --test \"tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs\"",
     "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs",
@@ -224,6 +232,13 @@
       {
         "from": ".cache/cloakbrowser",
         "to": "cloakbrowser"
+      },
+      {
+        "from": "build/generated/local-whisper/shared",
+        "to": "local-whisper",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "electronFuses": {
@@ -243,6 +258,15 @@
       "uk"
     ],
     "linux": {
+      "extraResources": [
+        {
+          "from": "build/generated/local-whisper/native",
+          "to": "local-whisper/native",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ],
       "target": [
         "AppImage",
         "deb",
@@ -296,6 +320,15 @@
       "license": "build/generated/common/license.txt"
     },
     "win": {
+      "extraResources": [
+        {
+          "from": "build/generated/local-whisper/native",
+          "to": "local-whisper/native",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ],
       "target": [
         "nsis"
       ],

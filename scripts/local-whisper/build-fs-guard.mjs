@@ -17,7 +17,7 @@ mkdirSync(outputDirectory, { mode: 0o700, recursive: true });
 
 const cmake = process.env.CMAKE_COMMAND || 'cmake';
 const preset = process.platform === 'win32' ? 'windows-release' : 'linux-release';
-const configureArguments = ['--preset', preset, `-DFS_GUARD_OUTPUT_DIRECTORY=${outputDirectory}`];
+const configureArguments = ['--fresh', '--preset', preset, `-DFS_GUARD_OUTPUT_DIRECTORY=${outputDirectory}`];
 if (process.platform === 'linux') {
   configureArguments.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || 'clang++'}`);
   if (process.env.NINJA_COMMAND) {

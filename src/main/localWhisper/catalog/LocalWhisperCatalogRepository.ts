@@ -20,6 +20,7 @@ import {
 import { LocalWhisperCatalogVerifier } from './LocalWhisperCatalogVerifier';
 import {
   LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
+  LOCAL_WHISPER_CATALOG_PURPOSES,
   getLocalWhisperModelIdentityKey,
   getLocalWhisperRuntimeIdentityKey,
   type LocalWhisperAuthenticatedCatalog,
@@ -36,7 +37,9 @@ import {
 
 const PAYLOAD_KEYS = [
   'schemaVersion',
+  'purpose',
   'catalogRevision',
+  'displayMetadata',
   'compatibleAppRevisions',
   'workerProtocolVersion',
   'languageCatalogRevision',
@@ -50,6 +53,7 @@ const PAYLOAD_KEYS = [
   'denylist',
 ] as const;
 const ORIGIN_KEYS = ['id', 'origin'] as const;
+const DISPLAY_METADATA_KEYS = ['title', 'summary'] as const;
 const RUNTIME_ENTRY_KEYS = ['identity', 'recommended', 'qualificationStatus', 'licenseIds'] as const;
 const MODEL_ENTRY_KEYS = [
   'identity',
@@ -57,6 +61,8 @@ const MODEL_ENTRY_KEYS = [
   'expectedFiles',
   'transferSizeBytes',
   'transferSha256',
+  'transferSignature',
+  'signingKeyId',
   'installedSizeBytes',
   'compatibleRuntimePackRevisions',
   'recommended',
@@ -170,6 +176,21 @@ function isCatalogOrigin(value: unknown): value is LocalWhisperCatalogOrigin {
   );
 }
 
+function isDisplayMetadata(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, DISPLAY_METADATA_KEYS) &&
+    typeof value.title === 'string' &&
+    value.title.length > 0 &&
+    value.title.length <= 80 &&
+    !hasLocalWhisperControlCharacter(value.title) &&
+    typeof value.summary === 'string' &&
+    value.summary.length > 0 &&
+    value.summary.length <= 512 &&
+    !hasLocalWhisperControlCharacter(value.summary)
+  );
+}
+
 function isModelFile(value: unknown): value is LocalWhisperCatalogModelFileIdentity {
   return (
     isRecord(value) &&
@@ -228,6 +249,9 @@ function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
     !isPositiveSafeInteger(value.transferSizeBytes) ||
     typeof value.transferSha256 !== 'string' ||
     !SHA256_PATTERN.test(value.transferSha256) ||
+    !isCanonicalBase64(value.transferSignature) ||
+    toLocalWhisperArtifactId(value.signingKeyId) === null ||
+    !isLogicalIdentifier(value.signingKeyId) ||
     !isPositiveSafeInteger(value.installedSizeBytes) ||
     !isRevisionIdList(value.compatibleRuntimePackRevisions) ||
     typeof value.recommended !== 'boolean' ||
@@ -311,8 +335,10 @@ function isPayloadShape(value: unknown): value is LocalWhisperCatalogPayload {
     isRecord(value) &&
     hasExactKeys(value, PAYLOAD_KEYS) &&
     value.schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
+    isMember(LOCAL_WHISPER_CATALOG_PURPOSES, value.purpose) &&
     toLocalWhisperRevisionId(value.catalogRevision) !== null &&
     isLogicalIdentifier(value.catalogRevision) &&
+    isDisplayMetadata(value.displayMetadata) &&
     isRevisionIdList(value.compatibleAppRevisions) &&
     isPositiveSafeInteger(value.workerProtocolVersion) &&
     value.languageCatalogRevision === LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION &&
@@ -411,6 +437,7 @@ function materializeCatalog(
 ): LocalWhisperAuthenticatedCatalog | null {
   if (
     !isLogicalIdentifier(signingKeyId) ||
+    payload.purpose !== trustPolicy.purpose ||
     !payload.compatibleAppRevisions.includes(trustPolicy.appRevision) ||
     payload.workerProtocolVersion !== trustPolicy.workerProtocolVersion ||
     !validateOriginAllowlist(payload.origins, trustPolicy.origins)
