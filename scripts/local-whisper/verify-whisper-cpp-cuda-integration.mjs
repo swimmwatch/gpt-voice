@@ -10,6 +10,7 @@ import { CUDA_PROFILE, verifyLinuxCudaPack } from './verify-whisper-cpp-device.m
 import {
   approvedMediumModel,
   canonicalSilence,
+  captureWorkerRegistry,
   deviceAuthorityBytes,
   mediumModelIdentity,
   modelBindingBytes,
@@ -411,18 +412,28 @@ async function integration() {
   assert.equal(sha256File(approvedMediumModel.path), approvedMediumModel.sha256);
   const manifest = readJson(resolve(pack.root, 'runtime-manifest.json'));
   const initialMemory = gpuSnapshot();
-  const probe = await probeIntegration(pack.binary, manifest.runtimeBuildDigest, initialMemory);
+  const registry = captureWorkerRegistry(pack.binary, {
+    backendId: CUDA_BACKEND_ID,
+    runtimeBuildDigest: manifest.runtimeBuildDigest,
+  });
+  assert.equal(registry.entries.length, 1, 'Qualified CUDA profile requires one runtime-native device');
+  const runtimeDevice = registry.entries[0];
+  assert.equal(runtimeDevice.type, 'gpu');
+  assert.equal(runtimeDevice.ordinal, 0);
+  assert.equal(runtimeDevice.nativeIdentity, initialMemory.nativeIdentity);
+  const device = { ...initialMemory, nativeIdentity: runtimeDevice.nativeIdentity };
+  const probe = await probeIntegration(pack.binary, manifest.runtimeBuildDigest, device);
   const repetitions = [];
   for (let repetition = 1; repetition <= LIFECYCLE_REPETITIONS; repetition += 1) {
     repetitions.push(
-      await loadCycle(pack.binary, manifest.runtimeBuildDigest, initialMemory, probe.registryFingerprint, repetition),
+      await loadCycle(pack.binary, manifest.runtimeBuildDigest, device, probe.registryFingerprint, repetition),
     );
   }
   const weightBytes = new Set(repetitions.map((entry) => entry.selectedDeviceModelWeightBytes));
   assert.equal(weightBytes.size, 1, 'Selected-device model weight evidence changed across loads');
   assert.equal(repetitions.filter((entry) => entry.transcriptionObserved).length, 2);
   assert.equal(repetitions.filter((entry) => entry.cancellationObserved).length, 1);
-  return writeEvidence(pack, profile, initialMemory, initialMemory, probe, repetitions);
+  return writeEvidence(pack, profile, device, initialMemory, probe, repetitions);
 }
 
 try {

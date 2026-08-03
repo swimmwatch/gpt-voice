@@ -30,7 +30,11 @@ try {
   });
   buildTargets(clang, targets);
   runTests(clang, suite);
-  const engine = configureBuild('linux-x64-cpu-baseline-v1', { engine: true, tests: false });
+  const engine = configureBuild('linux-x64-cpu-baseline-v1', {
+    directEngine: true,
+    engine: true,
+    tests: false,
+  });
   runFormattingAndTidy(clang, engine);
   process.stdout.write(`Local Whisper Whisper.cpp ${suite} suite verified\n`);
 } catch (error) {

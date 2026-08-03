@@ -6,7 +6,10 @@
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 #include "local_whisper/whisper_cpp/worker_protocol.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <cstdio>
+#include <iostream>
 #include <optional>
 #include <string_view>
 
@@ -23,8 +26,28 @@ int main(int argc, char** argv) {
       std::fputs("LOCAL_WHISPER_CPP_CPU_SELF_TEST_OK\n", stdout);
       return 0;
     }
-    if (mode != "--probe" && mode != "--load")
+    if (mode != "--probe" && mode != "--load" && mode != "--registry")
       return 2;
+    local_whisper::whisper_cpp::WhisperCppEngine engine;
+    if (mode == "--registry") {
+      const auto registry = engine.capture_device_registry();
+      nlohmann::json entries = nlohmann::json::array();
+      for (const auto& entry : registry.entries) {
+        entries.push_back(
+            {{"ordinal", entry.ordinal},
+             {"type",
+              entry.type == local_whisper::common::RegistryDeviceType::gpu ? "gpu" : "igpu"},
+             {"backendId", entry.backend_id},
+             {"nativeIdentity", entry.native_identity}});
+      }
+      const nlohmann::json document = {{"schemaVersion", 1},
+                                       {"engineId", registry.engine_id},
+                                       {"runtimeBuildDigest", registry.runtime_build_digest},
+                                       {"backendId", registry.backend_id},
+                                       {"entries", std::move(entries)}};
+      std::cout << document.dump() << '\n';
+      return std::cout ? 0 : 21;
+    }
     std::optional<local_whisper::whisper_cpp::DeviceAuthority> device_authority;
     if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) != "cpu")
       device_authority.emplace(
@@ -34,7 +57,6 @@ int main(int argc, char** argv) {
       authority.emplace(
           local_whisper::whisper_cpp::ModelAuthority::receive_from_standard_channels());
     local_whisper::whisper_cpp::NativeWorkerChannel channel;
-    local_whisper::whisper_cpp::WhisperCppEngine engine;
     local_whisper::whisper_cpp::SteadyWorkerClock clock;
     local_whisper::whisper_cpp::CancellationController cancellation;
     local_whisper::whisper_cpp::WorkerApplication application(

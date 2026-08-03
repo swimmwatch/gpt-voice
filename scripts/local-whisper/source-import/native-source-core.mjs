@@ -48,6 +48,41 @@ export function canonicalJson(value) {
   return JSON.stringify(canonicalValue(value));
 }
 
+function hasValidUnicodeScalars(value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Mirrors the strict canonical JSON representation accepted by signed Local Whisper documents. */
+export function canonicalCatalogJson(value) {
+  if (value === null || typeof value === 'boolean') return JSON.stringify(value);
+  if (typeof value === 'string') {
+    if (!hasValidUnicodeScalars(value)) throw new TypeError('Invalid catalog value');
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || Object.is(value, -0)) throw new TypeError('Invalid catalog value');
+    return String(value);
+  }
+  if (Array.isArray(value)) return `[${value.map((entry) => canonicalCatalogJson(entry)).join(',')}]`;
+  if (typeof value === 'object') {
+    const entries = Object.keys(value)
+      .sort((left, right) => left.localeCompare(right, 'en'))
+      .map((key) => `${canonicalCatalogJson(key)}:${canonicalCatalogJson(value[key])}`);
+    return `{${entries.join(',')}}`;
+  }
+  throw new TypeError('Invalid catalog value');
+}
+
 export function canonicalDigest(value) {
   return sha256(Buffer.from(canonicalJson(value), 'utf8'));
 }

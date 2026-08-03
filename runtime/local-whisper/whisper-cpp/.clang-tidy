@@ -9,5 +9,5 @@ Checks: >
   modernize-use-nullptr,
   modernize-use-override
 WarningsAsErrors: '*'
-HeaderFilterRegex: 'runtime/local-whisper/whisper-cpp/(include|core|adapter)/.*'
+HeaderFilterRegex: 'runtime/local-whisper/whisper-cpp/(include|core|adapter|qualification)/.*'
 FormatStyle: file

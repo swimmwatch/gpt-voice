@@ -4,6 +4,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 
 const allowedActions = new Set(['all', 'authority', 'codec', 'format', 'lint', 'proof']);
 const action = process.argv[2] ?? 'all';
@@ -122,7 +123,7 @@ function buildAndTest(profile) {
     `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
   ]);
   assertDisconnectedGraph(buildDirectory);
-  run(cmake, ['--build', buildDirectory, '--parallel', '2']);
+  run(cmake, ['--build', buildDirectory, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
   const arguments_ = ['--test-dir', buildDirectory, '--output-on-failure'];
   const regex = testRegex();
   if (regex) arguments_.push('-R', regex);

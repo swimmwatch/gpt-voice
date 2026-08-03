@@ -88,7 +88,7 @@ function verifyRealLinuxCuda(): void {
 try {
   const profile = parseProfile(process.argv.slice(2));
   if (WINDOWS_PROFILES.some((candidate) => candidate === profile)) {
-    throw new Error(`${profile} is defined but representative Windows execution is deferred exclusively to Task 19`);
+    throw new Error(`${profile} is defined but representative Windows execution is deferred exclusively to Task 20`);
   }
   if (profile === DETERMINISTIC_LINUX_PROFILE) verifyDeterministicLinux();
   else if (profile === REAL_LINUX_CPU_PROFILE) verifyRealLinuxCpu();

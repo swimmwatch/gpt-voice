@@ -9,6 +9,7 @@ import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs'
 import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
 import {
   approvedMediumModel,
+  captureWorkerRegistry,
   canonicalSilence,
   mediumModelIdentity,
   modelBindingBytes,
@@ -200,7 +201,7 @@ function verifyLinux(profileId) {
   assert.equal(profile.cmakeCache.GGML_STATIC, 'ON');
   const engine = readFileSync(resolve(whisperCppRoot, 'adapter', 'whisper_engine.cpp'), 'utf8');
   assert.doesNotMatch(engine, /ggml_backend_load_all/u);
-  assert.match(engine, /parameters\.use_gpu = kCudaWorker/u);
+  assert.match(engine, /parameters\.use_gpu = kGpuWorker/u);
   assert.match(engine, /parameters\.vad_model_path = nullptr/u);
   const main = readFileSync(resolve(whisperCppRoot, 'core', 'main.cpp'), 'utf8');
   const application = readFileSync(resolve(whisperCppRoot, 'core', 'worker_application.cpp'), 'utf8');
@@ -225,6 +226,12 @@ function verifyLinux(profileId) {
   assert.match(linuxJob, /build:local-whisper:whisper-cpp-cpu/u);
   assert.match(linuxJob, /audit:local-whisper:whisper-cpp-pack/u);
   assert.doesNotMatch(linuxJob, /windows-x64-cpu-candidate-task19-v1/u);
+  const manifest = JSON.parse(readFileSync(resolve(pack.root, 'runtime-manifest.json'), 'utf8'));
+  const registry = captureWorkerRegistry(pack.binary, {
+    backendId: 'cpu',
+    runtimeBuildDigest: manifest.runtimeBuildDigest,
+  });
+  assert.deepEqual(registry.entries, []);
   runSelfTest(pack.binary);
 }
 

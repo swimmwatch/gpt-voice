@@ -17,6 +17,7 @@ import {
 import {
   approveSourceCandidate,
   buildIndexManifest,
+  canonicalCatalogJson,
   canonicalDigest,
   canonicalJson,
   readJson,
@@ -200,6 +201,21 @@ test('two clean synthetic Git indexes have the same canonical content identity',
   const secondManifest = buildIndexManifest(second);
   assert.equal(firstManifest.manifestSha256, secondManifest.manifestSha256);
   assert.equal(canonicalJson(firstManifest.entries), canonicalJson(secondManifest.entries));
+});
+
+test('plain-Node catalog JSON matches the strict Local Whisper canonical bytes', () => {
+  assert.equal(
+    canonicalCatalogJson({
+      schemaVersion: 1,
+      patchLockId: 'lock',
+      patchedManifestDigest: 'digest',
+      array: [{ z: 1 }],
+    }),
+    '{"array":[{"z":1}],"patchedManifestDigest":"digest","patchLockId":"lock","schemaVersion":1}',
+  );
+  for (const invalid of [1.5, -0, Number.NaN, '\ud800', { missing: undefined }]) {
+    assert.throws(() => canonicalCatalogJson(invalid), /Invalid catalog value/u);
+  }
 });
 
 test('source candidate approval binds the exact reviewed digest', () => {

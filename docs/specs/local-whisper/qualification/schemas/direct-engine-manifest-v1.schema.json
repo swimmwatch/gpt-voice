@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/direct-engine-manifest-v1.schema.json",
+  "title": "Local Whisper qualification direct-engine manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "manifestDigest",
+    "backend",
+    "profileId",
+    "source",
+    "projectSourceDigest",
+    "toolchainDigest",
+    "runtimeBuildDigest",
+    "binary",
+    "libraries",
+    "reproducibility",
+    "descriptorProtocol",
+    "commandMapping"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "specificationRevision": { "const": 10 },
+    "manifestDigest": { "$ref": "#/$defs/sha256" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "profileId": {
+      "enum": ["linux-x64-cpu-baseline-v1", "linux-x64-cuda-12.8.1-sm120a-v1"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "sourceManifestDigest", "patchLockId", "patchedManifestDigest"],
+      "properties": {
+        "repository": { "const": "https://github.com/ggml-org/whisper.cpp.git" },
+        "commit": { "const": "f049fff95a089aa9969deb009cdd4892b3e74916" },
+        "sourceManifestDigest": { "$ref": "#/$defs/sha256" },
+        "patchLockId": { "const": "local-whisper-whisper-cpp-device-cancel-v1" },
+        "patchedManifestDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "projectSourceDigest": { "$ref": "#/$defs/sha256" },
+    "toolchainDigest": { "$ref": "#/$defs/sha256" },
+    "runtimeBuildDigest": { "$ref": "#/$defs/sha256" },
+    "binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "sizeBytes", "sha256"],
+      "properties": {
+        "fileName": { "const": "local-whisper-whisper-cpp-direct-engine" },
+        "sizeBytes": { "$ref": "#/$defs/positiveBytes" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "libraries": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "fileName", "sizeBytes", "sha256"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "fileName": { "$ref": "#/$defs/fileName" },
+          "sizeBytes": { "$ref": "#/$defs/positiveBytes" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cleanRootCount", "networkIsolation", "binaryDigestA", "binaryDigestB", "reproducible"],
+      "properties": {
+        "cleanRootCount": { "const": 2 },
+        "networkIsolation": { "const": "user-network-namespace" },
+        "binaryDigestA": { "$ref": "#/$defs/sha256" },
+        "binaryDigestB": { "$ref": "#/$defs/sha256" },
+        "reproducible": { "const": true }
+      }
+    },
+    "descriptorProtocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "model", "wav", "textOutput", "failure"],
+      "properties": {
+        "control": { "const": "stdin-bounded-json-v1" },
+        "model": { "const": "inherited-read-only-regular-fd-3" },
+        "wav": { "const": "inherited-read-only-regular-fd-4" },
+        "textOutput": { "const": "stdout-utf8-exact" },
+        "failure": { "const": "stderr-bounded-json-v1" }
+      }
+    },
+    "commandMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temperatureHundredths",
+        "strategy",
+        "candidateCount",
+        "promptMode",
+        "warmup",
+        "deviceSelection",
+        "enginePath"
+      ],
+      "properties": {
+        "temperatureHundredths": { "const": 0 },
+        "strategy": { "const": "greedy" },
+        "candidateCount": { "const": 1 },
+        "promptMode": { "const": "none" },
+        "warmup": { "const": "one-second-zero-pcm" },
+        "deviceSelection": { "const": "captured-registry-exact-ordinal" },
+        "enginePath": { "const": "WhisperCppEngine-direct-no-worker-ipc" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "backend": { "const": "cpu" } } },
+      "then": {
+        "properties": {
+          "profileId": { "const": "linux-x64-cpu-baseline-v1" },
+          "libraries": { "type": "array", "maxItems": 0 }
+        }
+      },
+      "else": {
+        "properties": {
+          "profileId": { "const": "linux-x64-cuda-12.8.1-sm120a-v1" },
+          "libraries": { "type": "array", "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "fileName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "positiveBytes": { "type": "integer", "minimum": 1 }
+  }
+}

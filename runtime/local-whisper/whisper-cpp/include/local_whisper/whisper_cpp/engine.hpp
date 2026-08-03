@@ -1,5 +1,6 @@
 #pragma once
 
+#include "local_whisper/common/device_proof.hpp"
 #include "local_whisper/whisper_cpp/cancellation.hpp"
 #include "local_whisper/whisper_cpp/device_authority.hpp"
 #include "local_whisper/whisper_cpp/exact_model_reader.hpp"
@@ -76,6 +77,7 @@ public:
   WhisperCppEngine(const WhisperCppEngine&) = delete;
   WhisperCppEngine& operator=(const WhisperCppEngine&) = delete;
 
+  [[nodiscard]] local_whisper::common::DeviceRegistry capture_device_registry();
   [[nodiscard]] EngineBackend backend() const noexcept override;
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority& authority,
                                                  const CancellationToken& cancellation) override;

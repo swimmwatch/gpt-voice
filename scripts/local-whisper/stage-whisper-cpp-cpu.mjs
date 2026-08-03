@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
-import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
+import { canonicalCatalogJson, canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -21,7 +21,7 @@ function assertOwnedPath(path) {
 }
 
 function writeJson(path, value) {
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o400 });
+  writeFileSync(path, canonicalCatalogJson(value), { mode: 0o400 });
 }
 
 function fileEvidence(root, relativePath, id) {

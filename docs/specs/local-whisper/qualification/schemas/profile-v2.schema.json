@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/profile-v2.schema.json",
+  "title": "Local Whisper immutable qualification profile v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "profileDigest",
+    "candidateInputDigest",
+    "platformInputDigest",
+    "profileId",
+    "platform",
+    "architecture",
+    "backend",
+    "osIdentity",
+    "hardwareClass",
+    "runtimeRevision",
+    "modelIdentities",
+    "corpusManifestDigest",
+    "directEngineManifestDigest",
+    "toolIdentities",
+    "algorithms",
+    "limits"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "specificationRevision": { "const": 10 },
+    "profileDigest": { "$ref": "#/$defs/sha256" },
+    "candidateInputDigest": { "$ref": "#/$defs/sha256" },
+    "platformInputDigest": { "$ref": "#/$defs/sha256" },
+    "profileId": { "$ref": "#/$defs/identifier" },
+    "platform": { "enum": ["linux", "win32"] },
+    "architecture": { "const": "x64" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "osIdentity": { "$ref": "#/$defs/identifier" },
+    "hardwareClass": { "$ref": "#/$defs/identifier" },
+    "runtimeRevision": { "$ref": "#/$defs/identifier" },
+    "modelIdentities": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "variant", "sha256"],
+        "properties": {
+          "family": { "enum": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"] },
+          "variant": { "enum": ["full", "q5_0"] },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "corpusManifestDigest": { "$ref": "#/$defs/sha256" },
+    "directEngineManifestDigest": { "$ref": "#/$defs/sha256" },
+    "toolIdentities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "sha256"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "version": { "$ref": "#/$defs/identifier" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "algorithms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wer", "rtf", "resourceSampling", "peakRounding", "settlement"],
+      "properties": {
+        "wer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unicodeNormalization",
+            "apostropheMapping",
+            "caseMapping",
+            "tokenizer",
+            "distance",
+            "aggregation"
+          ],
+          "properties": {
+            "unicodeNormalization": { "const": "NFKC" },
+            "apostropheMapping": { "const": "U+2019-to-U+0027" },
+            "caseMapping": { "const": "locale-specific-lowercase-pinned-node-icu" },
+            "tokenizer": { "const": "unicode-letters-with-optional-internal-apostrophe-or-decimal-numbers-v1" },
+            "distance": { "const": "unit-cost-levenshtein" },
+            "aggregation": { "const": "total-edit-distance-over-total-reference-tokens" }
+          }
+        },
+        "rtf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clock", "audioNanoseconds", "fixtureCount", "warmupRuns", "aggregation"],
+          "properties": {
+            "clock": { "const": "process.hrtime.bigint" },
+            "audioNanoseconds": { "const": 60000000000 },
+            "fixtureCount": { "const": 5 },
+            "warmupRuns": { "const": 1 },
+            "aggregation": { "const": "median" }
+          }
+        },
+        "resourceSampling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["intervalMilliseconds", "maximumGapMilliseconds", "ramUnit", "vramUnit", "ownership"],
+          "properties": {
+            "intervalMilliseconds": { "const": 100 },
+            "maximumGapMilliseconds": { "const": 500 },
+            "ramUnit": { "const": "bytes" },
+            "vramUnit": { "const": "bytes" },
+            "ownership": { "const": "exact-start-identity-owned-process-tree" }
+          }
+        },
+        "peakRounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direction", "quantumBytes"],
+          "properties": {
+            "direction": { "const": "up" },
+            "quantumBytes": { "const": 67108864 }
+          }
+        },
+        "settlement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timeoutMilliseconds", "zeroSampleCount", "sampleIntervalMilliseconds"],
+          "properties": {
+            "timeoutMilliseconds": { "const": 10000 },
+            "zeroSampleCount": { "const": 10 },
+            "sampleIntervalMilliseconds": { "const": 100 }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximumBaseRtf",
+        "maximumWerDeltaPercentagePoints",
+        "ramTolerance",
+        "vramTolerance",
+        "loadUnloadCycles",
+        "sequentialTranscriptions",
+        "maximumIncreasingSettledPeakDeltaBytes"
+      ],
+      "properties": {
+        "maximumBaseRtf": { "const": 1 },
+        "maximumWerDeltaPercentagePoints": { "const": 1 },
+        "ramTolerance": { "$ref": "#/$defs/ramTolerance" },
+        "vramTolerance": { "$ref": "#/$defs/vramTolerance" },
+        "loadUnloadCycles": { "const": 10 },
+        "sequentialTranscriptions": { "const": 20 },
+        "maximumIncreasingSettledPeakDeltaBytes": { "const": 67108864 }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ramTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["percentage", "minimumBytes", "rule"],
+      "properties": { "percentage": { "const": 5 }, "minimumBytes": { "const": 134217728 }, "rule": { "const": "max" } }
+    },
+    "vramTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["percentage", "minimumBytes", "rule"],
+      "properties": { "percentage": { "const": 5 }, "minimumBytes": { "const": 67108864 }, "rule": { "const": "max" } }
+    }
+  }
+}

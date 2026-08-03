@@ -13,6 +13,7 @@ endif()
 
 option(LOCAL_WHISPER_ENABLE_SANITIZERS "Enable ASan and UBSan" OFF)
 option(LOCAL_WHISPER_BUILD_ENGINE "Build the production Whisper.cpp worker" OFF)
+option(LOCAL_WHISPER_BUILD_DIRECT_ENGINE "Build the qualification-only direct engine" OFF)
 option(LOCAL_WHISPER_BUILD_TESTS "Build project-owned GoogleTest suites" ON)
 set(LOCAL_WHISPER_SOURCE_ROOT "" CACHE PATH "Strictly patched Whisper.cpp source root")
 set(LOCAL_WHISPER_GENERATED_INCLUDE_DIR "" CACHE PATH "Generated reviewed loader limits")
@@ -21,6 +22,8 @@ set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH "Verified GoogleTest source")
 set(LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT "" CACHE PATH "Checked-in worker protocol fixtures")
 set(LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Production worker output directory")
+set(LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/qualification-bin" CACHE PATH
+    "Qualification-only direct engine output directory")
 set(LOCAL_WHISPER_RUNTIME_BUILD_DIGEST "" CACHE STRING "Authenticated worker build digest")
 set(LOCAL_WHISPER_BACKEND_ID "cpu" CACHE STRING "Locked worker backend")
 set_property(CACHE LOCAL_WHISPER_BACKEND_ID PROPERTY STRINGS cpu cuda hip vulkan)
@@ -131,9 +134,15 @@ target_compile_definitions(local_whisper_whisper_cpp_core PUBLIC
 target_link_libraries(local_whisper_whisper_cpp_core PUBLIC local_whisper_worker_common)
 local_whisper_apply_quality(local_whisper_whisper_cpp_core)
 
-if(LOCAL_WHISPER_BUILD_ENGINE)
+if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
   if(NOT EXISTS "${LOCAL_WHISPER_SOURCE_ROOT}/include/whisper.h")
     message(FATAL_ERROR "LOCAL_WHISPER_SOURCE_ROOT must be the strictly patched source tree")
+  endif()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+    # NVCC otherwise embeds a process-derived tmpxft source name in every CUDA
+    # object. Keeping intermediates beside each object gives them a stable name
+    # without retaining the intermediates or changing generated device code.
+    add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:--objdir-as-tempdir>")
   endif()
   add_subdirectory("${LOCAL_WHISPER_SOURCE_ROOT}" "${CMAKE_BINARY_DIR}/whisper-cpp" EXCLUDE_FROM_ALL)
 
@@ -147,17 +156,47 @@ if(LOCAL_WHISPER_BUILD_ENGINE)
     PRIVATE whisper ggml)
   local_whisper_apply_quality(local_whisper_whisper_cpp_adapter)
 
-  add_executable(local-whisper-whisper-cpp-worker core/main.cpp)
-  target_link_libraries(local-whisper-whisper-cpp-worker
-    PRIVATE local_whisper_whisper_cpp_adapter)
-  local_whisper_apply_quality(local-whisper-whisper-cpp-worker)
-  set_target_properties(local-whisper-whisper-cpp-worker PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}")
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu")
-    target_link_options(local-whisper-whisper-cpp-worker PRIVATE
-      "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
+  if(LOCAL_WHISPER_BUILD_ENGINE)
+    add_executable(local-whisper-whisper-cpp-worker core/main.cpp)
+    target_link_libraries(local-whisper-whisper-cpp-worker
+      PRIVATE local_whisper_whisper_cpp_adapter)
+    local_whisper_apply_quality(local-whisper-whisper-cpp-worker)
+    set_target_properties(local-whisper-whisper-cpp-worker PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu")
+      target_link_options(local-whisper-whisper-cpp-worker PRIVATE
+        "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
+    endif()
+  endif()
+
+  if(LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      message(FATAL_ERROR "Task 19 direct-engine execution is Linux-only")
+    endif()
+    add_library(local_whisper_qualification_protocol STATIC
+      qualification/qualification_protocol.cpp)
+    target_include_directories(local_whisper_qualification_protocol
+      PUBLIC include
+      PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+    target_link_libraries(local_whisper_qualification_protocol
+      PUBLIC local_whisper_whisper_cpp_core)
+    local_whisper_apply_quality(local_whisper_qualification_protocol)
+
+    add_executable(local-whisper-whisper-cpp-direct-engine
+      qualification/direct_engine_main.cpp)
+    target_link_libraries(local-whisper-whisper-cpp-direct-engine
+      PRIVATE local_whisper_whisper_cpp_adapter local_whisper_qualification_protocol)
+    local_whisper_apply_quality(local-whisper-whisper-cpp-direct-engine)
+    set_target_properties(local-whisper-whisper-cpp-direct-engine PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY}")
+    if(NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu")
+      target_link_options(local-whisper-whisper-cpp-direct-engine PRIVATE
+        "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
+    endif()
   endif()
 endif()
 
@@ -206,6 +245,14 @@ if(LOCAL_WHISPER_BUILD_TESTS)
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
   local_whisper_apply_quality(local_whisper_whisper_cpp_cancellation_tests)
 
+  if(LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
+    add_executable(local_whisper_whisper_cpp_qualification_tests
+      tests/qualification_protocol_test.cpp)
+    target_link_libraries(local_whisper_whisper_cpp_qualification_tests
+      PRIVATE local_whisper_qualification_protocol GTest::gtest_main)
+    local_whisper_apply_quality(local_whisper_whisper_cpp_qualification_tests)
+  endif()
+
   include(CTest)
   include(GoogleTest)
   gtest_discover_tests(local_whisper_whisper_cpp_core_tests
@@ -216,4 +263,8 @@ if(LOCAL_WHISPER_BUILD_TESTS)
     PROPERTIES LABELS device-proof DISCOVERY_TIMEOUT 30)
   gtest_discover_tests(local_whisper_whisper_cpp_cancellation_tests
     PROPERTIES LABELS cancellation DISCOVERY_TIMEOUT 30)
+  if(LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
+    gtest_discover_tests(local_whisper_whisper_cpp_qualification_tests
+      PROPERTIES LABELS direct-engine DISCOVERY_TIMEOUT 30)
+  endif()
 endif()

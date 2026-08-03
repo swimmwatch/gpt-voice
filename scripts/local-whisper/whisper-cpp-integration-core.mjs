@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, openSync, readSync } from 'node:fs';
 
@@ -10,6 +10,57 @@ export const approvedMediumModel = Object.freeze({
   license: 'MIT',
   origin: 'ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1',
 });
+
+const WORKER_REGISTRY_MAX_BYTES = 64 * 1024;
+
+/** Captures and validates one bounded runtime-native registry document. */
+export function captureWorkerRegistry(binary, expected) {
+  const result = spawnSync(binary, ['--registry'], {
+    cwd: '/',
+    encoding: 'utf8',
+    env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+    maxBuffer: WORKER_REGISTRY_MAX_BYTES + 1,
+    shell: false,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  // ggml emits backend discovery diagnostics on stderr for GPU runtimes. The
+  // production registry path discards that private channel and accepts only
+  // the exact bounded stdout document; keep CPU registry execution quiet.
+  if (expected.backendId === 'cpu') assert.equal(result.stderr, '');
+  assert.ok(Buffer.byteLength(result.stdout, 'utf8') <= WORKER_REGISTRY_MAX_BYTES);
+  assert.match(result.stdout, /^[^\r\n]+\n$/u);
+  const registry = JSON.parse(result.stdout);
+  assert.deepEqual(Object.keys(registry).sort(), [
+    'backendId',
+    'engineId',
+    'entries',
+    'runtimeBuildDigest',
+    'schemaVersion',
+  ]);
+  assert.equal(registry.schemaVersion, 1);
+  assert.equal(registry.engineId, 'whisperCpp');
+  assert.equal(registry.backendId, expected.backendId);
+  assert.equal(registry.runtimeBuildDigest, expected.runtimeBuildDigest);
+  assert.match(registry.runtimeBuildDigest, /^[a-f0-9]{64}$/u);
+  assert.ok(Array.isArray(registry.entries) && registry.entries.length <= 64);
+  for (const [index, entry] of registry.entries.entries()) {
+    assert.deepEqual(Object.keys(entry).sort(), ['backendId', 'nativeIdentity', 'ordinal', 'type']);
+    assert.equal(entry.ordinal, index);
+    assert.ok(entry.type === 'gpu' || entry.type === 'igpu');
+    assert.equal(entry.backendId, expected.backendId);
+    assert.equal(typeof entry.nativeIdentity, 'string');
+    assert.ok(entry.nativeIdentity.length > 0 && entry.nativeIdentity.length <= 1_024);
+    assert.equal(
+      [...entry.nativeIdentity].some((character) => {
+        const codePoint = character.codePointAt(0);
+        return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+      }),
+      false,
+    );
+  }
+  return registry;
+}
 
 export function sha256File(path) {
   const descriptor = openSync(path, 'r');

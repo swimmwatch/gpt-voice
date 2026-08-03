@@ -10,10 +10,11 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
 import {
   resolveProfileTool,
@@ -302,7 +303,40 @@ function profileTools(profile) {
   };
 }
 
-export function configureBuild(profileId, { engine, tests }) {
+function networkDeniedEnvironment(profile, tools) {
+  const values = {
+    LANG: 'C',
+    LC_ALL: 'C',
+    PATH: [
+      ...new Set([
+        dirname(tools.cmake),
+        dirname(tools.cCompiler),
+        dirname(tools.cxxCompiler),
+        dirname(tools.ninja),
+        '/usr/bin',
+        '/bin',
+      ]),
+    ].join(':'),
+  };
+  return Object.fromEntries(profile.environmentAllowlist.map((key) => [key, values[key]]));
+}
+
+function runBuildCommand(configured, command, arguments_, label) {
+  if (!configured.networkDenied) {
+    run(command, arguments_, { label });
+    return;
+  }
+  run(configured.networkHarness, ['-Urn', '--', command, ...arguments_], {
+    cwd: configured.buildRoot,
+    env: configured.environment,
+    label: `${label} in network-denied namespace`,
+  });
+}
+
+export function configureBuild(
+  profileId,
+  { directEngine = false, engine, networkDenied = false, rootTag = '', tests },
+) {
   const profile = requireProfile(profileId);
   if (isAmdPreviewProfile(profileId)) {
     throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
@@ -310,7 +344,12 @@ export function configureBuild(profileId, { engine, tests }) {
   if (profile.target.os !== 'linux') throw new Error('Local configure requires a Linux profile');
   verifyToolchainContract(profile, { allowCandidate: false, contractOnly: false });
   const tools = profileTools(profile);
-  const buildRoot = resolve(taskCacheRoot, 'build', `${profileId}-${engine ? 'engine' : 'quality'}`);
+  if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
+    throw new Error('Native build root tag is invalid');
+  }
+  const buildKind = directEngine ? 'direct-engine' : engine ? 'engine' : 'quality';
+  const buildRoot = resolve(taskCacheRoot, 'build', `${profileId}-${buildKind}${rootTag === '' ? '' : `-${rootTag}`}`);
+  removeTaskOwnedTree(buildRoot);
   mkdirSync(buildRoot, { mode: 0o700, recursive: true });
   const arguments_ = [
     '-S',
@@ -328,14 +367,15 @@ export function configureBuild(profileId, { engine, tests }) {
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
     `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
     `-DLOCAL_WHISPER_BUILD_ENGINE=${engine ? 'ON' : 'OFF'}`,
+    `-DLOCAL_WHISPER_BUILD_DIRECT_ENGINE=${directEngine ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
     `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${profileId.includes('clang-18.1.3') ? 'ON' : 'OFF'}`,
-    `-DLOCAL_WHISPER_SOURCE_ROOT=${engine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
+    `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId)}`,
   ];
   if (tools.cudaCompiler !== null) arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
-  if (engine) {
+  if (engine || directEngine) {
     for (const [key, value] of Object.entries(profile.cmakeCache).sort(([left], [right]) =>
       left.localeCompare(right),
     )) {
@@ -346,14 +386,33 @@ export function configureBuild(profileId, { engine, tests }) {
     arguments_.push(`-DCMAKE_BUILD_TYPE=${profileId.includes('clang-18.1.3') ? 'Debug' : 'Release'}`);
     arguments_.push('-DCMAKE_SKIP_BUILD_RPATH=ON', '-DCMAKE_CXX_SCAN_FOR_MODULES=OFF');
   }
-  run(tools.cmake, arguments_, { label: `configure ${profileId}` });
-  return { buildRoot, profile, tools };
+  const configured = {
+    buildRoot,
+    environment: networkDenied ? networkDeniedEnvironment(profile, tools) : process.env,
+    networkDenied,
+    networkHarness: networkDenied ? resolveProfileTool(profile, toolchainRoot, 'network-harness') : null,
+    profile,
+    tools,
+  };
+  runBuildCommand(configured, tools.cmake, arguments_, `configure ${profileId}`);
+  return configured;
 }
 
 export function buildTargets(configured, targets) {
-  run(configured.tools.cmake, ['--build', configured.buildRoot, '--parallel', '2', '--target', ...targets], {
-    label: `build ${targets.join(', ')}`,
-  });
+  const backend = configured.profile.profileId.includes('cuda') ? 'cuda' : 'cpu';
+  runBuildCommand(
+    configured,
+    configured.tools.cmake,
+    [
+      '--build',
+      configured.buildRoot,
+      '--parallel',
+      String(resolveNativeBuildJobs({ backend })),
+      '--target',
+      ...targets,
+    ],
+    `build ${targets.join(', ')}`,
+  );
 }
 
 export function runTests(configured, label) {
@@ -394,12 +453,18 @@ export function runFormattingAndTidy(configured, engineConfigured) {
       path.includes('/amd/'),
   );
   const engineFiles = files.filter((path) => path.includes('/adapter/') || path.endsWith('/core/main.cpp'));
+  const qualificationFiles = files.filter((path) => path.includes('/qualification/'));
   run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', configured.buildRoot, ...qualityFiles], {
     label: 'Whisper.cpp project core clang-tidy',
   });
   run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', engineConfigured.buildRoot, ...engineFiles], {
     label: 'Whisper.cpp project engine clang-tidy',
   });
+  if (qualificationFiles.length > 0) {
+    run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', engineConfigured.buildRoot, ...qualificationFiles], {
+      label: 'Whisper.cpp project qualification clang-tidy',
+    });
+  }
 }
 
 export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1') {

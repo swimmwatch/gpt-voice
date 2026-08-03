@@ -279,9 +279,15 @@ class WhisperCppEngine::Impl final {
 public:
   Impl()
       : registry_(discovery_, std::string(kEngineId), std::string(kRuntimeDigest),
-                  std::string(kBackendId)) {}
+                  std::string(kBackendId)) {
+    whisper_log_set(discard_upstream_log, nullptr);
+  }
 
   [[nodiscard]] EngineBackend backend() const noexcept { return engine_backend(); }
+
+  [[nodiscard]] local_whisper::common::DeviceRegistry capture_device_registry() {
+    return registry_.capture();
+  }
 
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority& authority,
                                                  const CancellationToken& cancellation) {
@@ -314,7 +320,6 @@ public:
     ModelFormatPreflight preflight{LoaderLimits()};
     static_cast<void>(preflight.validate(reader, family, variant));
     reader.rewind_after_verified_pass();
-    whisper_log_set(discard_upstream_log, nullptr);
     whisper_context_params parameters = whisper_context_default_params();
     parameters.use_gpu = kGpuWorker;
     parameters.flash_attn = false;
@@ -447,6 +452,9 @@ private:
 
 WhisperCppEngine::WhisperCppEngine() : impl_(std::make_unique<Impl>()) {}
 WhisperCppEngine::~WhisperCppEngine() noexcept = default;
+local_whisper::common::DeviceRegistry WhisperCppEngine::capture_device_registry() {
+  return impl_->capture_device_registry();
+}
 EngineBackend WhisperCppEngine::backend() const noexcept { return impl_->backend(); }
 DeviceProbeEvidence WhisperCppEngine::probe_device(const DeviceOperationAuthority& authority,
                                                    const CancellationToken& cancellation) {

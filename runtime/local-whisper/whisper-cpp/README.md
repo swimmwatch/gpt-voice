@@ -8,7 +8,7 @@ implemented targets are the Linux x64 CPU baseline and the qualified CUDA
 12.8.1 `120a-real` pack for the available RTX 5070 Ti Laptop GPU. These
 unsigned local packs are not catalog, signing, or release eligible until later
 qualification tasks. Windows CPU/CUDA have source and CI contract coverage
-only; representative Windows execution is deferred to Task 19. macOS/Apple
+only; representative Windows execution is deferred to Task 20. macOS/Apple
 Silicon is a future skeleton target and is not supported by these packs.
 AMD definitions are limited to unqualified Windows/Linux Vulkan contracts and
 an unavailable Linux HIP contract. They are **Preview · Untested**, contain no
@@ -22,12 +22,15 @@ physical AMD success evidence, and cannot materialize a release pack yet.
 | `device/`           | Private device authority, backend-specific registry resolution, exact ordinal binding, and proof inputs.                          |
 | `amd/`              | Closed Vulkan/HIP Preview matrix, Vulkan 1.3 requirements, HIP pre-signing schema, and synthetic contract fixtures.               |
 | `adapter/`          | The only module allowed to expose upstream types; owns native resources through RAII and derives backend/model/state evidence.    |
+| `qualification/`    | Linux-only direct-engine reference protocol and executable; excluded from every shipped runtime pack.                             |
 | `platform/windows/` | Windows HANDLE, device-authority, and framed-channel source contracts behind shared interfaces.                                   |
 | `include/`          | Narrow project-owned contracts used for dependency injection and tests.                                                           |
 | `patches/`          | Ordered, checksummed loader/device/cancellation patches and immutable manifest locks.                                             |
 | `tests/`            | GoogleTest unit, loader, device-proof, and cancellation coverage shared by GCC, Clang, and sanitizer builds.                      |
 
-`main.cpp` is the composition root. A full-load process receives only inherited
+`main.cpp` is the composition root. Registry mode emits one bounded
+runtime-native JSON document and exits without loading a model; Electron uses
+that private document to derive opaque per-install device IDs. A full-load process receives only inherited
 logical slot 3 and authenticated size/digest evidence; it never receives or
 opens a model path. Accelerator workers first receive a separate fixed-width
 private device authority. A GPU probe has no model authority and proves a
@@ -39,10 +42,27 @@ packs disable dynamic backend discovery and all non-selected accelerators.
 AMD contracts preserve the same one-backend/no-fallback rule; their synthetic
 checks are contract evidence only, never hardware evidence.
 
+The qualification-only direct engine is a separate target. It accepts bounded
+configuration on stdin, exact model/WAV bytes through inherited read-only
+regular-file descriptors 3 and 4, emits only UTF-8 text on stdout, and emits a
+bounded machine-readable failure on stderr. It calls the same adapter and
+locked backend as the production worker without worker framing, coordinator,
+cache, or IPC. Its binary and command mapping are frozen in private Task 19
+evidence and it is never copied into `runtime-manifest.json` or application
+resources.
+
 ## Build and verification
 
 Provision locked native sources first, then run the focused commands from the
 repository root:
+
+Native CMake builds select parallelism automatically from the process CPU
+affinity and currently available memory. CPU builds reserve 2 GiB and budget
+512 MiB per job; CUDA builds reserve the same headroom, budget 1 GiB per job,
+and cap automatic parallelism at eight jobs. Set
+`LOCAL_WHISPER_BUILD_JOBS=<positive-integer>` only when an operator needs an
+explicit affinity-bounded override. Qualification builds remain independent,
+clean-root, network-denied builds and do not use compiler caches.
 
 ```text
 npm run prepare:local-whisper:native-test-sources
@@ -58,6 +78,9 @@ npm run build:local-whisper:whisper-cpp-cuda -- --profile=linux-x64-cuda-12.8.1-
 npm run verify:local-whisper:whisper-cpp-cuda -- --profile=linux-x64-cuda-12.8.1-sm120a-v1
 npm run test:local-whisper:whisper-cpp-cuda-integration -- --profile=linux-x64-cuda-12.8.1-sm120a-v1
 npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cuda-12.8.1-sm120a-v1
+npm run produce:local-whisper:qualification:direct-engine:cpu
+npm run produce:local-whisper:qualification:direct-engine:cuda
+npm run verify:local-whisper:qualification:direct-engine
 npm run format:check:local-whisper:amd-packs
 npm run lint:local-whisper:amd-packs
 npm run test:local-whisper:amd-packs
@@ -70,7 +93,8 @@ model fixture; they never download, copy, stage, or log model contents. CUDA
 evidence hashes the private device identity and stays under ignored
 `.cache/local-whisper/`. Generated build and staging trees remain there too.
 The Windows contract checks are non-executing and stay in the dedicated Windows
-CI job:
+CI job. Their legacy `candidate-task19` profile IDs are immutable identifiers;
+representative execution belongs exclusively to Task 20:
 
 ```text
 npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-candidate-task19-v1 --contract-only
@@ -79,7 +103,7 @@ npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8
 
 The AMD verifier also defines `vulkan-windows-x64` and
 `amd-physical-qualification`, but both intentionally fail before execution and
-must not be invoked until Task 19 authorizes representative hardware work.
+require separately authorized future physical-hardware work.
 
 For humans and LLM agents: preserve the path-free authority boundary, the
 locked loader-limit table and patch identity, exact selected-device/no-fallback

@@ -16,7 +16,9 @@ try {
   const profile = readJson(
     resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains', 'profiles', `${profileId}.json`),
   );
-  if (profile.target.os !== 'linux') throw new Error('Representative Windows execution is prohibited until Task 19');
+  if (profile.target.os !== 'linux') {
+    throw new Error('Representative Windows execution is prohibited in Task 19 and reserved for Task 20');
+  }
   const toolchainRoot = resolve(
     arguments_.get('toolchain-root') ?? resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
   );

@@ -19,6 +19,7 @@ import {
   verifyMaterializedSource,
 } from '../source-import/native-source-core.mjs';
 import { verifyElfDependencyClosure } from './elf-dependency-core.mjs';
+import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
 import { qualificationInputDigest } from './native-toolchain-evidence-core.mjs';
 import { readQualificationFixtureIdentity } from './qualification-fixture-core.mjs';
 import {
@@ -187,7 +188,14 @@ function configureAndBuild(workspaceRoot, profile, sourceStoreRoot, toolchainRoo
     runNetworkIsolated(
       harness,
       cmake,
-      ['--build', buildRoot, '--target', ...profile.expectedBuildGraph, '--parallel', '2'],
+      [
+        '--build',
+        buildRoot,
+        '--target',
+        ...profile.expectedBuildGraph,
+        '--parallel',
+        String(resolveNativeBuildJobs({ backend: profile.profileId.includes('cuda') ? 'cuda' : 'cpu' })),
+      ],
       { cwd: maliciousCwd, environment },
     ),
     'Native disconnected build',
