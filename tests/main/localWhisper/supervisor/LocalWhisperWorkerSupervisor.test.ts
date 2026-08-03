@@ -29,6 +29,7 @@ import {
   type LocalWhisperWorkerLaunchAuthority,
   type LocalWhisperWorkerOwnershipRecord,
   type LocalWhisperWorkerOwnershipRecordStore,
+  type LocalWhisperWorkerProcessLaunchEvent,
   type LocalWhisperWorkerProcessOwner,
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 
@@ -210,6 +211,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   public readonly stderr = new PassThrough();
   private readonly codec = new LocalWhisperFrameCodec();
   private exited = false;
+  public forceTerminationCount = 0;
   public readonly waitTimeouts: number[] = [];
 
   public constructor(private readonly mode: WorkerMode) {
@@ -230,6 +232,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   }
 
   public async forceTreeTermination(): Promise<void> {
+    this.forceTerminationCount += 1;
     if (this.mode !== 'cleanupFailure') this.exited = true;
   }
 
@@ -396,6 +399,7 @@ function harness(mode: WorkerMode): {
   readonly releasedModel: { value: number };
   readonly releasedRuntime: { value: number };
   readonly processOwner: ScriptedProcessOwner;
+  readonly launchedEvents: LocalWhisperWorkerProcessLaunchEvent[];
   readonly supervisor: LocalWhisperWorkerSupervisor;
   readonly authority: LocalWhisperWorkerLaunchAuthority;
 } {
@@ -406,7 +410,9 @@ function harness(mode: WorkerMode): {
   const modelLease = lease('model', releasedModel);
   const recordStore = new MemoryRecordStore();
   const processOwner = new ScriptedProcessOwner(mode);
+  const launchedEvents: LocalWhisperWorkerProcessLaunchEvent[] = [];
   const ownership = new WorkerProcessOwnership({
+    onProcessLaunched: (event) => launchedEvents.push(event),
     processOwner,
     randomNonce: () => 'fixture_nonce_1234',
     recordStore,
@@ -450,6 +456,7 @@ function harness(mode: WorkerMode): {
   return {
     authority,
     clock,
+    launchedEvents,
     modelLease,
     processOwner,
     recordStore,
@@ -458,6 +465,20 @@ function harness(mode: WorkerMode): {
     supervisor,
   };
 }
+
+test('ownership launch event crashes the exact owned process tree', async () => {
+  const value = harness('happy');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const event = value.launchedEvents[0];
+  assert.ok(event);
+  assert.deepEqual(
+    { backend: event.backend, launchMode: event.launchMode, pid: event.pid },
+    { backend: 'cuda', launchMode: 'probe', pid: 4242 },
+  );
+  await event.crashOwnedTree();
+  assert.equal(value.processOwner.process?.forceTerminationCount, 1);
+  assert.equal((await value.supervisor.forceCleanup()).success, true);
+});
 
 async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness>> {
   const value = harness(mode);

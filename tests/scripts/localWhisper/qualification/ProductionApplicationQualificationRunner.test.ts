@@ -40,7 +40,6 @@ function runner() {
     resourceSampler: {
       start: () => ({ finish: () => Promise.reject(new Error('Sampler must not run in validation tests')) }),
     },
-    killOwnedProcess: () => undefined,
     wait: () => Promise.resolve(),
   });
 }

@@ -95,7 +95,10 @@ import {
 import { LinuxProcessGroupOwner } from '../supervisor/LinuxProcessGroupOwner';
 import { WindowsJobObjectOwner } from '../supervisor/WindowsJobObjectOwner';
 import { FileWorkerOwnershipRecordStore } from '../supervisor/WorkerOwnershipRecordRepository';
-import { WorkerProcessOwnership } from '../supervisor/WorkerProcessOwnership';
+import {
+  WorkerProcessOwnership,
+  type LocalWhisperWorkerProcessLaunchEvent,
+} from '../supervisor/WorkerProcessOwnership';
 import { LocalWhisperWorkerLifecycle } from '../supervisor/LocalWhisperWorkerLifecycle';
 import { LocalWhisperWorkerSupervisor } from '../supervisor/LocalWhisperWorkerSupervisor';
 import { LocalWhisperWorkerTransport } from '../supervisor/LocalWhisperWorkerTransport';
@@ -129,11 +132,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
     readonly trustedCertificateAuthorities?: readonly string[];
-    readonly onSessionProcessLaunched?: (event: {
-      readonly backend: LocalWhisperBackend;
-      readonly launchMode: 'fullLoad' | 'probe' | 'registry';
-      readonly pid: number;
-    }) => void;
+    readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
   };
 }
 

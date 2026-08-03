@@ -132,6 +132,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
                 }
                 onSessionProcessLaunched({
                   backend: event.backend,
+                  crashOwnedTree: event.crashOwnedTree,
                   launchMode: event.launchMode,
                   pid: event.pid,
                 });
@@ -151,7 +152,6 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
         ).create(),
       directEngine: new DirectEngineQualificationRunner(sampler),
       resourceSampler: sampler,
-      killOwnedProcess: (pid) => process.kill(pid, 'SIGKILL'),
       wait: async (milliseconds) => {
         await wait(milliseconds);
       },

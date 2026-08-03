@@ -81,15 +81,18 @@ export interface LocalWhisperWorkerProcessOwner {
   recoverOwnedOrphan(record: LocalWhisperWorkerOwnershipRecord): Promise<boolean>;
 }
 
+export interface LocalWhisperWorkerProcessLaunchEvent {
+  readonly backend: LocalWhisperBackend;
+  readonly launchMode: LocalWhisperWorkerLaunchMode;
+  readonly pid: number;
+  readonly crashOwnedTree: () => Promise<void>;
+}
+
 export interface WorkerProcessOwnershipDependencies {
   readonly processOwner: LocalWhisperWorkerProcessOwner;
   readonly randomNonce: () => string;
   readonly recordStore: LocalWhisperWorkerOwnershipRecordStore;
-  readonly onProcessLaunched?: (event: {
-    readonly backend: LocalWhisperBackend;
-    readonly launchMode: LocalWhisperWorkerLaunchMode;
-    readonly pid: number;
-  }) => void;
+  readonly onProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
 }
 
 /** Owns the runtime lease, process tree, and durable proof as one lifecycle. */
@@ -143,6 +146,7 @@ export class WorkerProcessOwnership {
           backend: authority.expectedHandshake.backend,
           launchMode: authority.launchMode,
           pid: process.pid,
+          crashOwnedTree: () => process.forceTreeTermination(),
         }),
       );
     } catch {

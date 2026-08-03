@@ -57,6 +57,7 @@ export interface QualificationSessionProcessEvent {
   readonly backend: 'cpu' | 'cuda';
   readonly launchMode: 'fullLoad' | 'probe' | 'registry';
   readonly pid: number;
+  readonly crashOwnedTree: () => Promise<void>;
 }
 
 export interface ProductionApplicationQualificationInput {
@@ -76,13 +77,12 @@ export interface ProductionApplicationQualificationDependencies {
   ) => Promise<DeferredLocalWhisperEnvironment>;
   readonly directEngine: Pick<DirectEngineQualificationRunner, 'run'>;
   readonly resourceSampler: QualificationResourceSampler;
-  readonly killOwnedProcess: (pid: number) => void;
   readonly wait: (milliseconds: number) => Promise<void>;
 }
 
 interface OwnedResourceSession {
   readonly backend: 'cpu' | 'cuda';
-  readonly pid: number;
+  readonly crashOwnedTree: () => Promise<void>;
   readonly result: Promise<LinuxResourceSeries>;
 }
 
@@ -136,7 +136,7 @@ class QualificationWorkerResourceObserver {
     this.sessions.push(
       Object.freeze({
         backend: event.backend,
-        pid: event.pid,
+        crashOwnedTree: event.crashOwnedTree,
         result,
       }),
     );
@@ -146,10 +146,10 @@ class QualificationWorkerResourceObserver {
     return this.sessions.length;
   }
 
-  public latestPid(backend: 'cpu' | 'cuda'): number {
+  public async crashLatest(backend: 'cpu' | 'cuda'): Promise<void> {
     const latest = [...this.sessions].reverse().find((session) => session.backend === backend);
     if (!latest) throw new Error('Qualification worker process was not observed');
-    return latest.pid;
+    await latest.crashOwnedTree();
   }
 
   public async finish(index: number, backend: 'cpu' | 'cuda'): Promise<LinuxResourceSeries> {
@@ -548,7 +548,7 @@ export class ProductionApplicationQualificationRunner {
     backend: 'cpu' | 'cuda',
     fixture: QualificationAudioFixture,
   ): Promise<void> {
-    this.dependencies.killOwnedProcess(observer.latestPid(backend));
+    await observer.crashLatest(backend);
     await this.dependencies.wait(CANCELLATION_DELAY_MILLISECONDS);
     const result = await coordinator.transcribe({
       dispatch: coordinator.captureDispatchSnapshot(),
