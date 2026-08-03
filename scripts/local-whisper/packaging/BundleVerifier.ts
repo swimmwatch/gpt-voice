@@ -177,7 +177,7 @@ function assertCatalogPackBindings(
   if (
     bundle.keyring.appRevision !== bundle.modelPack.appRevision ||
     bundle.modelPack.catalogRevision !== catalog.payload.catalogRevision ||
-    !catalog.payload.compatibleAppRevisions.includes(bundle.modelPack.appRevision)
+    !catalog.payload.compatibleAppRevisions.some((revision) => revision === bundle.modelPack.appRevision)
   ) {
     throw new Error('Local Whisper model pack candidate identity is not cross-bound');
   }

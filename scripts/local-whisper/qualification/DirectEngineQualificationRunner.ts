@@ -1,7 +1,7 @@
-import { spawn, type ChildProcessByStdio } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { constants } from 'node:fs';
 import { lstat, open, type FileHandle } from 'node:fs/promises';
-import type { Readable, Writable } from 'node:stream';
+import type { Readable } from 'node:stream';
 
 import { sha256File } from '../packaging/fileIntegrity';
 import { LinuxResourceSampler, type LinuxResourceSeries } from './LinuxResourceSampler';
@@ -33,8 +33,6 @@ export interface DirectEngineQualificationResult {
   readonly durationNanoseconds: number;
   readonly resources: LinuxResourceSeries;
 }
-
-type DirectEngineChild = ChildProcessByStdio<Writable, Readable, Readable>;
 
 function boundedCollector(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -118,7 +116,7 @@ export class DirectEngineQualificationRunner {
       openReadOnlyNoFollow(request.modelPath),
       openReadOnlyNoFollow(request.wavPath),
     ]);
-    let child: DirectEngineChild | null = null;
+    let child: ChildProcess | null = null;
     try {
       const environment: NodeJS.ProcessEnv = { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', PATH: '/usr/bin:/bin' };
       if (request.backend === 'cuda') {
@@ -126,26 +124,30 @@ export class DirectEngineQualificationRunner {
         environment.LD_LIBRARY_PATH = request.runtimeLibraryPath;
       }
       const started = process.hrtime.bigint();
-      child = spawn(request.executablePath, [...(request.executableArguments ?? [])], {
+      const spawned = spawn(request.executablePath, [...(request.executableArguments ?? [])], {
         cwd: '/',
         env: environment,
         shell: false,
         stdio: ['pipe', 'pipe', 'pipe', model.fd, wav.fd],
       });
-      const pid = child.pid;
+      child = spawned;
+      if (!spawned.stdin || !spawned.stdout || !spawned.stderr) {
+        throw new Error('Direct-engine process streams unavailable');
+      }
+      const pid = spawned.pid;
       if (!pid) throw new Error('Direct-engine process identity unavailable');
       const sampler = this.resourceSampler.start(pid, request.backend);
-      const stdout = boundedCollector(child.stdout);
-      const stderr = boundedCollector(child.stderr);
+      const stdout = boundedCollector(spawned.stdout);
+      const stderr = boundedCollector(spawned.stderr);
       const exit = new Promise<number | null>((resolve, reject) => {
-        child?.once('error', reject);
-        child?.once('exit', (code, signal) => {
+        spawned.once('error', reject);
+        spawned.once('exit', (code, signal) => {
           if (signal !== null) reject(new Error('Direct-engine process terminated by signal'));
           else resolve(code);
         });
       });
-      const timeout = setTimeout(() => child?.kill('SIGKILL'), this.timeoutMilliseconds);
-      child.stdin.end(
+      const timeout = setTimeout(() => spawned.kill('SIGKILL'), this.timeoutMilliseconds);
+      spawned.stdin.end(
         JSON.stringify({
           schemaVersion: 1,
           family: request.family,

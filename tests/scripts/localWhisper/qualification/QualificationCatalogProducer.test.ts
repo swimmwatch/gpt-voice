@@ -85,7 +85,6 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
         workerProtocolVersion: 1,
       },
     }).load();
-    assert.equal(loaded.success, true);
     if (!loaded.success) assert.fail(loaded.code);
     assert.equal(payload.models.length, 6);
     assert.equal(payload.runtimes.length, 2);

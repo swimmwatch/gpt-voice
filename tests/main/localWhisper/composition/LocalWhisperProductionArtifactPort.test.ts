@@ -44,7 +44,7 @@ function installedEvidence(
   manifestIdentityKey: string,
   expectedFiles: readonly {
     readonly fileId: LocalWhisperArtifactId;
-    readonly kind: 'executable' | 'library' | 'data' | 'config' | 'tokenizer' | 'notice';
+    readonly kind: 'executable' | 'library' | 'data' | 'config' | 'tokenizer' | 'license' | 'notice';
     readonly mode: number;
     readonly sizeBytes: number;
     readonly sha256: string;

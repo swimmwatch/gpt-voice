@@ -42,9 +42,21 @@ export interface LoadedRuntime {
   readonly directEngine: QualificationDirectEngine;
   readonly directEngineBinarySha256: string;
   readonly directEngineManifestDigest: string;
-  readonly platformArtifact: QualificationLinuxPlatformSeed['runtimeArtifacts'][number];
+  readonly platformArtifact: LoadedRuntimePlatformArtifact;
   readonly profileId: string;
   readonly toolchainDigest: string;
+}
+
+export interface LoadedRuntimePlatformArtifact extends Readonly<Record<string, unknown>> {
+  readonly artifactId: string;
+  readonly revision: LocalWhisperRevisionId;
+  readonly backend: 'cpu' | 'cuda';
+  readonly transferProfile: 'restricted-tar-gzip-v1';
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly manifestDigest: string;
+  readonly signatureInputDigest: string;
+  readonly reproducibilityDigest: string;
 }
 
 export interface LoadedLinuxQualificationEvidence {

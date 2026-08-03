@@ -38,7 +38,7 @@ describe('DirectEngineQualificationRunner', () => {
       });
       assert.equal(result.transcript, 'bounded qualification transcript');
       assert.equal(result.resources.cpuGpuInitialization, 'absent');
-      assert.equal(result.resources.samples.at(-1)?.ownedProcessCount, 0);
+      assert.equal(result.resources.samples[result.resources.samples.length - 1]?.ownedProcessCount, 0);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

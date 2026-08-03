@@ -3,7 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isRecord } from '../packaging/contracts';
 
 const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
-const SAMPLE_INTERVAL_NANOSECONDS = 100_000_000;
+const SAMPLE_INTERVAL_MILLISECONDS = 100 as const;
 const MAXIMUM_GAP_NANOSECONDS = 500_000_000;
 const SETTLED_SAMPLE_COUNT = 10;
 const SAFE_FAILURE_PATTERN = /^LOCAL_WHISPER_RESOURCE_SAMPLING_FAILED:([a-z-]+)\n$/u;
@@ -100,7 +100,7 @@ function parseSeries(bytes: Buffer, backend: 'cpu' | 'cuda'): LinuxResourceSerie
   }
   return Object.freeze({
     schemaVersion: 2,
-    sampleIntervalMilliseconds: SAMPLE_INTERVAL_NANOSECONDS / 1_000_000,
+    sampleIntervalMilliseconds: SAMPLE_INTERVAL_MILLISECONDS,
     ramAlgorithm: 'proc-smaps-rollup-pss-owned-start-identity-v1',
     vramAlgorithm: expectedVram,
     cpuGpuInitialization: backend === 'cpu' ? 'absent' : 'notApplicable',

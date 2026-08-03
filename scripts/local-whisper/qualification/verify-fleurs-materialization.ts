@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -34,7 +34,7 @@ async function treeIdentity(root: string, prefix = ''): Promise<readonly { path:
   return result.sort((left, right) => left.path.localeCompare(right.path, 'en'));
 }
 
-function runMaterializer(output: string, selection: string): ReturnType<typeof spawnSync> {
+function runMaterializer(output: string, selection: string): SpawnSyncReturns<string> {
   return spawnSync(
     'python3',
     [

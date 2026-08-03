@@ -603,9 +603,9 @@ describe('LocalWhisperProductionWorkerPort', () => {
     assert.deepEqual(
       await loaded.value.transcribe({
         audio: Uint8Array.from([1, 2, 3]),
-        configurationEpoch: 7,
         requestId: 'transcription-fixture',
         settings: value.selected.settings as never,
+        settingsEpoch: 7,
         signal: new AbortController().signal,
       }),
       { success: true, value: 'fixture transcript' },

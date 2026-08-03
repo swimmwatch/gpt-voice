@@ -9,7 +9,10 @@ function localeName(locale: QualificationLocale): string {
 
 /** Applies the frozen Section 19.2 Unicode/case/token contract. */
 export function qualificationTokens(text: string, locale: QualificationLocale): readonly string[] {
-  const normalized = text.normalize('NFKC').replaceAll('\u2019', "'").toLocaleLowerCase(localeName(locale));
+  const normalized = text
+    .normalize('NFKC')
+    .replace(/\u2019/gu, "'")
+    .toLocaleLowerCase(localeName(locale));
   return Object.freeze([...(normalized.matchAll(TOKEN_PATTERN) ?? [])].map((match) => match[0]));
 }
 

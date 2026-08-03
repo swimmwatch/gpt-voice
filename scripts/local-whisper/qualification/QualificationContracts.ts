@@ -96,7 +96,7 @@ export function qualificationCanonicalJson(value: unknown): string {
 }
 
 export function qualificationDocumentDigest(value: unknown, digestField: string): string {
-  if (!isRecord(value) || !Object.hasOwn(value, digestField)) {
+  if (!isRecord(value) || !Object.prototype.hasOwnProperty.call(value, digestField)) {
     throw new Error('QUALIFICATION_DOCUMENT_INVALID');
   }
   const copy = structuredClone(value);
@@ -181,7 +181,7 @@ export class LocalWhisperQualificationGraphProducer {
     documentWithoutDigest: Readonly<Record<string, unknown>>,
   ): Readonly<Record<string, unknown>> {
     const digestField = DOCUMENT_DIGEST_FIELDS[kind];
-    if (Object.hasOwn(documentWithoutDigest, digestField)) {
+    if (Object.prototype.hasOwnProperty.call(documentWithoutDigest, digestField)) {
       throw new Error('QUALIFICATION_DIGEST_FIELD_ALREADY_PRESENT');
     }
     const document = structuredClone(documentWithoutDigest) as Record<string, unknown>;

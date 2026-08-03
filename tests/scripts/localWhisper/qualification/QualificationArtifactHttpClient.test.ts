@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import { Readable } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import type {
@@ -74,9 +75,7 @@ describe('QualificationArtifactHttpClient', () => {
       await writeFile(filePath, 'bytes');
       const delegateResponse: ArtifactHttpClientResponse = {
         status: 404,
-        body: (async function* emptyBody() {
-          await Promise.resolve();
-        })(),
+        body: Readable.from([]),
         headers: { contentLength: 0, contentRange: null, etag: null, location: null },
       };
       const delegate: ArtifactHttpClient = { open: () => Promise.resolve(delegateResponse) };

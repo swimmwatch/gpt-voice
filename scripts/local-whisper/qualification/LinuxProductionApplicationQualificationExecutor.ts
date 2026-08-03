@@ -126,7 +126,16 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             qualificationHooks: {
               artifactHttpClient,
               trustedCertificateAuthorities: [execution.tls.certificatePem],
-              onSessionProcessLaunched,
+              onSessionProcessLaunched: (event) => {
+                if (event.backend !== 'cpu' && event.backend !== 'cuda') {
+                  throw new Error('Qualification observed an unexpected worker backend');
+                }
+                onSessionProcessLaunched({
+                  backend: event.backend,
+                  launchMode: event.launchMode,
+                  pid: event.pid,
+                });
+              },
             },
             randomNonce: () => randomBytes(24).toString('base64url'),
             randomBytes: (size) => randomBytes(size),

@@ -315,10 +315,10 @@ export class ProductionApplicationQualificationRunner {
     const observer = new QualificationWorkerResourceObserver(this.dependencies.resourceSampler);
     const initialSessionIndex = observer.count;
     const session = await this.createSession(observer);
-    let primarySeries: LinuxResourceSeries | null = null;
-    let applicationWer = 0;
-    let directWer = 0;
-    let medianRtf: number | null = null;
+    let primarySeries: LinuxResourceSeries;
+    let applicationWer: number;
+    let directWer: number;
+    let medianRtf: number | null;
     try {
       await this.selectRow(session, model, runtime);
       directWer = await this.directWer(input, model, backend, directEngine);
@@ -349,7 +349,6 @@ export class ProductionApplicationQualificationRunner {
     }
     await observer.finishFrom(initialSessionIndex + 1);
     await this.verifyOfflineRestart(input, model, runtime, observer);
-    if (!primarySeries) throw new Error('Qualification primary resource evidence is missing');
     const peakRamBytes = peakRam(primarySeries.samples);
     const peakVramBytes = backend === 'cpu' ? 'notApplicable' : peakVram(primarySeries.samples);
     return Object.freeze({

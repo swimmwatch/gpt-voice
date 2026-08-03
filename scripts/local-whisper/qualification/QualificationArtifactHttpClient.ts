@@ -86,7 +86,9 @@ export class QualificationArtifactHttpClient implements ArtifactHttpClient {
     const start = request.rangeStart ?? 0;
     if (!Number.isSafeInteger(start) || start < 0 || start >= artifact.sizeBytes) return emptyResponse(416);
     const stream = createReadStream(artifact.filePath, { start, highWaterMark: 1024 * 1024 });
-    const abort = (): void => stream.destroy(new Error('Qualification cached artifact request was cancelled'));
+    const abort = (): void => {
+      stream.destroy(new Error('Qualification cached artifact request was cancelled'));
+    };
     request.signal.addEventListener('abort', abort, { once: true });
     stream.once('close', () => request.signal.removeEventListener('abort', abort));
     return Object.freeze({
