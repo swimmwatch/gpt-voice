@@ -6,7 +6,7 @@ import process from 'node:process';
 import { stageCpuPack } from '../stage-whisper-cpp-cpu.mjs';
 import { stageCudaPack } from '../stage-whisper-cpp-cuda.mjs';
 import { buildTargets, configureBuild, requireVerifiedInputs, workspaceRoot } from '../whisper-cpp-build-core.mjs';
-import { canonicalDigest } from '../source-import/native-source-core.mjs';
+import { canonicalDigest, canonicalJson } from '../source-import/native-source-core.mjs';
 import {
   DeterministicRuntimePackProducer,
   assertReproducibleRuntimePacks,
@@ -85,7 +85,7 @@ async function produce(backend) {
     ...reproducibility,
     reproducibilityDigest: canonicalDigest(reproducibility),
   };
-  writeFileSync(resolve(backendRoot, 'runtime-reproducibility.json'), `${JSON.stringify(record, null, 2)}\n`, {
+  writeFileSync(resolve(backendRoot, 'runtime-reproducibility.json'), canonicalJson(record), {
     mode: 0o400,
   });
   process.stdout.write(
