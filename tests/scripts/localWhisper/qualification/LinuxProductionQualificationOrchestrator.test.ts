@@ -201,7 +201,16 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
           }),
       },
       predecessor: {
-        run: () => Promise.resolve({ passed: true, sanitizedEvidenceDigest: DIGEST }),
+        run: () =>
+          Promise.resolve({
+            passed: true,
+            sanitizedEvidence: Object.freeze({
+              id: 'linux-predecessor-v2.3.0',
+              platform: 'linux',
+              status: 'Pass',
+            }),
+            sanitizedEvidenceDigest: DIGEST,
+          }),
       },
       tlsFactory: {
         create: () =>

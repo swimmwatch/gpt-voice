@@ -6,6 +6,7 @@ import type { LinuxResourceSample } from './LinuxResourceSampler';
 import {
   LOCAL_WHISPER_QUALIFICATION_FIXTURE_DIGEST,
   LocalWhisperQualificationGraphProducer,
+  assertQualificationPrivacySafe,
   qualificationCanonicalJson,
   type LocalWhisperQualificationPlatformBranch,
   type LocalWhisperQualificationValidator,
@@ -51,6 +52,14 @@ export interface QualificationLinuxResult {
   readonly sanitizedEvidenceDocuments: readonly Readonly<Record<string, unknown>>[];
 }
 
+export interface QualificationSupportingEvidence {
+  readonly document: Readonly<Record<string, unknown>>;
+  readonly evidenceClass:
+    'deterministic' | 'source' | 'native' | 'platform' | 'hardware' | 'package' | 'manual' | 'transport';
+  readonly id: string;
+  readonly sanitizedLabel: string;
+}
+
 function digestField(document: unknown, field: string): string {
   if (typeof document !== 'object' || document === null || Array.isArray(document)) {
     throw new Error('QUALIFICATION_RESULT_INPUT_INVALID');
@@ -83,6 +92,7 @@ export class LocalWhisperQualificationResultProducer {
   public produce(
     foundation: QualificationLinuxFoundation,
     rowEvidence: readonly QualificationLinuxRowEvidence[],
+    supportingEvidence: readonly QualificationSupportingEvidence[] = [],
   ): QualificationLinuxResult {
     const candidateInputDigest = digestField(foundation.candidateInput, 'candidateInputDigest');
     const platformGraphDigest = digestField(foundation.platformGraph, 'platformGraphDigest');
@@ -176,6 +186,28 @@ export class LocalWhisperQualificationResultProducer {
         gates: row.gates,
       });
     });
+    for (const supporting of supportingEvidence) {
+      assertQualificationPrivacySafe(supporting.document);
+      if (
+        supporting.document.id !== supporting.id ||
+        supporting.document.platform !== 'linux' ||
+        evidenceEntries.some(({ id }) => id === supporting.id)
+      ) {
+        throw new Error('QUALIFICATION_SUPPORTING_EVIDENCE_INVALID');
+      }
+      const identity = evidenceIdentity(supporting.document);
+      sanitizedEvidenceDocuments.push(supporting.document);
+      evidenceEntries.push(
+        Object.freeze({
+          id: supporting.id,
+          platform: 'linux',
+          evidenceClass: supporting.evidenceClass,
+          sha256: identity.sha256,
+          byteLength: identity.byteLength,
+          sanitizedLabel: supporting.sanitizedLabel,
+        }),
+      );
+    }
     const platformResult = this.graph.freeze('platformResult', {
       schemaVersion: 2,
       specificationRevision: 10,

@@ -31,6 +31,7 @@ export interface LinuxApplicationQualificationExecutionInput {
   };
   readonly loaded: LoadedLinuxQualificationEvidence;
   readonly packages: LinuxQualificationPackageBuildResult;
+  readonly predecessorPassed: boolean;
   readonly stopArtifactServer: () => Promise<void>;
   readonly tls: QualificationTlsMaterial;
 }
@@ -148,7 +149,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
     });
     return await application.run({
       ...execution.loaded.application,
-      predecessorPassed: true,
+      predecessorPassed: execution.predecessorPassed,
       stopArtifactServer: execution.stopArtifactServer,
     });
   }

@@ -96,7 +96,7 @@ export function qualificationDocumentDigest(value: unknown, digestField: string)
   return createHash('sha256').update(qualificationCanonicalJson(copy), 'utf8').digest('hex');
 }
 
-function assertPrivacySafe(value: unknown): void {
+export function assertQualificationPrivacySafe(value: unknown): void {
   const visit = (candidate: unknown): void => {
     if (typeof candidate === 'string' && PRIVATE_PATH_PATTERN.test(candidate)) {
       throw new Error('QUALIFICATION_PRIVATE_VALUE_REJECTED');
@@ -214,7 +214,7 @@ export class LocalWhisperQualificationValidator {
   }
 
   public validateDocument(kind: QualificationDocumentKind, document: unknown): void {
-    assertPrivacySafe(document);
+    assertQualificationPrivacySafe(document);
     const validator = this.validators[kind];
     if (!validator(document)) throw new Error(`QUALIFICATION_${kind.toUpperCase()}_INVALID`);
     if (!isRecord(document)) throw new Error(`QUALIFICATION_${kind.toUpperCase()}_INVALID`);
@@ -530,7 +530,7 @@ export class LocalWhisperQualificationValidator {
   }
 
   private validateLinuxState(value: unknown): void {
-    assertPrivacySafe(value);
+    assertQualificationPrivacySafe(value);
     if (!isRecord(value)) throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
     const expectedKeys = [
       'schemaVersion',

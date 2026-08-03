@@ -17,6 +17,9 @@ import { QualificationCommandRunner } from './QualificationCommandRunner';
 import { LocalWhisperQualificationBundleProducer } from './QualificationBundleProducer';
 import { LocalWhisperQualificationValidator } from './QualificationContracts';
 import { QualificationHttpsArtifactServer } from './QualificationHttpsArtifactServer';
+import { LinuxPredecessorAppImageExtractor } from './LinuxPredecessorAppImageExtractor';
+import { LinuxPredecessorElectronSession } from './LinuxPredecessorElectronSession';
+import { LinuxPredecessorQualifier, type LinuxPredecessorQualificationPort } from './LinuxPredecessorQualification';
 import {
   LinuxQualificationHostIdentityProvider,
   qualificationToolIdentity,
@@ -37,19 +40,6 @@ const PREDECESSOR_SHA256 = '80674b3a90222b51981fb43b5b757b7af9d3e38a5ff4ca41554a
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
-
-export interface LinuxPredecessorQualificationResult {
-  readonly passed: true;
-  readonly sanitizedEvidenceDigest: string;
-}
-
-export interface LinuxPredecessorQualificationPort {
-  readonly run: (input: {
-    readonly appImagePath: string;
-    readonly expectedSha256: string;
-    readonly privateRoot: string;
-  }) => Promise<LinuxPredecessorQualificationResult>;
-}
 
 export interface LinuxProductionQualificationInput {
   readonly cacheRoot: string;
@@ -335,10 +325,18 @@ export class LinuxProductionQualificationOrchestrator {
         input,
         loaded,
         packages,
+        predecessorPassed: predecessor.passed,
         stopArtifactServer: stopServer,
         tls,
       });
-      const result = graph.result.produce(foundation, rows);
+      const result = graph.result.produce(foundation, rows, [
+        Object.freeze({
+          document: predecessor.sanitizedEvidence,
+          evidenceClass: 'package',
+          id: 'linux-predecessor-v2.3.0',
+          sanitizedLabel: 'Linux predecessor AppImage compatibility',
+        }),
+      ]);
       await writeSuccessfulEvidence(input.qualificationRoot, input.privateRunRoot, result);
       return Object.freeze({
         foundation,
@@ -376,9 +374,7 @@ export class LinuxProductionQualificationOrchestrator {
 }
 
 /** Composes the concrete adapters used by the Task 19 Linux qualification command. */
-export function createLinuxProductionQualificationOrchestrator(
-  predecessor: LinuxPredecessorQualificationPort,
-): LinuxProductionQualificationOrchestrator {
+export function createLinuxProductionQualificationOrchestrator(): LinuxProductionQualificationOrchestrator {
   const commands = new QualificationCommandRunner();
   return new LinuxProductionQualificationOrchestrator({
     application: new LinuxProductionApplicationQualificationExecutor(),
@@ -399,7 +395,10 @@ export function createLinuxProductionQualificationOrchestrator(
     evidenceLoader: new LinuxQualificationEvidenceLoader(),
     hostIdentity: new LinuxQualificationHostIdentityProvider(commands),
     packageBuilder: new LinuxQualificationPackageBuilder(commands),
-    predecessor,
+    predecessor: new LinuxPredecessorQualifier(
+      new LinuxPredecessorElectronSession(),
+      new LinuxPredecessorAppImageExtractor(),
+    ),
     tlsFactory: new EphemeralQualificationTlsIdentityFactory(commands),
   });
 }
