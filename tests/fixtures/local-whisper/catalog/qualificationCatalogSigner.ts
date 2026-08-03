@@ -32,7 +32,6 @@ export const QUALIFICATION_MODEL_ORIGIN = 'https://huggingface.co';
 export const QUALIFICATION_RUNTIME_POLICY_ID = toLocalWhisperArtifactId('qualification-runtime-policy')!;
 export const QUALIFICATION_MODEL_POLICY_ID = toLocalWhisperArtifactId('upstream-model-policy')!;
 
-const QUALIFICATION_PROFILE_DIGEST = 'e'.repeat(64);
 const RUNTIME_SOURCE_COMMIT = 'a'.repeat(40);
 
 function modelIdentity(
@@ -82,7 +81,6 @@ function modelEntry(expected: (typeof LOCAL_WHISPER_RELEASE_MODEL_MATRIX)[number
       url: localWhisperUpstreamModelUrl(expected.file),
       redirectPolicyId: QUALIFICATION_MODEL_POLICY_ID,
     },
-    qualificationProfileDigest: QUALIFICATION_PROFILE_DIGEST,
     sbomId: toLocalWhisperArtifactId(`sbom-${expected.family}-${expected.variant}`)!,
   };
 }
@@ -190,7 +188,6 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
           url: `${QUALIFICATION_RUNTIME_ORIGIN}/runtime/runtime-linux-x64-cpu.tar.gz`,
           redirectPolicyId: QUALIFICATION_RUNTIME_POLICY_ID,
         },
-        qualificationProfileDigest: QUALIFICATION_PROFILE_DIGEST,
         sbomId: toLocalWhisperArtifactId('qualification-runtime-sbom')!,
       },
     ],

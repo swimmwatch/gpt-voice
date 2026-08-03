@@ -29,7 +29,6 @@ function runtime(backend: 'cpu' | 'cuda'): QualificationRuntimeCatalogSeed {
     archiveSignature: Buffer.from(`signature-${backend}`).toString('base64'),
     buildRevision: cpu ? sha('3') : sha('4'),
     packRevision: `linux-x64-${backend}-v2.4.0`,
-    profileDigest: cpu ? sha('5') : sha('6'),
     expectedFiles: [
       {
         fileId: toLocalWhisperArtifactId('worker')!,
@@ -86,6 +85,8 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
     assert.equal(payload.runtimes.length, 2);
     assert.equal(payload.memoryEstimates.length, 12);
     assert.equal(payload.runtimes[0]!.identity.backend, 'cpu');
+    assert.equal(payload.runtimes[0]!.qualificationProfileDigest, undefined);
+    assert.equal(payload.models[0]!.qualificationProfileDigest, undefined);
   });
 
   it('rejects non-loopback runtime origins and incomplete runtime matrices', () => {

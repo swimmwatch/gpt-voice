@@ -32,6 +32,7 @@ import {
   type LocalWhisperCatalogModelFileIdentity,
   type LocalWhisperCatalogOrigin,
   type LocalWhisperCatalogPayload,
+  type LocalWhisperCatalogPurpose,
   type LocalWhisperCatalogRedirectPolicy,
   type LocalWhisperCatalogRedirectTarget,
   type LocalWhisperCatalogRuntimeEntry,
@@ -79,12 +80,15 @@ const REDIRECT_POLICY_KEYS = [
 const SOURCE_KEYS = ['repository', 'commit', 'file', 'url', 'redirectPolicyId'] as const;
 const DISPLAY_METADATA_KEYS = ['title', 'summary'] as const;
 const RUNTIME_ENTRY_V1_KEYS = ['identity', 'recommended', 'qualificationStatus', 'licenseIds'] as const;
-const RUNTIME_ENTRY_V2_KEYS = [
+const RUNTIME_ENTRY_V2_QUALIFICATION_KEYS = [
   ...RUNTIME_ENTRY_V1_KEYS,
   'transferProfile',
   'source',
-  'qualificationProfileDigest',
   'sbomId',
+] as const;
+const RUNTIME_ENTRY_V2_PRODUCTION_KEYS = [
+  ...RUNTIME_ENTRY_V2_QUALIFICATION_KEYS,
+  'qualificationProfileDigest',
 ] as const;
 const MODEL_ENTRY_V1_KEYS = [
   'identity',
@@ -102,12 +106,15 @@ const MODEL_ENTRY_V1_KEYS = [
   'licenseIds',
   'noticeIds',
 ] as const;
-const MODEL_ENTRY_V2_KEYS = [
+const MODEL_ENTRY_V2_QUALIFICATION_KEYS = [
   ...MODEL_ENTRY_V1_KEYS,
   'transferProfile',
   'source',
-  'qualificationProfileDigest',
   'sbomId',
+] as const;
+const MODEL_ENTRY_V2_PRODUCTION_KEYS = [
+  ...MODEL_ENTRY_V2_QUALIFICATION_KEYS,
+  'qualificationProfileDigest',
 ] as const;
 const MODEL_FILE_KEYS = ['fileId', 'kind', 'mode', 'sizeBytes', 'sha256'] as const;
 const DENYLIST_KEYS = ['runtimes', 'models'] as const;
@@ -356,9 +363,17 @@ function isModelFile(value: unknown): value is LocalWhisperCatalogModelFileIdent
   );
 }
 
-function isRuntimeEntry(value: unknown, schemaVersion: number): value is LocalWhisperCatalogRuntimeEntry {
+function isRuntimeEntry(
+  value: unknown,
+  schemaVersion: number,
+  purpose: LocalWhisperCatalogPurpose,
+): value is LocalWhisperCatalogRuntimeEntry {
   const expectedKeys =
-    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION ? RUNTIME_ENTRY_V1_KEYS : RUNTIME_ENTRY_V2_KEYS;
+    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION
+      ? RUNTIME_ENTRY_V1_KEYS
+      : purpose === 'qualification'
+        ? RUNTIME_ENTRY_V2_QUALIFICATION_KEYS
+        : RUNTIME_ENTRY_V2_PRODUCTION_KEYS;
   if (!(
     isRecord(value) &&
     hasExactKeys(value, expectedKeys) &&
@@ -373,8 +388,9 @@ function isRuntimeEntry(value: unknown, schemaVersion: number): value is LocalWh
     schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
     (value.transferProfile !== 'restricted-tar-gzip-v1' ||
       !isSourceIdentity(value.source) ||
-      typeof value.qualificationProfileDigest !== 'string' ||
-      !SHA256_PATTERN.test(value.qualificationProfileDigest) ||
+      (purpose === 'production' &&
+        (typeof value.qualificationProfileDigest !== 'string' ||
+          !SHA256_PATTERN.test(value.qualificationProfileDigest))) ||
       toLocalWhisperArtifactId(value.sbomId) === null ||
       !isLogicalIdentifier(value.sbomId))
   ) {
@@ -399,9 +415,17 @@ function isRuntimeEntry(value: unknown, schemaVersion: number): value is LocalWh
   );
 }
 
-function isModelEntry(value: unknown, schemaVersion: number): value is LocalWhisperCatalogModelEntry {
+function isModelEntry(
+  value: unknown,
+  schemaVersion: number,
+  purpose: LocalWhisperCatalogPurpose,
+): value is LocalWhisperCatalogModelEntry {
   const expectedKeys =
-    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION ? MODEL_ENTRY_V1_KEYS : MODEL_ENTRY_V2_KEYS;
+    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION
+      ? MODEL_ENTRY_V1_KEYS
+      : purpose === 'qualification'
+        ? MODEL_ENTRY_V2_QUALIFICATION_KEYS
+        : MODEL_ENTRY_V2_PRODUCTION_KEYS;
   if (
     !isRecord(value) ||
     !hasExactKeys(value, expectedKeys) ||
@@ -434,8 +458,9 @@ function isModelEntry(value: unknown, schemaVersion: number): value is LocalWhis
     schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
     (value.transferProfile !== 'pinned-raw-model-v1' ||
       !isSourceIdentity(value.source) ||
-      typeof value.qualificationProfileDigest !== 'string' ||
-      !SHA256_PATTERN.test(value.qualificationProfileDigest) ||
+      (purpose === 'production' &&
+        (typeof value.qualificationProfileDigest !== 'string' ||
+          !SHA256_PATTERN.test(value.qualificationProfileDigest))) ||
       toLocalWhisperArtifactId(value.sbomId) === null ||
       !isLogicalIdentifier(value.sbomId))
   ) {
@@ -534,9 +559,9 @@ function isPayloadShape(value: unknown): value is LocalWhisperCatalogPayload {
         value.redirectPolicies.length > 0 &&
         value.redirectPolicies.every((policy) => isRedirectPolicy(policy, purpose)))) &&
     Array.isArray(value.runtimes) &&
-    value.runtimes.every((entry) => isRuntimeEntry(entry, value.schemaVersion as number)) &&
+    value.runtimes.every((entry) => isRuntimeEntry(entry, value.schemaVersion as number, purpose)) &&
     Array.isArray(value.models) &&
-    value.models.every((entry) => isModelEntry(entry, value.schemaVersion as number)) &&
+    value.models.every((entry) => isModelEntry(entry, value.schemaVersion as number, purpose)) &&
     Array.isArray(value.memoryEstimates) &&
     Array.isArray(value.qualifiedMemoryPeaks) &&
     value.qualifiedMemoryPeaks.every(isQualifiedMemoryPeak) &&

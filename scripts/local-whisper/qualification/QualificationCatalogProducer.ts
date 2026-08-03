@@ -46,7 +46,6 @@ export interface QualificationRuntimeCatalogSeed {
   readonly archiveSignature: string;
   readonly buildRevision: string;
   readonly packRevision: string;
-  readonly profileDigest: string;
   readonly expectedFiles: LocalWhisperRuntimeIdentity['expectedFiles'];
   readonly prerequisites: readonly string[];
   readonly provenanceId: string;
@@ -174,7 +173,6 @@ export class LocalWhisperQualificationCatalogProducer {
             url: `${seed.runtimeOrigin}/runtime/${runtime.archiveFileName}`,
             redirectPolicyId: artifactId(RUNTIME_POLICY_ID),
           }),
-          qualificationProfileDigest: runtime.profileDigest,
           sbomId: artifactId(`qualification-${runtime.backend}-runtime-sbom`),
         });
       });
@@ -213,7 +211,6 @@ export class LocalWhisperQualificationCatalogProducer {
             url: localWhisperUpstreamModelUrl(model.file),
             redirectPolicyId: artifactId(MODEL_POLICY_ID),
           }),
-          qualificationProfileDigest: seed.runtimes[0]!.profileDigest,
           sbomId: artifactId(`upstream-${model.family}-${model.variant}-sbom`),
         });
       }),

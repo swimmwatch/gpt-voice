@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
+import type { LocalWhisperAuthenticatedCatalog } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId } from '@shared/localWhisper';
 
 import {
@@ -51,6 +52,7 @@ export interface LocalWhisperVerifiedBundle {
   readonly manifestSha256: string;
   readonly keyring: LocalWhisperKeyringDocument;
   readonly runtimePack: LocalWhisperPackManifest;
+  readonly runtimePacks: readonly LocalWhisperPackManifest[];
   readonly modelPack: LocalWhisperPackManifest;
 }
 
@@ -132,7 +134,7 @@ async function verifyCatalog(
   directory: string,
   manifest: LocalWhisperBundleManifest,
   keyring: LocalWhisperKeyringDocument,
-): Promise<void> {
+): Promise<LocalWhisperAuthenticatedCatalog> {
   const document = await readFile(path.join(directory, 'catalog.json'));
   const loaded = new LocalWhisperCatalogRepository({
     readDocument: () => document,
@@ -150,6 +152,90 @@ async function verifyCatalog(
   if (!loaded.success) throw new Error(`Local Whisper catalog rejected: ${loaded.code}`);
   if (loaded.catalog.signingKeyId !== manifest.keyId || loaded.catalog.payload.purpose !== manifest.purpose) {
     throw new Error('Local Whisper catalog purpose or key mismatch');
+  }
+  return loaded.catalog;
+}
+
+function assertArchiveIdentity(pack: LocalWhisperPackManifest, fileName: string): void {
+  const expected = pack.expectedFiles[0];
+  if (
+    pack.expectedFiles.length !== 1 ||
+    !expected ||
+    expected.path !== fileName ||
+    expected.sizeBytes !== pack.sizeBytes ||
+    expected.sha256 !== pack.sha256
+  ) {
+    throw new Error('Local Whisper pack archive identity is not cross-bound');
+  }
+}
+
+function assertCatalogPackBindings(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  bundle: Pick<LocalWhisperVerifiedBundle, 'keyring' | 'manifest' | 'modelPack' | 'runtimePacks'>,
+): void {
+  if (catalog.payload.schemaVersion !== 2) return;
+  if (
+    bundle.keyring.appRevision !== bundle.modelPack.appRevision ||
+    bundle.modelPack.catalogRevision !== catalog.payload.catalogRevision ||
+    !catalog.payload.compatibleAppRevisions.includes(bundle.modelPack.appRevision)
+  ) {
+    throw new Error('Local Whisper model pack candidate identity is not cross-bound');
+  }
+  const model = catalog.payload.models.find(
+    ({ identity }) => identity.artifactRevision === bundle.modelPack.artifactRevision,
+  );
+  const modelSource = model?.source;
+  if (
+    !model ||
+    !modelSource ||
+    bundle.modelPack.purpose !== catalog.payload.purpose ||
+    bundle.modelPack.platform !== 'portable' ||
+    bundle.modelPack.architecture !== 'portable' ||
+    bundle.modelPack.engine !== model.identity.engine ||
+    bundle.modelPack.target !== 'portable' ||
+    bundle.modelPack.backend !== 'notApplicable' ||
+    bundle.modelPack.sha256 !== model.transferSha256 ||
+    bundle.modelPack.sizeBytes !== model.transferSizeBytes ||
+    bundle.modelPack.source.commit !== modelSource.commit ||
+    bundle.modelPack.build.packDefinitionId !== model.transferProfile
+  ) {
+    throw new Error('Local Whisper catalog/model pack identity mismatch');
+  }
+  assertArchiveIdentity(bundle.modelPack, modelSource.file);
+
+  if (
+    bundle.runtimePacks.length !== catalog.payload.runtimes.length ||
+    new Set(bundle.runtimePacks.map(({ backend }) => backend)).size !== bundle.runtimePacks.length
+  ) {
+    throw new Error('Local Whisper catalog/runtime pack matrix mismatch');
+  }
+  for (const pack of bundle.runtimePacks) {
+    const runtime = catalog.payload.runtimes.find(
+      ({ identity }) =>
+        identity.backend === pack.backend && identity.packRevision === pack.artifactRevision,
+    );
+    const runtimeSource = runtime?.source;
+    if (
+      !runtime ||
+      !runtimeSource ||
+      runtime.transferProfile !== 'restricted-tar-gzip-v1' ||
+      pack.purpose !== catalog.payload.purpose ||
+      pack.platform !== runtime.identity.platform ||
+      pack.architecture !== runtime.identity.architecture ||
+      pack.engine !== runtime.identity.engine ||
+      pack.target !== runtime.identity.target ||
+      pack.backend !== runtime.identity.backend ||
+      pack.protocolVersion !== runtime.identity.protocolVersion ||
+      pack.appRevision !== runtime.identity.appRevision ||
+      pack.catalogRevision !== runtime.identity.catalogRevision ||
+      pack.signingKeyId !== runtime.identity.signingKeyId ||
+      pack.sizeBytes !== runtime.identity.archiveSizeBytes ||
+      pack.sha256 !== runtime.identity.archiveSha256 ||
+      pack.signatureBase64 !== runtime.identity.archiveSignature
+    ) {
+      throw new Error('Local Whisper catalog/runtime pack identity mismatch');
+    }
+    assertArchiveIdentity(pack, runtimeSource.file);
   }
 }
 
@@ -277,7 +363,7 @@ export class BundleVerifier {
       throw new Error('Local Whisper qualification runtime matrix mismatch');
     }
 
-    await Promise.all([
+    const [catalog] = await Promise.all([
       verifyCatalog(directory, manifest, keyring),
       verifyPackSignature(directory, runtimePack, publicKeyPem),
       ...(qualificationCudaPack ? [verifyPackSignature(directory, qualificationCudaPack, publicKeyPem)] : []),
@@ -292,7 +378,19 @@ export class BundleVerifier {
       }),
     ]);
 
-    const bundle = Object.freeze({ directory, manifest, manifestSha256, keyring, runtimePack, modelPack });
+    const runtimePacks = Object.freeze(
+      qualificationCudaPack ? [runtimePack, qualificationCudaPack] : [runtimePack],
+    );
+    const bundle = Object.freeze({
+      directory,
+      manifest,
+      manifestSha256,
+      keyring,
+      runtimePack,
+      runtimePacks,
+      modelPack,
+    });
+    assertCatalogPackBindings(catalog, bundle);
     const boundedTextFiles = await Promise.all(
       actualFiles
         .filter((file) => file.sizeBytes <= 4 * 1024 * 1024)

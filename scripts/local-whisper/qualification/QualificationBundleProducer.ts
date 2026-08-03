@@ -7,6 +7,7 @@ import {
   LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
   LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM,
 } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
+import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
 
 import { localWhisperPackSignatureInput } from '../packaging/BundleVerifier';
@@ -42,8 +43,8 @@ export interface QualificationRuntimeBundleInput {
 
 export interface QualificationModelBundleInput {
   readonly filePath: string;
-  readonly artifactId: string;
-  readonly artifactRevision: string;
+  readonly family: (typeof LOCAL_WHISPER_RELEASE_MODEL_MATRIX)[number]['family'];
+  readonly variant: (typeof LOCAL_WHISPER_RELEASE_MODEL_MATRIX)[number]['variant'];
   readonly expectedSha256: string;
   readonly expectedSizeBytes: number;
 }
@@ -227,6 +228,17 @@ export class LocalWhisperQualificationBundleProducer {
         input.model.expectedSizeBytes,
         input.model.expectedSha256,
       );
+      const expectedModel = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
+        ({ family, variant }) => family === input.model.family && variant === input.model.variant,
+      );
+      if (
+        !expectedModel ||
+        expectedModel.file !== path.basename(input.model.filePath) ||
+        expectedModel.sizeBytes !== modelIdentity.sizeBytes ||
+        expectedModel.sha256 !== modelIdentity.sha256
+      ) {
+        throw new Error('Qualification bundle model is outside the canonical release matrix');
+      }
       const modelFileName = path.basename(input.model.filePath);
       const modelSignature = sign(null, Buffer.from(modelIdentity.sha256, 'hex'), privatePem).toString('base64');
       await copyFile(input.model.filePath, path.join(stagingDirectory, modelFileName));
@@ -235,8 +247,8 @@ export class LocalWhisperQualificationBundleProducer {
         path.join(stagingDirectory, 'model-pack.manifest.json'),
         packManifest({
           artifactKind: 'model',
-          artifactId: input.model.artifactId,
-          artifactRevision: input.model.artifactRevision,
+          artifactId: `qualification-model-${expectedModel.family}-${expectedModel.variant}`,
+          artifactRevision: `whisper-cpp-${expectedModel.family}-${expectedModel.variant}-v1`,
           backend: 'notApplicable',
           candidateSemVer: input.catalog.candidateSemVer,
           catalogRevision: input.catalog.catalogRevision,
