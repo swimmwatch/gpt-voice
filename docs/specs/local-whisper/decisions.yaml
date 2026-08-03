@@ -1467,7 +1467,7 @@ decisions:
   - id: planning.artifact-publishing-target
     revision: 1
     category: planning
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - The approved contract requires project-controlled HTTPS origins, signed runtime packs, an immutable app-shipped catalog, and explicit release automation, but it does not select the concrete hosting service.
@@ -1495,7 +1495,7 @@ decisions:
     answer:
       selected_ids: [fixture-only-deferred-publication]
       text: ''
-    rationale: Implement deterministic signed local fixtures and the complete protected publishing contract, but keep real hosting, credentials, immutable-origin validation, and publication outside implementation until a separately authorized manual gate selects and provisions the production origin.
+    rationale: This planning-era deferral is superseded by authoritative specification decision `distribution.production-origin` revision 2. Project runtime packs use GitHub Releases; required model files download directly from pinned public upstream Hugging Face without GPT-Voice rehosting. Protected credentials, upload, and release authority remain separate gates.
     supersedes_revision: null
     requirement_ids: [PKG-002, PKG-005, SEC-008]
 
@@ -5575,3 +5575,962 @@ decisions:
       - IPC-002
       - IPC-003
       - LIFE-005
+
+  - id: distribution.production-archive-format
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - The user explicitly delegated issue resolution and technical selection to the agent, but no exact production archive format was previously approved.
+      - Task 05 already provides a strict manifest-driven streaming entry-reader boundary and forbids permissive system extraction or full-archive buffering.
+      - Node.js provides maintained gzip streaming primitives on Linux and Windows, so a restricted tar.gz profile requires no new runtime dependency.
+      - Production signing credentials, upload, catalog promotion, and release remain separate external actions and are not requested by this decision.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: production-distribution-round-01
+      question_id: distribution.production-archive-format
+      idempotency_key: distribution.production-archive-format:v1
+      last_status: answered
+      sequence: 38
+      revision: 1
+    question:
+      text: Which production archive contract should Local Whisper adopt for runtime and model artifacts?
+      kind: single
+      options:
+        - id: restricted-tar-gzip
+          label: Restricted tar.gz (Recommended)
+          description: Use deterministic gzip plus a manifest-first restricted ustar stream, built-in Node primitives, no links/extensions, and no new runtime dependency.
+        - id: restricted-tar-zstd
+          label: Restricted tar.zst
+          description: Use the same restricted tar contract with Zstandard, adding a reviewed codec dependency and packaging/license work.
+        - id: keep-format-deferred
+          label: Keep format deferred
+          description: Preserve safe removal and local execution but leave production download/update and Task 19 completion blocked.
+    answer:
+      selected_ids: [restricted-tar-gzip]
+      text: ''
+    rationale: The user durably approved the recommended dependency-free restricted tar.gz contract. Publishing credentials, upload, catalog promotion, and release remain separately gated external actions.
+    supersedes_revision: null
+    requirement_ids: [DL-001, DL-002, DL-003, PERF-001, SEC-008, PKG-005]
+
+  - id: approval.spec
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 8 pins production runtime/model transfers to `restricted-tar-gzip-v1` without adding a runtime codec dependency or permitting a remote format switch.
+      - The contract defines exact gzip and ustar grammar, deterministic metadata, manifest order, decompressed-length arithmetic, streaming/backpressure limits, cancellation, trust failures, and staging cleanup.
+      - Task 17 fixture bytes and digest remain unchanged; production publication, credentials, signing, upload, licenses, and release remain separately gated.
+      - User, operator, implementer, tester, security-reviewer, and maintainer gap analysis found the workflow, failure behavior, interfaces, trust boundary, compatibility rule, and acceptance evidence objective with no remaining material product decision.
+      - Decision-ledger and specification formatting plus git diff whitespace validation pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-09
+      question_id: approval.spec
+      idempotency_key: approval.spec:v8
+      last_status: answered
+      sequence: 39
+      revision: 8
+    question:
+      text: How should Local Whisper specification revision 8 proceed after approving and normalizing the production restricted tar.gz archive contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 8 (Recommended)
+          description: Make the restricted production archive contract authoritative, then revise Task 19 through a separate planning invocation before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 8 in Draft and revise the archive, trust, compatibility, or acceptance contract.
+        - id: leave-draft
+          label: Leave as Draft
+          description: Stop without approval; revision 7 remains authoritative and production download stays blocked.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 8 through the durable workspace interview after the restricted production archive contract was normalized.
+    supersedes_revision: 7
+    requirement_ids: [APPROVAL-001]
+
+  - id: implementation.production-artifact-pipeline-gap
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - '`LocalWhisperProductionArtifactPort` currently owns only confirmed removal and inventory refresh; it does not compose download, resume, retry, cancel, verification, extraction, promotion, or update operations.'
+      - Production renderer artifact actions expose `remove` only for an installed artifact and otherwise expose no production setup action.
+      - Revision 8 now authorizes `restricted-tar-gzip-v1`, so this is remaining implementation work rather than an unresolved archive-format decision.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Task 19 cannot qualify real artifact management until the already specified streaming lifecycle and strict production archive reader are connected to the production environment.
+    supersedes_revision: null
+    requirement_ids: [DL-001, DL-002, DL-003, PERF-001, AC-MAN-007]
+
+  - id: planning.specification-baseline-gap
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved plan revision 14, `todo.md`, `handoff.md`, and Tasks 19–21 still identify specification revision 7 as their baseline.
+      - Specification revision 8 is approved and defines the production archive contract that the remaining implementation must consume.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Remaining task packets must be revised through the planning workflow after revision 9 approval; executing the stale packets would omit approved production-distribution requirements.
+    supersedes_revision: null
+    requirement_ids: [COMP-012]
+
+  - id: qualification.preceding-package-availability
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - GitHub release `v2.3.0` was published on 2026-07-31 with Linux AppImage, DEB, RPM, Windows installer, and checksum assets.
+      - The Linux AppImage asset is `GPT-Voice-2.3.0.AppImage`, reports SHA-256 `80674b3a90222b51981fb43b5b757b7af9d3e38a5ff4ca41554ab965ae29f111`, and remains available from the project release.
+      - The existing Task 19 handoff statement that the preceding Linux package is unavailable is stale.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The exact predecessor remains freeze-dependent, but `v2.3.0` is the current stable predecessor candidate and can no longer be treated as categorically unavailable.
+    supersedes_revision: null
+    requirement_ids: [COMP-010, AC-MAN-013]
+
+  - id: qualification.version-identity-divergence
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - The worktree `package.json` currently reports version `1.4.0`.
+      - Published stable project releases extend through `v2.3.0`.
+      - Candidate qualification schemas require an exact application/package identity, so neither version source can be silently preferred during candidate freeze.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 9 must define a candidate-version policy and predecessor selection rule before any package can be frozen as qualification evidence.
+    supersedes_revision: null
+    requirement_ids: [REL-001, AC-MAN-013]
+
+  - id: qualification.unfrozen-evidence-inputs
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - No exact candidate source commit, candidate SemVer, package digest set, production/qualification catalog, runtime/model artifact digest set, immutable CPU/CUDA profile, reference-audio manifest, or direct-engine comparison manifest is frozen.
+      - Provenance, SBOM, notice, license, redistribution, signing, and publication approval evidence for release artifacts is not present.
+      - Existing hardware and fixture checks do not substitute for the complete Linux release-qualification profile or external publication evidence.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: These are explicit remaining inputs and evidence gates; they must be assigned to Tasks 19–21 rather than reported as an unspecified Task 19 blocker.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        QUAL-001,
+        QUAL-002,
+        PKG-002,
+        PKG-003,
+        PKG-004,
+        AC-MAN-001,
+        AC-MAN-002,
+        AC-MAN-005,
+        AC-MAN-006,
+        AC-MAN-007,
+        AC-MAN-012,
+        AC-MAN-013,
+      ]
+
+  - id: distribution.qualification-trust-boundary
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - The current catalog purpose vocabulary contains only `fixture` and `production`; fixture trust is forbidden in a publishable build.
+      - Requiring production signing credentials before Linux qualification couples technical evidence collection to final publication authority.
+      - A non-publishable qualification purpose can isolate temporary qualification trust while keeping production keys, upload, and catalog promotion external.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-01
+      question_id: distribution.qualification-trust-boundary
+      idempotency_key: distribution.qualification-trust-boundary:v1
+      last_status: answered
+      sequence: 40
+      revision: 1
+    question:
+      text: Which trust boundary should Task 19 use to qualify candidate code and exact runtime/model artifact bytes before production signing credentials are available?
+      kind: single
+      options:
+        - id: isolated-qualification-purpose
+          label: Isolated qualification purpose (Recommended)
+          description: Add a non-publishable qualification catalog/key mode, pin all evidence, and require Task 21 to prove that production differs only by authorized trust/publication inputs.
+        - id: production-trust-only
+          label: Production trust only
+          description: Keep only fixture and production purposes, so Task 19 cannot complete until protected production signing and hosting inputs exist.
+        - id: reuse-fixture-trust
+          label: Reuse fixture trust
+          description: Permit Task 17 fixture trust during candidate qualification, weakening the existing isolation between synthetic CI inputs and release evidence.
+    answer:
+      selected_ids: [isolated-qualification-purpose]
+      text: ''
+    rationale: Candidate qualification uses a non-publishable, isolated trust purpose so production signing credentials and publication authority remain outside Task 19 without admitting Task 17 fixture trust.
+    supersedes_revision: null
+    requirement_ids: [PKG-011, SEC-014]
+
+  - id: distribution.production-origin
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: user
+    evidence:
+      - '`planning.artifact-publishing-target` revision 1 selected fixture-only deferred publication and therefore intentionally left production hosting unresolved.'
+      - Production qualification now requires real HTTPS range/resume/redirect behavior for archives that may be multi-GiB.
+      - The project already publishes desktop installers through GitHub Releases, but no production Local Whisper artifact origin is configured in the repository.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-01
+      question_id: distribution.production-origin
+      idempotency_key: distribution.production-origin:v1
+      last_status: answered
+      sequence: 41
+      revision: 1
+    question:
+      text: Which production hosting strategy should revision 9 require for signed Local Whisper runtimes, models, and immutable catalogs?
+      kind: single
+      options:
+        - id: project-object-storage
+          label: Project object storage (Recommended)
+          description: Use one project-controlled HTTPS bucket/CDN with immutable object keys, anonymous reads, ranges, validators, bounded redirects, retention, and separate staging/production namespaces.
+        - id: split-github-huggingface
+          label: GitHub plus Hugging Face
+          description: Publish smaller runtime packs through GitHub Releases and model archives through a project-owned immutable Hugging Face repository, with two reviewed origin/redirect contracts.
+        - id: github-releases-only
+          label: GitHub Releases only
+          description: Reuse the existing release service for all artifacts and constrain published model variants to assets accepted by that service.
+    answer:
+      selected_ids: [split-github-huggingface]
+      text: ''
+    rationale: 'This authoritative specification decision replaces the older fixture-only planning assumption: immutable GitHub Release assets host runtime packs, while a project-owned immutable Hugging Face repository hosts model archives under separate allowlisted redirect contracts.'
+    supersedes_revision: null
+    requirement_ids: [DIST-001, OPS-002, AC-MAN-007]
+
+  - id: qualification.candidate-version-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The worktree package version is `1.4.0`, while the latest published stable release is `v2.3.0`.
+      - Candidate and downgrade evidence require unambiguous source, application version, package, and predecessor identities.
+      - The existing release workflow derives release versions from an explicitly selected SemVer rather than treating a stale worktree value as release authority.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-01
+      question_id: qualification.candidate-version-policy
+      idempotency_key: qualification.candidate-version-policy:v1
+      last_status: answered
+      sequence: 42
+      revision: 1
+    question:
+      text: How should qualification bind the Local Whisper candidate version and immediately preceding package despite the current version mismatch?
+      kind: single
+      options:
+        - id: explicit-semver-at-freeze
+          label: Explicit SemVer at freeze (Recommended)
+          description: Require one explicitly selected candidate SemVer, exact source commit and package hashes; choose the newest stable release published before freeze as predecessor, currently v2.3.0 if frozen now.
+        - id: derive-next-minor
+          label: Derive next minor
+          description: Automatically treat the candidate as the next minor after the latest stable release and use that latest stable release as predecessor.
+        - id: trust-package-json
+          label: Trust package.json
+          description: Treat the current 1.4.0 worktree value as candidate authority even though newer stable releases are already published.
+    answer:
+      selected_ids: [explicit-semver-at-freeze]
+      text: ''
+    rationale: Candidate freeze requires a separately explicit SemVer plus exact source and package hashes; the predecessor is the newest stable release published before that freeze, currently v2.3.0 if no later stable release appears.
+    supersedes_revision: null
+    requirement_ids: [REL-001, COMP-010, AC-MAN-013]
+
+  - id: qualification.release-model-scope
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The product catalog names six logical model families, but the specification does not freeze which exact variants must carry `qualified` rather than `estimateOnly` status in release 1.
+      - Qualifying every arbitrary quantization would create an unbounded release matrix; qualifying no exact variant would make the model-selection promise non-actionable.
+      - One canonical catalog-declared artifact variant per family preserves all six user choices while bounding evidence.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-01
+      question_id: qualification.release-model-scope
+      idempotency_key: qualification.release-model-scope:v1
+      last_status: answered
+      sequence: 43
+      revision: 1
+    question:
+      text: Which exact model-family scope should be eligible for Production qualification in the first Local Whisper release?
+      kind: single
+      options:
+        - id: all-six-one-variant
+          label: All six, one variant (Recommended)
+          description: Qualify one frozen canonical ggml artifact variant for each of tiny, base, small, medium, large-v3, and large-v3-turbo; any additional variant remains estimate-only until separately qualified.
+        - id: through-medium
+          label: Tiny through medium
+          description: Qualify tiny, base, small, and medium; expose large-v3 and large-v3-turbo only as estimate-only Preview choices.
+        - id: base-only
+          label: Base only
+          description: Qualify one base artifact and keep every other family visible but unavailable for Production installation.
+    answer:
+      selected_ids: [all-six-one-variant]
+      text: ''
+    rationale: Release 1 keeps all six promised model families actionable while bounding qualification to one frozen canonical ggml artifact variant per family; every extra variant remains estimate-only until separately qualified.
+    supersedes_revision: null
+    requirement_ids: [MODEL-011, QUAL-003]
+
+  - id: qualification.reference-corpus
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The qualification profile requires non-user reference audio, exact hashes/licenses, and direct-engine comparison, but no corpus is selected.
+      - English-only evidence would not exercise the multilingual catalog or the Russian-localized product context.
+      - A small pinned public English/Russian slice can remain deterministic while keeping repository history free of private user recordings.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-01
+      question_id: qualification.reference-corpus
+      idempotency_key: qualification.reference-corpus:v1
+      last_status: answered
+      sequence: 44
+      revision: 1
+    question:
+      text: Which reference-audio policy should the Linux and Windows qualification profiles use for accuracy and direct-engine parity?
+      kind: single
+      options:
+        - id: pinned-public-en-ru
+          label: Pinned public EN/RU (Recommended)
+          description: Freeze a small redistributable English and Russian public-corpus slice with exact source revision, clip/text hashes, notices, and identical app/direct-engine inputs.
+        - id: pinned-public-english
+          label: Pinned public English
+          description: Freeze an English-only redistributable corpus slice, reducing setup but leaving multilingual parity outside release evidence.
+        - id: project-synthetic-audio
+          label: Project synthetic audio
+          description: Generate and own deterministic TTS fixtures with pinned voices/tooling, avoiding third-party voice clips but weakening real-speech coverage.
+    answer:
+      selected_ids: [pinned-public-en-ru]
+      text: ''
+    rationale: Linux and Windows qualification share one exact redistributable English/Russian public-corpus manifest and the same inputs for application and direct-engine runs; no private user recording may enter evidence.
+    supersedes_revision: null
+    requirement_ids: [QUAL-002, PRIV-005, AC-MAN-001, AC-MAN-002]
+
+  - id: qualification.publication-gate-ownership
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Task 19 must gather Linux evidence from exact candidate source/package and runtime/model artifact digests, but protected production keys and legal publication approval are not technical Linux evidence.
+      - Task 20 must consume the same frozen candidate/artifact/profile inputs for representative Windows evidence and must not redefine publication trust.
+      - Task 21 already owns aggregate reconciliation and release-blocker reporting, making it the narrowest owner for production trust, legal, and publication verdicts.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-02
+      question_id: qualification.publication-gate-ownership
+      idempotency_key: qualification.publication-gate-ownership:v1
+      last_status: answered
+      sequence: 45
+      revision: 1
+    question:
+      text: How should the remaining tasks divide technical qualification from protected production signing, legal approval, and publication gates?
+      kind: single
+      options:
+        - id: qualification-then-publication
+          label: Qualification then publication (Recommended)
+          description: Task 19 owns Linux qualification and frozen candidate/artifact evidence, Task 20 adds Windows evidence, and Task 21 validates production credentials/legal/publication evidence and the final release verdict.
+        - id: all-production-gates-task-19
+          label: All gates in Task 19
+          description: Require production signing, legal approval, hosting, and publication evidence before Linux qualification can be completed.
+        - id: defer-qualification-task-21
+          label: Defer qualification to Task 21
+          description: Let Tasks 19 and 20 use non-release fixtures and postpone real artifact qualification together with publication until the aggregate task.
+    answer:
+      selected_ids: [qualification-then-publication]
+      text: ''
+    rationale: Tasks 19 and 20 own exact candidate technical qualification on Linux and Windows respectively; Task 21 owns production trust/legal/publication evidence validation and the aggregate release verdict, without treating missing external authority as failed platform qualification.
+    supersedes_revision: null
+    requirement_ids: [OPS-003, QUAL-004, AC-MAN-012]
+
+  - id: distribution.model-repository
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The selected split-hosting strategy requires one project-owned immutable Hugging Face repository identity before allowlisted production model URLs can be frozen.
+      - The GitHub project owner is `swimmwatch`, while no Hugging Face repository identity is present in the repository.
+      - Repository creation, credentials, and uploads remain external actions; selecting the canonical identity does not authorize them.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-03
+      question_id: distribution.model-repository
+      idempotency_key: distribution.model-repository:v1
+      last_status: answered
+      sequence: 46
+      revision: 1
+    question:
+      text: Which canonical Hugging Face repository identity should revision 9 reserve for immutable Local Whisper model archives?
+      kind: single
+      options:
+        - id: swimmwatch-local-whisper-models
+          label: swimmwatch/gpt-voice-local-whisper-models (Recommended)
+          description: Use a feature-specific project repository whose immutable commit URLs and notices contain only GPT-Voice Local Whisper model artifacts.
+        - id: swimmwatch-models
+          label: swimmwatch/gpt-voice-models
+          description: Use a broader project model repository that may host future model families but requires stronger per-feature namespace rules.
+        - id: freeze-repository-later
+          label: Freeze repository later
+          description: Keep the owner/repository an explicit Task 21 release input, leaving real model-origin qualification blocked until it is supplied.
+    answer:
+      selected_ids: []
+      text: Why should I store models in a separate repository? Users can download them from the public Hugging Face. Why should I post and distribute them myself? I don't create any models. We need to make sure that our program downloads the required model from Hugging Face.
+    rationale: Revision 9 SHALL use an immutable, reviewed public upstream Hugging Face model source rather than requiring the GPT-Voice project to republish model bytes. The app still authenticates an app-owned catalog entry, pins the upstream repository commit and exact archive/file digests, and fails closed if upstream bytes or redirects change.
+    supersedes_revision: null
+    requirement_ids: [DIST-002, OPS-002, AC-MAN-007]
+
+  - id: qualification.reference-corpus-source
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The approved policy requires one public redistributable English/Russian corpus slice but does not identify the source dataset.
+      - A single multilingual dataset reduces provenance and normalization drift between languages and platforms.
+      - The freeze still must record an exact upstream revision, selected clip/text hashes, license, notices, and local conversion hashes.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-03
+      question_id: qualification.reference-corpus-source
+      idempotency_key: qualification.reference-corpus-source:v1
+      last_status: answered
+      sequence: 47
+      revision: 1
+    question:
+      text: Which public dataset should supply the pinned English/Russian qualification slice?
+      kind: single
+      options:
+        - id: fleurs-en-us-ru-ru
+          label: FLEURS EN-US/RU-RU (Recommended)
+          description: Pin one exact `google/fleurs` revision and deterministic en_us/ru_ru slices under its reviewed CC BY 4.0 license and notices.
+        - id: common-voice-en-ru
+          label: Common Voice EN/RU
+          description: Pin one exact Mozilla Common Voice release and deterministic English/Russian slices under the release's reviewed dataset terms.
+        - id: librispeech-common-voice
+          label: LibriSpeech plus Common Voice
+          description: Use LibriSpeech for English and Common Voice for Russian, requiring two source, license, normalization, and notice chains.
+    answer:
+      selected_ids: [fleurs-en-us-ru-ru]
+      text: ''
+    rationale: One exact FLEURS upstream revision and deterministic `en_us`/`ru_ru` slices provide the shared bilingual reference corpus, subject to exact clip/text/conversion hashes and reviewed CC BY 4.0 notices.
+    supersedes_revision: null
+    requirement_ids: [QUAL-002, PRIV-005, AC-MAN-001, AC-MAN-002]
+
+  - id: qualification.canonical-model-variants
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The current closed variant vocabulary is `full` and `q5_0`.
+      - Current validation permits `q5_0` only for `large-v3` and `large-v3-turbo`; tiny, base, small, and medium therefore use `full`.
+      - The approved release scope requires exactly one qualified variant per family, so the two large-family variants must be fixed explicitly.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-03
+      question_id: qualification.canonical-model-variants
+      idempotency_key: qualification.canonical-model-variants:v1
+      last_status: answered
+      sequence: 48
+      revision: 1
+    question:
+      text: Which canonical variants should the first release qualify for large-v3 and large-v3-turbo?
+      kind: single
+      options:
+        - id: q5-large-families
+          label: Q5_0 large models (Recommended)
+          description: Qualify full tiny/base/small/medium and q5_0 large-v3/large-v3-turbo to reduce download and memory requirements while preserving one variant per family.
+        - id: full-all-families
+          label: Full all models
+          description: Qualify full artifacts for all six families, maximizing native precision but increasing transfer, RAM, VRAM, and qualification requirements.
+        - id: full-and-q5-large
+          label: Full and Q5 large
+          description: Qualify both full and q5_0 for each large family, expanding beyond the approved one-variant-per-family matrix.
+    answer:
+      selected_ids: [q5-large-families]
+      text: ''
+    rationale: The canonical first-release matrix uses full tiny/base/small/medium artifacts and q5_0 large-v3/large-v3-turbo artifacts; every other variant remains estimate-only until separately qualified.
+    supersedes_revision: null
+    requirement_ids: [MODEL-011, QUAL-003]
+
+  - id: distribution.production-origin
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 1 selected GitHub Releases plus a project-owned Hugging Face repository.
+      - The user subsequently stated that GPT-Voice SHALL download required models from public Hugging Face and SHALL NOT republish model bytes it did not create.
+      - Public upstream repository `ggerganov/whisper.cpp` currently exposes all six selected canonical files at commit `5359861c739e955e79d9a303bcbc70fb988958b1` and declares MIT model-card licensing metadata.
+      - A pinned model resolve URL redirects anonymously from `huggingface.co` to `us.aws.cdn.hf.co`, advertises byte ranges, length, repository commit, linked content identity, and ETag; redirect URLs contain expiring query signatures and are not artifact identity.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-03
+      question_id: distribution.model-repository
+      idempotency_key: distribution.model-repository:v1
+      last_status: answered
+      sequence: 46
+      revision: 1
+    question:
+      text: Which canonical Hugging Face repository identity should revision 9 reserve for immutable Local Whisper model archives?
+      kind: single
+      options:
+        - id: candidate-1.4.0
+          label: 1.4.0 (Recommended)
+          description: Freeze 1.4.0 for qualification only; this does not publish, tag, or release anything.
+        - id: candidate-1.5.0
+          label: 1.5.0
+          description: Freeze 1.5.0 for qualification only; package and evidence identities will use this version.
+    answer:
+      selected_ids: [github-runtime-public-upstream-hf-models]
+      text: GPT-Voice downloads required models from public Hugging Face and does not republish model bytes it did not create.
+    rationale: GitHub Releases remains the project-owned runtime-pack origin. Models use an app-catalog-pinned public upstream Hugging Face repository/commit/file identity and exact byte hash; Task 21 validates legal notices and upstream continuity without requiring GPT-Voice model upload credentials.
+    supersedes_revision: 1
+    requirement_ids: [DIST-001, DIST-002, OPS-002, AC-MAN-007, AC-MAN-012]
+
+  - id: distribution.production-archive-format
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 1 selected `restricted-tar-gzip-v1` for both runtime and model transfers.
+      - The later committed public-Hugging-Face decision requires consuming upstream `ggml-*.bin` regular files without GPT-Voice repackaging.
+      - Runtime packs contain multiple project-built files and still require deterministic restricted archive extraction; a ggml model artifact is one regular file and needs no extraction.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-qualification-round-03
+      question_id: distribution.model-repository
+      idempotency_key: distribution.model-repository:v1
+      last_status: answered
+      sequence: 46
+      revision: 1
+    question:
+      text: How should production transport the required public Hugging Face model bytes without republishing them?
+      kind: text
+      options: []
+    answer:
+      selected_ids: [restricted-runtime-raw-pinned-model]
+      text: Runtime packs use restricted-tar-gzip-v1; public upstream Hugging Face model files use pinned-raw-model-v1.
+    rationale: "`pinned-raw-model-v1` streams one catalog-authenticated regular file to staging, verifies exact length/hash/source identity and catalog signature, then atomically promotes it. It accepts no archive members, path metadata, or extraction behavior. This is the necessary technical consequence of the user's later public-upstream download decision."
+    supersedes_revision: 1
+    requirement_ids: [DL-001, DL-002, DL-003, PERF-001, SEC-008, PKG-005]
+
+  - id: distribution.upstream-model-source
+    revision: 1
+    category: operations
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Hugging Face model repository `ggerganov/whisper.cpp` reports current immutable commit `5359861c739e955e79d9a303bcbc70fb988958b1`.
+      - That commit exposes `ggml-tiny.bin`, `ggml-base.bin`, `ggml-small.bin`, `ggml-medium.bin`, `ggml-large-v3-q5_0.bin`, and `ggml-large-v3-turbo-q5_0.bin` required by the approved canonical matrix.
+      - Repository metadata declares license `mit`; final notice and model-source redistribution/facilitation review remains a Task 21 evidence gate.
+      - FLEURS dataset repository `google/fleurs` reports immutable commit `70bb2e84b976b7e960aa89f1c648e09c59f894dd`, public ungated access, CC BY 4.0 metadata, and raw `en_us`/`ru_ru` test TSV plus audio archives.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: These upstream identities make revision 9 concrete. Candidate freeze SHALL either use these exact commits or reopen the specification if an upstream replacement is necessary; mutable `main` URLs are never accepted.
+    supersedes_revision: null
+    requirement_ids: [MODEL-011, DIST-002, QUAL-002, AC-MAN-012]
+
+  - id: approval.spec
+    revision: 9
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Revision 9 replaces the stale generic Task 19 blocker with explicit implementation, qualification, external-input, and aggregate publication boundaries.
+      - User perspective confirms all six canonical models, approximate requirements, public upstream model download, setup/version/load/unload/recovery behavior, and honest support states remain predictable.
+      - Operator perspective confirms four disjoint packaging modes, exact runtime/model origins, candidate/predecessor policy, qualification origin, rollback, production delta, and external authority ownership.
+      - Implementer perspective confirms catalog payload schema v2, redirect-policy grammar, strict runtime/raw-model transports, production artifact composition, exact upstream bytes, candidate graph, and no project model republishing.
+      - Tester perspective confirms FLEURS EN-US/RU-RU source, deterministic materialization, WER/RTF/RAM/VRAM algorithms, AC-AUTO-064 through AC-AUTO-072, and AC-MAN-014.
+      - Security perspective confirms key-purpose isolation, main-only authority, loopback qualification confinement, public anonymous Hugging Face requests, strict redirects, no transport path metadata, bounded streaming, and privacy-safe evidence.
+      - Maintainer perspective confirms unchanged Task 17 fixture digest, explicit schema compatibility, upstream revision policy, Linux/Windows evidence separation, AMD Preview boundary, and macOS Planned/unavailable boundary.
+      - Prompt MCP reports 41 committed answers and no pending, cancelled, timed-out, unavailable, or failed questions before approval.
+      - '`prettier --check` and `git diff --check` pass for the specification and decision ledger.'
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-10
+      question_id: approval.spec
+      idempotency_key: approval.spec:v9
+      last_status: answered
+      sequence: 49
+      revision: 9
+      supersedes_revision: 8
+    question:
+      text: How should Local Whisper specification revision 9 proceed after the complete blocker, origin, qualification, candidate, corpus, and production-gate audit?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 9 (Recommended)
+          description: Make revision 9 the authoritative contract; revise the remaining task plan in a separate planning invocation before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 9 in Draft and reopen the affected decisions or requirements.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 8 remains the authoritative baseline and the stale plan cannot be reconciled yet.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 9 through the durable workspace interview after the blocker, public-origin, qualification-trust, candidate, corpus, model-variant, measurement, and publication-gate contract was normalized.
+    supersedes_revision: 8
+    requirement_ids: [APPROVAL-001]
+
+  - id: approval.plan-revision-15
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Plan revision 15 consumes approved specification revision 9 and preserves completed Tasks 01–18 without reopening them.
+      - Task 19 now owns catalog payload v2, both approved transfer profiles, qualification-purpose trust, deterministic runtime/model/corpus inputs, explicit candidate freeze, and complete Linux qualification without requiring production private keys or final GitHub upload.
+      - Task 20 exclusively owns representative Windows qualification against the exact unchanged Task 19 freeze.
+      - Task 21 owns qualification-to-production delta validation, protected production trust/legal/provenance/SBOM/notice/redistribution gates, final GitHub runtime-origin parity after separately authorized upload, and aggregate AC-MAN-014 readiness.
+      - The machine-readable plan contains Tasks 01–21 and all 71 canonical automated acceptance IDs exactly once; the task-plan validator, targeted Prettier check, and git diff check pass.
+      - Plan approval remains separate from Task 19 execution, commit, push, pull request, production signing, upload, publication, support promotion, and release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-15-approval-round-66
+      question_id: approval.plan-revision-15
+      idempotency_key: approval.plan-revision-15:v1
+      last_status: answered
+      sequence: 67
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 15 proceed after reconciling the remaining work with approved specification revision 9?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 15 (Recommended)
+          description: Approve the repaired Tasks 19–21 contract while keeping every execution and external action separately gated.
+        - id: request-plan-changes
+          label: Request changes
+          description: Keep revision 15 in Draft and revise the affected planning artifacts before implementation resumes.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with revision 15 unapproved and keep implementation paused.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 15 through the durable workspace interview. This authorizes the revised plan contract only; Task 19 execution and every external action remain separate gates.
+    supersedes_revision: 14
+    requirement_ids: []
+
+  - id: qualification.candidate-semver
+    revision: 1
+    category: release
+    state: answered
+    provenance: user
+    evidence:
+      - Task 19 requires an explicit qualification candidate SemVer and forbids inferring the stale package manifest value.
+      - The value identifies a non-publishable qualification candidate only and grants no tag, release, upload, publication, or production-signing authority.
+    prompt_mcp:
+      interview_id: implementation:local-whisper
+      batch_id: null
+      question_id: task19.candidate-semver
+      idempotency_key: task19.candidate-semver:v1
+      last_status: answered
+      sequence: 1
+      revision: 1
+    question:
+      text: Which explicit SemVer should be frozen for the non-publishable Local Whisper Task 19 qualification candidate?
+      kind: text
+      options: []
+    answer:
+      selected_ids: []
+      text: 2.4.0
+    rationale: The user supplied 2.4.0 through the durable workspace Prompt MCP interaction.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001]
+
+  - id: qualification.identity-cycle-defect
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - The current candidate-v2 schema requires `profileDigests`, and `qualificationDocumentDigest` includes those values when computing `candidateDigest`.
+      - The current profile-v2 schema requires `candidateDigest`, and `qualificationDocumentDigest` includes that value when computing `profileDigest`.
+      - No candidate, profile, platform result, measurement series, or evidence index has been frozen; Task 19 remains in progress and uncommitted.
+      - A SHA-256 fixed point, placeholder digest, or unhashed cross-document binding would not satisfy the approved immutability and mixed-candidate rejection requirements.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Specification revision 9 contains a circular identity dependency and cannot truthfully produce its required qualification freeze. The contract must become acyclic before Task 19 resumes.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001, COMP-012, AC-AUTO-067, AC-AUTO-072]
+
+  - id: qualification.identity-graph
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - A candidate-input document can bind every source, package, catalog, runtime, model, corpus, direct-engine, predecessor, fixture, and tool input without depending on profiles or results.
+      - Independently hashed profiles can then bind that candidate-input digest, after which one final graph document can bind the input digest and the complete sorted profile-digest set.
+      - Platform results, measurement series, and the evidence index can bind only the final graph digest plus the applicable profile digest, preventing mixed-candidate evidence without a cycle.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: qualification-identity-round-01
+      question_id: qualification.identity-graph
+      idempotency_key: qualification.identity-graph:v1
+      last_status: answered
+      sequence: 50
+      revision: 1
+    question:
+      text: Which acyclic identity structure should replace the circular candidate/profile digest contract?
+      kind: single
+      options:
+        - id: layered-input-profile-graph
+          label: Layered input/profile/graph (Recommended)
+          description: Hash candidate inputs first, hash profiles against that input digest, then hash one final graph over the input digest and sorted profile digests; downstream evidence binds the final graph.
+        - id: inline-single-graph
+          label: Inline single graph
+          description: Embed complete profile documents inside one final candidate graph and hash it once, reducing document count but duplicating profile data and weakening independent profile reuse.
+        - id: result-owned-profiles
+          label: Result-owned profiles
+          description: Remove independent profile documents and place profile definitions inside platform results, simplifying the pre-execution graph but coupling measurement methods to each platform result.
+    answer:
+      selected_ids: [layered-input-profile-graph]
+      text: ''
+    rationale: The user selected the acyclic layered direction. Final gap analysis then established that its single pre-result graph cannot contain exact Linux and Windows package/runtime/profile identities while Task 19 and Task 20 execute sequentially on different operating systems. Revision 2 supersedes only the platform freeze boundary while preserving the selected acyclic layering.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001, COMP-012, AC-AUTO-067, AC-AUTO-072]
+
+  - id: compatibility.qualification-schema-repair
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Qualification schema v2 and its validator changes exist only in the uncommitted Task 19 worktree.
+      - No v2 candidate/profile/result/evidence document has been frozen, published, or consumed by Task 20.
+      - The immutable Task 17 fixture digest and catalog payload compatibility are separate contracts and are not changed by this qualification-schema repair.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: qualification-identity-round-01
+      question_id: compatibility.qualification-schema-repair
+      idempotency_key: compatibility.qualification-schema-repair:v1
+      last_status: answered
+      sequence: 51
+      revision: 1
+    question:
+      text: How should schema versioning handle the unfrozen circular v2 qualification documents?
+      kind: single
+      options:
+        - id: correct-v2-before-freeze
+          label: Correct v2 before freeze (Recommended)
+          description: Replace the uncommitted circular v2 contract in place, reject the old shape, and create no migration because no v2 evidence exists.
+        - id: introduce-v3
+          label: Introduce v3
+          description: Preserve the circular v2 files as historical definitions and add v3 for the acyclic graph, increasing compatibility surface despite no frozen v2 evidence.
+    answer:
+      selected_ids: [correct-v2-before-freeze]
+      text: ''
+    rationale: The user selected correction of the uncommitted and unfrozen v2 qualification contract in place. The circular v2 shape is invalid and rejected; no migration or v3 compatibility surface is required because no v2 evidence exists.
+    supersedes_revision: null
+    requirement_ids: [COMP-012, QUAL-001, AC-AUTO-067, AC-AUTO-072]
+
+  - id: qualification.cross-platform-freeze-conflict
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - Task 19 executes and freezes Linux package, runtime, direct-engine, profile, result, and evidence identities before Task 20 begins.
+      - Task 20 runs later on Windows and must produce distinct Windows package, runtime, direct-engine, host, and profile identities without mutating Task 19 evidence.
+      - The current candidate-v2 schema permits only Linux application packages while Task 20 nevertheless requires exact Windows package/runtime identities to have been frozen already.
+      - Exact Windows OS, hardware, process-accounting, and package identities cannot truthfully be observed or frozen by the Linux-only Task 19 execution.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: One pre-execution graph containing all platform-specific inputs conflicts with the approved sequential Task 19 Linux and Task 20 Windows workflow. The repaired identity graph must distinguish shared candidate inputs from immutable per-platform branches and aggregate evidence.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001, QUAL-004, OPS-003, AC-AUTO-067, AC-AUTO-072, AC-MAN-014]
+
+  - id: qualification.identity-graph
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Shared source, SemVer, catalog schema/purpose, model, corpus, fixture, transfer-profile, algorithm, and predecessor-selection-rule inputs can be frozen before either platform runs.
+      - Linux and Windows require distinct application packages, runtime packs, direct-engine binaries, toolchains, exact profiles, results, and evidence indexes produced in their own tasks.
+      - An aggregate root can bind the unchanged shared candidate-input digest plus both immutable platform-branch and platform-result/evidence digests after Task 20, without changing either platform result.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: qualification-identity-round-02
+      question_id: qualification.identity-graph
+      idempotency_key: qualification.identity-graph:v2
+      last_status: answered
+      sequence: 52
+      revision: 2
+      supersedes_revision: 1
+    question:
+      text: How should the acyclic identity graph seal Linux and Windows inputs that are produced sequentially on different operating systems?
+      kind: single
+      options:
+        - id: shared-core-platform-branches-aggregate
+          label: Shared core, platform branches, aggregate (Recommended)
+          description: Freeze one shared candidate-input digest, let Tasks 19 and 20 independently seal immutable Linux and Windows input/profile branches and results against it, then let Task 21 hash both branches and evidence into the final aggregate root.
+        - id: freeze-windows-before-linux-result
+          label: Freeze Windows before Linux result
+          description: Require exact Windows packages, runtimes, direct-engine binaries, and profiles before Task 19 may freeze Linux evidence, keeping one pre-result graph but blocking Linux completion until Windows inputs exist.
+        - id: platform-neutral-profiles-only
+          label: Platform-neutral profiles only
+          description: Freeze only shared method profiles before Linux and move package, runtime, host, and toolchain identities into results, reducing pre-execution binding of platform-specific artifacts.
+    answer:
+      selected_ids: [shared-core-platform-branches-aggregate]
+      text: ''
+    rationale: The user selected one immutable shared candidate core, independently sealed Linux and Windows platform input/profile/result/evidence branches, and one final Task 21 aggregate evidence root. Each platform branch is acyclic and neither platform mutates the shared core or the other platform's evidence.
+    supersedes_revision: 1
+    requirement_ids: [REL-001, QUAL-001, QUAL-004, OPS-003, COMP-012, AC-AUTO-067, AC-AUTO-072, AC-MAN-014]
+
+  - id: qualification.identity-repair-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: the repair changes only qualification evidence identity; Local Whisper setup, selection, support tiers, model behavior, load/unload, and failure UX remain unchanged.
+      - Operator perspective: Task 19 can complete Linux without unavailable Windows bytes; Task 20 adds a read-only Windows branch; Task 21 alone seals the aggregate and production-readiness evidence.
+      - Implementer perspective: every document has one forward-only predecessor set and explicit invalidation ownership; no fixed point, placeholder, backward edge, or cross-platform pre-freeze is required.
+      - Tester perspective: AC-AUTO-067 and AC-AUTO-072 cover valid order, legacy-cycle rejection, mixed shared/platform inputs, missing edges, profile timing, and privacy-safe series/result/index binding; AC-MAN-014 covers the aggregate root.
+      - Security-reviewer perspective: main-owned trust, qualification/fixture/production isolation, sensitive-evidence prohibitions, exact artifact hashes, and no-secret specification rules remain unchanged and are strengthened by hashed cross-document edges.
+      - Maintainer perspective: the unfrozen Task 19 qualification v2 contract is corrected before first use, no v3 or evidence migration is created, Task 17 bytes/digest remain unchanged, and Tasks 19–21 must be revised through `/plan` before implementation resumes.
+      - Scoped Prettier and repository `git diff --check` pass for the revision-10 draft and decision ledger.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The final role-based gap analysis found no unresolved material outcome, flow, interface, architecture, security/privacy, operations, compatibility, or acceptance decision within the identity-repair scope.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001, QUAL-004, OPS-003, COMP-012, AC-AUTO-067, AC-AUTO-072, AC-MAN-014]
+
+  - id: approval.spec
+    revision: 10
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 10 replaces the unsatisfiable candidate/profile SHA-256 cycle with an explicit forward-only shared-candidate/platform-branch/aggregate graph.
+      - The shared candidate input excludes every downstream platform/profile/result/index digest; each platform input excludes profiles and evidence; profiles bind only already-frozen inputs; platform graphs bind complete profiles; evidence binds forward to its graph; Task 21 alone seals the aggregate root.
+      - Task 19 no longer requires exact Windows package/runtime/direct-engine/profile identities; Task 20 adds its Windows branch without mutating the shared core or Linux evidence.
+      - The uncommitted and unfrozen qualification schema-v2 family is corrected in place, the legacy circular shape is rejected, and no v3 or migration is introduced.
+      - Catalog payload compatibility and Task 17 fixture bytes/digest remain unchanged; AMD remains Preview and untested; macOS remains Planned and unavailable.
+      - AC-AUTO-067, AC-AUTO-072, AC-MAN-014, Section 19.2, and the Tasks 19–21 completion boundaries now assert the repaired graph objectively.
+      - The six-perspective final gap analysis found no unresolved material decision, and scoped Prettier plus `git diff --check` pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-11
+      question_id: approval.spec
+      idempotency_key: approval.spec:v10
+      last_status: answered
+      sequence: 53
+      revision: 10
+      supersedes_revision: 9
+    question:
+      text: How should Local Whisper specification revision 10 proceed after repairing the circular digest and cross-platform freeze contracts?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 10 (Recommended)
+          description: Make the acyclic shared-core/platform-branch/aggregate contract authoritative, then revise Tasks 19–21 through a separate planning invocation before implementation resumes.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 10 in Draft and reopen the affected identity, compatibility, sequencing, or acceptance decisions.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 9 remains authoritative and Task 19 stays blocked by its circular contract.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 10 through the durable workspace interview after the circular digest, cross-platform sequencing, schema compatibility, invalidation, and acceptance contracts were repaired.
+    supersedes_revision: 9
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.identity-graph-packet-boundary
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 10 keeps the existing Tasks 19–21 sequence and assigns one shared candidate input, independent Linux/Windows branches, and one aggregate root.
+      - Task 19 is already in progress and uncommitted; preserving it as one packet avoids discarding or misrepresenting its production-artifact, native, model, corpus, and reproducibility work.
+      - Task 19 now owns in-place correction of the unfrozen qualification-v2 schemas, canonical graph validator/producers, shared candidate input, and Linux branch; it contains no exact Windows package/runtime/direct-engine/toolchain/profile identity.
+      - Task 20 consumes the unchanged shared input and read-only Linux branch, then owns the complete Windows platform input/profile/graph/result/index branch on representative Windows hardware.
+      - Task 21 validates both immutable branches, seals `aggregateEvidenceDigest`, and retains protected production/legal/origin/release blockers without rerunning platform profiles.
+      - The task-plan validator reports 21 executable packets and 71 unique automated acceptance owners; a requirement audit maps all 259 active specification IDs; scoped Prettier and `git diff --check` pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 16 repairs only the remaining packet contracts and plan tooling. Tasks 01–18, support claims, execution authorization, production code, commits, external actions, and release authority remain unchanged.
+    supersedes_revision: null
+    requirement_ids: [REL-001, QUAL-001, QUAL-004, OPS-003, COMP-012, AC-AUTO-067, AC-AUTO-072, AC-MAN-014]
+
+  - id: approval.plan-revision-16
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 16 consumes approved specification revision 10 and preserves completed Tasks 01–18 plus the authorized three-packet Linux/Windows/aggregate sequence.
+      - Task 19 corrects the unfrozen circular v2 schema family, rejects legacy cycles/placeholders/backward edges, seals `candidateInputDigest`, and freezes only the Linux platform branch and evidence.
+      - Task 20 consumes the unchanged shared candidate and Linux branch, creates only the Windows input/profile/graph/result/index branch, and keeps every representative Windows execution on Windows.
+      - Task 21 validates the shared core and both branches, seals `aggregateEvidenceDigest`, and owns qualification-to-production plus protected external blockers without rewriting or rerunning platform evidence.
+      - Task 17 bytes/digest remain unchanged, no v3 or migration is added, AMD remains Preview/untested, and macOS remains Planned/unavailable.
+      - The machine-readable plan contains Tasks 01–21 and all 71 canonical automated acceptance IDs exactly once; all 259 active specification IDs are mapped; packet structure, registered commands, Prettier, and `git diff --check` pass.
+      - Plan approval remains separate from Task 19 execution, commit, push, pull request, production signing, upload, publication, support promotion, tag, and release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-16-approval-round-68
+      question_id: approval.plan-revision-16
+      idempotency_key: approval.plan-revision-16:v1
+      last_status: answered
+      sequence: 68
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 16 proceed after aligning Tasks 19–21 with the approved acyclic qualification graph?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 16 (Recommended)
+          description: Approve the repaired Task 19 Linux, Task 20 Windows, and Task 21 aggregate contracts while keeping execution and every external action separately gated.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 16 in Draft and revise packet ownership, sequencing, verification, or handoff details.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with revision 16 unapproved; Task 19 remains paused under the superseded revision-15 contract.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 16 through the durable workspace interview. This authorizes the repaired Tasks 19–21 plan contract only; packet execution and every commit, external action, or release operation remain separately gated.
+    supersedes_revision: 15
+    requirement_ids: []

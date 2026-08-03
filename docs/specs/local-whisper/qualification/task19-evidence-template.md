@@ -1,8 +1,10 @@
-# Local Whisper Task 19 Qualification Evidence
+# Local Whisper Qualification Seed (Tasks 19–21)
 
-This template records evidence only. An unchecked row is an independent
-release blocker and must not be inferred from Linux, source-contract, fixture,
-or another device's result.
+This Task 18 seed is retained for traceability. Task 19 records Linux-only
+status in `linux-evidence-template.md`; representative Windows execution belongs
+exclusively to Task 20. An unchecked row is an independent release blocker and
+must not be inferred from another platform, source-contract, fixture, or
+another device's result.
 
 ## Build identity
 
@@ -23,6 +25,9 @@ or another device's result.
 - [ ] Result matches documented downgrade guidance; any mismatch blocks release.
 
 ## Representative Windows
+
+Task 20 owns every row in this section. Task 19 must leave them unchecked and
+must not execute a Windows substitute.
 
 - [ ] Native filesystem guard and launcher quality checks ran on Windows.
 - [ ] CPU worker/package lifecycle ran on the representative host.

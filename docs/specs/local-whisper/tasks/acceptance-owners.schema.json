@@ -10,7 +10,7 @@
       "const": 1
     },
     "planRevision": {
-      "const": 14
+      "const": 16
     },
     "taskFiles": {
       "type": "object",
@@ -49,8 +49,8 @@
     },
     "automatedAcceptanceOwners": {
       "type": "array",
-      "minItems": 62,
-      "maxItems": 62,
+      "minItems": 71,
+      "maxItems": 71,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -58,7 +58,7 @@
         "properties": {
           "acceptanceId": {
             "type": "string",
-            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-3])$"
+            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-2])$"
           },
           "primaryTask": {
             "type": "string",

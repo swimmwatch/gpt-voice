@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 14,
+  "planRevision": 16,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -565,6 +565,51 @@
       "acceptanceId": "AC-AUTO-063",
       "primaryTask": "13",
       "verificationCommandIds": ["task-13-single-engine-tests", "task-13-single-engine-cleanup-verification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-064",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-065",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-066",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-067",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-068",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-069",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-070",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-071",
+      "primaryTask": "21",
+      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-072",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-linux-qualification"]
     }
   ]
 }

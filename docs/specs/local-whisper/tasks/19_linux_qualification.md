@@ -1,444 +1,340 @@
-# Task 19: Linux Candidate Activation And Qualification
+# Task 19: Linux Production Pipeline And Qualification
 
 ## Outcome
 
-Replace the always-deferred Linux/Windows Local Whisper startup injection with
-one process-owned, production-candidate environment assembled from the existing
-catalog, settings, inventory, managed-filesystem, artifact, capability,
-supervisor, coordinator, IPC, and snapshot components. Prove that the graph
-fails closed when authenticated production inputs are unavailable and can run a
-real Linux CPU/CUDA Local Whisper flow when those inputs are present.
+Finish the release-1 Local Whisper production artifact path on top of the
+already integrated process-owned environment. Implement the two approved
+transfer profiles, catalog payload schema v2, disjoint qualification trust,
+deterministic runtime/corpus/model evidence, and the exact renderer-to-main
+artifact lifecycle. Correct the unfrozen circular qualification-v2 contracts,
+freeze one explicit shared candidate input and the Linux platform branch in
+forward-only order, and execute the full Linux x64 CPU and available NVIDIA
+CUDA qualification for all six canonical models.
 
-After the activation milestone passes, freeze one candidate and its approved
-qualification profiles, then run and record the complete Linux x64 CPU/CUDA,
-native, application, package, lifecycle, privacy, offline, performance, memory,
-and downgrade qualification. Produce an immutable privacy-safe Linux evidence
-slice that Task 20 must consume without changing the candidate or Task 17
-fixture digest. Perform no representative Windows execution.
+Produce immutable privacy-safe Linux platform input/profile/graph/result/
+evidence identities that Task 20 must consume unchanged. Do not require or
+fabricate exact Windows package/runtime/direct-engine/profile inputs,
+production private keys, legal publication approval, a final GitHub runtime
+upload, representative Windows execution, AMD promotion, or macOS execution.
 
 ## Prerequisites
 
-- Specification revision 7 and plan revision 14 are approved.
-- Tasks 01–18 are complete; Task 18 changes are reviewed and committed before
-  production-candidate activation begins.
-- The Task 17 public fixture bundle digest is exactly
+- Specification revision 10 and plan revision 16 are approved.
+- Tasks 01–18 remain complete and are not reopened.
+- The existing uncommitted Task 19 composition, native authority, worker,
+  lifecycle, qualification-schema, and Linux integration work is preserved and
+  audited as the implementation baseline; it is not discarded or represented
+  as already qualified.
+- The Task 17 fixture bundle remains byte-identical with digest
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
-- The current source fact is explicit: `src/main/main.ts` injects
-  `createDeferredLocalWhisperEnvironment` for every platform, while the
-  concrete repositories and services are otherwise constructed only by tests.
-- The current packaged catalog is a disabled publication sentinel. No fixture
-  key, fixture origin, fixture catalog, unsigned catalog, or locally invented
-  artifact identity may be admitted into a production candidate.
-- The Linux x64 NVIDIA host is authorized for bounded qualification and its
-  exact OS, kernel, topology, GPU, driver, compute capability, VRAM, CPU, and
-  RAM can be collected privately.
-- Task 19 has separate execution authorization. Planning approval alone does
-  not authorize implementation, qualification, commit, push, publication, or
-  release.
+- The authorized Linux x64 host may run bounded CPU and NVIDIA CUDA
+  qualification and retain raw machine evidence only in an approved private
+  location.
+- Candidate SemVer `2.4.0` is explicitly supplied at shared-input freeze. The
+  worktree `package.json` value is not authority. The UTC freeze timestamp is
+  captured once and is the predecessor-selection cutoff for both platforms.
+- Task 19 has fresh execution authorization after plan revision 16 approval.
 
-Authenticated production catalog/key/origin data, exact runtime/model inputs,
-licenses, redistribution approval, and the immediately preceding Linux package
-are manual gates. Their absence does not permit a fixture substitution. The
-activation code and fail-closed tests may proceed, but candidate freeze and
-affected qualification rows remain blocked or `Pending` until the exact inputs
-exist.
+Qualification uses an isolated `qualification` catalog/key purpose and a
+single-use loopback HTTPS origin for exact candidate runtime bytes. Final
+production trust, legal approval, GitHub upload, publication, and release
+authority belong to Task 21 and are not Task 19 completion prerequisites.
 
 ## Owned Requirements
 
-- Production-candidate integration evidence for `ARCH-003`–`ARCH-006`,
-  `ARCH-010`, `CAP-001`–`CAP-017`, `IPC-001`–`IPC-003`, `RUN-001`–`RUN-007`,
-  `SEC-001`–`SEC-011`, `LIFE-001`–`LIFE-006`, `SET-001`, `VAL-001`,
-  `MODEL-002`, `MODEL-006`–`MODEL-008`, `RUNTIME-003`–`RUNTIME-004`, and
-  `PKG-005` without changing their primary implementation owners.
-- Linux qualification slices of `OUT-001`, `BASE-001`, `ARCH-001`, `ARCH-009`,
-  `COMP-001`–`COMP-004`, `CAP-001`, `CAP-011`, `LIFE-005`, `PRIV-001`–
-  `PRIV-004`, `DIAG-001`–`DIAG-003`, and `DOC-001`.
-- Linux platform evidence supporting every applicable deterministic acceptance
-  criterion in `AC-AUTO-001`–`AC-AUTO-054` and `AC-AUTO-056`–`AC-AUTO-063`.
-- Linux portions of `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`,
+- Primary implementation ownership: `DL-004`, `ARCH-010`, `COMP-012`,
+  `DIST-001`–`DIST-002`, `MODEL-011`, `PKG-011`, `SEC-014`, `REL-001`,
+  `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-002`, and the Task 19 technical
+  slice of `OPS-003`.
+- Production-candidate integration and Linux evidence for applicable earlier
+  architecture, catalog, artifact, filesystem, capability, worker, lifecycle,
+  IPC, settings, UI, privacy, diagnostics, packaging, and documentation
+  requirements without changing their completed primary owners.
+- Primary automated acceptance: `AC-AUTO-064`, `AC-AUTO-065`,
+  `AC-AUTO-066`, `AC-AUTO-067`, `AC-AUTO-068`, `AC-AUTO-069`,
+  `AC-AUTO-070`, and `AC-AUTO-072`.
+- Linux technical evidence for all applicable automated acceptance and for
+  `AC-MAN-001`, the Linux slice of `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`,
   and `AC-MAN-013`.
-- Candidate freeze, qualification-profile validation, Linux evidence capture,
-  and immutable handoff to Tasks 20 and 21.
-- Task 19 owns no aggregate automated acceptance result. Primary ownership of
-  cross-platform assertions `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, and
-  `AC-AUTO-040` remains in Task 21.
+- Shared candidate-input and Linux platform-input/profile/graph/result/index
+  identities consumed later by `AC-AUTO-071` and `AC-MAN-014`; Task 19 does
+  not own the Windows branch, aggregate root, or production-readiness verdict.
 
 ## In Scope
 
-### Milestone A — production-candidate activation
+### A. Production artifact and trust pipeline
 
-- Add one production Local Whisper environment factory/composition module. It
-  consumes only injected process facts and immutable packaged inputs, owns the
-  complete mutable graph, and returns the existing
-  `MainProcessLocalWhisperEnvironment` surfaces plus deterministic disposal.
-- Change `src/main/main.ts` so Linux and Windows request that production
-  factory. Keep `createDeferredLocalWhisperEnvironment` only as the explicit
-  unavailable/fail-closed result and the macOS Planned skeleton; it may not be
-  the unconditional Linux/Windows graph.
-- Load and authenticate the packaged production catalog before it grants
-  runtime, model, origin, download, settings-option, or worker authority.
-  Preserve the disabled sentinel when production publication is absent.
-- Compose the existing settings store/repository, packaged resource resolver,
-  native guard transport and platform adapter, managed root/locks/store,
-  catalog/inventory repositories, artifact pipeline, device-identity store,
-  capability policy, worker process ownership/supervisor/lifecycle,
-  coordinator ports, dynamic snapshot facts, audit-safe command ports, and
-  open-managed-folder/reference ports.
-- Add the missing concrete adapters for catalog input loading, inventory
-  refresh, disk/resource facts, Linux CPU/CUDA discovery, exact device registry
-  binding, worker/runtime/model lease resolution, coordinator worker and
-  artifact ports, and graph disposal. Reuse existing state-owning classes; do
-  not replace them with pass-through wrappers or a mutable service locator.
-- Repair capability sequencing so static catalog/artifact/resource checks do
-  not manufacture allocation/dispatch/device proof. A fresh probe worker owns
-  bounded backend activation and proof; a fresh full-load worker repeats proof,
-  receives the authenticated model authority, loads/warm-ups, and becomes the
-  only resident lease after total success.
-- Add production composition and Linux live-path integration tests with
-  task-owned temporary roots. Include disabled/invalid catalog, missing helper,
-  missing/corrupt artifact, stale inventory, topology change, cancellation,
-  crash, unload, shutdown, and fixture-isolation negatives.
-- Align active documentation, validation messages, source-contract tests, and
-  immutable profile commentary with Task 20 as the exclusive representative
-  Windows executor. Legacy profile IDs containing `candidate-task19` remain
-  opaque IDs and are not silently rewritten.
+- Extend the authenticated catalog to strict payload schema v2 while keeping
+  envelope schema v1 and the Task 17 fixture bytes unchanged.
+- Enforce disjoint `disabled`, `fixture`, `qualification`, and `production`
+  purposes, keyrings, origins, packaging modes, and release-collection rules.
+- Implement a streaming `restricted-tar-gzip-v1` runtime materializer using the
+  pinned Node/Electron gzip implementation plus a project-owned bounded ustar
+  reader outside the Electron main event loop.
+- Implement `pinned-raw-model-v1` as a one-file, no-follow, exact-length/hash
+  materializer with no archive or transport-derived path behavior.
+- Compose catalog resolution, signed redirect policy, downloader, journal,
+  resume/retry/cancel, verifier, materializer, managed promotion, inventory
+  reconstruction, coordinator epochs, update, and safe removal through the
+  existing typed renderer/preload/main commands.
+- Preserve the already integrated startup, runtime/device discovery, launch
+  leasing, worker residency, cancellation, unload, and cleanup graph.
 
-### Milestone B — candidate freeze and Linux qualification
+### B. Deterministic shared and Linux inputs
 
-- Add strict versioned candidate, profile, platform-result, and evidence-index
-  schemas plus bounded privacy-safe validators required to execute Linux
-  qualification and later reconcile the same candidate on Windows.
-- Freeze the application commit/package identity, approved
-  source/runtime/model identities, Task 17 fixture digest, qualification
-  profiles, and nonsecret tool identities only after Milestone A passes on the
-  candidate inputs.
-- Run deterministic application, native C++, source, artifact, package,
-  lifecycle, UI/accessibility, migration, privacy, diagnostics, and offline
-  checks applicable to Linux.
-- Run every approved Linux x64 CPU and NVIDIA CUDA profile, including direct
-  pinned-engine comparison, accuracy, timing, RTF, RAM/VRAM, repetition, crash,
-  cancellation, unload, cleanup, provider-switch, suspend/resume, app-exit,
-  and offline restart behavior.
-- Run the exact immediately preceding Linux packaged binary against the
-  approved nonprivate downgrade fixture and record its identity and outcome.
-- Record unavailable inputs or external approvals as `Pending`; never infer a
-  pass from source, mocks, compilation, another device, or another platform.
-- Update task checklist and handoff with activation state, frozen candidate
-  identity, Linux Pass/Fail/Pending results, evidence digests, and exact Task 20
-  inputs.
+- Produce each CPU/CUDA runtime pack twice from the pinned source/toolchain in
+  independent clean network-denied roots. Require identical manifests,
+  `restricted-tar-gzip-v1` bytes, archive hash, signature-input digest,
+  provenance, SBOM, and notices.
+- Admit exactly these public anonymous Hugging Face objects from
+  `ggerganov/whisper.cpp` commit
+  `5359861c739e955e79d9a303bcbc70fb988958b1`:
+  `tiny/full`, `base/full`, `small/full`, `medium/full`, `large-v3/q5_0`, and
+  `large-v3-turbo/q5_0`, using the exact filenames, lengths, and SHA-256 values
+  from specification Section 9.2.
+- Materialize the pinned `google/fleurs` commit
+  `70bb2e84b976b7e960aa89f1c648e09c59f894dd` `en_us`/`ru_ru` qualification
+  corpus, deterministic canonical WAV/performance fixtures, CC BY 4.0 notice,
+  and privacy-safe manifests.
+- Build and hash the direct-engine reference from the same verified patched
+  Whisper.cpp source/toolchain/backend as the application worker.
+- Freeze the shared candidate input first. It contains SemVer `2.4.0`, one UTC
+  freeze timestamp, clean source identity, shared source/patch locks, catalog/
+  trust/transfer/redirect/algorithm/schema revisions, exact model/corpus/
+  fixture identities, required platform/backend matrix, and predecessor rule.
+  It contains no platform package, runtime, direct-engine, toolchain, profile,
+  result, evidence-index, platform-graph, or aggregate digest.
+- Generate the Linux qualification-purpose catalog/keyring/package inputs.
+  Keep the temporary private key outside the repository and evidence, then
+  destroy or revoke it after the Linux qualification evidence is frozen.
+
+### C. Acyclic Linux branch freeze and execution
+
+- Replace the circular uncommitted qualification-v2 shape in place. Provide
+  strict document kinds and validators for shared candidate input, platform
+  input, profile, platform graph, result, and platform evidence index; update
+  measurement-series bindings. Reject the old `candidateDigest`/
+  `profileDigests` cycle, placeholders, fixed-point attempts, backward or
+  missing edges, mixed inputs, duplicates, and unhashed bindings. Add no v3 or
+  migration and do not change Task 17 fixture bytes or catalog payload v2.
+- Freeze Linux `platformInputDigest` over `candidateInputDigest`, exact Linux
+  application packages, qualification catalog/keyring/origin, CPU/CUDA runtime
+  archives/manifests/signature inputs, Linux toolchains, direct-engine
+  binaries/manifests, qualification-server identity, notices/SBOM/provenance,
+  and the AppImage predecessor selected at the shared UTC cutoff. It contains
+  no profile or evidence digest.
+- Freeze each Linux CPU/CUDA `profileDigest` against `candidateInputDigest` and
+  `platformInputDigest`, then freeze `platformGraphDigest` over the complete
+  lexicographically sorted Linux profile set before any measurement begins.
+- Seal measurement series, Linux platform result, and Linux evidence index
+  strictly after `platformGraphDigest`; no earlier document hashes a later
+  evidence layer.
+- Serve exact frozen runtime archives from a single-use `127.0.0.1` HTTPS
+  qualification server with a pinned ephemeral CA/certificate, origin/port,
+  range/ETag behavior, and archive digest. It exposes no other object and
+  terminates with the run.
+- Exercise at least one exact public Hugging Face model transfer including its
+  signed redirect policy, fresh expiring CDN URL, range/resume, cancellation,
+  privacy, and whole-object verification behavior.
+- Run every deterministic Linux check and every all-six-model Linux CPU and
+  available NVIDIA CUDA profile: load, warm-up, FLEURS/direct-engine parity,
+  base RTF, RAM/VRAM, repeats, cancellation, crash/reload, unload, provider
+  switch, suspend/resume, app exit, offline restart, and cleanup.
+- Determine the highest stable predecessor published before the shared UTC
+  freeze timestamp. If no later stable exists, validate
+  `GPT-Voice-2.3.0.AppImage` with SHA-256
+  `80674b3a90222b51981fb43b5b757b7af9d3e38a5ff4ca41554ab965ae29f111`.
+- Freeze the sanitized Linux platform-result and platform-evidence-index
+  digests for Task 20; do not create or reserve Windows-specific identities.
 
 ## Out Of Scope
 
-- Creating or selecting production signing keys, signing with private material,
-  choosing a production hosting origin, uploading artifacts, publishing a
-  catalog, or converting/downloading an unapproved model.
-- Any representative Windows command, Windows CI/job execution, Wine run,
-  cross-compiled Windows substitute, or Windows support conclusion.
-- Physical AMD promotion evidence or a Production AMD claim.
-- Executable macOS inference, Metal, Core ML, signing, or notarization. The
-  macOS arm64 path remains `Planned · Unavailable`.
-- Final cross-platform reconciliation, aggregate acceptance ownership result,
-  release-blocker report, support-claim promotion, publication, tag, upload,
-  push, pull request, or release.
-- Repairing a failed earlier owner packet outside the integration seam,
-  changing a profile threshold after observing results, or regenerating the
-  frozen candidate in place.
+- Production private-key generation/use, final production catalog approval,
+  legal or redistribution approval, final GitHub runtime upload, publication,
+  tag, release, or support-tier promotion.
+- Representative Windows commands, Wine, cross-compiled substitutes, Windows
+  evidence, or Windows claim changes.
+- Reopening Tasks 01–18, replacing completed owners, or silently discarding
+  their committed work.
+- Project conversion, quantization, repackaging, or rehosting of upstream model
+  bytes; user-supplied mirrors, moving branches, tokens, cookies, or fallback
+  models.
+- Physical AMD qualification and executable macOS inference.
+- Threshold changes after evidence is observed, shared/Linux graph mutation in
+  place, or combining evidence from different shared inputs or platform
+  branches.
 
 ## Task Contract
 
-### A1. Composition ownership and startup
+### Transfer and command behavior
 
-The new factory is the only production construction site for Local Whisper
-runtime state. It must create no module-level mutable instance and must transfer
-all cleanup to the main-process application lifecycle. Startup and metadata
-reads perform no download, inference-network access, worker launch, backend
-probe, or RAM/VRAM allocation.
+The main process owns URL, redirect, certificate, path, journal, hash,
+signature, extraction/materialization, and promotion authority. Renderer and
+preload expose only authenticated artifact identity and the explicit
+`download`, `resume`, `retry`, `cancelArtifact`, `update`, and confirmed
+`remove` commands. Duplicate or stale epochs start no work. At most two
+unrelated transfers execute concurrently, visible requests queue, aggregate
+buffering stays within 32 MiB, and cancellation terminates a non-responsive
+helper within five seconds without promotion.
 
-On Linux and Windows, an authenticated catalog plus valid packaged helper
-manifest exposes normalized catalog/settings/inventory facts. Missing,
-disabled, malformed, unsigned, wrongly signed, wrong-purpose, wrong-app,
-wrong-protocol, non-allowlisted, or fixture-only inputs produce a stable
-Not-ready snapshot and no artifact URL, worker path, device authority, or
-mutation authority. macOS continues to take the existing Planned/unavailable
-skeleton before any executable resource resolution.
+The runtime reader enforces the exact single-member gzip and deterministic
+flat ustar contract from Section 12.3, including header/trailer checks,
+manifest order, entry type/name/mode/size/hash, decompressed bound,
+backpressure, and terminal records. The raw-model materializer accepts one
+identity-encoded body into one owner-private regular file, rejects length,
+range, validator, encoding, multipart, redirect, hash, and path-metadata
+mismatches, and reopens through the managed identity boundary before atomic
+promotion. Neither MIME type nor downloaded metadata selects a transfer
+profile.
 
-Configuration paths must be derived from the canonical application directory.
-Managed artifact paths remain descriptor/handle-anchored, private settings and
-device salt remain owner-only, and renderer-facing surfaces receive only
-sanitized IDs and labels. Opening the managed folder or an approved reference
-is an explicit trusted-main action; renderer-supplied paths and URLs are never
-accepted.
+Every failure preserves installed revisions and produces a typed safe result.
+Resume requires matching immutable identity, validator, `206`, and exact
+`Content-Range`; otherwise an explicit retry restarts from zero. Update installs
+alongside the selected old revision, and selection changes only by explicit
+save plus unload/reload.
 
-### A2. Catalog, settings, inventory, and artifact graph
+### Catalog and origin isolation
 
-Use `LocalWhisperCatalogRepository` with packaged production bytes and the
-reviewed production trust policy. Use `LocalWhisperSettingsRepository` and
-`LocalWhisperInventoryRepository` against the validation context and evidence
-derived from that exact authenticated catalog. Startup reconstructs inventory
-from managed evidence; it never trusts a persisted inventory snapshot.
+Payload v2 contains purpose, transfer profile, upstream source identity,
+redirect-policy ID, qualification status/profile digest, notice/provenance/SBOM
+references, and complete Section 9 identities. Strict parsing rejects unknown,
+missing, duplicate, incompatible, or cross-purpose data. Qualification accepts
+only its temporary public key and exact loopback runtime origin; production
+collection rejects qualification/fixture trust. Models always use the closed
+public Hugging Face origin and redirect policy without credentials or private
+headers.
 
-`ManagedArtifactStore` owns exact runtime/model authorities through the native
-guard. The artifact command adapter resolves only catalog entries, serializes
-same-artifact operations, refreshes inventory epochs after promotion/removal,
-and maps typed failures without paths or URLs. Explicit download/resume/retry,
-cancel, update, rollback selection, delete, and runtime removal use the existing
-artifact service and never run merely because the settings screen opened.
+### Shared candidate and Linux graph immutability
 
-The disabled packaged publication remains an expected fail-closed state. It is
-not replaced with the Task 17 fixture. An authenticated real catalog and its
-artifacts are external candidate inputs and must be recorded before freeze.
+Digest producers canonicalize strict schema-valid JSON, remove only the
+document's own digest field, recursively sort object keys, preserve only
+schema-defined array order, sort unordered digest arrays by stable identity,
+and hash the UTF-8 bytes with SHA-256. Unknown fields, duplicate semantic
+identities, non-finite values, invalid array order, or noncanonical bytes fail
+before freeze.
 
-### A3. Device, capability, and resource authority
+The shared-input validator rejects an implicit SemVer or timestamp, dirty
+source, missing common source/model/corpus/schema/policy/fixture input, mutable
+model source, or downstream platform/profile/evidence digest. The Linux
+platform-input validator rejects a different `candidateInputDigest`, incomplete
+package/catalog/runtime/direct-engine/toolchain/server/predecessor input, any
+profile/evidence digest, or private fields. Every revision-10 qualification
+document names specification revision 10.
 
-Add a narrow device-discovery owner that enumerates CPU plus backend-native
-devices for the selected installed runtime. Stable renderer IDs come only from
-`LocalWhisperDeviceIdentityRepository`; canonical native identities, registry
-entries, ordinals, fingerprints, driver details, and allocation evidence remain
-private. Topology generation is monotonic and invalidates saved capability and
-residency when the exact registry changes.
+Profiles bind both prior input digests and freeze the exact Section 19.2 WER
+tokenizer, five-fixture base RTF window, 100-ms owned-process RAM/VRAM sampling,
+byte/nanosecond units, sample-gap rules, upward 64-MiB peak rounding, RAM/VRAM
+tolerances, repetitions, and 10-second settling rule before execution. The
+Linux platform graph binds the complete sorted profile set. Measurement series
+bind the candidate, platform graph, and applicable profile; the result binds
+all series; the evidence index binds the result and sanitized entries. Missing
+permissions or ambiguous ownership invalidates a result; it is never estimated.
 
-CPU discovery validates the available logical processors and required ISA.
-CUDA discovery accepts only a physical NVIDIA device exposed by the exact
-runtime registry and records driver/runtime/compiled-target/dependency facts.
-It must not treat `nvidia-smi`, a display label, a generic OS index, a copied
-request value, or an ordinal alone as authority. AMD stays Preview and may be
-presented only through its existing fail-closed contracts; no physical AMD
-success is produced. Metal remains unavailable.
+### Linux qualification result
 
-Refine the coordinator capability seam as needed so the sequence is:
+Every canonical model passes load, warm-up, FLEURS parity within 1.00 absolute
+WER percentage point of direct engine, owned-resource measurement, unload, and
+recovery for each claimed Linux CPU/CUDA cell. `base/full` additionally passes
+median RTF `<= 1.0` over the five exact 60-second fixtures. CPU proves no GPU
+initialization; CUDA proves exact selected device and owned VRAM without
+exposing native identity. Every lifecycle event returns the owned process tree
+and matching allocation to zero for ten consecutive 100-ms samples within ten
+seconds.
 
-1. validate settings, catalog membership, installed artifact identities,
-   current topology, prerequisite facts, and conservative RAM/VRAM policy;
-2. create a one-use process-local device authority;
-3. launch a fresh probe-only worker with no model authority and validate its
-   activation/allocation/dispatch proof;
-4. terminate that probe and publish `ValidatedUnloaded`; or, for load, launch a
-   separate fresh full-load worker, repeat proof, bind the model lease, load and
-   warm up, then publish `Ready`.
-
-No port may pre-fill successful allocation/dispatch booleans before native
-proof. Any stale epoch, topology, catalog, artifact, registry, proof, resource,
-or device identity fails closed without fallback.
-
-### A4. Worker and lifecycle graph
-
-The worker adapter resolves the selected installed runtime executable from its
-authenticated manifest and lease, verifies identity, and constructs a fresh
-`LocalWhisperWorkerLifecycle` session around
-`NativeLauncherProcessOwner`, `WorkerProcessOwnership`,
-`LocalWhisperWorkerSupervisor`, and `LocalWhisperWorkerTransport`. It passes no
-path, prompt, audio, device authority, or model identity through argv.
-
-Probe and full-load sessions are distinct. Full load acquires the exact model
-lease and the existing one-use native guard-to-launcher authority handoff.
-Linux uses the defined descriptor-3 contract. Windows source wiring preserves
-the arbitrary-handle/Job Object contract but is not executed in this packet.
-Cancellation, timeout, protocol failure, stale proof, crash, unload, provider
-switch, suspend/resume, topology change, and app exit must deterministically
-release or terminate the complete owned worker tree before a released state is
-reported.
-
-The application-owned disposer shuts down the coordinator, worker ownership,
-artifact operations, managed store/locks, native guard transport, subscriptions,
-and process records in a deterministic order. Cleanup failure remains typed and
-does not silently claim unloaded resources.
-
-### B1. Frozen candidate and evidence foundation
-
-Create the candidate once. Its manifest binds the exact source commit,
-application/package hashes, approved profile digests, runtime/model/source-lock
-identities, fixture digest, schema versions, and sanitized tool identities. Raw
-host paths, unique hardware identifiers, environment data, audio, transcripts,
-prompts, and private logs remain outside the repository and chat.
-
-Every result row uses exactly `Pass`, `Fail`, `Pending`, or `Not Applicable`, a
-stable reason code, candidate digest, profile digest when applicable, evidence
-digest, platform, and evidence class. Validators reject merged candidates,
-unknown statuses, missing units/bounds, fabricated hardware evidence, and a
-fixture digest different from Task 17.
-
-Task 20 must consume the checked-in schemas, commands, sanitized candidate
-identity, live-composition contract, and immutable evidence index without
-executing Linux again.
-
-### B2. Deterministic and native Linux sweep
-
-Run all deterministic checks needed to establish the Linux slice, including:
-
-- settings, validation, provider selection, IPC, catalog, inventory, artifact
-  download/resume/install/update/delete/quarantine, and residency/lifecycle;
-- the real production-candidate construction path, fail-closed publication
-  path, descriptor-anchored filesystem safety, locks, races, worker framing,
-  model authority, process-group/parent-death cleanup, cancellation, and crash
-  reload;
-- `whisperCpp` fixed-engine, CPU/CUDA isolation, no fallback, no inference
-  network, no ambient/path loader resolution, terminal cleanup, and fresh load;
-- source/patch/license/SBOM/provenance/expected-file/dependency-closure checks,
-  disconnected build/configure, relocation, malicious CWD/environment, and
-  Task 17 fixture consumption;
-- migration, legacy chooser, UI/accessibility, privacy/audit/diagnostics, base
-  package boundary, and macOS/AMD presentation contracts where deterministic.
-
-Source inspection, compilation, mocks, or source-contract checks remain their
-actual evidence class and cannot satisfy a real Linux platform/hardware row.
-
-### B3. Linux production profiles
-
-Before execution, validate each profile's exact OS family/build, architecture,
-reference hardware, driver/runtime/ISA, engine/backend, source/runtime/model
-identities, fixture hashes/licenses, repetitions, algorithms, tool versions,
-units, tolerances, warm-up/discard rules, and pass limits. Reject an incomplete
-profile before measurement.
-
-For each applicable profile:
-
-- every worker stage stays within its preapproved bound;
-- normalized WER is no worse than one absolute percentage point above the
-  pinned direct-engine reference on nonpersonal reference audio;
-- output has no missing, duplicated, partial, or cross-request text;
-- `base` median RTF is at most 1.0 over at least five 60-second fixtures after
-  warm-up on the declared reference hardware;
-- measured peak RAM/VRAM stays within the published qualified peak plus the
-  predefined tolerance;
-- 10 load/unload cycles and 20 sequential transcriptions complete without a
-  crash, orphan, or monotonically growing owned memory;
-- no owned process or GPU allocation remains after unload/forced termination
-  and the predefined settling interval;
-- injected crash recovery, provider switch, suspend/resume, app-exit cleanup,
-  and offline restart/load/transcription pass.
-
-Run CUDA profiles only for the exact claimed NVIDIA cells and prove selected
-device identity without exposing unique hardware data. Run CPU profiles with
-GPU access explicitly absent and prove no GPU initialization. A missing pack,
-profile, origin, redistribution approval, device, or toolchain is `Pending`.
-
-### B4. Linux downgrade
-
-Obtain the exact immediately preceding Linux package from the approved release
-source and record version, hash, signature/provenance where available. Against
-the nonprivate fixture, the older binary must remain Not ready, execute and
-delete no Local Whisper data, preserve the namespaces, and recover through its
-known-provider chooser. A current-code legacy fixture is preparation only and
-does not satisfy `AC-MAN-013`.
+Technical missing/failed evidence keeps the affected Linux cell conditional
+and Task 19 incomplete. Production trust/legal/upload evidence does not change
+the technical result and is deferred to Task 21.
 
 ## Contracts And Boundaries
 
-- One frozen candidate and one Task 17 fixture digest cross Tasks 19–21.
-- Milestone A may be tested before external production inputs exist, but
-  Milestone B may freeze only an authenticated production candidate. Missing
-  inputs are never repaired with fixture trust.
-- Task 19 may add cross-platform composition source required by the shared
-  application graph, but executes and claims Linux only. Every representative
-  Windows check remains exclusive to Task 20 and on Windows.
-- Task 19 creates the shared evidence foundation but records only Linux
-  execution results; it does not issue the final aggregate verdict.
-- Platform, hardware, deterministic, manual, and external evidence classes are
-  distinct and non-substitutable.
-- Expensive profiles are immutable evidence producers; Task 21 validates their
-  digests and results instead of rerunning them.
-- Qualification tooling performs no publication or support-matrix mutation.
+- One shared `candidateInputDigest` plus immutable Linux
+  `platformInputDigest`/profile/`platformGraphDigest`/result/index identities
+  cross Tasks 19–21 unchanged.
+- Qualification, fixture, and production trust are non-substitutable.
+- Platform, hardware, deterministic, privacy, legal, and publication evidence
+  classes remain distinct.
+- Task 19 executes and claims Linux only. It must not construct exact Windows
+  packages, runtimes, direct-engine binaries, toolchains, profiles, or branch
+  digests. Task 20 owns those inputs and every representative Windows run.
+- Raw host paths, device identifiers, environment data, audio, transcripts,
+  prompts, private logs, certificates' private keys, and raw measurement series
+  never enter repository artifacts or chat.
+- No Task 19 command signs with production material, uploads, publishes, tags,
+  pushes, opens a pull request, or releases.
 
 ## Expected Files Or Components
 
-- A production environment factory and focused adapters under
-  `src/main/localWhisper/composition/` (or one equivalently cohesive folder),
-  with `src/main/main.ts`, `src/main/di/`, and application shutdown owning its
-  construction and disposal.
-- Canonical Local Whisper settings, device-identity, ownership-record, journal,
-  and managed-root paths derived from the application data directory.
-- Production catalog input resolution through
-  `LocalWhisperPackagedCatalog`, `LocalWhisperCatalogRepository`, and
-  `LocalWhisperPackagedResourceResolver`, preserving the disabled sentinel and
-  fixture isolation.
-- Concrete Linux CPU/CUDA discovery and capability evidence adapters, dynamic
-  snapshot facts, coordinator port adapters, and worker session factory.
-- Existing `ManagedArtifactStore`, artifact pipeline, native guard/launcher,
-  supervisor/lifecycle, coordinator, IPC, audit, and diagnostics components
-  integrated rather than duplicated.
-- Windows-boundary text repaired in the known active sources
-  `scripts/local-whisper/verify-coordinator.ts`,
-  `scripts/local-whisper/verify-ipc.ts`,
-  `scripts/local-whisper/native-build/audit-disconnected-build.mjs`,
-  `scripts/local-whisper/native-build/native-toolchain-core.mjs`, and
-  `scripts/local-whisper/amd-packs/verify-amd-packs.mjs`; immutable legacy
-  profile IDs remain unchanged.
-- Unit and integration tests under `tests/main/localWhisper/composition/` plus
-  Linux live-path tests using validated task-owned temporary roots and
-  nonprivate fixtures where real evidence is not claimed.
-- Versioned candidate, profile, platform-result, and evidence-index schemas and
-  validators under `docs/specs/local-whisper/qualification/` and
-  `scripts/local-whisper/`.
-- A Linux-specific evidence template derived from the Task 18 qualification
-  seed template; the existing Task 18 file may be renamed only with all links
-  updated in the same packet.
-- Linux native, engine, package, lifecycle, privacy, performance, and downgrade
-  orchestration plus `package.json` commands required by Verification.
-- Updated `todo.md` and `handoff.md` containing activation status, sanitized
-  identities, and exact Task 20 prerequisites, never raw evidence.
+- Strict catalog payload-v2 types, authentication, purpose/keyring/origin
+  policy, packaged-resource resolution, and release-collection guards.
+- Streaming runtime archive reader and raw-model materializer plus focused
+  malformed-input, cancellation, memory-bound, transport, redirect, resume,
+  privacy, and promotion tests.
+- Production artifact command adapter wired into the existing composition,
+  preload/IPC, coordinator, managed store, and renderer action state.
+- Deterministic runtime pack, provenance, SBOM, notices, reproducibility, model
+  source, FLEURS corpus, direct-engine, and qualification-package producers.
+- Corrected qualification schema files
+  `candidate-input-v2.schema.json`, `platform-input-v2.schema.json`,
+  `profile-v2.schema.json`, `platform-graph-v2.schema.json`,
+  `measurement-series-v2.schema.json`, `platform-result-v2.schema.json`, and
+  `evidence-index-v2.schema.json` under
+  `docs/specs/local-whisper/qualification/schemas/`. Remove the unfrozen
+  circular `candidate-v2` and measurement-series-v1 shapes rather than
+  retaining compatibility aliases.
+- Updated `QualificationContracts.ts`, focused class-based canonical graph
+  producers/validators under `scripts/local-whisper/qualification/`, and
+  valid-order, legacy-cycle, missing/backward-edge, duplicate, mixed-branch,
+  canonical-byte, and privacy rejection tests under
+  `tests/scripts/localWhisper/qualification/`.
+- Linux qualification, loopback HTTPS origin, transport, resource, lifecycle,
+  privacy, offline, and predecessor orchestration with task-owned temporary
+  roots.
+- Updated `package.json` commands, acceptance ownership registry/validator,
+  `todo.md`, and `handoff.md`.
 
 ## Acceptance Criteria
 
-### Activation acceptance
-
-- Linux/Windows startup no longer unconditionally injects the deferred
-  environment; macOS remains Planned/unavailable and non-executable.
-- The production factory has one process owner, no module-global mutable
-  instances, no pass-through service locator, and deterministic cleanup.
-- Disabled, missing, fixture, malformed, or unauthenticated publication input
-  remains Not ready and cannot download, probe, load, transcribe, or expose
-  privileged facts.
-- With authenticated candidate inputs on Linux, the UI sees the real catalog,
-  reconstructed inventory, settings validation context, installed artifacts,
-  current CPU/NVIDIA options, resource facts, and sanitized progress.
-- `Check compatibility` launches and destroys a fresh proof-owning probe;
-  `Load now`/lazy load launches a distinct proof-owning full-load worker with
-  the exact model lease; unload and exit release the worker tree and allocation.
-- CPU proves no GPU initialization. CUDA proves the exact selected physical
-  device, runtime registry, activated backend, positive model-weight ownership,
-  and primary execution backend without exposing native identity.
-- Download, resume, cancel, update, remove, settings save/reset, topology
-  invalidation, cancellation, crash recovery, provider switch, suspend/resume,
-  and shutdown update epochs/snapshots atomically and fail without fallback.
-- Production composition tests prove fixture isolation, trust failure, path and
-  process ownership, stale-epoch rejection, privacy, and cleanup.
-
-### Qualification acceptance
-
-- Candidate/profile/evidence schemas reject mutation, mixed candidates,
-  missing required algorithms/units/bounds, private fields, and an altered Task
-  17 fixture digest.
-- Every applicable Linux deterministic and platform row has evidence tied to
-  the frozen candidate or a precise `Pending` reason.
-- Linux CPU runs prove no GPU initialization; Linux CUDA runs prove exact
-  NVIDIA selection, real inference, lifecycle cleanup, and no fallback.
-- Accuracy, RTF, peak memory, repeat, crash, cancellation, unload, cleanup,
-  offline, package, privacy, and diagnostics gates follow preapproved profiles.
-- Exact previous-Linux-binary downgrade evidence is recorded truthfully.
-- No representative Windows execution or Windows claim occurs.
-- No active prose or validation message incorrectly assigns representative
-  Windows execution to Task 19; legacy opaque profile IDs are documented rather
-  than silently rewritten.
-- Task 20 can consume the same candidate, profiles, schemas, evidence index,
-  live-composition contract, and fixture digest without regenerating inputs.
+- `AC-AUTO-064`: exact public Hugging Face raw-model transfer, redirect,
+  resume, cancellation, privacy, and mismatch tests pass.
+- `AC-AUTO-065`: payload-v2 schema, four-purpose/keyring/origin isolation,
+  unchanged fixture, and release-collection rejection tests pass.
+- `AC-AUTO-066`: the real production artifact port provides the complete typed
+  download/resume/retry/cancel/update/remove lifecycle with atomic inventory
+  epochs and no IPC URL/path authority.
+- `AC-AUTO-067`: valid shared-input → Linux platform-input → profiles → Linux
+  graph → series/result/index construction freezes; the legacy cycle, missing
+  or backward edges, placeholders, duplicates, mixed candidates/platforms,
+  mutable inputs, wrong predecessor cutoff, and undeclared deltas fail closed.
+- `AC-AUTO-068`: exactly the six canonical immutable upstream models with exact
+  identity, notices, estimates, and qualification status are eligible.
+- `AC-AUTO-069`: two independent FLEURS materializations produce identical
+  privacy-safe manifests and reject every source/license/format mutation.
+- `AC-AUTO-070`: independent runtime builds produce identical restricted
+  archives and complete checksum-linked manifest/provenance/SBOM/notice chains.
+- `AC-AUTO-072`: profile/series/result/index validators enforce both prior
+  graph edges plus every Section 19.2 method, unit, bound, tolerance,
+  ownership, and evidence-series digest.
+- All applicable Linux deterministic, CPU, available NVIDIA CUDA, real public
+  model transport, lifecycle, resource, privacy, offline, and predecessor rows
+  pass against the same freeze; no representative Windows result is created.
+- Task 20 can consume `candidateInputDigest` and the complete read-only Linux
+  branch without regeneration or threshold changes, while producing its own
+  Windows branch later.
 
 ## Verification
 
-Run the activation checks and qualification suite on the authorized Linux x64
-host only:
+Run on the authorized Linux x64 host only:
 
 ```bash
-rtk node --import tsx --test tests/main/localWhisper/composition/*.test.ts
 rtk npm run test:local-whisper:acceptance-ownership
 rtk npm run test:local-whisper:qualification
 rtk npm run verify:local-whisper:qualification:inputs
+rtk npm run test:local-whisper:artifacts
+rtk npm run test:local-whisper:packaging
+rtk node --import tsx --test tests/main/localWhisper/composition/*.test.ts
 rtk npm run test:local-whisper:fs-guard:native
 rtk npm run test:local-whisper:launcher:native
 rtk npm run test:local-whisper:supervisor
-rtk npm run test:local-whisper:artifacts
-rtk npm run test:local-whisper:filesystem
-rtk npm run verify:local-whisper:ui
-rtk npm run verify:local-whisper:packaging
-rtk npm run verify:local-whisper:migration-privacy
 rtk npm run verify:local-whisper:qualification:linux
 rtk npm run verify:local-whisper:downgrade -- --platform=linux
 rtk npm run typecheck
@@ -451,70 +347,77 @@ rtk npm run build:prod
 rtk npm run smoke:fedora
 ```
 
-`verify:local-whisper:qualification:linux` must include the production
-composition/startup tests before it permits candidate evidence generation. Do
-not invoke `verify:local-whisper:qualification:windows`, `dist:win`, or any
-representative Windows job in this packet. The registered Task 19 command is:
+The registered Task 19 command is:
 
 ```bash
 rtk npm run verify:local-whisper:qualification:linux
 ```
 
+The Linux verifier must include production artifact, payload-v2,
+qualification-trust, corrected qualification-v2 DAG/legacy-cycle rejection,
+shared/Linux graph producers, corpus, runtime/raw-model transport, and
+all-six-model execution gates before freezing a Pass. Do not invoke the Task 20
+Windows command or `verify:local-whisper:all` here.
+
 ## Failure And Rollback
 
-- If activation fails, restore the prior fail-closed startup behavior without
-  deleting user data. Do not freeze a candidate or reinterpret deferred-source
-  tests as live execution.
-- Preserve the disabled publication sentinel and all fixture-isolation guards.
-  A real input failure remains Not ready or `Pending`; it never enables fixture
-  trust, an unsigned catalog, ambient executable lookup, or fallback.
-- Preserve the frozen manifest and failed evidence. Clean only exact task-owned
-  temporary roots and proven task-owned processes/allocations.
-- A privacy, cleanup, path-trust, signature, candidate-integrity, or
-  evidence-integrity failure stops Linux qualification and returns to the
-  primary owner through newly authorized work.
-- Missing hardware, toolchain, previous binary, artifact, or external approval
-  remains `Pending`; it is not repaired with a mock or inferred pass.
-- Any frozen candidate/input change invalidates existing evidence and requires
-  a new freeze; never combine evidence from different candidates.
+- Preserve the fail-closed disabled mode and every installed immutable
+  revision. Never enable fixture/unsigned trust or fallback to another
+  origin/model/backend.
+- Preserve the frozen shared input, Linux graph, and failed evidence. A shared
+  input change requires a new Task 19 freeze and invalidates both future
+  branches; a Linux input/profile/evidence change invalidates only the Linux
+  branch and future aggregate root, never a nonexistent Windows branch.
+- Clean only exact operation/task-owned staging, loopback server state, private
+  corpus work roots, and proven owned processes/allocations.
+- Privacy, trust, path, cleanup, graph-integrity, reproducibility, or
+  evidence-integrity failure is blocking and returns to the relevant owner
+  through newly authorized work. No failure may be hidden with a legacy
+  circular shape, placeholder, or unhashed binding.
+- Missing technical host/tool/artifact/profile/corpus/predecessor evidence is
+  `Pending` and keeps Task 19 incomplete. Missing production private
+  trust/legal/upload authority is recorded for Task 21 and does not invalidate
+  otherwise passing Linux technical evidence.
 
 ## Manual Gates
 
-- Authenticated production catalog bytes, public verifier keys, allowlisted
-  origins, exact source/runtime/model identities, licenses, redistribution
-  approval, and real artifacts are required before candidate freeze. Private
-  signing material, upload, and publication remain outside this packet.
-- `AC-MAN-001`: exact Linux NVIDIA Production profile.
-- Linux slices of `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and `AC-MAN-013`.
-- Exact external toolchains and the immediately preceding Linux package may
-  remain blockers; their rows stay `Pending`.
-- Physical AMD promotion, physical macOS review, representative Windows, final
-  aggregation, commit, push, PR, tag, signing, upload, publication, and release
-  remain outside this packet.
+- Explicit candidate SemVer `2.4.0`, UTC freeze timestamp, clean source
+  identity, and exact Linux package identity.
+- Exact pinned CPU/CUDA toolchains and runtime pack inputs.
+- Qualification-only key/public catalog, single-use loopback certificate and
+  exact runtime objects; no production private key is required.
+- Public Hugging Face access to the six exact Section 9.2 objects and pinned
+  FLEURS inputs; no credentials are permitted.
+- `AC-MAN-001`, Linux `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and exact Linux
+  `AC-MAN-013` predecessor execution.
+- Production signing, legal approval, final GitHub upload, publication,
+  representative Windows, physical AMD, macOS execution, commit, push, PR,
+  tag, and release remain outside this packet.
 
 ## References
 
-- `../spec.md`, especially Sections 7.1–7.4, 11, 12, 13, 18, 19.2, 19.3,
-  and 22 plus all automated and manual acceptance rows.
-- Tasks 01–18 and their recorded handoffs; these are implementation foundations,
-  not substitutes for the activation acceptance above.
-- `src/main/main.ts`, `src/main/di/mainProcessCompositionRoot.ts`,
-  `src/main/localWhisper/ipc/createDeferredLocalWhisperEnvironment.ts`, and the
-  existing Local Whisper repositories/services named in this packet.
-- `../qualification/task19-evidence-template.md` as the Task 18 seed input to
-  split into platform-specific and aggregate evidence during Tasks 19–21.
-- Project runtime, provider, Linux packaging, native-quality, privacy,
-  diagnostics, and release conventions.
+- `../spec.md`, especially Sections 9.2, 9.6, 12.1–12.5, 18.3, 19.1–19.3,
+  and 22.
+- Tasks 01–18 and the existing Task 19 handoff/implementation state.
+- `../qualification/linux-evidence-template.md` and the versioned qualification
+  schemas.
+- Project runtime, provider, packaging, privacy, native-quality, and Linux
+  conventions.
 
 ## Completion And Handoff
 
-Update `todo.md` and `handoff.md` with the activation result,
-candidate/profile/fixture digests, Linux Pass/Fail/Pending/Not Applicable
-summaries, exact previous-binary status, and the immutable inputs Task 20 must
-consume. Mark Task 19 complete only when the production-candidate graph is
-active, one authenticated candidate is frozen, and the packet has produced
-truthful Linux results. An external input that prevents freeze keeps Task 19
-incomplete and names the exact manual gate; it does not authorize Task 20.
+Mark Task 19 complete only when the production artifact pipeline and both
+transfer profiles are integrated; the circular v2 contract is replaced and
+rejected; `candidateInputDigest`, Linux `platformInputDigest`, every Linux
+`profileDigest`, `platformGraphDigest`, series/result/index digests, and all
+required Linux technical/model/transport/lifecycle/resource/privacy/predecessor
+evidence are truthful and frozen; and the immutable Task 20 handoff is complete.
+Production key/legal/final-origin gates may remain explicit Task 21 inputs.
 
-Stop before Task 20, commit, push, PR, publication, or release unless separately
-authorized.
+Update `todo.md` and `handoff.md` with candidate SemVer/UTC/
+`candidateInputDigest`, Linux source/package/catalog/keyring/origin/runtime/
+direct-engine/toolchain/predecessor `platformInputDigest`, profile/
+`platformGraphDigest`, Task 17, Linux result, and platform-evidence-index
+digests. Explicitly state that no Windows branch identity exists yet. Stop
+before Task 20, commit, push, PR, production signing, upload, publication, or
+release unless separately authorized.
