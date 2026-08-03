@@ -42,6 +42,7 @@ function transcriptionOptions(settings: LocalWhisperSettings): LocalWhisperWorke
 /** Owns one warmed resident worker until graceful or forced terminal cleanup. */
 export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperResidentWorkerLease {
   private closed = false;
+  private cancellationPromise: Promise<LocalWhisperCoordinatorWorkerResult> | null = null;
 
   public constructor(private readonly dependencies: LocalWhisperProductionResidentWorkerLeaseDependencies) {}
 
@@ -51,7 +52,7 @@ export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperRe
     if (this.closed) return Object.freeze({ success: false, code: 'WORKER_CRASHED' });
     if (request.signal.aborted) return Object.freeze({ success: false, code: 'CANCELLED' });
     const onAbort = (): void => {
-      void this.dependencies.session.cancel();
+      void this.requestCancellation().catch(() => undefined);
     };
     request.signal.addEventListener('abort', onAbort, { once: true });
     try {
@@ -70,7 +71,7 @@ export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperRe
 
   public async cancel(): Promise<LocalWhisperCoordinatorWorkerResult> {
     if (this.closed) return Object.freeze({ success: false, code: 'OPERATION_CONFLICT' });
-    return result(await this.dependencies.session.cancel());
+    return await this.requestCancellation();
   }
 
   public async revalidate(): Promise<boolean> {
@@ -104,5 +105,16 @@ export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperRe
     const success = stopped?.success ?? true;
     if (success) this.closed = true;
     return success;
+  }
+
+  private requestCancellation(): Promise<LocalWhisperCoordinatorWorkerResult> {
+    if (this.cancellationPromise) return this.cancellationPromise;
+    const pending = Promise.resolve()
+      .then(async () => result(await this.dependencies.session.cancel()))
+      .finally(() => {
+        if (this.cancellationPromise === pending) this.cancellationPromise = null;
+      });
+    this.cancellationPromise = pending;
+    return pending;
   }
 }
