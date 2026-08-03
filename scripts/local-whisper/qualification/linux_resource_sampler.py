@@ -20,6 +20,7 @@ NVML_ERROR_INSUFFICIENT_SIZE = 7
 NVML_VALUE_NOT_AVAILABLE = (1 << 64) - 1
 NVML_QUERY_ATTEMPTS = 4
 NVML_PROCESS_HEADROOM = 16
+PSS_READ_ATTEMPTS = 4
 READINESS_FD = 3
 READINESS_FRAME = b"READY\n"
 SAFE_FAILURE_CODES = frozenset(
@@ -156,19 +157,33 @@ def process_pss_bytes(pid: int) -> int:
     raise RuntimeError("pss-unavailable")
 
 
+def stable_process_pss_bytes(pid: int, expected_identity: int) -> int | None:
+    for attempt in range(PSS_READ_ATTEMPTS):
+        if process_start_identity(pid) != expected_identity:
+            return None
+        try:
+            pss_bytes = process_pss_bytes(pid)
+        except OSError as error:
+            if error.errno not in {errno.ENOENT, errno.ESRCH}:
+                raise
+            if process_start_identity(pid) != expected_identity:
+                return None
+            if attempt + 1 == PSS_READ_ATTEMPTS:
+                raise
+            os.sched_yield()
+            continue
+        if process_start_identity(pid) != expected_identity:
+            return None
+        return pss_bytes
+    raise RuntimeError("pss-unavailable")
+
+
 def owned_process_memory(identities: dict[int, int]) -> tuple[list[int], int]:
     owned: list[int] = []
     ram_bytes = 0
     for pid, expected_identity in sorted(identities.items()):
-        if process_start_identity(pid) != expected_identity:
-            continue
-        try:
-            pss_bytes = process_pss_bytes(pid)
-        except OSError:
-            if process_start_identity(pid) is None:
-                continue
-            raise
-        if process_start_identity(pid) != expected_identity:
+        pss_bytes = stable_process_pss_bytes(pid, expected_identity)
+        if pss_bytes is None:
             continue
         owned.append(pid)
         ram_bytes += pss_bytes

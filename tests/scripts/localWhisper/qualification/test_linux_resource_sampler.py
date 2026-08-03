@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import importlib.util
 from pathlib import Path
 import unittest
@@ -61,16 +62,42 @@ class LinuxResourceSamplerTest(unittest.TestCase):
     def test_pss_race_ignores_only_a_proven_exited_process(self) -> None:
         with (
             patch.object(SAMPLER, "process_start_identity", side_effect=[42, None]),
-            patch.object(SAMPLER, "process_pss_bytes", side_effect=FileNotFoundError()),
+            patch.object(
+                SAMPLER,
+                "process_pss_bytes",
+                side_effect=FileNotFoundError(errno.ENOENT, "missing"),
+            ),
         ):
             self.assertEqual(SAMPLER.owned_process_memory({123: 42}), ([], 0))
 
         with (
-            patch.object(SAMPLER, "process_start_identity", side_effect=[42, 42]),
-            patch.object(SAMPLER, "process_pss_bytes", side_effect=FileNotFoundError()),
+            patch.object(
+                SAMPLER,
+                "process_start_identity",
+                side_effect=[42] * (SAMPLER.PSS_READ_ATTEMPTS * 2),
+            ),
+            patch.object(
+                SAMPLER,
+                "process_pss_bytes",
+                side_effect=FileNotFoundError(errno.ENOENT, "missing"),
+            ),
+            patch.object(SAMPLER.os, "sched_yield"),
         ):
             with self.assertRaises(FileNotFoundError):
                 SAMPLER.owned_process_memory({123: 42})
+
+    def test_pss_race_retries_only_while_process_identity_is_stable(self) -> None:
+        with (
+            patch.object(SAMPLER, "process_start_identity", side_effect=[42, 42, 42, 42]),
+            patch.object(
+                SAMPLER,
+                "process_pss_bytes",
+                side_effect=[FileNotFoundError(errno.ENOENT, "missing"), 4096],
+            ),
+            patch.object(SAMPLER.os, "sched_yield") as sched_yield,
+        ):
+            self.assertEqual(SAMPLER.owned_process_memory({123: 42}), ([123], 4096))
+        sched_yield.assert_called_once_with()
 
     def test_failure_codes_never_include_exception_details(self) -> None:
         self.assertEqual(SAMPLER.safe_failure_code(FileNotFoundError("/private/path")), "process-exited-during-sample")
