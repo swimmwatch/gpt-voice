@@ -9,11 +9,13 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
 import process from 'node:process';
+import type { Readable, Writable } from 'node:stream';
 
 import { ManagedArtifactLease } from '@main/localWhisper/filesystem/ManagedArtifactLease';
 import type { ManagedArtifactIdentitySnapshot } from '@main/localWhisper/filesystem/ManagedArtifactLease';
@@ -26,6 +28,8 @@ import type {
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId, type LocalWhisperRevisionId } from '@shared/localWhisper';
 
 interface FixturePaths {
+  readonly authorityWorkerSource: string;
+  readonly fsGuard: string;
   readonly identityProbe: string;
   readonly launcher: string;
   readonly workerSource: string;
@@ -47,11 +51,14 @@ const workspaceRoot = resolve(__dirname, '..', '..');
 const outputDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'launcher');
 const executableSuffix = process.platform === 'win32' ? '.exe' : '';
 const fixturePaths: FixturePaths = {
+  authorityWorkerSource: resolve(outputDirectory, 'fixtures', 'local-whisper-authority-worker-fixture'),
+  fsGuard: resolve(workspaceRoot, '.cache', 'local-whisper', 'fs-guard', 'fs-guard'),
   launcher: resolve(outputDirectory, `local-whisper-launcher${executableSuffix}`),
   identityProbe: resolve(outputDirectory, 'fixtures', `local-whisper-launcher-identity-fixture${executableSuffix}`),
   workerSource: resolve(outputDirectory, 'fixtures', `local-whisper-launcher-fixture-worker${executableSuffix}`),
 };
 const fixtureExecutablePaths = [fixturePaths.launcher, fixturePaths.identityProbe, fixturePaths.workerSource] as const;
+const linuxModelLaunchFixturePaths = [fixturePaths.fsGuard, fixturePaths.authorityWorkerSource] as const;
 const runtimeDirectoryPrefix = 'gpt-voice-local-whisper-launcher-';
 
 function parseParentDeathState(source: string): ParentDeathState {
@@ -132,6 +139,20 @@ function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
+function fileIdentity(path: string): ManagedArtifactIdentitySnapshot {
+  const value = statSync(path, { bigint: true });
+  const parent = statSync(dirname(path), { bigint: true });
+  return {
+    deviceOrVolumeId: String(value.dev),
+    fileId: String(value.ino),
+    linkCount: Number(value.nlink),
+    mode: Number(value.mode & 0o777n),
+    parentFileId: String(parent.ino),
+    sizeBytes: Number(value.size),
+    type: value.isDirectory() ? 'directory' : 'regular',
+  };
+}
+
 function prepareRuntime(ignoreTermination = false): PreparedRuntime {
   const directory = mkdtempSync(resolve(tmpdir(), runtimeDirectoryPrefix));
   chmodSync(directory, 0o700);
@@ -169,6 +190,7 @@ function prepareRuntime(ignoreTermination = false): PreparedRuntime {
         backend: 'cpu',
         capabilities: ['cpu-fixture'],
       },
+      launchMode: 'probe',
       runtimeIdentityKey: 'launcher-fixture-runtime',
       runtimeLease: lease,
       workerExecutablePath: worker,
@@ -185,15 +207,171 @@ function prepareRuntime(ignoreTermination = false): PreparedRuntime {
   };
 }
 
-function processOwner() {
+function processOwner(modelGuard = false, launcherExecutablePath = fixturePaths.launcher) {
   const dependencies = {
     environment: process.env,
     getProcessStartIdentity: (pid: number) => Promise.resolve(runProbe(['--process', String(pid)])),
-    launcherExecutablePath: fixturePaths.launcher,
+    launcherExecutablePath,
+    ...(modelGuard
+      ? {
+          launcherExecutableSha256: sha256(launcherExecutablePath),
+          modelGuardExecutablePath: fixturePaths.fsGuard,
+        }
+      : {}),
   };
   return process.platform === 'win32'
     ? new WindowsJobObjectOwner(dependencies)
     : new LinuxProcessGroupOwner(dependencies);
+}
+
+function framedControl(message: object): Buffer {
+  const body = Buffer.from(JSON.stringify(message), 'utf8');
+  const frame = Buffer.alloc(5 + body.length);
+  frame.writeUInt32BE(body.length, 0);
+  frame[4] = 1;
+  body.copy(frame, 5);
+  return frame;
+}
+
+function writeStream(stream: Writable, bytes: Uint8Array): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    stream.write(bytes, (error) => {
+      if (error) reject(new Error('Local Whisper model launch fixture write failed'));
+      else resolve();
+    });
+  });
+}
+
+function bufferedReader(stream: Readable) {
+  const iterator = stream[Symbol.asyncIterator]();
+  let buffered = Buffer.alloc(0);
+  return {
+    async exact(size: number): Promise<Buffer> {
+      while (buffered.length < size) {
+        const next = await iterator.next();
+        if (next.done) throw new Error('Local Whisper model launch fixture output ended');
+        buffered = Buffer.concat([buffered, Buffer.from(next.value as Uint8Array)]);
+      }
+      const value = buffered.subarray(0, size);
+      buffered = buffered.subarray(size);
+      return value;
+    },
+  };
+}
+
+async function readControl(reader: ReturnType<typeof bufferedReader>): Promise<Record<string, unknown>> {
+  const header = await reader.exact(5);
+  const size = header.readUInt32BE(0);
+  if (header[4] !== 1 || size === 0 || size > 1_048_576) {
+    throw new Error('Local Whisper model launch fixture frame invalid');
+  }
+  const parsed: unknown = JSON.parse((await reader.exact(size)).toString('utf8'));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Local Whisper model launch fixture control invalid');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+async function verifyModelLaunchChain(): Promise<void> {
+  const directory = mkdtempSync(resolve(tmpdir(), 'gpt-voice-local-whisper-model-launch-'));
+  chmodSync(directory, 0o700);
+  const worker = resolve(directory, 'worker');
+  const launcher = resolve(directory, 'launcher');
+  const model = resolve(directory, 'model.ggml');
+  copyFileSync(fixturePaths.launcher, launcher);
+  chmodSync(launcher, 0o500);
+  copyFileSync(fixturePaths.authorityWorkerSource, worker);
+  chmodSync(worker, 0o500);
+  writeFileSync(model, 'model-launch-fixture\n', { mode: 0o400 });
+  const identities = readIdentities(directory, worker);
+  const runtimeArtifactId = toLocalWhisperArtifactId('runtime-model-launch-fixture');
+  const modelArtifactId = toLocalWhisperArtifactId('model-launch-fixture');
+  if (!runtimeArtifactId || !modelArtifactId) throw new Error('Invalid model launch fixture artifact ID');
+  const runtimeLeaseToken = 'model-launch-runtime-lease';
+  const modelLeaseToken = 'model-launch-model-lease';
+  const runtimeLease = new ManagedArtifactLease(
+    {
+      artifactId: runtimeArtifactId,
+      artifactKind: 'runtime',
+      canonicalName: `runtime-${'c'.repeat(64)}`,
+      catalogDigest: 'd'.repeat(64),
+      identity: identities.directory,
+      purpose: 'load',
+    },
+    runtimeLeaseToken,
+    () => Promise.resolve(),
+  );
+  const modelLease = new ManagedArtifactLease(
+    {
+      artifactId: modelArtifactId,
+      artifactKind: 'model',
+      canonicalName: `model-${'e'.repeat(64)}`,
+      catalogDigest: 'f'.repeat(64),
+      identity: identities.directory,
+      purpose: 'load',
+    },
+    modelLeaseToken,
+    () => Promise.resolve(),
+  );
+  const workerDigest = sha256(worker);
+  const modelDigest = sha256(model);
+  const modelIdentity = fileIdentity(model);
+  const authority: LocalWhisperWorkerLaunchAuthority = {
+    configurationEpoch: 7,
+    expectedHandshake: {
+      engine: 'whisperCpp',
+      runtimeRevision: revision('authority-fixture-v1'),
+      runtimeBuildDigest: 'authority-fixture-build',
+      backend: 'cpu',
+      capabilities: ['authority-fixture'],
+    },
+    launchMode: 'fullLoad',
+    runtimeIdentityKey: 'model-launch-fixture-runtime',
+    runtimeLease,
+    workerExecutablePath: worker,
+    workerFileIdentity: identities.worker,
+    workerFileSha256: workerDigest,
+    workingDirectoryPath: directory,
+    revalidate: () => Promise.resolve(),
+    modelGuardAuthority: {
+      modelFileIdentity: modelIdentity,
+      modelFilePath: model,
+      modelFileSha256: modelDigest,
+      modelFileSizeBytes: modelIdentity.sizeBytes,
+      modelIdentityKey: 'model-launch-fixture-model',
+      modelLease,
+      modelLeaseTokenDigest: createHash('sha256').update(modelLeaseToken, 'utf8').digest('hex'),
+      operationNonce: Uint8Array.from({ length: 16 }, (_value, index) => index + 1),
+      revalidate: () => Promise.resolve(),
+    },
+  };
+  let owned: LocalWhisperOwnedWorkerProcess | null = null;
+  try {
+    owned = await processOwner(true, launcher).launch(authority, 'model_launch_fixture_nonce_1234');
+    const reader = bufferedReader(owned.output);
+    await writeStream(owned.input, framedControl({ type: 'hello', protocolVersion: 1 }));
+    assert.deepEqual(await readControl(reader), {
+      type: 'helloAck',
+      protocolVersion: 1,
+      engine: 'whisperCpp',
+      runtimeRevision: 'authority-fixture-v1',
+      runtimeBuildDigest: 'authority-fixture-build',
+      backend: 'cpu',
+      capabilities: ['authority-fixture'],
+      maxControlFrameBytes: 1_048_576,
+      maxAudioChunkBytes: 1_048_576,
+    });
+    owned.input.end();
+    assert.equal(await owned.waitForExit(5_000), true);
+  } finally {
+    if (owned && !(await owned.waitForExit(0))) {
+      owned.closeOwnershipControl();
+      await owned.forceTreeTermination();
+      await owned.waitForExit(5_000);
+    }
+    await Promise.all([runtimeLease.release(), modelLease.release()]);
+    rmSync(directory, { force: true, recursive: true });
+  }
 }
 
 async function waitUntil(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
@@ -316,12 +494,24 @@ async function main(): Promise<void> {
   for (const path of fixtureExecutablePaths) {
     if (!existsSync(path)) throw new Error(`Missing launcher verification fixture: ${basename(path)}`);
   }
+  if (process.platform === 'linux') {
+    for (const path of linuxModelLaunchFixturePaths) {
+      if (!existsSync(path)) throw new Error(`Missing model launch verification fixture: ${basename(path)}`);
+    }
+  }
   if (process.argv.includes('--parent-death-child')) await runParentDeathChild();
+  if (process.argv.includes('--model-launch-only')) {
+    if (process.platform !== 'linux') throw new Error('Model launch verification requires Linux');
+    await verifyModelLaunchChain();
+    process.stdout.write('Local Whisper model launch chain verified on linux\n');
+    return;
+  }
   if (!process.argv.includes('--fixture')) throw new Error('Launcher verification requires --fixture');
   mkdirSync(dirname(fixturePaths.launcher), { mode: 0o700, recursive: true });
   await verifyControlClosure();
   await verifyHungTreeHardKill();
   await verifyParentDeath();
+  if (process.platform === 'linux') await verifyModelLaunchChain();
   process.stdout.write(`Local Whisper launcher fixture verified on ${process.platform}\n`);
 }
 

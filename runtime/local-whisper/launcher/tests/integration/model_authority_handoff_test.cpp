@@ -80,13 +80,11 @@ AuthorityBinding make_binding(pid_t launcher_pid, pid_t guard_pid, AuthorityArti
   binding.configuration_epoch = 7;
   binding.lease_token_sha256.fill(3);
   binding.model_identity_sha256.fill(4);
-  binding.expected_artifact_bytes =
-      kind == AuthorityArtifactKind::regular_file ? 13U : 1U;
+  binding.expected_artifact_bytes = kind == AuthorityArtifactKind::regular_file ? 13U : 1U;
   if (kind == AuthorityArtifactKind::regular_file) {
     constexpr std::string_view contents = "model-fixture";
-    binding.artifact_content_sha256 = local_whisper::common::sha256(
-        std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(contents.data()),
-                                      contents.size()));
+    binding.artifact_content_sha256 = local_whisper::common::sha256(std::span<const std::uint8_t>(
+        reinterpret_cast<const std::uint8_t*>(contents.data()), contents.size()));
   } else {
     binding.artifact_content_sha256.fill(5);
   }

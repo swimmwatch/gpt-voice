@@ -17,7 +17,9 @@
 namespace local_whisper::launcher {
 namespace {
 
-constexpr std::size_t kFieldCount = 19;
+constexpr std::size_t kBaseFieldCount = 20;
+constexpr std::size_t kFullLoadFieldCount = 22;
+constexpr std::size_t kAuthorityRequestBytes = 234;
 constexpr std::size_t kMaximumBootstrapBytes = 64 * 1024;
 
 std::vector<std::string> split_fields(const std::string& line) {
@@ -30,7 +32,7 @@ std::vector<std::string> split_fields(const std::string& line) {
       break;
     start = separator + 1;
   }
-  if (fields.size() != kFieldCount)
+  if (fields.size() != kBaseFieldCount && fields.size() != kFullLoadFieldCount)
     throw std::runtime_error("invalid launch field count");
   return fields;
 }
@@ -75,6 +77,26 @@ std::string decode_base64url(const std::string& value) {
   return decoded;
 }
 
+std::vector<std::uint8_t> decode_base64url_bytes(const std::string& value) {
+  if (value.empty() || value.size() > 4096U || value.size() % 4U == 1U)
+    throw std::runtime_error("invalid binary base64url length");
+  std::vector<std::uint8_t> decoded;
+  decoded.reserve(value.size() * 3U / 4U);
+  std::uint32_t accumulator = 0;
+  unsigned int bits = 0;
+  for (const char character : value) {
+    accumulator = (accumulator << 6U) | decode_character(character);
+    bits += 6U;
+    if (bits >= 8U) {
+      bits -= 8U;
+      decoded.push_back(static_cast<std::uint8_t>((accumulator >> bits) & 0xffU));
+    }
+  }
+  if (bits != 0U && (accumulator & ((1U << bits) - 1U)) != 0U)
+    throw std::runtime_error("non-canonical binary base64url");
+  return decoded;
+}
+
 template <typename Number> Number parse_number(const std::string& value) {
   Number result{};
   const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
@@ -115,21 +137,44 @@ IdentityExpectation parse_identity(const std::vector<std::string>& fields, std::
   return identity;
 }
 
+WorkerLaunchMode parse_launch_mode(const std::string& value) {
+  if (value == "fullLoad")
+    return WorkerLaunchMode::full_load;
+  if (value == "probe")
+    return WorkerLaunchMode::probe;
+  if (value == "registry")
+    return WorkerLaunchMode::registry;
+  throw std::runtime_error("invalid worker launch mode");
+}
+
 } // namespace
 
 LaunchRequest LaunchRequestParser::parse(const std::string& line) const {
   const std::vector<std::string> fields = split_fields(line);
-  if (fields.at(0) != "LWLP1" || !is_safe_nonce(fields.at(1)) || !is_sha256(fields.at(4)))
+  if (fields.at(0) != "LWLP2" || !is_safe_nonce(fields.at(1)) || !is_sha256(fields.at(5)))
     throw std::runtime_error("invalid launcher header");
   LaunchRequest request;
   request.app_instance_nonce = fields.at(1);
-  request.worker_path = decode_base64url(fields.at(2));
-  request.working_directory = decode_base64url(fields.at(3));
-  request.worker_sha256 = fields.at(4);
-  request.worker_identity = parse_identity(fields, 5);
-  request.directory_identity = parse_identity(fields, 12);
+  request.launch_mode = parse_launch_mode(fields.at(2));
+  request.worker_path = decode_base64url(fields.at(3));
+  request.working_directory = decode_base64url(fields.at(4));
+  request.worker_sha256 = fields.at(5);
+  request.worker_identity = parse_identity(fields, 6);
+  request.directory_identity = parse_identity(fields, 13);
   if (request.worker_identity.directory || !request.directory_identity.directory)
     throw std::runtime_error("invalid launcher identity kinds");
+  if (request.launch_mode == WorkerLaunchMode::full_load) {
+    if (fields.size() != kFullLoadFieldCount)
+      throw std::runtime_error("missing model launch authority");
+    request.model_authority_request = decode_base64url_bytes(fields.at(20));
+    request.worker_bootstrap_bytes = parse_number<std::uint32_t>(fields.at(21));
+    if (request.model_authority_request.size() != kAuthorityRequestBytes ||
+        (request.worker_bootstrap_bytes != 0U && request.worker_bootstrap_bytes != 40U)) {
+      throw std::runtime_error("invalid model launch authority");
+    }
+  } else if (fields.size() != kBaseFieldCount) {
+    throw std::runtime_error("unexpected model launch authority");
+  }
   return request;
 }
 

@@ -2,8 +2,11 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace local_whisper::launcher {
+
+enum class WorkerLaunchMode { full_load, probe, registry };
 
 struct IdentityExpectation final {
   std::string device_or_volume_id;
@@ -17,11 +20,14 @@ struct IdentityExpectation final {
 
 struct LaunchRequest final {
   std::string app_instance_nonce;
+  WorkerLaunchMode launch_mode = WorkerLaunchMode::probe;
   std::string worker_path;
   std::string working_directory;
   std::string worker_sha256;
   IdentityExpectation worker_identity;
   IdentityExpectation directory_identity;
+  std::vector<std::uint8_t> model_authority_request;
+  std::uint32_t worker_bootstrap_bytes = 0;
 };
 
 class LaunchRequestParser final {

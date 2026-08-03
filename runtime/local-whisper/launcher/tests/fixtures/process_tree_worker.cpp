@@ -20,8 +20,11 @@
 
 namespace {
 
-constexpr std::string_view kWorkerArgument = "--local-whisper-worker-v1";
 constexpr std::string_view kDescendantArgument = "--local-whisper-descendant-fixture-v1";
+
+bool is_worker_argument(std::string_view value) {
+  return value == "--load" || value == "--probe" || value == "--registry";
+}
 
 [[noreturn]] void wait_forever() {
   while (true)
@@ -101,7 +104,7 @@ int main(int argc, char** argv) {
     const std::string_view argument(argv[1]);
     if (argument == kDescendantArgument)
       wait_forever();
-    if (argument != kWorkerArgument)
+    if (!is_worker_argument(argument))
       return 2;
     return run_worker();
   } catch (...) {

@@ -4,27 +4,29 @@ This C++20 executable is the narrow process-ownership boundary between Electron
 main and a verified Local Whisper worker. It does not perform inference and has
 no listener. Electron sends one bounded bootstrap record over inherited file
 descriptor 3; the launcher replies on descriptor 4, then gives the worker only
-stdin, stdout, stderr, and the fixed `--local-whisper-worker-v1` argument.
+stdin, stdout, stderr, and one fixed non-sensitive `--probe`, `--load`, or
+`--registry` mode selected by the authenticated `LWLP2` bootstrap.
 
 ## Architecture and behavior
 
-- `launch_request` parses the fixed version-1 bootstrap and rejects unsafe or
+- `launch_request` parses the fixed version-2 bootstrap and rejects unsafe or
   non-canonical identities before platform code runs.
 - `sha256` is a small platform-neutral streaming verifier used against the held
   executable descriptor or handle.
 - `src/platform/linux` opens the directory without symlinks, executes the held
   worker descriptor in a dedicated process group, uses parent-death signaling
-  and a subreaper, and does not exit until that group is empty. Its model
-  authority client authenticates the guard's credentials and one `SCM_RIGHTS`
-  descriptor, collision-safely installs logical slot 3, and completes the
-  hop-2 worker bootstrap before framed protocol traffic.
+  and a subreaper, and does not exit until that group is empty. Its reviewed
+  model-authority client can authenticate the guard's credentials and one
+  `SCM_RIGHTS` descriptor and collision-safely install logical slot 3; wiring
+  that primitive into production full-load orchestration remains a Task 19
+  activation blocker.
 - `src/platform/windows` holds every directory component and the worker without
   delete/write sharing, creates the worker suspended, assigns it to a
   kill-on-close Job Object, restricts inherited handles to stdio, and resumes it
   only after assignment. The launcher remains alive until the Job is empty.
 - The Windows model-authority module defines arbitrary-HANDLE duplication and
   acknowledgment validation as a Task-09 source contract only. Representative
-  Windows execution and qualification remain Task 19.
+  Windows execution and qualification remain exclusively in Task 20.
 - `tests/unit` uses GoogleTest for the parser and SHA-256 contract.
   `tests/fixtures` contains non-production process-tree and identity probes used
   by the cross-platform integration verifier.

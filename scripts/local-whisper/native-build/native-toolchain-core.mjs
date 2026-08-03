@@ -160,7 +160,7 @@ function verifyWindowsToolchainContract(profile, options) {
     profile.target.os !== 'windows' ||
     profile.qualificationState !== 'pendingWindowsFinalTask'
   ) {
-    throw new Error('Windows native profile is contract-only until Task 19');
+    throw new Error('Windows native profile is contract-only until Task 20');
   }
   if (profile.evidenceDigest !== null || profile.tools.some((tool) => tool.sha256 !== null)) {
     throw new Error('Windows candidate must not claim representative qualification evidence');

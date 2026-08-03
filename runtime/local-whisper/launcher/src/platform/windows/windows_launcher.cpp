@@ -425,7 +425,11 @@ public:
     startup.lpAttributeList = attributes.get();
 
     std::vector<wchar_t> environment = sanitized_environment();
-    std::wstring command_line = L"local-whisper-worker --local-whisper-worker-v1";
+    const wchar_t* mode = request.launch_mode == WorkerLaunchMode::full_load  ? L"--load"
+                          : request.launch_mode == WorkerLaunchMode::registry ? L"--registry"
+                                                                              : L"--probe";
+    std::wstring command_line = L"local-whisper-worker ";
+    command_line += mode;
     PROCESS_INFORMATION process_information{};
     const std::wstring working_directory_path =
         extended_path(working_directory, working_directory.components.size());

@@ -559,6 +559,7 @@ public:
       close(duplicate);
       throw GuardError("IO_FAILED");
     }
+    rewinddir(directory);
     std::vector<std::string> result;
     while (true) {
       errno = 0;

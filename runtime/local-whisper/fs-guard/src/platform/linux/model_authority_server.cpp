@@ -13,8 +13,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <stdexcept>
 #include <span>
+#include <stdexcept>
 #include <variant>
 #include <vector>
 
@@ -110,8 +110,8 @@ void send_transfer(int channel_descriptor, int model_descriptor,
   }
 }
 
-void validate_regular_file_evidence(
-    int descriptor, const local_whisper::common::AuthorityBinding& binding) {
+void validate_regular_file_evidence(int descriptor,
+                                    const local_whisper::common::AuthorityBinding& binding) {
   if (binding.artifact_kind != local_whisper::common::AuthorityArtifactKind::regular_file)
     return;
   struct stat metadata {};

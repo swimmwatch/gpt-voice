@@ -10,7 +10,7 @@ constexpr int kAcknowledgmentDescriptor = 4;
 } // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 2 || std::string_view(argv[1]) != "--local-whisper-launcher-v1")
+  if (argc != 2 || std::string_view(argv[1]) != "--local-whisper-launcher-v2")
     return 2;
   try {
     const local_whisper::launcher::LaunchRequest request =

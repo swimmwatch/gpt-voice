@@ -32,8 +32,9 @@ std::string base64url(const std::string_view input) {
 
 std::string valid_line() {
   const std::vector<std::string> fields = {
-      "LWLP1",
+      "LWLP2",
       "fixture_nonce_1234",
+      "probe",
       base64url("/managed/runtime/worker"),
       base64url("/managed/runtime"),
       std::string(64, 'a'),
@@ -61,10 +62,11 @@ std::string valid_line() {
   return line;
 }
 
-TEST(LaunchRequestParserTest, ParsesCompleteVersionOneBootstrap) {
+TEST(LaunchRequestParserTest, ParsesCompleteVersionTwoBootstrap) {
   const LaunchRequest request = LaunchRequestParser{}.parse(valid_line());
 
   EXPECT_EQ(request.app_instance_nonce, "fixture_nonce_1234");
+  EXPECT_EQ(request.launch_mode, WorkerLaunchMode::probe);
   EXPECT_EQ(request.worker_path, "/managed/runtime/worker");
   EXPECT_EQ(request.working_directory, "/managed/runtime");
   EXPECT_EQ(request.worker_sha256, std::string(64, 'a'));
@@ -76,7 +78,7 @@ TEST(LaunchRequestParserTest, ParsesCompleteVersionOneBootstrap) {
 
 TEST(LaunchRequestParserTest, RejectsUnknownVersionUnsafeNonceAndWrongIdentityKind) {
   std::string wrong_version = valid_line();
-  wrong_version.replace(0, 5, "LWLP2");
+  wrong_version.replace(0, 5, "LWLP1");
   EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(wrong_version)), std::runtime_error);
 
   std::string unsafe_nonce = valid_line();
@@ -88,6 +90,34 @@ TEST(LaunchRequestParserTest, RejectsUnknownVersionUnsafeNonceAndWrongIdentityKi
   const std::size_t regular = wrong_kind.find("regular");
   wrong_kind.replace(regular, std::string("regular").size(), "directory");
   EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(wrong_kind)), std::runtime_error);
+}
+
+TEST(LaunchRequestParserTest, AcceptsOnlyFixedWorkerLaunchModes) {
+  for (const auto& mode :
+       {std::string("fullLoad"), std::string("probe"), std::string("registry")}) {
+    std::string line = valid_line();
+    const std::size_t mode_offset = line.find("\tprobe\t");
+    line.replace(mode_offset + 1U, std::string("probe").size(), mode);
+    if (mode == "fullLoad")
+      line += "\t" + base64url(std::string(234, 'x')) + "\t0";
+    EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(line)));
+  }
+  std::string invalid = valid_line();
+  const std::size_t mode_offset = invalid.find("\tprobe\t");
+  invalid.replace(mode_offset + 1U, std::string("probe").size(), "unsafe-mode");
+  EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(invalid)), std::runtime_error);
+}
+
+TEST(LaunchRequestParserTest, FullLoadRequiresExactAuthorityAndWorkerBootstrapLength) {
+  std::string missing = valid_line();
+  const std::size_t mode_offset = missing.find("\tprobe\t");
+  missing.replace(mode_offset + 1U, std::string("probe").size(), "fullLoad");
+  EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(missing)), std::runtime_error);
+
+  std::string valid = missing + "\t" + base64url(std::string(234, 'x')) + "\t40";
+  EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(valid)));
+  valid.replace(valid.size() - 2U, 2U, "41");
+  EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(valid)), std::runtime_error);
 }
 
 TEST(LaunchRequestParserTest, RejectsNonCanonicalBase64AndNumericOverflow) {

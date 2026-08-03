@@ -31,6 +31,7 @@ add_library(fs_guard_core STATIC
   src/common/command.cpp
   src/common/error.cpp
   src/common/guard_application.cpp
+  src/common/model_launch_request.cpp
   src/common/protocol.cpp
   src/common/validation.cpp
 )
@@ -54,6 +55,7 @@ if(WIN32)
 else()
   add_library(fs_guard_platform STATIC
     src/platform/linux/linux_backend.cpp
+    src/platform/linux/model_launch_application.cpp
     src/platform/linux/model_authority_server.cpp
     ../common/src/linux_process_identity.cpp
   )
@@ -88,6 +90,7 @@ if(BUILD_TESTING)
   add_executable(fs_guard_unit_tests
     tests/unit/command_test.cpp
     tests/unit/dispatch_test.cpp
+    tests/unit/model_launch_request_test.cpp
     tests/unit/protocol_test.cpp
     tests/unit/raii_test.cpp
   )

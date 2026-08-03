@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
 const action = process.argv[2];
@@ -79,10 +80,13 @@ function configureAndBuild() {
     );
   }
   run(cmake, arguments_);
-  run(cmake, ['--build', '--preset', preset]);
+  run(cmake, ['--build', '--preset', preset, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
 }
 
 function runExecutableIntegration() {
+  if (process.platform === 'linux') {
+    run(process.execPath, ['scripts/local-whisper/build-fs-guard.mjs'], { cwd: workspaceRoot });
+  }
   run(process.execPath, ['--import', 'tsx', 'scripts/local-whisper/verify-launcher.ts', '--fixture'], {
     cwd: workspaceRoot,
   });

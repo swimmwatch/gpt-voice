@@ -1,5 +1,9 @@
 #include "local_whisper/launcher/platform_launcher.hpp"
 
+#include "local_whisper/common/authority_bootstrap.hpp"
+#include "local_whisper/common/linux_process_identity.hpp"
+#include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/launcher/model_authority_client.hpp"
 #include "local_whisper/launcher/sha256.hpp"
 
 #include <array>
@@ -10,9 +14,13 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <variant>
+#include <vector>
 
 #include <fcntl.h>
 #include <linux/openat2.h>
@@ -144,6 +152,11 @@ void install_signal_handlers() {
       sigaction(SIGHUP, &action, nullptr) != 0) {
     throw std::runtime_error("launcher signal setup failed");
   }
+  struct sigaction ignored {};
+  ignored.sa_handler = SIG_IGN;
+  sigemptyset(&ignored.sa_mask);
+  if (sigaction(SIGPIPE, &ignored, nullptr) != 0)
+    throw std::runtime_error("launcher pipe signal setup failed");
 }
 
 bool process_group_empty(pid_t process_group) {
@@ -173,6 +186,19 @@ int root_exit_code(int status) {
   if (WIFSIGNALED(status))
     return 128 + WTERMSIG(status);
   return 1;
+}
+
+void terminate_and_reap_owned_group(const pid_t worker_pid) noexcept {
+  static_cast<void>(kill(-worker_pid, SIGKILL));
+  while (true) {
+    int status = 0;
+    const pid_t reaped = waitpid(-1, &status, 0);
+    if (reaped > 0)
+      continue;
+    if (reaped < 0 && errno == EINTR)
+      continue;
+    return;
+  }
 }
 
 int wait_for_owned_group(pid_t worker_pid, int control_descriptor) {
@@ -213,6 +239,117 @@ int wait_for_owned_group(pid_t worker_pid, int control_descriptor) {
         static_cast<void>(kill(-worker_pid, SIGKILL));
     }
   }
+}
+
+void write_exact(const int descriptor, std::span<const std::uint8_t> bytes) {
+  while (!bytes.empty()) {
+    const ssize_t count = write(descriptor, bytes.data(), bytes.size());
+    if (count < 0 && errno == EINTR)
+      continue;
+    if (count <= 0)
+      throw std::runtime_error("launcher proxy write failed");
+    bytes = bytes.subspan(static_cast<std::size_t>(count));
+  }
+}
+
+std::vector<std::uint8_t> read_exact(const int descriptor, const std::size_t size) {
+  std::vector<std::uint8_t> bytes(size);
+  std::size_t offset = 0;
+  while (offset < size) {
+    const ssize_t count = read(descriptor, bytes.data() + offset, size - offset);
+    if (count < 0 && errno == EINTR)
+      continue;
+    if (count <= 0)
+      throw std::runtime_error("launcher bootstrap input failed");
+    offset += static_cast<std::size_t>(count);
+  }
+  return bytes;
+}
+
+int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
+                      UniqueDescriptor worker_input, UniqueDescriptor worker_output) {
+  bool root_exited = false;
+  int root_status = 0;
+  bool termination_started = false;
+  bool hard_kill_sent = false;
+  auto hard_kill_deadline = std::chrono::steady_clock::time_point::max();
+  std::array<std::uint8_t, 64U * 1024U> buffer{};
+  while (true) {
+    reap_available_children(worker_pid, root_exited, root_status);
+    const bool group_empty = process_group_empty(worker_pid);
+    if (group_empty && root_exited)
+      return root_exit_code(root_status);
+
+    std::array<struct pollfd, 3> descriptors = {
+        pollfd{control_descriptor, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
+        pollfd{STDIN_FILENO, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
+        pollfd{worker_output.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
+    };
+    const int polled =
+        poll(descriptors.data(), descriptors.size(), static_cast<int>(kPollInterval.count()));
+    if (polled < 0 && errno != EINTR)
+      termination_requested = 1;
+    if (polled > 0) {
+      if ((descriptors[0].revents & (POLLIN | POLLHUP | POLLERR)) != 0)
+        termination_requested = 1;
+      if ((descriptors[1].revents & POLLIN) != 0 && worker_input.get() >= 0) {
+        const ssize_t count = read(STDIN_FILENO, buffer.data(), buffer.size());
+        if (count > 0) {
+          try {
+            write_exact(worker_input.get(), std::span<const std::uint8_t>(
+                                                buffer.data(), static_cast<std::size_t>(count)));
+          } catch (...) {
+            termination_requested = 1;
+          }
+        } else if (count == 0 || errno != EINTR) {
+          worker_input.reset();
+          termination_requested = 1;
+        }
+      }
+      if ((descriptors[1].revents & (POLLHUP | POLLERR)) != 0) {
+        worker_input.reset();
+        termination_requested = 1;
+      }
+      if ((descriptors[2].revents & POLLIN) != 0 && worker_output.get() >= 0) {
+        const ssize_t count = read(worker_output.get(), buffer.data(), buffer.size());
+        if (count > 0) {
+          try {
+            write_exact(STDOUT_FILENO, std::span<const std::uint8_t>(
+                                           buffer.data(), static_cast<std::size_t>(count)));
+          } catch (...) {
+            termination_requested = 1;
+          }
+        } else if (count == 0 || errno != EINTR) {
+          worker_output.reset();
+        }
+      }
+      if ((descriptors[2].revents & (POLLHUP | POLLERR)) != 0)
+        worker_output.reset();
+    }
+
+    if ((termination_requested != 0 || root_exited) && !termination_started) {
+      termination_started = true;
+      worker_input.reset();
+      hard_kill_deadline = std::chrono::steady_clock::now() + kGracefulTerminationBudget;
+      if (!group_empty)
+        static_cast<void>(kill(-worker_pid, SIGTERM));
+    }
+    if (termination_started && !hard_kill_sent &&
+        std::chrono::steady_clock::now() >= hard_kill_deadline) {
+      hard_kill_sent = true;
+      if (!group_empty)
+        static_cast<void>(kill(-worker_pid, SIGKILL));
+    }
+  }
+}
+
+local_whisper::common::AuthorityBinding model_binding(const LaunchRequest& request) {
+  const auto decoded =
+      local_whisper::common::decode_authority_record(request.model_authority_request);
+  const auto* authority = std::get_if<local_whisper::common::AuthorityRequest>(&decoded);
+  if (authority == nullptr)
+    throw std::runtime_error("launcher model authority request invalid");
+  return authority->binding;
 }
 
 class LinuxLauncher final : public PlatformLauncher {
@@ -263,6 +400,30 @@ public:
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) != 0 || getppid() != expected_parent)
       throw std::runtime_error("launcher parent ownership failed");
 
+    std::optional<UniqueModelDescriptor> model_authority;
+    UniqueDescriptor worker_input_read;
+    UniqueDescriptor worker_input_write;
+    UniqueDescriptor worker_output_read;
+    UniqueDescriptor worker_output_write;
+    const bool full_load = request.launch_mode == WorkerLaunchMode::full_load;
+    local_whisper::common::AuthorityBinding authority_binding{};
+    if (full_load) {
+      authority_binding = model_binding(request);
+      LinuxModelAuthorityClient authority_client;
+      model_authority.emplace(authority_client.acquire(5, authority_binding));
+      static_cast<void>(close(5));
+      std::array<int, 2> input_pipe{};
+      if (pipe2(input_pipe.data(), O_CLOEXEC) != 0)
+        throw std::runtime_error("launcher worker pipe creation failed");
+      worker_input_read.reset(input_pipe[0]);
+      worker_input_write.reset(input_pipe[1]);
+      std::array<int, 2> output_pipe{};
+      if (pipe2(output_pipe.data(), O_CLOEXEC) != 0)
+        throw std::runtime_error("launcher worker pipe creation failed");
+      worker_output_read.reset(output_pipe[0]);
+      worker_output_write.reset(output_pipe[1]);
+    }
+
     const pid_t child = fork();
     if (child < 0)
       throw std::runtime_error("launcher fork failed");
@@ -276,31 +437,61 @@ public:
         _exit(126);
       static_cast<void>(close(control_descriptor));
       static_cast<void>(close(acknowledgment_descriptor));
+      if (full_load) {
+        worker_input_write.reset();
+        worker_output_read.reset();
+        if (dup2(worker_input_read.get(), STDIN_FILENO) != STDIN_FILENO ||
+            dup2(worker_output_write.get(), STDOUT_FILENO) != STDOUT_FILENO) {
+          _exit(126);
+        }
+        worker_input_read.reset();
+        worker_output_write.reset();
+        if (!model_authority.has_value() ||
+            LinuxModelAuthorityClient::install_at_logical_slot(std::move(*model_authority)) != 3) {
+          _exit(126);
+        }
+      }
+      const char* mode = request.launch_mode == WorkerLaunchMode::full_load  ? "--load"
+                         : request.launch_mode == WorkerLaunchMode::registry ? "--registry"
+                                                                             : "--probe";
       std::array<char*, 3> arguments = {const_cast<char*>("local-whisper-worker"),
-                                        const_cast<char*>("--local-whisper-worker-v1"), nullptr};
+                                        const_cast<char*>(mode), nullptr};
       fexecve(worker.get(), arguments.data(), environ);
       _exit(126);
     }
 
-    if (setpgid(child, child) != 0 && errno != EACCES)
-      throw std::runtime_error("launcher worker group failed");
-    worker.reset();
-    directory.reset();
-    directory_parent.reset();
     try {
-      write_acknowledgment(acknowledgment_descriptor, child);
-    } catch (...) {
-      static_cast<void>(kill(-child, SIGKILL));
-      while (!process_group_empty(child)) {
-        bool root_exited = false;
-        int root_status = 0;
-        reap_available_children(child, root_exited, root_status);
-        std::this_thread::sleep_for(kPollInterval);
+      if (setpgid(child, child) != 0 && errno != EACCES)
+        throw std::runtime_error("launcher worker group failed");
+      UniqueDescriptor full_load_input;
+      UniqueDescriptor full_load_output;
+      if (full_load) {
+        worker_input_read.reset();
+        worker_output_write.reset();
+        full_load_input = std::move(worker_input_write);
+        full_load_output = std::move(worker_output_read);
+        model_authority.reset();
+        if (request.worker_bootstrap_bytes > 0U) {
+          const auto device_bootstrap = read_exact(STDIN_FILENO, request.worker_bootstrap_bytes);
+          write_exact(full_load_input.get(), device_bootstrap);
+        }
+        local_whisper::common::authorize_worker_model_bootstrap(
+            full_load_input.get(), full_load_output.get(), authority_binding,
+            static_cast<std::uint64_t>(child),
+            local_whisper::common::linux_process_start_identity_sha256(child));
       }
+      worker.reset();
+      directory.reset();
+      directory_parent.reset();
+      write_acknowledgment(acknowledgment_descriptor, child);
+      static_cast<void>(close(acknowledgment_descriptor));
+      return full_load ? proxy_owned_group(child, control_descriptor, std::move(full_load_input),
+                                           std::move(full_load_output))
+                       : wait_for_owned_group(child, control_descriptor);
+    } catch (...) {
+      terminate_and_reap_owned_group(child);
       throw;
     }
-    static_cast<void>(close(acknowledgment_descriptor));
-    return wait_for_owned_group(child, control_descriptor);
   }
 };
 
