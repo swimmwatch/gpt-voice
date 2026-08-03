@@ -13,23 +13,20 @@ import {
 import type { QualificationLinuxFoundation } from './QualificationInputProducer';
 import { roundQualificationPeakBytes } from './QualificationMetrics';
 
-const GATE_NAMES = Object.freeze([
-  'load',
-  'warmup',
-  'parity',
-  'resources',
-  'cancellation',
-  'crashReload',
-  'unload',
-  'providerSwitch',
-  'suspendResume',
-  'appExit',
-  'offlineRestart',
-  'repetitions',
-  'predecessor',
-] as const);
-
-type QualificationGateName = (typeof GATE_NAMES)[number];
+type QualificationGateName =
+  | 'load'
+  | 'warmup'
+  | 'parity'
+  | 'resources'
+  | 'cancellation'
+  | 'crashReload'
+  | 'unload'
+  | 'providerSwitch'
+  | 'suspendResume'
+  | 'appExit'
+  | 'offlineRestart'
+  | 'repetitions'
+  | 'predecessor';
 export type QualificationGateStatus = 'Pass' | 'Fail' | 'Pending';
 
 export interface QualificationLinuxRowEvidence {
@@ -51,6 +48,7 @@ export interface QualificationLinuxResult {
   readonly branch: LocalWhisperQualificationPlatformBranch;
   readonly resultDigest: string;
   readonly evidenceIndexDigest: string;
+  readonly sanitizedEvidenceDocuments: readonly Readonly<Record<string, unknown>>[];
 }
 
 function digestField(document: unknown, field: string): string {
@@ -118,9 +116,10 @@ export class LocalWhisperQualificationResultProducer {
       });
     });
     const seriesByKey = new Map(
-      measurementSeries.map((series, index) => [rowKey(rowEvidence[index]!), digestField(series, 'seriesDigest')]),
+      measurementSeries.map((series, index) => [rowKey(rowEvidence[index]), digestField(series, 'seriesDigest')]),
     );
     const evidenceEntries: Array<Readonly<Record<string, unknown>>> = [];
+    const sanitizedEvidenceDocuments: Array<Readonly<Record<string, unknown>>> = [];
     const rows = rowEvidence.map((row) => {
       const id = `linux-${row.backend}-${row.family}-${row.variant}`;
       const profileDigest = profiles.get(row.backend);
@@ -150,6 +149,7 @@ export class LocalWhisperQualificationResultProducer {
         },
       });
       const identity = evidenceIdentity(evidenceDocument);
+      sanitizedEvidenceDocuments.push(evidenceDocument);
       evidenceEntries.push(
         Object.freeze({
           id,
@@ -212,6 +212,7 @@ export class LocalWhisperQualificationResultProducer {
       branch,
       resultDigest: digestField(platformResult, 'resultDigest'),
       evidenceIndexDigest: digestField(evidenceIndex, 'indexDigest'),
+      sanitizedEvidenceDocuments: Object.freeze(sanitizedEvidenceDocuments),
     });
   }
 }

@@ -141,13 +141,16 @@ describe('LocalWhisperQualificationResultProducer', () => {
     assert.match(result.resultDigest, /^[a-f0-9]{64}$/u);
     assert.match(result.evidenceIndexDigest, /^[a-f0-9]{64}$/u);
     assert.equal(result.branch.measurementSeries.length, 12);
+    assert.equal(result.sanitizedEvidenceDocuments.length, 12);
   });
 
   it('rejects incomplete order and a false Pass before freeze', () => {
     const producer = new LocalWhisperQualificationResultProducer(validator);
     assert.throws(() => producer.produce(foundation(), rows().slice(1)), /MATRIX_INVALID/u);
     const invalid = rows();
-    invalid[0] = { ...invalid[0]!, gates: { ...gates, load: 'Fail' } };
+    const first = invalid[0];
+    if (!first) throw new Error('Qualification result test row missing');
+    invalid[0] = { ...first, gates: { ...gates, load: 'Fail' } };
     assert.throws(() => producer.produce(foundation(), invalid), /QUALIFICATION_PASS_GATE_INCOMPLETE/u);
   });
 });
