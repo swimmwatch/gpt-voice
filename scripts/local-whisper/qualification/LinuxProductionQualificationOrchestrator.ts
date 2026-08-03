@@ -180,11 +180,7 @@ export class LinuxProductionQualificationOrchestrator {
     await mkdir(input.privateRunRoot, { recursive: false, mode: 0o700 });
     const graph = this.dependencies.createGraph(input.qualificationRoot);
     const source = await this.dependencies.hostIdentity.source(input);
-    const loaded = await this.dependencies.evidenceLoader.load(
-      input.cacheRoot,
-      input.candidateSemVer,
-      input.workspaceRoot,
-    );
+    const loaded = await this.dependencies.evidenceLoader.load(input.cacheRoot, input.workspaceRoot);
     const candidateInput = graph.input.produceCandidate({
       candidateSemVer: input.candidateSemVer,
       freezeTimestampUtc: input.freezeTimestampUtc,

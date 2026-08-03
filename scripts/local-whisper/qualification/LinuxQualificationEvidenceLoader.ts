@@ -11,6 +11,7 @@ import {
   serializeCanonicalLocalWhisperCatalogJson,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
+  type LocalWhisperRevisionId,
   type LocalWhisperRuntimeIdentity,
 } from '@shared/localWhisper';
 
@@ -30,6 +31,10 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = 'f049fff95a089aa9969deb009cdd4892b3e74916';
 const FLEURS_COMMIT = '70bb2e84b976b7e960aa89f1c648e09c59f894dd';
 const WAV_SAMPLE_RATE = 16_000;
+const RUNTIME_PROFILE_IDS = Object.freeze({
+  cpu: 'linux-x64-cpu-baseline-v1',
+  cuda: 'linux-x64-cuda-12.8.1-sm120a-v1',
+} as const);
 
 export interface LoadedRuntime {
   readonly application: QualificationApplicationRuntime;
@@ -282,11 +287,7 @@ async function loadCorpus(
   });
 }
 
-async function loadRuntime(
-  cacheRoot: string,
-  backend: 'cpu' | 'cuda',
-  candidateSemVer: string,
-): Promise<LoadedRuntime> {
+async function loadRuntime(cacheRoot: string, backend: 'cpu' | 'cuda'): Promise<LoadedRuntime> {
   const runtimeRoot = path.join(cacheRoot, 'runtime-packs', backend);
   const pack = record(
     await readCanonicalJson(path.join(runtimeRoot, 'build-a', 'runtime-pack.json')),
@@ -323,8 +324,7 @@ async function loadRuntime(
   const expectedFiles = expectedRuntimeFiles(
     arrayField(pack, 'expectedFiles', 'Qualification runtime file matrix invalid'),
   );
-  const packRevision = toLocalWhisperRevisionId(`linux-x64-${backend}-v${candidateSemVer}`);
-  if (!packRevision) throw new Error('Qualification runtime revision invalid');
+  const packRevision = qualificationRuntimeRevision(backend, profileId);
   const runtimeBuildDigest = digestField(direct, 'runtimeBuildDigest', 'Qualification runtime build invalid');
   const directBinary = record(direct.binary, 'Qualification direct-engine binary invalid');
   const directEngine: QualificationDirectEngine = Object.freeze({
@@ -385,21 +385,26 @@ async function loadRuntime(
   });
 }
 
+export function qualificationRuntimeRevision(backend: 'cpu' | 'cuda', profileId: string): LocalWhisperRevisionId {
+  if (profileId !== RUNTIME_PROFILE_IDS[backend]) {
+    throw new Error('Qualification runtime profile invalid');
+  }
+  const revision = toLocalWhisperRevisionId(`whisper-cpp-${profileId}`);
+  if (!revision) throw new Error('Qualification runtime revision invalid');
+  return revision;
+}
+
 /** Loads only exact, previously materialized private qualification inputs. */
 export class LinuxQualificationEvidenceLoader {
-  public async load(
-    cacheRoot: string,
-    candidateSemVer: string,
-    workspaceRoot: string,
-  ): Promise<LoadedLinuxQualificationEvidence> {
+  public async load(cacheRoot: string, workspaceRoot: string): Promise<LoadedLinuxQualificationEvidence> {
     if (!path.isAbsolute(cacheRoot) || !path.isAbsolute(workspaceRoot)) {
       throw new Error('Qualification evidence roots must be absolute');
     }
     const [models, corpus, cpu, cuda] = await Promise.all([
       loadModels(cacheRoot),
       loadCorpus(cacheRoot, workspaceRoot),
-      loadRuntime(cacheRoot, 'cpu', candidateSemVer),
-      loadRuntime(cacheRoot, 'cuda', candidateSemVer),
+      loadRuntime(cacheRoot, 'cpu'),
+      loadRuntime(cacheRoot, 'cuda'),
     ]);
     const runtimes = Object.freeze([cpu, cuda]);
     const directEngineArtifacts = Object.freeze(
