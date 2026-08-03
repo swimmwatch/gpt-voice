@@ -162,6 +162,13 @@ describe('Local Whisper catalog contracts', () => {
           sizeBytes: 100,
           sha256: 'b'.repeat(64),
         },
+        {
+          fileId: artifactId('runtime-license'),
+          kind: 'license',
+          mode: 0o400,
+          sizeBytes: 10,
+          sha256: 'c'.repeat(64),
+        },
       ],
       prerequisites: ['driver>=1'],
       provenanceId: artifactId('provenance-v1'),
@@ -171,6 +178,13 @@ describe('Local Whisper catalog contracts', () => {
     assert.equal(isLocalWhisperRuntimeIdentity(runtime), true);
     assert.equal(isLocalWhisperRuntimeIdentity({ ...runtime, backend: 'cpu' }), false);
     assert.equal(isLocalWhisperRuntimeIdentity({ ...runtime, archiveSha256: 'unsafe' }), false);
+    assert.equal(
+      isLocalWhisperRuntimeIdentity({
+        ...runtime,
+        expectedFiles: [{ ...runtime.expectedFiles[1], kind: 'private-metadata' }],
+      }),
+      false,
+    );
     assert.equal(isLocalWhisperRuntimeIdentity({ ...runtime, url: 'https://private.example' }), false);
   });
 });

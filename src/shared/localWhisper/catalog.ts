@@ -69,7 +69,7 @@ export const LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE = Object.freeze({
 
 export interface LocalWhisperRuntimeFileIdentity {
   readonly fileId: LocalWhisperArtifactId;
-  readonly kind: 'executable' | 'library' | 'data' | 'notice';
+  readonly kind: 'executable' | 'library' | 'data' | 'license' | 'notice';
   readonly mode: number;
   readonly sizeBytes: number;
   readonly sha256: string;
@@ -252,7 +252,7 @@ function isRuntimeFileIdentity(value: unknown): value is LocalWhisperRuntimeFile
   if (!isRecord(value) || !hasExactKeys(value, RUNTIME_FILE_KEYS)) return false;
   return (
     toLocalWhisperArtifactId(value.fileId) !== null &&
-    isMember(['executable', 'library', 'data', 'notice'] as const, value.kind) &&
+    isMember(['executable', 'library', 'data', 'license', 'notice'] as const, value.kind) &&
     isNonNegativeSafeInteger(value.mode) &&
     isNonNegativeSafeInteger(value.sizeBytes) &&
     typeof value.sha256 === 'string' &&
