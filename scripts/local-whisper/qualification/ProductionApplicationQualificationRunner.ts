@@ -11,16 +11,8 @@ import {
 
 import { sha256File } from '../packaging/fileIntegrity';
 import type { DirectEngineQualificationRunner } from './DirectEngineQualificationRunner';
-import type {
-  LinuxResourceSample,
-  LinuxResourceSamplerSession,
-  LinuxResourceSeries,
-} from './LinuxResourceSampler';
-import {
-  qualificationMedian,
-  qualificationWerPercentage,
-  type QualificationLocale,
-} from './QualificationMetrics';
+import type { LinuxResourceSample, LinuxResourceSamplerSession, LinuxResourceSeries } from './LinuxResourceSampler';
+import { qualificationMedian, qualificationWerPercentage, type QualificationLocale } from './QualificationMetrics';
 import type { QualificationLinuxRowEvidence } from './QualificationResultProducer';
 
 const ARTIFACT_TIMEOUT_MILLISECONDS = 30 * 60 * 1000;
@@ -240,7 +232,10 @@ export class ProductionApplicationQualificationRunner {
     }
   }
 
-  private async installArtifacts(session: ApplicationSession, input: ProductionApplicationQualificationInput): Promise<void> {
+  private async installArtifacts(
+    session: ApplicationSession,
+    input: ProductionApplicationQualificationInput,
+  ): Promise<void> {
     const revisions = [
       ...input.runtimes.map(({ packRevision }) => ({ kind: 'runtime' as const, revision: packRevision })),
       ...input.models.map(({ artifactRevision }) => ({ kind: 'model' as const, revision: artifactRevision })),
@@ -283,7 +278,10 @@ export class ProductionApplicationQualificationRunner {
     await new Promise<void>((resolve, reject) => {
       let settled = false;
       let unsubscribe = (): void => undefined;
-      const timeout = setTimeout(() => finish(new Error('Qualification artifact installation timed out')), ARTIFACT_TIMEOUT_MILLISECONDS);
+      const timeout = setTimeout(
+        () => finish(new Error('Qualification artifact installation timed out')),
+        ARTIFACT_TIMEOUT_MILLISECONDS,
+      );
       const finish = (error?: Error): void => {
         if (settled) return;
         settled = true;
@@ -331,9 +329,7 @@ export class ProductionApplicationQualificationRunner {
         throw new Error('Qualification WER parity failed');
       }
       medianRtf =
-        model.family === 'base'
-          ? await this.applicationRtf(session.coordinator, input.performanceFixtures)
-          : null;
+        model.family === 'base' ? await this.applicationRtf(session.coordinator, input.performanceFixtures) : null;
       if (medianRtf !== null && medianRtf > MAXIMUM_BASE_RTF) throw new Error('Qualification base RTF failed');
       await this.sequentialTranscriptions(session.coordinator, input.werFixtures[0]!);
       await this.verifyCancellation(session.coordinator, input.performanceFixtures[0]!);

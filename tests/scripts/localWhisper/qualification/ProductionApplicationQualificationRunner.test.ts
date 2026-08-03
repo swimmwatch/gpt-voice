@@ -118,14 +118,10 @@ describe('ProductionApplicationQualificationRunner', () => {
         referenceText: 'fixture',
       };
       let stops = 0;
-      const candidate = input(
-        { ...fixture, sha256: 'c'.repeat(64) },
-        fixture,
-        () => {
-          stops += 1;
-          return Promise.resolve();
-        },
-      );
+      const candidate = input({ ...fixture, sha256: 'c'.repeat(64) }, fixture, () => {
+        stops += 1;
+        return Promise.resolve();
+      });
 
       await assert.rejects(runner().run(candidate), /audio fixture identity changed/u);
       assert.equal(stops, 1);

@@ -211,8 +211,7 @@ function assertCatalogPackBindings(
   }
   for (const pack of bundle.runtimePacks) {
     const runtime = catalog.payload.runtimes.find(
-      ({ identity }) =>
-        identity.backend === pack.backend && identity.packRevision === pack.artifactRevision,
+      ({ identity }) => identity.backend === pack.backend && identity.packRevision === pack.artifactRevision,
     );
     const runtimeSource = runtime?.source;
     if (
@@ -378,9 +377,7 @@ export class BundleVerifier {
       }),
     ]);
 
-    const runtimePacks = Object.freeze(
-      qualificationCudaPack ? [runtimePack, qualificationCudaPack] : [runtimePack],
-    );
+    const runtimePacks = Object.freeze(qualificationCudaPack ? [runtimePack, qualificationCudaPack] : [runtimePack]);
     const bundle = Object.freeze({
       directory,
       manifest,

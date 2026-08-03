@@ -80,12 +80,7 @@ const REDIRECT_POLICY_KEYS = [
 const SOURCE_KEYS = ['repository', 'commit', 'file', 'url', 'redirectPolicyId'] as const;
 const DISPLAY_METADATA_KEYS = ['title', 'summary'] as const;
 const RUNTIME_ENTRY_V1_KEYS = ['identity', 'recommended', 'qualificationStatus', 'licenseIds'] as const;
-const RUNTIME_ENTRY_V2_QUALIFICATION_KEYS = [
-  ...RUNTIME_ENTRY_V1_KEYS,
-  'transferProfile',
-  'source',
-  'sbomId',
-] as const;
+const RUNTIME_ENTRY_V2_QUALIFICATION_KEYS = [...RUNTIME_ENTRY_V1_KEYS, 'transferProfile', 'source', 'sbomId'] as const;
 const RUNTIME_ENTRY_V2_PRODUCTION_KEYS = [
   ...RUNTIME_ENTRY_V2_QUALIFICATION_KEYS,
   'qualificationProfileDigest',
@@ -106,16 +101,8 @@ const MODEL_ENTRY_V1_KEYS = [
   'licenseIds',
   'noticeIds',
 ] as const;
-const MODEL_ENTRY_V2_QUALIFICATION_KEYS = [
-  ...MODEL_ENTRY_V1_KEYS,
-  'transferProfile',
-  'source',
-  'sbomId',
-] as const;
-const MODEL_ENTRY_V2_PRODUCTION_KEYS = [
-  ...MODEL_ENTRY_V2_QUALIFICATION_KEYS,
-  'qualificationProfileDigest',
-] as const;
+const MODEL_ENTRY_V2_QUALIFICATION_KEYS = [...MODEL_ENTRY_V1_KEYS, 'transferProfile', 'source', 'sbomId'] as const;
+const MODEL_ENTRY_V2_PRODUCTION_KEYS = [...MODEL_ENTRY_V2_QUALIFICATION_KEYS, 'qualificationProfileDigest'] as const;
 const MODEL_FILE_KEYS = ['fileId', 'kind', 'mode', 'sizeBytes', 'sha256'] as const;
 const DENYLIST_KEYS = ['runtimes', 'models'] as const;
 const QUALIFIED_PEAK_KEYS = [

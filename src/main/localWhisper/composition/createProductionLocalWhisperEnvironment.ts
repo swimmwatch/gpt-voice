@@ -893,7 +893,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
               ? this.dependencies.qualificationHooks.artifactHttpClient
               : new NodeArtifactHttpClient(
                   activationPurpose === 'qualification' &&
-                  this.dependencies.qualificationHooks?.trustedCertificateAuthorities
+                    this.dependencies.qualificationHooks?.trustedCertificateAuthorities
                     ? {
                         trustedCertificateAuthorities:
                           this.dependencies.qualificationHooks.trustedCertificateAuthorities,
@@ -1028,8 +1028,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
               modelSetup: selected.model,
             });
           },
-          subscribe: (listener) =>
-            artifactInventory.subscribe((nextInventory) => listener(nextInventory.revision)),
+          subscribe: (listener) => artifactInventory.subscribe((nextInventory) => listener(nextInventory.revision)),
         },
         nextRequestId: this.dependencies.nextRequestId,
         initial: {
