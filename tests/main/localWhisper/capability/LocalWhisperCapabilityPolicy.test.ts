@@ -101,8 +101,6 @@ function capabilityRequest(
       driverCompatible: true,
       computeTargetCompiled: true,
       dependencyClosureValid: true,
-      allocationPassed: true,
-      dispatchPassed: true,
     },
     configuration: CONFIGURATION,
     estimate: ESTIMATE,
@@ -184,7 +182,6 @@ describe('Local Whisper backend prerequisite adapters', () => {
         logicalProcessorCount: 8,
         resolvedThreads: 8,
         isaSupported: true,
-        boundedComputePassed: true,
       }),
       { success: true },
     );
@@ -194,13 +191,12 @@ describe('Local Whisper backend prerequisite adapters', () => {
         logicalProcessorCount: 8,
         resolvedThreads: 9,
         isaSupported: true,
-        boundedComputePassed: true,
       }).success,
       false,
     );
   });
 
-  it('returns exact CUDA prerequisite, allocation, and dispatch failures', () => {
+  it('checks only static CUDA prerequisites before a proof-owning worker starts', () => {
     const adapter = new LocalWhisperCudaCapabilityAdapter();
     const valid = {
       backend: 'cuda',
@@ -208,8 +204,6 @@ describe('Local Whisper backend prerequisite adapters', () => {
       driverCompatible: true,
       computeTargetCompiled: true,
       dependencyClosureValid: true,
-      allocationPassed: true,
-      dispatchPassed: true,
     } as const;
     assert.deepEqual(adapter.evaluate(valid), { success: true });
     assert.deepEqual(adapter.evaluate({ ...valid, driverCompatible: false }), {
@@ -224,10 +218,6 @@ describe('Local Whisper backend prerequisite adapters', () => {
       success: false,
       code: 'RUNTIME_PREREQUISITE_MISSING',
     });
-    assert.deepEqual(adapter.evaluate({ ...valid, allocationPassed: false }), {
-      success: false,
-      code: 'ALLOCATION_FAILED',
-    });
   });
 
   it('rejects Vulkan 1.1, software/non-AMD devices, and missing required features', () => {
@@ -239,8 +229,6 @@ describe('Local Whisper backend prerequisite adapters', () => {
       generatedShaderTarget: [1, 3],
       storageBuffer16BitAccess: true,
       requiredExtensionsPresent: true,
-      allocationPassed: true,
-      dispatchPassed: true,
     } as const;
     assert.deepEqual(adapter.evaluate(valid), { success: true });
     assert.deepEqual(adapter.evaluate({ ...valid, apiVersion: [1, 1] }), {
@@ -270,8 +258,6 @@ describe('Local Whisper backend prerequisite adapters', () => {
       exactPciAndGfxMatch: true,
       pcieAtomicsSatisfied: true,
       permissionsSatisfied: true,
-      allocationPassed: true,
-      dispatchPassed: true,
     } as const;
     assert.deepEqual(adapter.evaluate(valid), { success: true });
     assert.deepEqual(adapter.evaluate({ ...valid, exactPciAndGfxMatch: false }), {
@@ -397,8 +383,6 @@ describe('LocalWhisperCapabilityService', () => {
             driverCompatible: false,
             computeTargetCompiled: true,
             dependencyClosureValid: true,
-            allocationPassed: true,
-            dispatchPassed: true,
           },
         },
         'DRIVER_INCOMPATIBLE',

@@ -182,6 +182,8 @@ export interface MainProcessLocalWhisperEnvironment {
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
   readonly references: LocalWhisperArtifactReferencePort;
+  readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
+  readonly dispose: () => Promise<void>;
 }
 
 export interface MainProcessTranslationEnvironment {
@@ -633,6 +635,7 @@ export class MainProcessCompositionRoot {
       artifacts: this.environment.localWhisper.artifacts,
       managedFolder: this.environment.localWhisper.managedFolder,
       references: this.environment.localWhisper.references,
+      refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
       snapshots: localWhisperSnapshots,
       openSettings: () =>
         windowManager.showProviderSettingsWindow(
@@ -751,6 +754,7 @@ export class MainProcessCompositionRoot {
       diagnosticsExport,
       historyRepository,
       localWhisperCoordinator,
+      localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,
       localWhisperIpcController,
       localWhisperSnapshots,
       prettifyProfileChooserWindow,

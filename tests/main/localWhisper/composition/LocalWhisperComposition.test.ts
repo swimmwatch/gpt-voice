@@ -120,7 +120,15 @@ describe('VoiceProviderSelectionService', () => {
 
 describe('MainProcessRuntimeGraph Local Whisper lifecycle', () => {
   it('registers its IPC once and owns exactly-once coordinator shutdown', async () => {
-    const calls = { mainRegister: 0, mainDispose: 0, localRegister: 0, localDispose: 0, shutdown: 0, snapshots: 0 };
+    const calls = {
+      mainRegister: 0,
+      mainDispose: 0,
+      localRegister: 0,
+      localDispose: 0,
+      shutdown: 0,
+      snapshots: 0,
+      environmentDispose: 0,
+    };
     const graph = new MainProcessRuntimeGraph({
       database: { close: () => undefined } as never,
       diagnosticStorage: {
@@ -151,6 +159,10 @@ describe('MainProcessRuntimeGraph Local Whisper lifecycle', () => {
           return Promise.resolve({ success: true });
         },
       } as unknown as LocalWhisperCoordinator,
+      localWhisperEnvironmentDispose: () => {
+        calls.environmentDispose += 1;
+        return Promise.resolve();
+      },
       localWhisperSnapshots: {
         dispose: () => {
           calls.snapshots += 1;
@@ -168,6 +180,7 @@ describe('MainProcessRuntimeGraph Local Whisper lifecycle', () => {
       localDispose: 1,
       shutdown: 1,
       snapshots: 1,
+      environmentDispose: 1,
     });
   });
 });

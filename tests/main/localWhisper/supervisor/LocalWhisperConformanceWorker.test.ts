@@ -270,6 +270,7 @@ function harness(mode: WorkerMode) {
       backend: 'cuda',
       capabilities: ['cuda-sm-75', 'cuda-sm-86'],
     },
+    launchMode: 'probe',
     runtimeIdentityKey: 'conformance-runtime',
     runtimeLease,
     workerExecutablePath: WORKER_PATH,

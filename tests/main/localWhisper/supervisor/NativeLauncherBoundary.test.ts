@@ -45,7 +45,9 @@ test('Linux launcher binds parent death, held execution, subreaping, and a dedic
 
 test('TypeScript owner keeps launch argv and environment fixed and non-private', () => {
   const owner = source('src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts');
-  assert.match(owner, /\[LAUNCHER_ARGUMENT\]/u);
+  assert.match(owner, /\[modelGuardLaunch \? MODEL_GUARD_ARGUMENT : LAUNCHER_ARGUMENT\]/u);
+  assert.match(owner, /--local-whisper-model-launch-v1/u);
+  assert.match(owner, /--local-whisper-launcher-v2/u);
   assert.match(owner, /shell: false/u);
   assert.match(owner, /LANG: 'C'/u);
   assert.match(owner, /LC_ALL: 'C'/u);

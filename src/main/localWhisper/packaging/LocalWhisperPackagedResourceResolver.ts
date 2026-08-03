@@ -19,7 +19,9 @@ export type LocalWhisperPackagedResourceResolution =
   | {
       readonly availability: 'available';
       readonly filesystemGuardExecutable: string;
+      readonly filesystemGuardSha256: string;
       readonly launcherExecutable: string;
+      readonly launcherSha256: string;
     }
   | { readonly availability: 'planned'; readonly code: 'PLANNED_UNAVAILABLE' };
 
@@ -121,7 +123,9 @@ export class LocalWhisperPackagedResourceResolver {
     return Object.freeze({
       availability: 'available',
       filesystemGuardExecutable: verifiedPaths[0],
+      filesystemGuardSha256: helpers[0].sha256,
       launcherExecutable: verifiedPaths[1],
+      launcherSha256: helpers[1].sha256,
     });
   }
 }

@@ -98,7 +98,6 @@ describe('LocalWhisperCoordinator deterministic Linux integration', () => {
                 logicalProcessorCount: 8,
                 resolvedThreads: 4,
                 isaSupported: true,
-                boundedComputePassed: true,
               },
               configuration: CONFIGURATION,
               estimate: ESTIMATE,

@@ -13,6 +13,7 @@ export interface NativeOwnedWorkerProcessDependencies {
   readonly processStartIdentity: string;
   readonly stderr: Readable;
   readonly workerProcessGroupId: number;
+  readonly forceOwnerTermination?: boolean;
 }
 
 /** Owns the launcher streams and the platform-specific forced-termination path. */
@@ -63,6 +64,7 @@ export class NativeOwnedWorkerProcess implements LocalWhisperOwnedWorkerProcess 
       } catch {
         // The launcher remains responsible for proving that its owned group is empty.
       }
+      if (this.dependencies.forceOwnerTermination) this.dependencies.child.kill('SIGKILL');
     }
     return Promise.resolve();
   }

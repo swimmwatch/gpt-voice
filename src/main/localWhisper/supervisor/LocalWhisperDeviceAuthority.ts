@@ -45,6 +45,29 @@ export interface LocalWhisperDeviceProofInput {
 
 export type LocalWhisperDeviceProofDomain = 'load' | 'probe';
 
+/** Encodes the fixed private authority record consumed before a GPU worker handshake. */
+export function encodeLocalWhisperDeviceAuthority(
+  authorityId: string,
+  configurationEpoch: number,
+  topologyGeneration: number,
+): Uint8Array {
+  const authority = decodeBase64Url(authorityId, AUTHORITY_BYTES, BASE64URL_AUTHORITY, 'authority ID');
+  if (
+    !Number.isSafeInteger(configurationEpoch) ||
+    configurationEpoch < 0 ||
+    !Number.isSafeInteger(topologyGeneration) ||
+    topologyGeneration < 0
+  ) {
+    throw new Error('Invalid Local Whisper device authority epoch');
+  }
+  const record = Buffer.alloc(40);
+  record.set(Uint8Array.from([0x4c, 0x57, 0x44, 0x41, 0x31, 0, 0, 0]), 0);
+  record.set(authority, 8);
+  record.writeBigUInt64BE(BigInt(configurationEpoch), 24);
+  record.writeBigUInt64BE(BigInt(topologyGeneration), 32);
+  return Uint8Array.from(record);
+}
+
 function requireDigest(value: string, label: string): Uint8Array {
   if (!HEX_SHA256.test(value)) throw new Error(`Invalid ${label}`);
   return Uint8Array.from(Buffer.from(value, 'hex'));

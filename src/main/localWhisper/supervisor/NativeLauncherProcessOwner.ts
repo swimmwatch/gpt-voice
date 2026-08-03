@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 
@@ -11,7 +12,8 @@ import type {
 } from './WorkerProcessOwnership';
 import { NativeOwnedWorkerProcess } from './NativeOwnedWorkerProcess';
 
-const LAUNCHER_ARGUMENT = '--local-whisper-launcher-v1';
+const LAUNCHER_ARGUMENT = '--local-whisper-launcher-v2';
+const MODEL_GUARD_ARGUMENT = '--local-whisper-model-launch-v1';
 const LAUNCHER_ACK_TIMEOUT_MS = 10_000;
 const MAX_LAUNCHER_ACK_BYTES = 256;
 
@@ -19,6 +21,8 @@ export interface NativeLauncherProcessOwnerDependencies {
   readonly environment: Readonly<NodeJS.ProcessEnv>;
   readonly getProcessStartIdentity: (pid: number) => Promise<string>;
   readonly launcherExecutablePath: string;
+  readonly launcherExecutableSha256?: string;
+  readonly modelGuardExecutablePath?: string;
   readonly platform: 'linux' | 'win32';
   readonly spawnProcess?: typeof spawn;
 }
@@ -39,10 +43,11 @@ function identityFields(identity: ManagedArtifactIdentitySnapshot): readonly str
   ]);
 }
 
-function bootstrapLine(authority: LocalWhisperWorkerLaunchAuthority, nonce: string): string {
+function launcherBootstrapLine(authority: LocalWhisperWorkerLaunchAuthority, nonce: string): string {
   const fields = [
-    'LWLP1',
+    'LWLP2',
     nonce,
+    authority.launchMode,
     encode(authority.workerExecutablePath),
     encode(authority.workingDirectoryPath),
     authority.workerFileSha256,
@@ -53,6 +58,55 @@ function bootstrapLine(authority: LocalWhisperWorkerLaunchAuthority, nonce: stri
   if (Buffer.byteLength(line, 'utf8') > 64 * 1024) {
     throw new Error('Local Whisper launcher bootstrap exceeded');
   }
+  return line;
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function modelGuardBootstrapLine(
+  authority: LocalWhisperWorkerLaunchAuthority,
+  nonce: string,
+  dependencies: NativeLauncherProcessOwnerDependencies,
+): string {
+  const model = authority.modelGuardAuthority;
+  const guardPath = dependencies.modelGuardExecutablePath;
+  const launcherDigest = dependencies.launcherExecutableSha256;
+  if (
+    dependencies.platform !== 'linux' ||
+    authority.launchMode !== 'fullLoad' ||
+    !model ||
+    !guardPath ||
+    !launcherDigest ||
+    !posix.isAbsolute(guardPath) ||
+    !posix.isAbsolute(model.modelFilePath)
+  ) {
+    throw new Error('Local Whisper model guard launch authority unavailable');
+  }
+  const workerBootstrapBytes = authority.workerInputBootstrap?.byteLength ?? 0;
+  if (workerBootstrapBytes !== 0 && workerBootstrapBytes !== 40) {
+    throw new Error('Invalid Local Whisper model guard worker bootstrap');
+  }
+  const launcherLine = launcherBootstrapLine(authority, nonce);
+  const fields = [
+    'LWGL1',
+    nonce,
+    encode(dependencies.launcherExecutablePath),
+    launcherDigest,
+    encode(launcherLine.slice(0, -1)),
+    encode(model.modelFilePath),
+    model.modelFileSha256,
+    String(model.modelFileSizeBytes),
+    ...identityFields(model.modelFileIdentity),
+    String(authority.configurationEpoch),
+    model.modelLeaseTokenDigest,
+    sha256(model.modelIdentityKey),
+    Buffer.from(model.operationNonce).toString('base64url'),
+    String(workerBootstrapBytes),
+  ];
+  const line = `${fields.join('\t')}\n`;
+  if (Buffer.byteLength(line, 'utf8') > 64 * 1024) throw new Error('Local Whisper model guard bootstrap exceeded');
   return line;
 }
 
@@ -88,7 +142,17 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       throw new Error('Local Whisper launcher paths must be absolute');
     }
     const spawnProcess = this.dependencies.spawnProcess ?? spawn;
-    const child = spawnProcess(this.dependencies.launcherExecutablePath, [LAUNCHER_ARGUMENT], {
+    const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
+    const executablePath = modelGuardLaunch
+      ? this.dependencies.modelGuardExecutablePath
+      : this.dependencies.launcherExecutablePath;
+    if (!executablePath) throw new Error('Local Whisper launch executable unavailable');
+    if (modelGuardLaunch) {
+      authority.modelGuardAuthority?.modelLease.assertActive();
+      await authority.modelGuardAuthority?.revalidate();
+      authority.modelGuardAuthority?.modelLease.assertActive();
+    }
+    const child = spawnProcess(executablePath, [modelGuardLaunch ? MODEL_GUARD_ARGUMENT : LAUNCHER_ARGUMENT], {
       cwd: authority.workingDirectoryPath,
       detached: false,
       env: sanitizedEnvironment(this.dependencies.platform, this.dependencies.environment),
@@ -108,7 +172,15 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     const acknowledgment = requireStream(child.stdio[4] as Readable | null, 'control output');
     try {
       const processStartIdentity = await this.dependencies.getProcessStartIdentity(pid);
-      await this.writeBootstrap(control, bootstrapLine(authority, appInstanceNonce));
+      await this.writeBootstrap(
+        control,
+        modelGuardLaunch
+          ? modelGuardBootstrapLine(authority, appInstanceNonce, this.dependencies)
+          : launcherBootstrapLine(authority, appInstanceNonce),
+      );
+      if (modelGuardLaunch && authority.workerInputBootstrap) {
+        await this.writeWorkerBootstrap(input, authority.workerInputBootstrap);
+      }
       const workerProcessGroupId = await this.waitForAcknowledgment(child, acknowledgment);
       return new NativeOwnedWorkerProcess({
         child,
@@ -119,6 +191,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         processStartIdentity,
         stderr,
         workerProcessGroupId,
+        forceOwnerTermination: modelGuardLaunch,
       });
     } catch (error) {
       control.destroy();
@@ -143,6 +216,15 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     return new Promise<void>((resolve, reject) => {
       stream.write(line, 'utf8', (error) => {
         if (error) reject(new Error('Local Whisper launcher bootstrap failed'));
+        else resolve();
+      });
+    });
+  }
+
+  private writeWorkerBootstrap(stream: Writable, bytes: Uint8Array): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      stream.write(Buffer.from(bytes), (error) => {
+        if (error) reject(new Error('Local Whisper model guard worker bootstrap failed'));
         else resolve();
       });
     });

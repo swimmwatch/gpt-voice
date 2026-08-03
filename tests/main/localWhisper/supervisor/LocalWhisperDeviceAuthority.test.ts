@@ -6,6 +6,7 @@ import {
   LocalWhisperDeviceChallengeAuthority,
   createLocalWhisperDeviceProof,
   createLocalWhisperRegistryFingerprint,
+  encodeLocalWhisperDeviceAuthority,
   type LocalWhisperDeviceProofInput,
   type LocalWhisperDeviceRegistry,
 } from '@main/localWhisper/supervisor/LocalWhisperDeviceAuthority';
@@ -112,4 +113,15 @@ test('challenge authority issues distinct one-use domain-bound values', () => {
   assert.equal(authority.consume('probe', probe), false);
   assert.equal(authority.consume('load', load), true);
   assert.equal(authority.consume('load', load), false);
+});
+
+test('device authority encoder emits the exact fixed worker bootstrap record', () => {
+  const authorityId = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex').toString('base64url');
+  const record = Buffer.from(encodeLocalWhisperDeviceAuthority(authorityId, 11, 19));
+  assert.equal(record.byteLength, 40);
+  assert.equal(record.subarray(0, 8).toString('binary'), 'LWDA1\0\0\0');
+  assert.equal(record.subarray(8, 24).toString('hex'), '000102030405060708090a0b0c0d0e0f');
+  assert.equal(record.readBigUInt64BE(24), 11n);
+  assert.equal(record.readBigUInt64BE(32), 19n);
+  assert.throws(() => encodeLocalWhisperDeviceAuthority(authorityId, -1, 19));
 });

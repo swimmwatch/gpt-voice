@@ -27,6 +27,8 @@ export interface DeferredLocalWhisperEnvironment {
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
   readonly references: LocalWhisperArtifactReferencePort;
+  readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
+  readonly dispose: () => Promise<void>;
 }
 
 function revision(value: string) {
@@ -280,5 +282,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
     artifacts: unavailable,
     managedFolder: { open: () => Promise.resolve({ success: false as const, code: failureCode }) },
     references: { open: () => Promise.resolve({ success: false as const, code: failureCode }) },
+    refreshDevices: () => Promise.resolve(),
+    dispose: () => Promise.resolve(),
   });
 }

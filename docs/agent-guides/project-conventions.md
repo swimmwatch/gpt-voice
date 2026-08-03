@@ -27,8 +27,11 @@ Load only the section relevant to the current task. This guide is not an always-
 
 - Construct main-process business services, repositories, controllers, and
   runtime adapters only in `MainProcessCompositionRoot` or
-  `MainProcessRuntimeFactory`. Dedicated provider and external-adapter
-  factories may construct only their operation-scoped implementations.
+  `MainProcessRuntimeFactory`. The process-owned Local Whisper graph is the one
+  approved exception and is constructed only by
+  `ProductionLocalWhisperEnvironmentFactory` after packaged-input
+  authentication. Dedicated provider and external-adapter factories may
+  construct only their operation-scoped implementations.
 - Keep the preload root functional in `preload.ts`, and keep renderer
   composition functional through `bootstrapWindow`, React providers, and
   hooks. Only these roots may import process runtime values such as Electron

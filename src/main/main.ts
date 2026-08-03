@@ -32,6 +32,7 @@ import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
+import { createProductionLocalWhisperEnvironment } from './localWhisper/composition/createProductionLocalWhisperEnvironment';
 import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
@@ -147,12 +148,40 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
 /**
  * Constructs and starts the process-owned application graph.
  */
-function bootstrapMainProcess(): void {
+async function bootstrapMainProcess(): Promise<void> {
   const appConfigPaths = resolveAppConfigPaths({
     environment: process.env,
     homeDirectory: os.homedir,
     platform: process.platform,
   });
+  const localWhisper =
+    process.platform === 'darwin'
+      ? createDeferredLocalWhisperEnvironment({
+          platform: process.platform,
+          architecture: process.arch,
+          logicalProcessorCount: os.cpus().length,
+          nextRequestId: randomUUID,
+        })
+      : await createProductionLocalWhisperEnvironment({
+          appRevision: app.getVersion(),
+          architecture: process.arch,
+          availableMemoryBytes: os.freemem,
+          configurationRoot: appConfigPaths.appDirectory,
+          environment: process.env,
+          fileSystem: fs,
+          homeDirectory: os.homedir,
+          logicalProcessorCount: os.cpus().length,
+          nextRequestId: randomUUID,
+          now: Date.now,
+          openPath: (managedPath) => shell.openPath(managedPath),
+          pid: process.pid,
+          platform: process.platform,
+          randomBytes,
+          randomNonce: randomUUID,
+          readFile,
+          resourcesPath: process.resourcesPath,
+          spawnProcess: spawn,
+        });
 
   const application = new MainProcessCompositionRoot({
     assetPaths: {
@@ -271,12 +300,7 @@ function bootstrapMainProcess(): void {
         return moduleValue;
       },
     },
-    localWhisper: createDeferredLocalWhisperEnvironment({
-      platform: process.platform,
-      architecture: process.arch,
-      logicalProcessorCount: os.cpus().length,
-      nextRequestId: randomUUID,
-    }),
+    localWhisper,
     now: getCurrentDate,
     randomUUID,
     reportStreamingDiagnostic: ignoreStreamingDiagnostic,
@@ -444,4 +468,8 @@ function bootstrapMainProcess(): void {
   application.bootstrap();
 }
 
-bootstrapMainProcess();
+void bootstrapMainProcess().catch((error: unknown) => {
+  setImmediate(() => {
+    throw error;
+  });
+});

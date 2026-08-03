@@ -102,6 +102,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly localWhisperCoordinator: LocalWhisperCoordinator;
+  readonly localWhisperEnvironmentDispose: () => Promise<void>;
   readonly localWhisperIpcController: LocalWhisperIpcController;
   readonly localWhisperSnapshots: LocalWhisperSnapshotService;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
@@ -206,6 +207,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticsArchive,
       ipcController,
       localWhisperCoordinator: this.controllers.localWhisperCoordinator,
+      localWhisperEnvironmentDispose: this.controllers.localWhisperEnvironmentDispose,
       localWhisperIpcController: this.controllers.localWhisperIpcController,
       localWhisperSnapshots: this.controllers.localWhisperSnapshots,
     });

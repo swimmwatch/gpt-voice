@@ -402,6 +402,7 @@ function harness(mode: WorkerMode): {
       backend: 'cuda',
       capabilities: ['cuda-sm-86'],
     },
+    launchMode: 'probe',
     runtimeIdentityKey: 'fixture-runtime-identity',
     runtimeLease,
     workerExecutablePath: '/private/runtime/worker',
@@ -414,7 +415,7 @@ function harness(mode: WorkerMode): {
       sizeBytes: 100,
       type: 'regular',
     },
-    workerFileSha256: 'a'.repeat(64),
+    workerFileSha256: 'b'.repeat(64),
     workingDirectoryPath: '/private/runtime',
     revalidate: async () => undefined,
   };
@@ -452,6 +453,7 @@ async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness
 
 test('supervisor enforces handshake, probe, load, warm-up, transcription, unload, and cleanup', async () => {
   const value = await readyHarness('happy');
+  assert.equal(value.recordStore.record?.runtimeBuildDigest, 'a'.repeat(64));
   const transcription = await value.supervisor.transcribe({
     audio: canonicalWav(100),
     configurationEpoch: 7,

@@ -43,6 +43,8 @@ import {
 
 const GUARD_PATH = path.resolve('.cache', 'local-whisper', 'fs-guard', 'fs-guard');
 const CONTENT = Buffer.from('managed whisper model fixture', 'utf8');
+const RUNTIME_WORKER_CONTENT = Buffer.from('managed whisper runtime worker fixture', 'utf8');
+const RUNTIME_LIBRARY_CONTENT = Buffer.from('managed whisper runtime library fixture', 'utf8');
 const temporaryRoots: string[] = [];
 const activeStores = new Set<ManagedArtifactStore>();
 const removalClearanceIssuer = new ManagedArtifactRemovalClearanceIssuer();
@@ -98,7 +100,44 @@ function createDescriptor(identityKey = 'linux-native-model-fixture'): ManagedAr
   });
 }
 
-function createHarness(instanceSuffix: string, temporaryRoot?: string): Harness {
+function createRuntimeDescriptor(executableCount = 1): ManagedArtifactDescriptor {
+  const identityKey = `linux-native-runtime-fixture-${executableCount}`;
+  const canonicalName = `runtime-${sha256(identityKey)}`;
+  const executableFiles = Array.from({ length: executableCount }, (_, index) => {
+    const content = index === 0 ? RUNTIME_WORKER_CONTENT : Buffer.from(`alternate-runtime-worker-${index}`, 'utf8');
+    return Object.freeze({
+      fileId: artifactId(`runtime-worker-${index}`),
+      kind: 'executable' as const,
+      mode: 0o700,
+      sha256: sha256(content),
+      sizeBytes: content.byteLength,
+    });
+  });
+  return Object.freeze({
+    artifactId: artifactId(canonicalName),
+    canonicalName,
+    catalogDigest: sha256('fixture-runtime-catalog'),
+    expectedFiles: Object.freeze([
+      ...executableFiles,
+      Object.freeze({
+        fileId: artifactId('runtime-library'),
+        kind: 'library' as const,
+        mode: 0o600,
+        sha256: sha256(RUNTIME_LIBRARY_CONTENT),
+        sizeBytes: RUNTIME_LIBRARY_CONTENT.byteLength,
+      }),
+    ]),
+    identityKey,
+    kind: 'runtime',
+    namespace: 'runtimes',
+  });
+}
+
+function createHarness(
+  instanceSuffix: string,
+  temporaryRoot?: string,
+  descriptor: ManagedArtifactDescriptor = createDescriptor(),
+): Harness {
   const ownedTemporaryRoot = temporaryRoot ?? mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
   if (!temporaryRoot) temporaryRoots.push(ownedTemporaryRoot);
   const resolution = new ManagedArtifactPathResolver({
@@ -129,7 +168,7 @@ function createHarness(instanceSuffix: string, temporaryRoot?: string): Harness 
   activeStores.add(store);
   return {
     adapter,
-    descriptor: createDescriptor(),
+    descriptor,
     managedRoot: resolution.managedRoot,
     store,
     temporaryRoot: ownedTemporaryRoot,
@@ -159,12 +198,32 @@ function loadCatalogForContent() {
 }
 
 async function installFixture(harness: Harness): Promise<void> {
+  await installFiles(harness, new Map([[harness.descriptor.expectedFiles[0].fileId, CONTENT]]));
+}
+
+async function installFiles(harness: Harness, contentByFileId: ReadonlyMap<string, Buffer>): Promise<void> {
   const staging = await harness.store.createStaging(harness.descriptor);
-  const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
-  await harness.store.appendStagedFile(file, CONTENT.subarray(0, 7));
-  await harness.store.appendStagedFile(file, CONTENT.subarray(7));
-  await harness.store.sealStagedFile(file);
+  for (const expected of harness.descriptor.expectedFiles) {
+    const content = contentByFileId.get(expected.fileId);
+    assert.ok(content);
+    const file = await harness.store.createStagedFile(staging, expected.fileId);
+    await harness.store.appendStagedFile(file, content);
+    await harness.store.sealStagedFile(file);
+  }
   await harness.store.promote(harness.descriptor, staging);
+}
+
+function runtimeContents(descriptor: ManagedArtifactDescriptor): ReadonlyMap<string, Buffer> {
+  return new Map(
+    descriptor.expectedFiles.map((expected, index) => [
+      expected.fileId,
+      expected.kind === 'library'
+        ? RUNTIME_LIBRARY_CONTENT
+        : index === 0
+          ? RUNTIME_WORKER_CONTENT
+          : Buffer.from(`alternate-runtime-worker-${index}`, 'utf8'),
+    ]),
+  );
 }
 
 function installedFilePath(harness: Harness): string {
@@ -208,6 +267,74 @@ describe('LinuxManagedFilesystemAdapter real openat2 contract', { skip: process.
       harness.store.leaseInstalledArtifact(harness.descriptor, 'verify'),
       (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
     );
+    await harness.store.dispose();
+  });
+
+  test('returns an anchored exact runtime-worker launch lease', async () => {
+    const descriptor = createRuntimeDescriptor();
+    const harness = createHarness('runtime-launch-lease', undefined, descriptor);
+    await harness.store.initialize();
+    await installFiles(harness, runtimeContents(descriptor));
+
+    const launch = await harness.store.leaseInstalledRuntimeForLaunch(descriptor);
+
+    assert.equal(launch.workerFileSha256, sha256(RUNTIME_WORKER_CONTENT));
+    assert.equal(launch.workerFileIdentity.type, 'regular');
+    assert.equal(
+      launch.workerExecutablePath,
+      path.join(
+        harness.managedRoot,
+        'runtimes',
+        descriptor.canonicalName,
+        getManagedArtifactFileName(descriptor.expectedFiles[0].fileId),
+      ),
+    );
+    assert.equal(launch.workingDirectoryPath, path.dirname(launch.workerExecutablePath));
+    await launch.revalidate();
+    const movedWorker = `${launch.workerExecutablePath}.moved`;
+    renameSync(launch.workerExecutablePath, movedWorker);
+    writeFileSync(launch.workerExecutablePath, RUNTIME_WORKER_CONTENT, { mode: 0o700 });
+    await assert.rejects(
+      launch.revalidate(),
+      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+    );
+    await launch.runtimeLease.release();
+    await harness.store.dispose();
+  });
+
+  test('rejects runtime manifests without exactly one executable', async () => {
+    for (const executableCount of [0, 2]) {
+      const descriptor = createRuntimeDescriptor(executableCount);
+      const harness = createHarness(`runtime-executable-count-${executableCount}`, undefined, descriptor);
+      await harness.store.initialize();
+      await assert.rejects(
+        harness.store.leaseInstalledRuntimeForLaunch(descriptor),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+      );
+      await harness.store.dispose();
+    }
+  });
+
+  test('releases the runtime lease when launch identity revalidation fails', async () => {
+    const descriptor = createRuntimeDescriptor();
+    const harness = createHarness('runtime-launch-revalidation', undefined, descriptor);
+    await harness.store.initialize();
+    await installFiles(harness, runtimeContents(descriptor));
+    const originalRevalidate = harness.adapter.revalidate.bind(harness.adapter);
+    let revalidationCount = 0;
+    harness.adapter.revalidate = async (token, expectedIdentity) => {
+      revalidationCount += 1;
+      if (revalidationCount === 2) throw new ManagedFilesystemAdapterError('IDENTITY_CHANGED');
+      await originalRevalidate(token, expectedIdentity);
+    };
+
+    await assert.rejects(
+      harness.store.leaseInstalledRuntimeForLaunch(descriptor),
+      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+    );
+    harness.adapter.revalidate = originalRevalidate;
+    const recoveredLease = await harness.store.leaseInstalledArtifact(descriptor, 'verify');
+    await recoveredLease.release();
     await harness.store.dispose();
   });
 

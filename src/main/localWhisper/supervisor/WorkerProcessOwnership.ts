@@ -12,9 +12,24 @@ export interface LocalWhisperExpectedHandshake {
   readonly capabilities: readonly string[];
 }
 
+export type LocalWhisperWorkerLaunchMode = 'fullLoad' | 'probe' | 'registry';
+
+export interface LocalWhisperModelGuardLaunchAuthority {
+  readonly modelFileIdentity: ManagedArtifactIdentitySnapshot;
+  readonly modelFilePath: string;
+  readonly modelFileSha256: string;
+  readonly modelFileSizeBytes: number;
+  readonly modelIdentityKey: string;
+  readonly modelLease: ManagedArtifactLease;
+  readonly modelLeaseTokenDigest: string;
+  readonly operationNonce: Uint8Array;
+  readonly revalidate: () => Promise<void>;
+}
+
 export interface LocalWhisperWorkerLaunchAuthority {
   readonly configurationEpoch: number;
   readonly expectedHandshake: LocalWhisperExpectedHandshake;
+  readonly launchMode: LocalWhisperWorkerLaunchMode;
   readonly runtimeIdentityKey: string;
   readonly runtimeLease: ManagedArtifactLease;
   readonly workerExecutablePath: string;
@@ -22,6 +37,8 @@ export interface LocalWhisperWorkerLaunchAuthority {
   readonly workerFileSha256: string;
   readonly workingDirectoryPath: string;
   readonly revalidate: () => Promise<void>;
+  readonly workerInputBootstrap?: Uint8Array;
+  readonly modelGuardAuthority?: LocalWhisperModelGuardLaunchAuthority;
 }
 
 export interface LocalWhisperWorkerOwnershipRecord {
@@ -110,7 +127,7 @@ export class WorkerProcessOwnership {
       executableIdentity: authority.workerFileIdentity,
       pid: process.pid,
       processStartIdentity: process.processStartIdentity,
-      runtimeBuildDigest: authority.workerFileSha256,
+      runtimeBuildDigest: authority.expectedHandshake.runtimeBuildDigest,
       runtimeIdentityKey: authority.runtimeIdentityKey,
     });
     this.active = Object.freeze({ authority, process, record });

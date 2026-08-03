@@ -13,6 +13,7 @@ export interface MainProcessRuntimeGraphDependencies {
   readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly ipcController: MainIpcController;
   readonly localWhisperCoordinator: LocalWhisperCoordinator;
+  readonly localWhisperEnvironmentDispose: () => Promise<void>;
   readonly localWhisperIpcController: LocalWhisperIpcController;
   readonly localWhisperSnapshots: LocalWhisperSnapshotService;
 }
@@ -63,6 +64,7 @@ export class MainProcessRuntimeGraph implements MainProcessOwnedRuntime {
       if (!result.success) throw new Error(result.error.code);
     } finally {
       this.dependencies.localWhisperSnapshots.dispose();
+      await this.dependencies.localWhisperEnvironmentDispose();
     }
   }
 }

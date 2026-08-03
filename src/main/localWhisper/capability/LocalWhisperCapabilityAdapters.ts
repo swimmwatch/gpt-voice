@@ -9,7 +9,6 @@ export interface LocalWhisperCpuProbeInput {
   readonly logicalProcessorCount: number;
   readonly resolvedThreads: number;
   readonly isaSupported: boolean;
-  readonly boundedComputePassed: boolean;
 }
 
 export interface LocalWhisperCudaProbeInput {
@@ -18,8 +17,6 @@ export interface LocalWhisperCudaProbeInput {
   readonly driverCompatible: boolean;
   readonly computeTargetCompiled: boolean;
   readonly dependencyClosureValid: boolean;
-  readonly allocationPassed: boolean;
-  readonly dispatchPassed: boolean;
 }
 
 export interface LocalWhisperVulkanProbeInput {
@@ -29,8 +26,6 @@ export interface LocalWhisperVulkanProbeInput {
   readonly generatedShaderTarget: readonly [major: number, minor: number];
   readonly storageBuffer16BitAccess: boolean;
   readonly requiredExtensionsPresent: boolean;
-  readonly allocationPassed: boolean;
-  readonly dispatchPassed: boolean;
 }
 
 export interface LocalWhisperHipProbeInput {
@@ -41,8 +36,6 @@ export interface LocalWhisperHipProbeInput {
   readonly exactPciAndGfxMatch: boolean;
   readonly pcieAtomicsSatisfied: boolean;
   readonly permissionsSatisfied: boolean;
-  readonly allocationPassed: boolean;
-  readonly dispatchPassed: boolean;
 }
 
 export interface LocalWhisperMetalProbeInput {
@@ -86,7 +79,7 @@ export class LocalWhisperCpuCapabilityAdapter implements LocalWhisperCapabilityA
     ) {
       return failure('CPU_FEATURE_MISSING');
     }
-    return input.boundedComputePassed ? SUCCESS : failure('BACKEND_INIT_FAILED');
+    return SUCCESS;
   }
 }
 
@@ -100,8 +93,7 @@ export class LocalWhisperCudaCapabilityAdapter implements LocalWhisperCapability
     if (!input.computeTargetCompiled || !input.dependencyClosureValid) {
       return failure('RUNTIME_PREREQUISITE_MISSING');
     }
-    if (!input.allocationPassed) return failure('ALLOCATION_FAILED');
-    return input.dispatchPassed ? SUCCESS : failure('BACKEND_INIT_FAILED');
+    return SUCCESS;
   }
 }
 
@@ -122,8 +114,7 @@ export class LocalWhisperVulkanCapabilityAdapter implements LocalWhisperCapabili
     ) {
       return failure('DEVICE_FEATURE_MISSING');
     }
-    if (!input.allocationPassed) return failure('ALLOCATION_FAILED');
-    return input.dispatchPassed ? SUCCESS : failure('BACKEND_INIT_FAILED');
+    return SUCCESS;
   }
 }
 
@@ -142,8 +133,7 @@ export class LocalWhisperHipCapabilityAdapter implements LocalWhisperCapabilityA
       return failure('DEVICE_NOT_ALLOWLISTED');
     }
     if (!input.permissionsSatisfied) return failure('GPU_PERMISSION_DENIED');
-    if (!input.allocationPassed) return failure('ALLOCATION_FAILED');
-    return input.dispatchPassed ? SUCCESS : failure('BACKEND_INIT_FAILED');
+    return SUCCESS;
   }
 }
 

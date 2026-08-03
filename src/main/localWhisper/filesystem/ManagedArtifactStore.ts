@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 
 import { toLocalWhisperArtifactId, type LocalWhisperArtifactId } from '@shared/localWhisper';
 
@@ -63,6 +64,25 @@ export interface ManagedArtifactStoreDependencies {
   readonly generateOperationNonce: () => string;
   readonly lockRepository: ManagedArtifactLockRepository;
   readonly rootResolution: ManagedArtifactRootResolution;
+}
+
+export interface ManagedRuntimeLaunchLease {
+  readonly runtimeLease: ManagedArtifactLease;
+  readonly workerExecutablePath: string;
+  readonly workerFileIdentity: ManagedArtifactIdentitySnapshot;
+  readonly workerFileSha256: string;
+  readonly workingDirectoryPath: string;
+  readonly revalidate: () => Promise<void>;
+}
+
+export interface ManagedModelLaunchLease {
+  readonly modelLease: ManagedArtifactLease;
+  readonly modelLeaseTokenDigest: string;
+  readonly modelFilePath: string;
+  readonly modelFileIdentity: ManagedArtifactIdentitySnapshot;
+  readonly modelFileSha256: string;
+  readonly modelFileSizeBytes: number;
+  readonly revalidate: () => Promise<void>;
 }
 
 interface LeaseAuthority {
@@ -274,6 +294,18 @@ function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperMan
   });
 }
 
+function sameIdentity(left: ManagedArtifactIdentitySnapshot, right: ManagedArtifactIdentitySnapshot): boolean {
+  return (
+    left.deviceOrVolumeId === right.deviceOrVolumeId &&
+    left.fileId === right.fileId &&
+    left.linkCount === right.linkCount &&
+    left.mode === right.mode &&
+    left.parentFileId === right.parentFileId &&
+    left.sizeBytes === right.sizeBytes &&
+    left.type === right.type
+  );
+}
+
 function isUnsafeEvidenceError(error: unknown): boolean {
   return (
     error instanceof ManagedFilesystemAdapterError &&
@@ -461,6 +493,145 @@ export class ManagedArtifactStore {
       return lease;
     } catch (error) {
       await lock.release();
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
+  }
+
+  /** Resolves the one catalog-declared runtime executable while retaining its anchored directory lease. */
+  public async leaseInstalledRuntimeForLaunch(
+    descriptor: ManagedArtifactDescriptor,
+  ): Promise<ManagedRuntimeLaunchLease> {
+    if (descriptor.kind !== 'runtime') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    const executable = descriptor.expectedFiles.filter(({ kind }) => kind === 'executable');
+    if (executable.length !== 1) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const executableFile = executable[0];
+    if (!executableFile) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const rootResolution = this.dependencies.rootResolution;
+    if (rootResolution.availability !== 'available') {
+      throw new ManagedArtifactStoreError(
+        rootResolution.availability === 'planned' ? 'PLANNED_UNAVAILABLE' : 'UNSUPPORTED_PLATFORM',
+      );
+    }
+    const runtimeLease = await this.leaseInstalledArtifact(descriptor, 'load');
+    try {
+      const authority = this.requireAuthority(runtimeLease, 'load');
+      const entries = validateDirectoryEntries(
+        descriptor,
+        await this.dependencies.adapter.inspectDirectory(
+          this.token(runtimeLease),
+          expectedDirectoryEntries(descriptor),
+        ),
+      );
+      const worker = entries.get(executableFile.fileId);
+      if (!worker || worker.identity.type !== 'regular' || worker.sha256 !== executableFile.sha256) {
+        throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      }
+      await this.dependencies.adapter.revalidate(this.token(runtimeLease), runtimeLease.metadata.identity);
+      const workingDirectoryPath = join(
+        rootResolution.managedRoot,
+        authority.descriptor.namespace,
+        authority.descriptor.canonicalName,
+      );
+      return Object.freeze({
+        runtimeLease,
+        workerExecutablePath: join(workingDirectoryPath, getManagedArtifactFileName(executableFile.fileId)),
+        workerFileIdentity: worker.identity,
+        workerFileSha256: worker.sha256,
+        workingDirectoryPath,
+        revalidate: async () => {
+          try {
+            runtimeLease.assertActive();
+            const currentEntries = validateDirectoryEntries(
+              descriptor,
+              await this.dependencies.adapter.inspectDirectory(
+                this.token(runtimeLease),
+                expectedDirectoryEntries(descriptor),
+              ),
+            );
+            const currentWorker = currentEntries.get(executableFile.fileId);
+            if (
+              !currentWorker ||
+              currentWorker.sha256 !== worker.sha256 ||
+              !sameIdentity(currentWorker.identity, worker.identity)
+            ) {
+              throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+            }
+            await this.dependencies.adapter.revalidate(this.token(runtimeLease), runtimeLease.metadata.identity);
+          } catch (error) {
+            throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+          }
+        },
+      });
+    } catch (error) {
+      await runtimeLease.release().catch(() => undefined);
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
+  }
+
+  /** Resolves the one catalog-declared ggml data file while retaining its anchored directory lease. */
+  public async leaseInstalledModelForLaunch(descriptor: ManagedArtifactDescriptor): Promise<ManagedModelLaunchLease> {
+    if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    const modelFiles = descriptor.expectedFiles.filter(({ kind }) => kind === 'data');
+    if (modelFiles.length !== 1) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const modelFile = modelFiles[0];
+    if (!modelFile) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const rootResolution = this.dependencies.rootResolution;
+    if (rootResolution.availability !== 'available') {
+      throw new ManagedArtifactStoreError(
+        rootResolution.availability === 'planned' ? 'PLANNED_UNAVAILABLE' : 'UNSUPPORTED_PLATFORM',
+      );
+    }
+    const modelLease = await this.leaseInstalledArtifact(descriptor, 'load');
+    try {
+      const authority = this.requireAuthority(modelLease, 'load');
+      const entries = validateDirectoryEntries(
+        descriptor,
+        await this.dependencies.adapter.inspectDirectory(this.token(modelLease), expectedDirectoryEntries(descriptor)),
+      );
+      const modelEntry = entries.get(modelFile.fileId);
+      if (!modelEntry || modelEntry.identity.type !== 'regular' || modelEntry.sha256 !== modelFile.sha256) {
+        throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      }
+      await this.dependencies.adapter.revalidate(this.token(modelLease), modelLease.metadata.identity);
+      const modelFilePath = join(
+        rootResolution.managedRoot,
+        authority.descriptor.namespace,
+        authority.descriptor.canonicalName,
+        getManagedArtifactFileName(modelFile.fileId),
+      );
+      return Object.freeze({
+        modelLease,
+        modelLeaseTokenDigest: sha256(this.token(modelLease)),
+        modelFilePath,
+        modelFileIdentity: modelEntry.identity,
+        modelFileSha256: modelEntry.sha256,
+        modelFileSizeBytes: modelFile.sizeBytes,
+        revalidate: async () => {
+          try {
+            modelLease.assertActive();
+            const currentEntries = validateDirectoryEntries(
+              descriptor,
+              await this.dependencies.adapter.inspectDirectory(
+                this.token(modelLease),
+                expectedDirectoryEntries(descriptor),
+              ),
+            );
+            const currentModel = currentEntries.get(modelFile.fileId);
+            if (
+              !currentModel ||
+              currentModel.sha256 !== modelEntry.sha256 ||
+              !sameIdentity(currentModel.identity, modelEntry.identity)
+            ) {
+              throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+            }
+            await this.dependencies.adapter.revalidate(this.token(modelLease), modelLease.metadata.identity);
+          } catch (error) {
+            throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+          }
+        },
+      });
+    } catch (error) {
+      await modelLease.release().catch(() => undefined);
       throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
     }
   }

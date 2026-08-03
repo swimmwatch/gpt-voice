@@ -277,6 +277,9 @@ export class LocalWhisperWorkerSupervisor {
         return this.failure('CLEANUP_FAILED', 'cleanup');
       }
       this.process = await this.dependencies.ownership.launch(authority);
+      if (authority.workerInputBootstrap && !authority.modelGuardAuthority) {
+        await this.writeWorkerInputBootstrap(this.process, authority.workerInputBootstrap);
+      }
       this.bindProcess(this.process);
     } catch {
       const cleaned = this.dependencies.ownership.process
@@ -495,6 +498,18 @@ export class LocalWhisperWorkerSupervisor {
       { input: process.input, output: process.output },
       { onMessage: this.onMessage, onTerminal: this.onTransportTerminal },
     );
+  }
+
+  private writeWorkerInputBootstrap(process: LocalWhisperOwnedWorkerProcess, bytes: Uint8Array): Promise<void> {
+    if (bytes.byteLength === 0 || bytes.byteLength > 4_096) {
+      return Promise.reject(new Error('Invalid Local Whisper worker input bootstrap'));
+    }
+    return new Promise<void>((resolve, reject) => {
+      process.input.write(Buffer.from(bytes), (error) => {
+        if (error) reject(new Error('Local Whisper worker input bootstrap failed'));
+        else resolve();
+      });
+    });
   }
 
   private async request<T>(request: SupervisorRequest<T>): Promise<LocalWhisperSupervisorResult<T>> {
