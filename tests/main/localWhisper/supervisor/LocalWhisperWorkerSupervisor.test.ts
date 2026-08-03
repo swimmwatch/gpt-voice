@@ -45,6 +45,7 @@ type WorkerMode =
   | 'hangWarmup'
   | 'happy'
   | 'loadBindingMismatch'
+  | 'nativeObjectOrder'
   | 'outOfOrder';
 
 const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
@@ -98,6 +99,25 @@ function selectedResidency(): LocalWhisperResidencyKey {
       variant: 'full',
     },
     resolvedCpuThreads: null,
+  };
+}
+
+function nativeOrderedResidency(value: LocalWhisperResidencyKey): LocalWhisperResidencyKey {
+  return {
+    backend: value.backend,
+    deviceId: value.deviceId,
+    engine: value.engine,
+    model: {
+      artifactRevision: value.model.artifactRevision,
+      engine: value.model.engine,
+      logicalModel: value.model.logicalModel,
+      nativeFormat: value.model.nativeFormat,
+      sourceCheckpointRevision: value.model.sourceCheckpointRevision,
+      variant: value.model.variant,
+    },
+    resolvedCpuThreads: value.resolvedCpuThreads,
+    runtimePackRevision: value.runtimePackRevision,
+    target: value.target,
   };
 }
 
@@ -266,9 +286,11 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           registryFingerprint: message.registryFingerprint,
         });
         break;
-      case 'load':
+      case 'load': {
         if (this.mode === 'hangLoad') break;
         if (!('registryFingerprint' in message)) throw new Error('Expected GPU load fixture');
+        const residency =
+          this.mode === 'nativeObjectOrder' ? nativeOrderedResidency(message.residency) : message.residency;
         this.respond({
           type: 'loaded',
           protocolVersion: 1,
@@ -277,17 +299,18 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           actualNativeIdentity: '0000:01:00.0',
           authorityId: message.authorityId,
           deviceBinding: this.mode === 'loadBindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
-          effectiveBackend: message.residency.backend,
+          effectiveBackend: residency.backend,
           loadProof: 'd'.repeat(64),
-          model: message.residency.model,
+          model: residency.model,
           modelSha256: 'b'.repeat(64),
           primaryExecutionNativeIdentity: '0000:01:00.0',
           primaryStateOwnership: 'worker',
           registryFingerprint: message.registryFingerprint,
-          residency: message.residency,
+          residency,
           selectedDeviceModelWeightBytes: 1_048_576,
         });
         break;
+      }
       case 'warmup':
         if (this.mode === 'hangWarmup') break;
         this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
@@ -488,6 +511,20 @@ test('fresh full-load worker loads without upgrading a probe process', async () 
   assert.equal((await value.supervisor.shutdown()).success, true);
   assert.equal(value.releasedModel.value, 1);
   assert.equal(value.releasedRuntime.value, 1);
+});
+
+test('supervisor accepts native key ordering for identical residency evidence', async () => {
+  const value = harness('nativeObjectOrder');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const loaded = await value.supervisor.load({
+    ...bindingAuthority(),
+    configurationEpoch: 7,
+    modelLease: value.modelLease,
+    residency: selectedResidency(),
+    revalidate: async () => undefined,
+  });
+  assert.equal(loaded.success, true);
+  assert.equal((await value.supervisor.shutdown()).success, true);
 });
 
 test('supervisor revalidates the private binding before and after probe and load', async () => {

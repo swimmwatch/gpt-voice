@@ -160,8 +160,27 @@ function sameStringList(left: readonly string[], right: readonly string[]): bool
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function sameModelIdentity(left: LocalWhisperResidencyKey['model'], right: LocalWhisperResidencyKey['model']): boolean {
+  return (
+    left.engine === right.engine &&
+    left.logicalModel === right.logicalModel &&
+    left.sourceCheckpointRevision === right.sourceCheckpointRevision &&
+    left.artifactRevision === right.artifactRevision &&
+    left.nativeFormat === right.nativeFormat &&
+    left.variant === right.variant
+  );
+}
+
 function sameResidency(left: LocalWhisperResidencyKey, right: LocalWhisperResidencyKey): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return (
+    left.engine === right.engine &&
+    left.runtimePackRevision === right.runtimePackRevision &&
+    left.target === right.target &&
+    left.backend === right.backend &&
+    left.deviceId === right.deviceId &&
+    sameModelIdentity(left.model, right.model) &&
+    left.resolvedCpuThreads === right.resolvedCpuThreads
+  );
 }
 
 function sameDeviceBinding(left: LocalWhisperWorkerDeviceBinding, right: LocalWhisperWorkerDeviceBinding): boolean {

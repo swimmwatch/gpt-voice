@@ -368,7 +368,12 @@ function isLoadedModelEvidence(value: Record<string, unknown>, residency: LocalW
     isLocalWhisperBackend(value.effectiveBackend) &&
     value.effectiveBackend === residency.backend &&
     isLocalWhisperModelIdentity(value.model) &&
-    JSON.stringify(value.model) === JSON.stringify(residency.model) &&
+    value.model.engine === residency.model.engine &&
+    value.model.logicalModel === residency.model.logicalModel &&
+    value.model.sourceCheckpointRevision === residency.model.sourceCheckpointRevision &&
+    value.model.artifactRevision === residency.model.artifactRevision &&
+    value.model.nativeFormat === residency.model.nativeFormat &&
+    value.model.variant === residency.model.variant &&
     isSha256(value.modelSha256) &&
     value.primaryStateOwnership === 'worker'
   );
