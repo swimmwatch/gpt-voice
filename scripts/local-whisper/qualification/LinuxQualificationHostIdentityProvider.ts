@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
-import { readCanonicalJson, sha256Bytes, sha256File } from '../packaging/fileIntegrity';
+import { sha256Bytes, sha256File } from '../packaging/fileIntegrity';
 import type { QualificationCommandPort } from './QualificationCommandRunner';
 import type { QualificationCandidateSeed, QualificationToolIdentity } from './QualificationInputProducer';
 
@@ -9,6 +9,7 @@ const SOURCE_LOCK_PATH = 'runtime/local-whisper/sources/locks/whisper-cpp-v1.9.1
 const PATCH_LOCK_PATH =
   'runtime/local-whisper/whisper-cpp/patches/device-cancel/local-whisper-whisper-cpp-device-cancel-v1.json';
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const SOURCE_LOCK_MAXIMUM_BYTES = 2 * 1024 * 1024;
 
 export interface LinuxQualificationSourceIdentityInput {
   readonly candidateWorktree: string;
@@ -32,6 +33,23 @@ export interface LinuxQualificationHostIdentityPort {
 function record(value: unknown, code: string): Readonly<Record<string, unknown>> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(code);
   return value as Readonly<Record<string, unknown>>;
+}
+
+async function readTrackedSourceLock(filePath: string): Promise<Readonly<Record<string, unknown>>> {
+  const metadata = await lstat(filePath);
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.size <= 0 ||
+    metadata.size > SOURCE_LOCK_MAXIMUM_BYTES
+  ) {
+    throw new Error('Qualification source lock invalid');
+  }
+  try {
+    return record(JSON.parse(await readFile(filePath, 'utf8')) as unknown, 'Qualification source lock invalid');
+  } catch {
+    throw new Error('Qualification source lock invalid');
+  }
 }
 
 function digestField(value: Readonly<Record<string, unknown>>, field: string, code: string): string {
@@ -99,10 +117,7 @@ export class LinuxQualificationHostIdentityProvider implements LinuxQualificatio
       arguments: ['ls-tree', '-r', '--full-tree', 'HEAD'],
       cwd: input.candidateWorktree,
     });
-    const sourceLock = record(
-      await readCanonicalJson(path.join(input.candidateWorktree, SOURCE_LOCK_PATH)),
-      'Qualification source lock invalid',
-    );
+    const sourceLock = await readTrackedSourceLock(path.join(input.candidateWorktree, SOURCE_LOCK_PATH));
     const materialization = record(sourceLock.materialization, 'Qualification source materialization invalid');
     const gitVersion = sanitizeVersion(
       await this.commands.run({ command: '/usr/bin/git', arguments: ['--version'], cwd: input.candidateWorktree }),
