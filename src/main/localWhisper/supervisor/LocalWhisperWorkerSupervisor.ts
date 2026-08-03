@@ -141,6 +141,11 @@ interface PendingHandshake {
   readonly timer: unknown;
 }
 
+interface StickyTerminalFailure {
+  readonly code: LocalWhisperFailureCode;
+  readonly stage: LocalWhisperFailureStage;
+}
+
 interface SupervisorRequest<T> {
   readonly afterReceive?: (message: LocalWhisperWorkerServerMessage) => Promise<boolean>;
   readonly afterSend?: () => Promise<void>;
@@ -274,6 +279,7 @@ export class LocalWhisperWorkerSupervisor {
   private handshake: PendingHandshake | null = null;
   private process: LocalWhisperOwnedWorkerProcess | null = null;
   private stateValue: LocalWhisperSupervisorState = 'idle';
+  private stickyTerminalFailure: StickyTerminalFailure | null = null;
   private terminal = false;
   private transport: LocalWhisperWorkerTransport | null = null;
 
@@ -415,6 +421,9 @@ export class LocalWhisperWorkerSupervisor {
   }
 
   public async transcribe(request: LocalWhisperTranscriptionRequest): Promise<LocalWhisperSupervisorResult<string>> {
+    if (this.stickyTerminalFailure) {
+      return this.failure(this.stickyTerminalFailure.code, this.stickyTerminalFailure.stage);
+    }
     if (!this.hasEpoch(request.configurationEpoch)) return this.failure('STALE_CONFIGURATION');
     if (this.stateValue !== 'warmed') return this.failure('OPERATION_CONFLICT', 'transcription');
     let audioDurationMs: number;
@@ -681,6 +690,7 @@ export class LocalWhisperWorkerSupervisor {
     const cleaned = await this.cleanupOwnedProcess();
     const finalCode: LocalWhisperFailureCode = cleaned ? code : 'CLEANUP_FAILED';
     const finalStage: LocalWhisperFailureStage = cleaned ? stage : 'cleanup';
+    this.stickyTerminalFailure = Object.freeze({ code: finalCode, stage: finalStage });
     const failure = this.failureResult(finalCode, finalStage);
     handshake?.resolve(failure);
     for (const request of pending) request.fail(failure);
@@ -797,6 +807,7 @@ export class LocalWhisperWorkerSupervisor {
     this.probedDeviceBinding = null;
     this.usedRequestIds.clear();
     this.stderrRing.clear();
+    this.stickyTerminalFailure = null;
     this.terminal = false;
   }
 

@@ -216,6 +216,11 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
     this.input.on('data', (chunk: Buffer) => this.onInput(chunk));
   }
 
+  public crash(): void {
+    this.exited = true;
+    this.output.end();
+  }
+
   public closeOwnershipControl(): void {
     if (this.mode !== 'cleanupFailure') this.exited = true;
   }
@@ -472,6 +477,17 @@ async function readyHarness(mode: WorkerMode): Promise<ReturnType<typeof harness
   );
   assert.equal((await value.supervisor.warmup(7)).success, true);
   return value;
+}
+
+async function waitForSupervisorState(
+  supervisor: LocalWhisperWorkerSupervisor,
+  expectedState: ReturnType<typeof harness>['supervisor']['state'],
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (supervisor.state === expectedState) return;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  assert.fail(`Supervisor did not reach ${expectedState}`);
 }
 
 test('supervisor enforces handshake, probe, load, warm-up, transcription, unload, and cleanup', async () => {
@@ -759,6 +775,70 @@ test('confirmed cancellation discards partial output and may retain warmed worke
   if (!result.success) assert.equal(result.error.code, 'CANCELLED');
   assert.equal(value.supervisor.state, 'warmed');
   assert.equal((await value.supervisor.forceCleanup()).success, true);
+});
+
+test('idle worker crash remains attributable until a fresh worker starts', async () => {
+  const value = await readyHarness('happy');
+  value.processOwner.process?.crash();
+  await waitForSupervisorState(value.supervisor, 'idle');
+
+  const afterCrash = await value.supervisor.transcribe({
+    audio: canonicalWav(100),
+    configurationEpoch: 7,
+    settingsEpoch: 4,
+    options: {
+      language: null,
+      initialPrompt: '',
+      temperatureHundredths: 0,
+      strategy: 'greedy',
+      candidateCount: null,
+    },
+  });
+  assert.equal(afterCrash.success, false);
+  if (!afterCrash.success) assert.equal(afterCrash.error.code, 'WORKER_CRASHED');
+
+  const replacementRuntimeReleased = { value: 0 };
+  const replacementModelReleased = { value: 0 };
+  const replacementAuthority: LocalWhisperWorkerLaunchAuthority = {
+    ...value.authority,
+    configurationEpoch: 8,
+    runtimeLease: lease('runtime', replacementRuntimeReleased),
+  };
+  assert.equal((await value.supervisor.startAndHandshake(replacementAuthority)).success, true);
+  assert.equal((await value.supervisor.probe(probeRequest(8))).success, true);
+  assert.equal(
+    (
+      await value.supervisor.load({
+        ...bindingAuthority(),
+        configurationEpoch: 8,
+        modelLease: lease('model', replacementModelReleased),
+        residency: selectedResidency(),
+        revalidate: async () => undefined,
+      })
+    ).success,
+    true,
+  );
+  assert.equal((await value.supervisor.warmup(8)).success, true);
+  assert.equal(
+    (
+      await value.supervisor.transcribe({
+        audio: canonicalWav(100),
+        configurationEpoch: 8,
+        settingsEpoch: 5,
+        options: {
+          language: null,
+          initialPrompt: '',
+          temperatureHundredths: 0,
+          strategy: 'greedy',
+          candidateCount: null,
+        },
+      })
+    ).success,
+    true,
+  );
+  assert.equal((await value.supervisor.forceCleanup()).success, true);
+  assert.equal(replacementRuntimeReleased.value, 1);
+  assert.equal(replacementModelReleased.value, 1);
 });
 
 test('unconfirmed cleanup retains ownership and returns CLEANUP_FAILED', async () => {
