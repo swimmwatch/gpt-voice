@@ -20,6 +20,7 @@ import {
 import { LocalWhisperCatalogVerifier } from './LocalWhisperCatalogVerifier';
 import {
   LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
+  LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION,
   LOCAL_WHISPER_CATALOG_PURPOSES,
   getLocalWhisperModelIdentityKey,
   getLocalWhisperRuntimeIdentityKey,
@@ -31,11 +32,20 @@ import {
   type LocalWhisperCatalogModelFileIdentity,
   type LocalWhisperCatalogOrigin,
   type LocalWhisperCatalogPayload,
+  type LocalWhisperCatalogRedirectPolicy,
+  type LocalWhisperCatalogRedirectTarget,
   type LocalWhisperCatalogRuntimeEntry,
+  type LocalWhisperCatalogSourceIdentity,
   type LocalWhisperCatalogTrustPolicy,
 } from './LocalWhisperCatalogTypes';
+import {
+  LOCAL_WHISPER_RELEASE_MODEL_MATRIX,
+  LOCAL_WHISPER_UPSTREAM_MODEL_COMMIT,
+  LOCAL_WHISPER_UPSTREAM_MODEL_REPOSITORY,
+  localWhisperUpstreamModelUrl,
+} from './LocalWhisperReleaseModelMatrix';
 
-const PAYLOAD_KEYS = [
+const PAYLOAD_V1_KEYS = [
   'schemaVersion',
   'purpose',
   'catalogRevision',
@@ -52,10 +62,31 @@ const PAYLOAD_KEYS = [
   'qualifiedMemoryPeaks',
   'denylist',
 ] as const;
+const PAYLOAD_V2_KEYS = [...PAYLOAD_V1_KEYS.slice(0, 9), 'redirectPolicies', ...PAYLOAD_V1_KEYS.slice(9)] as const;
 const ORIGIN_KEYS = ['id', 'origin'] as const;
+const REDIRECT_TARGET_KEYS = ['host', 'port', 'pathPrefix'] as const;
+const REDIRECT_POLICY_KEYS = [
+  'id',
+  'initialScheme',
+  'initialHost',
+  'initialPort',
+  'initialPathPrefix',
+  'maxRedirects',
+  'allowedTargets',
+  'forwardRangeHeaders',
+  'credentialForwarding',
+] as const;
+const SOURCE_KEYS = ['repository', 'commit', 'file', 'url', 'redirectPolicyId'] as const;
 const DISPLAY_METADATA_KEYS = ['title', 'summary'] as const;
-const RUNTIME_ENTRY_KEYS = ['identity', 'recommended', 'qualificationStatus', 'licenseIds'] as const;
-const MODEL_ENTRY_KEYS = [
+const RUNTIME_ENTRY_V1_KEYS = ['identity', 'recommended', 'qualificationStatus', 'licenseIds'] as const;
+const RUNTIME_ENTRY_V2_KEYS = [
+  ...RUNTIME_ENTRY_V1_KEYS,
+  'transferProfile',
+  'source',
+  'qualificationProfileDigest',
+  'sbomId',
+] as const;
+const MODEL_ENTRY_V1_KEYS = [
   'identity',
   'originId',
   'expectedFiles',
@@ -71,6 +102,13 @@ const MODEL_ENTRY_KEYS = [
   'licenseIds',
   'noticeIds',
 ] as const;
+const MODEL_ENTRY_V2_KEYS = [
+  ...MODEL_ENTRY_V1_KEYS,
+  'transferProfile',
+  'source',
+  'qualificationProfileDigest',
+  'sbomId',
+] as const;
 const MODEL_FILE_KEYS = ['fileId', 'kind', 'mode', 'sizeBytes', 'sha256'] as const;
 const DENYLIST_KEYS = ['runtimes', 'models'] as const;
 const QUALIFIED_PEAK_KEYS = [
@@ -84,6 +122,10 @@ const QUALIFIED_PEAK_KEYS = [
   'capabilityFingerprint',
 ] as const;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
+const LOWERCASE_HOST_PATTERN = /^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/u;
+const SOURCE_REPOSITORY_PATTERN = /^[\w.-]{1,100}\/[\w.-]{1,100}$/u;
+const SOURCE_FILE_PATTERN = /^[\w.-]{1,200}$/u;
 const QUALIFICATION_STATUSES = ['qualified', 'estimateOnly', 'planned'] as const;
 
 export interface LocalWhisperCatalogRepositoryDependencies {
@@ -166,6 +208,114 @@ function isStrictHttpsOrigin(value: unknown): value is string {
   }
 }
 
+function isSafePathPrefix(value: unknown): value is string {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.length > 512 || value.includes('\\')) return false;
+  try {
+    const parsed = new URL(`https://example.invalid${value}`);
+    const decodedSegments = parsed.pathname.split('/').map((segment) => decodeURIComponent(segment));
+    return (
+      parsed.search === '' &&
+      parsed.hash === '' &&
+      parsed.pathname === value &&
+      decodedSegments.every(
+        (segment) => segment !== '.' && segment !== '..' && !segment.includes('/') && !segment.includes('\\'),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isLowercaseHost(value: unknown): value is string {
+  return typeof value === 'string' && value === value.toLowerCase() && LOWERCASE_HOST_PATTERN.test(value);
+}
+
+function isRedirectTarget(value: unknown): value is LocalWhisperCatalogRedirectTarget {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, REDIRECT_TARGET_KEYS) &&
+    isLowercaseHost(value.host) &&
+    isPositiveSafeInteger(value.port) &&
+    value.port <= 65_535 &&
+    isSafePathPrefix(value.pathPrefix)
+  );
+}
+
+function isRedirectPolicy(
+  value: unknown,
+  purpose: LocalWhisperCatalogPayload['purpose'],
+): value is LocalWhisperCatalogRedirectPolicy {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, REDIRECT_POLICY_KEYS) ||
+    toLocalWhisperArtifactId(value.id) === null ||
+    !isLogicalIdentifier(value.id) ||
+    value.initialScheme !== 'https' ||
+    !isLowercaseHost(value.initialHost) ||
+    !isPositiveSafeInteger(value.initialPort) ||
+    value.initialPort > 65_535 ||
+    !isSafePathPrefix(value.initialPathPrefix) ||
+    !isNonNegativeSafeInteger(value.maxRedirects) ||
+    value.maxRedirects > 5 ||
+    !Array.isArray(value.allowedTargets) ||
+    value.allowedTargets.length === 0 ||
+    !value.allowedTargets.every(isRedirectTarget) ||
+    typeof value.forwardRangeHeaders !== 'boolean' ||
+    value.credentialForwarding !== false
+  ) {
+    return false;
+  }
+  if (purpose === 'production' && value.initialPort !== 443) return false;
+  if (purpose === 'qualification' && value.initialHost === '127.0.0.1') {
+    if (value.allowedTargets.length !== 1) return false;
+    const target = value.allowedTargets[0];
+    if (
+      !target ||
+      target.host !== '127.0.0.1' ||
+      target.port !== value.initialPort ||
+      target.pathPrefix !== value.initialPathPrefix
+    ) {
+      return false;
+    }
+  }
+  const targetKeys = value.allowedTargets.map((target) => `${target.host}:${target.port}${target.pathPrefix}`);
+  return (
+    new Set(targetKeys).size === targetKeys.length &&
+    targetKeys.every((target, index) => index === 0 || targetKeys[index - 1]!.localeCompare(target, 'en') < 0)
+  );
+}
+
+function isSourceIdentity(value: unknown): value is LocalWhisperCatalogSourceIdentity {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, SOURCE_KEYS) ||
+    typeof value.repository !== 'string' ||
+    !SOURCE_REPOSITORY_PATTERN.test(value.repository) ||
+    typeof value.commit !== 'string' ||
+    !COMMIT_PATTERN.test(value.commit) ||
+    typeof value.file !== 'string' ||
+    !SOURCE_FILE_PATTERN.test(value.file) ||
+    toLocalWhisperArtifactId(value.redirectPolicyId) === null ||
+    !isLogicalIdentifier(value.redirectPolicyId) ||
+    typeof value.url !== 'string'
+  ) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value.url);
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.username === '' &&
+      parsed.password === '' &&
+      parsed.hash === '' &&
+      parsed.search === '' &&
+      parsed.pathname.endsWith(`/${value.file}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isCatalogOrigin(value: unknown): value is LocalWhisperCatalogOrigin {
   return (
     isRecord(value) &&
@@ -206,15 +356,28 @@ function isModelFile(value: unknown): value is LocalWhisperCatalogModelFileIdent
   );
 }
 
-function isRuntimeEntry(value: unknown): value is LocalWhisperCatalogRuntimeEntry {
+function isRuntimeEntry(value: unknown, schemaVersion: number): value is LocalWhisperCatalogRuntimeEntry {
+  const expectedKeys =
+    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION ? RUNTIME_ENTRY_V1_KEYS : RUNTIME_ENTRY_V2_KEYS;
   if (!(
     isRecord(value) &&
-    hasExactKeys(value, RUNTIME_ENTRY_KEYS) &&
+    hasExactKeys(value, expectedKeys) &&
     isLocalWhisperRuntimeIdentity(value.identity) &&
     typeof value.recommended === 'boolean' &&
     isQualificationStatus(value.qualificationStatus) &&
     isArtifactIdList(value.licenseIds)
   )) {
+    return false;
+  }
+  if (
+    schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
+    (value.transferProfile !== 'restricted-tar-gzip-v1' ||
+      !isSourceIdentity(value.source) ||
+      typeof value.qualificationProfileDigest !== 'string' ||
+      !SHA256_PATTERN.test(value.qualificationProfileDigest) ||
+      toLocalWhisperArtifactId(value.sbomId) === null ||
+      !isLogicalIdentifier(value.sbomId))
+  ) {
     return false;
   }
   const identity = value.identity;
@@ -236,10 +399,12 @@ function isRuntimeEntry(value: unknown): value is LocalWhisperCatalogRuntimeEntr
   );
 }
 
-function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
+function isModelEntry(value: unknown, schemaVersion: number): value is LocalWhisperCatalogModelEntry {
+  const expectedKeys =
+    schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION ? MODEL_ENTRY_V1_KEYS : MODEL_ENTRY_V2_KEYS;
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, MODEL_ENTRY_KEYS) ||
+    !hasExactKeys(value, expectedKeys) ||
     !isLocalWhisperModelIdentity(value.identity) ||
     toLocalWhisperArtifactId(value.originId) === null ||
     !isLogicalIdentifier(value.originId) ||
@@ -249,9 +414,11 @@ function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
     !isPositiveSafeInteger(value.transferSizeBytes) ||
     typeof value.transferSha256 !== 'string' ||
     !SHA256_PATTERN.test(value.transferSha256) ||
-    !isCanonicalBase64(value.transferSignature) ||
-    toLocalWhisperArtifactId(value.signingKeyId) === null ||
-    !isLogicalIdentifier(value.signingKeyId) ||
+    (schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION
+      ? !isCanonicalBase64(value.transferSignature) ||
+        toLocalWhisperArtifactId(value.signingKeyId) === null ||
+        !isLogicalIdentifier(value.signingKeyId)
+      : value.transferSignature !== null || value.signingKeyId !== null) ||
     !isPositiveSafeInteger(value.installedSizeBytes) ||
     !isRevisionIdList(value.compatibleRuntimePackRevisions) ||
     typeof value.recommended !== 'boolean' ||
@@ -260,6 +427,17 @@ function isModelEntry(value: unknown): value is LocalWhisperCatalogModelEntry {
     !isLogicalIdentifier(value.provenanceId) ||
     !isArtifactIdList(value.licenseIds) ||
     !isArtifactIdList(value.noticeIds, true)
+  ) {
+    return false;
+  }
+  if (
+    schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
+    (value.transferProfile !== 'pinned-raw-model-v1' ||
+      !isSourceIdentity(value.source) ||
+      typeof value.qualificationProfileDigest !== 'string' ||
+      !SHA256_PATTERN.test(value.qualificationProfileDigest) ||
+      toLocalWhisperArtifactId(value.sbomId) === null ||
+      !isLogicalIdentifier(value.sbomId))
   ) {
     return false;
   }
@@ -331,11 +509,16 @@ function isDenylist(value: unknown): value is LocalWhisperCatalogDenylist {
 }
 
 function isPayloadShape(value: unknown): value is LocalWhisperCatalogPayload {
+  if (!isRecord(value)) return false;
+  const fixture = value.schemaVersion === LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION;
+  const current = value.schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION;
+  if (!fixture && !current) return false;
+  if (!isMember(LOCAL_WHISPER_CATALOG_PURPOSES, value.purpose)) return false;
+  const purpose = value.purpose;
+  const purposeValid = fixture ? purpose === 'fixture' : purpose === 'qualification' || purpose === 'production';
   return (
-    isRecord(value) &&
-    hasExactKeys(value, PAYLOAD_KEYS) &&
-    value.schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION &&
-    isMember(LOCAL_WHISPER_CATALOG_PURPOSES, value.purpose) &&
+    hasExactKeys(value, fixture ? PAYLOAD_V1_KEYS : PAYLOAD_V2_KEYS) &&
+    purposeValid &&
     toLocalWhisperRevisionId(value.catalogRevision) !== null &&
     isLogicalIdentifier(value.catalogRevision) &&
     isDisplayMetadata(value.displayMetadata) &&
@@ -346,15 +529,120 @@ function isPayloadShape(value: unknown): value is LocalWhisperCatalogPayload {
     hasExactModelFamilies(value.modelFamilies) &&
     Array.isArray(value.origins) &&
     value.origins.every(isCatalogOrigin) &&
+    (fixture ||
+      (Array.isArray(value.redirectPolicies) &&
+        value.redirectPolicies.length > 0 &&
+        value.redirectPolicies.every((policy) => isRedirectPolicy(policy, purpose)))) &&
     Array.isArray(value.runtimes) &&
-    value.runtimes.every(isRuntimeEntry) &&
+    value.runtimes.every((entry) => isRuntimeEntry(entry, value.schemaVersion as number)) &&
     Array.isArray(value.models) &&
-    value.models.every(isModelEntry) &&
+    value.models.every((entry) => isModelEntry(entry, value.schemaVersion as number)) &&
     Array.isArray(value.memoryEstimates) &&
     Array.isArray(value.qualifiedMemoryPeaks) &&
     value.qualifiedMemoryPeaks.every(isQualifiedMemoryPeak) &&
     isDenylist(value.denylist)
   );
+}
+
+function effectivePort(url: URL): number {
+  return url.port === '' ? 443 : Number(url.port);
+}
+
+function sourceMatchesPolicy(
+  source: LocalWhisperCatalogSourceIdentity,
+  policy: LocalWhisperCatalogRedirectPolicy,
+): boolean {
+  try {
+    const url = new URL(source.url);
+    return (
+      url.protocol === `${policy.initialScheme}:` &&
+      url.hostname === policy.initialHost &&
+      effectivePort(url) === policy.initialPort &&
+      url.pathname.startsWith(policy.initialPathPrefix)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validateReleaseModelMatrix(models: readonly LocalWhisperCatalogModelEntry[]): boolean {
+  if (models.length !== LOCAL_WHISPER_RELEASE_MODEL_MATRIX.length) return false;
+  return LOCAL_WHISPER_RELEASE_MODEL_MATRIX.every((expected) => {
+    const entry = models.find(
+      ({ identity }) => identity.logicalModel === expected.family && identity.variant === expected.variant,
+    );
+    const file = entry?.expectedFiles[0];
+    return (
+      entry !== undefined &&
+      entry.identity.sourceCheckpointRevision === LOCAL_WHISPER_UPSTREAM_MODEL_COMMIT &&
+      entry.identity.nativeFormat === 'ggml' &&
+      entry.transferProfile === 'pinned-raw-model-v1' &&
+      entry.transferSizeBytes === expected.sizeBytes &&
+      entry.transferSha256 === expected.sha256 &&
+      entry.installedSizeBytes === expected.sizeBytes &&
+      entry.expectedFiles.length === 1 &&
+      file?.kind === 'data' &&
+      file.sizeBytes === expected.sizeBytes &&
+      file.sha256 === expected.sha256 &&
+      entry.source?.repository === LOCAL_WHISPER_UPSTREAM_MODEL_REPOSITORY &&
+      entry.source.commit === LOCAL_WHISPER_UPSTREAM_MODEL_COMMIT &&
+      entry.source.file === expected.file &&
+      entry.source.url === localWhisperUpstreamModelUrl(expected.file)
+    );
+  });
+}
+
+function validateV2Distribution(payload: LocalWhisperCatalogPayload): boolean {
+  if (payload.schemaVersion !== LOCAL_WHISPER_CATALOG_SCHEMA_VERSION || !payload.redirectPolicies) return true;
+  const policies = new Map(payload.redirectPolicies.map((policy) => [policy.id, policy]));
+  const policyIds = payload.redirectPolicies.map(({ id }) => id);
+  if (
+    policies.size !== payload.redirectPolicies.length ||
+    !policyIds.every((id, index) => index === 0 || policyIds[index - 1]!.localeCompare(id, 'en') < 0) ||
+    !validateReleaseModelMatrix(payload.models)
+  ) {
+    return false;
+  }
+  const origins = new Map(payload.origins.map((origin) => [origin.id, origin.origin]));
+  const entries: readonly (LocalWhisperCatalogRuntimeEntry | LocalWhisperCatalogModelEntry)[] = [
+    ...payload.runtimes,
+    ...payload.models,
+  ];
+  return entries.every((entry) => {
+    const source = entry.source;
+    if (!source) return false;
+    const policy = policies.get(source.redirectPolicyId);
+    const originId = 'originId' in entry ? entry.originId : entry.identity.originId;
+    const origin = origins.get(originId);
+    if (!policy || !origin || !sourceMatchesPolicy(source, policy)) return false;
+    try {
+      const sourceUrl = new URL(source.url);
+      if (sourceUrl.origin !== origin) return false;
+      if ('originId' in entry) {
+        return (
+          origin === 'https://huggingface.co' &&
+          policy.initialHost === 'huggingface.co' &&
+          policy.initialPort === 443 &&
+          policy.allowedTargets.every((target) => target.host === 'us.aws.cdn.hf.co' && target.port === 443)
+        );
+      }
+      if (payload.purpose === 'production') {
+        return (
+          origin === 'https://github.com' &&
+          source.repository === 'swimmwatch/gpt-voice' &&
+          sourceUrl.pathname.startsWith('/swimmwatch/gpt-voice/releases/download/')
+        );
+      }
+      return (
+        payload.purpose === 'qualification' &&
+        sourceUrl.hostname === '127.0.0.1' &&
+        sourceUrl.port !== '' &&
+        policy.maxRedirects === 0
+      );
+    } catch {
+      return false;
+    }
+  });
 }
 
 function validateOriginAllowlist(
@@ -440,7 +728,8 @@ function materializeCatalog(
     payload.purpose !== trustPolicy.purpose ||
     !payload.compatibleAppRevisions.includes(trustPolicy.appRevision) ||
     payload.workerProtocolVersion !== trustPolicy.workerProtocolVersion ||
-    !validateOriginAllowlist(payload.origins, trustPolicy.origins)
+    !validateOriginAllowlist(payload.origins, trustPolicy.origins) ||
+    !validateV2Distribution(payload)
   ) {
     return null;
   }

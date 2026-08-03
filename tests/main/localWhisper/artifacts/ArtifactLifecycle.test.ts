@@ -220,6 +220,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
         yield Uint8Array.from(MODEL_TRANSFER.subarray(start));
       })(),
       headers: {
+        acceptRanges: 'bytes',
         contentLength: MODEL_TRANSFER.byteLength - (request.rangeStart ?? 0),
         contentRange:
           request.rangeStart === null
@@ -268,7 +269,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
     assert.equal(resumed.success, true);
     assert.equal(client.requests.length, 2);
     assert.equal(client.requests[1].rangeStart, prefixLength);
-    assert.equal(client.requests[1].ifMatch, STRONG_ETAG);
+    assert.equal(client.requests[1].ifRange, STRONG_ETAG);
     assert.equal(restarted.journalStore.values.has(restarted.catalogFixture.model.artifactId), false);
     assert.equal(restarted.store.installed.has(restarted.catalogFixture.model.artifactId), true);
   });

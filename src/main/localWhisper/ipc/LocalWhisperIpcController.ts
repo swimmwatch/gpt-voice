@@ -57,7 +57,7 @@ export interface LocalWhisperArtifactCommandPort {
   execute(
     command: Extract<
       LocalWhisperSettingsCommand,
-      { readonly kind: 'download' | 'resume' | 'retry' | 'cancelArtifact' }
+      { readonly kind: 'download' | 'resume' | 'retry' | 'update' | 'cancelArtifact' }
     >,
   ): Promise<{
     readonly success: boolean;
@@ -87,6 +87,7 @@ export interface LocalWhisperIpcControllerDependencies {
   readonly references: LocalWhisperArtifactReferencePort;
   readonly snapshots: LocalWhisperSnapshotService;
   readonly openSettings: () => void;
+  readonly refreshSettingsFacts?: (configurationEpoch: number) => Promise<void>;
 }
 
 interface Subscriber {
@@ -114,11 +115,13 @@ export class LocalWhisperIpcController {
 
     this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, (_event, _capability, ...args) => {
       this.assertNoArguments(args);
+      this.refreshSettingsFacts();
       return this.dependencies.snapshots.snapshot;
     });
     this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, (_event, capability, ...args) => {
       this.assertNoArguments(args);
       this.addSubscriber(this.settingsSubscribers, capability);
+      this.refreshSettingsFacts();
       return this.dependencies.snapshots.snapshot;
     });
     this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe, (_event, capability, ...args) => {
@@ -206,6 +209,16 @@ export class LocalWhisperIpcController {
 
   private assertNoArguments(args: readonly unknown[]): void {
     if (args.length !== 0) throw new Error('Rejected unexpected Local Whisper IPC arguments');
+  }
+
+  private refreshSettingsFacts(): void {
+    const refresh = this.dependencies.refreshSettingsFacts;
+    if (!refresh) return;
+    try {
+      void refresh(this.dependencies.snapshots.snapshot.configurationEpoch).catch(() => undefined);
+    } catch {
+      // Device enumeration is fail-closed and cannot make a settings query fail.
+    }
   }
 
   private async execute(command: LocalWhisperSettingsCommand): Promise<LocalWhisperSettingsCommandResult> {
@@ -307,12 +320,13 @@ export class LocalWhisperIpcController {
     command: LocalWhisperSettingsCommand,
   ): command is Extract<
     LocalWhisperSettingsCommand,
-    { readonly kind: 'download' | 'resume' | 'retry' | 'cancelArtifact' }
+    { readonly kind: 'download' | 'resume' | 'retry' | 'update' | 'cancelArtifact' }
   > {
     return (
       command.kind === 'download' ||
       command.kind === 'resume' ||
       command.kind === 'retry' ||
+      command.kind === 'update' ||
       command.kind === 'cancelArtifact'
     );
   }
@@ -321,7 +335,7 @@ export class LocalWhisperIpcController {
     command: LocalWhisperSettingsCommand,
   ): command is Extract<
     LocalWhisperSettingsCommand,
-    { readonly kind: 'download' | 'resume' | 'retry' | 'cancelArtifact' | 'remove' }
+    { readonly kind: 'download' | 'resume' | 'retry' | 'update' | 'cancelArtifact' | 'remove' }
   > {
     return this.isArtifactLifecycleCommand(command) || command.kind === 'remove';
   }
@@ -329,7 +343,7 @@ export class LocalWhisperIpcController {
   private isArtifactActionAllowed(
     command: Extract<
       LocalWhisperSettingsCommand,
-      { readonly kind: 'download' | 'resume' | 'retry' | 'cancelArtifact' | 'remove' }
+      { readonly kind: 'download' | 'resume' | 'retry' | 'update' | 'cancelArtifact' | 'remove' }
     >,
     snapshot: LocalWhisperRendererSnapshot,
   ): boolean {

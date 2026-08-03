@@ -11,7 +11,7 @@ import {
 } from '@shared/localWhisper';
 import {
   LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
-  LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
+  LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION,
   LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM,
   type LocalWhisperCatalogPayload,
   type LocalWhisperCatalogTrustPolicy,
@@ -48,7 +48,7 @@ const CONFIGURATION: LocalWhisperMemoryConfigurationIdentity = {
 
 export function createFixtureCatalogPayload(): LocalWhisperCatalogPayload {
   return structuredClone({
-    schemaVersion: LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
+    schemaVersion: LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION,
     purpose: 'fixture',
     catalogRevision: CATALOG_REVISION,
     displayMetadata: {

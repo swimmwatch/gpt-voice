@@ -9,12 +9,41 @@ import type {
   LocalWhisperRuntimeIdentity,
 } from '@shared/localWhisper';
 
-export const LOCAL_WHISPER_CATALOG_SCHEMA_VERSION = 1 as const;
+export const LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION = 1 as const;
+export const LOCAL_WHISPER_CATALOG_SCHEMA_VERSION = 2 as const;
 export const LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION = 1 as const;
 export const LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM = 'Ed25519' as const;
-export const LOCAL_WHISPER_CATALOG_PURPOSES = ['fixture', 'production'] as const;
+export const LOCAL_WHISPER_CATALOG_PURPOSES = ['fixture', 'qualification', 'production'] as const;
+export const LOCAL_WHISPER_TRANSFER_PROFILES = ['restricted-tar-gzip-v1', 'pinned-raw-model-v1'] as const;
 
 export type LocalWhisperCatalogPurpose = (typeof LOCAL_WHISPER_CATALOG_PURPOSES)[number];
+export type LocalWhisperTransferProfile = (typeof LOCAL_WHISPER_TRANSFER_PROFILES)[number];
+
+export interface LocalWhisperCatalogRedirectTarget {
+  readonly host: string;
+  readonly port: number;
+  readonly pathPrefix: string;
+}
+
+export interface LocalWhisperCatalogRedirectPolicy {
+  readonly id: LocalWhisperArtifactId;
+  readonly initialScheme: 'https';
+  readonly initialHost: string;
+  readonly initialPort: number;
+  readonly initialPathPrefix: string;
+  readonly maxRedirects: number;
+  readonly allowedTargets: readonly LocalWhisperCatalogRedirectTarget[];
+  readonly forwardRangeHeaders: boolean;
+  readonly credentialForwarding: false;
+}
+
+export interface LocalWhisperCatalogSourceIdentity {
+  readonly repository: string;
+  readonly commit: string;
+  readonly file: string;
+  readonly url: string;
+  readonly redirectPolicyId: LocalWhisperArtifactId;
+}
 
 export interface LocalWhisperCatalogOrigin {
   readonly id: LocalWhisperArtifactId;
@@ -39,6 +68,10 @@ export interface LocalWhisperCatalogRuntimeEntry {
   readonly recommended: boolean;
   readonly qualificationStatus: 'qualified' | 'estimateOnly' | 'planned';
   readonly licenseIds: readonly LocalWhisperArtifactId[];
+  readonly transferProfile?: Extract<LocalWhisperTransferProfile, 'restricted-tar-gzip-v1'>;
+  readonly source?: LocalWhisperCatalogSourceIdentity;
+  readonly qualificationProfileDigest?: string;
+  readonly sbomId?: LocalWhisperArtifactId;
 }
 
 export interface LocalWhisperCatalogModelEntry {
@@ -47,8 +80,8 @@ export interface LocalWhisperCatalogModelEntry {
   readonly expectedFiles: readonly LocalWhisperCatalogModelFileIdentity[];
   readonly transferSizeBytes: number;
   readonly transferSha256: string;
-  readonly transferSignature: string;
-  readonly signingKeyId: LocalWhisperArtifactId;
+  readonly transferSignature: string | null;
+  readonly signingKeyId: LocalWhisperArtifactId | null;
   readonly installedSizeBytes: number;
   readonly compatibleRuntimePackRevisions: readonly LocalWhisperRevisionId[];
   readonly recommended: boolean;
@@ -56,6 +89,10 @@ export interface LocalWhisperCatalogModelEntry {
   readonly provenanceId: LocalWhisperArtifactId;
   readonly licenseIds: readonly LocalWhisperArtifactId[];
   readonly noticeIds: readonly LocalWhisperArtifactId[];
+  readonly transferProfile?: Extract<LocalWhisperTransferProfile, 'pinned-raw-model-v1'>;
+  readonly source?: LocalWhisperCatalogSourceIdentity;
+  readonly qualificationProfileDigest?: string;
+  readonly sbomId?: LocalWhisperArtifactId;
 }
 
 export interface LocalWhisperCatalogDenylist {
@@ -64,7 +101,8 @@ export interface LocalWhisperCatalogDenylist {
 }
 
 export interface LocalWhisperCatalogPayload {
-  readonly schemaVersion: typeof LOCAL_WHISPER_CATALOG_SCHEMA_VERSION;
+  readonly schemaVersion:
+    typeof LOCAL_WHISPER_FIXTURE_CATALOG_SCHEMA_VERSION | typeof LOCAL_WHISPER_CATALOG_SCHEMA_VERSION;
   readonly purpose: LocalWhisperCatalogPurpose;
   readonly catalogRevision: LocalWhisperRevisionId;
   readonly displayMetadata: LocalWhisperCatalogDisplayMetadata;
@@ -74,6 +112,7 @@ export interface LocalWhisperCatalogPayload {
   readonly languages: readonly LocalWhisperLanguageCatalogEntry[];
   readonly modelFamilies: readonly LocalWhisperModelFamily[];
   readonly origins: readonly LocalWhisperCatalogOrigin[];
+  readonly redirectPolicies?: readonly LocalWhisperCatalogRedirectPolicy[];
   readonly runtimes: readonly LocalWhisperCatalogRuntimeEntry[];
   readonly models: readonly LocalWhisperCatalogModelEntry[];
   readonly memoryEstimates: readonly LocalWhisperMemoryEstimateRecord[];

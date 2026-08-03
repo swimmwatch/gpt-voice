@@ -33,7 +33,7 @@ import { StreamingArtifactVerifier } from './StreamingArtifactVerifier';
 
 const OPERATION_ID_PATTERN = /^[\w-]{16,128}$/u;
 
-type DownloadMode = 'download' | 'resume' | 'retry';
+type DownloadMode = 'download' | 'resume' | 'retry' | 'update';
 
 function errorCode(error: unknown, fallback: LocalWhisperFailureCode): LocalWhisperFailureCode {
   if (error instanceof LocalWhisperArtifactLifecycleError) return error.code;
@@ -85,6 +85,10 @@ export class LocalWhisperArtifactService {
     return this.startTransfer(request, 'retry');
   }
 
+  public update(request: LocalWhisperArtifactDownloadRequest): LocalWhisperArtifactOperationHandle {
+    return this.startTransfer(request, 'update');
+  }
+
   public cancel(operationId: LocalWhisperArtifactOperationId): boolean {
     return this.dependencies.queue.cancel(operationId);
   }
@@ -100,13 +104,13 @@ export class LocalWhisperArtifactService {
         throw new LocalWhisperArtifactLifecycleError('OPERATION_CONFLICT');
       }
       this.destructiveArtifacts.add(spec.artifactId);
-      this.publish(operationId, spec, 'Deleting', 0, null, true);
+      this.publish(operationId, spec, 'remove', 'Deleting', 0, null, true);
       removalAttempted = true;
       await this.dependencies.store.deleteArtifact(spec.descriptor, request.clearance);
       const inventoryRevision = await this.dependencies.inventory.refresh(
         this.dependencies.catalogResolver.getCatalog(),
       );
-      this.publish(operationId, spec, 'Missing', spec.expectedTransferSizeBytes, null, true);
+      this.publish(operationId, spec, 'remove', 'Missing', spec.expectedTransferSizeBytes, null, true);
       this.dependencies.logger.info('local-whisper-artifact-removed', {
         artifactId: spec.artifactId,
         operationId,
@@ -124,7 +128,7 @@ export class LocalWhisperArtifactService {
         });
       }
       const failure = this.failure(operationId, request.artifactId, code, 'Failed');
-      this.publishFailure(operationId, request.artifactId, code, 'Failed');
+      this.publishFailure(operationId, request.artifactId, 'remove', code, 'Failed');
       return failure;
     } finally {
       this.destructiveArtifacts.delete(request.artifactId);
@@ -149,7 +153,7 @@ export class LocalWhisperArtifactService {
       }
     } catch (error) {
       const code = errorCode(error, 'INVALID_SETTINGS');
-      this.publishFailure(operationId, request.artifactId, code, 'Failed');
+      this.publishFailure(operationId, request.artifactId, mode, code, 'Failed');
       return Object.freeze({
         operationId,
         completion: Promise.resolve(this.failure(operationId, request.artifactId, code, 'Failed')),
@@ -161,16 +165,16 @@ export class LocalWhisperArtifactService {
         artifactId: spec.artifactId,
         run: async (signal) => await this.runTransfer(spec, operationId, mode, signal),
         cancelledBeforeStart: () => {
-          this.publishFailure(operationId, spec.artifactId, 'DOWNLOAD_CANCELLED', 'Cancelled');
+          this.publishFailure(operationId, spec.artifactId, mode, 'DOWNLOAD_CANCELLED', 'Cancelled');
           return this.failure(operationId, spec.artifactId, 'DOWNLOAD_CANCELLED', 'Cancelled');
         },
-        onQueued: (position) => this.publish(operationId, spec, 'Queued', 0, position, true),
-        onStarted: () => this.publish(operationId, spec, 'Downloading', 0, null, true),
+        onQueued: (position) => this.publish(operationId, spec, mode, 'Queued', 0, position, true),
+        onStarted: () => this.publish(operationId, spec, mode, 'Downloading', 0, null, true),
       });
       return Object.freeze({ operationId, completion });
     } catch (error) {
       const code = errorCode(error, 'OPERATION_CONFLICT');
-      this.publishFailure(operationId, spec.artifactId, code, 'Failed');
+      this.publishFailure(operationId, spec.artifactId, mode, code, 'Failed');
       return Object.freeze({
         operationId,
         completion: Promise.resolve(this.failure(operationId, spec.artifactId, code, 'Failed')),
@@ -208,7 +212,7 @@ export class LocalWhisperArtifactService {
         if (classification.kind === 'invalid' && !classification.safelyRemovable) {
           throw new LocalWhisperArtifactLifecycleError('RESUME_INVALID');
         }
-        if (mode === 'download' && classification.kind !== 'missing') {
+        if ((mode === 'download' || mode === 'update') && classification.kind !== 'missing') {
           throw new LocalWhisperArtifactLifecycleError('OPERATION_CONFLICT');
         }
         if (mode === 'retry' && classification.kind !== 'missing') {
@@ -242,19 +246,19 @@ export class LocalWhisperArtifactService {
             state: 'Downloading',
             updatedAtMs: this.dependencies.clock.now(),
           });
-          this.publish(operationId, spec, 'Downloading', receivedBytes, null, false);
+          this.publish(operationId, spec, mode, 'Downloading', receivedBytes, null, false);
         },
       });
       if (processed.spoolId !== journal.spoolId) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-      this.publish(operationId, spec, 'Verifying', processed.receivedBytes, null, true);
-      this.publish(operationId, spec, 'Installing', processed.receivedBytes, null, true);
+      this.publish(operationId, spec, mode, 'Verifying', processed.receivedBytes, null, true);
+      this.publish(operationId, spec, mode, 'Installing', processed.receivedBytes, null, true);
       await this.dependencies.extractor.install(spec, processed.entries, signal);
       await this.dependencies.journals.remove(spec.artifactId);
       await this.dependencies.verifier.discard(processed.spoolId);
       const inventoryRevision = await this.dependencies.inventory.refresh(
         this.dependencies.catalogResolver.getCatalog(),
       );
-      this.publish(operationId, spec, 'Installed', processed.receivedBytes, null, true);
+      this.publish(operationId, spec, mode, 'Installed', processed.receivedBytes, null, true);
       this.dependencies.logger.info('local-whisper-artifact-installed', {
         artifactId: spec.artifactId,
         bytes: processed.receivedBytes,
@@ -263,13 +267,14 @@ export class LocalWhisperArtifactService {
       return this.success(operationId, spec.artifactId, 'Installed', inventoryRevision);
     } catch (error) {
       const code = errorCode(error, 'DOWNLOAD_FAILED');
-      return await this.finishFailedTransfer(spec, operationId, journal, code);
+      return await this.finishFailedTransfer(spec, operationId, mode, journal, code);
     }
   }
 
   private async finishFailedTransfer(
     spec: LocalWhisperArtifactDownloadSpec,
     operationId: LocalWhisperArtifactOperationId,
+    mode: DownloadMode,
     journal: ArtifactTransferJournal | null,
     code: LocalWhisperFailureCode,
   ): Promise<LocalWhisperArtifactOperationFailure> {
@@ -287,7 +292,7 @@ export class LocalWhisperArtifactService {
         state: 'Resumable',
         updatedAtMs: this.dependencies.clock.now(),
       });
-      this.publishFailure(operationId, spec.artifactId, code, 'Resumable', journal.receivedLength, spec);
+      this.publishFailure(operationId, spec.artifactId, mode, code, 'Resumable', journal.receivedLength, spec);
       return this.failure(operationId, spec.artifactId, code, 'Resumable');
     }
     let finalCode = code;
@@ -300,7 +305,7 @@ export class LocalWhisperArtifactService {
       }
     }
     const state = finalCode === 'DOWNLOAD_CANCELLED' ? 'Cancelled' : 'Failed';
-    this.publishFailure(operationId, spec.artifactId, finalCode, state, journal?.receivedLength ?? 0, spec);
+    this.publishFailure(operationId, spec.artifactId, mode, finalCode, state, journal?.receivedLength ?? 0, spec);
     this.dependencies.logger.warn('local-whisper-artifact-transfer-failed', {
       artifactId: spec.artifactId,
       code: finalCode,
@@ -354,6 +359,7 @@ export class LocalWhisperArtifactService {
   private publish(
     operationId: LocalWhisperArtifactOperationId,
     spec: LocalWhisperArtifactDownloadSpec,
+    action: DownloadMode | 'remove',
     state: Parameters<ArtifactProgressStore['publish']>[0]['state'],
     receivedBytes: number,
     queuedPosition: number | null,
@@ -363,6 +369,7 @@ export class LocalWhisperArtifactService {
       {
         operationId,
         artifactId: spec.artifactId,
+        action,
         state,
         receivedBytes,
         totalBytes: spec.expectedTransferSizeBytes,
@@ -375,6 +382,7 @@ export class LocalWhisperArtifactService {
   private publishFailure(
     operationId: LocalWhisperArtifactOperationId,
     artifactId: LocalWhisperArtifactId,
+    action: DownloadMode | 'remove',
     code: LocalWhisperFailureCode,
     state: 'Cancelled' | 'Failed' | 'Resumable',
     receivedBytes = 0,
@@ -384,6 +392,7 @@ export class LocalWhisperArtifactService {
       {
         operationId,
         artifactId,
+        action,
         state,
         receivedBytes,
         totalBytes: spec?.expectedTransferSizeBytes ?? Math.max(receivedBytes, 1),

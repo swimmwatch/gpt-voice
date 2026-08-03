@@ -1,9 +1,13 @@
 import type { LocalWhisperArtifactId, LocalWhisperFailureCode } from '@shared/localWhisper';
 
 import {
+  LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
   type LocalWhisperAuthenticatedCatalog,
+  type LocalWhisperCatalogRedirectPolicy,
   type LocalWhisperCatalogModelEntry,
   type LocalWhisperCatalogRuntimeEntry,
+  type LocalWhisperCatalogSourceIdentity,
+  type LocalWhisperTransferProfile,
 } from '../catalog/LocalWhisperCatalogTypes';
 import {
   createManagedModelDescriptor,
@@ -43,6 +47,49 @@ function safeExpandedSize(files: readonly { readonly sizeBytes: number }[]): num
 
 function requestUrl(origin: URL, artifactId: LocalWhisperArtifactId): string {
   return new URL(`artifacts/${encodeURIComponent(artifactId)}`, `${origin.origin}/`).toString();
+}
+
+function effectivePort(url: URL): number {
+  return url.port === '' ? 443 : Number(url.port);
+}
+
+function legacyRedirectPolicy(origin: URL, artifactId: LocalWhisperArtifactId): LocalWhisperCatalogRedirectPolicy {
+  const pathPrefix = '/artifacts/';
+  return Object.freeze({
+    id: artifactId,
+    initialScheme: 'https',
+    initialHost: origin.hostname,
+    initialPort: effectivePort(origin),
+    initialPathPrefix: pathPrefix,
+    maxRedirects: 5,
+    allowedTargets: Object.freeze([
+      Object.freeze({ host: origin.hostname, port: effectivePort(origin), pathPrefix: '/' }),
+    ]),
+    forwardRangeHeaders: true,
+    credentialForwarding: false,
+  });
+}
+
+function v2Transfer(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  source: LocalWhisperCatalogSourceIdentity | undefined,
+  transferProfile: LocalWhisperTransferProfile | undefined,
+): {
+  readonly policy: LocalWhisperCatalogRedirectPolicy;
+  readonly profile: LocalWhisperTransferProfile;
+  readonly requestUrl: string;
+} {
+  if (
+    catalog.payload.schemaVersion !== LOCAL_WHISPER_CATALOG_SCHEMA_VERSION ||
+    !source ||
+    !transferProfile ||
+    !catalog.payload.redirectPolicies
+  ) {
+    throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+  }
+  const policy = catalog.payload.redirectPolicies.find((candidate) => candidate.id === source.redirectPolicyId);
+  if (!policy) throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+  return Object.freeze({ policy, profile: transferProfile, requestUrl: source.url });
 }
 
 function validateTransferIdentity(sizeBytes: number, sha256: string): void {
@@ -96,6 +143,14 @@ export class ArtifactCatalogResolver {
     );
     validateTransferIdentity(identity.archiveSizeBytes, identity.archiveSha256);
     const origin = this.origin(catalog, identity.originId);
+    const transfer =
+      catalog.payload.schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION
+        ? v2Transfer(catalog, entry.source, entry.transferProfile)
+        : {
+            policy: legacyRedirectPolicy(origin, descriptor.artifactId),
+            profile: 'restricted-tar-gzip-v1' as const,
+            requestUrl: requestUrl(origin, descriptor.artifactId),
+          };
     return Object.freeze({
       artifactId: descriptor.artifactId,
       catalogRevision: catalog.payload.catalogRevision,
@@ -106,7 +161,9 @@ export class ArtifactCatalogResolver {
       expectedTransferSizeBytes: identity.archiveSizeBytes,
       originId: identity.originId,
       origin: origin.origin,
-      requestUrl: requestUrl(origin, descriptor.artifactId),
+      requestUrl: transfer.requestUrl,
+      redirectPolicy: transfer.policy,
+      transferProfile: transfer.profile,
       artifactSignature: Object.freeze({
         keyId: identity.signingKeyId,
         signatureBase64: identity.archiveSignature,
@@ -127,6 +184,14 @@ export class ArtifactCatalogResolver {
     );
     validateTransferIdentity(entry.transferSizeBytes, entry.transferSha256);
     const origin = this.origin(catalog, entry.originId);
+    const transfer =
+      catalog.payload.schemaVersion === LOCAL_WHISPER_CATALOG_SCHEMA_VERSION
+        ? v2Transfer(catalog, entry.source, entry.transferProfile)
+        : {
+            policy: legacyRedirectPolicy(origin, descriptor.artifactId),
+            profile: 'pinned-raw-model-v1' as const,
+            requestUrl: requestUrl(origin, descriptor.artifactId),
+          };
     return Object.freeze({
       artifactId: descriptor.artifactId,
       catalogRevision: catalog.payload.catalogRevision,
@@ -137,11 +202,16 @@ export class ArtifactCatalogResolver {
       expectedTransferSizeBytes: entry.transferSizeBytes,
       originId: entry.originId,
       origin: origin.origin,
-      requestUrl: requestUrl(origin, descriptor.artifactId),
-      artifactSignature: Object.freeze({
-        keyId: entry.signingKeyId,
-        signatureBase64: entry.transferSignature,
-      }),
+      requestUrl: transfer.requestUrl,
+      redirectPolicy: transfer.policy,
+      transferProfile: transfer.profile,
+      artifactSignature:
+        entry.signingKeyId === null || entry.transferSignature === null
+          ? null
+          : Object.freeze({
+              keyId: entry.signingKeyId,
+              signatureBase64: entry.transferSignature,
+            }),
     });
   }
 

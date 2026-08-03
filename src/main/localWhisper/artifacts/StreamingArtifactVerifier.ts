@@ -62,10 +62,13 @@ export class StreamingArtifactVerifier {
     const work = this.dependencies.worker.process({
       artifactId: input.spec.artifactId,
       expectedFiles: input.spec.expectedFiles,
+      expectedTransferSha256: input.spec.expectedTransferSha256,
+      expectedTransferSizeBytes: input.spec.expectedTransferSizeBytes,
       operationId: input.operationId,
       resume: input.resume,
       signal: input.signal,
       stream: input.transport.body,
+      transferProfile: input.spec.transferProfile,
       onProgress: input.onProgress,
     });
     let rejectCancellation: (error: LocalWhisperArtifactLifecycleError) => void = () => undefined;

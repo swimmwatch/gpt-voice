@@ -426,6 +426,7 @@ export function createArtifactServiceHarness(
         headers: {
           contentLength: value.byteLength - start,
           contentRange: start > 0 ? `bytes ${start}-${value.byteLength - 1}/${value.byteLength}` : null,
+          acceptRanges: 'bytes',
           etag: STRONG_ETAG,
           location: null,
         },

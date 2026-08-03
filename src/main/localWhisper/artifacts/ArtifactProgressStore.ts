@@ -1,4 +1,9 @@
-import type { LocalWhisperArtifactId, LocalWhisperRendererSafeFailure } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_ARTIFACT_ACTIONS,
+  type LocalWhisperArtifactAction,
+  type LocalWhisperArtifactId,
+  type LocalWhisperRendererSafeFailure,
+} from '@shared/localWhisper';
 
 import {
   ARTIFACT_PROGRESS_MIN_INTERVAL_MS,
@@ -11,6 +16,7 @@ import {
 export interface ArtifactProgressUpdate {
   readonly operationId: LocalWhisperArtifactOperationId;
   readonly artifactId: LocalWhisperArtifactId;
+  readonly action: LocalWhisperArtifactAction;
   readonly state: LocalWhisperArtifactOperationState;
   readonly receivedBytes: number;
   readonly totalBytes: number;
@@ -21,6 +27,7 @@ export interface ArtifactProgressUpdate {
 /** Owns immutable, renderer-safe progress with chunk-update rate limiting. */
 export class ArtifactProgressStore {
   private readonly snapshots = new Map<LocalWhisperArtifactOperationId, LocalWhisperArtifactProgressSnapshot>();
+  private readonly listeners = new Set<(snapshots: readonly LocalWhisperArtifactProgressSnapshot[]) => void>();
 
   public constructor(private readonly clock: ArtifactClock) {}
 
@@ -39,6 +46,7 @@ export class ArtifactProgressStore {
     const snapshot = Object.freeze({
       operationId: update.operationId,
       artifactId: update.artifactId,
+      action: update.action,
       state: update.state,
       receivedBytes: update.receivedBytes,
       totalBytes: update.totalBytes,
@@ -47,6 +55,8 @@ export class ArtifactProgressStore {
       failure: update.failure ?? null,
     });
     this.snapshots.set(update.operationId, snapshot);
+    const snapshots = this.list();
+    for (const listener of [...this.listeners]) listener(snapshots);
     return snapshot;
   }
 
@@ -58,9 +68,15 @@ export class ArtifactProgressStore {
     return Object.freeze([...this.snapshots.values()]);
   }
 
+  public subscribe(listener: (snapshots: readonly LocalWhisperArtifactProgressSnapshot[]) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
   private assertUpdate(update: ArtifactProgressUpdate): void {
     if (
       !Number.isSafeInteger(update.receivedBytes) ||
+      !LOCAL_WHISPER_ARTIFACT_ACTIONS.includes(update.action) ||
       update.receivedBytes < 0 ||
       !Number.isSafeInteger(update.totalBytes) ||
       update.totalBytes <= 0 ||

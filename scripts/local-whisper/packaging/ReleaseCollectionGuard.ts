@@ -18,6 +18,7 @@ export class ReleaseCollectionGuard {
   }): Promise<void> {
     const mode = parsePackageMode(input.mode);
     if (mode === 'fixture') throw new Error('Fixture Local Whisper trust cannot enter release collection');
+    if (mode === 'qualification') throw new Error('Qualification Local Whisper trust cannot enter release collection');
     await this.packageInspector.inspect({
       directory: input.stagingDirectory,
       mode,

@@ -152,8 +152,8 @@ export class PackageStager {
         state = await createDisabledResources(sharedDirectory, platform);
       } else {
         if (!input.bundleDirectory) throw new Error(`${mode} Local Whisper packaging requires a frozen bundle`);
-        if (mode === 'production' && !input.expectedBundleManifestSha256) {
-          throw new Error('Production Local Whisper packaging requires an externally frozen bundle digest');
+        if (mode !== 'fixture' && !input.expectedBundleManifestSha256) {
+          throw new Error(`${mode} Local Whisper packaging requires an externally frozen bundle digest`);
         }
         const bundle = await this.verifier.verify(input.bundleDirectory, {
           purpose: mode,

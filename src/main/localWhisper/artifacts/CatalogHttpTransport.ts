@@ -2,7 +2,6 @@ import {
   ARTIFACT_CONNECTION_TIMEOUT_MS,
   ARTIFACT_HELPER_CANCELLATION_TIMEOUT_MS,
   ARTIFACT_MAX_BUFFER_BYTES,
-  ARTIFACT_MAX_REDIRECTS,
   ARTIFACT_NO_PROGRESS_TIMEOUT_MS,
   ARTIFACT_TOTAL_TRANSFER_TIMEOUT_MS,
   LocalWhisperArtifactLifecycleError,
@@ -16,6 +15,24 @@ import {
 import { ArtifactHttpClientError } from './ArtifactHttpClientError';
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const ENCODED_SEPARATOR_OR_DOT_PATTERN = /%(?:2e|2f|5c)/iu;
+const MULTIPART_PATTERN = /^multipart\//iu;
+
+function effectivePort(url: URL): number {
+  return url.port === '' ? 443 : Number(url.port);
+}
+
+function hasSafePath(value: string, parsed: URL): boolean {
+  if (parsed.pathname.includes('\\') || ENCODED_SEPARATOR_OR_DOT_PATTERN.test(parsed.pathname)) return false;
+  try {
+    return parsed.pathname
+      .split('/')
+      .map((segment) => decodeURIComponent(segment))
+      .every((segment) => segment !== '.' && segment !== '..' && !segment.includes('/') && !segment.includes('\\'));
+  } catch {
+    return false;
+  }
+}
 
 function parseSafeUrl(value: string): URL {
   let parsed: URL;
@@ -24,17 +41,46 @@ function parseSafeUrl(value: string): URL {
   } catch {
     throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   }
-  if (parsed.protocol !== 'https:' || parsed.username !== '' || parsed.password !== '') {
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    parsed.hash !== '' ||
+    !hasSafePath(value, parsed)
+  ) {
     throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   }
   return parsed;
 }
 
-function assertAllowlisted(url: URL, allowlistedOrigins: ReadonlySet<string>): void {
-  if (!allowlistedOrigins.has(url.origin)) throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+function pathMatchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname.startsWith(prefix) && (prefix.endsWith('/') || pathname.length === prefix.length);
 }
 
-function parseRedirect(current: URL, location: string | null, allowlistedOrigins: ReadonlySet<string>): URL {
+function assertInitialPolicy(url: URL, spec: LocalWhisperArtifactDownloadSpec): void {
+  const policy = spec.redirectPolicy;
+  if (
+    url.origin !== spec.origin ||
+    policy.initialScheme !== 'https' ||
+    url.hostname !== policy.initialHost ||
+    effectivePort(url) !== policy.initialPort ||
+    !pathMatchesPrefix(url.pathname, policy.initialPathPrefix)
+  ) {
+    throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+  }
+}
+
+function assertRedirectTarget(url: URL, spec: LocalWhisperArtifactDownloadSpec): void {
+  const matches = spec.redirectPolicy.allowedTargets.some(
+    (target) =>
+      url.hostname === target.host &&
+      effectivePort(url) === target.port &&
+      pathMatchesPrefix(url.pathname, target.pathPrefix),
+  );
+  if (!matches) throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+}
+
+function parseRedirect(current: URL, location: string | null, spec: LocalWhisperArtifactDownloadSpec): URL {
   if (!location) throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   let redirected: URL;
   try {
@@ -42,10 +88,8 @@ function parseRedirect(current: URL, location: string | null, allowlistedOrigins
   } catch {
     throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   }
-  if (redirected.protocol !== 'https:' || redirected.username !== '' || redirected.password !== '') {
-    throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
-  }
-  assertAllowlisted(redirected, allowlistedOrigins);
+  parseSafeUrl(redirected.toString());
+  assertRedirectTarget(redirected, spec);
   return redirected;
 }
 
@@ -104,13 +148,21 @@ function assertResponse(
   expectedLength: number,
   resume: ArtifactTransportResumeRequest | null,
 ): void {
+  const contentEncoding = response.headers.contentEncoding;
+  if (
+    (contentEncoding !== undefined && contentEncoding !== null && contentEncoding.toLowerCase() !== 'identity') ||
+    (typeof response.headers.contentType === 'string' && MULTIPART_PATTERN.test(response.headers.contentType))
+  ) {
+    throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
+  }
   if (resume) {
     const remaining = expectedLength - resume.offset;
     const expectedRange = `bytes ${resume.offset}-${expectedLength - 1}/${expectedLength}`;
     if (
       response.status !== 206 ||
+      response.headers.acceptRanges !== 'bytes' ||
       response.headers.contentRange !== expectedRange ||
-      (response.headers.contentLength !== null && response.headers.contentLength !== remaining) ||
+      response.headers.contentLength !== remaining ||
       response.headers.etag !== resume.validator
     ) {
       throw new LocalWhisperArtifactLifecycleError('RESUME_INVALID');
@@ -119,7 +171,8 @@ function assertResponse(
   }
   if (
     response.status !== 200 ||
-    (response.headers.contentLength !== null && response.headers.contentLength !== expectedLength)
+    response.headers.contentRange !== null ||
+    response.headers.contentLength !== expectedLength
   ) {
     throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
   }
@@ -140,9 +193,8 @@ export class CatalogHttpTransport {
     signal: AbortSignal,
   ): Promise<ArtifactTransportStream> {
     const startedAt = this.dependencies.clock.now();
-    const allowlistedOrigins = new Set([spec.origin]);
     let url = parseSafeUrl(spec.requestUrl);
-    assertAllowlisted(url, allowlistedOrigins);
+    assertInitialPolicy(url, spec);
     const transportController = new AbortController();
     const forwardAbort = (): void => transportController.abort();
     signal.addEventListener('abort', forwardAbort, { once: true });
@@ -155,8 +207,10 @@ export class CatalogHttpTransport {
           this.dependencies.client.open({
             signal: transportController.signal,
             url: url.toString(),
-            rangeStart: resume?.offset ?? null,
-            ifMatch: resume?.validator ?? null,
+            rangeStart:
+              redirectCount === 0 || spec.redirectPolicy.forwardRangeHeaders ? (resume?.offset ?? null) : null,
+            ifRange:
+              redirectCount === 0 || spec.redirectPolicy.forwardRangeHeaders ? (resume?.validator ?? null) : null,
           }),
           ARTIFACT_CONNECTION_TIMEOUT_MS,
           this.dependencies.clock,
@@ -164,10 +218,10 @@ export class CatalogHttpTransport {
           () => transportController.abort(),
         );
         if (!REDIRECT_STATUSES.has(response.status)) break;
-        if (redirectCount >= ARTIFACT_MAX_REDIRECTS) {
+        if (redirectCount >= spec.redirectPolicy.maxRedirects) {
           throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
         }
-        url = parseRedirect(url, response.headers.location, allowlistedOrigins);
+        url = parseRedirect(url, response.headers.location, spec);
         redirectCount += 1;
       }
       assertResponse(response, spec.expectedTransferSizeBytes, resume);

@@ -178,6 +178,7 @@ describe('Task 05 streaming bounds', () => {
     const initial = progress.publish({
       operationId: 'progress-operation-00000001',
       artifactId: artifact,
+      action: 'download',
       state: 'Downloading',
       receivedBytes: 1,
       totalBytes: 10,
@@ -185,6 +186,7 @@ describe('Task 05 streaming bounds', () => {
     const limited = progress.publish({
       operationId: initial.operationId,
       artifactId: artifact,
+      action: 'download',
       state: 'Downloading',
       receivedBytes: 2,
       totalBytes: 10,
@@ -194,6 +196,7 @@ describe('Task 05 streaming bounds', () => {
     const published = progress.publish({
       operationId: initial.operationId,
       artifactId: artifact,
+      action: 'download',
       state: 'Downloading',
       receivedBytes: 3,
       totalBytes: 10,

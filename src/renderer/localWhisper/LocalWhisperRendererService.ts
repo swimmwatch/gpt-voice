@@ -131,6 +131,10 @@ export class LocalWhisperRendererService {
     return this.runArtifact('retry', target);
   }
 
+  public update(target: ArtifactTarget): Promise<LocalWhisperSettingsCommandResult> {
+    return this.runArtifact('update', target);
+  }
+
   public cancelArtifact(operationId: string): Promise<LocalWhisperSettingsCommandResult> {
     return this.runWithExpected((expected) => ({ kind: 'cancelArtifact', operationId, ...expected }));
   }
@@ -183,7 +187,7 @@ export class LocalWhisperRendererService {
   }
 
   private runArtifact(
-    kind: 'download' | 'resume' | 'retry',
+    kind: 'download' | 'resume' | 'retry' | 'update',
     target: ArtifactTarget,
   ): Promise<LocalWhisperSettingsCommandResult> {
     return this.runWithExpected((expected) => ({ kind, ...target, ...expected }));

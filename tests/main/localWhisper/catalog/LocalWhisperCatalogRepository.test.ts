@@ -8,16 +8,26 @@ import type {
   LocalWhisperCatalogRuntimeEntry,
 } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import type { LocalWhisperLanguageCatalogEntry, LocalWhisperMemoryEstimateRecord } from '@shared/localWhisper';
-import { toLocalWhisperRevisionId } from '@shared/localWhisper';
+import { toLocalWhisperArtifactId, toLocalWhisperRevisionId } from '@shared/localWhisper';
 import {
   createFixtureCatalogPayload,
   createFixtureCatalogTrustPolicy,
   signFixtureCatalog,
 } from '../../../fixtures/local-whisper/catalog/fixtureCatalogSigner';
+import {
+  createQualificationCatalogPayload,
+  createQualificationCatalogTrustPolicy,
+  QUALIFICATION_MODEL_ORIGIN,
+  signQualificationCatalog,
+} from '../../../fixtures/local-whisper/catalog/qualificationCatalogSigner';
 
 type Mutable<T> = { -readonly [Key in keyof T]: T[Key] };
 
 function createRepository(document: Uint8Array, trustPolicy = createFixtureCatalogTrustPolicy()) {
+  return new LocalWhisperCatalogRepository({ readDocument: () => document, trustPolicy });
+}
+
+function createQualificationRepository(document: Uint8Array, trustPolicy = createQualificationCatalogTrustPolicy()) {
   return new LocalWhisperCatalogRepository({ readDocument: () => document, trustPolicy });
 }
 
@@ -162,5 +172,92 @@ describe('LocalWhisperCatalogRepository', () => {
 
     assert.deepEqual(unavailable.load(), { success: false, code: 'CATALOG_UNAVAILABLE' });
     assert.deepEqual(noProductionTrust.load(), { success: false, code: 'SIGNATURE_INVALID' });
+  });
+
+  it('accepts only a schema-v2 qualification catalog with the closed six-model release matrix', () => {
+    const payload = createQualificationCatalogPayload();
+    const loaded = createQualificationRepository(signQualificationCatalog(payload)).load();
+
+    assert.equal(loaded.success, true);
+    if (!loaded.success) return;
+    assert.equal(loaded.catalog.payload.schemaVersion, 2);
+    assert.equal(loaded.catalog.payload.purpose, 'qualification');
+    assert.deepEqual(
+      loaded.catalog.payload.models.map(({ identity }) => `${identity.logicalModel}/${identity.variant}`),
+      ['tiny/full', 'base/full', 'small/full', 'medium/full', 'large-v3/q5_0', 'large-v3-turbo/q5_0'],
+    );
+  });
+
+  it('rejects schema, purpose, keyring, and origin substitution across catalog trust domains', () => {
+    const v2FixturePurpose = createQualificationCatalogPayload();
+    (v2FixturePurpose as Mutable<typeof v2FixturePurpose>).purpose = 'fixture';
+    const v1QualificationPurpose = createFixtureCatalogPayload();
+    (v1QualificationPurpose as Mutable<typeof v1QualificationPurpose>).purpose = 'qualification';
+    const productionTrust = { ...createQualificationCatalogTrustPolicy(), purpose: 'production' as const };
+    const substitutedOriginTrust = {
+      ...createQualificationCatalogTrustPolicy(),
+      origins: createQualificationCatalogTrustPolicy().origins.map((entry) =>
+        entry.origin === QUALIFICATION_MODEL_ORIGIN ? { ...entry, origin: 'https://example.invalid' } : entry,
+      ),
+    };
+
+    assert.deepEqual(createQualificationRepository(signQualificationCatalog(v2FixturePurpose)).load(), {
+      success: false,
+      code: 'CATALOG_INVALID',
+    });
+    assert.deepEqual(createQualificationRepository(signQualificationCatalog(v1QualificationPurpose)).load(), {
+      success: false,
+      code: 'CATALOG_INVALID',
+    });
+    assert.deepEqual(
+      createQualificationRepository(
+        signQualificationCatalog(createQualificationCatalogPayload()),
+        productionTrust,
+      ).load(),
+      { success: false, code: 'CATALOG_INVALID' },
+    );
+    assert.deepEqual(
+      createQualificationRepository(
+        signQualificationCatalog(createQualificationCatalogPayload(), toLocalWhisperArtifactId('other-key')!),
+      ).load(),
+      { success: false, code: 'SIGNATURE_INVALID' },
+    );
+    assert.deepEqual(
+      createQualificationRepository(
+        signQualificationCatalog(createQualificationCatalogPayload()),
+        substitutedOriginTrust,
+      ).load(),
+      { success: false, code: 'CATALOG_INVALID' },
+    );
+  });
+
+  it('rejects every mutation of the exact model matrix or signed redirect policy', () => {
+    const missingModel = createQualificationCatalogPayload();
+    (missingModel.models as LocalWhisperCatalogModelEntry[]).pop();
+
+    const wrongModelDigest = createQualificationCatalogPayload();
+    (wrongModelDigest.models[0] as Mutable<LocalWhisperCatalogModelEntry>).transferSha256 = 'f'.repeat(64);
+
+    const wrongModelSource = createQualificationCatalogPayload();
+    const source = wrongModelSource.models[0].source;
+    assert.ok(source);
+    (source as Mutable<typeof source>).url = source.url.replace('ggml-tiny.bin', 'ggml-base.bin');
+
+    const redirectedRuntime = createQualificationCatalogPayload();
+    const runtimePolicy = redirectedRuntime.redirectPolicies?.[0];
+    assert.ok(runtimePolicy);
+    (runtimePolicy as Mutable<typeof runtimePolicy>).maxRedirects = 1;
+
+    const credentialForwarding = createQualificationCatalogPayload();
+    const modelPolicy = credentialForwarding.redirectPolicies?.[1];
+    assert.ok(modelPolicy);
+    (modelPolicy as unknown as { credentialForwarding: boolean }).credentialForwarding = true;
+
+    for (const payload of [missingModel, wrongModelDigest, wrongModelSource, redirectedRuntime, credentialForwarding]) {
+      assert.deepEqual(createQualificationRepository(signQualificationCatalog(payload)).load(), {
+        success: false,
+        code: 'CATALOG_INVALID',
+      });
+    }
   });
 });

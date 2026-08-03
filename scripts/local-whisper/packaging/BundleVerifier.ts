@@ -1,4 +1,4 @@
-import { createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -8,6 +8,7 @@ import { toLocalWhisperArtifactId, toLocalWhisperRevisionId } from '@shared/loca
 import {
   LOCAL_WHISPER_FIXTURE_KEY_PREFIX,
   LOCAL_WHISPER_FIXTURE_ORIGIN_SUFFIX,
+  LOCAL_WHISPER_QUALIFICATION_KEY_PREFIX,
   hasExactKeys,
   isLogicalId,
   isRecord,
@@ -35,6 +36,14 @@ const REQUIRED_BUNDLE_FILES = [
 ] as const;
 const PRIVATE_MATERIAL_PATTERN = /BEGIN (?:ENCRYPTED )?PRIVATE KEY|private[-_.]?key/iu;
 const SYNTHETIC_BYTES_MARKER = 'LOCAL_WHISPER_SYNTHETIC_NON_INFERENCE_';
+
+/** Preserves Task 17 fixture bytes while binding qualification/production signatures to SHA-256 input. */
+export function localWhisperPackSignatureInput(
+  purpose: 'fixture' | 'qualification' | 'production',
+  bytes: Uint8Array,
+): Buffer {
+  return purpose === 'fixture' ? Buffer.from(bytes) : createHash('sha256').update(bytes).digest();
+}
 
 export interface LocalWhisperVerifiedBundle {
   readonly directory: string;
@@ -65,7 +74,11 @@ function findPublicKey(keyring: LocalWhisperKeyringDocument, keyId: string): str
   return entry.publicKeyPem;
 }
 
-function validateEvidenceDocument(value: unknown, purpose: 'fixture' | 'production', kind: string): void {
+function validateEvidenceDocument(
+  value: unknown,
+  purpose: 'fixture' | 'qualification' | 'production',
+  kind: string,
+): void {
   if (!isRecord(value)) throw new Error(`Invalid Local Whisper ${kind} evidence`);
   if (kind === 'sbom') {
     const keys = ['spdxVersion', 'dataLicense', 'SPDXID', 'name', 'documentNamespace', 'packages'];
@@ -103,12 +116,13 @@ async function verifyPackSignature(
   if (pack.expectedFiles.length !== 1) throw new Error('Local Whisper fixture/pack envelope must own one archive');
   const expected = pack.expectedFiles[0];
   const bytes = await readFile(path.join(directory, expected.path));
+  const signatureInput = localWhisperPackSignatureInput(pack.purpose, bytes);
   if (
     bytes.byteLength !== pack.sizeBytes ||
     bytes.byteLength !== expected.sizeBytes ||
     sha256Bytes(bytes) !== pack.sha256 ||
     pack.sha256 !== expected.sha256 ||
-    !verify(null, bytes, createPublicKey(publicKeyPem), Buffer.from(pack.signatureBase64, 'base64'))
+    !verify(null, signatureInput, createPublicKey(publicKeyPem), Buffer.from(pack.signatureBase64, 'base64'))
   ) {
     throw new Error(`Local Whisper ${pack.artifactKind} pack signature or identity mismatch`);
   }
@@ -168,15 +182,43 @@ function assertProductionBoundary(bundle: LocalWhisperVerifiedBundle, fileText: 
   }
 }
 
+function isQualificationOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    return origin === 'https://huggingface.co' || (parsed.hostname === '127.0.0.1' && parsed.port !== '');
+  } catch {
+    return false;
+  }
+}
+
+function assertQualificationBoundary(bundle: LocalWhisperVerifiedBundle, fileText: string): void {
+  if (
+    bundle.manifest.purpose !== 'qualification' ||
+    bundle.manifest.synthetic ||
+    !bundle.manifest.keyId.startsWith(LOCAL_WHISPER_QUALIFICATION_KEY_PREFIX) ||
+    bundle.keyring.publicKeys.some((entry) => !entry.keyId.startsWith(LOCAL_WHISPER_QUALIFICATION_KEY_PREFIX)) ||
+    bundle.keyring.origins.length < 2 ||
+    bundle.keyring.origins.some((entry) => !isQualificationOrigin(entry.origin)) ||
+    bundle.runtimePack.redistributionReview !== 'pending' ||
+    bundle.modelPack.redistributionReview !== 'pending' ||
+    PRIVATE_MATERIAL_PATTERN.test(fileText)
+  ) {
+    throw new Error('Local Whisper qualification trust boundary violation');
+  }
+}
+
 /** Verifies the immutable signed bundle before any package staging or release collection. */
 export class BundleVerifier {
   public async verify(
     bundleDirectory: string,
-    expected: { readonly purpose: 'fixture' | 'production'; readonly manifestSha256?: string },
+    expected: {
+      readonly purpose: 'fixture' | 'qualification' | 'production';
+      readonly manifestSha256?: string;
+    },
   ): Promise<LocalWhisperVerifiedBundle> {
     const directory = path.resolve(bundleDirectory);
-    if (expected.purpose === 'production' && !expected.manifestSha256) {
-      throw new Error('Production Local Whisper bundle requires an externally frozen digest');
+    if (expected.purpose !== 'fixture' && !expected.manifestSha256) {
+      throw new Error(`${expected.purpose} Local Whisper bundle requires an externally frozen digest`);
     }
     const manifestValue = await readCanonicalJson(path.join(directory, 'bundle-manifest.json'));
     const manifest = parseBundleManifest(manifestValue);
@@ -193,6 +235,9 @@ export class BundleVerifier {
     for (const requiredPath of REQUIRED_BUNDLE_FILES) {
       if (!actualPaths.has(requiredPath)) throw new Error(`Missing Local Whisper bundle file: ${requiredPath}`);
     }
+    if (manifest.purpose === 'qualification' && !actualPaths.has('runtime-cuda-pack.manifest.json')) {
+      throw new Error('Missing Local Whisper qualification CUDA runtime manifest');
+    }
     if (manifest.purpose === 'production' && !actualPaths.has('production-approval.json')) {
       throw new Error('Missing Local Whisper production approval');
     }
@@ -207,6 +252,10 @@ export class BundleVerifier {
     const publicKeyPem = findPublicKey(keyring, manifest.keyId);
     const runtimePack = parsePackManifest(await readCanonicalJson(path.join(directory, 'runtime-pack.manifest.json')));
     const modelPack = parsePackManifest(await readCanonicalJson(path.join(directory, 'model-pack.manifest.json')));
+    const qualificationCudaPack =
+      manifest.purpose === 'qualification'
+        ? parsePackManifest(await readCanonicalJson(path.join(directory, 'runtime-cuda-pack.manifest.json')))
+        : null;
     if (
       runtimePack.artifactKind !== 'runtime' ||
       modelPack.artifactKind !== 'model' ||
@@ -217,10 +266,21 @@ export class BundleVerifier {
     ) {
       throw new Error('Local Whisper pack purpose, kind, or key mismatch');
     }
+    if (
+      qualificationCudaPack &&
+      (qualificationCudaPack.purpose !== 'qualification' ||
+        qualificationCudaPack.artifactKind !== 'runtime' ||
+        qualificationCudaPack.backend !== 'cuda' ||
+        qualificationCudaPack.signingKeyId !== manifest.keyId ||
+        runtimePack.backend !== 'cpu')
+    ) {
+      throw new Error('Local Whisper qualification runtime matrix mismatch');
+    }
 
     await Promise.all([
       verifyCatalog(directory, manifest, keyring),
       verifyPackSignature(directory, runtimePack, publicKeyPem),
+      ...(qualificationCudaPack ? [verifyPackSignature(directory, qualificationCudaPack, publicKeyPem)] : []),
       verifyPackSignature(directory, modelPack, publicKeyPem),
       ...[
         ['licenses.json', 'licenses'],
@@ -240,6 +300,7 @@ export class BundleVerifier {
     );
     const fileText = boundedTextFiles.join('\n');
     if (expected.purpose === 'fixture') assertFixtureBoundary(bundle, fileText);
+    else if (expected.purpose === 'qualification') assertQualificationBoundary(bundle, fileText);
     else assertProductionBoundary(bundle, fileText);
     return bundle;
   }

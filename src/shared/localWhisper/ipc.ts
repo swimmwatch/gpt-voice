@@ -57,7 +57,7 @@ export const LOCAL_WHISPER_IPC_CHANNELS = Object.freeze({
   mainOpenSettings: 'local-whisper:main:open-settings',
 } as const);
 
-export const LOCAL_WHISPER_ARTIFACT_ACTIONS = ['download', 'resume', 'cancel', 'retry', 'remove'] as const;
+export const LOCAL_WHISPER_ARTIFACT_ACTIONS = ['download', 'resume', 'cancel', 'retry', 'update', 'remove'] as const;
 export const LOCAL_WHISPER_REFERENCE_KINDS = ['viewLicenseNotice', 'openProvenanceReference'] as const;
 export const LOCAL_WHISPER_ARTIFACT_KINDS = ['runtime', 'model'] as const;
 
@@ -195,7 +195,7 @@ export type LocalWhisperSettingsCommand =
     })
   | (LocalWhisperExpectedState & { readonly kind: 'reset' })
   | (LocalWhisperExpectedState & { readonly kind: 'checkCompatibility' | 'load' | 'unload' })
-  | (LocalWhisperArtifactTarget & { readonly kind: 'download' | 'resume' | 'retry' })
+  | (LocalWhisperArtifactTarget & { readonly kind: 'download' | 'resume' | 'retry' | 'update' })
   | (LocalWhisperExpectedState & { readonly kind: 'cancelArtifact'; readonly operationId: string })
   | (LocalWhisperArtifactTarget & { readonly kind: 'remove'; readonly confirmed: boolean })
   | { readonly kind: 'openManagedFolder'; readonly expectedSnapshotRevision: number }
@@ -380,7 +380,7 @@ export function isLocalWhisperSettingsCommand(value: unknown): value is LocalWhi
   ) {
     return hasExactKeys(value, expectedKeys) && hasExpectedState(value);
   }
-  if (value.kind === 'download' || value.kind === 'resume' || value.kind === 'retry') {
+  if (value.kind === 'download' || value.kind === 'resume' || value.kind === 'retry' || value.kind === 'update') {
     return (
       hasExactKeys(value, [...expectedKeys, 'artifactKind', 'artifactId', 'artifactRevision']) &&
       isArtifactTarget(value)

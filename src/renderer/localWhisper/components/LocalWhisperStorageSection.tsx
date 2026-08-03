@@ -39,6 +39,7 @@ const ACTION_LABELS: Readonly<Record<LocalWhisperArtifactAction, string>> = Obje
   resume: 'Resume',
   cancel: 'Cancel download',
   retry: 'Retry',
+  update: 'Update',
   remove: 'Remove',
 });
 

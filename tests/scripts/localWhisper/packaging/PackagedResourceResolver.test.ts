@@ -54,7 +54,9 @@ describe('LocalWhisperPackagedResourceResolver', () => {
     assert.deepEqual(await resolver.resolve(), {
       availability: 'available',
       filesystemGuardExecutable: path.join(root, 'local-whisper', 'native', 'fs-guard'),
+      filesystemGuardSha256: sha256(guard),
       launcherExecutable: path.join(root, 'local-whisper', 'native', 'local-whisper-launcher'),
+      launcherSha256: sha256(launcher),
     });
     files.set(path.join(root, 'local-whisper', 'native', 'fs-guard'), Buffer.from('changed'));
     await assert.rejects(resolver.resolve(), /IDENTITY_MISMATCH/u);

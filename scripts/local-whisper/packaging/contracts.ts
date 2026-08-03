@@ -1,10 +1,11 @@
 import type { LocalWhisperCatalogPurpose } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 
-export const LOCAL_WHISPER_PACKAGE_MODES = ['disabled', 'fixture', 'production'] as const;
+export const LOCAL_WHISPER_PACKAGE_MODES = ['disabled', 'fixture', 'qualification', 'production'] as const;
 export const LOCAL_WHISPER_PACKAGE_SCHEMA_VERSION = 1 as const;
 export const LOCAL_WHISPER_FIXTURE_ARTIFACT_NAME = 'local-whisper-public-fixture-v1';
 export const LOCAL_WHISPER_FIXTURE_KEY_PREFIX = 'fixture-';
 export const LOCAL_WHISPER_FIXTURE_ORIGIN_SUFFIX = '.invalid';
+export const LOCAL_WHISPER_QUALIFICATION_KEY_PREFIX = 'qualification-';
 
 export type LocalWhisperPackageMode = (typeof LOCAL_WHISPER_PACKAGE_MODES)[number];
 export type LocalWhisperPackagePlatform = 'darwin' | 'linux' | 'win32';
@@ -29,7 +30,8 @@ export interface LocalWhisperBundleManifest {
   readonly purpose: LocalWhisperCatalogPurpose;
   readonly keyId: string;
   readonly catalogSha256: string;
-  readonly createdBy: 'local-whisper-fixture-producer' | 'external-production-authority';
+  readonly createdBy:
+    'local-whisper-fixture-producer' | 'local-whisper-qualification-producer' | 'external-production-authority';
   readonly synthetic: boolean;
   readonly files: readonly LocalWhisperBundleFile[];
 }
@@ -146,7 +148,7 @@ export function parsePackageMode(value: unknown): LocalWhisperPackageMode {
   if (typeof value === 'string' && LOCAL_WHISPER_PACKAGE_MODES.some((mode) => mode === value)) {
     return value as LocalWhisperPackageMode;
   }
-  throw new Error('Local Whisper packaging requires an explicit disabled, fixture, or production mode');
+  throw new Error('Local Whisper packaging requires an explicit disabled, fixture, qualification, or production mode');
 }
 
 export function parsePackagePlatform(value: unknown): LocalWhisperPackagePlatform {
@@ -182,7 +184,7 @@ export function parseKeyringDocument(value: unknown): LocalWhisperKeyringDocumen
   if (!isRecord(value) || !hasExactKeys(value, keys)) throw new Error('Invalid Local Whisper keyring');
   if (
     value.schemaVersion !== LOCAL_WHISPER_PACKAGE_SCHEMA_VERSION ||
-    !['disabled', 'fixture', 'production'].includes(String(value.purpose)) ||
+    !['disabled', 'fixture', 'qualification', 'production'].includes(String(value.purpose)) ||
     !isLogicalId(value.appRevision) ||
     !isPositiveSafeInteger(value.workerProtocolVersion) ||
     !Array.isArray(value.publicKeys) ||
@@ -246,10 +248,12 @@ export function parseBundleManifest(value: unknown): LocalWhisperBundleManifest 
   if (!isRecord(value) || !hasExactKeys(value, keys)) throw new Error('Invalid Local Whisper bundle manifest');
   if (
     value.schemaVersion !== LOCAL_WHISPER_PACKAGE_SCHEMA_VERSION ||
-    (value.purpose !== 'fixture' && value.purpose !== 'production') ||
+    (value.purpose !== 'fixture' && value.purpose !== 'qualification' && value.purpose !== 'production') ||
     !isLogicalId(value.keyId) ||
     !isSha256(value.catalogSha256) ||
-    (value.createdBy !== 'local-whisper-fixture-producer' && value.createdBy !== 'external-production-authority') ||
+    (value.createdBy !== 'local-whisper-fixture-producer' &&
+      value.createdBy !== 'local-whisper-qualification-producer' &&
+      value.createdBy !== 'external-production-authority') ||
     typeof value.synthetic !== 'boolean' ||
     !isUnknownArray(value.files) ||
     value.files.length === 0 ||
@@ -270,6 +274,8 @@ export function parseBundleManifest(value: unknown): LocalWhisperBundleManifest 
   }
   if (
     (value.purpose === 'fixture' && (!value.synthetic || value.createdBy !== 'local-whisper-fixture-producer')) ||
+    (value.purpose === 'qualification' &&
+      (value.synthetic || value.createdBy !== 'local-whisper-qualification-producer')) ||
     (value.purpose === 'production' && (value.synthetic || value.createdBy !== 'external-production-authority'))
   ) {
     throw new Error('Local Whisper bundle purpose mismatch');
@@ -280,7 +286,7 @@ export function parseBundleManifest(value: unknown): LocalWhisperBundleManifest 
 function hasPackIdentityShape(value: Record<string, unknown>): boolean {
   return (
     value.schemaVersion === LOCAL_WHISPER_PACKAGE_SCHEMA_VERSION &&
-    (value.purpose === 'fixture' || value.purpose === 'production') &&
+    (value.purpose === 'fixture' || value.purpose === 'qualification' || value.purpose === 'production') &&
     (value.artifactKind === 'model' || value.artifactKind === 'runtime') &&
     isLogicalId(value.artifactId) &&
     isLogicalId(value.platform) &&
@@ -376,6 +382,7 @@ export function parsePackManifest(value: unknown): LocalWhisperPackManifest {
   }
   if (
     (manifest.purpose === 'fixture' && manifest.redistributionReview !== 'fixture-only') ||
+    (manifest.purpose === 'qualification' && manifest.redistributionReview !== 'pending') ||
     (manifest.purpose === 'production' && manifest.redistributionReview !== 'approved')
   ) {
     throw new Error('Local Whisper pack redistribution state mismatch');

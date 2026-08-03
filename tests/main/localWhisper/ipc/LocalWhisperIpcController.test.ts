@@ -30,6 +30,7 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
   const privileged = new FakePrivilegedPorts();
   const snapshots = createSnapshotService(coordinator);
   let openSettingsCalls = 0;
+  let refreshSettingsCalls = 0;
   const controller = new LocalWhisperIpcController({
     audit,
     transport,
@@ -42,6 +43,10 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
     openSettings: () => {
       openSettingsCalls += 1;
     },
+    refreshSettingsFacts: () => {
+      refreshSettingsCalls += 1;
+      return Promise.resolve();
+    },
   });
   controller.register();
   return {
@@ -52,6 +57,7 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
     snapshots,
     controller,
     getOpenSettingsCalls: () => openSettingsCalls,
+    getRefreshSettingsCalls: () => refreshSettingsCalls,
   };
 }
 
@@ -65,6 +71,17 @@ function expected(snapshots: ReturnType<typeof createSnapshotService>) {
 }
 
 describe('LocalWhisperIpcController', () => {
+  it('starts fail-closed device refresh only for an authorized settings snapshot query', async () => {
+    const harness = createHarness();
+    await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, fakeEvent('settings'));
+    assert.equal(harness.getRefreshSettingsCalls(), 1);
+    await assert.rejects(
+      async () => await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, fakeEvent('foreign')),
+      /settings IPC sender/u,
+    );
+    assert.equal(harness.getRefreshSettingsCalls(), 1);
+  });
+
   it('keeps settings and main capabilities non-overlapping and rejects before effects', async () => {
     const harness = createHarness();
     await assert.rejects(

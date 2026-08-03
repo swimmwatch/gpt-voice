@@ -187,6 +187,8 @@ export default function useLocalWhisperSettings(desktopApi: ElectronAPI): LocalW
           return run('resume', () => service.resume(target), false);
         case 'retry':
           return run('retry', () => service.retry(target), false);
+        case 'update':
+          return run('update', () => service.update(target), false);
         case 'cancel': {
           const operationId = state.snapshot?.progress.find(
             (progress) => progress.artifactId === artifact.id,

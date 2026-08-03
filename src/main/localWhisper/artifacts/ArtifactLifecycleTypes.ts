@@ -1,11 +1,16 @@
 import type {
+  LocalWhisperArtifactAction,
   LocalWhisperArtifactId,
   LocalWhisperFailureCode,
   LocalWhisperRendererSafeFailure,
   LocalWhisperRevisionId,
 } from '@shared/localWhisper';
 
-import type { LocalWhisperAuthenticatedCatalog } from '../catalog/LocalWhisperCatalogTypes';
+import type {
+  LocalWhisperAuthenticatedCatalog,
+  LocalWhisperCatalogRedirectPolicy,
+  LocalWhisperTransferProfile,
+} from '../catalog/LocalWhisperCatalogTypes';
 import type { ManagedArtifactLease } from '../filesystem/ManagedArtifactLease';
 import type { ManagedArtifactRemovalClearance } from '../filesystem/ManagedArtifactRemovalClearance';
 import type { ManagedArtifactDescriptor, ManagedArtifactExpectedFile } from '../filesystem/ManagedArtifactStore';
@@ -45,6 +50,8 @@ export interface LocalWhisperArtifactDownloadSpec {
   readonly originId: LocalWhisperArtifactId;
   readonly origin: string;
   readonly requestUrl: string;
+  readonly redirectPolicy: LocalWhisperCatalogRedirectPolicy;
+  readonly transferProfile: LocalWhisperTransferProfile;
   readonly artifactSignature: {
     readonly keyId: LocalWhisperArtifactId;
     readonly signatureBase64: string;
@@ -61,7 +68,7 @@ export interface ArtifactHttpClientRequest {
   readonly signal: AbortSignal;
   readonly url: string;
   readonly rangeStart: number | null;
-  readonly ifMatch: string | null;
+  readonly ifRange: string | null;
 }
 
 export interface ArtifactHttpClientResponse {
@@ -70,6 +77,9 @@ export interface ArtifactHttpClientResponse {
   readonly headers: {
     readonly contentLength: number | null;
     readonly contentRange: string | null;
+    readonly acceptRanges?: string | null;
+    readonly contentEncoding?: string | null;
+    readonly contentType?: string | null;
     readonly etag: string | null;
     readonly location: string | null;
   };
@@ -106,10 +116,13 @@ export interface StreamingArtifactEntry {
 export interface ArtifactWorkerProcessInput {
   readonly artifactId: LocalWhisperArtifactId;
   readonly expectedFiles: readonly ManagedArtifactExpectedFile[];
+  readonly expectedTransferSha256: string;
+  readonly expectedTransferSizeBytes: number;
   readonly operationId: LocalWhisperArtifactOperationId;
   readonly resume: { readonly offset: number; readonly spoolId: string } | null;
   readonly signal: AbortSignal;
   readonly stream: AsyncIterable<Uint8Array>;
+  readonly transferProfile: LocalWhisperTransferProfile;
   readonly onProgress: (receivedBytes: number) => Promise<void>;
 }
 
@@ -188,6 +201,7 @@ export interface ArtifactSafeLogger {
 export interface LocalWhisperArtifactProgressSnapshot {
   readonly operationId: LocalWhisperArtifactOperationId;
   readonly artifactId: LocalWhisperArtifactId;
+  readonly action: LocalWhisperArtifactAction;
   readonly state: LocalWhisperArtifactOperationState;
   readonly receivedBytes: number;
   readonly totalBytes: number;
