@@ -12,6 +12,7 @@ import {
   type LinuxProductionQualificationDependencies,
 } from '../../../../scripts/local-whisper/qualification/LinuxProductionQualificationOrchestrator';
 import type { LoadedLinuxQualificationEvidence } from '../../../../scripts/local-whisper/qualification/LinuxQualificationEvidenceLoader';
+import type { QualifiedLinuxQualificationState } from '../../../../scripts/local-whisper/qualification/LinuxQualificationState';
 import type { QualificationLinuxFoundation } from '../../../../scripts/local-whisper/qualification/QualificationInputProducer';
 import type { QualificationLinuxResult } from '../../../../scripts/local-whisper/qualification/QualificationResultProducer';
 
@@ -120,6 +121,29 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
       platformGraph: Object.freeze({ platformGraphDigest: DIGEST }),
     });
     const result = qualificationResult(foundation);
+    const state: QualifiedLinuxQualificationState = Object.freeze({
+      schemaVersion: 2,
+      specificationRevision: 10,
+      platform: 'linux',
+      activationState: 'FailClosed',
+      candidateState: 'Frozen',
+      profileState: 'Pass',
+      previousPackageState: 'Pass',
+      fixtureDigest: DIGEST,
+      representativeWindowsExecution: 'NotRun',
+      candidateSemVer: '2.4.0',
+      freezeTimestampUtc: '2026-08-03T12:00:00Z',
+      sourceCommit: SOURCE_COMMIT,
+      candidateInputDigest: DIGEST,
+      platformInputDigest: DIGEST,
+      profileDigests: Object.freeze([DIGEST, DIGEST]),
+      platformGraphDigest: DIGEST,
+      resultDigest: DIGEST,
+      evidenceIndexDigest: DIGEST,
+      predecessorEvidenceDigest: DIGEST,
+      packageDigests: Object.freeze([DIGEST, DIGEST, DIGEST]),
+      reasonCodes: Object.freeze([]),
+    });
     const loaded = loadedEvidence(root);
     const dependencies: LinuxProductionQualificationDependencies = {
       application: {
@@ -169,6 +193,7 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
           produceLinuxFoundation: () => foundation,
         },
         result: { produce: () => result },
+        state: { produce: () => state },
       }),
       evidenceLoader: { load: () => Promise.resolve(loaded) },
       hostIdentity: {
@@ -234,10 +259,11 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
       privateRunRoot,
       qualificationRoot,
       sourceCommit: SOURCE_COMMIT,
-      workspaceRoot: root,
+      workspaceRoot: path.join(root, 'candidate-worktree'),
     });
 
     assert.equal(output.predecessorEvidenceDigest, DIGEST);
+    assert.equal(output.state.candidateState, 'Frozen');
     assert.equal(applicationRuns, 1);
     assert.equal(serverStops, 1);
     assert.equal(tlsDestroys, 1);
@@ -245,6 +271,7 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
       JSON.parse(await readFile(path.join(qualificationRoot, 'linux', 'evidence', 'linux-cpu-base-full.json'), 'utf8')),
       { id: 'linux-cpu-base-full', status: 'Pass' },
     );
+    assert.deepEqual(JSON.parse(await readFile(path.join(qualificationRoot, 'linux-state.json'), 'utf8')), state);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

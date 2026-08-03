@@ -94,6 +94,7 @@
     "produce:local-whisper:qualification:runtime-pack:cpu": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu",
     "produce:local-whisper:qualification:runtime-pack:cuda": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cuda",
     "verify:local-whisper:qualification:inputs": "node --import tsx scripts/local-whisper/qualification/verify-qualification-inputs.ts",
+    "run:local-whisper:qualification:linux": "node --import tsx scripts/local-whisper/qualification/run-linux-production-qualification.ts",
     "verify:local-whisper:qualification:linux": "npm run test:local-whisper:composition:activation && npm run test:local-whisper:qualification && npm run verify:local-whisper:qualification:inputs && node --import tsx scripts/local-whisper/qualification/verify-linux-qualification.ts",
     "verify:local-whisper:downgrade": "node --import tsx scripts/local-whisper/qualification/verify-downgrade.ts",
     "test:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx --test \"tests/main/localWhisper/filesystem/*.test.ts\"",

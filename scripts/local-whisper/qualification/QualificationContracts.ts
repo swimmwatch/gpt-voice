@@ -43,7 +43,7 @@ const PRIVATE_KEYS = new Set([
   'transcript',
 ]);
 const PRIVATE_PATH_PATTERN = /^(?:\/(?:home|Users)\/|[A-Za-z]:\\Users\\)/u;
-const ALLOWED_REASON_CODES = new Set([
+const PENDING_REASON_CODES = new Set([
   'AUTHENTICATED_PRODUCTION_CATALOG_UNAVAILABLE',
   'PRODUCTION_RUNTIME_MODEL_ARTIFACTS_UNAVAILABLE',
   'LICENSE_REDISTRIBUTION_APPROVAL_UNAVAILABLE',
@@ -51,6 +51,14 @@ const ALLOWED_REASON_CODES = new Set([
   'LIVE_WORKER_AUTHORITY_COMPOSITION_INCOMPLETE',
   'PREVIOUS_LINUX_PACKAGE_UNAVAILABLE',
 ]);
+const QUALIFIED_REASON_CODES = new Set([
+  'AUTHENTICATED_PRODUCTION_CATALOG_UNAVAILABLE',
+  'LICENSE_REDISTRIBUTION_APPROVAL_UNAVAILABLE',
+]);
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
+const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
+const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 
 export type QualificationDocumentKind = keyof typeof SCHEMA_FILES;
 export type DigestQualificationDocumentKind = keyof typeof DOCUMENT_DIGEST_FIELDS;
@@ -210,7 +218,7 @@ export class LocalWhisperQualificationValidator {
     if (RETIRED_ACTIVE_SCHEMA_FILES.some((fileName) => existsSync(path.join(schemaRoot, fileName)))) {
       throw new Error('QUALIFICATION_RETIRED_SCHEMA_PRESENT');
     }
-    this.validateLinuxState(parseJson(path.join(this.qualificationRoot, 'linux-state.json')));
+    this.validateLinuxStateDocument(parseJson(path.join(this.qualificationRoot, 'linux-state.json')));
   }
 
   public validateDocument(kind: QualificationDocumentKind, document: unknown): void {
@@ -324,8 +332,22 @@ export class LocalWhisperQualificationValidator {
 
   public readLinuxState(): Readonly<Record<string, unknown>> {
     const state = parseJson(path.join(this.qualificationRoot, 'linux-state.json'));
-    this.validateLinuxState(state);
+    this.validateLinuxStateDocument(state);
     return Object.freeze({ ...(state as Record<string, unknown>) });
+  }
+
+  public validateLinuxStateDocument(value: unknown): void {
+    assertQualificationPrivacySafe(value);
+    if (!isRecord(value)) throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
+    if (value.schemaVersion === 1) {
+      this.validatePendingLinuxState(value);
+      return;
+    }
+    if (value.schemaVersion === 2) {
+      this.validateQualifiedLinuxState(value);
+      return;
+    }
+    throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
   }
 
   private assertDigest(document: Record<string, unknown>, field: string): void {
@@ -529,9 +551,7 @@ export class LocalWhisperQualificationValidator {
     );
   }
 
-  private validateLinuxState(value: unknown): void {
-    assertQualificationPrivacySafe(value);
-    if (!isRecord(value)) throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
+  private validatePendingLinuxState(value: Record<string, unknown>): void {
     const expectedKeys = [
       'schemaVersion',
       'platform',
@@ -557,11 +577,82 @@ export class LocalWhisperQualificationValidator {
       value.fixtureDigest !== LOCAL_WHISPER_QUALIFICATION_FIXTURE_DIGEST ||
       value.representativeWindowsExecution !== 'NotRun' ||
       !Array.isArray(reasons) ||
-      reasons.length !== ALLOWED_REASON_CODES.size ||
+      reasons.length !== PENDING_REASON_CODES.size ||
       new Set(reasons).size !== reasons.length ||
-      reasons.some((reason) => typeof reason !== 'string' || !ALLOWED_REASON_CODES.has(reason))
+      reasons.some((reason) => typeof reason !== 'string' || !PENDING_REASON_CODES.has(reason))
     ) {
       throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
     }
+  }
+
+  private validateQualifiedLinuxState(value: Record<string, unknown>): void {
+    const expectedKeys = [
+      'schemaVersion',
+      'specificationRevision',
+      'platform',
+      'activationState',
+      'candidateState',
+      'profileState',
+      'previousPackageState',
+      'fixtureDigest',
+      'representativeWindowsExecution',
+      'candidateSemVer',
+      'freezeTimestampUtc',
+      'sourceCommit',
+      'candidateInputDigest',
+      'platformInputDigest',
+      'profileDigests',
+      'platformGraphDigest',
+      'resultDigest',
+      'evidenceIndexDigest',
+      'predecessorEvidenceDigest',
+      'packageDigests',
+      'reasonCodes',
+    ];
+    const reasons = value.reasonCodes;
+    const profileDigests = value.profileDigests;
+    const packageDigests = value.packageDigests;
+    const digestFields = [
+      value.candidateInputDigest,
+      value.platformInputDigest,
+      value.platformGraphDigest,
+      value.resultDigest,
+      value.evidenceIndexDigest,
+      value.predecessorEvidenceDigest,
+    ];
+    if (
+      Object.keys(value).length !== expectedKeys.length ||
+      Object.keys(value).some((key) => !expectedKeys.includes(key)) ||
+      value.specificationRevision !== 10 ||
+      value.platform !== 'linux' ||
+      value.activationState !== 'FailClosed' ||
+      value.candidateState !== 'Frozen' ||
+      value.profileState !== 'Pass' ||
+      value.previousPackageState !== 'Pass' ||
+      value.fixtureDigest !== LOCAL_WHISPER_QUALIFICATION_FIXTURE_DIGEST ||
+      value.representativeWindowsExecution !== 'NotRun' ||
+      typeof value.candidateSemVer !== 'string' ||
+      !SEMVER_PATTERN.test(value.candidateSemVer) ||
+      typeof value.freezeTimestampUtc !== 'string' ||
+      !TIMESTAMP_PATTERN.test(value.freezeTimestampUtc) ||
+      !Number.isFinite(Date.parse(value.freezeTimestampUtc)) ||
+      typeof value.sourceCommit !== 'string' ||
+      !COMMIT_PATTERN.test(value.sourceCommit) ||
+      digestFields.some((digest) => typeof digest !== 'string' || !SHA256_PATTERN.test(digest)) ||
+      !Array.isArray(profileDigests) ||
+      profileDigests.length !== 2 ||
+      profileDigests.some((digest) => typeof digest !== 'string' || !SHA256_PATTERN.test(digest)) ||
+      !Array.isArray(packageDigests) ||
+      packageDigests.length !== 3 ||
+      packageDigests.some((digest) => typeof digest !== 'string' || !SHA256_PATTERN.test(digest)) ||
+      !Array.isArray(reasons) ||
+      reasons.length !== QUALIFIED_REASON_CODES.size ||
+      new Set(reasons).size !== reasons.length ||
+      reasons.some((reason) => typeof reason !== 'string' || !QUALIFIED_REASON_CODES.has(reason))
+    ) {
+      throw new Error('QUALIFICATION_LINUX_STATE_INVALID');
+    }
+    assertSortedUnique(profileDigests as string[], 'QUALIFICATION_LINUX_STATE_INVALID');
+    assertSortedUnique(packageDigests as string[], 'QUALIFICATION_LINUX_STATE_INVALID');
   }
 }

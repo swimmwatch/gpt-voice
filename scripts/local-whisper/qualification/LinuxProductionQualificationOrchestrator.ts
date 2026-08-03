@@ -13,6 +13,7 @@ import {
   LinuxQualificationPackageBuilder,
   type LinuxQualificationPackageBuildResult,
 } from './LinuxQualificationPackageBuilder';
+import { LinuxQualificationStateProducer, type QualifiedLinuxQualificationState } from './LinuxQualificationState';
 import { QualificationCommandRunner } from './QualificationCommandRunner';
 import { LocalWhisperQualificationBundleProducer } from './QualificationBundleProducer';
 import { LocalWhisperQualificationValidator } from './QualificationContracts';
@@ -58,11 +59,13 @@ export interface LinuxProductionQualificationOutput {
   readonly packages: LinuxQualificationPackageBuildResult['packages'];
   readonly predecessorEvidenceDigest: string;
   readonly result: QualificationLinuxResult;
+  readonly state: QualifiedLinuxQualificationState;
 }
 
 export interface QualificationGraphPorts {
   readonly input: Pick<LocalWhisperQualificationInputProducer, 'produceCandidate' | 'produceLinuxFoundation'>;
   readonly result: Pick<LocalWhisperQualificationResultProducer, 'produce'>;
+  readonly state: Pick<LinuxQualificationStateProducer, 'produce'>;
 }
 
 export interface QualificationArtifactServerPort {
@@ -127,6 +130,7 @@ async function writeSuccessfulEvidence(
   qualificationRoot: string,
   privateRunRoot: string,
   result: QualificationLinuxResult,
+  state: QualifiedLinuxQualificationState,
 ): Promise<void> {
   const publicLinuxRoot = path.join(qualificationRoot, 'linux');
   const publicEvidenceRoot = path.join(publicLinuxRoot, 'evidence');
@@ -164,6 +168,7 @@ async function writeSuccessfulEvidence(
       ),
     ),
   ]);
+  await writeCanonicalJson(path.join(qualificationRoot, 'linux-state.json'), state);
 }
 
 /** Runs the exact forward-only Linux production-application qualification graph. */
@@ -337,12 +342,22 @@ export class LinuxProductionQualificationOrchestrator {
           sanitizedLabel: 'Linux predecessor AppImage compatibility',
         }),
       ]);
-      await writeSuccessfulEvidence(input.qualificationRoot, input.privateRunRoot, result);
+      const state = graph.state.produce({
+        candidateSemVer: input.candidateSemVer,
+        freezeTimestampUtc: input.freezeTimestampUtc,
+        sourceCommit: input.sourceCommit,
+        foundation,
+        packages: packages.packages,
+        predecessorEvidenceDigest: predecessor.sanitizedEvidenceDigest,
+        result,
+      });
+      await writeSuccessfulEvidence(input.qualificationRoot, input.privateRunRoot, result, state);
       return Object.freeze({
         foundation,
         packages: packages.packages,
         predecessorEvidenceDigest: predecessor.sanitizedEvidenceDigest,
         result,
+        state,
       });
     } finally {
       await stopServer().catch(() => undefined);
@@ -363,6 +378,7 @@ export class LinuxProductionQualificationOrchestrator {
       process.platform !== 'linux' ||
       roots.some((value) => !path.isAbsolute(value) || value.includes('\0')) ||
       path.resolve(input.privateRunRoot) === path.parse(path.resolve(input.privateRunRoot)).root ||
+      path.resolve(input.workspaceRoot) !== path.resolve(input.candidateWorktree) ||
       !SEMVER_PATTERN.test(input.candidateSemVer) ||
       !TIMESTAMP_PATTERN.test(input.freezeTimestampUtc) ||
       !Number.isFinite(Date.parse(input.freezeTimestampUtc)) ||
@@ -390,6 +406,7 @@ export function createLinuxProductionQualificationOrchestrator(): LinuxProductio
       return Object.freeze({
         input: new LocalWhisperQualificationInputProducer(validator),
         result: new LocalWhisperQualificationResultProducer(validator),
+        state: new LinuxQualificationStateProducer(validator),
       });
     },
     evidenceLoader: new LinuxQualificationEvidenceLoader(),
