@@ -142,10 +142,12 @@ export class LocalWhisperDeviceChallengeAuthority {
   private readonly liveChallenges = new Map<string, LocalWhisperDeviceProofDomain>();
   public readonly authorityId: string;
 
-  public constructor(private readonly randomBytes: (size: number) => Uint8Array = nodeRandomBytes) {
-    const authority = randomBytes(AUTHORITY_BYTES);
+  public constructor(
+    private readonly randomBytes: (size: number) => Uint8Array = nodeRandomBytes,
+    authority: Uint8Array = randomBytes(AUTHORITY_BYTES),
+  ) {
     if (authority.byteLength !== AUTHORITY_BYTES) throw new Error('Invalid authority entropy');
-    this.authorityId = Buffer.from(authority).toString('base64url');
+    this.authorityId = Buffer.from(Uint8Array.from(authority)).toString('base64url');
   }
 
   public issue(domain: LocalWhisperDeviceProofDomain): string {

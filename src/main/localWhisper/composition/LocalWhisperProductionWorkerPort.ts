@@ -213,10 +213,15 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     if (!model || !model.compatibleRuntimePackRevisions.includes(runtime.identity.packRevision)) {
       return failure('MODEL_INCOMPATIBLE');
     }
-    const challengeAuthority = new LocalWhisperDeviceChallengeAuthority(this.dependencies.randomBytes);
+    let challengeAuthority: LocalWhisperDeviceChallengeAuthority | null = null;
     let modelAuthority: Awaited<ReturnType<LocalWhisperModelLaunchAuthorityFactory['acquire']>> | null = null;
     try {
       modelAuthority = await this.dependencies.modelAuthorities.acquire(this.dependencies.catalog, model);
+      const operationAuthority = new LocalWhisperDeviceChallengeAuthority(
+        this.dependencies.randomBytes,
+        modelAuthority.operationNonce,
+      );
+      challengeAuthority = operationAuthority;
       const residency = Object.freeze({
         engine: runtime.identity.engine,
         runtimePackRevision: runtime.identity.packRevision,
@@ -237,7 +242,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
 
       if (request.settings.execution.target === 'cpu') {
         loadRequest = {
-          authorityId: challengeAuthority.authorityId,
+          authorityId: operationAuthority.authorityId,
           configurationEpoch: request.epochs.configuration,
           deviceBinding: Object.freeze({ kind: 'cpu' as const }),
           modelLease: modelAuthority.modelLease,
@@ -246,7 +251,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           revalidateDeviceBinding: () => Promise.resolve(Object.freeze({ kind: 'cpu' as const })),
           validateEvidence: (evidence) =>
             Promise.resolve(
-              evidence.authorityId === challengeAuthority.authorityId &&
+              evidence.authorityId === operationAuthority.authorityId &&
                 evidence.deviceBinding.kind === 'cpu' &&
                 evidence.effectiveBackend === 'cpu' &&
                 sameModel(evidence.model, model.identity) &&
@@ -266,14 +271,14 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         const first = await this.discover(runtime, request.epochs.configuration, request.signal);
         const selected = this.dependencies.topology.resolve(selectedDeviceId, first.registryFingerprint);
         if (!selected) return failure('DEVICE_NOT_FOUND');
-        const challenge = challengeAuthority.issue('load');
+        const challenge = operationAuthority.issue('load');
         workerInputBootstrap = encodeLocalWhisperDeviceAuthority(
-          challengeAuthority.authorityId,
+          operationAuthority.authorityId,
           request.epochs.configuration,
           first.generation,
         );
         loadRequest = {
-          authorityId: challengeAuthority.authorityId,
+          authorityId: operationAuthority.authorityId,
           configurationEpoch: request.epochs.configuration,
           deviceBinding: Object.freeze({ kind: 'gpuIndex' as const, index: selected.ordinal }),
           loadChallenge: challenge,
@@ -294,7 +299,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
             return (
               this.sameDevice(entry, selected) &&
               'loadProof' in evidence &&
-              challengeAuthority.consume('load', challenge) &&
+              operationAuthority.consume('load', challenge) &&
               evidence.activatedOrdinal === selected.ordinal &&
               evidence.actualNativeIdentity === selected.nativeIdentity &&
               evidence.primaryExecutionNativeIdentity === selected.nativeIdentity &&
@@ -308,7 +313,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
                 createLocalWhisperDeviceProof('load', {
                   activatedOrdinal: evidence.activatedOrdinal,
                   actualNativeIdentity: evidence.actualNativeIdentity,
-                  authorityId: challengeAuthority.authorityId,
+                  authorityId: operationAuthority.authorityId,
                   backendId: runtime.identity.backend,
                   challenge,
                   configurationEpoch: BigInt(request.epochs.configuration),
@@ -377,7 +382,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
       if (error instanceof LocalWhisperRuntimeRegistryDiscoveryError) return failure(error.code);
       return failure('MODEL_LOAD_FAILED');
     } finally {
-      challengeAuthority.invalidate();
+      challengeAuthority?.invalidate();
       if (
         modelAuthority &&
         !modelAuthority.modelLease.released &&

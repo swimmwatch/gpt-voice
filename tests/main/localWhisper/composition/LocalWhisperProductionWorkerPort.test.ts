@@ -463,10 +463,7 @@ function request(settings: LocalWhisperPublicSettings, backend: LocalWhisperBack
   };
 }
 
-function harness(
-  backend: 'cpu' | 'cuda',
-  options: Parameters<typeof values>[1] = {},
-) {
+function harness(backend: 'cpu' | 'cuda', options: Parameters<typeof values>[1] = {}) {
   const selected = values(backend, options);
   const authorities = new RuntimeAuthorities();
   const registry = new RegistryDiscovery();
@@ -596,7 +593,12 @@ describe('LocalWhisperProductionWorkerPort', () => {
       value.runtimeAuthorities.calls.map(({ launchMode }) => launchMode),
       ['fullLoad'],
     );
-    assert.ok(value.lifecycle.authorities[0]?.modelGuardAuthority);
+    const authority = value.lifecycle.authorities[0];
+    assert.ok(authority?.modelGuardAuthority);
+    assert.equal(
+      value.lifecycle.loadRequests[0]?.authorityId,
+      Buffer.from(authority.modelGuardAuthority.operationNonce).toString('base64url'),
+    );
     assert.deepEqual(value.lifecycle.session.calls, ['warmup']);
     assert.deepEqual(
       await loaded.value.transcribe({
@@ -625,7 +627,11 @@ describe('LocalWhisperProductionWorkerPort', () => {
       value.runtimeAuthorities.calls.map(({ launchMode }) => launchMode),
       ['registry', 'fullLoad', 'registry', 'registry'],
     );
-    assert.equal(value.lifecycle.authorities[0]?.workerInputBootstrap?.byteLength, 40);
+    const authority = value.lifecycle.authorities[0];
+    assert.ok(authority?.modelGuardAuthority);
+    assert.ok(authority.workerInputBootstrap);
+    assert.equal(authority.workerInputBootstrap.byteLength, 40);
+    assert.deepEqual(authority.workerInputBootstrap.subarray(8, 24), authority.modelGuardAuthority.operationNonce);
     assert.equal(await loaded.value.revalidate(), true);
     assert.equal(value.registry.calls, 4);
     assert.equal(await loaded.value.terminate(), true);
