@@ -140,6 +140,7 @@ export class ArtifactCatalogResolver {
       entry.qualificationStatus,
       'RUNTIME_BLOCKED',
       'RUNTIME_INCOMPATIBLE',
+      catalog.payload.purpose === 'qualification',
     );
     validateTransferIdentity(identity.archiveSizeBytes, identity.archiveSha256);
     const origin = this.origin(catalog, identity.originId);
@@ -181,6 +182,7 @@ export class ArtifactCatalogResolver {
       entry.qualificationStatus,
       'MODEL_BLOCKED',
       'MODEL_INCOMPATIBLE',
+      catalog.payload.purpose === 'qualification',
     );
     validateTransferIdentity(entry.transferSizeBytes, entry.transferSha256);
     const origin = this.origin(catalog, entry.originId);
@@ -220,8 +222,11 @@ export class ArtifactCatalogResolver {
     qualificationStatus: 'qualified' | 'estimateOnly' | 'planned',
     blockedCode: LocalWhisperFailureCode,
     incompatibleCode: LocalWhisperFailureCode,
+    qualificationPurpose: boolean,
   ): void {
     if (blocked) throw new LocalWhisperArtifactLifecycleError(blockedCode);
-    if (qualificationStatus === 'planned') throw new LocalWhisperArtifactLifecycleError(incompatibleCode);
+    if (qualificationStatus === 'planned' && !qualificationPurpose) {
+      throw new LocalWhisperArtifactLifecycleError(incompatibleCode);
+    }
   }
 }

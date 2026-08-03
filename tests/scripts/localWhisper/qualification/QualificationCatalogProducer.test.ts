@@ -3,6 +3,11 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
+import { ArtifactCatalogResolver } from '@main/localWhisper/artifacts/ArtifactCatalogResolver';
+import {
+  createManagedModelDescriptor,
+  createManagedRuntimeDescriptor,
+} from '@main/localWhisper/filesystem/ManagedArtifactStore';
 import {
   LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
   LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM,
@@ -81,12 +86,40 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       },
     }).load();
     assert.equal(loaded.success, true);
+    if (!loaded.success) assert.fail(loaded.code);
     assert.equal(payload.models.length, 6);
     assert.equal(payload.runtimes.length, 2);
     assert.equal(payload.memoryEstimates.length, 12);
-    assert.equal(payload.runtimes[0]!.identity.backend, 'cpu');
-    assert.equal(payload.runtimes[0]!.qualificationProfileDigest, undefined);
-    assert.equal(payload.models[0]!.qualificationProfileDigest, undefined);
+    assert.equal(payload.runtimes[0].identity.backend, 'cpu');
+    assert.equal(payload.runtimes[0].qualificationProfileDigest, undefined);
+    assert.equal(payload.models[0].qualificationProfileDigest, undefined);
+    const resolver = new ArtifactCatalogResolver({ getCatalog: () => loaded.catalog });
+    assert.doesNotThrow(() =>
+      resolver.resolve(createManagedRuntimeDescriptor(loaded.catalog, loaded.catalog.payload.runtimes[0]).artifactId),
+    );
+    assert.doesNotThrow(() =>
+      resolver.resolve(createManagedModelDescriptor(loaded.catalog, loaded.catalog.payload.models[0]).artifactId),
+    );
+    const productionResolver = new ArtifactCatalogResolver({
+      getCatalog: () => ({
+        ...loaded.catalog,
+        payload: { ...loaded.catalog.payload, purpose: 'production' as const },
+      }),
+    });
+    assert.throws(
+      () =>
+        productionResolver.resolve(
+          createManagedRuntimeDescriptor(loaded.catalog, loaded.catalog.payload.runtimes[0]).artifactId,
+        ),
+      /RUNTIME_INCOMPATIBLE/u,
+    );
+    assert.throws(
+      () =>
+        productionResolver.resolve(
+          createManagedModelDescriptor(loaded.catalog, loaded.catalog.payload.models[0]).artifactId,
+        ),
+      /MODEL_INCOMPATIBLE/u,
+    );
   });
 
   it('rejects non-loopback runtime origins and incomplete runtime matrices', () => {
