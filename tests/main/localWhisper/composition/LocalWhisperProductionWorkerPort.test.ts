@@ -2,7 +2,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import type { LocalWhisperAuthenticatedCatalog } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
+import type {
+  LocalWhisperAuthenticatedCatalog,
+  LocalWhisperCatalogPurpose,
+} from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import { ManagedArtifactLease } from '@main/localWhisper/filesystem/ManagedArtifactLease';
 import {
   LocalWhisperProductionWorkerPort,
@@ -48,7 +51,13 @@ const REGISTRY = Object.freeze({
 const REGISTRY_FINGERPRINT = createLocalWhisperRegistryFingerprint(REGISTRY);
 const MODEL_DIGEST = 'c'.repeat(64);
 
-function values(backend: 'cpu' | 'cuda'): {
+function values(
+  backend: 'cpu' | 'cuda',
+  options: {
+    readonly purpose?: LocalWhisperCatalogPurpose;
+    readonly qualificationStatus?: 'qualified' | 'estimateOnly' | 'planned';
+  } = {},
+): {
   readonly catalog: LocalWhisperAuthenticatedCatalog;
   readonly settings: LocalWhisperPublicSettings;
 } {
@@ -59,6 +68,7 @@ function values(backend: 'cpu' | 'cuda'): {
   const target = backend === 'cpu' ? ('cpu' as const) : ('gpu' as const);
   const runtime = Object.freeze({
     ...sourceRuntime,
+    qualificationStatus: options.qualificationStatus ?? sourceRuntime.qualificationStatus,
     identity: Object.freeze({
       ...sourceRuntime.identity,
       backend,
@@ -66,7 +76,11 @@ function values(backend: 'cpu' | 'cuda'): {
       buildRevision: RUNTIME_DIGEST as LocalWhisperRevisionId,
     }),
   });
-  const payload = Object.freeze({ ...source, runtimes: Object.freeze([runtime]) });
+  const payload = Object.freeze({
+    ...source,
+    purpose: options.purpose ?? source.purpose,
+    runtimes: Object.freeze([runtime]),
+  });
   return {
     catalog: {
       payload,
@@ -449,8 +463,11 @@ function request(settings: LocalWhisperPublicSettings, backend: LocalWhisperBack
   };
 }
 
-function harness(backend: 'cpu' | 'cuda') {
-  const selected = values(backend);
+function harness(
+  backend: 'cpu' | 'cuda',
+  options: Parameters<typeof values>[1] = {},
+) {
+  const selected = values(backend, options);
   const authorities = new RuntimeAuthorities();
   const registry = new RegistryDiscovery();
   const lifecycle = new Lifecycle();
@@ -529,6 +546,16 @@ describe('LocalWhisperProductionWorkerPort', () => {
       value.authorities.calls.map(({ launchMode }) => launchMode),
       ['registry'],
     );
+  });
+
+  it('admits a planned CUDA candidate only inside the isolated qualification-purpose graph', async () => {
+    const qualification = harness('cuda', { purpose: 'qualification', qualificationStatus: 'planned' });
+    await qualification.port.refreshAvailableDevices(7);
+    assert.equal(qualification.registry.calls, 1);
+
+    const production = harness('cuda', { purpose: 'production', qualificationStatus: 'planned' });
+    await production.port.refreshAvailableDevices(7);
+    assert.equal(production.registry.calls, 0);
   });
 
   it('runs a CPU probe without creating GPU registry or device authority input', async () => {

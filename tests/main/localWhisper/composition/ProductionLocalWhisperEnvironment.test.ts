@@ -15,6 +15,11 @@ import {
   createFixtureCatalogTrustPolicy,
   signFixtureCatalog,
 } from '../../../fixtures/local-whisper/catalog/fixtureCatalogSigner';
+import {
+  createQualificationCatalogPayload,
+  createQualificationCatalogTrustPolicy,
+  signQualificationCatalog,
+} from '../../../fixtures/local-whisper/catalog/qualificationCatalogSigner';
 
 function dependencies(calls: { reads: number; spawns: number }): LocalWhisperProductionEnvironmentDependencies {
   return {
@@ -65,6 +70,52 @@ describe('production Local Whisper environment activation', () => {
       document: signFixtureCatalog(createFixtureCatalogPayload()),
       trustPolicy: createFixtureCatalogTrustPolicy(),
     }).create();
+
+    assert.equal(environment.facts.snapshot.catalogRevision, null);
+    assert.deepEqual(calls, { reads: 0, spawns: 0 });
+    await environment.dispose();
+  });
+
+  it('rejects qualification trust unless the isolated activation purpose is explicit', async () => {
+    const calls = { reads: 0, spawns: 0 };
+    const environment = await new ProductionLocalWhisperEnvironmentFactory(dependencies(calls), {
+      document: signQualificationCatalog(createQualificationCatalogPayload()),
+      trustPolicy: createQualificationCatalogTrustPolicy(),
+    }).create();
+
+    assert.equal(environment.facts.snapshot.catalogRevision, null);
+    assert.deepEqual(calls, { reads: 0, spawns: 0 });
+    await environment.dispose();
+  });
+
+  it('admits explicit qualification activation through the production composition boundary', async () => {
+    const calls = { reads: 0, spawns: 0 };
+    const environment = await new ProductionLocalWhisperEnvironmentFactory(dependencies(calls), {
+      activationPurpose: 'qualification',
+      document: signQualificationCatalog(createQualificationCatalogPayload()),
+      trustPolicy: createQualificationCatalogTrustPolicy(),
+    }).create();
+
+    // The fixture deliberately has no packaged helper manifest. Reaching its
+    // authenticated read proves the explicit qualification mode crossed the
+    // catalog boundary without granting fixture or production trust.
+    assert.equal(environment.facts.snapshot.catalogRevision, null);
+    assert.deepEqual(calls, { reads: 1, spawns: 0 });
+    await environment.dispose();
+  });
+
+  it('rejects qualification hooks on the packaged production activation path', async () => {
+    const calls = { reads: 0, spawns: 0 };
+    const environment = await new ProductionLocalWhisperEnvironmentFactory(
+      {
+        ...dependencies(calls),
+        qualificationHooks: { trustedCertificateAuthorities: ['qualification-only'] },
+      },
+      {
+        document: signQualificationCatalog({ ...createQualificationCatalogPayload(), purpose: 'production' }),
+        trustPolicy: { ...createQualificationCatalogTrustPolicy(), purpose: 'production' },
+      },
+    ).create();
 
     assert.equal(environment.facts.snapshot.catalogRevision, null);
     assert.deepEqual(calls, { reads: 0, spawns: 0 });

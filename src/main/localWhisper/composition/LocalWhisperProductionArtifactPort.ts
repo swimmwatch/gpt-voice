@@ -56,6 +56,7 @@ export interface LocalWhisperProductionArtifactInventoryDependencies {
 /** Owns inventory revisions shared by artifact commands, coordinator epochs, and renderer facts. */
 export class LocalWhisperProductionArtifactInventory implements ArtifactInventoryPort {
   private inventoryValue: LocalWhisperInventorySnapshot;
+  private readonly listeners = new Set<(inventory: LocalWhisperInventorySnapshot) => void>();
 
   public constructor(private readonly dependencies: LocalWhisperProductionArtifactInventoryDependencies) {
     this.inventoryValue = dependencies.initialInventory;
@@ -75,6 +76,11 @@ export class LocalWhisperProductionArtifactInventory implements ArtifactInventor
     return this.inventoryValue.revision;
   }
 
+  public subscribe(listener: (inventory: LocalWhisperInventorySnapshot) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
   public async refresh(catalog: LocalWhisperAuthenticatedCatalog): Promise<number> {
     if (catalog !== this.dependencies.catalog) throw new Error('Local Whisper catalog authority changed');
     const next = this.dependencies.inventoryRepository.reconstruct({
@@ -83,6 +89,7 @@ export class LocalWhisperProductionArtifactInventory implements ArtifactInventor
     });
     this.inventoryValue = next;
     this.dependencies.onInventoryChanged(next);
+    for (const listener of this.listeners) listener(next);
     return next.revision;
   }
 }

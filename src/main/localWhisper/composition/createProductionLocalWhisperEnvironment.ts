@@ -34,6 +34,7 @@ import { FileBackedArtifactStreamingWorker } from '../artifacts/FileBackedArtifa
 import { LocalWhisperArtifactService } from '../artifacts/LocalWhisperArtifactService';
 import { NodeArtifactDiskSpace } from '../artifacts/NodeArtifactDiskSpace';
 import { NodeArtifactHttpClient } from '../artifacts/NodeArtifactHttpClient';
+import type { ArtifactHttpClient } from '../artifacts/ArtifactLifecycleTypes';
 import { StreamingArtifactExtractor } from '../artifacts/StreamingArtifactExtractor';
 import { StreamingArtifactVerifier } from '../artifacts/StreamingArtifactVerifier';
 import type { LocalWhisperBackendProbeInput } from '../capability/LocalWhisperCapabilityAdapters';
@@ -43,6 +44,7 @@ import {
   getLocalWhisperModelIdentityKey,
   getLocalWhisperRuntimeIdentityKey,
   type LocalWhisperAuthenticatedCatalog,
+  type LocalWhisperCatalogPurpose,
   type LocalWhisperCatalogTrustPolicy,
 } from '../catalog/LocalWhisperCatalogTypes';
 import {
@@ -123,9 +125,24 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   readonly readFile: (path: string) => Promise<Uint8Array>;
   readonly resourcesPath: string;
   readonly spawnProcess: typeof spawn;
+  /** Accepted only by an explicitly qualification-purpose factory input. */
+  readonly qualificationHooks?: {
+    readonly artifactHttpClient?: ArtifactHttpClient;
+    readonly trustedCertificateAuthorities?: readonly string[];
+    readonly onSessionProcessLaunched?: (event: {
+      readonly backend: LocalWhisperBackend;
+      readonly launchMode: 'fullLoad' | 'probe' | 'registry';
+      readonly pid: number;
+    }) => void;
+  };
 }
 
 export interface LocalWhisperProductionCatalogInput {
+  /**
+   * Production is the default and the only mode used by the packaged app.
+   * Qualification must be selected explicitly by the isolated Task 19 runner.
+   */
+  readonly activationPurpose?: Extract<LocalWhisperCatalogPurpose, 'production' | 'qualification'>;
   readonly document: Uint8Array;
   readonly trustPolicy: LocalWhisperCatalogTrustPolicy | null;
 }
@@ -630,9 +647,11 @@ export class ProductionLocalWhisperEnvironmentFactory {
         logicalProcessorCount: this.dependencies.logicalProcessorCount,
         nextRequestId: this.dependencies.nextRequestId,
       });
+    const activationPurpose = this.catalogInput.activationPurpose ?? 'production';
     if (
       (this.dependencies.platform !== 'linux' && this.dependencies.platform !== 'win32') ||
-      this.catalogInput.trustPolicy?.purpose !== 'production'
+      this.catalogInput.trustPolicy?.purpose !== activationPurpose ||
+      (activationPurpose === 'production' && this.dependencies.qualificationHooks !== undefined)
     ) {
       return deferred();
     }
@@ -710,6 +729,11 @@ export class ProductionLocalWhisperEnvironmentFactory {
             temporaryPath: () =>
               join(privateStateRoot, `worker-${role}-ownership.${this.dependencies.randomNonce()}.tmp`),
           }),
+          ...(role === 'session' &&
+          activationPurpose === 'qualification' &&
+          this.dependencies.qualificationHooks?.onSessionProcessLaunched
+            ? { onProcessLaunched: this.dependencies.qualificationHooks.onSessionProcessLaunched }
+            : {}),
         });
       const registryOwnership = createWorkerOwnership('registry');
       const sessionOwnership = createWorkerOwnership('session');
@@ -863,7 +887,21 @@ export class ProductionLocalWhisperEnvironmentFactory {
         progress: artifactProgressStore,
         queue: new ArtifactTransferQueue(),
         store: managedStore,
-        transport: new CatalogHttpTransport({ client: new NodeArtifactHttpClient(), clock: artifactClock }),
+        transport: new CatalogHttpTransport({
+          client:
+            activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.artifactHttpClient
+              ? this.dependencies.qualificationHooks.artifactHttpClient
+              : new NodeArtifactHttpClient(
+                  activationPurpose === 'qualification' &&
+                  this.dependencies.qualificationHooks?.trustedCertificateAuthorities
+                    ? {
+                        trustedCertificateAuthorities:
+                          this.dependencies.qualificationHooks.trustedCertificateAuthorities,
+                      }
+                    : {},
+                ),
+          clock: artifactClock,
+        }),
         verifier: new StreamingArtifactVerifier({
           clock: artifactClock,
           signatureVerifier: new CatalogArtifactSignatureVerifier(this.catalogInput.trustPolicy.publicKeys),
@@ -981,6 +1019,18 @@ export class ProductionLocalWhisperEnvironmentFactory {
               String(epochs.inventory),
             ]),
         },
+        inventory: {
+          selectedSetup: (settings) => {
+            const selected = selectedArtifactSetup(settings, artifactInventory.snapshot);
+            return Object.freeze({
+              inventoryEpoch: artifactInventory.getRevision(),
+              runtimeSetup: selected.runtime,
+              modelSetup: selected.model,
+            });
+          },
+          subscribe: (listener) =>
+            artifactInventory.subscribe((nextInventory) => listener(nextInventory.revision)),
+        },
         nextRequestId: this.dependencies.nextRequestId,
         initial: {
           settings: settingsSnapshot.settings,
@@ -1043,6 +1093,7 @@ export function createProductionLocalWhisperEnvironment(
   dependencies: LocalWhisperProductionEnvironmentDependencies,
 ): Promise<LocalWhisperProductionEnvironment> {
   return new ProductionLocalWhisperEnvironmentFactory(dependencies, {
+    activationPurpose: 'production',
     document: PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
     trustPolicy: createPackagedLocalWhisperCatalogTrustPolicy(
       dependencies.appRevision,

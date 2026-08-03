@@ -397,7 +397,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         identity.architecture === this.dependencies.architecture &&
         identity.target === 'gpu' &&
         identity.backend === 'cuda' &&
-        qualificationStatus === 'qualified',
+        (qualificationStatus === 'qualified' || this.dependencies.catalog.payload.purpose === 'qualification'),
     );
     for (const runtime of candidates) {
       try {

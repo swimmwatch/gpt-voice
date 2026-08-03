@@ -110,6 +110,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
   private activeOperation: ActiveOperation | null = null;
   private residentWorker: LocalWhisperResidentWorkerLease | null = null;
   private shutdownPromise: Promise<LocalWhisperActionResult<undefined>> | null = null;
+  private readonly unsubscribeInventory: (() => void) | null;
   private settingsValue: LocalWhisperSettings;
   private configured: boolean;
   private epochs: LocalWhisperCoordinatorEpochs;
@@ -145,6 +146,8 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
       worker: 0,
     });
     this.snapshotValue = this.createSnapshot();
+    this.unsubscribeInventory =
+      dependencies.inventory?.subscribe((inventoryEpoch) => this.applyInventoryEpoch(inventoryEpoch)) ?? null;
   }
 
   public get snapshot(): LocalWhisperCoordinatorSnapshot {
@@ -331,7 +334,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
       const result = await worker.transcribe({
         audio: new Uint8Array(request.buffer),
         settings: this.settingsValue,
-        configurationEpoch: this.epochs.configuration,
+        settingsEpoch: this.epochs.configuration,
         requestId: operation.requestId,
         signal: operation.abortController.signal,
       });
@@ -412,8 +415,10 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
         signal: operation.abortController.signal,
       });
       if (!removed.success) return this.failureResult(action, removed.code);
-      if (removed.inventoryEpoch <= this.epochs.inventory) return this.failureResult(action, 'STALE_CONFIGURATION');
-      this.epochs = freezeEpochs({ ...this.epochs, inventory: removed.inventoryEpoch });
+      if (removed.inventoryEpoch < this.epochs.inventory) return this.failureResult(action, 'STALE_CONFIGURATION');
+      if (removed.inventoryEpoch > this.epochs.inventory) {
+        this.epochs = freezeEpochs({ ...this.epochs, inventory: removed.inventoryEpoch });
+      }
       this.runtimeSetup = removed.runtimeSetup;
       this.modelSetup = removed.modelSetup;
       this.capability = 'Stale';
@@ -463,6 +468,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
 
   private async performShutdown(): Promise<LocalWhisperActionResult<undefined>> {
     this.stopped = true;
+    this.unsubscribeInventory?.();
     const operation = this.activeOperation;
     operation?.abortController.abort();
     await operation?.settled;
@@ -482,6 +488,27 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     this.failure = null;
     this.publish();
     return this.successResult('shutdown', undefined);
+  }
+
+  private applyInventoryEpoch(inventoryEpoch: number): void {
+    if (!Number.isSafeInteger(inventoryEpoch) || inventoryEpoch <= this.epochs.inventory || this.stopped) return;
+    const inventory = this.dependencies.inventory;
+    if (!inventory) return;
+    const setup = inventory.selectedSetup(this.settingsValue);
+    if (setup.inventoryEpoch !== inventoryEpoch) return;
+    const runtimeSetupChanged = setup.runtimeSetup !== this.runtimeSetup;
+    const selectedSetupChanged = runtimeSetupChanged || setup.modelSetup !== this.modelSetup;
+    this.epochs = freezeEpochs({ ...this.epochs, inventory: inventoryEpoch });
+    this.runtimeSetup = setup.runtimeSetup;
+    this.modelSetup = setup.modelSetup;
+    if (selectedSetupChanged) {
+      this.capability = 'Stale';
+      this.staleCause = runtimeSetupChanged ? 'runtimeFileIdentityChanged' : 'modelFileIdentityChanged';
+      this.capabilityFingerprint = null;
+      this.resources = null;
+    }
+    this.failure = null;
+    this.publish();
   }
 
   private async preflight(

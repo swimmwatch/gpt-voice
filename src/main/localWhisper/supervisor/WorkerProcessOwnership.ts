@@ -85,6 +85,11 @@ export interface WorkerProcessOwnershipDependencies {
   readonly processOwner: LocalWhisperWorkerProcessOwner;
   readonly randomNonce: () => string;
   readonly recordStore: LocalWhisperWorkerOwnershipRecordStore;
+  readonly onProcessLaunched?: (event: {
+    readonly backend: LocalWhisperBackend;
+    readonly launchMode: LocalWhisperWorkerLaunchMode;
+    readonly pid: number;
+  }) => void;
 }
 
 /** Owns the runtime lease, process tree, and durable proof as one lifecycle. */
@@ -133,6 +138,13 @@ export class WorkerProcessOwnership {
     this.active = Object.freeze({ authority, process, record });
     try {
       await this.dependencies.recordStore.write(record);
+      this.dependencies.onProcessLaunched?.(
+        Object.freeze({
+          backend: authority.expectedHandshake.backend,
+          launchMode: authority.launchMode,
+          pid: process.pid,
+        }),
+      );
     } catch {
       process.closeOwnershipControl();
       await process.forceTreeTermination().catch(() => undefined);

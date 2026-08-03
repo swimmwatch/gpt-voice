@@ -10,6 +10,7 @@ import type {
   LocalWhisperCoordinatorCapabilityPort,
   LocalWhisperCoordinatorCapabilityRequest,
   LocalWhisperCoordinatorDependencies,
+  LocalWhisperCoordinatorInventoryPort,
   LocalWhisperCoordinatorSettingsPort,
   LocalWhisperCoordinatorWorkerPort,
   LocalWhisperCoordinatorWorkerResult,
@@ -22,6 +23,7 @@ import type {
 import {
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
+  type LocalWhisperArtifactSetupState,
   type LocalWhisperFailureCode,
   type LocalWhisperSettings,
 } from '@shared/localWhisper';
@@ -208,6 +210,33 @@ class FakeArtifactPort implements LocalWhisperCoordinatorArtifactPort {
   }
 }
 
+class FakeInventoryPort implements LocalWhisperCoordinatorInventoryPort {
+  private readonly listeners = new Set<(inventoryEpoch: number) => void>();
+  private value: ReturnType<LocalWhisperCoordinatorInventoryPort['selectedSetup']> = {
+    inventoryEpoch: 1,
+    runtimeSetup: 'Installed',
+    modelSetup: 'Installed',
+  };
+
+  public selectedSetup() {
+    return this.value;
+  }
+
+  public subscribe(listener: (inventoryEpoch: number) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  public publish(
+    inventoryEpoch: number,
+    runtimeSetup: LocalWhisperArtifactSetupState,
+    modelSetup: LocalWhisperArtifactSetupState,
+  ): void {
+    this.value = { inventoryEpoch, runtimeSetup, modelSetup };
+    for (const listener of this.listeners) listener(inventoryEpoch);
+  }
+}
+
 function deferred<T>() {
   let resolvePromise: ((value: T) => void) | null = null;
   const promise = new Promise<T>((resolve) => {
@@ -227,12 +256,14 @@ function harness() {
   const capability = new FakeCapabilityPort();
   const workers = new FakeWorkerPort();
   const artifacts = new FakeArtifactPort();
+  const inventory = new FakeInventoryPort();
   let requestId = 0;
   const dependencies: LocalWhisperCoordinatorDependencies = {
     settings: settingsPort,
     capability,
     workers,
     artifacts,
+    inventory,
     cache: {
       context(current, epochs) {
         return Object.freeze([
@@ -259,6 +290,7 @@ function harness() {
     capability,
     workers,
     artifacts,
+    inventory,
   };
 }
 
@@ -277,6 +309,20 @@ function validAudioDispatch(coordinator: LocalWhisperCoordinator) {
 }
 
 describe('LocalWhisperCoordinator', () => {
+  it('synchronizes completed artifact inventory epochs before the next command', async () => {
+    const { coordinator, inventory } = harness();
+
+    inventory.publish(2, 'Missing', 'Installed');
+
+    assert.equal(coordinator.snapshot.epochs.inventory, 2);
+    assert.equal(coordinator.snapshot.runtime.runtimeSetup, 'Missing');
+    assert.equal(coordinator.snapshot.runtime.capability, 'Stale');
+    assert.equal(coordinator.snapshot.staleCause, 'runtimeFileIdentityChanged');
+    await coordinator.shutdown();
+    inventory.publish(3, 'Installed', 'Installed');
+    assert.equal(coordinator.snapshot.epochs.inventory, 2);
+  });
+
   it('publishes immutable strictly increasing snapshots without prompt or native authority', () => {
     const { coordinator } = harness();
     const revisions: number[] = [];

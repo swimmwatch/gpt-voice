@@ -126,7 +126,7 @@ export interface LocalWhisperResidentWorkerLease {
   transcribe(request: {
     readonly audio: Uint8Array;
     readonly settings: LocalWhisperSettings;
-    readonly configurationEpoch: number;
+    readonly settingsEpoch: number;
     readonly requestId: string;
     readonly signal: AbortSignal;
   }): Promise<LocalWhisperCoordinatorWorkerResult<string>>;
@@ -187,6 +187,15 @@ export interface LocalWhisperCoordinatorCachePort {
   context(settings: LocalWhisperSettings, epochs: LocalWhisperCoordinatorEpochs): readonly string[];
 }
 
+export interface LocalWhisperCoordinatorInventoryPort {
+  selectedSetup(settings: LocalWhisperSettings): {
+    readonly inventoryEpoch: number;
+    readonly runtimeSetup: LocalWhisperArtifactSetupState;
+    readonly modelSetup: LocalWhisperArtifactSetupState;
+  };
+  subscribe(listener: (inventoryEpoch: number) => void): () => void;
+}
+
 export interface LocalWhisperCoordinatorInitialState {
   readonly settings: LocalWhisperSettings;
   readonly configured: boolean;
@@ -202,6 +211,7 @@ export interface LocalWhisperCoordinatorDependencies {
   readonly workers: LocalWhisperCoordinatorWorkerPort;
   readonly artifacts: LocalWhisperCoordinatorArtifactPort;
   readonly cache: LocalWhisperCoordinatorCachePort;
+  readonly inventory?: LocalWhisperCoordinatorInventoryPort;
   readonly nextRequestId: () => string;
   readonly initial: LocalWhisperCoordinatorInitialState;
 }

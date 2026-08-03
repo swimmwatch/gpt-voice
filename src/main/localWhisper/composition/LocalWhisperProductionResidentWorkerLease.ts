@@ -49,9 +49,6 @@ export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperRe
     request: Parameters<LocalWhisperResidentWorkerLease['transcribe']>[0],
   ): Promise<LocalWhisperCoordinatorWorkerResult<string>> {
     if (this.closed) return Object.freeze({ success: false, code: 'WORKER_CRASHED' });
-    if (request.configurationEpoch !== this.dependencies.configurationEpoch) {
-      return Object.freeze({ success: false, code: 'STALE_CONFIGURATION' });
-    }
     if (request.signal.aborted) return Object.freeze({ success: false, code: 'CANCELLED' });
     const onAbort = (): void => {
       void this.dependencies.session.cancel();
@@ -61,9 +58,9 @@ export class LocalWhisperProductionResidentWorkerLease implements LocalWhisperRe
       return result(
         await this.dependencies.session.transcribe({
           audio: request.audio,
-          configurationEpoch: request.configurationEpoch,
+          configurationEpoch: this.dependencies.configurationEpoch,
           options: transcriptionOptions(request.settings),
-          settingsEpoch: request.configurationEpoch,
+          settingsEpoch: request.settingsEpoch,
         }),
       );
     } finally {
