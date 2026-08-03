@@ -7,6 +7,7 @@ const SAMPLE_INTERVAL_MILLISECONDS = 100 as const;
 const MAXIMUM_GAP_NANOSECONDS = 500_000_000;
 const SETTLED_SAMPLE_COUNT = 10;
 const SAFE_FAILURE_PATTERN = /^LOCAL_WHISPER_RESOURCE_SAMPLING_FAILED:([a-z-]+)\n$/u;
+const READINESS_FRAME = Buffer.from('READY\n', 'ascii');
 
 export interface LinuxResourceSample {
   readonly elapsedNanoseconds: number;
@@ -40,6 +41,34 @@ function boundedCollector(stream: NodeJS.ReadableStream): { readonly result: Pro
     stream.once('error', reject);
   });
   return { result };
+}
+
+function exactReadiness(stream: NodeJS.ReadableStream): Promise<void> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  let invalid = false;
+  return new Promise<void>((resolve, reject) => {
+    const rejectInvalid = (): void => {
+      if (invalid) return;
+      invalid = true;
+      reject(new Error('Resource sampler readiness framing is invalid'));
+    };
+    stream.on('data', (chunk: Buffer) => {
+      total += chunk.byteLength;
+      if (total > READINESS_FRAME.byteLength) {
+        rejectInvalid();
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
+    });
+    stream.once('end', () => {
+      if (invalid) return;
+      const received = Buffer.concat(chunks);
+      if (!received.equals(READINESS_FRAME)) rejectInvalid();
+      else resolve();
+    });
+    stream.once('error', reject);
+  });
 }
 
 function parseSample(value: unknown, backend: 'cpu' | 'cuda'): LinuxResourceSample {
@@ -110,6 +139,8 @@ function parseSeries(bytes: Buffer, backend: 'cpu' | 'cuda'): LinuxResourceSerie
 
 /** Owns one qualification-only Linux process/NVML sampler lifecycle. */
 export class LinuxResourceSamplerSession {
+  public readonly ready: Promise<void>;
+
   private readonly stdout: Promise<Buffer>;
   private readonly stderr: Promise<Buffer>;
   private readonly exit: Promise<number | null>;
@@ -117,7 +148,9 @@ export class LinuxResourceSamplerSession {
   public constructor(
     private readonly child: ChildProcessWithoutNullStreams,
     private readonly backend: 'cpu' | 'cuda',
+    readiness: NodeJS.ReadableStream,
   ) {
+    this.ready = exactReadiness(readiness);
     this.stdout = boundedCollector(child.stdout).result;
     this.stderr = boundedCollector(child.stderr).result;
     this.exit = new Promise((resolve, reject) => {
@@ -130,7 +163,7 @@ export class LinuxResourceSamplerSession {
   }
 
   public async finish(): Promise<LinuxResourceSeries> {
-    const [code, stdout, stderr] = await Promise.all([this.exit, this.stdout, this.stderr]);
+    const [, code, stdout, stderr] = await Promise.all([this.ready, this.exit, this.stdout, this.stderr]);
     if (code !== 0 || stderr.byteLength !== 0) {
       const match = SAFE_FAILURE_PATTERN.exec(stderr.toString('ascii'));
       throw new Error(`Linux resource sampling failed${match ? `: ${match[1]}` : ''}`);
@@ -153,9 +186,14 @@ export class LinuxResourceSampler {
       cwd: '/',
       env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       shell: false,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
     });
-    const session = new LinuxResourceSamplerSession(child, backend);
+    const readiness = child.stdio[3] as NodeJS.ReadableStream | null;
+    if (!readiness) {
+      child.kill('SIGKILL');
+      throw new Error('Resource sampler readiness stream is unavailable');
+    }
+    const session = new LinuxResourceSamplerSession(child, backend, readiness);
     child.stdin.end(JSON.stringify({ schemaVersion: 1, backend, rootPid, deviceIndex: backend === 'cpu' ? null : 0 }));
     return session;
   }

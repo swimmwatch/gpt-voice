@@ -4,7 +4,7 @@ import { lstat, open, type FileHandle } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 
 import { sha256File } from '../packaging/fileIntegrity';
-import { LinuxResourceSampler, type LinuxResourceSeries } from './LinuxResourceSampler';
+import type { LinuxResourceSeries } from './LinuxResourceSampler';
 
 const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MILLISECONDS = 30 * 60 * 1000;
@@ -32,6 +32,16 @@ export interface DirectEngineQualificationResult {
   readonly transcript: string;
   readonly durationNanoseconds: number;
   readonly resources: LinuxResourceSeries;
+}
+
+interface DirectEngineResourceSampler {
+  readonly start: (
+    rootPid: number,
+    backend: 'cpu' | 'cuda',
+  ) => {
+    readonly ready: Promise<void>;
+    readonly finish: () => Promise<LinuxResourceSeries>;
+  };
 }
 
 function boundedCollector(stream: Readable): Promise<Buffer> {
@@ -94,7 +104,7 @@ async function openReadOnlyNoFollow(filePath: string): Promise<FileHandle> {
 /** Runs the checksum-pinned direct engine with inherited read-only descriptors and owned-resource sampling. */
 export class DirectEngineQualificationRunner {
   public constructor(
-    private readonly resourceSampler: LinuxResourceSampler,
+    private readonly resourceSampler: DirectEngineResourceSampler,
     private readonly timeoutMilliseconds = DEFAULT_TIMEOUT_MILLISECONDS,
   ) {}
 
@@ -134,6 +144,7 @@ export class DirectEngineQualificationRunner {
       if (!spawned.stdin || !spawned.stdout || !spawned.stderr) {
         throw new Error('Direct-engine process streams unavailable');
       }
+      const stdin = spawned.stdin;
       const pid = spawned.pid;
       if (!pid) throw new Error('Direct-engine process identity unavailable');
       const sampler = this.resourceSampler.start(pid, request.backend);
@@ -147,22 +158,25 @@ export class DirectEngineQualificationRunner {
         });
       });
       const timeout = setTimeout(() => spawned.kill('SIGKILL'), this.timeoutMilliseconds);
-      spawned.stdin.end(
-        JSON.stringify({
-          schemaVersion: 1,
-          family: request.family,
-          variant: request.variant,
-          modelSizeBytes: request.modelSizeBytes,
-          modelSha256: request.modelSha256,
-          wavSizeBytes: request.wavSizeBytes,
-          wavSha256: request.wavSha256,
-          language: request.language,
-          cpuThreads: request.cpuThreads,
-          selectedOrdinal: request.selectedOrdinal,
-        }),
-      );
+      const releaseRequest = sampler.ready.then(() => {
+        stdin.end(
+          JSON.stringify({
+            schemaVersion: 1,
+            family: request.family,
+            variant: request.variant,
+            modelSizeBytes: request.modelSizeBytes,
+            modelSha256: request.modelSha256,
+            wavSizeBytes: request.wavSizeBytes,
+            wavSha256: request.wavSha256,
+            language: request.language,
+            cpuThreads: request.cpuThreads,
+            selectedOrdinal: request.selectedOrdinal,
+          }),
+        );
+      });
       try {
-        const [exitCode, transcriptBytes, stderrBytes, resources] = await Promise.all([
+        const [, exitCode, transcriptBytes, stderrBytes, resources] = await Promise.all([
+          releaseRequest,
           exit,
           stdout,
           stderr,

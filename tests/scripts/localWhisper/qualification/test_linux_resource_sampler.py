@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE_PATH = (
@@ -39,6 +39,18 @@ class FakeNvmlLibrary:
 
 
 class LinuxResourceSamplerTest(unittest.TestCase):
+    def test_readiness_frame_is_exact_and_descriptor_is_closed(self) -> None:
+        control = MagicMock()
+        control.__enter__.return_value = control
+        control.write.return_value = len(SAMPLER.READINESS_FRAME)
+        with patch.object(SAMPLER.os, "fdopen", return_value=control) as fdopen:
+            SAMPLER.signal_ready()
+
+        fdopen.assert_called_once_with(SAMPLER.READINESS_FD, "wb", buffering=0, closefd=True)
+        control.write.assert_called_once()
+        self.assertEqual(bytes(control.write.call_args.args[0]), b"READY\n")
+        control.__exit__.assert_called_once()
+
     def test_nvml_process_registration_race_is_retried(self) -> None:
         sampler = object.__new__(SAMPLER.NvmlSampler)
         sampler.library = FakeNvmlLibrary()
@@ -67,4 +79,3 @@ class LinuxResourceSamplerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

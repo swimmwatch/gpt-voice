@@ -6,6 +6,7 @@ from __future__ import annotations
 import ctypes
 import errno
 import json
+import os
 from pathlib import Path
 import signal
 import sys
@@ -19,6 +20,8 @@ NVML_ERROR_INSUFFICIENT_SIZE = 7
 NVML_VALUE_NOT_AVAILABLE = (1 << 64) - 1
 NVML_QUERY_ATTEMPTS = 4
 NVML_PROCESS_HEADROOM = 16
+READINESS_FD = 3
+READINESS_FRAME = b"READY\n"
 SAFE_FAILURE_CODES = frozenset(
     {
         "config-size",
@@ -234,7 +237,7 @@ class NvmlSampler:
         raise RuntimeError("nvml-process-list-unstable")
 
 
-def sample(config: dict[str, object]) -> dict[str, object]:
+def prepare_sampler(config: dict[str, object]) -> tuple[dict[int, int], NvmlSampler | None]:
     root_pid = int(config["rootPid"])
     backend = str(config["backend"])
     identities: dict[int, int] = {}
@@ -242,41 +245,55 @@ def sample(config: dict[str, object]) -> dict[str, object]:
     if root_pid not in identities:
         raise RuntimeError("root-identity")
     nvml = NvmlSampler(int(config["deviceIndex"])) if backend == "cuda" else None
+    return identities, nvml
+
+
+def signal_ready() -> None:
+    with os.fdopen(READINESS_FD, "wb", buffering=0, closefd=True) as control:
+        remaining = memoryview(READINESS_FRAME)
+        while remaining:
+            written = control.write(remaining)
+            if written is None or written <= 0:
+                raise OSError("readiness-write")
+            remaining = remaining[written:]
+
+
+def sample(
+    config: dict[str, object], identities: dict[int, int], nvml: NvmlSampler | None
+) -> dict[str, object]:
+    root_pid = int(config["rootPid"])
+    backend = str(config["backend"])
     samples: list[dict[str, object]] = []
     start = time.monotonic_ns()
     next_sample = start
     settled = 0
     cpu_gpu_initialized = False
-    try:
-        for _index in range(MAXIMUM_SAMPLES):
-            now = time.monotonic_ns()
-            if now < next_sample:
-                time.sleep((next_sample - now) / 1_000_000_000)
-            observed = time.monotonic_ns()
-            discover_tree(root_pid, identities)
-            owned, ram_bytes = owned_process_memory(identities)
-            owned_set = set(owned)
-            if backend == "cpu" and any(process_has_gpu_runtime(pid) for pid in owned):
-                cpu_gpu_initialized = True
-            vram_bytes: int | str = "notApplicable" if nvml is None else nvml.owned_bytes(owned_set)
-            samples.append(
-                {
-                    "elapsedNanoseconds": observed - start,
-                    "ownedProcessCount": len(owned),
-                    "ramBytes": ram_bytes,
-                    "vramBytes": vram_bytes,
-                }
-            )
-            zero = len(owned) == 0 and ram_bytes == 0 and (vram_bytes == 0 or vram_bytes == "notApplicable")
-            settled = settled + 1 if zero else 0
-            if settled >= SETTLED_SAMPLES:
-                break
-            next_sample += INTERVAL_NS
-        else:
-            raise RuntimeError("sample-limit")
-    finally:
-        if nvml is not None:
-            nvml.close()
+    for _index in range(MAXIMUM_SAMPLES):
+        now = time.monotonic_ns()
+        if now < next_sample:
+            time.sleep((next_sample - now) / 1_000_000_000)
+        observed = time.monotonic_ns()
+        discover_tree(root_pid, identities)
+        owned, ram_bytes = owned_process_memory(identities)
+        owned_set = set(owned)
+        if backend == "cpu" and any(process_has_gpu_runtime(pid) for pid in owned):
+            cpu_gpu_initialized = True
+        vram_bytes: int | str = "notApplicable" if nvml is None else nvml.owned_bytes(owned_set)
+        samples.append(
+            {
+                "elapsedNanoseconds": observed - start,
+                "ownedProcessCount": len(owned),
+                "ramBytes": ram_bytes,
+                "vramBytes": vram_bytes,
+            }
+        )
+        zero = len(owned) == 0 and ram_bytes == 0 and (vram_bytes == 0 or vram_bytes == "notApplicable")
+        settled = settled + 1 if zero else 0
+        if settled >= SETTLED_SAMPLES:
+            break
+        next_sample += INTERVAL_NS
+    else:
+        raise RuntimeError("sample-limit")
     return {
         "schemaVersion": 2,
         "sampleIntervalMilliseconds": 100,
@@ -289,7 +306,14 @@ def sample(config: dict[str, object]) -> dict[str, object]:
 
 def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    result = sample(strict_config())
+    config = strict_config()
+    identities, nvml = prepare_sampler(config)
+    try:
+        signal_ready()
+        result = sample(config, identities, nvml)
+    finally:
+        if nvml is not None:
+            nvml.close()
     sys.stdout.write(json.dumps(result, separators=(",", ":"), sort_keys=True) + "\n")
 
 
