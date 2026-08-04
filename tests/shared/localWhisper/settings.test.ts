@@ -8,6 +8,7 @@ import {
   getLocalWhisperPromptValidationError,
   getLocalWhisperRuntimeSelectionKey,
   initializeLocalWhisperDependentSelection,
+  isValidLocalWhisperPublicSettings,
   LocalWhisperCacheContext,
   LOCAL_WHISPER_MODEL_FAMILIES,
   readLocalWhisperDependentSelection,
@@ -166,6 +167,26 @@ describe('Local Whisper settings contracts', () => {
     assert.equal('cpuThreads' in settings.execution, false);
     assert.equal('beamSize' in settings.decoding, false);
     assert.equal('bestOf' in settings.decoding, false);
+  });
+
+  it('validates prompt-free capability settings without weakening the public boundary', () => {
+    const { initialPrompt: _initialPrompt, ...publicSettings } = defaultSettings();
+
+    assert.equal(isValidLocalWhisperPublicSettings(publicSettings, createContext()), true);
+    assert.equal(
+      isValidLocalWhisperPublicSettings(
+        { ...publicSettings, initialPrompt: 'must-not-cross-boundary' },
+        createContext(),
+      ),
+      false,
+    );
+    assert.equal(
+      isValidLocalWhisperPublicSettings(
+        { ...publicSettings, execution: { ...publicSettings.execution, deviceId: 'forged-device' } },
+        createContext(),
+      ),
+      false,
+    );
   });
 
   it('round-trips every release-1 target, backend, model, and decoding class', () => {

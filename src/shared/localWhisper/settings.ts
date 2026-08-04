@@ -446,6 +446,15 @@ export function validateLocalWhisperSettings(
   return { success: true, settings: freezeSettings(candidate) };
 }
 
+/** Validates the prompt-free settings projection used across privileged capability and worker boundaries. */
+export function isValidLocalWhisperPublicSettings(
+  candidate: unknown,
+  context: LocalWhisperSettingsValidationContext,
+): candidate is LocalWhisperPublicSettings {
+  if (!isRecord(candidate) || Object.prototype.hasOwnProperty.call(candidate, 'initialPrompt')) return false;
+  return validateLocalWhisperSettings({ ...candidate, initialPrompt: '' }, context).success;
+}
+
 function recommendedModel(
   context: LocalWhisperSettingsValidationContext,
   engine: LocalWhisperEngine,

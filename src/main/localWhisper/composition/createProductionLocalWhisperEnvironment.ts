@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   createNeverConfiguredLocalWhisperSettings,
+  isValidLocalWhisperPublicSettings,
   LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   validateLocalWhisperSettings,
   type LocalWhisperArtifactAction,
@@ -960,8 +961,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 if (!registry || !topologyAuthority) throw new Error('Local Whisper registry unavailable');
                 const topology = topologyAuthority.update(registry);
                 context = validationContext(loaded.catalog, this.dependencies, topology.devices);
-                const validated = validateLocalWhisperSettings(request.settings, context);
-                if (!validated.success) throw new Error('Local Whisper selected device unavailable');
+                if (!isValidLocalWhisperPublicSettings(request.settings, context)) {
+                  throw new Error('Local Whisper selected device unavailable');
+                }
                 const selected = topology.devices.find((candidate) => candidate.id === execution.deviceId);
                 if (!selected) throw new Error('Local Whisper selected device unavailable');
                 device = Object.freeze({ id: selected.id, vendor: selected.vendor, available: selected.available });
