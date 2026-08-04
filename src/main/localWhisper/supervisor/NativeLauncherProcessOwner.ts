@@ -11,11 +11,17 @@ import type {
   LocalWhisperWorkerProcessOwner,
 } from './WorkerProcessOwnership';
 import { NativeOwnedWorkerProcess } from './NativeOwnedWorkerProcess';
+import { LOCAL_WHISPER_LOAD_TIMEOUT_MS } from './LocalWhisperSupervisorConstants';
 
 const LAUNCHER_ARGUMENT = '--local-whisper-launcher-v2';
 const MODEL_GUARD_ARGUMENT = '--local-whisper-model-launch-v1';
-const LAUNCHER_ACK_TIMEOUT_MS = 10_000;
+const STANDARD_LAUNCHER_ACK_TIMEOUT_MS = 10_000;
 const MAX_LAUNCHER_ACK_BYTES = 256;
+
+/** Gives Linux model hashing the bounded model-load budget without relaxing ordinary launches. */
+export function getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch: boolean): number {
+  return modelGuardLaunch ? LOCAL_WHISPER_LOAD_TIMEOUT_MS : STANDARD_LAUNCHER_ACK_TIMEOUT_MS;
+}
 
 export interface NativeLauncherProcessOwnerDependencies {
   readonly environment: Readonly<NodeJS.ProcessEnv>;
@@ -181,7 +187,11 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       if (modelGuardLaunch && authority.workerInputBootstrap) {
         await this.writeWorkerBootstrap(input, authority.workerInputBootstrap);
       }
-      const workerProcessGroupId = await this.waitForAcknowledgment(child, acknowledgment);
+      const workerProcessGroupId = await this.waitForAcknowledgment(
+        child,
+        acknowledgment,
+        getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch),
+      );
       return new NativeOwnedWorkerProcess({
         child,
         control,
@@ -230,7 +240,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     });
   }
 
-  private waitForAcknowledgment(child: ChildProcess, stream: Readable): Promise<number> {
+  private waitForAcknowledgment(child: ChildProcess, stream: Readable, timeoutMilliseconds: number): Promise<number> {
     return new Promise<number>((resolve, reject) => {
       let bytes = Buffer.alloc(0);
       let settled = false;
@@ -271,7 +281,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       const onStreamEnd = (): void => finish(null, new Error('Local Whisper launcher acknowledgment closed'));
       timer = setTimeout(
         () => finish(null, new Error('Local Whisper launcher acknowledgment timed out')),
-        LAUNCHER_ACK_TIMEOUT_MS,
+        timeoutMilliseconds,
       );
       stream.on('data', onData);
       stream.once('end', onStreamEnd);
