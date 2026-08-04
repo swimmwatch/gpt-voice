@@ -137,6 +137,15 @@ class LinuxResourceSamplerTest(unittest.TestCase):
             self.assertEqual(SAMPLER.owned_process_memory({123: 42}), ([123], 4096))
         sched_yield.assert_called_once_with()
 
+    def test_procfs_esrch_is_treated_as_a_disappearing_process(self) -> None:
+        process_gone = ProcessLookupError(errno.ESRCH, "process gone")
+        with patch.object(SAMPLER.Path, "read_text", side_effect=process_gone):
+            self.assertIsNone(SAMPLER.process_start_identity(123))
+            self.assertFalse(SAMPLER.process_has_gpu_runtime(123))
+
+        with patch.object(SAMPLER.Path, "iterdir", side_effect=process_gone):
+            self.assertEqual(SAMPLER.child_pids(123), [])
+
     def test_failure_codes_never_include_exception_details(self) -> None:
         self.assertEqual(SAMPLER.safe_failure_code(FileNotFoundError("/private/path")), "process-exited-during-sample")
         self.assertEqual(SAMPLER.safe_failure_code(RuntimeError("private detail")), "unknown")

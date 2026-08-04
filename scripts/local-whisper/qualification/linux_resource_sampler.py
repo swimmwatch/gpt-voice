@@ -49,6 +49,11 @@ SAFE_FAILURE_CODES = frozenset(
         "sample-limit",
     }
 )
+UNREADABLE_PROCESS_ERRNOS = frozenset({errno.ENOENT, errno.ESRCH, errno.EACCES, errno.EPERM})
+
+
+def process_path_unavailable(error: OSError) -> bool:
+    return error.errno in UNREADABLE_PROCESS_ERRNOS
 
 
 def safe_failure_code(error: BaseException) -> str:
@@ -111,7 +116,11 @@ def process_start_identity(pid: int) -> int | None:
         if tail[0] in {"Z", "X", "x"}:
             return None
         return int(tail[19])
-    except (FileNotFoundError, PermissionError, ValueError, IndexError):
+    except OSError as error:
+        if process_path_unavailable(error):
+            return None
+        raise
+    except (ValueError, IndexError):
         return None
 
 
@@ -120,13 +129,18 @@ def child_pids(pid: int) -> list[int]:
     task_root = Path(f"/proc/{pid}/task")
     try:
         tasks = list(task_root.iterdir())
-    except (FileNotFoundError, PermissionError):
-        return []
+    except OSError as error:
+        if process_path_unavailable(error):
+            return []
+        raise
     for task in tasks:
         try:
             values = (task / "children").read_text(encoding="ascii").split()
             children.update(int(value) for value in values)
-        except (FileNotFoundError, PermissionError, ValueError):
+        except OSError as error:
+            if not process_path_unavailable(error):
+                raise
+        except ValueError:
             continue
     return sorted(children)
 
@@ -214,7 +228,11 @@ def owned_process_memory(identities: dict[int, int]) -> tuple[list[int], int]:
 def process_has_gpu_runtime(pid: int) -> bool:
     try:
         mappings = Path(f"/proc/{pid}/maps").read_text(encoding="utf-8", errors="strict").lower()
-    except (FileNotFoundError, PermissionError, UnicodeError):
+    except OSError as error:
+        if process_path_unavailable(error):
+            return False
+        raise
+    except UnicodeError:
         return False
     return any(name in mappings for name in ("libcuda", "libcudart", "libnvidia"))
 
