@@ -121,7 +121,7 @@ function createRuntimeDescriptor(executableCount = 1): ManagedArtifactDescriptor
     expectedFiles: Object.freeze([
       ...executableFiles,
       Object.freeze({
-        fileId: artifactId('runtime-cudart-12.8.1'),
+        fileId: artifactId('runtime-cuda-runtime-12.8.1'),
         kind: 'library' as const,
         mode: 0o600,
         sha256: sha256(RUNTIME_LIBRARY_CONTENT),

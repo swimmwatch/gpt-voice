@@ -42,7 +42,7 @@ export type { ManagedArtifactStoreErrorCode } from './ManagedArtifactStoreError'
 
 const CANONICAL_ARTIFACT_NAME_PATTERN = /^(?:model|runtime)-[a-f0-9]{64}$/;
 const CANONICAL_FILE_NAME_PATTERN = /^file-[\w-]{1,192}$/;
-const LINUX_RUNTIME_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cudart)-(\d+)\.\d+\.\d+$/u;
+const LINUX_RUNTIME_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cuda-runtime)-(\d+)\.\d+\.\d+$/u;
 const OPERATION_NONCE_PATTERN = /^[\w-]{16,128}$/;
 const MANAGED_MANIFEST_NAME = 'managed-manifest-v1';
 const MANAGED_MANIFEST_MODE = 0o600;
@@ -157,7 +157,7 @@ function linuxRuntimeStorageFileName(expected: ManagedArtifactExpectedFile): str
   if (!match) return null;
   const [, family, major] = match;
   if (!family || !major) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
-  const library = family === 'cublas-lt' ? 'cublasLt' : family;
+  const library = family === 'cublas-lt' ? 'cublasLt' : family === 'cuda-runtime' ? 'cudart' : family;
   return `lib${library}.so.${major}`;
 }
 
