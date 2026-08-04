@@ -316,6 +316,12 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       requestId: `unload-cuda-task11-${repetition}`,
     });
     assert.equal((await worker.readControl()).type, 'unloaded');
+    worker.sendControl({
+      type: 'shutdown',
+      protocolVersion: 1,
+      requestId: `shutdown-cuda-task11-${repetition}`,
+    });
+    assert.equal((await worker.readControl()).type, 'shutdownAck');
     worker.closeInput();
     assert.deepEqual(await worker.waitForExit(), { code: 0, signal: null });
     const afterExit = gpuSnapshot();

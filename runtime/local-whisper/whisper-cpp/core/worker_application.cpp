@@ -551,12 +551,13 @@ int WorkerApplication::run_checked() {
       engine_.unload();
       channel_.send_control(
           {{"type", "unloaded"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
-      return 0;
+      continue;
     }
     if (type == "shutdown") {
       require_exact_keys(message, {"type", "protocolVersion", "requestId"});
       require_protocol(message, "shutdown");
-      engine_.unload();
+      if (engine_.loaded())
+        engine_.unload();
       channel_.send_control(
           {{"type", "shutdownAck"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
       return 0;

@@ -227,7 +227,7 @@ struct Fixture final {
   FakeAuthority authority;
 };
 
-TEST(WorkerApplication, RunsLoadWarmupTranscriptionAndUnloadStateMachine) {
+TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine) {
   Fixture fixture;
   const auto wav = wav_fixture();
   fixture.channel.controls = {
@@ -236,6 +236,7 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionAndUnloadStateMachine) {
       {{"type", "warmup"}, {"protocolVersion", 1}, {"requestId", "warm-test"}},
       transcribe_message(wav.size()),
       {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
 
@@ -244,13 +245,15 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionAndUnloadStateMachine) {
   EXPECT_EQ(fixture.engine.warm_up_calls, 1U);
   EXPECT_EQ(fixture.engine.transcribe_calls, 1U);
   EXPECT_EQ(fixture.engine.unload_calls, 1U);
-  ASSERT_EQ(fixture.channel.sent.size(), 5U);
+  ASSERT_EQ(fixture.channel.sent.size(), 6U);
   EXPECT_EQ(fixture.channel.sent[0].at("type"), "helloAck");
   EXPECT_EQ(fixture.channel.sent[1].at("type"), "loaded");
   EXPECT_EQ(fixture.channel.sent[2].at("type"), "warmed");
   EXPECT_EQ(fixture.channel.sent[3].at("type"), "transcript");
   EXPECT_EQ(fixture.channel.sent[3].at("text"), "test transcript");
   EXPECT_EQ(fixture.channel.sent[4].at("type"), "unloaded");
+  EXPECT_EQ(fixture.channel.sent[5].at("type"), "shutdownAck");
+  EXPECT_EQ(fixture.channel.sent[5].at("requestId"), "shutdown-test");
 }
 
 TEST(WorkerApplication, RejectsMalformedSettingsBeforeReadingAudioOrInference) {
@@ -292,16 +295,18 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
        {"requestId", "cancel-test"},
        {"targetRequestId", "tx-test"}},
       {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
 
   EXPECT_EQ(fixture.run(), 0);
-  ASSERT_EQ(fixture.channel.sent.size(), 4U);
+  ASSERT_EQ(fixture.channel.sent.size(), 5U);
   EXPECT_EQ(fixture.channel.sent[0].at("type"), "helloAck");
   EXPECT_EQ(fixture.channel.sent[1].at("type"), "loaded");
   EXPECT_EQ(fixture.channel.sent[2].at("type"), "cancelled");
   EXPECT_EQ(fixture.channel.sent[2].at("targetRequestId"), "tx-test");
   EXPECT_EQ(fixture.channel.sent[3].at("type"), "unloaded");
+  EXPECT_EQ(fixture.channel.sent[4].at("type"), "shutdownAck");
 }
 
 } // namespace

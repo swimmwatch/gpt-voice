@@ -374,6 +374,8 @@ async function loadIntegration(binary, includeCancellation) {
     }
     worker.sendControl({ type: 'unload', protocolVersion: 1, requestId: 'unload-task11' });
     assert.equal((await worker.readControl()).type, 'unloaded');
+    worker.sendControl({ type: 'shutdown', protocolVersion: 1, requestId: 'shutdown-task11' });
+    assert.equal((await worker.readControl()).type, 'shutdownAck');
     worker.closeInput();
     assert.deepEqual(await worker.waitForExit(), { code: 0, signal: null });
   } catch (error) {
