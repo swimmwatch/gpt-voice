@@ -8,6 +8,7 @@ import errno
 import json
 import os
 from pathlib import Path
+import select
 import signal
 import sys
 import time
@@ -21,6 +22,7 @@ NVML_VALUE_NOT_AVAILABLE = (1 << 64) - 1
 NVML_QUERY_ATTEMPTS = 4
 NVML_PROCESS_HEADROOM = 16
 PSS_READ_ATTEMPTS = 4
+PSS_EXIT_CONFIRMATION_MILLISECONDS = 100
 READINESS_FD = 3
 READINESS_FRAME = b"READY\n"
 SAFE_FAILURE_CODES = frozenset(
@@ -157,6 +159,23 @@ def process_pss_bytes(pid: int) -> int:
     raise RuntimeError("pss-unavailable")
 
 
+def process_exit_confirmed(pid: int, expected_identity: int) -> bool:
+    if process_start_identity(pid) != expected_identity:
+        return True
+    try:
+        descriptor = os.pidfd_open(pid, 0)
+    except ProcessLookupError:
+        return process_start_identity(pid) != expected_identity
+    try:
+        if process_start_identity(pid) != expected_identity:
+            return True
+        poller = select.poll()
+        poller.register(descriptor, select.POLLIN | select.POLLHUP | select.POLLERR)
+        return bool(poller.poll(PSS_EXIT_CONFIRMATION_MILLISECONDS))
+    finally:
+        os.close(descriptor)
+
+
 def stable_process_pss_bytes(pid: int, expected_identity: int) -> int | None:
     for attempt in range(PSS_READ_ATTEMPTS):
         if process_start_identity(pid) != expected_identity:
@@ -169,6 +188,8 @@ def stable_process_pss_bytes(pid: int, expected_identity: int) -> int | None:
             if process_start_identity(pid) != expected_identity:
                 return None
             if attempt + 1 == PSS_READ_ATTEMPTS:
+                if process_exit_confirmed(pid, expected_identity):
+                    return None
                 raise
             os.sched_yield()
             continue

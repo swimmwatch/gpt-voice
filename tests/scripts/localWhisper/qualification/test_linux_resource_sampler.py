@@ -81,10 +81,48 @@ class LinuxResourceSamplerTest(unittest.TestCase):
                 "process_pss_bytes",
                 side_effect=FileNotFoundError(errno.ENOENT, "missing"),
             ),
+            patch.object(SAMPLER, "process_exit_confirmed", return_value=False),
             patch.object(SAMPLER.os, "sched_yield"),
         ):
             with self.assertRaises(FileNotFoundError):
                 SAMPLER.owned_process_memory({123: 42})
+
+    def test_pss_race_accepts_pidfd_confirmed_process_exit(self) -> None:
+        with (
+            patch.object(
+                SAMPLER,
+                "process_start_identity",
+                side_effect=[42] * (SAMPLER.PSS_READ_ATTEMPTS * 2),
+            ),
+            patch.object(
+                SAMPLER,
+                "process_pss_bytes",
+                side_effect=FileNotFoundError(errno.ENOENT, "missing"),
+            ),
+            patch.object(SAMPLER, "process_exit_confirmed", return_value=True) as exit_confirmed,
+            patch.object(SAMPLER.os, "sched_yield"),
+        ):
+            self.assertEqual(SAMPLER.owned_process_memory({123: 42}), ([], 0))
+        exit_confirmed.assert_called_once_with(123, 42)
+
+    def test_pidfd_confirmation_waits_for_the_same_process_to_exit(self) -> None:
+        poller = MagicMock()
+        poller.poll.return_value = [(7, SAMPLER.select.POLLIN)]
+        with (
+            patch.object(SAMPLER, "process_start_identity", side_effect=[42, 42]),
+            patch.object(SAMPLER.os, "pidfd_open", return_value=7) as pidfd_open,
+            patch.object(SAMPLER.select, "poll", return_value=poller),
+            patch.object(SAMPLER.os, "close") as close,
+        ):
+            self.assertTrue(SAMPLER.process_exit_confirmed(123, 42))
+
+        pidfd_open.assert_called_once_with(123, 0)
+        poller.register.assert_called_once_with(
+            7,
+            SAMPLER.select.POLLIN | SAMPLER.select.POLLHUP | SAMPLER.select.POLLERR,
+        )
+        poller.poll.assert_called_once_with(SAMPLER.PSS_EXIT_CONFIRMATION_MILLISECONDS)
+        close.assert_called_once_with(7)
 
     def test_pss_race_retries_only_while_process_identity_is_stable(self) -> None:
         with (
