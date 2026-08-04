@@ -272,6 +272,30 @@ describe('LinuxManagedFilesystemAdapter real openat2 contract', { skip: process.
     await harness.store.dispose();
   });
 
+  test('shares immutable read ownership while keeping mutation blocked until every reader releases', async () => {
+    const harness = createHarness('shared-read-lock');
+    await harness.store.initialize();
+    await installFixture(harness);
+
+    const load = await harness.store.leaseInstalledArtifact(harness.descriptor, 'load');
+    const verify = await harness.store.leaseInstalledArtifact(harness.descriptor, 'verify');
+    const clearance = removalClearanceIssuer.issue(harness.descriptor.artifactId);
+
+    await load.release();
+    await assert.rejects(
+      harness.store.deleteArtifact(harness.descriptor, clearance),
+      (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
+    );
+    await verify.release();
+    await harness.store.deleteArtifact(harness.descriptor, clearance);
+
+    await assert.rejects(
+      harness.store.leaseInstalledArtifact(harness.descriptor, 'integrity'),
+      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
+    );
+    await harness.store.dispose();
+  });
+
   test('returns an anchored exact runtime-worker launch lease', async () => {
     const descriptor = createRuntimeDescriptor();
     const harness = createHarness('runtime-launch-lease', undefined, descriptor);
