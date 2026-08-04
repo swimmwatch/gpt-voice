@@ -15,9 +15,11 @@ release.
 
 ## Prerequisites
 
-- Specification revision 11 and plan revision 17 are approved.
+- Specification revision 14 and plan revision 18 are approved.
 - Task 19 is complete and committed with the Windows/Linux implementation-
-  readiness gate passing and both platform qualifications `Pending`.
+  readiness gate passing, all six exact models downloaded/installed through the
+  ordinary Linux app, bounded `base/full` CPU/CUDA smoke passing, and both
+  platform qualifications `Pending`.
 - Candidate SemVer input is exactly `2.4.0`. Capture a new UTC freeze timestamp
   and the final clean Task 19 source/package identity; prior interrupted
   candidate timestamps and private partial rows are not authority.
@@ -33,11 +35,12 @@ release.
 - Linux platform evidence for `REL-001`, `COMP-012`, `DIST-001`–`DIST-002`,
   `MODEL-011`, `PKG-011`, `SEC-014`, `QUAL-001`–`QUAL-004`, `PRIV-005`, and
   the Linux technical slice of `OPS-003`.
-- Supporting Linux evidence for `AC-AUTO-064`–`AC-AUTO-070`,
-  `AC-AUTO-072`, and `AC-AUTO-073`; primary automated ownership remains Task
-  19 except aggregate `AC-AUTO-071` in Task 22.
+- Supporting Linux evidence for `AC-AUTO-064`–`AC-AUTO-070` and
+  `AC-AUTO-072`–`AC-AUTO-075`; primary automated ownership remains Task 19
+  except aggregate `AC-AUTO-071` in Task 22.
 - `AC-MAN-001`; Linux `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and
-  `AC-MAN-013`; Linux technical inputs for `AC-MAN-014`.
+  `AC-MAN-013`; Linux technical inputs for `AC-MAN-014`. Consume but do not
+  reinterpret or replace Task 19 functional `AC-MAN-015` evidence.
 - No Windows or aggregate evidence ownership.
 
 ## In Scope
@@ -247,7 +250,7 @@ Do not invoke the Windows qualification command or
 
 ## References
 
-- Specification revision 11 Sections 9.2, 9.6, 12.1–12.5, 18.3,
+- Specification revision 14 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
 - Task 19 final implementation-readiness handoff and Task 17 fixture identity.
 - `../qualification/linux-evidence-template.md` and versioned qualification

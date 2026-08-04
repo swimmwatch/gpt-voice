@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 17,
+  "planRevision": 18,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -230,6 +230,11 @@
       "id": "task-18-docs-verification",
       "task": "18",
       "command": "rtk npm run verify:local-whisper:docs"
+    },
+    {
+      "id": "task-19-development-tests",
+      "task": "19",
+      "command": "rtk npm run test:local-whisper:development"
     },
     {
       "id": "task-19-implementation-readiness",
@@ -621,6 +626,16 @@
       "acceptanceId": "AC-AUTO-073",
       "primaryTask": "19",
       "verificationCommandIds": ["task-19-implementation-readiness"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-074",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-development-tests", "task-19-implementation-readiness"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-075",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-development-tests", "task-19-implementation-readiness"]
     }
   ]
 }

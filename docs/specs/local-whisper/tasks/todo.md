@@ -1,15 +1,14 @@
 # Local Whisper Task Checklist
 
-Plan revision: **17 (Approved)**
+Plan revision: **18 (Approved)**
 
-Specification baseline: **revision 11 (Approved)**
+Specification baseline: **revision 14 (Approved)**
 
-Execution state: Tasks 01–18 are complete and committed. Existing Task 19
-implementation checkpoints through `76549d87` remain the baseline, but Task 19
-is not complete under the revision-11 boundary. It must finish deterministic
-Windows/Linux CPU/CUDA implementation readiness without representative
-platform execution. Tasks 20 and 21 later create fresh Linux and Windows
-qualification branches; Task 22 alone aggregates production readiness.
+Execution state: Tasks 01–18 are complete and committed. Task 19 is reopened
+and remains uncommitted: development settings and installed CUDA/runtime
+identity now survive restarts, but the latest ordinary-app CUDA transcription
+failed with `MODEL_LOAD_FAILED`. Tasks 20–22 remain deferred qualification and
+aggregate boundaries.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -29,17 +28,17 @@ qualification branches; Task 22 alone aggregates production readiness.
 - [x] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md) — `f9befc17`
 - [x] [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md) — `b9c3e3b`
 - [x] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) — `16b32ca`
-- [ ] [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md)
+- [ ] [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md) — in progress; restart persistence fixed, CUDA model-load blocker remains
 - [ ] [20 Linux Qualification](20_linux_qualification.md)
 - [ ] [21 Windows Qualification](21_windows_qualification.md)
 - [ ] [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)
 
 No `candidateInputDigest`, Linux or Windows platform branch, result, evidence
 index, predecessor result, or aggregate root is frozen. The interrupted private
-Linux run is non-authoritative and must not be adopted. Candidate SemVer input
-remains `2.4.0`; the Task 17 fixture digest remains
+Linux qualification run is non-authoritative and must not be adopted. Candidate
+SemVer input remains `2.4.0`; the Task 17 fixture digest remains
 `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 AMD remains **Preview · Untested** and macOS remains
-**Planned · Unavailable**. Plan approval, each packet execution, commit, push,
-PR, production signing, upload, publication, support promotion, tag, and
-release remain separate authorization boundaries.
+**Planned · Unavailable**. Task 19 commit, Task 20 execution, push, PR,
+production signing, upload, publication, support promotion, tag, and release
+remain separate authorization boundaries.

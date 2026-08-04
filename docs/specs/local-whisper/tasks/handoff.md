@@ -1,63 +1,70 @@
 # Local Whisper Handoff
 
-## Authoritative State
+## Authoritative state
 
-- Specification revision 11 and plan revision 17 are Approved. Tasks 01–18 are
-  complete and committed.
-- Existing Task 19 checkpoints through `76549d87` remain the implementation
-  baseline. The packet is not complete under the revision-11 boundary.
-- Candidate SemVer input is `2.4.0`, but no shared candidate, platform branch,
-  result, evidence index, predecessor result, or aggregate root is frozen.
-- The interrupted private Linux qualification run is non-authoritative and
-  must not be adopted. Representative Windows execution remains `NotRun`.
-- Task 17 fixture SHA-256 remains
-  `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
-- AMD remains **Preview · Untested**; macOS remains
-  **Planned · Unavailable**.
+- Specification revision 14 and plan revision 18 are Approved. Tasks 01–18 are
+  complete and committed. Task 19 is reopened, incomplete, and uncommitted;
+  Tasks 20–22 have not started.
+- The development app, loopback server, filesystem guard, worker, launcher,
+  model guard, and current development session are stopped. Reusable ignored
+  development state remains private and includes the saved Local Whisper
+  settings, opaque device identity, six installed exact models, the installed
+  CUDA runtime, and public-only runtime attestation metadata.
+- No candidate input digest, platform branch/result/evidence index,
+  predecessor result, aggregate root, Production verdict, push, PR, signing,
+  upload, publication, tag, or release exists.
 
-## Revision 17 Boundary
+## Task 19 work completed in the latest continuation
 
-- Task 19 finishes and deterministically verifies complete Windows/Linux
-  CPU/CUDA production composition while both platform qualifications remain
-  `Pending`. It owns no representative platform execution or evidence freeze.
-- Task 20 freezes a fresh shared candidate and Linux branch only after Task 19
-  has a final committed source identity, then runs representative Linux
-  qualification.
-- Task 21 consumes the unchanged shared/Linux inputs, freezes the Windows
-  branch, and runs every representative Windows/native/installer check.
-- Task 22 validates both immutable branches, seals the aggregate root, and
-  reports protected production, legal, origin, publication, and release
-  blockers without rerunning platform profiles.
+- Synchronized renderer target/runtime/backend/device and model dependent
+  settings, excluded CPU from GPU backend choices, and reject incompatible
+  drafts before IPC.
+- Allowed an installed validated unloaded configuration to load lazily on the
+  first transcription and present it as `Available on demand`.
+- Adapted the generic provider configuration query through
+  `LocalWhisperVoiceProvider.hasSession()` without introducing browser-session
+  state.
+- Moved reusable Electron/config state out of the ephemeral development
+  session. Descriptors, staged resources, loopback trust, and server state
+  remain session-owned and are removed on normal shutdown.
+- Added a public-only runtime attestation store. Runtime archive signatures and
+  public verification material remain stable across sessions, while private
+  signing material and each catalog-envelope key remain ephemeral. The already
+  installed CUDA runtime is recognized after restart without downloading it
+  again.
 
-## Planning Changes
+## Current blocker
 
-- Replaced the former Tasks 19–21 packets with self-contained Tasks 19–22.
-- Updated `plan.md` sequencing, Windows ownership, manual gates, and approval
-  boundary for specification revision 11 and plan revision 17.
-- Updated `acceptance-owners.json` for Tasks 01–22, registered commands, all 72
-  canonical automated acceptance IDs, and new `AC-AUTO-073` ownership.
-- Updated `todo.md`, this handoff, and the decision ledger. Plan revision 17 was
-  durably approved as decision `approval.plan-revision-17`, sequence 70. No
-  production code, validator implementation, commit, push, PR, signing,
-  upload, publication, tag, support promotion, or release was performed.
-- The scoped revision-17 baseline commit was authorized as
-  `commit.plan-revision-17`, sequence 71, and this invocation's exact Task 19
-  execution was authorized as `execution.task-19-revision-17`, sequence 72.
+- The restarted ordinary application authenticated the development catalog and
+  recognized all six models plus the installed CUDA runtime. Provider settings
+  readiness succeeded and no backend download was requested.
+- The next normal recording reached lazy model loading, then failed after the
+  bounded load attempt with `MODEL_LOAD_FAILED`. No transcript or private audio
+  evidence was retained. This invalidates the prior Task 19 completion claim
+  and keeps `AC-MAN-015` incomplete.
 
-## Exact Next Step
+## Verification completed
 
-Create the authorized scoped revision-17 baseline commit, then execute exactly
-Task 19 in this invocation.
+- Passed: `test:local-whisper:development`, `artifacts`, `catalog`,
+  `composition`, `ipc`, `ui`, `ui:accessibility`, `packaging`,
+  `qualification` (one intentional predecessor-package skip),
+  `acceptance-ownership`, and
+  `verify:local-whisper:implementation-readiness`.
+- Passed after the implementation changes: `typecheck` and `test:types`.
+- `lint` reported zero errors; the two newly introduced warnings were then
+  corrected. The three reported formatting targets were formatted. Final lint
+  and format rechecks remain pending.
+- `test:unit`, `audit:prod`, `build:prod`, and `smoke:fedora` remain pending
+  after the final fix.
 
-Task 19 must then finish the real Windows/Linux production composition and
-implementation-readiness verifier, update the currently revision-16 plan
-validator to revision 17, run only deterministic/platform-independent and
-Linux-host checks, and leave Linux/Windows/aggregate qualification `Pending`.
-It must not run representative Windows or Linux qualification.
+## Exact next step
 
-## Blockers
-
-- No authorization blocker remains for the scoped baseline commit or Task 19
-  execution in this invocation.
-- Missing representative Linux/Windows evidence is intentionally deferred to
-  Tasks 20–21 and is not a Task 19 implementation blocker.
+1. Re-run lint and formatting, then restart the ordinary development app.
+2. Reproduce `MODEL_LOAD_FAILED` with content-free worker/coordinator lifecycle
+   evidence and determine the exact CUDA load failure without recording native
+   private output, audio, transcripts, paths, or device identifiers.
+3. Fix the load path, verify save/restart without another runtime download, and
+   complete one successful ordinary CUDA load/transcribe/unload flow.
+4. Run the remaining Task 19 checks and update this handoff and `todo.md`.
+5. The user authorized atomic commits after the fix. This incremental packet
+   still stops before push; pushing requires a separate authorized action.

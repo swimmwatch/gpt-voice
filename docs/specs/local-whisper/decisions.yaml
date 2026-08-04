@@ -6843,3 +6843,459 @@ decisions:
     rationale: The user explicitly authorized this invocation to execute exactly Task 19 after the approved revision-17 baseline commit. Representative Linux/Windows qualification, Task 20, the eventual Task 19 commit, push, pull request, signing, upload, publication, support promotion, tag, and release remain separately gated.
     supersedes_revision: 14
     requirement_ids: [IMPL-001, AC-AUTO-073]
+
+  - id: acceptance.task-19-normal-app-linux-smoke
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - The user explicitly required Task 19 to leave the ordinary Linux desktop application testable with one real Whisper model through both CPU and NVIDIA CUDA.
+      - The user explicitly rejected static contracts, mocks, and an isolated qualification runner as substitutes for the normal application and UI flow.
+      - Broader model matrices, resource measurements, representative Windows execution, and final platform qualification remain deferred.
+    prompt_mcp: null
+    question:
+      text: What real execution must Task 19 complete before it can be considered finished?
+      kind: single
+      options:
+        - id: normal-linux-app-one-model-cpu-cuda
+          label: Normal Linux app CPU and CUDA
+          description: Use one real model through the ordinary application flow on Linux, once on CPU and once on NVIDIA CUDA, while leaving broader qualification to later tasks.
+    answer:
+      selected_ids: [normal-linux-app-one-model-cpu-cuda]
+      text: Task 19 must leave the normal Linux application fully testable with one real Whisper model on CPU and one real Whisper model on NVIDIA CUDA through the normal application and UI flow.
+    rationale: Task 19 cannot close from implementation-readiness contracts alone. It must prove that the feature exposed to a developer in the ordinary Linux desktop application can install or consume authenticated local-test artifacts, load, transcribe, and unload on both available execution targets. This smoke gate does not qualify the full Linux release matrix or create a Production claim.
+    supersedes_revision: null
+    requirement_ids: [IMPL-001, IMPL-002, AC-AUTO-074, AC-MAN-015]
+
+  - id: security.task-19-development-artifact-activation
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - The production packaged catalog is intentionally empty until protected production signing, upload, and publication are complete.
+      - The ordinary application currently exits through the deferred-publication environment before device validation, so CPU or CUDA cannot be exercised from the normal UI.
+      - Existing qualification trust is authenticated and purpose-isolated from production and fixture trust; weakening catalog verification or embedding private keys would violate the approved trust contract.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: task-19-normal-app-round-13
+      question_id: security.task-19-development-artifact-activation
+      idempotency_key: security.task-19-development-artifact-activation:v1
+      last_status: answered
+      sequence: 56
+      revision: 1
+    question:
+      text: How should the ordinary Linux development application obtain authenticated Local Whisper artifacts before production publication exists?
+      kind: single
+      options:
+        - id: explicit-nonpackaged-qualification-channel
+          label: Explicit development channel (Recommended)
+          description: Allow only an explicit non-packaged development launch to consume a locally generated, authenticated qualification catalog and artifacts; packaged builds remain fail-closed.
+        - id: production-publication-first
+          label: Publish production artifacts first
+          description: Keep every normal application build disabled until protected production signing, upload, catalog generation, and publication are completed.
+        - id: defer-normal-app-test
+          label: Defer normal-app testing
+          description: Keep Task 19 limited to contracts and move ordinary application CPU/CUDA execution to the later Linux qualification task.
+    answer:
+      selected_ids: [explicit-nonpackaged-qualification-channel]
+      text: ''
+    rationale: The user selected a purpose-isolated development activation path. Only an explicit non-packaged Linux development launch may consume locally generated authenticated qualification inputs; normal packaged builds remain on the production-purpose catalog and fail closed until protected production publication exists. Fixture keys, embedded private keys, unsigned catalogs, and verification bypasses remain prohibited.
+    supersedes_revision: null
+    requirement_ids: [DEV-001, SEC-015, IMPL-002, AC-AUTO-074, AC-MAN-015]
+
+  - id: acceptance.task-19-smoke-model
+    revision: 1
+    category: acceptance
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - The approved product contract uses `base` as the default Local Whisper model family.
+      - The production qualification contract already gives `base/full` the performance-fixture role, so it is the least surprising single model for a bounded functional smoke.
+      - The user requires one model on both CPU and CUDA and does not require a different family for this implementation gate.
+    prompt_mcp: null
+    question:
+      text: Which single model should the bounded Task 19 ordinary-application CPU/CUDA smoke use?
+      kind: single
+      options:
+        - id: base-full
+          label: Base full
+          description: Use the existing default full-precision base model for both CPU and CUDA functional smoke runs.
+    answer:
+      selected_ids: [base-full]
+      text: ''
+    rationale: Selecting the existing default avoids a new product default or special test-only model for the bounded runtime proof. It does not limit which models Task 19 must install and expose through the ordinary application.
+    supersedes_revision: null
+    requirement_ids: [IMPL-002, AC-MAN-015]
+
+  - id: acceptance.revision-12-gap-analysis
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - User perspective: Task 19 now ends only after the ordinary Linux settings and provider flow works with one real model on CPU and NVIDIA CUDA; a catalog-publication problem is no longer mislabeled as an unsupported platform.
+      - Operator perspective: the explicit development activation is non-packaged, launch-scoped, purpose-isolated, visibly non-production, and cannot enter release collection; packaged builds remain fail-closed.
+      - Implementer perspective: one main-process activation descriptor feeds the existing production composition root and normal renderer/preload/main/provider surfaces without a second implementation or renderer trust authority.
+      - Tester perspective: AC-AUTO-074 covers activation isolation and negative cases, while AC-MAN-015 proves authenticated artifact setup, compatibility, load, normal provider transcription, and unload with one base/full model on CPU and CUDA.
+      - Security-reviewer perspective: signature, purpose, keyring, origin, redirect, filesystem, process, privacy, and protocol validation remain mandatory; private keys, fixture trust, unsigned catalogs, verification bypasses, and packaged activation are prohibited.
+      - Maintainer perspective: the bounded Task 19 smoke creates no platform graph/result/evidence index, resource measurement, all-model qualification, Windows claim, Production verdict, upload, publication, or release action; those remain in later boundaries.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved material behavior. The only reversible implementation-local default is the existing base/full model for the one-model smoke, which is exposed in the draft for approval.
+    supersedes_revision: null
+    requirement_ids: [DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-074, AC-MAN-015]
+
+  - id: approval.spec
+    revision: 12
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 12 reopens Task 19 because static implementation readiness did not make the ordinary application usable.
+      - Task 19 now requires the same real base/full model through the normal non-packaged Linux application on CPU and NVIDIA CUDA, including authenticated setup, selection, compatibility, load/warm-up, provider transcription, and unload.
+      - The user selected an explicit authenticated qualification-purpose development channel; packaged builds remain fail-closed until production publication and no trust verification is weakened.
+      - AC-AUTO-074 and AC-MAN-015 separate development activation and bounded functional smoke from the later all-model Linux/Windows qualification and aggregate release gates.
+      - The six-perspective gap analysis found no unresolved material behavior.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-14
+      question_id: approval.spec
+      idempotency_key: approval.spec:v12
+      last_status: answered
+      sequence: 57
+      revision: 12
+      supersedes_revision: 11
+    question:
+      text: How should Local Whisper specification revision 12 proceed after making ordinary-app Linux CPU/CUDA execution a Task 19 completion requirement?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 12 (Recommended)
+          description: Make the authenticated development activation and one-model normal-app CPU/CUDA smoke authoritative, then revise Task 19 and downstream packets separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 12 in Draft and revise its activation boundary, smoke procedure, model choice, security constraints, or deferred qualification scope.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 11 and plan revision 17 remain the approved but insufficient baseline.
+    answer:
+      selected_ids: []
+      text: It's not just one model that needs to be installed, but all models. I need to be able to test and run all models locally through our app on the processor and graphics card. Everything must be ready in Task 19, but there is no need to run hour-long tests.
+    rationale: Revision 12 remains Draft because the user rejected a one-model availability boundary. The revised contract must make all six curated models installed and available through the ordinary application for CPU and NVIDIA CUDA, while keeping the agent-run proof bounded and deferring the long qualification matrix.
+    supersedes_revision: 11
+    requirement_ids: [APPROVAL-001]
+
+  - id: acceptance.task-19-normal-app-linux-smoke
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly corrected revision 12: all curated Local Whisper models, not only one, must be installed and ready to test through the ordinary application in Task 19.
+      - Every installed model must be selectable for both CPU and the available NVIDIA CUDA device without fallback or a separate runner.
+      - The user explicitly does not require hour-long exhaustive execution in Task 19; long all-model measurements, repetition, failure injection, and evidence freeze remain later qualification work.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-14
+      question_id: approval.spec
+      idempotency_key: approval.spec:v12
+      last_status: answered
+      sequence: 57
+      revision: 12
+    question:
+      text: What real model availability and execution must Task 19 complete before the user takes over detailed testing?
+      kind: single
+      options:
+        - id: all-models-installed-bounded-cpu-cuda-smoke
+          label: Install all; bounded CPU/CUDA smoke
+          description: Install and expose all six models through the ordinary app for CPU and CUDA, then run a bounded representative end-to-end smoke while deferring the long qualification matrix.
+    answer:
+      selected_ids: [all-models-installed-bounded-cpu-cuda-smoke]
+      text: All models must be installed and locally runnable through our app on the processor and graphics card in Task 19. Do not run hour-long tests.
+    rationale: Task 19 must hand off a genuinely testable application, not merely catalog metadata or one installed model. Installing and integrity-validating all six artifacts plus a representative ordinary-app CPU/CUDA smoke proves the shared execution path without spending Task 19 on the later all-model qualification suite.
+    supersedes_revision: 1
+    requirement_ids: [MODEL-001, MODEL-002, MODEL-005, IMPL-001, IMPL-002, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+
+  - id: acceptance.revision-13-gap-analysis
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - User perspective: Task 19 hands over an ordinary Linux application with all six exact models installed, independently manageable, and selectable for CPU and NVIDIA CUDA; a catalog-publication problem is not mislabeled as an unsupported platform.
+      - Operator perspective: the explicit development activation is non-packaged, launch-scoped, purpose-isolated, visibly non-production, and excluded from release collection; packaged builds remain fail-closed.
+      - Implementer perspective: one main-process activation descriptor feeds the existing production composition root and normal renderer/preload/main/provider surfaces without a second implementation or renderer trust authority.
+      - Tester perspective: AC-AUTO-074 covers activation isolation, AC-AUTO-075 covers all-six-model catalog/management/selection readiness, and AC-MAN-015 proves real artifact installation plus a bounded representative CPU/CUDA execution through the ordinary app.
+      - Security-reviewer perspective: signature, purpose, keyring, origin, redirect, artifact, filesystem, process, privacy, and protocol validation remain mandatory; private keys, fixture trust, unsigned catalogs, verification bypasses, and packaged activation are prohibited.
+      - Maintainer perspective: Task 19 runs no hour-long all-model accuracy/resource/repetition/failure suite and creates no platform graph/result/evidence index, Windows claim, Production verdict, upload, publication, or release action; those remain later boundaries.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved material behavior. The all-six installation and selection boundary is explicit, while base/full remains only the reversible representative model for the bounded runtime smoke.
+    supersedes_revision: null
+    requirement_ids: [MODEL-001, MODEL-002, MODEL-005, DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+
+  - id: approval.spec
+    revision: 13
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 13 incorporates the user's correction that all six curated model artifacts must be installed and ready through the ordinary Linux application in Task 19.
+      - Every installed model must be independently manageable and selectable for CPU and the eligible NVIDIA CUDA device through normal settings, without fallback or an isolated runner.
+      - The agent-run proof remains bounded: one base/full end-to-end ordinary-app run on CPU and one on CUDA; the long all-model qualification, measurements, repetitions, failure injection, Windows execution, and evidence freeze remain later tasks.
+      - The explicit authenticated qualification-purpose development channel remains non-packaged and launch-scoped; packaged builds remain fail-closed and no trust verification is weakened.
+      - AC-AUTO-074, AC-AUTO-075, and AC-MAN-015 objectively separate activation, all-model readiness, and bounded execution from later Production qualification.
+      - The six-perspective gap analysis found no unresolved material behavior.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-15
+      question_id: approval.spec
+      idempotency_key: approval.spec:v13
+      last_status: answered
+      sequence: 58
+      revision: 13
+      supersedes_revision: 12
+    question:
+      text: How should Local Whisper specification revision 13 proceed after requiring all six models to be installed and testable through the ordinary Linux app in Task 19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 13 (Recommended)
+          description: Make all-six model installation/selection readiness plus the bounded ordinary-app CPU/CUDA smoke authoritative, then revise Task 19 and downstream packets separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 13 in Draft and revise model availability, execution depth, activation security, or deferred qualification scope.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 11 and plan revision 17 remain the approved but insufficient baseline.
+    answer:
+      selected_ids: []
+      text: We need to not only install the models. We need to add the ability to download them through Hugging Face; that ability has not yet been demonstrated.
+    rationale: Revision 13 remains Draft because model availability cannot rely on pre-seeded files. The ordinary Task 19 application must expose and exercise explicit direct anonymous Hugging Face download for all six exact pinned model artifacts through the existing managed artifact flow.
+    supersedes_revision: 12
+    requirement_ids: [APPROVAL-001]
+
+  - id: distribution.task-19-huggingface-model-download
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requires the ordinary application to provide model download through Hugging Face, not merely consume already installed model files.
+      - The approved distribution contract already pins six exact anonymous public objects under `ggerganov/whisper.cpp`; no new repository, mirror, token, or publication decision is required.
+      - Task 19 currently has no demonstrated normal-app path from the model Download action to actual public Hugging Face transfer and managed installation.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-15
+      question_id: approval.spec
+      idempotency_key: approval.spec:v13
+      last_status: answered
+      sequence: 58
+      revision: 13
+    question:
+      text: How must Task 19 obtain the six real model artifacts in the ordinary application?
+      kind: single
+      options:
+        - id: direct-pinned-huggingface-download
+          label: Direct pinned Hugging Face download
+          description: Expose the normal explicit Download/Resume/Cancel/Retry actions and anonymously stream each exact catalog-pinned model from Hugging Face into verified managed installation.
+    answer:
+      selected_ids: [direct-pinned-huggingface-download]
+      text: Add the ability to download all models through Hugging Face in the ordinary application.
+    rationale: The normal renderer/preload/main artifact action must reach the real `pinned-raw-model-v1` public Hugging Face transport for each exact model, with progress, cancellation, resume/retry, length/hash verification, atomic promotion, and inventory refresh. Pre-seeding or qualification-runner-only transfer is insufficient.
+    supersedes_revision: null
+    requirement_ids: [DL-001, DL-002, DL-003, DL-004, DL-005, MODEL-001, MODEL-002, IMPL-002, AC-AUTO-064, AC-AUTO-066, AC-AUTO-075, AC-MAN-015]
+
+  - id: acceptance.revision-14-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: every curated model has a visible ordinary-app Download action backed by its exact public Hugging Face object, then remains installed, manageable, and selectable for CPU and NVIDIA CUDA before the user begins detailed testing.
+      - Operator perspective: public model transfer is anonymous, purpose-authenticated, immutable, bounded, resumable, cancellable, retryable, integrity-verified, and independent of deferred runtime publication; packaged builds still require production-purpose catalog trust.
+      - Implementer perspective: the existing renderer/preload/main artifact command reaches the real `pinned-raw-model-v1` downloader and managed store for all six entries; no pre-seeding, direct copy, qualification-runner-only path, or second downloader is permitted.
+      - Tester perspective: AC-AUTO-064 and AC-AUTO-066 retain transport/composition coverage, AC-AUTO-074 covers development activation, AC-AUTO-075 covers normal all-six model actions, and AC-MAN-015 proves real public downloads plus bounded CPU/CUDA execution.
+      - Security-reviewer perspective: URL/path authority stays in main; the app sends no token, cookie, referrer with private data, user/device identifier, audio, prompt, or transcript; exact commit/file/length/hash and redirect policy remain mandatory.
+      - Maintainer perspective: Task 19 downloads real models but runs no hour-long all-model qualification matrix and creates no platform graph/result/evidence index, Windows claim, Production verdict, runtime upload, publication, or release action.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved material behavior. Revision 14 explicitly distinguishes real public model download from runtime publication and from the later exhaustive model execution matrix.
+    supersedes_revision: null
+    requirement_ids: [DL-001, DL-002, DL-003, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-064, AC-AUTO-066, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+
+  - id: approval.spec
+    revision: 14
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 14 requires the ordinary Task 19 application to expose the real Download/Resume/Cancel/Retry path for all six exact pinned Hugging Face model objects.
+      - Task 19 must actually download, hash-verify, atomically install, inventory, manage, and expose every model for CPU and eligible NVIDIA CUDA selection; pre-seeded files and qualification-runner-only transfer are insufficient.
+      - The bounded base/full end-to-end CPU/CUDA smoke remains required, while the hour-long all-model accuracy/resource/repetition/failure suite, Windows execution, evidence freeze, and Production gates remain later tasks.
+      - Runtime development activation remains an explicit authenticated non-packaged qualification channel; packaged builds remain fail-closed and no trust verification is weakened.
+      - The six-perspective gap analysis found no unresolved material behavior.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-16
+      question_id: approval.spec
+      idempotency_key: approval.spec:v14
+      last_status: answered
+      sequence: 59
+      revision: 14
+      supersedes_revision: 13
+    question:
+      text: How should Local Whisper specification revision 14 proceed after requiring real ordinary-app Hugging Face download for all six models in Task 19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 14 (Recommended)
+          description: Make real all-six Hugging Face download, installation, CPU/CUDA readiness, and the bounded ordinary-app smoke authoritative, then revise Task 19 and downstream packets separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 14 in Draft and revise its model-download behavior, artifact management, execution depth, activation security, or deferred qualification scope.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 11 and plan revision 17 remain the approved but insufficient baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 14 through the durable workspace interview. Task 19 now requires explicit non-packaged authenticated development activation, real ordinary-app direct Hugging Face download and managed installation for all six exact models, CPU/CUDA selection readiness for every model, and a bounded base/full end-to-end ordinary-app smoke on both targets. Long all-model qualification, Windows execution, evidence freeze, protected production inputs, publication, and release remain later boundaries.
+    supersedes_revision: 13
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.development-activation-input
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 14 requires both non-packaged application identity and an explicit launch-time opt-in that identifies a main-readable activation descriptor.
+      - `bootstrapMainProcess` already owns `app.isPackaged`, `process.argv`, `process.env`, filesystem reads, and construction of the Local Whisper process graph.
+      - The activation choice must not become renderer authority, persisted settings, ambient discovery, or a packaged-build input.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-18-activation-round-73
+      question_id: planning.development-activation-input
+      idempotency_key: planning.development-activation-input:v1
+      last_status: answered
+      sequence: 73
+      revision: 1
+    question:
+      text: How should a developer explicitly provide the Local Whisper activation descriptor to the non-packaged desktop application?
+      kind: single
+      options:
+        - id: dedicated-cli-flag
+          label: Dedicated CLI flag (Recommended)
+          description: Parse one exact `--local-whisper-development-activation=<absolute-path>` argument in main, reject it when packaged, and validate/read the descriptor before composing Local Whisper.
+        - id: dedicated-environment-variable
+          label: Dedicated environment variable
+          description: Read one named environment variable in main only; this avoids an argv value but can be inherited accidentally and is less explicit than a command-line opt-in.
+        - id: fixed-workspace-location
+          label: Fixed workspace location
+          description: Auto-discover a descriptor at one repository-relative path; this is convenient but weakens the explicit opt-in and ambient-discovery boundary.
+    answer:
+      selected_ids: [dedicated-cli-flag]
+      text: ''
+    rationale: The user selected one explicit command-line opt-in. Main parses exactly one `--local-whisper-development-activation=<absolute-path>` argument, rejects it for packaged identity before reading the path, validates the descriptor and trust inputs, and never persists or exposes the argument to renderer authority.
+    supersedes_revision: null
+    requirement_ids: [DEV-001, SEC-015, IMPL-002, AC-AUTO-074]
+
+  - id: planning.revision-18-coverage-executability-gap-analysis
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 14 is the authoritative baseline; completed Tasks 01–18 remain mapped and unchanged.
+      - Revised Task 19 explicitly owns every new requirement (`DEV-001`, `SEC-015`, `IMPL-002`, `DL-005`) plus `AC-AUTO-074`, `AC-AUTO-075`, and `AC-MAN-015`, while retaining all prior static implementation-readiness ownership.
+      - Task 19 contains every required packet heading and exact activation, trust, catalog, six-model identity, download, selection, bounded smoke, failure, rollback, verification, and manual-gate contract needed for execution without reconstructing the full specification.
+      - Tasks 20–22 retain Linux qualification, Windows qualification, and aggregate ownership; they consume Task 19 functional readiness without converting it into platform or Production evidence.
+      - The revision-18 ownership registry has 22 task files, 47 unique verification commands, at least one command per task, and exactly 74 unique automated acceptance owners matching the specification. Its draft-2020-12 JSON schema validates.
+      - The existing implementation validator intentionally still expects plan revision 17 and fails with `manifest version is unexpected`; Task 19 owns updating that production validator and registering the new development test command before its gate can pass.
+      - Anonymous public model downloads, local loopback runtime transfers, managed disk use, and bounded Linux NVIDIA smoke are explicit Task 19 manual gates. Windows execution, long all-model qualification, signing, upload, publication, and release remain later or external gates.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The coverage and executability audit found no unresolved material planning choice. Known absent revision-18 validator/package-script support is an explicit Task 19 deliverable rather than an inferred pass or hidden prerequisite.
+    supersedes_revision: null
+    requirement_ids: [DEV-001, SEC-015, IMPL-001, IMPL-002, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+
+  - id: approval.plan-revision-18
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 14 is approved and plan revision 18 reopens only Task 19 while preserving completed Tasks 01–18.
+      - Task 19 now requires explicit CLI-gated non-packaged activation, strict qualification descriptor/resources, accurate catalog state, real normal-app Hugging Face downloads for all six exact models, all-model CPU/CUDA selection readiness, and bounded base/full CPU/CUDA smoke.
+      - Tasks 20–22 retain the long Linux qualification, representative Windows qualification, and aggregate protected release gates without overlap or premature Production claims.
+      - The ownership registry and schema cover Tasks 01–22 and all 74 automated acceptance IDs; the implementation validator/package command updates remain explicit Task 19 deliverables.
+      - The coverage and executability audit found no unresolved material planning choice.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-18-approval-round-74
+      question_id: approval.plan-revision-18
+      idempotency_key: approval.plan-revision-18:v1
+      last_status: answered
+      sequence: 74
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 18 proceed after reopening Task 19 for real normal-app downloads and CPU/CUDA functional readiness?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 18 (Recommended)
+          description: Approve the revised Task 19 packet and unchanged Task 20–22 sequence, while keeping implementation and external actions separately gated.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 18 in Draft and revise packet scope, activation mechanics, model-download workflow, verification, sequencing, or manual gates.
+        - id: leave-plan-draft
+          label: Leave plan Draft
+          description: Stop without approval; revision 17 remains the approved but insufficient plan and Task 19 stays reopened.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 18 through the durable workspace interview. This authorizes the plan contract only; Task 19 implementation, anonymous public downloads, local runtime session, managed installation, bounded CPU/CUDA smoke, commit, push, pull request, and every production external action remain separately gated.
+    supersedes_revision: 17
+    requirement_ids: []
+
+  - id: execution.task-19-revision-18
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 18 reopens Task 19 as the first unchecked packet and preserves its current uncommitted static-readiness work.
+      - Task 19 owns explicit non-packaged activation, real anonymous normal-app Hugging Face download and managed installation for all six exact models, all-model CPU/CUDA selection readiness, and bounded base/full CPU/CUDA smoke.
+      - Execution requires exact public GET/range requests, a task-local loopback runtime server, fixed managed storage, and the available Linux NVIDIA device; it permits no credentials, arbitrary origin, upload, publication, Windows execution, or long qualification matrix.
+      - Task 20, Task 21, Task 22, the eventual Task 19 commit, push, pull request, production signing, upload, publication, support promotion, tag, and release remain separately gated.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-19-revision-18-start-round-75
+      question_id: execution.task-19-revision-18
+      idempotency_key: execution.task-19-revision-18:v1
+      last_status: answered
+      sequence: 75
+      revision: 1
+    question:
+      text: Should the next incremental-implementation invocation execute exactly revised Task 19, including its exact anonymous model downloads and bounded Linux CPU/CUDA smoke?
+      kind: single
+      options:
+        - id: authorize-task-19
+          label: Execute revised Task 19 (Recommended)
+          description: Preserve current work, implement the revised packet, perform only its exact public/local transfers and bounded smoke, update todo/handoff, and stop before commit or Task 20.
+        - id: do-not-start
+          label: Do not start
+          description: Keep revised Task 19 pending and perform no implementation, downloads, managed installation, or hardware smoke.
+    answer:
+      selected_ids: [authorize-task-19]
+      text: ''
+    rationale: The user explicitly authorized the next incremental-implementation invocation to execute exactly revised Task 19. The authorization includes only the packet's exact anonymous public model downloads, task-local loopback runtime transfers, fixed managed installation/removal, and bounded Linux CPU/CUDA smoke. It excludes Task 20, Windows execution, long qualification, commit, push, pull request, signing, upload, publication, support promotion, tag, and release.
+    supersedes_revision: null
+    requirement_ids: [DEV-001, SEC-015, IMPL-001, IMPL-002, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]

@@ -2,13 +2,15 @@
 
 Status: Approved
 
-Revision: 17
+Revision: 18
 
-Specification baseline: approved `spec.md` revision 11. This revision preserves
-the fixed `whisperCpp` implementation and completed Tasks 01–18. It separates
-the former combined Task 19 into cross-platform implementation readiness,
-deferred Linux qualification, deferred Windows qualification, and aggregate
-readiness Tasks 19–22. No completed packet or support claim is reopened.
+Specification baseline: approved `spec.md` revision 14. This revision preserves
+the fixed `whisperCpp` implementation and completed Tasks 01–18, reopens the
+incorrectly completed Task 19, and retains Linux qualification, Windows
+qualification, and aggregate readiness as Tasks 20–22. Task 19 now owns the
+explicit non-packaged activation path, real normal-app Hugging Face model
+downloads, all-six-model CPU/CUDA readiness, and bounded Linux application
+smoke required before detailed qualification.
 
 ## Goal
 
@@ -46,10 +48,10 @@ remain in the linked packet.
 | [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md)                                           | Deliver the complete accessible provider settings/management experience, approximate and exact resource guidance, explicit load controls, and compact main-window status.                                                                                             | 01, 03, 05, 14, 15                         | `UI-001`–`UI-008`, `MODEL-001`, `MODEL-007`–`MODEL-010`, `RUNTIME-003`–`RUNTIME-004`, `SET-002`–`SET-009`, `VAL-001`–`VAL-003`, `VRAM-002`–`VRAM-003`, `CAP-001`, `CAP-008`–`CAP-013`, `LIFE-003`, `LIFE-005`–`LIFE-006`, `FAIL-001`–`FAIL-002`, `FAIL-004`, `FAIL-006`, `AMD-001`–`AMD-004`, `AMD-006`, `MAC-001`–`MAC-003`; primary `AC-AUTO-004`, `AC-AUTO-038`, `AC-AUTO-049`                                                                                                                                                                                   |
 | [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md)                                   | Add disabled/fixture/production signed-envelope modes, one generate-once Linux-consumed fixture, a non-triggered Windows consumer, and minimal base packaging.                                                                                                        | 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 | `PKG-001`–`PKG-006`, `PKG-008`–`PKG-010`, `SEC-003`, `SEC-008`–`SEC-009`, `SEC-012`–`SEC-013`, `OPS-001`, `RUNTIME-001`, `RUNTIME-003`, `MODEL-003`, `MODEL-009`–`MODEL-010`, `CAP-013`, `COMP-002`, `COMP-007`, `COMP-009`, `DL-001`–`DL-002`, `MAC-003`; primary `AC-AUTO-030`, `AC-AUTO-048`, `AC-AUTO-057`, `AC-AUTO-061`                                                                                                                                                                                                                                       |
 | [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) | Close migrations, rollback guidance, private audit/diagnostics v2, docs, and an unreachable Planned/unavailable macOS arm64 skeleton.                                                                                                                                 | 01–17                                      | `DIAG-001`–`DIAG-003`, `PRIV-001`–`PRIV-004`, `COMP-010`, `DOC-001`, `MAC-001`–`MAC-003`, `BASE-001`, `COMP-003`, `SET-001`, `SET-005`, `VAL-002`, `MODEL-010`, `CAP-013`, `UI-007`, `AMD-001`–`AMD-002`, `PKG-005`, `SEC-002`, `NONGOAL-001`–`NONGOAL-002`; primary `AC-AUTO-026`, `AC-AUTO-028`, `AC-AUTO-029`, `AC-AUTO-045`, `AC-AUTO-046`, `AC-AUTO-058`                                                                                                                                                                                                       |
-| [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md)                                     | Finish and verify complete Windows/Linux CPU/CUDA production paths, platform adapters, packaging contracts, process/model authority, lifecycle, and a fail-closed implementation-readiness gate without representative platform execution.                            | 01–18                                      | `IMPL-001`, `DL-004`, `ARCH-010`, `COMP-012`, `DIST-001`–`DIST-002`, `MODEL-011`, `PKG-011`, `SEC-014`, `REL-001`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-002`–`OPS-003`; applicable prior implementation requirements; primary `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-073`                                                                                                                                                                                                                                                                           |
-| [20 Linux Qualification](20_linux_qualification.md)                                                                             | Freeze a fresh shared candidate and Linux graph after Task 19, then execute all-six-model Linux CPU/CUDA transport, package, parity, resource, lifecycle, privacy, offline, cleanup, and predecessor evidence.                                                        | 19                                         | Linux slices of `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-003`; supporting evidence for `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-073`; Linux `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, `AC-MAN-013`, and technical inputs for `AC-MAN-014`                                                                                                                                                                                                                                                                |
-| [21 Windows Qualification](21_windows_qualification.md)                                                                         | Consume the unchanged shared/Linux branch, freeze a distinct Windows graph on representative Windows x64, then execute all Windows CPU/CUDA, native, installer, lifecycle, privacy, resource, transport, and predecessor gates.                                       | 19, 20                                     | Windows slices of `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-003`; supporting evidence for `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-073`; Windows `AC-MAN-002`–`AC-MAN-008`, `AC-MAN-013`, and technical inputs for `AC-MAN-014`                                                                                                                                                                                                                                                                                        |
-| [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)                                  | Validate the unchanged shared core and both immutable platform branches, seal `aggregateEvidenceDigest`, prove qualification-to-production and protected external gates, and report every blocker without rerunning platform profiles.                                | 19, 20, 21                                 | Aggregate `REL-001`, `COMP-012`, `PKG-011`, `SEC-014`, `DIST-001`–`DIST-002`, `QUAL-001`–`QUAL-004`, `OPS-002`–`OPS-003`, and applicable prior requirements; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`, `AC-AUTO-071`; reconciliation of all automated acceptance plus `AC-MAN-001`–`AC-MAN-014`                                                                                                                                                                                                                                           |
+| [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md)                                     | Finish the static Windows/Linux CPU/CUDA implementation, add explicit non-packaged development activation, download/install all six exact models from Hugging Face through the normal Linux app, expose every model for CPU/CUDA selection, and pass bounded `base/full` CPU/CUDA application smoke while qualification stays Pending. | 01–18                                      | `DEV-001`, `SEC-015`, `IMPL-001`–`IMPL-002`, `DL-004`–`DL-005`, `MODEL-001`–`MODEL-002`, `MODEL-005`, `ARCH-010`, `COMP-012`, `DIST-001`–`DIST-002`, `MODEL-011`, `PKG-011`, `SEC-014`, `REL-001`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-002`–`OPS-003`; applicable prior implementation requirements; primary `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-075`; manual `AC-MAN-015`                                                                                                                                                |
+| [20 Linux Qualification](20_linux_qualification.md)                                                                             | Freeze a fresh shared candidate and Linux graph after Task 19, then execute all-six-model Linux CPU/CUDA transport, package, parity, resource, lifecycle, privacy, offline, cleanup, and predecessor evidence.                                                        | 19                                         | Linux slices of `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-003`; supporting evidence for `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-075`; Linux `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, `AC-MAN-013`, and technical inputs for `AC-MAN-014`; consumes but does not replace `AC-MAN-015`                                                                                                                                                                                                                 |
+| [21 Windows Qualification](21_windows_qualification.md)                                                                         | Consume the unchanged shared/Linux branch, freeze a distinct Windows graph on representative Windows x64, then execute all Windows CPU/CUDA, native, installer, lifecycle, privacy, resource, transport, and predecessor gates.                                       | 19, 20                                     | Windows slices of `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-004`, `PRIV-005`, `OPS-003`; supporting evidence for `AC-AUTO-064`–`AC-AUTO-070`, `AC-AUTO-072`–`AC-AUTO-075`; Windows `AC-MAN-002`–`AC-MAN-008`, `AC-MAN-013`, and technical inputs for `AC-MAN-014`                                                                                                                                                                                                                                                                                        |
+| [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)                                  | Validate the unchanged shared core and both immutable platform branches, seal `aggregateEvidenceDigest`, prove qualification-to-production and protected external gates, and report every blocker without rerunning platform profiles.                                | 19, 20, 21                                 | Aggregate `REL-001`, `COMP-012`, `PKG-011`, `SEC-014`, `DIST-001`–`DIST-002`, `QUAL-001`–`QUAL-004`, `OPS-002`–`OPS-003`, and applicable prior requirements; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`, `AC-AUTO-071`; reconciliation of all automated acceptance plus `AC-MAN-001`–`AC-MAN-015`                                                                                                                                                                                                                                           |
 
 ## Sequencing
 
@@ -60,7 +62,7 @@ completed: 01–18
 03–13 -------------> 17 ---------------+-> 18 -> 19 -> 20 -> 21 -> 22
 ```
 
-- Tasks 01–18 remain completed foundations. Revision 17 does not reopen or
+- Tasks 01–18 remain completed foundations. Revision 18 does not reopen or
   re-execute them.
 - Task 13 removes the active alternate-engine artifacts introduced by Tasks
   01, 03, and 08 and normalizes Task 12's closed AMD matrix. Git history
@@ -77,12 +79,16 @@ completed: 01–18
   complete.
 - Task 18 follows Tasks 01–17 and closes migration, privacy, diagnostics,
   documentation, and the unavailable macOS skeleton.
-- Task 19 preserves the integrated production graph and prior checkpoints,
-  completes both Windows and Linux CPU/CUDA product paths, updates the plan
-  registry and implementation-readiness verifier, and ends with Linux and
-  Windows qualification explicitly `Pending`. It freezes no shared candidate,
-  platform branch, result, evidence index, predecessor result, or aggregate
-  root and performs no representative platform execution.
+- Task 19 preserves its uncommitted static-readiness work, reopens its completion
+  verdict, and finishes the product as an ordinary testable Linux application.
+  It adds the explicit non-packaged CLI activation descriptor, accurate
+  catalog-unavailable state, the real public Hugging Face model-download path,
+  all-six-model installation/management/CPU-CUDA selection, and bounded
+  `base/full` CPU/CUDA load/transcribe/unload smoke. It also preserves complete
+  Windows implementation contracts without executing Windows. Linux and
+  Windows qualification remain `Pending`; no shared candidate, platform
+  branch, result, evidence index, predecessor result, or aggregate root is
+  frozen.
 - Task 20 consumes Task 19's final committed implementation identity, freezes
   one fresh SemVer/UTC `candidateInputDigest`, and creates only the Linux
   platform input, profiles, graph, result, and evidence index. It performs the
@@ -131,12 +137,30 @@ completed: 01–18
   `restricted-tar-gzip-v1`; models use `pinned-raw-model-v1` directly from the
   six immutable public Hugging Face objects in specification Section 9.2.
   Task 19 owns both strict materializers, production command paths, and
-  deterministic contract checks but performs no public-model qualification.
+  deterministic contract checks. It must perform real anonymous normal-app
+  downloads for all six models, but those downloads are functional readiness,
+  not all-model Production qualification.
+- `TASK 19 DEVELOPMENT ACTIVATION`: main accepts exactly one
+  `--local-whisper-development-activation=<absolute-path>` opt-in only when
+  `app.isPackaged === false`. The canonical descriptor embeds qualification
+  catalog/keyring/origin and loopback-CA public inputs, binds app revision and
+  worker protocol 1, selects one validated development resources root, and is
+  never persisted or exposed to renderer. Packaged identity rejects the flag
+  before reading it.
 - `TASK 19 IMPLEMENTATION READINESS`: both Windows and Linux production
   adapters, helpers, CPU/CUDA roles, packaging mappings, process/model
   authority, lifecycle, and trust-purpose isolation must pass deterministic
-  automated contracts. Missing platform results remain `Pending`; they are not
-  implementation failures and cannot become Production evidence.
+  automated contracts. The ordinary Linux app must also download and install
+  all six exact models and pass one `base/full` CPU smoke plus one CUDA smoke.
+  Missing platform qualification results remain `Pending`; functional smoke is
+  not Production evidence.
+- `MANUAL GATE — Task 19 public downloads and bounded hardware smoke`: Task 19
+  execution authorization permits anonymous GETs only for the six exact pinned
+  Hugging Face objects and local loopback runtime bytes, plus storage under the
+  fixed managed root. It permits no credentials, private audio, upload,
+  publication, or arbitrary origin. The Linux NVIDIA host must have sufficient
+  disk and network access; a public outage remains an explicit blocker rather
+  than authorizing a mirror.
 - `TASK 20 QUALIFICATION TRUST`: after Task 19's final committed source exists,
   freeze one explicit SemVer/UTC shared candidate input, then a Linux
   qualification-purpose catalog/keyring, single-use loopback HTTPS origin,
@@ -181,10 +205,16 @@ completed: 01–18
 
 ## Approval Boundary
 
-Revision 17 was explicitly approved by durable decision
-`approval.plan-revision-17` through the persistent `plan:local-whisper`
+Revision 18 was explicitly approved by durable decision
+`approval.plan-revision-18` through the persistent `plan:local-whisper`
 interview. Plan approval authorizes no packet execution, commit, push, pull
 request, private signing, upload, publication, support promotion, or release.
 Task 19 requires a fresh explicit `incremental-implementation` authorization;
-each invocation executes exactly one packet, updates `todo.md` and
-`handoff.md`, and stops before commit or the next packet.
+that authorization includes the packet's exact anonymous public downloads and
+bounded Linux CPU/CUDA smoke, but no other external action. Each invocation
+executes exactly one packet, updates `todo.md` and `handoff.md`, and stops before
+commit or the next packet.
+
+The next Task 19 invocation is authorized by durable decision
+`execution.task-19-revision-18`, sequence 75. That decision does not authorize
+implementation during this planning invocation.

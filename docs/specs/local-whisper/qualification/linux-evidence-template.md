@@ -1,6 +1,6 @@
 # Local Whisper Linux Qualification Evidence
 
-This file is a privacy-safe Task 19 evidence template. `Pending` is not a
+This file is a privacy-safe Task 20 evidence template. `Pending` is not a
 pass, and fixture/source evidence cannot satisfy a platform or hardware row.
 
 ## Candidate foundation
@@ -12,7 +12,7 @@ pass, and fixture/source evidence cannot satisfy a platform or hardware row.
   profile set exists.
 - Fixture digest:
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`
-- Representative Windows execution: **NotRun** — exclusively Task 20.
+- Representative Windows execution: **NotRun** — exclusively Task 21.
 
 ## Linux rows
 
