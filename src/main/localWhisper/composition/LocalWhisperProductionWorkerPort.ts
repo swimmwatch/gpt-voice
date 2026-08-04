@@ -32,6 +32,8 @@ import {
 } from './LocalWhisperRuntimeRegistryDiscovery';
 import type { LocalWhisperWorkerLifecycle } from '../supervisor/LocalWhisperWorkerLifecycle';
 
+const RUNTIME_REGISTRY_DISCOVERY_ATTEMPTS = 3;
+
 export interface LocalWhisperProductionWorkerPortDependencies {
   readonly architecture: 'x64' | 'arm64' | 'other';
   readonly catalog: LocalWhisperAuthenticatedCatalog;
@@ -424,11 +426,22 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     configurationEpoch: number,
     signal: AbortSignal,
   ): Promise<LocalWhisperDeviceTopologySnapshot> {
-    const authority = await this.acquireRuntimeAuthority(runtime, configurationEpoch, 'registry');
-    const registry = await this.dependencies.registryDiscovery.discover(authority, signal);
-    const snapshot = this.dependencies.topology.update(registry);
-    this.dependencies.onTopology(snapshot);
-    return snapshot;
+    for (let attempt = 1; attempt <= RUNTIME_REGISTRY_DISCOVERY_ATTEMPTS; attempt += 1) {
+      try {
+        const authority = await this.acquireRuntimeAuthority(runtime, configurationEpoch, 'registry');
+        const registry = await this.dependencies.registryDiscovery.discover(authority, signal);
+        const snapshot = this.dependencies.topology.update(registry);
+        this.dependencies.onTopology(snapshot);
+        return snapshot;
+      } catch (error) {
+        const retryable =
+          !signal.aborted &&
+          error instanceof LocalWhisperRuntimeRegistryDiscoveryError &&
+          error.code === 'DEVICE_PROOF_FAILED';
+        if (!retryable || attempt === RUNTIME_REGISTRY_DISCOVERY_ATTEMPTS) throw error;
+      }
+    }
+    throw new LocalWhisperRuntimeRegistryDiscoveryError('DEVICE_PROOF_FAILED');
   }
 
   private acquireRuntimeAuthority(

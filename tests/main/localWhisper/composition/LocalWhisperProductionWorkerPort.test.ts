@@ -11,6 +11,7 @@ import {
   LocalWhisperProductionWorkerPort,
   type LocalWhisperProductionWorkerPortDependencies,
 } from '@main/localWhisper/composition/LocalWhisperProductionWorkerPort';
+import { LocalWhisperRuntimeRegistryDiscoveryError } from '@main/localWhisper/composition/LocalWhisperRuntimeRegistryDiscovery';
 import {
   createLocalWhisperDeviceProof,
   createLocalWhisperRegistryFingerprint,
@@ -132,8 +133,14 @@ class ModelAuthorities {
 class RegistryDiscovery {
   public calls = 0;
 
+  public constructor(private failuresRemaining = 0) {}
+
   public discover(): Promise<typeof REGISTRY> {
     this.calls += 1;
+    if (this.failuresRemaining > 0) {
+      this.failuresRemaining -= 1;
+      return Promise.reject(new LocalWhisperRuntimeRegistryDiscoveryError('DEVICE_PROOF_FAILED'));
+    }
     return Promise.resolve(REGISTRY);
   }
 }
@@ -463,10 +470,13 @@ function request(settings: LocalWhisperPublicSettings, backend: LocalWhisperBack
   };
 }
 
-function harness(backend: 'cpu' | 'cuda', options: Parameters<typeof values>[1] = {}) {
+function harness(
+  backend: 'cpu' | 'cuda',
+  options: Parameters<typeof values>[1] & { readonly registryFailures?: number } = {},
+) {
   const selected = values(backend, options);
   const authorities = new RuntimeAuthorities();
-  const registry = new RegistryDiscovery();
+  const registry = new RegistryDiscovery(options.registryFailures);
   const lifecycle = new Lifecycle();
   let topologyUpdates = 0;
   const dependencies: LocalWhisperProductionWorkerPortDependencies = {
@@ -542,6 +552,29 @@ describe('LocalWhisperProductionWorkerPort', () => {
     assert.deepEqual(
       value.authorities.calls.map(({ launchMode }) => launchMode),
       ['registry'],
+    );
+  });
+
+  it('retries bounded invalid registry subprocess output and still fails closed', async () => {
+    const recovered = harness('cuda', { registryFailures: 2 });
+    await recovered.port.refreshAvailableDevices(7);
+    assert.equal(recovered.registry.calls, 3);
+    assert.equal(recovered.topologyUpdates(), 1);
+    assert.deepEqual(
+      recovered.authorities.calls.map(({ launchMode }) => launchMode),
+      ['registry', 'registry', 'registry'],
+    );
+
+    const rejected = harness('cuda', { registryFailures: 3 });
+    assert.deepEqual(await rejected.port.probeFresh(request(rejected.selected.settings, 'cuda')), {
+      success: false,
+      code: 'DEVICE_PROOF_FAILED',
+    });
+    assert.equal(rejected.registry.calls, 3);
+    assert.equal(rejected.topologyUpdates(), 0);
+    assert.deepEqual(
+      rejected.authorities.calls.map(({ launchMode }) => launchMode),
+      ['registry', 'registry', 'registry'],
     );
   });
 
