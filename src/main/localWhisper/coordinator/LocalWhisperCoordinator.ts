@@ -130,7 +130,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
   private stopped = false;
 
   public constructor(private readonly dependencies: LocalWhisperCoordinatorDependencies) {
-    const initialSettings = dependencies.settings.validate(dependencies.initial.settings);
+    const initialSettings = dependencies.settings.validateInitial(dependencies.initial.settings);
     if (!initialSettings) throw new Error('Invalid initial Local Whisper coordinator settings');
     this.settingsValue = initialSettings;
     this.configured = dependencies.initial.configured;

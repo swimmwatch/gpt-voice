@@ -83,8 +83,18 @@ class FakeSettingsPort implements LocalWhisperCoordinatorSettingsPort {
   public saved: LocalWhisperSettings[] = [];
   public resetCount = 0;
   public failPersistence = false;
+  public rejectMutations = false;
+
+  public validateInitial(candidate: unknown): LocalWhisperSettings | null {
+    return this.validateShape(candidate);
+  }
 
   public validate(candidate: unknown): LocalWhisperSettings | null {
+    if (this.rejectMutations) return null;
+    return this.validateShape(candidate);
+  }
+
+  private validateShape(candidate: unknown): LocalWhisperSettings | null {
     if (typeof candidate !== 'object' || candidate === null || !('engine' in candidate)) return null;
     return candidate.engine === 'whisperCpp' ? (structuredClone(candidate) as LocalWhisperSettings) : null;
   }
@@ -251,8 +261,7 @@ function deferred<T>() {
   };
 }
 
-function harness() {
-  const settingsPort = new FakeSettingsPort();
+function harness(settingsPort = new FakeSettingsPort()) {
   const capability = new FakeCapabilityPort();
   const workers = new FakeWorkerPort();
   const artifacts = new FakeArtifactPort();
@@ -309,6 +318,26 @@ function validAudioDispatch(coordinator: LocalWhisperCoordinator) {
 }
 
 describe('LocalWhisperCoordinator', () => {
+  it('admits a repository-validated repairable initial state without weakening mutation validation', async () => {
+    const settingsPort = new FakeSettingsPort();
+    settingsPort.rejectMutations = true;
+    const { coordinator } = harness(settingsPort);
+    const current = coordinator.snapshot;
+
+    assert.equal(current.configured, true);
+    const rejected = await coordinator.applySettingsTransaction({
+      kind: 'save',
+      candidate: current.settings,
+      promptMutation: { kind: 'unchanged' },
+      expectedConfigurationEpoch: current.epochs.configuration,
+      expectedInventoryEpoch: current.epochs.inventory,
+    });
+    assert.equal(rejected.success, false);
+    if (rejected.success) assert.fail('Strict mutation validation unexpectedly accepted repairable settings');
+    assert.equal(rejected.error.code, 'INVALID_SETTINGS');
+    await coordinator.shutdown();
+  });
+
   it('synchronizes completed artifact inventory epochs before the next command', async () => {
     const { coordinator, inventory } = harness();
 

@@ -156,6 +156,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
       : Object.freeze([]),
   });
   const settingsPort = Object.freeze({
+    validateInitial: (candidate: unknown): LocalWhisperSettings | null => (candidate === settings ? settings : null),
     validate: (candidate: unknown): LocalWhisperSettings | null => {
       const result = validateLocalWhisperSettings(candidate, validationContext);
       return result.success ? result.settings : null;

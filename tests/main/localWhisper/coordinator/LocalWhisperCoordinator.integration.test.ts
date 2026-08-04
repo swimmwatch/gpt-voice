@@ -77,6 +77,7 @@ describe('LocalWhisperCoordinator deterministic Linux integration', () => {
     };
     const dependencies: LocalWhisperCoordinatorDependencies = {
       settings: {
+        validateInitial: (candidate) => (candidate === SETTINGS ? SETTINGS : null),
         validate: (candidate) => (candidate === SETTINGS ? SETTINGS : null),
         defaultSettings: () => SETTINGS,
         save: () => Promise.resolve(),

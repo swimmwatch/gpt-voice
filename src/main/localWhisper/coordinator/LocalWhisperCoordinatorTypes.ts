@@ -102,6 +102,7 @@ export type LocalWhisperSettingsTransaction =
   | (LocalWhisperSettingsTransactionEpochs & { readonly kind: 'reset' });
 
 export interface LocalWhisperCoordinatorSettingsPort {
+  validateInitial(candidate: unknown): LocalWhisperSettings | null;
   validate(candidate: unknown): LocalWhisperSettings | null;
   defaultSettings(): LocalWhisperSettings;
   save(settings: LocalWhisperSettings): Promise<void>;

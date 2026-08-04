@@ -795,6 +795,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
       const setup = selectedArtifactSetup(settingsSnapshot.settings, inventory);
       const capabilityService = new LocalWhisperCapabilityService();
       const settingsPort: LocalWhisperCoordinatorDependencies['settings'] = Object.freeze({
+        // Repository load has already shape/catalog-validated this exact default,
+        // configured, or repairable snapshot. Mutations remain strict below.
+        validateInitial: (candidate: unknown) =>
+          candidate === settingsSnapshot.settings ? settingsSnapshot.settings : null,
         validate: (candidate: unknown) => {
           const result = validateLocalWhisperSettings(candidate, context);
           return result.success ? result.settings : null;
@@ -832,6 +836,16 @@ export class ProductionLocalWhisperEnvironmentFactory {
         modelAuthorities: modelAuthorityFactory,
         onTopology: (snapshot) => {
           context = validationContext(loaded.catalog, this.dependencies, snapshot.devices);
+          if (settingsSnapshot.repairIssues.length > 0) {
+            const revalidated = validateLocalWhisperSettings(settingsSnapshot.settings, context);
+            if (revalidated.success) {
+              settingsSnapshot = Object.freeze({
+                ...settingsSnapshot,
+                settings: revalidated.settings,
+                repairIssues: Object.freeze([]),
+              });
+            }
+          }
           facts?.update(factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, this.dependencies.now()));
         },
         platform: context.platform,
