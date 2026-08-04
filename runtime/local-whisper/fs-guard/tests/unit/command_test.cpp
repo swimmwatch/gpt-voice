@@ -53,6 +53,19 @@ TEST(CommandParserTest, RejectsUnknownCommandsAndInvalidValues) {
   EXPECT_THROW(static_cast<void>(parse_command("LIST_NAMESPACE", {"root", "staging"})), GuardError);
 }
 
+TEST(CommandParserTest, AcceptsOnlyCanonicalLinuxRuntimeLaunchFileNames) {
+  for (const char* name : {"worker", "libcudart.so.12", "libcublas.so.12", "libcublasLt.so.12"}) {
+    EXPECT_NO_THROW(static_cast<void>(parse_command("CREATE_FILE", {"directory", name, "384"})))
+        << name;
+  }
+  for (const char* name :
+       {"libcuda.so.1", "libcudart.so.", "libcublas.so.012", "libcublasLt.so.12.1"}) {
+    EXPECT_THROW(static_cast<void>(parse_command("CREATE_FILE", {"directory", name, "384"})),
+                 GuardError)
+        << name;
+  }
+}
+
 TEST(CommandParserTest, RejectsWrongArgumentCountsForEveryCommand) {
   for (const char* name : {"PROCESS_IDENTITY", "INIT", "LOCK", "CREATE_STAGING", "CREATE_FILE",
                            "WRITE_FILE", "SEAL_FILE", "LIST", "LIST_NAMESPACE", "OPEN_ARTIFACT",

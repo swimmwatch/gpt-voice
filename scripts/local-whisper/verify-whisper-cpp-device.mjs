@@ -113,7 +113,7 @@ function verifyDependencyClosure(profile, root, manifest) {
   const system = new Set(manifest.systemRuntimeDependencies.map((dependency) => dependency.soname));
   const worker = resolve(root, manifest.executable);
   const workerMetadata = dynamicMetadata(readelf, worker);
-  assert.equal(workerMetadata.rpath, '$ORIGIN/../lib');
+  assert.equal(workerMetadata.rpath, '$ORIGIN:$ORIGIN/../lib');
   assert.equal(workerMetadata.pathKind, 'RPATH');
   const visited = new Set();
   const queue = [worker];

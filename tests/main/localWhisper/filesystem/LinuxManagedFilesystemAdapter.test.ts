@@ -29,6 +29,7 @@ import {
   ManagedArtifactStoreError,
   createManagedModelDescriptor,
   getManagedArtifactFileName,
+  getManagedArtifactStorageFileName,
   type ManagedArtifactDescriptor,
 } from '@main/localWhisper/filesystem/ManagedArtifactStore';
 import { ManagedArtifactPathResolver } from '@main/localWhisper/filesystem/ManagedArtifactPathResolver';
@@ -106,7 +107,7 @@ function createRuntimeDescriptor(executableCount = 1): ManagedArtifactDescriptor
   const executableFiles = Array.from({ length: executableCount }, (_, index) => {
     const content = index === 0 ? RUNTIME_WORKER_CONTENT : Buffer.from(`alternate-runtime-worker-${index}`, 'utf8');
     return Object.freeze({
-      fileId: artifactId(`runtime-worker-${index}`),
+      fileId: artifactId(index === 0 ? 'worker' : `runtime-worker-${index}`),
       kind: 'executable' as const,
       mode: 0o700,
       sha256: sha256(content),
@@ -120,7 +121,7 @@ function createRuntimeDescriptor(executableCount = 1): ManagedArtifactDescriptor
     expectedFiles: Object.freeze([
       ...executableFiles,
       Object.freeze({
-        fileId: artifactId('runtime-library'),
+        fileId: artifactId('runtime-cudart-12.8.1'),
         kind: 'library' as const,
         mode: 0o600,
         sha256: sha256(RUNTIME_LIBRARY_CONTENT),
@@ -130,6 +131,7 @@ function createRuntimeDescriptor(executableCount = 1): ManagedArtifactDescriptor
     identityKey,
     kind: 'runtime',
     namespace: 'runtimes',
+    runtimePlatform: 'linux',
   });
 }
 
@@ -286,9 +288,10 @@ describe('LinuxManagedFilesystemAdapter real openat2 contract', { skip: process.
         harness.managedRoot,
         'runtimes',
         descriptor.canonicalName,
-        getManagedArtifactFileName(descriptor.expectedFiles[0].fileId),
+        getManagedArtifactStorageFileName(descriptor, descriptor.expectedFiles[0].fileId),
       ),
     );
+    assert.ok(existsSync(path.join(launch.workingDirectoryPath, 'libcudart.so.12')));
     assert.equal(launch.workingDirectoryPath, path.dirname(launch.workerExecutablePath));
     await launch.revalidate();
     const movedWorker = `${launch.workerExecutablePath}.moved`;

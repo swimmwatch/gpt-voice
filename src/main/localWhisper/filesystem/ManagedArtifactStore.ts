@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
-import { toLocalWhisperArtifactId, type LocalWhisperArtifactId } from '@shared/localWhisper';
+import { toLocalWhisperArtifactId, type LocalWhisperArtifactId, type LocalWhisperPlatform } from '@shared/localWhisper';
 
 import {
   getLocalWhisperModelIdentityKey,
@@ -42,6 +42,7 @@ export type { ManagedArtifactStoreErrorCode } from './ManagedArtifactStoreError'
 
 const CANONICAL_ARTIFACT_NAME_PATTERN = /^(?:model|runtime)-[a-f0-9]{64}$/;
 const CANONICAL_FILE_NAME_PATTERN = /^file-[\w-]{1,192}$/;
+const LINUX_RUNTIME_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cudart)-(\d+)\.\d+\.\d+$/u;
 const OPERATION_NONCE_PATTERN = /^[\w-]{16,128}$/;
 const MANAGED_MANIFEST_NAME = 'managed-manifest-v1';
 const MANAGED_MANIFEST_MODE = 0o600;
@@ -57,6 +58,7 @@ export interface ManagedArtifactDescriptor {
   readonly identityKey: string;
   readonly kind: ManagedArtifactKind;
   readonly namespace: ManagedArtifactNamespace;
+  readonly runtimePlatform?: LocalWhisperPlatform;
 }
 
 export interface ManagedArtifactStoreDependencies {
@@ -148,6 +150,25 @@ export function getManagedArtifactFileName(fileId: LocalWhisperArtifactId): stri
   return value;
 }
 
+function linuxRuntimeStorageFileName(expected: ManagedArtifactExpectedFile): string | null {
+  if (expected.kind === 'executable' && expected.fileId === 'worker') return 'worker';
+  if (expected.kind !== 'library') return null;
+  const match = LINUX_RUNTIME_LIBRARY_ROLE_PATTERN.exec(expected.fileId);
+  if (!match) return null;
+  const [, family, major] = match;
+  if (!family || !major) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  const library = family === 'cublas-lt' ? 'cublasLt' : family;
+  return `lib${library}.so.${major}`;
+}
+
+function descriptorFileName(descriptor: ManagedArtifactDescriptor, expected: ManagedArtifactExpectedFile): string {
+  if (descriptor.kind === 'runtime' && descriptor.runtimePlatform === 'linux') {
+    const launchFileName = linuxRuntimeStorageFileName(expected);
+    if (launchFileName) return launchFileName;
+  }
+  return getManagedArtifactFileName(expected.fileId);
+}
+
 function artifactIdFromCanonicalName(value: string): LocalWhisperArtifactId {
   const artifactId = toLocalWhisperArtifactId(value);
   if (!artifactId) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
@@ -173,6 +194,7 @@ export function createManagedRuntimeDescriptor(
     identityKey,
     kind: 'runtime',
     namespace: 'runtimes',
+    runtimePlatform: entry.identity.platform,
   });
 }
 
@@ -203,7 +225,10 @@ function assertDescriptor(descriptor: ManagedArtifactDescriptor): void {
   ) {
     throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
   }
-  const fileNames = descriptor.expectedFiles.map(({ fileId }) => getManagedArtifactFileName(fileId));
+  if (descriptor.kind === 'runtime' && descriptor.runtimePlatform === undefined) {
+    throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  }
+  const fileNames = descriptor.expectedFiles.map((expected) => descriptorFileName(descriptor, expected));
   if (new Set(fileNames).size !== fileNames.length) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
 }
 
@@ -214,6 +239,13 @@ function findExpectedFile(
   const expected = descriptor.expectedFiles.find((candidate) => candidate.fileId === fileId);
   if (!expected) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
   return expected;
+}
+
+export function getManagedArtifactStorageFileName(
+  descriptor: ManagedArtifactDescriptor,
+  fileId: LocalWhisperArtifactId,
+): string {
+  return descriptorFileName(descriptor, findExpectedFile(descriptor, fileId));
 }
 
 function validateDirectoryEntries(
@@ -239,7 +271,7 @@ function validateDirectoryEntries(
   }
   const validated = new Map<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>();
   for (const expected of descriptor.expectedFiles) {
-    const entry = entriesByName.get(getManagedArtifactFileName(expected.fileId));
+    const entry = entriesByName.get(descriptorFileName(descriptor, expected));
     if (
       !entry ||
       entry.identity.type !== 'regular' ||
@@ -259,7 +291,7 @@ function expectedDirectoryEntries(descriptor: ManagedArtifactDescriptor) {
   return [
     Object.freeze({ canonicalName: MANAGED_MANIFEST_NAME, mode: MANAGED_MANIFEST_MODE }),
     ...descriptor.expectedFiles.map((expected) =>
-      Object.freeze({ canonicalName: getManagedArtifactFileName(expected.fileId), mode: expected.mode }),
+      Object.freeze({ canonicalName: descriptorFileName(descriptor, expected), mode: expected.mode }),
     ),
   ];
 }
@@ -369,7 +401,7 @@ export class ManagedArtifactStore {
     try {
       const native = await this.dependencies.adapter.createStagedFile(
         this.token(stagingLease),
-        getManagedArtifactFileName(expected.fileId),
+        descriptorFileName(authority.descriptor, expected),
         expected.mode,
       );
       return this.createLease(authority.descriptor, native, 'staging', null);
@@ -433,7 +465,7 @@ export class ManagedArtifactStore {
       const expectedByName = new Map<string, ManagedArtifactExpectedFile | null>([
         [MANAGED_MANIFEST_NAME, null],
         ...authority.descriptor.expectedFiles.map(
-          (expected) => [getManagedArtifactFileName(expected.fileId), expected] as const,
+          (expected) => [descriptorFileName(authority.descriptor, expected), expected] as const,
         ),
       ]);
       for (const entry of entries) {
@@ -534,7 +566,7 @@ export class ManagedArtifactStore {
       );
       return Object.freeze({
         runtimeLease,
-        workerExecutablePath: join(workingDirectoryPath, getManagedArtifactFileName(executableFile.fileId)),
+        workerExecutablePath: join(workingDirectoryPath, descriptorFileName(descriptor, executableFile)),
         workerFileIdentity: worker.identity,
         workerFileSha256: worker.sha256,
         workingDirectoryPath,
@@ -597,7 +629,7 @@ export class ManagedArtifactStore {
         rootResolution.managedRoot,
         authority.descriptor.namespace,
         authority.descriptor.canonicalName,
-        getManagedArtifactFileName(modelFile.fileId),
+        descriptorFileName(descriptor, modelFile),
       );
       return Object.freeze({
         modelLease,
@@ -672,7 +704,7 @@ export class ManagedArtifactStore {
         if (!entry) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
         await this.dependencies.adapter.deleteQuarantinedFile(
           quarantined.token,
-          getManagedArtifactFileName(expected.fileId),
+          descriptorFileName(descriptor, expected),
           entry.identity,
         );
       }

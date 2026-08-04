@@ -1,11 +1,35 @@
 #include "local_whisper/fs_guard/validation.hpp"
 
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <cstdint>
 #include <limits>
 
 namespace local_whisper::fs_guard {
+namespace {
+
+bool is_runtime_launch_file_name(const std::string_view value) noexcept {
+  if (value == "worker")
+    return true;
+  constexpr std::array<std::string_view, 3> prefixes = {"libcudart.so.", "libcublas.so.",
+                                                        "libcublasLt.so."};
+  for (const auto prefix : prefixes) {
+    if (!value.starts_with(prefix))
+      continue;
+    const auto suffix = value.substr(prefix.size());
+    if (suffix.empty() || suffix.size() > 3 || suffix.front() == '0')
+      return false;
+    for (const unsigned char character : suffix) {
+      if (std::isdigit(character) == 0)
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+} // namespace
 
 std::vector<std::string> split(const std::string_view input, const char delimiter) {
   std::vector<std::string> result;
@@ -62,7 +86,7 @@ bool is_artifact_name(const std::string_view value) noexcept {
 }
 
 bool is_file_name(const std::string_view value) noexcept {
-  return value == "managed-manifest-v1" ||
+  return value == "managed-manifest-v1" || is_runtime_launch_file_name(value) ||
          (value.starts_with("file-") && is_safe_token(value, 6, 197));
 }
 

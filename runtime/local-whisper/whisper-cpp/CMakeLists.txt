@@ -167,7 +167,7 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
       RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}")
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT LOCAL_WHISPER_BACKEND_ID STREQUAL "cpu")
       target_link_options(local-whisper-whisper-cpp-worker PRIVATE
-        "LINKER:--disable-new-dtags,-rpath,$ORIGIN/../lib")
+        "LINKER:--disable-new-dtags,-rpath,$ORIGIN:$ORIGIN/../lib")
     endif()
   endif()
 
