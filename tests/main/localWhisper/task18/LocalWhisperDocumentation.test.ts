@@ -49,7 +49,7 @@ describe('Local Whisper user, operator, developer, and analyzer documentation', 
     }
   });
 
-  it('keeps schema-v1/v2 analyzer guidance and Task 19 blockers aligned', () => {
+  it('keeps schema-v1/v2 analyzer guidance and qualification blockers aligned', () => {
     const analyzer = read('.agents/skills/analyze-diagnostics-archive/references/archive-schema.md');
     const skill = read('.agents/skills/analyze-diagnostics-archive/SKILL.md');
     const qualification = read('docs/specs/local-whisper/qualification/task19-evidence-template.md');

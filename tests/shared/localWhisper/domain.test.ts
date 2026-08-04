@@ -51,7 +51,8 @@ describe('Local Whisper domain contracts', () => {
   });
 
   it('contains every approved typed failure without authentication failures', () => {
-    assert.equal(LOCAL_WHISPER_FAILURE_CODES.length, 53);
+    assert.equal(LOCAL_WHISPER_FAILURE_CODES.length, 54);
+    assert.equal(LOCAL_WHISPER_FAILURE_CODES.includes('CATALOG_UNAVAILABLE'), true);
     assert.equal(LOCAL_WHISPER_FAILURE_CODES.includes('DEVICE_PROOF_FAILED'), true);
     assert.equal(LOCAL_WHISPER_FAILURE_CODES.includes('MODEL_AUTHORITY_INVALID'), true);
     assert.equal(LOCAL_WHISPER_ACTION_IDS.includes('saveSettings'), true);

@@ -9,6 +9,7 @@ import {
   getLocalWhisperLoadAvailability,
   getLocalWhisperSupportLabel,
   getLocalWhisperUnloadAvailability,
+  isLocalWhisperArtifactProgressActive,
   type LocalWhisperActionAvailability,
 } from '../LocalWhisperPresentation';
 import { getLocalWhisperOption } from '../LocalWhisperSettingsState';
@@ -66,7 +67,7 @@ export default function LocalWhisperStatusSection({
   onLoad,
   onUnload,
 }: LocalWhisperStatusSectionProps): React.JSX.Element {
-  const pending = pendingAction !== null || snapshot.progress.length > 0;
+  const pending = pendingAction !== null || snapshot.progress.some(isLocalWhisperArtifactProgressActive);
   const selectedRuntime = getLocalWhisperOption(snapshot, 'runtime', snapshot.settings.runtimeRevision)?.label;
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'

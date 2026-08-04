@@ -10,6 +10,10 @@ import {
   getLocalWhisperLoadAvailability,
   getLocalWhisperMainStatusPresentation,
   getLocalWhisperUnloadAvailability,
+  formatLocalWhisperBytes,
+  getLatestLocalWhisperArtifactProgress,
+  isLocalWhisperArtifactProgressActive,
+  isLocalWhisperPlatformUnavailable,
 } from '@renderer/localWhisper/LocalWhisperPresentation';
 import { FakeCoordinator, createSnapshotService } from '../../main/localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -28,6 +32,53 @@ function mainStatus(runtime: LocalWhisperMainStatusSnapshot['runtime']): LocalWh
 }
 
 describe('Local Whisper action and main status presentation', () => {
+  it('formats zero-byte transfer progress accurately and distinguishes active progress from terminal history', () => {
+    assert.equal(formatLocalWhisperBytes(0), '0 MiB');
+    const baseline = settingsSnapshot().progress[0];
+    assert.ok(baseline);
+    assert.equal(isLocalWhisperArtifactProgressActive({ ...baseline, state: 'Downloading' }), true);
+    assert.equal(isLocalWhisperArtifactProgressActive({ ...baseline, state: 'Deleting' }), true);
+    assert.equal(isLocalWhisperArtifactProgressActive({ ...baseline, state: 'Failed' }), false);
+    assert.equal(isLocalWhisperArtifactProgressActive({ ...baseline, state: 'Installed' }), false);
+    const latest = { ...baseline, operationId: 'operation-id-0002', state: 'Downloading' as const };
+    assert.equal(
+      getLatestLocalWhisperArtifactProgress([baseline, latest], baseline.artifactId)?.operationId,
+      'operation-id-0002',
+    );
+  });
+
+  it('keeps an authenticated Linux target usable before the coordinator has completed its first preflight', () => {
+    const baseline = settingsSnapshot();
+    const cpuTarget = Object.freeze({
+      group: 'target' as const,
+      id: 'cpu',
+      label: 'CPU',
+      available: true,
+      tier: 'Production' as const,
+      reason: null,
+      selected: true,
+      selectedButUnavailable: false,
+      default: true,
+      remembered: false,
+      saved: true,
+      recommended: true,
+      compatibility: Object.freeze({
+        target: null,
+        backend: null,
+        modelFamily: null,
+        modelVariant: null,
+        eligibleBackends: Object.freeze([]),
+      }),
+    });
+    const transientBaseline = {
+      ...baseline,
+      runtime: { ...baseline.runtime, supportTier: 'Unsupported' as const },
+      options: Object.freeze([...baseline.options, cpuTarget]),
+    };
+    assert.equal(isLocalWhisperPlatformUnavailable(transientBaseline), false);
+    assert.equal(isLocalWhisperPlatformUnavailable({ ...transientBaseline, options: Object.freeze([]) }), true);
+  });
+
   it('uses the six explicit compact main statuses without login or API concepts', () => {
     const baseline = settingsSnapshot().runtime;
     const cases = [
@@ -65,7 +116,62 @@ describe('Local Whisper action and main status presentation', () => {
     assert.doesNotMatch(markup, />Unsupported</u);
   });
 
-  it('enables load only for an exact validated unloaded configuration', () => {
+  it('presents catalog unavailability as not ready without an unsupported label', () => {
+    const baseline = settingsSnapshot().runtime;
+    const presentation = getLocalWhisperMainStatusPresentation(
+      mainStatus({
+        ...baseline,
+        supportTier: 'Production',
+        operationalStatus: 'NotReady',
+        blockingCode: 'CATALOG_UNAVAILABLE',
+      }),
+    );
+    assert.equal(presentation.label, 'Not ready');
+    assert.match(presentation.detail ?? '', /CATALOG_UNAVAILABLE/u);
+    assert.doesNotMatch(`${presentation.label} ${presentation.detail ?? ''}`, /unsupported/iu);
+  });
+
+  it('presents an installed unloaded provider as available for automatic loading', () => {
+    const baseline = settingsSnapshot().runtime;
+    const snapshot = mainStatus({
+      ...baseline,
+      supportTier: 'Production',
+      runtimeSetup: 'Installed',
+      modelSetup: 'Installed',
+      capability: 'Unchecked',
+      residency: 'Unloaded',
+      operationalStatus: 'NotReady',
+      canAttempt: true,
+      blockingCode: null,
+    });
+    const presentation = getLocalWhisperMainStatusPresentation(snapshot);
+    const markup = renderToStaticMarkup(
+      createElement(TooltipProvider, null, createElement(LocalWhisperMainStatusIndicator, { snapshot })),
+    );
+
+    assert.equal(presentation.label, 'Available on demand');
+    assert.equal(presentation.tone, 'ready');
+    assert.match(presentation.detail ?? '', /loaded when transcription starts/u);
+    assert.match(markup, /lucide-circle-check/u);
+    assert.doesNotMatch(markup, /lucide-circle-off/u);
+  });
+
+  it('keeps a validated unloaded provider in a ready tone for lazy loading', () => {
+    const baseline = settingsSnapshot().runtime;
+    const presentation = getLocalWhisperMainStatusPresentation(
+      mainStatus({
+        ...baseline,
+        residency: 'Unloaded',
+        operationalStatus: 'ValidatedUnloaded',
+      }),
+    );
+
+    assert.equal(presentation.label, 'Validated · Unloaded');
+    assert.equal(presentation.tone, 'ready');
+    assert.match(presentation.detail ?? '', /load when transcription starts/u);
+  });
+
+  it('enables load after a successful probe or for an exact validated unloaded configuration', () => {
     const baseline = settingsSnapshot();
     const readyToLoad = {
       ...baseline,
@@ -84,6 +190,13 @@ describe('Local Whisper action and main status presentation', () => {
     };
     assert.equal(getLocalWhisperCheckAvailability(readyToLoad, false).enabled, true);
     assert.equal(getLocalWhisperLoadAvailability(readyToLoad, false).enabled, true);
+    assert.equal(
+      getLocalWhisperLoadAvailability(
+        { ...readyToLoad, runtime: { ...readyToLoad.runtime, capability: 'EstimateOnly' } },
+        false,
+      ).enabled,
+      true,
+    );
     assert.equal(
       getLocalWhisperLoadAvailability(
         { ...readyToLoad, runtime: { ...readyToLoad.runtime, capability: 'Stale' } },

@@ -18,6 +18,7 @@ test('Fedora package jobs measure, verify, and retain Linux size reports', () =>
   assert.match(entrypoint, /'--output=release-artifacts\/size-linux-x64\.json'/u);
   assert.match(entrypoint, /'measure:startup'/u);
   assert.match(entrypoint, /await run\('xvfb-run'/u);
+  assert.match(entrypoint, /\['electron-builder', '--linux', 'dir', '--publish', 'never'\]/u);
   assert.match(entrypoint, /'--output=release-artifacts\/startup-linux-x64\.json'/u);
   assert.match(entrypoint, /'verify:size'/u);
   assert.match(entrypoint, /'--baseline=build\/size-baselines\/v1\.4\.0-linux-x64\.json'/u);

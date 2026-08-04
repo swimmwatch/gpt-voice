@@ -4,7 +4,7 @@ import { LocalWhisperVoiceProvider } from '@main/providers/LocalWhisperVoiceProv
 import { RecordingLocalWhisperCoordinator, createCanonicalLocalWhisperWav } from './localWhisperTestUtils';
 
 describe('LocalWhisperVoiceProvider', () => {
-  it('exposes stable local-runtime metadata without touching the coordinator', () => {
+  it('exposes stable metadata and adapts generic configuration queries without browser-session state', () => {
     const coordinator = new RecordingLocalWhisperCoordinator();
     const provider = new LocalWhisperVoiceProvider(coordinator);
 
@@ -18,7 +18,7 @@ describe('LocalWhisperVoiceProvider', () => {
     });
     assert.equal(provider.requiresBrowserSession(), false);
     assert.deepEqual(coordinator.calls, []);
-    assert.throws(() => provider.hasSession(), /does not support session state/);
+    assert.equal(provider.hasSession(), true);
     assert.throws(() => provider.clearSession(), /does not support session state/);
     assert.deepEqual(coordinator.calls, []);
   });

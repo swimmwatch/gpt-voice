@@ -93,6 +93,11 @@ export class LocalWhisperVoiceProvider extends BatchVoiceProvider {
     return status === 'Ready' || status === 'Busy';
   }
 
+  /** Adapts the generic configured-provider query without introducing browser-session state. */
+  public override hasSession(): boolean {
+    return true;
+  }
+
   public override async transcribe(buffer: ArrayBuffer, mimeType = ''): Promise<TranscriptionResult> {
     return toTranscriptionResult(
       await this.coordinator.transcribe({

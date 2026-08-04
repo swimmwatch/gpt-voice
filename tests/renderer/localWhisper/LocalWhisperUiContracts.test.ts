@@ -50,6 +50,44 @@ describe('Local Whisper UI contracts', () => {
     assert.match(pageSources, /referenceId|onViewReference/u);
   });
 
+  it('distinguishes catalog unavailability from unsupported platforms and labels development artifacts', () => {
+    const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
+    assert.match(page, /CATALOG_UNAVAILABLE/u);
+    assert.match(page, />Catalog unavailable</u);
+    assert.match(page, />Development qualification artifacts</u);
+    assert.match(page, /Production artifacts have not been published/u);
+    assert.doesNotMatch(page, /Catalog unavailable[\s\S]{0,120}border border/u);
+  });
+
+  it('exposes cancellation from renderer-safe active transfer state before inventory promotion', () => {
+    const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
+    const ipc = source('src/shared/localWhisper/ipc.ts');
+    assert.match(storage, /CANCELLABLE_PROGRESS_STATES/u);
+    assert.match(storage, /RECOVERABLE_PROGRESS_STATES/u);
+    assert.match(storage, /\['cancel'\]/u);
+    assert.match(storage, /\['retry'\]/u);
+    assert.match(ipc, /readonly state:/u);
+    assert.match(ipc, /\{ readonly kind: 'cancelArtifact'; readonly operationId: string \}/u);
+    assert.match(
+      source('src/renderer/localWhisper/LocalWhisperRendererService.ts'),
+      /cancelArtifact\(operationId: string\)[\s\S]{0,120}this\.run\(\{ kind: 'cancelArtifact', operationId \}\)/u,
+    );
+    assert.match(storage, /progress\.failure/u);
+    assert.match(storage, /getLatestLocalWhisperArtifactProgress/u);
+    assert.match(storage, /formatLocalWhisperRecoveryAction/u);
+    assert.match(
+      source('src/renderer/localWhisper/useLocalWhisperSettings.ts'),
+      /getLatestLocalWhisperArtifactProgress/u,
+    );
+    assert.match(
+      source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx'),
+      /some\(isLocalWhisperArtifactProgressActive\)/u,
+    );
+    const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
+    assert.match(status, /progress\.some\(isLocalWhisperArtifactProgressActive\)/u);
+    assert.doesNotMatch(status, /progress\.length\s*>\s*0/u);
+  });
+
   it('rejects forged host and resource facts at the renderer IPC boundary', () => {
     const snapshot = createSnapshotService(new FakeCoordinator()).snapshot;
     assert.equal(isLocalWhisperRendererSnapshot(snapshot), true);

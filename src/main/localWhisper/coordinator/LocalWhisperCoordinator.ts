@@ -137,6 +137,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     this.runtimeSetup = dependencies.initial.runtimeSetup;
     this.modelSetup = dependencies.initial.modelSetup;
     this.capability = dependencies.initial.capability ?? 'Unchecked';
+    this.supportTier = dependencies.initial.supportTier ?? 'Unsupported';
     this.epochs = freezeEpochs({
       provider: 0,
       configuration: 0,
@@ -182,14 +183,21 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     if (!isValidCanonicalAudio(request)) {
       return Promise.resolve(this.failureResult('transcribe', 'AUDIO_FORMAT_UNSUPPORTED'));
     }
-    const status = this.snapshotValue.runtime.operationalStatus;
+    const runtime = this.snapshotValue.runtime;
+    const status = runtime.operationalStatus;
     if (status === 'Ready' || status === 'ValidatedUnloaded') {
       return Promise.resolve(this.successResult('transcribe', undefined));
     }
     if (status === 'Busy') return Promise.resolve(this.failureResult('transcribe', 'OPERATION_CONFLICT'));
-    return Promise.resolve(
-      this.failureResult('transcribe', this.snapshotValue.runtime.blockingCode ?? 'INVALID_SETTINGS'),
-    );
+    const canLoadOnDemand =
+      status === 'NotReady' &&
+      runtime.canAttempt &&
+      runtime.runtimeSetup === 'Installed' &&
+      runtime.modelSetup === 'Installed' &&
+      runtime.residency === 'Unloaded' &&
+      runtime.blockingCode === null;
+    if (canLoadOnDemand) return Promise.resolve(this.successResult('transcribe', undefined));
+    return Promise.resolve(this.failureResult('transcribe', runtime.blockingCode ?? 'INVALID_SETTINGS'));
   }
 
   public async checkCompatibility(): Promise<LocalWhisperActionResult<undefined>> {
@@ -293,6 +301,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
         return this.failureResult(action, 'INVALID_SETTINGS');
       }
       this.settingsValue = validated;
+      this.supportTier = this.dependencies.settings.supportTier?.(validated) ?? this.supportTier;
       this.configured = command.kind !== 'reset';
       this.bumpEpoch('configuration');
       if (loadAffecting) {

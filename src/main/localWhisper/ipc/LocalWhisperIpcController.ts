@@ -2,6 +2,8 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import {
   LOCAL_WHISPER_IPC_CHANNELS,
+  LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
+  LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
   createLocalWhisperRendererSafeFailure,
   isLocalWhisperSettingsCommand,
   type LocalWhisperArtifactId,
@@ -113,15 +115,15 @@ export class LocalWhisperIpcController {
     if (this.registered) return;
     this.registered = true;
 
-    this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, (_event, _capability, ...args) => {
+    this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, async (_event, _capability, ...args) => {
       this.assertNoArguments(args);
-      this.refreshSettingsFacts();
+      await this.refreshSettingsFacts();
       return this.dependencies.snapshots.snapshot;
     });
-    this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, (_event, capability, ...args) => {
+    this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, async (_event, capability, ...args) => {
       this.assertNoArguments(args);
       this.addSubscriber(this.settingsSubscribers, capability);
-      this.refreshSettingsFacts();
+      await this.refreshSettingsFacts();
       return this.dependencies.snapshots.snapshot;
     });
     this.handleSettings(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe, (_event, capability, ...args) => {
@@ -211,11 +213,11 @@ export class LocalWhisperIpcController {
     if (args.length !== 0) throw new Error('Rejected unexpected Local Whisper IPC arguments');
   }
 
-  private refreshSettingsFacts(): void {
+  private async refreshSettingsFacts(): Promise<void> {
     const refresh = this.dependencies.refreshSettingsFacts;
     if (!refresh) return;
     try {
-      void refresh(this.dependencies.snapshots.snapshot.configurationEpoch).catch(() => undefined);
+      await refresh(this.dependencies.snapshots.snapshot.configurationEpoch);
     } catch {
       // Device enumeration is fail-closed and cannot make a settings query fail.
     }
@@ -223,7 +225,7 @@ export class LocalWhisperIpcController {
 
   private async execute(command: LocalWhisperSettingsCommand): Promise<LocalWhisperSettingsCommandResult> {
     const snapshot = this.dependencies.snapshots.snapshot;
-    if (command.expectedSnapshotRevision !== snapshot.snapshotRevision) {
+    if ('expectedSnapshotRevision' in command && command.expectedSnapshotRevision !== snapshot.snapshotRevision) {
       return this.failure(command.kind, 'STALE_CONFIGURATION');
     }
     if ('expectedConfigurationEpoch' in command && !this.matchesExpectedState(command, snapshot)) {
@@ -351,10 +353,18 @@ export class LocalWhisperIpcController {
       const progress = snapshot.progress.find((entry) => entry.operationId === command.operationId);
       return (
         progress !== undefined &&
-        snapshot.artifacts.some(
-          (artifact) => artifact.id === progress.artifactId && artifact.actions.includes('cancel'),
-        )
+        LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES.some((state) => state === progress.state) &&
+        snapshot.artifacts.some((artifact) => artifact.id === progress.artifactId)
       );
+    }
+    if (command.kind === 'retry') {
+      const progress = snapshot.progress.find((entry) => entry.artifactId === command.artifactId);
+      if (
+        progress?.failure?.retryable === true &&
+        LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES.some((state) => state === progress.state)
+      ) {
+        return true;
+      }
     }
     return snapshot.artifacts.some(
       (artifact) =>

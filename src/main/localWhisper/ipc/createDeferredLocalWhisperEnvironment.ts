@@ -7,6 +7,7 @@ import {
   type LocalWhisperFailureCode,
   type LocalWhisperPlatform,
   type LocalWhisperRendererOption,
+  type LocalWhisperRendererOptionCompatibility,
   type LocalWhisperSettings,
   type LocalWhisperSettingsValidationContext,
 } from '@shared/localWhisper';
@@ -80,8 +81,11 @@ const DEFERRED_MACOS_SETTINGS: LocalWhisperSettings = Object.freeze({
 });
 
 function option(
-  input: Pick<LocalWhisperRendererOption, 'group' | 'id' | 'label' | 'available' | 'tier' | 'reason' | 'selected'>,
+  input: Pick<LocalWhisperRendererOption, 'group' | 'id' | 'label' | 'available' | 'tier' | 'reason' | 'selected'> & {
+    readonly compatibility?: Partial<LocalWhisperRendererOptionCompatibility>;
+  },
 ): LocalWhisperRendererOption {
+  const compatibility = input.compatibility;
   return Object.freeze({
     ...input,
     selectedButUnavailable: input.selected && !input.available,
@@ -89,6 +93,13 @@ function option(
     default: input.selected,
     recommended: input.selected,
     remembered: false,
+    compatibility: Object.freeze({
+      target: compatibility?.target ?? null,
+      backend: compatibility?.backend ?? null,
+      modelFamily: compatibility?.modelFamily ?? null,
+      modelVariant: compatibility?.modelVariant ?? null,
+      eligibleBackends: Object.freeze([...(compatibility?.eligibleBackends ?? [])]),
+    }),
   });
 }
 
@@ -98,6 +109,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
   readonly architecture: string;
   readonly logicalProcessorCount: number;
   readonly nextRequestId: () => string;
+  readonly unavailableReason?: Extract<LocalWhisperFailureCode, 'CATALOG_UNAVAILABLE'>;
 }): DeferredLocalWhisperEnvironment {
   const currentPlatform = platform(input.platform);
   const currentArchitecture = architecture(input.architecture);
@@ -111,7 +123,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
     vendor: plannedMacOS ? 'apple' : 'cpu',
     hipApproved: false,
   });
-  const failureCode: LocalWhisperFailureCode = support.failureCode ?? 'RUNTIME_MISSING';
+  const failureCode: LocalWhisperFailureCode = input.unavailableReason ?? support.failureCode ?? 'RUNTIME_MISSING';
   const validationContext: LocalWhisperSettingsValidationContext = Object.freeze({
     platform: currentPlatform,
     architecture: currentArchitecture,
@@ -218,7 +230,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
       label: 'CPU',
       available: plannedMacOS ? false : support.available,
       tier: plannedMacOS ? 'Planned' : support.tier,
-      reason: plannedMacOS ? 'TARGET_UNSUPPORTED' : support.failureCode,
+      reason: plannedMacOS ? 'TARGET_UNSUPPORTED' : (input.unavailableReason ?? support.failureCode),
       selected: !plannedMacOS,
     }),
     option({
@@ -240,6 +252,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
             tier: 'Planned',
             reason: 'PLANNED_UNAVAILABLE',
             selected: true,
+            compatibility: { target: 'gpu', backend: 'metal' },
           }),
         ]
       : []),
@@ -250,7 +263,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
         label: family,
         available: false,
         tier: support.tier,
-        reason: 'MODEL_MISSING',
+        reason: input.unavailableReason ?? 'MODEL_MISSING',
         selected: family === 'base',
       }),
     ),
@@ -270,7 +283,16 @@ export function createDeferredLocalWhisperEnvironment(input: {
       storage: Object.freeze({ label: 'Local Whisper managed storage', installedArtifactCount: 0, installedBytes: 0 }),
       artifacts: Object.freeze([]),
       progress: Object.freeze([]),
-      prerequisites: Object.freeze([]),
+      prerequisites:
+        input.unavailableReason === 'CATALOG_UNAVAILABLE'
+          ? Object.freeze([
+              Object.freeze({
+                id: 'catalog-unavailable',
+                label: 'Catalog unavailable',
+                version: null,
+              }),
+            ])
+          : Object.freeze([]),
       lastValidatedAtMs: null,
     }),
   );

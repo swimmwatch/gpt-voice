@@ -6,7 +6,11 @@ import {
 } from '@shared/localWhisper';
 import {
   getLocalWhisperOptions,
+  updateLocalWhisperBackend,
   updateLocalWhisperModelFamily,
+  updateLocalWhisperModelRevision,
+  updateLocalWhisperModelVariant,
+  updateLocalWhisperRuntimeRevision,
   updateLocalWhisperTarget,
   type LocalWhisperDraftField,
   type LocalWhisperSettingsDraft,
@@ -74,9 +78,16 @@ export default function LocalWhisperRuntimeModelSection({
 }: LocalWhisperRuntimeModelSectionProps): React.JSX.Element {
   const runtimeOptions = getLocalWhisperOptions(snapshot, 'runtime');
   const backendOptions = getLocalWhisperOptions(snapshot, 'backend');
-  const deviceOptions = getLocalWhisperOptions(snapshot, 'device');
-  const modelRevisionOptions = getLocalWhisperOptions(snapshot, 'modelRevision');
-  const modelVariantOptions = getLocalWhisperOptions(snapshot, 'modelVariant');
+  const deviceOptions = getLocalWhisperOptions(snapshot, 'device').filter(
+    (option) => draft.backend && option.compatibility.eligibleBackends.includes(draft.backend),
+  );
+  const modelRevisionOptions = getLocalWhisperOptions(snapshot, 'modelRevision').filter(
+    (option) => option.compatibility.modelFamily === draft.modelFamily,
+  );
+  const modelVariants = new Set(modelRevisionOptions.map((option) => option.compatibility.modelVariant));
+  const modelVariantOptions = getLocalWhisperOptions(snapshot, 'modelVariant').filter((option) =>
+    modelVariants.has(option.id as 'full' | 'q5_0'),
+  );
 
   return (
     <LocalWhisperSection
@@ -96,7 +107,9 @@ export default function LocalWhisperRuntimeModelSection({
             <LocalWhisperOptionSelect
               disabled={disabled}
               id="local-whisper-runtime"
-              onChange={(runtimeRevision) => updateDraft((current) => ({ ...current, runtimeRevision }))}
+              onChange={(runtimeRevision) =>
+                updateDraft((current) => updateLocalWhisperRuntimeRevision(current, runtimeRevision, snapshot))
+              }
               options={runtimeOptions}
               placeholder="Select runtime revision"
               value={draft.runtimeRevision}
@@ -129,7 +142,9 @@ export default function LocalWhisperRuntimeModelSection({
                 disabled={disabled}
                 id="local-whisper-backend"
                 onChange={(backend) =>
-                  updateDraft((current) => ({ ...current, backend: backend as LocalWhisperGpuBackend, deviceId: null }))
+                  updateDraft((current) =>
+                    updateLocalWhisperBackend(current, backend as LocalWhisperGpuBackend, snapshot),
+                  )
                 }
                 options={backendOptions}
                 placeholder="Select backend"
@@ -177,7 +192,9 @@ export default function LocalWhisperRuntimeModelSection({
             <LocalWhisperOptionSelect
               disabled={disabled}
               id="local-whisper-model-revision"
-              onChange={(modelRevision) => updateDraft((current) => ({ ...current, modelRevision }))}
+              onChange={(modelRevision) =>
+                updateDraft((current) => updateLocalWhisperModelRevision(current, modelRevision, snapshot))
+              }
               options={modelRevisionOptions}
               placeholder="Select model revision"
               value={draft.modelRevision}
@@ -189,7 +206,9 @@ export default function LocalWhisperRuntimeModelSection({
                 disabled={disabled}
                 id="local-whisper-model-variant"
                 onChange={(modelVariant) =>
-                  updateDraft((current) => ({ ...current, modelVariant: modelVariant as 'full' | 'q5_0' }))
+                  updateDraft((current) =>
+                    updateLocalWhisperModelVariant(current, modelVariant as 'full' | 'q5_0', snapshot),
+                  )
                 }
                 options={modelVariantOptions}
                 placeholder="Select reviewed variant"

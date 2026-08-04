@@ -26,7 +26,7 @@ test('AMD Preview exposes only the exact untested whisperCpp matrix', () => {
 
 test('AMD toolchain profiles remain contract-only and unqualified', () => {
   for (const profileId of [
-    'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+    'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
     'linux-x64-amd-vulkan-preview-contract-v1',
     'linux-x64-amd-hip-no-approved-row-v1',
   ]) {

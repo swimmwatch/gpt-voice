@@ -312,7 +312,7 @@ test('loader-limit derivation inputs reject every authority mutation', () => {
   }
 });
 
-test('toolchain schemas preserve Linux candidates and Windows Task-19-only contracts', () => {
+test('toolchain schemas preserve Linux candidates and Windows qualification-only contracts', () => {
   const validate = compileSchema(resolve(toolchainRoot, 'schema', 'native-toolchain-lock.schema.json'));
   const profilesRoot = resolve(toolchainRoot, 'profiles');
   for (const profileId of [
@@ -324,10 +324,7 @@ test('toolchain schemas preserve Linux candidates and Windows Task-19-only contr
     assert.equal(validate(profile), true, `${profileId}: ${JSON.stringify(validate.errors)}`);
     assert.equal(verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false }), true);
   }
-  for (const profileId of [
-    'windows-x64-cpu-candidate-task19-v1',
-    'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
-  ]) {
+  for (const profileId of ['windows-x64-cpu-msvc-19.39-v1', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1']) {
     const profile = readJson(resolve(profilesRoot, `${profileId}.json`));
     assert.equal(validate(profile), true, `${profileId}: ${JSON.stringify(validate.errors)}`);
     assert.equal(verifyToolchainContract(profile, { contractOnly: true }), true);

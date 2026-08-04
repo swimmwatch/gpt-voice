@@ -26,13 +26,23 @@ import {
 } from 'electron';
 import { resolveAppConfigPaths } from './config';
 import type { CloakBrowserApi } from './cloakbrowser';
-import { getAppUrl } from './appProtocol';
+import { getAppUrl, registerAppProtocolScheme } from './appProtocol';
+import { configureDesktopApplicationBeforeReady } from './desktopRuntimeController';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
-import { createProductionLocalWhisperEnvironment } from './localWhisper/composition/createProductionLocalWhisperEnvironment';
+import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
+import {
+  ProductionLocalWhisperEnvironmentFactory,
+  createProductionLocalWhisperEnvironment,
+  type LocalWhisperProductionEnvironmentDependencies,
+} from './localWhisper/composition/createProductionLocalWhisperEnvironment';
+import {
+  LocalWhisperDevelopmentActivationLoader,
+  openLocalWhisperActivationFile,
+} from './localWhisper/development/LocalWhisperDevelopmentActivation';
 import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
@@ -149,11 +159,57 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
  * Constructs and starts the process-owned application graph.
  */
 async function bootstrapMainProcess(): Promise<void> {
+  const activation = await new LocalWhisperDevelopmentActivationLoader({
+    appRevision: app.getVersion(),
+    arguments: process.argv,
+    authenticateCatalog: (document, trustPolicy) => {
+      const loaded = new LocalWhisperCatalogRepository({
+        readDocument: () => document,
+        trustPolicy,
+      }).load();
+      return loaded.success && loaded.catalog.payload.purpose === 'qualification';
+    },
+    isPackaged: app.isPackaged,
+    openFile: openLocalWhisperActivationFile,
+    platform: process.platform,
+    userId: process.getuid?.(),
+  }).load();
+  const developmentUserDataPath = activation.status === 'active' ? app.getPath('userData') : null;
   const appConfigPaths = resolveAppConfigPaths({
-    environment: process.env,
+    environment:
+      developmentUserDataPath !== null
+        ? Object.freeze({ ...process.env, XDG_CONFIG_HOME: path.dirname(developmentUserDataPath) })
+        : process.env,
     homeDirectory: os.homedir,
     platform: process.platform,
   });
+  const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
+    appRevision: app.getVersion(),
+    architecture: process.arch,
+    availableMemoryBytes: os.freemem,
+    configurationRoot: appConfigPaths.appDirectory,
+    environment: process.env,
+    fileSystem: fs,
+    homeDirectory: os.homedir,
+    logicalProcessorCount: os.cpus().length,
+    nextRequestId: randomUUID,
+    now: Date.now,
+    openPath: (managedPath) => shell.openPath(managedPath),
+    pid: process.pid,
+    platform: process.platform,
+    randomBytes,
+    randomNonce: randomUUID,
+    readFile,
+    resourcesPath: activation.status === 'active' ? activation.resourcesPath : process.resourcesPath,
+    spawnProcess: spawn,
+    ...(activation.status === 'active'
+      ? {
+          qualificationHooks: {
+            trustedCertificateAuthorities: activation.trustedCertificateAuthorities,
+          },
+        }
+      : {}),
+  };
   const localWhisper =
     process.platform === 'darwin'
       ? createDeferredLocalWhisperEnvironment({
@@ -162,26 +218,17 @@ async function bootstrapMainProcess(): Promise<void> {
           logicalProcessorCount: os.cpus().length,
           nextRequestId: randomUUID,
         })
-      : await createProductionLocalWhisperEnvironment({
-          appRevision: app.getVersion(),
-          architecture: process.arch,
-          availableMemoryBytes: os.freemem,
-          configurationRoot: appConfigPaths.appDirectory,
-          environment: process.env,
-          fileSystem: fs,
-          homeDirectory: os.homedir,
-          logicalProcessorCount: os.cpus().length,
-          nextRequestId: randomUUID,
-          now: Date.now,
-          openPath: (managedPath) => shell.openPath(managedPath),
-          pid: process.pid,
-          platform: process.platform,
-          randomBytes,
-          randomNonce: randomUUID,
-          readFile,
-          resourcesPath: process.resourcesPath,
-          spawnProcess: spawn,
-        });
+      : activation.status === 'active'
+        ? await new ProductionLocalWhisperEnvironmentFactory(localWhisperDependencies, activation.catalogInput).create()
+        : activation.status === 'unavailable'
+          ? createDeferredLocalWhisperEnvironment({
+              platform: process.platform,
+              architecture: process.arch,
+              logicalProcessorCount: os.cpus().length,
+              nextRequestId: randomUUID,
+              unavailableReason: 'CATALOG_UNAVAILABLE',
+            })
+          : await createProductionLocalWhisperEnvironment(localWhisperDependencies);
 
   const application = new MainProcessCompositionRoot({
     assetPaths: {
@@ -419,6 +466,7 @@ async function bootstrapMainProcess(): Promise<void> {
       appProtocol: {
         protocol,
         readFile,
+        schemePreRegistered: true,
       },
       desktopRuntime: {
         app,
@@ -428,6 +476,7 @@ async function bootstrapMainProcess(): Promise<void> {
         environment: process.env,
         exit: (code) => process.exit(code),
         platform: process.platform,
+        preReadyConfigurationComplete: true,
         schedule: (callback, delayMs) => setTimeout(callback, delayMs),
         session,
         setApplicationMenu: (menu) => Menu.setApplicationMenu(menu),
@@ -468,6 +517,8 @@ async function bootstrapMainProcess(): Promise<void> {
   application.bootstrap();
 }
 
+configureDesktopApplicationBeforeReady(app);
+registerAppProtocolScheme(protocol);
 void bootstrapMainProcess().catch((error: unknown) => {
   setImmediate(() => {
     throw error;

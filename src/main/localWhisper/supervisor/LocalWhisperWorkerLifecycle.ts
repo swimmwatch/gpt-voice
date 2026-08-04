@@ -52,8 +52,9 @@ export class LocalWhisperWorkerLifecycle {
     const started = await session.startAndHandshake(authority);
     if (!started.success) return started;
     const probed = await session.probe(request);
-    const stopped = await session.shutdown();
-    return stopped.success ? probed : stopped;
+    if (!probed.success) return probed;
+    const cleaned = await session.forceCleanup();
+    return cleaned.success ? probed : cleaned;
   }
 
   public async startFullLoad(

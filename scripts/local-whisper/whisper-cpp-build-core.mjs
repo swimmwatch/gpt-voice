@@ -90,9 +90,9 @@ const allowedProfiles = new Set([
   'linux-x64-cuda-12.8.1-sm120a-v1',
   'linux-x64-amd-vulkan-preview-contract-v1',
   'linux-x64-amd-hip-no-approved-row-v1',
-  'windows-x64-cpu-candidate-task19-v1',
-  'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
-  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+  'windows-x64-cpu-msvc-19.39-v1',
+  'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+  'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
 ]);
 
 function isAmdPreviewProfile(profileId) {

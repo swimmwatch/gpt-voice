@@ -4,6 +4,7 @@ import {
   LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS,
   LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   getLocalWhisperPromptValidationError,
+  isLocalWhisperGpuBackend,
   isLocalWhisperLanguageId,
   isLocalWhisperModelFamily,
   toLocalWhisperOpaqueDeviceId,
@@ -152,10 +153,105 @@ function validateOption(
   group: LocalWhisperRendererOption['group'],
   id: string | null,
   field: LocalWhisperDraftField,
-): void {
+): LocalWhisperRendererOption | null {
   const options = getLocalWhisperOptions(snapshot, group);
-  if (options.length === 0 || id === null) return;
-  if (!options.some((option) => option.id === id)) addError(errors, field, 'Select a value issued by the application.');
+  if (options.length === 0 || id === null) return null;
+  const option = options.find((candidate) => candidate.id === id) ?? null;
+  if (!option) {
+    addError(errors, field, 'Select a value issued by the application.');
+    return null;
+  }
+  if (!option.available) addError(errors, field, 'Select an available value.');
+  return option;
+}
+
+function preferredAvailableOption(
+  options: readonly LocalWhisperRendererOption[],
+  currentId: string | null,
+): LocalWhisperRendererOption | null {
+  const available = options.filter((option) => option.available);
+  return (
+    available.find((option) => option.id === currentId) ??
+    available.find((option) => option.remembered || option.saved) ??
+    available.find((option) => option.recommended) ??
+    available[0] ??
+    null
+  );
+}
+
+function runtimeOptionsFor(
+  snapshot: LocalWhisperRendererSnapshot,
+  target: LocalWhisperSettingsDraft['executionTarget'],
+  backend: 'cpu' | LocalWhisperGpuBackend,
+): readonly LocalWhisperRendererOption[] {
+  return getLocalWhisperOptions(snapshot, 'runtime').filter(
+    (option) => option.compatibility.target === target && option.compatibility.backend === backend,
+  );
+}
+
+function deviceOptionsFor(
+  snapshot: LocalWhisperRendererSnapshot,
+  backend: LocalWhisperGpuBackend,
+): readonly LocalWhisperRendererOption[] {
+  return getLocalWhisperOptions(snapshot, 'device').filter((option) =>
+    option.compatibility.eligibleBackends.includes(backend),
+  );
+}
+
+function modelRevisionOptionsFor(
+  snapshot: LocalWhisperRendererSnapshot,
+  family: LocalWhisperModelFamily,
+  variant?: LocalWhisperModelVariant,
+): readonly LocalWhisperRendererOption[] {
+  return getLocalWhisperOptions(snapshot, 'modelRevision').filter(
+    (option) =>
+      option.compatibility.modelFamily === family &&
+      (variant === undefined || option.compatibility.modelVariant === variant),
+  );
+}
+
+function validateRuntimeCompatibility(
+  draft: LocalWhisperSettingsDraft,
+  option: LocalWhisperRendererOption | null,
+  errors: Partial<Record<LocalWhisperDraftField, string>>,
+): void {
+  const expectedBackend = draft.executionTarget === 'cpu' ? 'cpu' : draft.backend;
+  if (
+    option &&
+    (option.compatibility.target !== draft.executionTarget || option.compatibility.backend !== expectedBackend)
+  ) {
+    addError(errors, 'runtimeRevision', 'Select a runtime compatible with the execution target and backend.');
+  }
+}
+
+function validateModelCompatibility(
+  draft: LocalWhisperSettingsDraft,
+  option: LocalWhisperRendererOption | null,
+  errors: Partial<Record<LocalWhisperDraftField, string>>,
+): void {
+  if (
+    option &&
+    (option.compatibility.modelFamily !== draft.modelFamily || option.compatibility.modelVariant !== draft.modelVariant)
+  ) {
+    addError(errors, 'modelRevision', 'Select a revision compatible with the model family and variant.');
+  }
+}
+
+function validateGpuCompatibility(
+  draft: LocalWhisperSettingsDraft,
+  backendOption: LocalWhisperRendererOption | null,
+  deviceOption: LocalWhisperRendererOption | null,
+  errors: Partial<Record<LocalWhisperDraftField, string>>,
+): void {
+  if (
+    backendOption &&
+    (backendOption.compatibility.target !== 'gpu' || backendOption.compatibility.backend !== draft.backend)
+  ) {
+    addError(errors, 'backend', 'Select a GPU backend compatible with the execution target.');
+  }
+  if (deviceOption && draft.backend && !deviceOption.compatibility.eligibleBackends.includes(draft.backend)) {
+    addError(errors, 'deviceId', 'Select a GPU device compatible with the selected backend.');
+  }
 }
 
 function createPromptMutation(
@@ -191,17 +287,19 @@ export function validateLocalWhisperDraft(
   const errors: Partial<Record<LocalWhisperDraftField, string>> = {};
   const runtimeRevision = toLocalWhisperRevisionId(draft.runtimeRevision);
   if (!runtimeRevision) addError(errors, 'runtimeRevision', 'Select a runtime revision.');
-  validateOption(errors, snapshot, 'runtime', draft.runtimeRevision, 'runtimeRevision');
+  const runtimeOption = validateOption(errors, snapshot, 'runtime', draft.runtimeRevision, 'runtimeRevision');
+  validateRuntimeCompatibility(draft, runtimeOption, errors);
 
   const modelRevision = toLocalWhisperRevisionId(draft.modelRevision);
   if (!modelRevision) addError(errors, 'modelRevision', 'Select a model revision.');
-  validateOption(errors, snapshot, 'modelRevision', draft.modelRevision, 'modelRevision');
+  const modelOption = validateOption(errors, snapshot, 'modelRevision', draft.modelRevision, 'modelRevision');
   if (!isLocalWhisperModelFamily(draft.modelFamily))
     addError(errors, 'modelFamily', 'Select a supported model family.');
   if (draft.modelVariant === 'q5_0' && draft.modelFamily !== 'large-v3' && draft.modelFamily !== 'large-v3-turbo') {
     addError(errors, 'modelVariant', 'q5_0 is available only for catalog-qualified large-v3 models.');
   }
   validateOption(errors, snapshot, 'modelVariant', draft.modelVariant, 'modelVariant');
+  validateModelCompatibility(draft, modelOption, errors);
   if (!isLocalWhisperLanguageId(draft.language)) addError(errors, 'language', 'Select an application language ID.');
   const knownLanguage = LOCAL_WHISPER_LANGUAGE_CATALOG.some((entry) => entry.id === draft.language);
   if (!knownLanguage) addError(errors, 'language', 'Select an application language ID.');
@@ -239,10 +337,11 @@ export function validateLocalWhisperDraft(
     }
   } else {
     if (!draft.backend) addError(errors, 'backend', 'Select an explicit GPU backend.');
-    validateOption(errors, snapshot, 'backend', draft.backend, 'backend');
+    const backendOption = validateOption(errors, snapshot, 'backend', draft.backend, 'backend');
     const deviceId = toLocalWhisperOpaqueDeviceId(draft.deviceId);
     if (!deviceId) addError(errors, 'deviceId', 'Select an application-issued GPU device.');
-    validateOption(errors, snapshot, 'device', draft.deviceId, 'deviceId');
+    const deviceOption = validateOption(errors, snapshot, 'device', draft.deviceId, 'deviceId');
+    validateGpuCompatibility(draft, backendOption, deviceOption, errors);
     if (draft.backend && deviceId) execution = Object.freeze({ target: 'gpu', backend: draft.backend, deviceId });
   }
 
@@ -293,14 +392,67 @@ export function updateLocalWhisperTarget(
   target: LocalWhisperSettingsDraft['executionTarget'],
   snapshot: LocalWhisperRendererSnapshot,
 ): LocalWhisperSettingsDraft {
-  if (target === 'cpu') return Object.freeze({ ...draft, executionTarget: target });
-  const backends = getLocalWhisperOptions(snapshot, 'backend').filter((option) => option.available);
-  const devices = getLocalWhisperOptions(snapshot, 'device').filter((option) => option.available);
+  if (target === 'cpu') {
+    const runtime = preferredAvailableOption(runtimeOptionsFor(snapshot, 'cpu', 'cpu'), draft.runtimeRevision);
+    return Object.freeze({ ...draft, executionTarget: target, runtimeRevision: runtime?.id ?? null });
+  }
+  const backendOption = preferredAvailableOption(
+    getLocalWhisperOptions(snapshot, 'backend').filter(
+      (option) => option.compatibility.target === 'gpu' && isLocalWhisperGpuBackend(option.id),
+    ),
+    draft.backend,
+  );
+  const backend = backendOption && isLocalWhisperGpuBackend(backendOption.id) ? backendOption.id : null;
+  const runtime = backend
+    ? preferredAvailableOption(runtimeOptionsFor(snapshot, 'gpu', backend), draft.runtimeRevision)
+    : null;
+  const device = backend ? preferredAvailableOption(deviceOptionsFor(snapshot, backend), draft.deviceId) : null;
   return Object.freeze({
     ...draft,
     executionTarget: target,
-    backend: draft.backend ?? (backends.length === 1 ? (backends[0]?.id as LocalWhisperGpuBackend) : null),
-    deviceId: draft.deviceId ?? (devices.length === 1 ? (devices[0]?.id ?? null) : null),
+    backend,
+    deviceId: device?.id ?? null,
+    runtimeRevision: runtime?.id ?? null,
+  });
+}
+
+export function updateLocalWhisperRuntimeRevision(
+  draft: LocalWhisperSettingsDraft,
+  runtimeRevision: string,
+  snapshot: LocalWhisperRendererSnapshot,
+): LocalWhisperSettingsDraft {
+  const runtime = getLocalWhisperOption(snapshot, 'runtime', runtimeRevision);
+  if (!runtime?.available) return Object.freeze({ ...draft, runtimeRevision });
+  const { target, backend } = runtime.compatibility;
+  if (target === 'cpu' && backend === 'cpu') {
+    return Object.freeze({ ...draft, executionTarget: 'cpu', runtimeRevision });
+  }
+  if (target !== 'gpu' || !isLocalWhisperGpuBackend(backend)) {
+    return Object.freeze({ ...draft, runtimeRevision });
+  }
+  const device = preferredAvailableOption(deviceOptionsFor(snapshot, backend), draft.deviceId);
+  return Object.freeze({
+    ...draft,
+    executionTarget: 'gpu',
+    backend,
+    deviceId: device?.id ?? null,
+    runtimeRevision,
+  });
+}
+
+export function updateLocalWhisperBackend(
+  draft: LocalWhisperSettingsDraft,
+  backend: LocalWhisperGpuBackend,
+  snapshot: LocalWhisperRendererSnapshot,
+): LocalWhisperSettingsDraft {
+  const runtime = preferredAvailableOption(runtimeOptionsFor(snapshot, 'gpu', backend), draft.runtimeRevision);
+  const device = preferredAvailableOption(deviceOptionsFor(snapshot, backend), draft.deviceId);
+  return Object.freeze({
+    ...draft,
+    executionTarget: 'gpu',
+    backend,
+    deviceId: device?.id ?? null,
+    runtimeRevision: runtime?.id ?? null,
   });
 }
 
@@ -309,13 +461,41 @@ export function updateLocalWhisperModelFamily(
   family: LocalWhisperModelFamily,
   snapshot: LocalWhisperRendererSnapshot,
 ): LocalWhisperSettingsDraft {
-  const revisions = getLocalWhisperOptions(snapshot, 'modelRevision');
-  const remembered = revisions.find((option) => option.remembered || option.saved);
-  const recommended = revisions.find((option) => option.recommended);
+  const revision = preferredAvailableOption(modelRevisionOptionsFor(snapshot, family), draft.modelRevision);
   return Object.freeze({
     ...draft,
     modelFamily: family,
-    modelRevision: remembered?.id ?? recommended?.id ?? draft.modelRevision,
-    modelVariant: 'full',
+    modelRevision: revision?.id ?? draft.modelRevision,
+    modelVariant: revision?.compatibility.modelVariant ?? 'full',
+  });
+}
+
+export function updateLocalWhisperModelRevision(
+  draft: LocalWhisperSettingsDraft,
+  modelRevision: string,
+  snapshot: LocalWhisperRendererSnapshot,
+): LocalWhisperSettingsDraft {
+  const revision = getLocalWhisperOption(snapshot, 'modelRevision', modelRevision);
+  return Object.freeze({
+    ...draft,
+    modelRevision,
+    modelFamily: revision?.compatibility.modelFamily ?? draft.modelFamily,
+    modelVariant: revision?.compatibility.modelVariant ?? draft.modelVariant,
+  });
+}
+
+export function updateLocalWhisperModelVariant(
+  draft: LocalWhisperSettingsDraft,
+  modelVariant: LocalWhisperModelVariant,
+  snapshot: LocalWhisperRendererSnapshot,
+): LocalWhisperSettingsDraft {
+  const revision = preferredAvailableOption(
+    modelRevisionOptionsFor(snapshot, draft.modelFamily, modelVariant),
+    draft.modelRevision,
+  );
+  return Object.freeze({
+    ...draft,
+    modelRevision: revision?.id ?? draft.modelRevision,
+    modelVariant,
   });
 }

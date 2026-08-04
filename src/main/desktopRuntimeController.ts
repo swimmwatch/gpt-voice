@@ -39,6 +39,7 @@ export interface DesktopRuntimeControllerDependencies {
   readonly getAppIconPath: () => string;
   readonly openExternal: (url: string) => Promise<void>;
   readonly platform: NodeJS.Platform;
+  readonly preReadyConfigurationComplete?: boolean;
   readonly schedule: (callback: () => void, delayMs: number) => unknown;
   readonly session: {
     readonly defaultSession: Pick<Session, 'setPermissionCheckHandler' | 'setPermissionRequestHandler'>;
@@ -46,6 +47,13 @@ export interface DesktopRuntimeControllerDependencies {
   readonly setApplicationMenu: (menu: Menu) => void;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
   readonly writeStandardOutput: (value: string) => void;
+}
+
+/** Performs Electron operations that must run synchronously before the ready event. */
+export function configureDesktopApplicationBeforeReady(app: DesktopRuntimeApplication): void {
+  app.setName(APP_NAME);
+  app.setAppUserModelId(APP_ID);
+  app.disableHardwareAcceleration();
 }
 
 /**
@@ -60,6 +68,7 @@ export class DesktopRuntimeController {
   private singleInstanceAccepted = false;
 
   public constructor(private readonly dependencies: DesktopRuntimeControllerDependencies) {
+    this.beforeReadyConfigured = dependencies.preReadyConfigurationComplete ?? false;
     this.isStartupBenchmark = dependencies.arguments.includes(STARTUP_BENCHMARK_ARGUMENT);
     this.isRemovingLinuxDesktopIntegration =
       dependencies.platform === 'linux' && dependencies.arguments.includes(REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT);
@@ -69,10 +78,7 @@ export class DesktopRuntimeController {
     if (this.beforeReadyConfigured) return;
     this.beforeReadyConfigured = true;
 
-    const { app } = this.dependencies;
-    app.setName(APP_NAME);
-    app.setAppUserModelId(APP_ID);
-    app.disableHardwareAcceleration();
+    configureDesktopApplicationBeforeReady(this.dependencies.app);
   }
 
   public acquireSingleInstanceLock(): boolean {

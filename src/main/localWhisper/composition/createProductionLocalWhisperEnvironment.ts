@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   createNeverConfiguredLocalWhisperSettings,
+  isLocalWhisperGpuBackend,
   isValidLocalWhisperPublicSettings,
   LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   validateLocalWhisperSettings,
@@ -18,6 +19,7 @@ import {
   type LocalWhisperPublicSettings,
   type LocalWhisperRendererArtifact,
   type LocalWhisperRendererOption,
+  type LocalWhisperRendererOptionCompatibility,
   type LocalWhisperSettings,
   type LocalWhisperSettingsValidationContext,
   type LocalWhisperSupportTier,
@@ -140,7 +142,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
 export interface LocalWhisperProductionCatalogInput {
   /**
    * Production is the default and the only mode used by the packaged app.
-   * Qualification must be selected explicitly by the isolated Task 19 runner.
+   * Qualification must be selected explicitly by an isolated platform-qualification runner.
    */
   readonly activationPurpose?: Extract<LocalWhisperCatalogPurpose, 'production' | 'qualification'>;
   readonly document: Uint8Array;
@@ -220,6 +222,21 @@ function vendorForBackend(backend: LocalWhisperBackend): 'amd' | 'apple' | 'cpu'
   return 'amd';
 }
 
+function selectedSupportTier(
+  settings: LocalWhisperPublicSettings,
+  context: LocalWhisperSettingsValidationContext,
+): LocalWhisperSupportTier {
+  const backend = settings.execution.backend;
+  return new LocalWhisperSupportPolicy().evaluate({
+    platform: context.platform,
+    architecture: context.architecture,
+    target: settings.execution.target,
+    backend,
+    vendor: backend === null ? null : vendorForBackend(backend),
+    hipApproved: false,
+  }).tier;
+}
+
 function option(input: {
   readonly group: LocalWhisperRendererOption['group'];
   readonly id: string;
@@ -230,12 +247,21 @@ function option(input: {
   readonly selected: boolean;
   readonly recommended: boolean;
   readonly saved: boolean;
+  readonly compatibility?: Partial<LocalWhisperRendererOptionCompatibility>;
 }): LocalWhisperRendererOption {
+  const compatibility = input.compatibility;
   return Object.freeze({
     ...input,
     selectedButUnavailable: input.selected && !input.available,
     default: input.recommended,
     remembered: input.saved,
+    compatibility: Object.freeze({
+      target: compatibility?.target ?? null,
+      backend: compatibility?.backend ?? null,
+      modelFamily: compatibility?.modelFamily ?? null,
+      modelVariant: compatibility?.modelVariant ?? null,
+      eligibleBackends: Object.freeze([...(compatibility?.eligibleBackends ?? [])]),
+    }),
   });
 }
 
@@ -279,6 +305,7 @@ function rendererOptions(
       selected: settings.runtimeRevision === identity.packRevision,
       recommended: entry.recommended,
       saved: configured && settings.runtimeRevision === identity.packRevision,
+      compatibility: { target: identity.target, backend: identity.backend },
     });
   });
   const selectedDeviceId = 'deviceId' in settings.execution ? settings.execution.deviceId : null;
@@ -316,9 +343,12 @@ function rendererOptions(
       saved: configured && settings.execution.target === 'gpu',
     }),
   ]);
-  const backendOptions = [...new Set(currentRuntimes.map(({ identity }) => identity.backend))].map((backend) => {
-    const runtime = currentRuntimes.find(({ identity }) => identity.backend === backend);
-    if (!runtime) throw new Error('Local Whisper runtime option unavailable');
+  const gpuBackends = [
+    ...new Set(currentRuntimes.map(({ identity }) => identity.backend).filter(isLocalWhisperGpuBackend)),
+  ];
+  const backendOptions = gpuBackends.map((backend) => {
+    const runtime = currentRuntimes.find(({ identity }) => identity.target === 'gpu' && identity.backend === backend);
+    if (!runtime) throw new Error('Local Whisper GPU runtime option unavailable');
     const support = supportPolicy.evaluate({
       platform: context.platform,
       architecture: context.architecture,
@@ -327,13 +357,12 @@ function rendererOptions(
       vendor: vendorForBackend(backend),
       hipApproved: false,
     });
-    const hasDevice =
-      backend === 'cpu' || context.knownDevices.some(({ eligibleBackends }) => eligibleBackends.includes(backend));
+    const hasDevice = context.knownDevices.some(({ eligibleBackends }) => eligibleBackends.includes(backend));
     const available = support.available && hasDevice && runtime.qualificationStatus !== 'planned';
     return option({
       group: 'backend',
       id: backend,
-      label: backend === 'cpu' ? 'CPU' : backend.toUpperCase(),
+      label: backend.toUpperCase(),
       available,
       tier: support.tier,
       reason:
@@ -345,6 +374,7 @@ function rendererOptions(
       selected: settings.execution.backend === backend,
       recommended: runtime.recommended,
       saved: configured && settings.execution.backend === backend,
+      compatibility: { target: 'gpu', backend },
     });
   });
   const deviceOptions = context.knownDevices.map((device) =>
@@ -358,6 +388,7 @@ function rendererOptions(
       selected: selectedDeviceId === device.id,
       recommended: context.knownDevices.length === 1,
       saved: configured && selectedDeviceId === device.id,
+      compatibility: { target: 'gpu', eligibleBackends: device.eligibleBackends },
     }),
   );
   const modelOptions = catalog.payload.models.map((entry) => {
@@ -377,6 +408,7 @@ function rendererOptions(
       selected,
       recommended: entry.recommended,
       saved: configured && selected,
+      compatibility: { modelFamily: identity.logicalModel, modelVariant: identity.variant },
     });
   });
   const familyOptions = [...new Set(catalog.payload.models.map(({ identity }) => identity.logicalModel))].map(
@@ -532,11 +564,19 @@ function factsSnapshot(
     artifacts,
     progress: Object.freeze([...progress]),
     prerequisites: Object.freeze([
-      Object.freeze({
-        id: 'production-artifact-pipeline',
-        label: 'Authenticated production artifact pipeline',
-        version: null,
-      }),
+      Object.freeze(
+        catalog.payload.purpose === 'qualification'
+          ? {
+              id: 'development-qualification-artifacts',
+              label: 'Development qualification artifacts',
+              version: null,
+            }
+          : {
+              id: 'production-artifact-pipeline',
+              label: 'Authenticated production artifact pipeline',
+              version: null,
+            },
+      ),
     ]),
     lastValidatedAtMs: now,
   });
@@ -646,6 +686,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         architecture: this.dependencies.architecture,
         logicalProcessorCount: this.dependencies.logicalProcessorCount,
         nextRequestId: this.dependencies.nextRequestId,
+        unavailableReason: 'CATALOG_UNAVAILABLE',
       });
     const activationPurpose = this.catalogInput.activationPurpose ?? 'production';
     if (
@@ -803,6 +844,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           const result = validateLocalWhisperSettings(candidate, context);
           return result.success ? result.settings : null;
         },
+        supportTier: (settings: LocalWhisperSettings) => selectedSupportTier(settings, context),
         defaultSettings: () => {
           const defaults = createNeverConfiguredLocalWhisperSettings(context);
           if (!defaults.success) throw new Error('Local Whisper defaults unavailable');
@@ -863,6 +905,13 @@ export class ProductionLocalWhisperEnvironmentFactory {
           facts?.update(
             factsSnapshot(loaded.catalog, nextInventory, context, settingsSnapshot, this.dependencies.now()),
           );
+          if (
+            nextInventory.runtimes.some(
+              ({ backend, state, target }) => backend === 'cuda' && target === 'gpu' && state === 'Installed',
+            )
+          ) {
+            void workerPort.refreshAvailableDevices(nextInventory.revision).catch(() => undefined);
+          }
         },
         store: managedStore,
       });
@@ -874,8 +923,17 @@ export class ProductionLocalWhisperEnvironmentFactory {
       const artifactProgressStore = new ArtifactProgressStore(artifactClock);
       unsubscribeArtifactProgress = artifactProgressStore.subscribe((updates) => {
         const projected = updates.map(
-          ({ operationId, artifactId, action, receivedBytes, totalBytes, queuedPosition, failure }) =>
-            Object.freeze({ operationId, artifactId, action, receivedBytes, totalBytes, queuedPosition, failure }),
+          ({ operationId, artifactId, action, state, receivedBytes, totalBytes, queuedPosition, failure }) =>
+            Object.freeze({
+              operationId,
+              artifactId,
+              action,
+              state,
+              receivedBytes,
+              totalBytes,
+              queuedPosition,
+              failure,
+            }),
         );
         facts?.update(
           factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, this.dependencies.now(), projected),
@@ -1052,6 +1110,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           inventoryEpoch: inventory.revision,
           runtimeSetup: setup.runtime,
           modelSetup: setup.model,
+          supportTier: selectedSupportTier(settingsSnapshot.settings, context),
         },
       };
       let disposed = false;

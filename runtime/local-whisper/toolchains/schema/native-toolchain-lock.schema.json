@@ -93,7 +93,7 @@
     "dynamicDependencies": { "type": "array", "items": { "$ref": "#/$defs/component" } },
     "licenses": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/component" } },
     "sbomComponents": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
-    "qualificationState": { "enum": ["candidate-unqualified", "pendingWindowsFinalTask", "qualified"] },
+    "qualificationState": { "enum": ["candidate-unqualified", "pending-windows-qualification", "qualified"] },
     "evidenceDigest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
     "minimumDriver": { "type": ["string", "null"], "maxLength": 128 }
   },

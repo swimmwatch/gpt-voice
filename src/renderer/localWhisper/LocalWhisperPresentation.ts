@@ -1,10 +1,44 @@
 import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
+  type LocalWhisperArtifactId,
   type LocalWhisperFailureCode,
+  type LocalWhisperArtifactProgress,
   type LocalWhisperMainStatusSnapshot,
   type LocalWhisperModelFamily,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
+
+/** Distinguishes a truly unavailable platform from the transient unconfigured coordinator baseline. */
+export function isLocalWhisperPlatformUnavailable(snapshot: LocalWhisperRendererSnapshot): boolean {
+  const unavailableTier = snapshot.runtime.supportTier === 'Planned' || snapshot.runtime.supportTier === 'Unsupported';
+  if (!unavailableTier) return false;
+  return !snapshot.options.some((option) => option.group === 'target' && option.available);
+}
+
+const ACTIVE_ARTIFACT_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
+  'Queued',
+  'Downloading',
+  'Verifying',
+  'Installing',
+  'Deleting',
+]);
+
+/** Keeps terminal progress history visible without treating it as an active lifecycle operation. */
+export function isLocalWhisperArtifactProgressActive(progress: LocalWhisperArtifactProgress): boolean {
+  return ACTIVE_ARTIFACT_PROGRESS_STATES.has(progress.state);
+}
+
+/** Selects the newest operation for an artifact from the main-owned insertion-ordered progress history. */
+export function getLatestLocalWhisperArtifactProgress(
+  progress: readonly LocalWhisperArtifactProgress[],
+  artifactId: LocalWhisperArtifactId,
+): LocalWhisperArtifactProgress | null {
+  for (let index = progress.length - 1; index >= 0; index -= 1) {
+    const candidate = progress[index];
+    if (candidate?.artifactId === artifactId) return candidate;
+  }
+  return null;
+}
 
 export interface LocalWhisperActionAvailability {
   readonly visible: boolean;
@@ -13,8 +47,9 @@ export interface LocalWhisperActionAvailability {
 }
 
 export interface LocalWhisperMainStatusPresentation {
-  readonly label: 'Ready' | 'Busy' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
-  readonly tone: 'ready' | 'busy' | 'idle' | 'blocked';
+  readonly label:
+    'Ready' | 'Busy' | 'Available on demand' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
+  readonly tone: 'ready' | 'busy' | 'blocked';
   readonly detail: string | null;
 }
 
@@ -34,6 +69,7 @@ export function formatLocalWhisperRecoveryAction(action: string): string {
 export function formatLocalWhisperBytes(bytes: number | 'notApplicable' | null): string {
   if (bytes === 'notApplicable') return 'Not applicable';
   if (bytes === null) return 'Unknown';
+  if (bytes === 0) return '0 MiB';
   const gibibyte = 1024 ** 3;
   const mebibyte = 1024 ** 2;
   if (bytes >= gibibyte) return `${(bytes / gibibyte).toFixed(bytes >= 10 * gibibyte ? 1 : 2)} GiB`;
@@ -103,7 +139,7 @@ export function getLocalWhisperLoadAvailability(
   if (pending || snapshot.runtime.activity !== 'Idle') return blocked('Another Local Whisper action is in progress.');
   const platform = checkPlatform(snapshot);
   if (platform) return platform;
-  if (snapshot.runtime.capability !== 'Validated')
+  if (snapshot.runtime.capability !== 'EstimateOnly' && snapshot.runtime.capability !== 'Validated')
     return blocked('Run a successful compatibility check before loading.');
   if (snapshot.runtime.residency !== 'Unloaded') return blocked('The selected model is not in the unloaded state.');
   if (snapshot.resources?.success === false && snapshot.resources.failureCode) {
@@ -135,13 +171,32 @@ export function getLocalWhisperMainStatusPresentation(
     : snapshot.selectedButUnavailable
       ? 'The selected Local Whisper provider is unavailable.'
       : null;
+  const availableOnDemand =
+    snapshot.runtime.operationalStatus === 'NotReady' &&
+    snapshot.runtime.canAttempt &&
+    snapshot.runtime.runtimeSetup === 'Installed' &&
+    snapshot.runtime.modelSetup === 'Installed' &&
+    snapshot.runtime.residency === 'Unloaded' &&
+    failure === null &&
+    !snapshot.selectedButUnavailable;
+  if (availableOnDemand) {
+    return Object.freeze({
+      label: 'Available on demand',
+      tone: 'ready',
+      detail: 'The installed runtime and model will be validated and loaded when transcription starts.',
+    });
+  }
   switch (snapshot.runtime.operationalStatus) {
     case 'Ready':
       return Object.freeze({ label: 'Ready', tone: 'ready', detail });
     case 'Busy':
       return Object.freeze({ label: 'Busy', tone: 'busy', detail });
     case 'ValidatedUnloaded':
-      return Object.freeze({ label: 'Validated · Unloaded', tone: 'idle', detail });
+      return Object.freeze({
+        label: 'Validated · Unloaded',
+        tone: 'ready',
+        detail: detail ?? 'The validated runtime and model will load when transcription starts.',
+      });
     case 'Planned':
       return Object.freeze({ label: 'Planned', tone: 'blocked', detail: detail ?? 'Unavailable in this release.' });
     case 'Unsupported':

@@ -56,9 +56,9 @@ try {
       verifyHipNoApprovedRow();
       process.stdout.write('hip-no-approved-row\tPreview · Untested\tunavailable-no-approved-row\n');
     } else if (profile === 'vulkan-windows-x64') {
-      throw new Error('Windows AMD Vulkan execution is reserved for Task 20');
+      throw new Error('Windows AMD Vulkan execution is reserved for Task 21');
     } else if (profile === 'amd-physical-qualification') {
-      throw new Error('Physical AMD qualification is outside Task 19 and the current release');
+      throw new Error('Physical AMD qualification is outside the current release');
     } else {
       throw new Error('Unsupported AMD pack verification profile');
     }

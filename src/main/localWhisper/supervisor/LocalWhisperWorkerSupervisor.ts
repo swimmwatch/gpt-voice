@@ -275,8 +275,10 @@ export class LocalWhisperWorkerSupervisor {
   private activeModelLease: ManagedArtifactLease | null = null;
   private probedDeviceBinding: LocalWhisperWorkerDeviceBinding | null = null;
   private cleanupPromise: Promise<boolean> | null = null;
+  private expectsProbeInputClosure = false;
   private expectedHandshake: LocalWhisperExpectedHandshake | null = null;
   private handshake: PendingHandshake | null = null;
+  private probeInputClosed = false;
   private process: LocalWhisperOwnedWorkerProcess | null = null;
   private stateValue: LocalWhisperSupervisorState = 'idle';
   private stickyTerminalFailure: StickyTerminalFailure | null = null;
@@ -640,6 +642,14 @@ export class LocalWhisperWorkerSupervisor {
     this.pending.delete(pending.requestId);
     this.dependencies.clock.clearTimeout(pending.timer);
     this.stateValue = pending.successState;
+    const completeAfterProbeCleanup = pending.expectedType === 'probed' && this.probeInputClosed;
+    if (completeAfterProbeCleanup) {
+      const cleaned = await this.cleanupOwnedProcess();
+      if (!cleaned) {
+        pending.fail(this.failureResult('CLEANUP_FAILED', 'cleanup'));
+        return;
+      }
+    }
     pending.complete(message);
   }
 
@@ -669,6 +679,11 @@ export class LocalWhisperWorkerSupervisor {
   }
 
   private readonly onTransportTerminal = (cause: LocalWhisperTransportTerminalCause): void => {
+    if (cause === 'inputClosed' && this.isExpectedProbeInputClosure()) {
+      this.probeInputClosed = true;
+      if (this.stateValue === 'probed') void this.cleanupOwnedProcess();
+      return;
+    }
     void this.failTerminal(
       cause === 'protocolViolation' ? 'WORKER_PROTOCOL_VIOLATION' : 'WORKER_CRASHED',
       cause === 'protocolViolation' ? 'protocol' : this.currentFailureStage(),
@@ -803,7 +818,9 @@ export class LocalWhisperWorkerSupervisor {
 
   private resetForNewWorker(authority: LocalWhisperWorkerLaunchAuthority): void {
     this.activeEpoch = authority.configurationEpoch;
+    this.expectsProbeInputClosure = authority.launchMode === 'probe';
     this.expectedHandshake = authority.expectedHandshake;
+    this.probeInputClosed = false;
     this.probedDeviceBinding = null;
     this.usedRequestIds.clear();
     this.stderrRing.clear();
@@ -813,6 +830,14 @@ export class LocalWhisperWorkerSupervisor {
 
   private isBindingCompatibleWithExpectedBackend(binding: LocalWhisperWorkerDeviceBinding): boolean {
     return this.expectedHandshake?.backend === 'cpu' ? binding.kind === 'cpu' : binding.kind === 'gpuIndex';
+  }
+
+  private isExpectedProbeInputClosure(): boolean {
+    if (!this.expectsProbeInputClosure) return false;
+    if (this.stateValue === 'probed' && this.pending.size === 0 && this.pendingRevalidations.size === 0) return true;
+    if (this.stateValue !== 'probing' || this.pending.size !== 1 || this.pendingRevalidations.size !== 1) return false;
+    const pending = this.pending.values().next().value as PendingRequest | undefined;
+    return pending?.expectedType === 'probed' && this.pendingRevalidations.has(pending.requestId);
   }
 
   private async revalidateDeviceBinding(authority: LocalWhisperDeviceBindingAuthority): Promise<boolean> {

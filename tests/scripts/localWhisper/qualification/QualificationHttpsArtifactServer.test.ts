@@ -3,9 +3,13 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import { rootCertificates } from 'node:tls';
 import { after, before, describe, it } from 'node:test';
 
-import { NodeArtifactHttpClient } from '@main/localWhisper/artifacts/NodeArtifactHttpClient';
+import {
+  extendNodeCertificateAuthorities,
+  NodeArtifactHttpClient,
+} from '@main/localWhisper/artifacts/NodeArtifactHttpClient';
 import { sha256Bytes } from '@scripts/local-whisper/packaging/fileIntegrity';
 import { QualificationHttpsArtifactServer } from '@scripts/local-whisper/qualification/QualificationHttpsArtifactServer';
 
@@ -22,6 +26,13 @@ let artifactPath = '';
 const artifact = Buffer.from('qualification runtime object bytes\n');
 
 describe('QualificationHttpsArtifactServer', () => {
+  it('extends Node public trust when a task-local certificate authority is configured', () => {
+    const taskLocalAuthority = 'task-local-authority';
+    const authorities = extendNodeCertificateAuthorities([taskLocalAuthority]);
+    assert.deepEqual(authorities.slice(0, rootCertificates.length), rootCertificates);
+    assert.equal(authorities[authorities.length - 1], taskLocalAuthority);
+  });
+
   before(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'local-whisper-qualification-https-'));
     const certificatePath = path.join(root, 'certificate.pem');

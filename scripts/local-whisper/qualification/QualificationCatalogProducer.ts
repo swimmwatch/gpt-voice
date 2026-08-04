@@ -56,12 +56,14 @@ export interface QualificationRuntimeCatalogSeed {
 
 export interface QualificationCatalogSeed {
   readonly candidateSemVer: string;
+  readonly appRevision?: string;
   readonly catalogRevision: string;
   readonly qualificationKeyId: string;
   readonly runtimeOriginId: string;
   readonly runtimeOrigin: string;
   readonly sourceCommit: string;
   readonly runtimes: readonly QualificationRuntimeCatalogSeed[];
+  readonly qualificationStatus?: 'estimateOnly' | 'planned';
 }
 
 function artifactId(value: string) {
@@ -116,7 +118,7 @@ export class LocalWhisperQualificationCatalogProducer {
     if (seed.runtimes.length !== 2 || new Set(seed.runtimes.map(({ backend }) => backend)).size !== 2) {
       throw new Error('Qualification catalog requires one CPU and one CUDA runtime');
     }
-    const appRevision = revisionId(`app-v${seed.candidateSemVer}`);
+    const appRevision = revisionId(seed.appRevision ?? `app-v${seed.candidateSemVer}`);
     const catalogRevision = revisionId(seed.catalogRevision);
     const signingKeyId = artifactId(seed.qualificationKeyId);
     const runtimeOriginId = artifactId(seed.runtimeOriginId);
@@ -163,7 +165,7 @@ export class LocalWhisperQualificationCatalogProducer {
         return Object.freeze({
           identity,
           recommended: true,
-          qualificationStatus: 'planned',
+          qualificationStatus: seed.qualificationStatus ?? 'planned',
           licenseIds: Object.freeze(runtime.licenseIds.map(artifactId)),
           transferProfile: 'restricted-tar-gzip-v1',
           source: Object.freeze({
@@ -199,7 +201,7 @@ export class LocalWhisperQualificationCatalogProducer {
           installedSizeBytes: model.sizeBytes,
           compatibleRuntimePackRevisions: runtimeRevisions,
           recommended: model.family === 'base',
-          qualificationStatus: 'planned' as const,
+          qualificationStatus: seed.qualificationStatus ?? ('planned' as const),
           provenanceId: artifactId(`upstream-${model.family}-${model.variant}-provenance`),
           licenseIds: Object.freeze([artifactId('mit-license')]),
           noticeIds: Object.freeze([artifactId('whisper-cpp-model-notice')]),

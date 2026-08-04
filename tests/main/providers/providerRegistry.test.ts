@@ -114,7 +114,7 @@ describe('provider registry', () => {
     assert.equal(isStreamingVoiceProvider(openaiApi), false);
     assert.equal(isStreamingVoiceProvider(claudeWeb), true);
     assert.equal(isStreamingVoiceProvider(localWhisper), false);
-    assert.throws(() => localWhisper.hasSession(), /does not support session state/);
+    assert.equal(localWhisper.hasSession(), true);
     assert.throws(() => localWhisper.clearSession(), /does not support session state/);
     assert.equal(claudeWeb.isReady(), false);
     assert.equal(claudeWeb.getAccessToken(), '');

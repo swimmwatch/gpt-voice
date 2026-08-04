@@ -10,7 +10,7 @@
       "engine": "whisperCpp",
       "backend": "vulkan",
       "vendor": "amd",
-      "toolchainProfileId": "windows-x64-amd-vulkan-preview-candidate-task19-v1",
+      "toolchainProfileId": "windows-x64-amd-vulkan-preview-msvc-19.39-v1",
       "executableState": "task19-only"
     },
     {

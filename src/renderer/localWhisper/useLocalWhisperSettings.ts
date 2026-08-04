@@ -8,7 +8,11 @@ import {
 } from '@shared/localWhisper';
 import type { ElectronAPI } from '@renderer/types';
 import { LocalWhisperRendererService } from './LocalWhisperRendererService';
-import { formatLocalWhisperFailureCode, formatLocalWhisperRecoveryAction } from './LocalWhisperPresentation';
+import {
+  formatLocalWhisperFailureCode,
+  formatLocalWhisperRecoveryAction,
+  getLatestLocalWhisperArtifactProgress,
+} from './LocalWhisperPresentation';
 import {
   createLocalWhisperDraft,
   validateLocalWhisperDraft,
@@ -190,9 +194,9 @@ export default function useLocalWhisperSettings(desktopApi: ElectronAPI): LocalW
         case 'update':
           return run('update', () => service.update(target), false);
         case 'cancel': {
-          const operationId = state.snapshot?.progress.find(
-            (progress) => progress.artifactId === artifact.id,
-          )?.operationId;
+          const operationId = state.snapshot
+            ? getLatestLocalWhisperArtifactProgress(state.snapshot.progress, artifact.id)?.operationId
+            : undefined;
           if (!operationId) return Promise.resolve(false);
           return run('cancel', () => service.cancelArtifact(operationId), false);
         }

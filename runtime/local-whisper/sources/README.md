@@ -35,7 +35,7 @@ read with a hashed `readelf` and resolved only to staged or reviewed system
 identities; untrusted output is never executed for dependency discovery.
 Qualification evidence records commands, exits, output hashes, sanitizer
 markers, staging, closure, relocation, and clean-start facts. Summary booleans
-cannot qualify a profile. Windows profiles are contract-only until Task 19 and
+cannot qualify a profile. Windows profiles are contract-only until Task 21 and
 must not be executed on another platform.
 
 ## Maintainer and agent workflow

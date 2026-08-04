@@ -8,7 +8,7 @@ implemented targets are the Linux x64 CPU baseline and the qualified CUDA
 12.8.1 `120a-real` pack for the available RTX 5070 Ti Laptop GPU. These
 unsigned local packs are not catalog, signing, or release eligible until later
 qualification tasks. Windows CPU/CUDA have source and CI contract coverage
-only; representative Windows execution is deferred to Task 20. macOS/Apple
+only; representative Windows execution is deferred to Task 21. macOS/Apple
 Silicon is a future skeleton target and is not supported by these packs.
 AMD definitions are limited to unqualified Windows/Linux Vulkan contracts and
 an unavailable Linux HIP contract. They are **Preview · Untested**, contain no
@@ -47,9 +47,9 @@ configuration on stdin, exact model/WAV bytes through inherited read-only
 regular-file descriptors 3 and 4, emits only UTF-8 text on stdout, and emits a
 bounded machine-readable failure on stderr. It calls the same adapter and
 locked backend as the production worker without worker framing, coordinator,
-cache, or IPC. Its binary and command mapping are frozen in private Task 19
-evidence and it is never copied into `runtime-manifest.json` or application
-resources.
+cache, or IPC. Its binary and command mapping are recorded only by an
+authorized platform qualification and it is never copied into
+`runtime-manifest.json` or application resources.
 
 ## Build and verification
 
@@ -93,12 +93,12 @@ model fixture; they never download, copy, stage, or log model contents. CUDA
 evidence hashes the private device identity and stays under ignored
 `.cache/local-whisper/`. Generated build and staging trees remain there too.
 The Windows contract checks are non-executing and stay in the dedicated Windows
-CI job. Their legacy `candidate-task19` profile IDs are immutable identifiers;
-representative execution belongs exclusively to Task 20:
+CI job. Their semantic profile IDs bind the MSVC 19.39 toolchain contract;
+representative execution belongs exclusively to Task 21:
 
 ```text
-npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-candidate-task19-v1 --contract-only
-npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1 --contract-only
+npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 ```
 
 The AMD verifier also defines `vulkan-windows-x64` and

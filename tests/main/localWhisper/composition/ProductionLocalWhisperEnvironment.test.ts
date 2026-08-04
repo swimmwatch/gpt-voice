@@ -59,7 +59,7 @@ describe('production Local Whisper environment activation', () => {
     assert.deepEqual(calls, { reads: 0, spawns: 0 });
     assert.deepEqual(await environment.artifacts.execute({} as never), {
       success: false,
-      code: 'RUNTIME_MISSING',
+      code: 'CATALOG_UNAVAILABLE',
     });
     await Promise.all([environment.dispose(), environment.dispose()]);
   });

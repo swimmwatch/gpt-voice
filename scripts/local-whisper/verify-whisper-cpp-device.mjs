@@ -17,7 +17,7 @@ import {
 } from './whisper-cpp-build-core.mjs';
 
 export const CUDA_PROFILE = 'linux-x64-cuda-12.8.1-sm120a-v1';
-export const WINDOWS_CUDA_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1';
+export const WINDOWS_CUDA_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -269,11 +269,11 @@ export function verifyWindowsCudaContract() {
   assert.match(authority, /ReadFile/u);
   assert.match(authority, /STD_INPUT_HANDLE/u);
   const cmake = readFileSync(resolve(whisperCppRoot, 'CMakeLists.txt'), 'utf8');
-  assert.match(cmake, /windows-x64-cuda-12\.8\.1-sm120a-candidate-task19-v1/u);
+  assert.match(cmake, /windows-x64-cuda-12\.8\.1-sm120a-v1/u);
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
   const windowsJob = workflow.slice(workflow.indexOf('native-quality-windows:'), workflow.indexOf('\n  quality:'));
   assert.match(windowsJob, /runs-on: windows-latest/u);
-  assert.match(windowsJob, /windows-x64-cuda-12\.8\.1-sm120a-candidate-task19-v1/u);
+  assert.match(windowsJob, /windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1/u);
   assert.match(windowsJob, /--contract-only/u);
   assert.doesNotMatch(windowsJob, /linux-x64-cuda-12\.8\.1-sm120a-v1/u);
 }

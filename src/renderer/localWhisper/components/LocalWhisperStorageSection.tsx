@@ -10,13 +10,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@renderer/components/ui/alert-dialog';
-import type {
-  LocalWhisperArtifactAction,
-  LocalWhisperArtifactProgress,
-  LocalWhisperArtifactReference,
-  LocalWhisperRendererArtifact,
+import {
+  LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
+  LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
+  type LocalWhisperArtifactAction,
+  type LocalWhisperArtifactProgress,
+  type LocalWhisperArtifactReference,
+  type LocalWhisperRendererArtifact,
 } from '@shared/localWhisper';
-import { formatLocalWhisperBytes } from '../LocalWhisperPresentation';
+import {
+  formatLocalWhisperBytes,
+  formatLocalWhisperFailureCode,
+  formatLocalWhisperRecoveryAction,
+  getLatestLocalWhisperArtifactProgress,
+} from '../LocalWhisperPresentation';
 import { LocalWhisperSection } from './LocalWhisperSection';
 
 interface LocalWhisperStorageSectionProps {
@@ -42,6 +49,24 @@ const ACTION_LABELS: Readonly<Record<LocalWhisperArtifactAction, string>> = Obje
   update: 'Update',
   remove: 'Remove',
 });
+
+const CANCELLABLE_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
+  ...LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
+]);
+
+const RECOVERABLE_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
+  ...LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
+]);
+
+function artifactActions(
+  artifact: LocalWhisperRendererArtifact,
+  progress: LocalWhisperArtifactProgress | null,
+): readonly LocalWhisperArtifactAction[] {
+  if (progress && CANCELLABLE_PROGRESS_STATES.has(progress.state)) return ['cancel'];
+  if (progress?.state === 'Resumable') return ['resume', 'retry'];
+  if (progress?.failure?.retryable === true && RECOVERABLE_PROGRESS_STATES.has(progress.state)) return ['retry'];
+  return artifact.actions;
+}
 
 function ArtifactProgress({
   artifact,
@@ -69,6 +94,12 @@ function ArtifactProgress({
         max={100}
         value={value ?? undefined}
       />
+      {progress.failure ? (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {formatLocalWhisperFailureCode(progress.failure.code)}. Recovery:{' '}
+          {formatLocalWhisperRecoveryAction(progress.failure.recoveryAction)}.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -92,6 +123,7 @@ function ArtifactRow({
   const [removeOpen, setRemoveOpen] = useState(false);
   const removeTriggerRef = useRef<HTMLButtonElement>(null);
   const pending = actionsDisabledReason !== null;
+  const actions = artifactActions(artifact, progress);
   const triggerAction = (action: LocalWhisperArtifactAction): void => {
     if (action === 'remove') {
       setRemoveOpen(true);
@@ -114,7 +146,7 @@ function ArtifactRow({
           </p>
         </div>
         <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
-          {artifact.actions.map((action) => (
+          {actions.map((action) => (
             <Button
               disabled={pending}
               key={action}
@@ -141,7 +173,7 @@ function ArtifactRow({
           ))}
         </div>
       </div>
-      {pending && (artifact.actions.length > 0 || artifact.references.length > 0) ? (
+      {pending && (actions.length > 0 || artifact.references.length > 0) ? (
         <p className="mt-2 text-xs text-muted-foreground">{actionsDisabledReason}</p>
       ) : null}
       <ArtifactProgress artifact={artifact} progress={progress} />
@@ -223,7 +255,7 @@ export default function LocalWhisperStorageSection({
                 onAction={onArtifactAction}
                 onViewReference={onViewReference}
                 pendingAction={pendingAction}
-                progress={progress.find((entry) => entry.artifactId === artifact.id) ?? null}
+                progress={getLatestLocalWhisperArtifactProgress(progress, artifact.id)}
               />
             ))}
           </div>

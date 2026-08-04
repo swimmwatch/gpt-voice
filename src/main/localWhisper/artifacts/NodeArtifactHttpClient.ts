@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { request } from 'node:https';
+import { rootCertificates } from 'node:tls';
 
 import type {
   ArtifactHttpClient,
@@ -33,6 +34,11 @@ export interface NodeArtifactHttpClientOptions {
   readonly trustedCertificateAuthorities?: readonly string[];
 }
 
+/** Preserves Node's public trust roots while adding authenticated task-local authorities. */
+export function extendNodeCertificateAuthorities(additional: readonly string[]): string[] {
+  return [...rootCertificates, ...additional];
+}
+
 /** Credential-free HTTPS adapter used only after the catalog transport authenticates the URL policy. */
 export class NodeArtifactHttpClient implements ArtifactHttpClient {
   public constructor(private readonly options: NodeArtifactHttpClientOptions = {}) {}
@@ -49,7 +55,7 @@ export class NodeArtifactHttpClient implements ArtifactHttpClient {
           headers,
           rejectUnauthorized: true,
           ...(this.options.trustedCertificateAuthorities
-            ? { ca: [...this.options.trustedCertificateAuthorities] }
+            ? { ca: extendNodeCertificateAuthorities(this.options.trustedCertificateAuthorities) }
             : {}),
         },
         (response) => {

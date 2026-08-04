@@ -92,7 +92,7 @@ test('probe process exits before a fresh full-load process is created', async ()
   });
 
   assert.equal((await lifecycle.probeOnce(probeLaunchAuthority, probeRequest)).success, true);
-  assert.deepEqual(sessions[0]?.calls, ['start', 'probe', 'shutdown']);
+  assert.deepEqual(sessions[0]?.calls, ['start', 'probe', 'forceCleanup']);
   assert.equal((await lifecycle.startFullLoad(fullLoadLaunchAuthority, loadRequest)).success, true);
   assert.equal(sessions.length, 2);
   assert.equal(sessions[0]?.mode, 'probe');

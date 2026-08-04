@@ -62,6 +62,7 @@ export const LOCAL_WHISPER_FAILURE_DESCRIPTORS = Object.freeze({
   INVALID_SETTINGS: descriptor('validation', false, 'edit-settings', 'settingsInvalid'),
   SETTINGS_VERSION_UNSUPPORTED: descriptor('validation', false, 'upgrade-or-reset-settings', 'settingsInvalid'),
   STALE_CONFIGURATION: descriptor('validation', true, 'refresh-and-retry', 'capabilityNotReady'),
+  CATALOG_UNAVAILABLE: descriptor('support', true, 'show-prerequisites', 'supportUnavailable'),
   UNSUPPORTED_PLATFORM: descriptor('support', false, 'select-supported-configuration', 'supportUnavailable'),
   UNSUPPORTED_ARCHITECTURE: descriptor('support', false, 'select-supported-configuration', 'supportUnavailable'),
   TARGET_UNSUPPORTED: descriptor('support', false, 'select-supported-configuration', 'supportUnavailable'),

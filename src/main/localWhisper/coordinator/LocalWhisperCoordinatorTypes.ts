@@ -11,6 +11,7 @@ import type {
   LocalWhisperRendererSafeFailure,
   LocalWhisperRuntimeSnapshot,
   LocalWhisperSettings,
+  LocalWhisperSupportTier,
 } from '@shared/localWhisper';
 
 import type {
@@ -104,6 +105,7 @@ export type LocalWhisperSettingsTransaction =
 export interface LocalWhisperCoordinatorSettingsPort {
   validateInitial(candidate: unknown): LocalWhisperSettings | null;
   validate(candidate: unknown): LocalWhisperSettings | null;
+  supportTier?(settings: LocalWhisperSettings): LocalWhisperSupportTier;
   defaultSettings(): LocalWhisperSettings;
   save(settings: LocalWhisperSettings): Promise<void>;
   reset(): Promise<void>;
@@ -204,6 +206,7 @@ export interface LocalWhisperCoordinatorInitialState {
   readonly runtimeSetup: LocalWhisperArtifactSetupState;
   readonly modelSetup: LocalWhisperArtifactSetupState;
   readonly capability?: LocalWhisperCapabilityState;
+  readonly supportTier?: LocalWhisperSupportTier;
 }
 
 export interface LocalWhisperCoordinatorDependencies {

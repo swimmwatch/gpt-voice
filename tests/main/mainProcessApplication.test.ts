@@ -530,6 +530,19 @@ describe('main process application lifecycle', () => {
     assert.deepEqual(harness.events, ['desktop-before-ready', 'protocol-scheme', 'desktop-lock']);
   });
 
+  it('starts exactly once when asynchronous composition finishes after Electron is ready', async () => {
+    const harness = new MainProcessApplicationHarness();
+    harness.app.ready = true;
+    const application = harness.createApplication();
+
+    application.bootstrap();
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    assert.equal(harness.runtimeFactory.createCount, 1);
+    assert.equal(harness.events.filter((event) => event === 'window-create').length, 1);
+  });
+
   it('creates the runtime only on normal ready and prunes before IPC registration', async () => {
     const harness = new MainProcessApplicationHarness();
     harness.createApplication().bootstrap();

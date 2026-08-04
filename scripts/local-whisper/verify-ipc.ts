@@ -50,7 +50,7 @@ function runDeterministicTests(): void {
 try {
   const profile = parseProfile(process.argv.slice(2));
   if (WINDOWS_PROFILES.some((candidate) => candidate === profile)) {
-    throw new Error(`${profile} is defined but representative Windows execution is deferred exclusively to Task 20`);
+    throw new Error(`${profile} is defined but representative Windows execution is deferred exclusively to Task 21`);
   }
   runDeterministicTests();
   process.stdout.write(`Local Whisper IPC verification passed for ${profile}\n`);

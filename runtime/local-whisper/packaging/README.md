@@ -45,7 +45,7 @@ key.
 declared bundle-manifest SHA-256 to the Linux consumer. The consumer verifies
 that digest and packages without regenerating or resigning anything.
 `local-whisper-packaging-windows.yml` is reusable only, requires the same
-artifact and digest, and is gated for Task 19 representative Windows work.
+artifact and digest, and is gated for Task 21 representative Windows work.
 Release collection accepts explicit disabled mode or a complete approved
 production bundle; fixture-derived data fails closed.
 

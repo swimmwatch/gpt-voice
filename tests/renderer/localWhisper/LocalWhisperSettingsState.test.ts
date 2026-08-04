@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS, type LocalWhisperRendererSnapshot } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS,
+  type LocalWhisperRendererOption,
+  type LocalWhisperRendererOptionCompatibility,
+  type LocalWhisperRendererSnapshot,
+} from '@shared/localWhisper';
 import {
   countLocalWhisperPromptCodePoints,
   createLocalWhisperDraft,
+  updateLocalWhisperModelFamily,
+  updateLocalWhisperModelRevision,
+  updateLocalWhisperRuntimeRevision,
+  updateLocalWhisperTarget,
   validateLocalWhisperDraft,
 } from '@renderer/localWhisper/LocalWhisperSettingsState';
 import { getLocalWhisperFamilyRequirement } from '@renderer/localWhisper/LocalWhisperPresentation';
@@ -11,6 +20,52 @@ import { FakeCoordinator, createSnapshotService } from '../../main/localWhisper/
 
 function snapshot(): LocalWhisperRendererSnapshot {
   return createSnapshotService(new FakeCoordinator()).snapshot;
+}
+
+function option(
+  group: LocalWhisperRendererOption['group'],
+  id: string,
+  compatibility: Partial<LocalWhisperRendererOptionCompatibility> = {},
+): LocalWhisperRendererOption {
+  return Object.freeze({
+    group,
+    id,
+    label: id,
+    available: true,
+    tier: 'Production',
+    reason: null,
+    selected: false,
+    selectedButUnavailable: false,
+    saved: false,
+    default: false,
+    recommended: true,
+    remembered: false,
+    compatibility: Object.freeze({
+      target: compatibility.target ?? null,
+      backend: compatibility.backend ?? null,
+      modelFamily: compatibility.modelFamily ?? null,
+      modelVariant: compatibility.modelVariant ?? null,
+      eligibleBackends: Object.freeze([...(compatibility.eligibleBackends ?? [])]),
+    }),
+  });
+}
+
+function selectionSnapshot(): LocalWhisperRendererSnapshot {
+  const current = snapshot();
+  return Object.freeze({
+    ...current,
+    options: Object.freeze([
+      option('runtime', 'runtime-cpu-v1', { target: 'cpu', backend: 'cpu' }),
+      option('runtime', 'runtime-cuda-v1', { target: 'gpu', backend: 'cuda' }),
+      option('backend', 'cuda', { target: 'gpu', backend: 'cuda' }),
+      option('device', 'nvidia-device', { target: 'gpu', eligibleBackends: ['cuda'] }),
+      option('modelFamily', 'base'),
+      option('modelFamily', 'medium'),
+      option('modelRevision', 'model-base-v1', { modelFamily: 'base', modelVariant: 'full' }),
+      option('modelRevision', 'model-medium-v1', { modelFamily: 'medium', modelVariant: 'full' }),
+      option('modelVariant', 'full'),
+    ]),
+  });
 }
 
 describe('Local Whisper settings draft', () => {
@@ -48,6 +103,61 @@ describe('Local Whisper settings draft', () => {
     assert.equal('deviceId' in (result.candidate?.execution ?? {}), false);
     assert.equal('beamSize' in (result.candidate?.decoding ?? {}), false);
     assert.equal('bestOf' in (result.candidate?.decoding ?? {}), false);
+  });
+
+  it('updates the CUDA runtime, backend, and device atomically when GPU becomes the parent target', () => {
+    const current = selectionSnapshot();
+    const draft = updateLocalWhisperTarget(createLocalWhisperDraft(current), 'gpu', current);
+    const result = validateLocalWhisperDraft(draft, current);
+
+    assert.equal(draft.runtimeRevision, 'runtime-cuda-v1');
+    assert.equal(draft.backend, 'cuda');
+    assert.equal(draft.deviceId, 'nvidia-device');
+    assert.deepEqual(result.errors, {});
+    assert.deepEqual(result.candidate?.execution, {
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId: 'nvidia-device',
+    });
+  });
+
+  it('keeps execution and model parents synchronized when a dependent revision is selected', () => {
+    const current = selectionSnapshot();
+    const cuda = updateLocalWhisperRuntimeRevision(createLocalWhisperDraft(current), 'runtime-cuda-v1', current);
+    const medium = updateLocalWhisperModelRevision(cuda, 'model-medium-v1', current);
+    const result = validateLocalWhisperDraft(medium, current);
+
+    assert.equal(medium.executionTarget, 'gpu');
+    assert.equal(medium.backend, 'cuda');
+    assert.equal(medium.modelFamily, 'medium');
+    assert.equal(medium.modelVariant, 'full');
+    assert.deepEqual(result.errors, {});
+  });
+
+  it('selects a revision from the requested model family and rejects cross-field mismatches before save', () => {
+    const current = selectionSnapshot();
+    const baseline = createLocalWhisperDraft(current);
+    const medium = updateLocalWhisperModelFamily(baseline, 'medium', current);
+
+    assert.equal(medium.modelRevision, 'model-medium-v1');
+    assert.deepEqual(validateLocalWhisperDraft(medium, current).errors, {});
+    assert.match(
+      validateLocalWhisperDraft(
+        {
+          ...baseline,
+          executionTarget: 'gpu',
+          backend: 'cuda',
+          deviceId: 'nvidia-device',
+          runtimeRevision: 'runtime-cpu-v1',
+        },
+        current,
+      ).errors.runtimeRevision ?? '',
+      /compatible with the execution target/u,
+    );
+    assert.match(
+      validateLocalWhisperDraft({ ...baseline, modelFamily: 'medium' }, current).errors.modelRevision ?? '',
+      /compatible with the model family/u,
+    );
   });
 
   it('validates code points, Unicode safety, and explicit prompt mutation semantics', () => {

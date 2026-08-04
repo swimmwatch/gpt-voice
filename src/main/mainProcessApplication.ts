@@ -108,6 +108,7 @@ export interface MainProcessApplicationDependencies {
  */
 export class MainProcessApplication {
   private bootstrapped = false;
+  private readyHandled = false;
   private quitCleanupComplete = false;
   private quitCleanupPromise: Promise<void> | null = null;
   private registered = false;
@@ -134,6 +135,7 @@ export class MainProcessApplication {
     app.on('activate', this.onActivate);
     app.on('will-quit', this.onWillQuit);
     app.on('before-quit', this.onBeforeQuit);
+    if (app.isReady()) this.onReady();
   }
 
   private readonly onSecondInstance = (): void => {
@@ -143,6 +145,8 @@ export class MainProcessApplication {
   };
 
   private readonly onReady = (): void => {
+    if (this.readyHandled) return;
+    this.readyHandled = true;
     const { dependencies } = this;
     dependencies.logger.initialize();
     dependencies.logger.errorHandler.startCatching();

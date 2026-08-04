@@ -47,7 +47,9 @@ type WorkerMode =
   | 'happy'
   | 'loadBindingMismatch'
   | 'nativeObjectOrder'
-  | 'outOfOrder';
+  | 'outOfOrder'
+  | 'prematureProbeExit'
+  | 'probeExit';
 
 const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
 const AUTHORITY_ID = 'AAECAwQFBgcICQoLDA0ODw';
@@ -276,6 +278,11 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         break;
       case 'probe':
         if (this.mode === 'hangProbe') break;
+        if (this.mode === 'prematureProbeExit') {
+          this.exited = true;
+          this.output.end();
+          break;
+        }
         if (this.mode === 'outOfOrder') {
           this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
           break;
@@ -293,6 +300,10 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           probeProof: 'c'.repeat(64),
           registryFingerprint: message.registryFingerprint,
         });
+        if (this.mode === 'probeExit') {
+          this.exited = true;
+          this.output.end();
+        }
         break;
       case 'load': {
         if (this.mode === 'hangLoad') break;
@@ -598,6 +609,26 @@ test('supervisor revalidates the private binding before and after probe and load
   );
   assert.equal(loadChecks, 2);
   assert.equal((await value.supervisor.forceCleanup()).success, true);
+});
+
+test('probe worker accepts only validated evidence followed by its expected immediate exit', async () => {
+  const value = harness('probeExit');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const result = await value.supervisor.probe(probeRequest(7));
+  assert.deepEqual(result, { success: true, state: 'probed', value: undefined });
+  await waitForSupervisorState(value.supervisor, 'idle');
+  assert.equal(value.releasedRuntime.value, 1);
+  assert.equal(value.recordStore.record, null);
+});
+
+test('probe worker input closure before validated evidence remains a crash', async () => {
+  const value = harness('prematureProbeExit');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const result = await value.supervisor.probe(probeRequest(7));
+  assert.equal(result.success, false);
+  if (!result.success) assert.equal(result.error.code, 'WORKER_CRASHED');
+  assert.equal(value.releasedRuntime.value, 1);
+  assert.equal(value.recordStore.record, null);
 });
 
 test('supervisor cleans up changed or disappeared binding authority and rejects peer mismatch', async () => {

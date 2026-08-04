@@ -60,7 +60,7 @@ if (releaseDate) {
 await run('npm', metadataArgs);
 
 if (mode === 'smoke') {
-  await run('npx', ['electron-builder', '--linux', 'dir']);
+  await run('npx', ['electron-builder', '--linux', 'dir', '--publish', 'never']);
   await run('npm', ['run', 'verify:packaged']);
   await measureLinuxBuild();
 } else {

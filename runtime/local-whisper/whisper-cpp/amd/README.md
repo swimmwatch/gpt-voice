@@ -2,8 +2,8 @@
 
 This directory owns the release-1 `whisperCpp` AMD boundary. It defines only
 Windows x64 Vulkan Preview, Linux x64 Vulkan Preview, and an unavailable Linux
-x64 HIP Preview candidate. All three remain **Preview · Untested** until Task 19
-records representative physical AMD evidence.
+x64 HIP Preview candidate. All three remain **Preview · Untested** until a
+separately authorized future task records representative physical AMD evidence.
 
 `preview-profiles.json` is the closed product matrix.
 `vulkan-preview-manifest.json` pins the Vulkan 1.3 source/runtime contract.
@@ -20,4 +20,4 @@ falls back to HIP or successful CPU residency.
 Run the Task 12 checks through the `format:check:local-whisper:amd-packs`,
 `lint:local-whisper:amd-packs`, `test:local-whisper:amd-packs`, and
 `verify:local-whisper:amd-packs` package scripts. The Windows and physical AMD
-profiles are defined for Task 19 but must not be executed now.
+profiles remain contract-only and must not be executed in the current release.

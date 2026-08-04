@@ -1,21 +1,35 @@
 {
   "$schema": "../schema/native-toolchain-lock.schema.json",
   "schemaId": "local-whisper-native-toolchain-lock-v1",
-  "profileId": "windows-x64-amd-vulkan-preview-candidate-task19-v1",
+  "profileId": "windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1",
   "target": { "os": "windows", "architecture": "x64", "abi": "msvc-v143-crt-14.39-windows-sdk-10.0.26100.0" },
   "tools": [
     {
       "role": "cxx-compiler",
       "pathKind": "toolchainRootRelative",
       "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
-      "version": "Microsoft C/C++ 19.39",
+      "version": "Microsoft (R) C/C++ Optimizing Compiler Version 19.39 (_MSC_VER=1939)",
       "sha256": null
     },
     {
       "role": "linker",
       "pathKind": "toolchainRootRelative",
       "path": "msvc-14.39/bin/Hostx64/x64/link.exe",
-      "version": "Microsoft Incremental Linker 14.39",
+      "version": "Microsoft (R) Incremental Linker Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "archiver",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/lib.exe",
+      "version": "Microsoft (R) Library Manager Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "cuda-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/nvcc.exe",
+      "version": "Cuda compilation tools, release 12.8, V12.8.93",
       "sha256": null
     },
     {
@@ -31,53 +45,53 @@
       "path": "ninja-1.12.1/ninja.exe",
       "version": "1.12.1",
       "sha256": null
-    },
-    {
-      "role": "glslc",
-      "pathKind": "toolchainRootRelative",
-      "path": "vulkan-sdk-1.3.275.0/Bin/glslc.exe",
-      "version": "shaderc 2023.8",
-      "sha256": null
-    },
-    {
-      "role": "vulkan-headers",
-      "pathKind": "toolchainRootRelative",
-      "path": "vulkan-sdk-1.3.275.0/Include/vulkan/vulkan_core.h",
-      "version": "Vulkan-Headers 1.3.275.0",
-      "sha256": null
     }
   ],
   "runtime": [
-    {
-      "id": "vulkan-loader-1.3.275.0",
-      "pathKind": "toolchainRootRelative",
-      "path": "vulkan-sdk-1.3.275.0/Bin/vulkan-1.dll",
-      "sha256": null
-    },
     {
       "id": "msvc-crt-14.39",
       "pathKind": "toolchainRootRelative",
       "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
       "sha256": null
+    },
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cudart64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublas64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublasLt64_12.dll",
+      "sha256": null
     }
   ],
-  "architectureTargets": ["vulkan-1.3-spirv-1.6"],
+  "architectureTargets": ["120a-real"],
   "environmentAllowlist": ["SystemRoot", "TEMP", "TMP", "WINDIR"],
   "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
-  "patchLockIds": ["local-whisper-whisper-cpp-amd-preview-v1"],
+  "patchLockIds": [],
   "qualificationFixture": null,
   "cmakeCache": {
     "BUILD_SHARED_LIBS": "OFF",
     "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CUDA_ARCHITECTURES": "120a-real",
+    "CMAKE_CUDA_RUNTIME_LIBRARY": "Shared",
     "CMAKE_CXX_STANDARD": "20",
     "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
-    "GGML_ACCELERATE": "OFF",
     "GGML_BACKEND_DL": "OFF",
     "GGML_BLAS": "OFF",
     "GGML_CANN": "OFF",
-    "GGML_CPU": "ON",
     "GGML_CPU_KLEIDIAI": "OFF",
-    "GGML_CUDA": "OFF",
+    "GGML_CUDA": "ON",
+    "GGML_CUDA_CUB_3DOT2": "OFF",
+    "GGML_CUDA_NCCL": "OFF",
     "GGML_HIP": "OFF",
     "GGML_METAL": "OFF",
     "GGML_MUSA": "OFF",
@@ -85,70 +99,73 @@
     "GGML_OPENCL": "OFF",
     "GGML_OPENMP": "OFF",
     "GGML_RPC": "OFF",
-    "GGML_STATIC": "OFF",
+    "GGML_STATIC": "ON",
     "GGML_SYCL": "OFF",
-    "GGML_VULKAN": "ON",
+    "GGML_VULKAN": "OFF",
     "GGML_ZDNN": "OFF",
-    "Vulkan_GLSLC_EXECUTABLE": "toolchainRoot:vulkan-sdk-1.3.275.0/Bin/glslc.exe",
-    "Vulkan_INCLUDE_DIR": "toolchainRoot:vulkan-sdk-1.3.275.0/Include",
-    "Vulkan_LIBRARY": "toolchainRoot:vulkan-sdk-1.3.275.0/Lib/vulkan-1.lib",
     "WHISPER_BUILD_EXAMPLES": "OFF",
     "WHISPER_BUILD_TESTS": "OFF",
     "WHISPER_CURL": "OFF"
   },
-  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "ggml-vulkan", "whisper"],
+  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "ggml-cuda", "whisper"],
   "outputs": [
+    { "id": "whisper-static", "pathKind": "outputRelative", "path": "src/whisper.lib", "sha256": null },
     {
-      "id": "worker",
+      "id": "ggml-cuda-static",
       "pathKind": "outputRelative",
-      "path": "bin/local-whisper-whisper-cpp-worker.exe",
-      "sha256": null
-    },
-    {
-      "id": "vulkan-loader",
-      "pathKind": "outputRelative",
-      "path": "bin/vulkan-1.dll",
+      "path": "ggml/src/ggml-cuda/ggml-cuda.lib",
       "sha256": null
     }
   ],
   "dynamicDependencies": [
     {
-      "id": "vulkan-loader-1.3.275.0",
-      "pathKind": "toolchainRootRelative",
-      "path": "vulkan-sdk-1.3.275.0/Bin/vulkan-1.dll",
-      "sha256": null
-    },
-    {
       "id": "msvc-crt-14.39",
       "pathKind": "toolchainRootRelative",
       "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cudart64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublas64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublasLt64_12.dll",
       "sha256": null
     }
   ],
   "licenses": [
     {
-      "id": "vulkan-loader-apache-2.0",
+      "id": "visual-studio-build-tools-14.39",
       "pathKind": "toolchainRootRelative",
-      "path": "vulkan-sdk-1.3.275.0/Licenses/vulkan-loader.LICENSE",
+      "path": "msvc-14.39/license.txt",
       "sha256": null
     },
     {
-      "id": "whisper-cpp-mit",
-      "pathKind": "outputRelative",
-      "path": "licenses/whisper-cpp.LICENSE",
+      "id": "cuda-eula-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/EULA.txt",
       "sha256": null
     }
   ],
   "sbomComponents": [
     "msvc-14.39",
     "windows-sdk-10.0.26100.0",
+    "cuda-12.8.1",
     "cmake-3.31.8",
     "ninja-1.12.1",
-    "shaderc-2023.8",
-    "vulkan-loader-1.3.275.0",
     "whisper-cpp-v1.9.1"
   ],
-  "qualificationState": "pendingWindowsFinalTask",
+  "qualificationState": "pending-windows-qualification",
   "evidenceDigest": null,
-  "minimumDriver": null
+  "minimumDriver": "570.65"
 }

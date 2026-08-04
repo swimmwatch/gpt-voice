@@ -105,6 +105,25 @@ class ArtifactStore implements LocalWhisperProductionArtifactStorePort {
   }
 }
 
+class ConcurrentEvidenceStore implements LocalWhisperProductionArtifactStorePort {
+  public active = 0;
+  public maximumActive = 0;
+
+  public constructor(private readonly evidence: LocalWhisperManagedStorageEvidencePort) {}
+
+  public deleteArtifact(): Promise<void> {
+    return Promise.reject(new Error('Deletion is not exercised by this refresh harness'));
+  }
+
+  public async buildEvidenceSnapshot(): Promise<LocalWhisperManagedStorageEvidencePort> {
+    this.active += 1;
+    this.maximumActive = Math.max(this.maximumActive, this.active);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    this.active -= 1;
+    return this.evidence;
+  }
+}
+
 function settings(catalogValue: LocalWhisperAuthenticatedCatalog): LocalWhisperPublicSettings {
   const runtime = catalogValue.payload.runtimes[0].identity;
   const model = catalogValue.payload.models[0].identity;
@@ -150,7 +169,7 @@ function command(
   });
 }
 
-function harness(error: Error | null = null) {
+function harness(error: Error | null = null, cancelResult = false) {
   const catalogValue = catalog();
   const inventoryRepository = new LocalWhisperInventoryRepository();
   const initialInventory = inventoryRepository.reconstruct({
@@ -169,12 +188,16 @@ function harness(error: Error | null = null) {
   const unsupportedTransfer = (): never => {
     throw new Error('Transfer is not exercised by this removal harness');
   };
+  const cancelCalls: string[] = [];
   const service: LocalWhisperProductionArtifactLifecyclePort = {
     startDownload: unsupportedTransfer,
     resume: unsupportedTransfer,
     retry: unsupportedTransfer,
     update: unsupportedTransfer,
-    cancel: () => false,
+    cancel: (operationId) => {
+      cancelCalls.push(operationId);
+      return cancelResult;
+    },
     remove: async (request) => {
       const descriptor = [
         ...catalogValue.payload.runtimes.map((entry) => createManagedRuntimeDescriptor(catalogValue, entry)),
@@ -212,10 +235,35 @@ function harness(error: Error | null = null) {
     inventory,
     service,
   });
-  return { catalogValue, initialInventory, port, store, updates };
+  return { cancelCalls, catalogValue, initialInventory, port, store, updates };
 }
 
 describe('LocalWhisperProductionArtifactPort', () => {
+  it('serializes shared evidence refresh while parallel artifact transfers finish', async () => {
+    const catalogValue = catalog();
+    const repository = new LocalWhisperInventoryRepository();
+    const evidence = new Evidence(catalogValue);
+    const store = new ConcurrentEvidenceStore(evidence);
+    const inventory = new LocalWhisperProductionArtifactInventory({
+      catalog: catalogValue,
+      initialInventory: repository.reconstruct({ catalog: catalogValue, evidence }),
+      inventoryRepository: repository,
+      onInventoryChanged: () => undefined,
+      store,
+    });
+
+    await Promise.all([inventory.refresh(catalogValue), inventory.refresh(catalogValue)]);
+    assert.equal(store.maximumActive, 1);
+  });
+
+  it('cancels an exact active operation without coupling to a changing inventory epoch', async () => {
+    const values = harness(null, true);
+    assert.deepEqual(await values.port.execute({ kind: 'cancelArtifact', operationId: 'operation-id-0001' }), {
+      success: true,
+    });
+    assert.deepEqual(values.cancelCalls, ['operation-id-0001']);
+  });
+
   it('deletes one exact catalog model and atomically publishes reconstructed inventory', async () => {
     const values = harness();
     const descriptor = createManagedModelDescriptor(values.catalogValue, values.catalogValue.payload.models[0]);

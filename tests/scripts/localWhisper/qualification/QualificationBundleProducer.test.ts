@@ -23,7 +23,7 @@ const cachedTinyPath = path.resolve('.cache/local-whisper/qualification/models/g
 describe('LocalWhisperQualificationBundleProducer', () => {
   it(
     'creates a public-only signed CPU/CUDA qualification bundle accepted by the verifier',
-    { skip: !existsSync(cachedTinyPath) && 'requires the Task 19 canonical tiny model cache' },
+    { skip: !existsSync(cachedTinyPath) && 'requires the Task 20 canonical tiny model cache' },
     async () => {
       const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-qualification-bundle-test-'));
       try {

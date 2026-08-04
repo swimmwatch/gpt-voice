@@ -182,14 +182,14 @@ jobs:
         run: npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
 
       - name: Verify Windows Whisper.cpp CPU source contract
-        run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-candidate-task19-v1 --contract-only
+        run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
 
       - name: Verify Windows Whisper.cpp CUDA source contract
-        run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1 --contract-only
+        run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 
-      # Task 19 removes this guard only when representative Windows AMD
-      # execution and required SDK/driver acquisition are authorized.
-      - name: Task 19 Windows AMD Vulkan qualification placeholder
+      # Task 21 may replace this guard only when representative Windows AMD
+      # execution and required SDK/driver acquisition are separately authorized.
+      - name: Windows AMD Vulkan qualification placeholder
         if: ${{ false }}
         run: npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
 

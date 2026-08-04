@@ -68,6 +68,11 @@ describe('Local Whisper IPC decoders', () => {
     );
     assert.equal(isLocalWhisperSettingsCommand({ kind: 'load', ...base, argv: ['--model', '/tmp/x'] }), false);
     assert.equal(isLocalWhisperSettingsCommand({ kind: 'load', ...base, expectedInventoryEpoch: Number.NaN }), false);
+    assert.equal(isLocalWhisperSettingsCommand({ kind: 'cancelArtifact', operationId: 'operation-id-0001' }), true);
+    assert.equal(
+      isLocalWhisperSettingsCommand({ kind: 'cancelArtifact', operationId: 'operation-id-0001', ...base }),
+      false,
+    );
   });
 
   it('accepts only descriptor-consistent safe failures and typed provider selection', () => {

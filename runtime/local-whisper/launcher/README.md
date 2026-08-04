@@ -17,16 +17,16 @@ stdin, stdout, stderr, and one fixed non-sensitive `--probe`, `--load`, or
   worker descriptor in a dedicated process group, uses parent-death signaling
   and a subreaper, and does not exit until that group is empty. Its reviewed
   model-authority client can authenticate the guard's credentials and one
-  `SCM_RIGHTS` descriptor and collision-safely install logical slot 3; wiring
-  that primitive into production full-load orchestration remains a Task 19
-  activation blocker.
+  `SCM_RIGHTS` descriptor and collision-safely install logical slot 3; the
+  process-owned Local Whisper environment wires it into production full-load
+  orchestration.
 - `src/platform/windows` holds every directory component and the worker without
   delete/write sharing, creates the worker suspended, assigns it to a
   kill-on-close Job Object, restricts inherited handles to stdio, and resumes it
   only after assignment. The launcher remains alive until the Job is empty.
 - The Windows model-authority module defines arbitrary-HANDLE duplication and
   acknowledgment validation as a Task-09 source contract only. Representative
-  Windows execution and qualification remain exclusively in Task 20.
+  Windows execution and qualification remain exclusively in Task 21.
 - `tests/unit` uses GoogleTest for the parser and SHA-256 contract.
   `tests/fixtures` contains non-production process-tree and identity probes used
   by the cross-platform integration verifier.

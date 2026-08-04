@@ -100,6 +100,13 @@ export function snapshotFacts(): LocalWhisperSnapshotFacts {
         default: false,
         recommended: true,
         remembered: true,
+        compatibility: Object.freeze({
+          target: null,
+          backend: null,
+          modelFamily: null,
+          modelVariant: null,
+          eligibleBackends: Object.freeze([]),
+        }),
       }),
     ]),
     validationIssues: Object.freeze([]),
@@ -145,7 +152,7 @@ export function snapshotFacts(): LocalWhisperSnapshotFacts {
         transferSizeBytes: 10,
         installedSizeBytes: 0,
         updateAvailable: false,
-        actions: Object.freeze(['download', 'resume', 'cancel', 'retry'] as const),
+        actions: Object.freeze(['download'] as const),
         references: Object.freeze([]),
       }),
     ]),
@@ -154,6 +161,7 @@ export function snapshotFacts(): LocalWhisperSnapshotFacts {
         operationId: 'operation-id-0001',
         artifactId: MODEL_ARTIFACT_ID,
         action: 'download' as const,
+        state: 'Downloading' as const,
         receivedBytes: 5,
         totalBytes: 10,
         queuedPosition: null,
@@ -312,6 +320,9 @@ export class FakePrivilegedPorts {
   };
 }
 
-export function createSnapshotService(coordinator: FakeCoordinator): LocalWhisperSnapshotService {
-  return new LocalWhisperSnapshotService(coordinator, new StaticLocalWhisperSnapshotFacts(snapshotFacts()));
+export function createSnapshotService(
+  coordinator: FakeCoordinator,
+  facts: LocalWhisperSnapshotFacts = snapshotFacts(),
+): LocalWhisperSnapshotService {
+  return new LocalWhisperSnapshotService(coordinator, new StaticLocalWhisperSnapshotFacts(facts));
 }

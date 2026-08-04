@@ -24,7 +24,7 @@ const toolchainSchemaPath = resolve(
 const hipSchemaPath = resolve(amdContractRoot, 'schemas', 'hip-pre-signing-row.schema.json');
 const taskCacheRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'amd-packs');
 const exactProfileIds = Object.freeze([
-  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+  'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
   'linux-x64-amd-vulkan-preview-contract-v1',
   'linux-x64-amd-hip-no-approved-row-v1',
 ]);

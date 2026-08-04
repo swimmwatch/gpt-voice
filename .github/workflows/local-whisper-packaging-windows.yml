@@ -7,8 +7,8 @@ on:
         description: Exact canonical fixture bundle-manifest SHA-256 from the producer.
         required: true
         type: string
-      task19_authorized:
-        description: Must be true only during the representative Task 19 Windows phase.
+      windows_qualification_authorized:
+        description: Must be true only during the representative Task 21 Windows qualification.
         required: true
         type: boolean
 
@@ -17,8 +17,8 @@ permissions:
 
 jobs:
   windows-consumer-package:
-    name: Deferred Task 19 Windows fixture consumer/package
-    if: ${{ inputs.task19_authorized }}
+    name: Deferred Windows qualification fixture consumer/package
+    if: ${{ inputs.windows_qualification_authorized }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:

@@ -83,15 +83,20 @@ describe('diagnostics archive dependency policy', () => {
       assert.equal(directDependencies[dependencyName], undefined, dependencyName);
     }
 
-    const scriptCommands = Object.values(packageJson.scripts ?? {}).join('\n');
-    for (const forbiddenInvocation of [
-      'analyze-diagnostics-archive',
-      'inspect_diagnostics_archive',
-      'python3',
-      '.py',
-    ]) {
+    const scripts = packageJson.scripts ?? {};
+    const scriptCommands = Object.values(scripts).join('\n');
+    for (const forbiddenInvocation of ['analyze-diagnostics-archive', 'inspect_diagnostics_archive']) {
       assert.equal(scriptCommands.includes(forbiddenInvocation), false, forbiddenInvocation);
     }
+    assert.deepEqual(
+      Object.entries(scripts).filter(([, command]) => command.includes('python3') || command.includes('.py')),
+      [
+        [
+          'test:local-whisper:qualification',
+          'node --import tsx --test "tests/scripts/localWhisper/qualification/*.test.ts" && python3 -m unittest tests/scripts/localWhisper/qualification/test_linux_resource_sampler.py && node --test tests/scripts/localWhisper/nativeBuildParallelism.test.mjs',
+        ],
+      ],
+    );
 
     const runtimeSources = fs
       .readdirSync(path.join(WORKSPACE_PATH, 'src'), { recursive: true, withFileTypes: true })

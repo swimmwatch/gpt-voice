@@ -94,6 +94,10 @@ class FakeSettingsPort implements LocalWhisperCoordinatorSettingsPort {
     return this.validateShape(candidate);
   }
 
+  public supportTier(): 'Production' {
+    return 'Production';
+  }
+
   private validateShape(candidate: unknown): LocalWhisperSettings | null {
     if (typeof candidate !== 'object' || candidate === null || !('engine' in candidate)) return null;
     return candidate.engine === 'whisperCpp' ? (structuredClone(candidate) as LocalWhisperSettings) : null;
@@ -261,7 +265,10 @@ function deferred<T>() {
   };
 }
 
-function harness(settingsPort = new FakeSettingsPort()) {
+function harness(
+  settingsPort = new FakeSettingsPort(),
+  initialSupportTier: 'Production' | 'Unsupported' = 'Production',
+) {
   const capability = new FakeCapabilityPort();
   const workers = new FakeWorkerPort();
   const artifacts = new FakeArtifactPort();
@@ -291,6 +298,7 @@ function harness(settingsPort = new FakeSettingsPort()) {
       inventoryEpoch: 1,
       runtimeSetup: 'Installed',
       modelSetup: 'Installed',
+      supportTier: initialSupportTier,
     },
   };
   return {
@@ -361,9 +369,29 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(coordinator.snapshot.configured, true);
     assert.equal('initialPrompt' in coordinator.snapshot.settings, false);
     assert.equal(Object.isFrozen(coordinator.snapshot.settings.model), true);
+    assert.equal(coordinator.snapshot.runtime.supportTier, 'Production');
+    assert.equal(coordinator.snapshot.runtime.canAttempt, true);
     assert.doesNotMatch(JSON.stringify(coordinator.snapshot), /private prompt|native|ordinal|authority/iu);
     assert.equal(Object.isFrozen(coordinator.snapshot), true);
     unsubscribe();
+  });
+
+  it('recomputes support after a valid settings transaction repairs an unavailable initial selection', async () => {
+    const { coordinator } = harness(new FakeSettingsPort(), 'Unsupported');
+    const current = coordinator.snapshot;
+    assert.equal(current.runtime.canAttempt, false);
+
+    const saved = await coordinator.applySettingsTransaction({
+      kind: 'save',
+      candidate: current.settings,
+      promptMutation: { kind: 'unchanged' },
+      expectedConfigurationEpoch: current.epochs.configuration,
+      expectedInventoryEpoch: current.epochs.inventory,
+    });
+
+    assert.equal(saved.success, true);
+    assert.equal(coordinator.snapshot.runtime.supportTier, 'Production');
+    assert.equal(coordinator.snapshot.runtime.canAttempt, true);
   });
 
   it('projects exact preflight support and artifact failures without starting a worker', async () => {
@@ -416,6 +444,25 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(workers.resident.unloadCount, 1);
     assert.equal(coordinator.snapshot.runtime.capability, 'Validated');
     assert.equal(coordinator.snapshot.runtime.operationalStatus, 'ValidatedUnloaded');
+  });
+
+  it('admits an installed unblocked configuration for automatic validation and lazy loading', async () => {
+    const { coordinator, capability, workers } = harness();
+    const eligibility = validAudioDispatch(coordinator);
+
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'NotReady');
+    assert.equal((await coordinator.checkEligibility(eligibility)).success, true);
+
+    const transcription = await coordinator.transcribe({
+      dispatch: eligibility.dispatch,
+      buffer: Uint8Array.from([1, 2, 3, 4]).buffer,
+      mimeType: 'audio/wav',
+    });
+
+    assert.deepEqual(transcription.success ? transcription.value : null, 'fixture text');
+    assert.equal(capability.calls.length, 1);
+    assert.equal(workers.loadCount, 1);
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
   });
 
   it('runs eligibility before cache use and lazy-loads only an eligible current dispatch', async () => {

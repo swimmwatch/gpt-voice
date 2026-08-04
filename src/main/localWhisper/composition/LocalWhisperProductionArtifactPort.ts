@@ -57,6 +57,7 @@ export interface LocalWhisperProductionArtifactInventoryDependencies {
 export class LocalWhisperProductionArtifactInventory implements ArtifactInventoryPort {
   private inventoryValue: LocalWhisperInventorySnapshot;
   private readonly listeners = new Set<(inventory: LocalWhisperInventorySnapshot) => void>();
+  private refreshTail: Promise<void> = Promise.resolve();
 
   public constructor(private readonly dependencies: LocalWhisperProductionArtifactInventoryDependencies) {
     this.inventoryValue = dependencies.initialInventory;
@@ -81,8 +82,17 @@ export class LocalWhisperProductionArtifactInventory implements ArtifactInventor
     return () => this.listeners.delete(listener);
   }
 
-  public async refresh(catalog: LocalWhisperAuthenticatedCatalog): Promise<number> {
+  public refresh(catalog: LocalWhisperAuthenticatedCatalog): Promise<number> {
     if (catalog !== this.dependencies.catalog) throw new Error('Local Whisper catalog authority changed');
+    const refresh = this.refreshTail.then(async () => await this.refreshNow(catalog));
+    this.refreshTail = refresh.then(
+      () => undefined,
+      () => undefined,
+    );
+    return refresh;
+  }
+
+  private async refreshNow(catalog: LocalWhisperAuthenticatedCatalog): Promise<number> {
     const next = this.dependencies.inventoryRepository.reconstruct({
       catalog,
       evidence: await this.dependencies.store.buildEvidenceSnapshot(catalog),
@@ -151,13 +161,13 @@ export class LocalWhisperProductionArtifactPort
     readonly operationId?: string;
     readonly code?: LocalWhisperFailureCode;
   }> {
-    if (command.expectedInventoryEpoch !== this.dependencies.inventory.getRevision()) {
-      return Object.freeze({ success: false, code: 'STALE_CONFIGURATION' });
-    }
     if (command.kind === 'cancelArtifact') {
       return this.dependencies.service.cancel(command.operationId)
         ? Object.freeze({ success: true })
         : Object.freeze({ success: false, code: 'OPERATION_CONFLICT' });
+    }
+    if (command.expectedInventoryEpoch !== this.dependencies.inventory.getRevision()) {
+      return Object.freeze({ success: false, code: 'STALE_CONFIGURATION' });
     }
     const artifactId =
       command.kind === 'update' ? this.resolveUpdate(command.artifactKind, command.artifactId) : command.artifactId;

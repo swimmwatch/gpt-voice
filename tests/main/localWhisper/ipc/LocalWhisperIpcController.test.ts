@@ -3,7 +3,11 @@ import { describe, it } from 'node:test';
 
 import type { LocalWhisperCommandAuditPort } from '@main/localWhisper/audit/LocalWhisperCommandAudit';
 import { LocalWhisperIpcController } from '@main/localWhisper/ipc/LocalWhisperIpcController';
-import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_IPC_CHANNELS,
+  createLocalWhisperRendererSafeFailure,
+  type LocalWhisperSettingsCommand,
+} from '@shared/localWhisper';
 
 import {
   CATALOG_REVISION,
@@ -21,14 +25,15 @@ import {
   createSnapshotService,
   fakeEvent,
   revision,
+  snapshotFacts,
 } from './localWhisperIpcTestUtils';
 
-function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => undefined }) {
+function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => undefined }, facts = snapshotFacts()) {
   const transport = new FakeTransport();
   const authority = new FakeAuthority();
   const coordinator = new FakeCoordinator();
   const privileged = new FakePrivilegedPorts();
-  const snapshots = createSnapshotService(coordinator);
+  const snapshots = createSnapshotService(coordinator, facts);
   let openSettingsCalls = 0;
   let refreshSettingsCalls = 0;
   const controller = new LocalWhisperIpcController({
@@ -80,6 +85,44 @@ describe('LocalWhisperIpcController', () => {
       /settings IPC sender/u,
     );
     assert.equal(harness.getRefreshSettingsCalls(), 1);
+  });
+
+  it('waits for device refresh before returning the settings snapshot', async () => {
+    const transport = new FakeTransport();
+    const authority = new FakeAuthority();
+    const coordinator = new FakeCoordinator();
+    const privileged = new FakePrivilegedPorts();
+    const snapshots = createSnapshotService(coordinator, snapshotFacts());
+    let finishRefresh = (): void => {
+      throw new Error('Refresh completion was not initialized');
+    };
+    const refresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const controller = new LocalWhisperIpcController({
+      audit: { record: () => undefined },
+      transport,
+      authority,
+      coordinator,
+      artifacts: privileged.artifacts,
+      managedFolder: privileged.folder,
+      references: privileged.references,
+      snapshots,
+      openSettings: () => undefined,
+      refreshSettingsFacts: () => refresh,
+    });
+    controller.register();
+
+    let settled = false;
+    const query = transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, fakeEvent('settings')).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    assert.equal(settled, false);
+    finishRefresh();
+    await query;
+    assert.equal(settled, true);
+    controller.dispose();
   });
 
   it('keeps settings and main capabilities non-overlapping and rejects before effects', async () => {
@@ -270,10 +313,45 @@ describe('LocalWhisperIpcController', () => {
       artifactRevision: MODEL_REVISION,
       ...expected(harness.snapshots),
     });
-    await invoke({ kind: 'cancelArtifact', operationId: 'operation-id-0001', ...expected(harness.snapshots) });
+    await invoke({ kind: 'cancelArtifact', operationId: 'operation-id-0001' });
     assert.deepEqual(
       harness.privileged.artifactCommands.map((command) => command.kind),
       ['download', 'cancelArtifact'],
+    );
+
+    const baseFacts = snapshotFacts();
+    const currentProgress = baseFacts.progress[0];
+    assert.ok(currentProgress);
+    const retryHarness = createHarness(
+      { record: () => undefined },
+      {
+        ...baseFacts,
+        progress: Object.freeze([
+          Object.freeze({
+            ...currentProgress,
+            state: 'Cancelled' as const,
+            failure: createLocalWhisperRendererSafeFailure('DOWNLOAD_CANCELLED', {
+              artifactId: MODEL_ARTIFACT_ID,
+            }),
+          }),
+        ]),
+      },
+    );
+    const retryResult = await retryHarness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.settingsCommand,
+      fakeEvent('settings'),
+      {
+        kind: 'retry',
+        artifactKind: 'model',
+        artifactId: MODEL_ARTIFACT_ID,
+        artifactRevision: MODEL_REVISION,
+        ...expected(retryHarness.snapshots),
+      },
+    );
+    assert.equal((retryResult as { readonly success: boolean }).success, true);
+    assert.deepEqual(
+      retryHarness.privileged.artifactCommands.map((command) => command.kind),
+      ['retry'],
     );
 
     const disallowedDownload = await invoke({

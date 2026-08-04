@@ -225,7 +225,7 @@ function verifyLinux(profileId) {
   assert.match(linuxJob, /test:local-whisper:whisper-cpp-loader/u);
   assert.match(linuxJob, /build:local-whisper:whisper-cpp-cpu/u);
   assert.match(linuxJob, /audit:local-whisper:whisper-cpp-pack/u);
-  assert.doesNotMatch(linuxJob, /windows-x64-cpu-candidate-task19-v1/u);
+  assert.doesNotMatch(linuxJob, /windows-x64-cpu-msvc-19\.39-v1/u);
   const manifest = JSON.parse(readFileSync(resolve(pack.root, 'runtime-manifest.json'), 'utf8'));
   const registry = captureWorkerRegistry(pack.binary, {
     backendId: 'cpu',
@@ -258,7 +258,7 @@ function verifyWindowsContract(profileId, contractOnly) {
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
   const windowsJob = workflow.slice(workflow.indexOf('native-quality-windows:'), workflow.indexOf('\n  quality:'));
   assert.match(windowsJob, /runs-on: windows-latest/u);
-  assert.match(windowsJob, /windows-x64-cpu-candidate-task19-v1/u);
+  assert.match(windowsJob, /windows-x64-cpu-msvc-19\.39-v1/u);
   assert.match(windowsJob, /--contract-only/u);
   assert.doesNotMatch(windowsJob, /linux-x64-cpu-baseline-v1/u);
 }
@@ -433,7 +433,7 @@ try {
   const contractOnly = arguments_.has('contract-only');
   const includeCancellation = arguments_.has('include-cancellation');
   if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
-  if (profileId === 'windows-x64-cpu-candidate-task19-v1') {
+  if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
     if (includeCancellation) throw new Error('Windows contract cannot execute cancellation');
     if (mode !== 'verify') throw new Error('Windows contract supports verify mode only');
     verifyWindowsContract(profileId, contractOnly);

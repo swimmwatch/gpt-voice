@@ -15,12 +15,15 @@ import {
   toLocalWhisperRevisionId,
   type LocalWhisperArtifactId,
   type LocalWhisperArtifactSetupState,
+  type LocalWhisperBackend,
   type LocalWhisperFailureCode,
+  type LocalWhisperGpuBackend,
   type LocalWhisperModelFamily,
   type LocalWhisperOpaqueDeviceId,
   type LocalWhisperRevisionId,
   type LocalWhisperRuntimeSnapshot,
   type LocalWhisperSupportTier,
+  type LocalWhisperTarget,
 } from './domain';
 import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
@@ -28,6 +31,7 @@ import {
   isLocalWhisperMemoryEstimateRecord,
   type LocalWhisperFamilyMemoryGuidance,
   type LocalWhisperMemoryEstimateRecord,
+  type LocalWhisperModelVariant,
 } from './catalog';
 import { isLocalWhisperRendererSafeFailure, type LocalWhisperRendererSafeFailure } from './failures';
 import { isLocalWhisperLanguageId } from './languages';
@@ -65,6 +69,14 @@ export type LocalWhisperArtifactKind = (typeof LOCAL_WHISPER_ARTIFACT_KINDS)[num
 export type LocalWhisperArtifactAction = (typeof LOCAL_WHISPER_ARTIFACT_ACTIONS)[number];
 export type LocalWhisperReferenceKind = (typeof LOCAL_WHISPER_REFERENCE_KINDS)[number];
 
+export interface LocalWhisperRendererOptionCompatibility {
+  readonly target: LocalWhisperTarget | null;
+  readonly backend: LocalWhisperBackend | null;
+  readonly modelFamily: LocalWhisperModelFamily | null;
+  readonly modelVariant: LocalWhisperModelVariant | null;
+  readonly eligibleBackends: readonly LocalWhisperGpuBackend[];
+}
+
 export interface LocalWhisperRendererOption {
   readonly group:
     'engine' | 'target' | 'backend' | 'device' | 'runtime' | 'modelFamily' | 'modelRevision' | 'modelVariant';
@@ -79,6 +91,7 @@ export interface LocalWhisperRendererOption {
   readonly default: boolean;
   readonly recommended: boolean;
   readonly remembered: boolean;
+  readonly compatibility: LocalWhisperRendererOptionCompatibility;
 }
 
 export interface LocalWhisperArtifactReference {
@@ -107,11 +120,35 @@ export interface LocalWhisperArtifactProgress {
   readonly operationId: string;
   readonly artifactId: LocalWhisperArtifactId;
   readonly action: LocalWhisperArtifactAction;
+  readonly state:
+    | 'Queued'
+    | 'Downloading'
+    | 'Resumable'
+    | 'Verifying'
+    | 'Installing'
+    | 'Installed'
+    | 'Deleting'
+    | 'Missing'
+    | 'Cancelled'
+    | 'Failed';
   readonly receivedBytes: number;
   readonly totalBytes: number;
   readonly queuedPosition: number | null;
   readonly failure: LocalWhisperRendererSafeFailure | null;
 }
+
+export const LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES = Object.freeze([
+  'Queued',
+  'Downloading',
+  'Verifying',
+  'Installing',
+] as const satisfies readonly LocalWhisperArtifactProgress['state'][]);
+
+export const LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES = Object.freeze([
+  'Resumable',
+  'Cancelled',
+  'Failed',
+] as const satisfies readonly LocalWhisperArtifactProgress['state'][]);
 
 export interface LocalWhisperRendererMemoryFacts {
   readonly approximateFamilies: readonly LocalWhisperFamilyMemoryGuidance[];
@@ -196,7 +233,7 @@ export type LocalWhisperSettingsCommand =
   | (LocalWhisperExpectedState & { readonly kind: 'reset' })
   | (LocalWhisperExpectedState & { readonly kind: 'checkCompatibility' | 'load' | 'unload' })
   | (LocalWhisperArtifactTarget & { readonly kind: 'download' | 'resume' | 'retry' | 'update' })
-  | (LocalWhisperExpectedState & { readonly kind: 'cancelArtifact'; readonly operationId: string })
+  | { readonly kind: 'cancelArtifact'; readonly operationId: string }
   | (LocalWhisperArtifactTarget & { readonly kind: 'remove'; readonly confirmed: boolean })
   | { readonly kind: 'openManagedFolder'; readonly expectedSnapshotRevision: number }
   | {
@@ -387,11 +424,7 @@ export function isLocalWhisperSettingsCommand(value: unknown): value is LocalWhi
     );
   }
   if (value.kind === 'cancelArtifact') {
-    return (
-      hasExactKeys(value, [...expectedKeys, 'operationId']) &&
-      hasExpectedState(value) &&
-      isSafeOperationId(value.operationId)
-    );
+    return hasExactKeys(value, ['kind', 'operationId']) && isSafeOperationId(value.operationId);
   }
   if (value.kind === 'remove') {
     return (
@@ -486,6 +519,7 @@ function isRendererOption(value: unknown): value is LocalWhisperRendererOption {
       'default',
       'recommended',
       'remembered',
+      'compatibility',
     ]) &&
     isMember(
       ['engine', 'target', 'backend', 'device', 'runtime', 'modelFamily', 'modelRevision', 'modelVariant'] as const,
@@ -503,8 +537,25 @@ function isRendererOption(value: unknown): value is LocalWhisperRendererOption {
     typeof value.saved === 'boolean' &&
     typeof value.default === 'boolean' &&
     typeof value.recommended === 'boolean' &&
-    typeof value.remembered === 'boolean'
+    typeof value.remembered === 'boolean' &&
+    isRendererOptionCompatibility(value.compatibility)
   );
+}
+
+function isRendererOptionCompatibility(value: unknown): value is LocalWhisperRendererOptionCompatibility {
+  if (
+    !isPlainRecord(value) ||
+    !hasExactKeys(value, ['target', 'backend', 'modelFamily', 'modelVariant', 'eligibleBackends']) ||
+    (value.target !== null && !isLocalWhisperTarget(value.target)) ||
+    (value.backend !== null && !isLocalWhisperBackend(value.backend)) ||
+    (value.modelFamily !== null && !isLocalWhisperModelFamily(value.modelFamily)) ||
+    (value.modelVariant !== null && !isMember(LOCAL_WHISPER_MODEL_VARIANTS, value.modelVariant)) ||
+    !Array.isArray(value.eligibleBackends) ||
+    !value.eligibleBackends.every(isLocalWhisperGpuBackend)
+  ) {
+    return false;
+  }
+  return new Set(value.eligibleBackends).size === value.eligibleBackends.length;
 }
 
 function isReference(value: unknown): value is LocalWhisperArtifactReference {
@@ -558,6 +609,7 @@ function isProgress(value: unknown): value is LocalWhisperArtifactProgress {
       'operationId',
       'artifactId',
       'action',
+      'state',
       'receivedBytes',
       'totalBytes',
       'queuedPosition',
@@ -566,6 +618,21 @@ function isProgress(value: unknown): value is LocalWhisperArtifactProgress {
     isSafeOperationId(value.operationId) &&
     toLocalWhisperArtifactId(value.artifactId) !== null &&
     isMember(LOCAL_WHISPER_ARTIFACT_ACTIONS, value.action) &&
+    isMember(
+      [
+        'Queued',
+        'Downloading',
+        'Resumable',
+        'Verifying',
+        'Installing',
+        'Installed',
+        'Deleting',
+        'Missing',
+        'Cancelled',
+        'Failed',
+      ],
+      value.state,
+    ) &&
     isSafeByteCount(value.receivedBytes) &&
     isSafeByteCount(value.totalBytes) &&
     value.receivedBytes <= value.totalBytes &&

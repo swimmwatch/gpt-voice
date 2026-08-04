@@ -14,7 +14,7 @@ function countOccurrences(text: string, value: string): number {
   return text.split(value).length - 1;
 }
 
-/** Enforces one fixture producer, digest-bound consumers, and Task-19-only Windows execution. */
+/** Enforces one fixture producer, digest-bound consumers, and explicitly authorized Windows qualification. */
 export class WorkflowPolicyVerifier {
   public verify(input: {
     readonly fixtureWorkflow: string;
@@ -55,14 +55,14 @@ export class WorkflowPolicyVerifier {
       !isRecord(workflowCall) ||
       !isRecord(workflowCall.inputs) ||
       !('bundle_digest' in workflowCall.inputs) ||
-      !('task19_authorized' in workflowCall.inputs) ||
+      !('windows_qualification_authorized' in workflowCall.inputs) ||
       !isRecord(windowsConsumer)
     ) {
       throw new Error('Windows Local Whisper consumer inputs are incomplete');
     }
     const windowsConsumerText = JSON.stringify(windowsConsumer);
     if (
-      windowsConsumer.if !== '${{ inputs.task19_authorized }}' ||
+      windowsConsumer.if !== '${{ inputs.windows_qualification_authorized }}' ||
       windowsConsumerText.includes('generate:local-whisper:packaging:fixture') ||
       windowsConsumerText.includes('sign(') ||
       !windowsConsumerText.includes('actions/download-artifact@v8') ||

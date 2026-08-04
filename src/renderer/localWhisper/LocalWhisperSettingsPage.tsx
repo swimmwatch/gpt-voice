@@ -6,7 +6,61 @@ import LocalWhisperInferenceSections from './components/LocalWhisperInferenceSec
 import LocalWhisperRuntimeModelSection from './components/LocalWhisperRuntimeModelSection';
 import LocalWhisperStatusSection from './components/LocalWhisperStatusSection';
 import LocalWhisperStorageSection from './components/LocalWhisperStorageSection';
+import { isLocalWhisperArtifactProgressActive, isLocalWhisperPlatformUnavailable } from './LocalWhisperPresentation';
 import useLocalWhisperSettings from './useLocalWhisperSettings';
+
+function CatalogChannelNotice({
+  catalogUnavailable,
+  developmentArtifactsActive,
+}: {
+  readonly catalogUnavailable: boolean;
+  readonly developmentArtifactsActive: boolean;
+}): React.JSX.Element | null {
+  if (catalogUnavailable) {
+    return (
+      <div className="rounded-md bg-muted/50 p-3" role="status">
+        <p className="text-sm font-medium text-foreground">Catalog unavailable</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Production artifacts have not been published. For qualification, launch the non-packaged app with its
+          generated development activation descriptor.
+        </p>
+      </div>
+    );
+  }
+  if (!developmentArtifactsActive) return null;
+  return (
+    <div className="rounded-md bg-muted/50 p-3" role="status">
+      <p className="text-sm font-medium text-foreground">Development qualification artifacts</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        This temporary channel is for local functional verification and does not indicate production readiness.
+      </p>
+    </div>
+  );
+}
+
+function saveDisabledReason(input: {
+  readonly platformUnavailable: boolean;
+  readonly catalogUnavailable: boolean;
+  readonly lifecycleBusy: boolean;
+  readonly valid: boolean;
+  readonly dirty: boolean;
+}): string | null {
+  if (input.platformUnavailable) return 'This platform is unavailable in the current release.';
+  if (input.catalogUnavailable) return 'A trusted Local Whisper catalog is not active.';
+  if (input.lifecycleBusy) return 'Another Local Whisper action is in progress.';
+  if (!input.valid) return 'Fix the highlighted settings before saving.';
+  return input.dirty ? null : 'No unsaved changes.';
+}
+
+function artifactDisabledReason(
+  platformUnavailable: boolean,
+  catalogUnavailable: boolean,
+  commandBusy: boolean,
+): string | null {
+  if (platformUnavailable) return 'Artifact actions are unavailable on a planned or unsupported platform.';
+  if (catalogUnavailable) return 'Artifact actions require an active trusted catalog.';
+  return commandBusy ? 'Artifact actions are disabled while another action is in progress.' : null;
+}
 
 /** Composes the Local Whisper status, settings, artifact, and action surfaces. */
 export default function LocalWhisperSettingsPage({
@@ -17,10 +71,13 @@ export default function LocalWhisperSettingsPage({
   const controller = useLocalWhisperSettings(desktopApi);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const { snapshot, draft, validation } = controller;
-  const platformUnavailable =
-    snapshot?.runtime.supportTier === 'Planned' || snapshot?.runtime.supportTier === 'Unsupported';
+  const platformUnavailable = snapshot ? isLocalWhisperPlatformUnavailable(snapshot) : false;
+  const catalogUnavailable =
+    snapshot?.runtime.blockingCode === 'CATALOG_UNAVAILABLE' || snapshot?.failure?.code === 'CATALOG_UNAVAILABLE';
+  const developmentArtifactsActive =
+    snapshot?.prerequisites.some(({ id }) => id === 'development-qualification-artifacts') ?? false;
   const commandBusy = controller.pendingAction !== null;
-  const lifecycleBusy = commandBusy || (snapshot?.progress.length ?? 0) > 0;
+  const lifecycleBusy = commandBusy || (snapshot?.progress.some(isLocalWhisperArtifactProgressActive) ?? false);
 
   useEffect(() => {
     if (controller.actionError) errorSummaryRef.current?.focus();
@@ -48,20 +105,23 @@ export default function LocalWhisperSettingsPage({
 
   const validationMessages = Object.entries(validation.errors).map(([field, message]) => `${field}: ${message}`);
   const persistedIssues = snapshot.validationIssues.map((issue) => `${issue.path}: ${issue.reason}`);
-  const disabled = lifecycleBusy || platformUnavailable;
-  const saveDisabledReason = platformUnavailable
-    ? 'This platform is unavailable in the current release.'
-    : lifecycleBusy
-      ? 'Another Local Whisper action is in progress.'
-      : validation.candidate === null
-        ? 'Fix the highlighted settings before saving.'
-        : !controller.dirty
-          ? 'No unsaved changes.'
-          : null;
+  const disabled = lifecycleBusy || platformUnavailable || catalogUnavailable;
+  const saveReason = saveDisabledReason({
+    platformUnavailable,
+    catalogUnavailable,
+    lifecycleBusy,
+    valid: validation.candidate !== null,
+    dirty: controller.dirty,
+  });
 
   return (
     <div className="min-w-0 max-w-full overflow-x-hidden pb-24">
       <div className="space-y-4">
+        <CatalogChannelNotice
+          catalogUnavailable={catalogUnavailable}
+          developmentArtifactsActive={developmentArtifactsActive}
+        />
+
         {controller.actionError || persistedIssues.length > 0 ? (
           <div
             aria-live="assertive"
@@ -109,13 +169,7 @@ export default function LocalWhisperSettingsPage({
         />
 
         <LocalWhisperStorageSection
-          actionsDisabledReason={
-            platformUnavailable
-              ? 'Artifact actions are unavailable on a planned or unsupported platform.'
-              : commandBusy
-                ? 'Artifact actions are disabled while another action is in progress.'
-                : null
-          }
+          actionsDisabledReason={artifactDisabledReason(platformUnavailable, catalogUnavailable, commandBusy)}
           aggregateBytes={snapshot.storage.installedBytes}
           artifacts={snapshot.artifacts}
           onArtifactAction={controller.performArtifactAction}
@@ -137,17 +191,17 @@ export default function LocalWhisperSettingsPage({
               <p className="mt-1 max-w-64 text-xs text-muted-foreground">
                 {platformUnavailable
                   ? 'Reset is unavailable on a planned or unsupported platform.'
-                  : 'Reset is disabled while another action is in progress.'}
+                  : catalogUnavailable
+                    ? 'Reset requires an active trusted catalog.'
+                    : 'Reset is disabled while another action is in progress.'}
               </p>
             ) : null}
           </div>
           <div>
-            <Button disabled={saveDisabledReason !== null} onClick={() => void controller.save()} type="button">
+            <Button disabled={saveReason !== null} onClick={() => void controller.save()} type="button">
               {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
             </Button>
-            {saveDisabledReason ? (
-              <p className="mt-1 max-w-64 text-xs text-muted-foreground">{saveDisabledReason}</p>
-            ) : null}
+            {saveReason ? <p className="mt-1 max-w-64 text-xs text-muted-foreground">{saveReason}</p> : null}
           </div>
         </div>
       </div>

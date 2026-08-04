@@ -27,27 +27,35 @@ export interface AppProtocolControllerDependencies {
   };
   readonly protocol: Pick<Protocol, 'handle' | 'registerSchemesAsPrivileged' | 'unhandle'>;
   readonly readFile: (filePath: string) => Promise<Uint8Array>;
+  readonly schemePreRegistered?: boolean;
+}
+
+/** Registers the privileged renderer scheme synchronously before Electron is ready. */
+export function registerAppProtocolScheme(protocol: Pick<Protocol, 'registerSchemesAsPrivileged'>): void {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: APP_PROTOCOL,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+      },
+    },
+  ]);
 }
 
 /** Owns registration and teardown of the privileged app:// renderer protocol. */
 export class AppProtocolController {
   private handlerRegistered = false;
-  private schemeRegistered = false;
+  private schemeRegistered: boolean;
 
-  public constructor(private readonly dependencies: AppProtocolControllerDependencies) {}
+  public constructor(private readonly dependencies: AppProtocolControllerDependencies) {
+    this.schemeRegistered = dependencies.schemePreRegistered ?? false;
+  }
 
   public registerScheme(): void {
     if (this.schemeRegistered) return;
-    this.dependencies.protocol.registerSchemesAsPrivileged([
-      {
-        scheme: APP_PROTOCOL,
-        privileges: {
-          standard: true,
-          secure: true,
-          supportFetchAPI: true,
-        },
-      },
-    ]);
+    registerAppProtocolScheme(this.dependencies.protocol);
     this.schemeRegistered = true;
   }
 

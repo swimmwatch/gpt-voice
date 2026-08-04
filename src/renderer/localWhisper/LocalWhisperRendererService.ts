@@ -136,7 +136,7 @@ export class LocalWhisperRendererService {
   }
 
   public cancelArtifact(operationId: string): Promise<LocalWhisperSettingsCommandResult> {
-    return this.runWithExpected((expected) => ({ kind: 'cancelArtifact', operationId, ...expected }));
+    return this.run({ kind: 'cancelArtifact', operationId });
   }
 
   public remove(target: ArtifactTarget, confirmed: boolean): Promise<LocalWhisperSettingsCommandResult> {

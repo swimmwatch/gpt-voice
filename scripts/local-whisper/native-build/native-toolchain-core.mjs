@@ -11,9 +11,9 @@ import {
 import { qualificationInputDigest, verifyQualificationEvidence } from './native-toolchain-evidence-core.mjs';
 
 const WINDOWS_PROFILE_IDS = new Set([
-  'windows-x64-cpu-candidate-task19-v1',
-  'windows-x64-cuda-12.8.1-sm120a-candidate-task19-v1',
-  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+  'windows-x64-cpu-msvc-19.39-v1',
+  'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+  'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
 ]);
 const LINUX_PROFILE_IDS = new Set([
   'linux-x64-cpu-baseline-v1',
@@ -23,7 +23,7 @@ const LINUX_PROFILE_IDS = new Set([
   'linux-x64-amd-hip-no-approved-row-v1',
 ]);
 const AMD_CONTRACT_PROFILE_IDS = new Set([
-  'windows-x64-amd-vulkan-preview-candidate-task19-v1',
+  'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
   'linux-x64-amd-vulkan-preview-contract-v1',
   'linux-x64-amd-hip-no-approved-row-v1',
 ]);
@@ -131,7 +131,7 @@ function verifyAmdContract(profile, options) {
   } else if (
     canonicalJson(profile.architectureTargets) !== canonicalJson(['vulkan-1.3-spirv-1.6']) ||
     profile.qualificationState !==
-      (profile.target.os === 'windows' ? 'pendingWindowsFinalTask' : 'candidate-unqualified')
+      (profile.target.os === 'windows' ? 'pending-windows-qualification' : 'candidate-unqualified')
   ) {
     throw new Error('AMD Vulkan contract qualification state changed');
   }
@@ -158,9 +158,9 @@ function verifyWindowsToolchainContract(profile, options) {
   if (
     !options.contractOnly ||
     profile.target.os !== 'windows' ||
-    profile.qualificationState !== 'pendingWindowsFinalTask'
+    profile.qualificationState !== 'pending-windows-qualification'
   ) {
-    throw new Error('Windows native profile is contract-only until Task 20');
+    throw new Error('Windows native profile is contract-only until Task 21 qualification');
   }
   if (profile.evidenceDigest !== null || profile.tools.some((tool) => tool.sha256 !== null)) {
     throw new Error('Windows candidate must not claim representative qualification evidence');
