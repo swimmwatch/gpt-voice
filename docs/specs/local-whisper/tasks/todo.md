@@ -1,21 +1,15 @@
 # Local Whisper Task Checklist
 
-Plan revision: **16 (Approved)**
+Plan revision: **17 (Approved)**
 
-Specification baseline: **revision 10 (Approved)**
+Specification baseline: **revision 11 (Approved)**
 
-Execution state: Tasks 01–18 are complete, committed, and authoritative. Task 19
-remains in progress, with its current implementation checkpoint committed as
-`3e735853`, `a946c91f`, `f548be15`, `6baa7d1b`, and `f8131c73`.
-Deterministic CPU/CUDA direct-engine and runtime-pack bytes pass two-clean-root
-network-denied reproducibility. Approved
-specification revision 10 replaces the circular digest graph with a shared
-candidate input, independent Linux/Windows platform branches, and Task 21
-aggregate root. Task 19 requires fresh execution authorization before it resumes; no
-shared candidate, platform input/profile/graph, result, evidence index, or
-aggregate root is frozen. Production private keys, legal approval, final
-GitHub upload, and release authority remain Task 21. Exact Windows inputs and
-representative Windows execution remain exclusively Task 20.
+Execution state: Tasks 01–18 are complete and committed. Existing Task 19
+implementation checkpoints through `76549d87` remain the baseline, but Task 19
+is not complete under the revision-11 boundary. It must finish deterministic
+Windows/Linux CPU/CUDA implementation readiness without representative
+platform execution. Tasks 20 and 21 later create fresh Linux and Windows
+qualification branches; Task 22 alone aggregates production readiness.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -35,28 +29,17 @@ representative Windows execution remain exclusively Task 20.
 - [x] [16 Local Whisper Settings And Status UI](16_local_whisper_settings_and_status_ui.md) — `f9befc17`
 - [x] [17 Signed-Envelope Packaging And Fixture CI](17_signed_envelope_packaging_and_fixture_ci.md) — `b9c3e3b`
 - [x] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) — `16b32ca`
-- [ ] [19 Linux Production Pipeline And Qualification](19_linux_qualification.md)
-- [ ] [20 Windows Qualification](20_windows_qualification.md)
-- [ ] [21 Aggregate Production Readiness And Release Blockers](21_aggregate_and_release_blockers.md)
+- [ ] [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md)
+- [ ] [20 Linux Qualification](20_linux_qualification.md)
+- [ ] [21 Windows Qualification](21_windows_qualification.md)
+- [ ] [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)
 
-Task 08 is committed at `e3639bcc`. Task 09 is committed at `2b920b0`, with
-its native-runner CI boundary committed at `b18700e`. Task 10 and the approved
-revision-11 authority repair are committed at `f3fe677`. The Windows
-native-quality job remains on a Windows runner and owns CPU/CUDA contract-only
-checks; it was not executed. Tasks 11 and 12 are committed at `24e268f` and
-`916f0d9`. Task 13 is committed at `37fa79a`, and Task 14 is committed at
-`df14c118`. Task 15 is committed at `b89a412`, with its verification tooling at
-`d8ab1ba`. Task 16 is committed and pushed at `f9befc17`, Task 17 is committed
-at `b9c3e3b`, and Task 18 is committed at `16b32ca`. Specification revision 10
-and plan revision 16 are durably approved. Task 19 routes Linux and Windows
-startup through the production environment factory while preserving the
-explicit macOS skeleton. The current Linux state remains `FailClosed` because
-no qualification candidate is packaged; shared/Linux graph freeze is
-`Pending`, no Windows branch exists, and representative Windows execution is
-`NotRun`. The archive and
-model formats, public model origin, predecessor rule, qualification trust, and
-Linux/Windows/aggregate completion boundaries are no longer unresolved. Task
-19 remains unchecked until the approved technical pipeline is implemented and
-the full Linux CPU/CUDA/model/transport/resource/privacy/predecessor evidence is
-frozen. Every packet requires separate execution authorization. No pull
-request, production signing, upload, publication, or release has occurred.
+No `candidateInputDigest`, Linux or Windows platform branch, result, evidence
+index, predecessor result, or aggregate root is frozen. The interrupted private
+Linux run is non-authoritative and must not be adopted. Candidate SemVer input
+remains `2.4.0`; the Task 17 fixture digest remains
+`de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
+AMD remains **Preview · Untested** and macOS remains
+**Planned · Unavailable**. Plan approval, each packet execution, commit, push,
+PR, production signing, upload, publication, support promotion, tag, and
+release remain separate authorization boundaries.

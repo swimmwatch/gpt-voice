@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-03'
+updated_at: '2026-08-04'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -6436,7 +6436,7 @@ decisions:
   - id: approval.spec
     revision: 10
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - Revision 10 replaces the unsatisfiable candidate/profile SHA-256 cycle with an explicit forward-only shared-candidate/platform-branch/aggregate graph.
@@ -6534,3 +6534,312 @@ decisions:
     rationale: The user explicitly approved plan revision 16 through the durable workspace interview. This authorizes the repaired Tasks 19–21 plan contract only; packet execution and every commit, external action, or release operation remain separately gated.
     supersedes_revision: 15
     requirement_ids: []
+
+  - id: qualification.model-test-matrix
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - The approved revision-10 contract repeats load, warm-up, bilingual parity, resource, unload, and recovery gates for all six canonical models on every CPU/CUDA platform cell.
+      - The interrupted Linux qualification completed tiny, base, and small CPU/CUDA rows and then entered medium CPU, showing that repeating the complete lifecycle matrix dominates qualification time.
+      - The canonical model set contains two materially different artifact families: full tiny/base/small/medium models and q5_0 large-v3/large-v3-turbo models.
+      - A load, one short pinned inference, device/resource proof, and unload smoke check can reject model-specific format, memory, backend, and cleanup failures without repeating the complete lifecycle/performance suite.
+      - Running only one model with no coverage of the other five cannot support a Production claim for those untested model artifacts.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: qualification-matrix-round-01
+      question_id: qualification.model-test-matrix
+      idempotency_key: qualification.model-test-matrix:v1
+      last_status: answered
+      sequence: 54
+      revision: 1
+    question:
+      text: Which release-1 CPU/CUDA qualification matrix should replace the complete suite on all six Local Whisper models?
+      kind: single
+      options:
+        - id: two-representatives-plus-all-smoke
+          label: Two full, all smoke (Recommended)
+          description: Run the full suite on base/full and large-v3/q5_0, then require a bounded load, short pinned inference, device/resource proof, and unload smoke check for the other four canonical models.
+        - id: one-representative-plus-all-smoke
+          label: One full, all smoke
+          description: Run the full suite only on base/full and require the bounded CPU/CUDA smoke check for the other five models, accepting weaker quantized-model lifecycle evidence.
+        - id: one-model-only
+          label: One model only
+          description: Qualify only base/full and run no checks on the other five models; those untested families must remain conditional or Preview rather than Production.
+    answer:
+      selected_ids: []
+      text: Let's separate testing into separate tasks. For now, just implement everything that needs to be implemented so that the desktop app can handle speech-to-text tasks via the processor or graphics card. We'll do the testing later.
+    rationale: The answer separated implementation from testing but did not explicitly state whether Windows implementation remained in the current task. The user's immediate clarification is recorded as revision 2 and supersedes this boundary definition.
+    supersedes_revision: null
+    requirement_ids:
+      [MODEL-011, QUAL-003, QUAL-004, AC-AUTO-072, AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-005, AC-MAN-006]
+
+  - id: qualification.model-test-matrix
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requires the current implementation work to finish both Windows and Linux behavior, including CPU and GPU execution paths.
+      - The user explicitly defers completion and execution of remaining representative platform tests to later separate tasks.
+      - Deferring representative tests does not authorize a Linux, Windows, or aggregate Production claim.
+    prompt_mcp: null
+    question:
+      text: How should cross-platform implementation completion be separated from representative platform testing?
+      kind: single
+      options:
+        - id: cross-platform-implementation-now-tests-later
+          label: Implement both now; test later
+          description: Finish Windows and Linux CPU/GPU implementation in the current work, then move remaining representative Linux and Windows qualification execution to separate later tasks.
+    answer:
+      selected_ids: [cross-platform-implementation-now-tests-later]
+      text: No. We need to implement it so that everything works on both Windows and Linux. We'll just finish testing it later. What we still have to finish and test, we'll do later. Just move it to another task.
+    rationale: The implementation gate covers complete Windows and Linux CPU/CUDA code, packaging contracts, platform adapters, lifecycle, and deterministic automated checks. Later platform-specific tasks own unfinished real-model, hardware, installer/package, resource, lifecycle, predecessor, and evidence execution. Production claims remain blocked until those tasks pass.
+    supersedes_revision: 1
+    requirement_ids:
+      [IMPL-001, MODEL-011, QUAL-003, QUAL-004, AC-AUTO-073, AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-005, AC-MAN-006]
+
+  - id: qualification.implementation-testing-separation-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: the complete Windows and Linux CPU/CUDA desktop behavior remains the current implementation outcome, while later testing tasks are visible and cannot be mistaken for current Production support.
+      - Operator perspective: implementation readiness can close from deterministic cross-platform contracts without fabricating hardware evidence; Linux, Windows, and aggregate gates remain independently Pending until their later tasks pass.
+      - Implementer perspective: both operating systems' adapters, packaging contracts, process ownership, model authority, workers, lifecycle, and automated contracts remain mandatory now; only representative execution and evidence freeze are deferred.
+      - Tester perspective: AC-AUTO-073 distinguishes implementation evidence from platform evidence, and existing AC-MAN-001 through AC-MAN-007 plus AC-MAN-013 remain objective later platform gates.
+      - Security-reviewer perspective: trust-purpose isolation, managed paths, authenticated process authority, privacy prohibitions, and fail-closed support claims are unchanged; deferred evidence cannot promote a support tier.
+      - Maintainer perspective: the acyclic shared/platform/aggregate graph and all-six Production qualification contract remain intact, no interrupted private run is adopted as sanitized evidence, and the plan must split implementation, Linux testing, Windows testing, and aggregate readiness before implementation resumes.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved material behavior within revision 11. The future qualification matrix remains the approved all-six Production matrix until a separate specification revision explicitly changes it.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        IMPL-001,
+        QUAL-004,
+        OPS-003,
+        COMP-004,
+        AC-AUTO-073,
+        AC-MAN-001,
+        AC-MAN-002,
+        AC-MAN-003,
+        AC-MAN-005,
+        AC-MAN-006,
+        AC-MAN-007,
+        AC-MAN-013,
+      ]
+
+  - id: approval.spec
+    revision: 11
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 11 requires the current implementation gate to finish complete Windows and Linux CPU/CUDA product paths, platform adapters, packaging contracts, process ownership, model authority, lifecycle, and deterministic automated checks.
+      - Representative Linux and Windows model/hardware/package/resource/lifecycle/predecessor execution and platform evidence freeze move to separate later testing tasks.
+      - Implementation readiness without platform evidence reports both qualifications Pending and cannot produce a Linux, Windows, or aggregate Production verdict.
+      - The acyclic shared-candidate/platform-branch/aggregate graph, all-six canonical Production qualification matrix, trust/privacy boundaries, AMD Preview status, and macOS unavailable skeleton remain unchanged.
+      - AC-AUTO-073 objectively separates cross-platform implementation evidence from later platform evidence, and the six-perspective gap analysis found no unresolved material behavior.
+      - Scoped Prettier and repository git diff checks pass.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-12
+      question_id: approval.spec
+      idempotency_key: approval.spec:v11
+      last_status: answered
+      sequence: 55
+      revision: 11
+      supersedes_revision: 10
+    question:
+      text: How should Local Whisper specification revision 11 proceed after separating complete Windows/Linux implementation from later platform testing?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 11 (Recommended)
+          description: Make the cross-platform implementation-now/testing-later contract authoritative, then revise the task plan in a separate planning invocation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 11 in Draft and revise the implementation boundary, deferred testing scope, evidence gates, or support claims.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 10 remains authoritative and the existing Task 19 qualification contract stays in force.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 11 through the durable workspace interview. The complete Windows and Linux CPU/CUDA implementation remains current work; representative platform execution and evidence freeze move to separate later tasks without creating any Production claim.
+    supersedes_revision: 10
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.revision-17-packet-sequence
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Tasks 01 through 18 are completed and committed and must not be reopened.
+      - Approved specification revision 11 defines four remaining ordered boundaries: cross-platform implementation readiness, Linux qualification, Windows qualification, and aggregate production readiness.
+      - The current Task 19 packet combines implementation and Linux execution, while Tasks 20 and 21 own Windows and aggregate work respectively.
+      - Assigning implementation readiness to Task 19 and shifting the three deferred boundaries to Tasks 20 through 22 preserves completed history and creates one independently executable packet per specification boundary.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-17-structure-round-69
+      question_id: planning.revision-17-packet-sequence
+      idempotency_key: planning.revision-17-packet-sequence:v1
+      last_status: answered
+      sequence: 69
+      revision: 1
+    question:
+      text: How should the remaining Local Whisper packets be numbered after separating cross-platform implementation from deferred platform testing?
+      kind: single
+      options:
+        - id: task19-implementation-20-linux-21-windows-22-aggregate
+          label: Tasks 19–22 in gate order (Recommended)
+          description: Task 19 finishes Windows/Linux CPU/CUDA implementation, Task 20 performs Linux qualification, Task 21 performs Windows qualification, and Task 22 performs aggregate readiness.
+        - id: append-implementation-as-task22
+          label: Append implementation as Task 22
+          description: Keep the existing Tasks 19–21 numbering and add implementation last, creating an invalid dependency where qualification precedes implementation readiness.
+        - id: reopen-completed-task18
+          label: Reopen Task 18
+          description: Move implementation readiness into completed Task 18 and preserve Tasks 19–21, rewriting committed completion history.
+    answer:
+      selected_ids: [task19-implementation-20-linux-21-windows-22-aggregate]
+      text: ''
+    rationale: The user selected the forward-only four-packet sequence. Completed Tasks 01 through 18 remain unchanged; Task 19 closes cross-platform implementation readiness before deferred Linux and Windows qualification, and Task 22 alone aggregates both platform branches.
+    supersedes_revision: null
+    requirement_ids: [IMPL-001, QUAL-004, OPS-003, AC-AUTO-073]
+
+  - id: planning.revision-17-coverage-executability-gap-analysis
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - The revision-17 planning audit maps all 175 normative requirement IDs, all 72 canonical automated acceptance IDs, and all 14 manual acceptance IDs across exactly 22 numbered packets.
+      - Every Task 08–22 packet contains the complete task-packet heading contract; the ownership registry contains 46 exact verification commands, at least one command per Task 01–22, and one primary owner for every automated acceptance ID.
+      - Tasks 19–22 are independently executable in dependency order: Task 19 owns deterministic implementation readiness, Task 20 owns the fresh shared candidate and Linux branch, Task 21 owns the Windows branch without mutating Linux, and Task 22 alone owns aggregation and protected production blockers.
+      - The current revision-16 task-plan validator and JSON schema intentionally reject revision 17, and the new Task 19 implementation-readiness command is not yet registered in package scripts. Task 19 explicitly owns updating the validator, schema, package command, and associated tests before its gate can pass.
+      - The Windows qualification and aggregate verification package commands remain packet-local deliverables of Tasks 21 and 22. Their current absence is explicit scope, not a hidden prerequisite or an inferred pass.
+      - Representative Linux, representative Windows, protected production inputs, and external publication authority remain explicit manual gates in Tasks 20, 21, and 22; no mock, interrupted run, or deterministic source check can substitute for them.
+      - The four replacement packets define prerequisites, exact scope and non-goals, local contracts, trust boundaries, expected components, objective acceptance, verification, rollback, manual gates, references, and handoff instructions without requiring the implementer to reconstruct the full specification.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The coverage and executability audit found no unresolved material planning choice. Known missing validators and commands are explicit packet deliverables, while platform and external evidence remain later manual gates; therefore revision 17 is ready for its separate approval decision.
+    supersedes_revision: null
+    requirement_ids: [IMPL-001, QUAL-004, OPS-003, AC-AUTO-073]
+
+  - id: approval.plan-revision-17
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 17 consumes approved specification revision 11 and preserves completed Tasks 01–18 plus all committed Task 19 implementation checkpoints.
+      - Task 19 completes deterministic Windows/Linux CPU/CUDA implementation readiness without representative platform execution or evidence freeze, and both platform qualifications remain Pending.
+      - Task 20 freezes a fresh shared candidate and Linux branch, Task 21 consumes the unchanged shared/Linux inputs and owns the Windows branch, and Task 22 alone seals the aggregate root and reports protected production blockers.
+      - The ownership registry contains Tasks 01–22, 46 registered verification commands, all 72 canonical automated acceptance IDs exactly once, and explicit ownership for AC-AUTO-073.
+      - All 175 normative requirement IDs and 14 manual acceptance IDs are mapped; packet structure, scoped Prettier, and `git diff --check` pass.
+      - Updating the revision-16 validator/schema and adding the implementation-readiness command remain explicit Task 19 deliverables; Windows and aggregate commands remain explicit Tasks 21–22 deliverables.
+      - Plan approval remains separate from Task 19 execution, commit, push, pull request, qualification execution, production signing, upload, publication, support promotion, tag, and release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: null
+      question_id: approval.plan-revision-17
+      idempotency_key: approval.plan-revision-17:v1
+      last_status: answered
+      sequence: 70
+      revision: 1
+    question:
+      text: How should Local Whisper implementation plan revision 17 proceed after separating cross-platform implementation readiness from deferred Linux, Windows, and aggregate qualification?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 17 (Recommended)
+          description: Approve Tasks 19–22 in implementation, Linux, Windows, and aggregate order while keeping execution and every external action separately gated.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep revision 17 in Draft and revise packet ownership, sequencing, verification, manual gates, or handoff details.
+        - id: leave-plan-draft
+          label: Leave as Draft
+          description: Stop with revision 17 unapproved; the superseded revision-16 execution boundary remains paused.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 17 through the durable workspace interview. This authorizes the four-packet plan contract only; packet execution and every commit, external action, qualification run, or release operation remain separately gated.
+    supersedes_revision: 16
+    requirement_ids: []
+
+  - id: commit.plan-revision-17
+    revision: 1
+    category: commit
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 11 and plan revision 17 are approved and the worktree contains only their specification, decision-ledger, task-packet, registry, checklist, and handoff changes.
+      - Scoped Prettier and `git diff --check` pass, and the planning audit maps all 175 normative requirements, 72 automated acceptance IDs, and 14 manual acceptance IDs.
+      - Task 19 implementation, its eventual commit, push, pull request, qualification execution, production signing, upload, publication, support promotion, tag, and release remain separate gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-19-revision-17-start-round-71
+      question_id: commit.plan-revision-17
+      idempotency_key: commit.plan-revision-17:v1
+      last_status: answered
+      sequence: 71
+      revision: 1
+    question:
+      text: How should the approved and verified Local Whisper specification revision 11 and plan revision 17 baseline proceed before Task 19 implementation?
+      kind: single
+      options:
+        - id: authorize-plan-commit
+          label: Commit approved baseline (Recommended)
+          description: Create one scoped conventional commit containing only the approved specification and plan revision 17 artifacts, without push or external actions.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Do not commit the approved baseline; Task 19 cannot start in this invocation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return the approved baseline for another planning revision before implementation.
+    answer:
+      selected_ids: [authorize-plan-commit]
+      text: ''
+    rationale: The user explicitly authorized one scoped conventional commit containing only the approved specification revision 11 and plan revision 17 baseline. Push and every implementation or external action remain separately gated.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: execution.task-19-revision-17
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 17 names Task 19 Cross-Platform Implementation Readiness as the first unchecked packet.
+      - Task 19 finishes deterministic Windows/Linux CPU/CUDA production composition and the implementation-readiness gate without representative Linux or Windows qualification.
+      - Task 20, Task 21, Task 22, Task 19's eventual implementation commit, push, pull request, qualification evidence, production signing, upload, publication, support promotion, tag, and release remain separately gated.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-19-revision-17-start-round-71
+      question_id: execution.task-19-revision-17
+      idempotency_key: execution.task-19-revision-17:v1
+      last_status: answered
+      sequence: 72
+      revision: 1
+    question:
+      text: After the approved revision-17 baseline is committed, should this invocation execute exactly Task 19 Cross-Platform Implementation Readiness?
+      kind: single
+      options:
+        - id: authorize-task-19
+          label: Execute Task 19 (Recommended)
+          description: Implement and verify only Task 19, leave platform qualification Pending, update todo and handoff, and stop before commit or Task 20.
+        - id: do-not-start
+          label: Do not start
+          description: Stop after any authorized baseline commit without changing production implementation.
+    answer:
+      selected_ids: [authorize-task-19]
+      text: ''
+    rationale: The user explicitly authorized this invocation to execute exactly Task 19 after the approved revision-17 baseline commit. Representative Linux/Windows qualification, Task 20, the eventual Task 19 commit, push, pull request, signing, upload, publication, support promotion, tag, and release remain separately gated.
+    supersedes_revision: 14
+    requirement_ids: [IMPL-001, AC-AUTO-073]

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 16,
+  "planRevision": 17,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -20,9 +20,10 @@
     "16": "16_local_whisper_settings_and_status_ui.md",
     "17": "17_signed_envelope_packaging_and_fixture_ci.md",
     "18": "18_migration_privacy_diagnostics_and_macos_skeleton.md",
-    "19": "19_linux_qualification.md",
-    "20": "20_windows_qualification.md",
-    "21": "21_aggregate_and_release_blockers.md"
+    "19": "19_cross_platform_implementation_readiness.md",
+    "20": "20_linux_qualification.md",
+    "21": "21_windows_qualification.md",
+    "22": "22_aggregate_and_release_blockers.md"
   },
   "verificationCommands": [
     {
@@ -231,23 +232,28 @@
       "command": "rtk npm run verify:local-whisper:docs"
     },
     {
-      "id": "task-19-linux-qualification",
+      "id": "task-19-implementation-readiness",
       "task": "19",
+      "command": "rtk npm run verify:local-whisper:implementation-readiness"
+    },
+    {
+      "id": "task-20-linux-qualification",
+      "task": "20",
       "command": "rtk npm run verify:local-whisper:qualification:linux"
     },
     {
-      "id": "task-20-windows-qualification",
-      "task": "20",
+      "id": "task-21-windows-qualification",
+      "task": "21",
       "command": "rtk npm run verify:local-whisper:qualification:windows"
     },
     {
-      "id": "task-21-qualification-tests",
-      "task": "21",
+      "id": "task-22-qualification-tests",
+      "task": "22",
       "command": "rtk npm run test:local-whisper:qualification"
     },
     {
-      "id": "task-21-all-verification",
-      "task": "21",
+      "id": "task-22-all-verification",
+      "task": "22",
       "command": "rtk npm run verify:local-whisper:all"
     }
   ],
@@ -259,8 +265,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-002",
-      "primaryTask": "21",
-      "verificationCommandIds": ["task-21-qualification-tests"]
+      "primaryTask": "22",
+      "verificationCommandIds": ["task-22-qualification-tests"]
     },
     {
       "acceptanceId": "AC-AUTO-003",
@@ -364,8 +370,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-023",
-      "primaryTask": "21",
-      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
+      "primaryTask": "22",
+      "verificationCommandIds": ["task-22-qualification-tests", "task-22-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-024",
@@ -409,8 +415,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-032",
-      "primaryTask": "21",
-      "verificationCommandIds": ["task-21-all-verification"]
+      "primaryTask": "22",
+      "verificationCommandIds": ["task-22-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-033",
@@ -449,8 +455,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-040",
-      "primaryTask": "21",
-      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
+      "primaryTask": "22",
+      "verificationCommandIds": ["task-22-qualification-tests", "task-22-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-041",
@@ -569,47 +575,52 @@
     {
       "acceptanceId": "AC-AUTO-064",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-065",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-066",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-067",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-068",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-069",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-070",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     },
     {
       "acceptanceId": "AC-AUTO-071",
-      "primaryTask": "21",
-      "verificationCommandIds": ["task-21-qualification-tests", "task-21-all-verification"]
+      "primaryTask": "22",
+      "verificationCommandIds": ["task-22-qualification-tests", "task-22-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-072",
       "primaryTask": "19",
-      "verificationCommandIds": ["task-19-linux-qualification"]
+      "verificationCommandIds": ["task-19-implementation-readiness"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-073",
+      "primaryTask": "19",
+      "verificationCommandIds": ["task-19-implementation-readiness"]
     }
   ]
 }
