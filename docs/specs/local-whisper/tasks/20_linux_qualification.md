@@ -2,9 +2,9 @@
 
 ## Outcome
 
-On the authorized Linux x64 host, consume Tasks 19 and 23's complete
-cross-platform implementation and main-window residency control, freeze one
-fresh shared candidate input and the Linux platform
+On the authorized Linux x64 host, consume Tasks 19, 23, and 24's complete
+cross-platform implementation, main-window residency control, and verified
+Windows runtime-delivery readiness, freeze one fresh shared candidate input and the Linux platform
 input/profile graph in forward-only order, then execute and seal the complete
 Linux CPU and available NVIDIA CUDA technical qualification for all six
 canonical models.
@@ -16,12 +16,15 @@ release.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 19 are approved.
-- Tasks 19 and 23 are complete and committed with the Windows/Linux implementation-
+- Specification revision 15 and plan revision 20 are approved.
+- Tasks 19, 23, and 24 are complete and committed with the Windows/Linux implementation-
   readiness gate passing, all six exact models downloaded/installed through the
   ordinary Linux app, bounded `base/full` CPU/CUDA smoke passing, and both
   platform qualifications `Pending`. Task 23 `AC-AUTO-059`, `AC-AUTO-076`,
   `AC-AUTO-077`, and `AC-MAN-016` pass from the same final source identity.
+  Task 24's Windows runtime-pack, development-activation, native-helper,
+  unpacked-package, and bounded CPU/CUDA readiness checks also pass from that
+  identity without creating qualification evidence.
 - Candidate SemVer input is exactly `2.4.0`. Capture a new UTC freeze timestamp
   and the final clean Task 19 source/package identity; prior interrupted
   candidate timestamps and private partial rows are not authority.
@@ -88,7 +91,7 @@ release.
 
 ### Fresh candidate and Linux branch
 
-The shared candidate is frozen only after Tasks 19 and 23's final clean committed
+The shared candidate is frozen only after Tasks 19, 23, and 24's final clean committed
 source exists. It contains no platform package/runtime/direct-engine/toolchain,
 profile, result, evidence-index, platform-graph, or aggregate digest. The Linux
 platform input then binds exact Linux application packages, qualification
@@ -255,7 +258,7 @@ Do not invoke the Windows qualification command or
 
 - Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
-- Tasks 19 and 23 final implementation-readiness handoffs and Task 17 fixture
+- Tasks 19, 23, and 24 final implementation/readiness handoffs and Task 17 fixture
   identity.
 - `../qualification/linux-evidence-template.md` and versioned qualification
   schemas.

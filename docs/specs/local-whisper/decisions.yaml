@@ -7779,8 +7779,7 @@ decisions:
       text: ''
     rationale: The user explicitly authorized exactly Task 23 production implementation, its automated verification, and the bounded ordinary-application CPU/CUDA and accessibility smoke using already installed artifacts. The authorization excludes download or removal, commit, push, qualification, Task 20, PR, signing, publication, tag, and release actions.
     supersedes_revision: null
-    requirement_ids:
-      [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
+    requirement_ids: [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
 
   - id: execution.task-23-revision-19
     revision: 2
@@ -7807,5 +7806,127 @@ decisions:
       text: ''
     rationale: The current explicit user instruction expands Task 23 authorization only enough to download the selected authenticated CPU runtime and complete its existing manual gate. Runtime removal, model download/removal, commit, push, qualification, Task 20, PR, signing, publication, tag, and release remain excluded.
     supersedes_revision: 1
+    requirement_ids: [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-MAN-016]
+
+  - id: planning.windows-runtime-readiness-placement
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The approved specification already requires Windows x64 CPU and NVIDIA CUDA Production qualification, while the current support policy only declares those combinations conditional Production candidates.
+      - The current development runtime inputs and qualification catalog producer are Linux x64-only, and the Windows packaging workflow is intentionally a deferred reusable consumer.
+      - Existing Task 21 combines Windows implementation/tooling preparation with immutable candidate qualification, so a production correction discovered there could invalidate the candidate frozen by Task 20.
+      - The user explicitly requested a separate, fully written Windows task to avoid rework before testing on Windows.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: windows-runtime-readiness-round-80
+      question_id: planning.windows-runtime-readiness-placement
+      idempotency_key: planning.windows-runtime-readiness-placement:v1
+      last_status: answered
+      sequence: 80
+      revision: 1
+    question:
+      text: Where should the separate Windows CPU/CUDA readiness task be placed in the existing Local Whisper sequence?
+      kind: single
+      options:
+        - id: add-task-24-before-candidate-freeze
+          label: Add Task 24 before qualification (Recommended)
+          description: Implement, package, and smoke-test Windows CPU/CUDA delivery before Task 20 freezes the shared candidate; keep Task 21 as immutable Windows qualification.
+        - id: split-task-21-after-linux-freeze
+          label: Split Task 21 after Linux freeze
+          description: Add a Windows preparation packet after Task 20, accepting that any production correction would invalidate and require refreezing candidate evidence.
+        - id: replace-task-21-combined
+          label: Replace Task 21
+          description: Keep implementation preparation and representative Windows qualification in one replacement packet without a separate pre-freeze readiness gate.
+    answer:
+      selected_ids: [add-task-24-before-candidate-freeze]
+      text: ''
+    rationale: The user selected a self-contained Task 24 that completes Windows x64 CPU/CUDA implementation, runtime delivery, package integration, CI, and bounded smoke before Task 20 freezes the shared candidate. Task 21 remains the evidence-only Windows qualification packet, so Windows production corrections cannot silently invalidate already-frozen candidate or Linux evidence.
+    supersedes_revision: null
     requirement_ids:
-      [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-MAN-016]
+      [COMP-012, DIST-001, DIST-002, MODEL-011, PKG-011, QUAL-001, QUAL-002, QUAL-003, QUAL-004, AC-MAN-002, AC-MAN-003]
+
+  - id: acceptance.plan-revision-20-coverage-audit
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 20 declares exactly 24 numbered packets, and every declared packet exists with the required self-contained task headings.
+      - Task 24 is sequenced after completed Tasks 19/23 and before Task 20 candidate freeze; Tasks 20–22 explicitly consume it without renumbering or reopening their qualification identities.
+      - Task 24 fixes the current split between Windows-capable product/native contracts and Linux-only runtime/catalog/development producers while preserving Task 21 as immutable all-six-model Windows qualification.
+      - The Task 24 contract pins Windows x64 CPU and CUDA profile/toolchain/runtime values, no-fallback behavior, native/process/filesystem/package trust boundaries, bounded ordinary-app smoke, rollback, and every external/network/hardware/package action as a manual gate.
+      - The acceptance-owner manifest and schema validate plan revision 20, exactly 24 task files, two exact Task 24 commands, and all 76 existing unique automated primary owners without ownership changes.
+      - JSON/YAML parsing, JSON Schema validation, structural command/heading coverage, targeted Prettier, and `git diff --check` pass for the planning artifacts.
+      - The current executable task-plan validator still hard-codes revision 19 and 23 packets; updating it and implementing the two registered commands is explicitly owned by Task 24 and is not a planning-artifact defect.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Plan revision 20 is requirement-covered and executable without implementation-time invention. Windows readiness defects can now be corrected before candidate freeze, while representative qualification and production authority remain separately gated.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        IMPL-001,
+        IMPL-002,
+        COMP-004,
+        COMP-008,
+        COMP-012,
+        CPU-001,
+        DIST-001,
+        DIST-002,
+        PKG-002,
+        PKG-003,
+        PKG-004,
+        PKG-005,
+        PKG-009,
+        PKG-010,
+        PKG-011,
+        SEC-008,
+        SEC-011,
+        SEC-014,
+        SEC-015,
+        DEV-001,
+        MODEL-011,
+        QUAL-004,
+        OPS-003,
+      ]
+
+  - id: approval.plan-revision-20
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 15 already targets conditional Windows x64 CPU and NVIDIA CUDA support and separates implementation readiness from representative qualification.
+      - The user selected standalone Task 24 before candidate freeze so Windows runtime delivery defects cannot invalidate already-frozen candidate or Linux evidence.
+      - Task 24 is self-contained and covers exact Windows runtime/catalog/toolchain identities, native/package boundaries, authenticated ordinary-app activation, deterministic automation, bounded CPU/CUDA smoke, failure/rollback behavior, and manual gates.
+      - Tasks 20–22 retain their identities and now consume Task 24 in the safe sequence; all 76 automated primary acceptance owners remain unchanged.
+      - The plan revision 20 coverage and executability audit passed. Plan approval authorizes no implementation, Windows host use, network, app launch, packaging, commit, push, qualification, candidate freeze, signing, upload, publication, tag, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-20-approval-round-81
+      question_id: approval.plan-revision-20
+      idempotency_key: approval.plan-revision-20:v1
+      last_status: answered
+      sequence: 81
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 20 proceed after adding the standalone Windows runtime-delivery readiness packet before candidate freeze?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 20 (Recommended)
+          description: Approve the audited 24-packet plan and Task 24 placement; this authorizes no implementation or external/manual action.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 20 in Draft and revise Task 24 scope, exact Windows profiles, sequencing, checks, manual gates, or downstream dependencies.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Stop with revision 20 in Draft and retain revision 19 as the last approved plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved plan revision 20 through the durable workspace interview. The audited Task 24 Windows runtime-delivery readiness packet now precedes candidate freeze, while Tasks 20–22 retain separate qualification and aggregate authority. This approval authorizes no implementation or manual/external action.
+    supersedes_revision: 19
+    requirement_ids: []

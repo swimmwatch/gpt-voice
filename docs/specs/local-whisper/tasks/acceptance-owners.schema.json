@@ -10,23 +10,23 @@
       "const": 1
     },
     "planRevision": {
-      "const": 19
+      "const": 20
     },
     "taskFiles": {
       "type": "object",
-      "minProperties": 23,
-      "maxProperties": 23,
+      "minProperties": 24,
+      "maxProperties": 24,
       "patternProperties": {
-        "^(0[1-9]|1[0-9]|2[0-3])$": {
+        "^(0[1-9]|1[0-9]|2[0-4])$": {
           "type": "string",
-          "pattern": "^(0[1-9]|1[0-9]|2[0-3])_[a-z0-9_]+\\.md$"
+          "pattern": "^(0[1-9]|1[0-9]|2[0-4])_[a-z0-9_]+\\.md$"
         }
       },
       "additionalProperties": false
     },
     "verificationCommands": {
       "type": "array",
-      "minItems": 23,
+      "minItems": 24,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -34,11 +34,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^task-(0[1-9]|1[0-9]|2[0-3])-[a-z0-9-]+$"
+            "pattern": "^task-(0[1-9]|1[0-9]|2[0-4])-[a-z0-9-]+$"
           },
           "task": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-3])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-4])$"
           },
           "command": {
             "type": "string",
@@ -62,7 +62,7 @@
           },
           "primaryTask": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-3])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-4])$"
           },
           "verificationCommandIds": {
             "type": "array",
@@ -70,7 +70,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^task-(0[1-9]|1[0-9]|2[0-3])-[a-z0-9-]+$"
+              "pattern": "^task-(0[1-9]|1[0-9]|2[0-4])-[a-z0-9-]+$"
             }
           }
         }

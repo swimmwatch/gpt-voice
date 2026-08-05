@@ -2,22 +2,26 @@
 
 ## Outcome
 
-On an authorized representative Windows x64 host, consume the unchanged Task
-20 shared candidate and read-only Linux branch, freeze a distinct Windows
+On an authorized representative Windows x64 host, consume Task 24's verified
+Windows delivery tooling plus the unchanged Task 20 shared candidate and read-only Linux branch, freeze a distinct Windows
 platform input/profile graph, then execute and seal the complete Windows CPU
 and NVIDIA CUDA technical qualification for all six canonical models.
 
 Validate the real Windows filesystem, launcher/Job Object, worker, runtime
 pack, installer/package, transport, lifecycle, resource, privacy, offline, and
-predecessor behavior implemented by Task 19 plus the Task 23 main-window
-residency control. Produce one privacy-safe Windows
+predecessor behavior implemented by Tasks 19, 23, and 24. Produce one privacy-safe Windows
 result/evidence branch for Task 22 without mutating shared or Linux evidence.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 19 are approved.
-- Tasks 19 and 23 are complete and committed; Task 23 automated acceptance and
+- Specification revision 15 and plan revision 20 are approved.
+- Tasks 19, 23, and 24 are complete and committed; Task 23 automated acceptance and
   `AC-MAN-016` passed before Task 20 froze the shared candidate.
+- Task 24's exact Windows CPU/CUDA workers and reproducible runtime-pack
+  tooling, authenticated development activation, native helpers, unpacked
+  package checks, and bounded ordinary-app CPU/CUDA smoke passed before Task 20
+  froze the shared candidate. Task 21 may execute those frozen tools but may not
+  repair production behavior inside qualification.
 - Task 20 is complete and supplies one immutable `candidateInputDigest` plus
   Linux platform input/profile/graph/result/evidence-index digests. It
   explicitly created no Windows branch or aggregate root.
@@ -44,6 +48,9 @@ result/evidence branch for Task 22 without mutating shared or Linux evidence.
 
 - Validate the unchanged shared candidate and complete read-only Linux branch
   before creating any Windows identity.
+- Reproduce and verify Task 24's Windows native helpers, CPU/CUDA workers,
+  runtime archives, manifests, and package inputs from the frozen candidate;
+  reject any source, toolchain, dependency, archive, or package identity drift.
 - Build and freeze exact Windows application packages, qualification catalog/
   keyring/origin, CPU/CUDA runtime archives, direct-engine binaries,
   toolchains, notices/SBOM/provenance, qualification server, and predecessor in
@@ -169,9 +176,11 @@ sanitized and digest-linked only.
 
 ## Expected Files Or Components
 
-- Windows qualification package/input/toolchain/orchestration, loopback
-  transport, resource, lifecycle, privacy, offline, installer, and predecessor
-  tooling under `scripts/local-whisper/qualification/`.
+- Windows qualification-only input/graph/result/evidence orchestration,
+  loopback transport, resource measurement, lifecycle, privacy, offline,
+  installer, and predecessor tooling under
+  `scripts/local-whisper/qualification/`. Product/runtime delivery tooling is
+  consumed from Task 24 and is not reimplemented here.
 - Windows native/runtime/package test infrastructure and exact pinned profiles.
 - Windows platform input/profile/graph/result/evidence documents conforming to
   the corrected v2 schemas and unchanged `candidateInputDigest`.
@@ -248,7 +257,7 @@ Do not run Linux qualification or `verify:local-whisper:all`.
 
 - Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
-- Immutable Task 20 shared/Linux handoff and Tasks 19/23 implementation-
+- Immutable Task 20 shared/Linux handoff and Tasks 19/23/24 implementation-
   readiness handoffs.
 - Project Windows native-quality, packaging, installer, privacy, diagnostics,
   and release conventions.
