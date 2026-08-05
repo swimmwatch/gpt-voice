@@ -92,7 +92,7 @@ function ProviderSettingsWindow(): JSX.Element {
       aria-busy={isLoading}
       className={
         provider?.id === LOCAL_WHISPER_PROVIDER_ID
-          ? 'h-full min-h-0 overflow-y-auto bg-[#090d0f] [-webkit-app-region:no-drag]'
+          ? 'h-full min-h-0 overflow-y-auto bg-background [scrollbar-gutter:stable] [-webkit-app-region:no-drag]'
           : 'h-full min-h-0 overflow-y-auto p-4 sm:p-6 [-webkit-app-region:no-drag]'
       }
       data-slot="provider-settings-window"

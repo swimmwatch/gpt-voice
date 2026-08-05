@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { IconType } from 'react-icons';
 import { PiCaretDown, PiCaretRight } from 'react-icons/pi';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import { cn } from '@renderer/lib/cn';
 
 interface LocalWhisperPanelProps {
@@ -146,28 +147,23 @@ export function LocalWhisperOptionSelect({
 }: LocalWhisperOptionSelectProps): React.JSX.Element {
   const selectedOptionMissing = value !== null && !options.some((option) => option.id === value);
   return (
-    <select
-      aria-describedby={describedBy}
-      className="lw-native-select h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-      disabled={disabled}
-      id={id}
-      onChange={(event) => onChange(event.target.value)}
-      value={value ?? ''}
-    >
-      <option disabled value="">
-        {placeholder}
-      </option>
-      {selectedOptionMissing ? (
-        <option disabled value={value ?? ''}>
-          {value} · Saved selection unavailable
-        </option>
-      ) : null}
-      {options.map((option) => (
-        <option disabled={option.available === false} key={option.id} value={option.id}>
-          {option.label}
-          {option.available === false ? ' · Unavailable' : ''}
-        </option>
-      ))}
-    </select>
+    <Select disabled={disabled} onValueChange={onChange} value={value ?? ''}>
+      <SelectTrigger aria-describedby={describedBy} id={id}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {selectedOptionMissing && value !== null ? (
+          <SelectItem disabled value={value}>
+            {value} · Saved selection unavailable
+          </SelectItem>
+        ) : null}
+        {options.map((option) => (
+          <SelectItem disabled={option.available === false} key={option.id} value={option.id}>
+            {option.label}
+            {option.available === false ? ' · Unavailable' : ''}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

@@ -1,5 +1,5 @@
 .local-whisper-settings {
-  --lw-canvas: #090d0f;
+  --lw-canvas: var(--background);
   --lw-surface: #111719;
   --lw-surface-raised: #151c1f;
   --lw-surface-soft: #182125;
@@ -600,62 +600,33 @@
   font-size: 12px;
 }
 
-.lw-select-control,
 .lw-input-with-info {
   display: grid;
   min-width: 0;
-  min-height: 38px;
-  grid-template-columns: 28px minmax(0, 1fr) 18px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--lw-line);
-  border-radius: 5px;
-  background: #12181a;
-}
-
-.lw-select-control > svg:first-child {
-  color: var(--lw-nvidia);
-}
-
-.lw-select-control.no-brand > svg:first-child {
-  color: var(--lw-text-secondary);
-}
-
-.lw-select-control select,
-.lw-input-with-info select,
-.lw-native-select,
-.lw-readonly-value {
-  width: 100%;
-  min-width: 0;
-  height: 36px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--lw-text);
-}
-
-.lw-select-control select,
-.lw-input-with-info select {
-  appearance: none;
-}
-
-.lw-input-with-info {
   grid-template-columns: minmax(0, 1fr) 18px;
-  padding-left: 0;
-}
-
-.lw-input-with-info .lw-native-select {
-  padding-inline: 10px;
-}
-
-.lw-input-with-info > svg,
-.lw-select-control > svg:last-child {
-  color: var(--lw-text-secondary);
+  align-items: center;
+  gap: 8px;
 }
 
 .lw-readonly-value {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
   align-items: center;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lw-input-with-info > svg {
+  color: var(--lw-text-secondary);
 }
 
 .lw-field-note {
@@ -810,18 +781,9 @@
 .lw-model-selector {
   display: grid;
   min-width: 0;
-  min-height: 46px;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
-  border: 1px solid var(--lw-line);
-  border-radius: 6px;
-  background: #141b1e;
-}
-
-.lw-model-selector > svg:first-child {
-  color: var(--lw-blue-bright);
 }
 
 .lw-model-select-stack {
@@ -830,11 +792,6 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
-}
-
-.lw-model-select-stack .lw-native-select {
-  height: 32px;
-  padding: 0 4px;
 }
 
 .lw-variant-label {
@@ -974,7 +931,6 @@
   gap: 12px;
 }
 
-.lw-advanced-disclosure .lw-native-select,
 .lw-advanced-disclosure input,
 .lw-advanced-disclosure textarea {
   border-color: var(--lw-line);

@@ -1,5 +1,4 @@
-import { PiCaretDown, PiCheckCircle, PiCpu, PiCube, PiGear, PiInfo, PiWarningCircle } from 'react-icons/pi';
-import { SiNvidia } from 'react-icons/si';
+import { PiCheckCircle, PiCube, PiGear, PiInfo, PiWarningCircle } from 'react-icons/pi';
 import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
   LOCAL_WHISPER_MODEL_FAMILIES,
@@ -148,6 +147,7 @@ export default function LocalWhisperRuntimeModelSection({
   const selectedModelDownloaded = modelArtifact?.state === 'Installed';
   const selectedVariant = draft.modelVariant === 'q5_0' ? 'Q5_0' : 'Full';
   const backendValue = draft.executionTarget === 'cpu' ? 'cpu' : (draft.backend ?? '');
+  const backendSelectionOptions = [{ id: 'cpu', label: 'CPU', available: true }, ...backendOptions];
 
   return (
     <>
@@ -172,35 +172,20 @@ export default function LocalWhisperRuntimeModelSection({
           <div className="lw-engine-controls">
             <label>
               <span>Backend</span>
-              <span className="lw-select-control">
-                {draft.executionTarget === 'gpu' && draft.backend === 'cuda' ? (
-                  <SiNvidia aria-hidden="true" />
-                ) : (
-                  <PiCpu aria-hidden="true" />
-                )}
-                <select
-                  aria-label="Backend"
-                  disabled={disabled}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    updateDraft((current) => {
-                      if (value === 'cpu') return updateLocalWhisperTarget(current, 'cpu', snapshot);
-                      const gpuDraft = updateLocalWhisperTarget(current, 'gpu', snapshot);
-                      return updateLocalWhisperBackend(gpuDraft, value as LocalWhisperGpuBackend, snapshot);
-                    });
-                  }}
-                  value={backendValue}
-                >
-                  <option value="cpu">CPU</option>
-                  {backendOptions.map((option) => (
-                    <option disabled={!option.available} key={option.id} value={option.id}>
-                      {option.label}
-                      {option.available ? '' : ' · Unavailable'}
-                    </option>
-                  ))}
-                </select>
-                <PiCaretDown aria-hidden="true" />
-              </span>
+              <LocalWhisperOptionSelect
+                disabled={disabled}
+                id="local-whisper-backend"
+                onChange={(value) => {
+                  updateDraft((current) => {
+                    if (value === 'cpu') return updateLocalWhisperTarget(current, 'cpu', snapshot);
+                    const gpuDraft = updateLocalWhisperTarget(current, 'gpu', snapshot);
+                    return updateLocalWhisperBackend(gpuDraft, value as LocalWhisperGpuBackend, snapshot);
+                  });
+                }}
+                options={backendSelectionOptions}
+                placeholder="Select backend"
+                value={backendValue}
+              />
             </label>
             <span className="lw-field-note">
               {draft.executionTarget === 'cpu'
@@ -228,29 +213,18 @@ export default function LocalWhisperRuntimeModelSection({
 
             <label>
               <span>Device</span>
-              <span className="lw-select-control no-brand">
-                <PiCpu aria-hidden="true" />
-                {draft.executionTarget === 'gpu' ? (
-                  <select
-                    aria-label="GPU device"
-                    disabled={disabled || draft.backend === null}
-                    onChange={(event) => updateDraft((current) => ({ ...current, deviceId: event.target.value }))}
-                    value={draft.deviceId ?? ''}
-                  >
-                    <option disabled value="">
-                      Select device
-                    </option>
-                    {deviceOptions.map((option) => (
-                      <option disabled={!option.available} key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="lw-readonly-value">{snapshot.host.label}</span>
-                )}
-                <PiCaretDown aria-hidden="true" />
-              </span>
+              {draft.executionTarget === 'gpu' ? (
+                <LocalWhisperOptionSelect
+                  disabled={disabled || draft.backend === null}
+                  id="local-whisper-device"
+                  onChange={(deviceId) => updateDraft((current) => ({ ...current, deviceId }))}
+                  options={deviceOptions}
+                  placeholder="Select device"
+                  value={draft.deviceId}
+                />
+              ) : (
+                <span className="lw-readonly-value">{snapshot.host.label}</span>
+              )}
               {errors.deviceId ? <span className="lw-field-error">{errors.deviceId}</span> : null}
             </label>
           </div>
@@ -286,7 +260,6 @@ export default function LocalWhisperRuntimeModelSection({
         <div className="lw-model-layout">
           <div className="lw-selected-model-control">
             <span className="lw-model-selector">
-              <PiCube aria-hidden="true" />
               <span className="lw-model-select-stack">
                 <LocalWhisperOptionSelect
                   disabled={disabled}

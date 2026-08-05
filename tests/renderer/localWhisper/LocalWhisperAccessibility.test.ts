@@ -36,10 +36,19 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
   it('keeps the settings canvas continuous with the scrollbar gutter', () => {
     const window = source('src/renderer/ProviderSettingsWindow.tsx');
     const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
-    assert.match(window, /bg-\[#090d0f\]/u);
-    assert.match(styles, /--lw-canvas: #090d0f;/u);
+    assert.match(window, /bg-background/u);
+    assert.match(window, /scrollbar-gutter:stable/u);
+    assert.match(styles, /--lw-canvas: var\(--background\);/u);
     assert.match(styles, /\.local-whisper-settings\s*\{[\s\S]*?background: var\(--lw-canvas\);/u);
     assert.doesNotMatch(styles, /\.local-whisper-settings\s*\{[\s\S]*?border-inline:/u);
+  });
+
+  it('reuses the same shared Select component as the main settings window', () => {
+    const shared = source('src/renderer/localWhisper/components/LocalWhisperSection.tsx');
+    const runtime = source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx');
+    assert.match(shared, /@renderer\/components\/ui\/select/u);
+    assert.match(shared, /<Select[\s\S]*<SelectTrigger[\s\S]*<SelectContent[\s\S]*<SelectItem/u);
+    assert.doesNotMatch(`${shared}\n${runtime}`, /<select/u);
   });
 
   it('provides field labels, grouped radios, keyboard focus rings, and explicit disabled explanations', () => {
