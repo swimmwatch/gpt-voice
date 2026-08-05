@@ -110,7 +110,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
 
   public constructor(private readonly dependencies: LocalWhisperProductionWorkerPortDependencies) {}
 
-  /** Enumerates only installed qualified CUDA runtimes after an explicit settings-surface query. */
+  /** Enumerates qualified CUDA devices during startup restoration or an explicit settings-surface query. */
   public refreshAvailableDevices(configurationEpoch: number): Promise<void> {
     this.refreshPromise ??= this.runRefresh(configurationEpoch).finally(() => {
       this.refreshPromise = null;

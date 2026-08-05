@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   ProductionLocalWhisperEnvironmentFactory,
   createProductionLocalWhisperEnvironment,
+  restoreLocalWhisperStartupDeviceTopology,
   type LocalWhisperProductionEnvironmentDependencies,
 } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
 import {
@@ -51,6 +52,87 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
 }
 
 describe('production Local Whisper environment activation', () => {
+  it('restores startup topology when CUDA is already installed for the current host', async () => {
+    const refreshes: number[] = [];
+
+    await restoreLocalWhisperStartupDeviceTopology(
+      {
+        revision: 7,
+        runtimes: [{ architecture: 'x64', backend: 'cuda', platform: 'linux', state: 'Installed', target: 'gpu' }],
+      },
+      { architecture: 'x64', platform: 'linux' },
+      {
+        refreshAvailableDevices: (revision) => {
+          refreshes.push(revision);
+          return Promise.resolve();
+        },
+      },
+    );
+
+    assert.deepEqual(refreshes, [7]);
+  });
+
+  it('does not start topology discovery without a matching installed CUDA runtime', async () => {
+    let refreshes = 0;
+    const worker = {
+      refreshAvailableDevices: () => {
+        refreshes += 1;
+        return Promise.resolve();
+      },
+    };
+
+    for (const runtimes of [
+      [
+        {
+          architecture: 'x64' as const,
+          backend: 'cuda' as const,
+          platform: 'linux' as const,
+          state: 'Missing' as const,
+          target: 'gpu' as const,
+        },
+      ],
+      [
+        {
+          architecture: 'x64' as const,
+          backend: 'cpu' as const,
+          platform: 'linux' as const,
+          state: 'Installed' as const,
+          target: 'cpu' as const,
+        },
+      ],
+      [
+        {
+          architecture: 'x64' as const,
+          backend: 'cuda' as const,
+          platform: 'win32' as const,
+          state: 'Installed' as const,
+          target: 'gpu' as const,
+        },
+      ],
+    ]) {
+      await restoreLocalWhisperStartupDeviceTopology(
+        { revision: 7, runtimes },
+        { architecture: 'x64', platform: 'linux' },
+        worker,
+      );
+    }
+
+    assert.equal(refreshes, 0);
+  });
+
+  it('keeps composition fail-closed when startup topology discovery fails', async () => {
+    await assert.doesNotReject(
+      restoreLocalWhisperStartupDeviceTopology(
+        {
+          revision: 7,
+          runtimes: [{ architecture: 'x64', backend: 'cuda', platform: 'linux', state: 'Installed', target: 'gpu' }],
+        },
+        { architecture: 'x64', platform: 'linux' },
+        { refreshAvailableDevices: () => Promise.reject(new Error('synthetic discovery failure')) },
+      ),
+    );
+  });
+
   it('keeps the disabled packaged publication fail-closed without touching native resources', async () => {
     const calls = { reads: 0, spawns: 0 };
     const environment = await createProductionLocalWhisperEnvironment(dependencies(calls));

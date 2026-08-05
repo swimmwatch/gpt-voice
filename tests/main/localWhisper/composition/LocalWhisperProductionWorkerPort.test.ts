@@ -544,7 +544,7 @@ function loadHarness(
 }
 
 describe('LocalWhisperProductionWorkerPort', () => {
-  it('refreshes installed qualified CUDA topology only after an explicit settings query', async () => {
+  it('refreshes qualified CUDA topology for startup restoration or an explicit settings query', async () => {
     const value = harness('cuda');
     await value.port.refreshAvailableDevices(7);
     assert.equal(value.registry.calls, 1);
@@ -565,17 +565,20 @@ describe('LocalWhisperProductionWorkerPort', () => {
       ['registry', 'registry', 'registry'],
     );
 
+    const refreshRejected = harness('cuda', { registryFailures: 3 });
+    await assert.doesNotReject(refreshRejected.port.refreshAvailableDevices(7));
+    assert.equal(refreshRejected.registry.calls, 3);
+    assert.equal(refreshRejected.topologyUpdates(), 0);
+    assert.deepEqual(
+      refreshRejected.authorities.calls.map(({ launchMode }) => launchMode),
+      ['registry', 'registry', 'registry'],
+    );
+
     const rejected = harness('cuda', { registryFailures: 3 });
     assert.deepEqual(await rejected.port.probeFresh(request(rejected.selected.settings, 'cuda')), {
       success: false,
       code: 'DEVICE_PROOF_FAILED',
     });
-    assert.equal(rejected.registry.calls, 3);
-    assert.equal(rejected.topologyUpdates(), 0);
-    assert.deepEqual(
-      rejected.authorities.calls.map(({ launchMode }) => launchMode),
-      ['registry', 'registry', 'registry'],
-    );
   });
 
   it('admits a planned CUDA candidate only inside the isolated qualification-purpose graph', async () => {

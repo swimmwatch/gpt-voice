@@ -14,14 +14,18 @@ import {
 } from '@main/localWhisper/settings/LocalWhisperSettingsRepository';
 import {
   LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
+  toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
+  validateLocalWhisperSettings,
   type LocalWhisperSettings,
   type LocalWhisperSettingsValidationContext,
 } from '@shared/localWhisper';
 
 const temporaryDirectories: string[] = [];
 const RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cpu-pack-v1')!;
+const CUDA_RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cuda-pack-v1')!;
 const MODEL_REVISION = toLocalWhisperRevisionId('base-ggml-v1')!;
+const CUDA_DEVICE_ID = toLocalWhisperOpaqueDeviceId(`device-v1-${'a'.repeat(64)}`)!;
 
 function createContext(): LocalWhisperSettingsValidationContext {
   return {
@@ -61,6 +65,46 @@ function createSettings(prompt = 'Private prompt'): LocalWhisperSettings {
     initialPrompt: prompt,
     decoding: { strategy: 'greedy', temperatureHundredths: 0 },
     execution: { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' },
+  };
+}
+
+function createCudaContext(deviceAvailable: boolean): LocalWhisperSettingsValidationContext {
+  return {
+    platform: 'linux',
+    architecture: 'x64',
+    logicalProcessorCount: 8,
+    knownDevices: deviceAvailable
+      ? [
+          {
+            id: CUDA_DEVICE_ID,
+            label: 'NVIDIA GPU 1',
+            vendor: 'nvidia',
+            available: true,
+            eligibleBackends: ['cuda'],
+          },
+        ]
+      : [],
+    eligibleGpuCombinations: deviceAvailable
+      ? [{ engine: 'whisperCpp', backend: 'cuda', deviceId: CUDA_DEVICE_ID }]
+      : [],
+    knownRuntimeSelections: [
+      {
+        engine: 'whisperCpp',
+        target: 'gpu',
+        backend: 'cuda',
+        revision: CUDA_RUNTIME_REVISION,
+        recommended: true,
+      },
+    ],
+    knownModelSelections: createContext().knownModelSelections,
+  };
+}
+
+function createCudaSettings(): LocalWhisperSettings {
+  return {
+    ...createSettings(),
+    runtimeRevision: CUDA_RUNTIME_REVISION,
+    execution: { target: 'gpu', backend: 'cuda', deviceId: CUDA_DEVICE_ID },
   };
 }
 
@@ -204,6 +248,24 @@ describe('LocalWhisperSettingsRepository', () => {
       loaded.snapshot.repairIssues.some(({ path }) => path === 'model'),
       true,
     );
+  });
+
+  it('revalidates persisted CUDA settings after startup device discovery restores topology', () => {
+    const { repository } = createHarness();
+    const settings = createCudaSettings();
+    repository.save(settings, createCudaContext(true));
+
+    const beforeDiscovery = repository.load(createCudaContext(false));
+    assert.equal(beforeDiscovery.status, 'repairable');
+    if (beforeDiscovery.status !== 'repairable') return;
+    assert.equal(
+      beforeDiscovery.snapshot.repairIssues.some(({ path }) => path === 'execution.deviceId'),
+      true,
+    );
+
+    const restored = validateLocalWhisperSettings(beforeDiscovery.snapshot.settings, createCudaContext(true));
+    assert.equal(restored.success, true);
+    if (restored.success) assert.deepEqual(restored.settings, settings);
   });
 
   it('opens future schemas read-only and permits only explicit settings reset', () => {

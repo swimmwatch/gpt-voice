@@ -151,6 +151,34 @@ export interface LocalWhisperProductionCatalogInput {
 
 type LocalWhisperProductionEnvironment = DeferredLocalWhisperEnvironment;
 
+type LocalWhisperStartupRuntimeInventoryItem = Pick<
+  LocalWhisperInventorySnapshot['runtimes'][number],
+  'architecture' | 'backend' | 'platform' | 'state' | 'target'
+>;
+
+interface LocalWhisperStartupDeviceInventory {
+  readonly revision: number;
+  readonly runtimes: readonly LocalWhisperStartupRuntimeInventoryItem[];
+}
+
+/** Restores GPU topology only when the current host already has an installed CUDA runtime. */
+export async function restoreLocalWhisperStartupDeviceTopology(
+  inventory: LocalWhisperStartupDeviceInventory,
+  host: Pick<LocalWhisperSettingsValidationContext, 'architecture' | 'platform'>,
+  worker: Pick<LocalWhisperProductionWorkerPort, 'refreshAvailableDevices'>,
+): Promise<void> {
+  const hasInstalledCudaRuntime = inventory.runtimes.some(
+    ({ architecture: runtimeArchitecture, backend, platform: runtimePlatform, state, target }) =>
+      runtimePlatform === host.platform &&
+      runtimeArchitecture === host.architecture &&
+      target === 'gpu' &&
+      backend === 'cuda' &&
+      state === 'Installed',
+  );
+  if (!hasInstalledCudaRuntime) return;
+  await worker.refreshAvailableDevices(inventory.revision).catch(() => undefined);
+}
+
 function platform(value: NodeJS.Platform): LocalWhisperPlatform {
   return value === 'linux' || value === 'win32' || value === 'darwin' ? value : 'other';
 }
@@ -896,6 +924,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         runtimeAuthorities: runtimeAuthorityFactory,
         topology: topologyAuthority,
       });
+      await restoreLocalWhisperStartupDeviceTopology(inventory, context, workerPort);
       const artifactInventory = new LocalWhisperProductionArtifactInventory({
         catalog: loaded.catalog,
         initialInventory: inventory,
