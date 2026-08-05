@@ -1,3 +1,4 @@
+import type { LocalWhisperWorkerDeviceBinding } from '@shared/localWhisper';
 import type {
   LocalWhisperCoordinatorWorkerPort,
   LocalWhisperCoordinatorWorkerResult,
@@ -274,6 +275,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         const selected = this.dependencies.topology.resolve(selectedDeviceId, first.registryFingerprint);
         if (!selected) return failure('DEVICE_NOT_FOUND');
         const challenge = operationAuthority.issue('load');
+        let verifiedPostLoadBinding: LocalWhisperWorkerDeviceBinding | null = null;
         workerInputBootstrap = encodeLocalWhisperDeviceAuthority(
           operationAuthority.authorityId,
           request.epochs.configuration,
@@ -289,6 +291,11 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           residency,
           revalidate: modelAuthority.revalidate,
           revalidateDeviceBinding: async () => {
+            if (verifiedPostLoadBinding) {
+              const binding = verifiedPostLoadBinding;
+              verifiedPostLoadBinding = null;
+              return binding;
+            }
             const current = await this.discover(runtime, request.epochs.configuration, request.signal);
             const entry = this.dependencies.topology.resolve(selectedDeviceId, current.registryFingerprint);
             return this.sameDevice(entry, selected)
@@ -298,7 +305,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           validateEvidence: async (evidence) => {
             const current = await this.discover(runtime, request.epochs.configuration, request.signal);
             const entry = this.dependencies.topology.resolve(selectedDeviceId, current.registryFingerprint);
-            return (
+            const valid =
               this.sameDevice(entry, selected) &&
               'loadProof' in evidence &&
               operationAuthority.consume('load', challenge) &&
@@ -326,8 +333,11 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
                   selectedDeviceModelWeightBytes: BigInt(evidence.selectedDeviceModelWeightBytes),
                   selectedOrdinal: selected.ordinal,
                   topologyGeneration: BigInt(first.generation),
-                })
-            );
+                });
+            if (valid) {
+              verifiedPostLoadBinding = Object.freeze({ kind: 'gpuIndex' as const, index: entry.ordinal });
+            }
+            return valid;
           },
         };
         revalidateAuthority = async () => {

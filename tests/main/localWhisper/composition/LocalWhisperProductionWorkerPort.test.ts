@@ -355,6 +355,7 @@ class LoadLifecycle {
             selectedDeviceModelWeightBytes: 1024,
           } as never);
     if (!(await request.validateEvidence(evidence))) return supervisorFailure('MODEL_LOAD_FAILED');
+    assert.deepEqual(await request.revalidateDeviceBinding(), request.deviceBinding);
     this.activeFullLoadSession = this.session;
     this.activeModelLease = request.modelLease;
     this.onLoadStarted?.();
